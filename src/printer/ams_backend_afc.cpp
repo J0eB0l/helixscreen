@@ -2028,42 +2028,47 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
                     AfcMessageDedup::instance().record_error(msg_text);
                 }
 
-                // Suppress toasts when:
-                // 1. AFC action:prompt modal is already showing (user sees it)
-                // 2. Filament operation is active (load/unload generates noise)
-                bool afc_prompt_active = helix::ActionPromptManager::is_showing() &&
-                                         helix::ActionPromptManager::current_prompt_name().find(
-                                             "AFC") != std::string::npos;
                 // Only suppress during states that actively move filament.
                 // Heating, tip forming, cutting, purging are stationary —
                 // a sensor change there indicates a real problem.
-                bool operation_active = system_info_.action == AmsAction::LOADING ||
-                                        system_info_.action == AmsAction::UNLOADING ||
-                                        system_info_.action == AmsAction::SELECTING;
-                bool suppress_toast = afc_prompt_active || operation_active;
+                const bool operation_active = system_info_.action == AmsAction::LOADING ||
+                                              system_info_.action == AmsAction::UNLOADING ||
+                                              system_info_.action == AmsAction::SELECTING;
 
-                if (suppress_toast) {
-                    // Notification history only (no toast) - operation in progress
-                    spdlog::debug("[AMS AFC] Toast suppressed (prompt={}, op={}): {}",
-                                  afc_prompt_active, operation_active, msg_text);
-                    ui_notification_info_with_action("AFC", msg_text.c_str(), "afc_message");
-                } else if (msg_type == "error" && surfaced_by_previous_session) {
-                    // A previous session already surfaced this text and AFC
-                    // latched it; recorded in operation_detail above, not
-                    // re-toasted.
-                    spdlog::debug("[AMS AFC] Latched message already surfaced by a previous "
-                                  "session, not toasted: {}",
-                                  msg_text);
-                } else {
-                    // Show toast based on message type
-                    if (msg_type == "error") {
-                        NOTIFY_ERROR_T("AFC", "{}", msg_text);
-                    } else if (msg_type == "warning") {
-                        NOTIFY_WARNING_T("AFC", "{}", msg_text);
-                    } else {
-                        NOTIFY_INFO_T("AFC", "{}", msg_text);
-                    }
-                }
+                // Prompt lines apply on the main thread, so whether an AFC prompt
+                // is up is only known after the lines queued ahead of this
+                // message have run. Decide there.
+                helix::ui::queue_update(
+                    "AmsBackendAfc::dispatch_message",
+                    [msg_text, msg_type, operation_active, surfaced_by_previous_session]() {
+                        // An AFC action:prompt on screen already tells the user.
+                        const bool afc_prompt_active =
+                            helix::ActionPromptManager::is_showing() &&
+                            helix::ActionPromptManager::current_prompt_name().find("AFC") !=
+                                std::string::npos;
+
+                        if (afc_prompt_active || operation_active) {
+                            // Notification history only (no toast)
+                            spdlog::debug("[AMS AFC] Toast suppressed (prompt={}, op={}): {}",
+                                          afc_prompt_active, operation_active, msg_text);
+                            ui_notification_info_with_action("AFC", msg_text.c_str(),
+                                                             "afc_message");
+                        } else if (msg_type == "error" && surfaced_by_previous_session) {
+                            // A previous session already surfaced this text and AFC
+                            // latched it; recorded in operation_detail, not
+                            // re-toasted.
+                            spdlog::debug(
+                                "[AMS AFC] Latched message already surfaced by a previous "
+                                "session, not toasted: {}",
+                                msg_text);
+                        } else if (msg_type == "error") {
+                            NOTIFY_ERROR_T("AFC", "{}", msg_text);
+                        } else if (msg_type == "warning") {
+                            NOTIFY_WARNING_T("AFC", "{}", msg_text);
+                        } else {
+                            NOTIFY_INFO_T("AFC", "{}", msg_text);
+                        }
+                    });
             }
         }
     }
