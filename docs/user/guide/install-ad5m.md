@@ -66,13 +66,13 @@ For everything the installer then changes on Forge-X, see [What the Installer Do
 
 ### ZMOD: Turn HelixScreen On
 
-ZMOD installs and updates HelixScreen itself. Open Fluidd or Mainsail in a browser (`http://<printer-ip>`), go to the console and run:
+ZMOD installs and updates HelixScreen itself, through Moonraker's update manager. It takes three steps. Open Fluidd or Mainsail in a browser (`http://<printer-ip>`) and use the console for the commands.
 
-```
-DISPLAY_OFF HELIX=1
-```
+1. Run `ENABLE_EXTRA_PLUGINS` in the console. This adds ZMOD's list of third-party plugins to Moonraker, which includes the `helixscreen` update-manager entry, and reboots the printer. It does not install HelixScreen yet.
+2. When the printer is back, open the update manager in Fluidd or Mainsail and update **helixscreen**. ZMOD starts it at version v0.0.1, so the current release shows as an update; applying it downloads `helixscreen-ad5m.zip` into `/srv/helixscreen`.
+3. Run `DISPLAY_OFF HELIX=1` in the console. This turns the stock screen off and selects HelixScreen as the replacement, then reboots. Do this only after step 2: if no HelixScreen files are installed yet, the printer comes up with no screen at all.
 
-This switches the printer from the stock screen to HelixScreen and enables ZMOD's plugin source, which is where HelixScreen comes from. From then on, HelixScreen updates through the update manager in Fluidd or Mainsail. Because ZMOD manages HelixScreen, update and remove it through ZMOD rather than with the installer commands on this page; to switch back to the stock screen, see the same `DISPLAY_OFF` documentation linked below.
+From then on, HelixScreen updates through the same update manager entry. Because ZMOD manages HelixScreen, update and remove it through ZMOD rather than with the installer commands on this page. To go back to the stock screen, run `DISPLAY_ON`.
 
 > **Read ZMOD's warning first.** With the stock screen off, the printer no longer runs the stock screen's print start and end routines, so bed leveling, Z-offset and your slicer's start and end G-code work differently. See ZMOD's [DISPLAY_OFF documentation](https://github.com/ghzserg/zmod/blob/main/docs/en/System.md) before you switch.
 
@@ -326,7 +326,7 @@ Download the specific version archive from [GitHub Releases](https://github.com/
 
 ## Uninstalling
 
-> **On ZMOD:** switch back to the stock screen through ZMOD's `DISPLAY_OFF` settings (see [ZMOD: Turn HelixScreen On](#zmod-turn-helixscreen-on)). The commands below are for Forge-X and Klipper Mod.
+> **On ZMOD:** switch back to the stock screen by running `DISPLAY_ON` (see [ZMOD: Turn HelixScreen On](#zmod-turn-helixscreen-on)). The commands below are for Forge-X and Klipper Mod.
 
 ### Automated Uninstall (Recommended)
 
