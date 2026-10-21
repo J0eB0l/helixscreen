@@ -18,7 +18,6 @@
 #include "settings_manager.h"
 
 #include <array>
-#include <cstdlib>
 #include <string>
 
 #include "../catch_amalgamated.hpp"
@@ -203,11 +202,9 @@ TEST_CASE_METHOD(KeypadLayoutFixture, "The +/- key appears only on a field that 
 
     REQUIRE(show(true, true, -5) == keypad);
     CHECK(shown(keypad, "btn_sign"));
-    // The key sits in the display's row, in front of it, not in a row of its own.
-    const int32_t sign_mid = y_of(keypad, "btn_sign") + height_of(keypad, "btn_sign") / 2;
-    const int32_t display_mid =
-        y_of(keypad, "input_display") + height_of(keypad, "input_display") / 2;
-    CHECK(std::abs(sign_mid - display_mid) <= 1);
+    // The key sits in front of the display, its top and bottom edges on the display's border.
+    CHECK(y_of(keypad, "btn_sign") == y_of(keypad, "input_display"));
+    CHECK(height_of(keypad, "btn_sign") == height_of(keypad, "input_display"));
     CHECK(x_of(keypad, "btn_sign") < x_of(keypad, "input_display"));
     ui_keypad_hide();
     helix::ui::UpdateQueue::instance().drain();
