@@ -6,6 +6,8 @@
 #include "plugin_manifest.h"
 #include "plugin_permissions.h"
 
+#include <algorithm>
+
 #include "../catch_amalgamated.hpp"
 
 using namespace helix::plugin;
@@ -424,6 +426,79 @@ TEST_CASE("local handler names", "[plugin][manifest]") {
     CHECK_FALSE(is_valid_local_name(""));
     CHECK_FALSE(is_valid_local_name("Bad"));
     CHECK_FALSE(is_valid_local_name("a b"));
+}
+
+namespace {
+ManifestParse with_icons(const std::string& icons, const std::string& widgets = "") {
+    return parse_manifest(R"({"id":"ab","name":"n","version":"1","icons":{)" + icons + "}" +
+                          (widgets.empty() ? std::string() : R"(,"widgets":[)" + widgets + "]") +
+                          "}");
+}
+} // namespace
+
+TEST_CASE("manifest icons register plugin-local PNGs", "[plugin][manifest][icons]") {
+    auto r = with_icons(R"("ab__oil":{"src":"icons/oil.png","fallback":"water"},
+                           "ab__belt":{"src":"belt.png"})",
+                        R"({"id":"ab__w","name":"W","component":"ab__c","icon":"ab__oil"})");
+    REQUIRE(r.errors.empty());
+    REQUIRE(r.manifest->icons.size() == 2);
+    const auto& icons = r.manifest->icons;
+    auto oil =
+        std::find_if(icons.begin(), icons.end(), [](auto& d) { return d.name == "ab__oil"; });
+    auto belt =
+        std::find_if(icons.begin(), icons.end(), [](auto& d) { return d.name == "ab__belt"; });
+    REQUIRE(oil != icons.end());
+    REQUIRE(belt != icons.end());
+    CHECK(oil->src == "icons/oil.png");
+    CHECK(oil->fallback == "water");
+    CHECK(belt->fallback == "puzzle_outline");
+    CHECK(r.manifest->widgets[0].icon == "ab__oil");
+}
+
+TEST_CASE("manifest icons are validated", "[plugin][manifest][icons]") {
+    struct Case {
+        const char* icons;
+        const char* error;
+    };
+    const Case cases[] = {
+        {R"("cd__x":{"src":"x.png"})", "the name must be ab__<name>"},
+        {R"("ab__Bad":{"src":"x.png"})", "the name must be ab__<name>"},
+        {R"("ab__x":"x.png")", "must be an object"},
+        {R"("ab__x":{})", "'src' must be a non-empty string"},
+        {R"("ab__x":{"src":"../x.png"})", "'src' must be a .png path inside the plugin folder"},
+        {R"("ab__x":{"src":"/etc/x.png"})", "'src' must be a .png path inside the plugin folder"},
+        {R"("ab__x":{"src":"a//x.png"})", "'src' must be a .png path inside the plugin folder"},
+        {R"("ab__x":{"src":"x.svg"})", "'src' must be a .png path inside the plugin folder"},
+        {R"("ab__x":{"src":"x.png","fallback":"no_such_icon"})",
+         "'fallback' 'no_such_icon' is not an app icon name"},
+        {R"("ab__x":{"src":"x.png","fallback":7})", "'fallback' must be a string"},
+    };
+    for (const auto& c : cases) {
+        INFO(c.icons);
+        auto r = with_icons(c.icons);
+        CHECK_FALSE(r.manifest);
+        CHECK(has_error_containing(r, c.error));
+    }
+    CHECK(has_error_containing(parse_manifest(R"({"id":"ab","name":"n","version":"1","icons":[]})"),
+                               "'icons' must be an object"));
+
+    std::string many;
+    for (size_t i = 0; i <= kMaxIconsPerPlugin; ++i)
+        many +=
+            std::string(i ? "," : "") + R"("ab__i)" + std::to_string(i) + R"(":{"src":"i.png"})";
+    CHECK(has_error_containing(with_icons(many), "'icons' may list at most 16"));
+}
+
+TEST_CASE("a widget icon naming a plugin icon must be declared", "[plugin][manifest][icons]") {
+    auto undeclared =
+        with_icons(R"("ab__oil":{"src":"oil.png"})",
+                   R"({"id":"ab__w","name":"W","component":"ab__c","icon":"ab__belt"})");
+    CHECK(has_error_containing(undeclared, "'icon' 'ab__belt' is not declared in 'icons'"));
+    auto foreign =
+        with_widgets(R"({"id":"ab__w","name":"W","component":"ab__c","icon":"cd__oil"})");
+    CHECK(has_error_containing(foreign, "'icon' 'cd__oil' is not declared in 'icons'"));
+    CHECK(with_widgets(R"({"id":"ab__w","name":"W","component":"ab__c","icon":"water"})")
+              .errors.empty());
 }
 
 #endif // HELIX_HAS_PLUGINS

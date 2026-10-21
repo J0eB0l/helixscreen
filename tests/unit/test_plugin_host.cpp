@@ -3,6 +3,7 @@
 
 #if HELIX_HAS_PLUGINS
 
+#include "ui_icon_image.h"
 #include "ui_panel_home.h"
 #include "ui_temp_display.h"
 #include "ui_update_queue.h"
@@ -14,6 +15,7 @@
 #include "config.h"
 #include "helix-xml/src/xml/lv_xml_component.h"
 #include "helix-xml/src/xml/lv_xml_translation.h"
+#include "lodepng_encode.h"
 #include "misc/lv_timer_private.h"
 #include "panel_widget.h"
 #include "panel_widget_config.h"
@@ -23,6 +25,7 @@
 #include "scope_exit.h"
 #include "translation_loader.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -488,6 +491,76 @@ TEST_CASE_METHOD(LVGLTestFixture,
     lv_obj_delete(main_page);
     lv_obj_delete(plug_page);
     drain();
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "a plugin's image icons live while it is loaded",
+                 "[plugin][host][icons]") {
+    TempDir tmp;
+    TempDir outside;
+    const auto root = tmp.path / "icon-demo";
+    std::filesystem::create_directories(root / "icons");
+    std::ofstream(root / "manifest.json") << R"({"id":"icon-demo","name":"Icons","version":"1.0.0",
+        "icons":{"icon-demo__oil":{"src":"icons/oil.png","fallback":"water"},
+                 "icon-demo__lost":{"src":"icons/lost.png"},
+                 "icon-demo__escape":{"src":"icons/escape.png"}},
+        "widgets":[{"id":"icon-demo__w","name":"W","component":"icon-demo__tile",
+                    "icon":"icon-demo__oil"}]})";
+    std::ofstream(root / "main.lua") << "-- no code\n";
+    std::filesystem::create_directories(root / "ui");
+    std::ofstream(root / "ui" / "icon-demo__tile.xml")
+        << R"(<component><view extends="lv_obj"><icon src="icon-demo__oil"/></view></component>)";
+    // A one-pixel opaque PNG.
+    const unsigned char kPixel[] = {0, 0, 0, 255};
+    unsigned char* png = nullptr;
+    size_t png_size = 0;
+    REQUIRE(lodepng_encode32(&png, &png_size, kPixel, 1, 1) == 0);
+    for (const auto& path : {(root / "icons" / "oil.png").string(), outside.file("secret.png")})
+        std::ofstream(path, std::ios::binary)
+            .write(reinterpret_cast<const char*>(png), static_cast<std::streamsize>(png_size));
+    free(png);
+    std::filesystem::create_symlink(outside.file("secret.png"), root / "icons" / "escape.png");
+
+    {
+        HostRig rig(enabled("icon-demo", {}));
+        rig.host->load_from(tmp.path.string());
+        REQUIRE(rig.info("icon-demo"));
+        REQUIRE(rig.info("icon-demo")->status == PluginStatus::Loaded);
+        CHECK(helix::ui::icon::image_icon_available("icon-demo__oil"));
+        // Missing artwork, and artwork a symlink places outside the folder, draw the
+        // fallback without failing the load.
+        CHECK_FALSE(helix::ui::icon::image_icon_available("icon-demo__lost"));
+        CHECK_FALSE(helix::ui::icon::image_icon_available("icon-demo__escape"));
+        const helix::PanelWidgetDef* def = helix::find_widget_def("icon-demo__w");
+        REQUIRE(def);
+        CHECK(std::string(def->icon) == "icon-demo__oil");
+    }
+    CHECK_FALSE(helix::ui::icon::image_icon_available("icon-demo__oil"));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "a loaded plugin fills its plugin_table from Lua",
+                 "[plugin][host][lua_bindings_table]") {
+    TempDir tmp;
+    const auto root = tmp.path / "table-demo";
+    std::filesystem::create_directories(root / "ui");
+    std::ofstream(root / "manifest.json")
+        << R"({"id":"table-demo","name":"Tables","version":"1.0.0"})";
+    std::ofstream(root / "ui" / "table-demo__list.xml")
+        << R"(<component><view extends="lv_obj"><plugin_table name="table-demo__t"/></view></component>)";
+    std::ofstream(root / "main.lua")
+        << "helix.ui.table('t', {columns = {{title = 'Task'}}}):set_rows({{key = 'k', 'Belts'}})\n";
+    HostRig rig(enabled("table-demo", {}));
+    rig.host->load_from(tmp.path.string());
+    REQUIRE(rig.info("table-demo"));
+    REQUIRE(rig.info("table-demo")->status == PluginStatus::Loaded);
+    // The host registers the element: the plugin's own component builds an lv_table.
+    auto* view = static_cast<lv_obj_t*>(lv_xml_create(test_screen(), "table-demo__list", nullptr));
+    REQUIRE(view);
+    lv_obj_t* table = lv_obj_find_by_name(view, "table-demo__t");
+    REQUIRE(table);
+    REQUIRE(lv_obj_check_type(table, &lv_table_class));
+    CHECK(lv_table_get_row_count(table) == 2);
+    CHECK(std::string(lv_table_get_cell_value(table, 1, 0)) == "Belts");
+    lv_obj_delete(view);
 }
 
 #endif // HELIX_HAS_PLUGINS

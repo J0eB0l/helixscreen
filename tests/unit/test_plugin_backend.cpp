@@ -40,6 +40,9 @@ TEST_CASE("app backend reports no connection instead of crashing", "[plugin][bac
     auto status_off = b.on_status([](const json&) {});
     REQUIRE(status_off);
     status_off();
+    // Sound goes to the app's sound manager, which with no audio backend plays nothing.
+    REQUIRE(b.play_sound);
+    b.play_sound("button_tap", SoundPriority::UI);
 }
 
 TEST_CASE("app backend rejects roots other than gcodes and config", "[plugin][backend]") {

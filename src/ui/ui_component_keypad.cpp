@@ -28,6 +28,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -73,6 +74,9 @@ static constexpr int kKeypadFractionDigits = 2;
 
 // Current config and input state
 static ui_keypad_config_t current_config;
+// Set by a confirm: the close that follows is not a cancel, and carries this value.
+static bool confirmed = false;
+static float confirmed_value = 0.0f;
 static helix::ui::KeypadInput input;
 
 // ============================================================================
@@ -190,13 +194,13 @@ static bool ensure_keypad_built() {
 // ============================================================================
 // Public API
 // ============================================================================
-void ui_keypad_show(const ui_keypad_config_t* config) {
+bool ui_keypad_show(const ui_keypad_config_t* config) {
     if (!config) {
         spdlog::error("[Keypad] Cannot show keypad: invalid config");
-        return;
+        return false;
     }
     if (!ensure_keypad_built()) {
-        return;
+        return false;
     }
 
     // Store config
@@ -209,7 +213,13 @@ void ui_keypad_show(const ui_keypad_config_t* config) {
     // temperature-shaped and cannot express a max accel of 50000; deriving the
     // cap means a new caller cannot forget to widen it.
     input.max_int_digits = helix::ui::keypad_int_digits_for(config->max_value);
-    input.max_total_digits = input.max_int_digits + kKeypadFractionDigits;
+    if (config->max_fraction_digits > 0) {
+        input.max_frac_digits = std::min(config->max_fraction_digits, kKeypadFractionDigits);
+        input.max_total_digits = input.max_int_digits + input.max_frac_digits;
+    } else {
+        input.max_frac_digits = static_cast<int>(helix::ui::KeypadInput::BUF_SIZE);
+        input.max_total_digits = input.max_int_digits + kKeypadFractionDigits;
+    }
     input.allow_dot = config->allow_decimal;
     lv_subject_set_int(&keypad_allow_decimal_subject, config->allow_decimal ? 1 : 0);
 
@@ -242,13 +252,25 @@ void ui_keypad_show(const ui_keypad_config_t* config) {
             helix::ui::bring_to_front(keypad_backdrop);
         }
     }
-    helix::nav::on_close(keypad_widget, []() { destroy_keypad_backdrop(); });
+    confirmed = false;
+    // Runs once the keypad is off screen, so either hook may open the keypad again.
+    helix::nav::on_close(keypad_widget,
+                         [on_confirm = config->on_confirm, on_cancel = config->on_cancel]() {
+                             destroy_keypad_backdrop();
+                             const bool was_confirmed = confirmed;
+                             const float value = confirmed_value;
+                             if (was_confirmed && on_confirm)
+                                 on_confirm(value);
+                             else if (!was_confirmed && on_cancel)
+                                 on_cancel();
+                         });
 
     // Show via overlay navigation, but keep previous panel visible (transparent overlay)
     helix::nav::push_overlay(keypad_widget, false /* hide_previous */);
 
     spdlog::info("[Keypad] Showing (initial={:.1f}, range={:.0f}-{:.0f})", config->initial_value,
                  config->min_value, config->max_value);
+    return true;
 }
 
 void ui_keypad_hide() {
@@ -283,6 +305,15 @@ static void handle_confirm() {
                      current_config.max_value);
         return; // Don't close keypad, let user correct the value
     }
+    if (current_config.validate) {
+        const std::string why = current_config.validate(value);
+        if (!why.empty()) {
+            NOTIFY_ERROR("{}", why);
+            return;
+        }
+    }
+    confirmed = true;
+    confirmed_value = value;
 
     // Invoke callback before hiding — hiding pops the overlay stack which
     // invalidates lifetime tokens on the parent overlay, so the callback
