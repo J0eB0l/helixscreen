@@ -39,8 +39,8 @@
 // ============================================================================
 static lv_subject_t keypad_display_subject;
 static char keypad_display_buf[16] = "";
-// The keypad is shared by every numeric field in the app, so its header has to
-// say which one is being edited. Machine Limits alone opens it from five rows.
+// The keypad is shared by every numeric field in the app, so it has to say which
+// one is being edited. Machine Limits alone opens it from five rows.
 static lv_subject_t keypad_title_subject;
 static char keypad_title_buf[48] = "";
 // Unit shown inside the display's right end ("°C", "mm/s").
@@ -188,13 +188,6 @@ static bool ensure_keypad_built() {
     if (!keypad_widget) {
         spdlog::error("[Keypad] Failed to create keypad from XML");
         return false;
-    }
-
-    // header_bar takes its title as a creation-time string and documents that
-    // a runtime-varying title is bound by the owning screen rather than by a
-    // bind_text inside the shared component. Follow that here.
-    if (lv_obj_t* title = helix::ui::find_required(keypad_widget, "header_title", "Keypad")) {
-        lv_label_bind_text(title, &keypad_title_subject, nullptr);
     }
 
     wire_button_events();

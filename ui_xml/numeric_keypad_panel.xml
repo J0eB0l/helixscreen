@@ -30,7 +30,7 @@
         extends="lv_obj" width="#keypad_width" height="100%" style_max_width="100%" align="right_mid" style_pad_all="0"
         style_border_width="0" style_bg_opa="255" style_bg_color="#card_bg" scrollable="false" flex_flow="column"
         hidden="true">
-    <!-- Header: no title, just back arrow and OK button -->
+    <!-- Header: back arrow and Set only; the field name is the first line of the content -->
     <header_bar name="overlay_header"
                 title="" action_button_text="Set " hide_action_button="false" action_button_height="#button_height"
                 action_button_pad="#space_md"/>
@@ -39,6 +39,11 @@
             width="100%" flex_grow="1" style_pad_all="#space_md" scrollable="false" flex_flow="column" style_pad_gap="0"
             style_pad_row="0">
 
+      <!-- Field name: the keypad is shared by every numeric field, so it says which one is
+           being edited. It gets the panel's full width rather than the header, which holds
+           only back and Set; a long name wraps to a second line and dots only past that. -->
+      <text_muted name="keypad_field_name"
+                  width="100%" long_mode="dots" max_lines="2" bind_text="keypad_title" style_margin_bottom="#space_sm"/>
       <!-- Display: read-only field spanning the key block, unit inside it at the end. A field
            that allows negatives puts a +/- key in front of it; a hidden flex child takes no
            room, so every other field's display keeps the full width. The row's height is

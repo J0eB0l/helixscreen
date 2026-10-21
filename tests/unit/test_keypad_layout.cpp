@@ -50,8 +50,9 @@ struct KeypadLayoutFixture : LVGLUITestFixture {
     }
 
     lv_obj_t* show(bool allow_decimal, bool allow_negative = false, float min_value = 0,
-                   float max_value = 300) {
+                   float max_value = 300, const char* title = nullptr) {
         ui_keypad_config_t config = {};
+        config.title_label = title;
         config.min_value = min_value;
         config.max_value = max_value;
         config.allow_decimal = allow_decimal;
@@ -251,4 +252,20 @@ TEST_CASE_METHOD(KeypadLayoutFixture,
     CHECK(display() == "-100");
     press(keypad, "action_button");
     CHECK(confirmed_ == -100.0f);
+}
+
+TEST_CASE_METHOD(KeypadLayoutFixture, "The field name sits above the display, not in the header",
+                 "[keypad][keypad_layout]") {
+    lv_obj_t* keypad = show(true, false, 0, 300, "Square Corner Velocity");
+    lv_obj_t* name = key(keypad, "keypad_field_name");
+    CHECK(std::string(lv_label_get_text(name)) == "Square Corner Velocity");
+    CHECK(std::string(lv_label_get_text(key(keypad, "header_title"))).empty());
+
+    lv_area_t header;
+    lv_obj_get_coords(key(keypad, "overlay_header"), &header);
+    CHECK(y_of(keypad, "keypad_field_name") >= header.y2);
+    CHECK(y_of(keypad, "keypad_field_name") + height_of(keypad, "keypad_field_name") <=
+          y_of(keypad, "input_display"));
+    // The whole content width, not what the header would leave beside back and Set.
+    CHECK(lv_obj_get_width(name) == lv_obj_get_content_width(key(keypad, "overlay_content")));
 }
