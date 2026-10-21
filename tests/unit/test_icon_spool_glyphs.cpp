@@ -68,3 +68,18 @@ TEST_CASE("icon: sites about the nozzle or extruder keep the nozzle", "[ui_icon]
     CHECK(icon_near(read_xml("machine_limits_overlay.xml"), "text=\"Extrude Speed\"", true) ==
           "nozzle");
 }
+
+TEST_CASE("icon: the globals' filament glyph strings match the icon table", "[ui_icon][icon]") {
+    // Text-glyph sites (the clog bar) read these strings, not the icon table.
+    const std::string globals = read_xml("globals.xml");
+    auto value_of = [&](const std::string& name) {
+        const std::string key = "name=\"" + name + "\" value=\"";
+        const size_t at = globals.find(key);
+        REQUIRE(at != std::string::npos);
+        const size_t open = at + key.size();
+        return globals.substr(open, globals.find('"', open) - open);
+    };
+    CHECK(value_of("icon_filament") == codepoint("filament"));
+    CHECK(value_of("icon_filament_outline") == codepoint("filament_outline"));
+    CHECK(value_of("icon_filament_alert") == codepoint("filament_alert"));
+}
