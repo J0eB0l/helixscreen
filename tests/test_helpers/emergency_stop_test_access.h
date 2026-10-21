@@ -63,14 +63,14 @@ class EmergencyStopOverlayTestAccess {
     ///
     /// Both halves call the production code rather than writing the member: true
     /// runs begin_restart_window(), which is exactly what restart_klipper() and
-    /// firmware_restart() call, and false stores the 0 the klippy-READY handler
-    /// stores. A test that seeded the deadline itself would be testing its own
-    /// arithmetic - including the expiry, which is the point.
+    /// firmware_restart() call, and false runs end_restart_window(), which the
+    /// klippy-READY handler calls. A test that seeded the deadline itself would
+    /// be testing its own arithmetic - including the expiry, which is the point.
     static void set_restart_in_progress(EmergencyStopOverlay& o, bool in_progress) {
         if (in_progress) {
             o.begin_restart_window();
         } else {
-            o.restart_expires_at_.store(0, std::memory_order_relaxed);
+            o.end_restart_window();
         }
     }
 

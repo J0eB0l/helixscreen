@@ -299,11 +299,21 @@ void EmergencyStopOverlay::create() {
                 return;
             }
 
-            if (klippy_state == KlippyState::SHUTDOWN) {
+            if (klippy_state == KlippyState::STARTUP) {
+                if (self->restart_in_progress()) {
+                    self->restart_saw_startup_.store(true, std::memory_order_relaxed);
+                }
+            } else if (klippy_state == KlippyState::SHUTDOWN ||
+                       klippy_state == KlippyState::ERROR) {
+                // A restart that came back up into a fault is over: the user
+                // needs the recovery dialog and the Firmware Restart it offers.
+                if (self->restart_saw_startup_.load(std::memory_order_relaxed)) {
+                    self->end_restart_window();
+                }
                 // Unified recovery path - all suppression checks are in show_recovery_for()
-                self->show_recovery_for(RecoveryReason::SHUTDOWN);
-            } else if (klippy_state == KlippyState::ERROR) {
-                self->show_recovery_for(RecoveryReason::ERROR);
+                self->show_recovery_for(klippy_state == KlippyState::SHUTDOWN
+                                            ? RecoveryReason::SHUTDOWN
+                                            : RecoveryReason::ERROR);
             } else if (klippy_state == KlippyState::READY) {
                 // Auto-dismiss recovery dialog when Klipper is back to READY
                 // NOTE: Must defer to main thread - observer may fire from WebSocket thread
@@ -328,7 +338,7 @@ void EmergencyStopOverlay::create() {
                     // behind it is only a backstop for the restart that
                     // never gets here; a READY still ends the window
                     // immediately.
-                    inst.restart_expires_at_.store(0, std::memory_order_relaxed);
+                    inst.end_restart_window();
 
                     // Klippy came back, so anything the suppression window
                     // was holding describes a state that no longer exists.
@@ -745,6 +755,7 @@ bool EmergencyStopOverlay::is_recovery_suppressed() const {
 void EmergencyStopOverlay::begin_restart_window() {
     // Callable from any thread for the same reason suppress_recovery_dialog()
     // is: one atomic store of a deadline.
+    restart_saw_startup_.store(false, std::memory_order_relaxed);
     restart_expires_at_.store(lv_tick_get() + recovery_suppression::kRestartFlagTimeout,
                               std::memory_order_relaxed);
     spdlog::debug("[KlipperRecovery] Restart in flight for up to {}ms",
@@ -753,6 +764,11 @@ void EmergencyStopOverlay::begin_restart_window() {
 
 bool EmergencyStopOverlay::restart_in_progress() const {
     return deadline_pending(restart_expires_at_);
+}
+
+void EmergencyStopOverlay::end_restart_window() {
+    restart_expires_at_.store(0, std::memory_order_relaxed);
+    restart_saw_startup_.store(false, std::memory_order_relaxed);
 }
 
 bool EmergencyStopOverlay::is_expected_restart() const {
@@ -846,6 +862,8 @@ void EmergencyStopOverlay::restart_klipper() {
         },
         [](const MoonrakerError& err) {
             spdlog::error("[KlipperRecovery] Klipper restart failed: {}", err.message);
+            // Nothing is restarting, so a retry must not be refused.
+            EmergencyStopOverlay::instance().end_restart_window();
             // The callback can run on the WebSocket thread; the toast is main-thread only.
             helix::ui::run_on_main("error_toast", [err]() {
                 ToastManager::instance().show(
@@ -887,6 +905,8 @@ void EmergencyStopOverlay::firmware_restart() {
         },
         [](const MoonrakerError& err) {
             spdlog::error("[KlipperRecovery] Recovery failed: {}", err.message);
+            // Nothing is restarting, so a retry must not be refused.
+            EmergencyStopOverlay::instance().end_restart_window();
             // The callback can run on the WebSocket thread; the toast is main-thread only.
             helix::ui::run_on_main("error_toast", [err]() {
                 ToastManager::instance().show(

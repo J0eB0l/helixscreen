@@ -37,9 +37,16 @@ class CountingRestartApi : public MoonrakerAPIMock {
 
     int klipper_restarts = 0;
     int firmware_restarts = 0;
+    /// Every restart the API is asked for fails, the way a dropped connection
+    /// or a Moonraker refusal answers.
+    bool fail = false;
 
-    void restart_klipper(SuccessCallback on_success, ErrorCallback /*on_error*/) override {
+    void restart_klipper(SuccessCallback on_success, ErrorCallback on_error) override {
         ++klipper_restarts;
+        if (fail) {
+            on_error(MoonrakerError::connection_lost("printer.restart"));
+            return;
+        }
         on_success();
     }
     void restart_firmware(SuccessCallback /*on_success*/, ErrorCallback on_error) override {
@@ -47,7 +54,11 @@ class CountingRestartApi : public MoonrakerAPIMock {
         on_error(MoonrakerError::connection_lost("printer.firmware_restart"));
     }
     void restart_service(const std::string& /*service*/, SuccessCallback on_success,
-                         ErrorCallback /*on_error*/) override {
+                         ErrorCallback on_error) override {
+        if (fail) {
+            on_error(MoonrakerError::connection_lost("machine.services.restart"));
+            return;
+        }
         on_success();
     }
 };
@@ -158,4 +169,55 @@ TEST_CASE_METHOD(RestartInFlightFixture, "A restart that never reports READY sto
     EmergencyStopOverlayTestAccess::restart_klipper(estop);
     settle();
     CHECK(counting_api.klipper_restarts == 2);
+}
+
+TEST_CASE_METHOD(RestartInFlightFixture, "A restart that failed to send refuses nothing after it",
+                 "[recovery][restart_in_flight]") {
+    auto& estop = EmergencyStopOverlay::instance();
+    counting_api.fail = true;
+
+    SECTION("Restart Klipper") {
+        EmergencyStopOverlayTestAccess::restart_klipper(estop);
+        settle();
+        EmergencyStopOverlayTestAccess::restart_klipper(estop);
+        settle();
+        CHECK(counting_api.klipper_restarts == 2);
+    }
+    SECTION("Firmware Restart, whose whole recovery chain failed") {
+        EmergencyStopOverlayTestAccess::firmware_restart(estop);
+        settle();
+        EmergencyStopOverlayTestAccess::firmware_restart(estop);
+        settle();
+        CHECK(counting_api.firmware_restarts == 2);
+    }
+    CHECK_FALSE(toasted("A restart is already in progress"));
+}
+
+TEST_CASE_METHOD(RestartInFlightFixture,
+                 "A restart that came up into a shutdown accepts the Firmware Restart it needs",
+                 "[recovery][restart_in_flight]") {
+    auto& estop = EmergencyStopOverlay::instance();
+    state().set_klippy_state_sync(KlippyState::READY);
+    settle();
+
+    EmergencyStopOverlayTestAccess::restart_klipper(estop);
+    settle();
+    REQUIRE(counting_api.klipper_restarts == 1);
+
+    SECTION("Klipper started, then halted on an MCU shutdown") {
+        state().set_klippy_state_sync(KlippyState::STARTUP);
+        state().set_klippy_state_sync(KlippyState::SHUTDOWN);
+        settle();
+        EmergencyStopOverlayTestAccess::firmware_restart(estop);
+        settle();
+        CHECK(counting_api.firmware_restarts == 1);
+        CHECK_FALSE(toasted("A restart is already in progress"));
+    }
+    SECTION("the shutdown a restart passes on its way down is still in flight") {
+        state().set_klippy_state_sync(KlippyState::SHUTDOWN);
+        settle();
+        EmergencyStopOverlayTestAccess::firmware_restart(estop);
+        settle();
+        CHECK(counting_api.firmware_restarts == 0);
+    }
 }
