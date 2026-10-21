@@ -254,18 +254,24 @@ TEST_CASE_METHOD(KeypadLayoutFixture,
     CHECK(confirmed_ == -100.0f);
 }
 
-TEST_CASE_METHOD(KeypadLayoutFixture, "The field name sits above the display, not in the header",
+TEST_CASE_METHOD(KeypadLayoutFixture, "The field name sits in the header between back and Set",
                  "[keypad][keypad_layout]") {
     lv_obj_t* keypad = show(true, false, 0, 300, "Square Corner Velocity");
-    lv_obj_t* name = key(keypad, "keypad_field_name");
-    CHECK(std::string(lv_label_get_text(name)) == "Square Corner Velocity");
-    CHECK(std::string(lv_label_get_text(key(keypad, "header_title"))).empty());
+    lv_obj_t* title = key(keypad, "header_title");
+    // As given, not capitalized like a screen title.
+    CHECK(std::string(lv_label_get_text(title)) == "Square Corner Velocity");
 
-    lv_area_t header;
+    lv_area_t header, name, set;
     lv_obj_get_coords(key(keypad, "overlay_header"), &header);
-    CHECK(y_of(keypad, "keypad_field_name") >= header.y2);
-    CHECK(y_of(keypad, "keypad_field_name") + height_of(keypad, "keypad_field_name") <=
-          y_of(keypad, "input_display"));
-    // The whole content width, not what the header would leave beside back and Set.
-    CHECK(lv_obj_get_width(name) == lv_obj_get_content_width(key(keypad, "overlay_content")));
+    lv_obj_get_coords(title, &name);
+    lv_obj_get_coords(key(keypad, "action_button"), &set);
+    CHECK(name.y1 >= header.y1);
+    CHECK(name.y2 <= header.y2);
+    CHECK(name.x2 < set.x1);
+    CHECK(set.y1 >= header.y1);
+    CHECK(set.y2 <= header.y2);
+    // Wraps to two lines at most, then dots.
+    CHECK(lv_label_get_long_mode(title) == LV_LABEL_LONG_MODE_DOTS);
+    const lv_font_t* font = lv_obj_get_style_text_font(title, LV_PART_MAIN);
+    CHECK(lv_obj_get_height(title) <= 2 * lv_font_get_line_height(font));
 }
