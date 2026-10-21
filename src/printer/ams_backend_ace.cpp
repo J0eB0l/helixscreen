@@ -2231,11 +2231,13 @@ AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,
     const int current_slot = get_current_slot();
     if (slot_action && current_slot < 0) {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (instance_commands_) {
-            // No slot to address: the first unit's slot 0 would feed a second
-            // strand into a path another unit's tool may hold.
-            return AmsError(AmsResult::WRONG_STATE, "No tool loaded",
-                            lv_tr("Load a tool before feeding or retracting"), "");
+        if (instance_commands_ && seat_loaded_) {
+            // A tool is seated whose unit has not reported its slots: the
+            // first unit's slot 0 would feed a second strand into the path
+            // that tool holds. With nothing seated the path is clear and
+            // slot 0 is addressed as on every driver.
+            return AmsError(AmsResult::WRONG_STATE, "Seated tool has no known slot",
+                            lv_tr("It has not reported its slots yet. Try again in a moment."), "");
         }
     }
     const int slot = std::max(current_slot, 0);

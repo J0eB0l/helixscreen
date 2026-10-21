@@ -3568,22 +3568,23 @@ void expect_slot_actions_refused(AmsBackendAceTestHelper& b) {
 }
 } // namespace
 
-// With no slot current, the fork has no slot to address: falling back to the
-// displayed unit's slot 0 would feed a second strand into a path that holds
-// another unit's tool.
-TEST_CASE("ACE slot actions refuse on the fork while no slot is current",
+// A seated tool whose unit has not reported its slots has no slot to
+// address: the first unit's slot 0 would feed a second strand into the path
+// that tool holds. With nothing seated the path is clear, so slot 0 is
+// addressed on the first unit.
+TEST_CASE("ACE slot actions on the ACEPRO driver while no slot is current",
           "[ams][ace][device_actions][kobra]") {
     AmsBackendAceTestHelper b;
 
-    SECTION("nothing loaded") {
+    SECTION("nothing loaded: the first unit's slot 0") {
         const std::string surface =
             GENERATE(as<std::string>{}, "ace_instance_0", "rest+ace_manager");
         CAPTURE(surface);
         present_driver_surface(b, surface);
         REQUIRE(b.get_current_slot() == -1);
-        expect_slot_actions_refused(b);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50");
     }
-    SECTION("a tool of a unit not displayed is loaded") {
+    SECTION("a tool whose unit has not reported is loaded: refused") {
         present_driver_surface(b, "rest+ace_manager");
         b.test_parse_status_response(
             json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
@@ -3624,13 +3625,14 @@ TEST_CASE_METHOD(LVGLTestFixture,
                                       });
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "ACE slot actions refuse with no tool loaded on a two-unit fork",
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ACE slot actions address the first unit with no tool loaded on two units",
                  "[ams][ace][device_actions][kobra]") {
     helix::test::FakeMoonrakerClient client;
     AmsBackendAceTestHelper helper(&client);
     start_two_unit_backend(helper, client, -1);
 
-    expect_slot_actions_refused(helper);
+    CHECK(run_slot_actions(helper).front() == "ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50");
 }
 
 // Only the Kobra S1 fork's per-unit objects state a link; another driver's
