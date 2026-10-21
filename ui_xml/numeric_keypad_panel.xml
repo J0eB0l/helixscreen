@@ -4,12 +4,13 @@
 <!-- Numeric Keypad Overlay - Responsive layout for all screen sizes -->
 <component>
   <consts>
-    <!-- keypad_width: Panel width (right-aligned overlay). Short screens get a narrower
-         pad so the keys keep roughly the 800x480 shape (about 1.4:1) instead of flattening:
-         the rows share the screen height, so a shorter screen means shorter keys. -->
-    <px name="keypad_width_micro" value="200"/>
-    <px name="keypad_width_tiny" value="260"/>
-    <px name="keypad_width_small" value="320"/>
+    <!-- keypad_width: Panel width (right-aligned overlay). Smaller screens keep the 800x480
+         pad's proportions, width about 0.71 of the screen height, so the keys keep its
+         roughly 1.4:1 shape: the rows share the screen height, so a shorter screen means
+         shorter keys and the pad narrows with it. -->
+    <px name="keypad_width_micro" value="193"/>
+    <px name="keypad_width_tiny" value="227"/>
+    <px name="keypad_width_small" value="283"/>
     <px name="keypad_width_medium" value="340"/>
     <px name="keypad_width_large" value="400"/>
 
