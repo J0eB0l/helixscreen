@@ -4011,8 +4011,8 @@
   <translation tag="Your printer has an automatic filament changer" ru="Ваш принтер оснащён автоматическим сменщиком филамента"/>
   <translation tag="Your printer was offline during setup, so hardware options were skipped. Set them up now?" ru="Принтер был не в сети во время настройки, поэтому параметры оборудования пропущены. Настроить их сейчас?"/>
   <translation tag="Your {0} is set up for {1}, but it looks stock." ru="Ваш {0} настроен для {1}, но выглядит стоковым."/>
+  <translation tag="Your {0} looks like it has {1}, but it is set up as stock." ru="Похоже, на вашем {0} есть {1}, но он настроен как стоковый."/>
   <translation tag="Your {0} looks like it has {1}, but it is set up for {2}." ru="Похоже, на вашем {0} есть {1}, но он настроен для {2}."/>
-  <translation tag="Your {0} looks like it has {1}. Use the {1} profile?" ru="Похоже, на вашем {0} есть {1}. Использовать профиль {1}?"/>
   <translation tag="Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide." ru="Строка {} передаёт настройки для отдельных инструментов, которые сопоставление филамента не меняет ({}). Инструмент, с которым вы сопоставите филамент, может не нагреться. См. раздел «Filament Mapping» в руководстве пользователя."/>
   <translation tag="Z" ru="Z"/>
   <translation tag="Z Calibration" ru="Калибровка Z"/>

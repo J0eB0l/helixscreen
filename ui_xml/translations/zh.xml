@@ -3951,8 +3951,8 @@
   <translation tag="Your printer has an automatic filament changer" zh="您的打印机配有自动换色系统"/>
   <translation tag="Your printer was offline during setup, so hardware options were skipped. Set them up now?" zh="设置期间打印机离线，硬件选项已跳过。现在设置吗？"/>
   <translation tag="Your {0} is set up for {1}, but it looks stock." zh="您的 {0} 设置为 {1}，但看起来是原厂状态。"/>
+  <translation tag="Your {0} looks like it has {1}, but it is set up as stock." zh="您的 {0} 似乎装有 {1}，但当前设置为原厂状态。"/>
   <translation tag="Your {0} looks like it has {1}, but it is set up for {2}." zh="您的 {0} 似乎装有 {1}，但设置为 {2}。"/>
-  <translation tag="Your {0} looks like it has {1}. Use the {1} profile?" zh="您的 {0} 似乎装有 {1}。使用 {1} 配置？"/>
   <translation tag="Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide." zh="您的 {} 行包含耗材映射不会更改的各工具设置 ({})。映射了耗材的工具可能不会被加热。请查看用户指南中的“Filament Mapping”。"/>
   <translation tag="Z" zh="Z"/>
   <translation tag="Z Calibration" zh="Z 轴校准"/>

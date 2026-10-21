@@ -109,6 +109,12 @@ class HardwareSetupPrompter {
     /// changed or been settled.
     void show_type_mismatch_review(uint32_t generation);
 
+    /// Remote-control demo: raise the mismatch warning for these names without the
+    /// detection that decides it. @p open_review opens the review at once, skipping
+    /// the saved-type checks a demo's names would fail against the mock's config.
+    void show_type_mismatch_demo(const std::string& detected, int confidence,
+                                 const std::string& saved, bool open_review);
+
   private:
     friend class HardwareSetupPrompterTestAccess;
 
@@ -126,6 +132,8 @@ class HardwareSetupPrompter {
     void settle_deferred_hardware_setup();
     void maybe_warn_type_mismatch(const PrinterDiscovery& hardware);
     void warn_type_mismatch(TypeMismatchReview review);
+    /// Build the review modal for the pending warning, unless one is already open.
+    void open_type_mismatch_review();
     void launch_type_reidentify_wizard();
     void settle_type_mismatch_warning();
     /// Run @p launch once the confirming modal's exit animation is over. One launch is

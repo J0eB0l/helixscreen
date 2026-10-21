@@ -62,9 +62,9 @@ std::string type_mismatch_toast_text(const std::string& saved, const std::string
     const auto rel = PrinterDetector::relate_types(saved, detected);
     switch (rel.relation) {
     case Relation::DetectedVariant:
-        return fmt::format(fmt::runtime(lv_tr("Your {0} looks like it has {1}. Use the {1} "
-                                              "profile?")),
-                           rel.base, rel.detected_label);
+        return fmt::format(
+            fmt::runtime(lv_tr("Your {0} looks like it has {1}, but it is set up as stock.")),
+            rel.base, rel.detected_label);
     case Relation::SavedVariant:
         return fmt::format(fmt::runtime(lv_tr("Your {0} is set up for {1}, but it looks stock.")),
                            rel.base, rel.saved_label);
@@ -507,10 +507,22 @@ void HardwareSetupPrompter::show_type_mismatch_review(uint32_t generation) {
         pending_review_.reset();
         return;
     }
+    open_type_mismatch_review();
+}
+
+void HardwareSetupPrompter::show_type_mismatch_demo(const std::string& detected, int confidence,
+                                                    const std::string& saved, bool open_review) {
+    warn_type_mismatch({detected, confidence, saved});
+    if (open_review) {
+        open_type_mismatch_review();
+    }
+}
+
+void HardwareSetupPrompter::open_type_mismatch_review() {
     // The toast and its history row both open this; a second tap must not stack a
     // second copy over the first.
-    if (review_open_) {
-        spdlog::debug("[HardwareSetup] Type mismatch review already open");
+    if (!pending_review_ || review_open_) {
+        spdlog::debug("[HardwareSetup] Type mismatch review already open or none pending");
         return;
     }
     const TypeMismatchReview& review = *pending_review_;

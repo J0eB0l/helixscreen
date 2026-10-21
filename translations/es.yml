@@ -4374,7 +4374,7 @@ translations:
   Your printer was offline during setup, so hardware options were skipped. Set them up now?: Su impresora estaba desconectada durante la configuración, por lo que se omitieron las opciones de hardware. ¿Configurarlas ahora?
   Your {0} is set up for {1}, but it looks stock.: 'Tu {0} está configurada para {1}, pero parece de serie.'
   Your {0} looks like it has {1}, but it is set up for {2}.: 'Tu {0} parece tener {1}, pero está configurada para {2}.'
-  Your {0} looks like it has {1}. Use the {1} profile?: 'Tu {0} parece tener {1}. ¿Usar el perfil {1}?'
+  Your {0} looks like it has {1}, but it is set up as stock.: 'Tu {0} parece tener {1}, pero está configurada como de serie.'
   ? Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide.
   : Su línea {} pasa ajustes por herramienta que el mapeo de filamento no cambia ({}). Es posible que una herramienta a la que mapee filamento no se caliente. Consulte «Filament Mapping» en la guía del usuario.
   Z: Z

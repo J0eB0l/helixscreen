@@ -4412,7 +4412,7 @@ translations:
   Your printer was offline during setup, so hardware options were skipped. Set them up now?: Принтер был не в сети во время настройки, поэтому параметры оборудования пропущены. Настроить их сейчас?
   Your {0} is set up for {1}, but it looks stock.: 'Ваш {0} настроен для {1}, но выглядит стоковым.'
   Your {0} looks like it has {1}, but it is set up for {2}.: 'Похоже, на вашем {0} есть {1}, но он настроен для {2}.'
-  Your {0} looks like it has {1}. Use the {1} profile?: 'Похоже, на вашем {0} есть {1}. Использовать профиль {1}?'
+  Your {0} looks like it has {1}, but it is set up as stock.: 'Похоже, на вашем {0} есть {1}, но он настроен как стоковый.'
   ? Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide.
   : Строка {} передаёт настройки для отдельных инструментов, которые сопоставление филамента не меняет ({}). Инструмент, с которым вы сопоставите филамент, может не нагреться. См. раздел «Filament Mapping» в руководстве пользователя.
   Z: Z
