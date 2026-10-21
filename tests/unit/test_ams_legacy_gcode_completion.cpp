@@ -44,8 +44,13 @@ class LiveToolChanger : public helix::AmsBackendToolChanger {
     }
 
     ~LiveToolChanger() override {
-        drain();
+        if (drain_on_destroy) {
+            drain();
+        }
     }
+
+    /// Off to destroy the backend with its deferred callbacks still queued.
+    bool drain_on_destroy = true;
 
     static void drain() {
         helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
@@ -143,6 +148,35 @@ TEST_CASE("Legacy execute_gcode error runs from the UpdateQueue, not the answeri
     REQUIRE(error.ran);
     CHECK(error.ran_from == "AmsSubscriptionBackend::execute_gcode_error");
     CHECK_FALSE(complete.ran);
+}
+
+TEST_CASE(
+    "Legacy execute_gcode callbacks are dropped when the backend dies before the queue drains",
+    "[ams][toolchanger][threading][1761]") {
+    MockPrinter acking;
+    MockPrinter refusing;
+    refuse_every_script(refusing);
+    Witness complete;
+    Witness error;
+    Witness refused_complete;
+    Witness refused_error;
+
+    {
+        LiveToolChanger acked(acking);
+        LiveToolChanger refused(refusing);
+        acked.drain_on_destroy = false;
+        refused.drain_on_destroy = false;
+        REQUIRE(acked.execute_gcode("M400", complete.on_complete(), error.on_error()).success());
+        REQUIRE(
+            refused.execute_gcode("M400", refused_complete.on_complete(), refused_error.on_error())
+                .success());
+    }
+    // Both answers are queued; their owner is gone.
+    LiveToolChanger::drain();
+    CHECK_FALSE(complete.ran);
+    CHECK_FALSE(error.ran);
+    CHECK_FALSE(refused_complete.ran);
+    CHECK_FALSE(refused_error.ran);
 }
 
 TEST_CASE("Toolchanger mount of the mounted tool finalizes on main through the real API",

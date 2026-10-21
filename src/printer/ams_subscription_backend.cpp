@@ -773,14 +773,12 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
                                          std::function<void(const MoonrakerError&)> on_error,
                                          uint32_t timeout_ms, bool silent,
                                          std::optional<bool> caller_surfaces_errors) {
-    // Legacy shape: dispatch through the SAME two virtuals as before this
-    // method grew these parameters. ~20 fixtures override ONLY
-    // execute_gcode(gcode) / execute_gcode(gcode, on_complete) (see the
+    // Default shape: dispatch through the 1-arg and 2-arg execute_gcode()
+    // virtuals. ~20 fixtures override ONLY those two (see the
     // dispatch_payload() doc comment in the header); a payload with no
     // on_complete must reach the 1-arg override or those tests silently stop
-    // capturing anything. All 8 pre-existing callers never pass
-    // on_error/timeout_ms/silent, so they always land here, byte-for-byte the
-    // pre-widening behaviour.
+    // capturing anything. Callers that pass no on_error/timeout_ms/silent
+    // always land here.
     if (!on_error && timeout_ms == IMoonrakerAPI::kAmsOperationTimeoutMs && silent) {
         return on_complete ? execute_gcode(gcode, std::move(on_complete)) : execute_gcode(gcode);
     }
@@ -808,8 +806,7 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
     // A caller asked for its own error/timeout/toast policy -- the hardcoded
     // virtuals above can't carry that (they fix kAmsOperationTimeoutMs and
     // silent=true, and their error handling only logs). Talk to IMoonrakerAPI
-    // directly, the same way AmsBackendCfs::dispatch_action_script used to
-    // before this method existed to replace its fork.
+    // directly.
     if (!api_) {
         return refuse_dispatch_no_api(on_error);
     }

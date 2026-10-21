@@ -619,8 +619,7 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// referenced above — required for fixture compatibility. Any non-default
     /// combination needs a live @p api_: it talks to IMoonrakerAPI directly (the
     /// hardcoded virtuals can't carry a caller's own error/timeout/toast
-    /// policy), the same way AmsBackendCfs::dispatch_action_script used to
-    /// before this method existed to replace it. On every path @p on_complete
+    /// policy). On every path @p on_complete
     /// runs on the main thread, queued behind any status frame that arrived
     /// before the answer, and so does @p on_error once the send went out.
     ///
