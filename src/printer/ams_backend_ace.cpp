@@ -546,7 +546,7 @@ AmsError AmsBackendAce::do_load_filament(int slot_index) {
                 spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+                    end_own_op_locked();
                     own_load_ = false;
 
                     // Where firmware states the seat itself, the ack is only
@@ -571,7 +571,7 @@ AmsError AmsBackendAce::do_load_filament(int slot_index) {
             token.defer("AmsBackendAce::load_err", [this]() {
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+                    end_own_op_locked();
                     own_load_ = false;
                 }
                 emit_event(EVENT_STATE_CHANGED);
@@ -600,7 +600,7 @@ AmsError AmsBackendAce::do_unload_filament(int /*slot_index*/) {
                 spdlog::info("[ACE] Unload gcode completed");
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+                    end_own_op_locked();
 
                     // Symmetric with the load path: a driver that states the
                     // seat also clears it, and an unload it declined would
@@ -624,7 +624,7 @@ AmsError AmsBackendAce::do_unload_filament(int /*slot_index*/) {
             token.defer("AmsBackendAce::unload_err", [this]() {
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+                    end_own_op_locked();
                 }
                 emit_event(EVENT_STATE_CHANGED);
             });
@@ -1159,6 +1159,14 @@ void AmsBackendAce::apply_unit_identities_locked() {
         const std::string base = ace_unit_short_name(identity.protocol);
         const int count = ++seen[base];
         unit.display_name = count == 1 ? base : base + " #" + std::to_string(count);
+    }
+}
+
+void AmsBackendAce::end_own_op_locked() {
+    // Caller holds mutex_. Only the motion this backend set ends with its
+    // command: an ERROR a unit reported meanwhile stands.
+    if (system_info_.action == AmsAction::LOADING || system_info_.action == AmsAction::UNLOADING) {
+        system_info_.action = AmsAction::IDLE;
     }
 }
 

@@ -883,3 +883,32 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE restart onto fewer units drops the rest",
     CHECK(info.tool_to_slot_map.size() <= 8);
     CHECK_FALSE(helper.stop_drying(2).success());
 }
+
+// The ack ends only the LOADING a load from here set: an error a unit
+// reported while it ran stands through the ack.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE load or unload ack keeps a unit's error",
+                 "[ams][ace][multiunit]") {
+    const bool unload = GENERATE(false, true);
+    CAPTURE(unload);
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 2, unload ? 1 : -1);
+    helper.set_running(true);
+    REQUIRE((unload ? helper.unload_filament(1) : helper.load_filament(1)).success());
+
+    json frame = json::object();
+    frame["ace_instance_0"] = json{{"status", "error"}};
+    send_frame(helper, frame);
+    REQUIRE(helper.get_test_system_info().action == AmsAction::ERROR);
+
+    SECTION("acked") {
+        REQUIRE(helper.pending_ack != nullptr);
+        helper.pending_ack();
+    }
+    SECTION("failed") {
+        REQUIRE(helper.pending_error != nullptr);
+        helper.pending_error(MoonrakerError{});
+    }
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(helper.get_test_system_info().action == AmsAction::ERROR);
+}

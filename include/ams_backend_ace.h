@@ -475,6 +475,11 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// numbering the second and later unit of one name. Caller holds mutex_.
     void apply_unit_identities_locked();
 
+    /// End a load or unload this backend sent, at its ack or error: a
+    /// LOADING or UNLOADING reads IDLE, anything else (an ERROR a unit
+    /// reported while it ran) is left standing. Caller holds mutex_.
+    void end_own_op_locked();
+
     /// Record unit @p unit's own status word and publish the action of the
     /// first unit that is doing something, or IDLE. Caller holds mutex_.
     void set_unit_action_locked(int unit, AmsAction action);
