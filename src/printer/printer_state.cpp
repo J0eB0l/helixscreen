@@ -669,6 +669,13 @@ void PrinterState::set_helix_plugin_disabled(bool disabled) {
                           [this, disabled]() { plugin_status_state_.set_disabled(disabled); });
 }
 
+void PrinterState::set_helix_plugin_features(helix::PluginFeatureMap features) {
+    async_lifetime_.defer("PrinterState::set_helix_plugin_features",
+                          [this, features = std::move(features)]() mutable {
+                              plugin_status_state_.set_features(std::move(features));
+                          });
+}
+
 void PrinterState::set_macro_option_count(size_t count) {
     macro_option_count_ = count;
     update_gcode_modification_visibility();

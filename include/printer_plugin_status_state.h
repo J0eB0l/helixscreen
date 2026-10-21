@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "helix_plugin_features.h"
 #include "subject_managed_panel.h"
 
 #include <lvgl.h>
@@ -108,6 +109,17 @@ class PrinterPluginStatusState {
         return disabled_;
     }
 
+    /// The features map the plugin's status reported; empty when it reported none.
+    void set_features(PluginFeatureMap features) {
+        features_ = std::move(features);
+    }
+
+    /// Whether plugin feature @p name, at contract @p min_version or newer, is
+    /// usable now. Gate plugin-backed behaviour on this, never on version().
+    PluginFeatureState plugin_feature(const std::string& name, int min_version) const {
+        return plugin_feature_state(service_has_helix_plugin(), features_, name, min_version);
+    }
+
     /**
      * @brief Set the discovery-derived helper-macro install status
      *
@@ -182,6 +194,7 @@ class PrinterPluginStatusState {
     std::string link_dir_;
     std::string version_;
     bool disabled_ = false;
+    PluginFeatureMap features_;
 
     // Plugin status subjects (tri-state: -1=unknown, 0=no, 1=yes)
     lv_subject_t helix_plugin_installed_{}; // HelixPrint Klipper plugin

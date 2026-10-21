@@ -170,6 +170,7 @@ void helix_plugin_check_step(DiscoveryContext& ctx) {
         [](const helix::HelixPluginInfo& info) {
             get_printer_state().set_helix_plugin_link_dir(info.symlink_dir);
             get_printer_state().set_helix_plugin_version(info.version);
+            get_printer_state().set_helix_plugin_features(info.features);
             // A plugin set to enabled: False serves nothing: it reads as not installed.
             get_printer_state().set_helix_plugin_disabled(info.present && !info.available);
             get_printer_state().set_helix_plugin_installed(info.available);
@@ -177,6 +178,7 @@ void helix_plugin_check_step(DiscoveryContext& ctx) {
         [](const MoonrakerError&) {
             // Silently treat errors as "plugin not installed"
             get_printer_state().set_helix_plugin_version("");
+            get_printer_state().set_helix_plugin_features({});
             get_printer_state().set_helix_plugin_disabled(false);
             get_printer_state().set_helix_plugin_installed(false);
         });

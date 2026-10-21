@@ -5,6 +5,7 @@
 
 #include "ui_filename_utils.h"
 
+#include "helix_plugin_features.h"
 #include "json_fwd.h"
 #include "text_io.h"
 
@@ -448,10 +449,11 @@ struct PowerDevice {
 namespace helix {
 /// What the HelixPrint plugin's status says about itself (server.helix.status).
 struct HelixPluginInfo {
-    bool present = false;    ///< the component answered, enabled or not
-    bool available = false;  ///< installed and enabled
-    std::string symlink_dir; ///< where it links a modified print; empty when not reported
-    std::string version;     ///< the plugin's PLUGIN_VERSION; empty when it did not answer
+    bool present = false;      ///< the component answered, enabled or not
+    bool available = false;    ///< installed and enabled
+    std::string symlink_dir;   ///< where it links a modified print; empty when not reported
+    std::string version;       ///< the plugin's PLUGIN_VERSION; empty when it did not answer
+    PluginFeatureMap features; ///< its `features` map; empty for a plugin that predates it
 };
 } // namespace helix
 

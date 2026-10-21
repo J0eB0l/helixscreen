@@ -64,7 +64,7 @@ flowchart TB
 | `PrinterVersionsState` | Klipper, MCU, Moonraker software versions |
 | `PrinterExcludedObjectsState` | Klipper `EXCLUDE_OBJECT` state |
 | `PrinterHardwareValidationState` | Hardware health-check results |
-| `PrinterPluginStatusState` | HelixPrint plugin status gating |
+| `PrinterPluginStatusState` | HelixPrint plugin status gating, and `plugin_feature(name, min_version)` over the plugin's `features` map: `Absent`, `Disabled` or `Ready` (`include/helix_plugin_features.h`). Plugin-backed behaviour gates on that, never on the plugin's version string; a plugin without the map reads every feature `Absent` |
 | `PrinterCompositeVisibilityState` | The aggregate `has_any_preprint_options` visibility subject |
 | `PrinterProfileState` | Printer type, its pre-print option set and z-offset calibration strategy (`printer_type`, `z_offset_can_save`) |
 
