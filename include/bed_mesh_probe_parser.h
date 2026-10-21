@@ -103,9 +103,10 @@ struct ProbePosition {
  * passes MESH_MIN/MESH_MAX overrides (or ADAPTIVE=1) and bed_mesh.py reduces
  * the grid from configfile defaults.
  *
- * Format: "Adapted probe count: N,M" (preceded by "// " in gcode_response).
- * The total = N * M, fired once before the first probe — usable as a live
- * denominator on stock Klipper / Voron / KAMP setups.
+ * Format: "Adapted probe count: (N,M)" from stock Klipper's bed_mesh.py, or
+ * "Adapted probe count: N,M." from KAMP's verbose macro; both are preceded by
+ * "// " in gcode_response. The total = N * M, fired once before the first
+ * probe — usable as a live denominator on stock Klipper / Voron / KAMP setups.
  *
  * NOT emitted by Snapmaker U1's custom firmware fork (the count exists in
  * klippy.log as "Updated Mesh Configuration" but never reaches
@@ -115,7 +116,7 @@ struct ProbePosition {
  * @return Total probe count (N * M) or std::nullopt
  */
 inline std::optional<int> parse_adapted_probe_count(const std::string& line) {
-    static const helix::Regex adapt_regex(R"(Adapted probe count:\s*(\d+)\s*,\s*(\d+))");
+    static const helix::Regex adapt_regex(R"(Adapted probe count:\s*\(?\s*(\d+)\s*,\s*(\d+))");
     helix::RegexMatch match;
     if (helix::regex_search(line, match, adapt_regex) && match.size() == 3) {
         const auto x = helix::text_io::parse_leading<int>(match[1].str());
