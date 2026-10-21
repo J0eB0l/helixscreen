@@ -28,6 +28,7 @@ inline constexpr std::array<const char*, 2> kAd5xIfsSensorObjectPrefixes = {
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -1478,6 +1479,21 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // (read + cleared) by handle_status() under the same lock hold,
     // then dispatched after unlock. Guarded by mutex_.
     bool ifs_vars_repair_staged_ = false;
+
+    // Wakes every debounce worker the moment the backend is destroyed. Each
+    // debounce sleeps on a fast-lane worker, and a backend that is gone has
+    // nothing left for the worker to do, so it hands the lane back at once.
+    // Shared with the workers, which outlive the backend.
+    struct DebounceCancel {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool cancelled = false;
+    };
+    std::shared_ptr<DebounceCancel> debounce_cancel_ = std::make_shared<DebounceCancel>();
+    // BG THREAD: sleep @p window on a debounce worker. False when the backend
+    // was destroyed first, and the worker must return without touching it.
+    static bool debounce_wait(const std::shared_ptr<DebounceCancel>& cancel,
+                              std::chrono::milliseconds window);
 
     std::atomic<bool> reread_pending_{false};
     std::atomic<bool> lane_reread_pending_{false};

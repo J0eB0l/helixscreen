@@ -21,6 +21,7 @@
 #include "filament_slot_override.h"
 #include "filament_slot_override_store.h"
 #include "filament_variants.h"
+#include "http_executor.h"
 #include "lane_resolver.h"
 #include "lane_source_store.h"
 #include "lane_translation.h"
@@ -40,6 +41,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -13006,5 +13008,45 @@ TEST_CASE("AD5X IFS boot reads the binding an outside tool left in lane_data",
         CHECK(info.material == "PETG");
         CHECK(info.spool_name == "Blue PETG");
     }
+    helix::ui::UpdateQueue::instance().drain();
+}
+
+TEST_CASE("AD5X IFS debounce workers end with the backend", "[ams][ad5x][ad5x_ifs][threading]") {
+    // Each debounce holds a fast-lane worker for its window. A backend torn
+    // down mid-window has nothing left for that worker to do, so the worker
+    // has to give the lane back at once rather than sleep the window out.
+    using Clock = std::chrono::steady_clock;
+    auto& fast = helix::http::HttpExecutor::fast();
+    const auto settle_deadline = Clock::now() + std::chrono::seconds(3);
+    while (fast.inflight() != 0 && Clock::now() < settle_deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    REQUIRE(fast.inflight() == 0);
+
+    MockPrinter mock_printer;
+    {
+        helix::test::RegisteredBackend<AmsBackendAd5xIfs> backend_reg(&mock_printer.api, nullptr);
+        AmsBackendAd5xIfs& backend = *backend_reg;
+        SECTION("Adventurer5M.json re-read") {
+            Ad5xIfsTestAccess::schedule_json_reread(backend);
+        }
+        SECTION("lane_data re-read") {
+            Ad5xIfsTestAccess::schedule_lane_record_reread(backend);
+        }
+        SECTION("GET_ZCOLOR query") {
+            Ad5xIfsTestAccess::schedule_zcolor_query(backend);
+        }
+        REQUIRE(fast.inflight() > 0);
+    }
+
+    const auto destroyed = Clock::now();
+    const auto deadline = destroyed + std::chrono::seconds(3);
+    while (fast.inflight() != 0 && Clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto waited =
+        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - destroyed);
+    CHECK(fast.inflight() == 0);
+    CHECK(waited.count() < 250);
     helix::ui::UpdateQueue::instance().drain();
 }
