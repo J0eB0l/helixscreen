@@ -219,6 +219,9 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     AmsError reset() override;
     AmsError recover() override;
     AmsError cancel() override;
+    /// Also ends the phase tracking, so a later sensor or heater edge cannot
+    /// synthesize a sub-phase of an operation the restart already ended.
+    void on_klipper_restarted() override;
 
     // Load-vs-swap decision. K1 official CFS upgrade firmware reports a
     // *preloaded* (cassette-staged) slot via current_slot with the nozzle still

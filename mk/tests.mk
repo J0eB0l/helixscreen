@@ -448,7 +448,7 @@ full-test-run:
 
 # land-gate: the pre-landing gate - what CI will judge the branch on, run before
 # it reaches main. full-test-run's sweep and bats, plus the sweep again in CI's
-# shard layout (CI_SHARDS, build.yml's nproc*2 on its 4-core runners: which tests
+# shard layout (CI_SHARDS, build.yml's 8 shards across its two test legs: which tests
 # share a process decides what a use-after-free corrupts), CI's tests/ui slice
 # and the moonraker plugin tests, and the generated-artefact freshness checks.
 # The C++ lane goes to the test host as full-test-run's does (TEST_HOST); the

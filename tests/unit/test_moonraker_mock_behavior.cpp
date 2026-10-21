@@ -250,6 +250,35 @@ TEST_CASE("MoonrakerClientMock records the connection URL like the real client",
     }
 }
 
+TEST_CASE("MoonrakerClientMock connect() pauses for the configured delay",
+          "[connection][mock_connect_delay]") {
+    const int saved = MoonrakerClientMock::connect_delay_ms();
+    struct RestoreDelay {
+        int ms;
+        ~RestoreDelay() {
+            MoonrakerClientMock::set_connect_delay_ms(ms);
+        }
+    } restore{saved};
+
+    auto timed_connect = [](int delay_ms) {
+        MoonrakerClientMock::set_connect_delay_ms(delay_ms);
+        MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+        const auto start = std::chrono::steady_clock::now();
+        mock.connect("ws://127.0.0.1:7125/websocket", []() {}, []() {});
+        const auto took = std::chrono::steady_clock::now() - start;
+        mock.stop_temperature_simulation();
+        mock.disconnect();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(took).count();
+    };
+
+    SECTION("no delay connects without pausing") {
+        CHECK(timed_connect(0) < 100);
+    }
+    SECTION("a delay holds connect() for it") {
+        CHECK(timed_connect(150) >= 150);
+    }
+}
+
 TEST_CASE("MoonrakerAPI never derives an HTTP base URL from a mock connection",
           "[connection][slow][url]") {
     // Guards the reason the mock did not record its URL for so long: deriving an

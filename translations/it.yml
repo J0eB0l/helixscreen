@@ -160,6 +160,7 @@ translations:
   A print is running on this gate. HelixScreen cleared its own copy; clear it again once the print finishes.: Una stampa è in corso su questo gate. HelixScreen ha svuotato la propria copia; svuotalo di nuovo a stampa terminata.
   A print is running. Apply the result after it ends.: È in corso una stampa. Applica il risultato quando finisce.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: "È partita una stampa mentre le bobine risultano sul piano. Se sono ancora lì, ferma subito la stampante con l'arresto emergenza."
+  A restart is already in progress: Un riavvio è già in corso
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : 'Un sensore che misura la distanza dal piano. HelixScreen lo usa per la calibrazione dello Z Offset e per i test della sonda nella schermata Sonda.'
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: 'Un sensore che legge la temperatura dell''aria dentro la camera. Controllala nella schermata della temperatura camera.'

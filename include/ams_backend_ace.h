@@ -139,6 +139,9 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     AmsError recover() override;
     AmsError reset() override;
     AmsError cancel() override;
+    /// Also forgets the toolchange target the driver last stated, so the next
+    /// frame cannot re-raise the toolchange the restart already ended.
+    void on_klipper_restarted() override;
 
     // ========================================================================
     // Configuration

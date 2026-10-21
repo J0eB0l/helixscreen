@@ -263,7 +263,10 @@ class AmsBackendSnapmaker : public AmsSubscriptionBackend {
     struct ChannelSnapshot {
         std::string state;        ///< channel_state, e.g. "load_finish"
         std::string action_state; ///< channel_action_state: last op step, kept at rest
-        std::string error{"ok"};  ///< channel_error
+        /// An op outcome channel_action_state reported while the channel still
+        /// showed a step under way, applied when it settles.
+        std::string pending_outcome;
+        std::string error{"ok"}; ///< channel_error
         bool filament_detected{false};
         bool module_exist{false};
         bool disable_auto{false};
@@ -333,6 +336,10 @@ class AmsBackendSnapmaker : public AmsSubscriptionBackend {
     AmsError recover() override;
     AmsError reset() override;
     AmsError cancel() override;
+    /// Also forgets each channel's last frame and in-flight op, because the
+    /// backend outlives the restart: the subscription's first full frame is
+    /// then a fresh start rather than a change from firmware that is gone.
+    void on_klipper_restarted() override;
 
     // Resume preparation. A Terminal pause answers RESUME_REQUIRES_RESTART at
     // once. A head whose last load is unconfirmed holds RESUME: the head

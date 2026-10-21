@@ -161,6 +161,16 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     void set_simulation_speedup(double factor);
 
     /**
+     * @brief Set the pause connect() takes before reporting CONNECTED
+     *
+     * Process-wide, in simulated milliseconds (scaled by sim_speed()). The
+     * --test app keeps the default; the unit-test binary sets 0, because
+     * connect() blocks its caller for the whole pause and no test waits on it.
+     */
+    static void set_connect_delay_ms(int ms);
+    static int connect_delay_ms();
+
+    /**
      * @brief Get current simulation speedup factor
      * @return Current speedup multiplier (1.0 = real-time)
      */

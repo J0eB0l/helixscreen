@@ -338,6 +338,28 @@ TEST_CASE_METHOD(LVGLUITestFixture, "Unified recovery dialog - SHUTDOWN shows di
     REQUIRE(std::string(lv_label_get_text(title)).find("Shutdown") != std::string::npos);
 }
 
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Recovery dialog - a restart tap refused while one is in flight keeps the dialog",
+                 "[recovery][integration][restart_in_flight]") {
+    auto& estop = EmergencyStopOverlay::instance();
+    estop.show_recovery_for(RecoveryReason::SHUTDOWN);
+    process_lvgl(50);
+    REQUIRE(lv_obj_find_by_name(lv_screen_active(), "klipper_recovery_card") != nullptr);
+
+    EmergencyStopOverlayTestAccess::set_restart_in_progress(estop, true);
+    SECTION("Firmware Restart") {
+        EmergencyStopOverlayTestAccess::recovery_firmware_restart_clicked();
+    }
+    SECTION("Restart Klipper") {
+        EmergencyStopOverlayTestAccess::recovery_restart_klipper_clicked();
+    }
+    process_lvgl(50);
+
+    CHECK(lv_obj_find_by_name(lv_screen_active(), "klipper_recovery_card") != nullptr);
+
+    EmergencyStopOverlayTestAccess::set_restart_in_progress(estop, false);
+}
+
 TEST_CASE_METHOD(LVGLUITestFixture, "Unified recovery dialog - DISCONNECTED shows dialog",
                  "[recovery][integration]") {
     auto& estop = EmergencyStopOverlay::instance();

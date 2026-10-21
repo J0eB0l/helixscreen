@@ -154,6 +154,7 @@ translations:
   A print is running on this gate. HelixScreen cleared its own copy; clear it again once the print finishes.: A print is running on this gate. HelixScreen cleared its own copy; clear it again once the print finishes.
   A print is running. Apply the result after it ends.: A print is running. Apply the result after it ends.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.
+  A restart is already in progress: A restart is already in progress
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.

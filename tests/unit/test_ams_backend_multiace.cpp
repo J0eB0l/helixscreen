@@ -505,6 +505,14 @@ TEST_CASE_METHOD(MultiAceFixture, "load into an occupied head unloads first", "[
         b.frame(feed_frame(0, "preload_finish"));
         CHECK(b.sent.size() == 2);
     }
+    SECTION("a Klipper restart drops the load") {
+        b.answer_ok();
+        b.on_klipper_restarted();
+        json emptied = {{"ace", {{"head_source", {{"2", {{"ace_index", 2}, {"slot", 3}}}}}}}};
+        emptied.update(feed_frame(0, "preload_finish"));
+        b.frame(emptied);
+        CHECK(b.sent.size() == 1);
+    }
     SECTION("an unload that answers OK while head_source survives loads nothing") {
         b.answer_ok();
         b.frame(feed_frame(0, "preload_finish"));

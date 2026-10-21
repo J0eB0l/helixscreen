@@ -29,8 +29,8 @@ std::string count_detail(int count, int shown_from) {
 }
 
 std::string build_volume_text(const BuildVolume& v) {
-    const long x = std::lround(v.x_max - v.x_min);
-    const long y = std::lround(v.y_max - v.y_min);
+    const long x = std::lround(v.printable_x());
+    const long y = std::lround(v.printable_y());
     const long z = std::lround(v.z_max);
     if (x <= 0 || y <= 0 || z <= 0) {
         return {};

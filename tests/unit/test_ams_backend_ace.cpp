@@ -1011,6 +1011,29 @@ TEST_CASE("ACE driver-started toolchange shows its target lane before it seats",
     CHECK(helper.get_filament_segment() == PathSegment::NOZZLE);
 }
 
+TEST_CASE("ACE forgets a driver-started toolchange on a Klipper restart",
+          "[ams][ace][klipper_restart_expiry]") {
+    AmsBackendAceTestHelper helper;
+    helper.set_running(true);
+    AceTestAccess::parse_ace(helper, make_kobra_instance_object());
+    json idle = make_kobra_manager_object(-1);
+    idle["rdm_sensor"] = false;
+    idle["toolhead_sensor"] = false;
+    AceTestAccess::parse_ace(helper, idle);
+
+    notify_ace(helper, {{"current_index", -1}, {"target_index", 0}});
+    REQUIRE(helper.get_test_system_info().action == AmsAction::LOADING);
+
+    helper.on_klipper_restarted();
+    auto info = helper.get_test_system_info();
+    CHECK(info.action == AmsAction::IDLE);
+    CHECK(info.pending_target_slot == -1);
+
+    // A delta that does not restate target_index must not re-raise it.
+    notify_ace(helper, {{"rdm_sensor", true}});
+    CHECK(helper.get_test_system_info().action == AmsAction::IDLE);
+}
+
 // A swap from a seated tool retracts the old strand past the hub before the
 // new one feeds. The hub sensor is made, clears, then is made again; only the
 // clear tells the two phases apart.

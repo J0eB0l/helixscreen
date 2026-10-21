@@ -109,3 +109,25 @@ _script() { # path mode
     detect_competing_uis
     [ "$COMPETING_UIS_FOUND" = makerbase-client ]
 }
+
+# The title of the install's stop step names what it stops.
+
+@test "stop step title: a vendor UI that was found is named" {
+    COMPETING_UIS_FOUND="Creality-UI"
+    update_mode=true INSTALL_DIR="$BATS_TEST_TMPDIR/hs"
+    mkdir -p "$INSTALL_DIR"
+    [ "$(stop_step_noun)" = "Creality-UI" ]
+}
+
+@test "stop step title: an update over a previous install says HelixScreen, not the stock screen" {
+    COMPETING_UIS_FOUND=""
+    update_mode=true INSTALL_DIR="$BATS_TEST_TMPDIR/hs"
+    mkdir -p "$INSTALL_DIR"
+    [ "$(stop_step_noun)" = "the previous HelixScreen" ]
+}
+
+@test "stop step title: nothing found and nothing installed does not claim a stock screen" {
+    COMPETING_UIS_FOUND=""
+    update_mode=false INSTALL_DIR="$BATS_TEST_TMPDIR/none"
+    [ "$(stop_step_noun)" = "the current screen" ]
+}
