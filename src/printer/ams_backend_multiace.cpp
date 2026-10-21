@@ -797,6 +797,11 @@ void AmsBackendMultiAce::handle_status(const nlohmann::json& status) {
     advance_pending_load();
 }
 
+void AmsBackendMultiAce::on_klipper_restarted() {
+    cancel_pending_load("Klipper restarted");
+    AmsBackendSnapmaker::on_klipper_restarted();
+}
+
 void AmsBackendMultiAce::cancel_pending_load(const char* why) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (pending_load_) {

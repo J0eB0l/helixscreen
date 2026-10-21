@@ -6316,10 +6316,7 @@ void AmsBackendAd5xIfs::begin_phase_tracking_locked(bool is_unload) {
     }
 }
 
-void AmsBackendAd5xIfs::expire_stuck_operation(OperationExpiry why) {
-    if (why != OperationExpiry::KlipperRestart) {
-        return;
-    }
+void AmsBackendAd5xIfs::on_klipper_restarted() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (phase_tracker_.active) {
@@ -6327,7 +6324,7 @@ void AmsBackendAd5xIfs::expire_stuck_operation(OperationExpiry why) {
         }
         system_info_.operation_indeterminate = false;
     }
-    AmsSubscriptionBackend::expire_stuck_operation(why);
+    AmsSubscriptionBackend::on_klipper_restarted();
 }
 
 void AmsBackendAd5xIfs::end_phase_tracking_locked() {

@@ -471,6 +471,30 @@ TEST_CASE_METHOD(HelixTestFixture, "OpenAMS load dispatches the advertised comma
                     helix::AmsBackend::kEventLoadComplete) != backend.events.end());
 }
 
+TEST_CASE_METHOD(HelixTestFixture, "OpenAMS drops its dispatched load on a Klipper restart",
+                 "[ams][openams][klipper_restart_expiry]") {
+    OpenAmsHarness backend;
+    backend.feed(manager());
+    REQUIRE(backend.load_filament(1).success());
+    REQUIRE(backend.get_current_action() == AmsAction::LOADING);
+
+    backend.on_klipper_restarted();
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
+
+    // The next frame must not re-raise the dispatched action over what the
+    // manager reports.
+    backend.feed(manager());
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
+    CHECK(backend.get_system_info().pending_target_slot == -1);
+
+    // Nor does the dispatched command's late answer report an outcome.
+    backend.events.clear();
+    backend.complete_operation();
+    CHECK(std::find(backend.events.begin(), backend.events.end(),
+                    helix::AmsBackend::kEventLoadComplete) == backend.events.end());
+}
+
 TEST_CASE_METHOD(HelixTestFixture, "OpenAMS load failure unwinds and keeps the reason",
                  "[ams][openams]") {
     OpenAmsHarness backend;

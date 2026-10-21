@@ -1095,35 +1095,47 @@ TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker a spool-insert preload ends at pre
     CHECK(backend.get_system_info().action == AmsAction::IDLE);
 }
 
-TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker an expired operation stops reporting busy",
-                 "[ams][snapmaker][action_state][op_timeout_expire]") {
-    CapturingSnapmakerBackend backend;
+TEST_CASE_METHOD(SnapmakerFixture,
+                 "Snapmaker the first frame after a Klipper restart ends no operation",
+                 "[ams][snapmaker][action_state][klipper_restart_expiry]") {
+    // The backend object outlives a Klipper restart, so what it remembers of
+    // each channel describes firmware that no longer exists. The subscription's
+    // first full frame must be read as a fresh start, not compared against it.
+    helix::test::RegisteredBackend<AmsBackendSnapmaker> backend_reg(nullptr, nullptr);
+    AmsBackendSnapmaker& backend = *backend_reg;
+    SnapmakerTestAccess::set_current_slot(backend, 3);
+    SnapmakerTestAccess::set_current_tool(backend, 3);
 
-    // A load whose terminal state never arrives.
-    SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_feeding"));
-    REQUIRE(backend.get_current_action() == AmsAction::LOADING);
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "unload_doing", "unload_doing"));
+    REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
 
-    backend.expire_stuck_operation(helix::OperationExpiry::SurfaceTimeout);
+    backend.on_klipper_restarted();
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
 
-    CHECK(backend.get_current_action() == AmsAction::IDLE);
+    SECTION("a finished unload's action_state") {
+        SnapmakerTestAccess::handle_status(backend,
+                                           feed_with_action(3, "preload_finish", "unload_finish"));
+        CHECK_FALSE(AmsState::instance().was_slot_recently_unloaded(3));
+    }
+    SECTION("a failed unload's action_state") {
+        SnapmakerTestAccess::handle_status(backend,
+                                           feed_with_action(3, "preload_finish", "unload_fail"));
+    }
+
     CHECK(backend.get_system_info().action == AmsAction::IDLE);
-    CHECK(backend.captured_gcodes.empty());
-
-    // The firmware moving on to the next step proves it is still running.
-    SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_heating"));
-    CHECK(ams_action_is_busy(backend.get_current_action()));
-    CHECK(backend.captured_gcodes.empty());
+    CHECK(backend.get_system_info().operation_detail.empty());
 }
 
-TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker expiring leaves an ERROR in place",
-                 "[ams][snapmaker][action_state][op_timeout_expire]") {
+TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker a Klipper restart leaves an ERROR in place",
+                 "[ams][snapmaker][action_state][klipper_restart_expiry]") {
     CapturingSnapmakerBackend backend;
 
     SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_feeding"));
     SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_fail"));
     REQUIRE(backend.get_current_action() == AmsAction::ERROR);
 
-    backend.expire_stuck_operation(helix::OperationExpiry::SurfaceTimeout);
+    backend.on_klipper_restarted();
 
     CHECK(backend.get_current_action() == AmsAction::ERROR);
 }

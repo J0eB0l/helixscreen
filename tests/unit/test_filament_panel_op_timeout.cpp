@@ -102,9 +102,9 @@ class StubBackend : public helix::AmsBackendMock {
         return helix::AmsErrorHelper::success();
     }
 
-    int expire_calls = 0;
-    void expire_stuck_operation(helix::OperationExpiry /*why*/) override {
-        ++expire_calls;
+    int restart_calls = 0;
+    void on_klipper_restarted() override {
+        ++restart_calls;
     }
 };
 
@@ -230,61 +230,22 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     CHECK_FALSE(TA::op_in_flight(*h.panel));
 }
 
-TEST_CASE_METHOD(LVGLUITestFixture, "A timed-out backend op ends the backend's stuck operation",
+TEST_CASE_METHOD(LVGLUITestFixture, "A timed-out backend op leaves the backend's action alone",
                  "[ui_integration][filament][op_timeout_expire]") {
-    // A backend that never reports the op's terminal state keeps its action
-    // busy, and every tool change after that is refused as Busy.
+    // A long operation (a cold-nozzle swap) can run past the panel's budget, so
+    // the timeout only warns: ending the backend's operation here would
+    // re-enable Load, Unload and tool changes in the middle of it.
     TimeoutHarness h(*this);
 
     TA::execute_load(*h.panel);
     REQUIRE(TA::backend_op_active(*h.panel));
-    REQUIRE(h.mock->expire_calls == 0);
+    h.mock->sys_.action = AmsAction::LOADING;
 
     h.fire_operation_timeout();
 
-    CHECK(h.mock->expire_calls == 1);
-}
-
-TEST_CASE_METHOD(LVGLUITestFixture, "A backend op that completes before the timeout is left alone",
-                 "[ui_integration][filament][op_timeout_expire]") {
-    TimeoutHarness h(*this);
-
-    TA::execute_load(*h.panel);
-    REQUIRE(TA::operation_active(*h.panel));
-
-    h.publish_action(AmsAction::LOADING, 10);
-    h.publish_action(AmsAction::IDLE, 600);
     REQUIRE_FALSE(TA::operation_active(*h.panel));
-    CHECK(TA::operation_timer(*h.panel) == nullptr);
-
-    // Well past the guard's budget: nothing armed is left to fire.
-    lv_tick_inc(150000);
-    process_lvgl(20);
-    CHECK(h.mock->expire_calls == 0);
-}
-
-TEST_CASE_METHOD(LVGLUITestFixture, "A timed-out gcode op leaves the backend's action alone",
-                 "[ui_integration][filament][op_timeout_expire]") {
-    // Extrude is raw gcode: the backend is not running anything for it, so its
-    // timeout has no backend operation to end.
-    TimeoutHarness h(*this);
-
-    {
-        auto freeze = helix::ui::UpdateQueue::instance().scoped_freeze("op-timeout-expire-test");
-        TA::execute_extrude(*h.panel);
-        REQUIRE(TA::operation_active(*h.panel));
-        REQUIRE_FALSE(TA::backend_op_active(*h.panel));
-
-        lv_timer_t* t = TA::operation_timer(*h.panel);
-        REQUIRE(t != nullptr);
-        lv_timer_set_period(t, 1);
-        lv_timer_ready(t);
-        lv_timer_handler_safe();
-        REQUIRE_FALSE(TA::operation_active(*h.panel));
-    }
-    process_lvgl(20);
-
-    CHECK(h.mock->expire_calls == 0);
+    CHECK(h.mock->restart_calls == 0);
+    CHECK(h.mock->get_system_info().action == AmsAction::LOADING);
 }
 
 TEST_CASE_METHOD(LVGLUITestFixture, "#1183: AmsAction::ERROR ends the operation and fails the op",

@@ -83,6 +83,10 @@ class AmsBackendOpenAms : public AmsSubscriptionBackend {
     /// finishes, so the cancel command could not run until there is nothing
     /// left to cancel; that case is refused as busy.
     AmsError cancel() override;
+    /// Also forgets the load or unload this backend dispatched, which would
+    /// otherwise outrank the manager's report on the next frame, and retires
+    /// its generation so the command's late answer reports no outcome.
+    void on_klipper_restarted() override;
     [[nodiscard]] bool can_cancel_operation() const override;
 
     /// Bookkeeping only: drops the failure a dispatch latched. The manager's

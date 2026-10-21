@@ -2697,6 +2697,14 @@ AmsError AmsBackendCfs::recover() {
     return execute_gcode(recover_gcode(macro_variant_));
 }
 
+void AmsBackendCfs::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        end_phase_tracking();
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendCfs::cancel() {
     auto err = check_preconditions();
     if (err.result != AmsResult::SUCCESS)

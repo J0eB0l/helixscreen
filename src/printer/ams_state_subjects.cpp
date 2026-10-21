@@ -628,6 +628,10 @@ void AmsState::init_subjects(bool register_xml) {
 }
 
 void AmsState::install_klippy_state_observer() {
+    // on_klipper_restarted() must run before the first status frame after the
+    // resubscribe, since backends clear per-channel history that frame then
+    // rebuilds. That holds because the READY update is queued ahead of
+    // rediscovery's subscribe and UpdateQueue runs in order.
     klippy_state_observer_.reset();
     last_klippy_state_ = -1;
     klippy_state_observer_ = helix::ui::observe<int>(
@@ -641,7 +645,7 @@ void AmsState::install_klippy_state_observer() {
             }
             for (int i = 0; i < self->backend_count(); ++i) {
                 if (AmsBackend* backend = self->get_backend(i)) {
-                    backend->expire_stuck_operation(OperationExpiry::KlipperRestart);
+                    backend->on_klipper_restarted();
                 }
             }
         },
