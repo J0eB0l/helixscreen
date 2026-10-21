@@ -4236,6 +4236,7 @@ translations:
   Update Success: Update erfolgreich
   Update from a Terminal: Update über ein Terminal
   Update installed!: Update installiert!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 'Auch das INDX-Heizungsmodell aktualisieren? {} enthält jetzt {}: Dichte {:.2f}, Wärmekapazität {:.2f}.'
   Update your security PIN: Sicherheits-PIN aktualisieren
     nicht verfügbar.
   Updates: Updates
@@ -4660,6 +4661,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'Das passt nicht zur verknüpften Spoolman-Spule. In Spoolman aktualisieren oder Verknüpfung lösen und auf diesem Platz behalten?'
   'Unlink, keep on this slot': 'Lösen, auf diesem Platz behalten'
   'Unsaved changes': 'Ungespeicherte Änderungen'
+  Update heater model?: Heizungsmodell aktualisieren?
   'Update in Spoolman': 'In Spoolman aktualisieren'
   'Variant': 'Variante'
   'from tag': 'vom Tag'

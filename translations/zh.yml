@@ -3977,6 +3977,7 @@ translations:
   Update Success: 更新成功
   Update from a Terminal: 通过终端更新
   Update installed!: 更新已安装！
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 同时更新INDX加热器模型？{}现在装的是{}：密度 {:.2f}，热容 {:.2f}。
   Update your security PIN: 更新您的安全 PIN
   Updates: 更新
   Updating Configuration...: 正在更新配置...
@@ -4384,6 +4385,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': '与关联的 Spoolman 料盘不匹配。在 Spoolman 中更新，还是取消关联并保留在此料位？'
   'Unlink, keep on this slot': '取消关联，保留在此料位'
   'Unsaved changes': '未保存的更改'
+  Update heater model?: 更新加热器模型？
   'Update in Spoolman': '在 Spoolman 中更新'
   'Variant': '变体'
   'from tag': '来自标签'

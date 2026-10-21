@@ -3816,8 +3816,10 @@
   <translation tag="Update Helper Macros?" fr="Mettre à jour les macros d&apos;aide ?"/>
   <translation tag="Update Success" fr="Mise à jour réussie"/>
   <translation tag="Update from a Terminal" fr="Mettre à jour depuis un terminal"/>
+  <translation tag="Update heater model?" fr="Mettre à jour le modèle de chauffage ?"/>
   <translation tag="Update in Spoolman" fr="Mettre à jour dans Spoolman"/>
   <translation tag="Update installed!" fr="Mise à jour installée !"/>
+  <translation tag="Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}." fr="Mettre aussi à jour le modèle de chauffage INDX ? {} contient maintenant {} : densité {:.2f}, capacité thermique {:.2f}."/>
   <translation tag="Update your security PIN" fr="Mettez à jour votre PIN de sécurité sur cette installation."/>
   <translation tag="Updates" fr="Mises à jour"/>
   <translation tag="Updating Configuration..." fr="Mise à jour de la configuration..."/>

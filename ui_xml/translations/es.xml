@@ -3816,8 +3816,10 @@
   <translation tag="Update Helper Macros?" es="¿Actualizar macros de ayuda?"/>
   <translation tag="Update Success" es="Actualización correcta"/>
   <translation tag="Update from a Terminal" es="Actualizar desde un terminal"/>
+  <translation tag="Update heater model?" es="¿Actualizar modelo del calentador?"/>
   <translation tag="Update in Spoolman" es="Actualizar en Spoolman"/>
   <translation tag="Update installed!" es="¡Actualización instalada!"/>
+  <translation tag="Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}." es="¿Actualizar también el modelo del calentador INDX? {} ahora tiene {}: densidad {:.2f}, capacidad calorífica {:.2f}."/>
   <translation tag="Update your security PIN" es="Actualice su PIN de seguridad en esta instalación."/>
   <translation tag="Updates" es="Actualizaciones"/>
   <translation tag="Updating Configuration..." es="Actualizando configuración..."/>

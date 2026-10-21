@@ -4268,6 +4268,7 @@ translations:
   Update Success: Обновление успешно
   Update from a Terminal: Обновление через терминал
   Update installed!: Обновление установлено!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 'Обновить и модель нагревателя INDX? В {} теперь {}: плотность {:.2f}, теплоёмкость {:.2f}.'
   Update your security PIN: Обновите ваш PIN-код
   Updates: Обновления
   Updating Configuration...: Обновление конфигурации...
@@ -4715,6 +4716,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'Не совпадает со связанной катушкой Spoolman. Обновить в Spoolman или отвязать и оставить на этом слоте?'
   'Unlink, keep on this slot': 'Отвязать, оставить на этом слоте'
   'Unsaved changes': 'Несохранённые изменения'
+  Update heater model?: Обновить модель нагревателя?
   'Update in Spoolman': 'Обновить в Spoolman'
   'Variant': 'Вариант'
   'from tag': 'с метки'

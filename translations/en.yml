@@ -4128,8 +4128,10 @@ translations:
   Update Helper Macros?: Update Helper Macros?
   Update Success: Update Success
   Update from a Terminal: Update from a Terminal
+  Update heater model?: Update heater model?
   Update in Spoolman: Update in Spoolman
   Update installed!: Update installed!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.'
   Update your security PIN: Update your security PIN
   Updates: Updates
   Updating Configuration...: Updating Configuration...

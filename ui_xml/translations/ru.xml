@@ -3876,8 +3876,10 @@
   <translation tag="Update Helper Macros?" ru="Обновить вспомогательные макросы?"/>
   <translation tag="Update Success" ru="Обновление успешно"/>
   <translation tag="Update from a Terminal" ru="Обновление через терминал"/>
+  <translation tag="Update heater model?" ru="Обновить модель нагревателя?"/>
   <translation tag="Update in Spoolman" ru="Обновить в Spoolman"/>
   <translation tag="Update installed!" ru="Обновление установлено!"/>
+  <translation tag="Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}." ru="Обновить и модель нагревателя INDX? В {} теперь {}: плотность {:.2f}, теплоёмкость {:.2f}."/>
   <translation tag="Update your security PIN" ru="Обновите ваш PIN-код"/>
   <translation tag="Updates" ru="Обновления"/>
   <translation tag="Updating Configuration..." ru="Обновление конфигурации..."/>

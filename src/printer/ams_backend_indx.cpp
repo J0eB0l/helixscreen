@@ -13,6 +13,7 @@
 #include "klipper_extruder_naming.h"
 #include "lane_source_store.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "print_lifecycle_state.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "toolchanger_addon.h"
@@ -648,6 +649,72 @@ AmsError AmsBackendIndx::do_run_device_action(const std::string& action_id, cons
         },
         indx::kCalibrationTimeoutMs, /*skip_homing=*/true, /*silent=*/true,
         /*caller_surfaces_errors=*/false);
+}
+
+// ============================================================================
+// Edit follow-up: the heater model after a material edit
+// ============================================================================
+
+bool AmsBackendIndx::print_holds_printer() const {
+    return api_ &&
+           print_blocks_filament_op(api_->printer_state().print_state().get_print_lifecycle(),
+                                    /*backend_self_homes=*/true);
+}
+
+std::optional<AmsBackend::EditFollowUp>
+AmsBackendIndx::edit_follow_up(int slot_index, const SlotInfo& before,
+                               const SlotInfo& after) const {
+    if (!contract_.recognized || !contract_.has_set_tool_filament || print_holds_printer()) {
+        return std::nullopt;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto presets = state_.presets.value_or(std::map<std::string, indx::FilamentPreset>{});
+    const auto preset = indx::preset_for_material(after.material, presets);
+    if (!preset || indx::preset_for_material(before.material, presets) == preset) {
+        return std::nullopt;
+    }
+    if (state_.no_heat_tools && state_.no_heat_tools->count(slot_index) > 0) {
+        return std::nullopt;
+    }
+    // SET_TOOL_FILAMENT also loads the values into the live heater model,
+    // which belongs to whatever tool is on the head.
+    const int mounted = state_.active_tool.value_or(-2);
+    if (mounted != slot_index && mounted != -1) {
+        return std::nullopt;
+    }
+    const indx::FilamentPreset& values = presets.at(*preset);
+    EditFollowUp offer;
+    offer.title = lv_tr("Update heater model?");
+    offer.message = fmt::format(
+        fmt::runtime(lv_tr("Update the INDX heater model too? {} now holds {}: density {:.2f}, "
+                           "heat capacity {:.2f}.")),
+        indx::tool_text(slot_index), *preset, values.density, values.heat_capacity);
+    offer.confirm_label = lv_tr("Update");
+    return offer;
+}
+
+AmsError AmsBackendIndx::do_run_edit_follow_up(int slot_index, const SlotInfo& after) {
+    std::optional<indx::FilamentPreset> values;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!contract_.has_set_tool_filament) {
+            return AmsErrorHelper::not_supported("SET_TOOL_FILAMENT");
+        }
+        if (AmsError slot_valid = validate_slot_index_locked(slot_index); !slot_valid) {
+            return slot_valid;
+        }
+        // Re-derived: the presets may have changed since the offer.
+        const auto presets = state_.presets.value_or(std::map<std::string, indx::FilamentPreset>{});
+        if (auto preset = indx::preset_for_material(after.material, presets)) {
+            values = presets.at(*preset);
+        }
+    }
+    if (!values) {
+        return AmsErrorHelper::invalid_parameter("material '" + after.material + "'");
+    }
+    std::string cmd = indx::set_tool_filament_gcode(slot_index, *values);
+    spdlog::info("{} Updating the heater model: {}", backend_log_tag(), cmd);
+    return execute_gcode(cmd);
 }
 
 } // namespace helix

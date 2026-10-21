@@ -98,6 +98,12 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     [[nodiscard]] std::vector<helix::printer::DeviceSection> get_device_sections() const override;
     [[nodiscard]] std::vector<helix::printer::DeviceAction> get_device_actions() const override;
 
+    /// After a material edit, offer to update the heater model: only for the
+    /// mounted tool or an empty head, never while printing, never for a tool
+    /// without a hotend, never when the preset did not change.
+    [[nodiscard]] std::optional<EditFollowUp> edit_follow_up(int slot_index, const SlotInfo& before,
+                                                             const SlotInfo& after) const override;
+
   protected:
     /// A print is paused. Virtual so tests can pause without a printer.
     [[nodiscard]] virtual bool print_paused() const;
@@ -117,6 +123,12 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     /// them; every other action is the untracked one.
     AmsError do_run_device_action(const std::string& action_id, const std::any& value,
                                   DeviceActionDone on_done) override;
+
+    AmsError do_run_edit_follow_up(int slot_index, const SlotInfo& after) override;
+
+    /// A print holds the printer, paused included. Virtual so tests can print
+    /// without a printer.
+    [[nodiscard]] virtual bool print_holds_printer() const;
 
     /// The nozzle heater's target in C; 0 without a printer. Virtual so tests
     /// can heat without one.

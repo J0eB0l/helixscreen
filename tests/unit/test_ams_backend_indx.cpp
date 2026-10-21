@@ -3,8 +3,10 @@
 // AmsBackendIndx against synthetic status shaped like Bondtech's upstream
 // macros (BondtechAB/INDX). Gcode is captured, never sent.
 
+#include "../lvgl_test_fixture.h"
 #include "../test_helpers/backend_user_edit.h"
 #include "../test_helpers/gcode_recording_api.h"
+#include "../test_helpers/print_state_test_drivers.h"
 #include "../test_helpers/registered_backend.h"
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_backend_indx.h"
@@ -703,4 +705,103 @@ TEST_CASE_METHOD(IndxFixture, "INDX batch: no LOAD_FILAMENT, no batch", "[ams][i
     IndxHelper b;
     b.set_discovery(discover(without(indx_objects(), "gcode_macro LOAD_FILAMENT")));
     CHECK(b.max_heads_per_filament_op() == 1);
+}
+
+// ============================================================================
+// Heater-model follow-up after a material edit
+// ============================================================================
+
+namespace {
+
+const json kPresetFrame = {{"gcode_macro LOAD_FILAMENT",
+                            {{"filament_presets",
+                              {{"PLA", {{"temp", 210}, {"density", 1.24}, {"hc", 1.8}}},
+                               {"PETG", {{"temp", 240}, {"density", 1.27}, {"hc", 1.3}}},
+                               {"ABS", {{"temp", 250}, {"density", 1.04}, {"hc", 1.4}}}}}}}};
+
+SlotInfo with_material(const char* material) {
+    SlotInfo s;
+    s.material = material;
+    return s;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(IndxFixture,
+                 "INDX follow-up: a new preset material on the mounted tool offers the model",
+                 "[ams][indx][follow_up]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(kPresetFrame);
+    b.feed(active(1));
+    const auto offer = b.edit_follow_up(1, with_material("PLA"), with_material("PETG"));
+    REQUIRE(offer.has_value());
+    CHECK_THAT(offer->message, Catch::Matchers::ContainsSubstring("PETG"));
+    CHECK_THAT(offer->message, Catch::Matchers::ContainsSubstring("1.27"));
+    CHECK_FALSE(offer->title.empty());
+    CHECK_FALSE(offer->confirm_label.empty());
+
+    REQUIRE(b.run_edit_follow_up(1, with_material("PETG")).success());
+    CHECK(b.sent() ==
+          std::vector<std::string>{"SET_TOOL_FILAMENT TOOL=1 DENSITY=1.270 HEAT_CAPACITY=1.300"});
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX follow-up: nothing to offer", "[ams][indx][follow_up]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(kPresetFrame);
+    b.feed(active(1));
+    b.feed(json{{"gcode_macro TOOL_POSITIONS", {{"no_heat_tools", json::array({3})}}}});
+
+    CHECK_FALSE(b.edit_follow_up(1, with_material("PLA"), with_material("PLA")).has_value());
+    CHECK_FALSE(b.edit_follow_up(1, with_material("PLA"), with_material("pla")).has_value());
+    CHECK_FALSE(b.edit_follow_up(1, with_material("PLA"), with_material("Mystery")).has_value());
+    CHECK_FALSE(b.edit_follow_up(2, with_material("PLA"), with_material("ABS")).has_value());
+
+    b.feed(active(3));
+    CHECK_FALSE(b.edit_follow_up(3, with_material("PLA"), with_material("ABS")).has_value());
+
+    b.feed(active(-1));
+    CHECK(b.edit_follow_up(2, with_material("PLA"), with_material("ABS")).has_value());
+    CHECK_FALSE(b.edit_follow_up(3, with_material("PLA"), with_material("ABS")).has_value());
+
+    IndxHelper no_macro;
+    no_macro.set_discovery(discover(indx_objects()));
+    no_macro.feed(kPresetFrame);
+    no_macro.feed(active(1));
+    CHECK_FALSE(
+        no_macro.edit_follow_up(1, with_material("PLA"), with_material("PETG")).has_value());
+    CHECK(b.sent().empty());
+}
+
+namespace {
+
+struct PrintingIndxFixture : public LVGLTestFixture {
+    PrintingIndxFixture() {
+        state.init_subjects(false);
+    }
+    ~PrintingIndxFixture() override {
+        MacroParamCache::instance().clear();
+    }
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    helix::PrinterState state;
+};
+
+} // namespace
+
+TEST_CASE_METHOD(PrintingIndxFixture, "INDX follow-up: refused while printing",
+                 "[ams][indx][follow_up]") {
+    test::GcodeRecordingApi api{client, state};
+    RecordingIndx b{&api, &client};
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(kPresetFrame);
+    b.feed(active(1));
+    REQUIRE(b.edit_follow_up(1, with_material("PLA"), with_material("PETG")).has_value());
+
+    helix::test::set_wire_state(state, helix::PrintJobState::PRINTING);
+    CHECK_FALSE(b.edit_follow_up(1, with_material("PLA"), with_material("PETG")).has_value());
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PETG")).success());
+    helix::test::set_wire_state(state, helix::PrintJobState::PAUSED);
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PETG")).success());
+    CHECK(api.sent.empty());
 }

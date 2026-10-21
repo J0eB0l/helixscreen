@@ -3986,6 +3986,7 @@ translations:
   Update Success: 更新成功
   Update from a Terminal: ターミナルから更新
   Update installed!: アップデートをインストールしました！
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': INDXヒーターモデルも更新しますか？{}は{}になりました：密度 {:.2f}、熱容量 {:.2f}。
   Update your security PIN: セキュリティ PIN を更新
   Updates: 更新
   Updating Configuration...: 設定を更新中...
@@ -4394,6 +4395,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'リンクされた Spoolman スプールと一致しません。Spoolman で更新するか、リンクを解除してこのスロットに保持しますか？'
   'Unlink, keep on this slot': 'リンク解除、このスロットに保持'
   'Unsaved changes': '未保存の変更'
+  Update heater model?: ヒーターモデルを更新しますか？
   'Update in Spoolman': 'Spoolman で更新'
   'Variant': 'バリアント'
   'from tag': 'タグから'

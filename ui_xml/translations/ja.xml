@@ -3816,8 +3816,10 @@
   <translation tag="Update Helper Macros?" ja="ヘルパーマクロを更新しますか？"/>
   <translation tag="Update Success" ja="更新成功"/>
   <translation tag="Update from a Terminal" ja="ターミナルから更新"/>
+  <translation tag="Update heater model?" ja="ヒーターモデルを更新しますか？"/>
   <translation tag="Update in Spoolman" ja="Spoolman で更新"/>
   <translation tag="Update installed!" ja="アップデートをインストールしました！"/>
+  <translation tag="Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}." ja="INDXヒーターモデルも更新しますか？{}は{}になりました：密度 {:.2f}、熱容量 {:.2f}。"/>
   <translation tag="Update your security PIN" ja="セキュリティ PIN を更新"/>
   <translation tag="Updates" ja="更新"/>
   <translation tag="Updating Configuration..." ja="設定を更新中..."/>

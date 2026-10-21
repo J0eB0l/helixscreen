@@ -4228,6 +4228,7 @@ translations:
   Update Success: Aggiornamento riuscito
   Update from a Terminal: Aggiorna da un terminale
   Update installed!: Aggiornamento installato!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 'Aggiornare anche il modello del riscaldatore INDX? {} ora contiene {}: densità {:.2f}, capacità termica {:.2f}.'
   Update your security PIN: Aggiorna il tuo PIN di sicurezza
     in questa installazione.
   Updates: Aggiornamenti
@@ -4651,6 +4652,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'Non corrisponde alla bobina Spoolman collegata. Aggiornarla in Spoolman oppure scollegarla e tenerla su questo slot?'
   'Unlink, keep on this slot': 'Scollega, tieni su questo slot'
   'Unsaved changes': 'Modifiche non salvate'
+  Update heater model?: Aggiornare il modello del riscaldatore?
   'Update in Spoolman': 'Aggiorna in Spoolman'
   'Variant': 'Variante'
   'from tag': 'dal tag'
