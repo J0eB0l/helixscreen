@@ -1637,11 +1637,15 @@ so it also covers printers with no AMS at all. `FilamentSensorManager::clog_moti
 picks it among the motion sensors Settings > Filament sensors lists and has enabled (AMS-owned
 sensors, `PrinterHardware::is_ams_sensor()`, are excluded): the one on
 the active lane, else the first one Klipper has armed, else the first. It is a state,
-not a gauge (`kMotion*Value`): moving is OK with an empty fill, a jam is the warning
-flag with a full fill, and a sensor Klipper has disarmed reads `ClogMeterStatus::Off`.
+not a gauge (`motion_sensor_value()` -> `kMotion*Value`): moving is OK with an empty fill,
+a jam is the warning flag with a full fill, and a sensor Klipper has disarmed reads
+`ClogMeterStatus::Off`. No movement is a jam only while `print_job_running()` (printing
+or paused): outside a print there is nothing to move, and a backend may run the sensor
+as a presence switch (the U1's heads), so an idle empty sensor reads OK.
 There is no danger band or peak (`clog_meter_is_state()`). Sensor frames reach the meter
 without a backend sync through the manager's `filament_motion_signature` subject, which
-`AmsState::install_motion_sensor_observer()` watches.
+`AmsState::install_motion_sensor_observer()` watches; the meter also re-evaluates on
+every `print_lifecycle` change.
 
 **Two presentations, one model.** `UiClogBar` draws a wide horizontal scale,
 `UiClogMeter` a compact arc. Neither owns any interpretation:

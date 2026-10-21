@@ -91,6 +91,13 @@ ClogMeterStatus pressure_status_of_bias(float bias) {
     return pressure_status(static_cast<int>(std::lround(clamped * 100.0f)));
 }
 
+int motion_sensor_value(bool armed, bool filament_moving, bool print_running) {
+    if (!armed) {
+        return kMotionDisarmedValue;
+    }
+    return !filament_moving && print_running ? kMotionJammedValue : kMotionMovingValue;
+}
+
 bool clog_meter_is_state(int mode) {
     return static_cast<ClogMeterMode>(mode) == ClogMeterMode::Motion;
 }

@@ -70,6 +70,7 @@ void AmsState::init_subjects(bool register_xml) {
         // list below — a name added there must be added here too.
         install_print_state_observer();
         install_klippy_state_observer();
+        install_print_lifecycle_observer();
         if (register_xml) {
             register_xml_subject_names();
         }
@@ -626,6 +627,7 @@ void AmsState::init_subjects(bool register_xml) {
     // do so during fixture setup / app boot.
     install_print_state_observer();
     install_klippy_state_observer();
+    install_print_lifecycle_observer();
 }
 
 void AmsState::install_klippy_state_observer() {
@@ -960,6 +962,7 @@ void AmsState::deinit_subjects() {
     print_state_observer_.reset();
     klippy_state_observer_.reset();
     motion_sensor_observer_.reset();
+    print_lifecycle_observer_.reset();
 
     // IMPORTANT: clear_backends() MUST precede subjects_.deinit_all() because
     // BackendSlotSubjects are managed outside SubjectManager for lifetime reasons

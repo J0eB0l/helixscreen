@@ -428,3 +428,22 @@ TEST_CASE("motion sensor: a state draws a fill and nothing else", "[clog][bar][m
     const auto off = clog_bar_geometry(kMode_Motion, kMotionDisarmedValue, 0, 0, 200);
     CHECK(off.fill_w == 0);
 }
+
+TEST_CASE("motion_sensor_value: armed, moving, print running", "[clog][motion][1823]") {
+    struct Row {
+        bool armed, moving, running;
+        int value;
+    };
+    const Row rows[] = {
+        {true, true, true, kMotionMovingValue},    // printing, moving
+        {true, false, true, kMotionJammedValue},   // printing or paused, stopped: jam
+        {true, true, false, kMotionMovingValue},   // idle, filament present
+        {true, false, false, kMotionMovingValue},  // idle, empty head: not a jam
+        {false, true, true, kMotionDisarmedValue}, // disarmed wins while printing
+        {false, false, true, kMotionDisarmedValue}, {false, false, false, kMotionDisarmedValue},
+    };
+    for (const auto& r : rows) {
+        CAPTURE(r.armed, r.moving, r.running);
+        CHECK(motion_sensor_value(r.armed, r.moving, r.running) == r.value);
+    }
+}

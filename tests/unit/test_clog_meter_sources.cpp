@@ -14,6 +14,7 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/ams_state_test_access.h"
 #include "../test_helpers/filament_sensor_manager_test_access.h"
+#include "../test_helpers/print_state_test_drivers.h"
 #include "ams_state.h"
 #include "app_globals.h"
 #include "clog_meter_geometry.h"
@@ -147,6 +148,7 @@ struct MotionSensorFixture : LVGLTestFixture {
         AmsStateTestAccess::remove_motion_sensor_observer(ams);
         FilamentSensorManagerTestAccess::reset(fsm);
         ams.set_source_override(0);
+        print(PrintJobState::STANDBY);
         AmsStateTestAccess::sync_clog_meter(ams, AmsSystemInfo{});
         get_printer_state().set_hardware(saved_discovery);
         helix::ui::UpdateQueue::instance().drain();
@@ -159,6 +161,12 @@ struct MotionSensorFixture : LVGLTestFixture {
     /// The meter's observer is deferred through the UpdateQueue.
     static void settle() {
         helix::ui::UpdateQueue::instance().drain();
+    }
+
+    /// Drive the print the way Moonraker does; the meter re-evaluates on its own.
+    static void print(PrintJobState state) {
+        helix::test::set_wire_state(get_printer_state(), state);
+        settle();
     }
 
     void feed(const nlohmann::json& frame) {
@@ -176,6 +184,7 @@ struct MotionSensorFixture : LVGLTestFixture {
 TEST_CASE_METHOD(MotionSensorFixture, "clog meter: a motion sensor is a state, not a gauge",
                  "[ams][clog][sources][motion][1823]") {
     discover({kEncoder});
+    print(PrintJobState::PRINTING);
 
     SECTION("armed and moving reads OK with an empty fill") {
         feed(motion_frame(kEncoder, true, true));
@@ -188,7 +197,7 @@ TEST_CASE_METHOD(MotionSensorFixture, "clog meter: a motion sensor is a state, n
         CHECK(text(ams.get_clog_meter_center_text_subject()).empty());
     }
 
-    SECTION("armed and not moving is a jam: warning, full fill") {
+    SECTION("armed and not moving while printing is a jam: warning, full fill") {
         feed(motion_frame(kEncoder, false, true));
         CHECK(mode(ams) == static_cast<int>(ClogMeterMode::Motion));
         CHECK(lv_subject_get_int(ams.get_clog_meter_value_subject()) ==
@@ -376,4 +385,52 @@ TEST_CASE_METHOD(MotionSensorFixture, "clog meter: which of several motion senso
         AmsStateTestAccess::sync_clog_meter(ams, info);
         CHECK(text(ams.get_clog_meter_mode_text_subject()) == "e0_filament");
     }
+}
+
+TEST_CASE_METHOD(MotionSensorFixture, "clog meter: no movement is a jam only while a print runs",
+                 "[ams][clog][sources][motion][1823]") {
+    discover({kEncoder});
+
+    SECTION("idle, an empty sensor reads OK") {
+        feed(motion_frame(kEncoder, false, true));
+        CHECK(status() == static_cast<int>(ClogMeterStatus::Ok));
+        CHECK(text(ams.get_clog_meter_center_text_subject()).empty());
+    }
+
+    SECTION("the print starting turns a stopped encoder into a jam, ending it clears it") {
+        feed(motion_frame(kEncoder, false, true));
+        REQUIRE(status() == static_cast<int>(ClogMeterStatus::Ok));
+        print(PrintJobState::PRINTING);
+        CHECK(status() == static_cast<int>(ClogMeterStatus::Fault));
+        print(PrintJobState::CANCELLED);
+        CHECK(status() == static_cast<int>(ClogMeterStatus::Ok));
+    }
+
+    SECTION("paused after the jam, it still reads Jammed") {
+        print(PrintJobState::PRINTING);
+        feed(motion_frame(kEncoder, false, true));
+        print(PrintJobState::PAUSED);
+        CHECK(status() == static_cast<int>(ClogMeterStatus::Fault));
+        CHECK(text(ams.get_clog_meter_center_text_subject()) == "Jammed");
+    }
+}
+
+TEST_CASE_METHOD(MotionSensorFixture,
+                 "clog meter: an idle Snapmaker U1 with an empty head reads OK",
+                 "[ams][clog][sources][motion][1823]") {
+    // The U1's head sensors stay visible in Settings, so they are a source; with
+    // no print, the empty head is not a jam.
+    constexpr const char* kHead0 = "filament_motion_sensor e0_filament";
+    constexpr const char* kHead1 = "filament_motion_sensor e1_filament";
+    get_printer_state().set_hardware(
+        discovery_of({"filament_detect", "extruder", "heater_bed", "gcode_move"}));
+    discover({kHead0, kHead1});
+    feed(motion_frame(kHead0, false, true));
+    feed(motion_frame(kHead1, true, true));
+    AmsSystemInfo info;
+    info.current_slot = 0;
+    AmsStateTestAccess::sync_clog_meter(ams, info);
+    CHECK(mode(ams) == static_cast<int>(ClogMeterMode::Motion));
+    CHECK(text(ams.get_clog_meter_mode_text_subject()) == "e0_filament");
+    CHECK(status() == static_cast<int>(ClogMeterStatus::Ok));
 }

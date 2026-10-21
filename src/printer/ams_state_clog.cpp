@@ -10,10 +10,13 @@
 
 #include "ams_state.h"
 #include "ams_state_internal.h"
+#include "app_globals.h"
 #include "clog_meter_geometry.h"
 #include "filament_sensor_manager.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
+#include "print_lifecycle_state.h"
+#include "printer_state.h"
 #include "text_io.h"
 
 #include <spdlog/spdlog.h>
@@ -51,7 +54,7 @@ struct ClogReading {
 /// has it. The motion sensor is not a pickable source: it stands in only on a
 /// printer with no detector the backend reports, whatever the override says.
 ClogReading detector_reading(const AmsSystemInfo& info, int source_override,
-                             const std::optional<ClogMotionSensor>& motion) {
+                             const std::optional<ClogMotionSensor>& motion, bool print_running) {
     // Every text slot below has exactly one job, and no slot repeats another:
     //   mode_text   what is measuring, and nothing else. It is drawn beside a
     //               15%-wide swatch in ams_loaded_card, where the column is
@@ -190,17 +193,15 @@ ClogReading detector_reading(const AmsSystemInfo& info, int source_override,
         const auto name = text_io::utf8_prefix(motion->sensor_name, sizeof(r.mode_text) - 1);
         snprintf(r.mode_text, sizeof(r.mode_text), "%.*s", static_cast<int>(name.size()),
                  name.data());
-        if (!motion->armed) {
-            r.value = helix::ui::kMotionDisarmedValue;
+        r.value =
+            helix::ui::motion_sensor_value(motion->armed, motion->filament_moving, print_running);
+        if (r.value == helix::ui::kMotionDisarmedValue) {
             snprintf(r.center, sizeof(r.center), "%s", lv_tr("Disarmed"));
-        } else if (!motion->filament_moving) {
-            r.value = helix::ui::kMotionJammedValue;
+        } else if (r.value == helix::ui::kMotionJammedValue) {
             r.warning = 1;
             snprintf(r.center, sizeof(r.center), "%s", lv_tr("Jammed"));
-        } else {
-            // Moving: the status glyph's check says it, so the centre stays empty.
-            r.value = helix::ui::kMotionMovingValue;
         }
+        // Moving: the status glyph's check says it, so the centre stays empty.
     }
 
     return r;
@@ -233,8 +234,11 @@ AmsState::ClogMeterSubjects AmsState::clog_meter_subjects() {
 
 void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
     const int active_lane = info.current_slot >= 0 ? info.current_slot : info.current_tool;
+    const bool print_running =
+        print_job_running(get_printer_state().print_state().get_print_lifecycle());
     ClogReading r = detector_reading(
-        info, source_override_, FilamentSensorManager::instance().clog_motion_sensor(active_lane));
+        info, source_override_, FilamentSensorManager::instance().clog_motion_sensor(active_lane),
+        print_running);
     if (danger_threshold_override_ > 0 && !helix::ui::clog_meter_is_state(r.mode)) {
         r.danger_pct = danger_threshold_override_;
     }
@@ -256,6 +260,15 @@ void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
 void AmsState::resync_clog_meter() {
     auto* backend = get_backend();
     sync_clog_meter_from_info(backend ? backend->get_system_info() : AmsSystemInfo{});
+}
+
+void AmsState::install_print_lifecycle_observer() {
+    print_lifecycle_observer_.reset();
+    auto& print = get_printer_state().print_state();
+    print_lifecycle_observer_ = helix::ui::observe<int>(
+        print.get_print_lifecycle_subject(), this,
+        [](AmsState* self, int /*lifecycle*/) { self->resync_clog_meter(); },
+        print.get_static_subjects_lifetime());
 }
 
 void AmsState::install_motion_sensor_observer() {

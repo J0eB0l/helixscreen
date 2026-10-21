@@ -33,6 +33,12 @@ constexpr int kMotionMovingValue = 0;
 constexpr int kMotionJammedValue = 100;
 constexpr int kMotionDisarmedValue = -1;
 
+/// The kMotion*Value a filament motion sensor's reading lands on. Klipper reports
+/// `filament_detected` false whenever the encoder has not seen movement, but that
+/// is a jam only while a print runs: outside one there is nothing to move, and a
+/// sensor some backends run as a presence switch reads empty with an empty head.
+int motion_sensor_value(bool armed, bool filament_moving, bool print_running);
+
 /// Whether a mode reports a state rather than a measurement, so it has no
 /// danger band and no peak to draw.
 bool clog_meter_is_state(int mode);

@@ -2450,6 +2450,12 @@ class AmsState {
     /// Re-syncs the clog meter on FilamentSensorManager's motion signature.
     ObserverGuard motion_sensor_observer_;
 
+    /// Re-syncs the clog meter when a print starts or ends: a motion sensor's
+    /// empty reading is a jam only while one runs.
+    ObserverGuard print_lifecycle_observer_;
+    /// Wire (or rewire) print_lifecycle_observer_. Idempotent.
+    void install_print_lifecycle_observer();
+
     /// Re-sync the clog meter from the active backend's snapshot, or from an
     /// empty one when there is no backend.
     void resync_clog_meter();
