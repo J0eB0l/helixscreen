@@ -205,3 +205,50 @@ TEST_CASE("Toolchanger mount of the mounted tool finalizes on main through the r
     CHECK(trace.back().first == helix::AmsAction::IDLE);
     CHECK(trace.back().second == "AmsSubscriptionBackend::execute_gcode_complete");
 }
+
+using helix::ui::UpdateQueueTestAccess;
+
+TEST_CASE("Legacy execute_gcode completion runs in the queue pass after the answer",
+          "[ams][toolchanger][threading][1761]") {
+    MockPrinter printer;
+    LiveToolChanger backend(printer);
+    Witness w;
+
+    REQUIRE(backend.execute_gcode("M400", w.on_complete()).success());
+    CHECK(UpdateQueueTestAccess::passes_until([&] { return w.ran; }) == 1);
+}
+
+TEST_CASE("ensure_homed_then with a state-only error leg completes in the answer's queue pass",
+          "[ams][toolchanger][threading][1761]") {
+    MockPrinter printer;
+    LiveToolChanger backend(printer);
+    Witness complete;
+    Witness error;
+
+    // An on_error that only unwinds state, at the standard timeout: the shape
+    // dispatch_payload sends through the 4-arg execute_gcode virtual.
+    REQUIRE(backend
+                .ensure_homed_then("M400", complete.on_complete(), error.on_error(),
+                                   helix::IMoonrakerAPI::kAmsOperationTimeoutMs,
+                                   /*skip_homing=*/false,
+                                   /*silent=*/true, /*caller_surfaces_errors=*/false)
+                .success());
+    CHECK(UpdateQueueTestAccess::passes_until([&] { return complete.ran; }) == 1);
+    CHECK(complete.ran_from == "AmsSubscriptionBackend::execute_gcode_complete");
+    CHECK_FALSE(error.ran);
+}
+
+TEST_CASE("Toolchanger mount-to-feed sends the next stage in the queue pass after an ack",
+          "[ams][toolchanger][mount_feed][threading][1761]") {
+    MockPrinter printer;
+    LiveToolChanger backend(printer);
+    backend.set_mounts_to_feed(true);
+    backend.seat_tool(0);
+    printer.client.clear_gcode_script_history();
+
+    REQUIRE(backend.load_filament(2).success());
+    const size_t first_stage = printer.client.gcode_script_history().size();
+    REQUIRE(first_stage >= 1);
+    CHECK(UpdateQueueTestAccess::passes_until(
+              [&] { return printer.client.gcode_script_history().size() > first_stage; }) == 1);
+}

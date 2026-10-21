@@ -21,8 +21,10 @@
 #include "settings_manager.h"
 #include "test_helpers/afc_test_access.h"
 #include "test_helpers/backend_user_edit.h"
+#include "test_helpers/mock_printer.h"
 #include "test_helpers/registered_backend.h"
 #include "test_helpers/seeded_override.h"
+#include "test_helpers/update_queue_test_access.h"
 
 #include <algorithm>
 #include <chrono>
@@ -7870,6 +7872,43 @@ TEST_CASE("AFC no-op load resolves on the macro ack", "[ams][afc][dispatch][1183
     // this started. The busy leg is the load-bearing half.
     REQUIRE(trace_contains(h.trace(), AmsAction::LOADING));
     REQUIRE(h.trace().back() == AmsAction::IDLE);
+}
+
+namespace helix {
+/// AFC against a real MoonrakerAPI over the mock client, with no execute_gcode
+/// override, so the macro ack reaches dispatch_operation through the base
+/// class's own single defer.
+class AfcLiveDispatchHelper : public AmsBackendAfc {
+  public:
+    MockPrinter printer;
+
+    AfcLiveDispatchHelper() : AmsBackendAfc(nullptr, nullptr) {
+        api_ = &printer.api;
+        std::vector<std::string> lanes{"lane1", "lane2", "lane3", "lane4"};
+        AfcTestAccess::initialize_slots(*this, lanes);
+        for (int i = 0; i < 4; ++i) {
+            if (auto* entry = AfcTestAccess::slots(*this).get_mut(i))
+                entry->info.status = SlotStatus::AVAILABLE;
+        }
+        running_ = true;
+    }
+    ~AfcLiveDispatchHelper() override {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+    bool toolhead_homed() const override {
+        return true;
+    }
+};
+} // namespace helix
+
+TEST_CASE("AFC dispatch resolves in the queue pass after the macro ack",
+          "[ams][afc][dispatch][threading][1761]") {
+    AfcLiveDispatchHelper h;
+
+    REQUIRE(h.load_filament(2).success());
+    REQUIRE(h.get_current_action() == AmsAction::LOADING);
+    CHECK(helix::ui::UpdateQueueTestAccess::passes_until(
+              [&] { return h.get_current_action() == AmsAction::IDLE; }) == 1);
 }
 
 TEST_CASE("AFC unload and tool change dispatch their own actions", "[ams][afc][dispatch][1183]") {

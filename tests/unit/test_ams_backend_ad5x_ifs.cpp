@@ -9,6 +9,7 @@
 #include "../test_helpers/mock_printer.h"
 #include "../test_helpers/print_state_test_drivers.h"
 #include "../test_helpers/unique_temp_dir.h"
+#include "../test_helpers/update_queue_test_access.h"
 #include "../ui_test_utils.h"
 #include "ams_backend_ad5x_ifs.h"
 #include "ams_backend_afc.h"
@@ -7780,6 +7781,48 @@ TEST_CASE("AD5X IFS load finalizes to IDLE on the macro completion ack (raza616 
     Ad5xIfsTestAccess::finalize_op_after_macro(backend, /*is_unload=*/true); // wrong direction
     REQUIRE(Ad5xIfsTestAccess::phase_active(backend));                       // still in flight
     REQUIRE(backend.get_system_info().action != AmsAction::IDLE);
+}
+
+namespace {
+/// AD5X IFS against a real MoonrakerAPI over the mock client, with no
+/// execute_gcode override, so the macro ack reaches the op through the base
+/// class's own single defer.
+class LiveAckAd5xIfsBackend : public AmsBackendAd5xIfs {
+  public:
+    MockPrinter printer;
+
+    LiveAckAd5xIfsBackend() : AmsBackendAd5xIfs(nullptr, nullptr) {
+        api_ = &printer.api;
+        Ad5xIfsTestAccess::set_running(*this, true);
+        Ad5xIfsTestAccess::set_zcolor_supported(*this, false);
+    }
+    ~LiveAckAd5xIfsBackend() override {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+    bool toolhead_homed() const override {
+        return true;
+    }
+};
+} // namespace
+
+TEST_CASE("AD5X IFS load and unload finalize in the queue pass after the macro ack",
+          "[ams][ad5x_ifs][threading][1761]") {
+    using helix::ui::UpdateQueueTestAccess;
+    LiveAckAd5xIfsBackend backend;
+    auto idle = [&] { return backend.get_system_info().action == AmsAction::IDLE; };
+
+    SECTION("load") {
+        REQUIRE(backend.load_filament(2).success());
+        REQUIRE_FALSE(idle());
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
+    SECTION("unload") {
+        Ad5xIfsTestAccess::set_current_slot(backend, 0, /*filament_loaded=*/true);
+        Ad5xIfsTestAccess::set_head_filament(backend, true);
+        REQUIRE(backend.unload_filament(0).success());
+        REQUIRE_FALSE(idle());
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
 }
 
 namespace {

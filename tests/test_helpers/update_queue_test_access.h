@@ -6,6 +6,7 @@
 
 #include "lvgl/src/misc/lv_timer_private.h"
 
+#include <utility>
 #include <vector>
 
 namespace helix::ui {
@@ -87,6 +88,31 @@ class UpdateQueueTestAccess {
     /// is a floor on how often the whole loop wakes up.
     static uint32_t timer_period(UpdateQueue& q) {
         return q.timer_ != nullptr ? q.timer_->period : 0;
+    }
+
+    /// Run single process_pending() passes until @p done holds, and return how
+    /// many it took: 0 when it already held, max_passes + 1 when it never did.
+    ///
+    /// Work queued from inside a pass runs on the NEXT pass, so this counts
+    /// queue hops. A gcode answer that lands with its completion already
+    /// deferred once must hold after exactly one pass; a second defer stacked
+    /// on top costs a pass that drain_all() hides.
+    template <typename Done>
+    static int passes_until(UpdateQueue& q, Done&& done, int max_passes = 10) {
+        for (int pass = 0; pass <= max_passes; ++pass) {
+            if (done()) {
+                return pass;
+            }
+            if (pass < max_passes) {
+                q.process_pending();
+            }
+        }
+        return max_passes + 1;
+    }
+
+    /// passes_until() on the process-wide queue.
+    template <typename Done> static int passes_until(Done&& done, int max_passes = 10) {
+        return passes_until(UpdateQueue::instance(), std::forward<Done>(done), max_passes);
     }
 
     /// Drain repeatedly until the queue is fully empty (handles nested queue_update calls)
