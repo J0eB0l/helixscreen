@@ -4,8 +4,11 @@
 // the run on the section's status line, and offers the save a calibration
 // needs only when the calibration answered success.
 
+#include "ui_ams_device_section_detail_overlay.h"
 #include "ui_guided_device_flow.h"
 #include "ui_modal.h"
+#include "ui_nav_manager.h"
+#include "ui_utils.h"
 
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/gcode_recording_api.h"
@@ -323,5 +326,40 @@ TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: the running line survives the sec
     settle();
     CHECK(phase() == 2);
     test::answer_top_modal("btn_secondary"); // the save offer: Later
+    settle();
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: the running line shows while the section is open",
+                 "[indx][flows]") {
+    // The real section overlay, rebuilt on every flow state change. AmsState's
+    // subjects are initialized in place: deinit_subjects() would clear the
+    // backends, freeing the one the fixture registered.
+    ui::destroy_static_panels();
+    settle();
+    auto& ams = AmsState::instance();
+    ams.init_subjects(true);
+    ams.sync_from_backend();
+    auto& overlay = ui::get_ams_device_section_detail_overlay();
+    overlay.init_subjects();
+    overlay.show(test_screen(), "calibration", "Calibration");
+    settle();
+
+    api.hold_acks = true;
+    start("indx_heater_calibration");
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("INDX_CALIBRATE"));
+    CHECK(phase() == 1);
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("Calibrating"));
+
+    api.ack_held();
+    settle();
+    CHECK(phase() == 2);
+    test::answer_top_modal("btn_secondary");
+    settle();
+
+    NavigationManager::instance().go_back();
+    settle();
+    ui::destroy_static_panels();
     settle();
 }
