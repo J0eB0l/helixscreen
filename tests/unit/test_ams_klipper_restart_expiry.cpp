@@ -133,6 +133,28 @@ TEST_CASE_METHOD(KlipperRestartFixture, "The first READY after start is a connec
     CHECK(backend->restarts == 1);
 }
 
+TEST_CASE_METHOD(KlipperRestartFixture, "A deinit and re-init leave exactly one restart observer",
+                 "[ams][klipper_restart_expiry]") {
+    // The printer-switch cycle. Klipper is READY and the observer has seen it.
+    AmsState::instance().deinit_subjects();
+
+    // Deinitialized: a restart edge reaches nothing.
+    auto first = std::make_unique<RestartRecordingBackend>();
+    auto* stale = first.get();
+    AmsState::instance().set_backend(std::move(first));
+    restart_klipper();
+    CHECK(stale->restarts == 0);
+
+    AmsState::instance().init_subjects(true);
+    settle();
+    auto second = std::make_unique<RestartRecordingBackend>();
+    auto* backend = second.get();
+    AmsState::instance().set_backend(std::move(second));
+
+    restart_klipper();
+    CHECK(backend->restarts == 1);
+}
+
 TEST_CASE_METHOD(KlipperRestartFixture, "A U1 operation latched busy ends with a Klipper restart",
                  "[ams][snapmaker][klipper_restart_expiry]") {
     auto owned = std::make_unique<helix::AmsBackendSnapmaker>(nullptr, nullptr);
