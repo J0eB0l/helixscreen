@@ -126,11 +126,16 @@ void run_tracked(const char* action_id, const std::string& running_text,
         NOTIFY_WARNING("{}", lv_tr("Wait for the running INDX operation to finish"));
         return;
     }
-    set_flow_state(running_text, kPhaseRunning);
     const AmsError err = backend->run_device_action(action_id, {}, std::move(on_done));
     if (!err.success()) {
-        set_flow_state("", kPhaseIdle);
         notify_ams_error(err);
+        return;
+    }
+    // Sent first, shown second: the running line is judged against the
+    // backend's own in-flight state, which the send sets. An answer that
+    // already arrived has written its result.
+    if (backend->device_action_running()) {
+        set_flow_state(running_text, kPhaseRunning);
     }
 }
 

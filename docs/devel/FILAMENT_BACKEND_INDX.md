@@ -152,7 +152,8 @@ The flows live in `src/ui/ui_indx_device_flows.cpp`: each asks first, then runs 
 `run_device_action()` and keeps one status line under the section's buttons
 (`ui_xml/components/indx_flow_status.xml`) from "Calibrating..." to the result. A calibration
 that succeeds offers **Save & Restart** / **Later**; one that times out says the printer may
-still be calibrating and offers no save.
+still be calibrating and offers no save. A dropped connection reads the same way and clears the
+backend's busy state, though Klipper may still be calibrating.
 
 The Tool Offsets entry (Controls calibration tile, Advanced row, printer manager chip) opens
 the seat-by-hand flow on an INDX with `MANUAL_TOOL_SEAT`

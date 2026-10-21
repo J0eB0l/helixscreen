@@ -276,3 +276,52 @@ TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: Save & Restart refuses under a pr
     CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("not saved"));
     helix::test::set_wire_state(get_printer_state(), helix::PrintJobState::STANDBY);
 }
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: the running line survives the section rebuild",
+                 "[indx][flows]") {
+    // An open section rebuilds on every flow state change, and each rebuild
+    // re-attaches the status line, which is where a running phase is judged.
+    // Stand in for that rebuild: attach on every phase change.
+    const ui::GuidedDeviceFlow* flow = ui::find_guided_device_flow("indx_heater_calibration");
+    REQUIRE(flow != nullptr);
+    REQUIRE(flow->attach_status);
+    lv_obj_t* container = lv_obj_create(test_screen());
+    flow->attach_status(container); // also creates the flow's subjects
+    struct Rebuild {
+        const ui::GuidedDeviceFlow* flow;
+        lv_obj_t* container;
+        lv_observer_t* observer = nullptr;
+        ~Rebuild() {
+            if (observer) {
+                lv_observer_remove(observer);
+            }
+            lv_obj_delete(container);
+        }
+    } rebuild{flow, container};
+    lv_subject_t* phase_subject = lv_xml_get_subject(nullptr, "indx_flow_phase");
+    REQUIRE(phase_subject != nullptr);
+    rebuild.observer = lv_subject_add_observer(
+        phase_subject,
+        [](lv_observer_t* o, lv_subject_t*) {
+            // The line already exists, so this attaches nothing: deleting
+            // widgets bound to the subject mid-notification is not safe, and
+            // the judgment of the running phase is what is under test.
+            auto* r = static_cast<Rebuild*>(lv_observer_get_user_data(o));
+            r->flow->attach_status(r->container);
+        },
+        &rebuild);
+
+    api.hold_acks = true;
+    start("indx_heater_calibration");
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("INDX_CALIBRATE"));
+    CHECK(phase() == 1);
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("Calibrating"));
+
+    api.ack_held();
+    settle();
+    CHECK(phase() == 2);
+    test::answer_top_modal("btn_secondary"); // the save offer: Later
+    settle();
+}
