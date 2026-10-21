@@ -101,6 +101,14 @@ void download_include_graph(std::vector<std::string> listing, const std::string&
                             ErrorCallback on_error,
                             size_t max_in_flight = kMaxConfigDownloadsInFlight, int max_depth = 5);
 
+/// Lists the "config" root through @p api, then download_include_graph() from
+/// @p root_file over every listed file whose name ends in @p suffix ("" keeps
+/// every file).
+void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_file,
+                                   const std::string& suffix,
+                                   ActiveFilesWithContentCallback on_complete,
+                                   ErrorCallback on_error);
+
 /// Async wrapper: lists config directory via Moonraker, downloads printer.cfg and
 /// all included files, then resolves the active file set.
 /// Handles glob includes by cross-referencing the full file listing — the

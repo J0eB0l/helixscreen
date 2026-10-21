@@ -41,7 +41,7 @@ setup() {
 
     local bats_traps
     bats_traps="$(trap -p EXIT INT TERM HUP)"
-    for m in common logo host_profile platform permissions requirements competing_uis desktop release service moonraker kiauh printer_seed plan uninstall main; do
+    for m in common logo host_profile platform permissions requirements competing_uis desktop release service helix_print_conf moonraker kiauh printer_seed plan uninstall main; do
         . "$LIB/$m.sh"
     done
     trap - ERR EXIT INT TERM HUP

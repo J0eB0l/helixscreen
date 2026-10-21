@@ -3172,7 +3172,11 @@ struct ChannelSyncFixture : public GlobalPrintStateFixture {
     }
 
     void seed(const std::string& conf) {
-        api.xfers_.set_config_files({{"moonraker.conf", conf}});
+        seed_files({{"moonraker.conf", conf}});
+    }
+    void seed_files(const std::map<std::string, std::string>& files) {
+        api.xfers_.set_config_files(files);
+        api.files_mock().set_config_files(files);
     }
     void set_app_channel(int channel, bool beta_features) {
         auto* config = Config::get_instance();
@@ -3240,6 +3244,32 @@ TEST_CASE_METHOD(ChannelSyncFixture, "Channel sync never writes without a stanza
     set_app_channel(1, true);
 
     CHECK(sync() == bare);
+    CHECK(api.xfers_.uploads == 0);
+    CHECK(api.restarts == 0);
+}
+
+TEST_CASE_METHOD(ChannelSyncFixture, "Channel sync rewrites a stanza moonraker.conf includes",
+                 "[update_checker][moonraker_channel][update_channel_sync]") {
+    const std::string root = "[server]\nhost: 0.0.0.0\n\n[include mainsail.conf]\n";
+    seed_files({{"moonraker.conf", root}, {"mainsail.conf", conf("stable")}});
+    set_app_channel(1, true);
+
+    CHECK(sync() == root);
+    CHECK(api.xfers_.get_uploaded_config("mainsail.conf") == conf("beta"));
+    CHECK(api.xfers_.uploads == 1);
+    CHECK(api.restarts == 1);
+}
+
+TEST_CASE_METHOD(ChannelSyncFixture, "Channel sync leaves another install's included stanza alone",
+                 "[update_checker][moonraker_channel][update_channel_sync]") {
+    const std::string root = "[include conf.d/*.conf]\n";
+    seed_files(
+        {{"moonraker.conf", root}, {"conf.d/helix.conf", conf("stable", "/home/pi/helixscreen")}});
+    set_app_channel(1, true);
+
+    CHECK(sync() == root);
+    CHECK(api.xfers_.get_uploaded_config("conf.d/helix.conf") ==
+          conf("stable", "/home/pi/helixscreen"));
     CHECK(api.xfers_.uploads == 0);
     CHECK(api.restarts == 0);
 }

@@ -696,6 +696,68 @@ setup_k2_moonraker() {
     [ ! -e "$restarted" ]
 }
 
+# moonraker.conf that keeps the web UIs' updater stanzas in an included
+# mainsail.conf, the HelixScreen one among them. Sets INCLUDED_CONF.
+create_moonraker_conf_including_helix() {
+    local conf="$1"
+    INCLUDED_CONF="$(dirname "$conf")/mainsail.conf"
+    printf '[server]\nhost: 0.0.0.0\n\n[include mainsail.conf]\n' > "$conf"
+    printf '[update_manager helixscreen]\ntype: web\nchannel: stable\nrepo: prestonbrown/helixscreen\npath: %s\n' \
+        "$INSTALL_DIR" > "$INCLUDED_CONF"
+}
+
+@test "configure_moonraker_updates syncs the channel of a stanza moonraker.conf includes" {
+    local conf restarted="$BATS_TEST_TMPDIR/restarted"
+    conf=$(setup_moonraker_home)
+    create_moonraker_conf_including_helix "$conf"
+    MOONRAKER_CONF_PATHS="$conf"
+    rm -f "$INSTALL_DIR/bin/helix-screen"
+    restart_moonraker() { touch "$restarted"; }
+    R2_CHANNEL=beta
+
+    configure_moonraker_updates "pi"
+
+    grep -qx 'channel: beta' "$INCLUDED_CONF"
+    # No second stanza for Moonraker to merge.
+    refute_grep '^\[update_manager helixscreen\]' "$conf"
+    [ -f "$restarted" ]
+}
+
+@test "configure_moonraker_updates finds a stanza through a glob include" {
+    local conf conf_dir
+    conf=$(setup_moonraker_home)
+    conf_dir=$(dirname "$conf")
+    mkdir -p "$conf_dir/conf.d"
+    printf '[server]\n\n[include conf.d/*.conf]\n' > "$conf"
+    printf '[update_manager helixscreen]\ntype: web\nchannel: stable\npath: %s\n' \
+        "$INSTALL_DIR" > "$conf_dir/conf.d/helix.conf"
+    MOONRAKER_CONF_PATHS="$conf"
+    rm -f "$INSTALL_DIR/bin/helix-screen"
+    restart_moonraker() { :; }
+    R2_CHANNEL=beta
+
+    configure_moonraker_updates "pi"
+
+    grep -qx 'channel: beta' "$conf_dir/conf.d/helix.conf"
+    refute_grep '^\[update_manager helixscreen\]' "$conf"
+}
+
+@test "configure_moonraker_updates: unsupported removes a stanza moonraker.conf includes" {
+    local conf
+    conf=$(setup_moonraker_home)
+    create_moonraker_conf_including_helix "$conf"
+    MOONRAKER_CONF_PATHS="$conf"
+    rm -f "$INSTALL_DIR/bin/helix-screen"
+    fake_moonraker_src "zip_deploy.py" "class ZipDeploy(AppDeploy): pass" >/dev/null
+    mock_command_script "systemctl" 'exit 0'
+    restart_moonraker() { :; }
+
+    configure_moonraker_updates "pi"
+
+    refute_grep '^\[update_manager helixscreen\]' "$INCLUDED_CONF"
+    grep -q '^\[include mainsail.conf\]' "$conf"
+}
+
 # =============================================================================
 # migrate_to_web_type
 # =============================================================================

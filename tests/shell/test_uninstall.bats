@@ -311,6 +311,23 @@ CONF
     grep -q '\[server\]' "$conf"
 }
 
+@test "remove_update_manager_section cleans a stanza moonraker.conf includes" {
+    local conf="$BATS_TEST_TMPDIR/moonraker.conf"
+    local included="$BATS_TEST_TMPDIR/mainsail.conf"
+    printf '[server]\nhost: 0.0.0.0\n\n[include mainsail.conf]\n' > "$conf"
+    printf '[update_manager mainsail]\ntype: web\n\n[update_manager helixscreen]\ntype: web\npath: /opt/helixscreen\n' \
+        > "$included"
+
+    KLIPPER_HOME=""
+    MOONRAKER_CONF_PATHS="$conf"
+
+    remove_update_manager_section
+
+    refute grep -q 'update_manager helixscreen' "$included"
+    grep -q 'update_manager mainsail' "$included"
+    grep -q '^\[include mainsail.conf\]' "$conf"
+}
+
 @test "remove_update_manager_section handles no moonraker.conf" {
     KLIPPER_HOME=""
     MOONRAKER_CONF_PATHS="/nonexistent/moonraker.conf"
