@@ -537,4 +537,30 @@ TEST_CASE_METHOD(LVGLTestFixture, "a plugin's image icons live while it is loade
     CHECK_FALSE(helix::ui::icon::image_icon_available("icon-demo__oil"));
 }
 
+TEST_CASE_METHOD(LVGLTestFixture, "a loaded plugin fills its plugin_table from Lua",
+                 "[plugin][host][lua_bindings_table]") {
+    TempDir tmp;
+    const auto root = tmp.path / "table-demo";
+    std::filesystem::create_directories(root / "ui");
+    std::ofstream(root / "manifest.json")
+        << R"({"id":"table-demo","name":"Tables","version":"1.0.0"})";
+    std::ofstream(root / "ui" / "table-demo__list.xml")
+        << R"(<component><view extends="lv_obj"><plugin_table name="table-demo__t"/></view></component>)";
+    std::ofstream(root / "main.lua")
+        << "helix.ui.table('t', {columns = {{title = 'Task'}}}):set_rows({{key = 'k', 'Belts'}})\n";
+    HostRig rig(enabled("table-demo", {}));
+    rig.host->load_from(tmp.path.string());
+    REQUIRE(rig.info("table-demo"));
+    REQUIRE(rig.info("table-demo")->status == PluginStatus::Loaded);
+    // The host registers the element: the plugin's own component builds an lv_table.
+    auto* view = static_cast<lv_obj_t*>(lv_xml_create(test_screen(), "table-demo__list", nullptr));
+    REQUIRE(view);
+    lv_obj_t* table = lv_obj_find_by_name(view, "table-demo__t");
+    REQUIRE(table);
+    REQUIRE(lv_obj_check_type(table, &lv_table_class));
+    CHECK(lv_table_get_row_count(table) == 2);
+    CHECK(std::string(lv_table_get_cell_value(table, 1, 0)) == "Belts");
+    lv_obj_delete(view);
+}
+
 #endif // HELIX_HAS_PLUGINS

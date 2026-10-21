@@ -347,6 +347,12 @@ TEST_CASE("breakpoint subjects are readable in conditional binds only", "[plugin
             .empty());
 }
 
+TEST_CASE("plugin XML may use plugin_table under an owned name", "[plugin][xml_policy]") {
+    CHECK(check_plugin_xml("ab", {}, view_with(R"(<plugin_table name="ab__tasks" flex_grow="1"/>)"))
+              .empty());
+    CHECK_FALSE(check_plugin_xml("ab", {}, view_with(R"(<plugin_table name="tasks"/>)")).empty());
+}
+
 TEST_CASE("plugin XML draws only its own image icons", "[plugin][xml_policy][icons]") {
     CHECK(check_plugin_xml("ab", {}, view_with(R"(<icon src="ab__oil" size="lg"/>)")).empty());
     CHECK(check_plugin_xml("ab", {}, view_with(R"(<icon src="water"/>)")).empty());

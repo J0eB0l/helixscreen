@@ -7,6 +7,7 @@
 #include "../test_helpers/log_capture.h"
 #include "../test_helpers/plugin_test_support.h"
 #include "lua_bindings.h"
+#include "plugin_host.h"
 #include "plugin_table.h"
 #include "theme_manager.h"
 
@@ -25,7 +26,8 @@ std::vector<Installer> table_installers() {
 }
 
 lv_obj_t* make_table(lv_obj_t* parent, const char* name) {
-    register_plugin_table_widget();
+    // The host's one-time registration, so the element exists exactly as the app adds it.
+    register_plugin_event_callback();
     const char* attrs[] = {"name", name, "width", "400", "height", "300", nullptr};
     auto* t = static_cast<lv_obj_t*>(lv_xml_create(parent, "plugin_table", attrs));
     REQUIRE(t);
