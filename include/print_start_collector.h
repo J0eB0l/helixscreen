@@ -769,6 +769,10 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     // progress and per-probe time extrapolation for ETA.
     int mesh_probe_current_ = 0;
     int mesh_probe_total_ = 0;
+    /// Grid size from Klipper's "Adapted probe count" line. It can arrive just
+    /// before BED_MESH is entered, so it outlives the entry reset and seeds
+    /// mesh_probe_total_ there; cleared when the mesh phase ends.
+    int mesh_adapted_total_ = 0;
     helix::sim::SimulatedClock::time_point mesh_first_probe_time_;
     helix::sim::SimulatedClock::time_point mesh_last_probe_time_;
     float mesh_seconds_per_probe_ = 0.0f; ///< Running average from observed probe intervals
