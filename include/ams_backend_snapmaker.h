@@ -1237,6 +1237,11 @@ class AmsBackendSnapmaker : public AmsSubscriptionBackend {
     /// state an unload starts from. Under mutex_.
     std::array<bool, kNumTools> unload_in_flight_{};
 
+    /// Per channel: an op outcome channel_action_state reported while the
+    /// channel still showed a step under way, applied when it settles. Under
+    /// mutex_.
+    std::array<std::string, kNumTools> held_op_outcome_{};
+
     /// Layer a configured FilamentSlotOverride for `slot_index` over `slot`,
     /// mutating `slot` in place. Override wins for every non-default field.
     /// Callers must hold mutex_. Called from the tail of handle_status
