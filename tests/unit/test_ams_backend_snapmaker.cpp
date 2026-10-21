@@ -1167,6 +1167,75 @@ TEST_CASE_METHOD(SnapmakerFixture,
     CHECK(backend.get_system_info().action == AmsAction::UNLOADING);
 }
 
+TEST_CASE_METHOD(SnapmakerFixture,
+                 "Snapmaker an outcome that arrives before the channel settles ends the op",
+                 "[ams][snapmaker][unload][action_state]") {
+    helix::test::RegisteredBackend<AmsBackendSnapmaker> backend_reg(nullptr, nullptr);
+    AmsBackendSnapmaker& backend = *backend_reg;
+    SnapmakerTestAccess::set_current_slot(backend, 3);
+    SnapmakerTestAccess::set_current_tool(backend, 3);
+
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "unload_doing", "unload_doing"));
+    REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+    REQUIRE_FALSE(AmsState::instance().was_slot_recently_unloaded(3));
+
+    SECTION("a finish") {
+        SnapmakerTestAccess::handle_status(backend,
+                                           feed_with_action(3, "unload_doing", "unload_finish"));
+        REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+        // The settling frame omits the unchanged channel_action_state.
+        SnapmakerTestAccess::handle_status(backend,
+                                           make_feed_status(3, "wait_insert", /*detected=*/false));
+        CHECK(backend.get_system_info().action == AmsAction::IDLE);
+        CHECK(AmsState::instance().was_slot_recently_unloaded(3));
+    }
+    SECTION("a failure") {
+        SnapmakerTestAccess::handle_status(backend,
+                                           feed_with_action(3, "unload_doing", "unload_fail"));
+        REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+        SnapmakerTestAccess::handle_status(backend, make_feed_status(3, "wait_insert"));
+        CHECK(backend.get_system_info().action == AmsAction::ERROR);
+    }
+}
+
+TEST_CASE_METHOD(SnapmakerFixture,
+                 "Snapmaker a channel that settles before its outcome arrives ends on the outcome",
+                 "[ams][snapmaker][unload][action_state]") {
+    helix::test::RegisteredBackend<AmsBackendSnapmaker> backend_reg(nullptr, nullptr);
+    AmsBackendSnapmaker& backend = *backend_reg;
+
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "unload_doing", "unload_doing"));
+    REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+
+    SnapmakerTestAccess::handle_status(backend, make_feed_status(3, "wait_insert", false));
+    REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "wait_insert", "unload_finish", false));
+    CHECK(backend.get_system_info().action == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker a held outcome is dropped when a new op starts",
+                 "[ams][snapmaker][action_state]") {
+    helix::test::RegisteredBackend<AmsBackendSnapmaker> backend_reg(nullptr, nullptr);
+    AmsBackendSnapmaker& backend = *backend_reg;
+
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "unload_doing", "unload_doing"));
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "unload_doing", "unload_finish"));
+    REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "load_prepare", "load_prepare"));
+    REQUIRE(backend.get_system_info().action == AmsAction::LOADING);
+
+    SnapmakerTestAccess::handle_status(backend, make_feed_status(3, "wait_insert"));
+    CHECK(backend.get_system_info().action == AmsAction::LOADING);
+}
+
 // get_slot_filament_segment — on the U1's PARALLEL multi-toolhead topology
 // every tool loaded to its own dedicated nozzle renders all the way into the
 // toolhead (NOZZLE); multiple tools can be loaded at once, each to its own
