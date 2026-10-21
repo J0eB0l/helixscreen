@@ -223,7 +223,7 @@ namespace helix::sim {
  *
  * The variable is comma-separated `name:state` pairs keyed on the sensor's short
  * name; `state` is `detected` (the default), `empty`, or `disabled` (stood down in
- * Klipper, `enabled: false`). Both the initial subscription and objects.query
+ * Klipper, `enabled: false`). Both the initial status frame and printer.objects.subscribe
  * answer from this, so the two cannot disagree.
  */
 struct MockFilamentSensorEnvState {
