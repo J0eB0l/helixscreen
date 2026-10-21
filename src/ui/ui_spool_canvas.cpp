@@ -14,6 +14,7 @@
 #include "lv_draw_buf_guard.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/cache/instance/lv_image_cache.h" // not in the lvgl.h umbrella
+#include "spool_vents.h"
 #include "theme_manager.h"
 #include "ui/ams_drawing_utils.h"
 
@@ -23,6 +24,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <list>
 #include <memory>
 #include <unordered_map>
@@ -37,6 +39,16 @@
 static constexpr float kHubRadius = 0.10f; // Center hub hole radius
 static constexpr int32_t kDefaultSize = 64;
 static constexpr uint32_t kDefaultColor = 0xE0E0E0; // Default white/light filament
+
+// Vents in the front flange (spool_vents.h). Seen through a slot, wound
+// filament is in the flange's shadow, and an empty spool's far flange darker
+// still. The lip is the flange's thickness catching shade along each cut's top.
+static constexpr uint8_t kVentFilamentShadeTop = 30;
+static constexpr uint8_t kVentFilamentShadeBottom = 110;
+static constexpr uint8_t kVentInsideShadeTop = 20;
+static constexpr uint8_t kVentInsideShadeBottom = 50;
+static constexpr float kVentLipFraction = 3.0f / 240.0f; // 3 px on a 240 px spool
+static constexpr lv_opa_t kVentLipShade = 115;           // 45% toward black
 
 // Current-spool glow layer, grown from the spool's silhouette. Capable
 // hardware gets a soft halo and a tight rim; reduced effects a solid outline.
@@ -312,6 +324,52 @@ static void draw_gradient_ellipse(SpoolLayer* layer, int32_t cx, int32_t cy, int
             fill_dsc.opa = LV_OPA_COVER;
             lv_area_t line_area = {cx - x_inner, cy + y, cx + x_inner, cy + y};
             spool_fill(layer, &fill_dsc, &line_area);
+        }
+    }
+}
+
+// The vents' see-through colour shades from @p top at the flange's top to
+// @p bottom at its foot, the way the flange itself does.
+namespace {
+struct VentBacking {
+    lv_color_t top;
+    lv_color_t bottom;
+};
+} // namespace
+
+// Cut @p face's vents into what is already drawn: each open pixel shows
+// @p inside(x, y) (what lies behind the flange there), with a darker lip along
+// each cut's upper edge where the flange's thickness shades it.
+static void paint_vents(SpoolLayer* layer, const helix::ui::SpoolVentFace& face,
+                        const lv_area_t& bounds,
+                        const std::function<VentBacking(float face_radius)>& inside) {
+    if (face.detail == helix::ui::SpoolVentDetail::None)
+        return;
+    const lv_image_header_t& h = layer->buf->header;
+    const int32_t x1 = LV_MAX(bounds.x1, 0);
+    const int32_t x2 = LV_MIN(bounds.x2, static_cast<int32_t>(h.w) - 1);
+    const int32_t y1 = LV_MAX(bounds.y1, 0);
+    const int32_t y2 = LV_MIN(bounds.y2, static_cast<int32_t>(h.h) - 1);
+    const float height = static_cast<float>(LV_MAX(bounds.y2 - bounds.y1, 1));
+    const float lip = std::max(1.0f, face.size * kVentLipFraction);
+    for (int32_t y = y1; y <= y2; y++) {
+        auto* row = reinterpret_cast<lv_color32_t*>(layer->buf->data + y * h.stride);
+        const float py = static_cast<float>(y) + 0.5f;
+        const float t = static_cast<float>(y - bounds.y1) / height;
+        for (int32_t x = x1; x <= x2; x++) {
+            const float pxc = static_cast<float>(x) + 0.5f;
+            const float cover = helix::ui::spool_vent_coverage(face, pxc, py);
+            if (cover <= 0.0f)
+                continue;
+            const VentBacking back = inside(helix::ui::spool_vent_face_radius(face, pxc, py));
+            lv_color_t seen = ams_draw::blend_color(back.top, back.bottom, t);
+            if (helix::ui::spool_vent_coverage(face, pxc, py - lip) < 1.0f)
+                seen = lv_color_mix(lv_color_black(), seen, kVentLipShade);
+            const lv_color32_t fg =
+                lv_color_to_32(seen, static_cast<lv_opa_t>(cover * 255.0f + 0.5f));
+            const uint8_t alpha = row[x].alpha;
+            row[x] = lv_color_mix32(fg, row[x]);
+            row[x].alpha = alpha;
         }
     }
 }
@@ -698,6 +756,21 @@ static void render_spool_pixels(SpoolCanvasData* data) {
         lv_color_t edge_light = ams_draw::lighten_color(front_color, 100);
         lv_color_t edge_dark = ams_draw::darken_color(front_color, 40);
         draw_ellipse_left_edge(&layer, right_x, cy, flange_rx, flange_ry, edge_light, edge_dark, 2);
+
+        // Vents: the filament shows through where it is wound that far out,
+        // the dark far flange where it is not.
+        const helix::ui::SpoolVentFace face{static_cast<float>(right_x) + 0.5f,
+                                            static_cast<float>(cy) + 0.5f, static_cast<float>(size),
+                                            helix::ui::tray::kDepthSkew,
+                                            helix::ui::spool_vent_detail(size)};
+        const VentBacking wound{ams_draw::darken_color(filament_color, kVentFilamentShadeTop),
+                                ams_draw::darken_color(filament_color, kVentFilamentShadeBottom)};
+        const VentBacking hollow{ams_draw::darken_color(back_color, kVentInsideShadeTop),
+                                 ams_draw::darken_color(back_color, kVentInsideShadeBottom)};
+        const float wound_r = static_cast<float>(filament_ry);
+        paint_vents(&layer, face,
+                    {right_x - flange_rx, cy - flange_ry, right_x + flange_rx, cy + flange_ry},
+                    [&](float face_radius) { return face_radius <= wound_r ? wound : hollow; });
     }
 
     // ========================================
