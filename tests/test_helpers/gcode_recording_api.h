@@ -22,11 +22,12 @@ class GcodeRecordingApi : public MoonrakerAPIMock {
     using MoonrakerAPIMock::MoonrakerAPIMock;
 
     void execute_gcode(const std::string& gcode, SuccessCallback on_success, ErrorCallback on_error,
-                       uint32_t /*timeout_ms*/ = 0, bool /*silent*/ = false,
+                       uint32_t timeout_ms = 0, bool /*silent*/ = false,
                        SuccessCallback /*on_queued*/ = nullptr,
                        bool /*caller_surfaces_errors*/ = true,
                        bool /*bypass_busy_gate*/ = false) override {
         sent.push_back(gcode);
+        timeouts.push_back(timeout_ms);
         if (fail.count(gcode) != 0) {
             if (on_error) {
                 MoonrakerError err;
@@ -79,6 +80,8 @@ class GcodeRecordingApi : public MoonrakerAPIMock {
     bool hold_acks = false;
     std::vector<SuccessCallback> held_acks;
     std::vector<std::string> sent;
+    /// The timeout each send in `sent` asked for, in the same order.
+    std::vector<uint32_t> timeouts;
 };
 
 } // namespace helix::test

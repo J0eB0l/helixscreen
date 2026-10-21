@@ -14,14 +14,21 @@
  * - ACE/ToolChanger stub implementations
  */
 
+#include "../lvgl_test_fixture.h"
+#include "../test_helpers/print_state_test_drivers.h"
 #include "ams_backend_ace.h"
 #include "ams_backend_mock.h"
+#include "ams_backend_qidi.h"
 #include "ams_backend_toolchanger.h"
 #include "ams_device_action_value.h"
 #include "ams_types.h"
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
+#include "printer_state.h"
 
 #include <any>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -1009,4 +1016,103 @@ TEST_CASE("Mock backend device actions in tool changer mode",
     }
 
     backend.stop();
+}
+
+// =============================================================================
+// Tracked device actions and edit follow-ups (AmsSubscriptionBackend gate)
+// =============================================================================
+
+namespace {
+
+/// A subscription backend whose device actions and follow-up are fixed, so the
+/// base gate is what is tested. QIDI is only the concrete carrier.
+class GatedActionsBackend : public helix::AmsBackendQidi {
+  public:
+    using AmsBackendQidi::AmsBackendQidi;
+
+    std::vector<DeviceAction> get_device_actions() const override {
+        DeviceAction off = DeviceAction::button("off", "Off", "setup");
+        off.enabled = false;
+        off.disable_reason = "Nope";
+        return {DeviceAction::button("go", "Go", "setup"), off,
+                DeviceAction::button("move", "Move", "setup").with_machine_motion()};
+    }
+
+    int executed = 0;
+    int runs = 0;
+    int follow_ups = 0;
+
+  protected:
+    helix::AmsError do_execute_device_action(const std::string&, const std::any&) override {
+        ++executed;
+        return helix::AmsErrorHelper::success();
+    }
+    helix::AmsError do_run_device_action(const std::string& id, const std::any& value,
+                                         DeviceActionDone on_done) override {
+        ++runs;
+        return AmsBackendQidi::do_run_device_action(id, value, std::move(on_done));
+    }
+    helix::AmsError do_run_edit_follow_up(int, const helix::SlotInfo&) override {
+        ++follow_ups;
+        return helix::AmsErrorHelper::success();
+    }
+};
+
+struct GatedActionsFixture : public LVGLTestFixture {
+    GatedActionsFixture() : mock_client(MoonrakerClientMock::PrinterType::VORON_24) {
+        state.init_subjects(false);
+        api = std::make_unique<MoonrakerAPIMock>(mock_client, state);
+        backend = std::make_unique<GatedActionsBackend>(api.get(), &mock_client);
+    }
+
+    MoonrakerClientMock mock_client;
+    helix::PrinterState state;
+    std::unique_ptr<MoonrakerAPIMock> api;
+    std::unique_ptr<GatedActionsBackend> backend;
+};
+
+} // namespace
+
+TEST_CASE_METHOD(GatedActionsFixture, "run_device_action shares execute_device_action's gate",
+                 "[ams][device_actions]") {
+    int done = 0;
+    helix::AmsError last;
+    auto on_done = [&](const helix::AmsError& r) {
+        ++done;
+        last = r;
+    };
+
+    CHECK_FALSE(backend->run_device_action("unlisted", {}, on_done).success());
+    CHECK(done == 0);
+    CHECK(backend->runs == 0);
+
+    auto off = backend->run_device_action("off", {}, on_done);
+    CHECK(off.result == helix::AmsResult::WRONG_STATE);
+    CHECK(done == 0);
+    CHECK(backend->runs == 0);
+
+    CHECK(backend->run_device_action("go", {}, on_done).success());
+    CHECK(backend->runs == 1);
+    CHECK(backend->executed == 1);
+    CHECK(done == 1);
+    CHECK(last.success());
+
+    helix::test::set_wire_state(state, helix::PrintJobState::PRINTING);
+    CHECK_FALSE(backend->run_device_action("move", {}, on_done).success());
+    CHECK(backend->runs == 1);
+    CHECK(done == 1);
+}
+
+TEST_CASE_METHOD(GatedActionsFixture, "run_edit_follow_up refuses while a print holds the printer",
+                 "[ams][device_actions]") {
+    helix::SlotInfo after;
+    helix::test::set_wire_state(state, helix::PrintJobState::PRINTING);
+    CHECK_FALSE(backend->run_edit_follow_up(0, after).success());
+    helix::test::set_wire_state(state, helix::PrintJobState::PAUSED);
+    CHECK_FALSE(backend->run_edit_follow_up(0, after).success());
+    CHECK(backend->follow_ups == 0);
+
+    helix::test::set_wire_state(state, helix::PrintJobState::STANDBY);
+    CHECK(backend->run_edit_follow_up(0, after).success());
+    CHECK(backend->follow_ups == 1);
 }

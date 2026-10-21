@@ -215,8 +215,8 @@ _PHASE_FIELDS = (1,)
 
 # `DeviceAction::button(id, label, section, icon, description)` and its siblings:
 # the label is always argument 1, the description follows the type-specific fields.
-_DEVICE_ACTION_FACTORY_RE = re.compile(r"\b(?:DA|DeviceAction)\s*::\s*(button|toggle|slider|dropdown)\s*\(")
-_FACTORY_FIELDS = {"button": (1, 4), "toggle": (1, 5), "slider": (1, 8), "dropdown": (1, 6)}
+_DEVICE_ACTION_FACTORY_RE = re.compile(r"\b(?:DA|DeviceAction)\s*::\s*(button|toggle|slider|dropdown|info)\s*\(")
+_FACTORY_FIELDS = {"button": (1, 4), "toggle": (1, 5), "slider": (1, 8), "dropdown": (1, 6), "info": (1, 5)}
 
 # Designated-initializer records (afc_defaults.cpp style) name their fields, so
 # position does not apply. Only these two are user-visible.

@@ -582,8 +582,7 @@ AmsError AmsSubscriptionBackend::send_endless_spool_switch(const std::string& gc
         });
 }
 
-AmsError AmsSubscriptionBackend::execute_device_action(const std::string& action_id,
-                                                       const std::any& value) {
+AmsError AmsSubscriptionBackend::device_action_refusal(const std::string& action_id) const {
     // Only an action the backend offers right now runs: one it no longer lists
     // (its hardware went away, its config changed) has no moves_machine answer
     // to gate it by.
@@ -604,13 +603,43 @@ AmsError AmsSubscriptionBackend::execute_device_action(const std::string& action
                         lv_tr("Not available now"), lv_tr(it->disable_reason.c_str()));
     }
     if (it->moves_machine) {
-        AmsError refused =
-            it->allowed_while_paused ? refuse_if_printing() : refuse_motion_if_printing();
-        if (!refused.success()) {
-            return refused;
-        }
+        return it->allowed_while_paused ? refuse_if_printing() : refuse_motion_if_printing();
+    }
+    return AmsErrorHelper::success();
+}
+
+AmsError AmsSubscriptionBackend::execute_device_action(const std::string& action_id,
+                                                       const std::any& value) {
+    if (auto refused = device_action_refusal(action_id); !refused.success()) {
+        return refused;
     }
     return do_execute_device_action(action_id, value);
+}
+
+AmsError AmsSubscriptionBackend::run_device_action(const std::string& action_id,
+                                                   const std::any& value,
+                                                   DeviceActionDone on_done) {
+    if (auto refused = device_action_refusal(action_id); !refused.success()) {
+        return refused;
+    }
+    return do_run_device_action(action_id, value, std::move(on_done));
+}
+
+AmsError AmsSubscriptionBackend::do_run_device_action(const std::string& action_id,
+                                                      const std::any& value,
+                                                      DeviceActionDone on_done) {
+    AmsError result = do_execute_device_action(action_id, value);
+    if (result.success() && on_done) {
+        on_done(result);
+    }
+    return result;
+}
+
+AmsError AmsSubscriptionBackend::run_edit_follow_up(int slot_index, const SlotInfo& after) {
+    if (auto refused = refuse_if_printing(/*paused_blocks=*/true); !refused.success()) {
+        return refused;
+    }
+    return do_run_edit_follow_up(slot_index, after);
 }
 
 bool AmsSubscriptionBackend::toolhead_homed() const {
