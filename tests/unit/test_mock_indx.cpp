@@ -161,3 +161,67 @@ TEST_CASE("INDX mock: connecting sends the macro state with the boot frame", "[a
     CHECK(frames.wait_for_active(mark, 0, 3000));
     mock.disconnect();
 }
+
+// ============================================================================
+// Phase-3 commands
+// ============================================================================
+
+TEST_CASE("INDX mock: MODE_SPORT publishes the mode", "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    CHECK(helix::indx::check_contract(mock.hardware()).has_speed_modes);
+    CHECK(helix::indx::check_contract(mock.hardware()).has_cycle_all);
+    REQUIRE(mock.gcode_script("MODE_SPORT") == 0);
+    auto r = helix::indx::read_status(mock.indx_status_json());
+    REQUIRE(r.has_value());
+    CHECK(r->speed_mode == "sport");
+}
+
+TEST_CASE("INDX mock: offsets are in save_variables", "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    const json vars = mock.indx_status_json()["save_variables"]["variables"];
+    CHECK(vars["t1_offset_x"].get<double>() == Catch::Approx(0.1));
+    CHECK(vars["t1_offset_y"].get<double>() == Catch::Approx(-0.05));
+    CHECK(vars["t0_offset_z"].get<double>() == Catch::Approx(0.0));
+    CHECK(vars["global_z_offset"].get<double>() == Catch::Approx(-0.05));
+}
+
+TEST_CASE("INDX mock: INDX_CALIBRATE refuses a hot target and an empty head", "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    REQUIRE(mock.gcode_script("M104 S210") == 0);
+    CHECK(mock.gcode_script("INDX_CALIBRATE") != 0);
+    CHECK_THAT(mock.get_last_gcode_error(), Catch::Matchers::ContainsSubstring("heater"));
+    CHECK(mock.gcode_script("INDX_FAN_CALIBRATE") == 0);
+
+    REQUIRE(mock.gcode_script("M104 S0") == 0);
+    CHECK(mock.gcode_script("INDX_CALIBRATE") == 0);
+
+    REQUIRE(mock.gcode_script("MANUAL_TOOL_REMOVE") == 0);
+    CHECK(mock.gcode_script("INDX_CALIBRATE") != 0);
+    CHECK_THAT(mock.get_last_gcode_error(), Catch::Matchers::ContainsSubstring("No tool"));
+    CHECK(mock.gcode_script("INDX_FAN_CALIBRATE") != 0);
+}
+
+TEST_CASE("INDX mock: TC_CYCLE_ALL ends with the head empty and counts every change",
+          "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    auto before = helix::indx::read_status(mock.indx_status_json());
+    REQUIRE(before.has_value());
+    REQUIRE(mock.gcode_script("TC_CYCLE_ALL") == 0);
+    auto after = helix::indx::read_status(mock.indx_status_json());
+    REQUIRE(after.has_value());
+    CHECK(after->active_tool == -1);
+    CHECK(*after->toolchange_count == *before->toolchange_count + 4);
+}
+
+TEST_CASE("INDX mock: SET_TOOL_FILAMENT without HEAT_CAPACITY is a usage error",
+          "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    CHECK(mock.gcode_script("SET_TOOL_FILAMENT TOOL=1 DENSITY=1.270") != 0);
+    CHECK_THAT(mock.get_last_gcode_error(), Catch::Matchers::ContainsSubstring("HEAT_CAPACITY"));
+    CHECK(mock.gcode_script("SET_TOOL_FILAMENT TOOL=1 DENSITY=1.270 HEAT_CAPACITY=1.300") == 0);
+}
