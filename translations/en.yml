@@ -2997,6 +2997,7 @@ translations:
   Remove the spools: Remove the spools
   Remove the spools from the bed: Remove the spools from the bed
   Remove the spools now?: Remove the spools now?
+  Remove tool: Remove tool
   Remove your tags for this image?: Remove your tags for this image?
   Remove your tags for this image? Its chips go back to the shipped positions.: Remove your tags for this image? Its chips go back to the shipped positions.
   Rename: Rename
@@ -3982,6 +3983,7 @@ translations:
   'Tool change failed: {}': 'Tool change failed: {}'
   Tool change speed: Tool change speed
   Tool change to T{}: Tool change to T{}
+  Tool is seated: Tool is seated
   Tool may be half seated: Tool may be half seated
   Tool offsets (mm): Tool offsets (mm)
   Tool offsets saved: Tool offsets saved

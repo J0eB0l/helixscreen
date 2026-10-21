@@ -240,13 +240,33 @@ std::optional<helix::ErrorEvent> AmsBackendIndx::current_error() const {
             {});
     }
     if (state_.seat_suspect.value_or(-1) >= 0) {
-        // The macro's own recovery is hands-on (MANUAL_TOOL_REMOVE opens the
-        // latch), so the dialog explains and offers no button.
-        return helix::make_ams_fault_event(helix::ErrorSource::TOOLCHANGER,
-                                           lv_tr("Tool may be half seated"),
-                                           indx::motion_blocked_reason(contract_, state_), {});
+        return helix::make_ams_fault_event(
+            helix::ErrorSource::TOOLCHANGER, lv_tr("Tool may be half seated"),
+            indx::motion_blocked_reason(contract_, state_), build_recovery_actions());
     }
     return std::nullopt;
+}
+
+std::vector<helix::RecoveryAction> AmsBackendIndx::build_recovery_actions() const {
+    const int tool = state_.seat_suspect.value_or(-1);
+    if (!contract_.has_manual_tool_recovery || tool < 0) {
+        return {};
+    }
+    // Both are hands-on: the user holds the tool while the latch moves.
+    helix::RecoveryAction seat;
+    seat.label = lv_tr("Tool is seated");
+    seat.gcode = indx::manual_seat_gcode(tool);
+    seat.log_tag = "indx::manual_tool_seat";
+    seat.style = "primary";
+    seat.confirm_message = indx::seat_confirm_message(tool);
+
+    helix::RecoveryAction remove;
+    remove.label = lv_tr("Remove tool");
+    remove.gcode = indx::manual_remove_gcode();
+    remove.log_tag = "indx::manual_tool_remove";
+    remove.style = "danger";
+    remove.confirm_message = indx::remove_confirm_message(tool);
+    return {seat, remove};
 }
 
 HeadFilamentOps AmsBackendIndx::head_filament_ops(int head) const {

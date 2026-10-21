@@ -3077,6 +3077,7 @@ translations:
 
   Remove the spools now?: Spulen jetzt entnehmen?
 
+  Remove tool: Werkzeug entnehmen
   Remove your tags for this image?: Deine Markierungen für dieses Bild entfernen?
   Remove your tags for this image? Its chips go back to the shipped positions.: Deine Markierungen für dieses Bild entfernen? Die Anzeigen kehren an ihre ursprünglichen Positionen zurück.
   Rename: Umbenennen
@@ -4088,6 +4089,7 @@ translations:
   'Tool change failed: {}': 'Werkzeugwechsel fehlgeschlagen: {}'
   Tool change speed: Werkzeugwechsel-Geschwindigkeit
   Tool change to T{}: 'Werkzeugwechsel zu T{}'
+  Tool is seated: Werkzeug sitzt
   Tool may be half seated: "Werkzeug sitzt möglicherweise nur halb"
   Tool offsets (mm): Werkzeug-Offsets (mm)
   Tool offsets saved: Werkzeug-Offsets gespeichert

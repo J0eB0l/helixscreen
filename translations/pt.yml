@@ -3071,6 +3071,7 @@ translations:
 
   Remove the spools now?: Retirar os carretéis agora?
 
+  Remove tool: Remover ferramenta
   Remove your tags for this image?: Remover suas marcações desta imagem?
   Remove your tags for this image? Its chips go back to the shipped positions.: Remover suas marcações desta imagem? As etiquetas voltam às posições de fábrica.
   Rename: Renomear
@@ -4086,6 +4087,7 @@ translations:
   'Tool change failed: {}': 'Falha ao trocar ferramenta: {}'
   Tool change speed: Velocidade de troca de ferramenta
   Tool change to T{}: 'Troca de ferramenta para T{}'
+  Tool is seated: A ferramenta está encaixada
   Tool may be half seated: "A ferramenta pode estar mal encaixada"
   Tool offsets (mm): Offsets de ferramenta (mm)
   Tool offsets saved: Offsets de ferramenta salvos

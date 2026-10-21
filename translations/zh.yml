@@ -2902,6 +2902,7 @@ translations:
 
   Remove the spools now?: 现在取下料盘吗?
 
+  Remove tool: 取下工具
   Remove your tags for this image?: 删除此图片的标记？
   Remove your tags for this image? Its chips go back to the shipped positions.: 删除此图片的标记？标签将回到出厂位置。
   Rename: 重命名
@@ -3835,6 +3836,7 @@ translations:
   'Tool change failed: {}': '工具切换失败: {}'
   Tool change speed: 换工具速度
   Tool change to T{}: '切换工具到 T{}'
+  Tool is seated: 工具已装好
   Tool may be half seated: "工具可能未完全安装到位"
   Tool offsets (mm): 工具偏移 (mm)
   Tool offsets saved: 工具偏移已保存

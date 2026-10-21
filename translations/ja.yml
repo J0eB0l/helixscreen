@@ -2911,6 +2911,7 @@ translations:
 
   Remove the spools now?: 今スプールを取り出しますか?
 
+  Remove tool: ツールを取り外す
   Remove your tags for this image?: この画像のタグを削除しますか？
   Remove your tags for this image? Its chips go back to the shipped positions.: この画像のタグを削除しますか？チップは出荷時の位置に戻ります。
   Rename: 名前を変更
@@ -3844,6 +3845,7 @@ translations:
   'Tool change failed: {}': 'ツール変更に失敗しました: {}'
   Tool change speed: ツール交換速度
   Tool change to T{}: 'ツールを T{} に変更しています'
+  Tool is seated: ツールは装着済み
   Tool may be half seated: "ツールが半分しか装着されていない可能性があります"
   Tool offsets (mm): ツールオフセット (mm)
   Tool offsets saved: ツールオフセットを保存しました

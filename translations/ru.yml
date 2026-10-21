@@ -3116,6 +3116,7 @@ translations:
 
   Remove the spools now?: Снять катушки сейчас?
 
+  Remove tool: Снять инструмент
   Remove your tags for this image?: Удалить ваши отметки для этого изображения?
   Remove your tags for this image? Its chips go back to the shipped positions.: Удалить ваши отметки для этого изображения? Метки вернутся на исходные места.
   Rename: Переименовать
@@ -4122,6 +4123,7 @@ translations:
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Tool change speed: Скорость смены инструмента
   Tool change to T{}: 'Смена инструмента на T{}'
+  Tool is seated: Инструмент установлен
   Tool may be half seated: "Инструмент может быть установлен не полностью"
   Tool offsets (mm): Смещения инструментов (мм)
   Tool offsets saved: Смещения инструментов сохранены

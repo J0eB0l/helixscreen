@@ -2806,6 +2806,7 @@
   <translation tag="Remove the spools" zh="取下料盘"/>
   <translation tag="Remove the spools from the bed" zh="从热床上取下料盘"/>
   <translation tag="Remove the spools now?" zh="现在取下料盘吗?"/>
+  <translation tag="Remove tool" zh="取下工具"/>
   <translation tag="Remove your tags for this image?" zh="删除此图片的标记？"/>
   <translation tag="Remove your tags for this image? Its chips go back to the shipped positions." zh="删除此图片的标记？标签将回到出厂位置。"/>
   <translation tag="Rename" zh="重命名"/>
@@ -3674,6 +3675,7 @@
   <translation tag="Tool change failed: {}" zh="工具切换失败: {}"/>
   <translation tag="Tool change speed" zh="换工具速度"/>
   <translation tag="Tool change to T{}" zh="切换工具到 T{}"/>
+  <translation tag="Tool is seated" zh="工具已装好"/>
   <translation tag="Tool may be half seated" zh="工具可能未完全安装到位"/>
   <translation tag="Tool offsets (mm)" zh="工具偏移 (mm)"/>
   <translation tag="Tool offsets saved" zh="工具偏移已保存"/>

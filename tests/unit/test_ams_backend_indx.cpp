@@ -582,3 +582,39 @@ TEST_CASE_METHOD(IndxFixture, "INDX device: a calibration reports when it ends",
         CHECK(last.success());
     }
 }
+
+// ============================================================================
+// Seat-fault recovery
+// ============================================================================
+
+TEST_CASE_METHOD(IndxFixture,
+                 "INDX recovery: a half-seated tool offers seat and remove behind confirms",
+                 "[ams][indx][recovery]") {
+    const json fault = {{"save_variables", {{"variables", {{"seat_suspect", 2}}}}}};
+
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(fault);
+    auto err = b.current_error();
+    REQUIRE(err.has_value());
+    REQUIRE(err->recovery_actions.size() == 2);
+    const auto& seat = err->recovery_actions[0];
+    const auto& remove = err->recovery_actions[1];
+    CHECK(seat.gcode == "MANUAL_TOOL_SEAT TOOL=2");
+    CHECK(remove.gcode == "MANUAL_TOOL_REMOVE");
+    CHECK(seat.confirm_message == indx::seat_confirm_message(2));
+    CHECK(remove.confirm_message == indx::remove_confirm_message(2));
+    CHECK_THAT(seat.confirm_message, Catch::Matchers::ContainsSubstring("Tool 3 (T2)"));
+    CHECK_THAT(remove.confirm_message, Catch::Matchers::ContainsSubstring("Tool 3 (T2)"));
+    CHECK(seat.style == "primary");
+    CHECK(remove.style == "danger");
+
+    IndxHelper bare;
+    bare.set_discovery(discover(indx_objects()));
+    bare.feed(fault);
+    REQUIRE(bare.current_error().has_value());
+    CHECK(bare.current_error()->recovery_actions.empty());
+
+    b.feed(json{{"save_variables", {{"variables", {{"seat_suspect", -1}}}}}});
+    CHECK_FALSE(b.current_error().has_value());
+}

@@ -86,6 +86,10 @@ class AmsBackendIndx : public AmsBackendToolChanger {
 
     [[nodiscard]] std::optional<helix::ErrorEvent> current_error() const override;
 
+    /// Seat or remove the half-seated tool, each behind a confirm. Empty
+    /// without the MANUAL_* macros or a seat fault. Caller holds mutex_.
+    [[nodiscard]] std::vector<helix::RecoveryAction> build_recovery_actions() const override;
+
     /// Why a change or park would be refused now, or empty. The same answer
     /// do_change_tool() and do_park_active_tool() refuse with.
     [[nodiscard]] std::string motion_blocked_reason() const;
