@@ -291,6 +291,14 @@ void set_local_opa(lv_obj_t* obj, lv_style_prop_t prop, lv_opa_t opa) {
     lv_obj_set_local_style_prop(obj, prop, v, LV_PART_MAIN);
 }
 
+// Drops a local property this file set, so the object's styles decide it again.
+void clear_local_prop(lv_obj_t* obj, lv_style_prop_t prop) {
+    lv_style_value_t cur;
+    if (lv_obj_get_local_style_prop(obj, prop, &cur, LV_PART_MAIN) == LV_RESULT_OK) {
+        lv_obj_remove_local_style_prop(obj, prop, LV_PART_MAIN);
+    }
+}
+
 void set_local_text_color(lv_obj_t* obj, lv_color_t color) {
     lv_style_value_t cur;
     if (lv_obj_get_local_style_prop(obj, LV_STYLE_TEXT_COLOR, &cur, LV_PART_MAIN) == LV_RESULT_OK &&
@@ -319,7 +327,14 @@ void update_button_text_contrast(lv_obj_t* btn) {
     }
 
     bool is_disabled = lv_obj_has_state(btn, LV_STATE_DISABLED);
-    set_local_opa(btn, LV_STYLE_OPA, is_disabled ? LV_OPA_50 : LV_OPA_COVER);
+    // Only the disabled look is local: an enabled button takes its opacity from
+    // its styles, so a bound style (bind_style) can dim it. A local COVER here
+    // would outrank every style.
+    if (is_disabled) {
+        set_local_opa(btn, LV_STYLE_OPA, LV_OPA_50);
+    } else {
+        clear_local_prop(btn, LV_STYLE_OPA);
+    }
     lv_opa_t bg_opa = lv_obj_get_style_bg_opa(btn, LV_PART_MAIN);
     bool is_ghost = bg_opa < LV_OPA_50;
 
