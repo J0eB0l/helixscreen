@@ -29,12 +29,14 @@
 #include "test_helpers/seeded_override.h"
 
 #include <algorithm>
+#include <any>
 #include <filesystem>
 #include <json.hpp> // nlohmann/json from libhv
 #include <memory>
 #include <optional>
 #include <string>
 #include <unistd.h>
+#include <vector>
 
 #include "../catch_amalgamated.hpp"
 
@@ -3519,4 +3521,91 @@ TEST_CASE("ACE REST slots bridge carries park_state", "[ams][ace][segment][park]
     CHECK(helper.get_slot_filament_segment(2) == PathSegment::OUTPUT);
     CHECK(helper.get_slot_filament_segment(3) == PathSegment::SPOOL);
     CHECK(helper.get_slot_filament_segment(0) == PathSegment::SPOOL);
+}
+
+// ============================================================================
+// Device actions: unit + slot addressing per driver (prestonbrown/helixscreen#1821)
+// ============================================================================
+
+namespace {
+json four_slot_array() {
+    return json::array({json{{"status", "ready"}}, json{{"status", "ready"}},
+                        json{{"status", "ready"}}, json{{"status", "ready"}}});
+}
+
+json status_notification(const std::string& key, const json& obj) {
+    json status = json::object();
+    status[key] = obj;
+    return json{{"params", json::array({status, 1.0})}};
+}
+
+// Feed the backend one driver's status surface with a four-slot unit.
+void present_driver_surface(AmsBackendAceTestHelper& b, const std::string& surface) {
+    if (surface == "rest") {
+        b.test_parse_slots_response(json{{"slots", four_slot_array()}});
+        b.test_parse_status_response(json{{"model", "ACE Pro"}});
+    } else if (surface == "rest+ace_manager") {
+        b.test_parse_slots_response(json{{"slots", four_slot_array()}});
+        b.test_parse_status_response(
+            json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
+    } else {
+        b.test_handle_status_update(
+            status_notification(surface, json{{"slots", four_slot_array()}}));
+    }
+}
+
+// Every gcode the three slot-addressed actions send for the current slot, in
+// order: feed, retract, feed assist on, feed assist off.
+std::vector<std::string> run_slot_actions(AmsBackendAceTestHelper& b) {
+    b.captured_gcodes.clear();
+    REQUIRE(b.execute_device_action("ace_manual_feed", {}).success());
+    REQUIRE(b.execute_device_action("ace_manual_retract", {}).success());
+    REQUIRE(b.execute_device_action("ace_feed_assist_toggle", std::any(true)).success());
+    REQUIRE(b.execute_device_action("ace_feed_assist_toggle", std::any(false)).success());
+    return b.captured_gcodes;
+}
+} // namespace
+
+TEST_CASE("ACE slot actions address the hub by INDEX= on single-hub drivers",
+          "[ams][ace][device_actions]") {
+    const std::string surface = GENERATE(as<std::string>{}, "filament_hub", "ace", "rest");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    AceTestAccess::set_seat(b, 2, true);
+
+    CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                     "ACE_FEED INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_RETRACT INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_ENABLE_FEED_ASSIST INDEX=2",
+                                     "ACE_DISABLE_FEED_ASSIST INDEX=2",
+                                 });
+}
+
+TEST_CASE("ACE slot actions name INSTANCE= and the local INDEX= on the Kobra S1 fork",
+          "[ams][ace][device_actions][kobra]") {
+    const std::string surface = GENERATE(as<std::string>{}, "ace_instance_0", "rest+ace_manager");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+
+    SECTION("one unit") {
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                         "ACE_FEED INSTANCE=0 INDEX=2 LENGTH=50 SPEED=50",
+                                         "ACE_RETRACT INSTANCE=0 INDEX=2 LENGTH=50 SPEED=50",
+                                         "ACE_ENABLE_FEED_ASSIST INSTANCE=0 INDEX=2",
+                                         "ACE_DISABLE_FEED_ASSIST INSTANCE=0 INDEX=2",
+                                     });
+    }
+    SECTION("two units: global slot 5 is the second unit's slot 1") {
+        AceTestAccess::append_unit(b, 4);
+        AceTestAccess::set_seat(b, 5, true);
+        CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                         "ACE_FEED INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                         "ACE_RETRACT INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                         "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                         "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                     });
+    }
 }
