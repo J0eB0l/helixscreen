@@ -67,6 +67,7 @@ class AmsSubscriptionBackend : public AmsBackend {
 
     // --- State queries (final) ---
     [[nodiscard]] AmsAction get_current_action() const final;
+    void expire_stuck_operation(OperationExpiry why) override;
     [[nodiscard]] int get_current_tool() const final;
     [[nodiscard]] int get_current_slot() const final;
     [[nodiscard]] bool is_filament_loaded() const final;

@@ -1,0 +1,153 @@
+// Copyright (C) 2026 356C LLC
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// A Klipper restart ends every firmware-side filament operation, so a backend
+// still reporting one busy when Klipper comes back ready would refuse every
+// tool change for nothing. AmsState ends it once, for every backend, on the
+// klippy_state transition into READY.
+
+#include "ui_update_queue.h"
+
+#include "../lvgl_test_fixture.h"
+#include "../test_helpers/ad5x_ifs_test_access.h"
+#include "../test_helpers/afc_test_access.h"
+#include "../test_helpers/snapmaker_test_access.h"
+#include "../test_helpers/update_queue_test_access.h"
+#include "ams_backend_ad5x_ifs.h"
+#include "ams_backend_afc.h"
+#include "ams_backend_mock.h"
+#include "ams_backend_snapmaker.h"
+#include "ams_state.h"
+#include "ams_types.h"
+#include "app_globals.h"
+#include "printer_state.h"
+
+#include <memory>
+#include <vector>
+
+#include "../catch_amalgamated.hpp"
+#include "hv/json.hpp"
+
+using helix::AmsAction;
+using helix::AmsState;
+using helix::KlippyState;
+using helix::OperationExpiry;
+using json = nlohmann::json;
+
+namespace {
+
+class ExpiryRecordingBackend : public helix::AmsBackendMock {
+  public:
+    ExpiryRecordingBackend() : helix::AmsBackendMock(4) {}
+
+    std::vector<OperationExpiry> expiries;
+    void expire_stuck_operation(OperationExpiry why) override {
+        expiries.push_back(why);
+    }
+};
+
+class KlipperRestartFixture : public LVGLTestFixture {
+  public:
+    KlipperRestartFixture() {
+        get_printer_state().init_subjects(false);
+        get_printer_state().set_klippy_state_sync(KlippyState::READY);
+        AmsState::instance().init_subjects(true);
+    }
+
+    ~KlipperRestartFixture() override {
+        AmsState::instance().set_backend(nullptr);
+        get_printer_state().set_klippy_state_sync(KlippyState::READY);
+        settle();
+    }
+
+    void settle() {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+
+    void restart_klipper() {
+        get_printer_state().set_klippy_state_sync(KlippyState::STARTUP);
+        get_printer_state().set_klippy_state_sync(KlippyState::READY);
+        settle();
+    }
+};
+
+json u1_feed_status(int extruder_idx, const std::string& channel_state) {
+    const char* feed_key = (extruder_idx <= 1) ? "filament_feed left" : "filament_feed right";
+    return json{{feed_key, json{{"extruder" + std::to_string(extruder_idx),
+                                 json{{"filament_detected", true},
+                                      {"channel_state", channel_state},
+                                      {"channel_error", "ok"}}}}}};
+}
+
+} // namespace
+
+TEST_CASE_METHOD(KlipperRestartFixture, "Klipper coming back ready ends the backends' operations",
+                 "[ams][klipper_restart_expiry]") {
+    auto owned = std::make_unique<ExpiryRecordingBackend>();
+    auto* backend = owned.get();
+    AmsState::instance().set_backend(std::move(owned));
+
+    SECTION("a restart: STARTUP, then READY") {
+        restart_klipper();
+        REQUIRE(backend->expiries.size() == 1);
+        CHECK(backend->expiries[0] == OperationExpiry::KlipperRestart);
+    }
+    SECTION("a shutdown recovered to READY") {
+        get_printer_state().set_klippy_state_sync(KlippyState::SHUTDOWN);
+        get_printer_state().set_klippy_state_sync(KlippyState::READY);
+        settle();
+        CHECK(backend->expiries.size() == 1);
+    }
+    SECTION("Klipper still starting ends nothing yet") {
+        get_printer_state().set_klippy_state_sync(KlippyState::STARTUP);
+        settle();
+        CHECK(backend->expiries.empty());
+    }
+    SECTION("READY repeated without leaving it ends nothing") {
+        get_printer_state().set_klippy_state_sync(KlippyState::READY);
+        settle();
+        CHECK(backend->expiries.empty());
+    }
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture, "A U1 operation latched busy ends with a Klipper restart",
+                 "[ams][snapmaker][klipper_restart_expiry]") {
+    auto owned = std::make_unique<helix::AmsBackendSnapmaker>(nullptr, nullptr);
+    auto* backend = owned.get();
+    AmsState::instance().set_backend(std::move(owned));
+
+    helix::SnapmakerTestAccess::handle_status(*backend, u1_feed_status(1, "load_feeding"));
+    REQUIRE(helix::ams_action_is_busy(backend->get_current_action()));
+
+    restart_klipper();
+
+    CHECK(backend->get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture,
+                 "AFC keeps its own watchdog for a surface timeout but not across a restart",
+                 "[ams][afc][klipper_restart_expiry]") {
+    helix::AmsBackendAfc backend(nullptr, nullptr);
+    helix::AfcTestAccess::system_info(backend).action = AmsAction::LOADING;
+
+    backend.expire_stuck_operation(OperationExpiry::SurfaceTimeout);
+    CHECK(backend.get_current_action() == AmsAction::LOADING);
+
+    backend.expire_stuck_operation(OperationExpiry::KlipperRestart);
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture,
+                 "AD5X IFS keeps its own watchdog for a surface timeout but not across a restart",
+                 "[ams][ad5x][klipper_restart_expiry]") {
+    helix::AmsBackendAd5xIfs backend(nullptr, nullptr);
+    helix::Ad5xIfsTestAccess::begin_phase(backend, /*is_unload=*/false);
+    REQUIRE(helix::Ad5xIfsTestAccess::phase_active(backend));
+
+    backend.expire_stuck_operation(OperationExpiry::SurfaceTimeout);
+    CHECK(helix::ams_action_is_busy(helix::Ad5xIfsTestAccess::action(backend)));
+
+    backend.expire_stuck_operation(OperationExpiry::KlipperRestart);
+    CHECK(helix::Ad5xIfsTestAccess::action(backend) == AmsAction::IDLE);
+    CHECK_FALSE(helix::Ad5xIfsTestAccess::phase_active(backend));
+}

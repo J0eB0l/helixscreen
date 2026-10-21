@@ -6316,6 +6316,20 @@ void AmsBackendAd5xIfs::begin_phase_tracking_locked(bool is_unload) {
     }
 }
 
+void AmsBackendAd5xIfs::expire_stuck_operation(OperationExpiry why) {
+    if (why != OperationExpiry::KlipperRestart) {
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (phase_tracker_.active) {
+            end_phase_tracking_locked();
+        }
+        system_info_.operation_indeterminate = false;
+    }
+    AmsSubscriptionBackend::expire_stuck_operation(why);
+}
+
 void AmsBackendAd5xIfs::end_phase_tracking_locked() {
     phase_tracker_ = IfsPhaseTracker{};
     // Clear the step-tracker index so the right-side vertical tracker shows no

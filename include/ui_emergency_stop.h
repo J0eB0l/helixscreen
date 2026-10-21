@@ -375,6 +375,9 @@ class EmergencyStopOverlay {
     bool show_recovery_for_main(RecoveryReason reason);
     void dismiss_recovery_dialog();
     void update_recovery_dialog_content();
+    /// While a restart is in flight, toast that one is and return true, so the
+    /// caller sends nothing. Main thread only.
+    bool refuse_restart_in_flight();
     void restart_klipper();
     void firmware_restart();
 

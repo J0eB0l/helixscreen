@@ -153,6 +153,7 @@
   <translation tag="A print is running on this gate. HelixScreen cleared its own copy; clear it again once the print finishes." zh="此通道正在打印中。HelixScreen 已清除本地副本；打印结束后请再次清空。"/>
   <translation tag="A print is running. Apply the result after it ends." zh="正在打印。请在打印结束后应用结果。"/>
   <translation tag="A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop." zh="在料盘仍标记为放在热床上时开始了打印。如果料盘还在，请立即用紧急停止停下打印机。"/>
+  <translation tag="A restart is already in progress" zh="重启正在进行中"/>
   <translation tag="A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen." zh="测量到热床距离的传感器。HelixScreen 用它进行 Z 偏移校准,并在探针界面进行探针测试。"/>
   <translation tag="A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen." zh="读取腔体内空气温度的传感器。在腔体温度界面查看。"/>
   <translation tag="A spool may be tangled or the drive gear is jammed" zh="料盘可能缠绕，或驱动齿轮卡住"/>

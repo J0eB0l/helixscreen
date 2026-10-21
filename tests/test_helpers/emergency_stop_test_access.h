@@ -74,6 +74,14 @@ class EmergencyStopOverlayTestAccess {
         }
     }
 
+    /// The Restart Klipper / Firmware Restart actions every button reaches.
+    static void restart_klipper(EmergencyStopOverlay& o) {
+        o.restart_klipper();
+    }
+    static void firmware_restart(EmergencyStopOverlay& o) {
+        o.firmware_restart();
+    }
+
     /// Drop the dependency pointers init() installed. Same singleton problem as
     /// reset_suppression(), but it outlives memory rather than a deadline: tests
     /// pass init() a stack local or fixture member (test_unified_recovery_dialog
