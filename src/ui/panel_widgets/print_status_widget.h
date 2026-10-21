@@ -366,7 +366,9 @@ class PrintStatusWidget : public PanelWidget {
     // Combined gate: (width band == wide) AND (filament_used > 0). Avoids the
     // phantom-row gap when filament hasn't started extruding yet.
     static inline lv_subject_t show_filament_active_subject_{};
-    static inline lv_subject_t multi_tool_subject_{}; // 1 when tool_count > 1
+    static inline lv_subject_t multi_tool_subject_{}; // 1 when the readout names its nozzle
+    /// 1 when there is more than one heater to pin the readout to.
+    static inline lv_subject_t nozzle_pickable_subject_{};
     // Resolved thumbnail path for the detailed-idle hero; written by
     // reset_print_card_to_idle alongside the lv_image_set_src calls on the
     // Library-mode thumbs, so all three idle thumbnails share the same source.

@@ -333,6 +333,10 @@ void ToolState::set_ams_topology(const ToolTopology& topo) {
     bool needs_rebuild = !ams_topology_active_ || ams_topology_tool_count_ != topo.tool_count ||
                          ams_topology_tool_to_slot_ != topo.tool_to_slot ||
                          ams_topology_tool_extruder_ != topo.tool_extruder;
+    if (heads_share_heater_ != topo.heads_share_heater) {
+        heads_share_heater_ = topo.heads_share_heater;
+        heads_cache_.reset();
+    }
 
     ams_topology_active_ = true;
     ams_topology_tool_count_ = topo.tool_count;
@@ -477,6 +481,7 @@ void ToolState::clear_ams_topology() {
     ams_topology_tool_count_ = 0;
     ams_topology_tool_to_slot_.clear();
     ams_topology_tool_extruder_.clear();
+    heads_share_heater_ = false;
     tools_.clear();
     heads_cache_.reset();
     active_tool_index_ = 0;
@@ -811,13 +816,14 @@ int PhysicalHead::representative_tool(int active_tool) const {
     return seated_tool >= 0 ? seated_tool : tool_indices.front();
 }
 
-std::vector<PhysicalHead> physical_heads(const std::vector<ToolInfo>& tools) {
+std::vector<PhysicalHead> physical_heads(const std::vector<ToolInfo>& tools,
+                                         bool heads_share_heater) {
     std::vector<PhysicalHead> heads;
     for (size_t i = 0; i < tools.size(); ++i) {
         const auto& extruder = tools[i].extruder_name;
         const bool named = extruder && !extruder->empty();
         auto shared = heads.end();
-        if (named) {
+        if (named && !heads_share_heater) {
             shared = std::find_if(heads.begin(), heads.end(), [&](const PhysicalHead& h) {
                 return h.extruder_name == extruder;
             });
@@ -854,7 +860,7 @@ int head_index_for_tool(const std::vector<PhysicalHead>& heads, int tool_index) 
 
 const std::vector<PhysicalHead>& ToolState::physical_heads() const {
     if (!heads_cache_) {
-        heads_cache_ = helix::physical_heads(tools_);
+        heads_cache_ = helix::physical_heads(tools_, heads_share_heater());
     }
     return *heads_cache_;
 }
@@ -862,8 +868,18 @@ const std::vector<PhysicalHead>& ToolState::physical_heads() const {
 std::vector<PhysicalHead> ToolState::heated_heads() const {
     std::vector<PhysicalHead> heated;
     for (const PhysicalHead& head : physical_heads()) {
-        if (head.extruder_name) {
+        if (!head.extruder_name) {
+            continue;
+        }
+        // Nozzles sharing one heater are one heated head: the one heater can
+        // only be aimed at whichever of them is mounted, which stands for it.
+        auto same = std::find_if(heated.begin(), heated.end(), [&](const PhysicalHead& h) {
+            return h.extruder_name == head.extruder_name;
+        });
+        if (same == heated.end()) {
             heated.push_back(head);
+        } else if (head.holds_tool(active_tool_index_)) {
+            *same = head;
         }
     }
     return heated;
@@ -887,7 +903,7 @@ std::string ToolState::nozzle_label() const {
     // entry per filament lane, and every lane on a single-hotend printer feeds
     // the same nozzle - naming it after the loaded lane says nothing. Matches
     // the nozzle_icon badge gate in ui_ams_tool_text.
-    if (!has_multiple_extruders()) {
+    if (!names_mounted_nozzle()) {
         return lv_tr("Nozzle");
     }
     const auto* tool = active_tool();
@@ -907,9 +923,17 @@ std::string ToolState::nozzle_label() const {
     return lv_tr("Nozzle");
 }
 
+bool ToolState::names_mounted_nozzle() const {
+    return has_multiple_extruders() || (heads_share_heater() && has_multiple_toolheads());
+}
+
 // Tool badge formatting moved to UI layer (ui_ams_tool_text.cpp)
 
 std::string ToolState::tool_name_for_extruder(const std::string& extruder_name) const {
+    if (heads_share_heater()) {
+        const ToolInfo* tool = active_tool();
+        return tool && tool->extruder_name == extruder_name ? tool->name : std::string();
+    }
     for (const auto& tool : tools_) {
         if (tool.extruder_name && *tool.extruder_name == extruder_name) {
             return tool.name;
@@ -926,6 +950,10 @@ std::string ToolState::extruder_name_for_tool(int tool_index) const {
 }
 
 std::string ToolState::display_label_for_extruder(const std::string& extruder_name) const {
+    if (heads_share_heater()) {
+        const ToolInfo* tool = active_tool();
+        return tool && tool->extruder_name == extruder_name ? tool->display_label : std::string();
+    }
     for (const auto& tool : tools_) {
         if (tool.extruder_name && *tool.extruder_name == extruder_name) {
             return tool.display_label;

@@ -147,6 +147,8 @@ void PrintStatusWidget::init_static_subjects() {
     s_static_subjects.publish("print_status_show_filament_active", &show_filament_active_subject_);
     lv_subject_init_int(&multi_tool_subject_, 0);
     s_static_subjects.publish("print_status_multi_tool", &multi_tool_subject_);
+    lv_subject_init_int(&nozzle_pickable_subject_, 0);
+    s_static_subjects.publish("print_status_nozzle_pickable", &nozzle_pickable_subject_);
     // Initial value 0 = idle_library_full — matches the default ref_value=0
     // on print_card_idle's bind_flag_if_not_eq so it shows by default
     // before any state events fire.
@@ -2098,18 +2100,23 @@ bool PrintStatusWidget::DetailedFormatter::set_nozzle_tool_override(
 }
 
 void PrintStatusWidget::DetailedFormatter::update_multi_tool() {
-    // Gated on physical extruders, not tool_count(): set_ams_topology() expands
+    // Gated on nozzles, not tool_count(): set_ams_topology() expands
     // ToolState's tool list to one entry per filament SLOT, so a 4-lane AMS or a
     // 16-wide AD5X tool map reports many "tools" behind a single hotend. Naming
     // which nozzle you are looking at only means something when there is more
     // than one nozzle. Matches the nozzle_icon badge gate in ui_ams_tool_text.
-    const bool multi = ToolState::instance().has_multiple_extruders();
-    lv_subject_set_int(&PrintStatusWidget::multi_tool_subject_, multi ? 1 : 0);
+    auto& tools = ToolState::instance();
+    lv_subject_set_int(&PrintStatusWidget::multi_tool_subject_,
+                       tools.names_mounted_nozzle() ? 1 : 0);
+    // The picker pins the readout to a heater, so it needs more than one:
+    // nozzles sharing one heater have a single readout to show.
+    lv_subject_set_int(&PrintStatusWidget::nozzle_pickable_subject_,
+                       tools.has_multiple_extruders() ? 1 : 0);
 }
 
 void PrintStatusWidget::DetailedFormatter::update_tool_label() {
     auto& tools = ToolState::instance();
-    if (!tools.has_multiple_extruders()) {
+    if (!tools.names_mounted_nozzle()) {
         nozzle_tool_label_buf_[0] = '\0';
     } else {
         // Label tracks what the user is VIEWING — the pinned tool when one
