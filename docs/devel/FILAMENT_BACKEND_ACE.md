@@ -192,12 +192,13 @@ non-empty `ace` without slots counts as the manager, since its deltas name `curr
 only when the seat moved (`#manager_ace_object`). A
 manager-only notify frame (e.g. `current_index` flipping to `-1` on a TR) is parsed on its
 own and clears the seat. Notify frames carry per-object deltas: a frame carrying any
-`ace_instance_N` key resolves to the lowest such instance (the one the display is
-anchored to), and a frame with no slots array at all falls back to the first non-empty
-object rather than being dropped.
+`ace_instance_N` key is read through the displayed instance only (the base the initial
+query chose), so a frame naming only other instances changes nothing on screen, and a
+frame with no slots array at all falls back to the first non-empty object rather than
+being dropped.
 
 **Multi-unit rigs** (`ace_instances > 1`, unobserved — every capture so far has one unit):
-the backend displays the lowest instance only. A `current_index` beyond that unit's slots
+the backend displays one instance only, the lowest one with slots at startup. A `current_index` beyond that unit's slots
 seats the tool and marks no slot, and the active-material display falls back to the
 external-spool profile while printing from an undisplayed unit's lane.
 
