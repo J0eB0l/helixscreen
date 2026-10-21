@@ -74,8 +74,9 @@ static constexpr int kKeypadFractionDigits = 2;
 
 // Current config and input state
 static ui_keypad_config_t current_config;
-// Set by a confirm: the close that follows is not a cancel.
+// Set by a confirm: the close that follows is not a cancel, and carries this value.
 static bool confirmed = false;
+static float confirmed_value = 0.0f;
 static helix::ui::KeypadInput input;
 
 // ============================================================================
@@ -252,11 +253,17 @@ bool ui_keypad_show(const ui_keypad_config_t* config) {
         }
     }
     confirmed = false;
-    helix::nav::on_close(keypad_widget, [on_cancel = config->on_cancel]() {
-        destroy_keypad_backdrop();
-        if (!confirmed && on_cancel)
-            on_cancel();
-    });
+    // Runs once the keypad is off screen, so either hook may open the keypad again.
+    helix::nav::on_close(keypad_widget,
+                         [on_confirm = config->on_confirm, on_cancel = config->on_cancel]() {
+                             destroy_keypad_backdrop();
+                             const bool was_confirmed = confirmed;
+                             const float value = confirmed_value;
+                             if (was_confirmed && on_confirm)
+                                 on_confirm(value);
+                             else if (!was_confirmed && on_cancel)
+                                 on_cancel();
+                         });
 
     // Show via overlay navigation, but keep previous panel visible (transparent overlay)
     helix::nav::push_overlay(keypad_widget, false /* hide_previous */);
@@ -306,6 +313,7 @@ static void handle_confirm() {
         }
     }
     confirmed = true;
+    confirmed_value = value;
 
     // Invoke callback before hiding — hiding pops the overlay stack which
     // invalidates lifetime tokens on the parent overlay, so the callback
@@ -314,8 +322,6 @@ static void handle_confirm() {
         current_config.callback(value, current_config.user_data);
         spdlog::info("[Keypad] Confirmed value={:.1f}", value);
     }
-    if (current_config.on_confirm)
-        current_config.on_confirm(value);
 
     ui_keypad_hide();
 }

@@ -369,4 +369,65 @@ TEST_CASE_METHOD(EditorFixture, "the host keypad reports a close without a value
     CHECK(cancels == 1);
 }
 
+TEST_CASE_METHOD(EditorFixture, "an editor opened from on_accept appears",
+                 "[plugin][lua_bindings_editor]") {
+    BoundRuntime b({&install_ui_bindings});
+    REQUIRE(b.t.run(R"(
+        log = {}
+        function second_number()
+            helix.ui.edit_number({title = "Second", min = 0, max = 50,
+                on_accept = function(v) log[#log + 1] = "n2=" .. v end,
+                on_cancel = function() log[#log + 1] = "n2 cancel" end})
+        end
+        function second_text()
+            helix.ui.edit_text({title = "Name",
+                on_accept = function(s) log[#log + 1] = "t=" .. s end,
+                on_cancel = function() log[#log + 1] = "t cancel" end})
+        end
+        function first_number(next)
+            helix.ui.edit_number({title = "First", min = 0, max = 50,
+                on_accept = function(v) log[#log + 1] = "n1=" .. v; next() end,
+                on_cancel = function() log[#log + 1] = "n1 cancel" end})
+        end
+    )"));
+
+    SECTION("keypad then keypad") {
+        REQUIRE(b.t.run("first_number(second_number)"));
+        drain();
+        type_and_confirm("7");
+        drain();
+        REQUIRE(ui_keypad_is_visible());
+        type_and_confirm("9");
+        drain();
+        REQUIRE(b.t.run("got = table.concat(log, ',')"));
+        CHECK(b.t.global("got") == "n1=7,n2=9");
+    }
+    SECTION("keypad then text") {
+        REQUIRE(b.t.run("first_number(second_text)"));
+        drain();
+        type_and_confirm("7");
+        drain();
+        lv_obj_t* input = text_dialog();
+        REQUIRE(input);
+        lv_textarea_set_text(input, "belts");
+        click(Modal::get_top(), "btn_primary");
+        REQUIRE(b.t.run("got = table.concat(log, ',')"));
+        CHECK(b.t.global("got") == "n1=7,t=belts");
+    }
+    SECTION("text then keypad") {
+        REQUIRE(b.t.run(R"(helix.ui.edit_text({title = "Name",
+            on_accept = function(s) log[#log + 1] = "t=" .. s; second_number() end}))"));
+        drain();
+        lv_obj_t* input = text_dialog();
+        REQUIRE(input);
+        lv_textarea_set_text(input, "rails");
+        click(Modal::get_top(), "btn_primary");
+        REQUIRE(ui_keypad_is_visible());
+        type_and_confirm("3");
+        drain();
+        REQUIRE(b.t.run("got = table.concat(log, ',')"));
+        CHECK(b.t.global("got") == "t=rails,n2=3");
+    }
+}
+
 #endif // HELIX_HAS_PLUGINS

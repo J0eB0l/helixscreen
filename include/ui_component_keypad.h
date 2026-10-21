@@ -47,7 +47,8 @@ struct ui_keypad_config_t {
     /// Called on OK with an in-range value, before `callback`. An empty result accepts
     /// it; anything else is shown as an error and the keypad stays open.
     std::function<std::string(float)> validate;
-    /// Called on OK with the accepted value, after `callback`.
+    /// Called with the accepted value once the keypad has closed, so it may show the
+    /// keypad again.
     std::function<void(float)> on_confirm;
     /// Called once when the keypad closes without a confirmed value.
     std::function<void()> on_cancel;
