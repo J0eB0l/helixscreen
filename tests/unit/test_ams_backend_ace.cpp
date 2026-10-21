@@ -2754,6 +2754,46 @@ TEST_CASE("ACE lowest instance wins over a higher instance's slots", "[ams][ace]
     CHECK(helper.get_test_dryer_info().current_temp_c == 35.2f);
 }
 
+TEST_CASE("ACE instance delta updates only the displayed unit", "[ams][ace][1835]") {
+    AmsBackendAceTestHelper helper;
+
+    json unit1 = make_kobra_instance_object();
+    unit1["instance"] = 1;
+    unit1["slots"][0]["material"] = "ABS";
+    unit1["slots"][0]["color"] = json::array({63, 81, 181});
+
+    SECTION("a delta naming only another instance leaves the display alone") {
+        json first = json::object();
+        first["ace_instance_0"] = make_kobra_instance_object();
+        helper.test_handle_status_update({{"params", json::array({first, 4240.0})}});
+        REQUIRE(helper.get_slot_info(0).material == "PLA");
+
+        json frame = json::object();
+        frame["ace_instance_1"] = unit1;
+        helper.test_handle_status_update({{"params", json::array({frame, 4241.0})}});
+
+        CHECK(helper.get_slot_info(0).material == "PLA");
+        CHECK(helper.get_slot_info(0).color_rgb == 0x00E676u);
+    }
+
+    SECTION("the displayed instance's delta wins over a lower instance's") {
+        json first = json::object();
+        first["ace_instance_1"] = make_kobra_instance_object();
+        helper.test_handle_status_update({{"params", json::array({first, 4240.0})}});
+        REQUIRE(helper.get_slot_info(0).material == "PLA");
+
+        json unit0 = unit1;
+        unit0["instance"] = 0;
+        json frame = json::object();
+        frame["ace_instance_0"] = unit0;
+        frame["ace_instance_1"] = json{{"temp", 35.2}};
+        helper.test_handle_status_update({{"params", json::array({frame, 4241.0})}});
+
+        CHECK(helper.get_slot_info(0).material == "PLA");
+        CHECK(helper.get_test_dryer_info().current_temp_c == 35.2f);
+    }
+}
+
 TEST_CASE_METHOD(LVGLTestFixture, "ACE REST unit-status idle keeps an in-flight load",
                  "[ams][ace][1069]") {
     MockPrinter mock_printer;
@@ -3636,6 +3676,30 @@ void answer_initial_query(helix::test::FakeMoonrakerClient& client, const json& 
     helix::ui::UpdateQueue::instance().drain();
 }
 } // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "ACE delta for an undisplayed instance after the startup query",
+                 "[ams][ace][1835]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+
+    json other = make_kobra_instance_object();
+    other["slots"][0]["material"] = "ABS";
+
+    SECTION("displayed instance 0, delta for instance 1") {
+        answer_initial_query(client, json{{"ace_instance_0", make_kobra_instance_object()}});
+        REQUIRE(b.get_slot_info(0).material == "PLA");
+        b.test_handle_status_update(status_notification("ace_instance_1", other));
+        CHECK(b.get_slot_info(0).material == "PLA");
+    }
+    SECTION("displayed instance 1, delta for instance 0") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"status", "ready"}}},
+                                          {"ace_instance_1", make_kobra_instance_object()}});
+        REQUIRE(b.get_slot_info(0).material == "PLA");
+        b.test_handle_status_update(status_notification("ace_instance_0", other));
+        CHECK(b.get_slot_info(0).material == "PLA");
+    }
+}
 
 TEST_CASE_METHOD(LVGLTestFixture, "ACE INSTANCE= base follows the displayed instance, not a delta",
                  "[ams][ace][device_actions][kobra]") {

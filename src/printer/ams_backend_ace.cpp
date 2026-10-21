@@ -155,7 +155,7 @@ void AmsBackendAce::on_started() {
     objects_to_query["filament_hub"] = nullptr;
     objects_to_query["ace"] = nullptr;
     for (int i = 0; i < 4; ++i) {
-        objects_to_query[fmt::format("ace_instance_{}", i)] = nullptr;
+        objects_to_query[ace_instance_key(i)] = nullptr;
     }
 
     json params = {{"objects", objects_to_query}};
@@ -240,12 +240,13 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     // `ace_instance_N` with a manager-shaped `ace` beside it (#1069, #1107).
     //
     // A frame carrying any `ace_instance_N` key is the fork: the display is
-    // anchored to the LOWEST instance (the one on_started's slot-bearing pick
-    // populated), so that instance's delta wins even when it carries no slots
-    // array while a higher instance's delta does — otherwise a multi-unit rig
-    // would write another unit's inventory into the displayed one. The manager
-    // is parsed after the primary, so the seat (current_index) lands on slots
-    // that are already populated.
+    // anchored to instance_base_ (the instance on_started's slot-bearing pick
+    // populated), so only that instance's delta is parsed, even when it
+    // carries no slots array while another instance's delta does. A frame
+    // that names only other instances updates nothing on screen; parsing it
+    // would write another unit's inventory into the displayed one (#1835).
+    // The manager is parsed after the primary, so the seat (current_index)
+    // lands on slots that are already populated.
     //
     // Otherwise a slot-bearing object is parsed first; notify frames carry
     // only CHANGED fields, so a delta with no slots array at all falls back to
@@ -253,12 +254,19 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     const json* manager = manager_ace_object(*status);
     const json* ace_data = nullptr;
     if (const std::string* instance_key = lowest_ace_instance_key(*status)) {
-        ace_data = &(*status)[*instance_key];
         // A delta names only the objects that changed, so it never moves the
         // base the initial query chose; it fills one only before that answer.
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (instance_base_ < 0) {
-            instance_base_ = ace_instance_number(*instance_key);
+        int base;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (instance_base_ < 0) {
+                instance_base_ = ace_instance_number(*instance_key);
+            }
+            base = instance_base_;
+        }
+        const std::string displayed_key = ace_instance_key(base);
+        if (status->contains(displayed_key)) {
+            ace_data = &(*status)[displayed_key];
         }
     } else {
         ace_data = select_ace_object(*status, nullptr, /*require_slots=*/true);
@@ -1960,6 +1968,10 @@ std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const
         local = slot - unit->first_slot_global_index;
     }
     return fmt::format("{} INSTANCE={} INDEX={}", verb, instance, local);
+}
+
+std::string AmsBackendAce::ace_instance_key(int n) {
+    return fmt::format("ace_instance_{}", n);
 }
 
 int AmsBackendAce::ace_instance_number(const std::string& key) {
