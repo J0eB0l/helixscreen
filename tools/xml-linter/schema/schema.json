@@ -3820,6 +3820,7 @@
     "keypad_width_micro",
     "keypad_width_small",
     "keypad_width_tiny",
+    "keypad_width_xlarge",
     "led_chip_gap",
     "led_chip_gap_half",
     "led_chip_gap_half_large",

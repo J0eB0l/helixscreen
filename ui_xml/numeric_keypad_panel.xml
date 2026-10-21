@@ -12,7 +12,8 @@
     <px name="keypad_width_tiny" value="227"/>
     <px name="keypad_width_small" value="283"/>
     <px name="keypad_width_medium" value="340"/>
-    <px name="keypad_width_large" value="400"/>
+    <px name="keypad_width_large" value="456"/>
+    <px name="keypad_width_xlarge" value="548"/>
 
   </consts>
   <styles>
