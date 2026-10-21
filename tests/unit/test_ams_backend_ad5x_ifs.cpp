@@ -13023,18 +13023,35 @@ TEST_CASE("AD5X IFS debounce workers end with the backend", "[ams][ad5x][ad5x_if
     }
     REQUIRE(fast.inflight() == 0);
 
+    // Each bound sits well under its window, so a worker that sleeps the
+    // window out fails it while a loaded shard still has room to clear one
+    // that wakes on teardown.
+    int bound_ms = 0;
     MockPrinter mock_printer;
     {
         helix::test::RegisteredBackend<AmsBackendAd5xIfs> backend_reg(&mock_printer.api, nullptr);
         AmsBackendAd5xIfs& backend = *backend_reg;
         SECTION("Adventurer5M.json re-read") {
+            bound_ms = 1000; // of a 2s window
             Ad5xIfsTestAccess::schedule_json_reread(backend);
         }
         SECTION("lane_data re-read") {
+            bound_ms = 1000; // of a 2s window
             Ad5xIfsTestAccess::schedule_lane_record_reread(backend);
         }
         SECTION("GET_ZCOLOR query") {
+            bound_ms = 400; // of a 500ms window
             Ad5xIfsTestAccess::schedule_zcolor_query(backend);
+        }
+        SECTION("GET_ZCOLOR response collection") {
+            bound_ms = 400; // of a 500ms window
+            // The window starts in execute_gcode's success callback, which
+            // may arrive on another thread after the call returns.
+            Ad5xIfsTestAccess::query_zcolor_silent(backend);
+            const auto submitted_deadline = Clock::now() + std::chrono::seconds(2);
+            while (fast.inflight() == 0 && Clock::now() < submitted_deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
         }
         REQUIRE(fast.inflight() > 0);
     }
@@ -13047,6 +13064,6 @@ TEST_CASE("AD5X IFS debounce workers end with the backend", "[ams][ad5x][ad5x_if
     const auto waited =
         std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - destroyed);
     CHECK(fast.inflight() == 0);
-    CHECK(waited.count() < 250);
+    CHECK(waited.count() < bound_ms);
     helix::ui::UpdateQueue::instance().drain();
 }

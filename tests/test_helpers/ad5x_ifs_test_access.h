@@ -453,6 +453,9 @@ class Ad5xIfsTestAccess {
     static void schedule_zcolor_query(AmsBackendAd5xIfs& b) {
         b.schedule_zcolor_query("test");
     }
+    static void query_zcolor_silent(AmsBackendAd5xIfs& b) {
+        b.query_zcolor_silent();
+    }
     static void set_zcolor_query_active(AmsBackendAd5xIfs& b, bool active) {
         b.zcolor_query_active_.store(active);
     }
