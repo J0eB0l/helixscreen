@@ -675,8 +675,10 @@
   <translation tag="Clear Console?" pt="Limpar Console?"/>
   <translation tag="Clear Spool" pt="Remover bobina"/>
   <translation tag="Clear every Endless Spool backup" pt="Limpar todas as reservas do carretel infinito"/>
+  <translation tag="Clear extruder only" pt="Esvaziar apenas o extrusor"/>
   <translation tag="Clear failed" pt="Falha ao limpar"/>
   <translation tag="Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament&apos;s packaging) and close the door." pt="Libere a área acima e abaixo da mesa. Coloque os carretéis sobre a mesa, cubra-os com uma caixa (uma tampa impressa ou a embalagem do filamento) e feche a porta."/>
+  <translation tag="Clear the extruder?" pt="Esvaziar o extrusor?"/>
   <translation tag="Clear the plate and load {}. The tower prints in the middle of the bed." pt="Limpe a mesa e carregue {}. A torre é impressa no centro da mesa."/>
   <translation tag="Cleared from settings — system unpair failed, may need OS Bluetooth" pt="Removido das configurações; falha ao desemparelhar no sistema, pode ser necessário o Bluetooth do SO"/>
   <translation tag="Clipboard unavailable - use SSH" pt="Área de transferência indisponível - use SSH"/>
@@ -750,6 +752,7 @@
   <translation tag="Confirm (full, ~{} min)" pt="Confirmar (completo, ~{} min)"/>
   <translation tag="Confirm PIN" pt="Confirmar PIN"/>
   <translation tag="Confirm before running macros" pt="Confirmar antes de executar macros"/>
+  <translation tag="Confirm clearing the extruder to unload it" pt="Confirme o esvaziamento do extrusor para descarregar"/>
   <translation tag="Confirm tool changes" pt="Confirmar trocas de ferramenta"/>
   <translation tag="Connect" pt="Conectar"/>
   <translation tag="Connect a USB label printer first" pt="Conecte primeiro uma impressora de etiquetas USB"/>
@@ -2195,6 +2198,7 @@
   <translation tag="No humidity sensor detected" pt="Nenhum sensor de umidade detectado"/>
   <translation tag="No images found on USB drive" pt="Nenhuma imagem encontrada na unidade USB"/>
   <translation tag="No jobs in queue" pt="Nenhum trabalho na fila"/>
+  <translation tag="No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it." pt="Nenhuma lane tem filamento, então nenhuma pode ser recolhida. Esvaziar corta o filamento no extrusor e o retira."/>
   <translation tag="No macro devices configured" pt="Nenhum dispositivo de macro configurado"/>
   <translation tag="No macros available" pt="Nenhuma macro disponível"/>
   <translation tag="No matches in SpoolmanDB" pt="Nenhum resultado no SpoolmanDB"/>
@@ -3314,6 +3318,7 @@
   <translation tag="Step" pt="Etapa"/>
   <translation tag="Step 1 of 3" pt="Etapa 1 de 3"/>
   <translation tag="Step {} of {}" pt="Etapa {} de {}"/>
+  <translation tag="Still reading the printer&apos;s lane record. Try again in a moment." pt="Ainda lendo o registro de lanes da impressora. Tente novamente em instantes."/>
   <translation tag="Still saving this spool…" pt="Ainda salvando este carretel…"/>
   <translation tag="Still working... taking longer than usual" pt="Ainda processando... está demorando mais que o normal"/>
   <translation tag="Stop" pt="Parar"/>
@@ -3538,9 +3543,11 @@
   <translation tag="The printer lost power during a print. The resumed layer may not line up exactly." pt="A impressora perdeu energia durante uma impressão. A camada retomada pode não se alinhar exatamente."/>
   <translation tag="The printer lost power while printing {}. Resume where it left off?" pt="A impressora perdeu energia ao imprimir {}. Retomar de onde parou?"/>
   <translation tag="The printer lost power while printing {}. The resumed layer may not line up exactly." pt="A impressora perdeu energia ao imprimir {}. A camada retomada pode não se alinhar exatamente."/>
+  <translation tag="The printer records lane {} in the toolhead, not this one" pt="A impressora registra a lane {} no cabeçote, não esta"/>
   <translation tag="The printer refused that port: check the port (Moonraker is usually 7125)." pt="A impressora recusou essa porta: verifique a porta (o Moonraker costuma usar a 7125)."/>
   <translation tag="The printer rejected the filament configuration. The print was not started." pt="A impressora rejeitou a configuração do filamento. A impressão não foi iniciada."/>
   <translation tag="The printer reports measured fan speeds. HelixScreen shows them on the Fans screen." pt="A impressora informa as velocidades medidas das ventoinhas. O HelixScreen as mostra na tela Ventoinhas."/>
+  <translation tag="The printer reports no lane record, so only clearing the extruder can unload it." pt="A impressora não informa nenhum registro de lane, então só esvaziar o extrusor pode descarregar."/>
   <translation tag="The printer swaps between several toolheads. Manage the tools on the filament system screen." pt="A impressora alterna entre vários cabeçotes. Gerencie as ferramentas na tela do sistema de filamento."/>
   <translation tag="The printer&apos;s firmware chooses where to switch on runout" pt="O firmware da impressora escolhe para onde trocar ao acabar"/>
   <translation tag="The requested position is outside the printer&apos;s bounds" pt="A posição solicitada está fora dos limites da impressora"/>

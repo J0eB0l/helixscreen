@@ -63,12 +63,15 @@ struct EditorFixture : LVGLUITestFixture {
         drain();
     }
 
-    /// Types `digits` ('0'-'9' and '.') on the open keypad, then presses Set.
+    /// Types `digits` ('0'-'9', '.' and '-' for the sign key) on the open keypad, then
+    /// presses Set.
     void type_and_confirm(const std::string& digits) {
         lv_obj_t* pad = keypad();
         REQUIRE(pad);
         for (char c : digits) {
-            const std::string name = c == '.' ? "btn_dot" : std::string("btn_") + c;
+            const std::string name = c == '.'   ? "btn_dot"
+                                     : c == '-' ? "btn_sign"
+                                                : std::string("btn_") + c;
             click(pad, name.c_str());
         }
         click(pad, "action_button");
@@ -112,6 +115,29 @@ TEST_CASE_METHOD(EditorFixture, "helix.ui.edit_number returns the keypad's value
     CHECK(b.t.global("got") == "42");
     REQUIRE(b.t.run("is_int = math.type(got) == 'integer'"));
     CHECK(b.t.global("is_int") == "true");
+}
+
+TEST_CASE_METHOD(EditorFixture, "helix.ui.edit_number with a negative min enters a negative value",
+                 "[plugin][lua_bindings_editor]") {
+    BoundRuntime b({&install_ui_bindings});
+    REQUIRE(b.t.run(kNumber));
+    REQUIRE(b.t.run("open_number({min = -10, max = 10})"));
+    drain();
+    REQUIRE(ui_keypad_is_visible());
+    lv_obj_t* sign = lv_obj_find_by_name(keypad(), "btn_sign");
+    REQUIRE(sign);
+    CHECK_FALSE(lv_obj_has_flag(sign, LV_OBJ_FLAG_HIDDEN));
+    type_and_confirm("2.5-");
+    CHECK_FALSE(ui_keypad_is_visible());
+    CHECK(b.t.global("got") == "-2.5");
+
+    // A range that stays at or above zero gets no sign key.
+    REQUIRE(b.t.run("open_number()"));
+    drain();
+    REQUIRE(ui_keypad_is_visible());
+    CHECK(lv_obj_has_flag(sign, LV_OBJ_FLAG_HIDDEN));
+    ui_keypad_hide();
+    drain();
 }
 
 TEST_CASE_METHOD(EditorFixture, "helix.ui.edit_number validation keeps the keypad open",
@@ -218,7 +244,7 @@ TEST_CASE_METHOD(EditorFixture, "helix.ui.edit_number validates its options",
         "helix.ui.edit_number()",
         "helix.ui.edit_number({min = 0, max = 10})",
         "helix.ui.edit_number({max = 10, on_accept = print})",
-        "helix.ui.edit_number({min = -5, max = 10, on_accept = print})",
+        "helix.ui.edit_number({min = -1e6, max = 10, on_accept = print})",
         "helix.ui.edit_number({min = 10, max = 10, on_accept = print})",
         "helix.ui.edit_number({min = 0, max = 1e6, on_accept = print})",
         "helix.ui.edit_number({min = 0, max = 10, decimals = 3, on_accept = print})",

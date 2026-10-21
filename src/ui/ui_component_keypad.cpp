@@ -29,6 +29,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -38,8 +39,8 @@
 // ============================================================================
 static lv_subject_t keypad_display_subject;
 static char keypad_display_buf[16] = "";
-// The keypad is shared by every numeric field in the app, so its header has to
-// say which one is being edited. Machine Limits alone opens it from five rows.
+// The keypad is shared by every numeric field in the app, so it has to say which
+// one is being edited. Machine Limits alone opens it from five rows.
 static lv_subject_t keypad_title_subject;
 static char keypad_title_buf[48] = "";
 // Unit shown inside the display's right end ("°C", "mm/s").
@@ -48,6 +49,8 @@ static char keypad_unit_buf[16] = "";
 // Drives the dot key's disabled state. An integer-only field used to show a
 // live "." that silently did nothing to the buffer.
 static lv_subject_t keypad_allow_decimal_subject;
+// Shows the +/- key, only on fields whose range reaches below zero.
+static lv_subject_t keypad_allow_negative_subject;
 
 /// Dims what stays live beside the pad. NavigationManager only backdrops the FIRST
 /// overlay on the stack, and the keypad is almost never that - it opens over a temp
@@ -101,6 +104,7 @@ void ui_keypad_init_subjects() {
                               subjects_);
     UI_MANAGED_SUBJECT_STRING(keypad_unit_subject, keypad_unit_buf, "", "keypad_unit", subjects_);
     UI_MANAGED_SUBJECT_INT(keypad_allow_decimal_subject, 1, "keypad_allow_decimal", subjects_);
+    UI_MANAGED_SUBJECT_INT(keypad_allow_negative_subject, 0, "keypad_allow_negative", subjects_);
 
     subjects_initialized = true;
 
@@ -156,6 +160,13 @@ void ui_keypad_init(lv_obj_t* parent) {
          [](lv_event_t*) {
              helix::ui::event_safe_call("keypad_confirm", []() { handle_confirm(); });
          }},
+        {"on_keypad_sign",
+         [](lv_event_t*) {
+             helix::ui::event_safe_call("keypad_sign", []() {
+                 if (input.toggle_sign())
+                     update_display();
+             });
+         }},
     });
     spdlog::debug("[Keypad] Numeric keypad registered (tree deferred to first show)");
 }
@@ -177,13 +188,6 @@ static bool ensure_keypad_built() {
     if (!keypad_widget) {
         spdlog::error("[Keypad] Failed to create keypad from XML");
         return false;
-    }
-
-    // header_bar takes its title as a creation-time string and documents that
-    // a runtime-varying title is bound by the owning screen rather than by a
-    // bind_text inside the shared component. Follow that here.
-    if (lv_obj_t* title = helix::ui::find_required(keypad_widget, "header_title", "Keypad")) {
-        lv_label_bind_text(title, &keypad_title_subject, nullptr);
     }
 
     wire_button_events();
@@ -211,8 +215,12 @@ bool ui_keypad_show(const ui_keypad_config_t* config) {
 
     // Size the buffer to this field's own range. The 3-digit default is
     // temperature-shaped and cannot express a max accel of 50000; deriving the
-    // cap means a new caller cannot forget to widen it.
-    input.max_int_digits = helix::ui::keypad_int_digits_for(config->max_value);
+    // cap means a new caller cannot forget to widen it. A range reaching further
+    // below zero than above it (-100 to 5) needs its minimum's digits.
+    input.max_int_digits = helix::ui::keypad_int_digits_for(
+        config->allow_negative
+            ? std::max(std::fabs(config->min_value), std::fabs(config->max_value))
+            : config->max_value);
     if (config->max_fraction_digits > 0) {
         input.max_frac_digits = std::min(config->max_fraction_digits, kKeypadFractionDigits);
         input.max_total_digits = input.max_int_digits + input.max_frac_digits;
@@ -222,6 +230,8 @@ bool ui_keypad_show(const ui_keypad_config_t* config) {
     }
     input.allow_dot = config->allow_decimal;
     lv_subject_set_int(&keypad_allow_decimal_subject, config->allow_decimal ? 1 : 0);
+    input.allow_sign = config->allow_negative;
+    lv_subject_set_int(&keypad_allow_negative_subject, config->allow_negative ? 1 : 0);
 
     lv_subject_copy_string(&keypad_title_subject, config->title_label ? config->title_label : "");
 
@@ -231,7 +241,7 @@ bool ui_keypad_show(const ui_keypad_config_t* config) {
     lv_subject_copy_string(&keypad_unit_subject, config->unit_label ? config->unit_label : "");
 
     // Register with nullptr lifecycle — keypad is function-based, not class-based
-    // The panel authors its own width (#keypad_width, 320-400px by breakpoint): a pad of
+    // The panel authors its own width (#keypad_width, per breakpoint): a pad of
     // three digit columns, not a screen. Neither navigation width class applies, so opt
     // out of push-time width management or the push stretches it to overlay width.
     helix::nav::set_overlay_width_unmanaged(keypad_widget);

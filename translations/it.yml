@@ -737,11 +737,13 @@ translations:
   Clear Console?: Cancellare la console?
   Clear Spool: Rimuovi bobina
   Clear every Endless Spool backup: Cancella tutte le riserve della bobina infinita
+  Clear extruder only: 'Svuota solo l''estrusore'
   Clear failed: Cancellazione fallita
   ? Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
 
   : Libera lo spazio sopra e sotto il piano. Appoggia le bobine sul piano, coprile con una scatola (un coperchio stampato o la confezione del filamento) e chiudi lo sportello.
 
+  Clear the extruder?: 'Svuotare l''estrusore?'
   Clear the plate and load {}. The tower prints in the middle of the bed.: Libera il piano e carica {}. La torre viene stampata al centro del piano.
   Cleared from settings — system unpair failed, may need OS Bluetooth: Rimosso dalle
     impostazioni; disaccoppiamento di sistema fallito, potrebbe servire il Bluetooth
@@ -823,6 +825,7 @@ translations:
   Confirm (full, ~{} min): "Conferma (completo, ~{} min)"
   Confirm PIN: Conferma PIN
   Confirm before running macros: Conferma prima di eseguire le macro
+  Confirm clearing the extruder to unload it: 'Conferma lo svuotamento dell''estrusore per scaricare'
   Confirm tool changes: 'Conferma cambi utensile'
   Connect: Connetti
   Connect a USB label printer first: Connettere prima una stampante etichette USB
@@ -2411,6 +2414,7 @@ translations:
   No humidity sensor detected: 'Nessun sensore di umidità rilevato'
   No images found on USB drive: Nessuna immagine trovata sulla chiavetta USB
   No jobs in queue: Nessun lavoro in coda
+  No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.: 'Nessuna corsia contiene filamento, quindi nessuna può essere ritratta. Lo svuotamento taglia il filamento nell''estrusore e lo estrae.'
   No macro devices configured: Nessun dispositivo macro configurato
   No macros available: Nessuna macro disponibile
   No matches in SpoolmanDB: 'Nessun risultato in SpoolmanDB'
@@ -3633,6 +3637,7 @@ translations:
   Step: Passaggio
   Step 1 of 3: Passaggio 1 di 3
   Step {} of {}: Passo {} di {}
+  Still reading the printer's lane record. Try again in a moment.: 'Lettura del registro delle corsie della stampante in corso. Riprova tra un momento.'
   Still saving this spool…: 'Salvataggio di questa bobina in corso…'
   Still working... taking longer than usual: Ancora in corso... ci vuole più tempo
     del solito
@@ -3899,11 +3904,13 @@ translations:
   The printer lost power while printing {}. Resume where it left off?: La stampante ha
     perso l'alimentazione durante la stampa di {}. Riprendere da dove si è interrotta?
   The printer lost power while printing {}. The resumed layer may not line up exactly.: La stampante ha perso l'alimentazione durante la stampa di {}. Il layer ripreso potrebbe non allinearsi perfettamente.
+  The printer records lane {} in the toolhead, not this one: 'La stampante registra la corsia {} nella testina, non questa'
   'The printer refused that port: check the port (Moonraker is usually 7125).': "La stampante ha rifiutato quella porta: controlla la porta (Moonraker di solito usa la 7125)."
   The printer rejected the filament configuration. The print was not started.: La
     stampante ha rifiutato la configurazione del filamento. La stampa non è stata
     avviata.
   The printer reports measured fan speeds. HelixScreen shows them on the Fans screen.: 'La stampante riporta le velocità misurate delle ventole. HelixScreen le mostra nella schermata Ventole.'
+  The printer reports no lane record, so only clearing the extruder can unload it.: 'La stampante non riporta alcun registro delle corsie, quindi solo lo svuotamento dell''estrusore può scaricare.'
   The printer swaps between several toolheads. Manage the tools on the filament system screen.: 'La stampante cambia tra più testine. Gestisci gli strumenti nella schermata del sistema filamento.'
   The printer's firmware chooses where to switch on runout: Il firmware della stampante sceglie dove passare a filamento esaurito
   The requested position is outside the printer's bounds: 'La posizione richiesta è fuori dai limiti della stampante'

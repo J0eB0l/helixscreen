@@ -31,6 +31,9 @@ struct KeypadInput {
     /// this false so a typed "25.5" cannot be silently truncated on send.
     bool allow_dot = true;
 
+    /// Whether the sign key works. Only fields whose range reaches below zero set it.
+    bool allow_sign = false;
+
     void clear() {
         buf[0] = '\0';
     }
@@ -89,6 +92,27 @@ struct KeypadInput {
         return false;
     }
 
+    bool negative() const {
+        return buf[0] == '-';
+    }
+
+    /// Flip the draft's sign, typed digits or not. The sign is not a digit, so the
+    /// digit caps are unaffected; it only needs room in the buffer.
+    bool toggle_sign() {
+        if (!allow_sign)
+            return false;
+        size_t len = length();
+        if (negative()) {
+            memmove(buf, buf + 1, len); // includes the terminator
+            return true;
+        }
+        if (len >= BUF_SIZE - 1)
+            return false;
+        memmove(buf + 1, buf, len + 1);
+        buf[0] = '-';
+        return true;
+    }
+
     /// Remove the last character.
     bool backspace() {
         size_t len = length();
@@ -98,11 +122,13 @@ struct KeypadInput {
         return true;
     }
 
-    /// Parse buffer as float. Empty buffer returns 0.
+    /// Parse buffer as float. Empty buffer returns 0, and so does a signed zero
+    /// ("-", "-0.") rather than -0.
     float value() const {
         if (buf[0] == '\0')
             return 0.0f;
-        return static_cast<float>(atof(buf));
+        const float v = static_cast<float>(atof(buf));
+        return v == 0.0f ? 0.0f : v;
     }
 };
 
