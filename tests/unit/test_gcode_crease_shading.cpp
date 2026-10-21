@@ -594,6 +594,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "crease: wall indexes live only while the cach
     // A partial batch leaves the neighbours of its last layer indexed, and the
     // memory report counts them.
     GCodeLayerRendererTestAccess::pin_layers_per_frame(r, 100);
+    GCodeLayerRendererTestAccess::freeze_batch_clock(r);
     REQUIRE(GCodeLayerRendererTestAccess::render_solid_batch(r, 0, 5, kCanvasPx, kCanvasPx) == 5);
     REQUIRE(r.memory_report().bytes_for("crease_grids") > 0);
 
@@ -743,6 +744,27 @@ TEST_CASE_METHOD(LVGLTestFixture, "crease: an evenly flaring spiral vase does no
     REQUIRE(p.darker == 0);
 }
 
+TEST_CASE_METHOD(LVGLTestFixture, "a solid-cache batch stops at the first layer past its budget",
+                 "[gcode][layer_renderer][budget]") {
+    const auto gcode = make_stepped_tower(FeatureType::OuterWall);
+    GCodeLayerRenderer r;
+    r.set_gcode(&gcode);
+    r.set_ghost_mode(false);
+    r.set_canvas_size(kCanvasPx, kCanvasPx);
+    r.auto_fit();
+    GCodeLayerRendererTestAccess::pin_layers_per_frame(r, 100);
+
+    // Every clock read moves 3ms: the deadline is read at +0, layers 1 and 2
+    // check in under the 8ms box, layer 3's check lands on +9.
+    REQUIRE(GCodeLayerRendererTestAccess::solid_batch_budget_ms() == 8);
+    GCodeLayerRendererTestAccess::step_batch_clock<3>(r);
+    CHECK(GCodeLayerRendererTestAccess::render_solid_batch(r, 0, 19, kCanvasPx, kCanvasPx) == 2);
+
+    // A stopped clock lets one batch take every layer it is handed.
+    GCodeLayerRendererTestAccess::freeze_batch_clock(r);
+    CHECK(GCodeLayerRendererTestAccess::render_solid_batch(r, 3, 19, kCanvasPx, kCanvasPx) == 19);
+}
+
 TEST_CASE_METHOD(LVGLTestFixture, "crease: toggling crease shading rebuilds the cache",
                  "[gcode][crease][layer_renderer]") {
     const auto gcode = make_stepped_tower(FeatureType::OuterWall);
@@ -752,6 +774,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "crease: toggling crease shading rebuilds the 
     r.set_canvas_size(kCanvasPx, kCanvasPx);
     r.auto_fit();
     GCodeLayerRendererTestAccess::pin_layers_per_frame(r, 100);
+    GCodeLayerRendererTestAccess::freeze_batch_clock(r);
     REQUIRE(GCodeLayerRendererTestAccess::render_solid_batch(r, 0, 5, kCanvasPx, kCanvasPx) == 5);
     const glm::ivec2 sp = r.project_to_screen(30.0f, 20.0f, gcode.layers[5].z_height);
     REQUIRE((GCodeLayerRendererTestAccess::cache_pixel(r, sp.x, sp.y) >> 24) != 0);

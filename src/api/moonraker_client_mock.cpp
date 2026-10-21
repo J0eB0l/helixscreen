@@ -956,7 +956,8 @@ int MoonrakerClientMock::connect(const char* url, std::function<void()> on_conne
     // real sleep in each one adds minutes of wall time to every shard.
     int connect_delay_ms = 250;
     if (const char* env = std::getenv("HELIX_MOCK_CONNECT_DELAY_MS")) {
-        connect_delay_ms = std::clamp(std::atoi(env), 0, 10000);
+        connect_delay_ms = std::clamp(
+            helix::text_io::parse_leading<int>(env).value_or(connect_delay_ms), 0, 10000);
     }
     auto delay_ms = sim_speed().shorten_wait_ms(connect_delay_ms);
     if (delay_ms > 0) {

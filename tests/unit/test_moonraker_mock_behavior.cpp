@@ -1103,6 +1103,25 @@ TEST_CASE("MoonrakerClientMock connection state", "[connection][slow][connection
     }
 }
 
+TEST_CASE("MoonrakerClientMock connect blocks for HELIX_MOCK_CONNECT_DELAY_MS",
+          "[connection][mock]") {
+    // A value that does not parse keeps the 250ms default rather than reading as 0.
+    const auto [value, floor] = GENERATE(table<const char*, std::chrono::milliseconds>(
+        {{"120", std::chrono::milliseconds(120)}, {"abc", std::chrono::milliseconds(250)}}));
+    INFO("HELIX_MOCK_CONNECT_DELAY_MS=" << value);
+    helix::ScopedEnv delay("HELIX_MOCK_CONNECT_DELAY_MS", value);
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+
+    const auto start = std::chrono::steady_clock::now();
+    mock.connect("ws://mock/websocket", []() {}, []() {});
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+
+    REQUIRE(mock.get_connection_state() == ConnectionState::CONNECTED);
+    CHECK(elapsed >= floor);
+    mock.stop_temperature_simulation();
+    mock.disconnect();
+}
+
 // ============================================================================
 // Temperature Simulation Tests
 // ============================================================================
