@@ -2270,6 +2270,7 @@ Each backend has its own leaf doc covering the protocol, data sources, G-code co
 | OpenAMS | klipper_openams on its own, through the `oams_manager` UI API (AFC, when present, keeps the printer) | [FILAMENT_BACKEND_OPENAMS.md](FILAMENT_BACKEND_OPENAMS.md) |
 | ACE | Anycubic ACE Pro 4-slot hub (native GoKlipper/Rinkhals; ValgACE REST fallback) | [FILAMENT_BACKEND_ACE.md](FILAMENT_BACKEND_ACE.md) |
 | Tool Changer | viesturz/klipper-toolchanger physical toolheads | [FILAMENT_BACKEND_TOOLCHANGER.md](FILAMENT_BACKEND_TOOLCHANGER.md) |
+| INDX | Bondtech INDX: docked passive nozzles on one extruder and heater | [FILAMENT_BACKEND_INDX.md](FILAMENT_BACKEND_INDX.md) |
 | AD5X IFS | FlashForge Adventurer 5X Intelligent Filament Switching via ZMOD | [FILAMENT_BACKEND_AD5X_IFS.md](FILAMENT_BACKEND_AD5X_IFS.md) |
 | CFS | Creality Filament System (K2 built-in; K1/K1C/K1 Max upgrade) | [FILAMENT_BACKEND_CFS.md](FILAMENT_BACKEND_CFS.md) |
 | QIDI Box | QIDI PLUS4 / Q2 / MAX4 RFID hub, chainable to 4 boxes | [FILAMENT_BACKEND_QIDI_BOX.md](FILAMENT_BACKEND_QIDI_BOX.md) |

@@ -529,6 +529,7 @@ Select the mock AMS topology/type.
 | `cfs` | 1 | **Creality CFS, K1 stock dialect - mock HARDWARE, real backend.** The stock `box` status object plus the calibration command surface. Alias: `cfs-k1`. See below |
 | `openams` | 1 | **OpenAMS hub - mock HARDWARE, real backend.** Lists and pushes the `oams_manager` status object (4-bay hub unit, FPS lane, groups T0/T1/T2, slot 4 loaded) so real discovery claims OpenAMS and the production `AmsBackendOpenAms` runs. Slots 3 and 4 get ASA identity seeded into `lane_data`; `OPENAMS_UNLOAD` / `OPENAMS_LOAD GROUP=Tn` flip the loaded slot |
 | `multiace` | 1 | **multiACE on a U1 - mock HARDWARE, real backend.** Pushes the U1 feed objects plus the plain `ace` object so real discovery builds the production `AmsBackendMultiAce` and runs it against engine-shaped frames. Pair with `HELIX_MOCK_PRINTER=snapmaker_u1`. See below |
+| `indx` | 1 | **Bondtech INDX - mock HARDWARE, real backend.** Publishes the toolboard module, `save_variables` and Bondtech's macro objects so real discovery builds the production `AmsBackendIndx`. `T<n>` / `CHANGE_TOOL` / `PARK_TOOL` walk park and pickup over a few notifications, and heat is refused with no tool on the head or on a no-hotend tool. See below |
 
 `HELIX_MOCK_AMS=multiace` takes two knobs (read once at start by `MoonrakerClientMock`):
 
@@ -546,6 +547,18 @@ HELIX_MOCK_PRINTER=snapmaker_u1 HELIX_MOCK_AMS=multiace ./build/bin/helix-screen
 # multi mode, two units: the path canvas draws two PARALLEL units over four heads
 HELIX_MOCK_PRINTER=snapmaker_u1 HELIX_MOCK_AMS=multiace HELIX_MOCK_MULTIACE_MODE=multi \
 HELIX_MOCK_MULTIACE_UNITS=2 ./build/bin/helix-screen --test
+```
+
+`HELIX_MOCK_AMS=indx` takes these knobs (read when the mock builds its object list):
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `HELIX_MOCK_INDX_TOOLS` | `6` | Tools, 2-10. The last one is listed in `no_heat_tools` (a pen) |
+| `HELIX_MOCK_INDX_FAULT` | unset | `seat_suspect` (T1 may be half seated), `docks_uncalibrated`, `unrecognized` (no `CHANGE_TOOL`, the "macros not recognized" state), or `kalico` (`[indx]` in configfile only, not in the object list) |
+| `HELIX_MOCK_INDX_SPOOL_MACROS` | off | The #1333 reporter's shape: each `T<n>` declares `spool_id` and its template calls `SET_ACTIVE_SPOOL` |
+
+```bash
+HELIX_MOCK_PRINTER=voron_trident HELIX_MOCK_AMS=indx ./build/bin/helix-screen --test -vv
 ```
 
 `HELIX_MOCK_AMS=openams` takes more knobs (all read by `MoonrakerClientMock`):
