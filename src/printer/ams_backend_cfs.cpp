@@ -4512,11 +4512,8 @@ AmsError AmsBackendCfs::apply_endless_spool_enabled(bool enabled) {
     // Recorded only once Klipper has run it: a dispatch proves nothing, and a
     // dialect without the command or a rejected send must leave the cache on
     // the box's last word.
-    auto token = lifetime_.token();
-    return send_endless_spool_switch(setter + (enabled ? "1" : "0"), [this, token, enabled]() {
-        token.defer("AmsBackendCfs::auto_refill_sent",
-                    [this, enabled]() { record_auto_refill_sent(enabled); });
-    });
+    return send_endless_spool_switch(setter + (enabled ? "1" : "0"),
+                                     [this, enabled]() { record_auto_refill_sent(enabled); });
 }
 
 helix::printer::EndlessSpoolConfig AmsBackendCfs::get_endless_spool_config() const {
