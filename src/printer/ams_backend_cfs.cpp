@@ -4737,16 +4737,14 @@ AmsBackendCfs::calibrate_cutter(std::function<void(bool ok, const std::string& l
     };
 
     auto token = lifetime_.token();
-    auto on_complete = [this, token, on_result, watch, unregister]() {
-        token.defer("AmsBackendCfs::cutcal_done", [this, token, on_result, watch, unregister]() {
-            calibration_in_flight_ = false;
-            unregister();
-            const std::string& line =
-                !watch->found_line.empty() ? watch->found_line : watch->saved_line;
-            if (on_result) {
-                on_result(true, line);
-            }
-        });
+    auto on_complete = [this, on_result, watch, unregister]() {
+        calibration_in_flight_ = false;
+        unregister();
+        const std::string& line =
+            !watch->found_line.empty() ? watch->found_line : watch->saved_line;
+        if (on_result) {
+            on_result(true, line);
+        }
     };
     auto on_error = [this, token, on_result, unregister](const MoonrakerError& err) {
         token.defer("AmsBackendCfs::cutcal_err", [this, token, on_result, unregister, err]() {
@@ -4802,37 +4800,30 @@ AmsError AmsBackendCfs::start_chute_calibration(
     // once the user has left the flow, no further step goes out.
     const AmsError err = execute_gcode(
         "BOX_CUSTOM_COMMAND CMD=XYZ_ZERO",
-        [this, token, on_ready = std::move(on_ready), cancel_requested, prepare_ran, fail]() {
-            token.defer("AmsBackendCfs::chute_home_done", [this, token, on_ready, cancel_requested,
-                                                           prepare_ran, fail]() {
-                if (cancel_requested && cancel_requested->load()) {
-                    // Cancelled during the home: the head sits at the
-                    // homed origin and PREPARE never ran, so there is
-                    // nothing to unwind.
+        [this, on_ready = std::move(on_ready), cancel_requested, prepare_ran, fail]() {
+            if (cancel_requested && cancel_requested->load()) {
+                // Cancelled during the home: the head sits at the homed origin
+                // and PREPARE never ran, so there is nothing to unwind.
+                calibration_in_flight_ = false;
+                return;
+            }
+            *prepare_ran = true;
+            execute_gcode(
+                "BOX_CUSTOM_COMMAND CMD=COORDINATES_ADJUST_PREPARE",
+                [this, on_ready, cancel_requested]() {
+                    if (cancel_requested && cancel_requested->load()) {
+                        // Cancelled while PREPARE ran: the caller is gone, so
+                        // the backend re-parks itself.
+                        calibration_in_flight_ = false;
+                        execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE");
+                        return;
+                    }
                     calibration_in_flight_ = false;
-                    return;
-                }
-                *prepare_ran = true;
-                execute_gcode(
-                    "BOX_CUSTOM_COMMAND CMD=COORDINATES_ADJUST_PREPARE",
-                    [this, token, on_ready, cancel_requested, fail]() {
-                        token.defer("AmsBackendCfs::chute_prepare_done",
-                                    [this, token, on_ready, cancel_requested, fail]() {
-                                        if (cancel_requested && cancel_requested->load()) {
-                                            // Cancelled while PREPARE ran: the caller
-                                            // is gone, so the backend re-parks itself.
-                                            calibration_in_flight_ = false;
-                                            execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE");
-                                            return;
-                                        }
-                                        calibration_in_flight_ = false;
-                                        if (on_ready) {
-                                            on_ready();
-                                        }
-                                    });
-                    },
-                    fail);
-            });
+                    if (on_ready) {
+                        on_ready();
+                    }
+                },
+                fail);
         },
         fail);
     if (err.success()) {
@@ -4911,18 +4902,12 @@ AmsBackendCfs::save_chute_position(std::function<void()> on_saved,
     };
     const AmsError err = execute_gcode(
         "BOX_CUSTOM_COMMAND CMD=COORDINATES_ADJUST_SAVE_POS",
-        [this, token, on_saved = std::move(on_saved), watch, unregister]() {
-            token.defer("AmsBackendCfs::chute_saved", [this, token, on_saved, watch, unregister]() {
-                execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE",
-                              [this, token, on_saved, watch, unregister]() {
-                                  token.defer("AmsBackendCfs::chute_parked",
-                                              [this, on_saved, watch, unregister]() {
-                                                  unregister();
-                                                  last_chute_save_line_ = *watch;
-                                                  if (on_saved)
-                                                      on_saved();
-                                              });
-                              });
+        [this, on_saved = std::move(on_saved), watch, unregister]() {
+            execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE", [this, on_saved, watch, unregister]() {
+                unregister();
+                last_chute_save_line_ = *watch;
+                if (on_saved)
+                    on_saved();
             });
         },
         fail);

@@ -2084,8 +2084,7 @@ AmsError AmsBackendAd5xIfs::do_load_filament(int slot_index) {
     // it acks only after the purge fully runs. Like the unload, the synthesized
     // Purge phase has no sensor event and the confirming query can silently fail
     // on native ZMOD — without this the load sticks at Purge until the 90s
-    // timeout flips to ERROR (raza616 stuck-on-Purging). on_complete fires on a
-    // bg thread, so hop to the main thread before touching state.
+    // timeout flips to ERROR (raza616 stuck-on-Purging).
     //
     // ensure_homed_then() WITHOUT skip_homing does not double-home (#1248): the
     // macro's leading _G28 is conditional on homed_axes, so once our G28 has
@@ -2104,11 +2103,7 @@ AmsError AmsBackendAd5xIfs::do_load_filament(int slot_index) {
 AmsError AmsBackendAd5xIfs::dispatch_load_macro(std::string gcode) {
     auto token = lifetime_.token();
     return ensure_homed_then(
-        std::move(gcode),
-        [this, token]() {
-            token.defer("Ad5xIfsBackend::load_macro_complete",
-                        [this]() { finalize_op_after_macro(/*is_unload=*/false); });
-        },
+        std::move(gcode), [this]() { finalize_op_after_macro(/*is_unload=*/false); },
         [this, token](const MoonrakerError& err) {
             token.defer("Ad5xIfsBackend::load_macro_failed",
                         [this, err]() { fail_op_after_macro(/*is_unload=*/false, err); });
@@ -2268,13 +2263,11 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
     // Retract phase has no sensor event, and the IFS_STATUS Chan==0 / GET_ZCOLOR
     // confirm can silently fail on native ZMOD — leaving the op stuck at Retract
     // until the 90s timeout flips it to ERROR (raza616 stuck-on-Retract). The
-    // macro ack is the reliable "unload fully ran" signal. on_complete fires on a
-    // bg thread, so hop to the main thread before touching state.
+    // macro ack is the reliable "unload fully ran" signal.
+    auto on_complete = [this]() { finalize_op_after_macro(/*is_unload=*/true); };
+    // A refusal for want of an IMoonrakerAPI runs on_error on this stack, so
+    // the failure still hops to main itself.
     auto token = lifetime_.token();
-    auto on_complete = [this, token]() {
-        token.defer("Ad5xIfsBackend::unload_macro_complete",
-                    [this]() { finalize_op_after_macro(/*is_unload=*/true); });
-    };
     auto on_error = [this, token](const MoonrakerError& err) {
         token.defer("Ad5xIfsBackend::unload_macro_failed",
                     [this, err]() { fail_op_after_macro(/*is_unload=*/true, err); });

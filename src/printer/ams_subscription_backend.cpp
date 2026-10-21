@@ -791,18 +791,13 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
     // An error callback that only unwinds state, at the standard timeout, is
     // exactly the 4-arg execute_gcode() virtual's contract, so it goes through
     // that virtual: fixtures capture it there the way they capture the shapes
-    // above. Its callbacks land on a background thread; marshal them to main
-    // like the direct path below does.
+    // above. That virtual already runs the completion on main; the error leg
+    // still hops here because a refusal for want of an IMoonrakerAPI arrives
+    // synchronously, and handle_dispatch_error() takes mutex_.
     if (timeout_ms == IMoonrakerAPI::kAmsOperationTimeoutMs &&
         !caller_surfaces_errors.value_or(on_error != nullptr)) {
         return execute_gcode(
-            gcode,
-            [token, on_complete = std::move(on_complete)]() {
-                if (on_complete) {
-                    token.defer("AmsSubscriptionBackend::dispatch_payload_complete",
-                                [on_complete]() { on_complete(); });
-                }
-            },
+            gcode, std::move(on_complete),
             [this, token, on_error](const MoonrakerError& err) {
                 token.defer("AmsSubscriptionBackend::dispatch_payload_error",
                             [this, err, on_error]() { handle_dispatch_error(err, on_error); });
@@ -892,43 +887,12 @@ AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode) {
 
 AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode,
                                                std::function<void()> on_complete) {
-    if (!api_) {
-        return AmsErrorHelper::not_connected("IMoonrakerAPI not available");
-    }
-    const char* tag = backend_log_tag();
-    spdlog::info("{} Executing G-code: {}", tag, gcode);
-    api_->execute_gcode(
-        gcode,
-        [tag, on_complete = std::move(on_complete)]() {
-            spdlog::debug("{} G-code executed successfully", tag);
-            // Fires when the command finishes (Klipper acks the script), so a
-            // long macro has fully run — the reliable completion signal.
-            if (on_complete) {
-                on_complete();
-            }
-        },
-        [tag, gcode](const MoonrakerError& err) {
-            if (err.type == MoonrakerErrorType::TIMEOUT) {
-                spdlog::warn("{} G-code response timed out (may still be running): {}", tag, gcode);
-            } else if (err.type == MoonrakerErrorType::NOT_READY) {
-                spdlog::debug("{} G-code skipped (Klipper halted): {}", tag, gcode);
-            } else {
-                spdlog::error("{} G-code failed: {} - {}", tag, gcode, err.message);
-            }
-        },
-        IMoonrakerAPI::kAmsOperationTimeoutMs,
-        // silent=true: completion is owned by the phase tracker + IFS_STATUS, not
-        // the RPC return, so the advisory 300s timeout must not surface a false
-        // "timed out" toast for a legitimately-long macro (bundle 77TDH9N6),
-        // along with the tracker's generic fallback.
-        /*silent=*/true, /*on_queued=*/nullptr,
-        // caller_surfaces_errors=false: the error_cb above only writes to the
-        // log, which the user never sees. Declaring otherwise would silence
-        // GcodeErrorRouter, so a real AFC/Happy Hare/CFS macro rejection would
-        // reach nobody. With this false, Klipper's `!!` broadcast stays free to
-        // surface it. See include/rpc_error_policy.h.
-        /*caller_surfaces_errors=*/false);
-    return AmsErrorHelper::success();
+    // silent=true: completion is owned by the phase tracker + IFS_STATUS, not
+    // the RPC return, so the advisory 300s timeout must not surface a false
+    // "timed out" toast for a legitimately-long macro (bundle 77TDH9N6),
+    // along with the tracker's generic fallback.
+    return AmsSubscriptionBackend::execute_gcode(gcode, std::move(on_complete), nullptr,
+                                                 /*silent=*/true);
 }
 
 AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode,
@@ -950,15 +914,23 @@ AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode,
     }
     const char* tag = backend_log_tag();
     spdlog::info("{} Executing G-code: {}", tag, gcode);
+    auto token = lifetime_.token();
     api_->execute_gcode(
         gcode,
-        [tag, on_complete = std::move(on_complete)]() {
+        [tag, token, on_complete = std::move(on_complete)]() {
             spdlog::debug("{} G-code executed successfully", tag);
-            if (on_complete) {
-                on_complete();
+            if (!on_complete) {
+                return;
             }
+            // The answer lands on the libhv response thread, while the status
+            // frames that arrived before it are still queued for main. The
+            // completion runs behind them, on main, so it judges the state
+            // those frames report rather than the state they are about to
+            // replace.
+            token.defer("AmsSubscriptionBackend::execute_gcode_complete",
+                        [on_complete]() { on_complete(); });
         },
-        [tag, gcode, on_error = std::move(on_error)](const MoonrakerError& err) {
+        [tag, token, gcode, on_error = std::move(on_error)](const MoonrakerError& err) {
             if (err.type == MoonrakerErrorType::TIMEOUT) {
                 spdlog::warn("{} G-code response timed out (may still be running): {}", tag, gcode);
             } else if (err.type == MoonrakerErrorType::NOT_READY) {
@@ -966,9 +938,14 @@ AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode,
             } else {
                 spdlog::error("{} G-code failed: {} - {}", tag, gcode, err.message);
             }
-            if (on_error) {
-                on_error(err);
+            if (!on_error) {
+                return;
             }
+            // Same thread and ordering as the completion. A refusal can also
+            // arrive synchronously, on the caller's stack, while it holds
+            // mutex_.
+            token.defer("AmsSubscriptionBackend::execute_gcode_error",
+                        [on_error, err]() { on_error(err); });
         },
         IMoonrakerAPI::kAmsOperationTimeoutMs, silent, /*on_queued=*/nullptr,
         // caller_surfaces_errors=false: on_error unwinds caller state but does

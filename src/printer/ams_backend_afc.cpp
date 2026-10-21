@@ -1789,13 +1789,8 @@ AmsError AmsBackendAfc::dispatch_operation(std::string gcode, AmsAction action) 
     // ever see one end.
     emit_event(EVENT_STATE_CHANGED);
 
-    auto token = lifetime_.token();
-    AmsError result = ensure_homed_then(std::move(gcode), [this, token, generation]() {
-        // L081 Mechanism C: the gcode ack lands on a background thread and the
-        // handler writes system_info_ under mutex_. Marshal to main.
-        token.defer("AmsBackendAfc::dispatch_macro_complete",
-                    [this, generation]() { finalize_dispatch_after_macro(generation); });
-    });
+    AmsError result = ensure_homed_then(
+        std::move(gcode), [this, generation]() { finalize_dispatch_after_macro(generation); });
 
     if (!result) {
         // The gcode never left: no IMoonrakerAPI, or the send was refused. No ack
