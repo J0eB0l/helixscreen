@@ -3033,7 +3033,7 @@ std::string AmsBackendAd5xIfs::clear_toolhead_gcode(bool module_live, int nozzle
     // No lane names a material to take a temperature from, so a nozzle the
     // user already heated keeps its target. The module's clear refuses below
     // 150C.
-    const int target_c = nozzle_target_deci / 10;
+    const int target_c = ui::temperature::deci_to_degrees(nozzle_target_deci);
     const int temp_c = target_c >= kClearToolheadMinTempC ? target_c : kClearToolheadFallbackTempC;
     if (module_live) {
         // The module's extruder clear (cut, wipe, withdraw) with no SLOT=: it
