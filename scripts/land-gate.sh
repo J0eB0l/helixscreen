@@ -7,7 +7,7 @@
 #   app-build         make (the app; tests/ui drives the real binary)
 #   sweep             make unit-sweep, the local gate's shard layout
 #   ci-shards         the sweep again as CI_SHARDS shards (default 8: build.yml's
-#                     nproc*2 on 4-core runners). Which tests share a process
+#                     layout, split across its two test legs). Which tests share a process
 #                     decides what a use-after-free corrupts, so a layout nobody
 #                     ran locally can crash where the local one passed.
 #                     Each shard gets CI_SHARD_TIMEOUT seconds (default 600,
