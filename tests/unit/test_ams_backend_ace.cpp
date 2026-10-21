@@ -3609,3 +3609,18 @@ TEST_CASE("ACE slot actions name INSTANCE= and the local INDEX= on the Kobra S1 
                                      });
     }
 }
+
+TEST_CASE("ACE slot actions take INSTANCE= from the driver's own instance number",
+          "[ams][ace][device_actions][kobra]") {
+    AmsBackendAceTestHelper b;
+    b.test_handle_status_update(
+        status_notification("ace_instance_1", json{{"slots", four_slot_array()}}));
+    AceTestAccess::set_seat(b, 2, true);
+
+    CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                     "ACE_FEED INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_RETRACT INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=2",
+                                     "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=2",
+                                 });
+}

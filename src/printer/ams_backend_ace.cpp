@@ -43,6 +43,7 @@
 #include <cctype>
 #include <chrono>
 #include <map>
+#include <string_view>
 #include <tuple>
 
 namespace helix {
@@ -176,9 +177,9 @@ void AmsBackendAce::on_started() {
                 if (response.contains("result") && response["result"].contains("status")) {
                     const json& status = response["result"]["status"];
                     ace_data = select_ace_object(status, &matched_key);
-                    if (lowest_ace_instance_key(status)) {
+                    if (const std::string* instance_key = lowest_ace_instance_key(status)) {
                         std::lock_guard<std::mutex> lock(mutex_);
-                        addresses_units_by_instance_ = true;
+                        instance_base_ = ace_instance_number(*instance_key);
                     }
                 }
 
@@ -250,7 +251,7 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     if (const std::string* instance_key = lowest_ace_instance_key(*status)) {
         ace_data = &(*status)[*instance_key];
         std::lock_guard<std::mutex> lock(mutex_);
-        addresses_units_by_instance_ = true;
+        instance_base_ = ace_instance_number(*instance_key);
     } else {
         ace_data = select_ace_object(*status, nullptr, /*require_slots=*/true);
         if (!ace_data) {
@@ -1704,8 +1705,8 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         changed |= seat_from_local_index_locked(data["loaded_slot"].get<int>());
     }
 
-    if (data.contains("ace_manager")) {
-        addresses_units_by_instance_ = true;
+    if (data.contains("ace_manager") && instance_base_ < 0) {
+        instance_base_ = 0;
     }
 
     // The fork's /status states the seat through the manager's
@@ -1941,16 +1942,25 @@ std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() co
 
 std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!addresses_units_by_instance_) {
+    if (instance_base_ < 0) {
         return fmt::format("{} INDEX={}", verb, slot);
     }
-    int instance = 0;
+    int instance = instance_base_;
     int local = slot;
     if (const AmsUnit* unit = system_info_.get_unit_for_slot(slot)) {
-        instance = unit->unit_index;
+        instance += unit->unit_index;
         local = slot - unit->first_slot_global_index;
     }
     return fmt::format("{} INSTANCE={} INDEX={}", verb, instance, local);
+}
+
+int AmsBackendAce::ace_instance_number(const std::string& key) {
+    static constexpr std::string_view kPrefix = "ace_instance_";
+    if (key.rfind(kPrefix, 0) != 0) {
+        return 0;
+    }
+    const auto n = helix::text_io::parse_leading<int>(std::string_view(key).substr(kPrefix.size()));
+    return n && *n >= 0 ? *n : 0;
 }
 
 AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,
