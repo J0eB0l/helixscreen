@@ -499,6 +499,9 @@ namespace {
 /// externally started operation takes the sidebar's own detection path.
 struct NarratedSidebarFixture : public XMLTestFixture {
     NarratedSidebarFixture() {
+        // init_subjects(true) is a no-op on an AmsState another case initialized
+        // without XML registration, which leaves the sidebar's bindings unbound.
+        AmsState::instance().deinit_subjects();
         auto backend = std::make_unique<ScriptedAfcBackend>();
         backend_ = backend.get();
         backend_->current_slot = 0;

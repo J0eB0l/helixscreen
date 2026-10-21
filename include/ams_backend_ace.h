@@ -396,6 +396,15 @@ class AmsBackendAce : public AmsSubscriptionBackend {
      */
     static const nlohmann::json* manager_ace_object(const nlohmann::json& status);
 
+    /// `<verb>` addressed at global @p slot in the form the driver parses. The
+    /// Kobra S1 fork resolves a unit from INSTANCE= and reads INDEX= as that
+    /// unit's local slot, rejecting INDEX= alone; GoKlipper and ValgACE drive a
+    /// single hub by INDEX= only.
+    std::string slot_command(const std::string& verb, int slot) const;
+
+    /// N of an `ace_instance_N` key, or 0 when the suffix is not a number.
+    static int ace_instance_number(const std::string& key);
+
     /// Fold the manager's path sensors (`rdm_sensor` at the hub,
     /// `toolhead_sensor` at the extruder) into the cached readings and onto the
     /// unit. A frame stating neither leaves the last reading standing: notify
@@ -455,6 +464,13 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // still false.
     std::atomic<bool> rest_data_ok_{false};
     std::atomic<int> data_fetch_failures_{0};
+
+    // The Kobra S1 fork's instance number for units[0], or -1 until that
+    // driver's surface is seen. Its slot commands take INSTANCE= + INDEX=; the
+    // base is N of the `ace_instance_N` the initial query picked for display,
+    // or 0 when the REST bridge serves the data. Reset on every start.
+    // Guarded by mutex_.
+    int instance_base_ = -1;
 
     /// Guards ACE's own RPC and REST callbacks. Separate from the base
     /// lifetime_ because cancel() and on_stopping() expire these without
