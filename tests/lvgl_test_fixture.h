@@ -129,27 +129,16 @@ class LVGLTestFixture : public HelixTestFixture {
      * — the test binary has no tick source of its own (see below), so this is
      * the only thing that makes LVGL's clock move.
      *
-     * NOT a wall-clock wait, and NOT a way to wait on another thread. Real time
-     * elapsed is roughly `ms / 5` (one 1ms sleep per 5ms step) and exactly zero
-     * for `ms <= 50`, which skips the sleep entirely. A loop that accumulates
-     * the nominal `ms` toward a timeout therefore burns its whole budget in a
-     * fraction of the time and may never yield to the thread it is waiting on;
-     * the test then fails past the end of the fixture's lifetime, so teardown
+     * NOT a wall-clock wait, and NOT a way to wait on another thread: it
+     * never sleeps, so no real time passes beyond the CPU the timers take. A
+     * loop that accumulates the nominal `ms` toward a timeout burns its whole
+     * budget at once and may never yield to the thread it is waiting on; the
+     * test then fails past the end of the fixture's lifetime, so teardown
      * effects look like they happened mid-test. Use wait_until() for that, or
      * better, join the worker (e.g. ThumbnailProcessor::wait_for_completion())
      * and then drain.
      */
     void process_lvgl(int ms);
-
-    /**
-     * @brief process_lvgl() without the real sleeps
-     * @param ms Duration of *simulated* time to advance
-     *
-     * For a case whose every wait is an lv_timer or the UpdateQueue on this
-     * thread: nothing else needs to run, so yielding only adds wall time, which
-     * a shard on a loaded host pays against its timeout.
-     */
-    void advance_lvgl(int ms);
 
     /**
      * @brief Wait for @p condition, advancing virtual time AND yielding for real
@@ -195,11 +184,6 @@ class LVGLTestFixture : public HelixTestFixture {
      */
     static void ensure_lvgl_initialized();
 
-  private:
-    /// The shared step loop: 5ms ticks, a 1ms real sleep per step when @p yield.
-    void pump_lvgl(int ms, bool yield);
-
-  protected:
     lv_obj_t* m_test_screen; ///< Test screen for this fixture instance
 
     // Static initialization state
