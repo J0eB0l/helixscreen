@@ -240,6 +240,11 @@ produced by the same functions the screen's own start uses; the plugin only send
 current as of the app's last write, so the app rewrites it whenever an input changes (setting
 edit, lane change, backend reconnect). Never reimplement a backend's gcode in Python.
 
+**Exception (ruled 2026-10-21): power-loss recovery renders its resume gcode in the plugin.** The
+resume script is built from a G-code file scan that runs in the plugin, the K-Touch cannot scan
+files, and one endpoint serves every client; no vendor backend's gcode is duplicated. Details and
+the reasoning: `docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md` § 3.2.
+
 Skips and file rewrites are excluded: once a foreign client has started the file, it is too late
 to rewrite it. Moonraker's own queue transitions are in scope.
 
@@ -494,6 +499,9 @@ Today's polling.
 0 framework -> 1 analysis -> 2 fit check (uses 1) -> 3 hooks -> 4 server edits -> 5 filament
 (uses 1 for per-tool amounts) -> 6 journal -> 7 photos -> 8 storage -> 10 config -> 11 vendor
 shims.
+
+Power-loss recovery is its own design, depending on Phase 0 only:
+`docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md`.
 
 ## Open questions
 
