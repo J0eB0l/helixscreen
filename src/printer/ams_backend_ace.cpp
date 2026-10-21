@@ -1120,7 +1120,15 @@ void AmsBackendAce::set_unit_action_locked(int unit, AmsAction action) {
     unit_actions_[index] = action;
     const auto busy = std::find_if(unit_actions_.begin(), unit_actions_.end(),
                                    [](AmsAction a) { return a != AmsAction::IDLE; });
-    system_info_.action = busy == unit_actions_.end() ? AmsAction::IDLE : *busy;
+    const AmsAction resolved = busy == unit_actions_.end() ? AmsAction::IDLE : *busy;
+    // A load sent from here ends with its own ack: the unit reads "busy" or
+    // "ready" while the driver feeds, and both resolve to IDLE.
+    const bool moving =
+        system_info_.action == AmsAction::LOADING || system_info_.action == AmsAction::UNLOADING;
+    if (own_load_ && moving && resolved == AmsAction::IDLE) {
+        return;
+    }
+    system_info_.action = resolved;
 }
 
 void AmsBackendAce::clear_seated_slot_stamp_locked() {

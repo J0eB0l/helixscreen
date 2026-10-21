@@ -775,3 +775,28 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE ignores a slot tool number out of range",
     CHECK_FALSE(helper.load_filament(1).success());
     CHECK(helper.get_slot_info(2).mapped_tool == 2);
 }
+
+// A load sent from here stays LOADING until its own ack: the unit's status
+// word reads "busy" (or "ready") while the driver feeds, and either resolves
+// to IDLE.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE unit status does not end a load sent from here",
+                 "[ams][ace][multiunit]") {
+    const std::string word = GENERATE(as<std::string>{}, "busy", "ready");
+    CAPTURE(word);
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 2, -1);
+    helper.set_running(true);
+    REQUIRE(helper.load_filament(1).success());
+    REQUIRE(helper.get_test_system_info().action == AmsAction::LOADING);
+
+    json frame = json::object();
+    frame["ace_instance_0"] = json{{"status", word}};
+    send_frame(helper, frame);
+    CHECK(helper.get_test_system_info().action == AmsAction::LOADING);
+
+    REQUIRE(helper.pending_ack != nullptr);
+    helper.pending_ack();
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(helper.get_test_system_info().action == AmsAction::IDLE);
+}
