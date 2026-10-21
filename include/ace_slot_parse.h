@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "hv/json.hpp"
@@ -23,6 +24,10 @@
  * the backends from drifting apart. Pure: no I/O, no locks.
  */
 namespace helix::ace {
+
+/// What the ACEPRO driver names each unit's Klipper object, before its
+/// instance number (`ace_instance_0`, `ace_instance_1`, ...).
+inline constexpr std::string_view kInstanceObjectPrefix = "ace_instance_";
 
 /// The ACE Pro dryer's hardware range.
 inline constexpr float kDryerMinTempC = 35.0f;

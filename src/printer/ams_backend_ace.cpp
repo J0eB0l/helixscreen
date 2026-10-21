@@ -70,9 +70,6 @@ bool object_carries_slots(const json& obj) {
            !obj["slots"].empty();
 }
 
-/// What every ACEPRO unit's Klipper object is named, before its number.
-constexpr std::string_view kAceInstancePrefix = "ace_instance_";
-
 /// The name shown for an ACEPRO unit: the product its `protocol` drives.
 /// Product names, so not translated.
 std::string ace_unit_short_name(const std::string& protocol) {
@@ -259,7 +256,7 @@ void AmsBackendAce::on_started() {
                     spdlog::info("[ACE] Klipper '{}' object has status data — "
                                  "using native WebSocket subscription",
                                  matched_key);
-                    if (matched_key.rfind(kAceInstancePrefix, 0) == 0) {
+                    if (matched_key.rfind(helix::ace::kInstanceObjectPrefix, 0) == 0) {
                         // The ACEPRO driver: every instance is a unit of its own.
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
@@ -880,7 +877,7 @@ void AmsBackendAce::set_discovery(const helix::PrinterDiscovery& discovery) {
     std::lock_guard<std::mutex> lock(mutex_);
     discovered_instances_.clear();
     for (const auto& name : discovery.ace_object_names()) {
-        if (name.rfind(kAceInstancePrefix, 0) == 0) {
+        if (name.rfind(helix::ace::kInstanceObjectPrefix, 0) == 0) {
             discovered_instances_.push_back(name);
         }
     }
@@ -1779,12 +1776,12 @@ std::vector<std::pair<int, const json*>> AmsBackendAce::ace_instance_objects(con
         return found;
     }
     for (auto it = status.begin(); it != status.end(); ++it) {
-        if (it.key().rfind(kAceInstancePrefix, 0) != 0 || !it.value().is_object() ||
+        if (it.key().rfind(helix::ace::kInstanceObjectPrefix, 0) != 0 || !it.value().is_object() ||
             it.value().empty()) {
             continue;
         }
-        const auto number =
-            helix::text_io::parse_leading<int>(it.key().substr(kAceInstancePrefix.size()));
+        const auto number = helix::text_io::parse_leading<int>(
+            it.key().substr(helix::ace::kInstanceObjectPrefix.size()));
         if (!number || *number < 0 || *number >= kMaxUnits) {
             spdlog::debug("[ACE] Ignoring '{}': not an ACE instance this backend shows", it.key());
             continue;
@@ -2355,7 +2352,7 @@ std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const
 }
 
 std::string AmsBackendAce::ace_instance_key(int n) {
-    return std::string(kAceInstancePrefix) + std::to_string(n);
+    return std::string(helix::ace::kInstanceObjectPrefix) + std::to_string(n);
 }
 
 AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,

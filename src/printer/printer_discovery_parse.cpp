@@ -2,6 +2,7 @@
 
 // Out-of-line PrinterDiscovery members: the object-list scan and config parsers.
 
+#include "ace_slot_parse.h"         // ace::kInstanceObjectPrefix
 #include "chamber_heater_backend.h" // chamber::match, chamber::keyword_confidence
 #include "display_numbering.h"      // helix::ui::tool_label
 #include "json_utils.h"
@@ -333,7 +334,8 @@ void PrinterDiscovery::parse_objects(const nlohmann::json& objects) {
         // subscribes the real object names), but only the first ACE match
         // flips has_mmu_/mmu_type_ — with multiple `ace_instance_N` objects
         // the name-collection must NOT be gated behind the !has_mmu_ guard.
-        else if (name == "ace" || name == "filament_hub" || name.rfind("ace_instance", 0) == 0) {
+        else if (name == "ace" || name == "filament_hub" ||
+                 name.rfind(helix::ace::kInstanceObjectPrefix, 0) == 0) {
             ace_object_names_.push_back(name);
             if (!has_mmu_) {
                 has_mmu_ = true;
