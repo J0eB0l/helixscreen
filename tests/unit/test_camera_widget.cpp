@@ -437,11 +437,22 @@ TEST_CASE_METHOD(HelixTestFixture,
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
     REQUIRE(exited->load());
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+    // The helper's join returns at some point after the worker exits; nothing
+    // signals when. Watch the bytes for a full second and stop at the first write.
+    auto worker_bytes_untouched = [&] {
+        for (size_t i = offset; i < offset + sizeof(std::thread); ++i) {
+            if (storage[i] != kPoison) {
+                return false;
+            }
+        }
+        return true;
+    };
     bool untouched = true;
-    for (size_t i = offset; i < offset + sizeof(std::thread); ++i) {
-        untouched = untouched && storage[i] == kPoison;
+    deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (untouched && std::chrono::steady_clock::now() < deadline) {
+        untouched = worker_bytes_untouched();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
     CHECK(untouched);
 
