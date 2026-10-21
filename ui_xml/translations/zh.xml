@@ -1635,6 +1635,8 @@
   <translation tag="I understand" zh="我已了解"/>
   <translation tag="ID (optional)" zh="ID（可选）"/>
   <translation tag="IMPORT FROM USB" zh="从 USB 导入"/>
+  <translation tag="INDX dock positions are not calibrated" zh="INDX 停靠位置未校准"/>
+  <translation tag="INDX macros not recognized" zh="无法识别 INDX 宏"/>
   <translation tag="IP Address / Hostname" zh="IP 地址 / 主机名"/>
   <translation tag="IP:" zh="IP："/>
   <translation tag="IPP error: {}" zh="IPP 错误: {}"/>
@@ -2212,6 +2214,7 @@
   <translation tag="No target printer configured" zh="未配置目标打印机"/>
   <translation tag="No temperature sensors detected" zh="未检测到温度传感器"/>
   <translation tag="No timelapse videos found" zh="未找到延时视频"/>
+  <translation tag="No tool on the head" zh="工具头上没有工具"/>
   <translation tag="No tools to calibrate" zh="没有可校准的工具"/>
   <translation tag="No turn: the gap moved {:.1f} Hz" zh="未转动:差距移动了 {:.1f} Hz"/>
   <translation tag="No unit has a filament buffer" zh="没有单元带耗材缓冲器"/>
@@ -2433,6 +2436,7 @@
   <translation tag="Pick Color" zh="选择颜色"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." zh="选择 HelixScreen 的行为方式。以后可在“设置”中更改。"/>
   <translation tag="Pick the best band" zh="选择最佳区段"/>
+  <translation tag="Pick up the tool, heat it, and pull the filament out" zh="装上工具，加热后抽出耗材"/>
   <translation tag="Pick up tool" zh="取出工具"/>
   <translation tag="Picking up tool" zh="正在取用工具"/>
   <translation tag="Pill" zh="胶囊"/>
@@ -3565,8 +3569,10 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" zh="此打印机无法自动校准工具偏移"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." zh="此打印机的通道信息来自 Spoolman。HelixScreen 已清除本地副本；请在 Spoolman 中移除该线轴。"/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." zh="此打印机的通道信息来自 Spoolman。请在 Spoolman 中更改颜色、材料和线轴。"/>
+  <translation tag="This printer has no INDX LOAD_FILAMENT macro" zh="此打印机没有 INDX LOAD_FILAMENT 宏"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." zh="此打印机没有自动退料功能。请在工具头处剪断耗材，然后用手拉出。"/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." zh="此打印机看起来是 {}（置信度 {}%），但当前设置为 {}。错误的类型会应用不正确的打印前选项和预设。"/>
+  <translation tag="This printer&apos;s INDX macros are missing: {}" zh="此打印机的 INDX 宏缺少：{}"/>
   <translation tag="This printer&apos;s network service controls the WiFi radio" zh="此打印机的网络服务控制 WiFi 无线模块"/>
   <translation tag="This printer&apos;s network service manages saved WiFi networks" zh="此打印机的网络服务管理已保存的 WiFi 网络"/>
   <translation tag="This printer&apos;s screen has not shared a layout" zh="此打印机的屏幕尚未共享布局"/>
@@ -3643,6 +3649,7 @@
   <translation tag="Tool Switcher" zh="工具切换器"/>
   <translation tag="Tool change failed: {}" zh="工具切换失败: {}"/>
   <translation tag="Tool change to T{}" zh="切换工具到 T{}"/>
+  <translation tag="Tool may be half seated" zh="工具可能未完全安装到位"/>
   <translation tag="Tool offsets (mm)" zh="工具偏移 (mm)"/>
   <translation tag="Tool offsets saved" zh="工具偏移已保存"/>
   <translation tag="Tool swap" zh="工具切换"/>
@@ -4112,6 +4119,7 @@
   <translation tag="{} firmware" zh="{} 固件"/>
   <translation tag="{} h" zh="{} 小时"/>
   <translation tag="{} h of {} h" zh="{} / {} 小时"/>
+  <translation tag="{} has no hotend" zh="{} 没有热端"/>
   <translation tag="{} heater turned off" zh="{} 加热器已关闭"/>
   <translation tag="{} is asking to connect to this printer." zh="{} 请求连接到此打印机。"/>
   <translation tag="{} is blocked — manual intervention required" zh="{} 被阻塞 — 需要手动干预"/>
@@ -4131,6 +4139,7 @@
   <translation tag="{} m" zh="{} 米"/>
   <translation tag="{} macro not configured" zh="{} 宏未配置"/>
   <translation tag="{} matches." zh="{} 匹配。"/>
+  <translation tag="{} may be half seated on the head. Check it by hand." zh="{} 可能未完全安装到工具头上，请手动检查。"/>
   <translation tag="{} may cause unintended changes. Are you sure?" zh="{} 可能导致意外更改。确定吗？"/>
   <translation tag="{} meter reset" zh="{}计数器已重置"/>
   <translation tag="{} min" zh="{} 分钟"/>

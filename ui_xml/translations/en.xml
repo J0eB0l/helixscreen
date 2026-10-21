@@ -1635,6 +1635,8 @@
   <translation tag="I understand" en="I understand"/>
   <translation tag="ID (optional)" en="ID (optional)"/>
   <translation tag="IMPORT FROM USB" en="IMPORT FROM USB"/>
+  <translation tag="INDX dock positions are not calibrated" en="INDX dock positions are not calibrated"/>
+  <translation tag="INDX macros not recognized" en="INDX macros not recognized"/>
   <translation tag="IP Address / Hostname" en="IP Address / Hostname"/>
   <translation tag="IP:" en="IP:"/>
   <translation tag="IPP error: {}" en="IPP error: {}"/>
@@ -2212,6 +2214,7 @@
   <translation tag="No target printer configured" en="No target printer configured"/>
   <translation tag="No temperature sensors detected" en="No temperature sensors detected"/>
   <translation tag="No timelapse videos found" en="No timelapse videos found"/>
+  <translation tag="No tool on the head" en="No tool on the head"/>
   <translation tag="No tools to calibrate" en="No tools to calibrate"/>
   <translation tag="No turn: the gap moved {:.1f} Hz" en="No turn: the gap moved {:.1f} Hz"/>
   <translation tag="No unit has a filament buffer" en="No unit has a filament buffer"/>
@@ -2433,6 +2436,7 @@
   <translation tag="Pick Color" en="Pick Color"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." en="Pick how HelixScreen behaves. You can change any of these later in Settings."/>
   <translation tag="Pick the best band" en="Pick the best band"/>
+  <translation tag="Pick up the tool, heat it, and pull the filament out" en="Pick up the tool, heat it, and pull the filament out"/>
   <translation tag="Pick up tool" en="Pick up tool"/>
   <translation tag="Picking up tool" en="Picking up tool"/>
   <translation tag="Pill" en="Pill"/>
@@ -3565,8 +3569,10 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" en="This printer cannot calibrate tool offsets automatically"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." en="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman."/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." en="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman."/>
+  <translation tag="This printer has no INDX LOAD_FILAMENT macro" en="This printer has no INDX LOAD_FILAMENT macro"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." en="This printer has no automatic unload. Cut the filament at the head and pull it out by hand."/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." en="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets."/>
+  <translation tag="This printer&apos;s INDX macros are missing: {}" en="This printer&apos;s INDX macros are missing: {}"/>
   <translation tag="This printer&apos;s network service controls the WiFi radio" en="This printer&apos;s network service controls the WiFi radio"/>
   <translation tag="This printer&apos;s network service manages saved WiFi networks" en="This printer&apos;s network service manages saved WiFi networks"/>
   <translation tag="This printer&apos;s screen has not shared a layout" en="This printer&apos;s screen has not shared a layout"/>
@@ -3643,6 +3649,7 @@
   <translation tag="Tool Switcher" en="Tool Switcher"/>
   <translation tag="Tool change failed: {}" en="Tool change failed: {}"/>
   <translation tag="Tool change to T{}" en="Tool change to T{}"/>
+  <translation tag="Tool may be half seated" en="Tool may be half seated"/>
   <translation tag="Tool offsets (mm)" en="Tool offsets (mm)"/>
   <translation tag="Tool offsets saved" en="Tool offsets saved"/>
   <translation tag="Tool swap" en="Tool swap"/>
@@ -4112,6 +4119,7 @@
   <translation tag="{} firmware" en="{} firmware"/>
   <translation tag="{} h" en="{} h"/>
   <translation tag="{} h of {} h" en="{} h of {} h"/>
+  <translation tag="{} has no hotend" en="{} has no hotend"/>
   <translation tag="{} heater turned off" en="{} heater turned off"/>
   <translation tag="{} is asking to connect to this printer." en="{} is asking to connect to this printer."/>
   <translation tag="{} is blocked — manual intervention required" en="{} is blocked — manual intervention required"/>
@@ -4131,6 +4139,7 @@
   <translation tag="{} m" en="{} m"/>
   <translation tag="{} macro not configured" en="{} macro not configured"/>
   <translation tag="{} matches." en="{} matches."/>
+  <translation tag="{} may be half seated on the head. Check it by hand." en="{} may be half seated on the head. Check it by hand."/>
   <translation tag="{} may cause unintended changes. Are you sure?" en="{} may cause unintended changes. Are you sure?"/>
   <translation tag="{} meter reset" en="{} meter reset"/>
   <translation tag="{} min" en="{} min"/>

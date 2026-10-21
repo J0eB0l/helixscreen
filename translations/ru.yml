@@ -1837,6 +1837,8 @@ translations:
 
   ID (optional): ID (необязательно)
   IMPORT FROM USB: ИМПОРТ С USB
+  INDX dock positions are not calibrated: "Позиции доков INDX не откалиброваны"
+  INDX macros not recognized: "Макросы INDX не распознаны"
   IP Address / Hostname: IP-адрес / Имя хоста
   'IP:': 'IP:'
   'IPP error: {}': 'Ошибка IPP: {}'
@@ -2470,6 +2472,7 @@ translations:
   No target printer configured: Целевой принтер не настроен
   No temperature sensors detected: 'Датчики температуры не обнаружены'
   No timelapse videos found: Таймлапс-видео не найдены
+  No tool on the head: "На печатающей головке нет инструмента"
   No tools to calibrate: Нет инструментов для калибровки
   'No turn: the gap moved {:.1f} Hz': "Без поворота: разница сдвинулась на {:.1f} Гц"
   No unit has a filament buffer: "Ни у одного блока нет буфера филамента"
@@ -2704,6 +2707,7 @@ translations:
   Pick Color: Выбрать цвет
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках.'
   Pick the best band: Выберите лучшую полосу
+  Pick up the tool, heat it, and pull the filament out: "Возьмите инструмент, нагрейте его и вытяните филамент"
   Pick up tool: Забрать инструмент
   Picking up tool: Захват инструмента
   Pill: Овал
@@ -3988,9 +3992,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: Этот принтер не может калибровать смещения инструментов автоматически
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: Этот принтер берёт данные шлюзов из Spoolman. HelixScreen очистил свою копию; удалите катушку в Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: Этот принтер берёт данные шлюзов из Spoolman. Меняйте цвет, материал и катушку в Spoolman.
+  This printer has no INDX LOAD_FILAMENT macro: "На этом принтере нет макроса INDX LOAD_FILAMENT"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: У этого принтера нет автоматической выгрузки. Отрежьте филамент у головки и вытащите его вручную.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : Этот принтер похож на {} (уверенность {}%), но настроен как {}. Неверный тип применяет неправильные параметры перед печатью и пресеты.
+  "This printer's INDX macros are missing: {}": "В макросах INDX этого принтера отсутствует: {}"
   This printer's network service controls the WiFi radio: WiFi-модулем управляет сетевая служба этого принтера
   This printer's network service manages saved WiFi networks: Сохранёнными сетями WiFi управляет сетевая служба этого принтера
   This printer's screen has not shared a layout: "Экран этого принтера не поделился раскладкой"
@@ -4088,6 +4094,7 @@ translations:
   Tool Switcher: 'Переключатель инструментов'
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Tool change to T{}: 'Смена инструмента на T{}'
+  Tool may be half seated: "Инструмент может быть установлен не полностью"
   Tool offsets (mm): Смещения инструментов (мм)
   Tool offsets saved: Смещения инструментов сохранены
   Tool swap: Смена инструмента
@@ -4589,6 +4596,7 @@ translations:
   '{} firmware': 'Прошивка {}'
   '{} h': '{} ч'
   '{} h of {} h': '{} ч из {} ч'
+  '{} has no hotend': "У {} нет хотэнда"
   '{} heater turned off': Нагреватель {} выключен
   '{} is asking to connect to this printer.': '{} запрашивает подключение к этому принтеру.'
   '{} is blocked — manual intervention required': '{}: блокировка — требуется ручное вмешательство'
@@ -4608,6 +4616,7 @@ translations:
   '{} m': '{} м'
   '{} macro not configured': Макрос {} не настроен
   '{} matches.': '{} подходит.'
+  '{} may be half seated on the head. Check it by hand.': "{} может быть установлен на печатающую головку не полностью. Проверьте вручную."
   '{} may cause unintended changes. Are you sure?': '{} может привести к непреднамеренным
     изменениям. Вы уверены?'
   '{} meter reset': 'Счётчик «{}» сброшен'

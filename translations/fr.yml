@@ -1810,6 +1810,8 @@ translations:
 
   ID (optional): ID (facultatif)
   IMPORT FROM USB: IMPORTER DEPUIS USB
+  INDX dock positions are not calibrated: "Les positions des docks INDX ne sont pas calibrées"
+  INDX macros not recognized: "Macros INDX non reconnues"
   IP Address / Hostname: Adresse IP / Nom d'hôte
   'IP:': 'IP :'
   'IPP error: {}': 'Erreur IPP : {}'
@@ -2446,6 +2448,7 @@ translations:
   No target printer configured: Aucune imprimante cible configurée
   No temperature sensors detected: 'Aucun capteur de température détecté'
   No timelapse videos found: Aucune vidéo timelapse trouvée
+  No tool on the head: "Aucun outil sur la tête d'outil"
   No tools to calibrate: Aucun outil à calibrer
   'No turn: the gap moved {:.1f} Hz': "Sans rotation : l'écart a bougé de {:.1f} Hz"
   No unit has a filament buffer: "Aucune unité n'a de tampon de filament"
@@ -2682,6 +2685,7 @@ translations:
   Pick Color: Choisir la couleur
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Choisissez le comportement de HelixScreen. Vous pourrez tout modifier plus tard dans Paramètres.'
   Pick the best band: Choisir la meilleure bande
+  Pick up the tool, heat it, and pull the filament out: "Prenez l'outil, chauffez-le et retirez le filament"
   Pick up tool: Prendre l'outil
   Picking up tool: Prise de l'outil
   Pill: Pilule
@@ -3974,9 +3978,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: Cette imprimante ne peut pas calibrer les offsets d'outil automatiquement
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: Cette imprimante remplit ses gates depuis Spoolman. HelixScreen a effacé sa propre copie ; retirez la bobine dans Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: Cette imprimante remplit ses gates depuis Spoolman. Effectuez les changements de couleur, matériau et bobine dans Spoolman.
+  This printer has no INDX LOAD_FILAMENT macro: "Cette imprimante n'a pas de macro INDX LOAD_FILAMENT"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: Cette imprimante n'a pas de déchargement automatique. Coupez le filament au niveau de la tête et retirez-le à la main.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : Cette imprimante ressemble à un {} ({} % de confiance), mais elle est configurée en {}. Un type erroné applique des options et des préréglages de pré-impression incorrects.
+  "This printer's INDX macros are missing: {}": "Il manque aux macros INDX de cette imprimante : {}"
   This printer's network service controls the WiFi radio: Le service réseau de cette imprimante contrôle la radio WiFi
   This printer's network service manages saved WiFi networks: Le service réseau de cette imprimante gère les réseaux WiFi enregistrés
   This printer's screen has not shared a layout: "L'écran de cette imprimante n'a pas partagé de disposition"
@@ -4079,6 +4085,7 @@ translations:
   Tool Switcher: 'Sélecteur d''outil'
   'Tool change failed: {}': 'Échec du changement d''outil : {}'
   Tool change to T{}: 'Changement d''outil vers T{}'
+  Tool may be half seated: "L'outil est peut-être mal engagé"
   Tool offsets (mm): Offsets d'outil (mm)
   Tool offsets saved: Offsets d'outil enregistrés
   Tool swap: Changement d'outil
@@ -4575,6 +4582,7 @@ translations:
   '{} firmware': 'Firmware {}'
   '{} h': '{} h'
   '{} h of {} h': '{} h sur {} h'
+  '{} has no hotend': "{} n'a pas de hotend"
   '{} heater turned off': Chauffage {} désactivé
   '{} is asking to connect to this printer.': '{} demande à se connecter à cette imprimante.'
   '{} is blocked — manual intervention required': '{} : blocage — intervention manuelle requise'
@@ -4594,6 +4602,7 @@ translations:
   '{} m': '{} m'
   '{} macro not configured': Macro {} non configurée
   '{} matches.': '{} correspond.'
+  '{} may be half seated on the head. Check it by hand.': "{} est peut-être mal engagé sur la tête d'outil. Vérifiez à la main."
   '{} may cause unintended changes. Are you sure?': '{} peut entraîner des modifications
     non souhaitées. Êtes-vous sûr ?'
   '{} meter reset': 'Compteur {} réinitialisé'

@@ -1698,6 +1698,8 @@ translations:
 
   ID (optional): ID（任意）
   IMPORT FROM USB: USBからインポート
+  INDX dock positions are not calibrated: "INDXのドック位置がキャリブレーションされていません"
+  INDX macros not recognized: "INDXマクロを認識できません"
   IP Address / Hostname: IPアドレス / ホスト名
   'IP:': 'IP:'
   'IPP error: {}': 'IPP エラー: {}'
@@ -2297,6 +2299,7 @@ translations:
   No target printer configured: 対象プリンターが設定されていません
   No temperature sensors detected: '温度センサーが検出されません'
   No timelapse videos found: タイムラプス動画が見つかりません
+  No tool on the head: "ツールヘッドにツールがありません"
   No tools to calibrate: キャリブレートするツールがありません
   'No turn: the gap moved {:.1f} Hz': "回していません: 差は{:.1f} Hz動きました"
   No unit has a filament buffer: "フィラメントバッファを持つユニットがありません"
@@ -2529,6 +2532,7 @@ translations:
   Pick Color: 色を選択
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'HelixScreen の動作を選択します。すべて後で「設定」から変更できます。'
   Pick the best band: 最適な区間を選択
+  Pick up the tool, heat it, and pull the filament out: "ツールを取り付けて加熱し、フィラメントを引き抜いてください"
   Pick up tool: ツールを取得
   Picking up tool: ツールを取得中
   Pill: ピル
@@ -3719,9 +3723,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: このプリンターはツールオフセットを自動でキャリブレートできません
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: このプリンターのゲートは Spoolman から設定されます。HelixScreen 側のコピーはクリアしました。Spoolman でスプールを削除してください。
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: このプリンターのゲートは Spoolman から設定されます。色・素材・スプールの変更は Spoolman で行ってください。
+  This printer has no INDX LOAD_FILAMENT macro: "このプリンターにはINDXのLOAD_FILAMENTマクロがありません"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: このプリンターには自動アンロード機能がありません。ヘッド部分でフィラメントを切り、手で引き抜いてください。
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : このプリンターは {} のようです（信頼度 {}%）が、{} として設定されています。誤ったタイプでは不正確な印刷前オプションとプリセットが適用されます。
+  "This printer's INDX macros are missing: {}": "このプリンターのINDXマクロに不足があります: {}"
   This printer's network service controls the WiFi radio: このプリンターのネットワークサービスが WiFi 無線を制御しています
   This printer's network service manages saved WiFi networks: このプリンターのネットワークサービスが保存済みの WiFi ネットワークを管理しています
   This printer's screen has not shared a layout: "このプリンターの画面はレイアウトを共有していません"
@@ -3810,6 +3816,7 @@ translations:
   Tool Switcher: 'ツール切り替え'
   'Tool change failed: {}': 'ツール変更に失敗しました: {}'
   Tool change to T{}: 'ツールを T{} に変更しています'
+  Tool may be half seated: "ツールが半分しか装着されていない可能性があります"
   Tool offsets (mm): ツールオフセット (mm)
   Tool offsets saved: ツールオフセットを保存しました
   Tool swap: ツール交換
@@ -4285,6 +4292,7 @@ translations:
   '{} firmware': '{} ファームウェア'
   '{} h': '{} 時間'
   '{} h of {} h': '{} / {} 時間'
+  '{} has no hotend': "{}にはホットエンドがありません"
   '{} heater turned off': '{} ヒーターをオフにしました'
   '{} is asking to connect to this printer.': '{} がこのプリンターへの接続を求めています。'
   '{} is blocked — manual intervention required': '{} がブロックされています — 手動での対応が必要です'
@@ -4304,6 +4312,7 @@ translations:
   '{} m': '{} m'
   '{} macro not configured': '{} マクロが未設定です'
   '{} matches.': '{} が一致します。'
+  '{} may be half seated on the head. Check it by hand.': "{}がツールヘッドに半分しか装着されていない可能性があります。手で確認してください。"
   '{} may cause unintended changes. Are you sure?': '{} は意図しない変更を引き起こす可能性があります。よろしいですか？'
   '{} meter reset': '{}のメーターをリセットしました'
   '{} min': '{} 分'

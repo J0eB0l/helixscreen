@@ -1,0 +1,321 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "indx_contract.h"
+
+#include "display_numbering.h"
+#include "i_moonraker_api.h"
+#include "json_utils.h"
+#include "lvgl/src/others/translation/lv_translation.h"
+#include "macro_param_cache.h"
+#include "printer_discovery.h"
+#include "text_io.h"
+
+#include <spdlog/fmt/fmt.h>
+
+#include <algorithm>
+#include <array>
+
+namespace helix::indx {
+namespace {
+
+using json = nlohmann::json;
+
+constexpr const char* kToolPositions = "TOOL_POSITIONS";
+constexpr const char* kToolchangeVars = "_TOOLCHANGE_VARS";
+constexpr const char* kChangeTool = "CHANGE_TOOL";
+constexpr const char* kParkTool = "PARK_TOOL";
+constexpr const char* kLoadFilament = "LOAD_FILAMENT";
+
+/// Upstream ships T0..T3 and tells users to add more; the README's own
+/// ceiling is "ten" tools.
+constexpr int kMaxTools = 10;
+
+/// A strict int: Klipper serializes these variables as JSON ints, and a
+/// float or string here is a macro set this module does not understand.
+std::optional<int> strict_int(const json& obj, const char* key) {
+    auto it = obj.find(key);
+    if (it == obj.end() || !it->is_number_integer()) {
+        return std::nullopt;
+    }
+    return it->get<int>();
+}
+
+/// The macro name a status key or object name refers to, upper-case; empty
+/// when it is not a gcode_macro.
+std::string macro_of(const std::string& key) {
+    static constexpr std::string_view kPrefix = "gcode_macro ";
+    if (key.size() <= kPrefix.size() ||
+        helix::text_io::to_lower(std::string_view(key).substr(0, kPrefix.size())) != kPrefix) {
+        return {};
+    }
+    return helix::text_io::to_upper(std::string_view(key).substr(kPrefix.size()));
+}
+
+/// `T<n>` -> n for 0 <= n < kMaxTools, else nullopt.
+std::optional<int> tool_macro_index(const std::string& upper_macro) {
+    if (upper_macro.size() < 2 || upper_macro[0] != 'T') {
+        return std::nullopt;
+    }
+    const std::string_view digits = std::string_view(upper_macro).substr(1);
+    if (!std::all_of(digits.begin(), digits.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+        return std::nullopt;
+    }
+    auto n = helix::text_io::parse_leading<int>(digits);
+    if (!n || *n >= kMaxTools) {
+        return std::nullopt;
+    }
+    return n;
+}
+
+/// "Tool 4 (T3)": the full spelling a refusal names a tool with.
+std::string tool_text(int tool) {
+    return helix::ui::tool_label_in_form(helix::ui::LaneNoun::Tool, helix::ui::tool_label(tool),
+                                         tool, helix::ui::ToolLabelForm::Full);
+}
+
+/// The subscription key for @p macro: the config-case object name.
+std::string macro_object(const PrinterDiscovery& hw, const char* macro) {
+    const std::string configured = hw.macro_config_name(macro);
+    return "gcode_macro " + (configured.empty() ? std::string(macro) : configured);
+}
+
+bool read_save_variables(const json& vars, Reading& r) {
+    bool saw = false;
+    if (auto v = strict_int(vars, "active_tool")) {
+        r.active_tool = *v;
+        saw = true;
+    }
+    if (auto v = strict_int(vars, "seat_suspect")) {
+        r.seat_suspect = *v;
+        saw = true;
+    }
+    if (auto v = strict_int(vars, "toolchange_count")) {
+        r.toolchange_count = *v;
+        saw = true;
+    }
+    return saw;
+}
+
+bool read_tool_positions(const json& obj, Reading& r) {
+    bool saw = false;
+    if (auto v = strict_int(obj, "tool_count")) {
+        r.tool_count = std::clamp(*v, 0, kMaxTools);
+        saw = true;
+    }
+    auto nh = obj.find("no_heat_tools");
+    if (nh != obj.end() && nh->is_array()) {
+        std::set<int> tools;
+        for (const auto& t : *nh) {
+            if (t.is_number_integer()) {
+                tools.insert(t.get<int>());
+            }
+        }
+        r.no_heat_tools = std::move(tools);
+        saw = true;
+    }
+    auto dc = obj.find("docks_calibrated");
+    if (dc != obj.end() && dc->is_boolean()) {
+        r.docks_calibrated = dc->get<bool>();
+        saw = true;
+    }
+    return saw;
+}
+
+bool read_toolchange_vars(const json& obj, Reading& r) {
+    bool saw = false;
+    if (auto v = strict_int(obj, "toolhead_state")) {
+        r.toolhead_state = *v;
+        saw = true;
+    }
+    auto mode = obj.find("mode");
+    if (mode != obj.end() && mode->is_string()) {
+        r.speed_mode = mode->get<std::string>();
+        saw = true;
+    }
+    return saw;
+}
+
+bool read_presets(const json& obj, Reading& r) {
+    auto it = obj.find("filament_presets");
+    if (it == obj.end() || !it->is_object()) {
+        return false;
+    }
+    std::map<std::string, FilamentPreset> presets;
+    for (const auto& [name, preset] : it->items()) {
+        if (!preset.is_object()) {
+            continue;
+        }
+        FilamentPreset p;
+        p.temp_c = json_util::safe_float(preset, "temp");
+        p.density = json_util::safe_float(preset, "density");
+        p.heat_capacity = json_util::safe_float(preset, "hc");
+        presets[helix::text_io::to_upper(name)] = p;
+    }
+    r.presets = std::move(presets);
+    return true;
+}
+
+} // namespace
+
+std::optional<Reading> read_status(const nlohmann::json& status) {
+    if (!status.is_object()) {
+        return std::nullopt;
+    }
+    Reading r;
+    bool saw = false;
+    for (const auto& [key, value] : status.items()) {
+        if (!value.is_object()) {
+            continue;
+        }
+        if (key == "save_variables") {
+            auto vars = value.find("variables");
+            if (vars != value.end() && vars->is_object()) {
+                saw |= read_save_variables(*vars, r);
+            }
+            continue;
+        }
+        const std::string macro = macro_of(key);
+        if (macro == kToolPositions) {
+            saw |= read_tool_positions(value, r);
+        } else if (macro == kToolchangeVars) {
+            saw |= read_toolchange_vars(value, r);
+        } else if (macro == kLoadFilament) {
+            saw |= read_presets(value, r);
+        } else if (auto tool = tool_macro_index(macro)) {
+            if (auto id = strict_int(value, "spool_id")) {
+                r.tool_spool_ids[*tool] = *id;
+                saw = true;
+            }
+        }
+    }
+    if (!saw) {
+        return std::nullopt;
+    }
+    return r;
+}
+
+void merge(Reading& into, const Reading& update) {
+    const auto take = [](auto& held, const auto& fresh) {
+        if (fresh.has_value()) {
+            held = fresh;
+        }
+    };
+    take(into.active_tool, update.active_tool);
+    take(into.seat_suspect, update.seat_suspect);
+    take(into.toolchange_count, update.toolchange_count);
+    take(into.toolhead_state, update.toolhead_state);
+    take(into.speed_mode, update.speed_mode);
+    take(into.tool_count, update.tool_count);
+    take(into.no_heat_tools, update.no_heat_tools);
+    take(into.docks_calibrated, update.docks_calibrated);
+    take(into.presets, update.presets);
+    for (const auto& [tool, id] : update.tool_spool_ids) {
+        into.tool_spool_ids[tool] = id;
+    }
+}
+
+bool present(const PrinterDiscovery& hw) {
+    return hw.has_indx();
+}
+
+Contract check_contract(const PrinterDiscovery& hw) {
+    Contract c;
+    if (!hw.has_save_variables()) {
+        c.missing.emplace_back("save_variables");
+    }
+    for (const char* macro : {kToolPositions, kToolchangeVars, kChangeTool, kParkTool}) {
+        if (!hw.has_macro(macro)) {
+            c.missing.push_back(std::string("gcode_macro ") + macro);
+        }
+    }
+    c.recognized = c.missing.empty();
+    c.has_load_filament = hw.has_macro(kLoadFilament);
+    return c;
+}
+
+bool macros_set_active_spool(const PrinterDiscovery& hw) {
+    const auto& cache = MacroParamCache::instance();
+    for (const auto& macro : hw.macros()) {
+        if (macro == kChangeTool || tool_macro_index(macro)) {
+            if (cache.get(macro).sets_active_spool) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+nlohmann::json required_status_objects(const PrinterDiscovery& hw) {
+    json objects = json::object();
+    if (!present(hw)) {
+        return objects;
+    }
+    objects["save_variables"] = json::array({"variables"});
+    if (hw.has_macro(kToolPositions)) {
+        objects[macro_object(hw, kToolPositions)] =
+            json::array({"tool_count", "no_heat_tools", "docks_calibrated"});
+    }
+    if (hw.has_macro(kToolchangeVars)) {
+        objects[macro_object(hw, kToolchangeVars)] = json::array({"toolhead_state", "mode"});
+    }
+    if (hw.has_macro(kLoadFilament)) {
+        objects[macro_object(hw, kLoadFilament)] = json::array({"filament_presets"});
+    }
+    for (const auto& macro : hw.macros()) {
+        if (tool_macro_index(macro)) {
+            objects[macro_object(hw, macro.c_str())] = json::array({"spool_id"});
+        }
+    }
+    return objects;
+}
+
+std::string change_tool_gcode(const PrinterDiscovery& hw, int tool) {
+    const std::string t_macro = "T" + std::to_string(tool);
+    if (hw.has_macro(t_macro)) {
+        return t_macro;
+    }
+    return fmt::format("{} TOOL={}", kChangeTool, tool);
+}
+
+std::string park_gcode() {
+    return kParkTool;
+}
+
+std::string load_gcode(int tool, const std::string& material, int temp_c,
+                       const std::map<std::string, FilamentPreset>& presets) {
+    if (!material.empty() && !IMoonrakerAPI::is_safe_material_param(material)) {
+        return {};
+    }
+    const std::string key = helix::text_io::to_upper(material);
+    if (!key.empty() && presets.count(key) && IMoonrakerAPI::is_safe_gcode_param(key)) {
+        return fmt::format("{} TOOL={} TYPE={}", kLoadFilament, tool, key);
+    }
+    return fmt::format("{} TOOL={} TEMP={}", kLoadFilament, tool, temp_c);
+}
+
+std::string heat_blocked_reason(int active_tool, const std::set<int>& no_heat_tools) {
+    if (active_tool < 0) {
+        return lv_tr("No tool on the head");
+    }
+    if (no_heat_tools.count(active_tool)) {
+        return fmt::format(fmt::runtime(lv_tr("{} has no hotend")), tool_text(active_tool));
+    }
+    return {};
+}
+
+std::string motion_blocked_reason(const Contract& contract, const Reading& state) {
+    if (!contract.recognized) {
+        return lv_tr("INDX macros not recognized");
+    }
+    if (state.seat_suspect.value_or(-1) >= 0) {
+        return fmt::format(
+            fmt::runtime(lv_tr("{} may be half seated on the head. Check it by hand.")),
+            tool_text(*state.seat_suspect));
+    }
+    if (state.docks_calibrated.has_value() && !*state.docks_calibrated) {
+        return lv_tr("INDX dock positions are not calibrated");
+    }
+    return {};
+}
+
+} // namespace helix::indx

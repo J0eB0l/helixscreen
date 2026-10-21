@@ -69,7 +69,8 @@ enum class AmsType {
     SNAPMAKER = 7,    ///< Snapmaker U1 SnapSwap toolchanger
     QIDI_BOX =
         8, ///< QIDI Box filament changer (PLUS4, Q2, MAX4 — hub AMS, 4 slots chainable to 16)
-    OPENAMS = 9 ///< klipper_openams through its own versioned oams_manager API
+    OPENAMS = 9, ///< klipper_openams through its own versioned oams_manager API
+    INDX = 10    ///< Bondtech INDX: docked passive nozzles, one extruder and heater
 };
 
 /**
@@ -97,6 +98,8 @@ inline const char* ams_type_to_string(AmsType type) {
         return "QIDI Box"; // i18n: do not translate - product name
     case AmsType::OPENAMS:
         return "OpenAMS"; // i18n: do not translate - product name
+    case AmsType::INDX:
+        return "INDX"; // i18n: do not translate - product name
     default:
         return "None";
     }
@@ -140,6 +143,9 @@ inline AmsType ams_type_from_string(std::string_view str) {
     if (str == "openams" || str == "OpenAMS" || str == "oams_manager") {
         return AmsType::OPENAMS;
     }
+    if (str == "indx" || str == "INDX") {
+        return AmsType::INDX;
+    }
     return AmsType::NONE;
 }
 
@@ -147,7 +153,8 @@ inline AmsType ams_type_from_string(std::string_view str) {
  * @brief Check if AMS type is a physical tool changer
  *
  * Tool changers have fundamentally different behavior than filament systems:
- * - Each "slot" is a complete toolhead with its own extruder
+ * - Each "slot" is a tool with its own nozzle and filament (its own extruder,
+ *   except on INDX, where every docked nozzle shares the head's one extruder)
  * - Path topology is PARALLEL (not converging to a single nozzle)
  * - "Loading" means mounting the tool, not feeding filament
  *
@@ -155,7 +162,7 @@ inline AmsType ams_type_from_string(std::string_view str) {
  * @return true if this is a physical tool changer
  */
 inline bool is_tool_changer(AmsType type) {
-    return type == AmsType::TOOL_CHANGER || type == AmsType::SNAPMAKER;
+    return type == AmsType::TOOL_CHANGER || type == AmsType::SNAPMAKER || type == AmsType::INDX;
 }
 
 /**

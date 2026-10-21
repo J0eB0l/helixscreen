@@ -1635,6 +1635,8 @@
   <translation tag="I understand" it="Ho capito"/>
   <translation tag="ID (optional)" it="ID (opzionale)"/>
   <translation tag="IMPORT FROM USB" it="IMPORTA DA USB"/>
+  <translation tag="INDX dock positions are not calibrated" it="Le posizioni dei dock INDX non sono calibrate"/>
+  <translation tag="INDX macros not recognized" it="Macro INDX non riconosciute"/>
   <translation tag="IP Address / Hostname" it="Indirizzo IP / Hostname"/>
   <translation tag="IP:" it="IP:"/>
   <translation tag="IPP error: {}" it="Errore IPP: {}"/>
@@ -2212,6 +2214,7 @@
   <translation tag="No target printer configured" it="Nessuna stampante di destinazione configurata"/>
   <translation tag="No temperature sensors detected" it="Nessun sensore di temperatura rilevato"/>
   <translation tag="No timelapse videos found" it="Nessun video timelapse trovato"/>
+  <translation tag="No tool on the head" it="Nessuno strumento sulla testina"/>
   <translation tag="No tools to calibrate" it="Nessuno strumento da calibrare"/>
   <translation tag="No turn: the gap moved {:.1f} Hz" it="Nessuna rotazione: la differenza si è spostata di {:.1f} Hz"/>
   <translation tag="No unit has a filament buffer" it="Nessuna unità ha un buffer filamento"/>
@@ -2433,6 +2436,7 @@
   <translation tag="Pick Color" it="Scegli colore"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." it="Scegli come si comporta HelixScreen. Puoi cambiare tutto più tardi in Impostazioni."/>
   <translation tag="Pick the best band" it="Scegli la fascia migliore"/>
+  <translation tag="Pick up the tool, heat it, and pull the filament out" it="Preleva lo strumento, riscaldalo ed estrai il filamento"/>
   <translation tag="Pick up tool" it="Preleva utensile"/>
   <translation tag="Picking up tool" it="Prelievo utensile"/>
   <translation tag="Pill" it="Pillola"/>
@@ -3565,8 +3569,10 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" it="Questa stampante non può calibrare automaticamente gli offset degli strumenti"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." it="Questa stampante riempie i suoi gate da Spoolman. HelixScreen ha svuotato la propria copia; rimuovi la bobina in Spoolman."/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." it="Questa stampante riempie i suoi gate da Spoolman. Modifica colore, materiale e bobina in Spoolman."/>
+  <translation tag="This printer has no INDX LOAD_FILAMENT macro" it="Questa stampante non ha la macro INDX LOAD_FILAMENT"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." it="Questa stampante non ha lo scarico automatico. Taglia il filamento sulla testina ed estrailo a mano."/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." it="Questa stampante sembra una {} (affidabilità {}%), ma è configurata come {}. Un tipo errato applica opzioni pre-stampa e preset errati."/>
+  <translation tag="This printer&apos;s INDX macros are missing: {}" it="Alle macro INDX di questa stampante manca: {}"/>
   <translation tag="This printer&apos;s network service controls the WiFi radio" it="Il servizio di rete di questa stampante controlla la radio WiFi"/>
   <translation tag="This printer&apos;s network service manages saved WiFi networks" it="Il servizio di rete di questa stampante gestisce le reti WiFi salvate"/>
   <translation tag="This printer&apos;s screen has not shared a layout" it="Lo schermo di questa stampante non ha condiviso un layout"/>
@@ -3643,6 +3649,7 @@
   <translation tag="Tool Switcher" it="Selettore utensile"/>
   <translation tag="Tool change failed: {}" it="Cambio utensile fallito: {}"/>
   <translation tag="Tool change to T{}" it="Cambio utensile su T{}"/>
+  <translation tag="Tool may be half seated" it="Lo strumento potrebbe essere inserito a metà"/>
   <translation tag="Tool offsets (mm)" it="Offset strumenti (mm)"/>
   <translation tag="Tool offsets saved" it="Offset strumenti salvati"/>
   <translation tag="Tool swap" it="Cambio utensile"/>
@@ -4112,6 +4119,7 @@
   <translation tag="{} firmware" it="Firmware {}"/>
   <translation tag="{} h" it="{} h"/>
   <translation tag="{} h of {} h" it="{} h su {} h"/>
+  <translation tag="{} has no hotend" it="{} non ha un hotend"/>
   <translation tag="{} heater turned off" it="Riscaldatore {} spento"/>
   <translation tag="{} is asking to connect to this printer." it="{} chiede di connettersi a questa stampante."/>
   <translation tag="{} is blocked — manual intervention required" it="{}: blocco — intervento manuale richiesto"/>
@@ -4131,6 +4139,7 @@
   <translation tag="{} m" it="{} m"/>
   <translation tag="{} macro not configured" it="Macro {} non configurata"/>
   <translation tag="{} matches." it="{} corrisponde."/>
+  <translation tag="{} may be half seated on the head. Check it by hand." it="{} potrebbe essere inserito a metà sulla testina. Controlla a mano."/>
   <translation tag="{} may cause unintended changes. Are you sure?" it="{} potrebbe causare modifiche indesiderate. Sei sicuro?"/>
   <translation tag="{} meter reset" it="Contatore {} ripristinato"/>
   <translation tag="{} min" it="{} min"/>

@@ -479,6 +479,13 @@ void PrinterDiscovery::parse_objects(const nlohmann::json& objects) {
             has_medusahc_ = true;
             medusahc_object_name_ = name;
         }
+        // [indx]: Bondtech INDX's toolboard host module (mainline
+        // indx_klipper lists it; Kalico's may not, see parse_config_keys()).
+        else if (name == "indx") {
+            has_indx_ = true;
+        } else if (name == "save_variables") {
+            has_save_variables_ = true;
+        }
         // Tool object discovery
         else if (name.rfind("tool ", 0) == 0) {
             std::string tool_name = name.substr(5); // Remove "tool " prefix
@@ -781,6 +788,12 @@ void PrinterDiscovery::register_detected_ams_systems() {
         // Native Snapmaker filament system (no aftermarket MMU)
         detected_ams_systems_.push_back({AmsType::SNAPMAKER, "Snapmaker"});
         mmu_type_ = AmsType::SNAPMAKER;
+    } else if (has_indx_) {
+        // Docked passive nozzles on one extruder: never the tool-changer arm
+        // below, which needs several extruders or klipper-toolchanger.
+        // i18n: do not translate - product name
+        detected_ams_systems_.push_back({AmsType::INDX, "INDX"});
+        mmu_type_ = AmsType::INDX;
     } else if (!tool_names_.empty() && (has_tool_changer_ || tool_names_.size() > 1)) {
         // More than one hot end, and no filament system managing them:
         // parallel topology, one slot per tool. Registering it is what gives
@@ -859,6 +872,26 @@ void PrinterDiscovery::parse_config_keys(const nlohmann::json& config) {
             has_snapmaker_auto_screws_tilt_ = true;
             spdlog::debug("[PrinterDiscovery] auto_screws_tilt_adjust detected from config");
         }
+
+        // Bondtech INDX: the tool count sizes its slots before the first
+        // status frame. Klipper keeps the section's own case here.
+        if (value.is_object() && helix::text_io::to_lower(key) == "gcode_macro tool_positions") {
+            auto it = value.find("variable_tool_count");
+            if (it != value.end() && it->is_string()) {
+                if (auto count = helix::text_io::parse_leading<int>(it->get<std::string>())) {
+                    indx_tool_count_ = std::max(0, *count);
+                }
+            }
+        }
+    }
+
+    // [indx] on Kalico may have no get_status(), so the configfile section is
+    // the only sign of it, and it arrives after parse_objects() registered the
+    // filament systems.
+    if (!has_indx_ && config.contains("indx")) {
+        has_indx_ = true;
+        spdlog::debug("[PrinterDiscovery] INDX detected from config");
+        register_detected_ams_systems();
     }
 }
 
@@ -1058,6 +1091,9 @@ void PrinterDiscovery::clear() {
     pin_watch_object_name_.clear();
     has_medusahc_ = false;
     medusahc_object_name_.clear();
+    has_indx_ = false;
+    indx_tool_count_ = 0;
+    has_save_variables_ = false;
     has_chamber_heater_ = false;
     has_chamber_sensor_ = false;
     chamber_sensor_name_.clear();

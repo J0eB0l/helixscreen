@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cctype>
 #include <string_view>
 
 namespace helix {
@@ -73,6 +74,25 @@ PrinterStopCall find_printer_stop_call(std::string_view gcode_template) {
     return call;
 }
 
+bool template_sets_active_spool(std::string_view gcode_template) {
+    const std::string upper = helix::text_io::to_upper(gcode_template);
+    const auto is_word = [](char c) {
+        return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_';
+    };
+    for (const std::string_view word : {"SET_ACTIVE_SPOOL", "SPOOLMAN_SET_ACTIVE_SPOOL"}) {
+        for (size_t pos = upper.find(word); pos != std::string::npos;
+             pos = upper.find(word, pos + 1)) {
+            const size_t end = pos + word.size();
+            const bool starts = pos == 0 || !is_word(upper[pos - 1]);
+            const bool ends = end >= upper.size() || !is_word(upper[end]);
+            if (starts && ends) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 MacroParamCache& MacroParamCache::instance() {
     static MacroParamCache cache;
     return cache;
@@ -122,6 +142,7 @@ void MacroParamCache::populate_from_configfile(
         PrinterStopCall stop = find_printer_stop_call(gcode_template);
         info.stops_printer = stop.calls;
         info.stop_message = std::move(stop.message);
+        info.sets_active_spool = template_sets_active_spool(gcode_template);
         auto params = parse_macro_params(gcode_template);
 
         // Note: variable_* keys (Klipper SET_GCODE_VARIABLE state) are

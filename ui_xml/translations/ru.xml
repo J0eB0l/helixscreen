@@ -1680,6 +1680,8 @@
   <translation tag="I understand" ru="Я понимаю"/>
   <translation tag="ID (optional)" ru="ID (необязательно)"/>
   <translation tag="IMPORT FROM USB" ru="ИМПОРТ С USB"/>
+  <translation tag="INDX dock positions are not calibrated" ru="Позиции доков INDX не откалиброваны"/>
+  <translation tag="INDX macros not recognized" ru="Макросы INDX не распознаны"/>
   <translation tag="IP Address / Hostname" ru="IP-адрес / Имя хоста"/>
   <translation tag="IP:" ru="IP:"/>
   <translation tag="IPP error: {}" ru="Ошибка IPP: {}"/>
@@ -2257,6 +2259,7 @@
   <translation tag="No target printer configured" ru="Целевой принтер не настроен"/>
   <translation tag="No temperature sensors detected" ru="Датчики температуры не обнаружены"/>
   <translation tag="No timelapse videos found" ru="Таймлапс-видео не найдены"/>
+  <translation tag="No tool on the head" ru="На печатающей головке нет инструмента"/>
   <translation tag="No tools to calibrate" ru="Нет инструментов для калибровки"/>
   <translation tag="No turn: the gap moved {:.1f} Hz" ru="Без поворота: разница сдвинулась на {:.1f} Гц"/>
   <translation tag="No unit has a filament buffer" ru="Ни у одного блока нет буфера филамента"/>
@@ -2478,6 +2481,7 @@
   <translation tag="Pick Color" ru="Выбрать цвет"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." ru="Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках."/>
   <translation tag="Pick the best band" ru="Выберите лучшую полосу"/>
+  <translation tag="Pick up the tool, heat it, and pull the filament out" ru="Возьмите инструмент, нагрейте его и вытяните филамент"/>
   <translation tag="Pick up tool" ru="Забрать инструмент"/>
   <translation tag="Picking up tool" ru="Захват инструмента"/>
   <translation tag="Pill" ru="Овал"/>
@@ -3625,8 +3629,10 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" ru="Этот принтер не может калибровать смещения инструментов автоматически"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." ru="Этот принтер берёт данные шлюзов из Spoolman. HelixScreen очистил свою копию; удалите катушку в Spoolman."/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." ru="Этот принтер берёт данные шлюзов из Spoolman. Меняйте цвет, материал и катушку в Spoolman."/>
+  <translation tag="This printer has no INDX LOAD_FILAMENT macro" ru="На этом принтере нет макроса INDX LOAD_FILAMENT"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." ru="У этого принтера нет автоматической выгрузки. Отрежьте филамент у головки и вытащите его вручную."/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." ru="Этот принтер похож на {} (уверенность {}%), но настроен как {}. Неверный тип применяет неправильные параметры перед печатью и пресеты."/>
+  <translation tag="This printer&apos;s INDX macros are missing: {}" ru="В макросах INDX этого принтера отсутствует: {}"/>
   <translation tag="This printer&apos;s network service controls the WiFi radio" ru="WiFi-модулем управляет сетевая служба этого принтера"/>
   <translation tag="This printer&apos;s network service manages saved WiFi networks" ru="Сохранёнными сетями WiFi управляет сетевая служба этого принтера"/>
   <translation tag="This printer&apos;s screen has not shared a layout" ru="Экран этого принтера не поделился раскладкой"/>
@@ -3703,6 +3709,7 @@
   <translation tag="Tool Switcher" ru="Переключатель инструментов"/>
   <translation tag="Tool change failed: {}" ru="Ошибка смены инструмента: {}"/>
   <translation tag="Tool change to T{}" ru="Смена инструмента на T{}"/>
+  <translation tag="Tool may be half seated" ru="Инструмент может быть установлен не полностью"/>
   <translation tag="Tool offsets (mm)" ru="Смещения инструментов (мм)"/>
   <translation tag="Tool offsets saved" ru="Смещения инструментов сохранены"/>
   <translation tag="Tool swap" ru="Смена инструмента"/>
@@ -4181,6 +4188,7 @@
   <translation tag="{} firmware" ru="Прошивка {}"/>
   <translation tag="{} h" ru="{} ч"/>
   <translation tag="{} h of {} h" ru="{} ч из {} ч"/>
+  <translation tag="{} has no hotend" ru="У {} нет хотэнда"/>
   <translation tag="{} heater turned off" ru="Нагреватель {} выключен"/>
   <translation tag="{} is asking to connect to this printer." ru="{} запрашивает подключение к этому принтеру."/>
   <translation tag="{} is blocked — manual intervention required" ru="{}: блокировка — требуется ручное вмешательство"/>
@@ -4200,6 +4208,7 @@
   <translation tag="{} m" ru="{} м"/>
   <translation tag="{} macro not configured" ru="Макрос {} не настроен"/>
   <translation tag="{} matches." ru="{} подходит."/>
+  <translation tag="{} may be half seated on the head. Check it by hand." ru="{} может быть установлен на печатающую головку не полностью. Проверьте вручную."/>
   <translation tag="{} may cause unintended changes. Are you sure?" ru="{} может привести к непреднамеренным изменениям. Вы уверены?"/>
   <translation tag="{} meter reset" ru="Счётчик «{}» сброшен"/>
   <translation tag="{} min" ru="{} мин"/>

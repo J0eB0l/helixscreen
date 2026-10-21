@@ -1798,6 +1798,8 @@ translations:
 
   ID (optional): ID (opcional)
   IMPORT FROM USB: IMPORTAR DO USB
+  INDX dock positions are not calibrated: "As posições das docas do INDX não estão calibradas"
+  INDX macros not recognized: "Macros do INDX não reconhecidas"
   IP Address / Hostname: Endereço IP / Hostname
   'IP:': 'IP:'
   'IPP error: {}': 'Erro IPP: {}'
@@ -2433,6 +2435,7 @@ translations:
   No target printer configured: Nenhuma impressora de destino configurada
   No temperature sensors detected: 'Nenhum sensor de temperatura detectado'
   No timelapse videos found: Nenhum vídeo timelapse encontrado
+  No tool on the head: "Nenhuma ferramenta no cabeçote"
   No tools to calibrate: Nenhuma ferramenta para calibrar
   'No turn: the gap moved {:.1f} Hz': "Sem volta: a diferença moveu {:.1f} Hz"
   No unit has a filament buffer: "Nenhuma unidade tem buffer de filamento"
@@ -2668,6 +2671,7 @@ translations:
   Pick Color: Escolher Cor
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Escolha como o HelixScreen se comporta. Você pode mudar tudo depois em Configurações.'
   Pick the best band: Escolha a melhor faixa
+  Pick up the tool, heat it, and pull the filament out: "Pegue a ferramenta, aqueça-a e puxe o filamento para fora"
   Pick up tool: Pegar ferramenta
   Picking up tool: Pegando ferramenta
   Pill: Pílula
@@ -3950,9 +3954,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: Esta impressora não consegue calibrar os offsets de ferramenta automaticamente
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: Esta impressora preenche seus gates a partir do Spoolman. O HelixScreen limpou a própria cópia; remova a bobina no Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: Esta impressora preenche seus gates a partir do Spoolman. Faça alterações de cor, material e bobina no Spoolman.
+  This printer has no INDX LOAD_FILAMENT macro: "Esta impressora não tem a macro LOAD_FILAMENT do INDX"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: Esta impressora não tem descarga automática. Corte o filamento no cabeçote e retire-o à mão.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : Esta impressora parece ser uma {} ({}% de confiança), mas está configurada como {}. Um tipo errado aplica opções de pré-impressão e predefinições incorretas.
+  "This printer's INDX macros are missing: {}": "Faltam nas macros do INDX desta impressora: {}"
   This printer's network service controls the WiFi radio: O serviço de rede desta impressora controla o rádio WiFi
   This printer's network service manages saved WiFi networks: O serviço de rede desta impressora gerencia as redes WiFi salvas
   This printer's screen has not shared a layout: "A tela desta impressora não compartilhou um layout"
@@ -4052,6 +4058,7 @@ translations:
   Tool Switcher: 'Seletor de ferramentas'
   'Tool change failed: {}': 'Falha ao trocar ferramenta: {}'
   Tool change to T{}: 'Troca de ferramenta para T{}'
+  Tool may be half seated: "A ferramenta pode estar mal encaixada"
   Tool offsets (mm): Offsets de ferramenta (mm)
   Tool offsets saved: Offsets de ferramenta salvos
   Tool swap: Troca de ferramenta
@@ -4544,6 +4551,7 @@ translations:
   '{} firmware': 'Firmware de {}'
   '{} h': '{} h'
   '{} h of {} h': '{} h de {} h'
+  '{} has no hotend': "{} não tem hotend"
   '{} heater turned off': Aquecedor {} desligado
   '{} is asking to connect to this printer.': '{} quer conectar-se a esta impressora.'
   '{} is blocked — manual intervention required': '{}: bloqueio — intervenção manual necessária'
@@ -4563,6 +4571,7 @@ translations:
   '{} m': '{} m'
   '{} macro not configured': Macro {} não configurado
   '{} matches.': '{} corresponde.'
+  '{} may be half seated on the head. Check it by hand.': "{} pode estar mal encaixada no cabeçote. Verifique manualmente."
   '{} may cause unintended changes. Are you sure?': '{} pode causar alterações não
     intencionais. Tem certeza?'
   '{} meter reset': 'Contador de {} resetado'

@@ -1745,6 +1745,8 @@ translations:
   I understand: I understand
   ID (optional): ID (optional)
   IMPORT FROM USB: IMPORT FROM USB
+  INDX dock positions are not calibrated: INDX dock positions are not calibrated
+  INDX macros not recognized: INDX macros not recognized
   IP Address / Hostname: IP Address / Hostname
   'IP:': 'IP:'
   'IPP error: {}': 'IPP error: {}'
@@ -2370,6 +2372,7 @@ translations:
   No target printer configured: No target printer configured
   No temperature sensors detected: No temperature sensors detected
   No timelapse videos found: No timelapse videos found
+  No tool on the head: No tool on the head
   No tools to calibrate: No tools to calibrate
   'No turn: the gap moved {:.1f} Hz': 'No turn: the gap moved {:.1f} Hz'
   No unit has a filament buffer: No unit has a filament buffer
@@ -2603,6 +2606,7 @@ translations:
   Pick Color: Pick Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: Pick how HelixScreen behaves. You can change any of these later in Settings.
   Pick the best band: Pick the best band
+  Pick up the tool, heat it, and pull the filament out: Pick up the tool, heat it, and pull the filament out
   Pick up tool: Pick up tool
   Picking up tool: Picking up tool
   Pill: Pill
@@ -3846,9 +3850,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: This printer cannot calibrate tool offsets automatically
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.
+  This printer has no INDX LOAD_FILAMENT macro: This printer has no INDX LOAD_FILAMENT macro
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: This printer has no automatic unload. Cut the filament at the head and pull it out by hand.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
+  "This printer's INDX macros are missing: {}": "This printer's INDX macros are missing: {}"
   This printer's network service controls the WiFi radio: This printer's network service controls the WiFi radio
   This printer's network service manages saved WiFi networks: This printer's network service manages saved WiFi networks
   This printer's screen has not shared a layout: This printer's screen has not shared a layout
@@ -3948,6 +3954,7 @@ translations:
   Tool Switcher: Tool Switcher
   'Tool change failed: {}': 'Tool change failed: {}'
   Tool change to T{}: Tool change to T{}
+  Tool may be half seated: Tool may be half seated
   Tool offsets (mm): Tool offsets (mm)
   Tool offsets saved: Tool offsets saved
   Tool swap: Tool swap
@@ -4435,6 +4442,7 @@ translations:
   '{} firmware': '{} firmware'
   '{} h': '{} h'
   '{} h of {} h': '{} h of {} h'
+  '{} has no hotend': '{} has no hotend'
   '{} heater turned off': '{} heater turned off'
   '{} is asking to connect to this printer.': '{} is asking to connect to this printer.'
   '{} is blocked — manual intervention required': '{} is blocked — manual intervention required'
@@ -4454,6 +4462,7 @@ translations:
   '{} m': '{} m'
   '{} macro not configured': '{} macro not configured'
   '{} matches.': '{} matches.'
+  '{} may be half seated on the head. Check it by hand.': '{} may be half seated on the head. Check it by hand.'
   '{} may cause unintended changes. Are you sure?': '{} may cause unintended changes.
     Are you sure?'
   '{} meter reset': '{} meter reset'

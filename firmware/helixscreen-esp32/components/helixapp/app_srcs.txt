@@ -151,6 +151,7 @@ src/printer/ams_backend_ad5x_ifs.cpp
 src/printer/ams_backend_afc.cpp
 src/printer/ams_backend_cfs.cpp
 src/printer/ams_backend_happy_hare.cpp
+src/printer/ams_backend_indx.cpp
 src/printer/ams_backend_multiace.cpp
 src/printer/ams_backend_openams.cpp
 src/printer/ams_bypass_policy.cpp
@@ -204,6 +205,7 @@ src/printer/hardware_role_registry.cpp
 src/printer/hardware_validator.cpp
 src/printer/happy_hare_status_parse.cpp
 src/printer/hh_defaults.cpp
+src/printer/indx_contract.cpp
 src/printer/klipper_error_table.cpp
 src/printer/macro_executor.cpp
 src/printer/macro_param_cache.cpp

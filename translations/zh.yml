@@ -1693,6 +1693,8 @@ translations:
 
   ID (optional): ID（可选）
   IMPORT FROM USB: 从 USB 导入
+  INDX dock positions are not calibrated: "INDX 停靠位置未校准"
+  INDX macros not recognized: "无法识别 INDX 宏"
   IP Address / Hostname: IP 地址 / 主机名
   'IP:': IP：
   'IPP error: {}': 'IPP 错误: {}'
@@ -2290,6 +2292,7 @@ translations:
   No target printer configured: 未配置目标打印机
   No temperature sensors detected: '未检测到温度传感器'
   No timelapse videos found: 未找到延时视频
+  No tool on the head: "工具头上没有工具"
   No tools to calibrate: 没有可校准的工具
   'No turn: the gap moved {:.1f} Hz': "未转动:差距移动了 {:.1f} Hz"
   No unit has a filament buffer: "没有单元带耗材缓冲器"
@@ -2522,6 +2525,7 @@ translations:
   Pick Color: 选择颜色
   Pick how HelixScreen behaves. You can change any of these later in Settings.: '选择 HelixScreen 的行为方式。以后可在“设置”中更改。'
   Pick the best band: 选择最佳区段
+  Pick up the tool, heat it, and pull the filament out: "装上工具，加热后抽出耗材"
   Pick up tool: 取出工具
   Picking up tool: 正在取用工具
   Pill: 胶囊
@@ -3710,9 +3714,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: 此打印机无法自动校准工具偏移
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: 此打印机的通道信息来自 Spoolman。HelixScreen 已清除本地副本；请在 Spoolman 中移除该线轴。
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: 此打印机的通道信息来自 Spoolman。请在 Spoolman 中更改颜色、材料和线轴。
+  This printer has no INDX LOAD_FILAMENT macro: "此打印机没有 INDX LOAD_FILAMENT 宏"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: 此打印机没有自动退料功能。请在工具头处剪断耗材，然后用手拉出。
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : 此打印机看起来是 {}（置信度 {}%），但当前设置为 {}。错误的类型会应用不正确的打印前选项和预设。
+  "This printer's INDX macros are missing: {}": "此打印机的 INDX 宏缺少：{}"
   This printer's network service controls the WiFi radio: 此打印机的网络服务控制 WiFi 无线模块
   This printer's network service manages saved WiFi networks: 此打印机的网络服务管理已保存的 WiFi 网络
   This printer's screen has not shared a layout: "此打印机的屏幕尚未共享布局"
@@ -3801,6 +3807,7 @@ translations:
   Tool Switcher: '工具切换器'
   'Tool change failed: {}': '工具切换失败: {}'
   Tool change to T{}: '切换工具到 T{}'
+  Tool may be half seated: "工具可能未完全安装到位"
   Tool offsets (mm): 工具偏移 (mm)
   Tool offsets saved: 工具偏移已保存
   Tool swap: 工具切换
@@ -4275,6 +4282,7 @@ translations:
   '{} firmware': '{} 固件'
   '{} h': '{} 小时'
   '{} h of {} h': '{} / {} 小时'
+  '{} has no hotend': "{} 没有热端"
   '{} heater turned off': '{} 加热器已关闭'
   '{} is asking to connect to this printer.': '{} 请求连接到此打印机。'
   '{} is blocked — manual intervention required': '{} 被阻塞 — 需要手动干预'
@@ -4294,6 +4302,7 @@ translations:
   '{} m': '{} 米'
   '{} macro not configured': '{} 宏未配置'
   '{} matches.': '{} 匹配。'
+  '{} may be half seated on the head. Check it by hand.': "{} 可能未完全安装到工具头上，请手动检查。"
   '{} may cause unintended changes. Are you sure?': '{} 可能导致意外更改。确定吗？'
   '{} meter reset': '{}计数器已重置'
   '{} min': '{} 分钟'

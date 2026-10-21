@@ -1966,9 +1966,12 @@ nlohmann::json TelemetryManager::build_hw_ams_section(const helix::PrinterDiscov
     case AmsType::OPENAMS:
         ams["type"] = "openams";
         break;
-    default:
-        ams["type"] = "unknown";
+    default: {
+        // A type with no telemetry name of its own reports its display name.
+        const std::string name = helix::text_io::to_lower(ams_type_to_string(hw.mmu_type()));
+        ams["type"] = name == "none" ? "unknown" : name;
         break;
+    }
     }
     ams["unit_count"] = lv_subject_get_int(AmsState::instance().get_backend_count_subject());
     // Bays that exist: the slot-count subject is the index span, which counts a
