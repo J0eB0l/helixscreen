@@ -254,8 +254,11 @@ void CameraStream::stop() {
 
             while (!joined->load()) {
                 if (std::chrono::steady_clock::now() > deadline) {
+                    // The worker still uses `this` (running_, recv_buf_, its
+                    // exit-path ScopeExit) with no lifetime_ check. Every owner
+                    // must see was_detached() and leak this object, never free it.
                     spdlog::error("[CameraStream] Thread join timed out after {}ms, "
-                                  "detaching (lifetime_ guard prevents UAF)",
+                                  "detaching (owner must leak this stream)",
                                   join_timeout_.count());
                     join_helper.detach();
                     thread_joined = false;
