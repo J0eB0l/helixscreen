@@ -337,3 +337,27 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture, "Bed drying's unload asks the same qu
               std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
     }
 }
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "The lane picker shows every row, Cancel included, without scrolling",
+                 "[ams][1324][picker]") {
+    // Four lanes plus the clear and Cancel rows: the tallest the question gets.
+    REQUIRE(backend_->unload_lane_question().lanes == std::vector<int>{0, 1, 2, 3});
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
+                                          [](int) {}));
+    lv_obj_t* cancel = find_on_screen("cancel_choice");
+    REQUIRE(cancel != nullptr);
+    lv_obj_t* card = lv_obj_get_parent(cancel);
+    lv_obj_update_layout(card);
+
+    CHECK(lv_obj_get_scroll_bottom(card) <= 0);
+    CHECK(lv_obj_get_scroll_top(card) <= 0);
+    lv_area_t card_area;
+    lv_obj_get_coords(card, &card_area);
+    CHECK(card_area.y1 >= 0);
+    CHECK(card_area.y2 < lv_display_get_vertical_resolution(lv_display_get_default()));
+    lv_area_t cancel_area;
+    lv_obj_get_coords(cancel, &cancel_area);
+    CHECK(cancel_area.y2 <= card_area.y2);
+    tap(cancel);
+}

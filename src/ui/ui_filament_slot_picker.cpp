@@ -12,6 +12,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
+
 namespace helix::ui {
 
 // Layout constants for picker rows.
@@ -88,7 +90,9 @@ void FilamentSlotPicker::show(lv_obj_t* parent, lv_obj_t* trigger,
     lv_obj_t* card = lv_obj_create(backdrop_);
     lv_obj_remove_style_all(card);
     lv_obj_set_size(card, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_max_height(card, LV_PCT(60), 0);
+    // Up to the whole screen: every row, the last included, should show without
+    // scrolling wherever they fit; position_card() moves the card to make room.
+    lv_obj_set_style_max_height(card, LV_PCT(100), 0);
     lv_obj_set_style_min_width(card, kCardMinWidth, 0);
     lv_obj_set_style_bg_color(card, theme_manager_get_color("elevated_bg"), 0);
     lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
@@ -296,42 +300,29 @@ void FilamentSlotPicker::position_card(lv_obj_t* card) {
         card_h = lv_obj_get_height(card);
     }
 
-    // lv_dropdown positioning logic: prefer below, flip if more space above
+    // Prefer below the trigger, then above it, as lv_dropdown does. A card
+    // taller than either side keeps its full height and slides along the
+    // screen instead, covering the trigger: every row visible beats staying
+    // clear of the button that opened it. Only a card taller than the screen
+    // scrolls.
     int32_t space_below = screen_h - trigger_area.y2 - 1;
     int32_t space_above = trigger_area.y1;
 
-    bool open_above = false;
-    int32_t list_h = card_h;
-
-    if (list_h > space_below) {
-        if (space_above > space_below) {
-            // More space above — flip
-            open_above = true;
-            if (list_h > space_above) {
-                list_h = space_above;
-            }
-        } else {
-            // Stay below, clamp
-            list_h = space_below;
-        }
-    }
-
-    // Never exceed content height
-    if (list_h > card_h) {
-        list_h = card_h;
-    }
-
+    int32_t list_h = card_h > screen_h ? screen_h : card_h;
     lv_obj_set_height(card, list_h);
+
+    int32_t card_y;
+    if (list_h <= space_below) {
+        card_y = trigger_area.y2 + 1;
+    } else if (list_h <= space_above) {
+        card_y = trigger_area.y1 - list_h;
+    } else {
+        card_y = std::clamp(trigger_area.y1, int32_t{0}, screen_h - list_h);
+    }
+    const bool open_above = card_y < trigger_area.y1;
 
     // Position: align to trigger edges
     int32_t card_x = trigger_area.x1;
-    int32_t card_y;
-
-    if (open_above) {
-        card_y = trigger_area.y1 - list_h;
-    } else {
-        card_y = trigger_area.y2 + 1;
-    }
 
     // Clamp horizontal position to screen bounds
     int32_t screen_w = LV_HOR_RES;
