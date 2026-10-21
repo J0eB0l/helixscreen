@@ -951,8 +951,14 @@ int MoonrakerClientMock::connect(const char* url, std::function<void()> on_conne
     // Simulate connection state change (same as real client)
     set_connection_state(ConnectionState::CONNECTING);
 
-    // Small delay to simulate a realistic connection
-    auto delay_ms = sim_speed().shorten_wait_ms(250);
+    // Small delay to simulate a realistic connection. The unit-test binary sets
+    // HELIX_MOCK_CONNECT_DELAY_MS=0: hundreds of fixtures connect a mock, and a
+    // real sleep in each one adds minutes of wall time to every shard.
+    int connect_delay_ms = 250;
+    if (const char* env = std::getenv("HELIX_MOCK_CONNECT_DELAY_MS")) {
+        connect_delay_ms = std::clamp(std::atoi(env), 0, 10000);
+    }
+    auto delay_ms = sim_speed().shorten_wait_ms(connect_delay_ms);
     if (delay_ms > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
     }

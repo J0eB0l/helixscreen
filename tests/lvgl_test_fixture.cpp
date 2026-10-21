@@ -233,6 +233,14 @@ lv_obj_t* LVGLTestFixture::create_test_screen() {
 // 50ms sleep threshold — never build a wall-clock wait out of this. wait_until()
 // is the helper that also yields to other threads.
 void LVGLTestFixture::process_lvgl(int ms) {
+    pump_lvgl(ms, ms > 50);
+}
+
+void LVGLTestFixture::advance_lvgl(int ms) {
+    pump_lvgl(ms, false);
+}
+
+void LVGLTestFixture::pump_lvgl(int ms, bool yield) {
     if (ms <= 0) {
         return;
     }
@@ -253,7 +261,7 @@ void LVGLTestFixture::process_lvgl(int ms) {
         elapsed += tick_interval_ms;
 
         // Small sleep to avoid busy-waiting in longer waits
-        if (ms > 50) {
+        if (yield) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
     }
