@@ -253,7 +253,7 @@ bool press_at(int32_t x, int32_t y) {
     last_data.point.y = y;
     last_data.state = LV_INDEV_STATE_PRESSED;
     lv_indev_read(virtual_indev); // Directly read indev to process press
-    wait_ms(50);                  // Minimum press duration
+    advance_ms(50);               // Minimum press duration
     return true;
 }
 
@@ -267,7 +267,7 @@ bool move_to(int32_t x, int32_t y) {
     last_data.point.x = x;
     last_data.point.y = y;
     lv_indev_read(virtual_indev);
-    wait_ms(50);
+    advance_ms(50);
     return true;
 }
 
@@ -280,7 +280,7 @@ bool release() {
     spdlog::debug("[UITest] Simulating release");
     last_data.state = LV_INDEV_STATE_RELEASED;
     lv_indev_read(virtual_indev); // Directly read indev to process release
-    wait_ms(50);                  // Allow click handlers to execute
+    advance_ms(50);               // Allow click handlers to execute
     return true;
 }
 
@@ -307,7 +307,7 @@ bool type_text(const std::string& text) {
     // Add text directly to textarea
     lv_textarea_add_text(focused, text.c_str());
     lv_timer_handler_safe();
-    wait_ms(50); // Allow text processing
+    advance_ms(50); // Allow text processing
 
     return true;
 }
@@ -329,7 +329,7 @@ bool type_text(lv_obj_t* textarea, const std::string& text) {
     // Add text directly to textarea
     lv_textarea_add_text(textarea, text.c_str());
     lv_timer_handler_safe();
-    wait_ms(50); // Allow text processing
+    advance_ms(50); // Allow text processing
 
     return true;
 }
@@ -353,7 +353,7 @@ bool send_key(uint32_t key) {
             lv_obj_send_event(focused, LV_EVENT_READY, nullptr);
         }
         lv_timer_handler_safe();
-        wait_ms(50);
+        advance_ms(50);
         return true;
     }
 
@@ -369,6 +369,15 @@ bool send_key(uint32_t key) {
 // fire, but any timer with a real period never comes due, however long you wait.
 // Both waits below therefore advance the virtual clock in step with the sleep.
 static constexpr uint32_t kWaitPollMs = 5;
+
+void advance_ms(uint32_t ms) {
+    for (uint32_t elapsed = 0; elapsed < ms; elapsed += kWaitPollMs) {
+        lv_tick_inc(kWaitPollMs);
+        // Drains the UpdateQueue, normalizes timer timestamps, and pauses the
+        // queue timer during lv_timer_handler() to prevent infinite loops.
+        lv_timer_handler_safe();
+    }
+}
 
 void wait_ms(uint32_t ms) {
     auto start = std::chrono::steady_clock::now();

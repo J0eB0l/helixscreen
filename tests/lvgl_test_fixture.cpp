@@ -233,24 +233,8 @@ lv_obj_t* LVGLTestFixture::create_test_screen() {
 // thread gets no guaranteed time slice from it; wait_until() is the helper that
 // yields to other threads.
 void LVGLTestFixture::process_lvgl(int ms) {
-    if (ms <= 0) {
-        return;
-    }
-
-    // Process in small increments for more accurate timing
-    constexpr int tick_interval_ms = 5;
-    int elapsed = 0;
-
-    while (elapsed < ms) {
-        // Advance LVGL tick (needed for animations and time-based logic)
-        lv_tick_inc(tick_interval_ms);
-
-        // Use the safe timer handler which drains the UpdateQueue,
-        // normalizes timer timestamps, and pauses the queue timer
-        // during lv_timer_handler() to prevent infinite loops.
-        lv_timer_handler_safe();
-
-        elapsed += tick_interval_ms;
+    if (ms > 0) {
+        UITest::advance_ms(static_cast<uint32_t>(ms));
     }
 }
 
