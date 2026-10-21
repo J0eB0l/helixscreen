@@ -138,6 +138,7 @@ void FilamentSensorManager::init_subjects() {
     UI_MANAGED_SUBJECT_INT(probe_triggered_, -1, "filament_probe_triggered", subjects_);
     UI_MANAGED_SUBJECT_INT(any_runout_, 0, "filament_any_runout", subjects_);
     UI_MANAGED_SUBJECT_INT(motion_active_, 0, "filament_motion_active", subjects_);
+    UI_MANAGED_SUBJECT_INT(motion_signature_, 0, "filament_motion_signature", subjects_);
     UI_MANAGED_SUBJECT_INT(master_enabled_subject_, master_enabled_ ? 1 : 0,
                            "filament_master_enabled", subjects_);
     UI_MANAGED_SUBJECT_INT(sensor_count_, 0, "filament_sensor_count", subjects_);
@@ -952,6 +953,71 @@ bool FilamentSensorManager::is_motion_active() const {
     return false;
 }
 
+std::optional<ClogMotionSensor> FilamentSensorManager::clog_motion_sensor(int active_lane) const {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    if (!master_enabled_) {
+        return std::nullopt;
+    }
+
+    const FilamentSensorConfig* first = nullptr;
+    const FilamentSensorConfig* first_armed = nullptr;
+    const FilamentSensorConfig* on_lane = nullptr;
+    for (const auto& sensor : sensors_) {
+        if (sensor.type != FilamentSensorType::MOTION || !sensor.enabled) {
+            continue;
+        }
+        const auto* st = sensors_.state(sensor.klipper_name);
+        if (!st || !st->available) {
+            continue;
+        }
+        if (!first) {
+            first = &sensor;
+        }
+        if (!first_armed && st->enabled) {
+            first_armed = &sensor;
+        }
+        if (!on_lane && active_lane >= 0 && lane_index_for_sensor(sensor) == active_lane) {
+            on_lane = &sensor;
+        }
+    }
+
+    const FilamentSensorConfig* pick = on_lane ? on_lane : (first_armed ? first_armed : first);
+    if (!pick) {
+        return std::nullopt;
+    }
+    const auto* st = sensors_.state(pick->klipper_name);
+    ClogMotionSensor out;
+    out.sensor_name = pick->sensor_name;
+    out.armed = st->enabled;
+    out.filament_moving = st->filament_detected;
+    return out;
+}
+
+int FilamentSensorManager::motion_signature() const {
+    // FNV-1a over everything clog_motion_sensor() reads, so the subject moves
+    // exactly when a fresh pick could come out differently.
+    uint32_t h = 2166136261u;
+    auto mix = [&h](uint32_t v) {
+        h ^= v;
+        h *= 16777619u;
+    };
+    mix(master_enabled_ ? 1u : 0u);
+    for (const auto& sensor : sensors_) {
+        if (sensor.type != FilamentSensorType::MOTION) {
+            continue;
+        }
+        for (char c : sensor.klipper_name) {
+            mix(static_cast<unsigned char>(c));
+        }
+        const auto* st = sensors_.state(sensor.klipper_name);
+        mix((sensor.enabled ? 1u : 0u) | (st && st->available ? 2u : 0u) |
+            (st && st->enabled ? 4u : 0u) | (st && st->filament_detected ? 8u : 0u) |
+            (static_cast<uint32_t>(lane_index_for_sensor(sensor) + 1) << 4));
+    }
+    return static_cast<int>(h);
+}
+
 // ============================================================================
 // State Updates
 // ============================================================================
@@ -1366,6 +1432,10 @@ lv_subject_t* FilamentSensorManager::get_motion_active_subject() {
     return &motion_active_;
 }
 
+lv_subject_t* FilamentSensorManager::get_motion_signature_subject() {
+    return &motion_signature_;
+}
+
 lv_subject_t* FilamentSensorManager::get_master_enabled_subject() {
     return &master_enabled_subject_;
 }
@@ -1518,6 +1588,12 @@ void FilamentSensorManager::update_subjects() {
     }
     lv_subject_set_int(&any_runout_, any_runout_value);
     lv_subject_set_int(&motion_active_, is_motion_active() ? 1 : 0);
+    int signature = 0;
+    {
+        std::lock_guard<std::recursive_mutex> lock(mutex_);
+        signature = motion_signature();
+    }
+    lv_subject_set_int(&motion_signature_, signature);
 
     spdlog::trace("[FilamentSensorManager] Subjects updated: runout={}, toolhead={}, entry={}, "
                   "probe={}, any_runout={}",

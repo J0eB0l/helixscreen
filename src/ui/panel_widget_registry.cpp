@@ -148,7 +148,7 @@ static std::vector<PanelWidgetDef> s_widget_defs = {
     // value and its mode text stacked in a box narrower than the words —
     // reported as showing "nothing useful". The minimum matches the default so
     // a drag cannot put it back there; height still scales down to one cell.
-    {"clog_detection",   TR_NOOP("Clog Detection"),    "gauge",            TR_NOOP("Clog and flow health while printing"),   "clog_meter_mode",    "Requires clog detection hardware",    kCatFilament, false, 4, 2, 4, 2, 8, 4, false, true, true},
+    {"clog_detection",   TR_NOOP("Clog Detection"),    "gauge",            TR_NOOP("Clog and flow health while printing"),   "clog_meter_mode",    "Requires a clog detector or filament motion sensor", kCatFilament, false, 4, 2, 4, 2, 8, 4, false, true, true},
     {"filament_buffer",  TR_NOOP("Filament Buffer"),   "arrow_up_down",    TR_NOOP("Filament buffer position against its target"), "buffer_present", "Requires a filament pressure sensor or sync feedback", kCatFilament, false, 2, 2, 2, 2, 4, 2, false, false, false},
     // One half-row tall is a status line: a single line of the message, scrolling when it
     // is too long. Taller boxes wrap it.

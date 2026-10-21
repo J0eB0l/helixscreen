@@ -959,6 +959,7 @@ void AmsState::deinit_subjects() {
     // CLAUDE.md § "ObserverGuard::reset() is the default").
     print_state_observer_.reset();
     klippy_state_observer_.reset();
+    motion_sensor_observer_.reset();
 
     // IMPORTANT: clear_backends() MUST precede subjects_.deinit_all() because
     // BackendSlotSubjects are managed outside SubjectManager for lifetime reasons

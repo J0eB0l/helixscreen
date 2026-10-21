@@ -1295,6 +1295,15 @@ class AmsState {
     void set_danger_threshold_override(int pct);
 
     /**
+     * @brief Re-sync the clog meter whenever a filament motion sensor changes
+     *
+     * A plain Klipper filament_motion_sensor is the clog meter's last-priority
+     * source (#1823), and it changes without any AMS backend sync. Call after
+     * FilamentSensorManager::init_subjects(); idempotent.
+     */
+    void install_motion_sensor_observer();
+
+    /**
      * @brief Get current modal target temperature
      * @return Temperature in degrees C
      */
@@ -2437,6 +2446,13 @@ class AmsState {
 
     /// Wire (or rewire) klippy_state_observer_. Idempotent.
     void install_klippy_state_observer();
+
+    /// Re-syncs the clog meter on FilamentSensorManager's motion signature.
+    ObserverGuard motion_sensor_observer_;
+
+    /// Re-sync the clog meter from the active backend's snapshot, or from an
+    /// empty one when there is no backend.
+    void resync_clog_meter();
 
     /// Recompute the ams_action_detail subject from current AMS action +
     /// cached operation_detail + PrinterState print state.

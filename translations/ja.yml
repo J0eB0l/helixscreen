@@ -995,6 +995,7 @@ translations:
   Disable Motors?: モーターを無効にしますか？
   Disable the security PIN: セキュリティ PIN を無効化
   Disabling motors...: モーターを無効化中...
+  Disarmed: '無効'
   Discard: 破棄
   Discard Changes?: 変更を破棄しますか？
   Disconnected: 切断
@@ -2923,7 +2924,7 @@ translations:
   Requires Multi-Filament System or MMU hardware: 'マルチフィラメントシステムまたはMMUハードウェアが必要です'
   Requires a filament system with bypass: バイパスに対応したフィラメントシステムが必要です
   Requires a filament pressure sensor or sync feedback: 'フィラメント圧力センサーまたは同期フィードバックが必要です'
-  Requires clog detection hardware: '詰まり検出ハードウェアが必要です'
+  Requires a clog detector or filament motion sensor: '詰まり検出器またはフィラメントモーションセンサーが必要です'
   Resend write failed at chunk {}: チャンク {} で再送信の書き込みに失敗しました
   Reset: リセット
   Reset Blade Counter: 'ブレードカウンターをリセット'

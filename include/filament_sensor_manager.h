@@ -422,6 +422,18 @@ class FilamentSensorManager {
     [[nodiscard]] bool is_motion_active() const;
 
     /**
+     * @brief The motion sensor that watches for jams, for the clog meter
+     *
+     * Only motion sensors the user has enabled (with the master switch on) and
+     * that Klipper reports are candidates. Among them: the one whose lane is
+     * @p active_lane, else the first one Klipper has armed, else the first.
+     *
+     * @param active_lane Loaded slot or tool, -1 when none
+     * @return nullopt when no motion sensor qualifies
+     */
+    [[nodiscard]] std::optional<ClogMotionSensor> clog_motion_sensor(int active_lane) const;
+
+    /**
      * @brief Check if Z probe is triggered
      *
      * Returns false if master disabled, probe sensor disabled, or no probe assigned.
@@ -514,6 +526,11 @@ class FilamentSensorManager {
      * @return Subject (int: 0=idle, 1=motion detected)
      */
     [[nodiscard]] lv_subject_t* get_motion_active_subject();
+
+    /// Changes whenever anything clog_motion_sensor() reads changes: a motion
+    /// sensor's user enable, availability, armed state or reading, or the
+    /// master switch. The value itself means nothing.
+    [[nodiscard]] lv_subject_t* get_motion_signature_subject();
 
     /**
      * @brief Get subject for master enable state
@@ -630,6 +647,8 @@ class FilamentSensorManager {
      */
     void update_subjects();
     void bump_config_revision();
+    /// Fingerprint of every input clog_motion_sensor() reads. Caller holds mutex_.
+    [[nodiscard]] int motion_signature() const;
 
     // Recursive mutex for thread-safe state access
     // Recursive because update_subjects() calls has_any_runout()/is_motion_active()
@@ -693,6 +712,7 @@ class FilamentSensorManager {
     lv_subject_t probe_triggered_{};
     lv_subject_t any_runout_{};
     lv_subject_t motion_active_{};
+    lv_subject_t motion_signature_{};
     lv_subject_t master_enabled_subject_{};
     lv_subject_t sensor_count_{};
     lv_subject_t config_revision_{};

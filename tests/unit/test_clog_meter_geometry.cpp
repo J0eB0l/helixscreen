@@ -84,7 +84,7 @@ TEST_CASE("clog_meter_tint: a negative reading tints by magnitude", "[clog][tint
 // clog_meter_is_safe
 // ===========================================================================
 
-TEST_CASE("clog_meter_is_safe: only the buffer mode reports nothing", "[clog][safe][1017]") {
+TEST_CASE("clog_meter_is_safe: a buffer at zero reports nothing", "[clog][safe][1017]") {
     CHECK(clog_meter_is_safe(kMode_Buffer, 0));
 
     // A buffer reading of any size is a measurement, so it draws.
@@ -386,4 +386,45 @@ TEST_CASE("pressure_target_side: a deadband of five points either way",
     CHECK(pressure_target_side(55, 50) == PressureTargetSide::At);
     CHECK(pressure_target_side(44, 50) == PressureTargetSide::Below);
     CHECK(pressure_target_side(56, 50) == PressureTargetSide::Above);
+}
+
+// ===========================================================================
+// Motion: a filament motion sensor's state (#1823)
+// ===========================================================================
+
+namespace {
+constexpr int kMode_Motion = static_cast<int>(ClogMeterMode::Motion);
+}
+
+TEST_CASE("motion sensor: moving, jammed and disarmed severities", "[clog][status][motion][1823]") {
+    CHECK(clog_meter_status(kMode_Motion, kMotionMovingValue, 0, 0) == ClogMeterStatus::Ok);
+    CHECK(clog_meter_status(kMode_Motion, kMotionJammedValue, 1, 0) == ClogMeterStatus::Fault);
+    CHECK(clog_meter_status(kMode_Motion, kMotionDisarmedValue, 0, 0) == ClogMeterStatus::Off);
+    // Off is a motion-sensor state only: a negative Flowguard reading is a tangle.
+    CHECK(clog_meter_status(kMode_Flowguard, -1, 0, 80) == ClogMeterStatus::Ok);
+}
+
+TEST_CASE("motion sensor: moving is the check icon, disarmed is not",
+          "[clog][safe][motion][1823]") {
+    CHECK(clog_meter_is_safe(kMode_Motion, kMotionMovingValue));
+    CHECK_FALSE(clog_meter_is_safe(kMode_Motion, kMotionJammedValue));
+    CHECK_FALSE(clog_meter_is_safe(kMode_Motion, kMotionDisarmedValue));
+}
+
+TEST_CASE("motion sensor: a state draws a fill and nothing else", "[clog][bar][motion][1823]") {
+    CHECK(clog_meter_is_state(kMode_Motion));
+    CHECK_FALSE(clog_meter_is_state(kMode_Encoder));
+
+    const auto jam = clog_bar_geometry(kMode_Motion, kMotionJammedValue, 0, 0, 200);
+    CHECK(jam.fill_x == 0);
+    CHECK(jam.fill_w == 200);
+    CHECK(jam.danger_hi_w == 0);
+    CHECK(jam.danger_lo_w == 0);
+
+    const auto moving = clog_bar_geometry(kMode_Motion, kMotionMovingValue, 0, 0, 200);
+    CHECK(moving.fill_w == 0);
+    CHECK(moving.danger_hi_w == 0);
+
+    const auto off = clog_bar_geometry(kMode_Motion, kMotionDisarmedValue, 0, 0, 200);
+    CHECK(off.fill_w == 0);
 }

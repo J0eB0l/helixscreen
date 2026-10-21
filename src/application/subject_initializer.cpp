@@ -223,6 +223,10 @@ void SubjectInitializer::init_ams_subjects() {
     // Initialize sensor manager subjects BEFORE panels so XML bindings can work
     // Note: Each manager self-registers cleanup with StaticSubjectRegistry in init_subjects()
     helix::sensors::for_each_sensor_manager([](auto& m) { m.init_subjects(); });
+
+    // The clog meter falls back to a filament motion sensor, whose subjects
+    // exist only from here.
+    helix::AmsState::instance().install_motion_sensor_observer();
 }
 
 void SubjectInitializer::init_panel_subjects(helix::IMoonrakerAPI* api) {

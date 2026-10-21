@@ -4566,44 +4566,15 @@ void MoonrakerClientMock::dispatch_initial_state() {
     }
 
     // Add filament sensor states
-    // Check HELIX_MOCK_FILAMENT_STATE env var for initial state (default: detected)
-    // Format: "sensor:state,sensor:state" e.g., "fsensor:empty" or "fsensor:detected,encoder:empty"
-    bool default_detected = true;
-    const char* state_env = std::getenv("HELIX_MOCK_FILAMENT_STATE");
-    std::map<std::string, bool> sensor_states;
-
-    if (state_env) {
-        // Parse state overrides
-        std::string states_str(state_env);
-        size_t pos = 0;
-        while ((pos = states_str.find(',')) != std::string::npos || !states_str.empty()) {
-            std::string token = (pos != std::string::npos) ? states_str.substr(0, pos) : states_str;
-            size_t colon = token.find(':');
-            if (colon != std::string::npos) {
-                std::string name = token.substr(0, colon);
-                std::string state = token.substr(colon + 1);
-                sensor_states[name] = (state != "empty" && state != "0" && state != "false");
-            }
-            if (pos == std::string::npos)
-                break;
-            states_str.erase(0, pos + 1);
-        }
-    }
-
     // Add state for each discovered filament sensor
     for (const auto& sensor : discovery_.filament_sensors()) {
         // Extract sensor name from "filament_switch_sensor fsensor" -> "fsensor"
         size_t space = sensor.rfind(' ');
         std::string short_name = (space != std::string::npos) ? sensor.substr(space + 1) : sensor;
 
-        bool detected = default_detected;
-        auto it = sensor_states.find(short_name);
-        if (it != sensor_states.end()) {
-            detected = it->second;
-        }
-
-        // Filament sensor state format from Klipper
-        initial_status[sensor] = {{"filament_detected", detected}, {"enabled", true}};
+        const auto env = helix::sim::mock_filament_sensor_env_state(short_name);
+        initial_status[sensor] = {{"filament_detected", env.filament_detected},
+                                  {"enabled", env.enabled}};
     }
 
     // The chamber and width sensors carry status only where the persona reports them.

@@ -42,6 +42,7 @@ class FilamentSensorManagerTestAccess {
             lv_subject_set_int(&mgr.probe_triggered_, -1);
             lv_subject_set_int(&mgr.any_runout_, 0);
             lv_subject_set_int(&mgr.motion_active_, 0);
+            lv_subject_set_int(&mgr.motion_signature_, 0);
             lv_subject_set_int(&mgr.master_enabled_subject_, 1);
             lv_subject_set_int(&mgr.sensor_count_, 0);
         }
