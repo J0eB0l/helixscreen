@@ -32,8 +32,9 @@ whichever of these the printer is running:
   — related to the Path 2 driver concept (it too ships an `ace_status.py`) but wrapped in
   KS1-specific cutter/purge/toolchange macros. Its live status surface is confirmed
   (user captures, #1069; the "ACEPRO" driver at `Kobra-S1/ACEPRO` on Kalico) and handled —
-  see the Path 3 section below. Control gcode (`ACE_CHANGE_TOOL`,
-  `ACE_ENABLE/DISABLE_FEED_ASSIST`) matches what the backend already sends. Full teardown:
+  see the Path 3 section below. `ACE_CHANGE_TOOL` matches what the backend sends; its slot
+  commands (`ACE_FEED`, `ACE_RETRACT`, `ACE_ENABLE/DISABLE_FEED_ASSIST`) need `INSTANCE=`
+  beside `INDEX=` (see G-code Commands below). Full teardown:
   [`printer-research/ANYCUBIC_ACE_KOBRA_S1_LOG_ANALYSIS.md`](printer-research/ANYCUBIC_ACE_KOBRA_S1_LOG_ANALYSIS.md).
 - **Path 4 (multiACE)** is ACE Pro hardware on a **Snapmaker U1**, and it is the one path
   the ACE backend is deliberately kept away from - see the section below.
@@ -254,6 +255,14 @@ These are the real native verbs from GoKlipper `extras_ace.go` — the backend d
 | `ACE_DISABLE_FEED_ASSIST INDEX={i}` | Disable feed assist on a slot |
 | `ACE_START_DRYING TEMP={t} DURATION={m}` | Start drying |
 | `ACE_STOP_DRYING` | Stop drying |
+
+> The Kobra S1 fork (`Kobra-S1/ACEPRO`) resolves the unit for `ACE_FEED`, `ACE_RETRACT` and
+> `ACE_ENABLE/DISABLE_FEED_ASSIST` from `T=<tool>` or `INSTANCE=<unit> INDEX=<local slot>`,
+> and rejects `INDEX=` alone ("Must specify either T=<tool> or INSTANCE=<inst> INDEX=<slot>",
+> prestonbrown/helixscreen#1821). Once the backend has seen an `ace_instance_N` object or
+> the REST bridge's `ace_manager`, `src/printer/ams_backend_ace.cpp#slot_command` sends the
+> `INSTANCE=` form, numbered from the displayed `ace_instance_N` (0 when only `ace_manager`
+> is seen); GoKlipper and ValgACE keep `INDEX=`.
 
 > Note: `ACE_RECOVER` and `ACE_RESET` are **not** native GoKlipper commands — do not send them on the native path.
 

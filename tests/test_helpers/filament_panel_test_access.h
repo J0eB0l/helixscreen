@@ -31,6 +31,11 @@ struct FilamentPanelTestAccess {
         p.execute_load();
     }
 
+    /// Stands in for a macro profile that needs a home, which no stock row does.
+    static void set_home_before_load_macro(FilamentPanel& p, bool home) {
+        p.home_before_load_macro_ = home;
+    }
+
     static void execute_unload(FilamentPanel& p) {
         p.execute_unload();
     }

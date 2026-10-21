@@ -107,9 +107,6 @@ class AfcTestAccess {
     template <class B> static auto& configfile_answered(B& b) {
         return b.configfile_answered_;
     }
-    template <class B> static auto& configfile_has_toolchanger(B& b) {
-        return b.configfile_has_toolchanger_;
-    }
     template <class B> static auto& configs_loaded(B& b) {
         return b.configs_loaded_;
     }
@@ -271,9 +268,6 @@ class AfcTestAccess {
     /// Static private method, so it takes no backend object.
     template <class... A> static decltype(auto) database_item_value(A&&... a) {
         return AmsBackendAfc::database_item_value(std::forward<A>(a)...);
-    }
-    template <class B, class... A> static decltype(auto) has_toolchanger(B& b, A&&... a) {
-        return b.has_toolchanger(std::forward<A>(a)...);
     }
     template <class B, class... A> static decltype(auto) clear_values(B& b, A&&... a) {
         return b.clear_values(std::forward<A>(a)...);

@@ -1295,6 +1295,15 @@ class AmsState {
     void set_danger_threshold_override(int pct);
 
     /**
+     * @brief Re-sync the clog meter whenever a filament motion sensor changes
+     *
+     * A plain Klipper filament_motion_sensor is the clog meter's last-priority
+     * source (#1823), and it changes without any AMS backend sync. Call after
+     * FilamentSensorManager::init_subjects(); idempotent.
+     */
+    void install_motion_sensor_observer();
+
+    /**
      * @brief Get current modal target temperature
      * @return Temperature in degrees C
      */
@@ -2438,6 +2447,19 @@ class AmsState {
     /// Wire (or rewire) klippy_state_observer_. Idempotent.
     void install_klippy_state_observer();
 
+    /// Re-syncs the clog meter on FilamentSensorManager's motion signature.
+    ObserverGuard motion_sensor_observer_;
+
+    /// Re-syncs the clog meter when a print starts or ends: a motion sensor's
+    /// empty reading is a jam only while one runs.
+    ObserverGuard print_lifecycle_observer_;
+    /// Wire (or rewire) print_lifecycle_observer_. Idempotent.
+    void install_print_lifecycle_observer();
+
+    /// Re-sync the clog meter from the active backend's snapshot, or from an
+    /// empty one when there is no backend.
+    void resync_clog_meter();
+
     /// Recompute the ams_action_detail subject from current AMS action +
     /// cached operation_detail + PrinterState print state.
     void recompute_action_detail();
@@ -2565,7 +2587,7 @@ class AmsState {
     lv_subject_t clog_meter_danger_pct_{};  // 0-100, where danger zone starts
     lv_subject_t clog_meter_peak_pct_{};    // 0-100, peak-hold marker position
     lv_subject_t clog_meter_center_text_{}; // Enhanced center display
-    char clog_meter_center_text_buf_[16]{};
+    char clog_meter_center_text_buf_[32]{};
     lv_subject_t clog_meter_label_left_{}; // Left endpoint label
     // Endpoint labels render translated: ru "СПУТЫВАНИЕ" is 20 bytes.
     char clog_meter_label_left_buf_[24]{};

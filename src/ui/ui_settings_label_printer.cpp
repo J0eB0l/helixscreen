@@ -544,15 +544,11 @@ void LabelPrinterSettingsOverlay::handle_printer_selected(int index) {
 
     const auto& np = discovered_network_printers_[index];
     const auto& printer = np.printer;
-    int port = (np.protocol == "ipp") ? (printer.port > 0 ? printer.port : 631) : printer.port;
+    save_discovered_network_printer(printer, np.protocol);
+    const int port = LabelPrinterSettingsManager::instance().get_printer_port();
 
-    spdlog::info("[{}] Selected printer: {} ({}:{}, protocol={})", get_name(), printer.name,
-                 printer.ip_address, port, np.protocol);
-
-    auto& settings = LabelPrinterSettingsManager::instance();
-    settings.set_printer_address(printer.ip_address);
-    settings.set_printer_port(port);
-    settings.set_printer_protocol(np.protocol);
+    spdlog::info("[{}] Selected printer: {} ({}:{}, protocol={}, rp='{}')", get_name(),
+                 printer.name, printer.ip_address, port, np.protocol, printer.resource_path);
 
     // Update IPP selected subject and refresh dependent UI
     update_ipp_selected_subject();

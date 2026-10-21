@@ -1014,6 +1014,7 @@
   <translation tag="Disable Motors?" ru="Отключить моторы?"/>
   <translation tag="Disable the security PIN" ru="Отключить PIN-код"/>
   <translation tag="Disabling motors..." ru="Отключение моторов..."/>
+  <translation tag="Disarmed" ru="Отключён"/>
   <translation tag="Discard" ru="Отменить"/>
   <translation tag="Discard Changes?" ru="Отменить изменения?"/>
   <translation tag="Disconnected" ru="Отключено"/>
@@ -2892,9 +2893,9 @@
   <translation tag="Requires Moonraker power device" ru="Требуется устройство питания Moonraker"/>
   <translation tag="Requires Moonraker-Timelapse plugin" ru="Требуется плагин Moonraker-Timelapse"/>
   <translation tag="Requires Multi-Filament System or MMU hardware" ru="Требуется мультифиламентная система или оборудование MMU"/>
+  <translation tag="Requires a clog detector or filament motion sensor" ru="Требуется датчик засора или датчик движения филамента"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" ru="Требуется датчик давления филамента или обратная связь синхронизации"/>
   <translation tag="Requires a filament system with bypass" ru="Требуется система филамента с байпасом"/>
-  <translation tag="Requires clog detection hardware" ru="Требуется оборудование для обнаружения засора"/>
   <translation tag="Resend write failed at chunk {}" ru="Не удалось повторно отправить запись в блоке {}"/>
   <translation tag="Reset" ru="Сброс"/>
   <translation tag="Reset Blade Counter" ru="Сбросить счётчик лезвия"/>

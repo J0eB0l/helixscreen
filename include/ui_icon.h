@@ -24,7 +24,8 @@ namespace helix::ui::icon {
  * property handling for easy theming:
  *
  * Properties:
- *   - src: Icon short name (e.g., "home", "wifi", "settings")
+ *   - src: Icon short name (e.g., "home", "wifi", "settings"), or an image icon
+ *          registered through ui_icon_image.h
  *   - size: Semantic size string - "xs", "sm", "md", "lg", "xl"
  *   - variant: Color variant - "text", "muted", "primary", "secondary",
  *              "tertiary", "disabled", "success", "warning", "danger",

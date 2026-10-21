@@ -57,14 +57,14 @@ bool ends_with(std::string_view s, std::string_view tail) {
 
 // App widgets a plugin's own components may build on: chrome and presentational
 // widgets whose only name-taking attributes are the generic bind_* and name= ones
-// checked below. plugin_canvas is the plugin drawing surface; its name= is the
-// registry key its committed display list publishes under.
+// checked below. plugin_canvas is the plugin drawing surface and plugin_table the
+// plugin data table; the name= of each is the registry key its data publishes under.
 bool is_allowlisted_app_component(std::string_view name) {
     return name == "overlay_panel" || name == "ui_card" || name == "icon" ||
            name == "text_heading" || name == "text_body" || name == "text_muted" ||
            name == "text_small" || name == "text_xs" || name == "text_tiny" ||
-           name == "plugin_canvas" || name == "ui_dialog" || name == "modal_header" ||
-           name == "modal_button_row";
+           name == "plugin_canvas" || name == "plugin_table" || name == "ui_dialog" ||
+           name == "modal_header" || name == "modal_button_row";
 }
 
 /// The props through which an allowlisted app component names its own objects.
@@ -192,6 +192,18 @@ void on_start(void* ud, const XML_Char* name, const XML_Char** attrs) {
             if (!given)
                 fail(w, "<" + std::string(el) + "> needs " + prop + "=\"" + w.id +
                             "__<name>\": its default name is the app's");
+        }
+    }
+    // An icon source carrying the ownership separator is a plugin image icon, and a
+    // plugin draws only its own.
+    if (el == "icon") {
+        for (int i = 0; attrs[i]; i += 2) {
+            std::string_view val = attrs[i + 1];
+            if (std::string_view(attrs[i]) == "src" &&
+                val.find(kPluginNameSeparator) != std::string_view::npos &&
+                !is_owned_name(w.id, val))
+                fail(w, "src=\"" + std::string(val) + "\": an image icon must be named " + w.id +
+                            "__<name>");
         }
     }
     // On these elements name= declares a prop or refers to a style (style,

@@ -996,13 +996,25 @@ Set the initial state of filament sensors.
 
 | Property | Value |
 |----------|-------|
-| **Values** | `sensor_name:state` (e.g., `fsensor:empty`, `fsensor:detected`) |
+| **Values** | `sensor_name:state`, comma-separated. `state` is `detected`, `empty`, or `disabled` (Klipper reports the sensor stood down, `enabled: false`) |
 | **Default** | Detected |
 | **File** | `src/api/moonraker_client_mock.cpp` |
 
 ```bash
 # Start with empty filament sensor
 HELIX_MOCK_FILAMENT_STATE="fsensor:empty" ./build/bin/helix-screen --test
+```
+
+The Clog Detection tile reading a plain `filament_motion_sensor` (#1823): `HELIX_MOCK_AMS=none`
+keeps the default mock's Happy Hare encoder from outranking the sensor.
+
+```bash
+# OK (armed, filament moving)
+HELIX_MOCK_AMS=none HELIX_MOCK_FILAMENT_SENSORS="motion:encoder" ./build/bin/helix-screen --test
+# Jammed
+HELIX_MOCK_AMS=none HELIX_MOCK_FILAMENT_SENSORS="motion:encoder" HELIX_MOCK_FILAMENT_STATE="encoder:empty" ./build/bin/helix-screen --test
+# Disarmed
+HELIX_MOCK_AMS=none HELIX_MOCK_FILAMENT_SENSORS="motion:encoder" HELIX_MOCK_FILAMENT_STATE="encoder:disabled" ./build/bin/helix-screen --test
 ```
 
 ### `HELIX_FORCE_RUNOUT_MODAL`

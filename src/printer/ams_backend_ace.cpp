@@ -43,6 +43,7 @@
 #include <cctype>
 #include <chrono>
 #include <map>
+#include <string_view>
 #include <tuple>
 
 namespace helix {
@@ -106,6 +107,7 @@ void AmsBackendAce::on_started() {
         park_states_.clear();
         last_spool_evidence_.clear();
         pending_insert_reads_.clear();
+        instance_base_ = -1;
     }
 
     // Load persisted per-slot overrides from the shared FilamentSlotOverrideStore
@@ -174,7 +176,15 @@ void AmsBackendAce::on_started() {
                 const json* ace_data = nullptr;
                 std::string matched_key;
                 if (response.contains("result") && response["result"].contains("status")) {
-                    ace_data = select_ace_object(response["result"]["status"], &matched_key);
+                    const json& status = response["result"]["status"];
+                    ace_data = select_ace_object(status, &matched_key);
+                    if (lowest_ace_instance_key(status)) {
+                        // The displayed unit is the instance the pick chose;
+                        // with no slot-bearing instance the REST bridge serves
+                        // instance 0.
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        instance_base_ = ace_data ? ace_instance_number(matched_key) : 0;
+                    }
                 }
 
                 if (ace_data) {
@@ -244,6 +254,12 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     const json* ace_data = nullptr;
     if (const std::string* instance_key = lowest_ace_instance_key(*status)) {
         ace_data = &(*status)[*instance_key];
+        // A delta names only the objects that changed, so it never moves the
+        // base the initial query chose; it fills one only before that answer.
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (instance_base_ < 0) {
+            instance_base_ = ace_instance_number(*instance_key);
+        }
     } else {
         ace_data = select_ace_object(*status, nullptr, /*require_slots=*/true);
         if (!ace_data) {
@@ -1697,6 +1713,10 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         changed |= seat_from_local_index_locked(data["loaded_slot"].get<int>());
     }
 
+    if (data.contains("ace_manager") && instance_base_ < 0) {
+        instance_base_ = 0;
+    }
+
     // The fork's /status states the seat through the manager's
     // current_index instead of loaded_slot — same semantics, global tool
     // index with -1 meaning nothing loaded (#1069).
@@ -1928,44 +1948,56 @@ std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() co
     return actions;
 }
 
+std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (instance_base_ < 0) {
+        return fmt::format("{} INDEX={}", verb, slot);
+    }
+    int instance = instance_base_;
+    int local = slot;
+    if (const AmsUnit* unit = system_info_.get_unit_for_slot(slot)) {
+        instance += unit->unit_index;
+        local = slot - unit->first_slot_global_index;
+    }
+    return fmt::format("{} INSTANCE={} INDEX={}", verb, instance, local);
+}
+
+int AmsBackendAce::ace_instance_number(const std::string& key) {
+    static constexpr std::string_view kPrefix = "ace_instance_";
+    if (key.rfind(kPrefix, 0) != 0) {
+        return 0;
+    }
+    const auto n = helix::text_io::parse_leading<int>(std::string_view(key).substr(kPrefix.size()));
+    return n && *n >= 0 ? *n : 0;
+}
+
 AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,
                                                  const std::any& value) {
+    const int slot = std::max(get_current_slot(), 0);
+
     if (action_id == "ace_manual_feed") {
-        int slot = get_current_slot();
-        if (slot < 0)
-            slot = 0;
         static constexpr int kManualFeedLength = 50;
         static constexpr int kManualFeedSpeed = 50;
-        return execute_gcode("ACE_FEED INDEX=" + std::to_string(slot) +
-                             " LENGTH=" + std::to_string(kManualFeedLength) +
-                             " SPEED=" + std::to_string(kManualFeedSpeed));
+        return execute_gcode(slot_command("ACE_FEED", slot) + fmt::format(" LENGTH={} SPEED={}",
+                                                                          kManualFeedLength,
+                                                                          kManualFeedSpeed));
     }
 
     if (action_id == "ace_manual_retract") {
-        int slot = get_current_slot();
-        if (slot < 0)
-            slot = 0;
         static constexpr int kManualRetractLength = 50;
         static constexpr int kManualRetractSpeed = 50;
-        return execute_gcode("ACE_RETRACT INDEX=" + std::to_string(slot) +
-                             " LENGTH=" + std::to_string(kManualRetractLength) +
-                             " SPEED=" + std::to_string(kManualRetractSpeed));
+        return execute_gcode(slot_command("ACE_RETRACT", slot) + fmt::format(" LENGTH={} SPEED={}",
+                                                                             kManualRetractLength,
+                                                                             kManualRetractSpeed));
     }
 
     if (action_id == "ace_feed_assist_toggle") {
-        int slot = get_current_slot();
-        if (slot < 0)
-            slot = 0;
-
         const auto [enable, err] = printer::device_action_value<bool>(value, "feed assist state");
         if (!err) {
             return err;
         }
-        if (enable) {
-            return execute_gcode("ACE_ENABLE_FEED_ASSIST INDEX=" + std::to_string(slot));
-        } else {
-            return execute_gcode("ACE_DISABLE_FEED_ASSIST INDEX=" + std::to_string(slot));
-        }
+        return execute_gcode(
+            slot_command(enable ? "ACE_ENABLE_FEED_ASSIST" : "ACE_DISABLE_FEED_ASSIST", slot));
     }
 
     if (action_id == "ace_bypass_on_macro" || action_id == "ace_bypass_off_macro") {

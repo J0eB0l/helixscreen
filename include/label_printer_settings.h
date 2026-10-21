@@ -19,6 +19,7 @@ namespace helix {
  * - printer_address (IP/hostname of Brother QL printer or IPP printer)
  * - printer_port (raw socket port, default 9100; IPP uses 631)
  * - printer_protocol ("raw" or "ipp") — auto-detected from mDNS discovery
+ * - ipp_resource_path (IPP queue path from mDNS TXT "rp"; belongs to printer_address)
  * - usb_vid, usb_pid, usb_serial (USB device identification)
  * - bt_address (Bluetooth MAC address)
  * - bt_transport ("spp" or "ble")
@@ -62,8 +63,15 @@ class LabelPrinterSettingsManager {
     /** @brief Get printer IP address or hostname */
     std::string get_printer_address() const;
 
-    /** @brief Set printer address (updates configured subject + persists) */
+    /** @brief Set printer address (updates configured subject + persists).
+     *  A different address clears the IPP resource path, which belongs to the old one. */
     void set_printer_address(const std::string& addr);
+
+    /** @brief Get the IPP resource path as stored (empty = printer advertised none) */
+    std::string get_ipp_resource_path() const;
+
+    /** @brief Set the IPP resource path (persists to config) */
+    void set_ipp_resource_path(const std::string& path);
 
     /** @brief Get raw socket port (default 9100) */
     int get_printer_port() const;

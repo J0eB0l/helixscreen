@@ -1072,6 +1072,7 @@ translations:
   Disable Motors?: ¿Desactivar Motores?
   Disable the security PIN: Desactivar el PIN de seguridad
   Disabling motors...: Desactivando motores...
+  Disarmed: 'Desarmado'
   Discard: Descartar
   Discard Changes?: ¿Descartar Cambios?
   Disconnected: Desconectado
@@ -3104,7 +3105,7 @@ translations:
   Requires Multi-Filament System or MMU hardware: 'Requiere sistema multi-filamento o hardware MMU'
   Requires a filament system with bypass: Requiere un sistema de filamento con bypass
   Requires a filament pressure sensor or sync feedback: 'Requiere un sensor de presión de filamento o retroalimentación de sincronización'
-  Requires clog detection hardware: 'Requiere hardware de detección de atascos'
+  Requires a clog detector or filament motion sensor: 'Requiere un detector de atascos o un sensor de movimiento de filamento'
   Resend write failed at chunk {}: Error al reenviar la escritura en el fragmento
     {}
   Reset: Restablecer

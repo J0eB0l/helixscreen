@@ -21,10 +21,8 @@
  *
  * The counterpart is what matters: **test_afc_toolchanger_from_status.cpp**
  * drives the same behaviours from the flat top-level `AFC.extruders` array the
- * firmware actually sends. That file is where toolchanger coverage lives; when
- * `AFC_SELECT_TOOL` was dead on hardware (fixed in 6bcfb067b), every test in
- * THIS file was green. See prestonbrown/helixscreen#1200 and #1154 for the
- * fixture-fidelity class of bug.
+ * firmware actually sends. That file is where toolchanger coverage lives. See
+ * prestonbrown/helixscreen#1200 and #1154 for the fixture-fidelity class of bug.
  *
  * Test tags: [ams][afc][multi_extruder], plus [webhook] on the AFC.system tests
  * and [status] on the ones fed a real status frame.

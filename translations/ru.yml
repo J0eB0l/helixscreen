@@ -1115,6 +1115,7 @@ translations:
   Disable Motors?: Отключить моторы?
   Disable the security PIN: Отключить PIN-код
   Disabling motors...: Отключение моторов...
+  Disarmed: 'Отключён'
   Discard: Отменить
   Discard Changes?: Отменить изменения?
   Disconnected: Отключено
@@ -3151,7 +3152,7 @@ translations:
   Requires Multi-Filament System or MMU hardware: 'Требуется мультифиламентная система или оборудование MMU'
   Requires a filament system with bypass: Требуется система филамента с байпасом
   Requires a filament pressure sensor or sync feedback: 'Требуется датчик давления филамента или обратная связь синхронизации'
-  Requires clog detection hardware: 'Требуется оборудование для обнаружения засора'
+  Requires a clog detector or filament motion sensor: 'Требуется датчик засора или датчик движения филамента'
   Resend write failed at chunk {}: Не удалось повторно отправить запись в блоке {}
   Reset: Сброс
   Reset Blade Counter: 'Сбросить счётчик лезвия'

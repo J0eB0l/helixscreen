@@ -1041,6 +1041,7 @@ translations:
   Disable Motors?: Disable Motors?
   Disable the security PIN: Disable the security PIN
   Disabling motors...: Disabling motors...
+  Disarmed: Disarmed
   Discard: Discard
   Discard Changes?: Discard Changes?
   Disconnected: Disconnected
@@ -3032,7 +3033,7 @@ translations:
   Requires Multi-Filament System or MMU hardware: Requires Multi-Filament System or MMU hardware
   Requires a filament system with bypass: Requires a filament system with bypass
   Requires a filament pressure sensor or sync feedback: 'Requires a filament pressure sensor or sync feedback'
-  Requires clog detection hardware: Requires clog detection hardware
+  Requires a clog detector or filament motion sensor: Requires a clog detector or filament motion sensor
   Resend write failed at chunk {}: Resend write failed at chunk {}
   Reset: Reset
   Reset Blade Counter: Reset Blade Counter

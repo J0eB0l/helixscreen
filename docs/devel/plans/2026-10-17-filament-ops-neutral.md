@@ -62,7 +62,7 @@ Every surface maps those outputs to its own widgets.
 | Creator 5 (feed shim) | N | load Automatic, unload Manual | The Select-Slot-as-mount override is deleted |
 | klipper-toolchanger + feeder | N | Automatic | Mounts inside the op if needed |
 | klipper-toolchanger, no feeder (MedusaHC today) | N | Manual / Unavailable | The sidebar shows Mount / Park |
-| AFC + toolchanger | N | Automatic | The load verb changes from AFC_SELECT_TOOL; hardware verification required |
+| AFC + toolchanger | N | Automatic | Load is `CHANGE_TOOL LANE=<lane>` and AFC swaps heads itself (#1824); hardware verification required |
 
 ## Phases (one review, scoped mutation and one gate across phases 2-4)
 

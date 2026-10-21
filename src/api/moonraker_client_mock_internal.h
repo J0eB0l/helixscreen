@@ -219,6 +219,20 @@ json get_mock_mmu_status();
 
 namespace helix::sim {
 /**
+ * @brief A filament sensor's status fields as HELIX_MOCK_FILAMENT_STATE sets them
+ *
+ * The variable is comma-separated `name:state` pairs keyed on the sensor's short
+ * name; `state` is `detected` (the default), `empty`, or `disabled` (stood down in
+ * Klipper, `enabled: false`). Both the initial status frame and printer.objects.subscribe
+ * answer from this, so the two cannot disagree.
+ */
+struct MockFilamentSensorEnvState {
+    bool filament_detected = true;
+    bool enabled = true;
+};
+MockFilamentSensorEnvState mock_filament_sensor_env_state(const std::string& short_name);
+
+/**
  * @brief Extra macro names from HELIX_MOCK_MACRO_COUNT=N (MOCK_MACRO_000 ...)
  *
  * Empty when the variable is unset. Lets list-scale macro UI run against a

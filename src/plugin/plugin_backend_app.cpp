@@ -18,6 +18,7 @@
 #include "moonraker_error.h"
 #include "moonraker_subscription_merge.h"
 #include "plugin_backend.h"
+#include "sound_manager.h"
 
 #include <algorithm>
 #include <atomic>
@@ -319,6 +320,10 @@ PluginBackend make_app_backend() {
 
     b.set_plugin_objects = [](const std::string& plugin_id, const json& objects) {
         publish_plugin_objects(plugin_id, objects);
+    };
+
+    b.play_sound = [](const std::string& name, SoundPriority priority) {
+        SoundManager::instance().play(name, priority);
     };
 
     return b;

@@ -1545,9 +1545,9 @@ void FilamentPanel::handle_load_button() {
         return;
     }
 
-    // A backend load homes inside its own ensure_homed_then(); only the macro
-    // tier needs us to send the G28, which execute_load() does right before the
-    // macro, after any preheat.
+    // A backend load homes inside its own ensure_homed_then(). On the macro tier
+    // we send the G28 only for a macro profile that needs one, right before the
+    // macro and after any preheat; an unrecognized macro runs as it is.
     const helix::ui::FilamentOpPlan plan = current_load_plan();
     home_before_load_macro_ =
         plan.tier == helix::ui::FilamentTier::Macro &&

@@ -54,6 +54,19 @@ size_t memory_remaining(const LuaRuntime& rt) {
     return cap > used ? cap - used : 0;
 }
 
+void charge_plugin_memory(lua_State* L, size_t bytes, const char* call) {
+    // Left uncharged so a plugin whose data has reached the cap can still run: the
+    // luaL_error that reports the refused call needs Lua memory to raise into, and
+    // the host's next entry into the plugin (compiling a chunk, starting a thread)
+    // is how it gets the chance to free some. On a full heap that entry fails out
+    // of memory and the runtime disables the plugin.
+    constexpr size_t kRaiseRoom = 4096;
+    LuaRuntime& rt = context(L).rt;
+    const size_t room = memory_remaining(rt);
+    if (room < kRaiseRoom || bytes > room - kRaiseRoom || !rt.reserve_external(bytes))
+        luaL_error(L, "%s: plugin memory budget exceeded", call);
+}
+
 int push_rpc_true(lua_State* co, const RpcResult&) {
     lua_pushboolean(co, 1);
     return 1;

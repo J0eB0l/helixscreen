@@ -24,7 +24,7 @@
     - ams_current_slot_text: the loaded position ("Gate 1")
     - ams_current_material_text: the filament's name (e.g., "Red PLA")
     - ams_current_weight_text / ams_current_has_weight: remaining weight
-    - clog_meter_mode: 0=hidden, 1=encoder, 2=flowguard, 3=afc_buffer
+    - clog_meter_mode: 0=hidden, 1=encoder, 2=flowguard, 3=afc_buffer, 4=motion sensor
     - clog_meter_center_text: the clog reading
     - buffer_present / buffer_slider / buffer_short_text / buffer_label: the
       filament buffer, drawn by UiBufferSlider into buffer_mini_slider

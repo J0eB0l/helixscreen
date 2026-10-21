@@ -93,6 +93,19 @@ struct FilamentSensorState {
     // status frame, which must never read as a runout.
 };
 
+/**
+ * @brief The filament motion sensor the clog meter reads, and its reading.
+ *
+ * Klipper reports only `enabled` and `filament_detected` for a
+ * filament_motion_sensor; the latter goes false when the encoder has not seen
+ * movement within its detection length, which is a jam (#1823).
+ */
+struct ClogMotionSensor {
+    std::string sensor_name;     ///< Short name, e.g. "encoder"
+    bool armed = true;           ///< Klipper-level `enabled`
+    bool filament_moving = true; ///< Klipper `filament_detected`
+};
+
 inline constexpr sensors::EnumName<FilamentSensorRole> kFilamentSensorRoles[] = {
     {FilamentSensorRole::NONE, "none", "Unassigned"},
     {FilamentSensorRole::RUNOUT, "runout", "Runout Sensor"},

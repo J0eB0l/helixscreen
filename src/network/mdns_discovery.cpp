@@ -82,8 +82,7 @@ struct ServiceRecord {
     std::string hostname;      ///< Target host from SRV record
     uint16_t port = 0;         ///< Port from SRV record
     std::string ip_address;    ///< IPv4 address from A record
-    std::string model_name;    ///< From TXT "ty" record (e.g., "Brother QL-800")
-    std::string product;       ///< From TXT "product" record
+    MdnsTxtFields txt;         ///< From the TXT record
 
     bool is_complete() const {
         return !hostname.empty() && port > 0 && !ip_address.empty();
@@ -91,10 +90,10 @@ struct ServiceRecord {
 
     /// Best available display name: TXT "ty" > TXT "product" > hostname
     std::string best_display_name() const {
-        if (!model_name.empty())
-            return model_name;
-        if (!product.empty())
-            return product;
+        if (!txt.model_name.empty())
+            return txt.model_name;
+        if (!txt.product.empty())
+            return txt.product;
         return extract_display_name(hostname);
     }
 };
@@ -344,13 +343,8 @@ class MdnsDiscovery::Impl {
                         value.assign(txt_records[i].value.str, txt_records[i].value.length);
                     }
 
-                    if (key == "ty" && !value.empty()) {
-                        record.model_name = value;
-                        spdlog::trace("[MdnsDiscovery] TXT ty: {} -> {}", record_name, value);
-                    } else if (key == "product" && !value.empty()) {
-                        record.product = value;
-                        spdlog::trace("[MdnsDiscovery] TXT product: {} -> {}", record_name, value);
-                    }
+                    spdlog::trace("[MdnsDiscovery] TXT {}: {} -> {}", key, record_name, value);
+                    apply_mdns_txt_entry(record.txt, key, value);
                 }
             }
             break;
@@ -387,11 +381,9 @@ class MdnsDiscovery::Impl {
 
                 // Only add complete records
                 if (record.is_complete()) {
-                    DiscoveredPrinter printer;
-                    printer.name = record.best_display_name();
-                    printer.hostname = record.hostname;
-                    printer.ip_address = record.ip_address;
-                    printer.port = record.port;
+                    auto printer =
+                        make_discovered_printer(record.best_display_name(), record.hostname,
+                                                record.ip_address, record.port, record.txt);
 
                     // Deduplicate by IP:port
                     auto it = std::find(new_printers.begin(), new_printers.end(), printer);
