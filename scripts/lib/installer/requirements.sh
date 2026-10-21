@@ -428,37 +428,45 @@ _systemd_service_active() {
         awk -v svc="$1" '$1 ~ ("^" svc "-[0-9]+\\.service$") { found = 1 } END { exit !found }'
 }
 
-# True when a process under HELIX_PROC_ROOT (tests point it at a fixture tree),
-# else /proc, runs the python script $1.py or the module $1. /proc holds every
-# process whichever ps the host ships.
-_proc_runs_python() {
-    local f cmd
+# True when HELIX_PROC_ROOT (else /proc) shows any process's argv. When it
+# does, /proc holds every process whichever ps the host ships, and ps has
+# nothing to add.
+_proc_lists_processes() {
+    local f
     for f in "${HELIX_PROC_ROOT:-/proc}"/[0-9]*/cmdline; do
-        [ -r "$f" ] || continue
-        cmd=$(tr '\000' ' ' 2>/dev/null < "$f") || continue
-        case " $cmd" in
-            *"/$1.py "*|*" $1.py "*|*" -m $1 "*) return 0 ;;
-        esac
+        [ -r "$f" ] && return 0
     done
     return 1
 }
 
-# True when Klipper runs here. Each probe can be missing on some host (an
-# unreadable /proc, a ps without -e, no systemd), so any one finding it counts.
-# The ps listing names it "klippy" (the python module) or "klipper" (the
-# service name).
-installer_klipper_running() {
-    _proc_runs_python klippy && return 0
-    _ps_all_args | grep -v grep | grep -q -e '[Kk]lipper' -e '[Kk]lippy' && return 0
-    _systemd_service_active klipper
+# True when a ps line (_ps_all_args) runs the python program $1 the way
+# running_python_module recognizes it: $1.py, or the module $1 or $1.$1.
+# A ps line's columns differ between builds, so argv[0] is not checked here.
+_ps_runs_python() {
+    _ps_all_args | grep -v grep |
+        grep -Eq "(^|[ /])$1\.py( |\$)|-m ?$1(\.$1)?( |\$)"
 }
 
-# True when Moonraker runs here, by the same probes as installer_klipper_running;
-# in /proc, running_moonrakers knows the shapes its argv takes.
+# True when the python program $1 runs here: in /proc when it lists any
+# process, else in the ps listing, or on systemd as an active $1 unit. A log
+# viewer, an editor, KlipperScreen or moonraker-obico only names the program.
+_python_service_running() {
+    if _proc_lists_processes; then
+        [ -n "$(running_python_module "$1")" ] && return 0
+    else
+        _ps_runs_python "$1" && return 0
+    fi
+    _systemd_service_active "$2"
+}
+
+# True when Klipper (klippy.py, service klipper) runs here.
+installer_klipper_running() {
+    _python_service_running klippy klipper
+}
+
+# True when Moonraker runs here.
 installer_moonraker_running() {
-    [ -n "$(running_moonrakers)" ] && return 0
-    _ps_all_args | grep -v grep | grep -q '[Mm]oonraker' && return 0
-    _systemd_service_active moonraker
+    _python_service_running moonraker moonraker
 }
 
 # Check that Klipper and Moonraker are running (AD5M + K1 only)

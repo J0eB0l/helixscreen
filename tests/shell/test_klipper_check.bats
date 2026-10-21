@@ -340,3 +340,53 @@ EOF2
     [ "$status" -eq 0 ]
     contains "Klipper and Moonraker are running" "$output"
 }
+
+# ===========================================================================
+# Processes that only name Klipper or Moonraker are neither
+# ===========================================================================
+
+@test "check_klipper_ecosystem: a klippy.log tail, an editor, KlipperScreen and moonraker-obico in /proc -> warns about both" {
+    mock_command_script ps "echo '  PID USER COMMAND'"
+    mock_proc_cmdline 201 tail -f /usr/data/printer_data/logs/klippy.log
+    mock_proc_cmdline 202 vi /usr/share/klipper/klippy/klippy.py
+    mock_proc_cmdline 203 /usr/bin/python3 /home/pi/KlipperScreen/screen.py
+    mock_proc_cmdline 204 /usr/bin/python3 -m moonraker_obico.app -c /home/pi/printer_data/config/moonraker-obico.cfg
+    mock_proc_cmdline 205 /usr/bin/python3 /home/pi/moonraker-telegram-bot/bot/main.py
+
+    run_klipper_check "k1" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper does not appear to be running" "$output"
+    contains "Moonraker does not appear to be running" "$output"
+}
+
+@test "check_klipper_ecosystem: the same processes in a ps listing -> warns about both" {
+    local ps_file="$BATS_TEST_TMPDIR/ps_output"
+    cat > "$ps_file" <<'EOF2'
+  PID USER     COMMAND
+  201 root     tail -f /usr/data/printer_data/logs/klippy.log
+  203 root     /usr/bin/python3 /home/pi/KlipperScreen/screen.py
+  204 root     /usr/bin/python3 -m moonraker_obico.app -c moonraker-obico.cfg
+  205 root     /usr/bin/python3 /home/pi/moonraker-telegram-bot/bot/main.py
+  206 root     klipper_mcu -w
+EOF2
+
+    run_klipper_check "ad5m" "$ps_file" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper does not appear to be running" "$output"
+    contains "Moonraker does not appear to be running" "$output"
+}
+
+@test "check_klipper_ecosystem: a ps listing is not consulted while /proc lists processes" {
+    local ps_file="$BATS_TEST_TMPDIR/ps_output"
+    cat > "$ps_file" <<'EOF2'
+  PID USER     COMMAND
+  123 root     python3 klippy/klippy.py
+  456 root     python3 moonraker/moonraker.py
+EOF2
+    mock_proc_cmdline 1 /sbin/init
+
+    run_klipper_check "ad5m" "$ps_file" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper does not appear to be running" "$output"
+    contains "Moonraker does not appear to be running" "$output"
+}
