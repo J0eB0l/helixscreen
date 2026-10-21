@@ -3,8 +3,8 @@
 // Bondtech INDX mock hardware (HELIX_MOCK_AMS=indx): the objects, configfile
 // sections and macro state Bondtech's upstream macros publish (BondtechAB/INDX
 // macros/*.cfg), so real discovery builds the production AmsBackendIndx under
-// --test. Tool changes walk park -> pick up over a few notifications the way
-// save_variables changes on a real printer, and the heater follows INDX's own
+// --test. A tool change publishes its park and its pickup before the gcode
+// acks, as the real macro does, and the heater follows INDX's own
 // M104/M109 rule: nothing heats with no tool on the head or a no-hotend tool.
 
 #include "env_knobs.h"
@@ -21,10 +21,6 @@
 #include <string>
 
 namespace {
-
-/// Notifications each half of a change takes (one notification is ~1 s), so
-/// the park and the pickup reach the screen as separate frames.
-constexpr int kIndxPhaseNotifications = 1;
 
 /// The value after "KEY=" on a gcode line, empty when absent.
 std::string param(const std::string& gcode, const char* key) {
@@ -167,43 +163,16 @@ nlohmann::json MoonrakerClientMock::indx_status_json() const {
     return status;
 }
 
-void MoonrakerClientMock::advance_indx_swap() {
-    double heat_to = -1.0;
+void MoonrakerClientMock::publish_indx_if_changed() {
+    nlohmann::json frame = indx_status_json();
     {
         std::lock_guard<std::mutex> lock(indx_mutex_);
-        if (indx_.phase == 0 || --indx_.phase_ticks > 0) {
+        if (frame == indx_published_) {
             return;
         }
-        if (indx_.phase == 1) {
-            // Parked: the head is empty and the latch is open.
-            indx_.active_tool = -1;
-            indx_.toolhead_state = 2;
-            if (indx_.target_tool < 0) {
-                indx_.phase = 0;
-                spdlog::info("[MoonrakerClientMock] INDX park complete");
-                return;
-            }
-            indx_.phase = 2;
-            indx_.phase_ticks = kIndxPhaseNotifications;
-            return;
-        }
-        // Picked up, locked and recorded; the macro then heats the new tool.
-        indx_.active_tool = indx_.target_tool;
-        indx_.target_tool = -1;
-        indx_.toolhead_state = 0;
-        indx_.phase = 0;
-        ++indx_.toolchange_count;
-        const bool no_heat = std::count(indx_.no_heat_tools.begin(), indx_.no_heat_tools.end(),
-                                        indx_.active_tool) > 0;
-        if (!no_heat && indx_.resume_target > 0) {
-            heat_to = indx_.resume_target;
-        }
-        spdlog::info("[MoonrakerClientMock] INDX change complete: T{} on the head",
-                     indx_.active_tool);
+        indx_published_ = frame;
     }
-    if (heat_to > 0) {
-        set_extruder_target(heat_to);
-    }
+    dispatch_status_update(frame);
 }
 
 MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::string& gcode) {
@@ -253,6 +222,9 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         } else if (auto t = helix::text_io::parse_leading<int>(param(gcode, "TOOL"))) {
             indx_.active_tool = *t;
         }
+    }
+    if (cmd == "MANUAL_TOOL_REMOVE" || cmd == "MANUAL_TOOL_SEAT") {
+        publish_indx_if_changed();
         return 0;
     }
     if (tool < 0 && !park) {
@@ -269,6 +241,7 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         target = helix::text_io::parse_leading<double>(param(gcode, "TEMP"))
                      .value_or(preset != kPresetTemps.end() ? preset->second : 0.0);
     }
+    bool parks = false;
     {
         std::lock_guard<std::mutex> lock(indx_mutex_);
         if (cmd == "CHANGE_TOOL" && indx_.unrecognized) {
@@ -290,15 +263,38 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         if (!park && tool == indx_.active_tool && cmd != "LOAD_FILAMENT") {
             return 0;
         }
-        indx_.target_tool = park ? -1 : tool;
-        indx_.resume_target = target;
-        indx_.phase = indx_.active_tool >= 0 ? 1 : 2;
-        indx_.phase_ticks = kIndxPhaseNotifications;
+        parks = indx_.active_tool >= 0 && tool != indx_.active_tool;
     }
-    // The coil goes off before the head drives into a dock.
+
+    // Klipper runs the macro to the end before the gcode call returns, so the
+    // park and the pickup are both on the wire before this acks. The coil
+    // goes off before the head drives into a dock.
     set_extruder_target(0.0);
+    if (parks) {
+        {
+            std::lock_guard<std::mutex> lock(indx_mutex_);
+            indx_.active_tool = -1;
+            indx_.toolhead_state = 2;
+        }
+        publish_indx_if_changed();
+    }
+    if (!park) {
+        bool heat = false;
+        {
+            std::lock_guard<std::mutex> lock(indx_mutex_);
+            indx_.active_tool = tool;
+            indx_.toolhead_state = 0;
+            ++indx_.toolchange_count;
+            heat = std::count(indx_.no_heat_tools.begin(), indx_.no_heat_tools.end(), tool) == 0 &&
+                   target > 0;
+        }
+        publish_indx_if_changed();
+        if (heat) {
+            set_extruder_target(target);
+        }
+    }
     if (cmd == "LOAD_FILAMENT") {
-        dispatch_gcode_response("LOAD_FILAMENT: T" + std::to_string(tool) + " loading");
+        dispatch_gcode_response("LOAD_FILAMENT: T" + std::to_string(tool) + " loaded");
     }
     spdlog::info("[MoonrakerClientMock] INDX {}: {}", cmd, park ? "parking" : "changing tool");
     return 0;

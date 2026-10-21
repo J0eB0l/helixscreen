@@ -2369,15 +2369,12 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
 
     // --- Bondtech INDX mock hardware (moonraker_client_mock_indx.cpp) ----------
     // The macro state Bondtech's upstream macros publish (save_variables and
-    // gcode_macro variables), driven by T<n> / CHANGE_TOOL / PARK_TOOL and
-    // advanced one phase per notification. Written from gcode_script(), read
-    // by the RPC handlers and the simulation thread: all behind indx_mutex_.
+    // gcode_macro variables), driven by T<n> / CHANGE_TOOL / PARK_TOOL.
+    // Written from gcode_script(), read by the RPC handlers and the
+    // simulation thread: all behind indx_mutex_.
     struct IndxMockState {
         int tool_count = 6;
         int active_tool = 0;
-        int target_tool = -1; ///< Tool the running change fetches, -1 a park
-        int phase = 0;        ///< 0 idle, 1 parking, 2 picking up
-        int phase_ticks = 0;
         int toolchange_count = 0;
         int seat_suspect = -1;
         int toolhead_state = 0; ///< 0 locked, 2 open
@@ -2386,19 +2383,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
         bool spool_macros = false;  ///< T<n> declares spool_id and sets the active spool
         bool kalico = false;        ///< [indx] in configfile only, not in the objects list
         bool unrecognized = false;  ///< CHANGE_TOOL missing
-        double resume_target = 0.0; ///< Extruder target the pickup re-heats to
         std::vector<int> spool_ids; ///< Per tool, with spool_macros
     };
     mutable std::mutex indx_mutex_;
     IndxMockState indx_;
+    /// The INDX frame last sent, so the simulation loop sends only changes.
+    nlohmann::json indx_published_;
 
     /// Read the HELIX_MOCK_INDX_* knobs into indx_.
     void read_indx_knobs();
     /// Objects and configfile sections an INDX printer lists.
     void append_indx_objects(nlohmann::json& objects) const;
     [[nodiscard]] nlohmann::json indx_config_sections() const;
-    /// Advance a running change by one notification. No-op when idle.
-    void advance_indx_swap();
+    /// Send the INDX objects when they differ from the last frame sent.
+    void publish_indx_if_changed();
 
     /// Advance the armed swap by one notification interval. No-op when idle.
     void advance_medusa_swap();

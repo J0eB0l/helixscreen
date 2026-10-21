@@ -4646,7 +4646,10 @@ void MoonrakerClientMock::dispatch_initial_state() {
     initial_status.update(skip_wrapper_status());
     initial_status.update(layer_pause_status());
     if (is_mock_indx()) {
-        initial_status.update(indx_status_json());
+        const nlohmann::json indx = indx_status_json();
+        initial_status.update(indx);
+        std::lock_guard<std::mutex> lock(indx_mutex_);
+        indx_published_ = indx;
     }
 
     // multiACE mock: the `ace` object and both filament_feed sides at rest, so
@@ -5537,11 +5540,9 @@ void MoonrakerClientMock::temperature_simulation_loop() {
         if (is_mock_multiace()) {
             status_obj["ace"] = multiace_status_json();
         }
-        // INDX mock: one change phase per notification, and the macro state
-        // that phase leaves behind.
+        // INDX mock: the macro state, only when it changed.
         if (is_mock_indx()) {
-            advance_indx_swap();
-            status_obj.merge_patch(indx_status_json());
+            publish_indx_if_changed();
         }
         if (printer_type_ == PrinterType::CREALITY_K2_PLUS) {
             append_k2_status(status_obj);

@@ -3,6 +3,7 @@
 // HELIX_MOCK_AMS=indx: mock hardware the production AmsBackendIndx runs on.
 
 #include "indx_contract.h"
+#include "macro_param_cache.h"
 #include "moonraker_client_mock.h"
 #include "printer_discovery.h"
 #include "test_helpers/scoped_env.h"
@@ -62,6 +63,9 @@ class IndxFrames {
 };
 
 struct IndxEnv {
+    ~IndxEnv() {
+        helix::MacroParamCache::instance().clear();
+    }
     helix::ScopedEnv ams{"HELIX_MOCK_AMS", "indx"};
     helix::ScopedEnv printer{"HELIX_MOCK_PRINTER", nullptr};
     helix::ScopedEnv fault;
@@ -77,7 +81,7 @@ TEST_CASE("INDX mock: real discovery finds INDX with the stock contract", "[ams]
     MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
     const helix::PrinterDiscovery hw = mock.hardware();
     CHECK(hw.mmu_type() == helix::AmsType::INDX);
-    CHECK(hw.indx_tool_count() == 4);
+    CHECK(helix::indx::config_tool_count() == 4);
     CHECK(helix::indx::check_contract(hw).recognized);
 }
 
@@ -95,15 +99,24 @@ TEST_CASE("INDX mock: a missing CHANGE_TOOL is not recognized", "[ams][indx][moc
     CHECK_FALSE(contract.recognized);
 }
 
-TEST_CASE("INDX mock: a change parks, picks up and records the tool", "[ams][indx][mock]") {
+TEST_CASE("INDX mock: a change parks, picks up and records the tool before acking",
+          "[ams][indx][mock]") {
     IndxEnv env;
-    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    // Declared before the mock, so it outlives the simulation thread that
+    // calls into it.
     IndxFrames frames;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
     mock.register_notify_update(frames.callback());
     mock.connect("ws://mock/websocket", [] {}, [] {});
 
     const size_t mark = frames.mark();
     REQUIRE(mock.gcode_script("T2") == 0);
+    // The macro has finished when the gcode acks: the tool is already recorded.
+    auto now = helix::indx::read_status(mock.indx_status_json());
+    REQUIRE(now.has_value());
+    CHECK(now->active_tool == 2);
+    // And the park and the pickup both went out as frames.
+    CHECK(frames.wait_for_active(mark, -1));
     CHECK(frames.wait_for_active(mark, 2));
 }
 
