@@ -3267,7 +3267,10 @@ translations:
   Search vendors...: Search vendors...
   Search widgets...: Search widgets...
   Searching...: Searching...
+  Seat: Seat
   Seat a tool by hand: Seat a tool by hand
+  Seat a tool by hand for the first Z home: Seat a tool by hand for the first Z home
+  Seat which tool by hand?: Seat which tool by hand?
   Secondary: Secondary
   Section Detail: Section Detail
   Security: Security
@@ -4510,6 +4513,7 @@ translations:
   '{} left': '{} left'
   '{} lines in helixscreen.env were ignored': '{} lines in helixscreen.env were ignored'
   '{} kept crashing the panel; switched back to {}': '{} kept crashing the panel; switched back to {}'
+  '{} is the mounted tool': '{} is the mounted tool'
   "{} isn't loaded. The print will pause when it needs it.": "{} isn't loaded. The print will pause when it needs it."
   '{} kept crashing the panel; pick a printer to connect': '{} kept crashing the panel; pick a printer to connect'
   '{} looser than {}': '{} looser than {}'

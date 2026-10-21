@@ -2,7 +2,9 @@
 
 #include "tool_offset_calibration.h"
 
+#include "indx_contract.h"
 #include "printer_discovery.h"
+#include "translation_loader.h"
 
 #if HELIX_HAS_SNAPMAKER
 #include "snapmaker_nozzle_offset.h"
@@ -27,10 +29,18 @@ std::string guided_flow(const PrinterDiscovery& hw) {
     if (snapmaker::nozzle_offset::supported(hw)) {
         return snapmaker::nozzle_offset::kGuidedFlowId;
     }
-#else
-    (void)hw;
 #endif
+    if (indx::supports_seat_by_hand(hw)) {
+        return indx::kSeatByHandFlowId;
+    }
     return {};
+}
+
+const char* entry_description(const PrinterDiscovery& hw) {
+    if (guided_flow(hw) == indx::kSeatByHandFlowId) {
+        return TR_NOOP("Seat a tool by hand for the first Z home");
+    }
+    return TR_NOOP("Measure every tool's XYZ offset automatically");
 }
 
 std::string calibrate_all_gcode(const PrinterDiscovery& hw) {

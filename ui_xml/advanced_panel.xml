@@ -214,7 +214,7 @@
         <!-- Tool Offsets (printers with a tool offset calibration) -->
         <setting_action_row name="row_tool_offsets"
                             label="Tool Offsets" icon="axis_arrow"
-                            description="Measure every tool's XYZ offset automatically">
+                            bind_description="printer_tool_offset_cal_description">
           <bind_flag_if_eq subject="printer_has_tool_offset_cal" flag="hidden" ref_value="0"/>
           <event_cb trigger="clicked" callback="on_tool_offset_row_clicked"/>
         </setting_action_row>

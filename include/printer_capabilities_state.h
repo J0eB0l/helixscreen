@@ -296,6 +296,12 @@ class PrinterCapabilitiesState {
         return const_cast<lv_subject_t*>(&capability_subjects_[static_cast<size_t>(cap)]);
     }
 
+    /// What the Tool Offsets entry does on this printer, translated
+    /// (`printer_tool_offset_cal_description`). Valid once init_subjects() has run.
+    lv_subject_t* tool_offset_cal_description_subject() {
+        return &tool_offset_cal_description_;
+    }
+
     /**
      * @brief Set speaker availability from local sound backend detection.
      *
@@ -388,6 +394,10 @@ class PrinterCapabilitiesState {
     int stepper_z_endstop_microns_ = 0;
 
     std::array<lv_subject_t, kCapabilityCount> capability_subjects_{};
+    lv_subject_t tool_offset_cal_description_{};
+    char tool_offset_cal_description_buf_[160] = {};
+    /// The description set_hardware() chose, held for an init that comes later.
+    std::string tool_offset_cal_description_text_;
     std::vector<WebcamInfo> webcams_; // every enabled webcam, Moonraker order
     std::string webcam_stream_url_;   // auto-pick: MJPEG stream URL
     std::string webcam_snapshot_url_; // snapshot URL

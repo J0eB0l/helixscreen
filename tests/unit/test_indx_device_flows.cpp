@@ -13,6 +13,7 @@
 #include "../test_helpers/registered_backend.h"
 #include "ams_backend_indx.h"
 #include "app_globals.h"
+#include "indx_contract.h"
 #include "macro_param_cache.h"
 #include "moonraker_client_mock.h"
 #include "printer_discovery.h"
@@ -66,8 +67,9 @@ PrinterDiscovery indx_discovery(const std::vector<std::string>& extra) {
     return hw;
 }
 
-const std::vector<std::string> kFlowMacros = {"MODE_STEALTH", "MODE_NORMAL", "MODE_SPORT",
-                                              "TC_CYCLE_ALL"};
+const std::vector<std::string> kFlowMacros = {"MODE_STEALTH",     "MODE_NORMAL",
+                                              "MODE_SPORT",       "TC_CYCLE_ALL",
+                                              "MANUAL_TOOL_SEAT", "MANUAL_TOOL_REMOVE"};
 
 class IndxFlowFixture : public LVGLUITestFixture {
   public:
@@ -187,5 +189,32 @@ TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: registered ids match the backend'
         CHECK(ui::find_guided_device_flow(action.guided_flow) != nullptr);
         ++flows;
     }
-    CHECK(flows >= 3);
+    CHECK(flows >= 4);
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: seat by hand picks, asks, then seats",
+                 "[indx][flows]") {
+    auto pick = [this](int head) {
+        start(indx::kSeatByHandFlowId);
+        lv_obj_t* picker = ModalStack::instance().top_dialog();
+        REQUIRE(picker != nullptr);
+        lv_obj_t* row = lv_obj_find_by_name(picker, ("item_" + std::to_string(head)).c_str());
+        REQUIRE(row != nullptr);
+        lv_obj_send_event(row, LV_EVENT_CLICKED, nullptr);
+        test::answer_top_modal("btn_primary");
+        process_lvgl(20);
+    };
+
+    pick(2);
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    CHECK(test::top_modal_text().find(indx::seat_confirm_message(2)) != std::string::npos);
+    CHECK(api.sent.empty());
+    test::answer_top_modal("btn_secondary");
+    settle();
+    CHECK(api.sent.empty());
+
+    pick(2);
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(api.sent == std::vector<std::string>{"MANUAL_TOOL_SEAT TOOL=2"});
 }

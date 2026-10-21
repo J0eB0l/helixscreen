@@ -3167,7 +3167,10 @@ translations:
   Search vendors...: ベンダーを検索...
   Search widgets...: ウィジェットを検索...
   Searching...: 検索中...
+  Seat: 装着
   Seat a tool by hand: ツールを手で装着
+  Seat a tool by hand for the first Z home: 初回のZホーミングのためにツールを手で装着
+  Seat which tool by hand?: どのツールを手で装着しますか？
   Secondary: セカンダリ
   Section Detail: セクション詳細
   Security: セキュリティ
@@ -4359,6 +4362,7 @@ translations:
   '{} left': '残り {}'
   '{} lines in helixscreen.env were ignored': 'helixscreen.env の{}行が無視されました'
   '{} kept crashing the panel; switched back to {}': '{} で画面のクラッシュが繰り返されたため、{} に戻しました'
+  '{} is the mounted tool': '{}が装着中のツールです'
   "{} isn't loaded. The print will pause when it needs it.": '{}はロードされていません。必要になった時点で印刷が一時停止します。'
   '{} kept crashing the panel; pick a printer to connect': '{} で画面のクラッシュが繰り返されました。接続するプリンターを選んでください'
   '{} looser than {}': "{}は{}より緩い"

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "ui_ams_device_section_detail_overlay.h"
+#include "ui_batch_filament_modal.h"
 #include "ui_error_reporting.h"
 #include "ui_guided_device_flow.h"
 #include "ui_modal.h"
@@ -8,6 +9,9 @@
 #include "ams_backend.h"
 #include "ams_state.h"
 #include "app_globals.h"
+#include "display_numbering.h"
+#include "filament_action_set.h"
+#include "indx_contract.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "save_config_restart.h"
 #include "static_panel_registry.h"
@@ -16,8 +20,10 @@
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
+#include <any>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace helix::ui {
 
@@ -162,6 +168,34 @@ void confirm_cycle_all() {
         });
 }
 
+/// Pick the tool the user holds on the head, confirm, then claim it.
+void seat_by_hand() {
+    BatchFilamentModal::show_owned(
+        HeadPickOp::SeatByHand, [](const std::vector<HeadPickRow>& chosen) {
+            if (chosen.empty()) {
+                return;
+            }
+            const int head = chosen.front().head;
+            modal_confirm(lv_tr("Seat a tool by hand"), indx::seat_confirm_message(head).c_str(),
+                          ModalSeverity::Warning, lv_tr("Seat"), [head] {
+                              // Re-fetched: the backend can be replaced while the dialog is up.
+                              AmsBackend* backend = AmsState::instance().get_backend();
+                              if (!backend) {
+                                  return;
+                              }
+                              const AmsError err =
+                                  backend->execute_device_action("seat_by_hand", std::any(head));
+                              if (!err.success()) {
+                                  notify_ams_error(err);
+                                  return;
+                              }
+                              NOTIFY_SUCCESS(
+                                  lv_tr("{} is the mounted tool"),
+                                  active_tool_label(tool_label(head), head, ToolLabelForm::Full));
+                          });
+        });
+}
+
 /// The status line, once per section: the section's flows share it.
 void attach_status(lv_obj_t* actions_container) {
     ensure_flow_subjects();
@@ -174,6 +208,8 @@ void attach_status(lv_obj_t* actions_container) {
 } // namespace
 
 void register_indx_device_flows() {
+    register_guided_device_flow(indx::kSeatByHandFlowId,
+                                {nullptr, [](const std::string&) { seat_by_hand(); }});
     register_guided_device_flow("indx_cycle_all",
                                 {attach_status, [](const std::string&) { confirm_cycle_all(); }});
     register_guided_device_flow("indx_heater_calibration",

@@ -13,6 +13,7 @@
 #include "ui_update_queue.h"
 
 #include "layer_pause.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "pa_calibration.h"
 #include "printer_fan_state.h"
 #include "sound_manager.h"
@@ -107,6 +108,17 @@ void PrinterCapabilitiesState::init_subjects(bool register_xml) {
         if (register_xml) {
             helix::xml::register_subject_in_current_scope(def.name, s);
         }
+    }
+
+    lv_subject_init_string(&tool_offset_cal_description_, tool_offset_cal_description_buf_, nullptr,
+                           sizeof(tool_offset_cal_description_buf_),
+                           tool_offset_cal_description_text_.c_str());
+    constexpr const char* kToolOffsetCalDescription = "printer_tool_offset_cal_description";
+    subjects_.register_subject(&tool_offset_cal_description_,
+                               register_xml ? kToolOffsetCalDescription : nullptr);
+    if (register_xml) {
+        helix::xml::register_subject_in_current_scope(kToolOffsetCalDescription,
+                                                      &tool_offset_cal_description_);
     }
 
     subjects_initialized_ = true;
@@ -248,6 +260,12 @@ void PrinterCapabilitiesState::set_hardware(const PrinterDiscovery& hardware,
     // Automatic tool offset calibration: the module owns what "can" means.
     set_capability(Capability::HasToolOffsetCal,
                    helix::tool_offset_calibration::supported(hardware) ? 1 : 0);
+    tool_offset_cal_description_text_ =
+        lv_tr(helix::tool_offset_calibration::entry_description(hardware));
+    if (subjects_initialized_) {
+        lv_subject_copy_string(&tool_offset_cal_description_,
+                               tool_offset_cal_description_text_.c_str());
+    }
 
     // Automatic pressure advance calibration. Which firmwares can measure it,
     // and how, belongs to helix::pacal - this only asks whether one matched.

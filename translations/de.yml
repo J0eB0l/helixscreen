@@ -3350,7 +3350,10 @@ translations:
   Search vendors...: Hersteller suchen...
   Search widgets...: Widgets suchen...
   Searching...: Suche...
+  Seat: Einsetzen
   Seat a tool by hand: Werkzeug von Hand einsetzen
+  Seat a tool by hand for the first Z home: Für die erste Z-Referenzfahrt ein Werkzeug von Hand einsetzen
+  Seat which tool by hand?: Welches Werkzeug von Hand einsetzen?
   Secondary: Sekundär
   Section Detail: Abschnittdetails
   Security: Sicherheit
@@ -4623,6 +4626,7 @@ translations:
   '{} left': 'noch {}'
   '{} lines in helixscreen.env were ignored': '{} Zeilen in helixscreen.env wurden ignoriert'
   '{} kept crashing the panel; switched back to {}': '{} hat den Bildschirm wiederholt abstürzen lassen; zurück zu {} gewechselt'
+  '{} is the mounted tool': '{} ist das montierte Werkzeug'
   "{} isn't loaded. The print will pause when it needs it.": '{} ist nicht geladen. Der Druck pausiert, wenn er ihn braucht.'
   '{} kept crashing the panel; pick a printer to connect': '{} hat den Bildschirm wiederholt abstürzen lassen; Drucker zum Verbinden auswählen'
   '{} looser than {}': "{} lockerer als {}"

@@ -3158,7 +3158,10 @@ translations:
   Search vendors...: 搜索供应商…
   Search widgets...: 搜索小组件...
   Searching...: 搜索中...
+  Seat: 装上
   Seat a tool by hand: 手动安装工具
+  Seat a tool by hand for the first Z home: 首次Z轴归零前手动安装工具
+  Seat which tool by hand?: 手动安装哪个工具？
   Secondary: 次要
   Section Detail: 区域详情
   Security: 安全
@@ -4349,6 +4352,7 @@ translations:
   '{} left': '剩余 {}'
   '{} lines in helixscreen.env were ignored': 'helixscreen.env 中有 {} 行被忽略'
   '{} kept crashing the panel; switched back to {}': '{} 反复导致屏幕崩溃，已切换回 {}'
+  '{} is the mounted tool': '{}是已安装的工具'
   "{} isn't loaded. The print will pause when it needs it.": '{}未装载。打印需要时将暂停。'
   '{} kept crashing the panel; pick a printer to connect': '{} 反复导致屏幕崩溃，请选择要连接的打印机'
   '{} looser than {}': "{} 比 {} 松"

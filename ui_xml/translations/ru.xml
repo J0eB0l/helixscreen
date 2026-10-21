@@ -3108,7 +3108,10 @@
   <translation tag="Search vendors..." ru="Поиск производителей..."/>
   <translation tag="Search widgets..." ru="Поиск виджетов..."/>
   <translation tag="Searching..." ru="Поиск..."/>
+  <translation tag="Seat" ru="Установить"/>
   <translation tag="Seat a tool by hand" ru="Установить инструмент вручную"/>
+  <translation tag="Seat a tool by hand for the first Z home" ru="Установить инструмент вручную для первой парковки Z"/>
+  <translation tag="Seat which tool by hand?" ru="Какой инструмент установить вручную?"/>
   <translation tag="Secondary" ru="Вторичный"/>
   <translation tag="Section Detail" ru="Детали раздела"/>
   <translation tag="Security" ru="Безопасность"/>
@@ -4248,6 +4251,7 @@
   <translation tag="{} is not available on this device. Printing original file." ru="{} недоступно на этом устройстве. Будет напечатан исходный файл."/>
   <translation tag="{} is not set up on this printer" ru="{} не настроен на этом принтере"/>
   <translation tag="{} is still printing. The print keeps running after you switch." ru="{} ещё печатает. Печать продолжится после переключения."/>
+  <translation tag="{} is the mounted tool" ru="{} — установленный инструмент"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." ru="{}: филамент не загружен. Печать приостановится, когда он понадобится."/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" ru="{} постоянно вызывал сбой экрана; выберите принтер для подключения"/>
   <translation tag="{} kept crashing the panel; switched back to {}" ru="{} постоянно вызывал сбой экрана; возврат к {}"/>

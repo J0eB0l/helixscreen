@@ -3054,7 +3054,10 @@
   <translation tag="Search vendors..." zh="搜索供应商…"/>
   <translation tag="Search widgets..." zh="搜索小组件..."/>
   <translation tag="Searching..." zh="搜索中..."/>
+  <translation tag="Seat" zh="装上"/>
   <translation tag="Seat a tool by hand" zh="手动安装工具"/>
+  <translation tag="Seat a tool by hand for the first Z home" zh="首次Z轴归零前手动安装工具"/>
+  <translation tag="Seat which tool by hand?" zh="手动安装哪个工具？"/>
   <translation tag="Secondary" zh="次要"/>
   <translation tag="Section Detail" zh="区域详情"/>
   <translation tag="Security" zh="安全"/>
@@ -4179,6 +4182,7 @@
   <translation tag="{} is not available on this device. Printing original file." zh="此设备不支持{}。将打印原始文件。"/>
   <translation tag="{} is not set up on this printer" zh="{} 未在此打印机上设置"/>
   <translation tag="{} is still printing. The print keeps running after you switch." zh="{} 仍在打印。切换后打印会继续进行。"/>
+  <translation tag="{} is the mounted tool" zh="{}是已安装的工具"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." zh="{}未装载。打印需要时将暂停。"/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" zh="{} 反复导致屏幕崩溃，请选择要连接的打印机"/>
   <translation tag="{} kept crashing the panel; switched back to {}" zh="{} 反复导致屏幕崩溃，已切换回 {}"/>

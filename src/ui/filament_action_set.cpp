@@ -196,6 +196,11 @@ std::vector<HeadPickRow> decide_head_picker_rows(const FilamentHeadView& view, H
             }
             row.preselected = row.enabled && head == view.selected_head;
             break;
+        case HeadPickOp::SeatByHand:
+            // Whichever tool the user is holding: the screen cannot know, so
+            // it suggests none.
+            row.enabled = true;
+            break;
         }
         rows.push_back(std::move(row));
     }

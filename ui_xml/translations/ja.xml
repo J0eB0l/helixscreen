@@ -3054,7 +3054,10 @@
   <translation tag="Search vendors..." ja="ベンダーを検索..."/>
   <translation tag="Search widgets..." ja="ウィジェットを検索..."/>
   <translation tag="Searching..." ja="検索中..."/>
+  <translation tag="Seat" ja="装着"/>
   <translation tag="Seat a tool by hand" ja="ツールを手で装着"/>
+  <translation tag="Seat a tool by hand for the first Z home" ja="初回のZホーミングのためにツールを手で装着"/>
+  <translation tag="Seat which tool by hand?" ja="どのツールを手で装着しますか？"/>
   <translation tag="Secondary" ja="セカンダリ"/>
   <translation tag="Section Detail" ja="セクション詳細"/>
   <translation tag="Security" ja="セキュリティ"/>
@@ -4179,6 +4182,7 @@
   <translation tag="{} is not available on this device. Printing original file." ja="このデバイスでは {} を利用できません。元のファイルを印刷します。"/>
   <translation tag="{} is not set up on this printer" ja="{} はこのプリンターで設定されていません"/>
   <translation tag="{} is still printing. The print keeps running after you switch." ja="{}は印刷中です。切り替えても印刷は続行されます。"/>
+  <translation tag="{} is the mounted tool" ja="{}が装着中のツールです"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." ja="{}はロードされていません。必要になった時点で印刷が一時停止します。"/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" ja="{} で画面のクラッシュが繰り返されました。接続するプリンターを選んでください"/>
   <translation tag="{} kept crashing the panel; switched back to {}" ja="{} で画面のクラッシュが繰り返されたため、{} に戻しました"/>

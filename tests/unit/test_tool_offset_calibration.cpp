@@ -95,3 +95,43 @@ TEST_CASE("tool offset calibration: a U1 calibrates through its own guided flow"
     // A macro-calibrating tool changer names no flow: the macro panel runs it.
     CHECK(cal::guided_flow(calibrating_toolchanger()).empty());
 }
+
+// ============================================================================
+// INDX: the entry seats a tool by hand
+// ============================================================================
+
+namespace {
+
+PrinterDiscovery indx_printer(bool manual_seat) {
+    json objects = json::array({"gcode_move", "toolhead", "extruder", "indx", "save_variables",
+                                "gcode_macro TOOL_POSITIONS", "gcode_macro _TOOLCHANGE_VARS",
+                                "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL"});
+    if (manual_seat) {
+        objects.push_back("gcode_macro MANUAL_TOOL_SEAT");
+        objects.push_back("gcode_macro MANUAL_TOOL_REMOVE");
+    }
+    PrinterDiscovery hw;
+    hw.parse_objects(objects);
+    return hw;
+}
+
+} // namespace
+
+TEST_CASE("tool offset calibration: an INDX seats a tool by hand", "[tool_offset_cal]") {
+    const PrinterDiscovery indx = indx_printer(true);
+    CHECK(cal::guided_flow(indx) == "indx_seat_by_hand");
+    CHECK(cal::supported(indx));
+    CHECK(cal::calibrate_all_gcode(indx).empty());
+
+    const PrinterDiscovery bare = indx_printer(false);
+    CHECK(cal::guided_flow(bare).empty());
+    CHECK_FALSE(cal::supported(bare));
+}
+
+TEST_CASE("tool offset calibration: the entry describes what it does", "[tool_offset_cal]") {
+    const std::string measure = "Measure every tool's XYZ offset automatically";
+    CHECK(cal::entry_description(calibrating_toolchanger()) == measure);
+    CHECK(cal::entry_description(snapmaker_u1()) == measure);
+    CHECK(std::string(cal::entry_description(indx_printer(true))) ==
+          "Seat a tool by hand for the first Z home");
+}

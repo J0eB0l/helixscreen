@@ -3054,7 +3054,10 @@
   <translation tag="Search vendors..." en="Search vendors..."/>
   <translation tag="Search widgets..." en="Search widgets..."/>
   <translation tag="Searching..." en="Searching..."/>
+  <translation tag="Seat" en="Seat"/>
   <translation tag="Seat a tool by hand" en="Seat a tool by hand"/>
+  <translation tag="Seat a tool by hand for the first Z home" en="Seat a tool by hand for the first Z home"/>
+  <translation tag="Seat which tool by hand?" en="Seat which tool by hand?"/>
   <translation tag="Secondary" en="Secondary"/>
   <translation tag="Section Detail" en="Section Detail"/>
   <translation tag="Security" en="Security"/>
@@ -4179,6 +4182,7 @@
   <translation tag="{} is not available on this device. Printing original file." en="{} is not available on this device. Printing original file."/>
   <translation tag="{} is not set up on this printer" en="{} is not set up on this printer"/>
   <translation tag="{} is still printing. The print keeps running after you switch." en="{} is still printing. The print keeps running after you switch."/>
+  <translation tag="{} is the mounted tool" en="{} is the mounted tool"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." en="{} isn&apos;t loaded. The print will pause when it needs it."/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" en="{} kept crashing the panel; pick a printer to connect"/>
   <translation tag="{} kept crashing the panel; switched back to {}" en="{} kept crashing the panel; switched back to {}"/>
