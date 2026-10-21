@@ -48,20 +48,23 @@ namespace helix::filament_macros {
 [[nodiscard]] bool macro_heats_hotend(const std::string& macro_name);
 
 /**
- * @brief Does @p macro_name home the printer itself when the toolhead is unhomed?
+ * @brief Must the printer be homed before @p macro_name runs?
  *
- * The macro-tier counterpart to AmsBackend::delegates_homing_to_printer(): when
- * true, any G28 a caller would synthesize is redundant, because the macro's
- * own guard runs first.
+ * True only for a known macro whose body moves the toolhead with no home of its
+ * own. Any macro not in the table answers false and runs as it is: a generic
+ * LOAD_FILAMENT may do nothing but extrude, and a G28 in front of it parks the
+ * head wherever homing leaves it (#1819). A known macro that carries its own
+ * conditional home (QIDI's M604/M603 open with `_CG28`) answers false too.
  *
- * Answered from the name for the same reason macro_heats_hotend() is, with the
- * same consequence for a wrong answer inverted: claiming a macro homes when it
- * does not moves an unreferenced toolhead. Only firmware-specific spellings whose
- * bodies are known belong here.
+ * Answered from the name for the same reason macro_heats_hotend() is: only
+ * firmware-specific spellings whose bodies are known belong in the table.
+ *
+ * The backend tier has its own answer, AmsBackend::delegates_homing_to_printer().
+ * Both feed helix::ui::needs_prerequisite_home(), which is where a caller should ask.
  *
  * @param macro_name Resolved macro name, e.g. StandardMacroInfo::get_macro()
- * @return true when the macro carries its own conditional home
+ * @return true when a caller must home before sending the macro
  */
-[[nodiscard]] bool macro_homes_if_needed(const std::string& macro_name);
+[[nodiscard]] bool macro_needs_home_first(const std::string& macro_name);
 
 } // namespace helix::filament_macros

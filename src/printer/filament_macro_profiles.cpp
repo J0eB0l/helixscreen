@@ -24,9 +24,9 @@ struct MacroProfile {
     /// Drives the hotend to temperature and waits, so a UI preheat in front of
     /// it is a second wait at a temperature the macro then overrides.
     bool heats_hotend;
-    /// Carries its own conditional home, so a "home first?" prompt and any
-    /// synthesized G28 are redundant.
-    bool homes_if_needed;
+    /// Moves the toolhead with no home of its own, so the printer must be homed
+    /// before it is sent.
+    bool needs_home_first;
 };
 
 // QIDI's stock screen drives M604 to load and M603 to unload. Both take the
@@ -43,15 +43,15 @@ struct MacroProfile {
 //
 // Both also open with `_CG28`, QIDI's conditional home
 // (`{% if "xyz" not in printer.toolhead.homed_axes %} G28 {% endif %}`), so on
-// the macro tier neither needs a home asked for in front of it.
+// the macro tier neither needs a home sent in front of it.
 //
 // That is a claim about these macros run ALONE. AmsBackendQidi composes them
 // with CLEAR_NOZZLE, which has no `_CG28` and reaches Z through MOVE_TO_TRASH's
 // XY-only guard - which is why the backend still answers
 // delegates_homing_to_printer() false and routes through ensure_homed_then().
 constexpr std::array<MacroProfile, 2> kMacroProfiles{{
-    {"M604", "QIDI stock", /*heats_hotend=*/true, /*homes_if_needed=*/true},
-    {"M603", "QIDI stock", /*heats_hotend=*/true, /*homes_if_needed=*/true},
+    {"M604", "QIDI stock", /*heats_hotend=*/true, /*needs_home_first=*/false},
+    {"M603", "QIDI stock", /*heats_hotend=*/true, /*needs_home_first=*/false},
 }};
 
 /// The row for @p macro_name, or nullptr when no firmware we know ships it.
@@ -75,9 +75,9 @@ bool macro_heats_hotend(const std::string& macro_name) {
     return p && p->heats_hotend;
 }
 
-bool macro_homes_if_needed(const std::string& macro_name) {
+bool macro_needs_home_first(const std::string& macro_name) {
     const MacroProfile* p = find_profile(macro_name);
-    return p && p->homes_if_needed;
+    return p && p->needs_home_first;
 }
 
 } // namespace helix::filament_macros

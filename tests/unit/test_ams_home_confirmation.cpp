@@ -314,7 +314,7 @@ TEST_CASE("CFS Fork variant never homes via dispatch_action_script", "[ams][homi
 }
 
 // =====================================================================
-// FilamentPanel: an unhomed macro-tier load homes first, unasked
+// FilamentPanel: an unhomed macro-tier load homes only when its profile says so
 // =====================================================================
 
 namespace {
@@ -338,6 +338,12 @@ struct UnhomedMacroLoad {
         helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
     }
 
+    void execute_load_needing_home() {
+        helix::ui::FilamentPanelTestAccess::set_home_before_load_macro(*h.panel, true);
+        helix::ui::FilamentPanelTestAccess::execute_load(*h.panel);
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+
     /// Position of the first sent script starting with @p word, or -1.
     [[nodiscard]] long first_sent(const std::string& word) const {
         const auto& sent = h.client.gcode_script_history();
@@ -355,11 +361,22 @@ struct UnhomedMacroLoad {
 } // namespace
 
 TEST_CASE_METHOD(LVGLUITestFixture,
-                 "An unhomed macro-tier load sends G28, then the macro, with no prompt",
+                 "An unhomed load through an unrecognized macro sends the macro with no G28",
                  "[filament][homing]") {
     UnhomedMacroLoad t;
 
     t.press_load();
+
+    CHECK(t.first_sent("LOAD_FILAMENT") >= 0);
+    CHECK(t.first_sent("G28") < 0);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "A macro-tier load that needs a home sends G28, then the macro, with no prompt",
+                 "[filament][homing]") {
+    UnhomedMacroLoad t;
+
+    t.execute_load_needing_home();
 
     const long home = t.first_sent("G28");
     const long load = t.first_sent("LOAD_FILAMENT");
@@ -373,7 +390,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "A home that fails before a macro-tier load 
     UnhomedMacroLoad t;
     t.h.client.force_next_gcode_error(MoonrakerErrorType::UNKNOWN, "Homing failed", "G28");
 
-    t.press_load();
+    t.execute_load_needing_home();
 
     CHECK(t.first_sent("G28") >= 0);
     CHECK(t.first_sent("LOAD_FILAMENT") < 0);
