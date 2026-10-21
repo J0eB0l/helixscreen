@@ -149,10 +149,10 @@ setup_instrumented_home() {
     mock_command_script "wget" 'exit 8'
 }
 
-# Print a PATH with no python3 on it at all: every external command
-# install.sh itself calls, minus python3, plus every mock in
-# $BATS_TEST_TMPDIR/bin and helpers' systemctl shim. The sandbox shim
-# directory follows it so the host sandbox's PATH layer still covers this
+# Print a directory for a PATH with no python3 on it at all: every external
+# command install.sh itself calls, minus python3, plus every mock in
+# $BATS_TEST_TMPDIR/bin and helpers' systemctl shim. A caller follows it with
+# $HELIX_TEST_SANDBOX_BIN so the host sandbox's PATH layer still covers the
 # callee, which is sh and so carries none of its exported-function layer; the
 # mocks come first and win.
 path_without_python3() {
@@ -164,7 +164,7 @@ path_without_python3() {
     for p in "$BATS_TEST_TMPDIR"/bin/*; do
         [ -e "$p" ] && ln -sf "$p" "$bin/${p##*/}"
     done
-    printf '%s' "$bin:$HELIX_TEST_SANDBOX_BIN"
+    printf '%s' "$bin"
 }
 
 @test "install.sh passes POSIX syntax check" {
@@ -288,7 +288,7 @@ path_without_python3() {
     local no_py3
     no_py3=$(path_without_python3)
 
-    run env HOME="$home" PATH="$no_py3" sh "$SCRIPT" --uninstall-auto
+    run env HOME="$home" PATH="$no_py3:$HELIX_TEST_SANDBOX_BIN" sh "$SCRIPT" --uninstall-auto
     # PRINT_START could not be checked at all, so this is "needs attention"
     # (2), not full success - the plugin itself is still gone.
     [ "$status" -eq 2 ]
@@ -599,7 +599,7 @@ setup_forgex_instrumented() {
     mock_chroot "$log"
     write_original_printer_cfg "$BATS_TEST_TMPDIR/expected_printer.cfg"
 
-    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3):$HELIX_TEST_SANDBOX_BIN" \
         sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
     [ "$status" -eq 0 ] || fail "uninstall reported $status: $output"
     [ "$(cat "$log")" = "$chroot /usr/bin/python3 $FORGEX_PLUGIN/strip_phase_tracking.py /root/printer_data/config" ] \
@@ -613,7 +613,7 @@ setup_forgex_instrumented() {
     local chroot="$root/data/.mod/.forge-x"
     mock_chroot "$BATS_TEST_TMPDIR/chroot.log" 1
 
-    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3):$HELIX_TEST_SANDBOX_BIN" \
         sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
     [ "$status" -eq 2 ]
     contains "Phase-tracking strip reported a failure" "$output"
@@ -627,7 +627,7 @@ setup_forgex_instrumented() {
     rm "$chroot/usr/bin/python3"
     mock_chroot "$log"
 
-    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3):$HELIX_TEST_SANDBOX_BIN" \
         sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
     [ "$status" -eq 2 ]
     contains "python3 not found" "$output"
@@ -640,7 +640,7 @@ setup_forgex_instrumented() {
     local log="$BATS_TEST_TMPDIR/chroot.log"
     mock_chroot "$log"
 
-    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3):$HELIX_TEST_SANDBOX_BIN" \
         sh "$SCRIPT" --no-restart --uninstall-auto
     [ "$status" -eq 2 ]
     contains "python3 not found" "$output"

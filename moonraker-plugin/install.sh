@@ -240,6 +240,7 @@ can_link_in() {
 # runs in a chroot. Stops through error() when one fails.
 check_plugin_link() {
     can_link_in "$1" || error "Cannot write to components directory: $1"
+    # shellcheck disable=SC2034  # read by the caller that makes the link
     link_to=$(moonraker_visible_path "$PLUGIN_FILE") ||
         error "Moonraker cannot see $PLUGIN_FILE from its root ($(running_moonraker_root))"
     require_moonraker_can_read "$PLUGIN_FILE"
