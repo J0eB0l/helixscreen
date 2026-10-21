@@ -18,6 +18,7 @@
 #include "moonraker_error.h"
 #include "printer_state.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,14 +38,13 @@ class CountingRestartApi : public MoonrakerAPIMock {
 
     int klipper_restarts = 0;
     int firmware_restarts = 0;
-    /// Every restart the API is asked for fails, the way a dropped connection
-    /// or a Moonraker refusal answers.
-    bool fail = false;
+    /// When set, every restart the API is asked for fails with this error.
+    std::optional<MoonrakerError> fail_with;
 
     void restart_klipper(SuccessCallback on_success, ErrorCallback on_error) override {
         ++klipper_restarts;
-        if (fail) {
-            on_error(MoonrakerError::connection_lost("printer.restart"));
+        if (fail_with) {
+            on_error(*fail_with);
             return;
         }
         on_success();
@@ -55,8 +55,8 @@ class CountingRestartApi : public MoonrakerAPIMock {
     }
     void restart_service(const std::string& /*service*/, SuccessCallback on_success,
                          ErrorCallback on_error) override {
-        if (fail) {
-            on_error(MoonrakerError::connection_lost("machine.services.restart"));
+        if (fail_with) {
+            on_error(*fail_with);
             return;
         }
         on_success();
@@ -174,7 +174,8 @@ TEST_CASE_METHOD(RestartInFlightFixture, "A restart that never reports READY sto
 TEST_CASE_METHOD(RestartInFlightFixture, "A restart that failed to send refuses nothing after it",
                  "[recovery][restart_in_flight]") {
     auto& estop = EmergencyStopOverlay::instance();
-    counting_api.fail = true;
+    // Moonraker answered and refused: the command never reached Klipper.
+    counting_api.fail_with = MoonrakerError::json_rpc_error("printer.restart", "refused");
 
     SECTION("Restart Klipper") {
         EmergencyStopOverlayTestAccess::restart_klipper(estop);
@@ -220,4 +221,29 @@ TEST_CASE_METHOD(RestartInFlightFixture,
         settle();
         CHECK(counting_api.firmware_restarts == 0);
     }
+}
+
+TEST_CASE_METHOD(RestartInFlightFixture,
+                 "A restart whose reply the restart's own disconnect dropped is still in flight",
+                 "[recovery][restart_in_flight]") {
+    // Klipper going down fails every pending request with connection_lost,
+    // the restart's own reply among them, while the restart carries on.
+    auto& estop = EmergencyStopOverlay::instance();
+    counting_api.fail_with = MoonrakerError::connection_lost("printer.restart");
+
+    SECTION("Restart Klipper") {
+        EmergencyStopOverlayTestAccess::restart_klipper(estop);
+        settle();
+        EmergencyStopOverlayTestAccess::restart_klipper(estop);
+        settle();
+        CHECK(counting_api.klipper_restarts == 1);
+    }
+    SECTION("Firmware Restart") {
+        EmergencyStopOverlayTestAccess::firmware_restart(estop);
+        settle();
+        EmergencyStopOverlayTestAccess::firmware_restart(estop);
+        settle();
+        CHECK(counting_api.firmware_restarts == 1);
+    }
+    CHECK(toasted("A restart is already in progress"));
 }

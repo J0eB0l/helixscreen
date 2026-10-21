@@ -100,6 +100,15 @@ constexpr uint32_t kRecoveryRecheckRetryMs = 2000;
 /// recovery_suppression::kRestartFlagTimeout, which expires inside this budget.
 constexpr int kRecoveryRecheckMaxRetries = 15;
 
+/// Whether a restart that answered with @p err may still be under way. Klipper
+/// going down fails every pending request with CONNECTION_LOST, the restart's
+/// own reply among them, and a TIMEOUT says nothing either way; only an answer
+/// that proves the command never reached Klipper ends the restart.
+bool restart_may_be_running(const MoonrakerError& err) {
+    return err.type == MoonrakerErrorType::CONNECTION_LOST ||
+           err.type == MoonrakerErrorType::TIMEOUT;
+}
+
 } // namespace
 
 using helix::ui::observe;
@@ -862,8 +871,9 @@ void EmergencyStopOverlay::restart_klipper() {
         },
         [](const MoonrakerError& err) {
             spdlog::error("[KlipperRecovery] Klipper restart failed: {}", err.message);
-            // Nothing is restarting, so a retry must not be refused.
-            EmergencyStopOverlay::instance().end_restart_window();
+            if (!restart_may_be_running(err)) {
+                EmergencyStopOverlay::instance().end_restart_window();
+            }
             // The callback can run on the WebSocket thread; the toast is main-thread only.
             helix::ui::run_on_main("error_toast", [err]() {
                 ToastManager::instance().show(
@@ -905,8 +915,9 @@ void EmergencyStopOverlay::firmware_restart() {
         },
         [](const MoonrakerError& err) {
             spdlog::error("[KlipperRecovery] Recovery failed: {}", err.message);
-            // Nothing is restarting, so a retry must not be refused.
-            EmergencyStopOverlay::instance().end_restart_window();
+            if (!restart_may_be_running(err)) {
+                EmergencyStopOverlay::instance().end_restart_window();
+            }
             // The callback can run on the WebSocket thread; the toast is main-thread only.
             helix::ui::run_on_main("error_toast", [err]() {
                 ToastManager::instance().show(
