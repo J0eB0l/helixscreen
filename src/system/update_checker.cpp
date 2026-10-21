@@ -3208,6 +3208,11 @@ void UpdateChecker::sync_moonraker_channel_for(const std::string& install_root) 
             });
         },
         [](const std::string& err) {
+            // A newer sync, or detach(), superseding this one is routine.
+            if (err.find(helix::system::kConfigDownloadNotWanted) != std::string::npos) {
+                spdlog::debug("[UpdateChecker] Superseded channel sync stopped: {}", err);
+                return;
+            }
             spdlog::info("[UpdateChecker] Could not read moonraker.conf to sync the update "
                          "channel: {}",
                          err);

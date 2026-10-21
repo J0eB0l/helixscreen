@@ -89,6 +89,10 @@ using ConfigDownloadFn =
 /// completion callback returns, so the walk can hold one more than this.
 inline constexpr size_t kMaxConfigDownloadsInFlight = 4;
 
+/// The failure message api_config_download() gives a request its caller's
+/// still_wanted() refused; the walk's error message contains it.
+inline constexpr const char* kConfigDownloadNotWanted = "no longer wanted";
+
 /// A ConfigDownloadFn that fetches through @p api, always from the main thread.
 /// The walk asks for each next file from the previous download's completion, on
 /// a background thread, and printer teardown destroys the API on the main thread

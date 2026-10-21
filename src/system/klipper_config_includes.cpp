@@ -355,7 +355,7 @@ ConfigDownloadFn api_config_download(IMoonrakerAPI& api, std::function<bool()> s
                     return;
                 }
                 if (still_wanted && !still_wanted()) {
-                    fail("no longer wanted", false);
+                    fail(kConfigDownloadNotWanted, false);
                     return;
                 }
                 api.transfers().download_file(
