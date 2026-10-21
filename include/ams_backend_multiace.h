@@ -70,6 +70,10 @@ class AmsBackendMultiAce : public AmsBackendSnapmaker {
     [[nodiscard]] std::optional<int> head_source_slot(int head,
                                                       const AmsSystemInfo& info) const override;
 
+    /// Also drops a bay load waiting behind its head's unload: the restart
+    /// ended that unload, so the load's second step must not follow it.
+    void on_klipper_restarted() override;
+
     [[nodiscard]] bool can_unload_from_toolhead(int slot_index) const override;
     [[nodiscard]] bool slot_has_filament_at_toolhead(int slot_index) const override;
     [[nodiscard]] bool slot_is_actively_loaded(int slot_index) const override;
