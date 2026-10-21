@@ -590,7 +590,8 @@ TEST_CASE_METHOD(LVGLUITestFixture, "CardView: a stopped prebuild builds no more
     lv_obj_delete(container);
 }
 
-TEST_CASE_METHOD(LVGLUITestFixture, "CardView: a held card opens its hold action and never its tap",
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "CardView: a held file opens its hold action, a slow tap on a folder opens it",
                  "[ui][card_view][print_select][tap_hold]") {
     lv_obj_t* container = lv_obj_create(test_screen());
     lv_obj_set_size(container, 700, 400);
@@ -602,7 +603,9 @@ TEST_CASE_METHOD(LVGLUITestFixture, "CardView: a held card opens its hold action
     REQUIRE(view.setup(container, [&taps](size_t i) { taps.push_back(i); }, nullptr));
     view.set_on_file_long_press([&holds](size_t i) { holds.push_back(i); });
     const CardDimensions dims{4, 2, 160, 200};
-    view.populate(make_files(8), dims);
+    auto files = make_files(8);
+    files[2].is_dir = true;
+    view.populate(files, dims);
     lv_obj_update_layout(test_screen());
 
     lv_obj_t* card = card_for(container, 1);
@@ -621,6 +624,17 @@ TEST_CASE_METHOD(LVGLUITestFixture, "CardView: a held card opens its hold action
     finger.press(x, y);
     finger.release(x, y);
     CHECK(taps == std::vector<size_t>{1});
+    CHECK(holds.size() == 1);
+
+    // A folder has no hold action, so a slow tap on it still opens it.
+    lv_obj_t* folder = card_for(container, 2);
+    REQUIRE(folder != nullptr);
+    lv_obj_get_coords(folder, &a);
+    const int fx = (a.x1 + a.x2) / 2, fy = (a.y1 + a.y2) / 2;
+    finger.press(fx, fy);
+    finger.hold(600);
+    finger.release(fx, fy);
+    CHECK(taps == std::vector<size_t>{1, 2});
     CHECK(holds.size() == 1);
 
     view.cleanup();

@@ -3,6 +3,8 @@
 
 #include "remote_pointer.h"
 
+#include "input_settings_manager.h"
+
 #include <spdlog/spdlog.h>
 
 #include <thread>
@@ -59,6 +61,7 @@ bool RemotePointer::ensure_created() {
     lv_indev_set_type(indev_, LV_INDEV_TYPE_POINTER);
     lv_indev_set_read_cb(indev_, read_cb);
     lv_indev_set_display(indev_, disp);
+    InputSettingsManager::instance().apply_to_pointer(indev_);
 
     spdlog::info("[RemotePointer] Synthetic pointer device created");
     return true;

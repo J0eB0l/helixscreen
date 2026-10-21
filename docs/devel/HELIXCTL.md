@@ -393,8 +393,8 @@ curl -s -X POST http://127.0.0.1:7130/rpc -d '{"jsonrpc":"2.0","id":1,
 
 ### Synthetic pointer — testing gestures
 
-`click` is `lv_obj_send_event(obj, LV_EVENT_CLICKED)`: a widget-level event with no
-input device and no coordinates behind it. That is right for "press this button",
+`click` sends `SHORT_CLICKED` then `CLICKED` straight to the widget: widget-level
+events with no input device and no coordinates behind them. That is right for "press this button",
 but it cannot exercise anything gestural. Code that reads `lv_indev_active()` or
 `lv_indev_get_point()` sees nothing, long-press timers never start, and LVGL's
 scroll-versus-click arbitration never runs.
@@ -706,16 +706,16 @@ can re-issue against a specific `@path`.
 ### `click` delivers a quick tap
 
 `click` sends `SHORT_CLICKED` and then `CLICKED`, the two events a real quick
-tap ends with. A widget with a hold action binds its tap to `short_clicked`
-(`docs/devel/LVGL9_XML_GUIDE.md` § "Tap and hold"), so a `click` that sent only
-`CLICKED` would leave every such tap dead while still reporting success. If a
-handler deletes the widget (a tap that closes its screen), nothing more is sent
-to it. A switch or checkbox is toggled and gets `VALUE_CHANGED` only; any other
+tap ends with, so a handler on either one sees it. App taps bind `clicked`
+(`docs/devel/LVGL9_XML_GUIDE.md` § "Tap and hold"). If a handler deletes the
+widget (a tap that closes its screen), nothing more is sent to it. A switch or checkbox is toggled and gets `VALUE_CHANGED` only; any other
 checkable object is toggled, gets `VALUE_CHANGED`, and then the same two tap
 events. `navigate <widget>` sends the same tap.
 
 A hold is not a click: `ctl long_press <x> <y>` holds a real pointer past the
-long-press time.
+long-press time. That pointer takes its long-press time, scroll throw and
+scroll limit from the Touch & Input settings when it is created, as the
+touchscreen does, so a hold or a slow tap times the same through it.
 
 ### `click` refuses what a finger could not reach
 
@@ -746,8 +746,8 @@ Occlusion is NOT checked: a target underneath a modal still clicks. That needs
 hit-testing against the layer stack rather than three flag reads.
 
 The descent is **bounded to scaffolding**, in two ways. A target that already
-carries a tap handler of its own (`clicked` or `short_clicked`) is acted on literally — never descended
-into — and the search never tunnels past a descendant that carries one either.
+carries a tap handler of its own (`clicked` or `short_clicked`) is acted on literally, never descended
+into, and the search never tunnels past a descendant that carries one either.
 Without those bounds a full-screen context-menu backdrop resolved onto whatever
 single visible control the menu happened to contain and dispatched its event:
 `click` on the AMS slot menu's backdrop reached the backup-slot dropdown and

@@ -11,13 +11,11 @@
         scrollable="false">
     <!-- Printer image container. The padding keeps the picture off the tile's
          edge; the image, the callout layer and the callout layout all work in
-         its content box. Every tap in this widget is short_clicked: the light
-         chip has a hold action, and a chip tap stops its event short of the
-         container's only when both bind the same trigger. -->
+         its content box. -->
     <lv_obj name="printer_container"
             width="100%" flex_grow="1" style_bg_color="#screen_bg" style_pad_all="#space_sm" scrollable="false"
             align="center" clickable="true">
-      <event_cb trigger="short_clicked" callback="printer_manager_clicked_cb"/>
+      <event_cb trigger="clicked" callback="printer_manager_clicked_cb"/>
       <!-- Fills the container; a one-side callout layout moves and shrinks it
            (apply_callout_layout), so it is placed from the top-left. -->
       <lv_image name="printer_image" width="100%" height="100%" inner_align="contain">
@@ -71,7 +69,7 @@
                        text_subject="callout_nozzle_text" shown_subject="callout_nozzle_shown"
                        compact_subject="printer_callout_mode">
           <bind_flag_if cond="callout_nozzle_shown eq 0 or callout_toolhead_merged eq 1" flag="hidden"/>
-          <event_cb trigger="short_clicked" callback="printer_callout_nozzle_cb"/>
+          <event_cb trigger="clicked" callback="printer_callout_nozzle_cb"/>
           <nozzle_icon size="xs">
             <bind_flag_if_eq subject="printer_callout_mode" flag="hidden" ref_value="1"/>
           </nozzle_icon>
@@ -80,7 +78,7 @@
                        text_subject="callout_bed_text" shown_subject="callout_bed_shown"
                        compact_subject="printer_callout_mode">
           <bind_flag_if_eq subject="callout_bed_shown" flag="hidden" ref_value="0"/>
-          <event_cb trigger="short_clicked" callback="printer_callout_bed_cb"/>
+          <event_cb trigger="clicked" callback="printer_callout_bed_cb"/>
           <heater_icon src="radiator" glyph_name="bed_icon_glyph" size="xs">
             <bind_flag_if_eq subject="printer_callout_mode" flag="hidden" ref_value="1"/>
           </heater_icon>
@@ -89,7 +87,7 @@
                        text_subject="callout_chamber_text" shown_subject="callout_chamber_shown"
                        compact_subject="printer_callout_mode">
           <bind_flag_if_eq subject="callout_chamber_shown" flag="hidden" ref_value="0"/>
-          <event_cb trigger="short_clicked" callback="printer_callout_chamber_cb"/>
+          <event_cb trigger="clicked" callback="printer_callout_chamber_cb"/>
           <heater_icon src="fridge_industrial" glyph_name="chamber_icon_glyph" size="xs">
             <bind_flag_if_eq subject="printer_callout_mode" flag="hidden" ref_value="1"/>
           </heater_icon>
@@ -98,7 +96,7 @@
                        text_subject="callout_fan_text" shown_subject="callout_fan_shown"
                        compact_subject="printer_callout_mode">
           <bind_flag_if cond="callout_fan_shown eq 0 or callout_toolhead_merged eq 1" flag="hidden"/>
-          <event_cb trigger="short_clicked" callback="printer_callout_fan_cb"/>
+          <event_cb trigger="clicked" callback="printer_callout_fan_cb"/>
           <icon name="callout_fan_icon" src="fan" size="xs">
             <bind_flag_if_eq subject="printer_callout_mode" flag="hidden" ref_value="1"/>
           </icon>
@@ -106,7 +104,7 @@
         <lv_obj name="callout_chip_light" width="content" height="content" scrollable="false" clickable="true">
           <style name="styles.activity_chip"/>
           <bind_flag_if_eq subject="callout_light_shown" flag="hidden" ref_value="0"/>
-          <event_cb trigger="short_clicked" callback="printer_callout_light_cb"/>
+          <event_cb trigger="clicked" callback="printer_callout_light_cb"/>
           <event_cb trigger="long_pressed" callback="printer_callout_light_hold_cb"/>
           <icon name="callout_light_lit" src="lightbulb_on" size="xs" variant="warning">
             <bind_flag_if_eq subject="callout_light_on" flag="hidden" ref_value="0"/>
@@ -119,7 +117,7 @@
                        text_subject="callout_toolhead_text" shown_subject="callout_toolhead_merged"
                        compact_subject="printer_callout_mode">
           <bind_flag_if_eq subject="callout_toolhead_merged" flag="hidden" ref_value="0"/>
-          <event_cb trigger="short_clicked" callback="printer_callout_nozzle_cb"/>
+          <event_cb trigger="clicked" callback="printer_callout_nozzle_cb"/>
           <!-- Merged only while pinned, where chips are text alone. -->
         </activity_chip>
       </lv_obj>

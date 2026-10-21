@@ -358,7 +358,8 @@ TEST_CASE_METHOD(MacrosRowsFixture,
     CHECK(toasts.empty());
 }
 
-TEST_CASE_METHOD(MacrosRowsFixture, "A hold on a Macros row never also fires its tap",
+TEST_CASE_METHOD(MacrosRowsFixture,
+                 "A Macros row hold that acts ends the press; one that declines keeps the tap",
                  "[macros][macros_rows][tap_hold]") {
     open({"CLEAN_NOZZLE", "LOAD_FILAMENT", "PRINT_START"});
     helix_test::ScopedPointerIndev finger;
@@ -370,26 +371,26 @@ TEST_CASE_METHOD(MacrosRowsFixture, "A hold on a Macros row never also fires its
         settle();
     };
 
-    SECTION("a hold enters edit mode without running the macro") {
-        set_moonraker_api(&mock_api);
+    SECTION("a hold enters edit mode, and its lift is not also a tap on the row") {
         hold_row("LOAD_FILAMENT");
-        CHECK(MacrosPanelTestAccess::edit_mode(panel));
-        CHECK(toasts.empty());
+        REQUIRE(MacrosPanelTestAccess::edit_mode(panel));
+        // A tap in edit mode toggles the row, so the lift would uncheck it.
+        CHECK(checked(row_named("LOAD_FILAMENT")));
     }
 
-    SECTION("in edit mode a hold leaves the row alone and a quick tap toggles it") {
+    SECTION("in edit mode the hold declines, so its release is still the row's tap") {
         long_press(row_named("CLEAN_NOZZLE"));
         REQUIRE(MacrosPanelTestAccess::edit_mode(panel));
         REQUIRE(checked(row_named("LOAD_FILAMENT")));
 
         hold_row("LOAD_FILAMENT");
-        CHECK(checked(row_named("LOAD_FILAMENT")));
+        CHECK_FALSE(checked(row_named("LOAD_FILAMENT")));
 
         const lv_point_t p = centre_of(row_named("LOAD_FILAMENT"));
         finger.press(p.x, p.y);
         finger.release(p.x, p.y);
         settle();
-        CHECK_FALSE(checked(row_named("LOAD_FILAMENT")));
+        CHECK(checked(row_named("LOAD_FILAMENT")));
     }
 }
 

@@ -107,7 +107,11 @@ void MacrosPanel::register_callbacks() {
                  self.handle_row_clicked(self.item_in_slot(static_cast<size_t>(*i)));
          }},
         {"on_macro_card_long_press",
-         [](lv_event_t*) { get_global_macros_panel().handle_long_press(); }},
+         [](lv_event_t* e) {
+             // A hold that enters edit mode is not also a tap that runs the macro.
+             if (get_global_macros_panel().handle_long_press())
+                 helix::ui::end_press(e);
+         }},
         {"on_macro_defaults_clicked",
          [](lv_event_t* e) {
              auto& self = get_global_macros_panel();
@@ -633,9 +637,9 @@ void MacrosPanel::handle_row_clicked(size_t i) {
     }
 }
 
-void MacrosPanel::handle_long_press() {
+bool MacrosPanel::handle_long_press() {
     if (edit_mode_) {
-        return;
+        return false;
     }
     // Minimal scroll-suppression: LVGL fires LONG_PRESSED on hold duration
     // alone, so a hold during a scroll drag would falsely enter edit mode.
@@ -644,9 +648,10 @@ void MacrosPanel::handle_long_press() {
     // guards arc/slider drags - not needed here).
     lv_indev_t* indev = lv_indev_active();
     if (indev && lv_indev_get_scroll_obj(indev)) {
-        return;
+        return false;
     }
     enter_edit_mode();
+    return true;
 }
 
 void MacrosPanel::handle_defaults_clicked(size_t i) {

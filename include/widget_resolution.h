@@ -20,6 +20,9 @@
 
 struct _lv_obj_t;
 typedef struct _lv_obj_t lv_obj_t;
+struct _lv_event_t;
+typedef struct _lv_event_t lv_event_t;
+typedef void (*lv_event_cb_t)(lv_event_t* e);
 
 namespace helix {
 
@@ -115,10 +118,12 @@ bool is_value_control(lv_obj_t* o);
  * Class-level handlers are deliberately not counted: every lv_obj has one, so
  * counting them would make the predicate universally true. Only an added
  * callback whose filter admits LV_EVENT_CLICKED or LV_EVENT_SHORT_CLICKED
- * means "tapping this does something": a widget with a hold action binds its
- * tap to SHORT_CLICKED.
+ * means "tapping this does something". SHORT_CLICKED counts because a real
+ * quick tap delivers it too.
+ *
+ * @param cb When set, only a handler that calls this function counts.
  */
-bool has_own_click_handler(lv_obj_t* o);
+bool has_own_click_handler(lv_obj_t* o, lv_event_cb_t cb = nullptr);
 
 /**
  * @brief Whether a tap on @p o reaches any tap handler: its own, or one on an

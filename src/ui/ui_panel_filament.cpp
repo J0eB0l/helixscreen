@@ -103,6 +103,15 @@ using helix::ui::filament_load_fallback_gcode;
 using helix::ui::filament_purge_fallback_gcode;
 using helix::ui::filament_unload_fallback_gcode;
 
+/// A hold on preset @p slot opens its material picker. The hold is still the active
+/// press, so it ends here: its release would otherwise be a tap on the preset, or
+/// land on whatever the picker put under the finger.
+static void preset_hold(lv_event_t* e, int slot) {
+    if (get_global_filament_panel().handle_preset_longpress(slot)) {
+        helix::ui::end_press(e);
+    }
+}
+
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
@@ -151,14 +160,10 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, IMoonrakerAPI* api)
         {"on_filament_preset_spool",
          [](lv_event_t*) { get_global_filament_panel().handle_spool_preset_button(); }},
         // Material preset long-press (opens material picker)
-        {"on_filament_preset_pla_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(0); }},
-        {"on_filament_preset_petg_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(1); }},
-        {"on_filament_preset_abs_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(2); }},
-        {"on_filament_preset_tpu_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(3); }},
+        {"on_filament_preset_pla_hold", [](lv_event_t* e) { preset_hold(e, 0); }},
+        {"on_filament_preset_petg_hold", [](lv_event_t* e) { preset_hold(e, 1); }},
+        {"on_filament_preset_abs_hold", [](lv_event_t* e) { preset_hold(e, 2); }},
+        {"on_filament_preset_tpu_hold", [](lv_event_t* e) { preset_hold(e, 3); }},
         // Temperature tap targets
         {"on_filament_nozzle_target_tap",
          [](lv_event_t*) { get_global_filament_panel().handle_nozzle_temp_tap(); }},
@@ -1073,9 +1078,9 @@ void FilamentPanel::reset_presets_to_defaults() {
     spdlog::info("[{}] Presets reset to defaults", get_name());
 }
 
-void FilamentPanel::handle_preset_longpress(int slot) {
+bool FilamentPanel::handle_preset_longpress(int slot) {
     if (slot < 0 || slot >= kPresetCount || !preset_buttons_[slot]) {
-        return;
+        return false;
     }
     lv_obj_t* screen = lv_obj_get_screen(preset_buttons_[slot]);
     // Reset-to-defaults affordance is preset-editing-only — gated purely on whether
@@ -1092,14 +1097,7 @@ void FilamentPanel::handle_preset_longpress(int slot) {
                          [slot](const helix::printer::EffectiveFilament& ef) {
                              get_global_filament_panel().apply_preset_pick(slot, ef);
                          });
-
-    // The long-press that opened the picker is still an active press. Without this, the
-    // eventual release lands on whatever widget now sits under the finger — the Type
-    // dropdown, which appears roughly where the preset button was — and auto-opens it.
-    // Make the input device swallow events until the physical release.
-    if (lv_indev_t* indev = lv_indev_active()) {
-        lv_indev_wait_release(indev);
-    }
+    return true;
 }
 
 void FilamentPanel::apply_preset_pick(int slot, const helix::printer::EffectiveFilament& ef) {

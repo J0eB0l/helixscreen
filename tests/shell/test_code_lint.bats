@@ -3515,70 +3515,33 @@ CPP
     done
 }
 
-# A widget with a hold action binds its tap to short_clicked: LVGL sends clicked
-# on every release, the one ending a hold included, so a clicked tap beside a
-# long_pressed hold fires both (docs/devel/LVGL9_XML_GUIDE.md § "Tap and hold").
-# Names every element whose own event_cb children pair the two. An XML that does
-# not parse is named too, so the gate fails closed.
-xml_tap_beside_hold() {
-    python3 - "$@" <<'EOF'
-import pathlib
-import sys
-import xml.etree.ElementTree as ET
-
-HOLD = {"long_pressed", "long_pressed_repeat"}
-# Gesture state machines that want clicked after a hold, not tap+hold buttons.
-# The home grid's edit mode reads every release that lands where its press did,
-# a hold's included (src/ui/ui_panel_home.cpp#on_home_grid_clicked).
-ALLOWED = {("home_panel.xml", "carousel_host")}
-for root in sys.argv[1:]:
-    p = pathlib.Path(root)
-    for f in sorted(p.rglob("*.xml") if p.is_dir() else [p]):
-        try:
-            tree = ET.parse(f)
-        except ET.ParseError as e:
-            print(f"{f}: does not parse: {e}")
-            continue
-        for el in tree.iter():
-            triggers = {c.get("trigger") for c in el if c.tag == "event_cb"}
-            if (f.name, el.get("name")) in ALLOWED:
-                continue
-            if "clicked" in triggers and triggers & HOLD:
-                print(f"{f}: <{el.tag} name=\"{el.get('name', '')}\"> binds clicked beside a hold")
-EOF
+# A tap binds clicked; a hold handler that acts ends its press with
+# helix::ui::end_press() (docs/devel/LVGL9_XML_GUIDE.md § "Tap and hold").
+# short_clicked is never a tap's trigger: LVGL skips it after any press that ran
+# past the long-press time, whether or not a hold handler acted, so a slow tap on
+# a short_clicked widget does nothing. Names every XML trigger and C++ registration.
+short_clicked_taps() {
+    grep -rnE 'trigger="short_clicked"' "$1" --include='*.xml' 2>/dev/null
+    grep -rnE 'lv_obj_add_event_cb\([^;]*LV_EVENT_SHORT_CLICKED' "$2" --include='*.cpp' \
+        --include='*.h' 2>/dev/null
+    return 0
 }
 
-@test "no XML element binds a clicked tap beside a long_pressed hold" {
-    run xml_tap_beside_hold ui_xml/
+@test "no tap binds short_clicked" {
+    run short_clicked_taps ui_xml/ src/
     [ "$status" -eq 0 ]
     [ -z "$output" ] || fail "$output"
 }
 
-@test "the tap-beside-hold gate fires on a clicked tap beside a hold" {
-    local d="${BATS_TEST_TMPDIR}/tap_hold"
-    mkdir -p "$d"
-    cat > "$d/offender.xml" <<'EOF'
-<component><view name="row" extends="lv_obj">
-  <event_cb trigger="clicked" callback="on_tap"/>
-  <event_cb trigger="long_pressed" callback="on_hold"/>
-</view></component>
-EOF
-    run xml_tap_beside_hold "$d"
+@test "the short_clicked gate fires on an XML trigger and a C++ registration" {
+    local d="${BATS_TEST_TMPDIR}/short_clicked"
+    mkdir -p "$d/xml" "$d/src"
+    printf '%s\n' '<lv_obj><event_cb trigger="short_clicked" callback="on_tap"/></lv_obj>' \
+        > "$d/xml/offender.xml"
+    printf '%s\n' 'void f(lv_obj_t* o) { lv_obj_add_event_cb(o, cb, LV_EVENT_SHORT_CLICKED, nullptr); }' \
+        > "$d/src/offender.cpp"
+    run short_clicked_taps "$d/xml" "$d/src"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"offender.xml"* ]]
-}
-
-@test "the tap-beside-hold gate stays quiet on a short_clicked tap" {
-    local d="${BATS_TEST_TMPDIR}/tap_hold_ok"
-    mkdir -p "$d"
-    cat > "$d/ok.xml" <<'EOF'
-<component><view name="row" extends="lv_obj">
-  <event_cb trigger="short_clicked" callback="on_tap"/>
-  <event_cb trigger="long_pressed" callback="on_hold"/>
-  <lv_button name="child"><event_cb trigger="clicked" callback="on_child"/></lv_button>
-</view></component>
-EOF
-    run xml_tap_beside_hold "$d"
-    [ "$status" -eq 0 ]
-    [ -z "$output" ]
+    contains "offender.xml" "$output"
+    contains "offender.cpp" "$output"
 }

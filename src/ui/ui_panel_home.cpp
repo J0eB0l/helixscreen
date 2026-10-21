@@ -1178,11 +1178,10 @@ void HomePanel::on_home_grid_long_press(lv_event_t* e) {
             if (panel.finger_drifted_since_press()) {
                 return; // inside the SAFE_EVENT_CB try block; END closes it below
             }
-            // Cancel the in-progress press to prevent the widget's click
-            // action from firing on release.
-            lv_indev_t* indev = lv_indev_active();
-            if (indev)
-                lv_indev_reset(indev, nullptr);
+            // The hold enters edit mode, so it ends the press: its release
+            // must not also fire the widget's tap. A hold this handler declines
+            // (kill switch, lock, drift, another page) keeps its tap.
+            helix::ui::end_press(e);
 
             // Clear PRESSED state from active page container
             lv_obj_t* container = nullptr;

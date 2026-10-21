@@ -25,7 +25,7 @@ namespace helix::remote {
  * browser on release builds, which have no ctl.
  *
  * This exists because `ctl click` is SHORT_CLICKED then CLICKED sent straight to the
- * widget (helix::ui::send_tap) — synthesized widget-level events with no input
+ * widget (helix::ui::send_tap): synthesized widget-level events with no input
  * device and no coordinates behind them.
  * That is fine for "press this button", but it cannot exercise anything gestural:
  * a drag, a long-press, a slide onto a popover, or a tap that must not fire while a

@@ -8,6 +8,7 @@
 #include "ui_icon.h"
 #include "ui_icon_codepoints.h"
 #include "ui_print_tune_overlay.h"
+#include "ui_utils.h"
 
 #include "app_globals.h"
 #include "display_settings_manager.h"
@@ -415,7 +416,8 @@ void SpeedFlowWidget::clicked_cb(lv_event_t* e) {
 namespace {
 
 /// Steppers and long-press only act while the Full rung shows them, so a stray
-/// long-press on the read-only value does nothing.
+/// long-press on the read-only value does nothing and its release still opens
+/// the Tune overlay. A reset ends the press, so the lift opens nothing.
 bool steppers_shown() {
     return lv_subject_get_int(&s_show_steppers_subject) != 0;
 }
@@ -454,15 +456,19 @@ void register_speed_flow_widget() {
     lv_xml_register_event_cb(nullptr, "speed_flow_speed_reset_cb", [](lv_event_t* e) {
         LVGL_SAFE_EVENT_CB_BEGIN("[SpeedFlowWidget] speed_reset_cb");
         lv_event_stop_bubbling(e);
-        if (steppers_shown())
+        if (steppers_shown()) {
+            ui::end_press(e);
             tune::set_speed_percent(get_moonraker_api(), kResetPct);
+        }
         LVGL_SAFE_EVENT_CB_END();
     });
     lv_xml_register_event_cb(nullptr, "speed_flow_flow_reset_cb", [](lv_event_t* e) {
         LVGL_SAFE_EVENT_CB_BEGIN("[SpeedFlowWidget] flow_reset_cb");
         lv_event_stop_bubbling(e);
-        if (steppers_shown())
+        if (steppers_shown()) {
+            ui::end_press(e);
             tune::set_flow_percent(get_moonraker_api(), kResetPct);
+        }
         LVGL_SAFE_EVENT_CB_END();
     });
 }

@@ -108,11 +108,11 @@ lv_xml_register_event_cb(nullptr, "on_my_button_clicked", on_my_button_clicked);
 
 ### A hold also fires the tap: the hold opens its action, then the lift runs the tap behind it.
 
-**Cause:** The tap is bound to `clicked`. LVGL sends `clicked` on every release, including the one that ends a long press, so `clicked` beside `long_pressed` fires both. The same happens across elements when the hold sits on a child and the tap on an ancestor its events bubble to, which every home-panel widget does.
+**Cause:** The hold handler acted but left the press running. LVGL sends `clicked` on every release, including the one that ends a long press, so the tap fires behind the hold. The same happens across elements when the hold sits on a child and the tap on an ancestor its events bubble to, which every home-panel widget does.
 
-**Fix:** Bind the tap to `short_clicked` (`LV_EVENT_SHORT_CLICKED` in C++), which LVGL sends only when no long press was. If a child's tap stops bubbling to keep its parent's tap from firing, bind both to `short_clicked`. Never suppress the tap with a flag the hold handler sets. The rule and its exceptions: `docs/devel/LVGL9_XML_GUIDE.md` § "Tap and hold".
+**Fix:** Keep the tap on `clicked`, and have the hold handler call `helix::ui::end_press(e)` when it acts. The release then sends `press_lost` instead of `clicked`. A hold the handler declines must not call it, so a slow tap still works. Do not move the tap to `short_clicked` (a slow tap then does nothing), and do not swallow it with a flag. The rule and its exceptions: `docs/devel/LVGL9_XML_GUIDE.md` § "Tap and hold".
 
-**Check:** `tests/shell/test_code_lint.bats` fails an element that binds `clicked` beside `long_pressed`.
+**Check:** `scripts/check_hold_ends_press.py` fails a `long_pressed` handler that neither calls `end_press()` nor carries `HOLD_DECLINES_OK: <reason>`.
 
 ---
 

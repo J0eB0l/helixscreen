@@ -62,9 +62,8 @@
         <bind_flag_if_eq subject="$chevron_hidden_subject" flag="hidden" ref_value="1"/>
       </icon>
     </lv_obj>
-    <!-- Tap branches on edit mode (toggle visibility vs. run macro). short_clicked, because the
-         row also has a hold action and a hold's release still sends clicked. -->
-    <event_cb trigger="short_clicked" callback="on_macro_row_clicked" user_data="$row_index"/>
+    <!-- Event callback: branches on edit mode (toggle visibility vs. run macro) -->
+    <event_cb trigger="clicked" callback="on_macro_row_clicked" user_data="$row_index"/>
     <!-- Long-press enters edit mode (suppressed mid-scroll in C++) -->
     <event_cb trigger="long_pressed" callback="on_macro_card_long_press" user_data="$row_index"/>
   </view>

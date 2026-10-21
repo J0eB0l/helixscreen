@@ -20,7 +20,7 @@ bool is_value_control(lv_obj_t* o) {
            lv_obj_check_type(o, &lv_dropdown_class) || lv_obj_check_type(o, &lv_textarea_class);
 }
 
-bool has_own_click_handler(lv_obj_t* o) {
+bool has_own_click_handler(lv_obj_t* o, lv_event_cb_t cb) {
     if (!o) {
         return false;
     }
@@ -34,8 +34,9 @@ bool has_own_click_handler(lv_obj_t* o) {
             continue;
         }
         uint32_t filter = dsc->filter & ~(LV_EVENT_PREPROCESS | LV_EVENT_MARKED_DELETING);
-        if (filter == LV_EVENT_ALL || filter == LV_EVENT_CLICKED ||
-            filter == LV_EVENT_SHORT_CLICKED) {
+        if ((filter == LV_EVENT_ALL || filter == LV_EVENT_CLICKED ||
+             filter == LV_EVENT_SHORT_CLICKED) &&
+            (cb == nullptr || lv_event_dsc_get_cb(dsc) == cb)) {
             return true;
         }
     }

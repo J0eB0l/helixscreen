@@ -7,6 +7,7 @@
 #include "ui_gradient_canvas.h"
 #include "ui_panel_print_select.h" // For PrintFileData, CardDimensions
 #include "ui_subject_registry.h"
+#include "ui_utils.h"
 #include "ui_virtual_list.h"
 
 #include "helix_fs.h"
@@ -284,10 +285,8 @@ void PrintSelectCardView::grow_pool(size_t count, const CardDimensions& dims) {
             lv_obj_add_flag(
                 card, LV_OBJ_FLAG_HIDDEN); // XML_HIDDEN_OK: pooled row, built once with its list
 
-            // Tap and hold handlers attached ONCE at pool creation. The card has a hold
-            // action, so its tap is SHORT_CLICKED: LVGL sends CLICKED on every release,
-            // the one ending a hold included.
-            lv_obj_add_event_cb(card, on_card_clicked, LV_EVENT_SHORT_CLICKED, this);
+            // Tap and hold handlers attached ONCE at pool creation.
+            lv_obj_add_event_cb(card, on_card_clicked, LV_EVENT_CLICKED, this);
             lv_obj_add_event_cb(card, on_card_long_pressed, LV_EVENT_LONG_PRESSED, this);
 
             // Create per-card data with subjects for declarative text binding
@@ -818,6 +817,9 @@ void PrintSelectCardView::on_card_long_pressed(lv_event_t* e) {
                       folder_type);
         return;
     }
+
+    // The hold acts, so its release is not also a tap that opens the file.
+    end_press(e);
 
     // Audible feedback. SoundManager::play() internally gates on the sound-enabled
     // and UI-sounds-enabled settings, so no guard needed here.
