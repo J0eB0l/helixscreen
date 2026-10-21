@@ -1,6 +1,20 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Module: competing_uis
+# What the install's stop step stops, for its title: the vendor UIs detection
+# found, else the HelixScreen an update replaces, else a neutral phrase (the
+# step still runs the platform's screen setup).
+# Reads: COMPETING_UIS_FOUND, update_mode, INSTALL_DIR
+stop_step_noun() {
+    if [ -n "${COMPETING_UIS_FOUND:-}" ]; then
+        printf '%s' "$COMPETING_UIS_FOUND"
+    elif [ "${update_mode:-}" = true ] && [ -d "${INSTALL_DIR:-}" ] && ! _is_self_update; then
+        printf 'the previous HelixScreen'
+    else
+        printf 'the current screen'
+    fi
+}
+
 # Stop competing screen UIs (GuppyScreen, KlipperScreen, Xorg, stock Creality/FlashForge/Sovol UI)
 #
 # Reads: AD5M_FIRMWARE, K1_FIRMWARE, INIT_SYSTEM, PREVIOUS_UI_SCRIPT, SUDO, INSTALL_DIR, HOST_OWNS_COMPETING_UIS
