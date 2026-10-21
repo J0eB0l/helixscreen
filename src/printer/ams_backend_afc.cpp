@@ -2209,7 +2209,7 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         spdlog::debug("[AMS AFC] Discovered {} extruder names from AFC state",
                       extruder_names_.size());
 
-        // Derive the toolchanger shape from the names, because the status
+        // Derive the extruder list from the names, because the status
         // subscription is the ONLY surface that reaches us and it does not carry
         // AFC.system. Upstream writes str["system"]['num_extruders'] in exactly
         // two places — _webhooks_status() (the /printer/afc/status HTTP endpoint,
@@ -2217,14 +2217,9 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         // get_status() publishes current_load/current_lane/next_lane/
         // current_state/spoolman/error_state/units/lanes and no system key.
         //
-        // Without this, num_extruders_ stayed at its default 1 on every real
-        // printer, so `if (num_extruders_ > 1)` in load_filament() and
-        // select_tool() was never true and AFC_SELECT_TOOL was never dispatched
-        // on an actual AFC toolchanger. extruders_ stayed empty too, which the
-        // bounds checks turned into silence rather than a crash.
-        //
-        // Order is preserved verbatim: extruders_ is indexed POSITIONALLY as a
-        // tool number, and AFC emits the array in tool order.
+        // Order is preserved verbatim: the per-extruder device actions
+        // (bowden_T<i>, led_extruder_T<i>, ...) address extruders_ by position.
+        // That position is not a T number; T numbers belong to lanes.
         if (!extruder_names_.empty()) {
             num_extruders_ = static_cast<int>(extruder_names_.size());
 
@@ -4108,25 +4103,6 @@ void AmsBackendAfc::query_lane_data() {
         });
 }
 
-// ============================================================================
-// Toolchanger identity
-// ============================================================================
-
-bool AmsBackendAfc::has_toolchanger() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    // Signal 1: the config section that registers AFC_SELECT_TOOL.
-    if (configfile_has_toolchanger_) {
-        return true;
-    }
-    // Signal 2: a published Toolchanger unit. Only reachable when that unit
-    // owns at least one lane (AFC.py v1.2.0:2554), which is why signal 1 exists.
-    return std::any_of(unit_infos_.begin(), unit_infos_.end(), [](const AfcUnitInfo& u) {
-        // `type` is user-overridable (`config.get("type", "Toolchanger")`), so
-        // compare case-insensitively rather than pinning the exact spelling.
-        return helix::text_io::to_lower(u.type) == "toolchanger";
-    });
-}
-
 AmsBackendAfc::ConfigfileTopology
 AmsBackendAfc::parse_configfile_topology(const nlohmann::json& response) {
     ConfigfileTopology topo;
@@ -4153,14 +4129,9 @@ AmsBackendAfc::parse_configfile_topology(const nlohmann::json& response) {
     // "afc_extruder t1". The section suffix is matched
     // case-insensitively against the names AFC.extruders publishes.
     static constexpr const char* kExtruderPrefix = "afc_extruder ";
-    static constexpr const char* kToolchangerPrefix = "afc_toolchanger ";
     static constexpr const char* kOpenamsPrefix = "afc_openams ";
     for (auto it = settings->begin(); it != settings->end(); ++it) {
         const std::string key = helix::text_io::to_lower(it.key());
-        if (key.rfind(kToolchangerPrefix, 0) == 0) {
-            topo.saw_toolchanger = true;
-            continue;
-        }
         if (key.rfind(kOpenamsPrefix, 0) == 0 && it.value().is_object()) {
             const auto oams = it.value().find("oams");
             if (oams != it.value().end() && oams->is_string()) {
@@ -4213,15 +4184,8 @@ void AmsBackendAfc::apply_configfile_topology(ConfigfileTopology topo) {
         // A newly-arrived mapping can resolve a name that already
         // warned; let it warn again if it still cannot be resolved.
         extruder_tool_index_warned_.clear();
-        // Latch only on presence. A config we could not read, or one
-        // read before a section was added, must not be taken as proof
-        // that no toolchanger exists.
-        if (topo.saw_toolchanger) {
-            configfile_has_toolchanger_ = true;
-        }
-        spdlog::debug("[AMS AFC] configfile: {} AFC_extruder -> Klipper extruder names, "
-                      "toolchanger section {}",
-                      extruder_klipper_names_.size(), topo.saw_toolchanger ? "present" : "absent");
+        spdlog::debug("[AMS AFC] configfile: {} AFC_extruder -> Klipper extruder names",
+                      extruder_klipper_names_.size());
 
         // This query races the first status frames — on the reporter's
         // machine it landed 17ms after the units were first mapped, so
@@ -4326,7 +4290,7 @@ void AmsBackendAfc::query_afc_configfile_topology() {
         },
         [](const MoonrakerError& err) {
             spdlog::debug("[AMS AFC] Failed to query configfile: {} — tool indices stay derived "
-                          "from section names and toolchanger detection falls back to AFC.units",
+                          "from section names",
                           err.message);
         });
 }
@@ -5225,32 +5189,10 @@ AmsError AmsBackendAfc::do_load_filament(int slot_index) {
         }
     }
 
-    // Toolchanger mode: use AFC_SELECT_TOOL with extruder name.
-    //
-    // Gated on a toolchanger EXISTING (see has_toolchanger() for the two
-    // signals), not on the extruder count. AFC_SELECT_TOOL is registered by
-    // AfcToolchanger.__init__ and nowhere else (AFC_Toolchanger.py:47-49), a
-    // file that exists only from v1.2.0 and that Klipper only loads for an
-    // `[AFC_Toolchanger <name>]` section. An IDEX or standalone-toolhead machine
-    // has several [AFC_extruder] sections and no toolchanger, so
-    // `num_extruders_ > 1` was true there and the command came back
-    // `// Unknown command:"AFC_SELECT_TOOL"` with the load never happening.
-    if (has_toolchanger()) {
-        const auto* entry = slots_.get(slot_index);
-        int tool = entry ? entry->info.mapped_tool : slot_index;
-        if (tool >= 0 && tool < static_cast<int>(extruders_.size())) {
-            std::string cmd = "AFC_SELECT_TOOL TOOL=" + extruders_[tool].name;
-            spdlog::info("[AMS AFC] Loading slot {} via toolchanger: {}", slot_index, cmd);
-            return dispatch_operation(std::move(cmd), AmsAction::LOADING);
-        }
-    }
-
-    // Standard mode: CHANGE_TOOL LANE={name}.
-    //
-    // Also the correct fallback for a multi-extruder machine with no toolchanger
-    // unit: CHANGE_TOOL resolves the lane's own extruder object
-    // (cur_lane.extruder_obj) and loads through it, so naming the LANE is
-    // sufficient and needs no per-tool selection verb.
+    // CHANGE_TOOL LANE={name} on every topology. AFC resolves the lane's own
+    // extruder and, on a toolchanger, swaps to that head before loading. A T
+    // number cannot stand in for the lane: T numbers belong to lanes, SET_MAP
+    // moves them, and several lanes can feed one head.
     std::string cmd = "CHANGE_TOOL LANE=" + lane_name;
 
     spdlog::info("[AMS AFC] Loading from lane {} (slot {})", lane_name, slot_index);
@@ -5320,19 +5262,10 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
         }
     }
 
-    std::string cmd;
-    if (has_toolchanger() && tool_number < static_cast<int>(extruders_.size())) {
-        // Toolchanger mode: use AFC_SELECT_TOOL with extruder name. See
-        // load_filament() for why the gate is the unit type and not the
-        // extruder count (AFC_Toolchanger.py:47-49, v1.2.0 only).
-        cmd = "AFC_SELECT_TOOL TOOL=" + extruders_[tool_number].name;
-    } else {
-        // Standard mode: use T{n}. Correct for a multi-extruder machine with no
-        // toolchanger too — AFC's TcmdAssign registers a T-command per lane on
-        // every topology, and cmd_CHANGE_TOOL routes it through the lane's own
-        // extruder object.
-        cmd = "T" + std::to_string(tool_number);
-    }
+    // T{n} on every topology: AFC registers a T-command per lane and
+    // cmd_CHANGE_TOOL resolves the lane, and from it the head, from the
+    // current map. tool_number is a T number, never a head index.
+    std::string cmd = "T" + std::to_string(tool_number);
 
     spdlog::info("[AMS AFC] Tool change: {}", cmd);
     // SELECTING, not LOADING: every AFC toolchanger state (ToolSwap, ToolDock,
