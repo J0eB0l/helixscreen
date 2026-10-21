@@ -5551,10 +5551,6 @@ void MoonrakerClientMock::temperature_simulation_loop() {
         if (is_mock_multiace()) {
             status_obj["ace"] = multiace_status_json();
         }
-        // INDX mock: the macro state, only when it changed.
-        if (is_mock_indx()) {
-            publish_indx_if_changed();
-        }
         if (printer_type_ == PrinterType::CREALITY_K2_PLUS) {
             append_k2_status(status_obj);
         }

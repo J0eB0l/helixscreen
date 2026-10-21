@@ -2397,7 +2397,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     };
     mutable std::mutex indx_mutex_;
     IndxMockState indx_;
-    /// The INDX frame last sent, so the simulation loop sends only changes.
+    /// The INDX frame last sent, so a change sends only what moved.
     nlohmann::json indx_published_;
 
     /// Read the HELIX_MOCK_INDX_* knobs into indx_.

@@ -133,3 +133,31 @@ TEST_CASE("INDX mock: no heat with an empty head", "[ams][indx][mock][heat]") {
     mock.gcode_script("M104 S210");
     CHECK(mock.extruder_target() == Catch::Approx(210.0));
 }
+
+TEST_CASE("INDX mock: object query and subscribe answer the macro state", "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    const json objects = {
+        {"objects", {{"save_variables", nullptr}, {"gcode_macro TOOL_POSITIONS", nullptr}}}};
+    for (const char* method : {"printer.objects.query", "printer.objects.subscribe"}) {
+        CAPTURE(method);
+        json response;
+        mock.send_jsonrpc(method, objects, [&response](const json& r) { response = r; });
+        REQUIRE(response.contains("result"));
+        auto r = helix::indx::read_status(response["result"]["status"]);
+        REQUIRE(r.has_value());
+        CHECK(r->active_tool == 0);
+        CHECK(r->tool_count == 4);
+    }
+}
+
+TEST_CASE("INDX mock: connecting sends the macro state with the boot frame", "[ams][indx][mock]") {
+    IndxEnv env;
+    IndxFrames frames;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    mock.register_notify_update(frames.callback());
+    const size_t mark = frames.mark();
+    mock.connect("ws://mock/websocket", [] {}, [] {});
+    CHECK(frames.wait_for_active(mark, 0, 3000));
+    mock.disconnect();
+}
