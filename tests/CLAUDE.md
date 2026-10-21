@@ -149,7 +149,7 @@ Key the choice on the question you actually have, not on a phase of work:
 | Does any test even reach this code? | `make cov-diff` | minutes |
 | Do my changed lines have detection? | `make mutate-diff MUTATE_ARGS="--tests '[touched tags]'"`, **once per batch, at the finish** | per hunk: one rebuild + those tags |
 | Did I break something elsewhere in C++? | `make unit-sweep` | ~50s idle, minutes loaded |
-| Will CI's unit job pass? | `make unit-sweep NPROCS=8`: CI runs `nproc*2` = 8 shards on its 4-core runners, so tests share a process with different neighbours than the local 96 | ~100s |
+| Will CI's unit job pass? | `make unit-sweep NPROCS=8`: CI runs 8 shards, split four apiece across two 4-core runners, so tests share a process with different neighbours than the local 96 | ~100s |
 | Am I finished - did I break anything, anywhere? | `make full-test-run` | ~2m, **once, at the end** |
 | **May this land on main?** - will CI go green on it | `make land-gate`: THE pre-landing gate (below) | ~10m, **once per landing** |
 | What does any of this actually cost? | `make dev-timing` | 5s, measured medians |

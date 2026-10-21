@@ -284,8 +284,8 @@ jobs:
         echo '/tmp/cores/core.%e.%p.%t' | sudo tee /proc/sys/kernel/core_pattern
         cat /proc/sys/kernel/core_pattern
 
-    # Budget: build.yml's identical 8-shard pass ends its slowest shard at 7-8
-    # minutes on this runner (459s measured), so each shard gets 840s and
+    # Budget: all 8 shards on one 4-core runner end the slowest at 7-8
+    # minutes (459s measured), so each shard gets 840s and
     # the step 15 minutes around them.
     - name: Run fast tests in parallel shards
       timeout-minutes: 15

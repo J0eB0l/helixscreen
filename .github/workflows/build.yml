@@ -264,11 +264,19 @@ jobs:
           build/bin/helix-tests
         retention-days: 7
 
+  # The unit suite is CPU-bound: 8 shards on one 4-core runner kept every core
+  # busy to the end, so each leg runs half of the same 8-shard layout, one shard
+  # per core. The layout stays 8 because which tests share a process decides
+  # what a use-after-free corrupts, and land-gate's CI_SHARDS reproduces it.
   test-ubuntu:
-    name: Test (Ubuntu 22.04)
+    name: Test (Ubuntu 22.04, leg ${{ matrix.leg }})
     runs-on: ubuntu-22.04
     needs: compile-ubuntu
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: [0, 1]
 
     steps:
     - name: Checkout repository
@@ -318,10 +326,11 @@ jobs:
     - name: Run unit tests
       timeout-minutes: 10
       run: |
-        NPROCS=$(( $(nproc) * 2 ))
-        echo "Running $NPROCS test shards in parallel..."
+        NPROCS=8
+        LEGS=2
+        echo "Running shards ${{ matrix.leg }}, $(( ${{ matrix.leg }} + LEGS )), ... of $NPROCS in parallel..."
         pids=""
-        for i in $(seq 0 $((NPROCS-1))); do
+        for i in $(seq ${{ matrix.leg }} $LEGS $((NPROCS-1))); do
           # Subshell + pipefail: without both, $! is the sed at the end of the
           # pipeline and `wait` collects sed's status, so a failing shard exits 0.
           (set -o pipefail; ./build/bin/helix-tests "~[.] ~[slow]" --shard-count $NPROCS --shard-index $i 2>&1 | sed "s/^/[shard $i] /") &
@@ -337,12 +346,15 @@ jobs:
         fi
         echo "All tests passed"
 
+    # The Python suites run once, on leg 1; the unit shards are what is split.
     - name: Setup Python
+      if: matrix.leg == 1
       uses: actions/setup-python@v6
       with:
         python-version: '3.11'
 
     - name: Install Python test dependencies
+      if: matrix.leg == 1
       run: |
         python -m pip install --upgrade pip
         pip install pytest
@@ -370,11 +382,13 @@ jobs:
     # all, and moonraker-plugin/install.sh sat pointing at a config file that had
     # been deleted for months (prestonbrown/helixscreen#1268).
     - name: Run Moonraker plugin tests (pytest)
+      if: matrix.leg == 1
       timeout-minutes: 2
       run: pytest moonraker-plugin/tests/ -v
 
     # -m "not slow" leaves the minutes-long screen sweeps to nightly.yml.
     - name: Run out-of-process UI tests (pytest, excluding goldens)
+      if: matrix.leg == 1
       timeout-minutes: 5
       run: pytest tests/ui/ -v --ignore=tests/ui/test_screens.py -m "not slow"
 

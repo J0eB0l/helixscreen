@@ -177,7 +177,7 @@ row() { # <status> <step>: the table row for step has that status
     ci=$(grep -F 'helix-tests "~[.] ~[slow]" --shard-count $NPROCS --shard-index $i' \
         "$REPO_ROOT/.github/workflows/build.yml")
     [ -n "$ci" ]
-    grep -qF 'NPROCS=$(( $(nproc) * 2 ))' "$REPO_ROOT/.github/workflows/build.yml"
+    grep -qxF '        NPROCS=8' "$REPO_ROOT/.github/workflows/build.yml"
 }
 
 @test "a step past LAND_GATE_STEP_TIMEOUT is killed and reads TIMEOUT, failing the gate" {
