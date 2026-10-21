@@ -810,11 +810,26 @@ void EmergencyStopOverlay::update_recovery_dialog_content() {
     lv_subject_set_int(&recovery_has_code_, code.empty() ? 0 : 1);
 }
 
+// A second restart sent while Klipper is still coming up from the first can
+// leave it halted on a serial port the first one still holds.
+bool EmergencyStopOverlay::refuse_restart_in_flight() {
+    if (!restart_in_progress()) {
+        return false;
+    }
+    spdlog::warn("[KlipperRecovery] Restart refused: one is already in flight");
+    ToastManager::instance().show(ToastSeverity::WARNING, lv_tr("A restart is already in progress"),
+                                  3000);
+    return true;
+}
+
 void EmergencyStopOverlay::restart_klipper() {
     if (!api_) {
         spdlog::error("[KlipperRecovery] Cannot restart: API not available");
         ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Restart failed: not connected"),
                                       4000);
+        return;
+    }
+    if (refuse_restart_in_flight()) {
         return;
     }
 
@@ -847,6 +862,9 @@ void EmergencyStopOverlay::firmware_restart() {
         spdlog::error("[KlipperRecovery] Cannot firmware restart: API not available");
         ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Restart failed: not connected"),
                                       4000);
+        return;
+    }
+    if (refuse_restart_in_flight()) {
         return;
     }
 
