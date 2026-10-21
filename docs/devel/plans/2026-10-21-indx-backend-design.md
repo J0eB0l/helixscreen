@@ -581,6 +581,25 @@ the filament panel's tool cards, the tool switcher and the nozzle temperature co
 - **D7. Temp graph series: plain "Nozzle".** The series is the one heater's history across
   every tool change, so it names no tool. `TempGraphWidget` is unchanged.
 
+### Ruled by the orchestrator, 2026-10-21, for Preston's review
+
+- **O1. No swap under a paused print.** A tool change or park while a print is paused is
+  refused with its own reason ("Resuming would print with a different nozzle. Change tools
+  after the print."). Load and Unload of the MOUNTED tool stay allowed while paused (runout
+  recovery); a Load of a docked tool is a swap and is refused the same way.
+  `filament_ops_self_home` stays false: CHANGE_TOOL's home is an ordinary G28 Layer 1 sees.
+- **O2. Docked nozzles show no temperature.** On a shared heater only the mounted nozzle
+  reads the heater (`ToolState::head_reads_heater()`); the tool picker's docked cells show
+  material only and are never tinted hot.
+- **O3. Telemetry reports the real type.** `ams.type` comes from one slug table
+  (`ams_type_telemetry_slug()`): every existing value is unchanged, the U1 now reports
+  "snapmaker" (it reported "unknown"), INDX reports "indx".
+- **O4. The heat refusal covers every nozzle-heating start.** PA tuning and PID/MPC
+  calibration of the extruder refuse to start with the backend's reason, and a refused
+  preheat announces no success.
+- **O5. An empty carriage selects no tool.** The filament panel's Tool dropdown reads "None"
+  after a park, on every tool changer.
+
 ## 14. Not confirmed
 
 - Whether Kalico's `[indx]` lists in `printer.objects.list`; detection handles both.

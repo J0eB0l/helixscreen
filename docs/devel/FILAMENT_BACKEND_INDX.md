@@ -34,10 +34,10 @@ contract. Nothing outside these two tables is read or sent.
 | Half-seated fault | `save_variables.variables.seat_suspect` | `>= 0` names a tool that may be half on the head; changes, parks and `G28 Z` refuse until `MANUAL_TOOL_REMOVE` / `MANUAL_TOOL_SEAT` clear it |
 | Toolchange count | `save_variables.variables.toolchange_count` | Diagnostic |
 | Latch, speed mode | `gcode_macro _TOOLCHANGE_VARS.toolhead_state` / `.mode` | `0` locked, `2` open; diagnostic |
-| Tool count | `gcode_macro TOOL_POSITIONS.tool_count` | Slot count. Discovery also reads `variable_tool_count` from `configfile.config` so the slots exist before the first frame |
+| Tool count | `gcode_macro TOOL_POSITIONS.tool_count` | Slot count. `indx::config_tool_count()` also reads `variable_tool_count` from the macro's config (`CachedMacroInfo::variables`) so the slots exist before the first frame. An `active_tool` past the count is treated as unknown |
 | Tools with no hotend | `gcode_macro TOOL_POSITIONS.no_heat_tools` | A pen or cutter: never heated, no filament ops |
 | Docks measured | `gcode_macro TOOL_POSITIONS.docks_calibrated` | `False` refuses every change and park |
-| Load presets | `gcode_macro LOAD_FILAMENT.filament_presets` | `TYPE=` names for Load |
+| Load presets | `gcode_macro LOAD_FILAMENT.filament_presets` | `TYPE=` names for Load, sent as the printer spells them |
 | Per-tool spool | `gcode_macro T<n>.spool_id` | Not upstream: read where a macro set declares it, filed as the lane's Spoolman id. Never written |
 
 Status keys are matched case-insensitively and subscribed under the configured case
@@ -49,7 +49,7 @@ Status keys are matched case-insensitively and subscribed under the configured c
 |---|---|
 | `T<n>` when `gcode_macro T<n>` exists, else `CHANGE_TOOL TOOL=<n>` | Change tool. `T<n>` runs a user's wrapper exactly as a slicer change does. The macro homes an unhomed printer, turns the coil off before docking and `M109`s the new tool to the outgoing target |
 | `PARK_TOOL` | Park, leaving the head empty |
-| `LOAD_FILAMENT TOOL=<n> TYPE=<preset>`, or `TEMP=<c>` when the material names no preset | Load: picks the tool up, sets the heater's filament model, heats, feeds and primes. Leaves the tool mounted and hot |
+| `LOAD_FILAMENT TOOL=<n> TYPE=<preset>`, or `TEMP=<c>` when the material names no preset (`helix::match_material`: case, then filament family) or is unsafe on a gcode line | Load: picks the tool up, sets the heater's filament model, heats, feeds and primes. Leaves the tool mounted and hot |
 
 ### Recognized, or not
 
@@ -83,6 +83,8 @@ Every tool prints through the one `extruder`, so the backend answers
 
 - `physical_heads()` is one head per tool (the tool switcher and printer chips see six), while
   `heated_heads()` is one entry, standing for the mounted tool. `extruder_count()` is 1.
+  `head_reads_heater()` is the one rule both use: only the mounted nozzle shows the heater's
+  temperature, so the tool picker's docked cells show material only.
 - `names_mounted_nozzle()` is true, so the label is the tool changer one: "Nozzle 3" while T2
   is mounted (or the tool's own name), plain "Nozzle" with the head empty. It drives
   `nozzle_label()`, the nozzle icon badge, the print status tool label and the nozzle temps
@@ -93,7 +95,9 @@ Every tool prints through the one `extruder`, so the backend answers
   HelixScreen heats with `SET_HEATER_TEMPERATURE`, which bypasses INDX's own `M104` guard,
   so `TemperatureController::set_target()` refuses a nozzle target above 0 while it is set
   and toasts the reason. `ams_nozzle_heat_blocked` dims the nozzle presets and Custom button
-  (`styles.heat_blocked`); a tap still reaches the controller, which says why.
+  (`styles.heat_blocked`), on the temperature overlay and the filament panel; a tap still
+  reaches the controller, which says why. PA tuning and extruder PID/MPC calibration, which
+  heat by name too, refuse to start with the same reason.
 - `slot_for_extruder()` answers nothing, so filament usage is charged to the mounted slot.
 - A change of mounted tool clears the swap preheat latch: the next nozzle is a different melt
   zone, so the previous tool's temperature has nothing to purge.
@@ -104,7 +108,7 @@ Every tool prints through the one `extruder`, so the backend answers
 |---|---|
 | Load | Automatic through `LOAD_FILAMENT` (the backend auto-heats, the UI never preheats). Manual without the macro; Unavailable on a `no_heat_tools` tool |
 | Unload | Manual: "Pick up the tool, heat it, and pull the filament out". Upstream has no unload macro |
-| Change, park | `T<n>` / `CHANGE_TOOL`, `PARK_TOOL`; refused on an unrecognized contract, a half-seated tool or uncalibrated docks |
+| Change, park | `T<n>` / `CHANGE_TOOL`, `PARK_TOOL`; refused on an unrecognized contract, a half-seated tool, uncalibrated docks, or a paused print (resuming would print with another nozzle). Loading the mounted tool while paused is allowed; loading a docked one is a swap and is refused |
 
 A half-seated tool shows as an error with the macro's own instructions and no recovery
 buttons: `MANUAL_TOOL_REMOVE` opens the latch, so a tool can drop.
@@ -119,16 +123,15 @@ a macro set that does keeps it.
 ## Mock
 
 `HELIX_MOCK_AMS=indx` is mock hardware with the real backend (it implies `--real-ams`). The
-mock publishes the objects and macro state above, walks a change through park and pickup over
-a few notifications, and refuses heat with no tool on the head or on a no-hotend tool, so a
-missing gate shows as a target that never moves. Knobs in
+mock publishes the objects and macro state above, only when they change; a change publishes
+its park and its pickup before the gcode acks, as the real macro does; heat is refused with no
+tool on the head or on a no-hotend tool, so a missing gate shows as a target that never moves. Knobs in
 `docs/devel/MOCK_ENVIRONMENT_VARIABLES.md`.
 
 ## Not yet hardware-verified
 
 No INDX is in the test fleet; verification goes through the #1333 reporter. Open: whether
-Kalico's `[indx]` lists as an object, how the reporter's `spool_id` macros persist a spool,
-and the timing of the change ack against the `active_tool` frame.
+Kalico's `[indx]` lists as an object, and how the reporter's `spool_id` macros persist a spool.
 
 Part of the filament system: see [FILAMENT_MANAGEMENT.md](FILAMENT_MANAGEMENT.md) and the
 base this backend extends, [FILAMENT_BACKEND_TOOLCHANGER.md](FILAMENT_BACKEND_TOOLCHANGER.md).
