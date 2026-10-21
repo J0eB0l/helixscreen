@@ -256,7 +256,9 @@ query). **The REST path shows one unit only**: instance 0, at unit 0. The backen
 `/status?instance=0` and `/slots?instance=0` (`#kRestStatusPath`; the ValgACE bridge
 ignores the argument), reads each REST slot's `tool` as the object path does, and names
 the instance `/status` reports serving in its slot and dryer commands
-(`#ace_instance_for_unit_locked`).
+(`#ace_instance_for_unit_locked`). A chain with no instance 0 answers those polls with HTTP 200 and a
+result carrying only `error`; that counts as a failed poll (`#rest_poll_answered`): the
+inventory stands, and with no data ever the missing-bridge error surfaces.
 
 | Endpoint | Behaviour |
 |----------|-----------|

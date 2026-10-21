@@ -62,6 +62,16 @@ static constexpr const char* kRestStatusPath = "/server/ace/status?instance=0";
 static constexpr const char* kRestSlotsPath = "/server/ace/slots?instance=0";
 
 namespace {
+/// Whether a REST data poll answered with data. The ACEPRO bridge answers an
+/// instance it does not have with a result carrying only `error`, which is a
+/// failed poll, not an empty unit.
+bool rest_poll_answered(const RestResponse& resp) {
+    return resp.success && resp.data.contains("result") && resp.data["result"].is_object() &&
+           !resp.data["result"].contains("error");
+}
+} // namespace
+
+namespace {
 
 /// Whether a status object carries real slot data: a non-empty `slots` array,
 /// the exact key parse_ace_object reads.
@@ -1974,7 +1984,7 @@ void AmsBackendAce::poll_status() {
         // L081 Mechanism C: defer member access (parse_status_response,
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_status_apply", [this, resp]() {
-            if (resp.success && resp.data.contains("result")) {
+            if (rest_poll_answered(resp)) {
                 rest_data_ok_.store(true);
                 data_fetch_failures_.store(0);
                 if (parse_status_response(resp.data["result"])) {
@@ -2020,7 +2030,7 @@ void AmsBackendAce::poll_slots() {
         // L081 Mechanism C: defer member access (parse_slots_response,
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_slots_apply", [this, resp]() {
-            if (resp.success && resp.data.contains("result")) {
+            if (rest_poll_answered(resp)) {
                 // A working /slots is sufficient data — latch data-ok and reset
                 // the failure counter so the "bridge not found" error only fires
                 // when BOTH data endpoints are down (#1069).

@@ -2905,6 +2905,56 @@ TEST_CASE("ACE REST slots take the tool each slot names", "[ams][ace][rest_fallb
     CHECK(b.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=6");
 }
 
+// The ACEPRO bridge answers an instance it does not have (?instance=0 on a
+// chain with no instance 0) with HTTP 200 and a result carrying only `error`.
+// That is a failed poll: it keeps the inventory and counts toward the
+// missing-bridge error, never an empty unit 0.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE REST error result is a failed poll",
+                 "[ams][ace][rest_fallback][kobra]") {
+    MockPrinter mock_printer;
+    auto& api = mock_printer.api;
+    RestResponse error_result;
+    error_result.success = true;
+    error_result.status_code = 200;
+    error_result.data = {{"result",
+                          {{"error", "Requested ACE instance 0 is unavailable"},
+                           {"instance_index", 0},
+                           {"available_instances", json::array({1})},
+                           {"ace_instance_count", 2}}}};
+
+    AmsBackendAceTestHelper backend(&api, nullptr);
+    int error_events = 0;
+    backend.set_event_callback([&error_events](const std::string& ev, const std::string&) {
+        if (ev == AmsBackend::kEventError)
+            ++error_events;
+    });
+
+    SECTION("an inventory already shown stays") {
+        AceTestAccess::poll_status(backend);
+        AceTestAccess::poll_slots(backend);
+        helix::ui::UpdateQueue::instance().drain();
+        REQUIRE(backend.get_slot_info(0).material == "PLA");
+        api.rest_mock().mock_set_get_response("/server/ace/status", error_result);
+        api.rest_mock().mock_set_get_response("/server/ace/slots", error_result);
+        AceTestAccess::poll_status(backend);
+        AceTestAccess::poll_slots(backend);
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(backend.get_slot_info(0).material == "PLA");
+        CHECK(backend.get_system_info().total_slots == 4);
+    }
+    SECTION("nothing but error results surfaces the missing bridge") {
+        api.rest_mock().mock_set_get_response("/server/ace/status", error_result);
+        api.rest_mock().mock_set_get_response("/server/ace/slots", error_result);
+        for (int i = 0; i < 4; ++i) {
+            AceTestAccess::poll_status(backend);
+            AceTestAccess::poll_slots(backend);
+            helix::ui::UpdateQueue::instance().drain();
+        }
+        CHECK(backend.get_system_info().units.empty());
+        CHECK(error_events == 1);
+    }
+}
+
 TEST_CASE_METHOD(LVGLTestFixture, "ACE surfaces an error when the data endpoints are all missing",
                  "[ams][ace][rest_fallback][kobra]") {
     // Genuinely-missing-bridge case: /info, /status AND /slots all 404. The
