@@ -1,7 +1,7 @@
 # Bondtech INDX backend: design
 
 Issue: prestonbrown/helixscreen#1333. Branch: `feature/indx-backend`.
-Status: design, awaiting rulings on the decisions at the end.
+Status: design. Preston ruled on D1-D6 (section 13); the body follows those rulings.
 
 ## 1. What INDX is
 
@@ -355,9 +355,40 @@ assumes a tool changer has per-tool extruders or heaters, and what INDX does the
 2. **Active tool.** With an AMS topology active, `ToolState::update_from_status` already ignores
    `toolhead.extruder` and takes the backend's tool. No change; `toolhead.extruder` is always
    `extruder` on INDX and must stay ignored.
-3. **Nozzle temperature UI** (`TemperatureService`, temp panel, temp graph,
-   `nozzle_temps_widget#distinct_extruder_names`, `print_status_widget`). All key on Klipper
-   extruders, so they show one nozzle with no change. The label is D1.
+3. **Nozzle temperature UI and its label** (D1). The heater surfaces (`TemperatureService`,
+   temp panel, temp graph, `nozzle_temps_widget#distinct_extruder_names`,
+   `print_status_widget`) key on Klipper extruders, so they show one readout with no change.
+   The label follows the tool changer convention: "Nozzle 3" while T2 is mounted
+   (`lane_number_text` numbering, or the tool's own name when its owner named it), plain
+   "Nozzle" with the head empty. No "(T2)" form.
+
+   `ToolState::nozzle_label()` (`src/printer/tool_state.cpp#ToolState/nozzle_label`) already
+   produces that spelling, but gates it on `has_multiple_extruders()`, which is 1 heated head
+   on INDX and so false. That gate must stay false for lane-fed single-hotend printers (AFC,
+   Happy Hare, AD5X IFS), where naming the loaded lane says nothing. **Change:** a new
+   predicate `ToolState::names_mounted_nozzle()`: `has_multiple_extruders() ||
+   (heads_share_heater_ && has_multiple_toolheads())`. It answers "more than one nozzle can
+   be the one this readout means". `has_multiple_extruders()` keeps its meaning (count
+   heaters) for the heater consumers in items 5 and 10 and the print-status nozzle picker.
+   A lane backend never sets `heads_share_heater`, so its label is unchanged by
+   construction.
+
+   The label producers, and what each says on INDX with T2 mounted:
+
+   | Producer | Today | INDX | Change |
+   |---|---|---|---|
+   | `ToolState::nozzle_label()` (controls panel `controls_nozzle_label`, filament panel) | "Nozzle N" gated on `has_multiple_extruders()` | "Nozzle 3"; "Nozzle" when empty | Gate on `names_mounted_nozzle()` |
+   | Tool badge (`src/ui/ui_ams_tool_text.cpp#update_tool_badge`) | digit beside the nozzle glyph, same gate | "3"; hidden when empty | Gate on `names_mounted_nozzle()` |
+   | Print status widget (`print_status_widget.cpp#DetailedFormatter/update_multi_tool`, `#DetailedFormatter/update_tool_label`) | tool label gated on `has_multiple_extruders()`; nozzle picker the same | Tool label shows the mounted tool, as on a U1; the nozzle picker stays hidden (one heater, nothing to pin) | Label and `multi_tool` subject on `names_mounted_nozzle()`; picker keeps `has_multiple_extruders()` |
+   | `nozzle_temps_widget#create_extruder_row` | short name `display_label_for_extruder()`, long name from `tool_name_for_extruder()` or the extruder's `display_name` | One row. Without a change it reads "Tool 1" / "Nozzle" whatever is mounted, because both lookups return the FIRST tool naming `extruder` | `display_label_for_extruder()` and `tool_name_for_extruder()` resolve a shared extruder to the active tool (empty with the head empty, so the row falls back to "Nozzle"); the long name of a shared extruder is `nozzle_label()`. Row rebuilt on the active-tool subject |
+   | `PrinterTemperatureState` `extruder_display_name()` (`src/printer/printer_temperature_state.cpp`) | "Nozzle" with one extruder, "Nozzle N" with several | "Nozzle": one extruder | None. It names the heater, and on INDX is read only where the heater is meant |
+   | Temp graph overlay selector (`src/ui/ui_overlay_temp_graph.cpp`) and temp graph widget series | selector shown only with `extruder_count() > 1`; series named from `display_name` | Selector hidden; the series is "Nozzle" | None. The trace is the one heater across every tool change, so it carries no tool's name: "Nozzle 3" on a line that was T0 an hour ago would be wrong |
+
+   So every surface that names the nozzle a user is looking at now says "Nozzle 3", and the
+   only "Nozzle" left is the heater history, which is not one nozzle. If Preston wants the
+   graph to read "Nozzle 3" too, the series name follows `nozzle_label()` on the active-tool
+   subject; that is a one-line change in `TempGraphWidget::refresh_series_names` and is not
+   planned.
 4. **Heating an empty head.** HelixScreen sends `SET_HEATER_TEMPERATURE HEATER=extruder`
    (`src/ui/ui_temperature_utils.cpp#build_heater_gcode`), which bypasses INDX's `M104`
    guard. Upstream refuses that state on purpose, and the heater module shuts Klipper down on
@@ -366,8 +397,11 @@ assumes a tool changer has per-tool extruders or heaters, and what INDX does the
    `std::string nozzle_heat_blocked_reason() const` (default empty; INDX returns
    `indx::heat_blocked_reason()`: "No tool on the head" or "T<n> has no hotend").
    `TemperatureController::set_target` refuses a nozzle target above 0 while it is non-empty
-   and toasts the reason; 0 always goes through. An `ams_nozzle_heat_blocked` int subject lets
-   the nozzle preset and keypad controls disable themselves declaratively.
+   and toasts the reason; 0 always goes through. An `ams_nozzle_heat_blocked` int subject
+   lets the nozzle preset and keypad controls render disabled declaratively, and a tap on a
+   disabled control shows the reason ("No tool on the head", "T3 has no hotend") as a toast
+   (D1), through the same `nozzle_heat_blocked_reason()` the controller refuses with, so the
+   two can never disagree.
 5. **Preheat widget** (`src/ui/panel_widgets/preheat_widget.cpp`). One heated head, one
    target. Blocked by item 4 with no tool mounted.
 6. **Mount-feed sequence** (`src/printer/mount_feed_sequence.cpp#heater_name`). Names
@@ -488,6 +522,8 @@ in section 2; the #1333 bundle is never read or committed.
 | `[indx][commands]` | `T<n>` sent when the macro exists, `CHANGE_TOOL TOOL=<n>` when not; park sends `PARK_TOOL`; change refused (nothing sent) on unrecognized contract, `seat_suspect`, `docks_calibrated` false, out of range; Load sends `TYPE=PETG` for `petg`, `TEMP=` for an unmatched material, nothing for an unsafe material string; Load refused on a no-heat tool; Unload Manual |
 | `[indx][heat]` | `heat_blocked_reason` for -1, a no-heat tool, a printing tool; `TemperatureController::set_target` refuses nozzle >0 while blocked and sends 0; bed/chamber unaffected; a backend without the capability unaffected (`[temp_controller]` regression) |
 | `[tool_state][shared_heater]` | `heads_share_heater` topology: 6 heads, `extruder_count()` 1, `heated_heads()` one entry standing for the active tool; without the flag the hub grouping is unchanged (`[ToolState][ams-topology]` regression) |
+| `[tool_state][nozzle_label]` | Shared heater, T2 mounted: `nozzle_label()` "Nozzle 3", a user-named tool keeps its name, head empty "Nozzle", `names_mounted_nozzle()` true, `has_multiple_extruders()` false; a 4-lane single-hotend AMS topology still reads "Nozzle" and `names_mounted_nozzle()` false; `display_label_for_extruder("extruder")` and `tool_name_for_extruder("extruder")` follow the active tool and are empty with the head empty |
+| `[tool_switcher]`, `[print_status]` labels | Tool badge "3" and hidden on an empty head; print-status tool label follows the mounted tool while the nozzle picker stays hidden |
 | `[indx][spool]` | `manages_active_spool` false on stock, true with the wrapper; `slot_for_extruder` nullopt so the tracker charges the mounted tool |
 | `[indx][mock]` | Mock persona discovered as INDX through real discovery; a change walks the latch and lands on `active_tool`; `kalico` mode still detects; `unrecognized` mode yields the error state; heating with no tool leaves the target at 0 |
 | `[subscription_parity]` | `indx.json` fixture |
@@ -495,7 +531,9 @@ in section 2; the #1333 bundle is never read or committed.
 Hand-break proof per CLAUDE.md, one `make t` cycle each while writing: delete the
 `parse_config_keys` re-registration (the config-only detect case goes red); make
 `heat_blocked_reason` return empty (the `[indx][heat]` refusal goes red); drop the
-`heads_share_heater` branch from `physical_heads` (the 6-heads case goes red); swap the
+`heads_share_heater` branch from `physical_heads` (the 6-heads case goes red); gate
+`nozzle_label()` back on `has_multiple_extruders()` (the "Nozzle 3" case goes red) and drop
+the clause instead of the gate (the lane-AMS "Nozzle" case goes red); swap the
 `T<n>`/`CHANGE_TOOL` choice (the commands case goes red); drop the `slot_for_extruder`
 override (the tracker case goes red).
 
@@ -520,35 +558,28 @@ the filament panel's tool cards, the tool switcher and the nozzle temperature co
 3. **Phase 3, device actions.** Speed mode, `TC_CYCLE_ALL`, seat-fault recovery, heater
    calibrations, `SET_TOOL_FILAMENT` on edit, offsets display, batch Load.
 
-## 13. Decisions for Preston
+## 13. Decisions (ruled by Preston, 2026-10-21)
 
-- **D1. Nozzle label.** The one temperature readout is the mounted tool's nozzle.
-  Recommend "Nozzle (T2)" while a tool is mounted and "Nozzle (no tool)" with the head
-  empty, so a user sees why the heat control is disabled. The alternative is a plain
-  "Nozzle", which is what single-extruder printers show.
-- **D2. Unload.** Upstream has no unload macro. Recommend Manual for phase 1 ("Pick up the
-  tool, heat it, and pull the filament out"), and revisit a built-in mount-heat-retract
-  sequence once the reporter confirms how a strand leaves an INDX tool. The alternative is
-  the MedusaHC-style mount-feed retract now, unverified on this hardware.
-- **D3. Material edits and the heater's filament model.** Editing a tool's material in
-  HelixScreen does not tell INDX, whose safety model then keeps the old filament's heat
-  capacity until the next `LOAD_FILAMENT`. Recommend, in phase 3, offering "Update the INDX
-  heater model too?" when the new material matches a preset, sending `SET_TOOL_FILAMENT`
-  on yes. The alternative is never touching the model outside Load.
-- **D4. The reporter's `T<n>.spool_id`.** Not upstream. Recommend reading it where the
-  variable exists (it shows that macro set's spool per tool) and writing an assignment back
-  with `SET_GCODE_VARIABLE MACRO=T<n> VARIABLE=spool_id` plus
-  `SAVE_VARIABLE VARIABLE=t<n>__spool_id`, gated on the variable existing, after the reporter
-  confirms that pair is what their macros persist. The alternative is ignoring it and
-  keeping HelixScreen's store as the only spool record.
-- **D5. Seat-fault recovery buttons.** `MANUAL_TOOL_REMOVE` opens the latch, so a tool can
-  drop. Recommend phase 1 showing the fault with the macro's own instructions and no
-  buttons, and phase 3 adding both buttons behind a confirm that says to hold the tool. The
-  alternative is buttons from the start.
-- **D6. Change command.** Recommend `T<n>` when it exists (runs the user's wrapper, as a
-  slicer would) over always `CHANGE_TOOL TOOL=<n>` (bypasses wrappers, but can pass
-  `TEMP=`). Listed because it decides whether a screen tap and a slicer change behave the
-  same.
+- **D1. Nozzle label: tool changer convention.** "Nozzle 3" while T2 is mounted
+  (`lane_number_text`, or the tool's own name), plain "Nozzle" with the head empty, exactly
+  as klipper-toolchanger and the U1 read. No "(T2)" form. The empty-head heat controls are
+  disabled through `ams_nozzle_heat_blocked`, and a tap toasts the reason. Design: section
+  7 item 3 (`names_mounted_nozzle()`, the producer table) and item 4 (the toast).
+- **D2. Unload: Manual in phase 1.** `head_filament_ops()` answers Unload Manual with "Pick
+  up the tool, heat it, and pull the filament out". A built-in mount-heat-retract waits for
+  the reporter to confirm how a strand leaves an INDX tool.
+- **D3. Material edits: phase 3 offers `SET_TOOL_FILAMENT`.** When an edited material matches
+  a `LOAD_FILAMENT` preset, a confirm offers "Update the INDX heater model too?" and sends
+  `SET_TOOL_FILAMENT TOOL=<n> DENSITY=<d> HEAT_CAPACITY=<hc>` on yes. Phase 1 and 2 never
+  touch the model outside Load.
+- **D4. `T<n>.spool_id`: read now, write later.** Read where the variable exists (phase 1,
+  section 8 subscription). Writing it back waits for the reporter to confirm their macro
+  shape; until then HelixScreen's store is where an assignment made on the screen lives.
+- **D5. Half-seated fault: no buttons in phase 1.** The fault shows with the macro's own
+  instructions. `MANUAL_TOOL_REMOVE` / `MANUAL_TOOL_SEAT` buttons are phase 3, behind a
+  confirm that says to hold the tool.
+- **D6. Change command: `T<n>` when the macro exists, else `CHANGE_TOOL TOOL=<n>`.** A screen
+  tap then runs the user's wrapper exactly as a slicer change does.
 
 ## 14. Not confirmed
 
