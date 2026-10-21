@@ -54,6 +54,13 @@ using json = nlohmann::json;
 /// Max consecutive /server/ace/info failures before giving up on REST fallback
 static constexpr int kMaxInfoFetchFailures = 3;
 
+/// The REST bridge's data endpoints, pinned to instance 0. Asked for no
+/// instance, the ACEPRO bridge serves the instance whose number equals
+/// current_index, a tool number, so the unit it serves would follow the seat.
+/// Other bridges ignore the argument.
+static constexpr const char* kRestStatusPath = "/server/ace/status?instance=0";
+static constexpr const char* kRestSlotsPath = "/server/ace/slots?instance=0";
+
 namespace {
 
 /// Whether a status object carries real slot data: a non-empty `slots` array,
@@ -1875,7 +1882,7 @@ void AmsBackendAce::poll_status() {
 
     auto token = op_lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/status", [this, token](const RestResponse& resp) {
+    api_->rest().call_rest_get(kRestStatusPath, [this, token](const RestResponse& resp) {
         // L081 Mechanism C: defer member access (parse_status_response,
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_status_apply", [this, resp]() {
@@ -1921,7 +1928,7 @@ void AmsBackendAce::poll_slots() {
 
     auto token = op_lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/slots", [this, token](const RestResponse& resp) {
+    api_->rest().call_rest_get(kRestSlotsPath, [this, token](const RestResponse& resp) {
         // L081 Mechanism C: defer member access (parse_slots_response,
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_slots_apply", [this, resp]() {
@@ -2113,6 +2120,7 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
     // STATE_CHANGED event forever.
     clear_seated_slot_stamp_locked();
 
+    bool tools_named = false;
     for (size_t i = 0; i < slots_data.size(); ++i) {
         const auto& slot_json = slots_data[i];
 
@@ -2126,6 +2134,11 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         slot.global_index = static_cast<int>(i);
 
         changed |= note_park_state_locked(static_cast<int>(i), slot_json);
+        if (const auto tool = helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit)) {
+            changed |= slot.mapped_tool != *tool;
+            slot.mapped_tool = *tool;
+            tools_named = true;
+        }
 
         const bool states_status = slot_json.contains("status") && slot_json["status"].is_string();
         std::optional<bool> observed_present;
@@ -2188,6 +2201,15 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         apply_resolved_lane(slot, idx);
         if (slot.color_rgb != shown_color || slot.material != shown_material) {
             changed = true;
+        }
+    }
+
+    if (tools_named) {
+        // The ACEPRO bridge names each slot's tool, as its instances do on
+        // the object path; the seat and ACE_CHANGE_TOOL follow it.
+        helix::printer::sync_tool_map_from_slots(system_info_);
+        if (manager_states_seat_ && seat_loaded_ && system_info_.current_tool >= 0) {
+            changed |= seat_from_tool_locked(system_info_.current_tool);
         }
     }
 

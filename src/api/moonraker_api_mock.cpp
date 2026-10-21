@@ -1604,16 +1604,24 @@ void MoonrakerRestAPIMock::call_rest_get(const std::string& endpoint, RestCallba
         }
         return;
     }
+    // A query string the test did not spell answers as the bare path.
+    const std::string path = endpoint.substr(0, endpoint.find('?'));
+    if (auto it = get_responses_.find(path); it != get_responses_.end()) {
+        if (on_complete) {
+            on_complete(it->second);
+        }
+        return;
+    }
 
     RestResponse resp;
     resp.success = true;
     resp.status_code = 200;
 
     // Return mock responses for known ACE endpoints (via ValgACE Moonraker plugin)
-    if (endpoint == "/server/ace/info") {
+    if (path == "/server/ace/info") {
         resp.data = {
             {"result", {{"model", "ACE Pro"}, {"version", "1.0.0-mock"}, {"slot_count", 4}}}};
-    } else if (endpoint == "/server/ace/status") {
+    } else if (path == "/server/ace/status") {
         resp.data = {{"result",
                       {{"loaded_slot", -1},
                        {"action", "idle"},
@@ -1623,7 +1631,7 @@ void MoonrakerRestAPIMock::call_rest_get(const std::string& endpoint, RestCallba
                          {"target_temp", 0.0},
                          {"remaining_minutes", 0},
                          {"duration_minutes", 0}}}}}};
-    } else if (endpoint == "/server/ace/slots") {
+    } else if (path == "/server/ace/slots") {
         resp.data = {{"result",
                       {{"slots",
                         {{{"status", "available"},

@@ -2823,6 +2823,88 @@ TEST_CASE_METHOD(LVGLTestFixture,
     CHECK(info.units[0].slots.size() == 4);
 }
 
+// Two units behind the ACEPRO bridge with T1 loaded. Asked for no instance the
+// bridge serves the instance whose number equals current_index, so the second
+// unit; the backend pins instance 0 and takes each slot's tool from the slot.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE REST bridge serves instance 0 with its own tool numbers",
+                 "[ams][ace][rest_fallback][kobra]") {
+    MockPrinter mock_printer;
+    auto& api = mock_printer.api;
+
+    auto ok = [](json result) {
+        RestResponse resp;
+        resp.success = true;
+        resp.status_code = 200;
+        resp.data = {{"result", std::move(result)}};
+        return resp;
+    };
+    auto slots_with_tools = [](int first_tool, const char* material) {
+        json slots = json::array();
+        for (int i = 0; i < 4; ++i) {
+            slots.push_back(json{{"index", i},
+                                 {"tool", first_tool + i},
+                                 {"status", "ready"},
+                                 {"material", material},
+                                 {"color", json::array({255, 0, 0})}});
+        }
+        return slots;
+    };
+    const json manager = {{"current_index", 1}, {"target_index", -1}, {"ace_instances", 2}};
+    api.rest_mock().mock_set_get_response("/server/ace/status?instance=0",
+                                          ok({{"model", "ACE Pro"},
+                                              {"status", "ready"},
+                                              {"instance_index", 0},
+                                              {"ace_manager", manager}}));
+    api.rest_mock().mock_set_get_response("/server/ace/slots?instance=0",
+                                          ok({{"slots", slots_with_tools(0, "PLA")}}));
+    api.rest_mock().mock_set_get_response("/server/ace/status", ok({{"model", "ACE Pro"},
+                                                                    {"status", "ready"},
+                                                                    {"instance_index", 1},
+                                                                    {"ace_manager", manager}}));
+    api.rest_mock().mock_set_get_response("/server/ace/slots",
+                                          ok({{"slots", slots_with_tools(4, "ABS")}}));
+
+    AmsBackendAceTestHelper backend(&api, nullptr);
+    for (int i = 0; i < 2; ++i) {
+        AceTestAccess::poll_status(backend);
+        AceTestAccess::poll_slots(backend);
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
+    const auto info = backend.get_system_info();
+    CHECK(backend.get_slot_info(0).material == "PLA");
+    CHECK(info.current_tool == 1);
+    CHECK(info.current_slot == 1);
+    backend.set_running(true);
+    backend.captured_gcodes.clear();
+    REQUIRE(backend.load_filament(2).success());
+    REQUIRE_FALSE(backend.captured_gcodes.empty());
+    CHECK(backend.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=2");
+}
+
+// The REST slots carry each slot's `tool`, read rather than assumed from the
+// slot's position: the seat and ACE_CHANGE_TOOL follow it.
+TEST_CASE("ACE REST slots take the tool each slot names", "[ams][ace][rest_fallback][kobra]") {
+    AmsBackendAceTestHelper b;
+    json slots = make_kobra_slots_array();
+    const int tools[] = {6, 5, 4, 7};
+    for (int i = 0; i < 4; ++i) {
+        slots[i]["tool"] = tools[i];
+    }
+    b.test_parse_slots_response(json{{"slots", slots}});
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
+    b.test_parse_slots_response(json{{"slots", slots}});
+
+    CHECK(b.get_test_system_info().current_slot == 1);
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
+    b.set_running(true);
+    b.captured_gcodes.clear();
+    REQUIRE(b.load_filament(0).success());
+    CHECK(b.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=6");
+}
+
 TEST_CASE_METHOD(LVGLTestFixture, "ACE surfaces an error when the data endpoints are all missing",
                  "[ams][ace][rest_fallback][kobra]") {
     // Genuinely-missing-bridge case: /info, /status AND /slots all 404. The

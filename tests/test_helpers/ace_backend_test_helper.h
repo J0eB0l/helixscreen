@@ -38,6 +38,8 @@ class AmsBackendAceTestHelper : public AmsBackendAce {
     AmsBackendAceTestHelper() : AmsBackendAce(nullptr, nullptr) {}
     explicit AmsBackendAceTestHelper(helix::IMoonrakerClient* client)
         : AmsBackendAce(nullptr, client) {}
+    AmsBackendAceTestHelper(helix::IMoonrakerAPI* api, helix::IMoonrakerClient* client)
+        : AmsBackendAce(api, client) {}
 
     // Parse response helpers - call the protected parsing methods
     void test_parse_info_response(const json& data) {
