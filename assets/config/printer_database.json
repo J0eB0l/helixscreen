@@ -1,6 +1,7 @@
 {
   "version": "2.0",
   "description": "Printer auto-detection database with Klipper hardware fingerprints",
+  "_field_variant_of": "Optional on a printer entry: the id of the entry for the same machine without this entry's firmware mod or add-on, which \"variant_label\" (required alongside it) names in a few words, e.g. \"ForgeX\" or \"CFS\". A saved-vs-detected type warning between an entry and its base, or two variants of one base, is worded as that difference rather than as two different printers. A base entry carries neither field.",
   "_field_image_variants": "Optional on a printer entry: an ordered list of alternate images chosen by hardware the app detects on the connected printer, each {\"when\": {<condition>: <value>, ...}, \"image\": \"<file in assets/images/printers/>\"}. The first variant whose every condition holds replaces the entry's image; none holding leaves the plain image, and a custom image the user picked always wins. Conditions: filament_system - a detected filament system of this kind with at least one unit connected (tool_changer is not a filament system and never matches), spelled as ams_type_from_string() parses it (cfs, afc, happy_hare, ace, ad5x_ifs, snapmaker, qidi_box, openams). A condition key or value this build does not know makes its variant never match, and the [printer_database][schema] test fails on one, so a misspelling cannot ship silently. The image re-resolves when detection changes, so a filament system registering after connect switches it live.",
   "heuristic_types": {
     "hostname_match": "Match against Moonraker hostname (from /printer/info)",
@@ -235,6 +236,8 @@
     },
     {
       "id": "flashforge_adventurer_5m_forgex",
+      "variant_of": "flashforge_adventurer_5m",
+      "variant_label": "ForgeX",
       "klipper_hides_dot_dirs": true,
       "name": "FlashForge Adventurer 5M (ForgeX)",
       "manufacturer": "FlashForge",
@@ -476,6 +479,8 @@
     },
     {
       "id": "flashforge_ad5m_pro_forgex",
+      "variant_of": "flashforge_ad5m_pro",
+      "variant_label": "ForgeX",
       "klipper_hides_dot_dirs": true,
       "enclosed": true,
       "name": "FlashForge Adventurer 5M Pro (ForgeX)",
@@ -1369,6 +1374,8 @@
     },
     {
       "id": "creality_k1_cfs",
+      "variant_of": "creality_k1",
+      "variant_label": "CFS",
       "enclosed": true,
       "name": "Creality K1 (with CFS)",
       "manufacturer": "Creality",
@@ -1612,6 +1619,8 @@
     },
     {
       "id": "creality_k1_max_cfs",
+      "variant_of": "creality_k1_max",
+      "variant_label": "CFS",
       "enclosed": true,
       "name": "Creality K1 Max (with CFS)",
       "manufacturer": "Creality",
@@ -1882,6 +1891,8 @@
     },
     {
       "id": "creality_k2_plus_k2improvements",
+      "variant_of": "creality_k2_plus",
+      "variant_label": "k2-improvements",
       "enclosed": true,
       "name": "Creality K2 Plus (k2-improvements)",
       "manufacturer": "Creality",
@@ -2425,6 +2436,8 @@
     },
     {
       "id": "creality_k1c_cfs",
+      "variant_of": "creality_k1c",
+      "variant_label": "CFS",
       "enclosed": true,
       "name": "Creality K1C (with CFS)",
       "manufacturer": "Creality",
@@ -7346,6 +7359,8 @@
     },
     {
       "id": "duender_medusahc",
+      "variant_of": "duender",
+      "variant_label": "MedusaHC",
       "name": "Duender (MedusaHC)",
       "manufacturer": "Irbis3D",
       "image": "duender.png",
@@ -7390,6 +7405,8 @@
     },
     {
       "id": "ducr10_medusahc",
+      "variant_of": "ducr10",
+      "variant_label": "MedusaHC",
       "name": "DuCR10 (MedusaHC)",
       "manufacturer": "Irbis3D",
       "image": "ducr10.png",
