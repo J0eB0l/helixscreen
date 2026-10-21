@@ -149,6 +149,24 @@ setup_instrumented_home() {
     mock_command_script "wget" 'exit 8'
 }
 
+# Print a PATH with no python3 on it at all: every external command
+# install.sh itself calls, minus python3, plus every mock in
+# $BATS_TEST_TMPDIR/bin and helpers' systemctl shim. The sandbox shim
+# directory follows it so the host sandbox's PATH layer still covers this
+# callee, which is sh and so carries none of its exported-function layer; the
+# mocks come first and win.
+path_without_python3() {
+    local bin="$BATS_TEST_TMPDIR/no-python3-path" tool p
+    mkdir -p "$bin"
+    for tool in sh dirname basename cp mv rm ln grep awk sed tail tr cat date sleep readlink; do
+        p="$(command -v "$tool")" && ln -sf "$p" "$bin/$tool"
+    done
+    for p in "$BATS_TEST_TMPDIR"/bin/*; do
+        [ -e "$p" ] && ln -sf "$p" "$bin/${p##*/}"
+    done
+    printf '%s' "$bin:$HELIX_TEST_SANDBOX_BIN"
+}
+
 @test "install.sh passes POSIX syntax check" {
     [ -f "$SCRIPT" ]
     run sh -n "$SCRIPT"
@@ -267,21 +285,10 @@ setup_instrumented_home() {
     local before="$BATS_TEST_TMPDIR/before_printer.cfg"
     cp "$home/printer_data/config/printer.cfg" "$before"
 
-    # A PATH with no python3 on it at all - every external command install.sh
-    # itself calls, minus python3, plus the sudo/service/curl mocks above and
-    # helpers' systemctl shim. The sandbox shim directory follows it so the
-    # host sandbox's PATH layer still covers this callee, which is sh and so
-    # carries none of its exported-function layer; the mocks come first and win.
-    local no_py3="$BATS_TEST_TMPDIR/no-python3-path"
-    mkdir -p "$no_py3"
-    for tool in sh dirname cp mv rm ln grep awk date sleep; do
-        p="$(command -v "$tool")" && ln -sf "$p" "$no_py3/$tool"
-    done
-    for cmd in sudo service curl systemctl; do
-        ln -sf "$BATS_TEST_TMPDIR/bin/$cmd" "$no_py3/$cmd"
-    done
+    local no_py3
+    no_py3=$(path_without_python3)
 
-    run env HOME="$home" PATH="$no_py3:$HELIX_TEST_SANDBOX_BIN" sh "$SCRIPT" --uninstall-auto
+    run env HOME="$home" PATH="$no_py3" sh "$SCRIPT" --uninstall-auto
     # PRINT_START could not be checked at all, so this is "needs attention"
     # (2), not full success - the plugin itself is still gone.
     [ "$status" -eq 2 ]
@@ -552,6 +559,106 @@ FORGEX_PLUGIN=/opt/config/mod_data/helixscreen/moonraker-plugin
         || fail "the user's own sections were lost"
     [ -L "$cfg/moonraker.conf" ]
     cmp -s "$BATS_TEST_TMPDIR/mod.conf.before" "$cfg/mod/moonraker.conf"
+}
+
+# A chroot(8) that logs its argv to $1, checks the program it was handed
+# exists inside the root, and runs it as the host's real python3 with every
+# absolute argument re-rooted, exiting $2 instead when given.
+mock_chroot() {
+    local log="$1" status="${2:-}" py
+    py=$(command -v python3)
+    local body="printf '%s\\n' \"\$*\" >> '$log'"
+    if [ -n "$status" ]; then
+        body="$body
+exit $status"
+    else
+        body="$body
+root=\$1; prog=\$2; shift 2
+[ -x \"\$root\$prog\" ] || { echo \"chroot: \$prog: not found\" >&2; exit 127; }
+for a; do case \$a in /*) a=\$root\$a ;; esac; set -- \"\$@\" \"\$a\"; shift; done
+exec '$py' \"\$@\""
+    fi
+    mock_command_script "chroot" "$body"
+}
+
+# The Forge-X layout with an instrumented PRINT_START and a python3 inside the
+# chroot, which is all the python3 an AD5X has.
+setup_forgex_instrumented() {
+    local chroot="$1/data/.mod/.forge-x"
+    setup_forgex_layout "$1"
+    write_instrumented_printer_cfg "$chroot/root/printer_data/config/printer.cfg"
+    mkdir -p "$chroot/usr/bin"
+    : > "$chroot/usr/bin/python3"
+    chmod +x "$chroot/usr/bin/python3"
+}
+
+@test "on Forge-X with no python3 outside the chroot, auto uninstall strips PRINT_START with the chroot's" {
+    local root="$BATS_TEST_TMPDIR/fx"
+    setup_forgex_instrumented "$root"
+    local chroot="$root/data/.mod/.forge-x" log="$BATS_TEST_TMPDIR/chroot.log"
+    mock_chroot "$log"
+    write_original_printer_cfg "$BATS_TEST_TMPDIR/expected_printer.cfg"
+
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+        sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
+    [ "$status" -eq 0 ] || fail "uninstall reported $status: $output"
+    [ "$(cat "$log")" = "$chroot /usr/bin/python3 $FORGEX_PLUGIN/strip_phase_tracking.py /root/printer_data/config" ] \
+        || fail "chroot ran: $(cat "$log")"
+    diff "$BATS_TEST_TMPDIR/expected_printer.cfg" "$chroot/root/printer_data/config/printer.cfg"
+}
+
+@test "on Forge-X, the chroot strip's failure reaches the uninstall's status" {
+    local root="$BATS_TEST_TMPDIR/fx"
+    setup_forgex_instrumented "$root"
+    local chroot="$root/data/.mod/.forge-x"
+    mock_chroot "$BATS_TEST_TMPDIR/chroot.log" 1
+
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+        sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
+    [ "$status" -eq 2 ]
+    contains "Phase-tracking strip reported a failure" "$output"
+    [[ "$output" != *"python3 not found"* ]] || fail "warned of no python3: $output"
+}
+
+@test "on Forge-X with no python3 inside the chroot either, auto uninstall warns" {
+    local root="$BATS_TEST_TMPDIR/fx"
+    setup_forgex_instrumented "$root"
+    local chroot="$root/data/.mod/.forge-x" log="$BATS_TEST_TMPDIR/chroot.log"
+    rm "$chroot/usr/bin/python3"
+    mock_chroot "$log"
+
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+        sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
+    [ "$status" -eq 2 ]
+    contains "python3 not found" "$output"
+    [ ! -e "$log" ] || fail "chroot ran: $(cat "$log")"
+}
+
+@test "on Forge-X, a strip script the chroot cannot see is not run there" {
+    local root="$BATS_TEST_TMPDIR/fx"
+    setup_forgex_instrumented "$root"
+    local log="$BATS_TEST_TMPDIR/chroot.log"
+    mock_chroot "$log"
+
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3)" \
+        sh "$SCRIPT" --no-restart --uninstall-auto
+    [ "$status" -eq 2 ]
+    contains "python3 not found" "$output"
+    [ ! -e "$log" ] || fail "chroot ran: $(cat "$log")"
+}
+
+@test "on Forge-X with python3 outside the chroot, auto uninstall strips with it" {
+    local root="$BATS_TEST_TMPDIR/fx"
+    setup_forgex_instrumented "$root"
+    local chroot="$root/data/.mod/.forge-x" log="$BATS_TEST_TMPDIR/chroot.log"
+    mock_chroot "$log" 1
+    write_original_printer_cfg "$BATS_TEST_TMPDIR/expected_printer.cfg"
+
+    run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" \
+        sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
+    [ "$status" -eq 0 ] || fail "uninstall reported $status: $output"
+    [ ! -e "$log" ] || fail "chroot ran: $(cat "$log")"
+    diff "$BATS_TEST_TMPDIR/expected_printer.cfg" "$chroot/root/printer_data/config/printer.cfg"
 }
 
 @test "on Forge-X, with no service manager in reach, the auto install asks Moonraker to restart itself" {

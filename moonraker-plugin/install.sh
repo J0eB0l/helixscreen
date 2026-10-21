@@ -135,6 +135,30 @@ path_for_moonraker() {
     printf '%s' "$1"
 }
 
+# Print path @1 as the running Moonraker names it (path_for_moonraker), or
+# fail when nothing exists there from Moonraker's root: a path outside its
+# chroot that no bind mount brings in.
+moonraker_visible_path() {
+    seen=$(path_for_moonraker "$1")
+    [ -e "$(running_moonraker_root)$seen" ] || return 1
+    printf '%s' "$seen"
+}
+
+# Print the python3 inside the running Moonraker's chroot, as the chroot
+# names it. Fails when Moonraker runs in no chroot, when chroot(8) is not
+# here to enter it, or when the chroot holds no python3.
+chroot_python3() {
+    mroot=$(running_moonraker_root)
+    [ -n "$mroot" ] && command -v chroot > /dev/null 2>&1 || return 1
+    for py in /usr/bin/python3 /bin/python3 /usr/local/bin/python3; do
+        if [ -x "$mroot$py" ]; then
+            printf '%s' "$py"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Whether a process with ids @1 (uid, then groups) holds permission @2 (r
 # or x) on @3, by its mode bits: the owner's, else a group's, else other's.
 # uid 0 holds both.
@@ -216,10 +240,8 @@ can_link_in() {
 # runs in a chroot. Stops through error() when one fails.
 check_plugin_link() {
     can_link_in "$1" || error "Cannot write to components directory: $1"
-    link_to=$(path_for_moonraker "$PLUGIN_FILE")
-    if [ ! -f "$(running_moonraker_root)$link_to" ]; then
+    link_to=$(moonraker_visible_path "$PLUGIN_FILE") ||
         error "Moonraker cannot see $PLUGIN_FILE from its root ($(running_moonraker_root))"
-    fi
     require_moonraker_can_read "$PLUGIN_FILE"
 }
 
@@ -542,10 +564,12 @@ finish_with_restart() {
 # strip_phase_tracking.py, which owns the marker format and the safety
 # contract around editing a printer's config (matched blocks only, a
 # verified backup, symlinks and modes preserved). python3 is what Moonraker
-# itself runs on; its absence here means something else on this printer is
-# already broken. Either way this never aborts the rest of uninstall - it
-# reports the outcome and returns it, so the caller can fold it into its own
-# exit status instead of claiming success it cannot back up.
+# itself runs on: here, or inside the chroot a Moonraker like Forge-X's runs
+# in, which is the only python3 such a printer has. Its absence from both
+# means something else on this printer is already broken. Either way this
+# never aborts the rest of uninstall - it reports the outcome and returns it,
+# so the caller can fold it into its own exit status instead of claiming
+# success it cannot back up.
 #
 # Returns strip_phase_tracking.py's own exit status unchanged (0 clean, 2
 # needs attention, 1 failed) so a caller can wire it straight through; a
@@ -553,16 +577,21 @@ finish_with_restart() {
 # PRINT_START could not be checked at all.
 strip_phase_tracking_instrumentation() {
     scan_dir="$1"
+    strip_py="$SCRIPT_DIR/strip_phase_tracking.py"
 
-    if ! command -v python3 > /dev/null 2>&1; then
+    strip_status=$EXIT_UNINSTALL_OK
+    if command -v python3 > /dev/null 2>&1; then
+        python3 "$strip_py" "$scan_dir" || strip_status=$?
+    elif chroot_py=$(chroot_python3) &&
+        chroot_strip_py=$(moonraker_visible_path "$strip_py") &&
+        chroot_scan_dir=$(moonraker_visible_path "$scan_dir"); then
+        chroot "$(running_moonraker_root)" "$chroot_py" "$chroot_strip_py" "$chroot_scan_dir" || strip_status=$?
+    else
         warn "python3 not found - could not check PRINT_START for phase-tracking instrumentation"
         warn "If a previous HelixScreen instrumented PRINT_START, remove any block between"
         warn "'# <<< HELIX_TRACKING v2 >>>' and '# <<< /HELIX_TRACKING >>>' by hand, then restart Klipper"
         return "$EXIT_UNINSTALL_NEEDS_ATTENTION"
     fi
-
-    strip_status=$EXIT_UNINSTALL_OK
-    python3 "$SCRIPT_DIR/strip_phase_tracking.py" "$scan_dir" || strip_status=$?
     if [ "$strip_status" -ne 0 ]; then
         warn "Phase-tracking strip reported a failure - see the output above"
     fi
