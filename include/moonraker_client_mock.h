@@ -2367,6 +2367,39 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// feeder and enters the drop phase; advance_medusa_swap() does the rest.
     void start_medusa_swap(int tool);
 
+    // --- Bondtech INDX mock hardware (moonraker_client_mock_indx.cpp) ----------
+    // The macro state Bondtech's upstream macros publish (save_variables and
+    // gcode_macro variables), driven by T<n> / CHANGE_TOOL / PARK_TOOL and
+    // advanced one phase per notification. Written from gcode_script(), read
+    // by the RPC handlers and the simulation thread: all behind indx_mutex_.
+    struct IndxMockState {
+        int tool_count = 6;
+        int active_tool = 0;
+        int target_tool = -1; ///< Tool the running change fetches, -1 a park
+        int phase = 0;        ///< 0 idle, 1 parking, 2 picking up
+        int phase_ticks = 0;
+        int toolchange_count = 0;
+        int seat_suspect = -1;
+        int toolhead_state = 0; ///< 0 locked, 2 open
+        bool docks_calibrated = true;
+        std::vector<int> no_heat_tools{5};
+        bool spool_macros = false;  ///< T<n> declares spool_id and sets the active spool
+        bool kalico = false;        ///< [indx] in configfile only, not in the objects list
+        bool unrecognized = false;  ///< CHANGE_TOOL missing
+        double resume_target = 0.0; ///< Extruder target the pickup re-heats to
+        std::vector<int> spool_ids; ///< Per tool, with spool_macros
+    };
+    mutable std::mutex indx_mutex_;
+    IndxMockState indx_;
+
+    /// Read the HELIX_MOCK_INDX_* knobs into indx_.
+    void read_indx_knobs();
+    /// Objects and configfile sections an INDX printer lists.
+    void append_indx_objects(nlohmann::json& objects) const;
+    [[nodiscard]] nlohmann::json indx_config_sections() const;
+    /// Advance a running change by one notification. No-op when idle.
+    void advance_indx_swap();
+
     /// Advance the armed swap by one notification interval. No-op when idle.
     void advance_medusa_swap();
 
@@ -2514,6 +2547,15 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// The `ace` object frame, the engine's get_status() shape.
     [[nodiscard]] nlohmann::json multiace_status_json() const;
 
+    // --- Bondtech INDX mock hardware (public for the mock tests) ---
+    bool is_mock_indx() const;
+    /// The simulated extruder target (0 = off).
+    [[nodiscard]] double extruder_target() const {
+        return extruder_target_.load();
+    }
+    /// Every INDX status object, keyed as Klipper names them.
+    [[nodiscard]] nlohmann::json indx_status_json() const;
+
     /// display_status.message as the mock publishes it now: the last M117 once one was
     /// sent (an empty one included), else the print-start chatter for the current phase,
     /// else null.
@@ -2531,6 +2573,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     GcodeResult gcode_layer_pause(const std::string& gcode);
     GcodeResult gcode_ifs_module(const std::string& gcode);
     GcodeResult gcode_medusa(const std::string& gcode);
+    GcodeResult gcode_indx(const std::string& gcode);
     /// RESPOND: echoes MSG on the console the way Klipper's [respond] does, so
     /// an action prompt a script raises reaches the screen.
     GcodeResult gcode_respond(const std::string& gcode);

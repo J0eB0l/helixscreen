@@ -1220,6 +1220,9 @@ int MoonrakerClientMock::gcode_script(const std::string& raw_gcode) {
     if (is_mock_medusahc() && (r = gcode_medusa(g))) {
         return *r;
     }
+    if (is_mock_indx() && (r = gcode_indx(g))) {
+        return *r;
+    }
     if ((r = gcode_respond(raw_gcode))) {
         return *r;
     }

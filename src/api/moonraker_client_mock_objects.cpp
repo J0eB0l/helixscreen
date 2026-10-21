@@ -521,6 +521,15 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     status_obj["medusahc"] = medusa;
                 }
             }
+            // INDX (HELIX_MOCK_AMS=indx): only the objects asked for.
+            if (self->is_mock_indx()) {
+                const auto indx = self->indx_status_json();
+                for (const auto& [name, value] : indx.items()) {
+                    if (objects.contains(name)) {
+                        status_obj[name] = value;
+                    }
+                }
+            }
             // OpenAMS (HELIX_MOCK_AMS=openams): the claim query and the
             // subscribe snapshot both read the manager's status.
             if (objects.contains("oams_manager") && self->is_mock_openams()) {
@@ -826,6 +835,15 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
             if (objects.contains("medusahc")) {
                 if (auto medusa = self->medusa_status_json(); !medusa.empty()) {
                     status_obj["medusahc"] = medusa;
+                }
+            }
+            // INDX (HELIX_MOCK_AMS=indx): only the objects asked for.
+            if (self->is_mock_indx()) {
+                const auto indx = self->indx_status_json();
+                for (const auto& [name, value] : indx.items()) {
+                    if (objects.contains(name)) {
+                        status_obj[name] = value;
+                    }
                 }
             }
             // Z-Mod's colour registry (creator5_zmod persona).

@@ -1323,7 +1323,7 @@ void MoonrakerClientMock::populate_capabilities() {
     // mode and any persona that omits it: "mmu" detects Happy Hare (priority over every
     // other filament system) and would stand the wrong backend up.
     if (mmu_enabled_ && !is_mock_medusahc() && !is_mock_ifs_module() && !is_mock_openams() &&
-        inherits(kHappyHareMmu)) {
+        !is_mock_indx() && inherits(kHappyHareMmu)) {
         mock_objects.push_back("mmu");
     }
 
@@ -1511,6 +1511,14 @@ void MoonrakerClientMock::populate_capabilities() {
         spdlog::info("[MoonrakerClientMock] OpenAMS mock: oams_manager status object");
     }
 
+    // INDX mock hardware (HELIX_MOCK_AMS=indx): Bondtech's macro objects plus
+    // the toolboard module, so real discovery builds AmsBackendIndx (the
+    // MedusaHC rule again: try_create_mock() declines this value).
+    if (is_mock_indx()) {
+        read_indx_knobs();
+        append_indx_objects(mock_objects);
+    }
+
     append_skip_wrapper_objects(mock_objects);
 
     // Parse objects into hardware discovery (unified hardware access)
@@ -1547,6 +1555,9 @@ void MoonrakerClientMock::populate_capabilities() {
     mock_config["stepper_z"] = {{"position_min", 0.0}, {"position_max", axis_max.z}};
     for (const auto& [name, settings] : extra_config_settings_.items()) {
         mock_config[name] = settings;
+    }
+    if (is_mock_indx()) {
+        mock_config.merge_patch(indx_config_sections());
     }
 
     std::unordered_set<std::string> macros_snapshot;
@@ -4634,6 +4645,9 @@ void MoonrakerClientMock::dispatch_initial_state() {
     // the leveling-skip objects it never asked for are announced with the rest.
     initial_status.update(skip_wrapper_status());
     initial_status.update(layer_pause_status());
+    if (is_mock_indx()) {
+        initial_status.update(indx_status_json());
+    }
 
     // multiACE mock: the `ace` object and both filament_feed sides at rest, so
     // the production backend's first parse sees what a booted rig reports.
@@ -5522,6 +5536,12 @@ void MoonrakerClientMock::temperature_simulation_loop() {
         // status and each ACE_* command's publish, not this loop.
         if (is_mock_multiace()) {
             status_obj["ace"] = multiace_status_json();
+        }
+        // INDX mock: one change phase per notification, and the macro state
+        // that phase leaves behind.
+        if (is_mock_indx()) {
+            advance_indx_swap();
+            status_obj.merge_patch(indx_status_json());
         }
         if (printer_type_ == PrinterType::CREALITY_K2_PLUS) {
             append_k2_status(status_obj);
