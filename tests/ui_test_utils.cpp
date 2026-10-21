@@ -367,7 +367,8 @@ bool send_key(uint32_t key) {
 // advancing the tick leaves LVGL frozen: lv_timer_handler_safe() compares
 // `now - last_run >= period`, so zero-period one-shots (lv_async_call) still
 // fire, but any timer with a real period never comes due, however long you wait.
-// Both waits below therefore advance the virtual clock in step with the sleep.
+// wait_ms() and wait_until() below therefore advance the virtual clock in step
+// with the sleep; advance_ms() advances it without sleeping at all.
 static constexpr uint32_t kWaitPollMs = 5;
 
 void advance_ms(uint32_t ms) {

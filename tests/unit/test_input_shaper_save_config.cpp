@@ -208,9 +208,10 @@ class SaveConfigFixture : public LVGLTestFixture {
     InputShaperPanel& panel_;
 
   private:
-    /// Each phase of the health monitor polls, sleeps its 500ms interval, and
-    /// only then sees the timeout, so 1ms is one poll per phase. The join
-    /// budget clears that with room for a loaded CI box.
+    /// Phase 1 of the health monitor checks the connection, sleeps its 500ms
+    /// interval, and only then sees the timeout, so 1ms is one poll there. The
+    /// revert case also polls once in Phase 2, whose timeout counts from the
+    /// same start. The join budget clears that with room for a loaded CI box.
     static constexpr uint32_t kRestartTimeoutMs = 1;
     static constexpr uint32_t kJoinTimeoutMs = 20000;
 
