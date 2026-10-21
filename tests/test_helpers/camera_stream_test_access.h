@@ -8,6 +8,10 @@
 
 #include "camera_stream.h"
 
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -99,6 +103,33 @@ class CameraStreamTestAccess {
     /// over a joinable one is std::terminate, so start() must reap it.
     static bool worker_joinable(const CameraStream& s) {
         return s.stream_thread_.joinable();
+    }
+
+    /// Shorten how long stop() waits for the worker before detaching it.
+    static void set_join_timeout(CameraStream& s, std::chrono::milliseconds timeout) {
+        s.join_timeout_ = timeout;
+    }
+
+    /// Spawn a worker that ignores stop() and parks until @p release is set,
+    /// standing in for a stream thread wedged in a request that will not cancel.
+    /// It touches nothing of @p s, so it may outlive the object; it sets
+    /// @p exited as it returns.
+    static void spawn_wedged_worker(CameraStream& s, std::shared_ptr<std::atomic<bool>> release,
+                                    std::shared_ptr<std::atomic<bool>> exited) {
+        s.running_.store(true);
+        s.stream_thread_ = std::thread([release, exited] {
+            while (!release->load()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            }
+            exited->store(true);
+        });
+    }
+
+    /// Byte range of `stream_thread_` within a CameraStream, for checking that
+    /// nothing writes to the object's storage after it is gone.
+    static size_t worker_offset(const CameraStream& s) {
+        return static_cast<size_t>(reinterpret_cast<const unsigned char*>(&s.stream_thread_) -
+                                   reinterpret_cast<const unsigned char*>(&s));
     }
 
   private:
