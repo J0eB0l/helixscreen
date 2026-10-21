@@ -107,7 +107,6 @@ TEST_CASE("INDX mock: a change parks, picks up and records the tool before ackin
     IndxFrames frames;
     MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
     mock.register_notify_update(frames.callback());
-    mock.connect("ws://mock/websocket", [] {}, [] {});
 
     const size_t mark = frames.mark();
     REQUIRE(mock.gcode_script("T2") == 0);
@@ -115,9 +114,10 @@ TEST_CASE("INDX mock: a change parks, picks up and records the tool before ackin
     auto now = helix::indx::read_status(mock.indx_status_json());
     REQUIRE(now.has_value());
     CHECK(now->active_tool == 2);
-    // And the park and the pickup both went out as frames.
-    CHECK(frames.wait_for_active(mark, -1));
-    CHECK(frames.wait_for_active(mark, 2));
+    // And the park and the pickup both went out as frames, with no
+    // simulation thread running: the change publishes them itself.
+    CHECK(frames.wait_for_active(mark, -1, 0));
+    CHECK(frames.wait_for_active(mark, 2, 0));
 }
 
 TEST_CASE("INDX mock: no heat with an empty head", "[ams][indx][mock][heat]") {

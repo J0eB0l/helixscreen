@@ -419,3 +419,26 @@ TEST_CASE("TemperatureController refuses nozzle heat the backend blocks",
     f.controller.set_target(helix::HeaterType::Nozzle, 210.0, helix::SendOptions{.toast = false});
     CHECK(last_temp_gcode(f.client) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=210");
 }
+
+TEST_CASE("TemperatureController refuses heat on a mounted tool with no hotend",
+          "[temp_controller][indx][heat]") {
+    ControllerFixture f;
+    f.state.temperature_state().init_extruders({"extruder"});
+    helix::test::RegisteredBackend<helix::test::GcodeCaptureBackend<helix::AmsBackendIndx>> harness;
+    harness->set_discovery(indx_discovery());
+    harness->feed(
+        nlohmann::json{{"save_variables", {{"variables", {{"active_tool", 2}}}}},
+                       {"gcode_macro TOOL_POSITIONS",
+                        {{"tool_count", 3}, {"no_heat_tools", nlohmann::json::array({2})}}}});
+    REQUIRE(harness->get_current_tool() == 2);
+
+    f.client.clear_gcode_script_history();
+    f.controller.set_target(helix::HeaterType::Nozzle, 210.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client).empty());
+
+    // The same tool, once it is not listed as a pen or cutter, heats.
+    harness->feed(nlohmann::json{
+        {"gcode_macro TOOL_POSITIONS", {{"no_heat_tools", nlohmann::json::array()}}}});
+    f.controller.set_target(helix::HeaterType::Nozzle, 210.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=210");
+}
