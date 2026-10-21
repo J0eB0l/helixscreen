@@ -145,6 +145,7 @@ TEST_CASE("the tail discovery steps run in this order", "[discovery_steps]") {
         "spoolman_sync",
         "auto_update_check",
         "moonraker_update_channel",
+        "filament_temperatures",
         "remote_screen_webcam",
         "manual_probe_autoopen",
     };

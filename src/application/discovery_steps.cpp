@@ -15,6 +15,7 @@
 
 #include "app_globals.h"
 #include "config.h"
+#include "filament_temperature_source.h"
 #include "hardware_setup_prompter.h"
 #include "power_device_state.h"
 #include "printer_state.h"
@@ -155,6 +156,13 @@ void manual_probe_autoopen_step(DiscoveryContext& ctx) {
 // Re-decide the screen server's mode for this printer (its Moonraker may be on another
 // host) and keep Moonraker's webcam list in step, refreshing the LAN address an
 // absolute entry carries.
+// Per-filament operation temperatures are static firmware data kept in files, not
+// status, so the one read belongs at connect time. No-ops on a printer whose firmware
+// keeps none.
+void filament_temperatures_step(DiscoveryContext& ctx) {
+    filament_temps::capture_on_connect(ctx.api.transfers(), ctx.hw);
+}
+
 void remote_screen_webcam_step(DiscoveryContext&) {
     RemoteScreenService::instance().apply_settings();
 }
@@ -172,6 +180,7 @@ constexpr DiscoveryStep kTailSteps[] = {
     {"spoolman_sync", false, spoolman_sync_step, nullptr},
     {"auto_update_check", false, auto_update_check_step, nullptr},
     {"moonraker_update_channel", false, moonraker_update_channel_step, nullptr},
+    {"filament_temperatures", false, filament_temperatures_step, nullptr},
     {"remote_screen_webcam", false, remote_screen_webcam_step, nullptr},
     {"manual_probe_autoopen", false, manual_probe_autoopen_step, nullptr},
 };

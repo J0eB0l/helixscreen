@@ -337,13 +337,19 @@ Not yet verified on hardware; both script shapes and both recovery paths are sou
 
 ### Per-Filament Load/Unload Temperatures
 
-The firmware can answer load and unload temperatures per spool identity. The provider table has
-one row for the U1: detect object `filament_parameters`, query `FILAMENT_PARA_GET_ALL_INFO`
-(`include/filament_temperature_source.h`). The response arrives as `// `-prefixed console lines
-carrying flat Python dict literals keyed `{vendor}_{main_type}_{sub_type}_{field}`;
-`helix::filament_temps` parses them into `FilamentTemperatures{load_c, unload_c}`.
-`capture_on_connect()` runs from the discovery sequence, and
-`lookup_filament_temperatures()` feeds the result into
+The firmware keeps load and unload temperatures per spool identity. The provider table has
+one row for the U1: detect object `filament_parameters`, files under the `config` root
+(`include/filament_temperature_source.h`). The firmware's `filament_parameters` module writes
+one JSON file per nozzle config into its snapmaker config dir, `snapmaker/filament_para_<nozzle>.json`
+for `standard_02`, `standard_04`, `standard_06`, `standard_08` and `high_flow_04`, once Klipper
+is ready, each a flat object keyed
+`{vendor}_{main_type}_{sub_type}_{field}`. `capture_on_connect()` runs as the
+`filament_temperatures` discovery step, downloads every file through `ITransfersAPI::download_file`,
+and publishes the merge of the files that parse as `FilamentTemperatures{load_c, unload_c}`;
+the 0.4 standard file leads, so its values win a leaf several files list. A missing or
+unparseable file is skipped, and with none readable nothing is published. It never sends
+`FILAMENT_PARA_GET_ALL_INFO`: that prints the same tables, about 43 KB, into every client's
+console. `lookup_filament_temperatures()` feeds the result into
 `ActiveMaterialProvider` as `result.firmware_temps`
 (`src/printer/active_material_provider.cpp`). The load temperature wins over the
 database-derived preheat when the firmware publishes one
