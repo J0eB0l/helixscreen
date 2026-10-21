@@ -169,8 +169,10 @@ inline std::optional<int32_t> reported_current_layer(std::string_view line) {
     }
     static constexpr std::string_view kKey = "current_layer=";
     size_t pos = 0;
+    // The separator set must match the token terminators below, or a
+    // terminator that is not skipped leaves pos stuck on an empty token.
     while (pos < line.size() && line[pos] != ';') {
-        if (line[pos] == ' ' || line[pos] == '\t') {
+        if (line[pos] == ' ' || line[pos] == '\t' || line[pos] == '\r' || line[pos] == '\n') {
             ++pos;
             continue;
         }
