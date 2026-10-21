@@ -12,9 +12,14 @@
 // indx_contract.h, fed to the base as a tool reading.
 
 #include "ams_backend_toolchanger.h"
+#include "axis.h"
 #include "indx_contract.h"
+#include "tool_offsets.h"
 
+#include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace helix {
@@ -85,6 +90,11 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     /// do_change_tool() and do_park_active_tool() refuse with.
     [[nodiscard]] std::string motion_blocked_reason() const;
 
+    /// Speed, Calibration, Maintenance and Tool Offsets, each only when it
+    /// holds an action, after the base's own.
+    [[nodiscard]] std::vector<helix::printer::DeviceSection> get_device_sections() const override;
+    [[nodiscard]] std::vector<helix::printer::DeviceAction> get_device_actions() const override;
+
   protected:
     /// A print is paused. Virtual so tests can pause without a printer.
     [[nodiscard]] virtual bool print_paused() const;
@@ -97,6 +107,19 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     AmsError do_change_tool(int tool_number) override;
     AmsError do_park_active_tool() override;
     AmsError do_load_filament(int slot_index) override;
+    AmsError do_execute_device_action(const std::string& action_id, const std::any& value) override;
+    /// The tool cycle and the calibrations report when the printer finishes
+    /// them; every other action is the untracked one.
+    AmsError do_run_device_action(const std::string& action_id, const std::any& value,
+                                  DeviceActionDone on_done) override;
+
+    /// The nozzle heater's target in C; 0 without a printer. Virtual so tests
+    /// can heat without one.
+    [[nodiscard]] virtual double nozzle_target_c() const;
+
+    /// Fold the offsets @p status carries into the held ones; true when one
+    /// changed. Caller holds mutex_.
+    bool merge_offsets_locked(const nlohmann::json& status);
 
     /// Size the tool slots to @p count, keeping the unit's INDX identity.
     void size_tools(int count);
@@ -109,6 +132,13 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     int sized_tool_count_ = -1;
     /// An out-of-range active_tool was logged; reset by an in-range one.
     bool warned_out_of_range_ = false;
+
+    /// The printer's measured offsets, read-only. Under mutex_.
+    helix::tool_offsets::OffsetReader offset_reader_;
+    /// Whether discovery found offsets to show at all.
+    bool offsets_readable_ = false;
+    std::map<std::pair<int, Axis>, int> tool_offsets_um_;
+    std::optional<int> global_z_offset_um_;
 };
 
 } // namespace helix

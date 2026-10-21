@@ -2,6 +2,8 @@
 
 #include "ams_backend_indx.h"
 
+#include "ams_device_action_value.h"
+#include "ams_device_sections.h"
 #include "ams_error.h"
 #include "ams_fault_event.h"
 #include "app_constants.h"
@@ -19,6 +21,8 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <any>
+#include <memory>
 #include <utility>
 
 namespace helix {
@@ -36,6 +40,11 @@ nlohmann::json AmsBackendIndx::required_status_objects(const helix::PrinterDisco
 void AmsBackendIndx::set_discovery(const helix::PrinterDiscovery& discovery) {
     contract_ = indx::check_contract(discovery);
     macros_set_active_spool_ = indx::macros_set_active_spool(discovery);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        offset_reader_ = tool_offsets::resolve_reader(discovery);
+        offsets_readable_ = tool_offsets::reads_axis(discovery, Axis::Z);
+    }
     change_gcodes_.clear();
     for (int i = 0; i < indx::kMaxTools; ++i) {
         change_gcodes_.push_back(indx::change_tool_gcode(discovery, i));
@@ -91,7 +100,15 @@ AmsError AmsBackendIndx::additional_start_checks() {
 
 void AmsBackendIndx::handle_status(const nlohmann::json& status) {
     auto update = indx::read_status(status);
+    bool offsets_changed = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        offsets_changed = merge_offsets_locked(status);
+    }
     if (!update) {
+        if (offsets_changed) {
+            emit_event(EVENT_STATE_CHANGED);
+        }
         return;
     }
 
@@ -101,7 +118,7 @@ void AmsBackendIndx::handle_status(const nlohmann::json& status) {
         std::lock_guard<std::mutex> lock(mutex_);
         const indx::Reading before = state_;
         indx::merge(state_, *update);
-        changed = !(state_ == before);
+        changed = !(state_ == before) || offsets_changed;
         if (contract_.recognized && update->tool_count &&
             *update->tool_count != sized_tool_count_) {
             resize = *update->tool_count;
@@ -153,6 +170,34 @@ void AmsBackendIndx::handle_status(const nlohmann::json& status) {
         }
     }
     emit_event(EVENT_STATE_CHANGED);
+}
+
+bool AmsBackendIndx::merge_offsets_locked(const nlohmann::json& status) {
+    if (!offsets_readable_) {
+        return false;
+    }
+    // Absent is no news: a frame without a key keeps the value held.
+    bool changed = false;
+    for (int tool = 0; tool < indx::kMaxTools; ++tool) {
+        for (Axis axis : kAllAxes) {
+            const auto fresh =
+                tool_offsets::read_tool_offset_microns(offset_reader_, status, axis, tool, "");
+            if (!fresh) {
+                continue;
+            }
+            auto [it, inserted] = tool_offsets_um_.try_emplace(std::make_pair(tool, axis), *fresh);
+            if (inserted || it->second != *fresh) {
+                it->second = *fresh;
+                changed = true;
+            }
+        }
+    }
+    const auto global = tool_offsets::read_global_z_offset_microns(offset_reader_, status);
+    if (global && global != global_z_offset_um_) {
+        global_z_offset_um_ = global;
+        changed = true;
+    }
+    return changed;
 }
 
 std::string AmsBackendIndx::nozzle_heat_blocked_reason() const {
@@ -310,6 +355,225 @@ AmsError AmsBackendIndx::do_load_filament(int slot_index) {
     }
     spdlog::info("{} Loading tool {}: {}", backend_log_tag(), slot_index, cmd);
     return dispatch_operation(std::move(cmd), AmsAction::LOADING);
+}
+
+// ============================================================================
+// Device actions
+// ============================================================================
+
+namespace {
+
+constexpr const char* kSpeedModeAction = "speed_mode";
+constexpr const char* kSeatByHandAction = "seat_by_hand";
+constexpr const char* kCalibrateHeaterAction = "calibrate_heater";
+constexpr const char* kCalibrateFanAction = "calibrate_fan";
+constexpr const char* kCycleAllAction = "cycle_all";
+
+/// "X 0.120  Y -0.045  Z 0.030 mm", each unknown axis "-"; "-" when none is known.
+std::string offsets_text(const std::map<std::pair<int, Axis>, int>& offsets, int tool) {
+    std::string text;
+    bool any = false;
+    for (Axis axis : kAllAxes) {
+        auto it = offsets.find(std::make_pair(tool, axis));
+        std::string value = "-";
+        if (it != offsets.end()) {
+            value = fmt::format("{:.3f}", it->second / 1000.0);
+            any = true;
+        }
+        text += fmt::format("{}{} {}", text.empty() ? "" : "  ",
+                            static_cast<char>(axis_letter(axis) - 'a' + 'A'), value);
+    }
+    return any ? text + " mm" : "-";
+}
+
+std::optional<indx::HeaterCalibration> calibration_for(const std::string& action_id) {
+    if (action_id == kCalibrateHeaterAction) {
+        return indx::HeaterCalibration::Heater;
+    }
+    if (action_id == kCalibrateFanAction) {
+        return indx::HeaterCalibration::Fan;
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
+double AmsBackendIndx::nozzle_target_c() const {
+    if (!api_) {
+        return 0.0;
+    }
+    return lv_subject_get_int(
+               api_->printer_state().temperature_state().get_active_extruder_target_subject()) /
+           10.0;
+}
+
+std::vector<helix::printer::DeviceSection> AmsBackendIndx::get_device_sections() const {
+    auto sections = AmsBackendToolChanger::get_device_sections();
+    const auto actions = get_device_actions();
+    const auto has = [&actions](const char* section) {
+        return std::any_of(actions.begin(), actions.end(),
+                           [section](const auto& a) { return a.section == section; });
+    };
+    using helix::printer::device_section;
+    if (has("speed")) {
+        sections.push_back(
+            device_section("speed", 0, TR_NOOP("How fast the head moves while changing tools")));
+    }
+    if (has("calibration")) {
+        sections.push_back(
+            device_section("calibration", 1, TR_NOOP("Fit the induction heater's safety model")));
+    }
+    if (has("maintenance")) {
+        sections.push_back(device_section("maintenance", 2, TR_NOOP("Check every dock")));
+    }
+    if (has("tool_offsets")) {
+        sections.push_back(
+            device_section("tool_offsets", 3, TR_NOOP("Measured offsets, read-only")));
+    }
+    return sections;
+}
+
+std::vector<helix::printer::DeviceAction> AmsBackendIndx::get_device_actions() const {
+    using DA = helix::printer::DeviceAction;
+    auto actions = AmsBackendToolChanger::get_device_actions();
+    if (!contract_.recognized) {
+        return actions;
+    }
+    const double target_c = nozzle_target_c();
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (contract_.has_speed_modes) {
+        std::any current;
+        if (state_.speed_mode) {
+            if (auto mode = indx::parse_speed_mode(*state_.speed_mode)) {
+                current = std::string(indx::speed_mode_option(*mode));
+            }
+        }
+        std::vector<std::string> options;
+        for (auto mode : indx::kSpeedModes) {
+            options.emplace_back(indx::speed_mode_option(mode));
+        }
+        actions.push_back(DA::dropdown("speed_mode", "Tool change speed", "speed", options, current,
+                                       "speed", "Stealth is quiet, Sport is fastest"));
+    }
+
+    const auto add_calibration = [&](indx::HeaterCalibration which, DA action) {
+        action.guided_flow = which == indx::HeaterCalibration::Heater ? "indx_heater_calibration"
+                                                                      : "indx_fan_calibration";
+        action.disable_reason =
+            indx::calibration_blocked_reason(contract_, state_, which, target_c);
+        action.enabled = action.disable_reason.empty();
+        actions.push_back(std::move(action));
+    };
+    add_calibration(indx::HeaterCalibration::Heater,
+                    DA::button("calibrate_heater", "Calibrate heater", "calibration", "fire",
+                               "Fit the heater model with the part fan off")
+                        .with_machine_motion());
+    add_calibration(indx::HeaterCalibration::Fan,
+                    DA::button("calibrate_fan", "Calibrate part fan", "calibration", "fan",
+                               "Fit how the part fan cools the nozzle")
+                        .with_machine_motion());
+
+    if (contract_.has_manual_tool_recovery) {
+        DA seat = DA::button("seat_by_hand", "Seat a tool by hand", "calibration", "lock",
+                             "For a first Z home: claim the tool you put on the head")
+                      .with_machine_motion();
+        seat.guided_flow = indx::kSeatByHandFlowId;
+        actions.push_back(std::move(seat));
+    }
+
+    if (contract_.has_cycle_all) {
+        DA cycle = DA::button("cycle_all", "Cycle every tool", "maintenance", "swap_horizontal",
+                              "Pick up and park each tool in turn")
+                       .with_machine_motion();
+        cycle.guided_flow = "indx_cycle_all";
+        cycle.disable_reason = indx::motion_blocked_reason(contract_, state_);
+        cycle.enabled = cycle.disable_reason.empty();
+        actions.push_back(std::move(cycle));
+    }
+
+    if (offsets_readable_) {
+        for (int tool = 0; tool < std::max(sized_tool_count_, 0); ++tool) {
+            DA row = DA::info("tool_offset", "Offset", "tool_offsets",
+                              offsets_text(tool_offsets_um_, tool));
+            row.tool_index = tool;
+            actions.push_back(std::move(row));
+        }
+        actions.push_back(DA::info("global_z_offset", "Global Z offset", "tool_offsets",
+                                   global_z_offset_um_
+                                       ? fmt::format("{:.3f} mm", *global_z_offset_um_ / 1000.0)
+                                       : std::string("-")));
+    }
+    return actions;
+}
+
+AmsError AmsBackendIndx::do_execute_device_action(const std::string& action_id,
+                                                  const std::any& value) {
+    if (action_id == kSeatByHandAction) {
+        const auto [tool, err] = printer::device_action_value<int>(value, "tool");
+        if (!err) {
+            return err;
+        }
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (tool < 0 || tool >= sized_tool_count_) {
+                return AmsErrorHelper::invalid_parameter("INDX tool " + std::to_string(tool));
+            }
+        }
+        spdlog::info("{} Seating tool {} by hand", backend_log_tag(), tool);
+        return execute_gcode(indx::manual_seat_gcode(tool));
+    }
+    if (action_id == kSpeedModeAction) {
+        const auto [text, err] = printer::device_action_value<std::string>(value, "speed mode");
+        if (!err) {
+            return err;
+        }
+        const auto mode = indx::parse_speed_mode(text);
+        if (!mode) {
+            return AmsErrorHelper::invalid_parameter("INDX speed mode '" + text + "'");
+        }
+        spdlog::info("{} Speed mode {}", backend_log_tag(), indx::speed_mode_option(*mode));
+        return execute_gcode(indx::speed_mode_gcode(*mode));
+    }
+    if (action_id == kCycleAllAction) {
+        return execute_gcode(indx::cycle_all_gcode());
+    }
+    if (auto which = calibration_for(action_id)) {
+        return execute_gcode(indx::calibration_gcode(*which));
+    }
+    return AmsBackendToolChanger::do_execute_device_action(action_id, value);
+}
+
+AmsError AmsBackendIndx::do_run_device_action(const std::string& action_id, const std::any& value,
+                                              DeviceActionDone on_done) {
+    std::string cmd;
+    if (action_id == kCycleAllAction) {
+        cmd = indx::cycle_all_gcode();
+    } else if (auto which = calibration_for(action_id)) {
+        cmd = indx::calibration_gcode(*which);
+    } else {
+        return AmsBackendToolChanger::do_run_device_action(action_id, value, std::move(on_done));
+    }
+    spdlog::info("{} Running {} (tracked)", backend_log_tag(), cmd);
+    // The macros home themselves; the answer arrives on the main thread.
+    auto done = std::make_shared<DeviceActionDone>(std::move(on_done));
+    return ensure_homed_then(
+        cmd,
+        [done]() {
+            if (*done) {
+                (*done)(AmsErrorHelper::success());
+            }
+        },
+        [done, cmd](const MoonrakerError& err) {
+            if (!*done) {
+                return;
+            }
+            (*done)(err.type == MoonrakerErrorType::TIMEOUT
+                        ? AmsErrorHelper::timeout(cmd)
+                        : AmsErrorHelper::command_failed(cmd, err.message));
+        },
+        indx::kCalibrationTimeoutMs, /*skip_homing=*/true, /*silent=*/true,
+        /*caller_surfaces_errors=*/false);
 }
 
 } // namespace helix

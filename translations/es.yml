@@ -532,8 +532,10 @@ translations:
   Calibrate X: Calibrar X
   Calibrate Y: Calibrar Y
   Calibrate All Tools: Calibrar todas las herramientas
+  Calibrate heater: Calibrar calentador
   Calibrate input shaping to reduce ringing artifacts in prints: Calibrar input shaping
     para reducir artefactos de resonancia en impresiones
+  Calibrate part fan: Calibrar ventilador de pieza
   Calibrate tool offsets?: ¿Calibrar los offsets de herramienta?
   Calibrate your touchscreen for accurate input: Calibrar la pantalla táctil para
     una entrada precisa
@@ -663,6 +665,7 @@ translations:
   Check AFC configuration: 'Compruebe la configuración de AFC'
   Check Again: Verificar de nuevo
   Check Klipper console for details: Consulte la consola de Klipper para más detalles
+  Check every dock: Comprobar cada base
   Check extruder temperature and try again. Manual removal may be required.: Compruebe la temperatura del extrusor e inténtelo de nuevo. Es posible que deba retirarse manualmente.
   Check failed: Error al verificar
   Check filament: Comprobar filamento
@@ -1001,6 +1004,7 @@ translations:
   Cutter jam: Atasco del cortador
   Cutting: Cortando
   Cutting filament...: Cortando filamento...
+  Cycle every tool: Ciclar todas las herramientas
   DETECTED USB PRINTERS: IMPRESORAS USB DETECTADAS
   DEVICES: DISPOSITIVOS
   DISABLED: DESACTIVADO
@@ -1554,6 +1558,9 @@ translations:
   'Firmware restart failed: {}': 'Reinicio de firmware fallido: {}'
   Firmware restarting...: Reiniciando firmware...
   Firmware saved X = Y's value; the measured X result was discarded: El firmware guardó el valor de Y para X; el resultado medido de X se descartó
+  Fit how the part fan cools the nozzle: Ajustar cómo el ventilador de pieza enfría la boquilla
+  Fit the heater model with the part fan off: Ajustar el modelo del calentador con el ventilador de pieza apagado
+  Fit the induction heater's safety model: Ajustar el modelo de seguridad del calentador de inducción
   'Fix: chmod 644 {}, then restart': 'Solución: chmod 644 {}, luego reinicie'
   'Fix: chown {} {}, then restart': 'Solución: chown {} {}, luego reinicie'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1574,6 +1581,7 @@ translations:
   Focused: 'Enfocado'
   Follow active tool: Seguir herramienta activa
   Follow graph screen: Seguir pantalla del gráfico
+  'For a first Z home: claim the tool you put on the head': 'Para el primer origen de Z: registrar la herramienta que colocó en el cabezal'
   Force/weight sensors: 'Sensores de fuerza/peso'
   Forget: Olvidar
   Forget Network?: ¿Olvidar red?
@@ -1613,6 +1621,7 @@ translations:
   Generic: Genérico
   Get help and share feedback: Obtén ayuda y comparte comentarios
   Global: Global
+  Global Z offset: Desfase Z global
   Good: Bueno
   Good Accuracy: Buena Precisión
   Good Enough: "Suficiente"
@@ -1777,6 +1786,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): Cuánto se empuja el
     filamento de vuelta a la caja al expulsar (mm)
   How fast filament is pushed back on eject: "Qué tan rápido se empuja el filamento de vuelta al expulsar"
+  How fast the head moves while changing tools: Velocidad del cabezal durante el cambio de herramienta
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Cuánto hay que mantener pulsado para que cuente como pulsación larga, en ms (auméntalo si el modo de edición u otras acciones se activan por accidente)'
   How many labels to print: Cuántas etiquetas imprimir
@@ -2212,6 +2222,7 @@ translations:
   : Mide desde la cama. Esquinas nítidas sin abultamiento ni huecos indican el K correcto. Cada fila es un rango de altura y el K que informó la impresora mientras se imprimía.
   Measured (shaper off): Medición (moldeador desactivado)
   Measured filament diameter: Diámetro medido del filamento
+  Measured offsets, read-only: Desfases medidos, solo lectura
   Measured pressure advance: 'Pressure Advance medido'
   Measurement incomplete. Try again.: Medición incompleta. Inténtelo de nuevo.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Mide el offset X, Y y Z de cada cabezal para que todos impriman en el mismo lugar. Tarda unos 20 minutos.
@@ -2537,6 +2548,7 @@ translations:
   'Off:': 'Apagado:'
   'Off: runs with these values without asking': 'Desactivado: ejecuta con estos valores sin preguntar'
   Offer to save Z-offset changes to the printer config: 'Ofrecer guardar los cambios de Z-Offset en la configuración de la impresora'
+  Offset: Desfase
   Offsets Saved: Offsets guardados
   Offsets saved: Offsets guardados
   "Old setting on today's data: {} residual - now: {}": 'Ajuste anterior en los datos de hoy: {} de vibración residual - ahora: {}'
@@ -2672,6 +2684,7 @@ translations:
   Pick Color: Elegir Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Elige cómo se comporta HelixScreen. Puedes cambiarlo más tarde en Ajustes.'
   Pick the best band: Elige la mejor franja
+  Pick up and park each tool in turn: Tomar y aparcar cada herramienta por turno
   Pick up the tool, heat it, and pull the filament out: "Toma la herramienta, caliéntala y saca el filamento"
   Pick up tool: Recoger herramienta
   Picking up tool: Recogiendo herramienta
@@ -3319,6 +3332,7 @@ translations:
   Search vendors...: Buscar proveedores...
   Search widgets...: Buscar widgets...
   Searching...: Buscando...
+  Seat a tool by hand: Asentar una herramienta a mano
   Secondary: Secundario
   Section Detail: Detalle de sección
   Security: Seguridad
@@ -3597,6 +3611,7 @@ translations:
   Status icons: Iconos de estado
   Std Deviation: Desviación Estándar
   Stealth: Silencioso
+  Stealth is quiet, Sport is fastest: Silencioso es el más callado, Deportivo el más rápido
   Step: Paso
   Step 1 of 3: Paso 1 de 3
   Step {} of {}: Paso {} de {}
@@ -4065,6 +4080,7 @@ translations:
   Tool Offsets: Offsets de herramienta
   Tool Switcher: 'Selector de herramientas'
   'Tool change failed: {}': 'Error al cambiar herramienta: {}'
+  Tool change speed: Velocidad de cambio de herramienta
   Tool change to T{}: 'Cambio de herramienta a T{}'
   Tool may be half seated: "La herramienta puede estar mal asentada"
   Tool offsets (mm): Offsets de herramienta (mm)

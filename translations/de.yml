@@ -538,8 +538,10 @@ translations:
   Calibrate X: X kalibrieren
   Calibrate Y: Y kalibrieren
   Calibrate All Tools: Alle Werkzeuge kalibrieren
+  Calibrate heater: Heizung kalibrieren
   Calibrate input shaping to reduce ringing artifacts in prints: Input Shaping kalibrieren,
     um Ringing-Artefakte im Druck zu reduzieren
+  Calibrate part fan: Bauteillüfter kalibrieren
   Calibrate tool offsets?: Werkzeug-Offsets kalibrieren?
   Calibrate your touchscreen for accurate input: Touchscreen für präzise Eingabe kalibrieren
   Calibrated: Kalibriert
@@ -668,6 +670,7 @@ translations:
   Check AFC configuration: 'Prüfen Sie die AFC-Konfiguration'
   Check Again: Erneut prüfen
   Check Klipper console for details: Details finden Sie in der Klipper-Konsole
+  Check every dock: Jedes Dock prüfen
   Check extruder temperature and try again. Manual removal may be required.: Prüfen Sie die Extrudertemperatur und versuchen Sie es erneut. Eventuell ist eine manuelle Entfernung nötig.
   Check failed: Prüfung fehlgeschlagen
   Check filament: Filament prüfen
@@ -1005,6 +1008,7 @@ translations:
   Cutter jam: Schneidestau
   Cutting: Schneiden
   Cutting filament...: Filament wird geschnitten...
+  Cycle every tool: Alle Werkzeuge durchwechseln
   DETECTED USB PRINTERS: ERKANNTE USB-DRUCKER
   DEVICES: GERÄTE
   DISABLED: DEAKTIVIERT
@@ -1562,6 +1566,9 @@ translations:
   'Firmware restart failed: {}': 'Firmware-Neustart fehlgeschlagen: {}'
   Firmware restarting...: Firmware wird neu gestartet...
   Firmware saved X = Y's value; the measured X result was discarded: Die Firmware hat X mit dem Wert von Y gespeichert; das gemessene X-Ergebnis wurde verworfen
+  Fit how the part fan cools the nozzle: Ermitteln, wie der Bauteillüfter die Düse kühlt
+  Fit the heater model with the part fan off: Heizungsmodell bei ausgeschaltetem Bauteillüfter ermitteln
+  Fit the induction heater's safety model: Sicherheitsmodell der Induktionsheizung ermitteln
   'Fix: chmod 644 {}, then restart': 'Beheben: chmod 644 {}, dann neu starten'
   'Fix: chown {} {}, then restart': 'Beheben: chown {} {}, dann neu starten'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1582,6 +1589,7 @@ translations:
   Focused: 'Fokussiert'
   Follow active tool: Aktivem Werkzeug folgen
   Follow graph screen: Diagrammbildschirm folgen
+  'For a first Z home: claim the tool you put on the head': 'Für die erste Z-Referenzfahrt: das Werkzeug übernehmen, das Sie an den Kopf gesetzt haben'
   Force/weight sensors: 'Kraft-/Gewichtssensoren'
   Forget: Vergessen
   Forget Network?: Netzwerk vergessen?
@@ -1621,6 +1629,7 @@ translations:
   Generic: Generisch
   Get help and share feedback: Hilfe erhalten und Feedback teilen
   Global: Global
+  Global Z offset: Globaler Z-Versatz
   Good: Gut
   Good Accuracy: Gute Genauigkeit
   Good Enough: "Gut genug"
@@ -1785,6 +1794,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): Wie weit das Filament
     beim Auswerfen in die Box zurückgeschoben wird (mm)
   How fast filament is pushed back on eject: "Wie schnell das Filament beim Auswerfen zurückgeschoben wird"
+  How fast the head moves while changing tools: Wie schnell sich der Kopf beim Werkzeugwechsel bewegt
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Wie lange gedrückt werden muss, damit es als langes Drücken zählt, in ms (erhöhen, wenn der Bearbeitungsmodus oder andere Aktionen versehentlich auslösen)'
   How many labels to print: Wie viele Etiketten drucken
@@ -2221,6 +2231,7 @@ translations:
   : Von der Platte aus messen. Scharfe Ecken ohne Wulst und ohne Lücke zeigen das richtige K. Jede Zeile ist ein Höhenbereich mit dem K, das der Drucker dabei gemeldet hat.
   Measured (shaper off): Gemessen (Shaper aus)
   Measured filament diameter: Gemessener Filamentdurchmesser
+  Measured offsets, read-only: Gemessene Versätze, nur lesbar
   Measured pressure advance: 'Gemessener Pressure Advance'
   Measurement incomplete. Try again.: Messung unvollständig. Bitte erneut versuchen.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Misst den X-, Y- und Z-Offset jedes Werkzeugkopfs, damit alle an derselben Stelle drucken. Dauert etwa 20 Minuten.
@@ -2545,6 +2556,7 @@ translations:
   'Off:': 'Aus:'
   'Off: runs with these values without asking': 'Aus: führt diese Werte aus, ohne zu fragen'
   Offer to save Z-offset changes to the printer config: 'Anbieten, Z-Offset-Änderungen in der Druckerkonfiguration zu speichern'
+  Offset: Versatz
   Offsets Saved: Offsets gespeichert
   Offsets saved: Offsets gespeichert
   "Old setting on today's data: {} residual - now: {}": 'Alte Einstellung auf heutigen Daten: {} Restvibration - jetzt: {}'
@@ -2680,6 +2692,7 @@ translations:
   Pick Color: Farbe wählen
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Wähle, wie sich HelixScreen verhält. Du kannst alles später in den Einstellungen ändern.'
   Pick the best band: Besten Bereich wählen
+  Pick up and park each tool in turn: Jedes Werkzeug nacheinander aufnehmen und abstellen
   Pick up the tool, heat it, and pull the filament out: "Werkzeug aufnehmen, aufheizen und das Filament herausziehen"
   Pick up tool: Werkzeug aufnehmen
   Picking up tool: Werkzeug aufnehmen
@@ -3325,6 +3338,7 @@ translations:
   Search vendors...: Hersteller suchen...
   Search widgets...: Widgets suchen...
   Searching...: Suche...
+  Seat a tool by hand: Werkzeug von Hand einsetzen
   Secondary: Sekundär
   Section Detail: Abschnittdetails
   Security: Sicherheit
@@ -3605,6 +3619,7 @@ translations:
   Status icons: Status-Icons
   Std Deviation: Std.-Abweichung
   Stealth: Leise
+  Stealth is quiet, Sport is fastest: Leise ist am leisesten, Sport am schnellsten
   Step: Schritt
   Step 1 of 3: Schritt 1 von 3
   Step {} of {}: Schritt {} von {}
@@ -4071,6 +4086,7 @@ translations:
   Tool Offsets: Werkzeug-Offsets
   Tool Switcher: 'Werkzeugwechsler'
   'Tool change failed: {}': 'Werkzeugwechsel fehlgeschlagen: {}'
+  Tool change speed: Werkzeugwechsel-Geschwindigkeit
   Tool change to T{}: 'Werkzeugwechsel zu T{}'
   Tool may be half seated: "Werkzeug sitzt möglicherweise nur halb"
   Tool offsets (mm): Werkzeug-Offsets (mm)

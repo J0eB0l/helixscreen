@@ -503,7 +503,9 @@ translations:
   Calibrate X: 校准 X 轴
   Calibrate Y: 校准 Y 轴
   Calibrate All Tools: 校准所有工具
+  Calibrate heater: 校准加热器
   Calibrate input shaping to reduce ringing artifacts in prints: 校准输入整形以减少打印中的振纹
+  Calibrate part fan: 校准模型风扇
   Calibrate tool offsets?: 校准工具偏移？
   Calibrate your touchscreen for accurate input: 校准触摸屏以确保输入准确
   Calibrated: 已校准
@@ -615,6 +617,7 @@ translations:
   Check AFC configuration: '请检查 AFC 配置'
   Check Again: 重新检查
   Check Klipper console for details: 详情请查看 Klipper 控制台
+  Check every dock: 检查每个停靠位
   Check extruder temperature and try again. Manual removal may be required.: 请检查挤出机温度后重试。可能需要手动取出。
   Check failed: 检查失败
   Check filament: 检查耗材
@@ -931,6 +934,7 @@ translations:
   Cutter jam: 切刀卡住
   Cutting: 切割中
   Cutting filament...: 正在切断耗材...
+  Cycle every tool: 依次更换所有工具
   DETECTED USB PRINTERS: 已检测到的 USB 打印机
   DEVICES: 设备
   DISABLED: 已禁用
@@ -1462,6 +1466,9 @@ translations:
   'Firmware restart failed: {}': '固件重启失败: {}'
   Firmware restarting...: 固件重启中...
   Firmware saved X = Y's value; the measured X result was discarded: 固件将 X 轴保存为 Y 轴的值；实测的 X 轴结果已被丢弃
+  Fit how the part fan cools the nozzle: 测定模型风扇对喷嘴的冷却效果
+  Fit the heater model with the part fan off: 在模型风扇关闭时测定加热器模型
+  Fit the induction heater's safety model: 测定感应加热器的安全模型
   'Fix: chmod 644 {}, then restart': '修复：chmod 644 {}，然后重启'
   'Fix: chown {} {}, then restart': '修复：chown {} {}，然后重启'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1482,6 +1489,7 @@ translations:
   Focused: '专注'
   Follow active tool: 跟随当前工具
   Follow graph screen: 跟随图表屏幕
+  'For a first Z home: claim the tool you put on the head': 首次Z轴归零时：登记您装在打印头上的工具
   Force/weight sensors: '力/重量传感器'
   Forget: 忘记
   Forget Network?: 忘记网络？
@@ -1521,6 +1529,7 @@ translations:
   Generic: 通用
   Get help and share feedback: 获取帮助和反馈
   Global: 全局
+  Global Z offset: 全局Z偏移
   Good: 良好
   Good Accuracy: 精度良好
   Good Enough: "足够了"
@@ -1675,6 +1684,7 @@ translations:
   How far filament is pushed back into the box on eject: "弹出时耗材被推回料盒的距离"
   How far filament is pushed back into the box on eject (mm): 弹出时耗材被推回料盒的距离（mm）
   How fast filament is pushed back on eject: "弹出时耗材被推回的速度"
+  How fast the head moves while changing tools: 换工具时打印头的移动速度
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : '按住多久才算长按（毫秒）。若编辑模式等误触发，请调大'
   How many labels to print: 打印多少张标签
@@ -2082,6 +2092,7 @@ translations:
   : 从热床开始测量高度。边角干净、没有多余也没有缺口的位置对应正确的K值。每一行是一个高度范围,以及打印时打印机报告的K值。
   Measured (shaper off): 实测（关闭整形）
   Measured filament diameter: 测量的耗材直径
+  Measured offsets, read-only: 已测量的偏移，只读
   Measured pressure advance: '测得的压力提前'
   Measurement incomplete. Try again.: 测量未完成。请重试。
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: 测量每个工具头的 X、Y、Z 偏移，使所有工具头打印在同一位置。约需 20 分钟。
@@ -2396,6 +2407,7 @@ translations:
   'Off:': '关:'
   'Off: runs with these values without asking': '关: 不询问,直接以这些值运行'
   Offer to save Z-offset changes to the printer config: '提供将 Z 偏移更改保存到打印机配置的选项'
+  Offset: 偏移
   Offsets Saved: 偏移已保存
   Offsets saved: 偏移已保存
   "Old setting on today's data: {} residual - now: {}": 旧设置（今日数据）：残余 {} — 当前：{}
@@ -2527,6 +2539,7 @@ translations:
   Pick Color: 选择颜色
   Pick how HelixScreen behaves. You can change any of these later in Settings.: '选择 HelixScreen 的行为方式。以后可在“设置”中更改。'
   Pick the best band: 选择最佳区段
+  Pick up and park each tool in turn: 依次装上并停放每个工具
   Pick up the tool, heat it, and pull the filament out: "装上工具，加热后抽出耗材"
   Pick up tool: 取出工具
   Picking up tool: 正在取用工具
@@ -3133,6 +3146,7 @@ translations:
   Search vendors...: 搜索供应商…
   Search widgets...: 搜索小组件...
   Searching...: 搜索中...
+  Seat a tool by hand: 手动安装工具
   Secondary: 次要
   Section Detail: 区域详情
   Security: 安全
@@ -3391,6 +3405,7 @@ translations:
   Status icons: 状态图标
   Std Deviation: 标准差
   Stealth: 静音
+  Stealth is quiet, Sport is fastest: 静音最安静，运动最快
   Step: 步骤
   Step 1 of 3: 第 1 步，共 3 步
   Step {} of {}: 第 {} 步，共 {} 步
@@ -3818,6 +3833,7 @@ translations:
   Tool Offsets: 工具偏移
   Tool Switcher: '工具切换器'
   'Tool change failed: {}': '工具切换失败: {}'
+  Tool change speed: 换工具速度
   Tool change to T{}: '切换工具到 T{}'
   Tool may be half seated: "工具可能未完全安装到位"
   Tool offsets (mm): 工具偏移 (mm)

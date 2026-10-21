@@ -578,8 +578,10 @@ translations:
   Calibrate X: Калибровать X
   Calibrate Y: Калибровать Y
   Calibrate All Tools: Калибровать все инструменты
+  Calibrate heater: Калибровать нагреватель
   Calibrate input shaping to reduce ringing artifacts in prints: Калибровка компенсации
     вибраций для уменьшения артефактов звона
+  Calibrate part fan: Калибровать обдув модели
   Calibrate tool offsets?: Калибровать смещения инструментов?
   Calibrate your touchscreen for accurate input: Калибровка сенсорного экрана для
     точного ввода
@@ -707,6 +709,7 @@ translations:
   Check AFC configuration: 'Проверьте конфигурацию AFC'
   Check Again: Проверить снова
   Check Klipper console for details: Подробности смотрите в консоли Klipper
+  Check every dock: Проверить каждый док
   Check extruder temperature and try again. Manual removal may be required.: Проверьте температуру экструдера и повторите попытку. Может потребоваться удалить филамент вручную.
   Check failed: Ошибка проверки
   Check filament: Проверьте филамент
@@ -1044,6 +1047,7 @@ translations:
   Cutter jam: Замятие резака
   Cutting: Резка
   Cutting filament...: Обрезка филамента...
+  Cycle every tool: Перебрать все инструменты
   DETECTED USB PRINTERS: ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ
   DEVICES: УСТРОЙСТВА
   DISABLED: ОТКЛЮЧЕНО
@@ -1592,6 +1596,9 @@ translations:
   'Firmware restart failed: {}': 'Ошибка перезапуска прошивки: {}'
   Firmware restarting...: Перезапуск прошивки...
   Firmware saved X = Y's value; the measured X result was discarded: Прошивка сохранила для X значение Y; результат измерения X был отброшен
+  Fit how the part fan cools the nozzle: Определить, как обдув охлаждает сопло
+  Fit the heater model with the part fan off: Определить модель нагревателя при выключенном обдуве
+  Fit the induction heater's safety model: Определить модель безопасности индукционного нагревателя
   'Fix: chmod 644 {}, then restart': 'Исправление: chmod 644 {}, затем перезапустите'
   'Fix: chown {} {}, then restart': 'Исправление: chown {} {}, затем перезапустите'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1612,6 +1619,7 @@ translations:
   Focused: 'Сосредоточенный'
   Follow active tool: Следовать активному инструменту
   Follow graph screen: Следовать экрану графика
+  'For a first Z home: claim the tool you put on the head': 'Для первой парковки Z: закрепить инструмент, установленный на головку'
   Force/weight sensors: 'Датчики силы/веса'
   Forget: Забыть
   Forget Network?: Забыть сеть?
@@ -1655,6 +1663,7 @@ translations:
   Generic: Общий
   Get help and share feedback: Получить помощь и поделиться отзывом
   Global: Общий
+  Global Z offset: Общее смещение Z
   Good: Хорошо
   Good Accuracy: Хорошая точность
   Good Enough: "Достаточно"
@@ -1817,6 +1826,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): Насколько глубоко филамент
     задвигается обратно в коробку при извлечении (мм)
   How fast filament is pushed back on eject: "Как быстро филамент задвигается обратно при извлечении"
+  How fast the head moves while changing tools: Скорость головки при смене инструмента
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Сколько удерживать, чтобы нажатие считалось долгим, в мс (увеличьте, если режим редактирования срабатывает случайно)'
   How many labels to print: Сколько этикеток напечатать
@@ -2253,6 +2263,7 @@ translations:
   : Отсчитывайте высоту от стола. Острые углы без наплывов и пропусков означают верный K. Каждая строка - диапазон высот и K, который принтер сообщал во время его печати.
   Measured (shaper off): Измерено (шейпер выключен)
   Measured filament diameter: Измеренный диаметр филамента
+  Measured offsets, read-only: Измеренные смещения, только чтение
   Measured pressure advance: 'Измеренный Pressure Advance'
   Measurement incomplete. Try again.: Измерение не завершено. Повторите попытку.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Измеряет смещение X, Y и Z каждой головки, чтобы все печатали в одной точке. Занимает около 20 минут.
@@ -2576,6 +2587,7 @@ translations:
   'Off:': 'Выкл:'
   'Off: runs with these values without asking': 'Выкл.: запуск с этими значениями без запроса'
   Offer to save Z-offset changes to the printer config: 'Предлагать сохранить изменения Z-Offset в конфигурации принтера'
+  Offset: Смещение
   Offsets Saved: Смещения сохранены
   Offsets saved: Смещения сохранены
   "Old setting on today's data: {} residual - now: {}": 'Прежняя настройка на сегодняшних данных: остаточная вибрация {} — сейчас: {}'
@@ -2709,6 +2721,7 @@ translations:
   Pick Color: Выбрать цвет
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках.'
   Pick the best band: Выберите лучшую полосу
+  Pick up and park each tool in turn: Взять и поставить на место каждый инструмент по очереди
   Pick up the tool, heat it, and pull the filament out: "Возьмите инструмент, нагрейте его и вытяните филамент"
   Pick up tool: Забрать инструмент
   Picking up tool: Захват инструмента
@@ -3362,6 +3375,7 @@ translations:
   Search vendors...: Поиск производителей...
   Search widgets...: Поиск виджетов...
   Searching...: Поиск...
+  Seat a tool by hand: Установить инструмент вручную
   Secondary: Вторичный
   Section Detail: Детали раздела
   Security: Безопасность
@@ -3647,6 +3661,7 @@ translations:
   Status icons: Иконки статуса
   Std Deviation: Станд. отклонение
   Stealth: Тихий
+  Stealth is quiet, Sport is fastest: Тихий самый тихий, Спорт самый быстрый
   Step: Шаг
   Step 1 of 3: Шаг 1 из 3
   Step {} of {}: Шаг {} из {}
@@ -4105,6 +4120,7 @@ translations:
   Tool Offsets: Смещения инструментов
   Tool Switcher: 'Переключатель инструментов'
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
+  Tool change speed: Скорость смены инструмента
   Tool change to T{}: 'Смена инструмента на T{}'
   Tool may be half seated: "Инструмент может быть установлен не полностью"
   Tool offsets (mm): Смещения инструментов (мм)

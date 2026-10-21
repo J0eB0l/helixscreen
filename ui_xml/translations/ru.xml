@@ -534,7 +534,9 @@
   <translation tag="Calibrate Toolhead Offsets" ru="Калибровать смещения головок"/>
   <translation tag="Calibrate X" ru="Калибровать X"/>
   <translation tag="Calibrate Y" ru="Калибровать Y"/>
+  <translation tag="Calibrate heater" ru="Калибровать нагреватель"/>
   <translation tag="Calibrate input shaping to reduce ringing artifacts in prints" ru="Калибровка компенсации вибраций для уменьшения артефактов звона"/>
+  <translation tag="Calibrate part fan" ru="Калибровать обдув модели"/>
   <translation tag="Calibrate tool offsets?" ru="Калибровать смещения инструментов?"/>
   <translation tag="Calibrate your touchscreen for accurate input" ru="Калибровка сенсорного экрана для точного ввода"/>
   <translation tag="Calibrated" ru="Откалиброван"/>
@@ -646,6 +648,7 @@
   <translation tag="Check Klipper console for details" ru="Подробности смотрите в консоли Klipper"/>
   <translation tag="Check Slot" ru="Проверить слот"/>
   <translation tag="Check Slots" ru="Проверить"/>
+  <translation tag="Check every dock" ru="Проверить каждый док"/>
   <translation tag="Check extruder temperature and try again. Manual removal may be required." ru="Проверьте температуру экструдера и повторите попытку. Может потребоваться удалить филамент вручную."/>
   <translation tag="Check failed" ru="Ошибка проверки"/>
   <translation tag="Check filament" ru="Проверьте филамент"/>
@@ -943,6 +946,7 @@
   <translation tag="Cutter jam" ru="Замятие резака"/>
   <translation tag="Cutting" ru="Резка"/>
   <translation tag="Cutting filament..." ru="Обрезка филамента..."/>
+  <translation tag="Cycle every tool" ru="Перебрать все инструменты"/>
   <translation tag="DETECTED USB PRINTERS" ru="ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ"/>
   <translation tag="DEVICES" ru="УСТРОЙСТВА"/>
   <translation tag="DISABLED" ru="ОТКЛЮЧЕНО"/>
@@ -1457,6 +1461,9 @@
   <translation tag="Firmware restart failed: {}" ru="Ошибка перезапуска прошивки: {}"/>
   <translation tag="Firmware restarting..." ru="Перезапуск прошивки..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" ru="Прошивка сохранила для X значение Y; результат измерения X был отброшен"/>
+  <translation tag="Fit how the part fan cools the nozzle" ru="Определить, как обдув охлаждает сопло"/>
+  <translation tag="Fit the heater model with the part fan off" ru="Определить модель нагревателя при выключенном обдуве"/>
+  <translation tag="Fit the induction heater&apos;s safety model" ru="Определить модель безопасности индукционного нагревателя"/>
   <translation tag="Fix: chmod 644 {}, then restart" ru="Исправление: chmod 644 {}, затем перезапустите"/>
   <translation tag="Fix: chown {} {}, then restart" ru="Исправление: chown {} {}, затем перезапустите"/>
   <translation tag="FlashForge Adventurer 5M" ru="FlashForge Adventurer 5M"/>
@@ -1476,6 +1483,7 @@
   <translation tag="Focused" ru="Сосредоточенный"/>
   <translation tag="Follow active tool" ru="Следовать активному инструменту"/>
   <translation tag="Follow graph screen" ru="Следовать экрану графика"/>
+  <translation tag="For a first Z home: claim the tool you put on the head" ru="Для первой парковки Z: закрепить инструмент, установленный на головку"/>
   <translation tag="Force/weight sensors" ru="Датчики силы/веса"/>
   <translation tag="Forget" ru="Забыть"/>
   <translation tag="Forget Network?" ru="Забыть сеть?"/>
@@ -1517,6 +1525,7 @@
   <translation tag="Generic" ru="Общий"/>
   <translation tag="Get help and share feedback" ru="Получить помощь и поделиться отзывом"/>
   <translation tag="Global" ru="Общий"/>
+  <translation tag="Global Z offset" ru="Общее смещение Z"/>
   <translation tag="Good" ru="Хорошо"/>
   <translation tag="Good Accuracy" ru="Хорошая точность"/>
   <translation tag="Good Enough" ru="Достаточно"/>
@@ -1665,6 +1674,7 @@
   <translation tag="How far filament is pushed back into the box on eject" ru="Насколько далеко филамент задвигается обратно в бокс при извлечении"/>
   <translation tag="How far filament is pushed back into the box on eject (mm)" ru="Насколько глубоко филамент задвигается обратно в коробку при извлечении (мм)"/>
   <translation tag="How fast filament is pushed back on eject" ru="Как быстро филамент задвигается обратно при извлечении"/>
+  <translation tag="How fast the head moves while changing tools" ru="Скорость головки при смене инструмента"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" ru="Сколько удерживать, чтобы нажатие считалось долгим, в мс (увеличьте, если режим редактирования срабатывает случайно)"/>
   <translation tag="How many labels to print" ru="Сколько этикеток напечатать"/>
   <translation tag="How the Jog tab arranges its buttons" ru="Как вкладка «Джог» располагает кнопки"/>
@@ -2052,6 +2062,7 @@
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." ru="Отсчитывайте высоту от стола. Острые углы без наплывов и пропусков означают верный K. Каждая строка - диапазон высот и K, который принтер сообщал во время его печати."/>
   <translation tag="Measured (shaper off)" ru="Измерено (шейпер выключен)"/>
   <translation tag="Measured filament diameter" ru="Измеренный диаметр филамента"/>
+  <translation tag="Measured offsets, read-only" ru="Измеренные смещения, только чтение"/>
   <translation tag="Measured pressure advance" ru="Измеренный Pressure Advance"/>
   <translation tag="Measurement incomplete. Try again." ru="Измерение не завершено. Повторите попытку."/>
   <translation tag="Measures each toolhead&apos;s X, Y and Z offset so every head prints in the same place. Takes about 20 minutes." ru="Измеряет смещение X, Y и Z каждой головки, чтобы все печатали в одной точке. Занимает около 20 минут."/>
@@ -2359,6 +2370,7 @@
   <translation tag="Off:" ru="Выкл:"/>
   <translation tag="Off: runs with these values without asking" ru="Выкл.: запуск с этими значениями без запроса"/>
   <translation tag="Offer to save Z-offset changes to the printer config" ru="Предлагать сохранить изменения Z-Offset в конфигурации принтера"/>
+  <translation tag="Offset" ru="Смещение"/>
   <translation tag="Offsets Saved" ru="Смещения сохранены"/>
   <translation tag="Offsets saved" ru="Смещения сохранены"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" ru="Прежняя настройка на сегодняшних данных: остаточная вибрация {} — сейчас: {}"/>
@@ -2483,6 +2495,7 @@
   <translation tag="Pick Color" ru="Выбрать цвет"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." ru="Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках."/>
   <translation tag="Pick the best band" ru="Выберите лучшую полосу"/>
+  <translation tag="Pick up and park each tool in turn" ru="Взять и поставить на место каждый инструмент по очереди"/>
   <translation tag="Pick up the tool, heat it, and pull the filament out" ru="Возьмите инструмент, нагрейте его и вытяните филамент"/>
   <translation tag="Pick up tool" ru="Забрать инструмент"/>
   <translation tag="Picking up tool" ru="Захват инструмента"/>
@@ -3083,6 +3096,7 @@
   <translation tag="Search vendors..." ru="Поиск производителей..."/>
   <translation tag="Search widgets..." ru="Поиск виджетов..."/>
   <translation tag="Searching..." ru="Поиск..."/>
+  <translation tag="Seat a tool by hand" ru="Установить инструмент вручную"/>
   <translation tag="Secondary" ru="Вторичный"/>
   <translation tag="Section Detail" ru="Детали раздела"/>
   <translation tag="Security" ru="Безопасность"/>
@@ -3338,6 +3352,7 @@
   <translation tag="Status icons" ru="Иконки статуса"/>
   <translation tag="Std Deviation" ru="Станд. отклонение"/>
   <translation tag="Stealth" ru="Тихий"/>
+  <translation tag="Stealth is quiet, Sport is fastest" ru="Тихий самый тихий, Спорт самый быстрый"/>
   <translation tag="Step" ru="Шаг"/>
   <translation tag="Step 1 of 3" ru="Шаг 1 из 3"/>
   <translation tag="Step {} of {}" ru="Шаг {} из {}"/>
@@ -3717,6 +3732,7 @@
   <translation tag="Tool Offsets" ru="Смещения инструментов"/>
   <translation tag="Tool Switcher" ru="Переключатель инструментов"/>
   <translation tag="Tool change failed: {}" ru="Ошибка смены инструмента: {}"/>
+  <translation tag="Tool change speed" ru="Скорость смены инструмента"/>
   <translation tag="Tool change to T{}" ru="Смена инструмента на T{}"/>
   <translation tag="Tool may be half seated" ru="Инструмент может быть установлен не полностью"/>
   <translation tag="Tool offsets (mm)" ru="Смещения инструментов (мм)"/>

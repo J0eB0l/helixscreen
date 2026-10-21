@@ -495,7 +495,9 @@
   <translation tag="Calibrate Toolhead Offsets" ja="ツールヘッドオフセットをキャリブレート"/>
   <translation tag="Calibrate X" ja="X軸をキャリブレート"/>
   <translation tag="Calibrate Y" ja="Y軸をキャリブレート"/>
+  <translation tag="Calibrate heater" ja="ヒーターを校正"/>
   <translation tag="Calibrate input shaping to reduce ringing artifacts in prints" ja="入力シェーピングをキャリブレートして印刷のリンギングを軽減します"/>
+  <translation tag="Calibrate part fan" ja="パーツファンを校正"/>
   <translation tag="Calibrate tool offsets?" ja="ツールオフセットをキャリブレートしますか？"/>
   <translation tag="Calibrate your touchscreen for accurate input" ja="タッチスクリーンの入力精度をキャリブレートします"/>
   <translation tag="Calibrated" ja="キャリブレーション済み"/>
@@ -607,6 +609,7 @@
   <translation tag="Check Klipper console for details" ja="詳細は Klipper コンソールを確認してください"/>
   <translation tag="Check Slot" ja="スロットを確認"/>
   <translation tag="Check Slots" ja="スロット確認"/>
+  <translation tag="Check every dock" ja="すべてのドックを確認"/>
   <translation tag="Check extruder temperature and try again. Manual removal may be required." ja="エクストルーダーの温度を確認してもう一度お試しください。手動での取り出しが必要な場合があります。"/>
   <translation tag="Check failed" ja="確認に失敗しました"/>
   <translation tag="Check filament" ja="フィラメントを確認"/>
@@ -901,6 +904,7 @@
   <translation tag="Cutter jam" ja="カッター詰まり"/>
   <translation tag="Cutting" ja="カット中"/>
   <translation tag="Cutting filament..." ja="フィラメントを切断中..."/>
+  <translation tag="Cycle every tool" ja="全ツールを順に交換"/>
   <translation tag="DETECTED USB PRINTERS" ja="検出されたUSBプリンター"/>
   <translation tag="DEVICES" ja="デバイス"/>
   <translation tag="DISABLED" ja="無効"/>
@@ -1415,6 +1419,9 @@
   <translation tag="Firmware restart failed: {}" ja="ファームウェア再起動に失敗しました: {}"/>
   <translation tag="Firmware restarting..." ja="ファームウェア再起動中..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" ja="ファームウェアは X の値として Y の値を保存しました。測定された X の結果は破棄されました。"/>
+  <translation tag="Fit how the part fan cools the nozzle" ja="パーツファンによるノズルの冷却を測定"/>
+  <translation tag="Fit the heater model with the part fan off" ja="パーツファンをオフにしてヒーターモデルを測定"/>
+  <translation tag="Fit the induction heater&apos;s safety model" ja="誘導ヒーターの安全モデルを測定"/>
   <translation tag="Fix: chmod 644 {}, then restart" ja="修正：chmod 644 {} を実行して再起動してください"/>
   <translation tag="Fix: chown {} {}, then restart" ja="修正：chown {} {} を実行して再起動してください"/>
   <translation tag="FlashForge Adventurer 5M" ja="FlashForge Adventurer 5M"/>
@@ -1434,6 +1441,7 @@
   <translation tag="Focused" ja="集中"/>
   <translation tag="Follow active tool" ja="アクティブツールに追従"/>
   <translation tag="Follow graph screen" ja="グラフ画面に追従"/>
+  <translation tag="For a first Z home: claim the tool you put on the head" ja="初回のZホーミング用：ヘッドに取り付けたツールを登録"/>
   <translation tag="Force/weight sensors" ja="力/重量センサー"/>
   <translation tag="Forget" ja="登録解除"/>
   <translation tag="Forget Network?" ja="ネットワークを登録解除しますか？"/>
@@ -1472,6 +1480,7 @@
   <translation tag="Generic" ja="汎用"/>
   <translation tag="Get help and share feedback" ja="ヘルプとフィードバック"/>
   <translation tag="Global" ja="グローバル"/>
+  <translation tag="Global Z offset" ja="グローバルZオフセット"/>
   <translation tag="Good" ja="良好"/>
   <translation tag="Good Accuracy" ja="良好な精度"/>
   <translation tag="Good Enough" ja="これで十分"/>
@@ -1620,6 +1629,7 @@
   <translation tag="How far filament is pushed back into the box on eject" ja="取り出し時にフィラメントをボックスへ押し戻す距離"/>
   <translation tag="How far filament is pushed back into the box on eject (mm)" ja="取り出し時にフィラメントをボックスへ押し戻す距離 (mm)"/>
   <translation tag="How fast filament is pushed back on eject" ja="取り出し時にフィラメントを押し戻す速度"/>
+  <translation tag="How fast the head moves while changing tools" ja="ツール交換中のヘッドの移動速度"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" ja="長押しと判定されるまでの保持時間（ミリ秒）。編集モードなどが誤動作する場合は大きくしてください"/>
   <translation tag="How many labels to print" ja="印刷するラベル枚数"/>
   <translation tag="How the Jog tab arranges its buttons" ja="ジョグタブのボタン配置"/>
@@ -2007,6 +2017,7 @@
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." ja="ベッドから高さを測ってください。膨らみもすき間もないきれいな角が正しいKです。各行は高さの範囲と、その印刷中にプリンターが報告したKです。"/>
   <translation tag="Measured (shaper off)" ja="測定値（シェーパーオフ時）"/>
   <translation tag="Measured filament diameter" ja="測定したフィラメント直径"/>
+  <translation tag="Measured offsets, read-only" ja="測定済みオフセット（読み取り専用）"/>
   <translation tag="Measured pressure advance" ja="測定された Pressure Advance"/>
   <translation tag="Measurement incomplete. Try again." ja="測定が不完全です。再試行してください。"/>
   <translation tag="Measures each toolhead&apos;s X, Y and Z offset so every head prints in the same place. Takes about 20 minutes." ja="各ツールヘッドのX・Y・Zオフセットを計測し、すべてのヘッドが同じ位置に印刷できるようにします。約20分かかります。"/>
@@ -2314,6 +2325,7 @@
   <translation tag="Off:" ja="オフ:"/>
   <translation tag="Off: runs with these values without asking" ja="オフ: これらの値で確認なしに実行"/>
   <translation tag="Offer to save Z-offset changes to the printer config" ja="Z-Offset の変更をプリンター設定に保存する操作を表示します"/>
+  <translation tag="Offset" ja="オフセット"/>
   <translation tag="Offsets Saved" ja="オフセットを保存しました"/>
   <translation tag="Offsets saved" ja="オフセットを保存しました"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" ja="旧設定を今日のデータに適用: 残留 {} - 現在: {}"/>
@@ -2438,6 +2450,7 @@
   <translation tag="Pick Color" ja="色を選択"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." ja="HelixScreen の動作を選択します。すべて後で「設定」から変更できます。"/>
   <translation tag="Pick the best band" ja="最適な区間を選択"/>
+  <translation tag="Pick up and park each tool in turn" ja="各ツールを順に取り付けて戻す"/>
   <translation tag="Pick up the tool, heat it, and pull the filament out" ja="ツールを取り付けて加熱し、フィラメントを引き抜いてください"/>
   <translation tag="Pick up tool" ja="ツールを取得"/>
   <translation tag="Picking up tool" ja="ツールを取得中"/>
@@ -3029,6 +3042,7 @@
   <translation tag="Search vendors..." ja="ベンダーを検索..."/>
   <translation tag="Search widgets..." ja="ウィジェットを検索..."/>
   <translation tag="Searching..." ja="検索中..."/>
+  <translation tag="Seat a tool by hand" ja="ツールを手で装着"/>
   <translation tag="Secondary" ja="セカンダリ"/>
   <translation tag="Section Detail" ja="セクション詳細"/>
   <translation tag="Security" ja="セキュリティ"/>
@@ -3278,6 +3292,7 @@
   <translation tag="Status icons" ja="ステータスアイコン"/>
   <translation tag="Std Deviation" ja="標準偏差"/>
   <translation tag="Stealth" ja="静音"/>
+  <translation tag="Stealth is quiet, Sport is fastest" ja="静音は静か、スポーツは最速"/>
   <translation tag="Step" ja="ステップ"/>
   <translation tag="Step 1 of 3" ja="ステップ 1/3"/>
   <translation tag="Step {} of {}" ja="ステップ {} / {}"/>
@@ -3657,6 +3672,7 @@
   <translation tag="Tool Offsets" ja="ツールオフセット"/>
   <translation tag="Tool Switcher" ja="ツール切り替え"/>
   <translation tag="Tool change failed: {}" ja="ツール変更に失敗しました: {}"/>
+  <translation tag="Tool change speed" ja="ツール交換速度"/>
   <translation tag="Tool change to T{}" ja="ツールを T{} に変更しています"/>
   <translation tag="Tool may be half seated" ja="ツールが半分しか装着されていない可能性があります"/>
   <translation tag="Tool offsets (mm)" ja="ツールオフセット (mm)"/>

@@ -495,7 +495,9 @@
   <translation tag="Calibrate Toolhead Offsets" zh="校准工具头偏移"/>
   <translation tag="Calibrate X" zh="校准 X 轴"/>
   <translation tag="Calibrate Y" zh="校准 Y 轴"/>
+  <translation tag="Calibrate heater" zh="校准加热器"/>
   <translation tag="Calibrate input shaping to reduce ringing artifacts in prints" zh="校准输入整形以减少打印中的振纹"/>
+  <translation tag="Calibrate part fan" zh="校准模型风扇"/>
   <translation tag="Calibrate tool offsets?" zh="校准工具偏移？"/>
   <translation tag="Calibrate your touchscreen for accurate input" zh="校准触摸屏以确保输入准确"/>
   <translation tag="Calibrated" zh="已校准"/>
@@ -607,6 +609,7 @@
   <translation tag="Check Klipper console for details" zh="详情请查看 Klipper 控制台"/>
   <translation tag="Check Slot" zh="检查槽位"/>
   <translation tag="Check Slots" zh="检查槽位"/>
+  <translation tag="Check every dock" zh="检查每个停靠位"/>
   <translation tag="Check extruder temperature and try again. Manual removal may be required." zh="请检查挤出机温度后重试。可能需要手动取出。"/>
   <translation tag="Check failed" zh="检查失败"/>
   <translation tag="Check filament" zh="检查耗材"/>
@@ -901,6 +904,7 @@
   <translation tag="Cutter jam" zh="切刀卡住"/>
   <translation tag="Cutting" zh="切割中"/>
   <translation tag="Cutting filament..." zh="正在切断耗材..."/>
+  <translation tag="Cycle every tool" zh="依次更换所有工具"/>
   <translation tag="DETECTED USB PRINTERS" zh="已检测到的 USB 打印机"/>
   <translation tag="DEVICES" zh="设备"/>
   <translation tag="DISABLED" zh="已禁用"/>
@@ -1415,6 +1419,9 @@
   <translation tag="Firmware restart failed: {}" zh="固件重启失败: {}"/>
   <translation tag="Firmware restarting..." zh="固件重启中..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" zh="固件将 X 轴保存为 Y 轴的值；实测的 X 轴结果已被丢弃"/>
+  <translation tag="Fit how the part fan cools the nozzle" zh="测定模型风扇对喷嘴的冷却效果"/>
+  <translation tag="Fit the heater model with the part fan off" zh="在模型风扇关闭时测定加热器模型"/>
+  <translation tag="Fit the induction heater&apos;s safety model" zh="测定感应加热器的安全模型"/>
   <translation tag="Fix: chmod 644 {}, then restart" zh="修复：chmod 644 {}，然后重启"/>
   <translation tag="Fix: chown {} {}, then restart" zh="修复：chown {} {}，然后重启"/>
   <translation tag="FlashForge Adventurer 5M" zh="FlashForge Adventurer 5M"/>
@@ -1434,6 +1441,7 @@
   <translation tag="Focused" zh="专注"/>
   <translation tag="Follow active tool" zh="跟随当前工具"/>
   <translation tag="Follow graph screen" zh="跟随图表屏幕"/>
+  <translation tag="For a first Z home: claim the tool you put on the head" zh="首次Z轴归零时：登记您装在打印头上的工具"/>
   <translation tag="Force/weight sensors" zh="力/重量传感器"/>
   <translation tag="Forget" zh="忘记"/>
   <translation tag="Forget Network?" zh="忘记网络？"/>
@@ -1472,6 +1480,7 @@
   <translation tag="Generic" zh="通用"/>
   <translation tag="Get help and share feedback" zh="获取帮助和反馈"/>
   <translation tag="Global" zh="全局"/>
+  <translation tag="Global Z offset" zh="全局Z偏移"/>
   <translation tag="Good" zh="良好"/>
   <translation tag="Good Accuracy" zh="精度良好"/>
   <translation tag="Good Enough" zh="足够了"/>
@@ -1620,6 +1629,7 @@
   <translation tag="How far filament is pushed back into the box on eject" zh="弹出时耗材被推回料盒的距离"/>
   <translation tag="How far filament is pushed back into the box on eject (mm)" zh="弹出时耗材被推回料盒的距离（mm）"/>
   <translation tag="How fast filament is pushed back on eject" zh="弹出时耗材被推回的速度"/>
+  <translation tag="How fast the head moves while changing tools" zh="换工具时打印头的移动速度"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" zh="按住多久才算长按（毫秒）。若编辑模式等误触发，请调大"/>
   <translation tag="How many labels to print" zh="打印多少张标签"/>
   <translation tag="How the Jog tab arranges its buttons" zh="点动页按钮的排列方式"/>
@@ -2007,6 +2017,7 @@
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." zh="从热床开始测量高度。边角干净、没有多余也没有缺口的位置对应正确的K值。每一行是一个高度范围,以及打印时打印机报告的K值。"/>
   <translation tag="Measured (shaper off)" zh="实测（关闭整形）"/>
   <translation tag="Measured filament diameter" zh="测量的耗材直径"/>
+  <translation tag="Measured offsets, read-only" zh="已测量的偏移，只读"/>
   <translation tag="Measured pressure advance" zh="测得的压力提前"/>
   <translation tag="Measurement incomplete. Try again." zh="测量未完成。请重试。"/>
   <translation tag="Measures each toolhead&apos;s X, Y and Z offset so every head prints in the same place. Takes about 20 minutes." zh="测量每个工具头的 X、Y、Z 偏移，使所有工具头打印在同一位置。约需 20 分钟。"/>
@@ -2314,6 +2325,7 @@
   <translation tag="Off:" zh="关:"/>
   <translation tag="Off: runs with these values without asking" zh="关: 不询问,直接以这些值运行"/>
   <translation tag="Offer to save Z-offset changes to the printer config" zh="提供将 Z 偏移更改保存到打印机配置的选项"/>
+  <translation tag="Offset" zh="偏移"/>
   <translation tag="Offsets Saved" zh="偏移已保存"/>
   <translation tag="Offsets saved" zh="偏移已保存"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" zh="旧设置（今日数据）：残余 {} — 当前：{}"/>
@@ -2438,6 +2450,7 @@
   <translation tag="Pick Color" zh="选择颜色"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." zh="选择 HelixScreen 的行为方式。以后可在“设置”中更改。"/>
   <translation tag="Pick the best band" zh="选择最佳区段"/>
+  <translation tag="Pick up and park each tool in turn" zh="依次装上并停放每个工具"/>
   <translation tag="Pick up the tool, heat it, and pull the filament out" zh="装上工具，加热后抽出耗材"/>
   <translation tag="Pick up tool" zh="取出工具"/>
   <translation tag="Picking up tool" zh="正在取用工具"/>
@@ -3029,6 +3042,7 @@
   <translation tag="Search vendors..." zh="搜索供应商…"/>
   <translation tag="Search widgets..." zh="搜索小组件..."/>
   <translation tag="Searching..." zh="搜索中..."/>
+  <translation tag="Seat a tool by hand" zh="手动安装工具"/>
   <translation tag="Secondary" zh="次要"/>
   <translation tag="Section Detail" zh="区域详情"/>
   <translation tag="Security" zh="安全"/>
@@ -3278,6 +3292,7 @@
   <translation tag="Status icons" zh="状态图标"/>
   <translation tag="Std Deviation" zh="标准差"/>
   <translation tag="Stealth" zh="静音"/>
+  <translation tag="Stealth is quiet, Sport is fastest" zh="静音最安静，运动最快"/>
   <translation tag="Step" zh="步骤"/>
   <translation tag="Step 1 of 3" zh="第 1 步，共 3 步"/>
   <translation tag="Step {} of {}" zh="第 {} 步，共 {} 步"/>
@@ -3657,6 +3672,7 @@
   <translation tag="Tool Offsets" zh="工具偏移"/>
   <translation tag="Tool Switcher" zh="工具切换器"/>
   <translation tag="Tool change failed: {}" zh="工具切换失败: {}"/>
+  <translation tag="Tool change speed" zh="换工具速度"/>
   <translation tag="Tool change to T{}" zh="切换工具到 T{}"/>
   <translation tag="Tool may be half seated" zh="工具可能未完全安装到位"/>
   <translation tag="Tool offsets (mm)" zh="工具偏移 (mm)"/>

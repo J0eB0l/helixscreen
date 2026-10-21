@@ -495,7 +495,9 @@
   <translation tag="Calibrate Toolhead Offsets" es="Calibrar offsets de cabezales"/>
   <translation tag="Calibrate X" es="Calibrar X"/>
   <translation tag="Calibrate Y" es="Calibrar Y"/>
+  <translation tag="Calibrate heater" es="Calibrar calentador"/>
   <translation tag="Calibrate input shaping to reduce ringing artifacts in prints" es="Calibrar input shaping para reducir artefactos de resonancia en impresiones"/>
+  <translation tag="Calibrate part fan" es="Calibrar ventilador de pieza"/>
   <translation tag="Calibrate tool offsets?" es="¿Calibrar los offsets de herramienta?"/>
   <translation tag="Calibrate your touchscreen for accurate input" es="Calibrar la pantalla táctil para una entrada precisa"/>
   <translation tag="Calibrated" es="Calibrado"/>
@@ -607,6 +609,7 @@
   <translation tag="Check Klipper console for details" es="Consulte la consola de Klipper para más detalles"/>
   <translation tag="Check Slot" es="Comprobar ranura"/>
   <translation tag="Check Slots" es="Comprobar"/>
+  <translation tag="Check every dock" es="Comprobar cada base"/>
   <translation tag="Check extruder temperature and try again. Manual removal may be required." es="Compruebe la temperatura del extrusor e inténtelo de nuevo. Es posible que deba retirarse manualmente."/>
   <translation tag="Check failed" es="Error al verificar"/>
   <translation tag="Check filament" es="Comprobar filamento"/>
@@ -901,6 +904,7 @@
   <translation tag="Cutter jam" es="Atasco del cortador"/>
   <translation tag="Cutting" es="Cortando"/>
   <translation tag="Cutting filament..." es="Cortando filamento..."/>
+  <translation tag="Cycle every tool" es="Ciclar todas las herramientas"/>
   <translation tag="DETECTED USB PRINTERS" es="IMPRESORAS USB DETECTADAS"/>
   <translation tag="DEVICES" es="DISPOSITIVOS"/>
   <translation tag="DISABLED" es="DESACTIVADO"/>
@@ -1415,6 +1419,9 @@
   <translation tag="Firmware restart failed: {}" es="Reinicio de firmware fallido: {}"/>
   <translation tag="Firmware restarting..." es="Reiniciando firmware..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" es="El firmware guardó el valor de Y para X; el resultado medido de X se descartó"/>
+  <translation tag="Fit how the part fan cools the nozzle" es="Ajustar cómo el ventilador de pieza enfría la boquilla"/>
+  <translation tag="Fit the heater model with the part fan off" es="Ajustar el modelo del calentador con el ventilador de pieza apagado"/>
+  <translation tag="Fit the induction heater&apos;s safety model" es="Ajustar el modelo de seguridad del calentador de inducción"/>
   <translation tag="Fix: chmod 644 {}, then restart" es="Solución: chmod 644 {}, luego reinicie"/>
   <translation tag="Fix: chown {} {}, then restart" es="Solución: chown {} {}, luego reinicie"/>
   <translation tag="FlashForge Adventurer 5M" es="FlashForge Adventurer 5M"/>
@@ -1434,6 +1441,7 @@
   <translation tag="Focused" es="Enfocado"/>
   <translation tag="Follow active tool" es="Seguir herramienta activa"/>
   <translation tag="Follow graph screen" es="Seguir pantalla del gráfico"/>
+  <translation tag="For a first Z home: claim the tool you put on the head" es="Para el primer origen de Z: registrar la herramienta que colocó en el cabezal"/>
   <translation tag="Force/weight sensors" es="Sensores de fuerza/peso"/>
   <translation tag="Forget" es="Olvidar"/>
   <translation tag="Forget Network?" es="¿Olvidar red?"/>
@@ -1472,6 +1480,7 @@
   <translation tag="Generic" es="Genérico"/>
   <translation tag="Get help and share feedback" es="Obtén ayuda y comparte comentarios"/>
   <translation tag="Global" es="Global"/>
+  <translation tag="Global Z offset" es="Desfase Z global"/>
   <translation tag="Good" es="Bueno"/>
   <translation tag="Good Accuracy" es="Buena Precisión"/>
   <translation tag="Good Enough" es="Suficiente"/>
@@ -1620,6 +1629,7 @@
   <translation tag="How far filament is pushed back into the box on eject" es="Cuánto se empuja el filamento de vuelta a la caja al expulsar"/>
   <translation tag="How far filament is pushed back into the box on eject (mm)" es="Cuánto se empuja el filamento de vuelta a la caja al expulsar (mm)"/>
   <translation tag="How fast filament is pushed back on eject" es="Qué tan rápido se empuja el filamento de vuelta al expulsar"/>
+  <translation tag="How fast the head moves while changing tools" es="Velocidad del cabezal durante el cambio de herramienta"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" es="Cuánto hay que mantener pulsado para que cuente como pulsación larga, en ms (auméntalo si el modo de edición u otras acciones se activan por accidente)"/>
   <translation tag="How many labels to print" es="Cuántas etiquetas imprimir"/>
   <translation tag="How the Jog tab arranges its buttons" es="Cómo organiza sus botones la pestaña Jog"/>
@@ -2007,6 +2017,7 @@
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." es="Mide desde la cama. Esquinas nítidas sin abultamiento ni huecos indican el K correcto. Cada fila es un rango de altura y el K que informó la impresora mientras se imprimía."/>
   <translation tag="Measured (shaper off)" es="Medición (moldeador desactivado)"/>
   <translation tag="Measured filament diameter" es="Diámetro medido del filamento"/>
+  <translation tag="Measured offsets, read-only" es="Desfases medidos, solo lectura"/>
   <translation tag="Measured pressure advance" es="Pressure Advance medido"/>
   <translation tag="Measurement incomplete. Try again." es="Medición incompleta. Inténtelo de nuevo."/>
   <translation tag="Measures each toolhead&apos;s X, Y and Z offset so every head prints in the same place. Takes about 20 minutes." es="Mide el offset X, Y y Z de cada cabezal para que todos impriman en el mismo lugar. Tarda unos 20 minutos."/>
@@ -2314,6 +2325,7 @@
   <translation tag="Off:" es="Apagado:"/>
   <translation tag="Off: runs with these values without asking" es="Desactivado: ejecuta con estos valores sin preguntar"/>
   <translation tag="Offer to save Z-offset changes to the printer config" es="Ofrecer guardar los cambios de Z-Offset en la configuración de la impresora"/>
+  <translation tag="Offset" es="Desfase"/>
   <translation tag="Offsets Saved" es="Offsets guardados"/>
   <translation tag="Offsets saved" es="Offsets guardados"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" es="Ajuste anterior en los datos de hoy: {} de vibración residual - ahora: {}"/>
@@ -2438,6 +2450,7 @@
   <translation tag="Pick Color" es="Elegir Color"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." es="Elige cómo se comporta HelixScreen. Puedes cambiarlo más tarde en Ajustes."/>
   <translation tag="Pick the best band" es="Elige la mejor franja"/>
+  <translation tag="Pick up and park each tool in turn" es="Tomar y aparcar cada herramienta por turno"/>
   <translation tag="Pick up the tool, heat it, and pull the filament out" es="Toma la herramienta, caliéntala y saca el filamento"/>
   <translation tag="Pick up tool" es="Recoger herramienta"/>
   <translation tag="Picking up tool" es="Recogiendo herramienta"/>
@@ -3029,6 +3042,7 @@
   <translation tag="Search vendors..." es="Buscar proveedores..."/>
   <translation tag="Search widgets..." es="Buscar widgets..."/>
   <translation tag="Searching..." es="Buscando..."/>
+  <translation tag="Seat a tool by hand" es="Asentar una herramienta a mano"/>
   <translation tag="Secondary" es="Secundario"/>
   <translation tag="Section Detail" es="Detalle de sección"/>
   <translation tag="Security" es="Seguridad"/>
@@ -3278,6 +3292,7 @@
   <translation tag="Status icons" es="Iconos de estado"/>
   <translation tag="Std Deviation" es="Desviación Estándar"/>
   <translation tag="Stealth" es="Silencioso"/>
+  <translation tag="Stealth is quiet, Sport is fastest" es="Silencioso es el más callado, Deportivo el más rápido"/>
   <translation tag="Step" es="Paso"/>
   <translation tag="Step 1 of 3" es="Paso 1 de 3"/>
   <translation tag="Step {} of {}" es="Paso {} de {}"/>
@@ -3657,6 +3672,7 @@
   <translation tag="Tool Offsets" es="Offsets de herramienta"/>
   <translation tag="Tool Switcher" es="Selector de herramientas"/>
   <translation tag="Tool change failed: {}" es="Error al cambiar herramienta: {}"/>
+  <translation tag="Tool change speed" es="Velocidad de cambio de herramienta"/>
   <translation tag="Tool change to T{}" es="Cambio de herramienta a T{}"/>
   <translation tag="Tool may be half seated" es="La herramienta puede estar mal asentada"/>
   <translation tag="Tool offsets (mm)" es="Offsets de herramienta (mm)"/>

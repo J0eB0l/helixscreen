@@ -521,8 +521,10 @@ translations:
   Calibrate X: Calibrate X
   Calibrate Y: Calibrate Y
   Calibrate All Tools: Calibrate All Tools
+  Calibrate heater: Calibrate heater
   Calibrate input shaping to reduce ringing artifacts in prints: Calibrate input shaping
     to reduce ringing artifacts in prints
+  Calibrate part fan: Calibrate part fan
   Calibrate tool offsets?: Calibrate tool offsets?
   Calibrate your touchscreen for accurate input: Calibrate your touchscreen for accurate
     input
@@ -645,6 +647,7 @@ translations:
   Check AFC configuration: Check AFC configuration
   Check Again: Check Again
   Check Klipper console for details: Check Klipper console for details
+  Check every dock: Check every dock
   Check extruder temperature and try again. Manual removal may be required.: Check extruder temperature and try again. Manual removal may be required.
   Check failed: Check failed
   Check filament: Check filament
@@ -970,6 +973,7 @@ translations:
   Cutter jam: Cutter jam
   Cutting: Cutting
   Cutting filament...: Cutting filament...
+  Cycle every tool: Cycle every tool
   DETECTED USB PRINTERS: DETECTED USB PRINTERS
   DEVICES: DEVICES
   DISABLED: DISABLED
@@ -1508,6 +1512,9 @@ translations:
   'Firmware restart failed: {}': 'Firmware restart failed: {}'
   Firmware restarting...: Firmware restarting...
   Firmware saved X = Y's value; the measured X result was discarded: Firmware saved X = Y's value; the measured X result was discarded
+  Fit how the part fan cools the nozzle: Fit how the part fan cools the nozzle
+  Fit the heater model with the part fan off: Fit the heater model with the part fan off
+  Fit the induction heater's safety model: Fit the induction heater's safety model
   'Fix: chmod 644 {}, then restart': 'Fix: chmod 644 {}, then restart'
   'Fix: chown {} {}, then restart': 'Fix: chown {} {}, then restart'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1527,6 +1534,7 @@ translations:
   Focused: Focused
   Follow active tool: Follow active tool
   Follow graph screen: Follow graph screen
+  'For a first Z home: claim the tool you put on the head': 'For a first Z home: claim the tool you put on the head'
   Force/weight sensors: Force/weight sensors
   Forget: Forget
   Forget Network?: Forget Network?
@@ -1566,6 +1574,7 @@ translations:
   Generic: Generic
   Get help and share feedback: Get help and share feedback
   Global: Global
+  Global Z offset: Global Z offset
   Good: Good
   Good Accuracy: Good Accuracy
   Good Enough: Good Enough
@@ -1727,6 +1736,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): How far filament is
     pushed back into the box on eject (mm)
   How fast filament is pushed back on eject: How fast filament is pushed back on eject
+  How fast the head moves while changing tools: How fast the head moves while changing tools
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   How many labels to print: How many labels to print
@@ -2151,6 +2161,7 @@ translations:
   : Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   Measured (shaper off): Measured (shaper off)
   Measured filament diameter: Measured filament diameter
+  Measured offsets, read-only: Measured offsets, read-only
   Measured pressure advance: Measured pressure advance
   Measurement incomplete. Try again.: Measurement incomplete. Try again.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.
@@ -2475,6 +2486,7 @@ translations:
   'Off:': 'Off:'
   'Off: runs with these values without asking': 'Off: runs with these values without asking'
   Offer to save Z-offset changes to the printer config: Offer to save Z-offset changes to the printer config
+  Offset: Offset
   Offsets Saved: Offsets Saved
   Offsets saved: Offsets saved
   "Old setting on today's data: {} residual - now: {}": "Old setting on today's data: {} residual - now: {}"
@@ -2608,6 +2620,7 @@ translations:
   Pick Color: Pick Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: Pick how HelixScreen behaves. You can change any of these later in Settings.
   Pick the best band: Pick the best band
+  Pick up and park each tool in turn: Pick up and park each tool in turn
   Pick up the tool, heat it, and pull the filament out: Pick up the tool, heat it, and pull the filament out
   Pick up tool: Pick up tool
   Picking up tool: Picking up tool
@@ -3242,6 +3255,7 @@ translations:
   Search vendors...: Search vendors...
   Search widgets...: Search widgets...
   Searching...: Searching...
+  Seat a tool by hand: Seat a tool by hand
   Secondary: Secondary
   Section Detail: Section Detail
   Security: Security
@@ -3512,6 +3526,7 @@ translations:
   Status icons: Status icons
   Std Deviation: Std Deviation
   Stealth: Stealth
+  Stealth is quiet, Sport is fastest: Stealth is quiet, Sport is fastest
   Step: Step
   Step 1 of 3: Step 1 of 3
   Step {} of {}: Step {} of {}
@@ -3965,6 +3980,7 @@ translations:
   Tool Offsets: Tool Offsets
   Tool Switcher: Tool Switcher
   'Tool change failed: {}': 'Tool change failed: {}'
+  Tool change speed: Tool change speed
   Tool change to T{}: Tool change to T{}
   Tool may be half seated: Tool may be half seated
   Tool offsets (mm): Tool offsets (mm)

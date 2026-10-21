@@ -504,7 +504,9 @@ translations:
   Calibrate X: X軸をキャリブレート
   Calibrate Y: Y軸をキャリブレート
   Calibrate All Tools: すべてのツールをキャリブレート
+  Calibrate heater: ヒーターを校正
   Calibrate input shaping to reduce ringing artifacts in prints: 入力シェーピングをキャリブレートして印刷のリンギングを軽減します
+  Calibrate part fan: パーツファンを校正
   Calibrate tool offsets?: ツールオフセットをキャリブレートしますか？
   Calibrate your touchscreen for accurate input: タッチスクリーンの入力精度をキャリブレートします
   Calibrated: キャリブレーション済み
@@ -616,6 +618,7 @@ translations:
   Check AFC configuration: 'AFC 設定を確認してください'
   Check Again: 再確認
   Check Klipper console for details: 詳細は Klipper コンソールを確認してください
+  Check every dock: すべてのドックを確認
   Check extruder temperature and try again. Manual removal may be required.: エクストルーダーの温度を確認してもう一度お試しください。手動での取り出しが必要な場合があります。
   Check failed: 確認に失敗しました
   Check filament: フィラメントを確認
@@ -933,6 +936,7 @@ translations:
   Cutter jam: カッター詰まり
   Cutting: カット中
   Cutting filament...: フィラメントを切断中...
+  Cycle every tool: 全ツールを順に交換
   DETECTED USB PRINTERS: 検出されたUSBプリンター
   DEVICES: デバイス
   DISABLED: 無効
@@ -1466,6 +1470,9 @@ translations:
   'Firmware restart failed: {}': 'ファームウェア再起動に失敗しました: {}'
   Firmware restarting...: ファームウェア再起動中...
   Firmware saved X = Y's value; the measured X result was discarded: ファームウェアは X の値として Y の値を保存しました。測定された X の結果は破棄されました。
+  Fit how the part fan cools the nozzle: パーツファンによるノズルの冷却を測定
+  Fit the heater model with the part fan off: パーツファンをオフにしてヒーターモデルを測定
+  Fit the induction heater's safety model: 誘導ヒーターの安全モデルを測定
   'Fix: chmod 644 {}, then restart': '修正：chmod 644 {} を実行して再起動してください'
   'Fix: chown {} {}, then restart': '修正：chown {} {} を実行して再起動してください'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1486,6 +1493,7 @@ translations:
   Focused: '集中'
   Follow active tool: アクティブツールに追従
   Follow graph screen: グラフ画面に追従
+  'For a first Z home: claim the tool you put on the head': 初回のZホーミング用：ヘッドに取り付けたツールを登録
   Force/weight sensors: '力/重量センサー'
   Forget: 登録解除
   Forget Network?: ネットワークを登録解除しますか？
@@ -1525,6 +1533,7 @@ translations:
   Generic: 汎用
   Get help and share feedback: ヘルプとフィードバック
   Global: グローバル
+  Global Z offset: グローバルZオフセット
   Good: 良好
   Good Accuracy: 良好な精度
   Good Enough: "これで十分"
@@ -1680,6 +1689,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): 取り出し時にフィラメントをボックスへ押し戻す距離
     (mm)
   How fast filament is pushed back on eject: "取り出し時にフィラメントを押し戻す速度"
+  How fast the head moves while changing tools: ツール交換中のヘッドの移動速度
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : '長押しと判定されるまでの保持時間（ミリ秒）。編集モードなどが誤動作する場合は大きくしてください'
   How many labels to print: 印刷するラベル枚数
@@ -2088,6 +2098,7 @@ translations:
   : ベッドから高さを測ってください。膨らみもすき間もないきれいな角が正しいKです。各行は高さの範囲と、その印刷中にプリンターが報告したKです。
   Measured (shaper off): 測定値（シェーパーオフ時）
   Measured filament diameter: 測定したフィラメント直径
+  Measured offsets, read-only: 測定済みオフセット（読み取り専用）
   Measured pressure advance: '測定された Pressure Advance'
   Measurement incomplete. Try again.: 測定が不完全です。再試行してください。
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: 各ツールヘッドのX・Y・Zオフセットを計測し、すべてのヘッドが同じ位置に印刷できるようにします。約20分かかります。
@@ -2403,6 +2414,7 @@ translations:
   'Off:': 'オフ:'
   'Off: runs with these values without asking': 'オフ: これらの値で確認なしに実行'
   Offer to save Z-offset changes to the printer config: 'Z-Offset の変更をプリンター設定に保存する操作を表示します'
+  Offset: オフセット
   Offsets Saved: オフセットを保存しました
   Offsets saved: オフセットを保存しました
   "Old setting on today's data: {} residual - now: {}": '旧設定を今日のデータに適用: 残留 {} - 現在: {}'
@@ -2534,6 +2546,7 @@ translations:
   Pick Color: 色を選択
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'HelixScreen の動作を選択します。すべて後で「設定」から変更できます。'
   Pick the best band: 最適な区間を選択
+  Pick up and park each tool in turn: 各ツールを順に取り付けて戻す
   Pick up the tool, heat it, and pull the filament out: "ツールを取り付けて加熱し、フィラメントを引き抜いてください"
   Pick up tool: ツールを取得
   Picking up tool: ツールを取得中
@@ -3142,6 +3155,7 @@ translations:
   Search vendors...: ベンダーを検索...
   Search widgets...: ウィジェットを検索...
   Searching...: 検索中...
+  Seat a tool by hand: ツールを手で装着
   Secondary: セカンダリ
   Section Detail: セクション詳細
   Security: セキュリティ
@@ -3400,6 +3414,7 @@ translations:
   Status icons: ステータスアイコン
   Std Deviation: 標準偏差
   Stealth: 静音
+  Stealth is quiet, Sport is fastest: 静音は静か、スポーツは最速
   Step: ステップ
   Step 1 of 3: ステップ 1/3
   Step {} of {}: ステップ {} / {}
@@ -3827,6 +3842,7 @@ translations:
   Tool Offsets: ツールオフセット
   Tool Switcher: 'ツール切り替え'
   'Tool change failed: {}': 'ツール変更に失敗しました: {}'
+  Tool change speed: ツール交換速度
   Tool change to T{}: 'ツールを T{} に変更しています'
   Tool may be half seated: "ツールが半分しか装着されていない可能性があります"
   Tool offsets (mm): ツールオフセット (mm)
