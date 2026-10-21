@@ -4,6 +4,7 @@
 
 #include "ui_event_safety.h"
 #include "ui_toast_manager.h"
+#include "ui_unload_lane_choice.h"
 
 #include "ams_state.h"
 #include "app_globals.h"
@@ -164,6 +165,11 @@ void unload_before_drying(BedDryingController& ctrl, std::function<void()> then)
                                       3000);
         then();
     };
+    // A backend that cannot name the lane in the toolhead asks first; a
+    // Cancel there leaves the drying unstarted.
+    if (slot < 0 && ask_lane_then_unload(backend, nullptr, surface)) {
+        return;
+    }
     execute_filament_unload(backend, slot, loaded, surface);
 }
 

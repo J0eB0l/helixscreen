@@ -409,8 +409,15 @@ The UI asks before any of this. `AmsBackend::unload_lane_question()` asks nothin
 on this backend it returns the lanes to offer (rows 3-4) or `confirm_clear_toolhead` (row 5).
 The AMS sidebar's Unload (`src/ui/ui_ams_sidebar.cpp#"void AmsOperationSidebar::handle_unload()"`)
 and the Filament panel's Unload (`src/ui/ui_panel_filament.cpp#handle_unload_button`) both call
-`src/ui/ui_unload_lane_choice.cpp#choose_unload_lane` first, and so does the runout dialog's
-Unload (`src/ui/ui_filament_runout_handler.cpp#dispatch_unload`) when the runout names no lane. Lanes open the slot picker titled
+`src/ui/ui_unload_lane_choice.cpp#choose_unload_lane` first. Every other slotless unload asks
+through `src/ui/ui_unload_lane_choice.cpp#ask_lane_then_unload`, which sends the answer straight
+to `execute_filament_unload()`: the runout dialog's Unload
+(`src/ui/ui_filament_runout_handler.cpp#dispatch_unload`) and the filament sensor tile's
+(`src/ui/panel_widgets/filament_sensor_widget.cpp#dispatch_unload`) when the runout names no
+lane, and bed drying's unload-first (`src/ui/ui_bed_drying_modal.cpp#unload_before_drying`),
+where a Cancel leaves the drying unstarted. The lane context menus name their lane and withdraw
+Unload in this state; the bypass toggle and the external spool unload only with a lane active
+or for the bypass spool, neither of which reaches the question. Lanes open the slot picker titled
 "Which lane is in the toolhead?" anchored to the Unload button: one row per lane, a "Clear
 extruder only" row (`FilamentSlotPicker::Options::extra_choice`, answers `kClearToolheadSlot`)
 and a "Cancel" row (`Options::cancel_choice`), even for a single lane, so the harmless way out

@@ -99,4 +99,17 @@ bool choose_unload_lane(helix::AmsBackend* backend, lv_obj_t* anchor,
     return true;
 }
 
+bool ask_lane_then_unload(helix::AmsBackend* backend, lv_obj_t* anchor, FilamentOpSurface surface,
+                          std::optional<helix::LifetimeToken> token) {
+    return choose_unload_lane(backend, anchor ? anchor : lv_screen_active(),
+                              [surface = std::move(surface), token = std::move(token)](int chosen) {
+                                  if (token && token->expired()) {
+                                      return;
+                                  }
+                                  execute_filament_unload(AmsState::instance().get_backend(),
+                                                          chosen,
+                                                          /*target_is_loaded=*/true, surface);
+                              });
+}
+
 } // namespace helix::ui

@@ -2,10 +2,13 @@
 
 #pragma once
 
+#include "async_lifetime_guard.h"
 #include "filament_mapper.h"
+#include "filament_op_execute.h"
 
 #include <functional>
 #include <lvgl.h>
+#include <optional>
 #include <vector>
 
 namespace helix {
@@ -40,5 +43,19 @@ unload_lane_choices(const std::vector<int>& candidates,
  */
 bool choose_unload_lane(helix::AmsBackend* backend, lv_obj_t* anchor,
                         std::function<void(int)> on_chosen);
+
+/**
+ * @brief choose_unload_lane() for a slotless unload surface whose answer goes
+ *        straight to execute_filament_unload().
+ *
+ * The answer is the lane (or kClearToolheadSlot) the user named as loaded, so
+ * it dispatches with target_is_loaded on the backend live at answer time.
+ *
+ * @param token when set, an expired token drops the answer
+ * @return true when the question took over the unload, false when the caller
+ *         unloads as usual
+ */
+bool ask_lane_then_unload(helix::AmsBackend* backend, lv_obj_t* anchor, FilamentOpSurface surface,
+                          std::optional<helix::LifetimeToken> token = std::nullopt);
 
 } // namespace helix::ui

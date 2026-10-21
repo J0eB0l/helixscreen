@@ -339,21 +339,14 @@ void FilamentRunoutHandler::dispatch_unload() {
     const int slot = helix::ui::runout_target_slot(backend, runout_lane_, /*load=*/false);
 
     // A backend that cannot name the lane in the toolhead asks first, the same
-    // question the Filament panel and the sidebar ask, and the answer is the
-    // lane (or the extruder-only clear) the user named as loaded.
+    // question the Filament panel and the sidebar ask.
     if (slot < 0) {
         lv_obj_t* dialog = runout_modal_.dialog();
-        lv_obj_t* anchor = dialog ? lv_obj_find_by_name(dialog, "btn_unload_filament") : nullptr;
-        auto token = lifetime_.token();
-        if (helix::ui::choose_unload_lane(
-                backend, anchor ? anchor : lv_screen_active(), [token](int chosen) {
-                    if (token.expired()) {
-                        return;
-                    }
-                    helix::ui::execute_filament_unload(AmsState::instance().get_backend(), chosen,
-                                                       /*target_is_loaded=*/true,
-                                                       "[FilamentRunoutHandler]");
-                })) {
+        helix::ui::FilamentOpSurface surface;
+        surface.log_tag = "[FilamentRunoutHandler]";
+        if (helix::ui::ask_lane_then_unload(
+                backend, dialog ? lv_obj_find_by_name(dialog, "btn_unload_filament") : nullptr,
+                surface, lifetime_.token())) {
             return;
         }
     }
