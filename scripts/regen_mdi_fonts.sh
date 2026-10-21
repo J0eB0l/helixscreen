@@ -337,7 +337,7 @@ MDI_ICONS+=",0xF0632"    # apple-keyboard-caps (caps lock indicator)
 MDI_ICONS+=",0xF0636"    # apple-keyboard-shift (shift key outline)
 
 # Custom icon codepoints (0xFE000 block), served from FONT_CUSTOM.
-CUSTOM_ICONS="0xFE000"   # spoolman (Spoolman logo)
+CUSTOM_ICONS="0xFE000,0xFE001,0xFE002,0xFE003"   # spoolman logo, spool, spool_outline, spool_alert
 
 # Sizes to generate - matching text font sizes for consistent UI
 SIZES="14 16 24 32 48 64 80 96 128"
