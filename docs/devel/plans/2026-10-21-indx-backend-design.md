@@ -549,7 +549,8 @@ the filament panel's tool cards, the tool switcher and the nozzle temperature co
 
 1. **Phase 1, visible and safe.** `AmsType::INDX` and every switch site; detection; the
    contract module; `AmsBackendIndx` with change, park, Load, spool assignment, the error
-   states; `heads_share_heater` in ToolState; the heat gate; `slot_for_extruder`; latch
+   states; `heads_share_heater` and `names_mounted_nozzle()` in ToolState with the label
+   producers of section 7 item 3; the heat gate and its tap toast; `slot_for_extruder`; latch
    reset; `sets_active_spool`; the mock; the leaf doc. Then a build for the #1333 reporter
    (haznat) to run read-only first (does it detect, are the tools and the mounted tool
    right), then one supervised tool change.
