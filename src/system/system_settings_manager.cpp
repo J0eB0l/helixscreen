@@ -3,11 +3,13 @@
 
 #include "system_settings_manager.h"
 
+#include "app_globals.h"
 #include "cjk_font_manager.h"
 #include "config.h"
 #include "locale_formats.h"
 #include "logging_init.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "printer_state.h"
 #include "spdlog/spdlog.h"
 #include "static_subject_registry.h"
 #include "system/crash_handler.h"
@@ -186,6 +188,7 @@ void SystemSettingsManager::set_language(const std::string& lang) {
 
     // Subject strings translated when they were written re-render here
     UpdateChecker::instance().on_language_changed();
+    get_printer_state().capabilities_state().on_language_changed();
 
     // 3. Update locale formatting tables
     helix::ui::locale_set_language(lang);

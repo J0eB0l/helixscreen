@@ -12,6 +12,10 @@
  */
 
 #include "../lvgl_test_fixture.h"
+#include "../test_helpers/remote_pointer_test_access.h"
+#include "input_settings_manager.h"
+#include "input_settings_test_helpers.h"
+#include "lvgl/src/indev/lv_indev_private.h"
 #include "remote_pointer.h"
 
 #include <atomic>
@@ -121,4 +125,24 @@ TEST_CASE("wait_for_samples times out when nothing samples", "[remote_pointer]")
     auto& ptr = RemotePointer::instance();
     auto r = ptr.wait_for_samples(ptr.read_count(), 30ms, [] { return true; });
     CHECK(r == RemotePointer::WaitResult::TimedOut);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "the remote pointer is created with the Touch & Input long-press time",
+                 "[remote_pointer][input_settings][tap_hold]") {
+    using helix::remote::RemotePointerTestAccess;
+    auto& ptr = RemotePointer::instance();
+    RemotePointerTestAccess::destroy_device(ptr);
+
+    // Set while no remote pointer exists, so only its creation can apply it.
+    helix_test::reset_input_settings_to_defaults();
+    auto& input = helix::InputSettingsManager::instance();
+    input.set_long_press_time(1000);
+    REQUIRE(input.get_long_press_time() == 1000);
+    REQUIRE(ptr.ensure_created());
+    lv_indev_t* indev = RemotePointerTestAccess::device(ptr);
+    REQUIRE(indev != nullptr);
+    CHECK(indev->long_press_time == 1000);
+
+    helix_test::reset_input_settings_to_defaults();
 }

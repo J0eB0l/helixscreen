@@ -3,6 +3,7 @@
 
 #include "active_spool_widget.h"
 
+#include "ui_ams_edit_follow_up.h"
 #include "ui_ams_edit_overlay.h"
 #include "ui_color_picker.h"
 #include "ui_error_reporting.h"
@@ -316,6 +317,9 @@ void ActiveSpoolWidget::handle_clicked() {
                     SlotInfo original = be->get_slot_info(current);
                     AmsError err =
                         AmsState::instance().commit_slot_edit(current, original, result.slot_info);
+                    if (err.success() || err.partially_applied) {
+                        helix::ui::offer_edit_follow_up(current, original, result.slot_info);
+                    }
                     if (!err.success()) {
                         helix::ui::notify_ams_error(err);
                     }

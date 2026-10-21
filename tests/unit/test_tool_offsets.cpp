@@ -558,3 +558,72 @@ TEST_CASE("tool offsets: a malformed X field is not a reading", "[tool_offsets]"
                     reader, json{{"tool T0", json{{"gcode_x_offset", nullptr}}}}, Axis::X, 0, "T0")
                     .has_value());
 }
+
+// ============================================================================
+// Read-only models: offsets the printer measures and keeps itself
+// ============================================================================
+
+namespace {
+
+/// A stock INDX printer: the host module plus its macro contract.
+PrinterDiscovery indx_printer() {
+    PrinterDiscovery hw;
+    hw.parse_objects(json::array({"indx", "save_variables", "extruder", "toolhead", "gcode_move",
+                                  "gcode_macro TOOL_POSITIONS", "gcode_macro _TOOLCHANGE_VARS",
+                                  "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL",
+                                  "gcode_macro T0", "gcode_macro T1", "gcode_macro T2"}));
+    return hw;
+}
+
+json indx_frame() {
+    return json{{"save_variables",
+                 {{"variables",
+                   {{"t1_offset_x", 0.12},
+                    {"t1_offset_y", -0.045},
+                    {"t1_offset_z", 0.03},
+                    {"global_z_offset", -0.05}}}}}};
+}
+
+} // namespace
+
+TEST_CASE("tool offsets: INDX offsets are read-only", "[tool_offsets]") {
+    auto hw = indx_printer();
+    CHECK(to_::reads_axis(hw, Axis::X));
+    CHECK(to_::reads_axis(hw, Axis::Y));
+    CHECK(to_::reads_axis(hw, Axis::Z));
+    CHECK_FALSE(to_::supports_axis(hw, Axis::Z));
+    CHECK_FALSE(to_::supports_axis(hw, Axis::X));
+    CHECK_FALSE(to_::supports_per_tool_offsets(hw));
+    CHECK(to_::set_tool_offset_gcode(hw, Axis::Z, 1, 50).empty());
+    CHECK(to_::save_tool_offset_gcode(hw, Axis::Z, 1, 50).empty());
+    CHECK(to_::required_status_objects(hw).empty());
+    CHECK_FALSE(to_::persist_requires_save_config(hw));
+
+    CHECK_FALSE(to_::reads_axis(plain_printer(), Axis::Z));
+    CHECK(to_::reads_axis(toolchanger_printer(), Axis::X));
+}
+
+TEST_CASE("tool offsets: INDX reads save_variables", "[tool_offsets]") {
+    auto reader = to_::resolve_reader(indx_printer());
+    const json frame = indx_frame();
+    CHECK(to_::read_tool_offset_microns(reader, frame, Axis::X, 1, "T1") == 120);
+    CHECK(to_::read_tool_offset_microns(reader, frame, Axis::Y, 1, "T1") == -45);
+    CHECK(to_::read_tool_offset_microns(reader, frame, Axis::Z, 1, "T1") == 30);
+    CHECK(to_::read_global_z_offset_microns(reader, frame) == -50);
+    CHECK_FALSE(to_::read_tool_offset_microns(reader, frame, Axis::Z, 2, "T2").has_value());
+
+    const json other = {{"extruder", {{"temperature", 200.0}}}};
+    CHECK_FALSE(to_::read_tool_offset_microns(reader, other, Axis::Z, 1, "T1").has_value());
+    CHECK_FALSE(to_::read_global_z_offset_microns(reader, other).has_value());
+
+    const json text = {
+        {"save_variables", {{"variables", {{"t1_offset_x", "0.1"}, {"global_z_offset", "0.1"}}}}}};
+    CHECK_FALSE(to_::read_tool_offset_microns(reader, text, Axis::X, 1, "T1").has_value());
+    CHECK_FALSE(to_::read_global_z_offset_microns(reader, text).has_value());
+}
+
+TEST_CASE("tool offsets: models without a global Z read none", "[tool_offsets]") {
+    auto reader = to_::resolve_reader(toolchanger_printer());
+    CHECK_FALSE(to_::read_global_z_offset_microns(reader, indx_frame()).has_value());
+    CHECK_FALSE(to_::read_global_z_offset_microns(to_::OffsetReader{}, indx_frame()).has_value());
+}

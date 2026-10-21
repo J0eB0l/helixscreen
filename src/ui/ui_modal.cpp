@@ -1325,11 +1325,11 @@ helix::ui::ModalDialogAttrs::ModalDialogAttrs(std::string title, std::string mes
 }
 
 const char** helix::ui::ModalDialogAttrs::get() {
-    attrs_ = {"title",        title_.c_str(),   "message",        message_.c_str(),
-              "primary_text", primary_.c_str(), "secondary_text", secondary_.c_str(),
-              "hide_info",    hide_info_,       "hide_warning",   hide_warning_,
-              "hide_error",   hide_error_,      "hide_secondary", hide_secondary_,
-              nullptr};
+    attrs_ = {"title",           title_.c_str(),   "message",        message_.c_str(),
+              "primary_text",    primary_.c_str(), "secondary_text", secondary_.c_str(),
+              "hide_info",       hide_info_,       "hide_warning",   hide_warning_,
+              "hide_error",      hide_error_,      "hide_secondary", hide_secondary_,
+              "primary_variant", primary_variant_, nullptr};
     return attrs_.data();
 }
 
@@ -1390,6 +1390,10 @@ class ConfirmationModal : public Modal {
         fn_confirm_ = std::move(on_confirm);
         fn_cancel_ = std::move(on_cancel);
         has_cancel_ = has_cancel;
+    }
+
+    void set_destructive(bool destructive) {
+        attrs_.set_primary_variant(destructive ? "danger" : "primary");
     }
 
     /// Owns its attr strings so they outlive XML creation by construction
@@ -1567,6 +1571,7 @@ lv_obj_t* helix::ui::modal_confirm(const char* title, const char* message, Modal
                               [&](ConfirmationModal& m) {
                                   m.set_callbacks(std::move(on_confirm), options.on_cancel,
                                                   /*has_cancel=*/true);
+                                  m.set_destructive(options.destructive);
                               });
 }
 

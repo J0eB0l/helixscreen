@@ -3,6 +3,7 @@
 // Synthetic fixtures built from the shapes in Bondtech's upstream macros
 // (BondtechAB/INDX macros/indx.cfg, indx-tc-macros.cfg, indx-cal.cfg).
 
+#include "display_numbering.h"
 #include "indx_contract.h"
 #include "macro_param_cache.h"
 #include "printer_discovery.h"
@@ -355,4 +356,144 @@ TEST_CASE("INDX: the type parses from its names and is a tool changer", "[ams][i
     CHECK(ams_type_from_string("indx") == AmsType::INDX);
     CHECK(ams_type_from_string("INDX") == AmsType::INDX);
     CHECK(is_tool_changer(AmsType::INDX));
+}
+
+// ============================================================================
+// Phase-3 device actions
+// ============================================================================
+
+namespace {
+
+json with_phase3_macros(json objects) {
+    for (const char* m : {"MODE_STEALTH", "MODE_NORMAL", "MODE_SPORT", "TC_CYCLE_ALL",
+                          "MANUAL_TOOL_REMOVE", "MANUAL_TOOL_SEAT"}) {
+        objects.push_back(std::string("gcode_macro ") + m);
+    }
+    return objects;
+}
+
+} // namespace
+
+TEST_CASE("INDX contract: optional phase-3 macros are found", "[ams][indx][contract]") {
+    auto all = indx::check_contract(discover(with_phase3_macros(indx_objects())));
+    CHECK(all.recognized);
+    CHECK(all.has_speed_modes);
+    CHECK(all.has_cycle_all);
+    CHECK(all.has_manual_tool_recovery);
+    CHECK(all.has_set_tool_filament);
+
+    auto no_sport = indx::check_contract(
+        discover(without(with_phase3_macros(indx_objects()), "gcode_macro MODE_SPORT")));
+    CHECK(no_sport.recognized);
+    CHECK_FALSE(no_sport.has_speed_modes);
+    CHECK(no_sport.has_cycle_all);
+
+    auto no_seat = indx::check_contract(
+        discover(without(with_phase3_macros(indx_objects()), "gcode_macro MANUAL_TOOL_SEAT")));
+    CHECK(no_seat.recognized);
+    CHECK_FALSE(no_seat.has_manual_tool_recovery);
+
+    auto stock = indx::check_contract(discover(indx_objects()));
+    CHECK_FALSE(stock.has_speed_modes);
+    CHECK_FALSE(stock.has_cycle_all);
+    CHECK_FALSE(stock.has_manual_tool_recovery);
+    CHECK(stock.has_set_tool_filament);
+    auto no_stf =
+        indx::check_contract(discover(without(indx_objects(), "gcode_macro SET_TOOL_FILAMENT")));
+    CHECK_FALSE(no_stf.has_set_tool_filament);
+}
+
+TEST_CASE("INDX contract: speed modes round-trip", "[ams][indx][contract]") {
+    CHECK(indx::parse_speed_mode("normal") == indx::SpeedMode::Normal);
+    CHECK(indx::parse_speed_mode("SPORT") == indx::SpeedMode::Sport);
+    CHECK(indx::parse_speed_mode("Stealth") == indx::SpeedMode::Stealth);
+    CHECK_FALSE(indx::parse_speed_mode("ludicrous").has_value());
+    CHECK_FALSE(indx::parse_speed_mode("").has_value());
+    for (auto mode : indx::kSpeedModes) {
+        CHECK(indx::parse_speed_mode(indx::speed_mode_option(mode)) == mode);
+    }
+    CHECK(std::string(indx::speed_mode_option(indx::SpeedMode::Stealth)) == "Stealth");
+    CHECK(indx::speed_mode_gcode(indx::SpeedMode::Sport) == "MODE_SPORT");
+    CHECK(indx::speed_mode_gcode(indx::SpeedMode::Normal) == "MODE_NORMAL");
+    CHECK(indx::speed_mode_gcode(indx::SpeedMode::Stealth) == "MODE_STEALTH");
+}
+
+TEST_CASE("INDX contract: recovery and calibration commands", "[ams][indx][contract]") {
+    CHECK(indx::manual_seat_gcode(3) == "MANUAL_TOOL_SEAT TOOL=3");
+    CHECK(indx::manual_remove_gcode() == "MANUAL_TOOL_REMOVE");
+    CHECK(indx::cycle_all_gcode() == "TC_CYCLE_ALL");
+    CHECK(indx::calibration_gcode(indx::HeaterCalibration::Heater) == "INDX_CALIBRATE");
+    CHECK(indx::calibration_gcode(indx::HeaterCalibration::Fan) == "INDX_FAN_CALIBRATE");
+}
+
+TEST_CASE("INDX contract: calibration gates", "[ams][indx][contract]") {
+    using indx::HeaterCalibration;
+    indx::Contract ok;
+    ok.recognized = true;
+    indx::Reading state;
+    state.active_tool = 2;
+    state.no_heat_tools = std::set<int>{5};
+
+    CHECK(indx::calibration_blocked_reason(ok, state, HeaterCalibration::Heater, 0.0).empty());
+    CHECK_THAT(indx::calibration_blocked_reason(ok, state, HeaterCalibration::Heater, 210.0),
+               Catch::Matchers::ContainsSubstring("heater off"));
+    CHECK(indx::calibration_blocked_reason(ok, state, HeaterCalibration::Fan, 210.0).empty());
+
+    indx::Reading empty = state;
+    empty.active_tool = -1;
+    CHECK_THAT(indx::calibration_blocked_reason(ok, empty, HeaterCalibration::Fan, 0.0),
+               Catch::Matchers::ContainsSubstring("No tool on the head"));
+    indx::Reading unknown = state;
+    unknown.active_tool.reset();
+    CHECK_THAT(indx::calibration_blocked_reason(ok, unknown, HeaterCalibration::Heater, 0.0),
+               Catch::Matchers::ContainsSubstring("No tool on the head"));
+
+    indx::Reading no_heat = state;
+    no_heat.active_tool = 5;
+    CHECK_THAT(indx::calibration_blocked_reason(ok, no_heat, HeaterCalibration::Heater, 0.0),
+               Catch::Matchers::ContainsSubstring("has no hotend"));
+
+    indx::Reading half = state;
+    half.seat_suspect = 1;
+    CHECK_THAT(indx::calibration_blocked_reason(ok, half, HeaterCalibration::Fan, 0.0),
+               Catch::Matchers::ContainsSubstring("half seated"));
+
+    indx::Reading uncalibrated = state;
+    uncalibrated.docks_calibrated = false;
+    CHECK(
+        indx::calibration_blocked_reason(ok, uncalibrated, HeaterCalibration::Heater, 0.0).empty());
+
+    indx::Contract bad;
+    CHECK_THAT(indx::calibration_blocked_reason(bad, state, HeaterCalibration::Heater, 0.0),
+               Catch::Matchers::ContainsSubstring("not recognized"));
+}
+
+TEST_CASE("INDX contract: tools are named the app's way", "[ams][indx][contract]") {
+    CHECK(indx::tool_text(2) == "Tool 3 (T2)");
+    CHECK(indx::tool_text(2) == helix::ui::tool_label_in_form(helix::ui::LaneNoun::Tool,
+                                                              helix::ui::tool_label(2), 2,
+                                                              helix::ui::ToolLabelForm::Full));
+    CHECK_THAT(indx::seat_confirm_message(2), Catch::Matchers::ContainsSubstring("Tool 3 (T2)"));
+    CHECK_THAT(indx::remove_confirm_message(2), Catch::Matchers::ContainsSubstring("Tool 3 (T2)"));
+
+    json seat = indx_objects();
+    seat.push_back("gcode_macro MANUAL_TOOL_SEAT");
+    CHECK(indx::supports_seat_by_hand(discover(seat)));
+    CHECK_FALSE(indx::supports_seat_by_hand(discover(indx_objects())));
+
+    json toolchanger = json::array({"toolchanger", "tool T0", "tool T1", "extruder", "extruder1",
+                                    "save_variables", "gcode_macro MANUAL_TOOL_SEAT"});
+    CHECK_FALSE(indx::supports_seat_by_hand(discover(toolchanger)));
+}
+
+TEST_CASE("INDX contract: filament model command", "[ams][indx][contract]") {
+    CHECK(indx::set_tool_filament_gcode(2, {240, 1.27f, 1.30f}) ==
+          "SET_TOOL_FILAMENT TOOL=2 DENSITY=1.270 HEAT_CAPACITY=1.300");
+    std::map<std::string, indx::FilamentPreset> presets = {{"PLA", {210, 1.24f, 1.8f}},
+                                                           {"PETG", {240, 1.27f, 1.3f}}};
+    CHECK(indx::preset_for_material("petg", presets) == std::optional<std::string>("PETG"));
+    CHECK(indx::preset_for_material("PLA+", presets) == std::optional<std::string>("PLA"));
+    CHECK_FALSE(indx::preset_for_material("Nylon; G28", presets).has_value());
+    CHECK_FALSE(indx::preset_for_material("", presets).has_value());
+    CHECK_FALSE(indx::preset_for_material("Xenomat-9", presets).has_value());
 }

@@ -380,3 +380,21 @@ TEST_CASE("runout target: the runout's lane names the head and its source",
     CHECK(runout_target_slot(&backend, std::nullopt, /*load=*/false) == backend.get_current_slot());
     CHECK(runout_target_slot(nullptr, 1, /*load=*/true) == -1);
 }
+
+TEST_CASE("head picker: seat by hand offers every tool, none chosen", "[filament][actions]") {
+    FilamentHeadView view =
+        view_of({loaded_head(0), loaded_head(1), ready_head(2), manual_head(3)});
+    view.mounted_head = 1;
+    view.selected_head = 1;
+    const auto rows = decide_head_picker_rows(view, HeadPickOp::SeatByHand);
+    REQUIRE(rows.size() == 4);
+    for (const auto& row : rows) {
+        INFO("head " << row.head);
+        CHECK(row.enabled);
+        CHECK_FALSE(row.preselected);
+        CHECK(row.slot == -1);
+    }
+    CHECK(single_select(HeadPickOp::SeatByHand));
+    CHECK(single_select(HeadPickOp::Mount));
+    CHECK_FALSE(single_select(HeadPickOp::Load));
+}

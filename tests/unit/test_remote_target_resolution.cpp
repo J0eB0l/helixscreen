@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <vector>
 
 #include "../catch_amalgamated.hpp"
 
@@ -611,46 +612,57 @@ TEST_CASE_METHOD(LVGLTestFixture, "ctl click: every reason a tap would miss", "[
     }
 }
 
-// --- click on a checkable button -----------------------------------------
-//
-// A checkable button acts on CLICKED (extruder selector, gcode test Travels).
-// A `click` that only flips CHECKED leaves every such button dead, so the
-// handler must deliver both events, in the order a real tap does.
+// --- ctl click over the socket ------------------------------------------
 
-TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a checkable button toggles and still fires CLICKED",
-                 "[remote][ctl]") {
-    lv_obj_t* btn = lv_button_create(lv_screen_active());
-    lv_obj_set_name(btn, "ctl_checkable_button");
-    lv_obj_add_flag(btn, LV_OBJ_FLAG_CHECKABLE);
+namespace {
 
-    int clicked = 0;
-    lv_obj_add_event_cb(
-        btn, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
-        LV_EVENT_CLICKED, &clicked);
-
-    const std::string sock = (std::filesystem::temp_directory_path() /
-                              ("helix_ctl_click_" + std::to_string(::getpid()) + ".sock"))
-                                 .string();
-    ::unlink(sock.c_str());
-    helix::RemoteConfig config;
-    config.socket_path = sock;
+/// A live RemoteControlServer on a private socket, and a client connection to it.
+struct CtlClickRig {
+    std::string sock = (std::filesystem::temp_directory_path() /
+                        ("helix_ctl_click_" + std::to_string(::getpid()) + ".sock"))
+                           .string();
     helix::RemoteControlServer server;
-    REQUIRE(server.start(config));
+    int fd = -1;
+    int next_id = 1;
 
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    REQUIRE(sock.size() < sizeof(addr.sun_path));
-    std::strncpy(addr.sun_path, sock.c_str(), sizeof(addr.sun_path) - 1);
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    REQUIRE(fd >= 0);
-    REQUIRE(connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
+    CtlClickRig() {
+        ::unlink(sock.c_str());
+        helix::RemoteConfig config;
+        config.socket_path = sock;
+        REQUIRE(server.start(config));
 
-    // The transport thread services the request through the UI queue, so this
-    // thread must drain while waiting for the reply line.
-    auto click = [&](int id) -> nlohmann::json {
-        const std::string req =
-            R"({"jsonrpc":"2.0","method":"click","params":{"name":"ctl_checkable_button"},"id":)" +
-            std::to_string(id) + "}\n";
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        REQUIRE(sock.size() < sizeof(addr.sun_path));
+        std::strncpy(addr.sun_path, sock.c_str(), sizeof(addr.sun_path) - 1);
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        REQUIRE(fd >= 0);
+        REQUIRE(connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
+    }
+
+    ~CtlClickRig() {
+        if (fd >= 0) {
+            ::close(fd);
+        }
+        server.stop();
+        ::unlink(sock.c_str());
+    }
+
+    CtlClickRig(const CtlClickRig&) = delete;
+    CtlClickRig& operator=(const CtlClickRig&) = delete;
+
+    /// `click <name>`.
+    nlohmann::json click(const std::string& name) {
+        return call("click", "name", name);
+    }
+
+    /// One request with one string parameter. The transport thread services it
+    /// through the UI queue, so this thread must drain while waiting for the reply.
+    nlohmann::json call(const std::string& method, const std::string& key,
+                        const std::string& value) {
+        const std::string req = R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{")" +
+                                key + R"(":")" + value + R"("},"id":)" + std::to_string(next_id++) +
+                                "}\n";
         REQUIRE(send(fd, req.data(), req.size(), 0) == static_cast<ssize_t>(req.size()));
 
         std::string response;
@@ -675,21 +687,122 @@ TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a checkable button toggles and sti
         REQUIRE(!reply.is_discarded());
         REQUIRE(reply.contains("result"));
         return reply["result"];
-    };
+    }
+};
 
-    const nlohmann::json first = click(1);
+/// Appends the event code it receives to the std::vector<int> in its user data.
+void record_code_cb(lv_event_t* e) {
+    static_cast<std::vector<int>*>(lv_event_get_user_data(e))
+        ->push_back(static_cast<int>(lv_event_get_code(e)));
+}
+
+} // namespace
+
+// A checkable button acts on CLICKED (extruder selector, gcode test Travels).
+// A `click` that only flips CHECKED leaves every such button dead, so the
+// handler must deliver the tap too, in the order a real tap does.
+TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a checkable button toggles and still fires its tap",
+                 "[remote][ctl]") {
+    lv_obj_t* btn = lv_button_create(lv_screen_active());
+    lv_obj_set_name(btn, "ctl_checkable_button");
+    lv_obj_add_flag(btn, LV_OBJ_FLAG_CHECKABLE);
+
+    std::vector<int> codes;
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_SHORT_CLICKED, &codes);
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_CLICKED, &codes);
+
+    CtlClickRig rig;
+    const nlohmann::json first = rig.click("ctl_checkable_button");
     CHECK(first.value("toggled_to", -1) == 1);
     CHECK(lv_obj_has_state(btn, LV_STATE_CHECKED));
-    CHECK(clicked == 1);
+    CHECK(codes == std::vector<int>{LV_EVENT_SHORT_CLICKED, LV_EVENT_CLICKED});
 
-    const nlohmann::json second = click(2);
+    const nlohmann::json second = rig.click("ctl_checkable_button");
     CHECK(second.value("toggled_to", -1) == 0);
     CHECK_FALSE(lv_obj_has_state(btn, LV_STATE_CHECKED));
-    CHECK(clicked == 2);
+    CHECK(codes.size() == 4);
+}
 
-    ::close(fd);
-    server.stop();
-    ::unlink(sock.c_str());
+TEST_CASE_METHOD(LVGLTestFixture, "ctl click: delivers what a quick tap does, in order",
+                 "[remote][ctl][tap_hold]") {
+    lv_obj_t* btn = lv_button_create(lv_screen_active());
+    lv_obj_set_name(btn, "ctl_tap_button");
+    std::vector<int> codes;
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_SHORT_CLICKED, &codes);
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_CLICKED, &codes);
+
+    CtlClickRig rig;
+    const nlohmann::json r = rig.click("ctl_tap_button");
+    CHECK(codes == std::vector<int>{LV_EVENT_SHORT_CLICKED, LV_EVENT_CLICKED});
+    CHECK(r.value("tap_handled", false));
+    CHECK_FALSE(r.contains("warning"));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl navigate: a widget target gets a whole quick tap",
+                 "[remote][ctl][tap_hold]") {
+    lv_obj_t* btn = lv_button_create(lv_screen_active());
+    lv_obj_set_name(btn, "ctl_navigate_button");
+    std::vector<int> codes;
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_SHORT_CLICKED, &codes);
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_CLICKED, &codes);
+
+    CtlClickRig rig;
+    const nlohmann::json r = rig.call("navigate", "panel", "ctl_navigate_button");
+    CHECK(r.value("kind", std::string()) == "widget");
+    CHECK(codes == std::vector<int>{LV_EVENT_SHORT_CLICKED, LV_EVENT_CLICKED});
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a hold-only widget says a tap does nothing",
+                 "[remote][ctl][tap_hold]") {
+    lv_obj_t* btn = lv_button_create(lv_screen_active());
+    lv_obj_set_name(btn, "ctl_hold_only");
+    std::vector<int> codes;
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_LONG_PRESSED, &codes);
+
+    CtlClickRig rig;
+    const nlohmann::json r = rig.click("ctl_hold_only");
+    CHECK(r.value("handlers", 0) == 1);
+    CHECK_FALSE(r.value("tap_handled", true));
+    CHECK(r.value("warning", std::string()).find("long_press") != std::string::npos);
+    CHECK(codes.empty());
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a tap handled by a bubbled-to parent counts",
+                 "[remote][ctl][tap_hold]") {
+    lv_obj_t* parent = lv_obj_create(lv_screen_active());
+    std::vector<int> codes;
+    lv_obj_add_event_cb(parent, record_code_cb, LV_EVENT_SHORT_CLICKED, &codes);
+    lv_obj_t* child = lv_button_create(parent);
+    lv_obj_set_name(child, "ctl_bubbling_child");
+    lv_obj_add_flag(child, LV_OBJ_FLAG_EVENT_BUBBLE);
+
+    CtlClickRig rig;
+    const nlohmann::json r = rig.click("ctl_bubbling_child");
+    CHECK(r.value("tap_handled", false));
+    CHECK_FALSE(r.contains("warning"));
+    CHECK(codes == std::vector<int>{LV_EVENT_SHORT_CLICKED});
+
+    // Without EVENT_BUBBLE the parent's handler never hears the tap.
+    lv_obj_remove_flag(child, LV_OBJ_FLAG_EVENT_BUBBLE);
+    CHECK_FALSE(rig.click("ctl_bubbling_child").value("tap_handled", true));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a widget its tap deletes gets nothing more",
+                 "[remote][ctl][tap_hold]") {
+    lv_obj_t* parent = lv_obj_create(lv_screen_active());
+    std::vector<int> parent_codes;
+    lv_obj_add_event_cb(parent, record_code_cb, LV_EVENT_CLICKED, &parent_codes);
+    lv_obj_t* btn = lv_button_create(parent);
+    lv_obj_set_name(btn, "ctl_self_deleting");
+    lv_obj_add_flag(btn, LV_OBJ_FLAG_EVENT_BUBBLE);
+    lv_obj_add_event_cb(
+        btn, [](lv_event_t* e) { lv_obj_delete(lv_event_get_current_target_obj(e)); },
+        LV_EVENT_SHORT_CLICKED, nullptr);
+
+    CtlClickRig rig;
+    rig.click("ctl_self_deleting");
+    CHECK(lv_obj_get_child_count(parent) == 0);
+    CHECK(parent_codes.empty());
 }
 
 // --- ctl overflow ------------------------------------------------------------

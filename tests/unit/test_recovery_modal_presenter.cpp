@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/modal_answer.h"
 #include "../test_helpers/recovery_modal_presenter_test_access.h"
 #include "../ui_test_utils.h"
 #include "ams_state.h"
@@ -12,6 +13,7 @@
 #include "printer_state.h"
 #include "recovery_modal_presenter.h"
 #include "safety_settings_manager.h"
+#include "theme_manager.h"
 
 #include <memory>
 #include <string>
@@ -335,4 +337,126 @@ TEST_CASE_METHOD(RecoveryPreheatFixture, "A second tap replaces the pending reco
 
     CHECK(gcode_count(mock_client_, "RESUME") == 1);
     CHECK(gcode_count(mock_client_, "TOOL_UNLOAD") == 0);
+}
+
+// ============================================================================
+// Recovery actions that ask before sending
+// ============================================================================
+
+namespace {
+
+helix::ErrorEvent make_seat_fault() {
+    helix::ErrorEvent e;
+    e.source = helix::ErrorSource::GENERIC;
+    e.severity = helix::ErrorSeverity::CRITICAL;
+    e.title = "Tool half seated";
+    e.detail = "A tool may be half seated";
+    helix::RecoveryAction remove{"Remove tool", "MANUAL_TOOL_REMOVE", "t::remove", "danger"};
+    remove.confirm_message = "Hold it";
+    helix::RecoveryAction seat{"Tool is seated", "MANUAL_TOOL_SEAT TOOL=2", "t::seat", "primary"};
+    e.recovery_actions = {seat, remove};
+    return e;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(RecoveryPreheatFixture,
+                 "A recovery with confirm_message sends only after the confirm",
+                 "[error-center][recovery-presenter]") {
+    presenter().present(make_seat_fault());
+    process_lvgl(20);
+
+    TA::tap(presenter(), "MANUAL_TOOL_REMOVE");
+    process_lvgl(20);
+    CHECK(gcode_count(mock_client_, "MANUAL_TOOL_REMOVE") == 0);
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    CHECK_THAT(helix::test::top_modal_text(), Catch::Matchers::ContainsSubstring("Hold it"));
+
+    helix::test::answer_top_modal("btn_primary");
+    process_lvgl(20);
+    CHECK(gcode_count(mock_client_, "MANUAL_TOOL_REMOVE") == 1);
+}
+
+TEST_CASE_METHOD(RecoveryPreheatFixture,
+                 "Cancelling a recovery confirm sends nothing and does not re-present",
+                 "[error-center][recovery-presenter]") {
+    const auto fault = make_seat_fault();
+    presenter().present(fault);
+    process_lvgl(20);
+
+    TA::tap(presenter(), "MANUAL_TOOL_REMOVE");
+    process_lvgl(20);
+    helix::test::answer_top_modal("btn_secondary");
+    process_lvgl(20);
+    CHECK(gcode_count(mock_client_, "MANUAL_TOOL_REMOVE") == 0);
+
+    TA::tap(presenter(), "MANUAL_TOOL_REMOVE");
+    process_lvgl(20);
+    helix::test::dismiss_top_modal();
+    process_lvgl(20);
+    CHECK(gcode_count(mock_client_, "MANUAL_TOOL_REMOVE") == 0);
+
+    CHECK(TA::handled_detail(presenter()) == fault.detail);
+    TA::user_dismiss(presenter());
+    process_lvgl(20);
+    presenter().present(fault);
+    process_lvgl(20);
+    CHECK_FALSE(presenter().is_visible());
+}
+
+TEST_CASE_METHOD(RecoveryPreheatFixture,
+                 "A recovery without confirm_message still sends on the tap",
+                 "[error-center][recovery-presenter]") {
+    presenter().present(make_seat_fault());
+    process_lvgl(20);
+    const auto* before = ModalStack::instance().top_dialog();
+
+    TA::tap(presenter(), "MANUAL_TOOL_SEAT TOOL=2");
+    process_lvgl(20);
+    CHECK(gcode_count(mock_client_, "MANUAL_TOOL_SEAT TOOL=2") == 1);
+    const auto* after = ModalStack::instance().top_dialog();
+    CHECK((after == nullptr || after == before));
+}
+
+namespace {
+
+/// The background colour @p role paints, for telling which variant a button took.
+lv_color_t style_bg(StyleRole role) {
+    lv_style_value_t v{};
+    REQUIRE(lv_style_get_prop(ThemeManager::instance().get_style(role), LV_STYLE_BG_COLOR, &v) ==
+            LV_STYLE_RES_FOUND);
+    return v.color;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(RecoveryPreheatFixture,
+                 "A danger recovery's confirm keeps the danger style on its button",
+                 "[error-center][recovery-presenter]") {
+    auto fault = make_seat_fault();
+    fault.recovery_actions[0].confirm_message = "Hold it on";
+    presenter().present(fault);
+    process_lvgl(20);
+
+    TA::tap(presenter(), "MANUAL_TOOL_REMOVE");
+    process_lvgl(20);
+    lv_obj_t* dialog = ModalStack::instance().top_dialog();
+    REQUIRE(dialog != nullptr);
+    lv_obj_t* btn = lv_obj_find_by_name(dialog, "btn_primary");
+    REQUIRE(btn != nullptr);
+    CHECK(lv_color_eq(lv_obj_get_style_bg_color(btn, LV_PART_MAIN),
+                      style_bg(StyleRole::ButtonDanger)));
+    helix::test::answer_top_modal("btn_secondary");
+    process_lvgl(20);
+
+    TA::tap(presenter(), "MANUAL_TOOL_SEAT TOOL=2");
+    process_lvgl(20);
+    dialog = ModalStack::instance().top_dialog();
+    REQUIRE(dialog != nullptr);
+    btn = lv_obj_find_by_name(dialog, "btn_primary");
+    REQUIRE(btn != nullptr);
+    CHECK(lv_color_eq(lv_obj_get_style_bg_color(btn, LV_PART_MAIN),
+                      style_bg(StyleRole::ButtonPrimary)));
+    helix::test::answer_top_modal("btn_secondary");
+    process_lvgl(20);
 }

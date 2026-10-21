@@ -9,8 +9,15 @@
  * capability question; the rpc's completion is the run's.
  */
 
+#include "../test_helpers/printer_state_test_access.h"
+#include "../test_helpers/update_queue_test_access.h"
+#include "../ui_test_utils.h"
+#include "app_globals.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "printer_discovery.h"
+#include "printer_state.h"
 #include "snapmaker_nozzle_offset.h"
+#include "system_settings_manager.h"
 #include "tool_offset_calibration.h"
 
 #include "../catch_amalgamated.hpp"
@@ -94,4 +101,68 @@ TEST_CASE("tool offset calibration: a U1 calibrates through its own guided flow"
 
     // A macro-calibrating tool changer names no flow: the macro panel runs it.
     CHECK(cal::guided_flow(calibrating_toolchanger()).empty());
+}
+
+// ============================================================================
+// INDX: the entry seats a tool by hand
+// ============================================================================
+
+namespace {
+
+PrinterDiscovery indx_printer(bool manual_seat) {
+    json objects = json::array({"gcode_move", "toolhead", "extruder", "indx", "save_variables",
+                                "gcode_macro TOOL_POSITIONS", "gcode_macro _TOOLCHANGE_VARS",
+                                "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL"});
+    if (manual_seat) {
+        objects.push_back("gcode_macro MANUAL_TOOL_SEAT");
+        objects.push_back("gcode_macro MANUAL_TOOL_REMOVE");
+    }
+    PrinterDiscovery hw;
+    hw.parse_objects(objects);
+    return hw;
+}
+
+} // namespace
+
+TEST_CASE("tool offset calibration: an INDX seats a tool by hand", "[tool_offset_cal]") {
+    const PrinterDiscovery indx = indx_printer(true);
+    CHECK(cal::guided_flow(indx) == "indx_seat_by_hand");
+    CHECK(cal::supported(indx));
+    CHECK(cal::calibrate_all_gcode(indx).empty());
+
+    const PrinterDiscovery bare = indx_printer(false);
+    CHECK(cal::guided_flow(bare).empty());
+    CHECK_FALSE(cal::supported(bare));
+}
+
+TEST_CASE("tool offset calibration: the entry describes what it does", "[tool_offset_cal]") {
+    const std::string measure = "Measure every tool's XYZ offset automatically";
+    CHECK(cal::entry_description(calibrating_toolchanger()) == measure);
+    CHECK(cal::entry_description(snapmaker_u1()) == measure);
+    CHECK(std::string(cal::entry_description(indx_printer(true))) ==
+          "Seat a tool by hand for the first Z home");
+}
+
+TEST_CASE("tool offset calibration: the Advanced row's description follows the language",
+          "[tool_offset_cal][i18n]") {
+    lv_init_safe();
+    helix::PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(true);
+    state.set_hardware(indx_printer(true));
+    helix::ui::UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
+
+    lv_subject_t* text = lv_xml_get_subject(nullptr, "printer_tool_offset_cal_description");
+    REQUIRE(text != nullptr);
+    CHECK(std::string(lv_subject_get_string(text)) == "Seat a tool by hand for the first Z home");
+
+    auto& settings = SystemSettingsManager::instance();
+    settings.init_subjects();
+    settings.set_language("de");
+    CHECK(std::string(lv_subject_get_string(text)) ==
+          "Für die erste Z-Referenzfahrt ein Werkzeug von Hand einsetzen");
+
+    settings.set_language("en");
+    CHECK(std::string(lv_subject_get_string(text)) == "Seat a tool by hand for the first Z home");
+    PrinterStateTestAccess::reset(state);
 }

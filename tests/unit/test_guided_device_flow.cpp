@@ -520,3 +520,34 @@ TEST_CASE_METHOD(GuidedFlowFixture, "the device button disable expressions parse
     helix::test::set_wire_state(state(), PrintJobState::STANDBY);
     settle();
 }
+
+TEST_CASE_METHOD(GuidedFlowFixture, "a dropdown with no value it lists shows a placeholder",
+                 "[ams][device-section]") {
+    DeviceAction unknown =
+        DeviceAction::dropdown("speed", "Speed", "prefs", {"Stealth", "Normal"}, std::any{});
+    DeviceAction unmatched = DeviceAction::dropdown(
+        "other", "Other", "prefs", {"Stealth", "Normal"}, std::string("ludicrous"));
+    DeviceAction known = DeviceAction::dropdown("known", "Known", "prefs", {"Stealth", "Normal"},
+                                                std::string("Stealth"));
+    lv_obj_t* root = open_prefs({unknown, unmatched, known});
+
+    for (const char* id : {"speed", "other"}) {
+        INFO(id);
+        lv_obj_t* d = helix::test::find_device_action_control(root, id, &lv_dropdown_class);
+        REQUIRE(d != nullptr);
+        REQUIRE(lv_dropdown_get_text(d) != nullptr);
+        CHECK(std::string(lv_dropdown_get_text(d)) == "-");
+    }
+    lv_obj_t* k = helix::test::find_device_action_control(root, "known", &lv_dropdown_class);
+    REQUIRE(k != nullptr);
+    CHECK(lv_dropdown_get_text(k) == nullptr);
+    CHECK(lv_dropdown_get_selected(k) == 0);
+
+    // Picking the first option, which the placeholder had hidden, sends it and shows it.
+    lv_obj_t* d = helix::test::find_device_action_control(root, "speed", &lv_dropdown_class);
+    lv_dropdown_set_selected(d, 0);
+    lv_obj_send_event(d, LV_EVENT_VALUE_CHANGED, nullptr);
+    settle();
+    CHECK(lv_dropdown_get_text(d) == nullptr);
+    CHECK(last_executed() == "speed");
+}

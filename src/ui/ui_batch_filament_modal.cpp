@@ -87,6 +87,10 @@ bool BatchFilamentModal::show_owned(HeadPickOp op, Confirm on_confirm) {
         title = lv_tr("Mount which tool?");
         action = lv_tr("Mount");
         break;
+    case HeadPickOp::SeatByHand:
+        title = lv_tr("Seat which tool by hand?");
+        action = lv_tr("Seat");
+        break;
     }
     // Copy first, publish second: set_pointer fires observers synchronously,
     // and they read the buffer, so the owned strings must already hold the new
@@ -205,8 +209,7 @@ void BatchFilamentModal::on_show() {
         text.slot = row.slot;
         // A slot is worth naming where several can feed the head, or where
         // the machine has one head and the slot is the whole answer.
-        text.show_slot =
-            op_ != HeadPickOp::Mount && (view.heads.size() == 1 || row.slot != row.head);
+        text.show_slot = !single_select(op_) && (view.heads.size() == 1 || row.slot != row.head);
         text.reason = row.enabled ? std::string() : row.reason;
         text.info = row.slot >= 0 ? backend->get_slot_info(row.slot) : SlotInfo{};
         text.present = row.slot >= 0 ? slot_presence(text.info) : std::nullopt;
@@ -216,7 +219,7 @@ void BatchFilamentModal::on_show() {
     }
     multiselect_.attach(container);
     multiselect_.set_max_selected(
-        op_ == HeadPickOp::Mount ? 1 : static_cast<size_t>(std::max(view.max_heads_per_op, 1)));
+        single_select(op_) ? 1 : static_cast<size_t>(std::max(view.max_heads_per_op, 1)));
     multiselect_.set_items(items);
     spdlog::debug("[HeadPicker] {} row(s) populated", items.size());
 }

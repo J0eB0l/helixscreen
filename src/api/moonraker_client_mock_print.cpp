@@ -49,6 +49,11 @@ void register_print_handlers(std::unordered_map<std::string, MethodHandler>& reg
             return true;
         }
 
+        // INDX's calibrations and tool cycle answer only when they end.
+        if (self->simulate_indx_blocking(script, success_cb, error_cb)) {
+            return true;
+        }
+
         // Real Klipper executes a multi-line script line-by-line; the per-command
         // parsers in gcode_script() assume a SINGLE command (e.g. they `find('S')`
         // globally, which a multi-line script would point at the wrong token and

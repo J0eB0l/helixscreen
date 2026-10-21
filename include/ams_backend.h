@@ -2943,6 +2943,78 @@ class AmsBackend {
         return AmsErrorHelper::not_supported("Device actions");
     }
 
+    /// Called once with the outcome of a tracked device action, on the main thread.
+    using DeviceActionDone = std::function<void(const AmsError& result)>;
+
+    /**
+     * @brief Execute a device action and report when it ends
+     *
+     * For an action that runs long on the printer (a calibration, a tool cycle):
+     * the returned AmsError says whether it was sent, @p on_done how it ended.
+     * @p on_done is not called when the send itself is refused.
+     *
+     * @param action_id The action ID from get_device_actions()
+     * @param value Optional value for toggles/sliders/dropdowns
+     * @param on_done Called once with the result, on the main thread
+     * @return AmsError indicating whether the action was sent
+     */
+    virtual AmsError run_device_action(const std::string& action_id, const std::any& value,
+                                       DeviceActionDone on_done) {
+        (void)action_id;
+        (void)value;
+        (void)on_done;
+        return AmsErrorHelper::not_supported("Device actions");
+    }
+
+    /// A run_device_action() has been sent and has not reported its end. While
+    /// it holds, filament ops and other machine-moving actions are refused.
+    [[nodiscard]] virtual bool device_action_running() const {
+        return false;
+    }
+
+    /// A question the UI asks after a slot edit commits, for printer state the
+    /// edit implies but did not write. Strings are translated.
+    struct EditFollowUp {
+        std::string title;
+        std::string message;
+        std::string confirm_label;
+    };
+
+    /**
+     * @brief What to offer after a slot edit, if anything
+     *
+     * @param slot_index The edited slot
+     * @param before The slot as it was before the edit
+     * @param after The slot as committed
+     * @return The question to ask, or nullopt for none
+     */
+    [[nodiscard]] virtual std::optional<EditFollowUp>
+    edit_follow_up(int slot_index, const SlotInfo& before, const SlotInfo& after) const {
+        (void)slot_index;
+        (void)before;
+        (void)after;
+        return std::nullopt;
+    }
+
+    /**
+     * @brief Apply the follow-up edit_follow_up() offered, once the user agrees
+     *
+     * Re-asks the offer's question first: the printer may have moved on while
+     * the dialog was up.
+     *
+     * @param slot_index The edited slot
+     * @param before The slot as it was before the edit
+     * @param after The slot as committed
+     * @return AmsError indicating success/failure
+     */
+    virtual AmsError run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                        const SlotInfo& after) {
+        (void)slot_index;
+        (void)before;
+        (void)after;
+        return AmsErrorHelper::not_supported("Edit follow-up");
+    }
+
     // ========================================================================
     // Capability Queries
     // ========================================================================

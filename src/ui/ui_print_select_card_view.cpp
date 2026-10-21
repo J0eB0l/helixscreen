@@ -7,6 +7,7 @@
 #include "ui_gradient_canvas.h"
 #include "ui_panel_print_select.h" // For PrintFileData, CardDimensions
 #include "ui_subject_registry.h"
+#include "ui_utils.h"
 #include "ui_virtual_list.h"
 
 #include "helix_fs.h"
@@ -284,18 +285,9 @@ void PrintSelectCardView::grow_pool(size_t count, const CardDimensions& dims) {
             lv_obj_add_flag(
                 card, LV_OBJ_FLAG_HIDDEN); // XML_HIDDEN_OK: pooled row, built once with its list
 
-            // Attach click handler ONCE at pool creation
+            // Tap and hold handlers attached ONCE at pool creation.
             lv_obj_add_event_cb(card, on_card_clicked, LV_EVENT_CLICKED, this);
-
-            // Attach long-press handler ONCE at pool creation (matches click handler pattern).
-            // LVGL fires LV_EVENT_LONG_PRESSED on its hold-timer BEFORE release, so releasing
-            // after a long-press also fires LV_EVENT_CLICKED — we suppress it in on_card_clicked.
             lv_obj_add_event_cb(card, on_card_long_pressed, LV_EVENT_LONG_PRESSED, this);
-
-            // If the long-press fires and then the user drags off the card without releasing,
-            // LVGL sends PRESS_LOST instead of CLICKED, leaving suppress_next_click_ stuck.
-            // Clearing it here keeps the state machine robust against that sequence.
-            lv_obj_add_event_cb(card, on_card_press_lost, LV_EVENT_PRESS_LOST, this);
 
             // Create per-card data with subjects for declarative text binding
             auto data = std::make_unique<CardWidgetData>();
@@ -787,15 +779,6 @@ void PrintSelectCardView::on_card_clicked(lv_event_t* e) {
     auto* self = static_cast<PrintSelectCardView*>(lv_event_get_user_data(e));
     auto* card = static_cast<lv_obj_t*>(lv_event_get_current_target(e));
 
-    // If a long-press just fired on this (or any) card, LVGL will still deliver a
-    // CLICKED event when the user releases their finger. Swallow it so the file is
-    // not also selected/navigated behind the confirmation modal.
-    if (self && self->suppress_next_click_) {
-        self->suppress_next_click_ = false;
-        spdlog::trace("[PrintSelectCardView] suppressed click after long-press");
-        return;
-    }
-
     if (self && self->on_file_click_ && card) {
         auto file_index = reinterpret_cast<size_t>(lv_obj_get_user_data(card));
         self->on_file_click_(file_index);
@@ -835,10 +818,8 @@ void PrintSelectCardView::on_card_long_pressed(lv_event_t* e) {
         return;
     }
 
-    // Arm the click-suppression guard BEFORE invoking the callback so that the
-    // inevitable CLICKED event on release is swallowed even if the callback shows
-    // a modal that takes the next touch frame.
-    self->suppress_next_click_ = true;
+    // The hold acts, so its release is not also a tap that opens the file.
+    end_press(e);
 
     // Audible feedback. SoundManager::play() internally gates on the sound-enabled
     // and UI-sounds-enabled settings, so no guard needed here.
@@ -848,14 +829,6 @@ void PrintSelectCardView::on_card_long_pressed(lv_event_t* e) {
         auto file_index = reinterpret_cast<size_t>(lv_obj_get_user_data(card));
         spdlog::debug("[PrintSelectCardView] long-press fired for file_index={}", file_index);
         self->on_file_long_press_(file_index);
-    }
-}
-
-void PrintSelectCardView::on_card_press_lost(lv_event_t* e) {
-    auto* self = static_cast<PrintSelectCardView*>(lv_event_get_user_data(e));
-    if (self && self->suppress_next_click_) {
-        self->suppress_next_click_ = false;
-        spdlog::trace("[PrintSelectCardView] suppress flag cleared on PRESS_LOST");
     }
 }
 

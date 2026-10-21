@@ -42,6 +42,7 @@ inline constexpr DeviceSectionKind kDeviceSectionKinds[] = {
     {"tip_forming", TR_NOOP("Tip Forming"), "thermometer"},
     {"purge", TR_NOOP("Purge & Wipe"), "water"},
     {"maintenance", TR_NOOP("Maintenance"), "wrench"},
+    {"tool_offsets", TR_NOOP("Tool Offsets"), "axis_arrow"},
 };
 
 /// The kind named @p id, or nullptr for an id outside the vocabulary.

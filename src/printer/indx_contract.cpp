@@ -26,6 +26,11 @@ constexpr const char* kToolchangeVars = "_TOOLCHANGE_VARS";
 constexpr const char* kChangeTool = "CHANGE_TOOL";
 constexpr const char* kParkTool = "PARK_TOOL";
 constexpr const char* kLoadFilament = "LOAD_FILAMENT";
+constexpr const char* kCycleAll = "TC_CYCLE_ALL";
+constexpr const char* kManualRemove = "MANUAL_TOOL_REMOVE";
+constexpr const char* kManualSeat = "MANUAL_TOOL_SEAT";
+constexpr const char* kSetToolFilament = "SET_TOOL_FILAMENT";
+constexpr std::array<const char*, 3> kModeMacros = {"MODE_STEALTH", "MODE_NORMAL", "MODE_SPORT"};
 
 /// A strict int: Klipper serializes these variables as JSON ints, and a
 /// float or string here is a macro set this module does not understand.
@@ -62,12 +67,6 @@ std::optional<int> tool_macro_index(const std::string& upper_macro) {
         return std::nullopt;
     }
     return n;
-}
-
-/// "Tool 4 (T3)": the full spelling a refusal names a tool with.
-std::string tool_text(int tool) {
-    return helix::ui::tool_label_in_form(helix::ui::LaneNoun::Tool, helix::ui::tool_label(tool),
-                                         tool, helix::ui::ToolLabelForm::Full);
 }
 
 /// The subscription key for @p macro: the config-case object name.
@@ -227,6 +226,12 @@ Contract check_contract(const PrinterDiscovery& hw) {
     }
     c.recognized = c.missing.empty();
     c.has_load_filament = hw.has_macro(kLoadFilament);
+    c.has_speed_modes = std::all_of(kModeMacros.begin(), kModeMacros.end(),
+                                    [&](const char* m) { return hw.has_macro(m); });
+    c.has_cycle_all = hw.has_macro(kCycleAll);
+    c.has_manual_tool_seat = hw.has_macro(kManualSeat);
+    c.has_manual_tool_recovery = c.has_manual_tool_seat && hw.has_macro(kManualRemove);
+    c.has_set_tool_filament = hw.has_macro(kSetToolFilament);
     return c;
 }
 
@@ -287,21 +292,25 @@ std::string park_gcode() {
     return kParkTool;
 }
 
-std::string load_gcode(int tool, const std::string& material, int temp_c,
-                       const std::map<std::string, FilamentPreset>& presets) {
+std::optional<std::string>
+preset_for_material(const std::string& material,
+                    const std::map<std::string, FilamentPreset>& presets) {
+    if (material.empty() || !IMoonrakerAPI::is_safe_material_param(material)) {
+        return std::nullopt;
+    }
     std::vector<std::string> keys;
     for (const auto& [key, preset] : presets) {
         if (IMoonrakerAPI::is_safe_gcode_param(key)) {
             keys.push_back(key);
         }
     }
-    // A material that names a preset (directly or by its filament family)
-    // loads as that preset, spelled as the printer wrote it. Anything else,
-    // an unsafe string included, loads by temperature alone.
-    if (!material.empty() && IMoonrakerAPI::is_safe_material_param(material)) {
-        if (auto key = match_material(material, keys)) {
-            return fmt::format("{} TOOL={} TYPE={}", kLoadFilament, tool, *key);
-        }
+    return match_material(material, keys);
+}
+
+std::string load_gcode(int tool, const std::string& material, int temp_c,
+                       const std::map<std::string, FilamentPreset>& presets) {
+    if (auto key = preset_for_material(material, presets)) {
+        return fmt::format("{} TOOL={} TYPE={}", kLoadFilament, tool, *key);
     }
     return fmt::format("{} TOOL={} TEMP={}", kLoadFilament, tool, temp_c);
 }
@@ -325,7 +334,11 @@ std::string heat_blocked_reason(int active_tool, const std::set<int>& no_heat_to
     return {};
 }
 
-std::string motion_blocked_reason(const Contract& contract, const Reading& state) {
+namespace {
+
+/// The checks every INDX command shares: a recognized contract and no tool
+/// half seated on the head.
+std::string contract_or_seat_reason(const Contract& contract, const Reading& state) {
     if (!contract.recognized) {
         return lv_tr("INDX macros not recognized");
     }
@@ -334,10 +347,107 @@ std::string motion_blocked_reason(const Contract& contract, const Reading& state
             fmt::runtime(lv_tr("{} may be half seated on the head. Check it by hand.")),
             tool_text(*state.seat_suspect));
     }
+    return {};
+}
+
+} // namespace
+
+std::string motion_blocked_reason(const Contract& contract, const Reading& state) {
+    if (auto reason = contract_or_seat_reason(contract, state); !reason.empty()) {
+        return reason;
+    }
     if (state.docks_calibrated.has_value() && !*state.docks_calibrated) {
         return lv_tr("INDX dock positions are not calibrated");
     }
     return {};
+}
+
+std::string tool_text(int tool) {
+    return helix::ui::tool_label_in_form(helix::ui::LaneNoun::Tool, helix::ui::tool_label(tool),
+                                         tool, helix::ui::ToolLabelForm::Full);
+}
+
+const char* speed_mode_option(SpeedMode mode) {
+    switch (mode) {
+    case SpeedMode::Stealth:
+        return "Stealth";
+    case SpeedMode::Normal:
+        return "Normal";
+    case SpeedMode::Sport:
+        return "Sport";
+    }
+    return "Normal";
+}
+
+std::optional<SpeedMode> parse_speed_mode(std::string_view text) {
+    const std::string lower = helix::text_io::to_lower(text);
+    for (SpeedMode mode : kSpeedModes) {
+        if (lower == helix::text_io::to_lower(speed_mode_option(mode))) {
+            return mode;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string speed_mode_gcode(SpeedMode mode) {
+    return kModeMacros[static_cast<size_t>(mode)];
+}
+
+std::string cycle_all_gcode() {
+    return kCycleAll;
+}
+
+std::string manual_remove_gcode() {
+    return kManualRemove;
+}
+
+std::string manual_seat_gcode(int tool) {
+    return fmt::format("{} TOOL={}", kManualSeat, tool);
+}
+
+std::string calibration_gcode(HeaterCalibration which) {
+    return which == HeaterCalibration::Heater ? "INDX_CALIBRATE" : "INDX_FAN_CALIBRATE";
+}
+
+std::string calibration_blocked_reason(const Contract& contract, const Reading& state,
+                                       HeaterCalibration which, double nozzle_target_c) {
+    if (auto reason = contract_or_seat_reason(contract, state); !reason.empty()) {
+        return reason;
+    }
+    if (auto reason = heat_blocked_reason(state.active_tool.value_or(-1),
+                                          state.no_heat_tools.value_or(std::set<int>{}));
+        !reason.empty()) {
+        return reason;
+    }
+    if (which == HeaterCalibration::Heater && nozzle_target_c > 0) {
+        return lv_tr("Turn the nozzle heater off first");
+    }
+    return {};
+}
+
+std::string set_tool_filament_gcode(int tool, const FilamentPreset& preset) {
+    return fmt::format("{} TOOL={} DENSITY={:.3f} HEAT_CAPACITY={:.3f}", kSetToolFilament, tool,
+                       preset.density, preset.heat_capacity);
+}
+
+bool supports_seat_by_hand(const PrinterDiscovery& hw) {
+    if (!present(hw)) {
+        return false;
+    }
+    const Contract contract = check_contract(hw);
+    return contract.recognized && contract.has_manual_tool_seat;
+}
+
+std::string seat_confirm_message(int tool) {
+    return fmt::format(fmt::runtime(lv_tr("Hold {} fully on the head. The latch locks onto it "
+                                          "and it becomes the mounted tool.")),
+                       tool_text(tool));
+}
+
+std::string remove_confirm_message(int tool) {
+    return fmt::format(fmt::runtime(lv_tr("The latch opens and {} can drop. Hold it before you "
+                                          "continue, then put it in its dock.")),
+                       tool_text(tool));
 }
 
 } // namespace helix::indx
