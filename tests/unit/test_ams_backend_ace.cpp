@@ -3637,6 +3637,10 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE INSTANCE= follows the unit a slot belongs
         answer_initial_query(client, json{{"ace_instance_1", json{{"slots", four_slot_array()}}}});
         b.test_on_started();
         answer_initial_query(client, json{{"ace", json{{"slots", four_slot_array()}}}});
+        const auto info = b.get_test_system_info();
+        CHECK(info.units.size() == 1);
+        CHECK(info.total_slots == 4);
+        CHECK_FALSE(info.units[0].absent);
         AceTestAccess::set_seat(b, 2, true);
         CHECK(run_slot_actions(b).front() == "ACE_FEED INDEX=2 LENGTH=50 SPEED=50");
     }

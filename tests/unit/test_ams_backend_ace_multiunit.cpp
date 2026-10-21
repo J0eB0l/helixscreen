@@ -800,3 +800,86 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE unit status does not end a load sent from
     helix::ui::UpdateQueue::instance().drain();
     CHECK(helper.get_test_system_info().action == AmsAction::IDLE);
 }
+
+// A chain whose answer names ace_instance_0 and ace_instance_2 only: unit 1 is
+// a gap holding unit 2's numbering. No instance answers to INSTANCE=1, so the
+// gap takes no dryer or slot command.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE gap in the instance chain takes no commands",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 3, -1, 1, [](json& status) { status.erase("ace_instance_1"); });
+    helper.set_running(true);
+
+    auto info = helper.get_test_system_info();
+    REQUIRE(info.units.size() == 3);
+    CHECK(info.units[1].absent);
+    CHECK_FALSE(info.units[2].absent);
+    CHECK(info.units[2].first_slot_global_index == 8);
+
+    helper.captured_gcodes.clear();
+    CHECK_FALSE(helper.start_drying(50.0f, 60, -1, 1).success());
+    CHECK_FALSE(helper.stop_drying(1).success());
+    REQUIRE(helper.stop_drying(2).success());
+    CHECK(helper.captured_gcodes == std::vector<std::string>{"ACE_STOP_DRYING INSTANCE=2"});
+
+    SECTION("a slot command for the gap is refused") {
+        AceTestAccess::set_seat(helper, 5, true);
+        helper.captured_gcodes.clear();
+        CHECK_FALSE(helper.execute_device_action("ace_manual_feed", {}).success());
+        CHECK(helper.captured_gcodes.empty());
+    }
+    SECTION("the instance reporting fills the gap") {
+        json frame = json::object();
+        frame["ace_instance_1"] = make_kobra_second_unit_object();
+        send_frame(helper, frame);
+        CHECK_FALSE(helper.get_test_system_info().units[1].absent);
+        REQUIRE(helper.stop_drying(1).success());
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ACE with no first instance feeds the first unit present",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 2, -1, 1, [](json& status) { status.erase("ace_instance_0"); });
+    REQUIRE(helper.get_test_system_info().units.at(0).absent);
+    helper.captured_gcodes.clear();
+    REQUIRE(helper.execute_device_action("ace_manual_feed", {}).success());
+    CHECK(helper.captured_gcodes.back() == "ACE_FEED INSTANCE=1 INDEX=0 LENGTH=50 SPEED=50");
+}
+
+// The manager states its sensors only when they change, so a unit that
+// reports after them takes the readings already in hand.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE unit reporting after the sensors shows them",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 1, -1);
+    json frame = json::object();
+    frame["ace_instance_1"] = make_kobra_second_unit_object();
+    send_frame(helper, frame);
+
+    const auto info = helper.get_test_system_info();
+    REQUIRE(info.units.size() == 2);
+    CHECK(info.units[1].has_hub_sensor);
+    CHECK(info.units[1].hub_sensor_triggered);
+    CHECK(info.units[1].has_toolhead_sensor);
+}
+
+// The bootstrap answer names every unit there is: a restart onto a shorter
+// chain drops the units it no longer names, with their slots and tools.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE restart onto fewer units drops the rest",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 3, -1);
+    REQUIRE(helper.get_test_system_info().units.size() == 3);
+
+    start_units(helper, client, 2, -1);
+    const auto info = helper.get_test_system_info();
+    CHECK(info.units.size() == 2);
+    CHECK(info.total_slots == 8);
+    CHECK(info.tool_to_slot_map.size() <= 8);
+    CHECK_FALSE(helper.stop_drying(2).success());
+}

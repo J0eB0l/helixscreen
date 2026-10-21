@@ -154,6 +154,8 @@ void AmsBackendAce::on_started() {
         instance_objects_ = false;
         unit_actions_.clear();
         unit_links_.clear();
+        // The bootstrap answer restates every unit's identity.
+        unit_identities_.clear();
         // The load's ack died with the old session, so nothing would end it.
         if (own_load_ && (system_info_.action == AmsAction::LOADING ||
                           system_info_.action == AmsAction::UNLOADING)) {
@@ -263,12 +265,16 @@ void AmsBackendAce::on_started() {
                             std::lock_guard<std::mutex> lock(mutex_);
                             instance_objects_ = true;
                         }
+                        int unit_count = 0;
                         for (const auto& [unit, instance] :
                              ace_instance_objects(response["result"]["status"])) {
                             parse_ace_object(*instance, unit);
+                            unit_count = unit + 1;
                         }
+                        keep_units(static_cast<size_t>(unit_count));
                     } else {
                         parse_ace_object(*ace_data);
+                        keep_units(1);
                     }
                     // A manager-shaped `ace` can ride the same response and
                     // states the seat (current_index); parse it AFTER the
@@ -284,6 +290,11 @@ void AmsBackendAce::on_started() {
                     // BunnyACE/DuckACE path: no get_status(), try REST fallback
                     spdlog::info("[ACE] Klipper filament_hub/ace object has no status data — "
                                  "trying REST bridge fallback (/server/ace/*)");
+                    {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        instance_objects_ = false;
+                    }
+                    keep_units(1);
                     start_rest_fallback();
                 }
             });
@@ -293,6 +304,7 @@ void AmsBackendAce::on_started() {
                 spdlog::warn("[ACE] Initial filament_hub/ace query failed: {} — "
                              "trying REST fallback",
                              err.message);
+                keep_units(1);
                 start_rest_fallback();
             });
         });
@@ -1010,7 +1022,8 @@ std::optional<std::string> AmsBackendAce::dryer_instance_argument(int unit) cons
     if (!instance_commands_) {
         return std::string();
     }
-    if (unit < 0 || static_cast<size_t>(unit) >= system_info_.units.size()) {
+    if (unit < 0 || static_cast<size_t>(unit) >= system_info_.units.size() ||
+        system_info_.units[static_cast<size_t>(unit)].absent) {
         return std::nullopt;
     }
     return " INSTANCE=" + std::to_string(ace_instance_for_unit_locked(unit));
@@ -1068,8 +1081,46 @@ AmsUnit& AmsBackendAce::unit_locked(int unit) {
         } else {
             added.connected = true;
         }
+        if (path_sensors_seen_) {
+            // The manager's sensors watch the one hub every unit feeds, and
+            // its frames restate them only when they change.
+            added.has_hub_sensor = true;
+            added.hub_sensor_triggered = rdm_sensor_;
+            added.has_toolhead_sensor = true;
+        }
     }
     return system_info_.units[index];
+}
+
+void AmsBackendAce::keep_units(size_t count) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (system_info_.units.size() > count) {
+        system_info_.units.resize(count);
+    }
+    if (dryers_.size() > count) {
+        dryers_.resize(count);
+    }
+    if (unit_actions_.size() > count) {
+        unit_actions_.resize(count);
+    }
+    unit_links_.erase(unit_links_.lower_bound(static_cast<int>(count)), unit_links_.end());
+    (void)index_units_locked();
+    const bool tools_named =
+        std::any_of(system_info_.units.begin(), system_info_.units.end(), [](const AmsUnit& unit) {
+            return std::any_of(unit.slots.begin(), unit.slots.end(),
+                               [](const SlotInfo& slot) { return slot.mapped_tool >= 0; });
+        });
+    if (tools_named) {
+        helix::printer::sync_tool_map_from_slots(system_info_);
+    } else {
+        system_info_.tool_to_slot_map.clear();
+    }
+    apply_unit_identities_locked();
+    if (system_info_.current_slot >= system_info_.total_slots) {
+        // The seat named a slot on a unit that is gone: state the tool alone.
+        system_info_.current_slot = -1;
+    }
+    apply_seated_slot_stamp_locked();
 }
 
 bool AmsBackendAce::index_units_locked() {
@@ -1101,6 +1152,9 @@ void AmsBackendAce::apply_unit_identities_locked() {
             unit.name = identity.model;
         }
         unit.firmware_version = identity.firmware;
+        // A unit no instance has reported is a gap in the chain: nothing may
+        // be sent to it.
+        unit.absent = instance_objects_ && !identity.reported;
         if (!instance_objects_) {
             unit.display_name.clear();
             continue;
@@ -1302,8 +1356,10 @@ bool AmsBackendAce::seat_from_local_index_locked(int slot_index) {
            seat_loaded_ != prev_loaded;
 }
 
-void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
+void AmsBackendAce::parse_ace_object(const json& data, int unit) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const bool from_instance = unit != kNotAnInstance;
+    const int unit_index = std::max(unit, 0);
 
     // Drop the previous frame's derived seat before the slot loop rewrites
     // statuses, so check_hardware_event_clear and prev_slot_status_ compare
@@ -1322,6 +1378,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
         }
         UnitIdentity& identity = unit_identities_[index];
         const UnitIdentity before = identity;
+        identity.reported = identity.reported || from_instance;
         if (data.contains("model") && data["model"].is_string()) {
             identity.model = data["model"].get<std::string>();
         }
@@ -1335,7 +1392,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
             }
         }
         if (identity.model != before.model || identity.protocol != before.protocol ||
-            identity.firmware != before.firmware) {
+            identity.firmware != before.firmware || identity.reported != before.reported) {
             apply_unit_identities_locked();
         }
     }
@@ -2306,18 +2363,32 @@ AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,
     const bool slot_action = action_id == "ace_manual_feed" || action_id == "ace_manual_retract" ||
                              action_id == "ace_feed_assist_toggle";
     const int current_slot = get_current_slot();
-    if (slot_action && current_slot < 0) {
+    int slot = std::max(current_slot, 0);
+    if (slot_action) {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (instance_commands_ && seat_loaded_) {
+        if (current_slot < 0 && instance_commands_ && seat_loaded_) {
             // A tool is seated whose unit has not reported its slots: the
             // first unit's slot 0 would feed a second strand into the path
-            // that tool holds. With nothing seated the path is clear and
-            // slot 0 is addressed as on every driver.
+            // that tool holds. With nothing seated the path is clear and the
+            // first unit present is addressed, as slot 0 is on every driver.
             return AmsError(AmsResult::WRONG_STATE, "Seated tool has no known slot",
                             lv_tr("It has not reported its slots yet. Try again in a moment."), "");
         }
+        if (current_slot < 0) {
+            for (const auto& unit : system_info_.units) {
+                if (!unit.absent && unit.slot_count > 0) {
+                    slot = unit.first_slot_global_index;
+                    break;
+                }
+            }
+        }
+        const AmsUnit* unit = system_info_.get_unit_for_slot(slot);
+        if (unit != nullptr && unit->absent) {
+            // A gap in the chain: no instance answers to that INSTANCE=.
+            return AmsError(AmsResult::WRONG_STATE, "No ACE instance for that slot",
+                            lv_tr("It has not reported its slots yet. Try again in a moment."), "");
+        }
     }
-    const int slot = std::max(current_slot, 0);
 
     if (action_id == "ace_manual_feed") {
         static constexpr int kManualFeedLength = 50;

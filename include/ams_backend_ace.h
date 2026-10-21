@@ -286,9 +286,13 @@ class AmsBackendAce : public AmsSubscriptionBackend {
      *
      * @param data JSON data from the ace Klipper object
      * @param unit The unit the object describes: N for the ACEPRO driver's
-     *        `ace_instance_N`, 0 for every single-object driver
+     *        `ace_instance_N`; kNotAnInstance (unit 0) for the ACEPRO
+     *        manager and every single-object driver
      */
-    void parse_ace_object(const nlohmann::json& data, int unit = 0);
+    void parse_ace_object(const nlohmann::json& data, int unit = kNotAnInstance);
+
+    /// parse_ace_object's unit for an object that is no `ace_instance_N`.
+    static constexpr int kNotAnInstance = -1;
 
   private:
     friend class AceTestAccess;
@@ -440,6 +444,12 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// holds mutex_.
     AmsUnit& unit_locked(int unit);
 
+    /// Drop every unit at or past @p count, with its dryer, status word and
+    /// link: the bootstrap answer names every unit there is, so one it does
+    /// not name is gone (a restart onto fewer units, or onto another driver).
+    /// Locks mutex_.
+    void keep_units(size_t count);
+
     /// Number every unit's slots globally, unit after unit, and publish the
     /// total. Returns true when a unit that had slots moved. Caller holds mutex_.
     [[nodiscard]] bool index_units_locked();
@@ -506,9 +516,10 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // units: a notify frame can name a unit before its slots arrive, and a
     // later frame restates only the fields that changed. Guarded by mutex_.
     struct UnitIdentity {
-        std::string model;    // `model`, e.g. "Anycubic Color Engine Pro"
-        std::string protocol; // `protocol`: "ace1_json" (ACE Pro) or "ace2_proto" (ACE 2)
-        std::string firmware; // `firmware`
+        std::string model;     // `model`, e.g. "Anycubic Color Engine Pro"
+        std::string protocol;  // `protocol`: "ace1_json" (ACE Pro) or "ace2_proto" (ACE 2)
+        std::string firmware;  // `firmware`
+        bool reported = false; // the driver has published this instance
     };
     std::vector<UnitIdentity> unit_identities_;
 
