@@ -16,11 +16,14 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <thread>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace helix {
 
@@ -201,7 +204,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// with a user override. Empty names mean this rig cannot bypass.
     void set_bypass_macros(helix::BypassMacros macros);
 
-    /// The bypass macros resolved from discovery.
+    /// The bypass macros and the fork's `ace_instance_N` objects, from discovery.
     void set_discovery(const helix::PrinterDiscovery& discovery) override;
 
     // ========================================================================
@@ -282,8 +285,10 @@ class AmsBackendAce : public AmsSubscriptionBackend {
      * status, slots, dryer, etc. This handles that combined format.
      *
      * @param data JSON data from the ace Klipper object
+     * @param unit The unit the object describes: N for the Kobra S1 fork's
+     *        `ace_instance_N`, 0 for every single-object driver
      */
-    void parse_ace_object(const nlohmann::json& data);
+    void parse_ace_object(const nlohmann::json& data, int unit = 0);
 
   private:
     friend class AceTestAccess;
@@ -358,13 +363,8 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     /**
      * @brief The lowest-numbered `ace_instance_N` key whose value satisfies
-     *        @p predicate, so every walk over the fork's per-unit objects
-     *        picks the same one.
-     *
-     * The display is anchored to the lowest instance — on_started's
-     * slot-bearing pick populates it — so notify deltas must resolve to it
-     * too, not to whichever instance happened to carry the slots array whole
-     * in a given frame (#1107).
+     *        @p predicate: the bootstrap's pick when it decides whether the
+     *        fork's objects carry slot data (#1107).
      *
      * @param status A query result.status object or one notify frame's status
      * @param predicate Object filter; defaults to "non-empty object", the
@@ -397,37 +397,69 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     static const nlohmann::json* manager_ace_object(const nlohmann::json& status);
 
     /// `<verb>` addressed at global @p slot in the form the driver parses. The
-    /// Kobra S1 fork resolves a unit from INSTANCE= and reads INDEX= as that
-    /// unit's local slot, rejecting INDEX= alone; GoKlipper and ValgACE drive a
-    /// single hub by INDEX= only.
+    /// Kobra S1 fork resolves a unit from INSTANCE= (the unit index, which is
+    /// its instance number) and reads INDEX= as that unit's local slot,
+    /// rejecting INDEX= alone; GoKlipper and ValgACE drive a single hub by
+    /// INDEX= only.
     std::string slot_command(const std::string& verb, int slot) const;
 
-    /// N of an `ace_instance_N` key, or 0 when the suffix is not a number.
-    static int ace_instance_number(const std::string& key);
+    /// Every non-empty `ace_instance_N` object in a status frame with its
+    /// instance number N, in ascending N.
+    static std::vector<std::pair<int, const nlohmann::json*>>
+    ace_instance_objects(const nlohmann::json& status);
 
     /// The `ace_instance_N` key for instance @p n.
     static std::string ace_instance_key(int n);
 
     /// Fold the manager's path sensors (`rdm_sensor` at the hub,
-    /// `toolhead_sensor` at the extruder) into the cached readings and onto the
-    /// unit. A frame stating neither leaves the last reading standing: notify
-    /// frames carry only changed fields, so silence is not a cleared sensor.
-    /// Caller holds mutex_.
+    /// `toolhead_sensor` at the extruder) into the cached readings and onto
+    /// every unit, which all feed that one hub. A frame stating neither leaves
+    /// the last reading standing: notify frames carry only changed fields, so
+    /// silence is not a cleared sensor. Caller holds mutex_.
     void apply_path_sensors_locked(const nlohmann::json& data);
 
     /// Seat the loaded tool from the fork manager's `current_index` — the
-    /// global tool index across every unit, -1 = nothing loaded. This backend
-    /// displays one unit: below that unit's slot count the global index IS
-    /// the local slot (delegates to seat_from_local_index_locked); at or
-    /// beyond it the seat lives in a unit that is not displayed, so the tool
-    /// is stated and no slot is marked (the stamp helper guards
+    /// driver's tool number, -1 = nothing loaded. A tool no known slot carries
+    /// is stated with no slot marked (the stamp helper guards
     /// current_slot < 0). Caller holds mutex_.
     /// @return true when current_slot/current_tool/filament_loaded changed
-    bool seat_from_global_index_locked(int current_index);
+    bool seat_from_tool_locked(int tool);
 
-    /// The displayed slot for a global tool index, or -1 when that tool lives
-    /// in a unit this backend does not display. Caller holds mutex_.
-    int displayed_slot_for_global_index_locked(int global_index) const;
+    /// The global slot that feeds driver tool @p tool, or -1 when no slot
+    /// does. Read from the tool number each fork slot publishes; a driver that
+    /// publishes none numbers its tools by slot. Caller holds mutex_.
+    int slot_for_tool_locked(int tool) const;
+
+    /// The driver tool global slot @p slot_index feeds, the inverse of
+    /// slot_for_tool_locked; -1 for a fork slot the driver has named no tool
+    /// for. Caller holds mutex_.
+    int tool_for_slot_locked(int slot_index) const;
+
+    /// Unit @p unit, created when the frame names it first; units below it that
+    /// have not reported yet hold kSlotsPerUnit slots, disconnected. Caller
+    /// holds mutex_.
+    AmsUnit& unit_locked(int unit);
+
+    /// Number every unit's slots globally, unit after unit, and publish the
+    /// total. Returns true when a unit that had slots moved. Caller holds mutex_.
+    [[nodiscard]] bool index_units_locked();
+
+    /// The ` INSTANCE=N` argument (with its leading space) dryer commands
+    /// address unit @p unit by: empty on drivers with one unit, nullopt for a
+    /// unit the fork does not have. Locks mutex_.
+    [[nodiscard]] std::optional<std::string> dryer_instance_argument(int unit) const;
+
+    /// Unit @p unit's dryer, created with the ACE Pro's defaults when the
+    /// frame names it first. Caller holds mutex_.
+    DryerInfo& dryer_locked(int unit);
+
+    /// Name every unit after its model (unit_models_), numbering the second
+    /// and later unit of one model. Caller holds mutex_.
+    void name_units_locked();
+
+    /// Record unit @p unit's own status word and publish the action of the
+    /// first unit that is doing something, or IDLE. Caller holds mutex_.
+    void set_unit_action_locked(int unit, AmsAction action);
 
     /// Track the fork manager's `target_index` (the global tool a toolchange
     /// is heading for, -1 when none is under way). While it names a tool
@@ -440,10 +472,9 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// @return true when pending_target_slot or action changed
     bool apply_target_index_locked(const nlohmann::json& data);
 
-    /// Seat the loaded tool from a LOCAL slot index (loaded_slot, the
-    /// ValgACE "loaded" scan, current_filament's parsed local index): -1
-    /// clears, otherwise the index is the slot and the tool. Caller holds
-    /// mutex_.
+    /// Seat the loaded tool from a slot index (loaded_slot, the ValgACE
+    /// "loaded" scan, current_filament's parsed local index): -1 clears,
+    /// otherwise the index is the slot and the tool. Caller holds mutex_.
     /// @return true when current_slot/current_tool/filament_loaded changed
     bool seat_from_local_index_locked(int slot_index);
 
@@ -451,8 +482,34 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // Members
     // ========================================================================
 
-    // Dryer state (ACE-specific, not in base class)
-    DryerInfo dryer_info_;
+    // Each unit's dryer, by unit index (ACE-specific, not in base class).
+    // Guarded by mutex_.
+    std::vector<DryerInfo> dryers_;
+
+    // Each unit's own status word as an action, by unit index. Guarded by
+    // mutex_.
+    std::vector<AmsAction> unit_actions_;
+
+    // Each fork unit's link from its `connection_state`, by unit: true when
+    // connected. A unit with no entry has not stated one. Guarded by mutex_.
+    std::map<int, bool> unit_links_;
+
+    // Each unit's model name ("ACEPRO", "ACEPRO2"), from the fork's
+    // `protocol`; empty for a protocol this backend does not know. Guarded by
+    // mutex_.
+    std::vector<std::string> unit_models_;
+
+    // The driver tool each global slot feeds, from the fork slots' `tool`.
+    // Empty for drivers that publish none. Guarded by mutex_.
+    std::map<int, int> slot_tools_;
+
+    // The fork's `ace_instance_N` objects discovery found, which the bootstrap
+    // queries. Guarded by mutex_.
+    std::vector<std::string> discovered_instances_;
+
+    // Set once the driver publishes per-unit `ace_instance_N` objects (the
+    // Kobra S1 fork), whose commands name a unit or a tool. Guarded by mutex_.
+    bool instance_objects_ = false;
 
     // Info tracking
     std::atomic<bool> info_fetched_{false};
@@ -468,12 +525,10 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     std::atomic<bool> rest_data_ok_{false};
     std::atomic<int> data_fetch_failures_{0};
 
-    // The Kobra S1 fork's instance number for units[0], or -1 until that
-    // driver's surface is seen. Its slot commands take INSTANCE= + INDEX=; the
-    // base is N of the `ace_instance_N` the initial query picked for display,
-    // or 0 when the REST bridge serves the data. Reset on every start.
-    // Guarded by mutex_.
-    int instance_base_ = -1;
+    // Set once the Kobra S1 fork's surface is seen (`ace_instance_N` objects,
+    // or the REST bridge's `ace_manager`): its slot commands take INSTANCE= +
+    // INDEX=. Reset on every start. Guarded by mutex_.
+    bool instance_commands_ = false;
 
     /// Guards ACE's own RPC and REST callbacks. Separate from the base
     /// lifetime_ because cancel() and on_stopping() expire these without
@@ -492,6 +547,11 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// Consecutive data-endpoint (/status) failures before surfacing the
     /// "Moonraker bridge not found" error (genuinely-missing-bridge case).
     static constexpr int kMaxDataFetchFailures = 3;
+    /// An ACE Pro or ACE 2 has four slots; the fork numbers tools four per unit.
+    static constexpr int kSlotsPerUnit = 4;
+    /// Far beyond any daisy chain; bounds what a malformed `ace_instance_N`
+    /// name can allocate.
+    static constexpr int kMaxUnits = 16;
 
     // Layer any configured FilamentSlotOverride for `slot_index` over `slot`,
     // mutating `slot` in place. Override wins for every non-default field;
@@ -533,14 +593,15 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     void judge_insert_locked(SlotInfo& slot, int slot_index,
                              const helix::ams::SpoolEvidence& inserted);
 
-    /// Mutable slot lookup. ACE is always single-unit, and the two REST
-    /// parsers size units[0].slots independently, so index directly rather
-    /// than through AmsSystemInfo::get_slot_global() — that walks
-    /// first_slot_global_index/slot_count, which parse_slots_response only
-    /// refreshes when the slot count actually changes. Caller holds mutex_.
+    /// Mutable slot lookup by global index. Walks each unit's
+    /// first_slot_global_index and its slots vector rather than
+    /// AmsSystemInfo::get_slot_global(), which reads slot_count: the two REST
+    /// parsers size units[0].slots independently, and parse_slots_response
+    /// only refreshes slot_count when the slot count actually changes.
+    /// Caller holds mutex_.
     SlotInfo* mutable_slot_locked(int slot_index);
-    /// Reads index units[0].slots the same way, so a read sees what a write
-    /// through mutable_slot_locked() left.
+    /// Reads the slots the same way, so a read sees what a write through
+    /// mutable_slot_locked() left.
     [[nodiscard]] const SlotInfo* slot_info_locked(int slot_index) const override {
         return const_cast<AmsBackendAce*>(this)->mutable_slot_locked(slot_index);
     }
@@ -604,6 +665,9 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// the two phases apart.
     int target_index_ = -1;
     bool driver_action_ = false;
+    // A load this backend sent is in flight: its LOADING ends with the
+    // command's ack, not when the driver's target clears. Guarded by mutex_.
+    bool own_load_ = false;
     bool swap_hub_cleared_ = false;
 
     /// Whether the driver has published `ace_pro_enabled`, and its last value.
