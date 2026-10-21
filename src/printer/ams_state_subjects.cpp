@@ -630,8 +630,9 @@ void AmsState::init_subjects(bool register_xml) {
 void AmsState::install_klippy_state_observer() {
     // on_klipper_restarted() must run before the first status frame after the
     // resubscribe, since backends clear per-channel history that frame then
-    // rebuilds. That holds because the READY update is queued ahead of
-    // rediscovery's subscribe and UpdateQueue runs in order.
+    // rebuilds. That holds because Moonraker drops every subscription when
+    // Klippy's socket closes, and the READY update is queued on UpdateQueue
+    // ahead of rediscovery's subscribe, which UpdateQueue runs in order.
     klippy_state_observer_.reset();
     last_klippy_state_ = -1;
     klippy_state_observer_ = helix::ui::observe<int>(
