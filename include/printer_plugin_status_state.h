@@ -113,6 +113,9 @@ class PrinterPluginStatusState {
     void set_features(PluginFeatureMap features) {
         features_ = std::move(features);
     }
+    const PluginFeatureMap& features() const {
+        return features_;
+    }
 
     /// Whether plugin feature @p name, at contract @p min_version or newer, is
     /// usable now. Gate plugin-backed behaviour on this, never on version().

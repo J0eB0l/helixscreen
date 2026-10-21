@@ -12,10 +12,13 @@
  * printer.
  */
 
+#include "ui_update_queue.h"
+
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/breadcrumb_capture.h"
 #include "../test_helpers/config_test_access.h"
 #include "../test_helpers/printer_capture.h"
+#include "../test_helpers/scoped_env.h"
 #include "app_globals.h"
 #include "async_lifetime_guard.h"
 #include "config.h"
@@ -380,4 +383,36 @@ TEST_CASE_METHOD(StepFixture, "the filament_temperatures step publishes the firm
     CHECK(t->load_c.value() == 250);
     CHECK(t->unload_c.value() == 245);
     helix::filament_temps::clear_filament_temperatures();
+}
+
+TEST_CASE_METHOD(StepFixture, "the plugin probe publishes the plugin's features map",
+                 "[discovery_steps][plugin_feature]") {
+    auto run_probe = [this]() {
+        auto ctx = context(/*hw_changed=*/false);
+        bool ran = false;
+        for (const DiscoveryStep& step : helix::discovery_core_steps()) {
+            if (std::string(step.name) == "helix_plugin_check") {
+                step.run(ctx);
+                ran = true;
+            }
+        }
+        REQUIRE(ran);
+        helix::ui::UpdateQueue::instance().drain();
+    };
+    const auto& plugin = get_printer_state().plugin_status_state();
+
+    {
+        helix::ScopedEnv installed("HELIX_MOCK_HELIX_PLUGIN", "1");
+        run_probe();
+    }
+    // The installed subject is not initialised in this fixture, so read the map itself.
+    REQUIRE(plugin.features().count("convert_3mf") == 1);
+    CHECK(helix::plugin_feature_state(true, plugin.features(), "convert_3mf", 1) ==
+          helix::PluginFeatureState::Ready);
+
+    {
+        helix::ScopedEnv absent("HELIX_MOCK_HELIX_PLUGIN", nullptr);
+        run_probe();
+    }
+    CHECK(plugin.features().empty());
 }
