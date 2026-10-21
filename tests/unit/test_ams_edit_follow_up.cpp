@@ -3,6 +3,7 @@
 // offer_edit_follow_up(): the question a backend asks after a slot edit
 // commits, and the follow-up it runs only on yes.
 
+#include "ui_ams_detail.h"
 #include "ui_ams_edit_follow_up.h"
 #include "ui_modal.h"
 
@@ -81,5 +82,18 @@ TEST_CASE_METHOD(LVGLUITestFixture, "edit follow-up: no offer shows nothing", "[
     ui::offer_edit_follow_up(1, SlotInfo{}, SlotInfo{});
     process_lvgl(20);
     CHECK(ModalStack::instance().top_dialog() == before);
+    CHECK(harness->runs == 0);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "edit follow-up: a cleared slot asks the backend too",
+                 "[edit_follow_up]") {
+    test::RegisteredBackend<FollowUpBackend> harness;
+    const lv_obj_t* before = ModalStack::instance().top_dialog();
+    REQUIRE(
+        ui::ams_dispatch_backend_action(ui::AmsContextMenu::MenuAction::CLEAR_SPOOL, 1, nullptr));
+    process_lvgl(20);
+    REQUIRE(ModalStack::instance().top_dialog() != before);
+    CHECK_THAT(test::top_modal_text(), Catch::Matchers::ContainsSubstring("Tool 2 now holds PETG"));
+    test::answer_top_modal("btn_secondary");
     CHECK(harness->runs == 0);
 }

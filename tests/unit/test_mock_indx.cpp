@@ -2,6 +2,7 @@
 
 // HELIX_MOCK_AMS=indx: mock hardware the production AmsBackendIndx runs on.
 
+#include "../lvgl_test_fixture.h"
 #include "indx_contract.h"
 #include "macro_param_cache.h"
 #include "moonraker_client_mock.h"
@@ -224,4 +225,16 @@ TEST_CASE("INDX mock: SET_TOOL_FILAMENT without HEAT_CAPACITY is a usage error",
     CHECK(mock.gcode_script("SET_TOOL_FILAMENT TOOL=1 DENSITY=1.270") != 0);
     CHECK_THAT(mock.get_last_gcode_error(), Catch::Matchers::ContainsSubstring("HEAT_CAPACITY"));
     CHECK(mock.gcode_script("SET_TOOL_FILAMENT TOOL=1 DENSITY=1.270 HEAT_CAPACITY=1.300") == 0);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "INDX mock: a calibration's rpc answers when the run ends",
+                 "[ams][indx][mock]") {
+    IndxEnv env;
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_TRIDENT, 1000.0);
+    int answers = 0;
+    mock.send_jsonrpc("printer.gcode.script", json{{"script", "INDX_CALIBRATE"}},
+                      [&answers](const json&) { ++answers; });
+    CHECK(answers == 0);
+    process_lvgl(300);
+    CHECK(answers == 1);
 }

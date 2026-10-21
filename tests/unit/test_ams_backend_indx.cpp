@@ -970,3 +970,15 @@ TEST_CASE_METHOD(IndxFixture, "INDX batch: a no-hotend row reads like the other 
     text.reason = ops.load_reason;
     CHECK(helix::ui::BatchFilamentModal::head_row_label(text) == "Tool 6 (No hotend)");
 }
+
+TEST_CASE_METHOD(IndxFixture, "INDX device: a new offset beside an unchanged reading is news",
+                 "[ams][indx][device]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    int events = 0;
+    b.set_event_callback([&events](const std::string&, const std::string&) { ++events; });
+    b.feed(active(1));
+    const int after_first = events;
+    b.feed(json{{"save_variables", {{"variables", {{"active_tool", 1}, {"t1_offset_z", 0.03}}}}}});
+    CHECK(events == after_first + 1);
+}

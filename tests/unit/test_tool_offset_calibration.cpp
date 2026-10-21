@@ -17,8 +17,8 @@
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "snapmaker_nozzle_offset.h"
+#include "system_settings_manager.h"
 #include "tool_offset_calibration.h"
-#include "translation_loader.h"
 
 #include "../catch_amalgamated.hpp"
 #include "hv/json.hpp"
@@ -156,14 +156,13 @@ TEST_CASE("tool offset calibration: the Advanced row's description follows the l
     REQUIRE(text != nullptr);
     CHECK(std::string(lv_subject_get_string(text)) == "Seat a tool by hand for the first Z home");
 
-    helix::ui::ensure_translation_loaded("de");
-    lv_translation_set_language("de");
-    state.capabilities_state().on_language_changed();
+    auto& settings = SystemSettingsManager::instance();
+    settings.init_subjects();
+    settings.set_language("de");
     CHECK(std::string(lv_subject_get_string(text)) ==
           "Für die erste Z-Referenzfahrt ein Werkzeug von Hand einsetzen");
 
-    lv_translation_set_language("en");
-    state.capabilities_state().on_language_changed();
+    settings.set_language("en");
     CHECK(std::string(lv_subject_get_string(text)) == "Seat a tool by hand for the first Z home");
     PrinterStateTestAccess::reset(state);
 }

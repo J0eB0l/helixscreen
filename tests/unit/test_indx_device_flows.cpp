@@ -368,6 +368,8 @@ TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: the seat picker holds one tool", 
     start(indx::kSeatByHandFlowId);
     lv_obj_t* picker = ModalStack::instance().top_dialog();
     REQUIRE(picker != nullptr);
+    CHECK_THAT(test::top_modal_text(),
+               Catch::Matchers::ContainsSubstring("Seat which tool by hand?"));
     lv_obj_t* first = lv_obj_find_by_name(picker, "item_1");
     lv_obj_t* second = lv_obj_find_by_name(picker, "item_2");
     REQUIRE(first != nullptr);
