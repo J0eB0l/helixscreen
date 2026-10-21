@@ -102,6 +102,17 @@ TEST_CASE("INDX: the macros without the [indx] module are someone else's", "[ams
     CHECK(hw.detected_ams_systems().empty());
 }
 
+TEST_CASE("INDX: rediscovery forgets an INDX that is gone", "[ams][indx][detect]") {
+    PrinterDiscovery hw;
+    hw.parse_objects(indx_objects());
+    REQUIRE(indx::present(hw));
+    REQUIRE(hw.has_save_variables());
+    hw.parse_objects(json::array({"extruder", "heater_bed"}));
+    CHECK_FALSE(indx::present(hw));
+    CHECK_FALSE(hw.has_save_variables());
+    CHECK(hw.mmu_type() == AmsType::NONE);
+}
+
 TEST_CASE("INDX: a real MMU keeps its backend", "[ams][indx][detect]") {
     json objects = indx_objects();
     objects.push_back("mmu");

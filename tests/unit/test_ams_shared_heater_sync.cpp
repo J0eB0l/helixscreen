@@ -8,7 +8,11 @@
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_backend_indx.h"
 #include "ams_state.h"
+#include "ams_tool_topology.h"
 #include "app_globals.h"
+#include "helix-xml/src/xml/lv_xml.h"
+#include "moonraker_api.h"
+#include "moonraker_client_mock.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
 
@@ -77,4 +81,50 @@ TEST_CASE_METHOD(LVGLTestFixture, "Shared heater sync: a nozzle change clears th
     harness->feed(mounted(2));
     ams.sync_from_backend();
     CHECK(temps.get_active_extruder_last_nonzero_target() == Catch::Approx(0.0));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Shared heater sync: a backend switch clears heat_blocked",
+                 "[ams][indx][heat][subject]") {
+    auto& ams = helix::AmsState::instance();
+    ams.init_subjects(true);
+    {
+        helix::test::RegisteredBackend<IndxHelper> harness;
+        harness->set_discovery(indx_discovery());
+        harness->feed(mounted(-1));
+        ams.sync_from_backend();
+        REQUIRE(heat_blocked() == 1);
+    }
+    // The harness cleared the backends: nothing refuses heat any more.
+    CHECK(heat_blocked() == 0);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Shared heater sync: XML can bind ams_nozzle_heat_blocked",
+                 "[ams][indx][heat][subject]") {
+    // A first init without XML names, then one with: the re-entry path is the
+    // one that has to publish the name.
+    auto& ams = helix::AmsState::instance();
+    ams.deinit_subjects();
+    ams.init_subjects(false);
+    ams.init_subjects(true);
+    CHECK(lv_xml_get_subject(nullptr, "ams_nozzle_heat_blocked") ==
+          ams.get_nozzle_heat_blocked_subject());
+}
+
+TEST_CASE("Shared heater: the backend's answer reaches the tool topology",
+          "[ams][indx][tool_state]") {
+    IndxHelper backend;
+    backend.set_discovery(indx_discovery());
+    backend.feed(mounted(1));
+    auto topo = helix::build_ams_topology(&backend, 0);
+    REQUIRE(topo.has_value());
+    CHECK(topo->heads_share_heater);
+}
+
+TEST_CASE("INDX: the factory builds the INDX backend", "[ams][indx]") {
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_TRIDENT);
+    helix::PrinterState state;
+    MoonrakerAPI api(client, state);
+    auto backend = helix::AmsBackend::create(helix::AmsType::INDX, &api, &client, nullptr);
+    REQUIRE(backend != nullptr);
+    CHECK(backend->get_type() == helix::AmsType::INDX);
 }

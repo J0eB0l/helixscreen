@@ -32,6 +32,7 @@
 #include "moonraker_api.h"
 #include "moonraker_client_mock.h"
 #include "platform_table.h"
+#include "printer_discovery.h"
 #include "printer_state.h"
 #include "screensaver_registry.h"
 #include "screensaver_usage.h"
@@ -3966,4 +3967,20 @@ TEST_CASE_METHOD(TelemetryTestFixture,
     CHECK(event["version"] == "1.0.5");
     CHECK(event["from_version"] == HELIX_VERSION);
     CHECK(event["app_version"] == HELIX_VERSION);
+}
+
+TEST_CASE("Telemetry hardware profile names the filament system by its slug",
+          "[telemetry][ams][indx]") {
+    auto& tm = TelemetryManager::instance();
+    helix::PrinterDiscovery indx;
+    indx.parse_objects(nlohmann::json::array({"indx", "save_variables", "extruder"}));
+    CHECK(TelemetryManagerTestAccess::hw_ams_section(tm, indx)["type"] == "indx");
+
+    helix::PrinterDiscovery mmu;
+    mmu.parse_objects(nlohmann::json::array({"mmu", "extruder"}));
+    CHECK(TelemetryManagerTestAccess::hw_ams_section(tm, mmu)["type"] == "happy_hare");
+
+    helix::PrinterDiscovery none;
+    none.parse_objects(nlohmann::json::array({"extruder"}));
+    CHECK(TelemetryManagerTestAccess::hw_ams_section(tm, none)["type"] == "unknown");
 }
