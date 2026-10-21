@@ -1,7 +1,7 @@
 # Bondtech INDX backend: design
 
 Issue: prestonbrown/helixscreen#1333. Branch: `feature/indx-backend`.
-Status: design. Preston ruled on D1-D6 (section 13); the body follows those rulings.
+Status: design. Preston ruled on D1-D7 (section 13); the body follows those rulings.
 
 ## 1. What INDX is
 
@@ -385,10 +385,7 @@ assumes a tool changer has per-tool extruders or heaters, and what INDX does the
    | Temp graph overlay selector (`src/ui/ui_overlay_temp_graph.cpp`) and temp graph widget series | selector shown only with `extruder_count() > 1`; series named from `display_name` | Selector hidden; the series is "Nozzle" | None. The trace is the one heater across every tool change, so it carries no tool's name: "Nozzle 3" on a line that was T0 an hour ago would be wrong |
 
    So every surface that names the nozzle a user is looking at now says "Nozzle 3", and the
-   only "Nozzle" left is the heater history, which is not one nozzle. If Preston wants the
-   graph to read "Nozzle 3" too, the series name follows `nozzle_label()` on the active-tool
-   subject; that is a one-line change in `TempGraphWidget::refresh_series_names` and is not
-   planned.
+   only "Nozzle" left is the heater history, which is not one nozzle (D7).
 4. **Heating an empty head.** HelixScreen sends `SET_HEATER_TEMPERATURE HEATER=extruder`
    (`src/ui/ui_temperature_utils.cpp#build_heater_gcode`), which bypasses INDX's `M104`
    guard. Upstream refuses that state on purpose, and the heater module shuts Klipper down on
@@ -581,6 +578,8 @@ the filament panel's tool cards, the tool switcher and the nozzle temperature co
   confirm that says to hold the tool.
 - **D6. Change command: `T<n>` when the macro exists, else `CHANGE_TOOL TOOL=<n>`.** A screen
   tap then runs the user's wrapper exactly as a slicer change does.
+- **D7. Temp graph series: plain "Nozzle".** The series is the one heater's history across
+  every tool change, so it names no tool. `TempGraphWidget` is unchanged.
 
 ## 14. Not confirmed
 
