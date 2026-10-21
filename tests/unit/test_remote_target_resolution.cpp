@@ -651,11 +651,18 @@ struct CtlClickRig {
     CtlClickRig(const CtlClickRig&) = delete;
     CtlClickRig& operator=(const CtlClickRig&) = delete;
 
-    /// `click <name>`. The transport thread services the request through the UI
-    /// queue, so this thread must drain while waiting for the reply line.
+    /// `click <name>`.
     nlohmann::json click(const std::string& name) {
-        const std::string req = R"({"jsonrpc":"2.0","method":"click","params":{"name":")" + name +
-                                R"("},"id":)" + std::to_string(next_id++) + "}\n";
+        return call("click", "name", name);
+    }
+
+    /// One request with one string parameter. The transport thread services it
+    /// through the UI queue, so this thread must drain while waiting for the reply.
+    nlohmann::json call(const std::string& method, const std::string& key,
+                        const std::string& value) {
+        const std::string req = R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{")" +
+                                key + R"(":")" + value + R"("},"id":)" + std::to_string(next_id++) +
+                                "}\n";
         REQUIRE(send(fd, req.data(), req.size(), 0) == static_cast<ssize_t>(req.size()));
 
         std::string response;
@@ -729,6 +736,20 @@ TEST_CASE_METHOD(LVGLTestFixture, "ctl click: delivers what a quick tap does, in
     CHECK(codes == std::vector<int>{LV_EVENT_SHORT_CLICKED, LV_EVENT_CLICKED});
     CHECK(r.value("tap_handled", false));
     CHECK_FALSE(r.contains("warning"));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl navigate: a widget target gets a whole quick tap",
+                 "[remote][ctl][tap_hold]") {
+    lv_obj_t* btn = lv_button_create(lv_screen_active());
+    lv_obj_set_name(btn, "ctl_navigate_button");
+    std::vector<int> codes;
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_SHORT_CLICKED, &codes);
+    lv_obj_add_event_cb(btn, record_code_cb, LV_EVENT_CLICKED, &codes);
+
+    CtlClickRig rig;
+    const nlohmann::json r = rig.call("navigate", "panel", "ctl_navigate_button");
+    CHECK(r.value("kind", std::string()) == "widget");
+    CHECK(codes == std::vector<int>{LV_EVENT_SHORT_CLICKED, LV_EVENT_CLICKED});
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "ctl click: a hold-only widget says a tap does nothing",

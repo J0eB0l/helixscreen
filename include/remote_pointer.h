@@ -122,6 +122,8 @@ class RemotePointer {
     [[nodiscard]] bool pressed() const;
 
   private:
+    friend struct RemotePointerTestAccess;
+
     RemotePointer() = default;
 
     static void read_cb(lv_indev_t* indev, lv_indev_data_t* data);

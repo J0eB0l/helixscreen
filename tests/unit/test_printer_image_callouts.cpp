@@ -778,16 +778,20 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     lv_obj_t* hit = lv_indev_search_obj(test_screen(), &centre);
     REQUIRE(hit == h.child("callout_chip_light"));
 
-    // A real press, held past the long-press time, then lifted: the lift
-    // must not also toggle the light.
+    // A real press, held for three times the long-press time, then lifted: it is one
+    // hold, and the lift must not also toggle the light.
+    int holds_on_chip = 0;
+    lv_obj_add_event_cb(h.child("callout_chip_light"), count_event_cb, LV_EVENT_LONG_PRESSED,
+                        &holds_on_chip);
     rig.client.clear_gcode_script_history();
     helix_test::ScopedPointerIndev finger;
     finger.press(x, y);
-    finger.hold(finger.long_press_hold_ms());
+    finger.hold(3 * finger.long_press_hold_ms());
     finger.release(x, y);
     settle();
     CHECK(get_led_control_overlay().focused_device() == "neopixel chamber_light");
     CHECK(long_presses_reaching_grid == 0);
+    CHECK(holds_on_chip == 1);
     CHECK(scripts_naming(rig.client, "chamber_light") == 0);
     NavigationManager::instance().go_back();
     settle();

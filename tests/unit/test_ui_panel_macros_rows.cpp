@@ -378,6 +378,21 @@ TEST_CASE_METHOD(MacrosRowsFixture,
         CHECK(checked(row_named("LOAD_FILAMENT")));
     }
 
+    SECTION("a hold kept down three times the long-press time is still one hold") {
+        lv_obj_t* card = row_named("LOAD_FILAMENT");
+        int holds = 0;
+        lv_obj_add_event_cb(
+            card, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
+            LV_EVENT_LONG_PRESSED, &holds);
+        const lv_point_t p = centre_of(card);
+        finger.press(p.x, p.y);
+        finger.hold(3 * finger.long_press_hold_ms());
+        finger.release(p.x, p.y);
+        settle();
+        REQUIRE(MacrosPanelTestAccess::edit_mode(panel));
+        CHECK(holds == 1);
+    }
+
     SECTION("in edit mode the hold declines, so its release is still the row's tap") {
         long_press(row_named("CLEAN_NOZZLE"));
         REQUIRE(MacrosPanelTestAccess::edit_mode(panel));

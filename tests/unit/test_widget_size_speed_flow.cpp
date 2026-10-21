@@ -493,6 +493,20 @@ TEST_CASE_METHOD(SpeedFlowActionFixture,
         CHECK(HomePanelTestAccess::edit_mode_active(panel));
         CHECK(last_sent() == "M220 S77");
     }
+
+    SECTION("edit mode on: the entry hold kept down longer never becomes a second hold") {
+        helix_test::ScopedInputSettings input_settings(true);
+        int holds = 0;
+        lv_obj_add_event_cb(
+            page_container, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
+            LV_EVENT_LONG_PRESSED, &holds);
+        finger.press(p.x, p.y);
+        finger.hold(3 * finger.long_press_hold_ms());
+        finger.release(p.x, p.y);
+        CHECK(HomePanelTestAccess::edit_mode_active(panel));
+        // A second hold inside edit mode would grab the widget the entry only selected.
+        CHECK(holds == 1);
+    }
 }
 
 TEST_CASE_METHOD(SpeedFlowFixture, "speed_flow: an override off 100 draws amber at every rung",
