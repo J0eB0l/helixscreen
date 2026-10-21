@@ -7,7 +7,7 @@
 
 static helix::DiscoveredPrinter make_printer(const std::string& name,
                                              const std::string& hostname = "printer.local") {
-    return {name, hostname, "192.168.1.100", 9100};
+    return {name, hostname, "192.168.1.100", 9100, ""};
 }
 
 TEST_CASE("label_printer_score Brother QL models", "[label]") {
