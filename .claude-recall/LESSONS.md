@@ -364,9 +364,9 @@
 - **Learned**: 0001-01-01 | **Category**: 
 > A true `git merge` into the shared main tree FAILS whenever the index is dirty at all (git errors "Your local changes ... would be overwritten" even for non-overlapping staged adds), but `git merge --ff-only` after rebasing the branch onto current main SAILS through and leaves the peer's staging intact (verified in a scratch repo, 2026-09-10). Do NOT push — local main intentionally runs ahead of origin; peers batch-push. Before concluding a peer is mid-commit, `git diff HEAD -- <path>`: empty means the index just holds a stale pre-format copy (`git add <path>` clears it).
 
-### [L129] make mutate-diff cannot baseline a small test tag
+### [L129] make mutate-diff with a narrow --tests filter is safe
 - **Learned**: 0001-01-01 | **Category**: 
-> The mutation gate runs the SHARDED suite; Catch2 exits nonzero for shards that match zero tests, so any `--tests` filter selecting fewer tests than there are shards (~94) reads the BASELINE as RED. Use a broad tag UNION (e.g. `--tests '[ams],[1134],[overlay_base]'`) sized well above the shard count, or hand-mutate the production hunk and name the red run in the commit body (tests/CLAUDE.md sanctions this).
+> mutate-diff sizes its shard count to the cases the --tests filter matches (main c834b4aeb), so a filter as narrow as one tag baselines fine; a filter matching nothing stops before the baseline with a FAIL naming it. Scope every finish-time mutation run to the touched tags (root CLAUDE.md § Verification Cadence).
 
 ### [L130] Background jobs: setsid nohup + disown, and check liveness by PID
 - **Learned**: 0001-01-01 | **Category**: 
