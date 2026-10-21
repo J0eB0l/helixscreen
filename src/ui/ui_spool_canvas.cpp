@@ -24,7 +24,6 @@
 #include <array>
 #include <cmath>
 #include <cstring>
-#include <functional>
 #include <list>
 #include <memory>
 #include <unordered_map>
@@ -67,7 +66,6 @@ static constexpr uint8_t kGlowRimLighten = 60;
 static constexpr lv_opa_t kGlowHaloSecondOpa = 153; // 60%
 static constexpr int32_t kGlowMargin = kGlowHaloDilate + kGlowHaloPasses * kGlowHaloBoxR;
 static constexpr int32_t kOutlinePx = 2;
-static constexpr uint8_t kGlowDiscShape = 0xFF; // fill_bucket of a flat-style (disc) glow
 
 // Note: Spool body colors now come from theme tokens in globals.xml:
 // - spool_body: Front flange color
@@ -346,9 +344,9 @@ struct VentBacking {
 // Cut @p face's vents into what is already drawn: each open pixel shows
 // @p inside(x, y) (what lies behind the flange there), with a darker lip along
 // each cut's upper edge where the flange's thickness shades it.
+template <typename Inside> // VentBacking(float face_radius)
 static void paint_vents(SpoolLayer* layer, const helix::ui::SpoolVentFace& face,
-                        const lv_area_t& bounds,
-                        const std::function<VentBacking(float face_radius)>& inside) {
+                        const lv_area_t& bounds, const Inside& inside) {
     if (face.detail == helix::ui::SpoolVentDetail::None)
         return;
     const lv_image_header_t& h = layer->buf->header;
@@ -1247,7 +1245,7 @@ struct GlowCacheEntry {
 };
 
 struct SpoolGlowData {
-    lv_obj_t* spool = nullptr; ///< bound 3D spool canvas; null = disc (flat style)
+    lv_obj_t* spool = nullptr; ///< bound spool canvas
     int32_t size = 0;
     bool simple = false;
     bool lit = false; ///< painted, or waiting on the spool's first render
@@ -1302,28 +1300,19 @@ static void set_glow_image(lv_obj_t* glow, SpoolGlowData& g, GlowImage image, in
     helix::ui::refresh_overhang_chain(glow);
 }
 
-// The silhouette, padded by @p m: the 3D canvas's own alpha, or a disc of
-// diameter @p size for the flat style.
+// The silhouette, padded by @p m: the spool canvas's own alpha, in whichever
+// view it draws.
 static std::vector<uint8_t> silhouette_mask(SpoolCanvasData* spool, int32_t size, int32_t m) {
     const int32_t dim = size + 2 * m;
     std::vector<uint8_t> mask(static_cast<size_t>(dim * dim), 0);
-    if (spool && spool->draw_buf) {
-        const lv_image_header_t& h = spool->draw_buf->header;
-        for (int32_t y = 0; y < std::min<int32_t>(h.h, size); y++) {
-            const auto* row =
-                reinterpret_cast<const lv_color32_t*>(spool->draw_buf->data + y * h.stride);
-            for (int32_t x = 0; x < std::min<int32_t>(h.w, size); x++)
-                mask[(y + m) * dim + x + m] = row[x].alpha;
-        }
+    if (!spool || !spool->draw_buf)
         return mask;
-    }
-    const float c = static_cast<float>(dim - 1) / 2.0f;
-    const float r = static_cast<float>(size) / 2.0f;
-    for (int32_t y = 0; y < dim; y++) {
-        for (int32_t x = 0; x < dim; x++) {
-            const float d = sqrtf((x - c) * (x - c) + (y - c) * (y - c));
-            mask[y * dim + x] = static_cast<uint8_t>(LV_CLAMP(0.0f, r - d + 0.5f, 1.0f) * 255.0f);
-        }
+    const lv_image_header_t& h = spool->draw_buf->header;
+    for (int32_t y = 0; y < std::min<int32_t>(h.h, size); y++) {
+        const auto* row =
+            reinterpret_cast<const lv_color32_t*>(spool->draw_buf->data + y * h.stride);
+        for (int32_t x = 0; x < std::min<int32_t>(h.w, size); x++)
+            mask[(y + m) * dim + x + m] = row[x].alpha;
     }
     return mask;
 }
@@ -1332,7 +1321,7 @@ static std::vector<uint8_t> silhouette_mask(SpoolCanvasData* spool, int32_t size
 // yet has no silhouette to read: the layer stays empty until its first render.
 static void paint_glow_layer(lv_obj_t* glow, SpoolGlowData& g) {
     SpoolCanvasData* spool = get_data(g.spool);
-    if (g.spool && (!spool || !spool->has_rendered)) {
+    if (!spool || !spool->has_rendered) {
         set_glow_image(glow, g, nullptr, 0);
         return;
     }
@@ -1341,12 +1330,9 @@ static void paint_glow_layer(lv_obj_t* glow, SpoolGlowData& g) {
     const lv_color_t accent = helix::ui::tube_accent();
     // A glow depends only on the silhouette, never the filament color, so the
     // key carries the accent where a spool render carries its color.
-    const SpoolCacheKey key{color_to_rgb24(accent),
-                            static_cast<uint16_t>(g.size),
-                            spool ? spool->last_key.fill_bucket : kGlowDiscShape,
-                            mode,
-                            0,
-                            spool ? spool->last_key.view : helix::ui::SpoolView::Side};
+    const SpoolCacheKey key{
+        color_to_rgb24(accent), static_cast<uint16_t>(g.size), spool->last_key.fill_bucket, mode, 0,
+        spool->last_key.view};
     GlowImage image = glow_cache_get(key);
     if (!image) {
         image = make_glow_image(g.size + 2 * margin);

@@ -56,6 +56,22 @@ float screen_signed_distance(float u, float v, float qu, float qv, float radius,
     return (dist - radius) * std::sqrt(nu * nu + nv * nv);
 }
 
+// The slot nearest (u, v): every slot starts at the same radius and they are
+// evenly spaced, so it is the one whose direction (u, v) leans toward most.
+const Dir& nearest_slot(float u, float v) {
+    const auto& dirs = slot_dirs();
+    const Dir* best = &dirs[0];
+    float lean = u * best->u + v * best->v;
+    for (const Dir& dir : dirs) {
+        const float l = u * dir.u + v * dir.v;
+        if (l > lean) {
+            lean = l;
+            best = &dir;
+        }
+    }
+    return *best;
+}
+
 // Nearest point on a slot's centre line to (u, v), in face units.
 Dir nearest_on_slot(const Dir& dir, float u, float v, float size) {
     const float t = std::clamp(u * dir.u + v * dir.v, kSlotInner * size, kSlotOuter * size);
@@ -67,13 +83,8 @@ float coverage_from(float signed_distance) {
 }
 
 float slot_coverage(float u, float v, float size, float skew) {
-    float best = 0.0f;
-    for (const Dir& dir : slot_dirs()) {
-        const Dir q = nearest_on_slot(dir, u, v, size);
-        best = std::max(best, coverage_from(screen_signed_distance(u, v, q.u, q.v,
-                                                                   kSlotHalfWidth * size, skew)));
-    }
-    return best;
+    const Dir q = nearest_on_slot(nearest_slot(u, v), u, v, size);
+    return coverage_from(screen_signed_distance(u, v, q.u, q.v, kSlotHalfWidth * size, skew));
 }
 
 bool dot_site_open(float gu, float gv, float size) {
@@ -81,14 +92,10 @@ bool dot_site_open(float gu, float gv, float size) {
     if (r <= kDotBandInner * size || r >= kDotBandOuter * size)
         return false;
     const float keep_out = (kSlotHalfWidth + kDotRadius + kDotSlotClearance) * size;
-    for (const Dir& dir : slot_dirs()) {
-        const Dir q = nearest_on_slot(dir, gu, gv, size);
-        const float du = gu - q.u;
-        const float dv = gv - q.v;
-        if (du * du + dv * dv < keep_out * keep_out)
-            return false;
-    }
-    return true;
+    const Dir q = nearest_on_slot(nearest_slot(gu, gv), gu, gv, size);
+    const float du = gu - q.u;
+    const float dv = gv - q.v;
+    return du * du + dv * dv >= keep_out * keep_out;
 }
 
 float dot_coverage(float u, float v, float size, float skew) {
@@ -115,6 +122,15 @@ float spool_vent_coverage(const SpoolVentFace& face, float x, float y) {
         return 0.0f;
     const float u = (x - face.cx) / face.skew;
     const float v = y - face.cy;
+    // Nothing opens outside the ring the slots and dots occupy, widened by the
+    // anti-aliased edge (one screen pixel, up to 1 / skew face units).
+    const float edge = 1.0f / face.skew;
+    const float inner = std::max(0.0f, (kSlotInner - kSlotHalfWidth) * face.size - edge);
+    const float outer =
+        std::max(kSlotOuter + kSlotHalfWidth, kDotBandOuter + kDotRadius) * face.size + edge;
+    const float r2 = u * u + v * v;
+    if (r2 < inner * inner || r2 > outer * outer)
+        return 0.0f;
     float cover = slot_coverage(u, v, face.size, face.skew);
     if (face.detail == SpoolVentDetail::SlotsAndDots && cover < 1.0f)
         cover = std::max(cover, dot_coverage(u, v, face.size, face.skew));

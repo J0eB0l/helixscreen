@@ -224,8 +224,7 @@ TEST_CASE_METHOD(XMLTestFixture, "ams_slot embeds ams_lane_spool and forwards a 
     lv_obj_delete(slot);
 }
 
-// The flat style's three layers: the filament ring carries the lane color, the
-// outer flange is that color darkened, the hub sits on top.
+// The flat style is the spool canvas seen face-on, painted in the lane color.
 TEST_CASE_METHOD(XMLTestFixture, "ams_lane_spool: flat style draws the spool face-on",
                  "[ams][lane_spool]") {
     helix::Config::get_instance()->set<std::string>("/ams/spool_style", "flat");

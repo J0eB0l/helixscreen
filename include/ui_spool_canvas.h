@@ -101,14 +101,13 @@ lv_obj_t* spool_glow_create(lv_obj_t* parent);
 /**
  * @brief Light the glow for a silhouette of @p size px and keep it current.
  *
- * The silhouette is @p spool_canvas's own alpha (3D style), or a disc of
- * diameter @p size when it is null (flat style). The layer stays bound to the
- * spool: it repaints when the spool renders a new shape, and stays empty until
- * the spool's first render. Capable hardware gets a soft accent halo plus a
- * lighter tight rim; @p simple a 2 px solid outline. The image overhangs the
- * object by the glow margin, reported as ext draw size, so layout never moves.
- * One image per (shape, accent, simple) is shared by every layer showing it,
- * from a small cache of its own. Calling again re-reads the theme accent.
+ * The silhouette is @p spool_canvas's own alpha, from the side or face-on.
+ * The layer stays bound to the spool: it repaints when the spool renders a new shape, and stays
+ * empty until the spool's first render. Capable hardware gets a soft accent halo plus a lighter
+ * tight rim; @p simple a 2 px solid outline. The image overhangs the object by the glow margin,
+ * reported as ext draw size, so layout never moves. One image per (shape, accent, simple) is shared
+ * by every layer showing it, from a small cache of its own. Calling again re-reads the theme
+ * accent.
  */
 void spool_glow_paint(lv_obj_t* glow, lv_obj_t* spool_canvas, int32_t size,
                       bool simple = reduced_effects());
