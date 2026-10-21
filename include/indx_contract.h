@@ -37,7 +37,13 @@ struct FilamentPreset {
     float density = 0.0f;
     float heat_capacity = 0.0f;
 
-    bool operator==(const FilamentPreset&) const = default;
+    // Spelled out: the ESP32 image builds as C++17, which has no defaulted comparisons.
+    bool operator==(const FilamentPreset& o) const {
+        return temp_c == o.temp_c && density == o.density && heat_capacity == o.heat_capacity;
+    }
+    bool operator!=(const FilamentPreset& o) const {
+        return !(*this == o);
+    }
 };
 
 /// What one status frame said. Every field is nullopt (or empty) when the
@@ -58,7 +64,16 @@ struct Reading {
     /// variable exists only on macro sets that track a spool per tool).
     std::map<int, int> tool_spool_ids;
 
-    bool operator==(const Reading&) const = default;
+    bool operator==(const Reading& o) const {
+        return active_tool == o.active_tool && seat_suspect == o.seat_suspect &&
+               toolchange_count == o.toolchange_count && toolhead_state == o.toolhead_state &&
+               speed_mode == o.speed_mode && tool_count == o.tool_count &&
+               no_heat_tools == o.no_heat_tools && docks_calibrated == o.docks_calibrated &&
+               presets == o.presets && tool_spool_ids == o.tool_spool_ids;
+    }
+    bool operator!=(const Reading& o) const {
+        return !(*this == o);
+    }
 };
 
 /// Pull a reading out of a status frame. nullopt when the frame held nothing
