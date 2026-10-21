@@ -347,4 +347,11 @@ TEST_CASE("breakpoint subjects are readable in conditional binds only", "[plugin
             .empty());
 }
 
+TEST_CASE("plugin XML draws only its own image icons", "[plugin][xml_policy][icons]") {
+    CHECK(check_plugin_xml("ab", {}, view_with(R"(<icon src="ab__oil" size="lg"/>)")).empty());
+    CHECK(check_plugin_xml("ab", {}, view_with(R"(<icon src="water"/>)")).empty());
+    const std::string why = check_plugin_xml("ab", {}, view_with(R"(<icon src="cd__oil"/>)"));
+    CHECK(why.find("an image icon must be named ab__<name>") != std::string::npos);
+}
+
 #endif // HELIX_HAS_PLUGINS

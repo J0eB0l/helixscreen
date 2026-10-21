@@ -142,10 +142,9 @@ std::vector<std::string> require_candidates(const std::string& plugin_dir,
     return {plugin_dir + "/" + rel + ".lua", plugin_dir + "/lib/" + rel + ".lua"};
 }
 
-bool is_plugin_relative_path(std::string_view path) {
-    constexpr std::string_view kExt = ".lua";
-    if (path.empty() || path.size() > 128 || path.front() == '/' || path.size() <= kExt.size() ||
-        path.substr(path.size() - kExt.size()) != kExt)
+bool is_plugin_relative_path(std::string_view path, std::string_view ext) {
+    if (path.empty() || path.size() > 128 || path.front() == '/' || path.size() <= ext.size() ||
+        path.substr(path.size() - ext.size()) != ext)
         return false;
     size_t start = 0;
     while (start <= path.size()) {

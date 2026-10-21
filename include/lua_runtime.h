@@ -37,8 +37,8 @@ class ErrorWindow {
 std::vector<std::string> require_candidates(const std::string& plugin_dir, const std::string& name);
 
 /// A path inside a plugin: '/'-separated segments of [A-Za-z0-9_.-], where no segment is
-/// empty, "." or "..". No leading '/', ends in ".lua", at most 128 bytes.
-bool is_plugin_relative_path(std::string_view path);
+/// empty, "." or "..". No leading '/', ends in `ext`, at most 128 bytes.
+bool is_plugin_relative_path(std::string_view path, std::string_view ext = ".lua");
 
 /// One plugin's Lua state. Main thread only, except `Pending::resolve`.
 class LuaRuntime {

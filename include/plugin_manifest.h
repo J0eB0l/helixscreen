@@ -40,7 +40,7 @@ struct SettingDecl {
 struct WidgetDecl {
     std::string id; ///< <plugin>__<name>
     std::string name;
-    std::string icon; ///< icon name; empty when absent
+    std::string icon; ///< app icon name or one of `icons`; empty when absent
     std::string description;
     std::string component; ///< <plugin>__<name>, a file in ui/
     int colspan = 2;
@@ -48,6 +48,16 @@ struct WidgetDecl {
     int max_colspan = 0; ///< 0: not resizable on this axis
     int max_rowspan = 0;
     bool half_cells = false; ///< resizes and may be authored in half cells
+};
+
+constexpr size_t kMaxIconsPerPlugin = 16;
+constexpr const char* kDefaultPluginIcon = "puzzle_outline";
+
+/// One entry of the manifest's `icons` map: a plugin-local PNG drawn as an icon.
+struct IconDecl {
+    std::string name;     ///< <plugin>__<name>
+    std::string src;      ///< relative to the plugin folder, ends in ".png"
+    std::string fallback; ///< app icon name drawn when the image is unavailable
 };
 
 constexpr int kMaxMenuItemsPerMenu = 4; ///< per plugin, per menu
@@ -76,6 +86,7 @@ struct Manifest {
     int memory_mb = 2;
     std::vector<SettingDecl> settings;
     std::string settings_overlay; ///< XML component name, empty when absent
+    std::vector<IconDecl> icons;
     std::vector<WidgetDecl> widgets;
     std::vector<MenuItemDecl> menu_items;
 };

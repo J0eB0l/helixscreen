@@ -7,6 +7,8 @@
 
 #include "ui_icon_codepoints.h"
 
+#include "lua_runtime.h"
+
 #include <algorithm>
 #include <iterator>
 #include <set>
@@ -204,6 +206,46 @@ void span_field(const json& w, const char* key, int& out, int lo, bool half,
     out = static_cast<int>(tracks);
 }
 
+void parse_icons(const json& obj, Manifest& m, std::vector<std::string>& errors) {
+    if (!obj.is_object()) {
+        errors.push_back("'icons' must be an object");
+        return;
+    }
+    if (obj.size() > kMaxIconsPerPlugin) {
+        errors.push_back("'icons' may list at most " + std::to_string(kMaxIconsPerPlugin));
+        return;
+    }
+    for (const auto& [name, v] : obj.items()) {
+        const std::string where = "icons." + name;
+        std::vector<std::string> local;
+        IconDecl d;
+        d.name = name;
+        d.fallback = kDefaultPluginIcon;
+        if (!is_owned_name(m.id, name) || !is_valid_local_name(local_part_of(name)))
+            local.push_back("the name must be " + m.id +
+                            "__<name>, the name 1 to 48 of [a-z0-9_-]");
+        if (!v.is_object()) {
+            local.push_back("must be an object");
+        } else {
+            require_string(v, "src", d.src, local);
+            if (!d.src.empty() && !is_plugin_relative_path(d.src, ".png"))
+                local.push_back("'src' must be a .png path inside the plugin folder");
+            optional_string(v, "fallback", d.fallback, local);
+            if (!helix::ui::icon::lookup_codepoint(d.fallback.c_str()))
+                local.push_back("'fallback' '" + d.fallback + "' is not an app icon name");
+        }
+        for (const auto& e : local)
+            errors.push_back(where + ": " + e);
+        if (local.empty())
+            m.icons.push_back(std::move(d));
+    }
+}
+
+bool declares_icon(const Manifest& m, const std::string& name) {
+    return std::any_of(m.icons.begin(), m.icons.end(),
+                       [&](const IconDecl& d) { return d.name == name; });
+}
+
 void parse_widgets(const json& arr, Manifest& m, std::vector<std::string>& errors) {
     if (!arr.is_array()) {
         errors.push_back("'widgets' must be an array");
@@ -232,6 +274,9 @@ void parse_widgets(const json& arr, Manifest& m, std::vector<std::string>& error
             local.push_back("'id' must be named " + m.id + "__<name>");
         if (!d.component.empty() && !is_owned_name(m.id, d.component))
             local.push_back("'component' must be named " + m.id + "__<name>");
+        // Only a plugin-owned name contains the separator; app icon names never do.
+        if (d.icon.find(kPluginNameSeparator) != std::string::npos && !declares_icon(m, d.icon))
+            local.push_back("'icon' '" + d.icon + "' is not declared in 'icons'");
         if (auto h = w.find("half_cells"); h != w.end()) {
             if (h->is_boolean())
                 d.half_cells = h->get<bool>();
@@ -416,6 +461,10 @@ ManifestParse parse_manifest(const std::string& text) {
         else
             m.settings_overlay = it->get<std::string>();
     }
+
+    // Before the widgets: a widget's icon may name one.
+    if (auto it = j.find("icons"); it != j.end())
+        parse_icons(*it, m, r.errors);
 
     if (auto it = j.find("widgets"); it != j.end())
         parse_widgets(*it, m, r.errors);

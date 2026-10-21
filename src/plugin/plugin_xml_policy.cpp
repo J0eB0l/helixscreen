@@ -194,6 +194,18 @@ void on_start(void* ud, const XML_Char* name, const XML_Char** attrs) {
                             "__<name>\": its default name is the app's");
         }
     }
+    // An icon source carrying the ownership separator is a plugin image icon, and a
+    // plugin draws only its own.
+    if (el == "icon") {
+        for (int i = 0; attrs[i]; i += 2) {
+            std::string_view val = attrs[i + 1];
+            if (std::string_view(attrs[i]) == "src" &&
+                val.find(kPluginNameSeparator) != std::string_view::npos &&
+                !is_owned_name(w.id, val))
+                fail(w, "src=\"" + std::string(val) + "\": an image icon must be named " + w.id +
+                            "__<name>");
+        }
+    }
     // On these elements name= declares a prop or refers to a style (style,
     // remove_style*, bind_style*); it names no object.
     bool names_object = el != "prop" && el != "style" && !starts_with(el, "remove_style") &&

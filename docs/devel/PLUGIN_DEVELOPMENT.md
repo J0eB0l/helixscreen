@@ -139,6 +139,7 @@ English and the render sites translate it through the plugin's `i18n/` pack
 | `helix_version` | string | empty | a HelixScreen version constraint; a plugin whose constraint fails the running version shows as *incompatible* |
 | `permissions` | array | `[]` | zero or more of `gcode`, `moonraker_write`, `http`, `storage` (§9) |
 | `memory_mb` | integer | `2` | 1 to 64; the plugin's share of the plugin memory budget |
+| `icons` | object | `{}` | up to 16 custom icons drawn from PNGs in the plugin folder (Custom icons, below) |
 | `widgets` | array | `[]` | up to 32 home tiles |
 | `settings` | array | `[]` | the settings schema (§6) |
 | `settings_overlay` | string | empty | one of the plugin's own components, opened instead of the generated settings screen |
@@ -151,7 +152,7 @@ Each `widgets` entry:
 | `id` | string | required | `<id>__<name>`, unique in the array |
 | `name` | string | required | the catalog entry's display name |
 | `component` | string | required | `<id>__<name>`, a file in `ui/` |
-| `icon` | string | `puzzle_outline` | an icon name from `include/ui_icon_codepoints.h` |
+| `icon` | string | `puzzle_outline` | an icon name from `include/ui_icon_codepoints.h`, or one of the plugin's `icons` (a `<id>__` name that is not declared rejects the manifest) |
 | `description` | string | empty | catalog help text |
 | `colspan`, `rowspan` | number | `1` | 1 to 8 grid cells; whole cells unless `half_cells` |
 | `max_colspan`, `max_rowspan` | number | `0` | `0` = not resizable on that axis; otherwise `colspan` to 8 |
@@ -160,6 +161,43 @@ Each `widgets` entry:
 Widget tiles appear in the home panel's widget catalog under the Plugins category, never
 enabled by default, one instance each. A tile's saved placement survives a disabled or
 absent plugin and returns when it loads again.
+
+### Custom icons
+
+The `icons` object registers PNGs from the plugin folder as icons, so a widget's catalog
+entry and the plugin's XML can show the same artwork:
+
+```json
+"icons": {
+  "maintenance__lubrication": {"src": "icons/lubrication.png", "fallback": "water"}
+},
+"widgets": [{"id": "maintenance__home", "name": "Maintenance",
+             "component": "maintenance__tile", "icon": "maintenance__lubrication"}]
+```
+
+```xml
+<icon name="maintenance__glyph" src="maintenance__lubrication" size="lg" variant="primary"/>
+```
+
+| Field | Rules |
+|---|---|
+| key | the icon's name, `<id>__<name>` with the name 1 to 48 of `[a-z0-9_-]` |
+| `src` | required: a `.png` path relative to the plugin folder, `/`-separated segments of `[A-Za-z0-9_.-]`, no `..`, at most 128 bytes |
+| `fallback` | an app icon name from `include/ui_icon_codepoints.h`; default `puzzle_outline` |
+
+Draw a single-color silhouette on a transparent background, square, for example 64 x 64:
+the icon uses only the PNG's alpha channel, as a mask. It is scaled to fit the icon size's
+square (aspect kept, centered) and painted with the icon's `variant` or `color`, exactly
+like a built-in icon, so it follows theme and dark-mode changes. A PNG's own colors are
+ignored.
+
+A PNG that is missing, unreadable, over 64 KB or over 256 x 256 pixels, or that a symlink
+places outside the plugin folder, draws the `fallback` icon instead and logs a warning
+naming the icon; the plugin still loads. Icons are registered when the plugin loads and
+withdrawn when it unloads, reloads or is disabled: anything still showing one then draws
+its fallback (`src/ui/ui_icon_image.cpp#register_image_icon`). An XML `icon` whose `src`
+carries the `__` separator must name one of the plugin's own icons (§7); `menu_items`
+icons are app icon names only.
 
 ## 6. Settings
 
@@ -213,7 +251,8 @@ Allowed elements (`src/plugin/plugin_xml_policy.cpp#is_allowed_element`):
 - the structural `component`, `view`, `api`, `prop`
 - `style`, `remove_style*`, `play_timeline_event`, `bind_*` elements
 - `event_cb`
-- the app chrome widgets `overlay_panel`, `ui_card`, `icon`, `text_heading`,
+- the app chrome widgets `overlay_panel`, `ui_card`, `icon` (its `src` an app icon name or
+  one of the plugin's own `icons`, §5), `text_heading`,
   `text_body`, `text_muted`, `text_small`, `text_xs`, `text_tiny`
 - the app dialog chrome `ui_dialog`, `modal_header` and `modal_button_row`, for a
   component opened with `helix.ui.dialog` (rules below)
@@ -837,6 +876,7 @@ approval* instead of loading; enabling it again approves only the new lines.
 | Sound cues | per plugin, 150 ms between `"ui"` cues and 1 s between `"event"` cues; a cue inside the gap is dropped | `include/lua_bindings.h#kPluginUiCueIntervalMs` |
 | Canvas list bytes | charged against the plugin memory cap as staged; a call that would cross it raises, never faults | `include/plugin_canvas.h#DisplayList/bytes` |
 | Home tiles | at most 32 `widgets` per plugin | `include/plugin_manifest.h#kMaxWidgetsPerPlugin` |
+| Custom icons | at most 16 per plugin; a PNG of at most 64 KB and 256 x 256 pixels, else its fallback draws | `include/plugin_manifest.h#kMaxIconsPerPlugin`, `include/ui_icon_image.h#kMaxImageIconFileBytes` |
 | Menu items | at most 4 per menu per plugin, 16 per manifest; a label is one line of at most 48 bytes | `include/plugin_manifest.h#kMaxMenuItemsPerMenu` |
 | Plugin rows per menu | across every plugin, per opening: print details 8, filament slot 5, spool 6, a tile 4; rows past it are left out in load order | `src/plugin/plugin_menu.cpp#row_cap` |
 | Menu checks | 10 ms of CPU or 100 ms in all, separate from the entry budget; an overrun is an error (it counts toward the error limit), never a fault by itself | `include/lua_runtime.h#LuaRuntime/CheckLimits` |
