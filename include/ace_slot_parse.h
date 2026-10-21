@@ -16,7 +16,7 @@
  * @brief How an Anycubic ACE Pro states a bay and its dryer, for every driver
  *        that reports one.
  *
- * The ACE backend (ValgACE, native GoKlipper, the Kobra S1 fork, the REST
+ * The ACE backend (ValgACE, native GoKlipper, the ACEPRO driver, the REST
  * bridge) and the multiACE backend on a Snapmaker U1 read the same hub
  * firmware's vocabulary: slot status words, an `[r,g,b]` colour, a material
  * under `material` or `type`, and a dryer object. One reader per field keeps
@@ -42,7 +42,7 @@ inline constexpr int kDryerMaxDurationMin = 720;
 /// bay and which is a real reading.
 [[nodiscard]] std::optional<uint32_t> parse_slot_color(const nlohmann::json& color_val);
 
-/// One slot's material: `material` (Kobra S1 fork / native / multiACE) wins over
+/// One slot's material: `material` (ACEPRO driver / native / multiACE) wins over
 /// `type` (ValgACE) when both are stated. Empty or absent states no reading.
 [[nodiscard]] std::optional<std::string> read_slot_material(const nlohmann::json& slot_json);
 
@@ -65,7 +65,7 @@ enum class TagRead {
 [[nodiscard]] SlotStatus slot_status_from_string(const std::string& status_str);
 
 /// Fold one status-shaped object's dryer state into @p dryer, under either
-/// spelling: `dryer` (ValgACE/native) or `dryer_status` (Kobra S1 fork,
+/// spelling: `dryer` (ValgACE/native) or `dryer_status` (ACEPRO driver,
 /// multiACE), each with either nested key set ({status, target_temp, duration,
 /// remain_time} or {active, current_temp, remaining_minutes, duration_minutes}).
 /// Also reads the top-level ambient `temp`, which a stated dryer current temp

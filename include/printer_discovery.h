@@ -514,7 +514,7 @@ class PrinterDiscovery {
     /// @brief Klipper object names of every detected ACE unit.
     ///
     /// One of `filament_hub` (native GoKlipper), `ace` (community drivers), or
-    /// one-or-more `ace_instance_N` (Kobra S1 mainline-Python fork, #1107).
+    /// one-or-more `ace_instance_N` (the ACEPRO driver, #1107).
     /// The discovery sequence subscribes each of these so the ACE backend gets
     /// live status. Empty when mmu_type() != AmsType::ACE.
     [[nodiscard]] const std::vector<std::string>& ace_object_names() const {

@@ -323,11 +323,11 @@ void PrinterDiscovery::parse_objects(const nlohmann::json& objects) {
         // (as shipped by Rinkhals firmware) registers the status object as
         // `filament_hub` even though the config section is `[ace]`. The
         // community drivers (ValgACE/BunnyACE/DuckACE) register it as `ace`.
-        // The Anycubic Kobra S1 "mainline-Python ACE fork" registers each
-        // unit as `ace_instance_N` (has get_status()) and exposes NO
-        // top-level `ace`/`filament_hub` object — its config is `[ace]`
-        // with `ace_count`, but only `ace_instance_N` appears in
-        // objects.list (#1107). Match all three forms.
+        // The ACEPRO driver (github.com/Kobra-S1/ACEPRO) registers each unit
+        // as `ace_instance_N` (has get_status()) beside a manager `ace`
+        // object; a build whose manager does not appear in objects.list
+        // still shows its `ace_instance_N` objects (#1107). Match all three
+        // forms.
         //
         // Collect EVERY matched ACE object name (the discovery sequence
         // subscribes the real object names), but only the first ACE match

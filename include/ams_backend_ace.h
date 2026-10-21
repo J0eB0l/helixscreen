@@ -62,7 +62,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     /// The status objects ACE pushes, as a `printer.objects.subscribe` objects map:
     /// every detected ACE object name (the community drivers, native GoKlipper
-    /// `filament_hub`, or the Kobra S1 fork's `ace_instance_N`), falling back to `ace`.
+    /// `filament_hub`, or the ACEPRO driver's `ace_instance_N`), falling back to `ace`.
     /// Empty unless @p hw detected ACE.
     [[nodiscard]] static nlohmann::json required_status_objects(const helix::PrinterDiscovery& hw);
 
@@ -204,7 +204,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// with a user override. Empty names mean this rig cannot bypass.
     void set_bypass_macros(helix::BypassMacros macros);
 
-    /// The bypass macros and the fork's `ace_instance_N` objects, from discovery.
+    /// The bypass macros and the ACEPRO driver's `ace_instance_N` objects, from discovery.
     void set_discovery(const helix::PrinterDiscovery& discovery) override;
 
     // ========================================================================
@@ -285,7 +285,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
      * status, slots, dryer, etc. This handles that combined format.
      *
      * @param data JSON data from the ace Klipper object
-     * @param unit The unit the object describes: N for the Kobra S1 fork's
+     * @param unit The unit the object describes: N for the ACEPRO driver's
      *        `ace_instance_N`, 0 for every single-object driver
      */
     void parse_ace_object(const nlohmann::json& data, int unit = 0);
@@ -336,7 +336,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
      * them. The predicate varies by caller: with @p require_slots the object
      * must carry a non-empty "slots" array — the on_started() query commits to
      * the WebSocket subscription path only on real slot data, so a manager-only
-     * object (the Kobra S1 fork's `ace` exposes `ace_instances`/`current_index`
+     * object (the ACEPRO driver's `ace` exposes `ace_instances`/`current_index`
      * but NO `slots`; the per-unit data lives in `ace_instance_N`) falls
      * through to the REST bridge at /server/ace/ instead of parsing zero slots
      * off the manager (#1069). Without it, any non-empty object qualifies —
@@ -364,7 +364,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /**
      * @brief The lowest-numbered `ace_instance_N` key whose value satisfies
      *        @p predicate: the bootstrap's pick when it decides whether the
-     *        fork's objects carry slot data (#1107).
+     *        the ACEPRO driver's objects carry slot data (#1107).
      *
      * @param status A query result.status object or one notify frame's status
      * @param predicate Object filter; defaults to "non-empty object", the
@@ -382,7 +382,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
      * @brief The manager-shaped `ace` object in a status frame, when one is
      *        present.
      *
-     * The Kobra S1 fork splits its surface: each unit's slots live on
+     * The ACEPRO driver splits its surface: each unit's slots live on
      * `ace_instance_N`, while the top-level `ace` is a manager whose only
      * seat signal is `current_index` (#1069). A slot-bearing `ace` (ValgACE)
      * is NOT a manager — returning null for it keeps the caller from parsing
@@ -397,7 +397,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     static const nlohmann::json* manager_ace_object(const nlohmann::json& status);
 
     /// `<verb>` addressed at global @p slot in the form the driver parses. The
-    /// Kobra S1 fork resolves a unit from INSTANCE= (the unit index, which is
+    /// ACEPRO driver resolves a unit from INSTANCE= (the unit index, which is
     /// its instance number) and reads INDEX= as that unit's local slot,
     /// rejecting INDEX= alone; GoKlipper and ValgACE drive a single hub by
     /// INDEX= only.
@@ -418,7 +418,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// silence is not a cleared sensor. Caller holds mutex_.
     void apply_path_sensors_locked(const nlohmann::json& data);
 
-    /// Seat the loaded tool from the fork manager's `current_index` — the
+    /// Seat the loaded tool from the ACEPRO manager's `current_index` — the
     /// driver's tool number, -1 = nothing loaded. A tool no known slot carries
     /// is stated with no slot marked (the stamp helper guards
     /// current_slot < 0). Caller holds mutex_.
@@ -426,12 +426,12 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     bool seat_from_tool_locked(int tool);
 
     /// The global slot that feeds driver tool @p tool, or -1 when no slot
-    /// does. Read from the tool number each fork slot publishes; a driver that
+    /// does. Read from the tool number each ACEPRO slot publishes; a driver that
     /// publishes none numbers its tools by slot. Caller holds mutex_.
     int slot_for_tool_locked(int tool) const;
 
     /// The driver tool global slot @p slot_index feeds, the inverse of
-    /// slot_for_tool_locked; -1 for a fork slot the driver has named no tool
+    /// slot_for_tool_locked; -1 for an ACEPRO slot the driver has named no tool
     /// for. Caller holds mutex_.
     int tool_for_slot_locked(int slot_index) const;
 
@@ -470,7 +470,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// first unit that is doing something, or IDLE. Caller holds mutex_.
     void set_unit_action_locked(int unit, AmsAction action);
 
-    /// Track the fork manager's `target_index` (the global tool a toolchange
+    /// Track the ACEPRO manager's `target_index` (the global tool a toolchange
     /// is heading for, -1 when none is under way). While it names a tool
     /// that is not seated, the target is the pending slot and an idle hub
     /// reads as LOADING, so a toolchange the printer started itself (PRINT_START,
@@ -499,7 +499,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // mutex_.
     std::vector<AmsAction> unit_actions_;
 
-    // Each fork unit's link from its `connection_state`, by unit: true when
+    // Each ACEPRO unit's link from its `connection_state`, by unit: true when
     // connected. A unit with no entry has not stated one. Guarded by mutex_.
     std::map<int, bool> unit_links_;
 
@@ -513,16 +513,16 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     };
     std::vector<UnitIdentity> unit_identities_;
 
-    // The driver tool each global slot feeds, from the fork slots' `tool`.
+    // The driver tool each global slot feeds, from the ACEPRO slots' `tool`.
     // Empty for drivers that publish none. Guarded by mutex_.
     std::map<int, int> slot_tools_;
 
-    // The fork's `ace_instance_N` objects discovery found, which the bootstrap
+    // The ACEPRO driver's `ace_instance_N` objects discovery found, which the bootstrap
     // queries. Guarded by mutex_.
     std::vector<std::string> discovered_instances_;
 
     // Set once the driver publishes per-unit `ace_instance_N` objects (the
-    // Kobra S1 fork), whose commands name a unit or a tool. Guarded by mutex_.
+    // ACEPRO driver), whose commands name a unit or a tool. Guarded by mutex_.
     bool instance_objects_ = false;
 
     // Info tracking
@@ -539,7 +539,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     std::atomic<bool> rest_data_ok_{false};
     std::atomic<int> data_fetch_failures_{0};
 
-    // Set once the Kobra S1 fork's surface is seen (`ace_instance_N` objects,
+    // Set once the ACEPRO driver's surface is seen (`ace_instance_N` objects,
     // or the REST bridge's `ace_manager`): its slot commands take INSTANCE= +
     // INDEX=. Reset on every start. Guarded by mutex_.
     bool instance_commands_ = false;
@@ -566,7 +566,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// Consecutive data-endpoint (/status) failures before surfacing the
     /// "Moonraker bridge not found" error (genuinely-missing-bridge case).
     static constexpr int kMaxDataFetchFailures = 3;
-    /// An ACE Pro or ACE 2 has four slots; the fork numbers tools four per unit.
+    /// An ACE Pro or ACE 2 has four slots; the ACEPRO driver numbers tools four per unit.
     static constexpr int kSlotsPerUnit = 4;
     /// Far beyond any daisy chain; bounds what a malformed `ace_instance_N`
     /// name can allocate.

@@ -65,7 +65,7 @@ std::string ace_generic_unit_name(const std::string& protocol) {
     return lv_tr("ACE Pro");
 }
 
-/// Whether a fork unit's `connection_state` says it is connected; nullopt for
+/// Whether an ACEPRO unit's `connection_state` says it is connected; nullopt for
 /// a state this backend does not know, which leaves the unit as it was.
 std::optional<bool> ace_link_from_state(const std::string& state) {
     if (state == "connected") {
@@ -183,7 +183,7 @@ void AmsBackendAce::on_started() {
     // Query all known Klipper object names directly (works if driver has
     // get_status()). Native Anycubic GoKlipper registers the object as
     // `filament_hub`; community ValgACE/BunnyACE/DuckACE register it as `ace`;
-    // the Kobra S1 mainline-Python fork registers each unit as
+    // the ACEPRO driver registers each unit as
     // `ace_instance_N` (#1107), as many as discovery found: a unit left out
     // of this query has no slots until its spools next change.
     // printer.objects.query tolerates unknown objects (absent from the
@@ -221,7 +221,7 @@ void AmsBackendAce::on_started() {
                 // Prefer the native `filament_hub` key; fall back to the
                 // community `ace` key. Commit to the subscription path ONLY
                 // when the matched object actually carries slot data — a
-                // manager-only object (Kobra S1 fork: ace_instances/current_index,
+                // manager-only object (ACEPRO driver: ace_instances/current_index,
                 // no slots) must fall through to the REST bridge (#1069).
                 const json* ace_data = nullptr;
                 std::string matched_key;
@@ -229,7 +229,7 @@ void AmsBackendAce::on_started() {
                     const json& status = response["result"]["status"];
                     ace_data = select_ace_object(status, &matched_key);
                     if (lowest_ace_instance_key(status)) {
-                        // The fork, whether its instances carry the slots or
+                        // The ACEPRO driver, whether its instances carry the slots or
                         // the REST bridge serves them.
                         std::lock_guard<std::mutex> lock(mutex_);
                         instance_commands_ = true;
@@ -242,7 +242,7 @@ void AmsBackendAce::on_started() {
                                  "using native WebSocket subscription",
                                  matched_key);
                     if (matched_key.rfind("ace_instance", 0) == 0) {
-                        // The fork: every instance is a unit of its own.
+                        // The ACEPRO driver: every instance is a unit of its own.
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
                             instance_objects_ = true;
@@ -296,10 +296,10 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     const json* status = &status_obj;
 
     // Native Anycubic GoKlipper publishes under `filament_hub`; community
-    // ValgACE under `ace`; the Kobra S1 mainline-Python fork under
+    // ValgACE under `ace`; the ACEPRO driver under
     // `ace_instance_N` with a manager-shaped `ace` beside it (#1069, #1107).
     //
-    // A frame carrying `ace_instance_N` keys is the fork: each instance is
+    // A frame carrying `ace_instance_N` keys comes from the ACEPRO driver: each instance is
     // unit N, and a notify frame carries only the objects that changed, so it
     // holds whichever units changed. The manager is parsed after them, so the
     // seat (current_index) lands on slots that are already populated.
@@ -1179,7 +1179,7 @@ int AmsBackendAce::slot_for_tool_locked(int tool) const {
 
 int AmsBackendAce::tool_for_slot_locked(int slot_index) const {
     // Caller holds mutex_.
-    // The fork names every slot's tool; a slot it has not named yet has none,
+    // The ACEPRO driver names every slot's tool; a slot it has not named yet has none,
     // since slot order need not be tool order. Other drivers number them alike.
     const auto it = slot_tools_.find(slot_index);
     if (it != slot_tools_.end()) {
@@ -1324,7 +1324,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
                 apply_unit_identities_locked();
             }
             if (instance_objects_) {
-                // Every fork unit feeds the printer's one extruder through the
+                // Every ACEPRO unit feeds the printer's one extruder through the
                 // one hub its rdm_sensor watches.
                 unit.hub_id = "ace";
             }
@@ -1498,7 +1498,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
         }
     }
 
-    // The fork states each unit's link; a frame that does not restate it
+    // The ACEPRO driver states each unit's link; a frame that does not restate it
     // leaves it as it was.
     if (instance_objects_ && data.contains("connection_state") &&
         data["connection_state"].is_string()) {
@@ -1580,7 +1580,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
         }
     }
 
-    // Kobra S1 fork: the manager object states the seat ONLY as
+    // ACEPRO driver: the manager object states the seat ONLY as
     // `current_index`, the global tool index, and states it even when
     // nothing is loaded (-1) — so it must clear the seat too, or a TR/unload
     // would leave the previous slot reading loaded forever. Fourth and last
@@ -1621,7 +1621,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
     }
 
     // All four seated signals (the ValgACE "loaded" scan, loaded_slot, native
-    // current_filament, and the fork manager's current_index) have now had
+    // current_filament, and the ACEPRO manager's current_index) have now had
     // their say and arbitrated to one slot; publish that as the slot's own
     // status.
     apply_seated_slot_stamp_locked();
@@ -1632,7 +1632,7 @@ const json* AmsBackendAce::select_ace_object(const json& status, std::string* ma
     // One predicate for both selection passes (see the header doc): the
     // subscription-commit pass requires real slot data (a non-empty "slots"
     // array — the exact key parse_ace_object reads — so a manager-only object,
-    // the Kobra S1 fork's `ace` with ace_instances/current_index and no slots,
+    // the ACEPRO driver's `ace` with ace_instances/current_index and no slots,
     // falls through to the REST bridge, #1069), while a notify delta needs
     // only a non-empty object the caller has not claimed for itself.
     auto matches = [&](const json& obj) {
@@ -1644,7 +1644,7 @@ const json* AmsBackendAce::select_ace_object(const json& status, std::string* ma
     };
 
     // Preference order: filament_hub (native GoKlipper), then ace (community
-    // ValgACE/BunnyACE), then ace_instance_N (Kobra S1 mainline-Python fork —
+    // ValgACE/BunnyACE), then ace_instance_N (ACEPRO driver —
     // #1107), so the choice is deterministic.
     if (status.contains("filament_hub") && matches(status["filament_hub"])) {
         if (matched_key)
@@ -1768,21 +1768,21 @@ void AmsBackendAce::rest_polling_loop() {
 
     while (!rest_stop_requested_.load()) {
         // /server/ace/info is OPTIONAL — best-effort retry until the cap for the
-        // model/version it can supply, but its absence is NOT fatal: the Kobra
-        // S1 fork ships /status + /slots (which carry model + slots) but NOT
-        // /info (#1069). Give up quietly after the cap.
+        // model/version it can supply, but its absence is NOT fatal: the
+        // ACEPRO driver's bridge serves /status + /slots (which carry model +
+        // slots) but NOT /info (#1069). Give up quietly after the cap.
         if (!info_fetched_.load() && info_fetch_failures_.load() < kMaxInfoFetchFailures) {
             poll_info();
         } else if (!info_fetched_.load() && info_fetch_failures_.load() == kMaxInfoFetchFailures) {
             spdlog::info("[ACE] /server/ace/info unavailable after {} attempts — "
-                         "using /status + /slots (this fork has no /info endpoint).",
+                         "using /status + /slots (this driver has no /info endpoint).",
                          kMaxInfoFetchFailures);
             ++info_fetch_failures_;
         }
 
         // Data endpoints are the source of truth for slots (and model, via the
         // /status envelope) — poll them unconditionally, NOT gated on
-        // info_fetched_. Gating here left the fork's backend permanently idle.
+        // info_fetched_. Gated on it, the ACEPRO driver's backend would sit idle.
         poll_status();
         poll_slots();
 
@@ -1975,7 +1975,7 @@ bool AmsBackendAce::parse_status_response(const json& data) {
     std::lock_guard<std::mutex> lock(mutex_);
     bool changed = false;
 
-    // The fork's /server/ace/status envelope carries model + firmware, so the
+    // The ACEPRO driver's /server/ace/status envelope carries model + firmware, so the
     // backend can identify the hardware without /server/ace/info (#1069). Match
     // the object-path key names (`model`, `firmware`).
     if (data.contains("model") && data["model"].is_string()) {
@@ -2001,7 +2001,7 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         rest_instance_ = data["instance_index"].get<int>();
     }
 
-    // The fork's /status states the seat through the manager's
+    // The ACEPRO driver's /status states the seat through the manager's
     // current_index instead of loaded_slot — same semantics, global tool
     // index with -1 meaning nothing loaded (#1069).
     if (data.contains("ace_manager") && data["ace_manager"].is_object() &&
@@ -2012,7 +2012,7 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         changed |= seat_from_tool_locked(data["ace_manager"]["current_index"].get<int>());
     }
 
-    // The ValgACE bridge names the action field `action`; the fork names it
+    // The ValgACE bridge names the action field `action`; the ACEPRO driver names it
     // `status` ("ready"/etc.) with the same loading/unloading/error
     // vocabulary the object path maps (#1069).
     std::string action_str;
@@ -2021,10 +2021,10 @@ bool AmsBackendAce::parse_status_response(const json& data) {
     } else if (data.contains("status") && data["status"].is_string()) {
         action_str = data["status"].get<std::string>();
     }
-    // The ValgACE bridge names the action field `action`; the fork names it
+    // The ValgACE bridge names the action field `action`; the ACEPRO driver names it
     // `status` ("ready"/etc.) with the same loading/unloading/error
     // vocabulary the object path maps (#1069). A bridge `action` is
-    // authoritative; the fork's fallback reads the UNIT's status, which can
+    // authoritative; the ACEPRO driver's fallback reads the UNIT's status, which can
     // stay "ready" through a toolchange (do_load_filament sets LOADING
     // optimistically for exactly that case), so an IDLE resolved from it
     // must not demote an in-flight local load/unload.
@@ -2109,7 +2109,7 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         std::optional<bool> observed_present;
         if (states_status) {
             // Mirror the object path exactly via the shared vocabulary map —
-            // this fork emits `ready` (and can emit `unknown`), which the old
+            // this driver emits `ready` (and can emit `unknown`), which the old
             // empty/available/loaded-only mapping misclassified (#1069).
             SlotStatus status =
                 helix::ace::slot_status_from_string(slot_json["status"].get<std::string>());

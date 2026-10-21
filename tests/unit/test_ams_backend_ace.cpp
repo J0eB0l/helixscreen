@@ -98,7 +98,7 @@ json make_ace_slot_payload(const std::string& status_str, uint32_t color_rgb,
 // PLA slot with an RGB color, the rest "empty"; a live "dryer" object in the
 // "drying" state; and current_filament "0-1" (local slot 1 loaded).
 // GET /server/ace/status result: instance 0's get_status() verbatim plus the
-// fork's envelope keys (instance_index, instances[], ace_manager,
+// ACEPRO bridge's envelope keys (instance_index, instances[], ace_manager,
 // ace_instance_count).
 json make_kobra_rest_status_result() {
     json result = make_kobra_instance_object();
@@ -1185,7 +1185,7 @@ TEST_CASE("ACE load does not seat a slot the driver never moved to", "[ams][ace]
     AmsBackendAceTestHelper helper;
     helper.set_running(true);
 
-    // Fork rig with nothing loaded: four ready slots, manager seat -1.
+    // ACEPRO rig with nothing loaded: four ready slots, manager seat -1.
     AceTestAccess::parse_ace(helper, make_kobra_instance_object());
     AceTestAccess::parse_ace(helper, make_kobra_manager_object(-1));
     REQUIRE_FALSE(helper.get_test_system_info().filament_loaded);
@@ -2195,10 +2195,10 @@ TEST_CASE("ACE maps native runout slot status to EMPTY", "[ams][ace][native][par
 }
 
 // ============================================================================
-// #1069: Kobra S1 mainline-Python Klipper fork REST path.
+// #1069: ACEPRO driver REST path.
 //
-// The fork ships a custom ace_status.py Moonraker component that exposes ACE
-// state through /server/ace/status + /server/ace/slots (but NOT /info). The
+// The ACEPRO driver ships a custom ace_status.py Moonraker component that
+// exposes ACE state through /server/ace/status + /server/ace/slots (but NOT /info). The
 // underlying `ace` Klipper object is a MANAGER (ace_instances/current_index,
 // no slots), so the WebSocket subscription path parses zero slots and the REST
 // bridge must take over. These tests lock the four fixes for that path.
@@ -2208,7 +2208,7 @@ TEST_CASE("ACE maps native runout slot status to EMPTY", "[ams][ace][native][par
 
 TEST_CASE("ACE manager-only ace object (no slots) selects REST fallback",
           "[ams][ace][rest_fallback][kobra]") {
-    // Kobra S1 fork: `ace` is a manager with ace_instances/current_index and NO
+    // ACEPRO driver: `ace` is a manager with ace_instances/current_index and NO
     // slots array. select_ace_object must return nullptr so on_started
     // commits to REST polling instead of parsing zero slots off the manager.
     json status = json::object();
@@ -2260,11 +2260,11 @@ TEST_CASE("ACE object WITH slots array still selects subscription path",
     }
 }
 
-// --- #1107: Kobra S1 mainline-Python fork registers `ace_instance_N` ---------
+// --- #1107: the ACEPRO driver registers `ace_instance_N` ---------------------
 //
-// The fork exposes each ACE unit as its own `ace_instance_N` Klipper object
-// (has get_status()), NOT a top-level `ace`/`filament_hub`. If a future build
-// of that fork carries a `slots` array on ace_instance_N, the object path must
+// The ACEPRO driver exposes each ACE unit as its own `ace_instance_N` Klipper
+// object (has get_status()), NOT a top-level `ace`/`filament_hub`. When a build
+// of that driver carries a `slots` array on ace_instance_N, the object path must
 // engage; if not, it falls through to the REST bridge like the manager case.
 
 TEST_CASE("ACE ace_instance_0 WITH slots selects subscription path",
@@ -2282,7 +2282,7 @@ TEST_CASE("ACE ace_instance_0 WITH slots selects subscription path",
 
 TEST_CASE("ACE ace_instance_0 manager-shaped (no slots) selects REST fallback",
           "[ams][ace][rest_fallback][kobra]") {
-    // The verified Kobra S1 fork exposes ace_instance_0 without a slots array
+    // The verified ACEPRO driver exposes ace_instance_0 without a slots array
     // (has_get_status=True but manager-shaped). Must fall through to REST.
     json status = json::object();
     status["ace_instance_0"] = json{{"current_index", 0}, {"ace_count", 1}};
@@ -2345,7 +2345,7 @@ TEST_CASE("ACE status-update path parses ace_instance_0 with slots",
 // ============================================================================
 // #1069 live capture: loaded-slot and live-shape support.
 //
-// On this fork no slot is ever "loaded" — the manager's current_index is the
+// On this driver no slot is ever "loaded" — the manager's current_index is the
 // only seat signal, slots carry `material` (not `type`), the dryer nests
 // under `dryer_status`, and REST /status carries the seat as
 // ace_manager.current_index.
@@ -2552,12 +2552,12 @@ TEST_CASE("ACE manager delta without current_index keeps the instance delta", "[
     CHECK(helper.get_slot_info(0).material == "PLA");
 }
 
-TEST_CASE("ACE lowest instance wins over a higher instance's slots", "[ams][ace][1069]") {
+TEST_CASE("ACE higher instance's slots do not overwrite the first unit's", "[ams][ace][1069]") {
     AmsBackendAceTestHelper helper;
     AceTestAccess::parse_ace(helper, make_kobra_instance_object());
 
     // Unit 1's delta carries a whole slots array; unit 0's carries only a
-    // temp delta. The display stays anchored to unit 0's inventory.
+    // temp delta. Unit 0 keeps its own inventory and takes its own temp.
     json unit1 = make_kobra_instance_object();
     unit1["instance"] = 1;
     unit1["slots"][0]["material"] = "ABS";
@@ -2571,6 +2571,7 @@ TEST_CASE("ACE lowest instance wins over a higher instance's slots", "[ams][ace]
     CHECK(helper.get_slot_info(0).material == "PLA");
     CHECK(helper.get_slot_info(0).color_rgb == 0x00E676u);
     CHECK(helper.get_test_dryer_info().current_temp_c == 35.2f);
+    CHECK(helper.get_slot_info(4).material == "ABS");
 }
 
 TEST_CASE("ACE instance delta updates only the unit it names", "[ams][ace][1835]") {
@@ -2633,7 +2634,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE REST unit-status idle keeps an in-flight 
     AceTestAccess::parse_ace(backend, json{{"status", "loading"}});
     REQUIRE(backend.get_system_info().action == AmsAction::LOADING);
 
-    // The fork's /status states the UNIT's status ("ready"), which resolves
+    // The ACEPRO driver's /status states the UNIT's status ("ready"), which resolves
     // to IDLE — it must not demote the in-flight op.
     AceTestAccess::poll_status(backend);
     helix::ui::UpdateQueue::instance().drain();
@@ -2759,7 +2760,7 @@ TEST_CASE("ACE parse_slots_response maps unknown to UNKNOWN like the object path
 TEST_CASE("ACE parse_status_response derives model and firmware", "[ams][ace][parse][kobra]") {
     AmsBackendAceTestHelper helper;
 
-    // The fork's /server/ace/status envelope carries model + firmware, so the
+    // The ACEPRO driver's /server/ace/status envelope carries model + firmware, so the
     // backend no longer needs /server/ace/info to identify the hardware.
     json data = {{"model", "ACE Pro"}, {"firmware", "2.5.1"}, {"loaded_slot", -1}};
 
@@ -2778,7 +2779,7 @@ TEST_CASE_METHOD(LVGLTestFixture,
     MockPrinter mock_printer;
     auto& api = mock_printer.api;
 
-    // Fork surface: /info 404s, /status + /slots succeed. /status carries model.
+    // ACEPRO surface: /info 404s, /status + /slots succeed. /status carries model.
     RestResponse info_404;
     info_404.success = false;
     info_404.status_code = 404;
@@ -3443,7 +3444,7 @@ TEST_CASE("ACE slot actions address the hub by INDEX= on single-hub drivers",
                                  });
 }
 
-TEST_CASE("ACE slot actions name INSTANCE= and the local INDEX= on the Kobra S1 fork",
+TEST_CASE("ACE slot actions name INSTANCE= and the local INDEX= on the ACEPRO driver",
           "[ams][ace][device_actions][kobra]") {
     const std::string surface = GENERATE(as<std::string>{}, "ace_instance_0", "rest+ace_manager");
     CAPTURE(surface);
@@ -3642,11 +3643,11 @@ TEST_CASE("ACE REST bridge commands name the instance its /status serves",
 }
 
 // ============================================================================
-// Two-unit fork: each ace_instance_N is unit N, so INSTANCE= names the unit
+// Two-unit ACEPRO rig: each ace_instance_N is unit N, so INSTANCE= names the unit
 // ============================================================================
 
 TEST_CASE_METHOD(LVGLTestFixture,
-                 "ACE slot actions address the seated tool's unit on a two-unit fork",
+                 "ACE slot actions address the seated tool's unit on a two-unit ACEPRO rig",
                  "[ams][ace][device_actions][kobra]") {
     helix::test::FakeMoonrakerClient client;
     AmsBackendAceTestHelper helper(&client);
@@ -3671,9 +3672,9 @@ TEST_CASE_METHOD(LVGLTestFixture,
     CHECK(run_slot_actions(helper).front() == "ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50");
 }
 
-// Only the Kobra S1 fork's per-unit objects state a link; another driver's
+// Only the ACEPRO driver's per-unit objects state a link; another driver's
 // object carrying the same field leaves its unit connected.
-TEST_CASE("ACE reads connection_state from the fork only", "[ams][ace]") {
+TEST_CASE("ACE reads connection_state from the ACEPRO driver only", "[ams][ace]") {
     AmsBackendAceTestHelper helper;
     json payload = make_ace_slot_payload("ready", 0xFF5500, "PLA");
     payload["connection_state"] = "reconnecting";
@@ -3689,7 +3690,7 @@ TEST_CASE("ACE slots without a driver tool number map no tool", "[ams][ace]") {
     CHECK(helper.get_slot_info(0).mapped_tool == -1);
 }
 
-// The fork reports a slot's motion state as its status (feeding, unwinding,
+// The ACEPRO driver reports a slot's motion state as its status (feeding, unwinding,
 // shifting - which an ACE 2 slot under feed assist reports throughout - and
 // identifying while the tag is read). The spool is in the slot in all of them.
 TEST_CASE("ACE slot in motion keeps its spool", "[ams][ace][slot-status]") {

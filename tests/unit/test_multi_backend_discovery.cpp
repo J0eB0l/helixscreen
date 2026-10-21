@@ -93,13 +93,12 @@ TEST_CASE_METHOD(MultiBackendFixture, "PrinterDiscovery: no AMS detected returns
     REQUIRE(hw.mmu_type() == helix::AmsType::NONE);
 }
 
-// #1107: Anycubic Kobra S1 "mainline-Python ACE fork" registers its filament
-// system as `ace_instance_0` (has get_status()), NOT `ace`/`filament_hub`. The
-// config section is [ace] with ace_count=1, but only ace_instance_N appears in
-// printer.objects.list. Detection must match the ace_instance_N prefix and
-// record the object name(s) so the discovery sequence can subscribe them.
+// #1107: the ACEPRO driver registers each ACE unit as `ace_instance_N` (has
+// get_status()). A capture whose printer.objects.list shows only
+// ace_instance_N and no `ace`/`filament_hub` must still detect ACE. Detection must match the
+// ace_instance_N prefix and record the object name(s) so the discovery sequence can subscribe them.
 TEST_CASE_METHOD(MultiBackendFixture,
-                 "PrinterDiscovery: ace_instance_0 (Kobra S1 fork) detected as ACE",
+                 "PrinterDiscovery: ace_instance_0 (ACEPRO driver) detected as ACE",
                  "[ams][ace][multi-backend]") {
     helix::PrinterDiscovery hw;
     nlohmann::json objects =

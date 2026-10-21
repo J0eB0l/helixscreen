@@ -1,7 +1,7 @@
 // tests/test_helpers/ace_backend_test_helper.h
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Kobra S1 fork (ACEPRO) status fixtures and the AmsBackendAce test subclass,
+// ACEPRO driver (github.com/Kobra-S1/ACEPRO) status fixtures and the AmsBackendAce test subclass,
 // shared by the ACE backend test files.
 #pragma once
 
@@ -127,8 +127,8 @@ class AmsBackendAceTestHelper : public AmsBackendAce {
 
 namespace ace_fixtures {
 
-// --- #1069 live-capture builders (Kobra S1 mainline-Python fork / "ACEPRO"
-// driver, 1x ACE Pro, fw V1.3.856). Field-for-field the user's captures: the
+// --- #1069 live-capture builders (the ACEPRO driver on a Kobra S1, 1x ACE
+// Pro, fw V1.3.856). Field-for-field the user's captures: the
 // `ace` object is a MANAGER (no slots) whose `current_index` is the ONLY
 // loaded-tool signal (-1 = nothing loaded); `ace_instance_0` carries the four
 // slots with `material` (no `type`) and the dryer nested under `dryer_status`.
@@ -205,7 +205,7 @@ inline json make_kobra_instance_object() {
 }
 
 // printer.objects.query answer carrying both the manager and the slot-bearing
-// instance, as the fork's initial query does.
+// instance, as the ACEPRO driver's initial query does.
 inline json make_kobra_objects_query_response(int current_index) {
     json status = json::object();
     status["ace"] = make_kobra_manager_object(current_index);

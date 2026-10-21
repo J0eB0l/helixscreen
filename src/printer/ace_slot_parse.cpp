@@ -29,7 +29,7 @@ SlotStatus slot_status_from_string(const std::string& status_str) {
     // Native Anycubic GoKlipper uses empty/ready/preload/running/runout;
     // community ValgACE uses available/loaded/ready. "runout" means the slot
     // ran dry mid-print - present-but-empty; map to EMPTY since SlotStatus has
-    // no dedicated RUNOUT value. The Kobra S1 fork reports the ACE's slot state
+    // no dedicated RUNOUT value. The ACEPRO driver reports the ACE's slot state
     // machine, whose motion states (an ACE 2 slot under feed assist reads
     // "shifting" throughout) and tag read all have the spool in the slot.
     if (status_str == "empty" || status_str == "runout") {

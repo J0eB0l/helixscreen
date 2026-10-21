@@ -1,8 +1,10 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Several ACE units on the Kobra S1 fork (ace_instance_0, ace_instance_1, ...):
-// each instance is a unit of its own, and a slot's global index is its tool.
+// Several ACE units on the ACEPRO driver (ace_instance_0, ace_instance_1, ...):
+// each instance is a unit of its own, its slots numbered globally after the
+// units before it. A slot's tool is the `tool` the driver publishes for it
+// (instance*4 + slot on ACEPRO), never assumed from the slot's position.
 
 #include "ui_update_queue.h"
 
@@ -103,7 +105,7 @@ helix::PrinterDiscovery ace_discovery(int unit_count) {
 
 } // namespace
 
-TEST_CASE_METHOD(LVGLTestFixture, "ACE shows each fork instance as its own unit",
+TEST_CASE_METHOD(LVGLTestFixture, "ACE shows each ACEPRO instance as its own unit",
                  "[ams][ace][multiunit]") {
     helix::test::FakeMoonrakerClient client;
     AmsBackendAceTestHelper helper(&client);
@@ -187,7 +189,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE second-unit delta updates the second unit
     CHECK(helper.get_dryer_info(0).current_temp_c == 34.0f);
 }
 
-// T0 seated, a toolchange to T5 on the second unit, in the order the fork
+// T0 seated, a toolchange to T5 on the second unit, in the order the ACEPRO driver
 // reported it on a two-unit Kobra S1: target_index first, the outgoing strand
 // retracting past the toolhead and hub sensors, unit 1 feeding until both
 // sensors are made again, then current_index.
@@ -392,7 +394,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE ignores an instance number past the unit 
     CHECK(helper.get_test_system_info().units.size() == 2);
 }
 
-// On the fork a slot's tool is the driver's to name: a slot it has not named
+// On the ACEPRO driver a slot's tool is the driver's to name: a slot it has not named
 // yet is not loaded under a guessed number, which could be another unit's tool.
 TEST_CASE_METHOD(LVGLTestFixture, "ACE refuses a load the driver named no tool for",
                  "[ams][ace][multiunit]") {
@@ -406,7 +408,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE refuses a load the driver named no tool f
     CHECK(helper.captured_gcodes.empty());
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "ACE dryer refuses a unit the fork does not have",
+TEST_CASE_METHOD(LVGLTestFixture, "ACE dryer refuses a unit the ACEPRO driver does not have",
                  "[ams][ace][multiunit]") {
     helix::test::FakeMoonrakerClient client;
     AmsBackendAceTestHelper helper(&client);
@@ -449,7 +451,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE publishes the driver's tool map", "[ams][
             helix::ui::tool_badges_add_information(info.tool_to_slot_map, info.total_slots));
     }
 
-    SECTION("a tool_base: the badges name the driver's tools") {
+    SECTION("tools numbered apart from the slots: the badges name them") {
         start_units(helper, client, 1, -1, 1, [](json& status) {
             for (int i = 0; i < 4; ++i) {
                 status["ace_instance_0"]["slots"][i]["tool"] = 4 + i;
@@ -462,9 +464,9 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE publishes the driver's tool map", "[ams][
     }
 }
 
-// The fork states each unit's link; a unit that is not connected shows as
+// The ACEPRO driver states each unit's link; a unit that is not connected shows as
 // disconnected, and a frame that does not restate the link leaves it be.
-TEST_CASE_METHOD(LVGLTestFixture, "ACE shows the fork's per-unit connection",
+TEST_CASE_METHOD(LVGLTestFixture, "ACE shows the ACEPRO driver's per-unit connection",
                  "[ams][ace][multiunit]") {
     helix::test::FakeMoonrakerClient client;
     AmsBackendAceTestHelper helper(&client);
@@ -529,7 +531,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE idle unit does not clear another unit's a
     }
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "ACE dryer commands name the unit on the fork",
+TEST_CASE_METHOD(LVGLTestFixture, "ACE dryer commands name the unit on the ACEPRO driver",
                  "[ams][ace][multiunit]") {
     helix::test::FakeMoonrakerClient client;
     AmsBackendAceTestHelper helper(&client);
@@ -547,9 +549,9 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE dryer commands name the unit on the fork"
                                     });
 }
 
-// ACEPRO numbers its tools from a configurable base: with tool_base 4 the
-// first unit carries T4-T7. Slots stay where they are; the driver's tool
-// numbers are read off the slots, not assumed to equal the slot.
+// The driver's tool numbers are read off the `tool` each slot publishes, not
+// assumed to equal the slot: here the first unit's slots carry T4-T7, and the
+// seat, the toolchange target and the load command all follow them.
 TEST_CASE_METHOD(LVGLTestFixture, "ACE maps the driver's tool numbers to slots",
                  "[ams][ace][multiunit]") {
     helix::test::FakeMoonrakerClient client;
