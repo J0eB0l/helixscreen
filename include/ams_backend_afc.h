@@ -415,8 +415,13 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     AmsError cancel() override;
     /// check_action_timeout() resolves a stuck operation to ERROR on this
     /// backend's own per-action budgets, so a surface's shorter timeout leaves
-    /// the operation running rather than cutting those budgets short.
-    void expire_stuck_operation() override {}
+    /// the operation running rather than cutting those budgets short. A Klipper
+    /// restart reloads AFC and ends the operation outright.
+    void expire_stuck_operation(OperationExpiry why) override {
+        if (why == OperationExpiry::KlipperRestart) {
+            AmsSubscriptionBackend::expire_stuck_operation(why);
+        }
+    }
 
     // Configuration
     AmsError apply_user_edit(int slot_index, const SlotInfo& info,

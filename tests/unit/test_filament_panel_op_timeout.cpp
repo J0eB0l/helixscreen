@@ -103,7 +103,7 @@ class StubBackend : public helix::AmsBackendMock {
     }
 
     int expire_calls = 0;
-    void expire_stuck_operation() override {
+    void expire_stuck_operation(helix::OperationExpiry /*why*/) override {
         ++expire_calls;
     }
 };

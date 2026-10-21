@@ -1470,7 +1470,7 @@ void FilamentPanel::handle_operation_timeout() {
     // refuses every tool change and filament op until it is told to stop.
     if (backend_op_active_) {
         if (AmsBackend* backend = AmsState::instance().get_backend()) {
-            backend->expire_stuck_operation();
+            backend->expire_stuck_operation(helix::OperationExpiry::SurfaceTimeout);
         }
     }
     backend_op_active_ = false;

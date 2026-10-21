@@ -360,8 +360,9 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     AmsError cancel() override;
     /// check_action_timeout() resolves a stuck operation to ERROR on this
     /// backend's own per-action budgets, so a surface's shorter timeout leaves
-    /// the operation running rather than cutting those budgets short.
-    void expire_stuck_operation() override {}
+    /// the operation running rather than cutting those budgets short. A Klipper
+    /// restart ends the operation and its phase tracking outright.
+    void expire_stuck_operation(OperationExpiry why) override;
 
     /// False while a firmware-driven filament change runs: its macro holds
     /// the G-code queue, so a cancel would only land after the change ends.

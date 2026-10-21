@@ -69,6 +69,7 @@ void AmsState::init_subjects(bool register_xml) {
         // register_xml_subject_names() must mirror the first-init registration
         // list below — a name added there must be added here too.
         install_print_state_observer();
+        install_klippy_state_observer();
         if (register_xml) {
             register_xml_subject_names();
         }
@@ -623,6 +624,28 @@ void AmsState::init_subjects(bool register_xml) {
     // PrinterState::init_subjects() must run before this point; tests/main
     // do so during fixture setup / app boot.
     install_print_state_observer();
+    install_klippy_state_observer();
+}
+
+void AmsState::install_klippy_state_observer() {
+    klippy_state_observer_.reset();
+    last_klippy_state_ = -1;
+    klippy_state_observer_ = helix::ui::observe<int>(
+        get_printer_state().network_state().get_klippy_state_subject(), this,
+        [](AmsState* self, int state) {
+            const int prev = self->last_klippy_state_;
+            self->last_klippy_state_ = state;
+            constexpr int kReady = static_cast<int>(KlippyState::READY);
+            if (state != kReady || prev == -1 || prev == kReady) {
+                return;
+            }
+            for (int i = 0; i < self->backend_count(); ++i) {
+                if (AmsBackend* backend = self->get_backend(i)) {
+                    backend->expire_stuck_operation(OperationExpiry::KlipperRestart);
+                }
+            }
+        },
+        get_printer_state().get_subjects_lifetime());
 }
 
 void AmsState::install_print_state_observer() {
@@ -917,6 +940,7 @@ void AmsState::deinit_subjects() {
     // LVGL observer is removed cleanly (reset(), not release() — see project
     // CLAUDE.md § "ObserverGuard::reset() is the default").
     print_state_observer_.reset();
+    klippy_state_observer_.reset();
 
     // IMPORTANT: clear_backends() MUST precede subjects_.deinit_all() because
     // BackendSlotSubjects are managed outside SubjectManager for lifetime reasons

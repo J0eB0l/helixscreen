@@ -1103,7 +1103,7 @@ TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker an expired operation stops reporti
     SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_feeding"));
     REQUIRE(backend.get_current_action() == AmsAction::LOADING);
 
-    backend.expire_stuck_operation();
+    backend.expire_stuck_operation(helix::OperationExpiry::SurfaceTimeout);
 
     CHECK(backend.get_current_action() == AmsAction::IDLE);
     CHECK(backend.get_system_info().action == AmsAction::IDLE);
@@ -1123,7 +1123,7 @@ TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker expiring leaves an ERROR in place"
     SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_fail"));
     REQUIRE(backend.get_current_action() == AmsAction::ERROR);
 
-    backend.expire_stuck_operation();
+    backend.expire_stuck_operation(helix::OperationExpiry::SurfaceTimeout);
 
     CHECK(backend.get_current_action() == AmsAction::ERROR);
 }
