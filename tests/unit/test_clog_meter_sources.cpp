@@ -15,6 +15,7 @@
 #include "../test_helpers/ams_state_test_access.h"
 #include "../test_helpers/filament_sensor_manager_test_access.h"
 #include "../test_helpers/print_state_test_drivers.h"
+#include "../test_helpers/scoped_language.h"
 #include "ams_state.h"
 #include "app_globals.h"
 #include "clog_meter_geometry.h"
@@ -290,6 +291,8 @@ TEST_CASE_METHOD(MotionSensorFixture, "clog meter: which motion sensors make the
     const auto* def = find_widget_def("clog_detection");
     REQUIRE(def != nullptr);
     REQUIRE(std::string(def->hardware_gate_subject) == "clog_meter_mode");
+    // The catalog's reason names every kind of hardware that can open the gate.
+    CHECK(std::string(def->hardware_gate_hint).find("motion sensor") != std::string::npos);
 
     SECTION("a switch sensor is not a jam detector") {
         discover({kSwitch});
@@ -433,4 +436,85 @@ TEST_CASE_METHOD(MotionSensorFixture,
     CHECK(mode(ams) == static_cast<int>(ClogMeterMode::Motion));
     CHECK(text(ams.get_clog_meter_mode_text_subject()) == "e0_filament");
     CHECK(status() == static_cast<int>(ClogMeterStatus::Ok));
+}
+
+TEST_CASE_METHOD(MotionSensorFixture,
+                 "clog meter: with no sensor on the active lane, the worst reading",
+                 "[ams][clog][sources][motion][1823]") {
+    // Lane-less heads, as a Creator 5 on Z-Mod names them: only the extruder
+    // that feeds can stop its encoder, so the stopped one is the active head.
+    constexpr const char* kHead0 = "filament_motion_sensor fm_ex0";
+    constexpr const char* kHead2 = "filament_motion_sensor fm_ex2";
+    discover({kHead0, kHead2});
+    print(PrintJobState::PRINTING);
+    feed(motion_frame(kHead0, true, true));
+    feed(motion_frame(kHead2, false, true));
+    AmsSystemInfo info;
+    info.current_tool = 2; // no sensor carries lane 2
+    AmsStateTestAccess::sync_clog_meter(ams, info);
+    CHECK(text(ams.get_clog_meter_mode_text_subject()) == "fm_ex2");
+    CHECK(status() == static_cast<int>(ClogMeterStatus::Fault));
+
+    SECTION("a disarmed stopped head is not the worst reading") {
+        feed(motion_frame(kHead2, false, false));
+        AmsStateTestAccess::sync_clog_meter(ams, info);
+        CHECK(text(ams.get_clog_meter_mode_text_subject()) == "fm_ex0");
+        CHECK(status() == static_cast<int>(ClogMeterStatus::Ok));
+    }
+}
+
+TEST_CASE_METHOD(MotionSensorFixture,
+                 "clog meter: long multibyte text is kept whole or cut on a character",
+                 "[ams][clog][sources][motion][i18n][1823]") {
+    SECTION("Russian Disarmed is 16 bytes and fits") {
+        ScopedLanguage ru("ru");
+        const std::string disarmed = lv_tr("Disarmed");
+        REQUIRE(disarmed != "Disarmed");
+        REQUIRE(disarmed.size() >= 16);
+        discover({kEncoder});
+        feed(motion_frame(kEncoder, true, false));
+        CHECK(text(ams.get_clog_meter_center_text_subject()) == disarmed);
+    }
+
+    SECTION("a sensor name longer than the slot ends on a whole character") {
+        // 20 two-byte characters: 40 bytes into a 32-byte slot.
+        std::string name;
+        for (int i = 0; i < 20; ++i) {
+            name += "\xC3\xA9"; // e-acute
+        }
+        const std::string klipper = "filament_motion_sensor " + name;
+        discover({klipper});
+        feed(motion_frame(klipper.c_str(), true, true));
+        const std::string shown = text(ams.get_clog_meter_mode_text_subject());
+        REQUIRE_FALSE(shown.empty());
+        CHECK(shown.size() % 2 == 0);
+        CHECK(name.compare(0, shown.size(), shown) == 0);
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "clog meter: the print lifecycle observer follows AmsState's life",
+                 "[ams][clog][sources][motion][1823]") {
+    get_printer_state().init_subjects(false);
+    auto& ams = AmsState::instance();
+    ams.init_subjects(false);
+    lv_subject_t* lifecycle = get_printer_state().print_state().get_print_lifecycle_subject();
+    const uint32_t wired = lv_ll_get_len(&lifecycle->subs_ll);
+
+    // deinit_subjects() lets go of it, or a print state change would re-sync a
+    // meter whose subjects are gone.
+    ams.clear_backends();
+    ams.deinit_subjects();
+    CHECK(lv_ll_get_len(&lifecycle->subs_ll) == wired - 1);
+
+    // A first init installs it.
+    ams.init_subjects(false);
+    CHECK(lv_ll_get_len(&lifecycle->subs_ll) == wired);
+
+    // Re-entry reinstalls it, for when PrinterState's subjects were torn down
+    // underneath AmsState and took the observer with them.
+    AmsStateTestAccess::remove_print_lifecycle_observer(ams);
+    REQUIRE(lv_ll_get_len(&lifecycle->subs_ll) == wired - 1);
+    ams.init_subjects(false);
+    CHECK(lv_ll_get_len(&lifecycle->subs_ll) == wired);
 }

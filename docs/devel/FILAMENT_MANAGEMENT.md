@@ -1636,7 +1636,8 @@ used only when the backend reports none of the three, whatever the override says
 so it also covers printers with no AMS at all. `FilamentSensorManager::clog_motion_sensor()`
 picks it among the motion sensors Settings > Filament sensors lists and has enabled (AMS-owned
 sensors, `PrinterHardware::is_ams_sensor()`, are excluded): the one on
-the active lane, else the first one Klipper has armed, else the first. It is a state,
+the active lane, else the first armed one reporting no movement (the worst reading: an
+idle encoder keeps reading detected), else the first one Klipper has armed, else the first. It is a state,
 not a gauge (`motion_sensor_value()` -> `kMotion*Value`): moving is OK with an empty fill,
 a jam is the warning flag with a full fill, and a sensor Klipper has disarmed reads
 `ClogMeterStatus::Off`. No movement is a jam only while `print_job_running()` (printing

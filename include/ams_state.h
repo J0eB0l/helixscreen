@@ -2587,7 +2587,7 @@ class AmsState {
     lv_subject_t clog_meter_danger_pct_{};  // 0-100, where danger zone starts
     lv_subject_t clog_meter_peak_pct_{};    // 0-100, peak-hold marker position
     lv_subject_t clog_meter_center_text_{}; // Enhanced center display
-    char clog_meter_center_text_buf_[16]{};
+    char clog_meter_center_text_buf_[32]{};
     lv_subject_t clog_meter_label_left_{}; // Left endpoint label
     // Endpoint labels render translated: ru "СПУТЫВАНИЕ" is 20 bytes.
     char clog_meter_label_left_buf_[24]{};

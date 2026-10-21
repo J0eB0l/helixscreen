@@ -72,6 +72,11 @@ class AmsStateTestAccess {
         ams.motion_sensor_observer_.reset();
     }
 
+    /// What a PrinterState subject teardown does to the lifecycle observer.
+    static void remove_print_lifecycle_observer(AmsState& ams) {
+        ams.print_lifecycle_observer_.reset();
+    }
+
     /// Drive the buffer reading sync with a hand-built AmsSystemInfo at a
     /// chosen time, so trace tests need neither a backend nor a clock.
     static void sync_buffer(AmsState& ams, const AmsSystemInfo& info, int64_t now_ms) {

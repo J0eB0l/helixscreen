@@ -48,6 +48,17 @@ class FilamentSensorManagerTestAccess {
         }
     }
 
+    /// Forget every discovered sensor and turn the master switch back on,
+    /// touching no subject's observer list, so it is safe from any fixture.
+    static void clear_sensors(FilamentSensorManager& mgr) {
+        std::lock_guard<std::recursive_mutex> lock(mgr.mutex_);
+        mgr.sensors_.clear();
+        mgr.master_enabled_ = true;
+        if (mgr.subjects_initialized_) {
+            lv_subject_set_int(&mgr.sensor_count_, 0);
+        }
+    }
+
     static void clear_startup_grace_period(FilamentSensorManager& mgr) {
         mgr.startup_time_ = std::chrono::steady_clock::now() - std::chrono::seconds(10);
     }

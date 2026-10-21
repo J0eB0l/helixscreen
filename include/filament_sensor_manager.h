@@ -427,7 +427,8 @@ class FilamentSensorManager {
      * Only motion sensors Settings lists (not AMS-owned), that the user has
      * enabled (with the master switch on) and that Klipper reports are
      * candidates. Among them: the one whose lane is
-     * @p active_lane, else the first one Klipper has armed, else the first.
+     * @p active_lane, else the first armed one reporting no movement (the worst
+     * reading), else the first one Klipper has armed, else the first.
      *
      * @param active_lane Loaded slot or tool, -1 when none
      * @return nullopt when no motion sensor qualifies

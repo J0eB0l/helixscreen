@@ -967,6 +967,7 @@ std::optional<ClogMotionSensor> FilamentSensorManager::clog_motion_sensor(int ac
     const auto& discovery = get_printer_state().get_discovery();
     const FilamentSensorConfig* first = nullptr;
     const FilamentSensorConfig* first_armed = nullptr;
+    const FilamentSensorConfig* first_stopped = nullptr;
     const FilamentSensorConfig* on_lane = nullptr;
     for (const auto& sensor : sensors_) {
         if (sensor.type != FilamentSensorType::MOTION || !sensor.enabled ||
@@ -983,12 +984,21 @@ std::optional<ClogMotionSensor> FilamentSensorManager::clog_motion_sensor(int ac
         if (!first_armed && st->enabled) {
             first_armed = &sensor;
         }
+        if (!first_stopped && st->enabled && !st->filament_detected) {
+            first_stopped = &sensor;
+        }
         if (!on_lane && active_lane >= 0 && lane_index_for_sensor(sensor) == active_lane) {
             on_lane = &sensor;
         }
     }
 
-    const FilamentSensorConfig* pick = on_lane ? on_lane : (first_armed ? first_armed : first);
+    // With no sensor on the active lane, the worst reading speaks: an encoder
+    // only stops seeing movement when its own extruder feeds, so an idle head
+    // keeps reading detected and cannot mask the jammed one.
+    const FilamentSensorConfig* pick = on_lane         ? on_lane
+                                       : first_stopped ? first_stopped
+                                       : first_armed   ? first_armed
+                                                       : first;
     if (!pick) {
         return std::nullopt;
     }

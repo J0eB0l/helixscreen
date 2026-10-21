@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string_view>
 
 namespace helix {
 using ams_state_detail::assert_main_thread;
@@ -43,10 +44,18 @@ struct ClogReading {
     int danger_pct = 75;
     int peak_pct = 0;
     char mode_text[32] = "";
-    char center[16] = "";
+    char center[32] = "";
     char left[24] = "";
     char right[24] = "";
 };
+
+/// Copy @p src into @p dst, clipped on a codepoint boundary rather than
+/// mid-character the way snprintf would clip a long translation.
+template <size_t N> void copy_utf8(char (&dst)[N], std::string_view src) {
+    const auto clipped = text_io::utf8_prefix(src, N - 1);
+    std::memcpy(dst, clipped.data(), clipped.size());
+    dst[clipped.size()] = '\0';
+}
 
 /// The clog detector's reading. Priority: flowguard > encoder > afc_buffer >
 /// legacy > motion sensor > none. Source override: 0=auto (use priority),
@@ -190,16 +199,14 @@ ClogReading detector_reading(const AmsSystemInfo& info, int source_override,
         r.mode = static_cast<int>(ClogMeterMode::Motion);
         r.danger_pct = 0;
         r.peak_pct = 0;
-        const auto name = text_io::utf8_prefix(motion->sensor_name, sizeof(r.mode_text) - 1);
-        snprintf(r.mode_text, sizeof(r.mode_text), "%.*s", static_cast<int>(name.size()),
-                 name.data());
+        copy_utf8(r.mode_text, motion->sensor_name);
         r.value =
             helix::ui::motion_sensor_value(motion->armed, motion->filament_moving, print_running);
         if (r.value == helix::ui::kMotionDisarmedValue) {
-            snprintf(r.center, sizeof(r.center), "%s", lv_tr("Disarmed"));
+            copy_utf8(r.center, lv_tr("Disarmed"));
         } else if (r.value == helix::ui::kMotionJammedValue) {
             r.warning = 1;
-            snprintf(r.center, sizeof(r.center), "%s", lv_tr("Jammed"));
+            copy_utf8(r.center, lv_tr("Jammed"));
         }
         // Moving: the status glyph's check says it, so the centre stays empty.
     }
