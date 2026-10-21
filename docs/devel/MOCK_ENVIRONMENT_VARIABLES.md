@@ -237,6 +237,18 @@ Boot the mock printer straight into an active print so print-gated features can 
 | **Default** | unset (no auto-print) |
 | **File** | `src/application/moonraker_manager.cpp` (sets `mock_auto_start_print`); consumed in `src/api/moonraker_client_mock.cpp` |
 
+### `HELIX_MOCK_CONNECT_DELAY_MS`
+
+How long the mock's `connect()` blocks before it reports CONNECTED, in simulated
+milliseconds (`--sim-speed` divides it). The unit-test binary sets it to 0
+(`tests/test_main.cpp`), since hundreds of fixtures connect a mock.
+
+| Property | Value |
+|----------|-------|
+| **Values** | milliseconds, 0-10000 |
+| **Default** | 250 |
+| **File** | `src/api/moonraker_client_mock.cpp` (`MoonrakerClientMock::connect`) |
+
 ### `HELIX_MOCK_REPLAY`
 
 Replay a captured print-start sequence through the mock client's real dispatch paths (`notify_gcode_response`, `notify_status_update`) so the full observer chain — manager wiring, MoonrakerAPI callbacks, collector — runs against real data with no printer attached. Pair with `HELIX_MOCK_PRINTER=k1` (the K1C capture's persona) and `--sim-speed` to fast-forward: a 386s capture replays in ~7s at `--sim-speed 60`.

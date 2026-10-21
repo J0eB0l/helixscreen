@@ -84,13 +84,13 @@ struct NozzleCalFixture : public LVGLTestFixture {
         client.send_jsonrpc(
             "printer.gcode.script", json{{"script", "EXTRUDER_OFFSET_ACTION_PRESTART"}},
             [](const json&) {}, [](const MoonrakerError&) {});
-        process_lvgl(1300);
+        advance_lvgl(1300);
         REQUIRE(client.nozzle_calibration_active());
     }
 
     void reconcile() {
         reconcile_on_connect(client, [this] { ++asked; });
-        process_lvgl(1300);
+        advance_lvgl(1300);
     }
 
     /// Pumps the mock's step timers, confirming every prompt, until the run ends.
@@ -104,7 +104,7 @@ struct NozzleCalFixture : public LVGLTestFixture {
             if (phase == Runner::Phase::AwaitingUser) {
                 runner.confirm();
             }
-            process_lvgl(1300);
+            advance_lvgl(1300);
         }
         FAIL("the run did not end");
     }
@@ -123,7 +123,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: a step outside the calibration state i
             failed = true;
             error = e.message;
         });
-    process_lvgl(1300);
+    advance_lvgl(1300);
     REQUIRE(failed);
     CHECK(error.find("0003-0530-0000-0009") != std::string::npos);
 }
@@ -140,7 +140,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: a full run saves new offsets and leave
     client.send_jsonrpc(
         "printer.objects.query", offsets_query_params(), [&](const json& r) { status = r; },
         [](const MoonrakerError&) {});
-    process_lvgl(50);
+    advance_lvgl(50);
     const auto offsets = offsets_from_query(status);
     REQUIRE(offsets.has_value());
     CHECK((*offsets)[2][0] == Catch::Approx(client.nozzle_offset(2)[0]));
@@ -151,7 +151,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: a full run saves new offsets and leave
         "printer.gcode.script",
         json{{"script", "EXTRUDER_OFFSET_ACTION_PROBE_CALIBRATE TOOL_ID=T0"}}, [](const json&) {},
         [&](const MoonrakerError&) { refused = true; });
-    process_lvgl(1300);
+    advance_lvgl(1300);
     CHECK(refused);
 }
 
@@ -165,7 +165,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: a sheet left on the bed is asked for a
             asked_again = asked_again || !runner.error().empty();
             runner.confirm();
         }
-        process_lvgl(1300);
+        advance_lvgl(1300);
     }
     CHECK(asked_again);
     CHECK(runner.phase() == Runner::Phase::Done);
@@ -203,14 +203,14 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: reconcile asks before ending a state n
 
     // "End calibration".
     send_exit(client);
-    process_lvgl(1300);
+    advance_lvgl(1300);
     CHECK_FALSE(client.nozzle_calibration_active());
 }
 
 TEST_CASE_METHOD(NozzleCalFixture, "mock: connect-time reconcile leaves a live run alone",
                  "[mock][snapmaker][nozzle_offset][reconcile]") {
     runner.start();
-    process_lvgl(1300);
+    advance_lvgl(1300);
     REQUIRE(client.nozzle_calibration_active());
     REQUIRE(run_live());
     mark_exit_pending();
@@ -219,7 +219,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: connect-time reconcile leaves a live r
     CHECK(client.nozzle_calibration_active());
     CHECK(asked == 0);
     runner.cancel();
-    process_lvgl(1300);
+    advance_lvgl(1300);
     CHECK_FALSE(client.nozzle_calibration_active());
 }
 
@@ -227,7 +227,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: leaving a live run before disconnect e
                  "[mock][snapmaker][nozzle_offset][reconcile]") {
     client.connect("ws://mock/websocket", [] {}, [] {});
     runner.start();
-    process_lvgl(1300);
+    advance_lvgl(1300);
     REQUIRE(client.nozzle_calibration_active());
 
     SECTION("connected: EXIT goes out and the run ends") {
@@ -236,7 +236,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: leaving a live run before disconnect e
         // The mock answers on this thread, so the bounded wait sees no reply.
         CHECK(exit_unconfirmed());
         CHECK_FALSE(exit_pending());
-        process_lvgl(1300);
+        advance_lvgl(1300);
         CHECK_FALSE(client.nozzle_calibration_active());
         CHECK_FALSE(client.sent(kProbeAbortMethod));
         CHECK_FALSE(exit_pending());
@@ -246,12 +246,12 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: leaving a live run before disconnect e
             if (runner.phase() == Runner::Phase::AwaitingUser) {
                 runner.confirm();
             }
-            process_lvgl(1300);
+            advance_lvgl(1300);
         }
         REQUIRE(runner.probing());
         leave_live_run(&client);
         CHECK(client.sent(kProbeAbortMethod));
-        process_lvgl(1300);
+        advance_lvgl(1300);
         CHECK_FALSE(client.nozzle_calibration_active());
     }
     SECTION("no client: the exit is left pending") {
@@ -262,7 +262,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: leaving a live run before disconnect e
     }
     SECTION("an ended run sends nothing") {
         runner.cancel();
-        process_lvgl(1300);
+        advance_lvgl(1300);
         client.methods.clear();
         leave_live_run(&client);
         CHECK(client.methods.empty());
@@ -312,11 +312,11 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: a pending exit belongs to the printer 
     other.send_jsonrpc(
         "printer.gcode.script", json{{"script", "EXTRUDER_OFFSET_ACTION_PRESTART"}},
         [](const json&) {}, [](const MoonrakerError&) {});
-    process_lvgl(1300);
+    advance_lvgl(1300);
     REQUIRE(other.nozzle_calibration_active());
 
     reconcile_on_connect(other, [this] { ++asked; });
-    process_lvgl(1300);
+    advance_lvgl(1300);
     CHECK(asked == 2);
     CHECK(other.nozzle_calibration_active());
 
@@ -373,7 +373,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: teardown's before_disconnect ends the 
     auto& overlay = helix::ui::get_snapmaker_nozzle_offset_overlay();
     overlay.runner().start();
     for (int guard = 0; guard < 20 && !client.nozzle_calibration_active(); ++guard) {
-        process_lvgl(200);
+        advance_lvgl(200);
     }
     REQUIRE(client.nozzle_calibration_active());
     REQUIRE(run_live());
@@ -383,7 +383,7 @@ TEST_CASE_METHOD(NozzleCalFixture, "mock: teardown's before_disconnect ends the 
     // (tests/shell/test_teardown_order_gate.bats pins that order).
     backend.before_disconnect();
     CHECK(overlay.runner().phase() == Runner::Phase::Cancelled);
-    process_lvgl(1300);
+    advance_lvgl(1300);
     CHECK_FALSE(client.nozzle_calibration_active());
 
     helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
