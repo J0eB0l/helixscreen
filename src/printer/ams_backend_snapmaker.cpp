@@ -2026,8 +2026,8 @@ void AmsBackendSnapmaker::apply_feed_channel_locked(const snapmaker::FeedChannel
     // step bar read where the filament is. They differ only
     // when the outcome survives in channel_action_state alone.
     helix::snapmaker::OpOutcome resolved = helix::snapmaker::resolve_op_outcome(
-        snap.state, prev_action_state, snap.action_state, held_op_outcome_[i]);
-    held_op_outcome_[i] = std::move(resolved.held);
+        snap.state, prev_action_state, snap.action_state, snap.pending_outcome);
+    snap.pending_outcome = std::move(resolved.held);
     const std::optional<std::string> settled_outcome = std::move(resolved.outcome);
     if (feeder_reports_loaded(snap) && !was_load_confirmed && load_unconfirmed_[i]) {
         spdlog::info("{} tool {} reports '{}' with no error; Resume may proceed", backend_log_tag(),

@@ -263,7 +263,10 @@ class AmsBackendSnapmaker : public AmsSubscriptionBackend {
     struct ChannelSnapshot {
         std::string state;        ///< channel_state, e.g. "load_finish"
         std::string action_state; ///< channel_action_state: last op step, kept at rest
-        std::string error{"ok"};  ///< channel_error
+        /// An op outcome channel_action_state reported while the channel still
+        /// showed a step under way, applied when it settles.
+        std::string pending_outcome;
+        std::string error{"ok"}; ///< channel_error
         bool filament_detected{false};
         bool module_exist{false};
         bool disable_auto{false};
@@ -1236,11 +1239,6 @@ class AmsBackendSnapmaker : public AmsSubscriptionBackend {
     /// preload_finish_ends_unload_locked() tell an unload's end from the rest
     /// state an unload starts from. Under mutex_.
     std::array<bool, kNumTools> unload_in_flight_{};
-
-    /// Per channel: an op outcome channel_action_state reported while the
-    /// channel still showed a step under way, applied when it settles. Under
-    /// mutex_.
-    std::array<std::string, kNumTools> held_op_outcome_{};
 
     /// Layer a configured FilamentSlotOverride for `slot_index` over `slot`,
     /// mutating `slot` in place. Override wins for every non-default field.
