@@ -48,6 +48,12 @@ class ToolChangerTestAccess {
     /// A cancelled home confirmation must clear this -- otherwise the next
     /// macro ack (or a superseding dispatch) resolves against a generation
     /// that no longer describes anything in flight.
+    /// Set the optimistic action the way a dispatch does, without sending.
+    static void arm_dispatch(AmsBackendToolChanger& b, AmsAction action) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        b.begin_dispatch_locked(action);
+    }
+
     static bool has_pending_dispatch(const AmsBackendToolChanger& b) {
         std::lock_guard<std::mutex> lock(b.mutex_);
         return b.pending_dispatch_action_.has_value();

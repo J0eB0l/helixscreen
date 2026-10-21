@@ -13,12 +13,14 @@
 #include "../test_helpers/afc_test_access.h"
 #include "../test_helpers/cfs_test_access.h"
 #include "../test_helpers/snapmaker_test_access.h"
+#include "../test_helpers/toolchanger_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "ams_backend_ad5x_ifs.h"
 #include "ams_backend_afc.h"
 #include "ams_backend_cfs.h"
 #include "ams_backend_mock.h"
 #include "ams_backend_snapmaker.h"
+#include "ams_backend_toolchanger.h"
 #include "ams_state.h"
 #include "ams_types.h"
 #include "app_globals.h"
@@ -178,4 +180,29 @@ TEST_CASE_METHOD(KlipperRestartFixture, "CFS ends its operation and phase tracki
 
     CHECK(backend.get_current_action() == AmsAction::IDLE);
     CHECK_FALSE(helix::CfsTestAccess::phase_active(backend));
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture, "AFC drops its optimistic dispatch on a Klipper restart",
+                 "[ams][afc][klipper_restart_expiry]") {
+    helix::AmsBackendAfc backend(nullptr, nullptr);
+    helix::AfcTestAccess::system_info(backend).action = AmsAction::SELECTING;
+    helix::AfcTestAccess::pending_dispatch_action(backend) = AmsAction::SELECTING;
+
+    backend.on_klipper_restarted();
+
+    CHECK_FALSE(helix::AfcTestAccess::pending_dispatch_action(backend).has_value());
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture,
+                 "ToolChanger drops its optimistic dispatch on a Klipper restart",
+                 "[ams][toolchanger][klipper_restart_expiry]") {
+    helix::AmsBackendToolChanger backend(nullptr, nullptr);
+    helix::ToolChangerTestAccess::arm_dispatch(backend, AmsAction::SELECTING);
+    REQUIRE(helix::ToolChangerTestAccess::has_pending_dispatch(backend));
+
+    backend.on_klipper_restarted();
+
+    CHECK_FALSE(helix::ToolChangerTestAccess::has_pending_dispatch(backend));
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
 }

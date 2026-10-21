@@ -413,6 +413,9 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     }
 
     AmsError cancel() override;
+    /// Also drops the optimistic dispatch, whose ack the restart ended, and
+    /// retires its generation so a late ack resolves nothing.
+    void on_klipper_restarted() override;
 
     // Configuration
     AmsError apply_user_edit(int slot_index, const SlotInfo& info,

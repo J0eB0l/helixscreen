@@ -5805,6 +5805,15 @@ void AmsBackendAfc::on_lane_unload_done() {
     dispatch_lane_unload(next_lane);
 }
 
+void AmsBackendAfc::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending_dispatch_action_.reset();
+        ++dispatch_generation_;
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendAfc::cancel() {
     // Drop any queued LANE_UNLOAD requests — the user wants to abort, not chain
     // through a pile of pending ejects after RESET_FAILURE. We deliberately do
