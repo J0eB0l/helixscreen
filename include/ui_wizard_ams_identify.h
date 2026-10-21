@@ -27,11 +27,17 @@
  * - Global singleton getter for backwards compatibility
  */
 
+namespace helix::ui {
+struct WizardAmsIdentifyStepTestAccess; // test-only friend (tests/test_helpers/)
+} // namespace helix::ui
+
 /**
  * @class WizardAmsIdentifyStep
  * @brief AMS identification step for the first-run wizard
  */
 class WizardAmsIdentifyStep : public helix::wizard::Step {
+    friend struct helix::ui::WizardAmsIdentifyStepTestAccess;
+
   public:
     // helix::wizard::Step interface
     helix::wizard::StepId id() const override {

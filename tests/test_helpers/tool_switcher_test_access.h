@@ -31,6 +31,13 @@ class ToolSwitcherTestAccess {
     }
 
     /// The verdict the widget last published.
+    static std::string head_temp_text(const ToolSwitcherWidget& widget, int head) {
+        return widget.head_temp_text(head);
+    }
+    static bool head_hot(const ToolSwitcherWidget& widget, int head) {
+        return widget.head_hot(head);
+    }
+
     static ToolSwitcherLayout layout(const ToolSwitcherWidget& widget) {
         return widget.layout_;
     }

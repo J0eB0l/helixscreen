@@ -47,6 +47,9 @@ struct FilamentPanelTestAccess {
         p.handle_preset_button(slot);
     }
 
+    static void confirm_custom_nozzle(FilamentPanel& p, float celsius) {
+        p.handle_custom_nozzle_confirmed(celsius);
+    }
     static void handle_spool_preset_button(FilamentPanel& p) {
         p.handle_spool_preset_button();
     }
