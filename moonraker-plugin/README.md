@@ -176,12 +176,17 @@ import reports `available: false` with the reason, and every other feature keeps
 
 #### Helix-initiated jobs
 
-A plugin path that starts a job itself marks it first, with one of three kinds:
-`print_modified`, `print_edited` or `plr_resume`. When history adds the job for that file,
+A plugin path that starts a job itself marks it immediately before the single command that
+starts the print (`SDCARD_PRINT_FILE`, or the `M24` of a resume), with one of three kinds:
+`print_modified`, `print_edited` or `plr_resume`, and withdraws the marker if that command
+fails. When history adds the job for that file (`history:history_changed`, action `added`),
 the marker is bound to the job id and stored in the `helix_jobs` namespace
-(`{"<job id>": {"kind": ..., "bound_at": <unix time>}}`, kept 30 days). A marker no job
-claims within 60 s expires. Plugin modules ask `helix_initiated(job_id)`, so a feature that
-runs at job start can leave a job the plugin started itself alone.
+(`{"<job id>": {"kind": ..., "filename": ..., "bound_at": <unix time>}}`, kept 30 days). A
+marker no job claims within 60 s expires. Plugin modules ask
+`helix_initiated(job_id, filename)`, so a feature that runs at job start can leave a job the
+plugin started itself alone. History reuses job ids after a delete, so a binding answers only
+for the filename it was bound with, and an id history adds again with no marker loses its
+binding.
 
 ### Start Modified Print
 

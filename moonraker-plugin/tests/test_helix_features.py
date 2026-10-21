@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import helix_print
 from helix_print import (
-    DB_RECORD_MAX_AGE,
+    HELIX_BINDING_MAX_AGE_S,
     HELIX_JOB_KINDS,
     HELIX_JOBS_NAMESPACE,
     HELIX_MARKER_TTL_S,
@@ -262,7 +262,7 @@ class TestJobMarkers:
         markers.mark("benchy.gcode", kind)
 
         assert markers.bind("benchy.gcode", "00001A") == kind
-        assert markers.kind_of("00001A") == kind
+        assert markers.kind_of("00001A", "benchy.gcode") == kind
         assert markers.pending_count() == 0
 
     def test_the_three_kinds_are_the_spec_set(self):
@@ -278,7 +278,7 @@ class TestJobMarkers:
         markers.mark("benchy.gcode", "plr_resume")
 
         assert markers.bind("somebody_else.gcode", "00001B") is None
-        assert markers.kind_of("00001B") is None
+        assert markers.kind_of("00001B", "somebody_else.gcode") is None
         # The marker still waits for its own file
         assert markers.bind("benchy.gcode", "00001C") == "plr_resume"
 
@@ -290,7 +290,7 @@ class TestJobMarkers:
         clock.now += HELIX_MARKER_TTL_S + 0.1
 
         assert markers.bind("benchy.gcode", "00001A") is None
-        assert markers.kind_of("00001A") is None
+        assert markers.kind_of("00001A", "benchy.gcode") is None
 
     def test_a_marker_is_live_up_to_its_ttl(self):
         clock = FakeClock()
@@ -323,7 +323,7 @@ class TestJobMarkers:
         markers.mark("benchy.gcode", "plr_resume")
         markers.bind("benchy.gcode", 0x1A)
 
-        assert markers.kind_of("00001A") == "plr_resume"
+        assert markers.kind_of("00001A", "benchy.gcode") == "plr_resume"
 
 
 def _stage_modified(gcodes: Path) -> MockWebRequest:
@@ -355,7 +355,9 @@ class TestJobMarkerWiring:
             _added(result["print_filename"], "00002A")
         )
 
-        assert helix_print_component.helix_initiated("00002A") == "print_modified"
+        assert helix_print_component.helix_initiated(
+            "00002A", result["print_filename"]
+        ) == "print_modified"
         stored = helix_print_component.database.namespaces[HELIX_JOBS_NAMESPACE]
         assert stored["00002A"]["kind"] == "print_modified"
 
@@ -368,7 +370,7 @@ class TestJobMarkerWiring:
 
         await helix_print_component._on_history_changed(_added("other.gcode", "00002B"))
 
-        assert helix_print_component.helix_initiated("00002B") is None
+        assert helix_print_component.helix_initiated("00002B", "other.gcode") is None
         assert HELIX_JOBS_NAMESPACE not in helix_print_component.database.namespaces
 
     @pytest.mark.asyncio
@@ -388,12 +390,180 @@ class TestJobMarkerWiring:
         await first._on_history_changed(_added("benchy.gcode", "00003A"))
         await db.insert_item(
             HELIX_JOBS_NAMESPACE, ["000001"],
-            {"kind": "print_modified", "bound_at": time.time() - DB_RECORD_MAX_AGE - 10},
+            {"kind": "print_modified", "filename": "old.gcode",
+             "bound_at": time.time() - HELIX_BINDING_MAX_AGE_S - 10},
         )
+        await db.insert_item(HELIX_JOBS_NAMESPACE, ["000002"],
+                             {"kind": "plr_resume", "filename": "a.gcode"})
+        await db.insert_item(HELIX_JOBS_NAMESPACE, ["000003"],
+                             {"kind": "plr_resume", "bound_at": time.time()})
 
         second = load_component(config)
         await second.component_init()
 
-        assert second.helix_initiated("00003A") == "plr_resume"
-        assert second.helix_initiated("000001") is None
+        assert second.helix_initiated("00003A", "benchy.gcode") == "plr_resume"
+        assert second.helix_initiated("000001", "old.gcode") is None
+        assert set(db.ns[HELIX_JOBS_NAMESPACE]) == {"00003A"}
+
+
+class TestJobIdReuse:
+    """History reuses job ids, so a binding must not outlive its job."""
+
+    @pytest.fixture
+    def db(self):
+        return Moonraker093Database()
+
+    @pytest.fixture
+    def config(self, mock_server, temp_gcodes_dir, db):
+        mock_server.components["file_manager"] = MockFileManager(temp_gcodes_dir)
+        mock_server.components["database"] = db
+        mock_server.components["klippy_apis"] = MockKlippyApis()
+        mock_server.components["history"] = MockHistory()
+        return MockConfigHelper(mock_server, {"cleanup_delay": 3600, "enabled": True})
+
+    @pytest.mark.asyncio
+    async def test_a_reused_id_after_delete_all_is_not_helix_initiated(self, config, db):
+        component = load_component(config)
+        await component.component_init()
+        component.mark_helix_initiated("benchy.gcode", "plr_resume")
+        await component._on_history_changed(_added("benchy.gcode", "00002A"))
+        assert component.helix_initiated("00002A", "benchy.gcode") == "plr_resume"
+
+        # History cleared; the next print, from another client, gets the same id
+        await component._on_history_changed(_added("benchy.gcode", "00002A"))
+
+        assert component.helix_initiated("00002A", "benchy.gcode") is None
+        assert "00002A" not in db.ns.get(HELIX_JOBS_NAMESPACE, {})
+
+    @pytest.mark.asyncio
+    async def test_a_binding_answers_only_for_its_own_file(self, config):
+        component = load_component(config)
+        await component.component_init()
+        component.mark_helix_initiated("benchy.gcode", "print_modified")
+        await component._on_history_changed(_added("benchy.gcode", "00002A"))
+
+        assert component.helix_initiated("00002A", "cube.gcode") is None
+
+    @pytest.mark.asyncio
+    async def test_an_id_reused_while_the_plugin_was_down_names_another_file(
+        self, config, db
+    ):
+        await db.insert_item(
+            HELIX_JOBS_NAMESPACE, ["00002A"],
+            {"kind": "plr_resume", "filename": "benchy.gcode", "bound_at": time.time()},
+        )
+        component = load_component(config)
+        await component.component_init()
+
+        assert component.helix_initiated("00002A", "cube.gcode") is None
+        assert component.helix_initiated("00002A", "benchy.gcode") == "plr_resume"
+
+    @pytest.mark.asyncio
+    async def test_old_bindings_are_pruned_on_each_bind(self, config, db):
+        component = load_component(config)
+        await component.component_init()
+        component.job_markers.restore(
+            "000001", "plr_resume", "old.gcode", time.time() - HELIX_BINDING_MAX_AGE_S - 1
+        )
+        await db.insert_item(HELIX_JOBS_NAMESPACE, ["000001"], {"kind": "plr_resume"})
+
+        await component._on_history_changed(_added("other.gcode", "00002B"))
+
+        assert component.helix_initiated("000001", "old.gcode") is None
         assert "000001" not in db.ns[HELIX_JOBS_NAMESPACE]
+
+
+class TestUnmark:
+
+    def test_unmark_withdraws_the_newest_marker_for_the_file(self):
+        clock = FakeClock()
+        markers = HelixJobMarkers(clock)
+        markers.mark("benchy.gcode", "print_modified")
+        clock.now += 1
+        markers.mark("benchy.gcode", "plr_resume")
+
+        assert markers.unmark("benchy.gcode") is True
+        assert markers.bind("benchy.gcode", "00001A") == "print_modified"
+        assert markers.unmark("benchy.gcode") is False
+
+    @pytest.mark.asyncio
+    async def test_a_failed_print_modified_start_leaves_no_marker(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        await helix_print_component.component_init()
+        helix_print_component.klippy_apis.run_gcode.side_effect = RuntimeError("klippy down")
+
+        with pytest.raises(Exception):
+            await mock_server.endpoints["/server/helix/print_modified"](
+                _stage_modified(Path(temp_gcodes_dir))
+            )
+
+        assert helix_print_component.job_markers.pending_count() == 0
+
+
+class TestHistoryOrdering:
+
+    @pytest.mark.asyncio
+    async def test_the_job_id_is_recorded_before_the_marker_write(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        await helix_print_component.component_init()
+        result = await mock_server.endpoints["/server/helix/print_modified"](
+            _stage_modified(Path(temp_gcodes_dir))
+        )
+        info = helix_print_component.active_prints[result["print_filename"]]
+        seen = []
+        real_insert = helix_print_component.database.insert_item
+
+        async def insert_item(namespace, key, value):
+            if namespace == HELIX_JOBS_NAMESPACE:
+                seen.append(info.job_id)
+            await real_insert(namespace, key, value)
+
+        helix_print_component.database.insert_item = insert_item
+        await helix_print_component._on_history_changed(
+            _added(result["print_filename"], "00002A")
+        )
+
+        assert seen == ["00002A"]
+
+
+class TestLiveConverterAvailability:
+
+    @pytest.mark.asyncio
+    async def test_the_entry_follows_the_converter(self, helix_print_component,
+                                                   mock_server):
+        await helix_print_component.component_init()
+        status = await _status(helix_print_component, mock_server)
+        assert status["features"]["convert_3mf"]["available"] is status["convert_3mf"]
+
+        if helix_print_component.converter is None:
+            pytest.skip("converter did not start in this environment")
+        helix_print_component.converter.active = False
+        status = await _status(helix_print_component, mock_server)
+
+        assert status["convert_3mf"] is False
+        assert status["features"]["convert_3mf"]["available"] is False
+        assert status["features"]["convert_3mf"]["reason"] == "stopped"
+
+
+class TestFeatureProbe:
+
+    @pytest.mark.asyncio
+    async def test_a_probe_that_reads_unavailable_disables_the_feature(
+        self, helix_print_component
+    ):
+        live = {"ok": True}
+
+        async def switch():
+            return True
+
+        helix_print_component.register_feature(
+            "journal", 1, acts=False, switch=switch,
+            probe=lambda: (live["ok"], None if live["ok"] else "gone"),
+        )
+        assert await helix_print_component.feature_enabled("journal") is True
+
+        live["ok"] = False
+
+        assert await helix_print_component.feature_enabled("journal") is False
