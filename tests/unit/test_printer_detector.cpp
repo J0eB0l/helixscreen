@@ -1931,6 +1931,86 @@ TEST_CASE("PrinterDetector: every decline reason names itself in a bundle",
     }
 }
 
+TEST_CASE("PrinterDetector: relate_types names the variant between two entries for one machine",
+          "[detector][mismatch][type-mismatch]") {
+    using Relation = PrinterDetector::TypeRelation;
+    const std::vector<PrinterDetector::VariantEntry> entries = {
+        {"k2", "K2 Plus", "", ""},
+        {"k2_mod", "K2 Plus (mod)", "k2", "mod"},
+        {"k2_cfs", "K2 Plus (CFS)", "k2", "CFS"},
+        {"voron", "Voron 2.4", "", ""},
+        {"orphan", "Orphan (mod)", "no_such_id", "mod"},
+        {"unlabeled", "K2 Plus (unlabeled)", "k2", ""},
+    };
+
+    SECTION("detected is a variant of the saved base") {
+        const auto r = PrinterDetector::relate_types(entries, "K2 Plus", "K2 Plus (mod)");
+        CHECK(r.relation == Relation::DetectedVariant);
+        CHECK(r.base == "K2 Plus");
+        CHECK(r.detected_label == "mod");
+        CHECK(r.saved_label.empty());
+    }
+    SECTION("saved is a variant and the hardware looks like its base") {
+        const auto r = PrinterDetector::relate_types(entries, "K2 Plus (CFS)", "K2 Plus");
+        CHECK(r.relation == Relation::SavedVariant);
+        CHECK(r.base == "K2 Plus");
+        CHECK(r.saved_label == "CFS");
+        CHECK(r.detected_label.empty());
+    }
+    SECTION("both are variants of one base") {
+        const auto r = PrinterDetector::relate_types(entries, "K2 Plus (CFS)", "K2 Plus (mod)");
+        CHECK(r.relation == Relation::SiblingVariants);
+        CHECK(r.base == "K2 Plus");
+        CHECK(r.saved_label == "CFS");
+        CHECK(r.detected_label == "mod");
+    }
+    SECTION("unrelated models, either way round") {
+        for (const auto& [saved, detected] :
+             {std::pair{"Voron 2.4", "K2 Plus (mod)"}, std::pair{"K2 Plus", "Voron 2.4"},
+              std::pair{"K2 Plus (mod)", "Voron 2.4"}}) {
+            INFO(saved << " vs " << detected);
+            const auto r = PrinterDetector::relate_types(entries, saved, detected);
+            CHECK(r.relation == Relation::DifferentModel);
+            CHECK(r.base.empty());
+            CHECK(r.saved_label.empty());
+            CHECK(r.detected_label.empty());
+        }
+    }
+    SECTION("a variant_of naming no entry is a model of its own") {
+        CHECK(PrinterDetector::relate_types(entries, "K2 Plus", "Orphan (mod)").relation ==
+              Relation::DifferentModel);
+        CHECK(PrinterDetector::relate_types(entries, "Orphan (mod)", "K2 Plus (mod)").relation ==
+              Relation::DifferentModel);
+    }
+    SECTION("a variant without a label is a model of its own") {
+        CHECK(PrinterDetector::relate_types(entries, "K2 Plus", "K2 Plus (unlabeled)").relation ==
+              Relation::DifferentModel);
+    }
+    SECTION("a name outside the entries relates to nothing") {
+        CHECK(PrinterDetector::relate_types(entries, "My Custom Rig", "K2 Plus").relation ==
+              Relation::DifferentModel);
+    }
+}
+
+TEST_CASE("PrinterDetector: the bundled database relates its firmware and add-on variants",
+          "[detector][mismatch][type-mismatch]") {
+    using Relation = PrinterDetector::TypeRelation;
+    const auto mod =
+        PrinterDetector::relate_types("Creality K2 Plus", "Creality K2 Plus (k2-improvements)");
+    CHECK(mod.relation == Relation::DetectedVariant);
+    CHECK(mod.base == "Creality K2 Plus");
+    CHECK(mod.detected_label == "k2-improvements");
+
+    const auto stock = PrinterDetector::relate_types("FlashForge Adventurer 5M Pro (ForgeX)",
+                                                     "FlashForge Adventurer 5M Pro");
+    CHECK(stock.relation == Relation::SavedVariant);
+    CHECK(stock.base == "FlashForge Adventurer 5M Pro");
+    CHECK(stock.saved_label == "ForgeX");
+
+    CHECK(PrinterDetector::relate_types("Creality K1 (with CFS)", "Creality K1 Max").relation ==
+          Relation::DifferentModel);
+}
+
 TEST_CASE_METHOD(PrinterDetectorFixture,
                  "PrinterDetector: a Q2 that reports its model string is identified outright",
                  "[printer][real_world][qidi][q2]") {
@@ -4544,8 +4624,10 @@ TEST_CASE("PrinterDetector: wrong-typed entry fields read as absent", "[printer]
                         "calibration": "none", "thermal_rates": [1],
                         "print_start_default_phases": { "HOMING": "slow" },
                         "console_filters": "noise", "console_filter_patterns": [3],
-                        "aliases": 9, "belt_tensioner": 3
-                    }
+                        "aliases": 9, "belt_tensioner": 3,
+                        "variant_of": 4, "variant_label": ["x"]
+                    },
+                    { "id": "4", "name": "Base Printer" }
                 ]
             })";
         setenv("HELIX_DATA_DIR", temp_root.c_str(), 1);
@@ -4570,6 +4652,8 @@ TEST_CASE("PrinterDetector: wrong-typed entry fields read as absent", "[printer]
         REQUIRE(PrinterDetector::get_console_filter_patterns(name).empty());
         REQUIRE(PrinterDetector::canonical_type_name("Old Name") == "Old Name");
         REQUIRE(PrinterDetector::get_name_for_preset("5").empty());
+        REQUIRE(PrinterDetector::relate_types(name, "Base Printer").relation ==
+                PrinterDetector::TypeRelation::DifferentModel);
     }
 }
 

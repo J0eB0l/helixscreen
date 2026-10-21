@@ -291,6 +291,39 @@ TEST_CASE_METHOD(TypeMismatchFixture,
 }
 
 TEST_CASE_METHOD(TypeMismatchFixture,
+                 "Type mismatch: two entries for one machine are worded as the variant",
+                 "[type-mismatch][hardware_setup]") {
+    const std::string base = "Creality K2 Plus";
+    const std::string variant = "Creality K2 Plus (k2-improvements)";
+    const bool saved_is_variant = GENERATE(false, true);
+    const std::string saved = saved_is_variant ? variant : base;
+    const std::string detected = saved_is_variant ? base : variant;
+    set_config(helix::wizard::PRINTER_TYPE, saved);
+    HardwareSetupPrompterTestAccess::warn_type_mismatch(*prompter_, detected, 92, saved);
+    drain();
+
+    REQUIRE(toast_.has_value());
+    INFO(toast_->message);
+    CHECK(toast_->message.find("k2-improvements") != std::string::npos);
+    CHECK(toast_->message.find(base) != std::string::npos);
+    // The base is named once, not as both the detected and the saved printer.
+    CHECK(toast_->message.find(variant) == std::string::npos);
+    CHECK(toast_->message.find(base) == toast_->message.rfind(base));
+
+    REQUIRE(helix::ui::fire_last_toast_action());
+    drain();
+    lv_obj_t* dialog = Modal::get_top();
+    REQUIRE(dialog != nullptr);
+    lv_obj_t* body = lv_obj_find_by_name(dialog, "dialog_message");
+    REQUIRE(body != nullptr);
+    const std::string text = lv_label_get_text(body);
+    INFO(text);
+    CHECK(text.find("k2-improvements") != std::string::npos);
+    CHECK(text.find("92%") != std::string::npos);
+    CHECK(text.find(variant) == std::string::npos);
+}
+
+TEST_CASE_METHOD(TypeMismatchFixture,
                  "Type mismatch: Review on the toast opens the review; Keep current settles it",
                  "[type-mismatch][hardware_setup]") {
     warn();

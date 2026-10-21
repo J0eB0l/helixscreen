@@ -3995,6 +3995,12 @@ translations:
   This will save the Z-offset and restart Klipper to write the configuration. The printer will briefly disconnect.: Questo salverà lo Z-offset e riavvierà Klipper per scrivere la configurazione. La stampante si disconnetterà brevemente.
   ? This writes the tool offsets to the printer's config and restarts Klipper, which takes a few seconds. Until then they apply only to this session.
   : Questo scrive gli offset degli strumenti nella configurazione della stampante e riavvia Klipper, operazione che richiede alcuni secondi. Fino ad allora valgono solo per questa sessione.
+  ? This {0} is set up for {1}, but it looks stock ({2}% confidence). A wrong profile applies incorrect pre-print options and presets.
+  : 'Questa {0} è configurata per {1}, ma sembra di serie (affidabilità {2}%). Un profilo errato applica opzioni pre-stampa e preset errati.'
+  ? This {0} looks like it has {1} ({2}% confidence), but it is set up as stock. A wrong profile applies incorrect pre-print options and presets.
+  : 'Questa {0} sembra avere {1} (affidabilità {2}%), ma è configurata di serie. Un profilo errato applica opzioni pre-stampa e preset errati.'
+  ? This {0} looks like it has {1} ({2}% confidence), but it is set up for {3}. A wrong profile applies incorrect pre-print options and presets.
+  : 'Questa {0} sembra avere {1} (affidabilità {2}%), ma è configurata per {3}. Un profilo errato applica opzioni pre-stampa e preset errati.'
   Thorough: Approfondito
   Thumbnail Only: Solo miniatura
   'Thumbnail: ': 'Miniatura: '
@@ -4367,6 +4373,9 @@ translations:
   Your printer has an automatic filament changer: La stampante ha un cambio filamento
     automatico
   Your printer was offline during setup, so hardware options were skipped. Set them up now?: La stampante era offline durante la configurazione, quindi le opzioni hardware sono state saltate. Configurarle ora?
+  Your {0} is set up for {1}, but it looks stock.: 'La tua {0} è configurata per {1}, ma sembra di serie.'
+  Your {0} looks like it has {1}, but it is set up for {2}.: 'La tua {0} sembra avere {1}, ma è configurata per {2}.'
+  Your {0} looks like it has {1}. Use the {1} profile?: 'La tua {0} sembra avere {1}. Usare il profilo {1}?'
   ? Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide.
   : La riga {} passa impostazioni per strumento che la mappatura filamento non modifica ({}). Uno strumento su cui mappi il filamento potrebbe non essere riscaldato. Vedi "Filament Mapping" nella guida utente.
   Z: Z

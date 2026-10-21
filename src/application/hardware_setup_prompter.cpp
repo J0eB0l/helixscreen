@@ -53,6 +53,65 @@ void* toast_generation(uint32_t generation) {
     return reinterpret_cast<void*>(static_cast<uintptr_t>(generation));
 }
 
+// The format strings are translated handles, not compile-time literals, hence
+// fmt::runtime. Two entries for one machine are worded as the firmware mod or
+// add-on that separates them: naming the same printer twice reads as nonsense.
+
+std::string type_mismatch_toast_text(const std::string& saved, const std::string& detected) {
+    using Relation = PrinterDetector::TypeRelation;
+    const auto rel = PrinterDetector::relate_types(saved, detected);
+    switch (rel.relation) {
+    case Relation::DetectedVariant:
+        return fmt::format(fmt::runtime(lv_tr("Your {0} looks like it has {1}. Use the {1} "
+                                              "profile?")),
+                           rel.base, rel.detected_label);
+    case Relation::SavedVariant:
+        return fmt::format(fmt::runtime(lv_tr("Your {0} is set up for {1}, but it looks stock.")),
+                           rel.base, rel.saved_label);
+    case Relation::SiblingVariants:
+        return fmt::format(
+            fmt::runtime(lv_tr("Your {0} looks like it has {1}, but it is set up for {2}.")),
+            rel.base, rel.detected_label, rel.saved_label);
+    case Relation::DifferentModel:
+        break;
+    }
+    return fmt::format(fmt::runtime(lv_tr("This looks like a {}, but it is set up as a {}")),
+                       detected, saved);
+}
+
+std::string type_mismatch_review_text(const std::string& saved, const std::string& detected,
+                                      int confidence) {
+    using Relation = PrinterDetector::TypeRelation;
+    const auto rel = PrinterDetector::relate_types(saved, detected);
+    switch (rel.relation) {
+    case Relation::DetectedVariant:
+        return fmt::format(
+            fmt::runtime(lv_tr("This {0} looks like it has {1} ({2}% confidence), but it is set "
+                               "up as stock. A wrong profile applies incorrect pre-print options "
+                               "and presets.")),
+            rel.base, rel.detected_label, confidence);
+    case Relation::SavedVariant:
+        return fmt::format(
+            fmt::runtime(lv_tr("This {0} is set up for {1}, but it looks stock ({2}% "
+                               "confidence). A wrong profile applies incorrect pre-print options "
+                               "and presets.")),
+            rel.base, rel.saved_label, confidence);
+    case Relation::SiblingVariants:
+        return fmt::format(
+            fmt::runtime(lv_tr("This {0} looks like it has {1} ({2}% confidence), but it is set "
+                               "up for {3}. A wrong profile applies incorrect pre-print options "
+                               "and presets.")),
+            rel.base, rel.detected_label, confidence, rel.saved_label);
+    case Relation::DifferentModel:
+        break;
+    }
+    return fmt::format(
+        fmt::runtime(lv_tr("This printer looks like a {} ({}% confidence), but it is "
+                           "set up as a {}. A wrong type applies incorrect pre-print "
+                           "options and presets.")),
+        detected, confidence, saved);
+}
+
 } // namespace
 
 namespace helix {
@@ -400,9 +459,7 @@ void HardwareSetupPrompter::maybe_warn_type_mismatch(const helix::PrinterDiscove
 }
 
 void HardwareSetupPrompter::warn_type_mismatch(TypeMismatchReview review) {
-    const std::string message =
-        fmt::format(fmt::runtime(lv_tr("This looks like a {}, but it is set up as a {}")),
-                    review.detected, review.saved);
+    const std::string message = type_mismatch_toast_text(review.saved, review.detected);
     pending_review_ = std::move(review);
     const uint32_t generation = ++review_generation_;
 
@@ -458,14 +515,9 @@ void HardwareSetupPrompter::show_type_mismatch_review(uint32_t generation) {
     }
     const TypeMismatchReview& review = *pending_review_;
 
-    // modal_confirm takes a plain const char* - compose the parameterized body
-    // first (fmt::runtime: the format string is the translated handle, not a
-    // compile-time literal).
+    // modal_confirm takes a plain const char*, so the body is composed first.
     const std::string body =
-        fmt::format(fmt::runtime(lv_tr("This printer looks like a {} ({}% confidence), but it is "
-                                       "set up as a {}. A wrong type applies incorrect pre-print "
-                                       "options and presets.")),
-                    review.detected, review.confidence, review.saved);
+        type_mismatch_review_text(review.saved, review.detected, review.confidence);
 
     helix::ui::ConfirmOptions opts;
     opts.on_cancel = [this] {

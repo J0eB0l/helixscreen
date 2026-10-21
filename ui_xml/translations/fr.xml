@@ -3593,6 +3593,9 @@
   <translation tag="This will restore the default jog step distances for all three modes." fr="Cela restaurera les distances de pas par défaut pour les trois modes."/>
   <translation tag="This will save the Z-offset and restart Klipper to write the configuration. The printer will briefly disconnect." fr="Cela enregistrera le Z-offset et redémarrera Klipper pour enregistrer la configuration. L&apos;imprimante se déconnectera brièvement."/>
   <translation tag="This writes the tool offsets to the printer&apos;s config and restarts Klipper, which takes a few seconds. Until then they apply only to this session." fr="Ceci écrit les offsets d&apos;outil dans la configuration de l&apos;imprimante et redémarre Klipper, ce qui prend quelques secondes. D&apos;ici là, ils ne s&apos;appliquent qu&apos;à cette session."/>
+  <translation tag="This {0} is set up for {1}, but it looks stock ({2}% confidence). A wrong profile applies incorrect pre-print options and presets." fr="Cette {0} est configurée pour {1}, mais elle semble d&apos;origine ({2} % de confiance). Un profil erroné applique des options et des préréglages de pré-impression incorrects."/>
+  <translation tag="This {0} looks like it has {1} ({2}% confidence), but it is set up as stock. A wrong profile applies incorrect pre-print options and presets." fr="Cette {0} semble avoir {1} ({2} % de confiance), mais elle est configurée d&apos;origine. Un profil erroné applique des options et des préréglages de pré-impression incorrects."/>
+  <translation tag="This {0} looks like it has {1} ({2}% confidence), but it is set up for {3}. A wrong profile applies incorrect pre-print options and presets." fr="Cette {0} semble avoir {1} ({2} % de confiance), mais elle est configurée pour {3}. Un profil erroné applique des options et des préréglages de pré-impression incorrects."/>
   <translation tag="Thorough" fr="Approfondi"/>
   <translation tag="Thumbnail Only" fr="Miniature uniquement"/>
   <translation tag="Thumbnail: " fr="Miniature : "/>
@@ -3947,6 +3950,9 @@
   <translation tag="Your printer at a glance" fr="Votre imprimante en un coup d&apos;œil"/>
   <translation tag="Your printer has an automatic filament changer" fr="Votre imprimante dispose d&apos;un changeur de filament automatique"/>
   <translation tag="Your printer was offline during setup, so hardware options were skipped. Set them up now?" fr="Votre imprimante était hors ligne lors de la configuration, les options matérielles ont donc été ignorées. Les configurer maintenant ?"/>
+  <translation tag="Your {0} is set up for {1}, but it looks stock." fr="Votre {0} est configurée pour {1}, mais elle semble d&apos;origine."/>
+  <translation tag="Your {0} looks like it has {1}, but it is set up for {2}." fr="Votre {0} semble avoir {1}, mais elle est configurée pour {2}."/>
+  <translation tag="Your {0} looks like it has {1}. Use the {1} profile?" fr="Votre {0} semble avoir {1}. Utiliser le profil {1} ?"/>
   <translation tag="Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide." fr="Votre ligne {} transmet des réglages par outil que le mappage du filament ne modifie pas ({}). Un outil auquel vous associez du filament risque de ne pas être chauffé. Voir « Filament Mapping » dans le guide de l&apos;utilisateur."/>
   <translation tag="Z" fr="Z"/>
   <translation tag="Z Calibration" fr="Calibration Z"/>

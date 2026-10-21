@@ -3653,6 +3653,9 @@
   <translation tag="This will restore the default jog step distances for all three modes." ru="Это восстановит шаги перемещения по умолчанию для всех трёх режимов."/>
   <translation tag="This will save the Z-offset and restart Klipper to write the configuration. The printer will briefly disconnect." ru="Z-offset будет сохранён, и Klipper перезапустится для записи конфигурации. Принтер ненадолго отключится."/>
   <translation tag="This writes the tool offsets to the printer&apos;s config and restarts Klipper, which takes a few seconds. Until then they apply only to this session." ru="Смещения инструментов будут записаны в конфигурацию принтера, и Klipper перезапустится, это займёт несколько секунд. До этого они действуют только в текущем сеансе."/>
+  <translation tag="This {0} is set up for {1}, but it looks stock ({2}% confidence). A wrong profile applies incorrect pre-print options and presets." ru="Этот {0} настроен для {1}, но выглядит стоковым (уверенность {2}%). Неверный профиль применяет неправильные параметры перед печатью и пресеты."/>
+  <translation tag="This {0} looks like it has {1} ({2}% confidence), but it is set up as stock. A wrong profile applies incorrect pre-print options and presets." ru="Похоже, на этом {0} есть {1} (уверенность {2}%), но он настроен как стоковый. Неверный профиль применяет неправильные параметры перед печатью и пресеты."/>
+  <translation tag="This {0} looks like it has {1} ({2}% confidence), but it is set up for {3}. A wrong profile applies incorrect pre-print options and presets." ru="Похоже, на этом {0} есть {1} (уверенность {2}%), но он настроен для {3}. Неверный профиль применяет неправильные параметры перед печатью и пресеты."/>
   <translation tag="Thorough" ru="Тщательно"/>
   <translation tag="Thumbnail Only" ru="Только миниатюра"/>
   <translation tag="Thumbnail: " ru="Миниатюра: "/>
@@ -4007,6 +4010,9 @@
   <translation tag="Your printer at a glance" ru="Ваш принтер одним взглядом"/>
   <translation tag="Your printer has an automatic filament changer" ru="Ваш принтер оснащён автоматическим сменщиком филамента"/>
   <translation tag="Your printer was offline during setup, so hardware options were skipped. Set them up now?" ru="Принтер был не в сети во время настройки, поэтому параметры оборудования пропущены. Настроить их сейчас?"/>
+  <translation tag="Your {0} is set up for {1}, but it looks stock." ru="Ваш {0} настроен для {1}, но выглядит стоковым."/>
+  <translation tag="Your {0} looks like it has {1}, but it is set up for {2}." ru="Похоже, на вашем {0} есть {1}, но он настроен для {2}."/>
+  <translation tag="Your {0} looks like it has {1}. Use the {1} profile?" ru="Похоже, на вашем {0} есть {1}. Использовать профиль {1}?"/>
   <translation tag="Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide." ru="Строка {} передаёт настройки для отдельных инструментов, которые сопоставление филамента не меняет ({}). Инструмент, с которым вы сопоставите филамент, может не нагреться. См. раздел «Filament Mapping» в руководстве пользователя."/>
   <translation tag="Z" ru="Z"/>
   <translation tag="Z Calibration" ru="Калибровка Z"/>
