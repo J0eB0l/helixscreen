@@ -35,9 +35,9 @@ TEST_CASE_METHOD(LVGLTestFixture, "helix.sound.play hands the cue and priority t
                  "[plugin][lua_bindings_sound]") {
     BoundRuntime b({&install_sound_bindings});
     REQUIRE(b.t.run(R"(ok1 = helix.sound.play("button_tap"))"));
-    advance_lvgl(2000);
+    process_lvgl(2000);
     REQUIRE(b.t.run(R"(ok2 = helix.sound.play("print_complete", "event"))"));
-    advance_lvgl(2000);
+    process_lvgl(2000);
     REQUIRE(b.t.run(R"(ok3 = helix.sound.play("error_alert", "ui"))"));
     CHECK(b.t.global("ok1") == "true");
     CHECK(b.t.global("ok2") == "true");
@@ -91,10 +91,10 @@ TEST_CASE_METHOD(LVGLTestFixture, "helix.sound.play drops cues that come too fas
     CHECK(b.t.global("b") == "false");
     CHECK(sounds(b).size() == 1);
 
-    advance_lvgl(kPluginUiCueIntervalMs - 10);
+    process_lvgl(kPluginUiCueIntervalMs - 10);
     REQUIRE(b.t.run(R"(c = helix.sound.play("toggle_on"))"));
     CHECK(b.t.global("c") == "false");
-    advance_lvgl(20);
+    process_lvgl(20);
     REQUIRE(b.t.run(R"(d = helix.sound.play("toggle_on"))"));
     CHECK(b.t.global("d") == "true");
     CHECK(sounds(b).size() == 2);
@@ -103,13 +103,13 @@ TEST_CASE_METHOD(LVGLTestFixture, "helix.sound.play drops cues that come too fas
     // their own; a UI cue in between neither waits for it nor resets it.
     REQUIRE(b.t.run(R"(e = helix.sound.play("print_complete", "event"))"));
     CHECK(b.t.global("e") == "true");
-    advance_lvgl(kPluginUiCueIntervalMs + 10);
+    process_lvgl(kPluginUiCueIntervalMs + 10);
     REQUIRE(b.t.run(R"(f = helix.sound.play("button_tap"))"));
     CHECK(b.t.global("f") == "true");
-    advance_lvgl(kPluginEventCueIntervalMs - kPluginUiCueIntervalMs - 40);
+    process_lvgl(kPluginEventCueIntervalMs - kPluginUiCueIntervalMs - 40);
     REQUIRE(b.t.run(R"(g = helix.sound.play("error_alert", "event"))"));
     CHECK(b.t.global("g") == "false");
-    advance_lvgl(40);
+    process_lvgl(40);
     REQUIRE(b.t.run(R"(h = helix.sound.play("error_alert", "event"))"));
     CHECK(b.t.global("h") == "true");
     CHECK(sounds(b).size() == 5);

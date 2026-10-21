@@ -48,7 +48,7 @@ struct EditorFixture : LVGLUITestFixture {
     /// Runs queued work and the next-tick callbacks it schedules (overlay close hooks).
     void drain() {
         helix::ui::UpdateQueue::instance().drain();
-        advance_lvgl(20);
+        process_lvgl(20);
         helix::ui::UpdateQueue::instance().drain();
     }
 
