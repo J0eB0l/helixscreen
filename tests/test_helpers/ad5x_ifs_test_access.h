@@ -305,6 +305,12 @@ class Ad5xIfsTestAccess {
         std::lock_guard<std::mutex> lock(b.mutex_);
         b.ffm_channel_ = chan;
     }
+    // FFMInfo.channel as the file last said it (nullopt = never read).
+    static void set_ffm_file_channel(AmsBackendAd5xIfs& b, std::optional<int> chan) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        b.ffm_file_read_ = chan.has_value();
+        b.ffm_file_channel_ = chan;
+    }
     static int ffm_channel(const AmsBackendAd5xIfs& b) {
         std::lock_guard<std::mutex> lock(b.mutex_);
         return b.ffm_channel_;

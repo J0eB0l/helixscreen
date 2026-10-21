@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "ui_ams_sidebar.h"
+#include "ui_bed_drying_modal.h"
+#include "ui_filament_runout_handler.h"
 #include "ui_unload_lane_choice.h"
 #include "ui_update_queue.h"
 
 #include "../test_fixtures.h"
 #include "ams_backend_ad5x_ifs.h"
 #include "ams_state.h"
+#include "bed_drying_controller.h"
 #include "helix-xml/src/xml/lv_xml.h"
 #include "test_helpers/ad5x_ifs_test_access.h"
 #include "test_helpers/ams_sidebar_xml.h"
+#include "test_helpers/filament_runout_handler_test_access.h"
+#include "test_helpers/filament_sensor_widget_test_access.h"
+#include "test_helpers/modal_answer.h"
 
 #include <functional>
 #include <memory>
@@ -145,7 +151,7 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture,
                  "Sidebar unloads the lane the user named as the one in the toolhead",
                  "[ams][1324]") {
     REQUIRE(backend_->get_current_slot() < 0);
-    REQUIRE(backend_->unload_lane_candidates() == std::vector<int>{0, 1, 2, 3});
+    REQUIRE(backend_->unload_lane_question().lanes == std::vector<int>{0, 1, 2, 3});
 
     SECTION("a named lane counts as loaded and is unloaded by number") {
         sidebar_->handle_unload(2, /*lane_in_toolhead=*/true);
@@ -154,5 +160,180 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture,
     SECTION("the same lane from the context menu is still nothing loaded") {
         sidebar_->handle_unload(2);
         CHECK(backend_->sent.empty());
+    }
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "Sidebar sends the extruder-only clear when chosen",
+                 "[ams][1324]") {
+    sidebar_->handle_unload(helix::kClearToolheadSlot, /*lane_in_toolhead=*/true);
+    CHECK(backend_->sent ==
+          std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
+}
+
+namespace {
+
+lv_obj_t* find_on_screen(const char* name) {
+    return lv_obj_find_by_name(lv_screen_active(), name);
+}
+
+void tap(lv_obj_t* obj) {
+    REQUIRE(obj != nullptr);
+    lv_obj_send_event(obj, LV_EVENT_CLICKED, nullptr);
+}
+
+} // namespace
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "The lane picker offers the lanes, an extruder-only clear and Cancel",
+                 "[ams][1324]") {
+    std::vector<int> chosen;
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
+                                          [&chosen](int slot) { chosen.push_back(slot); }));
+    CHECK(ModalStack::instance().stack_empty());
+
+    SECTION("Clear extruder only asks for the toolhead clear") {
+        tap(find_on_screen("extra_choice"));
+        CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+    }
+    SECTION("Cancel answers nothing and closes the picker") {
+        tap(find_on_screen("cancel_choice"));
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(10);
+        CHECK(chosen.empty());
+        CHECK(find_on_screen("extra_choice") == nullptr);
+        CHECK(backend_->sent.empty());
+    }
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "One lane holding filament still gets the three-way picker", "[ams][1324]") {
+    helix::Ad5xIfsTestAccess::handle_status(
+        *backend_, nlohmann::json{{"ifs", {{"loaded_channels", {3}}, {"active_channel", 0}}}});
+    AmsState::instance().sync_from_backend();
+    REQUIRE(backend_->unload_lane_question().lanes == std::vector<int>{2});
+
+    std::vector<int> chosen;
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
+                                          [&chosen](int slot) { chosen.push_back(slot); }));
+    // A picker, not a dialog whose cancel position would heat and cut.
+    CHECK(ModalStack::instance().stack_empty());
+    REQUIRE(find_on_screen("extra_choice") != nullptr);
+    tap(find_on_screen("cancel_choice"));
+    CHECK(chosen.empty());
+    CHECK(backend_->sent.empty());
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "No lane holding filament asks to confirm the extruder clear", "[ams][1324]") {
+    helix::Ad5xIfsTestAccess::handle_status(
+        *backend_,
+        nlohmann::json{
+            {"ifs", {{"loaded_channels", nlohmann::json::array()}, {"active_channel", 0}}}});
+    AmsState::instance().sync_from_backend();
+    REQUIRE(backend_->unload_lane_question().confirm_clear_toolhead);
+
+    std::vector<int> chosen;
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
+                                          [&chosen](int slot) { chosen.push_back(slot); }));
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+
+    SECTION("Clear asks for the toolhead clear") {
+        helix::test::answer_top_modal("btn_primary");
+        CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+    }
+    SECTION("Cancel answers nothing") {
+        helix::test::answer_top_modal("btn_secondary");
+        CHECK(chosen.empty());
+    }
+    SECTION("dismissing answers nothing") {
+        helix::test::dismiss_top_modal();
+        CHECK(chosen.empty());
+    }
+    CHECK(backend_->sent.empty());
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "The runout dialog's Unload asks the same question",
+                 "[ams][runout][1324]") {
+    helix::ui::FilamentRunoutHandler handler(nullptr);
+
+    SECTION("lanes holding filament open the picker; Cancel sends nothing") {
+        helix::ui::FilamentRunoutHandlerTestAccess::dispatch_unload(handler);
+        REQUIRE(find_on_screen("extra_choice") != nullptr);
+        tap(find_on_screen("cancel_choice"));
+        CHECK(backend_->sent.empty());
+    }
+    SECTION("no lane holding filament asks to confirm the clear, which then runs") {
+        helix::Ad5xIfsTestAccess::handle_status(
+            *backend_,
+            nlohmann::json{
+                {"ifs", {{"loaded_channels", nlohmann::json::array()}, {"active_channel", 0}}}});
+        AmsState::instance().sync_from_backend();
+        helix::ui::FilamentRunoutHandlerTestAccess::dispatch_unload(handler);
+        REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+        CHECK(backend_->sent.empty());
+        helix::test::answer_top_modal("btn_primary");
+        CHECK(backend_->sent ==
+              std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
+    }
+}
+
+namespace {
+
+void empty_every_lane(UnaccountedModuleBackend& backend) {
+    helix::Ad5xIfsTestAccess::handle_status(
+        backend,
+        nlohmann::json{
+            {"ifs", {{"loaded_channels", nlohmann::json::array()}, {"active_channel", 0}}}});
+    AmsState::instance().sync_from_backend();
+}
+
+} // namespace
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "The filament sensor tile's Unload asks the same question", "[ams][tile][1324]") {
+    helix::FilamentSensorWidget tile;
+
+    SECTION("lanes holding filament open the picker; Cancel sends nothing") {
+        helix::FilamentSensorWidgetTestAccess::dispatch_unload(tile);
+        REQUIRE(find_on_screen("extra_choice") != nullptr);
+        tap(find_on_screen("cancel_choice"));
+        CHECK(backend_->sent.empty());
+    }
+    SECTION("a picked lane is unloaded by number") {
+        helix::FilamentSensorWidgetTestAccess::dispatch_unload(tile);
+        lv_obj_t* extra = find_on_screen("extra_choice");
+        REQUIRE(extra != nullptr);
+        // The lane rows come first; the first is slot 1.
+        lv_obj_t* first_row = lv_obj_get_child(lv_obj_get_parent(extra), 1);
+        tap(first_row);
+        CHECK(backend_->sent == std::vector<std::string>{"IFS_UNLOAD SLOT=1"});
+    }
+    SECTION("no lane holding filament asks to confirm the clear, which then runs") {
+        empty_every_lane(*backend_);
+        helix::FilamentSensorWidgetTestAccess::dispatch_unload(tile);
+        REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+        CHECK(backend_->sent.empty());
+        helix::test::answer_top_modal("btn_primary");
+        CHECK(backend_->sent ==
+              std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
+    }
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "Bed drying's unload asks the same question",
+                 "[ams][bed_drying][1324]") {
+    helix::BedDryingController ctrl(state(), &api(), nullptr);
+    bool moved_on = false;
+    helix::ui::unload_before_drying(ctrl, [&] { moved_on = true; });
+    REQUIRE(find_on_screen("extra_choice") != nullptr);
+
+    SECTION("Cancel sends nothing and the drying does not move on") {
+        tap(find_on_screen("cancel_choice"));
+        CHECK(backend_->sent.empty());
+        CHECK_FALSE(moved_on);
+    }
+    SECTION("Clear extruder only sends the clear") {
+        tap(find_on_screen("extra_choice"));
+        CHECK(backend_->sent ==
+              std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
     }
 }

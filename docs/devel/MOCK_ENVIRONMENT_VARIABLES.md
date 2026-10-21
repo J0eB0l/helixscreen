@@ -677,6 +677,28 @@ in `ifs_loaded`: the state a firmware that lost its loaded-lane record leaves be
 head switch is tracked apart from `ifs_loaded` (`IFS_LOAD`/`T<n>` set it, `IFS_UNLOAD` and
 ejecting the loaded lane clear it), so Unload has to ask which lane is in the head.
 
+Two more variables stage the rest of the unknown-lane states (#1324):
+
+- `HELIX_MOCK_IFS_LANES=<lanes>`: which lanes hold filament, as 1-based digits (`3`,
+  `1,3`, `none`). Default: all four.
+- `HELIX_MOCK_IFS_AT_HUB=<1-4>`: the lane the module's `ifs_at_hub` record names. Default:
+  none. `IFS_LOAD`/`T<n>` set it, `IFS_UNLOAD` and ejecting that lane clear it.
+
+`_IFS_CLEAR_EXTRUDER` empties the toolhead switch and changes no record. A script carrying
+several commands, one per line, runs each.
+
+```bash
+# Unload offers lane 3, the only one holding filament, plus Clear extruder only and Cancel
+HELIX_MOCK_AMS=ifs-module HELIX_MOCK_IFS_UNACCOUNTED=1 HELIX_MOCK_IFS_LANES=3 \
+  ./build/bin/helix-screen --test -vv
+# Unload lists lanes 1, 2 and 4, plus Clear extruder only and Cancel
+HELIX_MOCK_AMS=ifs-module HELIX_MOCK_IFS_UNACCOUNTED=1 HELIX_MOCK_IFS_LANES=1,2,4 \
+  ./build/bin/helix-screen --test -vv
+# Unload sends IFS_UNLOAD SLOT=2 without asking
+HELIX_MOCK_AMS=ifs-module HELIX_MOCK_IFS_UNACCOUNTED=1 HELIX_MOCK_IFS_AT_HUB=2 \
+  ./build/bin/helix-screen --test -vv
+```
+
 #### `cfs` - mock hardware, real backend
 
 Same rule as the modes above: no `AmsBackendMock` is built. The mock publishes the
