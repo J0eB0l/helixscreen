@@ -3153,26 +3153,12 @@ void UpdateChecker::sync_moonraker_channel_for(const std::string& install_root) 
     // Taken here on the main thread; the transfer callbacks run on background threads.
     auto tok = async_lifetime_.token();
 
-    // Each include is requested from the previous download's completion, on a
-    // background thread, and a printer switch frees the API without draining
-    // those. The request hops to the main thread, where the generation proves
-    // the API still current; a stale walk fails without touching it.
+    // A superseded sync (a newer one, or detach() at printer teardown) stops
+    // reading includes as well as writing.
     helix::system::ConfigDownloadFn download =
-        [this, tok, api, gen](const std::string& path, std::function<void(std::string)> ok,
-                              std::function<void(std::string, bool)> fail) {
-            tok.defer("UpdateChecker::sync_moonraker_channel_download",
-                      [this, api, gen, path, ok, fail]() {
-                          if (gen != moonraker_sync_generation_.load()) {
-                              fail("the printer changed during the sync", false);
-                              return;
-                          }
-                          api->transfers().download_file(
-                              "config", path, [ok](const std::string& content) { ok(content); },
-                              [fail](const MoonrakerError& err) {
-                                  fail(err.message, err.type == MoonrakerErrorType::QUEUE_FULL);
-                              });
-                      });
-        };
+        helix::system::api_config_download(*api, [this, tok, gen]() {
+            return !tok.expired() && gen == moonraker_sync_generation_.load();
+        });
 
     // The stanza may sit in a file moonraker.conf pulls in with [include], as
     // mainsail.conf does on some firmware; it is rewritten where Moonraker reads it.
@@ -3222,6 +3208,11 @@ void UpdateChecker::sync_moonraker_channel_for(const std::string& install_root) 
             });
         },
         [](const std::string& err) {
+            // A newer sync, or detach(), superseding this one is routine.
+            if (err.find(helix::system::kConfigDownloadNotWanted) != std::string::npos) {
+                spdlog::debug("[UpdateChecker] Superseded channel sync stopped: {}", err);
+                return;
+            }
             spdlog::info("[UpdateChecker] Could not read moonraker.conf to sync the update "
                          "channel: {}",
                          err);
