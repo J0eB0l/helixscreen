@@ -633,15 +633,25 @@ void AmsState::install_klippy_state_observer() {
     // rebuilds. That holds because Moonraker drops every subscription when
     // Klippy's socket closes, and the READY update is queued on UpdateQueue
     // ahead of rediscovery's subscribe, which UpdateQueue runs in order.
+    //
+    // Installed once per session (app start, printer switch), so the first
+    // READY it sees is that session's connect: the firmware may be mid-operation
+    // with backends already built, and nothing it is doing has ended.
     klippy_state_observer_.reset();
     last_klippy_state_ = -1;
+    klippy_ready_seen_ = false;
     klippy_state_observer_ = helix::ui::observe<int>(
         get_printer_state().network_state().get_klippy_state_subject(), this,
         [](AmsState* self, int state) {
             const int prev = self->last_klippy_state_;
             self->last_klippy_state_ = state;
             constexpr int kReady = static_cast<int>(KlippyState::READY);
-            if (state != kReady || prev == -1 || prev == kReady) {
+            if (state != kReady) {
+                return;
+            }
+            const bool restarted = self->klippy_ready_seen_ && prev != -1 && prev != kReady;
+            self->klippy_ready_seen_ = true;
+            if (!restarted) {
                 return;
             }
             for (int i = 0; i < self->backend_count(); ++i) {
