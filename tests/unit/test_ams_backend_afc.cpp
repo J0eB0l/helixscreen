@@ -5,6 +5,7 @@
 #include "ui_update_queue.h"
 
 #include "../lvgl_test_fixture.h"
+#include "filament_op_dispatch.h"
 #include "ams_backend_afc.h"
 #include "ams_state.h"
 #include "ams_types.h"
@@ -5201,6 +5202,33 @@ TEST_CASE("AFC change_tool sends T{n} in single-extruder mode", "[ams][afc][tool
 
     REQUIRE(result);
     REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T1"});
+}
+
+TEST_CASE("AFC toolchanger: Load on a seated machine plans load_filament, not change_tool",
+          "[ams][afc][toolchanger][dispatch][1824]") {
+    // change_tool() on a toolchanger only mounts a head. A swap Load must reach
+    // load_filament() (`CHANGE_TOOL LANE=`), which unloads the seated lane itself.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.set_running(true);
+    helper.setup_toolchanger(2);
+    helper.set_filament_loaded(true);
+    helper.set_current_slot(0);
+
+    REQUIRE(helper.load_swaps_seated_lane());
+
+    AmsSystemInfo info = helper.get_system_info();
+    helix::ui::BackendCaps caps;
+    caps.present = true;
+    caps.requires_slot_selection_for_load = helper.requires_slot_selection_for_load();
+    caps.needs_unload_before_load = helper.needs_unload_before_load(info, 1);
+    caps.load_swaps_seated_lane = helper.load_swaps_seated_lane();
+    REQUIRE(caps.needs_unload_before_load); // the swap arm would otherwise fire
+
+    auto plan = helix::ui::plan_load(info, caps, /*target_slot=*/1, /*macro_available=*/false,
+                                     /*macro_user_configured=*/false);
+    CHECK(plan.ams_call == helix::ui::AmsCall::Load);
+    CHECK(plan.ams_arg == 1);
 }
 
 TEST_CASE("AFC load_filament sends CHANGE_TOOL in single-extruder mode",

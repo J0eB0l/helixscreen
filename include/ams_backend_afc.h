@@ -253,6 +253,9 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         // per-lane answer from the aggregate current_slot pointer, which we resolve
         // from several sources and which goes null mid-toolchange (#1194).
         t.has_per_slot_loaded_authority = true;
+        // load_filament() sends `CHANGE_TOOL LANE={n}`, which unloads the seated
+        // lane and swaps heads itself; change_tool() on a toolchanger only mounts.
+        t.load_swaps_seated_lane = true;
         // AFC refuses LANE_UNLOAD outright while printing, so the affordance must
         // grey out with the rest — see AmsBackend for why this is not the default.
         t.cold_lane_ops_refused_during_print = true;

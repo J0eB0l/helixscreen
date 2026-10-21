@@ -68,6 +68,7 @@ BackendCaps read_backend_caps(AmsBackend* backend, AmsSystemInfo& info_out, int 
     caps.requires_slot_selection_for_load = backend->requires_slot_selection_for_load();
     caps.needs_unload_before_load = backend->needs_unload_before_load(info_out, target_slot);
     caps.load_feeds_filament = backend->load_feeds_filament();
+    caps.load_swaps_seated_lane = backend->load_swaps_seated_lane();
     // Distinct from !requires_slot_selection_for_load(): plan_load() needs to
     // tell "bypass is suppressing the lane tier" apart from "this backend
     // never wanted a slot", because a named lane wants opposite treatment.
