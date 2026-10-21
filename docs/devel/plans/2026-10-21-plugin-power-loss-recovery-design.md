@@ -112,10 +112,17 @@ endpoint rather than re-rendering QIDI's sequence. The umbrella spec records thi
 
 ### 3.3 Dependencies
 
-- **Umbrella Phase 0 (required):** the `features` map with per-feature `version` the app gates on
-  via `plugin_feature("plr", min_version)`, and opt-in read from the `helix-screen` namespace.
-- **Umbrella Phase 1 (optional):** if its `layer_index` sidecar exists for the file, the scan
-  starts at the current layer instead of byte 0. v1 does not require it.
+- **Umbrella Phase 0 (required; implemented as v1's first task, § 13):** the `features` map with
+  per-feature `version` the app gates on via `plugin_feature("plr", min_version)`, and the
+  helix-initiated job marker. PLR owns its switch: `helix-screen` / `plr_user.enabled` is its only
+  opt-in store, its `plugin_features` key is unused, and the `features` map reports
+  `saving_enabled(...)` as `plr.enabled` (umbrella Phase 0, "One switch per feature").
+- **Shared G-code reader:** PLR builds `helix_gcode_reader.py` (tokenizer, layer markers,
+  `EXCLUDE_OBJECT_DEFINE`, `T<n>`, the modal-state reducer, the throttle policy). `helix_plr_scan.py`
+  and umbrella Phase 1's `helix_analysis.py` both use it; neither carries its own parser.
+- **Umbrella Phase 1 (optional):** its `layer_index` sidecar stores the modal state at each layer
+  start. If it exists for the file, the scan starts at the current layer instead of byte 0. v1 does
+  not require it.
 - **Compatibility floor:** Python 3.8 to 3.13 (no `match`, no `removeprefix`, no dict `|`); 5 of
   10 fleet Moonrakers report API 1.4.0, so nothing uses history `auxiliary_data`; all PLR state
   lives in the plugin's own store keyed by history job id.
@@ -284,7 +291,8 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the current
    layer, `method: "layer_start"`, with a warning in the plan. Never a byte rewind.
 
-Signatures (Python, `helix_plr_scan.py`, pure, no Moonraker imports):
+Signatures (Python, `helix_plr_scan.py` over `helix_gcode_reader.py`, pure, no Moonraker
+imports; `ModalState` and the tokenizer live in the reader, the window walk in the scan):
 
 ```python
 kWindowBytes = 256 * 1024
@@ -327,10 +335,13 @@ def layer_start_fallback(scan: ScanResult, layer: Optional[int]) -> Optional[Res
 The scan runs in a worker thread, cancellable, when the plan is requested (O3). Task T1 measures it
 first: a 100 MB Orca file on a K1C-class host (the slowest listed) must finish in **30 s or
 less**. If it does not, v1 adds background per-layer checkpoints: during the print, a low-priority
-follower reads the file up to `file_position` and, at each layer start, persists the modal state
-and byte offset to the namespace record; the resume scan then starts at the current layer's
-checkpoint. `scan_to_offset`'s `start_offset`/`start_state` parameters exist for that case and for
-umbrella Phase 1's `layer_index`.
+follower reads the file up to `file_position` and, at each layer start, records the byte offset
+and modal state. Those checkpoints ARE umbrella Phase 1's `layer_index` sidecar, written in its
+format through `helix_gcode_reader.py`; when Phase 1 has already indexed the file, the follower
+does nothing. One throttle policy, in the reader, governs both (umbrella Phase 1 "Cost guard"):
+the follower runs on any host while printing, reads no further than `file_position` and is
+rate-capped; whole-file analysis runs while printing only on multi-core hosts. The resume scan
+then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`start_state`.
 
 ### 6.3 Resume sequence (generic backend)
 
@@ -364,7 +375,10 @@ umbrella Phase 1's `layer_index`.
 10. Start: `M23 <file>`, `M26 S<offset>`, `M24`. Mainline `M23` does not search subdirectories
     (Kalico has `with_subdirs`) [src], so for a file in a subfolder the plugin points a root-level
     symlink at it and attributes the history entry back to the original name with the existing
-    `helix_print.py#_patch_history_entry` path.
+    `helix_print.py#_patch_history_entry` path. Before sending `M23`, the plugin records the
+    helix-initiated marker with kind `plr_resume` (umbrella Phase 0), so start hooks (Phase 3: U1
+    end-unload, AMS pre-print gcode, timelapse setup), per-job spool records (Phase 5) and the
+    layer-2 photo (Phase 7) do not run again for the resumed job.
 
 ### 6.4 Mesh carry-over
 
@@ -555,7 +569,8 @@ Feature entry in `server.helix.status` `features` (umbrella Phase 0):
 "plr": {"version": 1, "available": true, "enabled": true, "reason": null}
 ```
 
-`enabled` is `saving_enabled(...)`. `reason` when not available: `"no_virtual_sdcard"`,
+`enabled` is `saving_enabled(...)`, from PLR's own switch `plr_user.enabled` (§ 3.3); the
+`plugin_features` key `plr` is unused. `reason` when not available: `"no_virtual_sdcard"`,
 `"python_too_old"`, `"store_unwritable"`.
 
 | Method (JSON-RPC / HTTP) | Params | Reply |
@@ -580,6 +595,9 @@ Errors: Moonraker errors with codes `plr_no_plan`, `plr_stale_plan`, `plr_missin
 ---
 
 ## 10. QIDI-new adapter (ruling 6)
+
+Lives in its own module, `helix_plr_qidi.py`, per umbrella Phase 11's one-module-per-vendor rule;
+`helix_plr.py` stays vendor-free and asks it capability questions.
 
 Selected when the plugin sees `SDCARD_POWER_OFF_CONTINUES_PINT_FILE` in `/printer/gcode/help` or
 `speed_factor_2` in `gcode_move` status (QIDI report §4; not by path, since `/home/mks` symlinks
@@ -835,8 +853,10 @@ existing manual-move path; prepare/commit are plugin RPCs. Threading: RPC callba
 
 Settings > Printer > Power-loss recovery: on/off (always shown), tier selector (0, 1, 2; 2 only
 with a confirmation that Z holds unpowered), XY-home and purge macro fields, the storage verdict
-line, and the mesh include status with an "add include" button (D2). Writes `plr_user`; the app
-rewrites `plr_profile`.
+line, and the mesh include status with an "add include" button (D2). The button, and the
+installer prompt (O9), write the include line through the existing `KlipperConfigEditor`
+(`include/klipper_config_editor.h`, umbrella Phase 10's fallback), not a new writer. Writes
+`plr_user`; the app rewrites `plr_profile`.
 
 ---
 
@@ -844,11 +864,14 @@ rewrites `plr_profile`.
 
 **v1**
 
-- T1 first (§ 11.4): the K1C scan measurement decides whether background checkpoints are in v1.
+- First: implement umbrella Phase 0 (features map, `plugin_feature()`, own-switch rule, the
+  helix-initiated job marker, the Python 3.8 CI job).
+- T1 (§ 11.4): the K1C scan measurement decides whether background checkpoints are in v1.
+- `helix_gcode_reader.py`: the shared reader (§ 3.3), built here and reused by umbrella Phase 1.
 - `helix_plr.py`, `helix_plr_scan.py`: snapshot loop and slot store, storage verdict, offer,
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
-- QIDI-new adapter.
+- QIDI-new adapter, `helix_plr_qidi.py`.
 - T2 before the `resume_skip_fraction` default is final.
 - App: GENERIC backend, wizard, settings, profile resolution, DB `plr` blocks for the models
   tested in § 11.4.
@@ -861,8 +884,8 @@ rewrites `plr_profile`.
 2. Power-fail input: a `gcode_button` on a PSU/UPS detect pin triggers an immediate save.
 3. Multi-material and toolchangers through the filament backends (D3).
 4. Resume from layer N after a shutdown or a failed print (D1), reusing scan and sequence.
-5. `layer_index` from umbrella Phase 1, or a follower scan during the print, to skip the
-   start-of-file scan (O3).
+5. Umbrella Phase 1's `layer_index` (built on the same reader) to skip the start-of-file scan
+   when T1 passed and no follower runs (O3).
 6. A Klipper extra, only if the measured walk fails on real files (D4).
 
 ---
@@ -876,8 +899,9 @@ rewrites `plr_profile`.
 
 ## 15. Preconditions before execution
 
-- Umbrella Phase 0 merged: `PluginFeatureState` and `plugin_feature()` exist, the `features` map is
-  served, the Python 3.8 CI job exists.
+- Umbrella Phase 0 implemented (v1's first task): `PluginFeatureState` and `plugin_feature()`
+  exist, the `features` map is served, the helix-initiated marker exists, the Python 3.8 CI job
+  exists.
 - The § 12.1 C++ block passes `scripts/syntax_check.py` once Phase 0's `PluginFeatureState` exists
   (it cannot be compiled before). The § 7.2 and § 12.2 blocks and the Python blocks in § 6.2,
   § 6.5, § 7.3, § 7.4 and § 8 were checked on 2026-10-21: the two C++ blocks compiled together
