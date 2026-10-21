@@ -1696,11 +1696,11 @@ void PrintStatusWidget::show_nozzle_tool_picker(lv_obj_t* anchor) {
     if (nozzle_picker_.is_visible() || !parent_screen_ || !anchor)
         return;
 
-    // Single-hotend printer: picker has nothing useful to offer. The whole
-    // nozzle group is now the click target (chevron is visual-only), so this
-    // can fire on a regular print and should be a clean no-op. Counts nozzles
-    // rather than tools, matching the print_status_multi_tool gate that hides
-    // the chevron — an AMS's filament lanes all feed the one hotend.
+    // One heater: the picker has nothing to pin the readout to. The whole
+    // nozzle group is the click target (the chevron is visual-only), so this
+    // can fire on a regular print and must be a clean no-op. Counts heaters,
+    // matching the print_status_nozzle_pickable gate that hides the chevron:
+    // AMS lanes and nozzles sharing one heater both have a single readout.
     if (!ToolState::instance().has_multiple_extruders()) {
         return;
     }

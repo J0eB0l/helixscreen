@@ -354,3 +354,18 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     CHECK(lv_subject_get_int(spacer) == 0);
     REQUIRE(lv_obj_find_by_name(h.root, "portrait_column") == nullptr);
 }
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Closed tool dropdown reads None with the carriage empty",
+                 "[filament][ui][tool]") {
+    ManageRowHarness h(*this, {"extruder", "extruder1"}, AmsType::NONE);
+    lv_obj_t* dd = TA::extruder_dropdown(*h.panel);
+    REQUIRE(dd != nullptr);
+    lv_subject_set_int(ToolState::instance().get_active_tool_subject(), 1);
+    h.fx.process_lvgl(30);
+    REQUIRE(std::string(lv_dropdown_get_text(dd)) == "T1");
+
+    // A park leaves no tool on the carriage: the last one is not selected.
+    lv_subject_set_int(ToolState::instance().get_active_tool_subject(), -1);
+    h.fx.process_lvgl(30);
+    CHECK(std::string(lv_dropdown_get_text(dd)) == "None");
+}

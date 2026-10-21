@@ -240,8 +240,11 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, IMoonrakerAPI* api)
         helix::ToolState::instance().get_active_tool_subject(), this,
         [](FilamentPanel* self, int tool_idx) {
             self->update_nozzle_label();
-            if (self->extruder_dropdown_ && tool_idx >= 0) {
-                lv_dropdown_set_selected(self->extruder_dropdown_, static_cast<uint32_t>(tool_idx));
+            if (self->extruder_dropdown_) {
+                if (tool_idx >= 0) {
+                    lv_dropdown_set_selected(self->extruder_dropdown_,
+                                             static_cast<uint32_t>(tool_idx));
+                }
                 self->sync_tool_dropdown_text();
             }
             if (self->temp_control_panel_) {
@@ -937,10 +940,15 @@ void FilamentPanel::sync_tool_dropdown_text() {
     // so the two can never disagree.
     if (!extruder_dropdown_)
         return;
-    const auto& tools = helix::ToolState::instance().tools();
+    auto& ts = helix::ToolState::instance();
+    const auto& tools = ts.tools();
     const int selected = static_cast<int>(lv_dropdown_get_selected(extruder_dropdown_));
     std::string label;
-    if (selected >= 0 && selected < static_cast<int>(tools.size())) {
+    if (lv_subject_get_int(ts.get_active_tool_subject()) < 0) {
+        // A tool changer with its carriage empty: no tool is selected, whatever
+        // the list last pointed at.
+        label = lv_tr("None");
+    } else if (selected >= 0 && selected < static_cast<int>(tools.size())) {
         label = helix::ui::tool_label(tools[selected].index);
     }
     lv_dropdown_set_text(extruder_dropdown_, label.c_str());
