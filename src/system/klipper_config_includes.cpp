@@ -342,25 +342,27 @@ void download_include_graph(std::vector<std::string> listing, const std::string&
     (*pump)();
 }
 
-void resolve_active_config_files_with_content(IMoonrakerAPI& api,
-                                              ActiveFilesWithContentCallback on_complete,
-                                              ErrorCallback on_error) {
+void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_file,
+                                   const std::string& suffix,
+                                   ActiveFilesWithContentCallback on_complete,
+                                   ErrorCallback on_error) {
     // api must outlive all async callbacks (guaranteed: IMoonrakerAPI is owned by PrinterState
     // singleton)
     api.files().list_files(
         "config", "", true,
-        [&api, on_complete, on_error](const std::vector<FileInfo>& file_list) {
-            std::vector<std::string> cfg_paths;
+        [&api, root_file, suffix, on_complete, on_error](const std::vector<FileInfo>& file_list) {
+            std::vector<std::string> paths;
             for (const auto& f : file_list) {
                 if (!f.is_dir) {
                     std::string path = f.path.empty() ? f.filename : f.path;
-                    if (path.size() > 4 && path.substr(path.size() - 4) == ".cfg") {
-                        cfg_paths.push_back(path);
+                    if (path.size() > suffix.size() &&
+                        path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0) {
+                        paths.push_back(path);
                     }
                 }
             }
             download_include_graph(
-                std::move(cfg_paths), "printer.cfg",
+                std::move(paths), root_file,
                 [&api](const std::string& path, std::function<void(std::string)> ok,
                        std::function<void(std::string, bool)> fail) {
                     api.transfers().download_file(
@@ -375,6 +377,13 @@ void resolve_active_config_files_with_content(IMoonrakerAPI& api,
             if (on_error)
                 on_error("Failed to list config files: " + err.message);
         });
+}
+
+void resolve_active_config_files_with_content(IMoonrakerAPI& api,
+                                              ActiveFilesWithContentCallback on_complete,
+                                              ErrorCallback on_error) {
+    download_config_include_graph(api, "printer.cfg", ".cfg", std::move(on_complete),
+                                  std::move(on_error));
 }
 
 void resolve_active_config_files(IMoonrakerAPI& api, ActiveFilesCallback on_complete,

@@ -36,7 +36,7 @@ setup() {
     # bats' back so a failing test still reports.
     local bats_traps
     bats_traps="$(trap -p EXIT INT TERM HUP)"
-    for m in common logo host_profile platform permissions requirements competing_uis desktop release service moonraker kiauh plan uninstall main; do
+    for m in common logo host_profile platform permissions requirements competing_uis desktop release service helix_print_conf moonraker kiauh plan uninstall main; do
         . "$LIB/$m.sh"
     done
     trap - ERR EXIT INT TERM HUP
@@ -170,6 +170,16 @@ exit 1'
     KLIPPER_CONFIG_DIR="$BATS_TEST_TMPDIR/printer_data/config"
     mkdir -p "$KLIPPER_CONFIG_DIR"
     printf '[update_manager helixscreen]\n' > "$KLIPPER_CONFIG_DIR/moonraker.conf"
+    printf 'helixscreen\n' > "$BATS_TEST_TMPDIR/printer_data/moonraker.asvc"
+    detect_moonraker_integration pi
+    [ -z "$MOONRAKER_ADDS" ]
+}
+
+@test "detect_moonraker_integration plans no stanza when moonraker.conf includes one" {
+    KLIPPER_CONFIG_DIR="$BATS_TEST_TMPDIR/printer_data/config"
+    mkdir -p "$KLIPPER_CONFIG_DIR"
+    printf '[server]\n[include mainsail.conf]\n' > "$KLIPPER_CONFIG_DIR/moonraker.conf"
+    printf '[update_manager helixscreen]\n' > "$KLIPPER_CONFIG_DIR/mainsail.conf"
     printf 'helixscreen\n' > "$BATS_TEST_TMPDIR/printer_data/moonraker.asvc"
     detect_moonraker_integration pi
     [ -z "$MOONRAKER_ADDS" ]
