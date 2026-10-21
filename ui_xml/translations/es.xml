@@ -3951,8 +3951,8 @@
   <translation tag="Your printer has an automatic filament changer" es="Tu impresora tiene un cambiador de filamento automático"/>
   <translation tag="Your printer was offline during setup, so hardware options were skipped. Set them up now?" es="Su impresora estaba desconectada durante la configuración, por lo que se omitieron las opciones de hardware. ¿Configurarlas ahora?"/>
   <translation tag="Your {0} is set up for {1}, but it looks stock." es="Tu {0} está configurada para {1}, pero parece de serie."/>
+  <translation tag="Your {0} looks like it has {1}, but it is set up as stock." es="Tu {0} parece tener {1}, pero está configurada como de serie."/>
   <translation tag="Your {0} looks like it has {1}, but it is set up for {2}." es="Tu {0} parece tener {1}, pero está configurada para {2}."/>
-  <translation tag="Your {0} looks like it has {1}. Use the {1} profile?" es="Tu {0} parece tener {1}. ¿Usar el perfil {1}?"/>
   <translation tag="Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide." es="Su línea {} pasa ajustes por herramienta que el mapeo de filamento no cambia ({}). Es posible que una herramienta a la que mapee filamento no se caliente. Consulte «Filament Mapping» en la guía del usuario."/>
   <translation tag="Z" es="Z"/>
   <translation tag="Z Calibration" es="Calibración Z"/>
