@@ -51,6 +51,17 @@ void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 
 using namespace helix;
 
+namespace {
+helix::TypeMismatchDemo& type_mismatch_demo() {
+    static helix::TypeMismatchDemo demo;
+    return demo;
+}
+} // namespace
+
+void helix::set_type_mismatch_demo(TypeMismatchDemo demo) {
+    type_mismatch_demo() = std::move(demo);
+}
+
 #ifdef HELIX_ENABLE_REMOTE_CONTROL
 namespace helix {
 
@@ -310,6 +321,25 @@ bool show_demo_overlay(const std::string& name, std::string* error) {
         // gate — so this is the only way to check the two-line toast against a
         // real 480x272 panel instead of arithmetic on a font table.
         helix::ui::notify_ams_error(AmsErrorHelper::print_active(/*is_paused=*/true));
+        return true;
+    }
+
+    if (name == "type-mismatch-toast" || name == "type-mismatch-toast-model" ||
+        name == "type-mismatch-review") {
+        // The mock never raises this warning: a mock persona's identity says
+        // nothing about real hardware, so detection is skipped. The variant case
+        // uses the longest base name a variant entry has; -model shows the
+        // two-printers wording.
+        const auto& demo = type_mismatch_demo();
+        if (!demo) {
+            if (error) {
+                *error = "no printer session to raise the warning";
+            }
+            return false;
+        }
+        const bool model = name == "type-mismatch-toast-model";
+        demo(model ? "Creality K1 Max" : "FlashForge Adventurer 5M Pro (ForgeX)", 92,
+             "FlashForge Adventurer 5M Pro", name == "type-mismatch-review");
         return true;
     }
 

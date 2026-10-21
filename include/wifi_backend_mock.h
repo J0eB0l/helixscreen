@@ -154,6 +154,8 @@ class WifiBackendMock : public WifiBackend {
     std::thread connect_thread_;
     std::atomic<bool> scan_active_{false};
     std::atomic<bool> connect_active_{false};
+    std::mutex sim_wait_mutex_; ///< Pairs with sim_wait_cv_ so a cancel wakes a simulated delay
+    std::condition_variable sim_wait_cv_;
 
     // Mock networks (realistic variety with passwords)
     std::vector<MockWiFiNetwork> mock_networks_;
@@ -177,6 +179,11 @@ class WifiBackendMock : public WifiBackend {
     // Thread functions for async scan/connect simulation
     void scan_thread_func();
     void connect_thread_func();
+
+    /// Clears @p active and wakes any simulated delay waiting on it.
+    void cancel_sim(std::atomic<bool>& active);
+    /// Sleeps @p delay_ms unless @p active is cleared first; true when still active.
+    bool sim_delay(const std::atomic<bool>& active, int delay_ms);
 
     // Connection simulation state
     std::string connecting_ssid_;

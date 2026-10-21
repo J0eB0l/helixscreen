@@ -17,6 +17,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <glm/glm.hpp>
 #include <limits>
 #include <memory>
@@ -804,6 +805,14 @@ class GCodeLayerRenderer {
     // lv_tick_get(): the box must measure real time, including under a test
     // fixture whose lv_tick is virtual.
     static constexpr int kSolidBatchBudgetMs = 8;
+    /// What the batch box reads the time from: steady_clock in the app, a
+    /// clock a test controls where a loaded host would otherwise decide how
+    /// many layers one batch reaches.
+    using BatchClock = std::chrono::steady_clock::time_point (*)();
+    static std::chrono::steady_clock::time_point steady_batch_clock() {
+        return std::chrono::steady_clock::now();
+    }
+    BatchClock batch_clock_{&steady_batch_clock};
 
     // Constrained device limits (AD5M, low-RAM embedded < 256MB)
     static constexpr int kConstrainedStartLpf = 5;

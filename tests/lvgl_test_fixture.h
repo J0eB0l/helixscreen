@@ -142,6 +142,16 @@ class LVGLTestFixture : public HelixTestFixture {
     void process_lvgl(int ms);
 
     /**
+     * @brief process_lvgl() without the real sleeps
+     * @param ms Duration of *simulated* time to advance
+     *
+     * For a case whose every wait is an lv_timer or the UpdateQueue on this
+     * thread: nothing else needs to run, so yielding only adds wall time, which
+     * a shard on a loaded host pays against its timeout.
+     */
+    void advance_lvgl(int ms);
+
+    /**
      * @brief Wait for @p condition, advancing virtual time AND yielding for real
      * @param condition Predicate, re-evaluated after every pump
      * @param timeout_ms Real-world budget, measured on steady_clock
@@ -184,6 +194,10 @@ class LVGLTestFixture : public HelixTestFixture {
      * Safe to call multiple times - initialization happens only once.
      */
     static void ensure_lvgl_initialized();
+
+  private:
+    /// The shared step loop: 5ms ticks, a 1ms real sleep per step when @p yield.
+    void pump_lvgl(int ms, bool yield);
 
   protected:
     lv_obj_t* m_test_screen; ///< Test screen for this fixture instance

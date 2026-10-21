@@ -4033,6 +4033,12 @@ translations:
   This will save the Z-offset and restart Klipper to write the configuration. The printer will briefly disconnect.: Cela enregistrera le Z-offset et redémarrera Klipper pour enregistrer la configuration. L'imprimante se déconnectera brièvement.
   ? This writes the tool offsets to the printer's config and restarts Klipper, which takes a few seconds. Until then they apply only to this session.
   : Ceci écrit les offsets d'outil dans la configuration de l'imprimante et redémarre Klipper, ce qui prend quelques secondes. D'ici là, ils ne s'appliquent qu'à cette session.
+  ? This {0} is set up for {1}, but it looks stock ({2}% confidence). A wrong profile applies incorrect pre-print options and presets.
+  : 'Cette {0} est configurée pour {1}, mais elle semble d''origine ({2} % de confiance). Un profil erroné applique des options et des préréglages de pré-impression incorrects.'
+  ? This {0} looks like it has {1} ({2}% confidence), but it is set up as stock. A wrong profile applies incorrect pre-print options and presets.
+  : 'Cette {0} semble avoir {1} ({2} % de confiance), mais elle est configurée d''origine. Un profil erroné applique des options et des préréglages de pré-impression incorrects.'
+  ? This {0} looks like it has {1} ({2}% confidence), but it is set up for {3}. A wrong profile applies incorrect pre-print options and presets.
+  : 'Cette {0} semble avoir {1} ({2} % de confiance), mais elle est configurée pour {3}. Un profil erroné applique des options et des préréglages de pré-impression incorrects.'
   Thorough: Approfondi
   Thumbnail Only: Miniature uniquement
   'Thumbnail: ': 'Miniature : '
@@ -4409,6 +4415,9 @@ translations:
   Your printer has an automatic filament changer: Votre imprimante dispose d'un changeur
     de filament automatique
   Your printer was offline during setup, so hardware options were skipped. Set them up now?: Votre imprimante était hors ligne lors de la configuration, les options matérielles ont donc été ignorées. Les configurer maintenant ?
+  Your {0} is set up for {1}, but it looks stock.: 'Votre {0} est configurée pour {1}, mais elle semble d''origine.'
+  Your {0} looks like it has {1}, but it is set up for {2}.: 'Votre {0} semble avoir {1}, mais elle est configurée pour {2}.'
+  Your {0} looks like it has {1}, but it is set up as stock.: 'Votre {0} semble avoir {1}, mais elle est configurée d''origine.'
   ? Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide.
   : Votre ligne {} transmet des réglages par outil que le mappage du filament ne modifie pas ({}). Un outil auquel vous associez du filament risque de ne pas être chauffé. Voir « Filament Mapping » dans le guide de l'utilisateur.
   Z: Z

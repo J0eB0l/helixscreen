@@ -789,6 +789,7 @@ reads the resolved value, so it shows which one is really in effect.
 state, constructed with representative sample data and the real lifecycle:
 `preflight-check`, `color-mismatch`, `runout-modal`, `lock-screen`,
 `print-status`, `print-tune`, `ams`, `camera`, `ams-error-toast`,
+`type-mismatch-toast`, `type-mismatch-toast-model`, `type-mismatch-review`,
 `action-prompt-worst`, `action-prompt-many`, `action-prompt-hex`, `action-prompt-zmod`,
 `action-prompt-afc-cal`,
 `spaghetti-detection`, `bed-check` (the modal a printer bed check raises when it stops a
@@ -809,6 +810,14 @@ AFC_CALIBRATION's unit picker on a six-unit AFC.
 `AmsError::suggestion`) using the longest suggestion any backend produces. The
 mock AMS backend has no print gate, so no sequence of clicks reaches that
 refusal — this is how the toast's layout gets checked on a 480x272 panel.
+
+`type-mismatch-toast` raises the printer-type mismatch toast and its history row
+through the session's `HardwareSetupPrompter`, for an AD5M Pro saved as stock and
+detected as its ForgeX variant (the longest base name a variant entry has).
+`type-mismatch-toast-model` shows the two-printers wording (K1 Max detected on an
+AD5M Pro), and `type-mismatch-review` raises the variant toast and opens its review
+modal. Detection never runs this check against a mock printer, so these are the only
+way to see either.
 
 ### Diagnostics & lifecycle
 | Command | Meaning |

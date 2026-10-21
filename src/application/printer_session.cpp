@@ -32,6 +32,7 @@
 #include "cjk_font_manager.h"
 #include "cli_args.h"
 #include "config.h"
+#include "demo_overlays.h"
 #include "detection_manager.h"
 #include "discovery_steps.h"
 #include "display_manager.h"
@@ -105,9 +106,16 @@ PrinterSession::PrinterSession(Config*& config, AsyncLifetimeGuard& async, lv_ob
               [] { helix::nav::set_active(PanelId::Home); }}),
       m_screen(screen), m_prompter(
                             async, [this] { return m_screen; },
-                            [this] { return m_moonraker ? m_moonraker->api() : nullptr; }) {}
+                            [this] { return m_moonraker ? m_moonraker->api() : nullptr; }) {
+    set_type_mismatch_demo([this](const std::string& detected, int confidence,
+                                  const std::string& saved, bool open_review) {
+        m_prompter.show_type_mismatch_demo(detected, confidence, saved, open_review);
+    });
+}
 
-PrinterSession::~PrinterSession() = default;
+PrinterSession::~PrinterSession() {
+    set_type_mismatch_demo(nullptr);
+}
 
 void PrinterSession::reset_discovery_session() {
     m_hw_changes.reset();

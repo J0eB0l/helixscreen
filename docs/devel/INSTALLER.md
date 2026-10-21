@@ -766,7 +766,7 @@ The installer configures Moonraker to enable one-click updates from Mainsail/Flu
 
 ### What Gets Configured
 
-1. **`[update_manager helixscreen]` section** appended to `moonraker.conf`:
+1. **`[update_manager helixscreen]` section** appended to `moonraker.conf`, unless one is already there or in a file moonraker.conf pulls in with `[include]` (`update_manager_stanza_files`, the same walk `helix_print_conf.sh` uses for `[helix_print]`). An existing stanza has its `path:` and `channel:` synced, and an old `type: git_repo`/`type: zip` one is migrated, in whichever file holds it. A stanza in a firmware mod's files is never edited (`conf_left_to_mod` warns and leaves it):
    ```ini
    [update_manager helixscreen]
    type: web
@@ -833,7 +833,7 @@ The uninstaller (`uninstall.sh`, bundled from `lib/installer/uninstall.sh` and i
    - K1: Re-enable GuppyScreen
    - ForgeX: Full cleanup via `uninstall_forgex()` (restore display mode, unpatch screen.sh, remove logged wrapper, re-enable GuppyScreen/tslib)
 6. **Remove caches** -- `cache/` and `logs/` under every declared state root (`HELIX_STATE_DIRS` in `scripts/lib/installer/common.sh`, mirroring `kStateRoots` in `include/helix_install_roots.h`), plus the legacy in-payload locations, temp files, PID files
-7. **Remove Moonraker section** -- Strips `[update_manager helixscreen]` from moonraker.conf
+7. **Remove Moonraker section** -- Strips `[update_manager helixscreen]` from moonraker.conf and every file it `[include]`s, except a firmware mod's files
 
 ### Disabled Services State File
 

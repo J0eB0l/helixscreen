@@ -795,6 +795,46 @@ class PrinterDetector {
                                                    const PrinterDetectionResult& detected,
                                                    const std::string& flag_value);
 
+    /// The variant fields of one database entry. An entry with "variant_of"
+    /// is the same machine as the entry with that id, differing only by a
+    /// firmware mod or an add-on that "variant_label" names.
+    struct VariantEntry {
+        std::string id;
+        std::string name;
+        std::string variant_of; ///< Base entry's id, empty on a base entry
+        std::string variant_label;
+    };
+
+    /// How a saved type and a contradicting detected type relate.
+    enum class TypeRelation {
+        DifferentModel,  ///< Two machines, or a variant link that does not resolve.
+        DetectedVariant, ///< Detected is a variant of the saved base entry.
+        SavedVariant,    ///< Saved is a variant; the hardware looks like its base.
+        SiblingVariants  ///< Both are different variants of one base.
+    };
+
+    struct TypeRelationResult {
+        TypeRelation relation = TypeRelation::DifferentModel;
+        std::string base;           ///< Base entry's name; empty for DifferentModel
+        std::string saved_label;    ///< Saved entry's variant label, if it is a variant
+        std::string detected_label; ///< Detected entry's variant label, if it is a variant
+    };
+
+    /**
+     * @brief Relate a saved and a detected type through the entries' variant links.
+     *
+     * Pure: decides from @p entries alone. A variant whose "variant_of" names no
+     * entry, or that carries no label, counts as a model of its own, so the
+     * caller falls back to the plain different-model wording.
+     */
+    static TypeRelationResult relate_types(const std::vector<VariantEntry>& entries,
+                                           const std::string& saved_type,
+                                           const std::string& detected_type);
+
+    /// relate_types() against the loaded printer database.
+    static TypeRelationResult relate_types(const std::string& saved_type,
+                                           const std::string& detected_type);
+
     /**
      * @brief Decide whether a detection result is solid enough to persist.
      *

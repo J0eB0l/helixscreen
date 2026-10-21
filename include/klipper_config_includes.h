@@ -89,6 +89,19 @@ using ConfigDownloadFn =
 /// completion callback returns, so the walk can hold one more than this.
 inline constexpr size_t kMaxConfigDownloadsInFlight = 4;
 
+/// The failure message api_config_download() gives a request its caller's
+/// still_wanted() refused; the walk's error message contains it.
+inline constexpr const char* kConfigDownloadNotWanted = "no longer wanted";
+
+/// A ConfigDownloadFn that fetches through @p api, always from the main thread.
+/// The walk asks for each next file from the previous download's completion, on
+/// a background thread, and printer teardown destroys the API on the main thread
+/// without draining those; on the main thread @p api's lifetime token proves it
+/// still alive. Once the API is gone, or @p still_wanted (run on the main thread)
+/// returns false, the request fails without touching @p api.
+[[nodiscard]] ConfigDownloadFn api_config_download(IMoonrakerAPI& api,
+                                                   std::function<bool()> still_wanted = {});
+
 /// Download @p root_file and every file its [include] chain reaches, following
 /// globs against @p listing (every path in the config root) and paths relative
 /// to the including file. Files outside the chain are never fetched. A download
@@ -100,6 +113,15 @@ void download_include_graph(std::vector<std::string> listing, const std::string&
                             ConfigDownloadFn download, ActiveFilesWithContentCallback on_complete,
                             ErrorCallback on_error,
                             size_t max_in_flight = kMaxConfigDownloadsInFlight, int max_depth = 5);
+
+/// Lists the "config" root through @p api, then download_include_graph() from
+/// @p root_file over every listed file whose name ends in @p suffix ("" keeps
+/// every file). Each file is fetched with @p download, or with
+/// api_config_download(@p api) when it is empty.
+void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_file,
+                                   const std::string& suffix,
+                                   ActiveFilesWithContentCallback on_complete,
+                                   ErrorCallback on_error, ConfigDownloadFn download = {});
 
 /// Async wrapper: lists config directory via Moonraker, downloads printer.cfg and
 /// all included files, then resolves the active file set.

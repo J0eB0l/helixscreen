@@ -153,11 +153,29 @@ n=$(wc -l < "$dir/$shard.tests" | tr -d ' ')
 nfail=$(wc -l < "$dir/$shard.failed" | tr -d ' ')
 
 echo "  ran ${n:-?} test case(s) -> $dir/$shard.tests ($bin --input-file replays it)"
-asserts=$(grep -oE '^[A-Za-z0-9_/.-]+\.cpp:[0-9]+: FAILED' "$log" 2>/dev/null |
-    sed 's/: FAILED$//' | sort -u | tr '\n' ' ')
+# Catch2 reports a fatal signal as a FAILED at the running case's TEST_CASE
+# line. A SIGTERM there is the shard timeout landing mid-case: the case was
+# running when the budget ran out, which says nothing about whether it fails.
+failed_at() {
+    awk '
+        match($0, /^[A-Za-z0-9_\/.-]+\.cpp:[0-9]+: FAILED/) {
+            if (loc != "") print loc, kind
+            loc = substr($0, 1, RLENGTH - 8); kind = "assert"; seen = 0; next
+        }
+        loc != "" && ++seen <= 3 && /SIGTERM - Termination request signal/ { kind = "sigterm" }
+        END { if (loc != "") print loc, kind }
+    ' "$log" 2>/dev/null | awk -v want="$1" '$2 == want { print $1 }' | sort -u | tr '\n' ' '
+}
+asserts=$(failed_at assert)
+killed=$(failed_at sigterm)
 if [ -n "$asserts" ]; then
     echo "  failing assertion(s): $asserts"
-else
+fi
+if [ -n "$killed" ]; then
+    echo "  killed by the shard timeout (SIGTERM) while running: $killed"
+    echo "     the case was running at the kill, not failing: look at the shard's total time"
+fi
+if [ -z "$asserts" ] && [ -z "$killed" ]; then
     echo "  no FAILED marker: died after its assertions passed (teardown/static dtor)"
 fi
 if [ "$nfail" -gt 0 ]; then

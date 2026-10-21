@@ -90,34 +90,41 @@ moonraker_local_url() {
 }
 
 # The awk program that reads a process's argv, one element per line, and
-# prints what makes it Moonraker: the moonraker.py it runs, or "-m" and the
-# module it runs (python3 -m moonraker.moonraker on the CC1), joined
-# (-mmoonraker) or not. Moonraker is a python interpreter (argv[0] python,
+# prints what makes it the python program named by the awk variable `name`:
+# the <name>.py it runs, or "-m" and the module it runs (<name>, or
+# <name>.<name> as in python3 -m moonraker.moonraker on the CC1), joined
+# (-m<name>) or not. The program is a python interpreter (argv[0] python,
 # python3, python3.11, ...); an init script, editor or log viewer whose argv
-# names the file comes and goes beside it and is not Moonraker.
+# names the file comes and goes beside it and is not the program.
 # scripts/helix-launcher.sh looks for the same two shapes by substring, the
 # module only in its spaced form. Prints nothing for any other process.
 # shellcheck disable=SC2016  # awk's own $
-HELIX_MOONRAKER_ARGV_AWK='
+HELIX_PYTHON_ARGV_AWK='
+    function is_module(m) { return m == name || m == name "." name }
     NR == 1 { n = split($0, part, "/"); if (part[n] !~ /^python[0-9.]*$/) exit; next }
-    module { if ($0 ~ /^moonraker(\.moonraker)?$/) print "-m " $0; exit }
+    module { if (is_module($0)) print "-m " $0; exit }
     $0 == "-m" { module = 1; next }
-    /^-m/ { if ($0 ~ /^-mmoonraker(\.moonraker)?$/) print "-m " substr($0, 3); exit }
-    /(^|\/)moonraker\.py$/ { print; exit }'
+    /^-m/ { if (is_module(substr($0, 3))) print "-m " substr($0, 3); exit }
+    $0 ~ ("(^|/)" name "\\.py$") { print; exit }'
 
-# Print one line per running Moonraker: its /proc/<pid> directory under
-# HELIX_PROC_ROOT (tests point it at a fixture tree), else /proc, a blank, and
-# what HELIX_MOONRAKER_ARGV_AWK prints for it. Prints nothing when no
-# Moonraker runs.
-running_moonrakers() {
-    _rms_root="${HELIX_PROC_ROOT:-/proc}"
-    for _rms_f in "$_rms_root"/[0-9]*/cmdline; do
-        [ -r "$_rms_f" ] || continue
-        _rms_script=$(tr '\000' '\n' < "$_rms_f" 2>/dev/null | awk "$HELIX_MOONRAKER_ARGV_AWK")
-        [ -n "$_rms_script" ] || continue
-        printf '%s %s\n' "$(dirname "$_rms_f")" "$_rms_script"
+# Print one line per running process of the python program $1 (klippy,
+# moonraker): its /proc/<pid> directory under HELIX_PROC_ROOT (tests point it
+# at a fixture tree), else /proc, a blank, and what HELIX_PYTHON_ARGV_AWK
+# prints for it. Prints nothing when none runs.
+running_python_module() {
+    _rpm_root="${HELIX_PROC_ROOT:-/proc}"
+    for _rpm_f in "$_rpm_root"/[0-9]*/cmdline; do
+        [ -r "$_rpm_f" ] || continue
+        _rpm_script=$(tr '\000' '\n' < "$_rpm_f" 2>/dev/null | awk -v name="$1" "$HELIX_PYTHON_ARGV_AWK")
+        [ -n "$_rpm_script" ] || continue
+        printf '%s %s\n' "$(dirname "$_rpm_f")" "$_rpm_script"
     done
     return 0
+}
+
+# Print one line per running Moonraker (running_python_module).
+running_moonrakers() {
+    running_python_module moonraker
 }
 
 # Print the first running Moonraker's /proc/<pid> directory and, on the next
