@@ -310,6 +310,8 @@ class CameraStream {
     std::atomic<bool> got_stream_data_{false}; // Set by http_cb when data arrives
     int stream_fail_count_ = 0;
     bool thread_detached_ = false; // Set by stop() if thread join times out
+    std::chrono::milliseconds join_timeout_{
+        std::chrono::seconds(5)}; // stop()'s wait for the worker
     std::thread stream_thread_;
 
     static constexpr int kMaxStreamFailures = 3;
