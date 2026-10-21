@@ -1095,6 +1095,38 @@ TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker a spool-insert preload ends at pre
     CHECK(backend.get_system_info().action == AmsAction::IDLE);
 }
 
+TEST_CASE_METHOD(SnapmakerFixture,
+                 "Snapmaker the first frame after a Klipper restart ends no operation",
+                 "[ams][snapmaker][action_state][klipper_restart_expiry]") {
+    // The backend object outlives a Klipper restart, so what it remembers of
+    // each channel describes firmware that no longer exists. The subscription's
+    // first full frame must be read as a fresh start, not compared against it.
+    helix::test::RegisteredBackend<AmsBackendSnapmaker> backend_reg(nullptr, nullptr);
+    AmsBackendSnapmaker& backend = *backend_reg;
+    SnapmakerTestAccess::set_current_slot(backend, 3);
+    SnapmakerTestAccess::set_current_tool(backend, 3);
+
+    SnapmakerTestAccess::handle_status(backend,
+                                       feed_with_action(3, "unload_doing", "unload_doing"));
+    REQUIRE(backend.get_system_info().action == AmsAction::UNLOADING);
+
+    backend.on_klipper_restarted();
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    SECTION("a finished unload's action_state") {
+        SnapmakerTestAccess::handle_status(backend,
+                                           feed_with_action(3, "preload_finish", "unload_finish"));
+        CHECK_FALSE(AmsState::instance().was_slot_recently_unloaded(3));
+    }
+    SECTION("a failed unload's action_state") {
+        SnapmakerTestAccess::handle_status(backend,
+                                           feed_with_action(3, "preload_finish", "unload_fail"));
+    }
+
+    CHECK(backend.get_system_info().action == AmsAction::IDLE);
+    CHECK(backend.get_system_info().operation_detail.empty());
+}
+
 TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker a Klipper restart leaves an ERROR in place",
                  "[ams][snapmaker][action_state][klipper_restart_expiry]") {
     CapturingSnapmakerBackend backend;

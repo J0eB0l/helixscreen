@@ -997,6 +997,16 @@ AmsError AmsBackendSnapmaker::reset() {
     return AmsErrorHelper::not_supported("Reset not supported on Snapmaker");
 }
 
+void AmsBackendSnapmaker::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        channel_snapshots_ = {};
+        preload_in_flight_ = {};
+        unload_in_flight_ = {};
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendSnapmaker::cancel() {
     return AmsErrorHelper::not_supported("Cancel not supported on Snapmaker");
 }
