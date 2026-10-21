@@ -1687,13 +1687,53 @@ lv_xml_register_event_cb(nullptr, "on_slider_changed", [](lv_event_t* e) {
 
 | Trigger | When Fired |
 |---------|------------|
-| `clicked` | Button click (press + release) |
+| `clicked` | Every release on the object that no scroll took, **including the release that ends a long press** |
+| `short_clicked` | A release that ends a press with no long press: a quick tap |
 | `value_changed` | Slider, dropdown, switch |
 | `pressed` | Object pressed down |
 | `released` | Object released |
-| `long_pressed` | Long press detected |
+| `long_pressed` | Long press detected, while the finger is still down |
 | `focused` | Object gains focus |
 | `ready` | Text area complete |
+
+### Tap and hold
+
+**A widget with a hold action binds its tap to `short_clicked`. A widget with no hold action
+keeps `clicked`.**
+
+LVGL sends `clicked` on every release, the one ending a hold included
+(`lib/lvgl/src/indev/lv_indev.c#indev_proc_release`), so `clicked` beside `long_pressed`
+fires both: the hold opens its action, then the lift runs the tap behind it. `short_clicked`
+is sent only when no long press was, and LVGL tracks that itself. Do not suppress the tap
+with a flag the hold handler sets: a press that ends in `PRESS_LOST`, or a modal that takes
+the release, leaves the flag set and eats the next real tap. Do not `lv_indev_reset()` from
+the hold handler either; that is the same suppression with a different spelling.
+
+```xml
+<lv_obj name="row">
+    <event_cb trigger="short_clicked" callback="on_row_tapped"/>
+    <event_cb trigger="long_pressed" callback="on_row_held"/>
+</lv_obj>
+```
+
+The rule covers the whole bubbling tree, not just one element. When a child's tap handler
+stops bubbling so its parent's tap does not also fire, both must bind the same trigger:
+`lv_event_stop_bubbling()` in a `short_clicked` handler does nothing to the `clicked` that
+follows it. So once any part of a widget has a hold, every tap in that widget goes
+`short_clicked`. Home-panel widgets are the common case, because the home grid sets
+`EVENT_BUBBLE` on every descendant (`helix::ui::set_event_bubble_recursive`): see
+`panel_widget_printer_image.xml` (the light chip's hold) and `panel_widget_speed_flow.xml`
+(the value's hold). C++ handlers follow the same rule: `LV_EVENT_SHORT_CLICKED` beside
+`LV_EVENT_LONG_PRESSED`.
+
+Gesture state machines that read `pressed`/`released` or want every release are not
+tap+hold buttons and keep their own events: the home grid's edit mode, the keyboard's
+long-press alternates, touch calibration's hold-to-abort, and the G-code viewer's
+pick gesture.
+
+`tests/shell/test_code_lint.bats` fails an element that binds `clicked` beside
+`long_pressed`. `helix-screen ctl click` sends `short_clicked` then `clicked`, as a quick
+tap does.
 
 ---
 

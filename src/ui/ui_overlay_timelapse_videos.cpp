@@ -419,7 +419,9 @@ void TimelapseVideosOverlay::populate_video_grid(const std::vector<FileInfo>& fi
 
         // NOTE: lv_obj_add_event_cb used here (not XML event_cb) because each dynamically
         // created card needs per-instance user_data (filename) that XML bindings can't provide.
-        lv_obj_add_event_cb(card, on_card_clicked, LV_EVENT_CLICKED, this);
+        // The card has a hold action, so its tap is SHORT_CLICKED: a hold's release
+        // also sends CLICKED.
+        lv_obj_add_event_cb(card, on_card_clicked, LV_EVENT_SHORT_CLICKED, this);
         lv_obj_add_event_cb(card, on_card_long_pressed, LV_EVENT_LONG_PRESSED, this);
 
         // Show/hide play overlay based on playback capability

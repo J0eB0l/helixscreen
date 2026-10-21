@@ -6,7 +6,8 @@
     Speed / Flow home widget. SpeedFlowWidget publishes speed_flow_rung (SizeRung),
     speed_flow_show_measured, speed_flow_show_steppers and the value/status texts; the
     two speed_flow_part children bind every appearance off them. A tap anywhere that is
-    not a stepper opens the Tune overlay.
+    not a stepper opens the Tune overlay. The value has a hold action, so every tap here is
+    short_clicked.
   -->
   <styles>
     <style name="sf_body_column"
@@ -17,7 +18,7 @@
   </styles>
   <view name="panel_widget_speed_flow"
         extends="lv_obj" width="100%" height="100%" style_pad_all="#space_xxs" scrollable="false">
-    <event_cb trigger="clicked" callback="speed_flow_clicked_cb"/>
+    <event_cb trigger="short_clicked" callback="speed_flow_clicked_cb"/>
     <pass_through name="speed_flow_body"
                   width="100%" height="100%" style_pad_row="#space_xxs" style_pad_column="#space_xxs">
       <bind_style_if_eq name="sf_body_row" subject="speed_flow_rung" ref_value="1"/>

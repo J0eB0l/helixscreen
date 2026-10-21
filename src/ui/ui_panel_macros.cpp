@@ -646,11 +646,6 @@ void MacrosPanel::handle_long_press() {
     if (indev && lv_indev_get_scroll_obj(indev)) {
         return;
     }
-    // Cancel the in-progress press so the row's click (run macro) does not
-    // fire on release now that we're switching into edit mode.
-    if (indev) {
-        lv_indev_reset(indev, nullptr);
-    }
     enter_edit_mode();
 }
 

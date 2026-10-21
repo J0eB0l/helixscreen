@@ -3514,3 +3514,71 @@ CPP
         done
     done
 }
+
+# A widget with a hold action binds its tap to short_clicked: LVGL sends clicked
+# on every release, the one ending a hold included, so a clicked tap beside a
+# long_pressed hold fires both (docs/devel/LVGL9_XML_GUIDE.md § "Tap and hold").
+# Names every element whose own event_cb children pair the two. An XML that does
+# not parse is named too, so the gate fails closed.
+xml_tap_beside_hold() {
+    python3 - "$@" <<'EOF'
+import pathlib
+import sys
+import xml.etree.ElementTree as ET
+
+HOLD = {"long_pressed", "long_pressed_repeat"}
+# Gesture state machines that want clicked after a hold, not tap+hold buttons.
+# The home grid's edit mode reads every release that lands where its press did,
+# a hold's included (src/ui/ui_panel_home.cpp#on_home_grid_clicked).
+ALLOWED = {("home_panel.xml", "carousel_host")}
+for root in sys.argv[1:]:
+    p = pathlib.Path(root)
+    for f in sorted(p.rglob("*.xml") if p.is_dir() else [p]):
+        try:
+            tree = ET.parse(f)
+        except ET.ParseError as e:
+            print(f"{f}: does not parse: {e}")
+            continue
+        for el in tree.iter():
+            triggers = {c.get("trigger") for c in el if c.tag == "event_cb"}
+            if (f.name, el.get("name")) in ALLOWED:
+                continue
+            if "clicked" in triggers and triggers & HOLD:
+                print(f"{f}: <{el.tag} name=\"{el.get('name', '')}\"> binds clicked beside a hold")
+EOF
+}
+
+@test "no XML element binds a clicked tap beside a long_pressed hold" {
+    run xml_tap_beside_hold ui_xml/
+    [ "$status" -eq 0 ]
+    [ -z "$output" ] || fail "$output"
+}
+
+@test "the tap-beside-hold gate fires on a clicked tap beside a hold" {
+    local d="${BATS_TEST_TMPDIR}/tap_hold"
+    mkdir -p "$d"
+    cat > "$d/offender.xml" <<'EOF'
+<component><view name="row" extends="lv_obj">
+  <event_cb trigger="clicked" callback="on_tap"/>
+  <event_cb trigger="long_pressed" callback="on_hold"/>
+</view></component>
+EOF
+    run xml_tap_beside_hold "$d"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"offender.xml"* ]]
+}
+
+@test "the tap-beside-hold gate stays quiet on a short_clicked tap" {
+    local d="${BATS_TEST_TMPDIR}/tap_hold_ok"
+    mkdir -p "$d"
+    cat > "$d/ok.xml" <<'EOF'
+<component><view name="row" extends="lv_obj">
+  <event_cb trigger="short_clicked" callback="on_tap"/>
+  <event_cb trigger="long_pressed" callback="on_hold"/>
+  <lv_button name="child"><event_cb trigger="clicked" callback="on_child"/></lv_button>
+</view></component>
+EOF
+    run xml_tap_beside_hold "$d"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}

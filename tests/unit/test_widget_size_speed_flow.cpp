@@ -15,10 +15,12 @@
  */
 
 #include "ui_print_tune_overlay.h"
+#include "ui_utils.h"
 
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/panel_widget_size_harness.h"
 #include "../test_helpers/scoped_breakpoint.h"
+#include "../test_helpers/scoped_pointer_indev.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
 #include "display_settings_manager.h"
@@ -27,6 +29,7 @@
 #include "panel_widget_manager.h"
 #include "printer_state.h"
 #include "src/ui/panel_widgets/speed_flow_widget.h"
+#include "static_panel_registry.h"
 #include "tune_controller.h"
 
 #include "../catch_amalgamated.hpp"
@@ -323,7 +326,7 @@ struct SpeedFlowActionFixture : public SpeedFlowFixture {
         return mock.last_send_script();
     }
     void tap(lv_obj_t* obj) {
-        lv_obj_send_event(obj, LV_EVENT_CLICKED, nullptr);
+        helix::ui::send_tap(obj);
     }
 
     MoonrakerClientMock mock;
@@ -404,6 +407,50 @@ TEST_CASE_METHOD(SpeedFlowActionFixture,
     tap(h.root());
     process_lvgl(500);
     CHECK(get_print_tune_overlay().is_visible());
+}
+
+TEST_CASE_METHOD(SpeedFlowActionFixture,
+                 "speed_flow: a held value resets its axis and its release opens nothing",
+                 "[widget_size][speed_flow][actions][tap_hold]") {
+    // The overlay is a lazily created singleton an earlier case may have left
+    // open; drop it so this case starts with none.
+    StaticPanelRegistry::instance().destroy_all();
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(get_print_tune_overlay().is_visible());
+
+    PanelWidgetHarness<SpeedFlowWidget> h(test_screen(), state());
+    h.resize(1, 1, 234, 232);
+    set_percentages(130, 100);
+    helix::ui::set_event_bubble_recursive(h.root());
+    lv_obj_update_layout(test_screen());
+
+    const auto centre = [](lv_obj_t* obj) {
+        lv_area_t a;
+        lv_obj_get_coords(obj, &a);
+        return lv_point_t{(a.x1 + a.x2) / 2, (a.y1 + a.y2) / 2};
+    };
+    helix_test::ScopedPointerIndev finger;
+
+    lv_obj_t* value = part(h, "speed", "speed_flow_full_value");
+    lv_point_t p = centre(value);
+    REQUIRE(lv_indev_search_obj(test_screen(), &p) == value);
+    finger.press(p.x, p.y);
+    finger.hold(finger.long_press_hold_ms());
+    finger.release(p.x, p.y);
+    process_lvgl(500);
+    CHECK(last_sent() == "M220 S100");
+    CHECK_FALSE(get_print_tune_overlay().is_visible());
+
+    // A quick tap on a stepper steps, and stops short of the tile's tap.
+    set_percentages(100, 100);
+    lv_obj_t* plus = part(h, "speed", "speed_flow_plus");
+    p = centre(plus);
+    REQUIRE(lv_indev_search_obj(test_screen(), &p) == plus);
+    finger.press(p.x, p.y);
+    finger.release(p.x, p.y);
+    process_lvgl(500);
+    CHECK(last_sent() == "M220 S105");
+    CHECK_FALSE(get_print_tune_overlay().is_visible());
 }
 
 TEST_CASE_METHOD(SpeedFlowFixture, "speed_flow: an override off 100 draws amber at every rung",

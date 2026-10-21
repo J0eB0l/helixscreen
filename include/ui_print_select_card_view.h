@@ -338,10 +338,6 @@ class PrintSelectCardView : public ContainerDeleteNet {
     FileLongPressCallback on_file_long_press_;
     MetadataFetchCallback on_metadata_fetch_;
 
-    /// Set to true when a long-press fires; next CLICKED event on any card is skipped.
-    /// Single-shot: cleared the next time on_card_clicked() runs.
-    bool suppress_next_click_ = false;
-
     // === Internal Methods ===
 
     /**
@@ -395,7 +391,6 @@ class PrintSelectCardView : public ContainerDeleteNet {
     // === Static Callbacks ===
     static void on_card_clicked(lv_event_t* e);
     static void on_card_long_pressed(lv_event_t* e);
-    static void on_card_press_lost(lv_event_t* e);
 
     /// Drop every cached pointer/counter WITHOUT touching any widget. Safe to
     /// run while the tree those pointers refer to is mid-deletion.

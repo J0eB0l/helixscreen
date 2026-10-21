@@ -696,7 +696,7 @@ PrinterImageWidget* PrinterImageWidget::widget_from_chip(lv_event_t* e) {
 void PrinterImageWidget::route_callout_click(lv_event_t* e, CalloutKind kind) {
     // The home panel makes every descendant bubble, so an unstopped chip tap also
     // reaches printer_container and opens Printer Manager over the chip's control.
-    // Only CLICKED stops here; PRESSED and LONG_PRESSED still reach grid edit mode,
+    // Only the tap stops here; PRESSED and LONG_PRESSED still reach grid edit mode,
     // except on the light chip, whose hold has its own action.
     lv_event_stop_bubbling(e);
     if (auto* self = widget_from_chip(e)) {
@@ -738,12 +738,9 @@ void PrinterImageWidget::printer_callout_light_cb(lv_event_t* e) {
 void PrinterImageWidget::printer_callout_light_hold_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[PrinterImageWidget] printer_callout_light_hold_cb");
     // A hold on the bulb opens the light's controls rather than grid edit mode.
-    // Its release still sends CLICKED, so the press is cancelled here: a hold
-    // must not also toggle the light.
+    // The chip's tap is SHORT_CLICKED, which a hold's release does not send.
     lv_event_stop_bubbling(e);
     auto* self = widget_from_chip(e);
-    if (lv_indev_t* indev = lv_indev_active())
-        lv_indev_reset(indev, nullptr);
     if (light_chip_locked())
         return; // inside the SAFE_EVENT_CB try block; END closes it below
     if (self) {

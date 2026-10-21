@@ -45,17 +45,6 @@
 
 using namespace helix;
 
-/// Recursively set EVENT_BUBBLE on all descendants so touch events
-/// (long_press, click, etc.) propagate up to the container.
-static void set_event_bubble_recursive(lv_obj_t* obj) {
-    uint32_t count = lv_obj_get_child_count(obj);
-    for (uint32_t i = 0; i < count; ++i) {
-        lv_obj_t* child = lv_obj_get_child(obj, static_cast<int32_t>(i));
-        lv_obj_add_flag(child, LV_OBJ_FLAG_EVENT_BUBBLE);
-        set_event_bubble_recursive(child);
-    }
-}
-
 /// A home carousel page container (ui_xml/components/home_page_container.xml) in @p parent.
 static lv_obj_t* create_page_container(lv_obj_t* parent) {
     return static_cast<lv_obj_t*>(lv_xml_create(parent, "home_page_container", nullptr));
@@ -64,6 +53,7 @@ static lv_obj_t* create_page_container(lv_obj_t* parent) {
 // disable_widget_clicks_recursive() and clear_pressed_state_recursive() are in ui_utils.h
 using helix::ui::clear_pressed_state_recursive;
 using helix::ui::disable_widget_clicks_recursive;
+using helix::ui::set_event_bubble_recursive;
 
 HomePanel::HomePanel(PrinterState& printer_state, IMoonrakerAPI* api)
     : PanelBase(printer_state, api) {
