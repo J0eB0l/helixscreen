@@ -24,6 +24,9 @@ struct KeypadInput {
     /// included. "250.75" is five.
     int max_total_digits = 5;
 
+    /// Digits accepted after the decimal point; by default only max_total_digits limits them.
+    int max_frac_digits = static_cast<int>(BUF_SIZE);
+
     /// Whether the decimal point is offered at all. Integer-only fields set
     /// this false so a typed "25.5" cannot be silently truncated on send.
     bool allow_dot = true;
@@ -41,22 +44,26 @@ struct KeypadInput {
     }
 
     /// Append a digit 0-9. Limited by max_int_digits before a decimal point
-    /// is present and by max_total_digits after one.
+    /// is present, and by max_total_digits and max_frac_digits after one.
     bool append_digit(int digit) {
         if (digit < 0 || digit > 9)
             return false;
 
         size_t len = length();
         int digit_count = 0;
+        int frac_count = 0;
         bool dot = false;
         for (size_t i = 0; i < len; i++) {
-            if (buf[i] >= '0' && buf[i] <= '9')
+            if (buf[i] >= '0' && buf[i] <= '9') {
                 digit_count++;
-            else if (buf[i] == '.')
+                if (dot)
+                    frac_count++;
+            } else if (buf[i] == '.') {
                 dot = true;
+            }
         }
         int max_digits = dot ? max_total_digits : max_int_digits;
-        if (digit_count >= max_digits)
+        if (digit_count >= max_digits || (dot && frac_count >= max_frac_digits))
             return false;
 
         if (len < BUF_SIZE - 1) {

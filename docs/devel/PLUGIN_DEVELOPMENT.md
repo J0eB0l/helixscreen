@@ -400,6 +400,8 @@ Subjects are the plugin's whole output: XML binds to them, Lua sets them.
 | `helix.ui.confirm(title, msg[, opts])` | | `opts.severity` (`"info"`, `"warning"`, `"error"`), `opts.confirm_text` (default `"OK"`), `opts.on_confirm`, `opts.on_cancel`; a dismissed dialog runs `on_cancel` too; at most one shown or waiting per plugin; waits its turn like every plugin surface (below); not during `on_unload` |
 | `helix.ui.overlay(component[, attrs])` | handle | opens one of the plugin's own components full-screen; requesting a component the plugin already has shown or waiting returns that handle and changes nothing (it keeps its attrs and callbacks); `attrs` is a table of string attributes passed to the component plus optional `on_open` and `on_close` functions; not during `on_unload` |
 | `helix.ui.dialog(component[, attrs])` | handle | opens one of the plugin's own components as a dialog: a centred card over a dimmed backdrop, dismissed like any app dialog. Build it from `ui_dialog`, `modal_header` and `modal_button_row` (§7) so it looks like one. `attrs` as for `overlay`; at most one dialog shown or waiting per plugin; not during `on_unload` |
+| `helix.ui.edit_number(opts)` | | opens the app's numeric keypad for one value (Editors, below) |
+| `helix.ui.edit_text(opts)` | | opens a text dialog with the app's keyboard for one line of text (Editors, below) |
 
 A handle from `overlay` or `dialog` has `close()` and `is_open()` (both also callable as
 `h:close()`). `close()` closes a shown surface or withdraws one still waiting.
@@ -430,6 +432,63 @@ display; if waking brings up the lock screen, the surface waits until it is unlo
 finishes, watch `print_state` and open a dialog when it reads `"complete"`; it appears
 once the user has dealt with the print-complete dialog (`examples/plugins/calibration-bridge`).
 | `helix.ui.text_width(str[, font])` | integer px | width `str` draws at in the live theme font, measured the way `c:text` draws it (no letter spacing, one line); `font` is a base token without the `font_` prefix (default `"body"`), and a size-suffixed or unknown token is an error, as for canvas text; `str` is at most 1024 bytes. Call it where the layout is decided (a widget hook, a canvas redraw), since the theme font changes with the display tier |
+
+### Editors: the keypad and the keyboard
+
+`helix.ui.edit_number` and `helix.ui.edit_text` let the user enter one value with the
+app's own input: the numeric keypad every temperature and speed field uses (with the
+user's Number Pad Layout), and the app keyboard in a small dialog. The plugin hands over
+the starting value and its constraints and gets back the accepted value or a cancel.
+
+```lua
+helix.ui.edit_number({
+    title = "Interval", value = interval, min = 1, max = 1000, decimals = 0, unit = "h",
+    validate = function(v)
+        if v % 10 ~= 0 then return false, "Use a multiple of 10 hours" end
+        return true
+    end,
+    on_accept = function(v) interval = v; save() end,
+})
+helix.ui.edit_text({title = "Task name", value = name, max_length = 32,
+                    on_accept = function(s) name = s end})
+```
+
+| Option | `edit_number` | `edit_text` |
+|---|---|---|
+| `title` | header text, at most 47 bytes | dialog heading, at most 1024 bytes |
+| `value` | starting value (the keypad opens empty, as everywhere in the app) | starting text, no longer than `max_length` |
+| `min`, `max` | required; `0 <= min < max <= 99999` | |
+| `decimals` | `0` (default), `1` or `2`: digits after the decimal point; `0` hides the point and hands back an integer | |
+| `unit` | shown inside the display, at most 15 bytes | |
+| `placeholder` | | hint shown while the field is empty |
+| `max_length` | | 1 to 1023 characters, default 256 |
+| `password` | | `true` masks the text |
+| `on_accept(value)` | required | required |
+| `on_cancel()` | optional | optional |
+| `validate(value)` | optional | optional |
+
+Any other key is an error. The keypad enters zero and positive numbers only: it has no
+sign key, so `min` below 0 is refused. A value outside `min`..`max` is refused by the
+keypad itself with the range in an error toast, before `validate` sees it.
+
+`validate(value)` runs when the user presses Set or OK. Return `true` to accept, or `false`
+and a message (at most 256 bytes) to keep the editor open with that message in an error
+toast. It runs under the menu-check rules (§8, Menu items): synchronous, a short time
+budget, and no side effects, so `helix.ui.toast`, `subject:set`, storage writes and every
+async call raise inside it. A validator that raises, overruns or returns anything but
+`true` rejects the value with "Invalid value"; the error counts toward the plugin's error
+limit like a failed check.
+
+`on_accept(value)` runs once with the accepted value, after the editor has closed.
+`on_cancel()` runs once for every other ending: Back, Cancel, a tap on the backdrop, ESC,
+or the editor failing to open (the keypad already open for someone else). A plugin has at
+most one editor shown or waiting; another call while one is open raises. Editors wait their
+turn behind app dialogs like a confirm (§8, Presentation order). The keypad is an overlay
+and a plugin dialog sits above overlays, so `edit_number` raises while the plugin has a
+dialog shown or waiting: close it first, or open the keypad from an overlay or the
+settings screen. `edit_text` opens over the plugin's dialog. Neither may be called during
+`on_unload` or in a menu check. Unloading the plugin closes its editor and runs neither
+callback.
 
 ### Menu items
 
@@ -504,7 +563,7 @@ A check runs in check mode (`src/plugin/lua_runtime.cpp#call_sync`): anything wi
 a side effect or a wait raises "`<call>` is not allowed in a menu check" before acting.
 That covers every async call (`helix.gcode`, `helix.moonraker`, `helix.http`,
 `helix.sleep`), `helix.storage.set`, `helix.settings.set`, `subject:set`, opening a
-dialog, overlay, confirm or toast, playing a sound, closing a surface, `helix.canvas` and every canvas
+dialog, overlay, confirm, editor or toast, playing a sound, closing a surface, `helix.canvas` and every canvas
 method (a check never draws), creating a subject, `helix.widget`, starting or cancelling
 a timer, registering a handler, observer, watch or subscription, and `require` (a module's
 top level is ordinary entry work, and a refusal inside it would cache a half-loaded
@@ -873,6 +932,7 @@ approval* instead of loading; enabling it again approves only the new lines.
 | Measured text | at most 1024 bytes per `helix.ui.text_width` string | `src/plugin/lua_bind_ui.cpp` |
 | Dialogs | one `helix.ui.dialog` shown or waiting per plugin | `src/plugin/lua_bind_ui.cpp#kMaxDialogs` |
 | Confirms | one `helix.ui.confirm` shown or waiting per plugin | `src/plugin/lua_bind_ui.cpp#kMaxOpenConfirms` |
+| Editors | one `helix.ui.edit_number` or `helix.ui.edit_text` shown or waiting per plugin; a validator runs under the menu-check budget | `src/plugin/lua_bind_ui.cpp#start_editor` |
 | Sound cues | per plugin, 150 ms between `"ui"` cues and 1 s between `"event"` cues; a cue inside the gap is dropped | `include/lua_bindings.h#kPluginUiCueIntervalMs` |
 | Canvas list bytes | charged against the plugin memory cap as staged; a call that would cross it raises, never faults | `include/plugin_canvas.h#DisplayList/bytes` |
 | Home tiles | at most 32 `widgets` per plugin | `include/plugin_manifest.h#kMaxWidgetsPerPlugin` |

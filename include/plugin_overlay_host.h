@@ -43,8 +43,8 @@ struct PluginUi {
     std::function<size_t(const std::string& plugin_id)> dialog_count;
     /// True while the surface is on screen.
     std::function<bool(int handle)> is_open;
-    /// Queues a confirm: `present` shows it (false when it could not), `cancelled`
-    /// runs when it is withdrawn without showing.
+    /// Queues a confirm or an editor (keypad, text entry): `present` shows it (false
+    /// when it could not), `cancelled` runs when it is withdrawn without showing.
     std::function<void(std::function<bool()> present, std::function<void()> cancelled)>
         queue_confirm;
 };

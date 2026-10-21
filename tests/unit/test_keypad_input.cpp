@@ -316,3 +316,22 @@ TEST_CASE("KeypadInput can refuse the decimal point entirely", "[keypad]") {
         CHECK(permissive.append_dot());
     }
 }
+
+TEST_CASE("KeypadInput caps the digits after the decimal point", "[keypad]") {
+    KeypadInput in;
+    in.max_int_digits = 3;
+    in.max_total_digits = 4;
+    in.max_frac_digits = 1;
+    CHECK(in.append_digit(2));
+    CHECK(in.append_dot());
+    CHECK(in.append_digit(5));
+    CHECK_FALSE(in.append_digit(5));
+    CHECK(std::string(in.buf) == "2.5");
+    // Integer digits before the point are not counted against the fraction cap.
+    in.clear();
+    for (int d : {1, 2, 3})
+        CHECK(in.append_digit(d));
+    CHECK(in.append_dot());
+    CHECK(in.append_digit(4));
+    CHECK(std::string(in.buf) == "123.4");
+}
