@@ -291,6 +291,20 @@ void AmsSubscriptionBackend::emit_event(const std::string& event, const std::str
     }
 }
 
+void AmsSubscriptionBackend::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!ams_action_is_busy(system_info_.action)) {
+            return;
+        }
+        spdlog::warn("{} {} ended with a Klipper restart; no longer reporting it busy",
+                     backend_log_tag(), ams_action_to_string(system_info_.action));
+        system_info_.action = AmsAction::IDLE;
+        system_info_.operation_detail.clear();
+    }
+    emit_event(EVENT_STATE_CHANGED);
+}
+
 AmsAction AmsSubscriptionBackend::get_current_action() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return published_action_locked();

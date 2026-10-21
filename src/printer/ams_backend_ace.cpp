@@ -533,6 +533,17 @@ AmsError AmsBackendAce::reset() {
     return execute_gcode("ACE_RESET");
 }
 
+void AmsBackendAce::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        target_index_ = -1;
+        driver_action_ = false;
+        swap_hub_cleared_ = false;
+        system_info_.pending_target_slot = -1;
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendAce::cancel() {
     spdlog::info("[ACE] Cancelling operation");
 

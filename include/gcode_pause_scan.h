@@ -37,6 +37,12 @@ inline char ascii_lower(char c) {
     return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + 32) : c;
 }
 
+/// Whitespace between the words of a line, including the CR a CRLF file
+/// leaves on every getline result.
+inline bool is_word_separator(char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
 /// True when the code part's first word equals @p word (case-insensitive,
 /// token-terminated: whitespace, ';', '\r', '\n' or end all end a word).
 inline bool first_word_is(std::string_view line, std::string_view word) {
@@ -55,11 +61,25 @@ inline bool first_word_is(std::string_view line, std::string_view word) {
     const size_t end = i + word.size();
     if (end < line.size()) {
         const char c = line[end];
-        if (c != ' ' && c != '\t' && c != ';' && c != '\r' && c != '\n') {
+        if (!is_word_separator(c) && c != ';') {
             return false; // longer identifier (M6000, PAUSED, …)
         }
     }
     return true;
+}
+
+/// The next word of the code part at or after @p pos, advancing @p pos past
+/// it; empty once the code part (up to ';' or end) is exhausted. Separators
+/// and terminators are one set, so every call either consumes a word or ends.
+inline std::string_view next_word(std::string_view line, size_t& pos) {
+    while (pos < line.size() && is_word_separator(line[pos])) {
+        ++pos;
+    }
+    const size_t start = pos;
+    while (pos < line.size() && !is_word_separator(line[pos]) && line[pos] != ';') {
+        ++pos;
+    }
+    return line.substr(start, pos - start);
 }
 
 } // namespace pause_scan_detail
@@ -164,25 +184,17 @@ inline std::optional<PauseKind> classify_pause_command(std::string_view line) {
 inline std::optional<int32_t> reported_current_layer(std::string_view line) {
     using pause_scan_detail::ascii_lower;
     using pause_scan_detail::first_word_is;
+    using pause_scan_detail::next_word;
     if (!first_word_is(line, "set_print_stats_info")) {
         return std::nullopt;
     }
     static constexpr std::string_view kKey = "current_layer=";
     size_t pos = 0;
-    while (pos < line.size() && line[pos] != ';') {
-        if (line[pos] == ' ' || line[pos] == '\t') {
-            ++pos;
-            continue;
-        }
-        const size_t token_start = pos;
-        while (pos < line.size() && line[pos] != ' ' && line[pos] != '\t' && line[pos] != ';' &&
-               line[pos] != '\r' && line[pos] != '\n') {
-            ++pos;
-        }
-        if (pos - token_start > kKey.size()) {
+    for (std::string_view word = next_word(line, pos); !word.empty(); word = next_word(line, pos)) {
+        if (word.size() > kKey.size()) {
             bool match = true;
             for (size_t k = 0; k < kKey.size(); ++k) {
-                if (ascii_lower(line[token_start + k]) != kKey[k]) {
+                if (ascii_lower(word[k]) != kKey[k]) {
                     match = false;
                     break;
                 }
@@ -190,8 +202,8 @@ inline std::optional<int32_t> reported_current_layer(std::string_view line) {
             if (match) {
                 int32_t value = 0;
                 bool digits = false;
-                for (size_t k = token_start + kKey.size(); k < pos; ++k) {
-                    const char d = line[k];
+                for (size_t k = kKey.size(); k < word.size(); ++k) {
+                    const char d = word[k];
                     if (d < '0' || d > '9' || value > 100000000) {
                         return std::nullopt;
                     }
@@ -210,25 +222,17 @@ inline std::optional<int32_t> reported_current_layer(std::string_view line) {
 /// ignored — P is the only word that feeds display_status.progress.
 inline std::optional<float> m73_progress_percent(std::string_view line) {
     using pause_scan_detail::first_word_is;
+    using pause_scan_detail::next_word;
     if (!first_word_is(line, "m73")) {
         return std::nullopt;
     }
-    // Scan the words after "M73" for a P at token start. ';' ends the code part.
+    // Scan the words after "M73" for a P at word start.
     size_t pos = 0;
-    while (pos < line.size() && line[pos] != ';') {
-        if (line[pos] == ' ' || line[pos] == '\t' || line[pos] == '\r' || line[pos] == '\n') {
-            ++pos;
-            continue;
-        }
-        const size_t token_start = pos;
-        while (pos < line.size() && line[pos] != ' ' && line[pos] != '\t' && line[pos] != ';' &&
-               line[pos] != '\r' && line[pos] != '\n') {
-            ++pos;
-        }
-        if (line[token_start] == 'P' || line[token_start] == 'p') {
+    for (std::string_view word = next_word(line, pos); !word.empty(); word = next_word(line, pos)) {
+        if (word[0] == 'P' || word[0] == 'p') {
             float value = 0.0f;
-            const auto* first = line.data() + token_start + 1;
-            const auto* last = line.data() + pos;
+            const auto* first = word.data() + 1;
+            const auto* last = word.data() + word.size();
             const auto [ptr, ec] = parse_decimal(first, last, value);
             if (ec == std::errc{} && ptr != first) {
                 return value < 0.0f ? 0.0f : (value > 100.0f ? 100.0f : value);

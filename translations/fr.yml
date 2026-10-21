@@ -162,6 +162,7 @@ translations:
   A print is running on this gate. HelixScreen cleared its own copy; clear it again once the print finishes.: Une impression est en cours sur ce gate. HelixScreen a effacé sa propre copie ; effacez-le à nouveau une fois l'impression terminée.
   A print is running. Apply the result after it ends.: Une impression est en cours. Appliquez le résultat quand elle sera terminée.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: "Une impression a démarré alors que des bobines sont signalées sur le plateau. Si elles y sont encore, arrêtez l'imprimante maintenant avec l'arrêt d'urgence."
+  A restart is already in progress: Un redémarrage est déjà en cours
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : 'Un capteur qui mesure la distance au plateau. HelixScreen l''utilise pour la calibration du Z Offset et les tests de sonde sur l''écran Sonde.'
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: 'Un capteur qui mesure la température de l''air dans l''enceinte. Suivez-la sur l''écran de température de l''enceinte.'

@@ -121,10 +121,6 @@ __attribute__((constructor(101))) static void helix_disable_test_bluetooth_plugi
     setenv("HELIX_BLUETOOTH", "0", 1);
 }
 
-__attribute__((constructor(101))) static void helix_zero_test_mock_connect_delay() {
-    setenv("HELIX_MOCK_CONNECT_DELAY_MS", "0", 1);
-}
-
 namespace {
 
 /// Remove the sandbox once the run is over. Only the teardown lives in a

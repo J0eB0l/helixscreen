@@ -70,6 +70,9 @@ static json mock_object_entry(const std::string& name, int index, int total,
 
 namespace {
 
+/// connect()'s pause before CONNECTED, in simulated ms; see set_connect_delay_ms().
+std::atomic<int> g_connect_delay_ms{250};
+
 /// Slicer-style plate names for HELIX_MOCK_EXCLUDE_OBJECTS. Real slicers emit
 /// `<model>_id_<n>_copy_<n>`, so these are long enough to exercise label
 /// truncation/wrapping in the side list rather than flattering it.
@@ -445,6 +448,14 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     // Set up bed mesh callback to handle incoming status updates
     // This ensures dispatch_status_update updates the mock's internal bed mesh state
     set_bed_mesh_callback([this](const json& bed_mesh) { parse_incoming_bed_mesh(bed_mesh); });
+}
+
+void MoonrakerClientMock::set_connect_delay_ms(int ms) {
+    g_connect_delay_ms.store(ms);
+}
+
+int MoonrakerClientMock::connect_delay_ms() {
+    return g_connect_delay_ms.load();
 }
 
 void MoonrakerClientMock::set_simulation_speedup(double factor) {
@@ -951,15 +962,8 @@ int MoonrakerClientMock::connect(const char* url, std::function<void()> on_conne
     // Simulate connection state change (same as real client)
     set_connection_state(ConnectionState::CONNECTING);
 
-    // Small delay to simulate a realistic connection. The unit-test binary sets
-    // HELIX_MOCK_CONNECT_DELAY_MS=0: hundreds of fixtures connect a mock, and a
-    // real sleep in each one adds minutes of wall time to every shard.
-    int connect_delay_ms = 250;
-    if (const char* env = std::getenv("HELIX_MOCK_CONNECT_DELAY_MS")) {
-        connect_delay_ms = std::clamp(
-            helix::text_io::parse_leading<int>(env).value_or(connect_delay_ms), 0, 10000);
-    }
-    auto delay_ms = sim_speed().shorten_wait_ms(connect_delay_ms);
+    // Small delay to simulate a realistic connection
+    auto delay_ms = sim_speed().shorten_wait_ms(g_connect_delay_ms.load());
     if (delay_ms > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
     }

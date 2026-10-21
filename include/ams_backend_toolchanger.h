@@ -422,6 +422,10 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     AmsError recover() override;
     AmsError reset() override;
     AmsError cancel() override;
+    /// Also drops the optimistic dispatch, which would otherwise read the
+    /// first idle frame after the restart as the middle of an operation, and
+    /// retires its generation so a late ack resolves nothing.
+    void on_klipper_restarted() override;
 
     // Configuration
     AmsError apply_user_edit(int slot_index, const SlotInfo& info,

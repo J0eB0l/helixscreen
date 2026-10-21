@@ -1924,6 +1924,18 @@ class AmsBackend {
     virtual AmsError cancel() = 0;
 
     /**
+     * @brief Klipper came back ready after a restart, which ended every
+     *        firmware-side filament operation
+     *
+     * Drops a busy action (ams_action_is_busy()) back to IDLE locally, along
+     * with any per-operation tracking the backend keeps, so tool changes and
+     * filament ops are accepted again. Sends no G-code and reports no load or
+     * unload outcome; ERROR and PAUSED stay, since those wait on the user.
+     * Main thread, from AmsState's klippy_state observer. Default: nothing to end.
+     */
+    virtual void on_klipper_restarted() {}
+
+    /**
      * @brief Whether cancel() can reach what is running now
      *
      * False while the running operation holds something cancel() would queue

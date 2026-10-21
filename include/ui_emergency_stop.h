@@ -257,6 +257,10 @@ class EmergencyStopOverlay {
     // WebSocket thread), read on the LVGL main thread.
     std::atomic<uint32_t> restart_expires_at_{0};
 
+    // Klippy reported STARTUP since the restart window opened, so a SHUTDOWN or
+    // ERROR now is where the restart landed, not the stop on its way down.
+    std::atomic<bool> restart_saw_startup_{false};
+
     // Skip the first klippy_state observer fire — it carries the subject's
     // default (SHUTDOWN) before Moonraker has reported real state. A real
     // shutdown at startup is delivered separately via the
@@ -346,6 +350,9 @@ class EmergencyStopOverlay {
     /// suppressing every recovery dialog for the rest of the process.
     bool restart_in_progress() const;
 
+    /// Stop treating a restart as in flight. Safe from any thread.
+    void end_restart_window();
+
     /// Arm the one-shot re-check for the current suppression deadline, and reset
     /// the decline budget. Main thread only - it calls lv_timer_create().
     void arm_recovery_recheck();
@@ -375,6 +382,9 @@ class EmergencyStopOverlay {
     bool show_recovery_for_main(RecoveryReason reason);
     void dismiss_recovery_dialog();
     void update_recovery_dialog_content();
+    /// While a restart is in flight, toast that one is and return true, so the
+    /// caller sends nothing. Main thread only.
+    bool refuse_restart_in_flight();
     void restart_klipper();
     void firmware_restart();
 

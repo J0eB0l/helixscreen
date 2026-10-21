@@ -997,6 +997,16 @@ AmsError AmsBackendSnapmaker::reset() {
     return AmsErrorHelper::not_supported("Reset not supported on Snapmaker");
 }
 
+void AmsBackendSnapmaker::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        channel_snapshots_ = {};
+        preload_in_flight_ = {};
+        unload_in_flight_ = {};
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendSnapmaker::cancel() {
     return AmsErrorHelper::not_supported("Cancel not supported on Snapmaker");
 }
@@ -2025,8 +2035,10 @@ void AmsBackendSnapmaker::apply_feed_channel_locked(const snapmaker::FeedChannel
     // verification read the op's outcome; the latch and the
     // step bar read where the filament is. They differ only
     // when the outcome survives in channel_action_state alone.
-    const std::optional<std::string> settled_outcome =
-        helix::snapmaker::settled_op_outcome(snap.state, prev_action_state, snap.action_state);
+    helix::snapmaker::OpOutcome resolved = helix::snapmaker::resolve_op_outcome(
+        snap.state, prev_action_state, snap.action_state, snap.pending_outcome);
+    snap.pending_outcome = std::move(resolved.held);
+    const std::optional<std::string> settled_outcome = std::move(resolved.outcome);
     if (feeder_reports_loaded(snap) && !was_load_confirmed && load_unconfirmed_[i]) {
         spdlog::info("{} tool {} reports '{}' with no error; Resume may proceed", backend_log_tag(),
                      i, snap.state);
