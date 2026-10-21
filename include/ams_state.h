@@ -2411,6 +2411,10 @@ class AmsState {
     ObserverGuard klippy_state_observer_;
     /// The klippy_state the observer last saw; -1 before its first fire.
     int last_klippy_state_ = -1;
+    /// Whether klippy has been READY since the observer was installed. The
+    /// subject starts at SHUTDOWN, so the session's first READY is the connect,
+    /// not a restart.
+    bool klippy_ready_seen_ = false;
 
     /// Wire (or rewire) klippy_state_observer_. Idempotent.
     void install_klippy_state_observer();

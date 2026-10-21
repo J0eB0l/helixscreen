@@ -74,6 +74,14 @@ class EmergencyStopOverlayTestAccess {
         }
     }
 
+    /// The recovery dialog's own Restart Klipper / Firmware Restart buttons.
+    static void recovery_restart_klipper_clicked() {
+        EmergencyStopOverlay::recovery_restart_klipper_clicked(nullptr);
+    }
+    static void recovery_firmware_restart_clicked() {
+        EmergencyStopOverlay::recovery_firmware_restart_clicked(nullptr);
+    }
+
     /// The Restart Klipper / Firmware Restart actions every button reaches.
     static void restart_klipper(EmergencyStopOverlay& o) {
         o.restart_klipper();

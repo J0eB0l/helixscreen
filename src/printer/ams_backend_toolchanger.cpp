@@ -2019,6 +2019,15 @@ AmsError AmsBackendToolChanger::reset() {
     return execute_gcode("INITIALIZE_TOOLCHANGER");
 }
 
+void AmsBackendToolChanger::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending_dispatch_action_.reset();
+        ++dispatch_generation_;
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendToolChanger::cancel() {
     if (feed_run_ && !feed_run_->aborted()) {
         spdlog::info("[AMS ToolChanger] Cancel: heater off and the carriage restored");

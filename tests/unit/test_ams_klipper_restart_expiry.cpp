@@ -13,12 +13,14 @@
 #include "../test_helpers/afc_test_access.h"
 #include "../test_helpers/cfs_test_access.h"
 #include "../test_helpers/snapmaker_test_access.h"
+#include "../test_helpers/toolchanger_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "ams_backend_ad5x_ifs.h"
 #include "ams_backend_afc.h"
 #include "ams_backend_cfs.h"
 #include "ams_backend_mock.h"
 #include "ams_backend_snapmaker.h"
+#include "ams_backend_toolchanger.h"
 #include "ams_state.h"
 #include "ams_types.h"
 #include "app_globals.h"
@@ -110,6 +112,27 @@ TEST_CASE_METHOD(KlipperRestartFixture, "Klipper coming back ready ends the back
     }
 }
 
+TEST_CASE_METHOD(KlipperRestartFixture, "The first READY after start is a connect, not a restart",
+                 "[ams][klipper_restart_expiry]") {
+    // klippy_state starts at SHUTDOWN, so the first READY of a process (or of
+    // a printer switched to) is a SHUTDOWN->READY edge too. Backends can exist
+    // by then, and the firmware may be mid-operation.
+    get_printer_state().set_klippy_state_sync(KlippyState::SHUTDOWN);
+    AmsState::instance().init_subjects(true); // re-installs the observer, as a session start does
+    settle();
+
+    auto owned = std::make_unique<RestartRecordingBackend>();
+    auto* backend = owned.get();
+    AmsState::instance().set_backend(std::move(owned));
+
+    get_printer_state().set_klippy_state_sync(KlippyState::READY);
+    settle();
+    CHECK(backend->restarts == 0);
+
+    restart_klipper();
+    CHECK(backend->restarts == 1);
+}
+
 TEST_CASE_METHOD(KlipperRestartFixture, "A U1 operation latched busy ends with a Klipper restart",
                  "[ams][snapmaker][klipper_restart_expiry]") {
     auto owned = std::make_unique<helix::AmsBackendSnapmaker>(nullptr, nullptr);
@@ -157,4 +180,29 @@ TEST_CASE_METHOD(KlipperRestartFixture, "CFS ends its operation and phase tracki
 
     CHECK(backend.get_current_action() == AmsAction::IDLE);
     CHECK_FALSE(helix::CfsTestAccess::phase_active(backend));
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture, "AFC drops its optimistic dispatch on a Klipper restart",
+                 "[ams][afc][klipper_restart_expiry]") {
+    helix::AmsBackendAfc backend(nullptr, nullptr);
+    helix::AfcTestAccess::system_info(backend).action = AmsAction::SELECTING;
+    helix::AfcTestAccess::pending_dispatch_action(backend) = AmsAction::SELECTING;
+
+    backend.on_klipper_restarted();
+
+    CHECK_FALSE(helix::AfcTestAccess::pending_dispatch_action(backend).has_value());
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(KlipperRestartFixture,
+                 "ToolChanger drops its optimistic dispatch on a Klipper restart",
+                 "[ams][toolchanger][klipper_restart_expiry]") {
+    helix::AmsBackendToolChanger backend(nullptr, nullptr);
+    helix::ToolChangerTestAccess::arm_dispatch(backend, AmsAction::SELECTING);
+    REQUIRE(helix::ToolChangerTestAccess::has_pending_dispatch(backend));
+
+    backend.on_klipper_restarted();
+
+    CHECK_FALSE(helix::ToolChangerTestAccess::has_pending_dispatch(backend));
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
 }
