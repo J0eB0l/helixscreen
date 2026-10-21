@@ -241,7 +241,7 @@ bool ui_keypad_show(const ui_keypad_config_t* config) {
     lv_subject_copy_string(&keypad_unit_subject, config->unit_label ? config->unit_label : "");
 
     // Register with nullptr lifecycle — keypad is function-based, not class-based
-    // The panel authors its own width (#keypad_width, 320-400px by breakpoint): a pad of
+    // The panel authors its own width (#keypad_width, per breakpoint): a pad of
     // three digit columns, not a screen. Neither navigation width class applies, so opt
     // out of push-time width management or the push stretches it to overlay width.
     helix::nav::set_overlay_width_unmanaged(keypad_widget);
