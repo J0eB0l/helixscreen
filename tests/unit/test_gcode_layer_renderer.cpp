@@ -13,6 +13,7 @@
 #include "test_helpers/gcode_layer_renderer_test_access.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
@@ -1834,18 +1835,34 @@ namespace {
 /// File source whose range reads cost a fixed wall-clock slice. The batch
 /// budget has to hold whatever a layer load costs, and real parse time varies
 /// too much between machines to assert against.
+/// Simulated time a SlowReadSource has spent reading; the batch box reads it.
+std::atomic<int64_t> g_read_clock_ms{0};
+
+std::chrono::steady_clock::time_point read_clock() {
+    return std::chrono::steady_clock::time_point{} +
+           std::chrono::milliseconds(g_read_clock_ms.load());
+}
+
+/// A file source whose every read costs @p per_read of simulated time, on
+/// the clock the batch box is given instead of the host's.
 class SlowReadSource : public FileDataSource {
   public:
     SlowReadSource(const std::string& path, std::chrono::milliseconds per_read)
         : FileDataSource(path), per_read_(per_read) {}
 
     std::vector<char> read_range(uint64_t offset, uint32_t length) override {
-        std::this_thread::sleep_for(per_read_);
+        reads_.fetch_add(1);
+        g_read_clock_ms.fetch_add(per_read_.count());
         return FileDataSource::read_range(offset, length);
+    }
+
+    int reads() const {
+        return reads_.load();
     }
 
   private:
     std::chrono::milliseconds per_read_;
+    std::atomic<int> reads_{0};
 };
 
 std::string make_many_layer_gcode(int layers) {
@@ -1861,13 +1878,15 @@ std::string make_many_layer_gcode(int layers) {
 
 TEST_CASE_METHOD(LVGLTestFixture, "solid-cache batches are time-boxed against slow layer loads",
                  "[layer_renderer][streaming][budget]") {
-    // 60 layers at 5 ms per read: an unbounced batch pinned at 60 layers
-    // costs ~300 ms of main thread; a time-boxed one stops after a few.
+    // 60 layers at 5 ms per read against the 8 ms box: an unboxed batch pinned
+    // at 60 layers reads all 60; a time-boxed one stops once a load has spent
+    // the budget.
     TempPickGCodeFile file(make_many_layer_gcode(60));
 
     GCodeStreamingController controller;
-    REQUIRE(controller.open_source(
-        std::make_unique<SlowReadSource>(file.path(), std::chrono::milliseconds(5))));
+    auto source = std::make_unique<SlowReadSource>(file.path(), std::chrono::milliseconds(5));
+    SlowReadSource* reads = source.get();
+    REQUIRE(controller.open_source(std::move(source)));
 
     GCodeLayerRenderer renderer;
     renderer.set_streaming_controller(&controller);
@@ -1875,15 +1894,11 @@ TEST_CASE_METHOD(LVGLTestFixture, "solid-cache batches are time-boxed against sl
     renderer.set_canvas_size(200, 200);
 
     GCodeLayerRendererTestAccess::pin_layers_per_frame(renderer, 100);
+    GCodeLayerRendererTestAccess::set_batch_clock(renderer, &read_clock);
 
-    const auto start = std::chrono::steady_clock::now();
+    const int before = reads->reads();
     const int last = GCodeLayerRendererTestAccess::render_solid_batch(renderer, 0, 59, 200, 200);
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                std::chrono::steady_clock::now() - start)
-                                .count();
+    INFO("reads during the batch: " << reads->reads() - before);
 
-    // The box must cut the batch short of all 60 layers, and the call must
-    // cost a fraction of the unboxed 300 ms.
-    REQUIRE(last < 59);
-    REQUIRE(elapsed_ms < 150);
+    CHECK(last == 1);
 }

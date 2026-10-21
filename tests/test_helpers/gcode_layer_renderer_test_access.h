@@ -129,6 +129,12 @@ class GCodeLayerRendererTestAccess {
         renderer.layers_per_frame_ = layers;
     }
 
+    /// Hand the solid-cache batch box a clock of the test's own.
+    static void set_batch_clock(GCodeLayerRenderer& renderer,
+                                GCodeLayerRenderer::BatchClock clock) {
+        renderer.batch_clock_ = clock;
+    }
+
     /// Stop the solid-cache batch box's clock, so a batch runs every layer it
     /// is given however long the host takes to draw them.
     static void freeze_batch_clock(GCodeLayerRenderer& renderer) {
