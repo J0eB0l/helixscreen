@@ -504,7 +504,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "a confirm the user closed is not hidden aga
 namespace {
 std::vector<Installer> check_installers() {
     return {&install_ui_bindings, &install_io_bindings, &install_moonraker_bindings,
-            &install_printer_bindings};
+            &install_printer_bindings, &install_sound_bindings};
 }
 
 SettingDecl check_step_decl() {
@@ -539,6 +539,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "side effects refused in check",
         {"helix.ui.overlay", R"(helix.ui.overlay("test-plugin__o"))"},
         {"helix.ui.confirm", R"(helix.ui.confirm("t", "m"))"},
         {"helix.ui.on", R"(helix.ui.on("late", function() end))"},
+        {"helix.sound.play", R"(helix.sound.play("button_tap"))"},
         {"helix.storage.set", R"(helix.storage.set("k", 1))"},
         {"helix.settings.set", R"(helix.settings.set("step", 7))"},
         {"helix.settings.on_change", R"(helix.settings.on_change("step", function() end))"},

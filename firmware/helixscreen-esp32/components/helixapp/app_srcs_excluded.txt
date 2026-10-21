@@ -387,3 +387,4 @@ src/system/http_listen_socket.cpp  # only the screen server and the mock file se
 src/system/random_bytes.cpp  # its callers (telemetry, screen server pairing) are not in the firmware
 src/system/android_lan_route.cpp  # Android only
 src/utils/lan_host.cpp  # only the Android LAN routing uses it
+src/plugin/lua_bind_sound.cpp  # not in the v1 Core+AMS cut

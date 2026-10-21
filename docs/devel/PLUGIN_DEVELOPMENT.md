@@ -465,7 +465,7 @@ A check runs in check mode (`src/plugin/lua_runtime.cpp#call_sync`): anything wi
 a side effect or a wait raises "`<call>` is not allowed in a menu check" before acting.
 That covers every async call (`helix.gcode`, `helix.moonraker`, `helix.http`,
 `helix.sleep`), `helix.storage.set`, `helix.settings.set`, `subject:set`, opening a
-dialog, overlay, confirm or toast, closing a surface, `helix.canvas` and every canvas
+dialog, overlay, confirm or toast, playing a sound, closing a surface, `helix.canvas` and every canvas
 method (a check never draws), creating a subject, `helix.widget`, starting or cancelling
 a timer, registering a handler, observer, watch or subscription, and `require` (a module's
 top level is ordinary entry work, and a refusal inside it would cache a half-loaded
@@ -516,6 +516,33 @@ end)
 
 Disabling, faulting or unloading a plugin removes its items at once; a tap that lands
 after that does nothing.
+
+### helix.sound (`src/plugin/lua_bind_sound.cpp`)
+
+| Call | Returns | Notes |
+|---|---|---|
+| `helix.sound.play(name[, priority])` | `true` or `false` | plays one cue of the user's active sound theme through the app's sound manager; `priority` is `"ui"` (default) or `"event"` |
+
+`name` is one of `button_tap`, `toggle_on`, `toggle_off`, `nav_forward`, `nav_back`,
+`dropdown_open`, `print_complete`, `print_cancelled`, `error_alert`, `error_tone` or
+`test_beep`. The boot chime (`startup`) and the urgent alarm (`alarm_urgent`) are the
+app's own, and so is the `"alarm"` priority, which nothing interrupts: an unknown name or
+priority raises.
+
+The user's settings decide what is heard, exactly as for the app's own sounds: nothing
+plays with Sounds off, the first six names are UI sounds and stay silent with UI sounds
+off, a theme without the cue plays nothing, and a printer without a speaker plays
+nothing. An `"event"` cue is interrupted only by an app alarm; a `"ui"` cue by anything.
+
+Request a cue once per event, not on every status update. A plugin's cues at one priority
+are at least 150 ms apart (`"ui"`) or 1 s apart (`"event"`); a cue inside that gap is
+dropped and the call returns `false`. `false` also means the screen has no sound path at
+all. `true` says the cue was handed to the sound manager, not that it was heard. A cue is
+fire-and-forget: nothing calls back, so unloading the plugin leaves nothing pending.
+
+```lua
+helix.ui.on("job_done", function() helix.sound.play("print_complete", "event") end)
+```
 
 ### helix.widget (`src/plugin/lua_bind_widget.cpp`)
 
@@ -770,7 +797,7 @@ Four permissions (`src/plugin/plugin_permissions.cpp`):
 | `http` | `helix.http.get`, `helix.http.post` |
 | `storage` | `helix.storage.get`, `helix.storage.set` |
 
-Everything else - subjects, the UI calls, `helix.printer`, `helix.moonraker.query`,
+Everything else - subjects, the UI calls, `helix.sound`, `helix.printer`, `helix.moonraker.query`,
 `subscribe`, `on_agent_event`, timers, settings - needs no permission. A call without its
 permission raises a Lua error naming it.
 
@@ -807,6 +834,7 @@ approval* instead of loading; enabling it again approves only the new lines.
 | Measured text | at most 1024 bytes per `helix.ui.text_width` string | `src/plugin/lua_bind_ui.cpp` |
 | Dialogs | one `helix.ui.dialog` shown or waiting per plugin | `src/plugin/lua_bind_ui.cpp#kMaxDialogs` |
 | Confirms | one `helix.ui.confirm` shown or waiting per plugin | `src/plugin/lua_bind_ui.cpp#kMaxOpenConfirms` |
+| Sound cues | per plugin, 150 ms between `"ui"` cues and 1 s between `"event"` cues; a cue inside the gap is dropped | `include/lua_bindings.h#kPluginUiCueIntervalMs` |
 | Canvas list bytes | charged against the plugin memory cap as staged; a call that would cross it raises, never faults | `include/plugin_canvas.h#DisplayList/bytes` |
 | Home tiles | at most 32 `widgets` per plugin | `include/plugin_manifest.h#kMaxWidgetsPerPlugin` |
 | Menu items | at most 4 per menu per plugin, 16 per manifest; a label is one line of at most 48 bytes | `include/plugin_manifest.h#kMaxMenuItemsPerMenu` |

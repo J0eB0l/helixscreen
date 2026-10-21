@@ -68,9 +68,9 @@ struct TestRuntime {
 /// Records every backend request so a test can inspect it and answer it later.
 struct FakeBackend {
     struct Request {
-        std::string kind; ///< gcode, call, upload, download, http
-        std::string a;    ///< script, method, root, or HTTP method
-        std::string b;    ///< path or URL
+        std::string kind; ///< gcode, call, upload, download, http, sound
+        std::string a;    ///< script, method, root, HTTP method, or sound name
+        std::string b;    ///< path, URL, or sound priority ("ui", "event", "alarm")
         std::string c;    ///< upload content or HTTP body
         json params;      ///< call params or HTTP headers
         RpcCallback reply;
@@ -115,6 +115,12 @@ struct FakeBackend {
         };
         b.set_plugin_objects = [this](const std::string& id, const json& objects) {
             object_sets.emplace_back(id, objects);
+        };
+        b.play_sound = [this](const std::string& name, SoundPriority p) {
+            const char* priority = p == SoundPriority::ALARM   ? "alarm"
+                                   : p == SoundPriority::EVENT ? "event"
+                                                               : "ui";
+            requests.push_back({"sound", name, priority, {}, {}, {}, 0});
         };
         return b;
     }

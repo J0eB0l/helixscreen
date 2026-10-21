@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "sound_backend.h"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -58,6 +60,9 @@ struct PluginBackend {
     /// to null for every field or an array of field names). An empty object clears the
     /// plugin's set. Main thread only.
     std::function<void(const std::string& plugin_id, const json& objects)> set_plugin_objects;
+    /// Plays a named cue of the active sound theme through the app's sound manager, which
+    /// applies the user's sound settings. Main thread only.
+    std::function<void(const std::string& name, SoundPriority priority)> play_sound;
 };
 
 PluginBackend make_app_backend();
