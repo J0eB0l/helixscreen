@@ -164,8 +164,6 @@
   <translation tag="ACCELEROMETERS" ja="加速度センサー"/>
   <translation tag="ACCEPT failed: {}" ja="ACCEPT に失敗しました: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." ja="ACE Moonraker ブリッジが見つかりません。完全なサポートには ace_status.py をインストールしてください。"/>
-  <translation tag="ACE Pro" ja="ACE Pro"/>
-  <translation tag="ACE Pro 2" ja="ACE Pro 2"/>
   <translation tag="ACTIONS" ja="アクション"/>
   <translation tag="ADD-ONS" ja="アドオン"/>
   <translation tag="ADXL" ja="ADXL"/>

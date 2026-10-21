@@ -167,8 +167,6 @@ translations:
   ACCELEROMETERS: ACCELEROMETERS
   'ACCEPT failed: {}': 'ACCEPT failed: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: ACE Moonraker bridge not found. Install ace_status.py for full support.
-  ACE Pro: ACE Pro
-  ACE Pro 2: ACE Pro 2
   ACTIONS: ACTIONS
   ADD-ONS: ADD-ONS
   ADXL: ADXL

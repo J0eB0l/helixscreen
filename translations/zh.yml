@@ -168,8 +168,6 @@ translations:
   ACCELEROMETERS: 加速度计
   'ACCEPT failed: {}': 'ACCEPT 失败: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: 未找到 ACE Moonraker 桥接。请安装 ace_status.py 以获得完整支持。
-  ACE Pro: ACE Pro
-  ACE Pro 2: ACE Pro 2
   ACTIONS: 操作
   ADD-ONS: '附加功能'
   ADXL: ADXL

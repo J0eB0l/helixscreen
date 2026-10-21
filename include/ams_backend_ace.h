@@ -461,9 +461,8 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     /// Apply what each unit says about itself (unit_identities_) to the
     /// units: its model as the unit's name, its firmware, and on the ACEPRO
-    /// driver a display name (the model, else a generic name for its
-    /// protocol), numbering the second and later unit of one name. Caller
-    /// holds mutex_.
+    /// driver a display name, the short product name for its protocol,
+    /// numbering the second and later unit of one name. Caller holds mutex_.
     void apply_unit_identities_locked();
 
     /// Record unit @p unit's own status word and publish the action of the

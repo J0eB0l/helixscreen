@@ -176,8 +176,6 @@ translations:
   'ACCEPT failed: {}': 'ACCEPT fehlgeschlagen: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: ACE Moonraker-Bridge
     nicht gefunden. Installieren Sie ace_status.py für volle Unterstützung.
-  ACE Pro: ACE Pro
-  ACE Pro 2: ACE Pro 2
   ACTIONS: AKTIONEN
   ADD-ONS: 'ZUSATZ'
   ADXL: ADXL

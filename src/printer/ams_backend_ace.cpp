@@ -56,13 +56,13 @@ static constexpr int kMaxInfoFetchFailures = 3;
 
 namespace {
 
-/// The name shown for an ACEPRO unit that states no model: the product its
-/// `protocol` drives.
-std::string ace_generic_unit_name(const std::string& protocol) {
+/// The name shown for an ACEPRO unit: the product its `protocol` drives.
+/// Product names, so not translated.
+std::string ace_unit_short_name(const std::string& protocol) {
     if (protocol == "ace2_proto") {
-        return lv_tr("ACE Pro 2");
+        return "ACE Pro 2";
     }
-    return lv_tr("ACE Pro");
+    return "ACE Pro";
 }
 
 /// Whether an ACEPRO unit's `connection_state` says it is connected; nullopt for
@@ -1077,8 +1077,7 @@ void AmsBackendAce::apply_unit_identities_locked() {
             unit.display_name.clear();
             continue;
         }
-        const std::string base =
-            identity.model.empty() ? ace_generic_unit_name(identity.protocol) : identity.model;
+        const std::string base = ace_unit_short_name(identity.protocol);
         const int count = ++seen[base];
         unit.display_name = count == 1 ? base : base + " #" + std::to_string(count);
     }

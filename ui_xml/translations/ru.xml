@@ -197,8 +197,6 @@
   <translation tag="ACCELEROMETERS" ru="АКСЕЛЕРОМЕТРЫ"/>
   <translation tag="ACCEPT failed: {}" ru="Ошибка ACCEPT: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." ru="Мост ACE Moonraker не найден. Установите ace_status.py для полной поддержки."/>
-  <translation tag="ACE Pro" ru="ACE Pro"/>
-  <translation tag="ACE Pro 2" ru="ACE Pro 2"/>
   <translation tag="ACTIONS" ru="ДЕЙСТВИЯ"/>
   <translation tag="ADD-ONS" ru="ДОПОЛНЕНИЯ"/>
   <translation tag="ADXL" ru="ADXL"/>
