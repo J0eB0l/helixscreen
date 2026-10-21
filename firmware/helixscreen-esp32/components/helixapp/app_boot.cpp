@@ -947,6 +947,7 @@ extern "C" void app_boot_ui(void) {
     helix::register_xml_components();
     helix::ui::register_cfs_device_flows();
     helix::ui::register_snapmaker_device_flows();
+    helix::ui::register_indx_device_flows();
     log_heap_milestone("xml-registered");
 
     // The bell opens the notification history panel. Registered BEFORE

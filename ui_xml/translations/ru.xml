@@ -545,6 +545,7 @@
   <translation tag="Calibrating {} axis..." ru="Калибровка оси {}..."/>
   <translation tag="Calibrating..." ru="Калибровка..."/>
   <translation tag="Calibrating... (about 1 minute)" ru="Калибровка... (около 1 минуты)"/>
+  <translation tag="Calibrating... (several minutes)" ru="Калибровка... (несколько минут)"/>
   <translation tag="Calibration" ru="Калибровка"/>
   <translation tag="Calibration &amp; Tools" ru="Калибровка и инструменты"/>
   <translation tag="Calibration Complete!" ru="Калибровка завершена!"/>
@@ -558,11 +559,14 @@
   <translation tag="Calibration complete! Press &apos;Next&apos; to continue." ru="Калибровка завершена! Нажмите «Далее» для продолжения."/>
   <translation tag="Calibration failed" ru="Калибровка не удалась"/>
   <translation tag="Calibration failed - touch targets more precisely." ru="Калибровка не удалась – нажимайте на цели точнее."/>
+  <translation tag="Calibration failed: {}" ru="Ошибка калибровки: {}"/>
+  <translation tag="Calibration finished, not saved yet" ru="Калибровка завершена, ещё не сохранена"/>
   <translation tag="Calibration in progress" ru="Идёт калибровка"/>
   <translation tag="Calibration kept timing out. Your previous settings were kept." ru="Калибровка постоянно завершалась по тайм-ауту. Прежние настройки сохранены."/>
   <translation tag="Calibration may still be running — printer connection was interrupted" ru="Калибровка может ещё выполняться — соединение с принтером прервано"/>
   <translation tag="Calibration may still be running — response timed out" ru="Калибровка может ещё выполняться — время ожидания истекло"/>
   <translation tag="Calibration move may still be running — printer connection was interrupted" ru="Движение калибровки может ещё выполняться — соединение с принтером прервано"/>
+  <translation tag="Calibration saved" ru="Калибровка сохранена"/>
   <translation tag="Calibration saved but cannot apply on SDL display" ru="Калибровка сохранена, но не может быть применена на SDL дисплее"/>
   <translation tag="Calibration succeeded, but the frequency chart data couldn&apos;t be read." ru="Калибровка завершена успешно, но не удалось прочитать данные графика частот."/>
   <translation tag="Calibration succeeded. The frequency chart is only available when HelixScreen runs on the printer." ru="Калибровка завершена успешно. График частот доступен, только когда HelixScreen работает на принтере."/>
@@ -947,6 +951,7 @@
   <translation tag="Cutting" ru="Резка"/>
   <translation tag="Cutting filament..." ru="Обрезка филамента..."/>
   <translation tag="Cycle every tool" ru="Перебрать все инструменты"/>
+  <translation tag="Cycling tools..." ru="Перебор инструментов..."/>
   <translation tag="DETECTED USB PRINTERS" ru="ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ"/>
   <translation tag="DEVICES" ru="УСТРОЙСТВА"/>
   <translation tag="DISABLED" ru="ОТКЛЮЧЕНО"/>
@@ -1185,6 +1190,7 @@
   <translation tag="Every browser that can control this screen will need the new pairing code." ru="Каждому браузеру, который может управлять этим экраном, понадобится новый код сопряжения."/>
   <translation tag="Every extruder&apos;s temperature at once" ru="Температура всех экструдеров"/>
   <translation tag="Every object is set to skip, so there is nothing to print" ru="Все объекты отмечены для пропуска, печатать нечего"/>
+  <translation tag="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes." ru="Каждый инструмент по очереди берётся и ставится на место. В конце головка остаётся пустой. Это займёт несколько минут."/>
   <translation tag="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result." ru="Смещения всех инструментов измеряются заново и заменяют текущие. После этого сохраните, чтобы оставить результат."/>
   <translation tag="Every unit keeps its filament gripped" ru="Каждый блок держит свой филамент зажатым"/>
   <translation tag="Everything else was saved. Change them in Spoolman." ru="Всё остальное сохранено. Измените их в Spoolman."/>
@@ -2203,6 +2209,7 @@
   <translation tag="No USB printers found" ru="USB-принтеры не найдены"/>
   <translation tag="No actions right now" ru="Сейчас нет действий"/>
   <translation tag="No active Spoolman spool." ru="Нет активной катушки Spoolman."/>
+  <translation tag="No answer from the printer; it may still be calibrating" ru="Принтер не отвечает; возможно, калибровка ещё идёт"/>
   <translation tag="No answer: check the IP address and that this device is on the printer&apos;s Wi-Fi, not mobile data." ru="Нет ответа: проверьте IP-адрес и что это устройство в Wi-Fi принтера, а не в мобильной сети."/>
   <translation tag="No answer: check the IP address and that this device is on the printer&apos;s network." ru="Нет ответа: проверьте IP-адрес и что это устройство в сети принтера."/>
   <translation tag="No buffer data available" ru="Данные буфера недоступны"/>
@@ -3036,10 +3043,12 @@
   <translation tag="Save Z-Offset" ru="Сохранить Z-Offset"/>
   <translation tag="Save Z-Offset Buttons" ru="Кнопки сохранения Z-Offset"/>
   <translation tag="Save Z-Offset?" ru="Сохранить Z-Offset?"/>
+  <translation tag="Save calibration" ru="Сохранить калибровку"/>
   <translation tag="Save changes to persist them across restarts?" ru="Сохранить изменения, чтобы они сохранились после перезапуска?"/>
   <translation tag="Save failed: {}" ru="Ошибка сохранения: {}"/>
   <translation tag="Save offsets?" ru="Сохранить смещения?"/>
   <translation tag="Save the changes to this spool?" ru="Сохранить изменения этой катушки?"/>
+  <translation tag="Save the new heater values to printer.cfg? Klipper restarts." ru="Сохранить новые значения нагревателя в printer.cfg? Klipper перезапустится."/>
   <translation tag="Save to Spool" ru="Сохранить на катушку"/>
   <translation tag="Save to Spoolman" ru="Сохранить в Spoolman"/>
   <translation tag="Saved Z-Offset" ru="Сохранённый Z-Offset"/>
@@ -3053,6 +3062,8 @@
   <translation tag="Saving Configuration..." ru="Сохранение конфигурации..."/>
   <translation tag="Saving Z-offset..." ru="Сохранение Z-offset..."/>
   <translation tag="Saving and finishing..." ru="Сохранение и завершение..."/>
+  <translation tag="Saving calibration" ru="Сохранение калибровки"/>
+  <translation tag="Saving calibration..." ru="Сохранение калибровки..."/>
   <translation tag="Saving config... Klipper will restart." ru="Сохранение конфигурации... Klipper перезапустится."/>
   <translation tag="Saving offsets..." ru="Сохранение смещений..."/>
   <translation tag="Saving the position and parking the toolhead." ru="Сохранение позиции и парковка печатающей головки."/>
@@ -3545,7 +3556,9 @@
   <translation tag="The left RFID reader in this CFS unit may need service" ru="Левому RFID-считывателю этого блока CFS может требоваться обслуживание"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." ru="Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла."/>
   <translation tag="The message your printer&apos;s macros show (M117)" ru="Сообщение, которое показывают макросы принтера (M117)"/>
+  <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." ru="Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут."/>
   <translation tag="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself." ru="Сопло делает несколько коротких тестовых перемещений в углу, в стороне от зоны печати, и повторяет их до сходимости."/>
+  <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." ru="Сопло нагреется до 200°C, пока обдув перебирает скорости. Для точного результата установите воздуховод так же, как при печати. Это займёт несколько минут."/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." ru="Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее»."/>
   <translation tag="The plate and the spools are still hot. Use gloves." ru="Стол и катушки ещё горячие. Используйте перчатки."/>
   <translation tag="The plate finishes its current move, but drying will not start." ru="Стол завершит текущее перемещение, но сушка не начнётся."/>
@@ -3735,6 +3748,8 @@
   <translation tag="Tool change failed: {}" ru="Ошибка смены инструмента: {}"/>
   <translation tag="Tool change speed" ru="Скорость смены инструмента"/>
   <translation tag="Tool change to T{}" ru="Смена инструмента на T{}"/>
+  <translation tag="Tool cycle failed: {}" ru="Ошибка перебора инструментов: {}"/>
+  <translation tag="Tool cycle finished" ru="Перебор инструментов завершён"/>
   <translation tag="Tool is seated" ru="Инструмент установлен"/>
   <translation tag="Tool may be half seated" ru="Инструмент может быть установлен не полностью"/>
   <translation tag="Tool offsets (mm)" ru="Смещения инструментов (мм)"/>
@@ -3946,6 +3961,7 @@
   <translation tag="Wait for the current filament operation to finish" ru="Дождитесь завершения текущей операции с филаментом"/>
   <translation tag="Wait for the current operation to complete" ru="Дождитесь завершения текущей операции"/>
   <translation tag="Wait for the current operation to complete or cancel it first" ru="Дождитесь завершения текущей операции или сначала отмените её"/>
+  <translation tag="Wait for the running INDX operation to finish" ru="Дождитесь завершения текущей операции INDX"/>
   <translation tag="Wait until the print finishes" ru="Дождитесь завершения печати"/>
   <translation tag="Waiting for %s to finish. One heater at a time." ru="Ожидание завершения %s. Только один нагреватель одновременно."/>
   <translation tag="Waiting for Moonraker..." ru="Ожидание Moonraker..."/>

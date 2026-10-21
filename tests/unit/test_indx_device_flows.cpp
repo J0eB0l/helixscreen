@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// The INDX guided device flows: each asks before it moves the printer, tracks
+// the run on the section's status line, and offers the save a calibration
+// needs only when the calibration answered success.
+
+#include "ui_guided_device_flow.h"
+#include "ui_modal.h"
+
+#include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/gcode_recording_api.h"
+#include "../test_helpers/modal_answer.h"
+#include "../test_helpers/registered_backend.h"
+#include "ams_backend_indx.h"
+#include "app_globals.h"
+#include "macro_param_cache.h"
+#include "moonraker_client_mock.h"
+#include "printer_discovery.h"
+#include "printer_state.h"
+
+#include <algorithm>
+#include <string>
+#include <vector>
+
+#include "../catch_amalgamated.hpp"
+#include "hv/json.hpp"
+
+using json = nlohmann::json;
+using namespace helix;
+
+namespace {
+
+/// An INDX on a recording API, with a mounted tool and a cold nozzle.
+class FlowIndx : public AmsBackendIndx {
+  public:
+    FlowIndx(IMoonrakerAPI* api, helix::IMoonrakerClient* client) : AmsBackendIndx(api, client) {
+        running_ = true;
+    }
+    void feed(const json& status) {
+        handle_status_update(
+            json{{"method", "notify_status_update"}, {"params", json::array({status, 0.0})}});
+    }
+
+  protected:
+    [[nodiscard]] double nozzle_target_c() const override {
+        return 0.0;
+    }
+};
+
+PrinterDiscovery indx_discovery(const std::vector<std::string>& extra) {
+    json objects =
+        json::array({"indx", "save_variables", "extruder", "toolhead", "gcode_macro TOOL_POSITIONS",
+                     "gcode_macro _TOOLCHANGE_VARS", "gcode_macro CHANGE_TOOL",
+                     "gcode_macro PARK_TOOL", "gcode_macro LOAD_FILAMENT"});
+    for (int i = 0; i < 4; ++i) {
+        objects.push_back("gcode_macro T" + std::to_string(i));
+    }
+    for (const auto& m : extra) {
+        objects.push_back("gcode_macro " + m);
+    }
+    PrinterDiscovery hw;
+    hw.parse_objects(objects);
+    const json config = {{"gcode_macro TOOL_POSITIONS", {{"variable_tool_count", "4"}}}};
+    hw.parse_config_keys(config);
+    MacroParamCache::instance().populate_from_configfile(config, hw.macros());
+    return hw;
+}
+
+const std::vector<std::string> kFlowMacros = {"MODE_STEALTH", "MODE_NORMAL", "MODE_SPORT",
+                                              "TC_CYCLE_ALL"};
+
+class IndxFlowFixture : public LVGLUITestFixture {
+  public:
+    IndxFlowFixture() {
+        set_moonraker_api(&api);
+        register_indx_flows_once();
+        harness->set_discovery(indx_discovery(kFlowMacros));
+        harness->feed(json{{"save_variables", {{"variables", {{"active_tool", 1}}}}}});
+    }
+    ~IndxFlowFixture() override {
+        set_moonraker_api(nullptr);
+        MacroParamCache::instance().clear();
+    }
+
+    static void register_indx_flows_once() {
+        ui::register_indx_device_flows();
+    }
+
+    void start(const char* flow_id) {
+        const ui::GuidedDeviceFlow* flow = ui::find_guided_device_flow(flow_id);
+        REQUIRE(flow != nullptr);
+        REQUIRE(flow->start);
+        flow->start("label");
+        process_lvgl(20);
+    }
+
+    static int phase() {
+        lv_subject_t* s = lv_xml_get_subject(nullptr, "indx_flow_phase");
+        REQUIRE(s != nullptr);
+        return lv_subject_get_int(s);
+    }
+    static std::string status() {
+        lv_subject_t* s = lv_xml_get_subject(nullptr, "indx_flow_status");
+        REQUIRE(s != nullptr);
+        return lv_subject_get_string(s);
+    }
+    void settle() {
+        ui::UpdateQueue::instance().drain();
+        process_lvgl(20);
+    }
+    [[nodiscard]] bool sent(const std::string& gcode) const {
+        return std::find(api.sent.begin(), api.sent.end(), gcode) != api.sent.end();
+    }
+
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_TRIDENT};
+    test::GcodeRecordingApi api{client, get_printer_state()};
+    test::RegisteredBackend<FlowIndx> harness{&api, &client};
+};
+
+} // namespace
+
+TEST_CASE_METHOD(IndxFlowFixture,
+                 "INDX flows: the heater calibration asks, runs, then offers the save",
+                 "[indx][flows]") {
+    api.hold_acks = true;
+    start("indx_heater_calibration");
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    CHECK(api.sent.empty());
+
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("INDX_CALIBRATE"));
+    CHECK(phase() == 1);
+
+    api.ack_held();
+    settle();
+    CHECK(phase() == 2);
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("not saved"));
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    CHECK_THAT(test::top_modal_text(), Catch::Matchers::ContainsSubstring("printer.cfg"));
+
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("SAVE_CONFIG"));
+    api.hold_acks = false;
+    api.ack_held();
+    settle();
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: a timed-out calibration offers no save",
+                 "[indx][flows]") {
+    api.time_out = {"INDX_CALIBRATE"};
+    start("indx_heater_calibration");
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("INDX_CALIBRATE"));
+    CHECK(phase() == 2);
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("may still be"));
+    CHECK(ModalStack::instance().top_dialog() == nullptr);
+    CHECK_FALSE(sent("SAVE_CONFIG"));
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: cancelling the confirm sends nothing",
+                 "[indx][flows]") {
+    start("indx_cycle_all");
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    test::answer_top_modal("btn_secondary");
+    settle();
+    CHECK(api.sent.empty());
+
+    start("indx_cycle_all");
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("TC_CYCLE_ALL"));
+    CHECK(phase() == 2);
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("finished"));
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: registered ids match the backend's actions",
+                 "[indx][flows]") {
+    int flows = 0;
+    for (const auto& action : harness->get_device_actions()) {
+        if (action.guided_flow.empty()) {
+            continue;
+        }
+        INFO(action.id << " -> " << action.guided_flow);
+        CHECK(ui::find_guided_device_flow(action.guided_flow) != nullptr);
+        ++flows;
+    }
+    CHECK(flows >= 3);
+}

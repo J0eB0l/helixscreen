@@ -591,6 +591,7 @@ translations:
   Calibrating {} axis...: 'Калибровка оси {}...'
   Calibrating...: Калибровка...
   Calibrating... (about 1 minute): 'Калибровка... (около 1 минуты)'
+  Calibrating... (several minutes): Калибровка... (несколько минут)
   Calibration: Калибровка
   Calibration & Tools: Калибровка и инструменты
   Calibration Complete!: Калибровка завершена!
@@ -606,11 +607,14 @@ translations:
   Calibration failed: Калибровка не удалась
   Calibration failed - touch targets more precisely.: Калибровка не удалась – нажимайте
     на цели точнее.
+  'Calibration failed: {}': 'Ошибка калибровки: {}'
+  Calibration finished, not saved yet: Калибровка завершена, ещё не сохранена
   Calibration in progress: "Идёт калибровка"
   Calibration kept timing out. Your previous settings were kept.: Калибровка постоянно завершалась по тайм-ауту. Прежние настройки сохранены.
   Calibration may still be running — printer connection was interrupted: 'Калибровка может ещё выполняться — соединение с принтером прервано'
   Calibration may still be running — response timed out: 'Калибровка может ещё выполняться — время ожидания истекло'
   Calibration move may still be running — printer connection was interrupted: 'Движение калибровки может ещё выполняться — соединение с принтером прервано'
+  Calibration saved: Калибровка сохранена
   Calibration saved but cannot apply on SDL display: Калибровка сохранена, но не может
     быть применена на SDL дисплее
   Calibration succeeded, but the frequency chart data couldn't be read.: Калибровка завершена
@@ -1048,6 +1052,7 @@ translations:
   Cutting: Резка
   Cutting filament...: Обрезка филамента...
   Cycle every tool: Перебрать все инструменты
+  Cycling tools...: Перебор инструментов...
   DETECTED USB PRINTERS: ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ
   DEVICES: УСТРОЙСТВА
   DISABLED: ОТКЛЮЧЕНО
@@ -1306,6 +1311,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: Всё остальное сохранено. Измените их в Spoolman.
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: 'Всё остальное сохранено. Переименуйте материал, используя буквы, цифры, пробелы и + - _ . ( ) /'
   Every object is set to skip, so there is nothing to print: 'Все объекты отмечены для пропуска, печатать нечего'
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: Каждый инструмент по очереди берётся и ставится на место. В конце головка остаётся пустой. Это займёт несколько минут.
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: Смещения всех инструментов измеряются заново и заменяют текущие. После этого сохраните, чтобы оставить результат.
   Excellent Accuracy: Отличная точность
   'Exception: {}': 'Исключение: {}'
@@ -2412,6 +2418,7 @@ translations:
   No USB printers found: USB-принтеры не найдены
   No actions right now: 'Сейчас нет действий'
   No active Spoolman spool.: Нет активной катушки Spoolman.
+  No answer from the printer; it may still be calibrating: Принтер не отвечает; возможно, калибровка ещё идёт
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "Нет ответа: проверьте IP-адрес и что это устройство в Wi-Fi принтера, а не в мобильной сети."
   "No answer: check the IP address and that this device is on the printer's network.": "Нет ответа: проверьте IP-адрес и что это устройство в сети принтера."
   No buffer data available: Данные буфера недоступны
@@ -3305,11 +3312,13 @@ translations:
   Save Z-Offset: Сохранить Z-Offset
   Save Z-Offset Buttons: 'Кнопки сохранения Z-Offset'
   Save Z-Offset?: Сохранить Z-Offset?
+  Save calibration: Сохранить калибровку
   Save changes to persist them across restarts?: Сохранить изменения, чтобы они сохранились
     после перезапуска?
   'Save failed: {}': 'Ошибка сохранения: {}'
   Save Offsets: Сохранить смещения
   Save offsets?: Сохранить смещения?
+  Save the new heater values to printer.cfg? Klipper restarts.: Сохранить новые значения нагревателя в printer.cfg? Klipper перезапустится.
   Save to Spool: Сохранить на катушку
   Save to Spoolman: Сохранить в Spoolman
   Saved Z-Offset: Сохранённый Z-Offset
@@ -3324,6 +3333,8 @@ translations:
   Saving Configuration...: Сохранение конфигурации...
   Saving Z-offset...: Сохранение Z-offset...
   Saving and finishing...: Сохранение и завершение...
+  Saving calibration: Сохранение калибровки
+  Saving calibration...: Сохранение калибровки...
   Saving config... Klipper will restart.: Сохранение конфигурации... Klipper перезапустится.
   Saving offsets...: Сохранение смещений...
   Saving the position and parking the toolhead.: Сохранение позиции и парковка печатающей головки.
@@ -3882,7 +3893,11 @@ translations:
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла.
   The message your printer's macros show (M117): 'Сообщение, которое показывают макросы принтера (M117)'
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'Сопло делает несколько коротких тестовых перемещений в углу, в стороне от зоны печати, и повторяет их до сходимости.'
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : Сопло нагреется до 200°C, пока обдув перебирает скорости. Для точного результата установите воздуховод так же, как при печати. Это займёт несколько минут.
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее».
   The plate and the spools are still hot. Use gloves.: Стол и катушки ещё горячие. Используйте перчатки.
@@ -4123,6 +4138,8 @@ translations:
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Tool change speed: Скорость смены инструмента
   Tool change to T{}: 'Смена инструмента на T{}'
+  'Tool cycle failed: {}': 'Ошибка перебора инструментов: {}'
+  Tool cycle finished: Перебор инструментов завершён
   Tool is seated: Инструмент установлен
   Tool may be half seated: "Инструмент может быть установлен не полностью"
   Tool offsets (mm): Смещения инструментов (мм)
@@ -4335,6 +4352,7 @@ translations:
   Wait for the current filament operation to finish: Дождитесь завершения текущей операции с филаментом
   Wait for the current operation to complete: Дождитесь завершения текущей операции
   Wait for the current operation to complete or cancel it first: Дождитесь завершения текущей операции или сначала отмените её
+  Wait for the running INDX operation to finish: Дождитесь завершения текущей операции INDX
   Wait until the print finishes: Дождитесь завершения печати
   Waiting for Moonraker...: Ожидание Moonraker...
   Waiting for %s to finish. One heater at a time.: Ожидание завершения %s. Только один нагреватель одновременно.

@@ -506,6 +506,7 @@
   <translation tag="Calibrating {} axis..." en="Calibrating {} axis..."/>
   <translation tag="Calibrating..." en="Calibrating..."/>
   <translation tag="Calibrating... (about 1 minute)" en="Calibrating... (about 1 minute)"/>
+  <translation tag="Calibrating... (several minutes)" en="Calibrating... (several minutes)"/>
   <translation tag="Calibration" en="Calibration"/>
   <translation tag="Calibration &amp; Tools" en="Calibration &amp; Tools"/>
   <translation tag="Calibration Complete!" en="Calibration Complete!"/>
@@ -519,11 +520,14 @@
   <translation tag="Calibration complete! Press &apos;Next&apos; to continue." en="Calibration complete! Press &apos;Next&apos; to continue."/>
   <translation tag="Calibration failed" en="Calibration failed"/>
   <translation tag="Calibration failed - touch targets more precisely." en="Calibration failed - touch targets more precisely."/>
+  <translation tag="Calibration failed: {}" en="Calibration failed: {}"/>
+  <translation tag="Calibration finished, not saved yet" en="Calibration finished, not saved yet"/>
   <translation tag="Calibration in progress" en="Calibration in progress"/>
   <translation tag="Calibration kept timing out. Your previous settings were kept." en="Calibration kept timing out. Your previous settings were kept."/>
   <translation tag="Calibration may still be running — printer connection was interrupted" en="Calibration may still be running — printer connection was interrupted"/>
   <translation tag="Calibration may still be running — response timed out" en="Calibration may still be running — response timed out"/>
   <translation tag="Calibration move may still be running — printer connection was interrupted" en="Calibration move may still be running — printer connection was interrupted"/>
+  <translation tag="Calibration saved" en="Calibration saved"/>
   <translation tag="Calibration saved but cannot apply on SDL display" en="Calibration saved but cannot apply on SDL display"/>
   <translation tag="Calibration succeeded, but the frequency chart data couldn&apos;t be read." en="Calibration succeeded, but the frequency chart data couldn&apos;t be read."/>
   <translation tag="Calibration succeeded. The frequency chart is only available when HelixScreen runs on the printer." en="Calibration succeeded. The frequency chart is only available when HelixScreen runs on the printer."/>
@@ -905,6 +909,7 @@
   <translation tag="Cutting" en="Cutting"/>
   <translation tag="Cutting filament..." en="Cutting filament..."/>
   <translation tag="Cycle every tool" en="Cycle every tool"/>
+  <translation tag="Cycling tools..." en="Cycling tools..."/>
   <translation tag="DETECTED USB PRINTERS" en="DETECTED USB PRINTERS"/>
   <translation tag="DEVICES" en="DEVICES"/>
   <translation tag="DISABLED" en="DISABLED"/>
@@ -1143,6 +1148,7 @@
   <translation tag="Every browser that can control this screen will need the new pairing code." en="Every browser that can control this screen will need the new pairing code."/>
   <translation tag="Every extruder&apos;s temperature at once" en="Every extruder&apos;s temperature at once"/>
   <translation tag="Every object is set to skip, so there is nothing to print" en="Every object is set to skip, so there is nothing to print"/>
+  <translation tag="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes." en="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes."/>
   <translation tag="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result." en="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result."/>
   <translation tag="Every unit keeps its filament gripped" en="Every unit keeps its filament gripped"/>
   <translation tag="Everything else was saved. Change them in Spoolman." en="Everything else was saved. Change them in Spoolman."/>
@@ -2158,6 +2164,7 @@
   <translation tag="No USB printers found" en="No USB printers found"/>
   <translation tag="No actions right now" en="No actions right now"/>
   <translation tag="No active Spoolman spool." en="No active Spoolman spool."/>
+  <translation tag="No answer from the printer; it may still be calibrating" en="No answer from the printer; it may still be calibrating"/>
   <translation tag="No answer: check the IP address and that this device is on the printer&apos;s Wi-Fi, not mobile data." en="No answer: check the IP address and that this device is on the printer&apos;s Wi-Fi, not mobile data."/>
   <translation tag="No answer: check the IP address and that this device is on the printer&apos;s network." en="No answer: check the IP address and that this device is on the printer&apos;s network."/>
   <translation tag="No buffer data available" en="No buffer data available"/>
@@ -2982,10 +2989,12 @@
   <translation tag="Save Z-Offset" en="Save Z-Offset"/>
   <translation tag="Save Z-Offset Buttons" en="Save Z-Offset Buttons"/>
   <translation tag="Save Z-Offset?" en="Save Z-Offset?"/>
+  <translation tag="Save calibration" en="Save calibration"/>
   <translation tag="Save changes to persist them across restarts?" en="Save changes to persist them across restarts?"/>
   <translation tag="Save failed: {}" en="Save failed: {}"/>
   <translation tag="Save offsets?" en="Save offsets?"/>
   <translation tag="Save the changes to this spool?" en="Save the changes to this spool?"/>
+  <translation tag="Save the new heater values to printer.cfg? Klipper restarts." en="Save the new heater values to printer.cfg? Klipper restarts."/>
   <translation tag="Save to Spool" en="Save to Spool"/>
   <translation tag="Save to Spoolman" en="Save to Spoolman"/>
   <translation tag="Saved Z-Offset" en="Saved Z-Offset"/>
@@ -2999,6 +3008,8 @@
   <translation tag="Saving Configuration..." en="Saving Configuration..."/>
   <translation tag="Saving Z-offset..." en="Saving Z-offset..."/>
   <translation tag="Saving and finishing..." en="Saving and finishing..."/>
+  <translation tag="Saving calibration" en="Saving calibration"/>
+  <translation tag="Saving calibration..." en="Saving calibration..."/>
   <translation tag="Saving config... Klipper will restart." en="Saving config... Klipper will restart."/>
   <translation tag="Saving offsets..." en="Saving offsets..."/>
   <translation tag="Saving the position and parking the toolhead." en="Saving the position and parking the toolhead."/>
@@ -3485,7 +3496,9 @@
   <translation tag="The left RFID reader in this CFS unit may need service" en="The left RFID reader in this CFS unit may need service"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." en="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle."/>
   <translation tag="The message your printer&apos;s macros show (M117)" en="The message your printer&apos;s macros show (M117)"/>
+  <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." en="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes."/>
   <translation tag="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself." en="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself."/>
+  <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." en="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes."/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." en="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next."/>
   <translation tag="The plate and the spools are still hot. Use gloves." en="The plate and the spools are still hot. Use gloves."/>
   <translation tag="The plate finishes its current move, but drying will not start." en="The plate finishes its current move, but drying will not start."/>
@@ -3675,6 +3688,8 @@
   <translation tag="Tool change failed: {}" en="Tool change failed: {}"/>
   <translation tag="Tool change speed" en="Tool change speed"/>
   <translation tag="Tool change to T{}" en="Tool change to T{}"/>
+  <translation tag="Tool cycle failed: {}" en="Tool cycle failed: {}"/>
+  <translation tag="Tool cycle finished" en="Tool cycle finished"/>
   <translation tag="Tool is seated" en="Tool is seated"/>
   <translation tag="Tool may be half seated" en="Tool may be half seated"/>
   <translation tag="Tool offsets (mm)" en="Tool offsets (mm)"/>
@@ -3886,6 +3901,7 @@
   <translation tag="Wait for the current filament operation to finish" en="Wait for the current filament operation to finish"/>
   <translation tag="Wait for the current operation to complete" en="Wait for the current operation to complete"/>
   <translation tag="Wait for the current operation to complete or cancel it first" en="Wait for the current operation to complete or cancel it first"/>
+  <translation tag="Wait for the running INDX operation to finish" en="Wait for the running INDX operation to finish"/>
   <translation tag="Wait until the print finishes" en="Wait until the print finishes"/>
   <translation tag="Waiting for %s to finish. One heater at a time." en="Waiting for %s to finish. One heater at a time."/>
   <translation tag="Waiting for Moonraker..." en="Waiting for Moonraker..."/>

@@ -534,6 +534,7 @@ translations:
   Calibrating {} axis...: Calibrating {} axis...
   Calibrating...: Calibrating...
   Calibrating... (about 1 minute): Calibrating... (about 1 minute)
+  Calibrating... (several minutes): Calibrating... (several minutes)
   Calibration: Calibration
   Calibration & Tools: Calibration & Tools
   Calibration Complete!: Calibration Complete!
@@ -549,11 +550,14 @@ translations:
   Calibration failed: Calibration failed
   Calibration failed - touch targets more precisely.: Calibration failed - touch targets
     more precisely.
+  'Calibration failed: {}': 'Calibration failed: {}'
+  Calibration finished, not saved yet: Calibration finished, not saved yet
   Calibration in progress: Calibration in progress
   Calibration kept timing out. Your previous settings were kept.: Calibration kept timing out. Your previous settings were kept.
   Calibration may still be running — printer connection was interrupted: Calibration may still be running — printer connection was interrupted
   Calibration may still be running — response timed out: Calibration may still be running — response timed out
   Calibration move may still be running — printer connection was interrupted: Calibration move may still be running — printer connection was interrupted
+  Calibration saved: Calibration saved
   Calibration saved but cannot apply on SDL display: Calibration saved but cannot
     apply on SDL display
   Calibration succeeded, but the frequency chart data couldn't be read.: Calibration succeeded, but the frequency chart data couldn't be read.
@@ -974,6 +978,7 @@ translations:
   Cutting: Cutting
   Cutting filament...: Cutting filament...
   Cycle every tool: Cycle every tool
+  Cycling tools...: Cycling tools...
   DETECTED USB PRINTERS: DETECTED USB PRINTERS
   DEVICES: DEVICES
   DISABLED: DISABLED
@@ -1224,6 +1229,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: Everything else was saved. Change them in Spoolman.
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /
   Every object is set to skip, so there is nothing to print: Every object is set to skip, so there is nothing to print
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.
   Excellent Accuracy: Excellent Accuracy
   'Exception: {}': 'Exception: {}'
@@ -2314,6 +2320,7 @@ translations:
   No USB printers found: No USB printers found
   No actions right now: No actions right now
   No active Spoolman spool.: No active Spoolman spool.
+  No answer from the printer; it may still be calibrating: No answer from the printer; it may still be calibrating
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data."
   "No answer: check the IP address and that this device is on the printer's network.": "No answer: check the IP address and that this device is on the printer's network."
   No buffer data available: No buffer data available
@@ -3185,12 +3192,14 @@ translations:
   Save Z-Offset: Save Z-Offset
   Save Z-Offset Buttons: Save Z-Offset Buttons
   Save Z-Offset?: Save Z-Offset?
+  Save calibration: Save calibration
   Save changes to persist them across restarts?: Save changes to persist them across
     restarts?
   'Save failed: {}': 'Save failed: {}'
   Save Offsets: Save Offsets
   Save offsets?: Save offsets?
   Save the changes to this spool?: Save the changes to this spool?
+  Save the new heater values to printer.cfg? Klipper restarts.: Save the new heater values to printer.cfg? Klipper restarts.
   Save to Spool: Save to Spool
   Save to Spoolman: Save to Spoolman
   Saved Z-Offset: Saved Z-Offset
@@ -3206,6 +3215,8 @@ translations:
   Saving Configuration...: Saving Configuration...
   Saving Z-offset...: Saving Z-offset...
   Saving and finishing...: Saving and finishing...
+  Saving calibration: Saving calibration
+  Saving calibration...: Saving calibration...
   Saving config... Klipper will restart.: Saving config... Klipper will restart.
   Saving offsets...: Saving offsets...
   Saving the position and parking the toolhead.: Saving the position and parking the toolhead.
@@ -3744,7 +3755,11 @@ translations:
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   The message your printer's macros show (M117): The message your printer's macros show (M117)
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   The plate and the spools are still hot. Use gloves.: The plate and the spools are still hot. Use gloves.
@@ -3983,6 +3998,8 @@ translations:
   'Tool change failed: {}': 'Tool change failed: {}'
   Tool change speed: Tool change speed
   Tool change to T{}: Tool change to T{}
+  'Tool cycle failed: {}': 'Tool cycle failed: {}'
+  Tool cycle finished: Tool cycle finished
   Tool is seated: Tool is seated
   Tool may be half seated: Tool may be half seated
   Tool offsets (mm): Tool offsets (mm)
@@ -4200,6 +4217,7 @@ translations:
     operation to finish
   Wait for the current operation to complete: Wait for the current operation to complete
   Wait for the current operation to complete or cancel it first: Wait for the current operation to complete or cancel it first
+  Wait for the running INDX operation to finish: Wait for the running INDX operation to finish
   Wait until the print finishes: Wait until the print finishes
   Waiting for Moonraker...: Waiting for Moonraker...
   'Waiting for %s to finish. One heater at a time.': 'Waiting for %s to finish. One heater at a time.'

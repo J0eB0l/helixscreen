@@ -546,6 +546,7 @@ translations:
   Calibrating {} axis...: 'Calibrazione dell''asse {}...'
   Calibrating...: Calibrazione in corso...
   Calibrating... (about 1 minute): 'Calibrazione... (circa 1 minuto)'
+  Calibrating... (several minutes): Calibrazione in corso... (diversi minuti)
   Calibration: Calibrazione
   Calibration & Tools: Calibrazione e Strumenti
   Calibration Complete!: Calibrazione completata!
@@ -561,11 +562,14 @@ translations:
   Calibration failed: Calibrazione fallita
   Calibration failed - touch targets more precisely.: Calibrazione fallita – tocca
     i bersagli con più precisione.
+  'Calibration failed: {}': 'Calibrazione non riuscita: {}'
+  Calibration finished, not saved yet: Calibrazione completata, non ancora salvata
   Calibration in progress: "Calibrazione in corso"
   Calibration kept timing out. Your previous settings were kept.: La calibrazione è scaduta più volte. Sono state mantenute le impostazioni precedenti.
   Calibration may still be running — printer connection was interrupted: 'Calibrazione potrebbe essere ancora in corso — connessione alla stampante interrotta'
   Calibration may still be running — response timed out: Calibrazione potrebbe essere ancora in corso — tempo di risposta scaduto
   Calibration move may still be running — printer connection was interrupted: 'Movimento calibrazione potrebbe essere ancora in corso — connessione alla stampante interrotta'
+  Calibration saved: Calibrazione salvata
   Calibration saved but cannot apply on SDL display: Calibrazione salvata ma non applicabile
     su display SDL
   Calibration succeeded, but the frequency chart data couldn't be read.: Calibrazione riuscita, ma non è stato possibile leggere i dati del grafico delle frequenze.
@@ -1000,6 +1004,7 @@ translations:
   Cutting: Taglio
   Cutting filament...: Taglio filamento...
   Cycle every tool: Ciclo di tutti gli strumenti
+  Cycling tools...: Ciclo degli strumenti...
   DETECTED USB PRINTERS: STAMPANTI USB RILEVATE
   DEVICES: DISPOSITIVI
   DISABLED: DISABILITATO
@@ -1262,6 +1267,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: Tutto il resto è stato salvato. Modificali in Spoolman.
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: 'Tutto il resto è stato salvato. Rinomina il materiale usando lettere, cifre, spazi e + - _ . ( ) /'
   Every object is set to skip, so there is nothing to print: 'Tutti gli oggetti sono da saltare, non c''è niente da stampare'
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: Ogni strumento viene preso e riposto a turno. Alla fine la testina resta vuota. Richiede alcuni minuti.
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: Gli offset di tutti gli strumenti vengono misurati di nuovo e sostituiscono quelli attuali. Salva in seguito per conservare il risultato.
   Excellent Accuracy: Precisione eccellente
   'Exception: {}': 'Eccezione: {}'
@@ -2372,6 +2378,7 @@ translations:
   No USB printers found: Nessuna stampante USB trovata
   No actions right now: 'Nessuna azione al momento'
   No active Spoolman spool.: Nessuna bobina Spoolman attiva.
+  No answer from the printer; it may still be calibrating: Nessuna risposta dalla stampante; potrebbe essere ancora in calibrazione
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "Nessuna risposta: controlla l'indirizzo IP e che questo dispositivo sia sul Wi-Fi della stampante, non sui dati mobili."
   "No answer: check the IP address and that this device is on the printer's network.": "Nessuna risposta: controlla l'indirizzo IP e che questo dispositivo sia sulla rete della stampante."
   No buffer data available: Nessun dato buffer disponibile
@@ -3257,11 +3264,13 @@ translations:
   Save Z-Offset: Salva Z-Offset
   Save Z-Offset Buttons: 'Pulsanti salva Z-Offset'
   Save Z-Offset?: Salvare Z-Offset?
+  Save calibration: Salva calibrazione
   Save changes to persist them across restarts?: Salvare le modifiche per mantenerle
     dopo i riavvii?
   'Save failed: {}': 'Salvataggio fallito: {}'
   Save Offsets: Salva offset
   Save offsets?: Salvare gli offset?
+  Save the new heater values to printer.cfg? Klipper restarts.: Salvare i nuovi valori del riscaldatore in printer.cfg? Klipper si riavvia.
   Save to Spool: Salva sulla bobina
   Save to Spoolman: Salva su Spoolman
   Saved Z-Offset: Z-Offset Salvato
@@ -3277,6 +3286,8 @@ translations:
   Saving Configuration...: Salvataggio configurazione...
   Saving Z-offset...: Salvataggio Z-offset...
   Saving and finishing...: Salvataggio e completamento...
+  Saving calibration: Salvataggio calibrazione
+  Saving calibration...: Salvataggio calibrazione...
   Saving config... Klipper will restart.: Salvataggio config... Klipper si riavvierà.
   Saving offsets...: Salvataggio offset...
   Saving the position and parking the toolhead.: Salvataggio della posizione e parcheggio della testa.
@@ -3832,7 +3843,11 @@ translations:
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : La bobina caricata è {}, ma questo file è stato sezionato per {}. Il filamento con cariche richiede un flusso più basso e un ugello indurito.
   The message your printer's macros show (M117): 'Il messaggio mostrato dalle macro della stampante (M117)'
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : L'ugello montato si scalda a 200°C e si raffredda di nuovo mentre viene adattato il modello di sicurezza del riscaldatore. Tieni spenta la ventola pezzo e il materiale infiammabile lontano dalla testina. Richiede diversi minuti.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'L''ugello fa alcuni brevi movimenti di prova in un angolo, lontano dall''area di stampa, e ripete finché i valori convergono.'
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : L'ugello si scalda a 200°C mentre la ventola pezzo passa per le sue velocità. Per una misura precisa, monta il condotto come quando stampi. Richiede diversi minuti.
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : L'ugello è caldo. Puliscilo con la spazzola metallica in dotazione, mantieni pulita la posizione di aggancio, poi tocca Avanti.
   The plate and the spools are still hot. Use gloves.: Il piano e le bobine sono ancora caldi. Usa i guanti.
@@ -4083,6 +4098,8 @@ translations:
   'Tool change failed: {}': 'Cambio utensile fallito: {}'
   Tool change speed: Velocità cambio strumento
   Tool change to T{}: 'Cambio utensile su T{}'
+  'Tool cycle failed: {}': 'Ciclo degli strumenti non riuscito: {}'
+  Tool cycle finished: Ciclo degli strumenti completato
   Tool is seated: Lo strumento è inserito
   Tool may be half seated: "Lo strumento potrebbe essere inserito a metà"
   Tool offsets (mm): Offset strumenti (mm)
@@ -4297,6 +4314,7 @@ translations:
   Wait for the current filament operation to finish: Attendi il completamento dell'operazione di filamento in corso
   Wait for the current operation to complete: Attendi il completamento dell'operazione corrente
   Wait for the current operation to complete or cancel it first: Attendi il completamento dell'operazione corrente o annullala prima
+  Wait for the running INDX operation to finish: Attendi la fine dell'operazione INDX in corso
   Wait until the print finishes: Attendi che la stampa finisca
   Waiting for Moonraker...: In attesa di Moonraker...
   Waiting for %s to finish. One heater at a time.: In attesa che %s finisca. Un riscaldatore alla volta.

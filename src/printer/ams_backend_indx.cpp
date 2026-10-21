@@ -643,9 +643,14 @@ AmsError AmsBackendIndx::do_run_device_action(const std::string& action_id, cons
             if (!*done) {
                 return;
             }
-            (*done)(err.type == MoonrakerErrorType::TIMEOUT
-                        ? AmsErrorHelper::timeout(cmd)
-                        : AmsErrorHelper::command_failed(cmd, err.message));
+            if (err.type == MoonrakerErrorType::TIMEOUT) {
+                (*done)(AmsErrorHelper::timeout(cmd));
+                return;
+            }
+            // Klipper's own words, so a screen tracking the run can say why.
+            AmsError failed = AmsErrorHelper::command_failed(cmd, err.message);
+            failed.user_msg = err.localized_message();
+            (*done)(failed);
         },
         indx::kCalibrationTimeoutMs, /*skip_homing=*/true, /*silent=*/true,
         /*caller_surfaces_errors=*/false);

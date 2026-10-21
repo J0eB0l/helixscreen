@@ -506,6 +506,7 @@
   <translation tag="Calibrating {} axis..." de="Kalibriere Achse {}..."/>
   <translation tag="Calibrating..." de="Kalibriere..."/>
   <translation tag="Calibrating... (about 1 minute)" de="Kalibriere... (ca. 1 Minute)"/>
+  <translation tag="Calibrating... (several minutes)" de="Kalibrierung läuft... (mehrere Minuten)"/>
   <translation tag="Calibration" de="Kalibrierung"/>
   <translation tag="Calibration &amp; Tools" de="Kalibrierung &amp; Werkzeuge"/>
   <translation tag="Calibration Complete!" de="Kalibrierung abgeschlossen!"/>
@@ -519,11 +520,14 @@
   <translation tag="Calibration complete! Press &apos;Next&apos; to continue." de="Kalibrierung abgeschlossen! Drücken Sie &apos;Weiter&apos; um fortzufahren."/>
   <translation tag="Calibration failed" de="Kalibrierung fehlgeschlagen"/>
   <translation tag="Calibration failed - touch targets more precisely." de="Kalibrierung fehlgeschlagen – Ziele präziser berühren."/>
+  <translation tag="Calibration failed: {}" de="Kalibrierung fehlgeschlagen: {}"/>
+  <translation tag="Calibration finished, not saved yet" de="Kalibrierung abgeschlossen, noch nicht gespeichert"/>
   <translation tag="Calibration in progress" de="Kalibrierung läuft"/>
   <translation tag="Calibration kept timing out. Your previous settings were kept." de="Bei der Kalibrierung kam es wiederholt zu einer Zeitüberschreitung. Ihre vorherigen Einstellungen wurden beibehalten."/>
   <translation tag="Calibration may still be running — printer connection was interrupted" de="Kalibrierung läuft möglicherweise noch — Druckerverbindung wurde unterbrochen"/>
   <translation tag="Calibration may still be running — response timed out" de="Kalibrierung läuft möglicherweise noch — Zeitüberschreitung der Antwort"/>
   <translation tag="Calibration move may still be running — printer connection was interrupted" de="Kalibrierungsbewegung läuft möglicherweise noch — Druckerverbindung wurde unterbrochen"/>
+  <translation tag="Calibration saved" de="Kalibrierung gespeichert"/>
   <translation tag="Calibration saved but cannot apply on SDL display" de="Kalibrierung gespeichert, kann aber auf SDL-Display nicht angewendet werden"/>
   <translation tag="Calibration succeeded, but the frequency chart data couldn&apos;t be read." de="Kalibrierung erfolgreich, aber die Frequenzdiagramm-Daten konnten nicht gelesen werden."/>
   <translation tag="Calibration succeeded. The frequency chart is only available when HelixScreen runs on the printer." de="Kalibrierung erfolgreich. Das Frequenzdiagramm ist nur verfügbar, wenn HelixScreen auf dem Drucker läuft."/>
@@ -905,6 +909,7 @@
   <translation tag="Cutting" de="Schneiden"/>
   <translation tag="Cutting filament..." de="Filament wird geschnitten..."/>
   <translation tag="Cycle every tool" de="Alle Werkzeuge durchwechseln"/>
+  <translation tag="Cycling tools..." de="Werkzeuge werden durchgewechselt..."/>
   <translation tag="DETECTED USB PRINTERS" de="ERKANNTE USB-DRUCKER"/>
   <translation tag="DEVICES" de="GERÄTE"/>
   <translation tag="DISABLED" de="DEAKTIVIERT"/>
@@ -1143,6 +1148,7 @@
   <translation tag="Every browser that can control this screen will need the new pairing code." de="Jeder Browser, der diesen Bildschirm steuern kann, braucht den neuen Kopplungscode."/>
   <translation tag="Every extruder&apos;s temperature at once" de="Alle Extrudertemperaturen auf einmal"/>
   <translation tag="Every object is set to skip, so there is nothing to print" de="Jedes Objekt ist zum Überspringen markiert, es gibt nichts zu drucken"/>
+  <translation tag="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes." de="Jedes Werkzeug wird nacheinander aufgenommen und abgestellt. Am Ende ist der Kopf leer. Das dauert einige Minuten."/>
   <translation tag="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result." de="Die Offsets aller Werkzeuge werden neu gemessen und ersetzen die aktuellen. Danach speichern, um das Ergebnis zu behalten."/>
   <translation tag="Every unit keeps its filament gripped" de="Jede Einheit hält ihr Filament fest"/>
   <translation tag="Everything else was saved. Change them in Spoolman." de="Alles Übrige wurde gespeichert. Ändern Sie diese in Spoolman."/>
@@ -2158,6 +2164,7 @@
   <translation tag="No USB printers found" de="Keine USB-Drucker gefunden"/>
   <translation tag="No actions right now" de="Gerade keine Aktionen"/>
   <translation tag="No active Spoolman spool." de="Keine aktive Spoolman-Spule."/>
+  <translation tag="No answer from the printer; it may still be calibrating" de="Keine Antwort vom Drucker; die Kalibrierung läuft möglicherweise noch"/>
   <translation tag="No answer: check the IP address and that this device is on the printer&apos;s Wi-Fi, not mobile data." de="Keine Antwort: Prüfe die IP-Adresse und ob dieses Gerät im WLAN des Druckers ist, nicht in mobilen Daten."/>
   <translation tag="No answer: check the IP address and that this device is on the printer&apos;s network." de="Keine Antwort: Prüfe die IP-Adresse und ob dieses Gerät im Netzwerk des Druckers ist."/>
   <translation tag="No buffer data available" de="Keine Pufferdaten verfügbar"/>
@@ -2982,10 +2989,12 @@
   <translation tag="Save Z-Offset" de="Z-Offset speichern"/>
   <translation tag="Save Z-Offset Buttons" de="Z-Offset-Speichern-Tasten"/>
   <translation tag="Save Z-Offset?" de="Z-Offset speichern?"/>
+  <translation tag="Save calibration" de="Kalibrierung speichern"/>
   <translation tag="Save changes to persist them across restarts?" de="Änderungen speichern, um sie über Neustarts hinweg zu erhalten?"/>
   <translation tag="Save failed: {}" de="Speichern fehlgeschlagen: {}"/>
   <translation tag="Save offsets?" de="Offsets speichern?"/>
   <translation tag="Save the changes to this spool?" de="Änderungen an dieser Spule speichern?"/>
+  <translation tag="Save the new heater values to printer.cfg? Klipper restarts." de="Die neuen Heizungswerte in printer.cfg speichern? Klipper startet neu."/>
   <translation tag="Save to Spool" de="Auf Spule speichern"/>
   <translation tag="Save to Spoolman" de="In Spoolman speichern"/>
   <translation tag="Saved Z-Offset" de="Gespeicherter Z-Offset"/>
@@ -2999,6 +3008,8 @@
   <translation tag="Saving Configuration..." de="Konfiguration wird gespeichert..."/>
   <translation tag="Saving Z-offset..." de="Z-Offset wird gespeichert..."/>
   <translation tag="Saving and finishing..." de="Speichern und abschließen..."/>
+  <translation tag="Saving calibration" de="Kalibrierung wird gespeichert"/>
+  <translation tag="Saving calibration..." de="Kalibrierung wird gespeichert..."/>
   <translation tag="Saving config... Klipper will restart." de="Konfiguration wird gespeichert... Klipper wird neu starten."/>
   <translation tag="Saving offsets..." de="Speichere Offsets..."/>
   <translation tag="Saving the position and parking the toolhead." de="Position wird gespeichert und der Werkzeugkopf geparkt."/>
@@ -3485,7 +3496,9 @@
   <translation tag="The left RFID reader in this CFS unit may need service" de="Der linke RFID-Leser dieser CFS-Einheit muss möglicherweise gewartet werden"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." de="Die geladene Spule ist {}, aber diese Datei wurde für {} gesliced. Gefülltes Filament läuft mit einer niedrigeren Flussrate und erfordert eine gehärtete Düse."/>
   <translation tag="The message your printer&apos;s macros show (M117)" de="Die Meldung, die die Makros deines Druckers anzeigen (M117)"/>
+  <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." de="Die montierte Düse heizt auf 200°C und kühlt wieder ab, während das Sicherheitsmodell der Heizung ermittelt wird. Lassen Sie den Bauteillüfter aus und halten Sie brennbares Material vom Kopf fern. Das dauert mehrere Minuten."/>
   <translation tag="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself." de="Die Düse macht ein paar kurze Testbewegungen in einer Ecke, abseits des Druckbereichs, und wiederholt sie, bis die Werte übereinstimmen."/>
+  <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." de="Die Düse heizt auf 200°C, während der Bauteillüfter seine Drehzahlen durchläuft. Für ein genaues Ergebnis montieren Sie den Luftkanal so, wie Sie damit drucken. Das dauert mehrere Minuten."/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." de="Die Düse ist heiß. Bürste sie mit der mitgelieferten Drahtbürste sauber, halte die Parkposition sauber und tippe dann auf Weiter."/>
   <translation tag="The plate and the spools are still hot. Use gloves." de="Heizbett und Spulen sind noch heiß. Trage Handschuhe."/>
   <translation tag="The plate finishes its current move, but drying will not start." de="Das Heizbett beendet die laufende Bewegung, aber die Trocknung startet nicht."/>
@@ -3675,6 +3688,8 @@
   <translation tag="Tool change failed: {}" de="Werkzeugwechsel fehlgeschlagen: {}"/>
   <translation tag="Tool change speed" de="Werkzeugwechsel-Geschwindigkeit"/>
   <translation tag="Tool change to T{}" de="Werkzeugwechsel zu T{}"/>
+  <translation tag="Tool cycle failed: {}" de="Werkzeugwechsel-Durchlauf fehlgeschlagen: {}"/>
+  <translation tag="Tool cycle finished" de="Werkzeugwechsel-Durchlauf abgeschlossen"/>
   <translation tag="Tool is seated" de="Werkzeug sitzt"/>
   <translation tag="Tool may be half seated" de="Werkzeug sitzt möglicherweise nur halb"/>
   <translation tag="Tool offsets (mm)" de="Werkzeug-Offsets (mm)"/>
@@ -3886,6 +3901,7 @@
   <translation tag="Wait for the current filament operation to finish" de="Warten Sie, bis der aktuelle Filamentvorgang abgeschlossen ist"/>
   <translation tag="Wait for the current operation to complete" de="Warten Sie, bis der aktuelle Vorgang abgeschlossen ist"/>
   <translation tag="Wait for the current operation to complete or cancel it first" de="Warten Sie, bis der aktuelle Vorgang abgeschlossen ist, oder brechen Sie ihn zuvor ab"/>
+  <translation tag="Wait for the running INDX operation to finish" de="Warten Sie, bis der laufende INDX-Vorgang abgeschlossen ist"/>
   <translation tag="Wait until the print finishes" de="Warten Sie, bis der Druck abgeschlossen ist"/>
   <translation tag="Waiting for %s to finish. One heater at a time." de="Warte, bis %s fertig ist. Nur eine Heizung gleichzeitig."/>
   <translation tag="Waiting for Moonraker..." de="Warte auf Moonraker..."/>

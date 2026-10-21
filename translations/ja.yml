@@ -515,6 +515,7 @@ translations:
   Calibrating {} axis...: '{} 軸をキャリブレーション中...'
   Calibrating...: キャリブレーション中...
   Calibrating... (about 1 minute): キャリブレーション中...（約1分）
+  Calibrating... (several minutes): 校正中...（数分）
   Calibration: キャリブレーション
   Calibration & Tools: キャリブレーションとツール
   Calibration Complete!: キャリブレーション完了！
@@ -528,11 +529,14 @@ translations:
   Calibration complete! Press 'Next' to continue.: '"キャリブレーション完了！「次へ」を押して続行してください。"'
   Calibration failed: キャリブレーション失敗
   Calibration failed - touch targets more precisely.: キャリブレーション失敗 – ターゲットをより正確にタッチしてください。
+  'Calibration failed: {}': 校正に失敗しました：{}
+  Calibration finished, not saved yet: 校正完了、まだ保存されていません
   Calibration in progress: "キャリブレーション中"
   Calibration kept timing out. Your previous settings were kept.: キャリブレーションが繰り返しタイムアウトしました。以前の設定を維持しました。
   Calibration may still be running — printer connection was interrupted: 'キャリブレーションがまだ実行中の可能性があります — プリンター接続が中断されました'
   Calibration may still be running — response timed out: 'キャリブレーションがまだ実行中の可能性があります — 応答タイムアウト'
   Calibration move may still be running — printer connection was interrupted: 'キャリブレーション移動がまだ実行中の可能性があります — プリンター接続が中断されました'
+  Calibration saved: 校正を保存しました
   Calibration saved but cannot apply on SDL display: キャリブレーションは保存されましたが SDL ディスプレイには適用できません
   Calibration succeeded, but the frequency chart data couldn't be read.: キャリブレーションは成功しましたが、周波数グラフのデータを読み取れませんでした。
   Calibration succeeded. The frequency chart is only available when HelixScreen runs on the printer.: キャリブレーションは成功しました。周波数グラフは HelixScreen がプリンター上で動作している場合のみ利用できます。
@@ -937,6 +941,7 @@ translations:
   Cutting: カット中
   Cutting filament...: フィラメントを切断中...
   Cycle every tool: 全ツールを順に交換
+  Cycling tools...: ツールを順に交換中...
   DETECTED USB PRINTERS: 検出されたUSBプリンター
   DEVICES: デバイス
   DISABLED: 無効
@@ -1189,6 +1194,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: その他はすべて保存されました。変更は Spoolman で行ってください。
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: 'その他はすべて保存されました。材料名は英字・数字・スペース・+ - _ . ( ) / で構成される名前に変更してください'
   Every object is set to skip, so there is nothing to print: 'すべてのオブジェクトがスキップ対象のため、印刷するものがありません'
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: 各ツールを順に取り付けて戻します。最後はヘッドが空になります。数分かかります。
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: すべてのツールのオフセットを再測定し、現在の値を置き換えます。結果を保持するには、その後保存してください。
   Excellent Accuracy: 非常に高精度
   'Exception: {}': '例外: {}'
@@ -2243,6 +2249,7 @@ translations:
   No USB printers found: USBプリンターが見つかりません
   No actions right now: '現在利用できる操作はありません'
   No active Spoolman spool.: Spoolmanで使用中のスプールがありません。
+  No answer from the printer; it may still be calibrating: プリンターから応答がありません。まだ校正中の可能性があります
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "応答がありません: IPアドレスと、このデバイスがモバイルデータではなくプリンターのWi-Fiに接続されているか確認してください。"
   "No answer: check the IP address and that this device is on the printer's network.": "応答がありません: IPアドレスと、このデバイスがプリンターと同じネットワークにあるか確認してください。"
   No buffer data available: バッファーデータがありません
@@ -3091,10 +3098,12 @@ translations:
   Save Z-Offset: Z-Offset を保存
   Save Z-Offset Buttons: 'Z-Offset 保存ボタン'
   Save Z-Offset?: Z-Offset を保存しますか？
+  Save calibration: 校正を保存
   Save changes to persist them across restarts?: 再起動後も変更を保持するために保存しますか？
   'Save failed: {}': '保存に失敗しました: {}'
   Save Offsets: オフセットを保存
   Save offsets?: オフセットを保存しますか？
+  Save the new heater values to printer.cfg? Klipper restarts.: 新しいヒーター値をprinter.cfgに保存しますか？Klipperが再起動します。
   Save to Spool: スプールに保存
   Save to Spoolman: Spoolman に保存
   Saved Z-Offset: 保存されたZ-Offset
@@ -3108,6 +3117,8 @@ translations:
   Saving Configuration...: 設定を保存中...
   Saving Z-offset...: Zオフセットを保存中...
   Saving and finishing...: 保存して終了中...
+  Saving calibration: 校正を保存中
+  Saving calibration...: 校正を保存中...
   Saving config... Klipper will restart.: 設定を保存中... Klipper が再起動します。
   Saving offsets...: オフセットを保存中...
   Saving the position and parking the toolhead.: 位置を保存し、ツールヘッドを退避しています。
@@ -3624,7 +3635,11 @@ translations:
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : 装填中のスプールは {} ですが、このファイルは {} 用にスライスされています。充填材入りフィラメントはフローレートが低くなり、硬化ノズルが必要です。
   The message your printer's macros show (M117): 'プリンターのマクロが表示するメッセージ (M117)'
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : ヒーターの安全モデルを測定する間、装着中のノズルが200°Cまで加熱され再び冷却されます。パーツファンはオフにし、引火しやすい物をヘッドから遠ざけてください。数分かかります。
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'ノズルは印刷領域から離れた隅で短いテスト移動を数回行い、結果が一致するまで繰り返します。'
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : パーツファンが各速度を順に試す間、ノズルは200°Cまで加熱されます。正確に測定するには、印刷時と同じようにダクトを取り付けてください。数分かかります。
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : ノズルは高温です。付属のワイヤーブラシで清掃し、ドッキング位置もきれいに保ってから「次へ」をタップしてください。
   The plate and the spools are still hot. Use gloves.: ベッドとスプールはまだ熱いです。手袋を使ってください。
@@ -3845,6 +3860,8 @@ translations:
   'Tool change failed: {}': 'ツール変更に失敗しました: {}'
   Tool change speed: ツール交換速度
   Tool change to T{}: 'ツールを T{} に変更しています'
+  'Tool cycle failed: {}': ツールの順次交換に失敗しました：{}
+  Tool cycle finished: ツールの順次交換が完了しました
   Tool is seated: ツールは装着済み
   Tool may be half seated: "ツールが半分しか装着されていない可能性があります"
   Tool offsets (mm): ツールオフセット (mm)
@@ -4052,6 +4069,7 @@ translations:
   Wait for the current filament operation to finish: 現在のフィラメント操作が完了するまでお待ちください
   Wait for the current operation to complete: 現在の操作が完了するまでお待ちください
   Wait for the current operation to complete or cancel it first: 現在の操作が完了するまで待つか、先にキャンセルしてください
+  Wait for the running INDX operation to finish: 実行中のINDX操作が終わるまでお待ちください
   Wait until the print finishes: 印刷が完了するまでお待ちください
   Waiting for Moonraker...: Moonraker を待機中...
   Waiting for %s to finish. One heater at a time.: '%s の完了を待っています。ヒーターは一度に1つだけです。'
