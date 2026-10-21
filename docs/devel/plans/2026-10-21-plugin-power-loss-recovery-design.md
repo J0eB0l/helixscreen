@@ -43,14 +43,14 @@ Accepted as recommended in the first draft, or decided on review:
 | ID | Ruling |
 |---|---|
 | O1 | The fast and slow blocks live in the plugin's two-slot file (§ 4.2). Job identity and mesh stay in the Moonraker namespace. Why SQLite was avoided is recorded in § 4.2. |
-| O2 | Decided by test. Initial default: skip ahead half a snapshot interval past the executed point (`resume_skip_fraction = 0.5`, § 6.2), one named tunable. Task T2 (§ 11.3) compares re-trace and skip-half on real prints. |
-| O3 | Scan at resume time. Measured first (task T1, § 11.3): a 100 MB file on a K1C-class host must scan in 30 s or less. Over 30 s, v1 switches to background per-layer checkpoints during the print (§ 6.2). |
+| O2 | Decided by test. Initial default: skip ahead half a snapshot interval past the executed point (`resume_skip_fraction = 0.5`, § 6.2), one named tunable. Task T2 (§ 11.4) compares re-trace and skip-half on real prints. |
+| O3 | Scan at resume time. Measured first (task T1, § 11.4): a 100 MB file on a K1C-class host must scan in 30 s or less. Over 30 s, v1 switches to background per-layer checkpoints during the print (§ 6.2). |
 | D1 | No offer after `klippy_shutdown` / `error` in v1 (power loss only). |
 | D2 | Adaptive-mesh carry-over needs an opt-in `[include helix-plr/*.cfg]` line in printer.cfg (§ 6.4). |
 | D3 | Multi-material: refuse when the scan's active tool or the filament backend's loaded/mounted tool does not match. |
 | D4 | No Klipper extra in v1. |
 | O5 | Unknown layer count (no `SET_PRINT_STATS_INFO`): the offer gates on 120 s of print time instead of layer >= 2. |
-| O6 | Cold-bed threshold `kPlrColdBedDiffC` = 10 °C until the adhesion test (§ 11.3) says otherwise. |
+| O6 | Cold-bed threshold `kPlrColdBedDiffC` = 10 °C until the adhesion test (§ 11.4) says otherwise. |
 | O7 | No Fluidd/Mainsail resume macro in v1; every resume goes through the screen's confirmations. Later phase. |
 | O9 | The mesh include line is added opt-in from both an installer prompt and a settings button. |
 
@@ -233,7 +233,7 @@ cannot switch it.
 
 The slot file (§ 4.2): one 4 KiB data block per `fdatasync`, no metadata journal commit because
 the file is preallocated and `fdatasync` skips mtime: **~4-8 KB per write, ~15-30 MB/hour, ~0.2-0.3
-GB per 10 h print**, about five times less [inf; to measure, § 11.3].
+GB per 10 h print**, about five times less [inf; to measure, § 11.4].
 
 Endurance check: an 8 GB TLC eMMC at ~1000 P/E cycles takes ~8 TB of NAND writes with wear
 levelling. At 5 GB per 10 h (SQLite, worst case) that is ~16,000 print hours; at 0.6 GB per 10 h
@@ -604,7 +604,7 @@ Z={gcode_position.z}` and later commands `G1 Z{gcode_position.z}` with the offse
 so the nozzle lands off by `gcode_offset_z + mesh(x,y)` (typically 0.05-0.3 mm) [inf from
 `qidi-src/klipper/virtual_sdcard.py#VirtualSD._set_printer_state_internal`]. One field feeds both
 the declaration and the final move, so it cannot be corrected without changing QIDI's sequence.
-Measured in the Q2 power-cut test (§ 11.3); if it matters, the generic path is the fix.
+Measured in the Q2 M1 test (§ 11.4); if it matters, the generic path is the fix.
 
 **Offer.** `offer_verdict` as § 8 plus "the `print_state` section has a `file_position` row".
 The app's legacy QIDI backend (`DETECT_INTERRUPTION` + `was_interrupted`) must not select on this
@@ -685,19 +685,95 @@ Wizard and decisions (signatures in § 12.2), each a table test:
   bad types -> defaults.
 - `plugin_feature("plr", 1)` absent / old plugin / disabled / ready (umbrella Phase 0 states).
 
-### 11.3 Hardware matrix
+### 11.3 Interruption methods
 
-| Device | Test | Settles |
+Most of what a power cut exercises can be produced without pulling a plug. Three methods, then
+what only a real cut adds. Every run of M1 or M2 heats and moves a printer, so each run needs
+Preston's OK, even when scripted over SSH.
+
+**M1: host-stack kill.** SIGKILL Moonraker, then klippy, mid-print, in one SSH command
+(`kill -9 <moonraker>; kill -9 <klippy>`), then restart both.
+
+- *The MCU shuts down on host loss.* Heaters are PWM outputs with
+  `setup_max_duration(MAX_HEAT_TIME)` (3 s) (`kalico/klippy/extras/heaters.py#Heater.__init__`).
+  Once klippy stops scheduling updates, the MCU's own timer trips
+  `shutdown("Missed scheduling of next ...")` (`kalico/src/gpiocmds.c`, `kalico/src/pwmcmds.c`).
+  The shutdown handlers then drive every digital output to its default, which is off
+  (`gpiocmds.c#digital_out_shutdown`), and stop stepping (`kalico/src/stepper.c#stepper_shutdown`).
+  A dedicated stepper enable pin is a plain digital output (`kalico/klippy/extras/stepper_enable.py#setup_enable_pin`),
+  so the driver is disabled and the motor stops holding [src].
+- *MCU-config caveat: some steppers stay energized.* With no `enable_pin`, the stepper is "always
+  enabled" (`setup_enable_pin`, `pin is None`). TMC drivers that enable through `toff` register
+  writes need the host for that write (`kalico/klippy/extras/tmc.py#TMCCommandHelper._do_disable`).
+  In both cases the driver keeps holding current after an M1 kill. **M1 says nothing about Z
+  holding unpowered** unless every Z stepper in that printer's config has a dedicated `enable_pin`.
+  Check `configfile.settings` before using a run for that question.
+- *Moonraker marks the job interrupted, but only if Moonraker dies first.* On startup,
+  `history.py#History.component_init` rewrites every `in_progress` job to `interrupted`. If klippy
+  dies while Moonraker is still up, `History._handle_disconnect` finishes the job as
+  `klippy_disconnect`, and the offer never fires (D1) [src: `~/Code/Printing/moonraker/moonraker/components/history.py`].
+  So the kill order is Moonraker, then klippy. The plugin dies with Moonraker, so the snapshot is
+  as stale as the gap between the two kills; keep that gap well under one save interval.
+- *After the restart*, klippy refuses to configure an MCU that is shut down ("Can not update MCU
+  ... config as it is shutdown", `kalico/klippy/mcu.py#MCU._send_get_config`) and needs a
+  `FIRMWARE_RESTART`. That moves nothing. A real power cut resets the MCU on its own, so the
+  procedure sends it before the offer.
+- *Covers:* the offer path end to end, the whole resume sequence, Z holding unpowered (with the
+  caveat above), adhesion after a wait, and T2.
+
+**M2: host hard reboot without sync.** `echo b > /proc/sysrq-trigger` as root (may first need
+`echo 1 > /proc/sys/kernel/sysrq`). The kernel reboots at once and drops dirty pages, the way a cut
+does on the host side.
+
+- Tests the slot file's durability and atomicity on a real filesystem: after the reboot, a valid
+  slot exists and is no older than one save interval plus the reboot gap. Torn-slot handling
+  itself is proven in pytest with injected truncation (§ 11.1), because a reboot rarely lands mid-write.
+- Usually resets a USB-powered MCU as the bus drops. An MCU powered from the 24 V rail with
+  USB data only may not reset; it then shuts down on host loss as in M1. The run log records which happened.
+- Use sparingly: a few runs per storage class (eMMC, SD), never as the routine resume test.
+
+**M3: no interruption.**
+
+- The lead measurement (§ 6.1, O3): log `virtual_sdcard.file_position`, `toolhead.position` and
+  `motion_report.live_position` at 4 Hz during a normal print, then run `locate_executed_line`
+  offline against the logged frames.
+- The scan and resume-point algorithm: the pytest fixtures (§ 11.1).
+- T1 scan timing on an idle printer.
+- The app offer and wizard in the `--test` mock, with an injected interrupted job. New mock knobs,
+  documented in `docs/devel/MOCK_ENVIRONMENT_VARIABLES.md` when built (part of the v1 app work):
+
+| Knob | Values | Effect |
 |---|---|---|
-| QIDI Q2 (.85) | Stock screen: short print, copy `moonraker-sql.db` mid-print, `select * from config where section='print_state'` | QIDI row formats (#1716 report open question 4) |
-| QIDI Q2 | HelixScreen + plugin: start print, cut power at the wall at layer ~10, resume via adapter | #1716 fix; Z residual measured with a feeler gauge on the first resumed layer; bed wait |
-| QIDI Q2 | Same, generic path | Ruling 6 re-evaluation |
-| Q2, K1C, Voron V0 | Log `toolhead.position` vs `live_position` 4 Hz for 5 min of walls and infill | The lead in § 6.1, and the walk's line choice offline against the logged frames |
-| K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` | § 7.4 on real `/sys` |
-| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | Pass: median <= 30 s, scan at resume ships. Fail: background per-layer checkpoints join v1 (O3) |
-| One listed printer, PLA, 0.2 mm layers | **T2**: 6 power cuts per arm, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | Picks the default (O2): the arm with no gaps and the smaller ridge wins; a gap on any wall cut rules out that arm |
-| One tier-2 model | Power cut after 10, 30, 60 min, PLA and PETG | Z holds; adhesion; cold-bed threshold |
-| Any eMMC host | `iostat`/`/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | § 5.2 numbers |
+| `HELIX_MOCK_PLR` | `generic`, `qidi_print_state`; unset = off | Requires `HELIX_MOCK_HELIX_PLUGIN=1`. The mock's `server.helix.status` reports `plr` ready; the newest history job reads `interrupted`; `server.helix.plr.status` returns a snapshot and `offer.available: true`; `plan`/`prepare`/`commit` answer per § 9 and emit `helix:plr_progress`; `commit` starts the mock print at the plan's file fraction |
+| `HELIX_MOCK_PLR_TIER` | `1`, `2` (default `2`) | Tier in the plan, so the wizard shows the jog step or the confirm step |
+| `HELIX_MOCK_PLR_WARNINGS` | comma list: `mesh_unavailable`, `cold_bed`, `layer_start` | Plan warnings; `cold_bed` sets the bed current temperature 30 °C under target |
+| `HELIX_MOCK_PLR_FAIL` | `plan`, `prepare`, `commit` | That RPC fails with `plr_klippy_error`, to drive the wizard's `Failed` step |
+
+**What only a real cut adds**
+
+- PSU hold-up and power-fail pin timing (the later power-fail input, § 13).
+- Vendor firmware we do not own, e.g. the #1716 reporter's QIDI 01.01.02.03.
+- A long outage's bed cool-down is approximated by a long wait after M1 (the MCU has already
+  turned the heaters off), so a real cut is not needed for adhesion.
+- Final confirmation: one or two real pulls on the Q2 once everything else passes.
+
+### 11.4 Hardware matrix
+
+| Device | Test | Method | Settles |
+|---|---|---|---|
+| QIDI Q2 (.85) | Stock screen: short print, copy `moonraker-sql.db` mid-print, `select * from config where section='print_state'` | M3 | QIDI row formats (#1716 report open question 4) |
+| QIDI Q2 | HelixScreen + plugin: print, kill at layer ~10 during a wall, resume via the adapter | M1 | #1716 fix, offer path, bed wait |
+| QIDI Q2 | **O8**: same run, measure the first resumed layer's height error with a feeler gauge and calipers against the layer below; repeat with a non-zero Z offset | M1 | O8: switch QIDI to generic if the error exceeds 0.1 mm |
+| QIDI Q2 | Same, generic path | M1 | Ruling 6 re-evaluation |
+| QIDI Q2 | Final: one or two wall-plug pulls via the chosen path | real cut | End-to-end confirmation |
+| Q2, K1C, Voron V0 | Lead logging, 5 min of walls and infill | M3 | § 6.1 lead; walk line choice offline |
+| K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` on real `/sys` | M3 | § 7.4 |
+| eMMC host and SD host | 3 reboots each mid-print, slot file read back | M2 | Slot durability on real filesystems |
+| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | Pass: median <= 30 s, scan at resume ships. Fail: background per-layer checkpoints join v1 (O3) |
+| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out |
+| One tier-2 model (dedicated Z `enable_pin`s) | Z hold: kill, wait 10 / 30 / 60 min, measure Z drift with a dial indicator before resume; adhesion: same waits, PLA and PETG | M1 + wait | Z holds unpowered; adhesion; cold-bed threshold (O6) |
+| Any eMMC host | `/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | M3 | § 5.2 numbers |
+| `--test` mock | Offer, wizard steps, tier 1 and 2, every `HELIX_MOCK_PLR_WARNINGS` and `_FAIL` value | M3 | App flow before any hardware run |
 
 ---
 
@@ -768,14 +844,14 @@ rewrites `plr_profile`.
 
 **v1**
 
-- T1 first (§ 11.3): the K1C scan measurement decides whether background checkpoints are in v1.
+- T1 first (§ 11.4): the K1C scan measurement decides whether background checkpoints are in v1.
 - `helix_plr.py`, `helix_plr_scan.py`: snapshot loop and slot store, storage verdict, offer,
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
 - QIDI-new adapter.
 - T2 before the `resume_skip_fraction` default is final.
 - App: GENERIC backend, wizard, settings, profile resolution, DB `plr` blocks for the models
-  tested in § 11.3.
+  tested in § 11.4.
 
 **Later**
 
@@ -796,7 +872,7 @@ rewrites `plr_profile`.
 | ID | Question | Recommendation |
 |---|---|---|
 | O4 | Raw NAND (UBIFS) hosts: wear-tolerant only when the DB says so, or never? | Only when the DB says so |
-| O8 | QIDI Z residual (offset + mesh): accept, or switch QIDI to the generic path? | Decided by the Q2 power-cut test (§ 11.3): switch if the first resumed layer is off by more than 0.1 mm |
+| O8 | QIDI Z residual (offset + mesh): accept, or switch QIDI to the generic path? | Decided by the Q2 M1 test (§ 11.4): switch if the first resumed layer is off by more than 0.1 mm |
 
 ## 15. Preconditions before execution
 
