@@ -696,6 +696,20 @@ class AmsState {
     }
 
     /**
+     * @brief 1 while the backend refuses to let the nozzle be heated
+     *
+     * AmsBackend::nozzle_heat_blocked_reason(), as a subject the nozzle
+     * temperature controls dim on. A tap still reaches TemperatureController,
+     * which refuses with the reason.
+     */
+    lv_subject_t* get_nozzle_heat_blocked_subject() {
+        return &ams_nozzle_heat_blocked_;
+    }
+
+    /// Why the primary backend refuses a nozzle target now, or empty. Main thread.
+    [[nodiscard]] std::string nozzle_heat_blocked_reason() const;
+
+    /**
      * @brief Get current action subject
      * @return Subject holding AmsAction enum as int
      */
@@ -2157,6 +2171,8 @@ class AmsState {
     void sync_system_subjects(const AmsSystemInfo& info);
     /// Push or drop the AMS tool topology in ToolState.
     void sync_tool_topology(AmsBackend* backend, const AmsSystemInfo& info);
+    /// Heat-blocked subject, and the swap preheat latch on a shared-heater swap.
+    void sync_shared_heater(AmsBackend* backend, const AmsSystemInfo& info);
     /// filament_loaded, the runout indicator's edge state, and the unload grace.
     void sync_filament_runout(const AmsSystemInfo& info);
     /// The bypass subjects, the bypass edge, and the external spool subjects.
@@ -2293,6 +2309,9 @@ class AmsState {
     // System-level subjects
     lv_subject_t ams_type_{};
     lv_subject_t ams_is_tool_changer_{};
+    lv_subject_t ams_nozzle_heat_blocked_{};
+    /// The mounted tool last seen on a shared-heater backend, -2 before any.
+    int shared_heater_tool_ = -2;
     lv_subject_t ams_is_filament_system_{};
     lv_subject_t ams_action_{};
     /// Copy of ams_action_ for readers off the main thread. Every write to the

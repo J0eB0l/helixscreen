@@ -85,6 +85,7 @@ void AmsState::init_subjects(bool register_xml) {
     // System-level subjects
     INIT_SUBJECT_INT(ams_type, static_cast<int>(AmsType::NONE), subjects_, register_xml);
     INIT_SUBJECT_INT(ams_is_tool_changer, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(ams_nozzle_heat_blocked, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(ams_is_filament_system, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(ams_action, static_cast<int>(AmsAction::IDLE), subjects_, register_xml);
     action_mirror_.store(AmsAction::IDLE, std::memory_order_relaxed);
@@ -660,6 +661,8 @@ void AmsState::register_xml_subject_names() {
     // System-level subjects
     helix::xml::register_subject_in_current_scope("ams_type", &ams_type_);
     helix::xml::register_subject_in_current_scope("ams_is_tool_changer", &ams_is_tool_changer_);
+    helix::xml::register_subject_in_current_scope("ams_nozzle_heat_blocked",
+                                                  &ams_nozzle_heat_blocked_);
     helix::xml::register_subject_in_current_scope("ams_is_filament_system",
                                                   &ams_is_filament_system_);
     helix::xml::register_subject_in_current_scope("ams_action", &ams_action_);

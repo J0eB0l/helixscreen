@@ -417,6 +417,7 @@ void AmsState::reset_backend_subjects() {
 
     // System, action and current-tool state: the sync path with an empty system.
     sync_system_subjects(AmsSystemInfo{});
+    sync_shared_heater(nullptr, AmsSystemInfo{});
     // The action edge above belongs to no operation on the next printer.
     runout_grace_.reset();
     lv_subject_copy_string(&ams_system_name_, "");
@@ -610,6 +611,7 @@ void AmsState::sync_from_backend() {
 
     sync_system_subjects(info);
     sync_tool_topology(backend, info);
+    sync_shared_heater(backend, info);
     sync_filament_runout(info);
     sync_bypass(backend, info);
     sync_feeder(backend);
@@ -771,6 +773,30 @@ void AmsState::sync_system_subjects(const AmsSystemInfo& info) {
     }
     lv_subject_set_int(&pending_target_slot_, info.pending_target_slot);
     lv_subject_set_int(&ams_current_tool_, info.current_tool);
+}
+
+std::string AmsState::nozzle_heat_blocked_reason() const {
+    assert_main_thread();
+    const AmsBackend* backend = get_backend(0);
+    return backend ? backend->nozzle_heat_blocked_reason() : std::string();
+}
+
+void AmsState::sync_shared_heater(AmsBackend* backend, const AmsSystemInfo& info) {
+    const bool blocked = backend && !backend->nozzle_heat_blocked_reason().empty();
+    if (lv_subject_get_int(&ams_nozzle_heat_blocked_) != (blocked ? 1 : 0)) {
+        lv_subject_set_int(&ams_nozzle_heat_blocked_, blocked ? 1 : 0);
+    }
+    if (!backend || !backend->heads_share_heater()) {
+        shared_heater_tool_ = -2;
+        return;
+    }
+    // The swap preheat latch keeps the last material's temperature to purge it
+    // from the same melt zone. A different mounted nozzle is a different melt
+    // zone, so the previous tool's temperature has nothing left to purge.
+    if (shared_heater_tool_ != -2 && info.current_tool != shared_heater_tool_) {
+        get_printer_state().temperature_state().clear_load_latch();
+    }
+    shared_heater_tool_ = info.current_tool;
 }
 
 void AmsState::sync_tool_topology(AmsBackend* backend, const AmsSystemInfo& info) {

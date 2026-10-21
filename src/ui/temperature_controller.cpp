@@ -5,9 +5,11 @@
 #include "ui_error_reporting.h"
 #include "ui_temperature_utils.h"
 
+#include "ams_state.h"
 #include "chamber_heater_backend.h"
 #include "filament_database.h"
 #include "i_moonraker_api.h"
+#include "klipper_extruder_naming.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "printer_state.h"
@@ -250,6 +252,25 @@ void TemperatureController::set_target(const std::string& klipper_name, double c
                                        SendOptions opts) {
     if (!api_ || klipper_name.empty()) {
         return;
+    }
+    if (celsius > 0 && helix::is_extruder_name(klipper_name)) {
+        // A direct heater target bypasses any M104 guard the printer's own
+        // macros keep, so the backend's refusal is enforced here.
+        const std::string blocked = helix::AmsState::instance().nozzle_heat_blocked_reason();
+        if (!blocked.empty()) {
+            spdlog::info("[TemperatureController] Refusing {} target {:.0f}C: {}", klipper_name,
+                         celsius, blocked);
+            if (opts.on_error) {
+                MoonrakerError err;
+                err.type = MoonrakerErrorType::VALIDATION_ERROR;
+                err.message = blocked;
+                opts.on_error(err);
+            }
+            if (opts.toast) {
+                NOTIFY_WARNING("{}", blocked);
+            }
+            return;
+        }
     }
     const bool chamber = klipper_name == resolved_name(HeaterType::Chamber);
     if (chamber && celsius > 0) {
