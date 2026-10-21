@@ -13,6 +13,8 @@
 
 namespace helix {
 
+class IppPrinter;
+
 /// Print a spool label using the configured printer backend.
 /// Handles backend selection, USB device scanning with fallback, and error reporting.
 /// Callback fires on UI thread.
@@ -28,6 +30,13 @@ void print_spool_label(const SpoolInfo& spool, PrintCallback callback);
 /// "Print failed". Result is already run through lv_tr() and safe to show
 /// directly in a toast.
 std::string friendly_label_printer_error(const std::string& raw);
+
+/// Persist a printer picked from network discovery: address, port (631 for an IPP
+/// printer with no SRV port), protocol ("raw" or "ipp") and its IPP resource path.
+void save_discovered_network_printer(const DiscoveredPrinter& printer, const std::string& protocol);
+
+/// Point an IPP printer at the configured address, port and resource path.
+void apply_ipp_target(IppPrinter& printer);
 
 /**
  * Score how likely a discovered printer is to be a label printer.

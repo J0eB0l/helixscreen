@@ -8,7 +8,7 @@
 #include "ui_update_queue.h"
 
 #include "http_executor.h"
-#include "hv/requests.h"
+#include "hv/HttpClient.h"
 #include "ipp_protocol.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "pwg_raster.h"
@@ -18,6 +18,46 @@
 #include <spdlog/spdlog.h>
 
 namespace helix {
+
+namespace ipp {
+
+namespace {
+constexpr int kMaxInterimResponses = 8;
+} // namespace
+
+std::shared_ptr<HttpResponse> post_request(const std::string& host, uint16_t port,
+                                           const std::string& resource_path,
+                                           const std::vector<uint8_t>& body, int timeout_s) {
+    auto req = std::make_shared<HttpRequest>();
+    req->method = HTTP_POST;
+    req->url = fmt::format("http://{}:{}/{}", host, port, resource_path);
+    req->timeout = timeout_s;
+    req->SetHeader("Content-Type", "application/ipp");
+    req->body.assign(reinterpret_cast<const char*>(body.data()), body.size());
+
+    auto resp = std::make_shared<HttpResponse>();
+    hv::HttpClient client;
+    if (client.send(req.get(), resp.get()) != 0) {
+        return nullptr;
+    }
+    // 101 Switching Protocols is a final answer to an Upgrade, not an interim one.
+    int interim_seen = 0;
+    while (resp->status_code >= 100 && resp->status_code < 200 &&
+           resp->status_code != HTTP_STATUS_SWITCHING_PROTOCOLS) {
+        if (++interim_seen > kMaxInterimResponses) {
+            spdlog::error("IPP Printer: no final response after {} interim responses",
+                          kMaxInterimResponses);
+            return nullptr;
+        }
+        spdlog::debug("IPP Printer: skipping interim HTTP {}", static_cast<int>(resp->status_code));
+        if (client.recvResponse(resp.get()) != 0) {
+            return nullptr;
+        }
+    }
+    return resp;
+}
+
+} // namespace ipp
 
 IppPrinter::IppPrinter() = default;
 IppPrinter::~IppPrinter() = default;
@@ -30,7 +70,7 @@ void IppPrinter::set_target(const std::string& host, uint16_t port,
                             const std::string& resource_path) {
     host_ = host;
     port_ = port;
-    resource_path_ = resource_path;
+    resource_path_ = ipp::normalize_resource_path(resource_path);
 }
 
 void IppPrinter::set_sheet_template(int index) {
@@ -144,17 +184,7 @@ void IppPrinter::print(const LabelBitmap& bitmap, const LabelSize& size, PrintCa
             auto ipp_body = request.encode_with_data(pwg_data);
             spdlog::debug("IPP Printer: encoded IPP request: {} bytes total", ipp_body.size());
 
-            // HTTP POST via libhv
-            auto url = fmt::format("http://{}:{}/{}", host, port, resource_path);
-
-            auto req = std::make_shared<HttpRequest>();
-            req->method = HTTP_POST;
-            req->url = url;
-            req->timeout = 30;
-            req->SetHeader("Content-Type", "application/ipp");
-            req->body.assign(reinterpret_cast<const char*>(ipp_body.data()), ipp_body.size());
-
-            auto resp = requests::request(req);
+            auto resp = ipp::post_request(host, port, resource_path, ipp_body, 30);
 
             if (resp == nullptr) {
                 fail(TR_NOOP("Connection failed to {}:{}"), host, port);
