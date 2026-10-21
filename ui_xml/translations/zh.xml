@@ -164,6 +164,8 @@
   <translation tag="ACCELEROMETERS" zh="加速度计"/>
   <translation tag="ACCEPT failed: {}" zh="ACCEPT 失败: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." zh="未找到 ACE Moonraker 桥接。请安装 ace_status.py 以获得完整支持。"/>
+  <translation tag="ACE Pro" zh="ACE Pro"/>
+  <translation tag="ACE Pro 2" zh="ACE Pro 2"/>
   <translation tag="ACTIONS" zh="操作"/>
   <translation tag="ADD-ONS" zh="附加功能"/>
   <translation tag="ADXL" zh="ADXL"/>

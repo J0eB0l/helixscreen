@@ -164,6 +164,8 @@
   <translation tag="ACCELEROMETERS" it="ACCELEROMETRI"/>
   <translation tag="ACCEPT failed: {}" it="ACCEPT fallito: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." it="Bridge ACE Moonraker non trovato. Installa ace_status.py per il supporto completo."/>
+  <translation tag="ACE Pro" it="ACE Pro"/>
+  <translation tag="ACE Pro 2" it="ACE Pro 2"/>
   <translation tag="ACTIONS" it="AZIONI"/>
   <translation tag="ADD-ONS" it="EXTRA"/>
   <translation tag="ADXL" it="ADXL"/>

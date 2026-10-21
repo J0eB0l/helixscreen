@@ -217,6 +217,9 @@ inline json make_kobra_second_unit_object() {
     json unit1 = make_kobra_instance_object();
     unit1["instance"] = 1;
     unit1["protocol"] = "ace2_proto";
+    // An ACE 2 states no model of its own.
+    unit1.erase("model");
+    unit1["firmware"] = "V2.0.7";
     unit1["temp"] = 51;
     unit1["humidity"] = 61;
     for (int i = 0; i < 4; ++i) {

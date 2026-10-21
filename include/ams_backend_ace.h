@@ -453,9 +453,12 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// frame names it first. Caller holds mutex_.
     DryerInfo& dryer_locked(int unit);
 
-    /// Name every unit after its model (unit_models_), numbering the second
-    /// and later unit of one model. Caller holds mutex_.
-    void name_units_locked();
+    /// Apply what each unit says about itself (unit_identities_) to the
+    /// units: its model as the unit's name, its firmware, and on the ACEPRO
+    /// driver a display name (the model, else a generic name for its
+    /// protocol), numbering the second and later unit of one name. Caller
+    /// holds mutex_.
+    void apply_unit_identities_locked();
 
     /// Record unit @p unit's own status word and publish the action of the
     /// first unit that is doing something, or IDLE. Caller holds mutex_.
@@ -494,10 +497,15 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // connected. A unit with no entry has not stated one. Guarded by mutex_.
     std::map<int, bool> unit_links_;
 
-    // Each unit's model name ("ACEPRO", "ACEPRO2"), from the fork's
-    // `protocol`; empty for a protocol this backend does not know. Guarded by
-    // mutex_.
-    std::vector<std::string> unit_models_;
+    // What each unit states about itself, by unit index. Kept apart from the
+    // units: a notify frame can name a unit before its slots arrive, and a
+    // later frame restates only the fields that changed. Guarded by mutex_.
+    struct UnitIdentity {
+        std::string model;    // `model`, e.g. "Anycubic Color Engine Pro"
+        std::string protocol; // `protocol`: "ace1_json" (ACE Pro) or "ace2_proto" (ACE 2)
+        std::string firmware; // `firmware`
+    };
+    std::vector<UnitIdentity> unit_identities_;
 
     // The driver tool each global slot feeds, from the fork slots' `tool`.
     // Empty for drivers that publish none. Guarded by mutex_.

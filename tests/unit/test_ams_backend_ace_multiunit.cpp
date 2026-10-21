@@ -69,6 +69,7 @@ void start_units(AmsBackendAceTestHelper& helper, helix::test::FakeMoonrakerClie
         instance["instance"] = unit;
         if (unit < ace_pro_units) {
             instance["protocol"] = "ace1_json";
+            instance["model"] = "Anycubic Color Engine Pro";
         }
         for (int i = 0; i < 4; ++i) {
             instance["slots"][i]["tool"] = 4 * unit + i;
@@ -553,9 +554,9 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE maps the driver's tool numbers to slots",
     CHECK(helper.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=7");
 }
 
-// A unit is named after its model, as the fork's `protocol` states it; a
-// second unit of the same model is numbered. The model string stays the
-// unit's identity.
+// A unit is named after the model the driver states for it; a unit stating
+// none is named for the product its protocol drives. A second unit of one
+// name is numbered. The driver's protocol words never reach the screen.
 TEST_CASE_METHOD(LVGLTestFixture, "ACE units are named after their model",
                  "[ams][ace][multiunit]") {
     helix::test::FakeMoonrakerClient client;
@@ -564,17 +565,61 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE units are named after their model",
 
     const auto info = helper.get_test_system_info();
     REQUIRE(info.units.size() == 3);
-    CHECK(info.units[0].display_name == "ACEPRO");
-    CHECK(info.units[1].display_name == "ACEPRO2");
-    CHECK(info.units[2].display_name == "ACEPRO2 #2");
+    CHECK(info.units[0].display_name == "Anycubic Color Engine Pro");
+    CHECK(info.units[1].display_name == "ACE Pro 2");
+    CHECK(info.units[2].display_name == "ACE Pro 2 #2");
     CHECK(info.units[0].name == "Anycubic Color Engine Pro");
 
-    SECTION("an unknown protocol keeps the driver's model string") {
+    SECTION("a model stated later replaces the generic name") {
+        json frame = json::object();
+        frame["ace_instance_2"] = json{{"model", "ACE2 (Shared Bus)"}};
+        send_frame(helper, frame);
+        const auto after = helper.get_test_system_info();
+        CHECK(after.units[1].display_name == "ACE Pro 2");
+        CHECK(after.units[2].display_name == "ACE2 (Shared Bus)");
+        CHECK(after.units[2].name == "ACE2 (Shared Bus)");
+    }
+    SECTION("an unknown protocol never shows its raw value") {
         json frame = json::object();
         frame["ace_instance_2"] = json{{"protocol", "ace9_future"}};
         send_frame(helper, frame);
-        CHECK(helper.get_test_system_info().units[2].display_name.empty());
+        CHECK(helper.get_test_system_info().units[2].display_name == "ACE Pro");
     }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ACE Pro units stating no model are named for their protocol",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 2, -1, /*ace_pro_units=*/2, [](json& status) {
+        status["ace_instance_0"].erase("model");
+        status["ace_instance_1"].erase("model");
+    });
+    const auto info = helper.get_test_system_info();
+    REQUIRE(info.units.size() == 2);
+    CHECK(info.units[0].display_name == "ACE Pro");
+    CHECK(info.units[1].display_name == "ACE Pro #2");
+}
+
+// Each unit keeps the firmware it reports; the system version is the first
+// unit's.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE keeps each unit's firmware", "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 2, -1);
+
+    auto info = helper.get_test_system_info();
+    CHECK(info.units[0].firmware_version == "V1.3.856");
+    CHECK(info.units[1].firmware_version == "V2.0.7");
+    CHECK(info.version == "V1.3.856");
+
+    json frame = json::object();
+    frame["ace_instance_1"] = json{{"firmware", "V2.1.0"}};
+    send_frame(helper, frame);
+    info = helper.get_test_system_info();
+    CHECK(info.units[1].firmware_version == "V2.1.0");
+    CHECK(info.units[0].firmware_version == "V1.3.856");
+    CHECK(info.version == "V1.3.856");
 }
 
 // The largest rig ACEPRO is daisy-chained into: two ACE Pros and four ACE 2s.
@@ -594,8 +639,9 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE shows six daisy-chained units", "[ams][ac
     for (const auto& unit : info.units) {
         names.push_back(unit.display_name);
     }
-    CHECK(names == std::vector<std::string>{"ACEPRO", "ACEPRO #2", "ACEPRO2", "ACEPRO2 #2",
-                                            "ACEPRO2 #3", "ACEPRO2 #4"});
+    CHECK(names == std::vector<std::string>{"Anycubic Color Engine Pro",
+                                            "Anycubic Color Engine Pro #2", "ACE Pro 2",
+                                            "ACE Pro 2 #2", "ACE Pro 2 #3", "ACE Pro 2 #4"});
     // T17 is the fifth unit's second slot.
     CHECK(info.current_slot == 17);
     CHECK(helper.get_slot_info(17).status == SlotStatus::LOADED);

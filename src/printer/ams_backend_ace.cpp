@@ -56,15 +56,13 @@ static constexpr int kMaxInfoFetchFailures = 3;
 
 namespace {
 
-/// The model a fork unit's `protocol` names, empty when it names none known.
-std::string ace_model_for_protocol(const std::string& protocol) {
-    if (protocol == "ace1_json") {
-        return "ACEPRO";
-    }
+/// The name shown for an ACEPRO unit that states no model: the product its
+/// `protocol` drives.
+std::string ace_generic_unit_name(const std::string& protocol) {
     if (protocol == "ace2_proto") {
-        return "ACEPRO2";
+        return lv_tr("ACE Pro 2");
     }
-    return {};
+    return lv_tr("ACE Pro");
 }
 
 /// Whether a fork unit's `connection_state` says it is connected; nullopt for
@@ -1057,18 +1055,25 @@ bool AmsBackendAce::index_units_locked() {
     return renumbered;
 }
 
-void AmsBackendAce::name_units_locked() {
+void AmsBackendAce::apply_unit_identities_locked() {
     // Caller holds mutex_.
     std::map<std::string, int> seen;
     for (size_t i = 0; i < system_info_.units.size(); ++i) {
-        const std::string model = i < unit_models_.size() ? unit_models_[i] : std::string();
-        auto& display_name = system_info_.units[i].display_name;
-        if (model.empty()) {
-            display_name.clear();
+        auto& unit = system_info_.units[i];
+        const UnitIdentity identity =
+            i < unit_identities_.size() ? unit_identities_[i] : UnitIdentity{};
+        if (!identity.model.empty()) {
+            unit.name = identity.model;
+        }
+        unit.firmware_version = identity.firmware;
+        if (!instance_objects_) {
+            unit.display_name.clear();
             continue;
         }
-        const int count = ++seen[model];
-        display_name = count == 1 ? model : model + " #" + std::to_string(count);
+        const std::string base =
+            identity.model.empty() ? ace_generic_unit_name(identity.protocol) : identity.model;
+        const int count = ++seen[base];
+        unit.display_name = count == 1 ? base : base + " #" + std::to_string(count);
     }
 }
 
@@ -1258,27 +1263,34 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
     // firmware against firmware. Re-derived at the bottom of this function.
     clear_seated_slot_stamp_locked();
 
-    // Parse system info (model, firmware)
+    // Parse system info (model, protocol, firmware). The first unit's
+    // firmware is the system's version; every unit keeps its own.
     if (data.contains("model") && data["model"].is_string()) {
         system_info_.type_name = "ACE";
-        // Use model string for unit name if we have the unit
-        auto model = data["model"].get<std::string>();
-        if (static_cast<size_t>(unit_index) < system_info_.units.size()) {
-            system_info_.units[static_cast<size_t>(unit_index)].name = model;
-        }
     }
-
-    if (instance_objects_ && data.contains("protocol") && data["protocol"].is_string()) {
-        if (unit_models_.size() <= static_cast<size_t>(unit_index)) {
-            unit_models_.resize(static_cast<size_t>(unit_index) + 1);
+    {
+        const auto index = static_cast<size_t>(std::max(unit_index, 0));
+        if (unit_identities_.size() <= index) {
+            unit_identities_.resize(index + 1);
         }
-        unit_models_[static_cast<size_t>(unit_index)] =
-            ace_model_for_protocol(data["protocol"].get<std::string>());
-        name_units_locked();
-    }
-
-    if (data.contains("firmware") && data["firmware"].is_string() && unit_index == 0) {
-        system_info_.version = data["firmware"].get<std::string>();
+        UnitIdentity& identity = unit_identities_[index];
+        const UnitIdentity before = identity;
+        if (data.contains("model") && data["model"].is_string()) {
+            identity.model = data["model"].get<std::string>();
+        }
+        if (data.contains("protocol") && data["protocol"].is_string()) {
+            identity.protocol = data["protocol"].get<std::string>();
+        }
+        if (data.contains("firmware") && data["firmware"].is_string()) {
+            identity.firmware = data["firmware"].get<std::string>();
+            if (unit_index == 0) {
+                system_info_.version = identity.firmware;
+            }
+        }
+        if (identity.model != before.model || identity.protocol != before.protocol ||
+            identity.firmware != before.firmware) {
+            apply_unit_identities_locked();
+        }
     }
 
     // Parse status string -> AmsAction. The shared vocabulary table is the
@@ -1301,11 +1313,8 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
         } else {
             const bool new_unit = static_cast<size_t>(unit_index) >= system_info_.units.size();
             auto& unit = unit_locked(unit_index);
-            if (new_unit && data.contains("model") && data["model"].is_string()) {
-                unit.name = data["model"].get<std::string>();
-            }
             if (new_unit) {
-                name_units_locked();
+                apply_unit_identities_locked();
             }
             if (instance_objects_) {
                 // Every fork unit feeds the printer's one extruder through the
