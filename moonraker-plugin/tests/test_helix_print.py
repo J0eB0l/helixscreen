@@ -124,17 +124,26 @@ class MockDatabase:
         self.sql_commands.append((sql, params))
         return MagicMock(lastrowid=1, rowcount=0)
 
-    async def insert_item(self, namespace: str, key: str, value: Any) -> None:
-        self.namespaces.setdefault(namespace, {})[key] = value
+    @staticmethod
+    def _key(key: Any) -> str:
+        # A one-element list names a key whole, as Moonraker takes it.
+        return ".".join(key) if isinstance(key, list) else key
 
-    async def get_item(self, namespace: str, key: str, default: Any = None) -> Any:
-        return self.namespaces.get(namespace, {}).get(key, default)
+    async def insert_item(self, namespace: str, key: Any, value: Any) -> None:
+        self.namespaces.setdefault(namespace, {})[self._key(key)] = value
 
-    async def update_item(self, namespace: str, key: str, value: Any) -> None:
-        self.namespaces.setdefault(namespace, {})[key] = value
+    async def get_item(self, namespace: str, key: Any = None, default: Any = None) -> Any:
+        if key is None:
+            if namespace not in self.namespaces:
+                return default
+            return dict(self.namespaces[namespace])
+        return self.namespaces.get(namespace, {}).get(self._key(key), default)
 
-    async def delete_item(self, namespace: str, key: str) -> None:
-        self.namespaces.get(namespace, {}).pop(key, None)
+    async def update_item(self, namespace: str, key: Any, value: Any) -> None:
+        self.namespaces.setdefault(namespace, {})[self._key(key)] = value
+
+    async def delete_item(self, namespace: str, key: Any) -> None:
+        self.namespaces.get(namespace, {}).pop(self._key(key), None)
 
     async def ns_items(self, namespace: str) -> list:
         return list(self.namespaces.get(namespace, {}).items())
@@ -434,7 +443,7 @@ class TestStatusAPI:
         assert result["temp_dir"] == ".helix_temp"
         assert result["symlink_dir"] == ".helix_print"
         assert result["cleanup_delay"] == 3600
-        assert result["version"] == "1.2.0"
+        assert result["version"] == "1.3.0"
         assert result["active_prints"] == 0
 
 

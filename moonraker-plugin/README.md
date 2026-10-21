@@ -126,6 +126,8 @@ sudo systemctl restart moonraker
 GET /server/helix/status
 ```
 
+JSON-RPC: `server.helix.status`.
+
 Response:
 ```json
 {
@@ -135,12 +137,56 @@ Response:
     "symlink_dir": ".helix_print",
     "cleanup_delay": 86400,
     "active_prints": 0,
-    "version": "1.0.1"
+    "version": "1.3.0",
+    "convert_3mf": true,
+    "start_3mf_on_upload": false,
+    "api": 2,
+    "features": {
+      "convert_3mf": {"version": 1, "available": true, "enabled": true, "reason": null}
+    }
   }
 }
 ```
 
+`api` is the shape of this reply; 2 added `features`. A plugin without `api` predates the map.
+
+#### Features
+
+Each optional feature has one entry in `features`, keyed by name:
+
+| Field | Meaning |
+|-------|---------|
+| `version` | The feature's own contract version, bumped when its endpoints change shape. Clients gate on a minimum version of a feature, never on the plugin's `version` string |
+| `available` | Its module loaded and its requirements (Moonraker version, components) hold |
+| `enabled` | The user's choice, and always `false` when not available |
+| `reason` | Why it is not available (`null` when it is), e.g. `"module_missing"` or `"load_failed: ..."` |
+
+A feature that only observes defaults on; one that acts on a print or a spool defaults off.
+The user's choices live in Moonraker's database, namespace `helix-screen`, key
+`plugin_features`, written by the screen's settings: `{"<feature>": true|false, ...}`. The
+plugin reads it when a feature is about to act, so a change applies without a restart. A
+key that is missing or not a bool means the default.
+
+A feature may own its switch instead, when its on/off depends on more than a boolean. Its
+`plugin_features` key is then never read, and `enabled` reports the feature's own switch.
+`convert_3mf` is one: `convert_3mf` under `[helix_print]` in `moonraker.conf` switches it.
+
+A feature lives in its own `helix_<feature>.py` beside `helix_print.py`. One that fails to
+import reports `available: false` with the reason, and every other feature keeps working.
+
+#### Helix-initiated jobs
+
+A plugin path that starts a job itself marks it first, with one of three kinds:
+`print_modified`, `print_edited` or `plr_resume`. When history adds the job for that file,
+the marker is bound to the job id and stored in the `helix_jobs` namespace
+(`{"<job id>": {"kind": ..., "bound_at": <unix time>}}`, kept 30 days). A marker no job
+claims within 60 s expires. Plugin modules ask `helix_initiated(job_id)`, so a feature that
+runs at job start can leave a job the plugin started itself alone.
+
 ### Start Modified Print
+
+The client uploads the modified file first, through Moonraker's own file upload, into
+`temp_dir`, then names it here.
 
 ```http
 POST /server/helix/print_modified
@@ -148,7 +194,7 @@ Content-Type: application/json
 
 {
   "original_filename": "benchy.gcode",
-  "modified_content": "<full G-code content with modifications>",
+  "temp_file_path": ".helix_temp/mod_1702400000_benchy.gcode",
   "modifications": ["bed_leveling_disabled", "z_tilt_disabled"],
   "copy_metadata": true
 }
@@ -159,7 +205,7 @@ Response:
 {
   "result": {
     "original_filename": "benchy.gcode",
-    "print_filename": ".helix_print/benchy.gcode",
+    "print_filename": ".helix_print/full/benchy.gcode",
     "temp_filename": ".helix_temp/mod_1702400000_benchy.gcode",
     "status": "printing"
   }
@@ -171,7 +217,7 @@ Response:
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `original_filename` | string | Yes | - | Path to the original G-code file (relative to gcodes root) |
-| `modified_content` | string | Yes | - | Complete modified G-code content |
+| `temp_file_path` | string | Yes | - | Path of the already-uploaded modified file (relative to gcodes root) |
 | `modifications` | array | No | `[]` | List of modification identifiers (for logging/history) |
 | `copy_metadata` | bool | No | `true` | Whether to copy thumbnails from original |
 
@@ -179,8 +225,8 @@ Response:
 
 | Code | Description |
 |------|-------------|
-| 400 | Original file not found |
-| 500 | Failed to write temp file or create symlink |
+| 400 | Original or temp file not found, or a path outside the gcodes root |
+| 500 | Failed to create the symlink or start the print |
 | 503 | Plugin is disabled |
 
 ### List .3mf Conversions
@@ -296,24 +342,24 @@ beside it, so Moonraker's metadata, thumbnails and every client work.
 ┌─────────────────────────────────────────────────────────────────┐
 │ Client (HelixScreen)                                            │
 │ POST /server/helix/print_modified                               │
-│ { original_filename, modified_content, modifications }          │
+│ { original_filename, temp_file_path, modifications }            │
 └─────────────────────────────────┬───────────────────────────────┘
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ helix_print Plugin                                              │
 ├─────────────────────────────────────────────────────────────────┤
-│ 1. Validate original file exists                                │
-│ 2. Save modified content → .helix_temp/mod_123_benchy.gcode     │
-│ 3. Copy thumbnails from original                                │
-│ 4. Create symlink: .helix_print/benchy.gcode → temp file        │
+│ 1. Validate original and uploaded temp file                     │
+│ 2. Copy thumbnails from original                                │
+│ 3. Create symlink: .helix_print/full/benchy.gcode → temp file   │
+│ 4. Mark the job helix-initiated (print_modified)                │
 │ 5. Start print: SDCARD_PRINT_FILE FILENAME=".helix_print/..."   │
 └─────────────────────────────────┬───────────────────────────────┘
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Klipper                                                         │
-│ print_stats.filename = ".helix_print/benchy.gcode"              │
+│ print_stats.filename = ".helix_print/full/benchy.gcode"         │
 │ (Follows symlink, reads modified content)                       │
 └─────────────────────────────────┬───────────────────────────────┘
                                   │
