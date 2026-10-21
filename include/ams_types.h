@@ -51,6 +51,24 @@ constexpr int kAmsMaxUnits = 16;
 /// past it keeps working in the backend and shows unbound in the UI.
 constexpr int kAmsMaxSlots = 64;
 
+/// unload_filament() slot meaning "clear the toolhead and retract no lane":
+/// cut and withdraw what the extruder holds, for filament no lane can be named
+/// for. Only a backend whose UnloadLaneQuestion offers it accepts it.
+inline constexpr int kClearToolheadSlot = -3;
+
+/**
+ * @brief What the user must answer before a slotless toolhead unload, when the
+ *        backend cannot name the lane in the toolhead itself.
+ */
+struct UnloadLaneQuestion {
+    /// 0-based lanes to offer. One lane asks the user to confirm it, several
+    /// ask them to pick one, none means no question: unload_filament(-1)
+    /// resolves the lane itself.
+    std::vector<int> lanes;
+    /// Offer a "Not sure" answer, which unloads kClearToolheadSlot.
+    bool offers_clear_toolhead = false;
+};
+
 /**
  * @brief Type of AMS system detected
  *

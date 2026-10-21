@@ -2255,6 +2255,7 @@
   <translation tag="Not in your spools? Set it up" zh="不在您的料盘中？立即设置"/>
   <translation tag="Not now" zh="暂不"/>
   <translation tag="Not set" zh="未设置"/>
+  <translation tag="Not sure" zh="不确定"/>
   <translation tag="Not turned" zh="未转动"/>
   <translation tag="Not yet available on this display" zh="此屏幕暂不支持"/>
   <translation tag="Not yet calibrated" zh="尚未校准"/>
@@ -2632,6 +2633,8 @@
   <translation tag="Prints" zh="打印次数"/>
   <translation tag="Prints Trend" zh="打印趋势"/>
   <translation tag="Private:" zh="私有："/>
+  <translation tag="Probably {}, the only lane holding filament." zh="可能是{}，只有这个耗材通道有耗材。"/>
+  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." zh="可能是{}，只有这个耗材通道有耗材。选择“不确定”会只清空挤出机，不回抽任何耗材通道。"/>
   <translation tag="Probe" zh="探针"/>
   <translation tag="Probe Accuracy Failed" zh="探针精度测试失败"/>
   <translation tag="Probe Accuracy Test" zh="探针精度测试"/>

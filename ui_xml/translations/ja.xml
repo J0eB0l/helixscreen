@@ -2255,6 +2255,7 @@
   <translation tag="Not in your spools? Set it up" ja="スプールにない？登録する"/>
   <translation tag="Not now" ja="後で"/>
   <translation tag="Not set" ja="未設定"/>
+  <translation tag="Not sure" ja="わからない"/>
   <translation tag="Not turned" ja="未回転"/>
   <translation tag="Not yet available on this display" ja="このディスプレイではまだ利用できません"/>
   <translation tag="Not yet calibrated" ja="未キャリブレーション"/>
@@ -2632,6 +2633,8 @@
   <translation tag="Prints" ja="印刷"/>
   <translation tag="Prints Trend" ja="印刷傾向"/>
   <translation tag="Private:" ja="プライベート:"/>
+  <translation tag="Probably {}, the only lane holding filament." ja="おそらく{}です。フィラメントが入っているのはこのレーンだけです。"/>
+  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." ja="おそらく{}です。フィラメントが入っているのはこのレーンだけです。「わからない」を選ぶと、レーンを引き戻さずにエクストルーダーだけを空にします。"/>
   <translation tag="Probe" ja="プローブ"/>
   <translation tag="Probe Accuracy Failed" ja="プローブ精度テスト失敗"/>
   <translation tag="Probe Accuracy Test" ja="プローブ精度テスト"/>

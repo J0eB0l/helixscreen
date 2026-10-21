@@ -34,6 +34,7 @@
 #include "test_helpers/seeded_override.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -7600,6 +7601,70 @@ TEST_CASE("AD5X IFS unload_filament dispatches the firmware _IFS_REMOVE_CURRENT_
     REQUIRE_FALSE(backend.has_gcode_containing("G28"));
 }
 
+namespace {
+
+/// Native ZMOD with filament at the head, no active slot, no seated channel and
+/// FFMInfo.channel 0: _IFS_REMOVE_CURRENT_PRUTOK would find no lane and do nothing.
+void seat_unrecorded_zmod(TestableAd5xIfsBackend& backend, std::array<bool, 4> present) {
+    Ad5xIfsTestAccess::set_running(backend, true);
+    Ad5xIfsTestAccess::set_zcolor_supported(backend, false);
+    Ad5xIfsTestAccess::set_current_slot(backend, -1, /*filament_loaded=*/false);
+    Ad5xIfsTestAccess::set_head_switch(backend, true, true);
+    Ad5xIfsTestAccess::set_head_filament(backend, true);
+    Ad5xIfsTestAccess::set_ffm_channel(backend, 0);
+    Ad5xIfsTestAccess::set_persisted_seated_slot(backend, std::nullopt);
+    for (size_t i = 0; i < present.size(); ++i) {
+        Ad5xIfsTestAccess::set_port_presence(backend, i, present[i]);
+    }
+    REQUIRE(Ad5xIfsTestAccess::seated_chan(backend) == 0);
+    REQUIRE_FALSE(Ad5xIfsTestAccess::module_live(backend));
+}
+
+} // namespace
+
+TEST_CASE("AD5X IFS native ZMOD asks for the unrecorded lane and declares it before unloading",
+          "[ams][ad5x_ifs][1324]") {
+    TestableAd5xIfsBackend backend;
+
+    SECTION("several lanes holding filament are picked from, with Not sure") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        const helix::UnloadLaneQuestion question = backend.unload_lane_question();
+        CHECK(question.lanes == std::vector<int>{0, 2});
+        CHECK(question.offers_clear_toolhead);
+        // A slotless unload would run the macro with no lane: refused instead.
+        CHECK_FALSE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes.empty());
+    }
+    SECTION("one lane holding filament is confirmed") {
+        seat_unrecorded_zmod(backend, {false, true, false, false});
+        CHECK(backend.unload_lane_question().lanes == std::vector<int>{1});
+    }
+    SECTION("the chosen lane is declared, then unloaded") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        REQUIRE(backend.unload_filament(2).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"SET_EXTRUDER_SLOT SLOT=3\n_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("a channel already on record is left to the macro") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        Ad5xIfsTestAccess::set_ffm_channel(backend, 3);
+        CHECK(backend.unload_lane_question().lanes.empty());
+        REQUIRE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes == std::vector<std::string>{"_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("Not sure runs ZMOD's no-IFS extruder clear") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        REQUIRE(backend.unload_filament(helix::kClearToolheadSlot).success());
+        CHECK(backend.captured_gcodes == std::vector<std::string>{"REMOVE_PRUTOK_IFS PRUTOK=0"});
+    }
+    SECTION("no lane holding filament clears the extruder without asking") {
+        seat_unrecorded_zmod(backend, {false, false, false, false});
+        CHECK(backend.unload_lane_question().lanes.empty());
+        REQUIRE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes == std::vector<std::string>{"REMOVE_PRUTOK_IFS PRUTOK=0"});
+    }
+}
+
 TEST_CASE("AD5X IFS unhomed load sends exactly one G28 then the load macro (#1248)",
           "[ams][ad5x_ifs][homing][1248]") {
     // INSERT_PRUTOK_IFS's leading _G28 is conditional, not a second home: its
@@ -8036,7 +8101,9 @@ TEST_CASE("AD5X IFS unload_filament clears toolhead when firmware dropped the ac
     Ad5xIfsTestAccess::set_head_filament(backend, true);
 
     REQUIRE(backend.unload_filament(2).success());
-    REQUIRE(backend.has_gcode("_IFS_REMOVE_CURRENT_PRUTOK"));
+    // FFMInfo.channel is 0, so the macro would find no lane: the tapped lane is
+    // declared first (#1324).
+    REQUIRE(backend.has_gcode("SET_EXTRUDER_SLOT SLOT=3\n_IFS_REMOVE_CURRENT_PRUTOK"));
     REQUIRE_FALSE(backend.has_gcode("IFS_REMOVE_PRUTOK"));
 }
 
@@ -9633,10 +9700,11 @@ TEST_CASE("AD5X IFS unload of the seated slot still toolhead-cuts when firmware 
     Ad5xIfsTestAccess::set_current_slot(backend, -1, /*filament_loaded=*/true);
     Ad5xIfsTestAccess::set_head_filament(backend, true);
 
-    // User taps Unload on the seated slot 1 -> heated toolhead unload (cut).
+    // User taps Unload on the seated slot 1 -> heated toolhead unload (cut),
+    // declaring the lane because FFMInfo.channel is 0 (#1324).
     REQUIRE(backend.unload_filament(1).success());
 
-    REQUIRE(backend.has_gcode("_IFS_REMOVE_CURRENT_PRUTOK"));
+    REQUIRE(backend.has_gcode("SET_EXTRUDER_SLOT SLOT=2\n_IFS_REMOVE_CURRENT_PRUTOK"));
     REQUIRE_FALSE(backend.has_gcode_containing("IFS_F11"));
     REQUIRE_FALSE(backend.has_gcode_containing("IFS_F24"));
 }

@@ -10,6 +10,7 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "test_helpers/ad5x_ifs_test_access.h"
 #include "test_helpers/ams_sidebar_xml.h"
+#include "test_helpers/modal_answer.h"
 
 #include <functional>
 #include <memory>
@@ -145,7 +146,7 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture,
                  "Sidebar unloads the lane the user named as the one in the toolhead",
                  "[ams][1324]") {
     REQUIRE(backend_->get_current_slot() < 0);
-    REQUIRE(backend_->unload_lane_candidates() == std::vector<int>{0, 1, 2, 3});
+    REQUIRE(backend_->unload_lane_question().lanes == std::vector<int>{0, 1, 2, 3});
 
     SECTION("a named lane counts as loaded and is unloaded by number") {
         sidebar_->handle_unload(2, /*lane_in_toolhead=*/true);
@@ -154,5 +155,53 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture,
     SECTION("the same lane from the context menu is still nothing loaded") {
         sidebar_->handle_unload(2);
         CHECK(backend_->sent.empty());
+    }
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "Sidebar sends the toolhead clear for Not sure",
+                 "[ams][1324]") {
+    sidebar_->handle_unload(helix::kClearToolheadSlot, /*lane_in_toolhead=*/true);
+    CHECK(backend_->sent == std::vector<std::string>{"_IFS_CLEAR_EXTRUDER TEMP=220"});
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "The lane picker offers Not sure after the lanes",
+                 "[ams][1324]") {
+    std::vector<int> chosen;
+    lv_obj_t* anchor = lv_obj_find_by_name(panel_, "btn_unload");
+    REQUIRE(anchor != nullptr);
+    REQUIRE(helix::ui::choose_unload_lane(backend_, anchor,
+                                          [&chosen](int slot) { chosen.push_back(slot); }));
+    CHECK(ModalStack::instance().stack_empty());
+
+    lv_obj_t* not_sure = lv_obj_find_by_name(lv_screen_active(), "extra_choice");
+    REQUIRE(not_sure != nullptr);
+    lv_obj_send_event(not_sure, LV_EVENT_CLICKED, nullptr);
+    CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "One lane holding filament is confirmed in a dialog",
+                 "[ams][1324]") {
+    helix::Ad5xIfsTestAccess::handle_status(
+        *backend_, nlohmann::json{{"ifs", {{"loaded_channels", {3}}, {"active_channel", 0}}}});
+    AmsState::instance().sync_from_backend();
+    REQUIRE(backend_->unload_lane_question().lanes == std::vector<int>{2});
+
+    std::vector<int> chosen;
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
+                                          [&chosen](int slot) { chosen.push_back(slot); }));
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    CHECK(lv_obj_find_by_name(lv_screen_active(), "extra_choice") == nullptr);
+
+    SECTION("Unload names the lane") {
+        helix::test::answer_top_modal("btn_primary");
+        CHECK(chosen == std::vector<int>{2});
+    }
+    SECTION("Not sure asks for the toolhead clear") {
+        helix::test::answer_top_modal("btn_secondary");
+        CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+    }
+    SECTION("dismissing answers nothing") {
+        helix::test::dismiss_top_modal();
+        CHECK(chosen.empty());
     }
 }

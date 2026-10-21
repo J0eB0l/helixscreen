@@ -2334,6 +2334,7 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: 没有足够的空间放置此小组件。请重新排列或移除小组件以腾出空间。
   'Not in your spools? Set it up': 不在您的料盘中？立即设置
   Not now: 暂不
+  Not sure: '不确定'
   Not turned: '未转动'
   Not set: 未设置
   Not yet available on this display: '此屏幕暂不支持'
@@ -2723,6 +2724,8 @@ translations:
   Prints: 打印次数
   Prints Trend: 打印趋势
   'Private:': 私有：
+  Probably {}, the only lane holding filament.: '可能是{}，只有这个耗材通道有耗材。'
+  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: '可能是{}，只有这个耗材通道有耗材。选择“不确定”会只清空挤出机，不回抽任何耗材通道。'
   Probe: 探针
   Probe Accuracy Failed: 探针精度测试失败
   Probe Accuracy Test: 探针精度测试

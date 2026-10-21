@@ -2341,6 +2341,7 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: このウィジェットを配置するスペースが足りません。スペースを確保するためにウィジェットを整理または削除してください。
   Not in your spools? Set it up: スプールにない？登録する
   Not now: 後で
+  Not sure: 'わからない'
   Not turned: '未回転'
   Not set: 未設定
   Not yet available on this display: 'このディスプレイではまだ利用できません'
@@ -2732,6 +2733,8 @@ translations:
   Prints: 印刷
   Prints Trend: 印刷傾向
   'Private:': 'プライベート:'
+  Probably {}, the only lane holding filament.: 'おそらく{}です。フィラメントが入っているのはこのレーンだけです。'
+  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: 'おそらく{}です。フィラメントが入っているのはこのレーンだけです。「わからない」を選ぶと、レーンを引き戻さずにエクストルーダーだけを空にします。'
   Probe: プローブ
   Probe Accuracy Failed: プローブ精度テスト失敗
   Probe Accuracy Test: プローブ精度テスト

@@ -2255,6 +2255,7 @@
   <translation tag="Not in your spools? Set it up" en="Not in your spools? Set it up"/>
   <translation tag="Not now" en="Not now"/>
   <translation tag="Not set" en="Not set"/>
+  <translation tag="Not sure" en="Not sure"/>
   <translation tag="Not turned" en="Not turned"/>
   <translation tag="Not yet available on this display" en="Not yet available on this display"/>
   <translation tag="Not yet calibrated" en="Not yet calibrated"/>
@@ -2632,6 +2633,8 @@
   <translation tag="Prints" en="Prints"/>
   <translation tag="Prints Trend" en="Prints Trend"/>
   <translation tag="Private:" en="Private:"/>
+  <translation tag="Probably {}, the only lane holding filament." en="Probably {}, the only lane holding filament."/>
+  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." en="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane."/>
   <translation tag="Probe" en="Probe"/>
   <translation tag="Probe Accuracy Failed" en="Probe Accuracy Failed"/>
   <translation tag="Probe Accuracy Test" en="Probe Accuracy Test"/>

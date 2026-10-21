@@ -2255,6 +2255,7 @@
   <translation tag="Not in your spools? Set it up" pt="Não está nos seus carretéis? Configure aqui"/>
   <translation tag="Not now" pt="Agora não"/>
   <translation tag="Not set" pt="Não definido"/>
+  <translation tag="Not sure" pt="Não tenho certeza"/>
   <translation tag="Not turned" pt="Não girado"/>
   <translation tag="Not yet available on this display" pt="Ainda não disponível neste display"/>
   <translation tag="Not yet calibrated" pt="Ainda não calibrado"/>
@@ -2632,6 +2633,8 @@
   <translation tag="Prints" pt="Impressões"/>
   <translation tag="Prints Trend" pt="Tendência de Impressões"/>
   <translation tag="Private:" pt="Privado:"/>
+  <translation tag="Probably {}, the only lane holding filament." pt="Provavelmente {}, a única lane com filamento."/>
+  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." pt="Provavelmente {}, a única lane com filamento. Não tenho certeza esvazia o extrusor sem recolher nenhuma lane."/>
   <translation tag="Probe" pt="Sonda"/>
   <translation tag="Probe Accuracy Failed" pt="Precisão da Sonda Falhou"/>
   <translation tag="Probe Accuracy Test" pt="Teste de Precisão da Sonda"/>

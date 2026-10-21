@@ -2413,6 +2413,7 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: Not enough room for this widget. Rearrange or remove widgets to make space.
   Not in your spools? Set it up: Not in your spools? Set it up
   Not now: Not now
+  Not sure: Not sure
   Not turned: Not turned
   Not set: Not set
   Not yet available on this display: Not yet available on this display
@@ -2813,6 +2814,8 @@ translations:
   Prints: Prints
   Prints Trend: Prints Trend
   'Private:': 'Private:'
+  Probably {}, the only lane holding filament.: Probably {}, the only lane holding filament.
+  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.
   Probe: Probe
   Probe Accuracy Failed: Probe Accuracy Failed
   Probe Accuracy Test: Probe Accuracy Test

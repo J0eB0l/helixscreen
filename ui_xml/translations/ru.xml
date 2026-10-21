@@ -2300,6 +2300,7 @@
   <translation tag="Not in your spools? Set it up" ru="Нет в ваших катушках? Настроить"/>
   <translation tag="Not now" ru="Не сейчас"/>
   <translation tag="Not set" ru="Не задана"/>
+  <translation tag="Not sure" ru="Не уверен"/>
   <translation tag="Not turned" ru="Не повёрнут"/>
   <translation tag="Not yet available on this display" ru="Пока недоступно на этом дисплее"/>
   <translation tag="Not yet calibrated" ru="Ещё не откалибровано"/>
@@ -2683,6 +2684,8 @@
   <translation tag="Prints" ru="Печати"/>
   <translation tag="Prints Trend" ru="Тренд печатей"/>
   <translation tag="Private:" ru="Закрытая:"/>
+  <translation tag="Probably {}, the only lane holding filament." ru="Вероятно, {} — единственный канал с филаментом."/>
+  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." ru="Вероятно, {} — единственный канал с филаментом. «Не уверен» очищает экструдер, не втягивая ни один канал."/>
   <translation tag="Probe" ru="Зонд"/>
   <translation tag="Probe Accuracy Failed" ru="Ошибка теста точности зонда"/>
   <translation tag="Probe Accuracy Test" ru="Тест точности датчика"/>

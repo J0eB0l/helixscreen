@@ -797,16 +797,15 @@ class AmsBackend {
     }
 
     /**
-     * @brief Lanes the user must choose from before a slotless toolhead unload.
+     * @brief The question to ask before a slotless toolhead unload.
      *
-     * Non-empty only when filament sits in the toolhead, the backend cannot name
+     * Has lanes only when filament sits in the toolhead, the backend cannot name
      * the lane it came from, and its unload command needs one. The caller asks
-     * which lane is in the head and passes it to unload_filament(); an empty
-     * list means unload_filament(-1) resolves the lane itself.
-     *
-     * @return 0-based slot indices to offer, empty when no choice is needed
+     * which lane is in the head and passes it to unload_filament(), or passes
+     * kClearToolheadSlot for "Not sure" when the question offers it. No lanes
+     * means unload_filament(-1) resolves the lane itself.
      */
-    [[nodiscard]] virtual std::vector<int> unload_lane_candidates() const {
+    [[nodiscard]] virtual UnloadLaneQuestion unload_lane_question() const {
         return {};
     }
 

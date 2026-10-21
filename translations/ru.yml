@@ -2514,6 +2514,7 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: Недостаточно места для этого виджета. Измените раскладку или удалите виджеты, чтобы освободить место.
   Not in your spools? Set it up: Нет в ваших катушках? Настроить
   Not now: Не сейчас
+  Not sure: 'Не уверен'
   Not turned: 'Не повёрнут'
   Not set: Не задана
   Not yet available on this display: 'Пока недоступно на этом дисплее'
@@ -2925,6 +2926,8 @@ translations:
   Prints: Печати
   Prints Trend: Тренд печатей
   'Private:': 'Закрытая:'
+  Probably {}, the only lane holding filament.: 'Вероятно, {} — единственный канал с филаментом.'
+  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: 'Вероятно, {} — единственный канал с филаментом. «Не уверен» очищает экструдер, не втягивая ни один канал.'
   Probe: Зонд
   Probe Accuracy Failed: Ошибка теста точности зонда
   Probe Accuracy Test: Тест точности датчика

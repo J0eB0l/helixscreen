@@ -2475,6 +2475,7 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: No hay espacio suficiente para este widget. Reorganiza o elimina widgets para hacer espacio.
   Not in your spools? Set it up: ¿No está en tus bobinas? Configúralo
   Not now: Ahora no
+  Not sure: 'No estoy seguro'
   Not turned: 'Sin girar'
   Not set: Sin definir
   Not yet available on this display: 'Aún no disponible en esta pantalla'
@@ -2882,6 +2883,8 @@ translations:
   Prints: Impresiones
   Prints Trend: Tendencia de Impresiones
   'Private:': 'Privado:'
+  Probably {}, the only lane holding filament.: 'Probablemente {}, el único carril con filamento.'
+  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: 'Probablemente {}, el único carril con filamento. No estoy seguro vacía el extrusor sin retraer ningún carril.'
   Probe: Sonda
   Probe Accuracy Failed: Prueba de Precisión de Sonda Fallida
   Probe Accuracy Test: Prueba de Precisión de Sonda

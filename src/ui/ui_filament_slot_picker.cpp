@@ -108,6 +108,9 @@ void FilamentSlotPicker::show(lv_obj_t* parent, lv_obj_t* trigger,
     for (size_t i = 0; i < slots_.size(); ++i) {
         create_slot_row(card, static_cast<int>(i), slots_[i]);
     }
+    if (!options.extra_choice.empty()) {
+        create_extra_row(card, options.extra_choice);
+    }
 
     // Position anchored to trigger widget
     position_card(card);
@@ -203,6 +206,32 @@ void FilamentSlotPicker::create_slot_row(lv_obj_t* list, int index,
                 const auto& s = self->slots_[static_cast<size_t>(idx)];
                 self->select({s.slot_index, s.backend_index, false});
             }
+        },
+        LV_EVENT_CLICKED, this);
+}
+
+void FilamentSlotPicker::create_extra_row(lv_obj_t* list, const std::string& text) {
+    auto* row = static_cast<lv_obj_t*>(lv_xml_create(list, "filament_slot_picker_row", nullptr));
+    if (!row) {
+        return;
+    }
+    lv_obj_set_name(row, "extra_choice");
+    // No slot, so no colour to show.
+    if (auto* swatch = helix::ui::find_required(row, "swatch", "FilamentSlotPicker")) {
+        lv_obj_add_flag(swatch, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (auto* label = helix::ui::find_required(row, "slot_label", "FilamentSlotPicker")) {
+        lv_label_set_text(label, text.c_str());
+    }
+    // -1 keeps the row out of scroll_to_selected()'s slot lookup.
+    lv_obj_set_user_data(row, reinterpret_cast<void*>(static_cast<intptr_t>(-1)));
+    lv_obj_add_event_cb(
+        row,
+        [](lv_event_t* e) {
+            auto* self = static_cast<FilamentSlotPicker*>(lv_event_get_user_data(e));
+            Selection sel;
+            sel.is_extra = true;
+            self->select(sel);
         },
         LV_EVENT_CLICKED, this);
 }
