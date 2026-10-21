@@ -44,7 +44,8 @@ MOCK
 }
 
 # Helper: run check_klipper_ecosystem in a subshell with controlled ps/wget
-# Args: platform, ps_content_file, wget_exit_code (0=success)
+# Args: platform, ps_content_file (empty keeps a ps the test mocked itself),
+#       wget_exit_code (0=success)
 run_klipper_check() {
     local platform="$1"
     local ps_file="$2"
@@ -52,8 +53,7 @@ run_klipper_check() {
 
     mkdir -p "$BATS_TEST_TMPDIR/bin"
 
-    # Mock ps
-    setup_ps_mock "$ps_file"
+    [ -z "$ps_file" ] || setup_ps_mock "$ps_file"
 
     # Mock wget
     printf '#!/bin/sh\nexit %d\n' "$wget_exit" > "$BATS_TEST_TMPDIR/bin/wget"
@@ -67,6 +67,41 @@ run_klipper_check() {
 
     # No terminal to ask: helpers.bash points HELIX_TTY_DEVICE at nothing.
     run check_klipper_ecosystem "$platform"
+}
+
+# Fake a process under HELIX_PROC_ROOT running the given argv.
+# Args: $1 = pid, $2.. = argv
+mock_proc_cmdline() {
+    local pid="$1"
+    shift
+    mkdir -p "$HELIX_PROC_ROOT/$pid"
+    printf '%s\0' "$@" > "$HELIX_PROC_ROOT/$pid/cmdline"
+}
+
+# procps-ng ps: bare, it lists only the installer's own session; -e lists all.
+# Args: $1 = file holding what `ps -e -o args` prints
+mock_procps_ps() {
+    mock_command_script ps "
+case \"\$1\" in
+    -e) cat '$1' ;;
+    *) printf '  PID TTY          TIME CMD\\n 9001 pts/0    00:00:00 sh\\n' ;;
+esac"
+}
+
+# A systemd host whose systemctl answers is-active from the units named in $1
+# (space separated) and lists them for list-units.
+mock_systemd_units() {
+    INIT_SYSTEM=systemd
+    mock_command_script systemctl "
+active='$1'
+case \"\$1\" in
+    is-active)
+        for u in \$active; do [ \"\$u\" = \"\$3\" ] && exit 0; done
+        exit 3 ;;
+    list-units)
+        for u in \$active; do printf '%s loaded active running unit\\n' \"\$u\"; done ;;
+esac
+exit 0"
 }
 
 # ===========================================================================
@@ -217,4 +252,91 @@ EOF
     run check_klipper_ecosystem "ad5m"
     [ "$status" -eq 0 ]
     grep -q -- '-T 5 .*server/info' "$log" || fail "probe: $(cat "$log")"
+}
+
+# ===========================================================================
+# Hosts whose bare ps does not list every process
+# ===========================================================================
+
+@test "check_klipper_ecosystem: procps ps hiding other sessions, systemd units active -> running" {
+    mock_command_script ps "printf '  PID TTY          TIME CMD\\n 9001 pts/0    00:00:00 sh\\n'"
+    mock_systemd_units "klipper.service moonraker.service"
+
+    run_klipper_check "k2" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper and Moonraker are running" "$output"
+}
+
+@test "check_klipper_ecosystem: numbered systemd instances count, klipper-mcu does not" {
+    mock_command_script ps "printf '  PID TTY          TIME CMD\\n 9001 pts/0    00:00:00 sh\\n'"
+    mock_systemd_units "klipper-mcu.service moonraker-1.service"
+
+    run_klipper_check "k2" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper does not appear to be running" "$output"
+    lacks "Moonraker does not appear to be running" "$output"
+}
+
+@test "check_klipper_ecosystem: procps ps lists Klipper and Moonraker under -e -> running" {
+    local full="$BATS_TEST_TMPDIR/ps_all"
+    cat > "$full" <<'EOF2'
+/usr/share/klippy-env/bin/python /usr/share/klipper/klippy/klippy.py /mnt/UDISK/printer_data/config/printer.cfg
+/usr/share/moonraker-env/bin/python /usr/share/moonraker/moonraker/moonraker.py
+EOF2
+    mock_procps_ps "$full"
+    mock_systemd_units ""
+
+    run_klipper_check "k2" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper and Moonraker are running" "$output"
+}
+
+@test "check_klipper_ecosystem: BusyBox ps that rejects -e still lists klippy under w -> running" {
+    local ps_file="$BATS_TEST_TMPDIR/ps_output"
+    cat > "$ps_file" <<'EOF2'
+  PID USER       VSZ STAT COMMAND
+  123 root     40000 S    python3 /usr/share/klipper/klippy/klippy.py /usr/data/printer_data/config/printer.cfg
+  456 root     30000 S    python3 /usr/data/moonraker/moonraker/moonraker.py
+EOF2
+    mock_command_script ps "case \"\$1\" in -e) exit 1 ;; w) cat '$ps_file' ;; *) echo '  PID USER COMMAND' ;; esac"
+
+    run_klipper_check "k1" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper and Moonraker are running" "$output"
+}
+
+@test "check_klipper_ecosystem: Klipper and Moonraker in /proc, ps showing neither -> running" {
+    mock_command_script ps "echo '  PID USER COMMAND'"
+    mock_proc_cmdline 123 /usr/bin/python3 /usr/share/klipper/klippy/klippy.py printer.cfg
+    mock_proc_cmdline 456 /usr/bin/python3 /usr/data/moonraker/moonraker/moonraker.py
+
+    run_klipper_check "k1" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper and Moonraker are running" "$output"
+}
+
+@test "check_klipper_ecosystem: nothing in /proc, ps or systemd -> warns about both" {
+    mock_procps_ps /dev/null
+    mock_systemd_units ""
+
+    run_klipper_check "k2" "" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper does not appear to be running" "$output"
+    contains "Moonraker does not appear to be running" "$output"
+}
+
+@test "check_klipper_ecosystem: no systemctl and no pgrep -> ps alone decides" {
+    local ps_file="$BATS_TEST_TMPDIR/ps_output"
+    cat > "$ps_file" <<'EOF2'
+  PID USER     COMMAND
+  123 root     klippy/klippy.py
+  456 root     moonraker/moonraker.py
+EOF2
+    INIT_SYSTEM=sysv
+    mock_command_fail systemctl
+    mock_command_script pgrep "exit 127"
+
+    run_klipper_check "ad5m" "$ps_file" 0
+    [ "$status" -eq 0 ]
+    contains "Klipper and Moonraker are running" "$output"
 }
