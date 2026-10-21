@@ -1771,6 +1771,7 @@ translations:
   High Fly: 'Над облаками'
   High Water Mark: Пиковое значение
   Hold anywhere to cancel: Удерживайте в любом месте для отмены
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Удерживайте {} плотно на головке. Защелка зафиксирует его, и он станет установленным инструментом.
   Holding nozzle at {}°C to purge previous filament.: Удержание сопла при {}°C для очистки от предыдущего филамента.
   Home: Главная
   Home & Continue: Запарковать и продолжить
@@ -3605,6 +3606,7 @@ translations:
 
   Spools removed: Катушки сняты
 
+  Sport: Спорт
   Square Corner Velocity: Скорость прохождения углов
   Stable: Стабильная
   Stall detection setup failed for the Z motor — power-cycle to retry: Не удалась настройка детектирования заклинивания двигателя Z. Выключите и включите питание
@@ -3644,6 +3646,7 @@ translations:
   Status: Статус
   Status icons: Иконки статуса
   Std Deviation: Станд. отклонение
+  Stealth: Тихий
   Step: Шаг
   Step 1 of 3: Шаг 1 из 3
   Step {} of {}: Шаг {} из {}
@@ -3858,6 +3861,7 @@ translations:
   The heater will cycle on and off several times.: Нагреватель будет несколько раз
     включаться и выключаться.
   The helper macros are installed and activate after Klipper restarts.: 'Вспомогательные макросы установлены и активируются после перезапуска Klipper.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Защелка откроется, и {} может упасть. Придержите его, прежде чем продолжить, затем поставьте в док.
   The left RFID reader in this CFS unit may need service: Левому RFID-считывателю этого блока CFS может требоваться обслуживание
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла.
@@ -4162,6 +4166,7 @@ translations:
   Turn off detection: Отключить обнаружение
   Turn on the lights your light buttons control: Включает свет, которым управляют кнопки света
   Turn the extruder heater off after a load or unload finishes: Выключать нагреватель экструдера после загрузки или выгрузки
+  Turn the nozzle heater off first: Сначала выключите нагреватель сопла
   Turn the picture to match how the screen is mounted. Applies after restart.: Поворачивает изображение в соответствии с положением экрана. Применяется после перезапуска.
   Turn the printer's lights on or off: Включить или выключить подсветку
   Type: Тип

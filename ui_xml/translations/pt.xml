@@ -1577,6 +1577,7 @@
   <translation tag="High Fly" pt="Acima das nuvens"/>
   <translation tag="High Water Mark" pt="Marca de Pico"/>
   <translation tag="Hold anywhere to cancel" pt="Segure em qualquer lugar para cancelar"/>
+  <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." pt="Segure {} totalmente no cabeçote. A trava se fecha nela e ela passa a ser a ferramenta montada."/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." pt="Mantendo o bico a {}°C para purgar o filamento anterior."/>
   <translation tag="Home" pt="Início"/>
   <translation tag="Home &amp; Continue" pt="Fazer home e continuar"/>
@@ -3237,6 +3238,7 @@
   <translation tag="Spools on the bed!" pt="Carretéis na mesa!"/>
   <translation tag="Spools on the bed: start drying, or confirm none were placed" pt="Carretéis na mesa: inicie a secagem ou confirme que nenhum foi colocado"/>
   <translation tag="Spools removed" pt="Carretéis retirados"/>
+  <translation tag="Sport" pt="Esportivo"/>
   <translation tag="Square Corner Velocity" pt="Velocidade em Cantos Retos"/>
   <translation tag="Stable" pt="Estável"/>
   <translation tag="Stall detection setup failed for the Z motor — power-cycle to retry" pt="Falha na configuração da detecção de travamento do motor Z. Desligue e ligue para tentar novamente"/>
@@ -3275,6 +3277,7 @@
   <translation tag="Status" pt="Estado"/>
   <translation tag="Status icons" pt="Ícones de status"/>
   <translation tag="Std Deviation" pt="Desvio Padrão"/>
+  <translation tag="Stealth" pt="Silencioso"/>
   <translation tag="Step" pt="Etapa"/>
   <translation tag="Step 1 of 3" pt="Etapa 1 de 3"/>
   <translation tag="Step {} of {}" pt="Etapa {} de {}"/>
@@ -3462,6 +3465,7 @@
   <translation tag="The heater was turned off at the heater." pt="O aquecedor foi desligado no próprio aquecedor."/>
   <translation tag="The heater will cycle on and off several times." pt="O aquecedor ligará e desligará várias vezes."/>
   <translation tag="The helper macros are installed and activate after Klipper restarts." pt="As macros de ajuda estão instaladas e são ativadas após reiniciar o Klipper."/>
+  <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." pt="A trava se abre e {} pode cair. Segure-a antes de continuar e depois coloque-a na sua doca."/>
   <translation tag="The left RFID reader in this CFS unit may need service" pt="O leitor RFID esquerdo desta unidade CFS pode precisar de manutenção"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." pt="O carretel carregado é {}, mas este arquivo foi fatiado para {}. Filamento composto funciona com fluxo menor e precisa de um bico endurecido."/>
   <translation tag="The message your printer&apos;s macros show (M117)" pt="A mensagem que as macros da sua impressora mostram (M117)"/>
@@ -3712,6 +3716,7 @@
   <translation tag="Turn off detection" pt="Desligar detecção"/>
   <translation tag="Turn on the lights your light buttons control" pt="Liga as luzes que os botões de luz controlam"/>
   <translation tag="Turn the extruder heater off after a load or unload finishes" pt="Desliga o aquecedor do extrusor ao concluir um carregamento ou descarregamento"/>
+  <translation tag="Turn the nozzle heater off first" pt="Desligue primeiro o aquecedor do bico"/>
   <translation tag="Turn the picture to match how the screen is mounted. Applies after restart." pt="Gira a imagem para corresponder à montagem da tela. Aplicado após reiniciar."/>
   <translation tag="Turn the printer&apos;s lights on or off" pt="Ligar ou desligar as luzes"/>
   <translation tag="Type" pt="Tipo"/>

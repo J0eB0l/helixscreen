@@ -1632,6 +1632,7 @@ translations:
   High Fly: '云端飞翔'
   High Water Mark: 峰值标记
   Hold anywhere to cancel: 长按任意位置取消
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: 将{}完全按在打印头上。锁定装置会锁住它，它将成为已安装的工具。
   Holding nozzle at {}°C to purge previous filament.: 将喷嘴保持在 {}°C 以清洗之前的耗材。
   Home: 归位
   Home & Continue: 归位并继续
@@ -3349,6 +3350,7 @@ translations:
 
   Spools removed: 料盘已取下
 
+  Sport: 运动
   Square Corner Velocity: 直角转弯速度
   Stable: 稳定版
   Stall detection setup failed for the Z motor — power-cycle to retry: Z 电机堵转检测设置失败。请重新上电后重试
@@ -3388,6 +3390,7 @@ translations:
   Status: 状态
   Status icons: 状态图标
   Std Deviation: 标准差
+  Stealth: 静音
   Step: 步骤
   Step 1 of 3: 第 1 步，共 3 步
   Step {} of {}: 第 {} 步，共 {} 步
@@ -3591,6 +3594,7 @@ translations:
   The heater was turned off at the heater.: '加热器已在加热器本身上关闭。'
   The heater will cycle on and off several times.: 加热器将多次开关循环。
   The helper macros are installed and activate after Klipper restarts.: '帮助宏已安装，将在 Klipper 重启后启用。'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: 锁定装置会打开，{}可能掉落。继续前请用手接住它，然后将其放回停靠位。
   The left RFID reader in this CFS unit may need service: 此 CFS 单元的左侧 RFID 读取器可能需要维修
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : 当前装载的料盘是 {}，但此文件为 {} 切片。填充耗材需要以更低的流量运行，且需要硬化喷嘴。
@@ -3874,6 +3878,7 @@ translations:
   Turn off detection: 关闭检测
   Turn on the lights your light buttons control: 开启灯光按钮所控制的灯光
   Turn the extruder heater off after a load or unload finishes: 加载或卸载完成后关闭挤出机加热器
+  Turn the nozzle heater off first: 请先关闭喷嘴加热器
   Turn the picture to match how the screen is mounted. Applies after restart.: 旋转画面以匹配屏幕的安装方向。重启后生效。
   Turn the printer's lights on or off: 开启或关闭打印机灯光
   Type: 类型

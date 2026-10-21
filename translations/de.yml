@@ -1738,6 +1738,7 @@ translations:
   High Fly: 'Über den Wolken'
   High Water Mark: Höchststand
   Hold anywhere to cancel: Zum Abbrechen an beliebiger Stelle gedrückt halten
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Halten Sie {} vollständig an den Werkzeugkopf. Die Verriegelung rastet ein und es wird zum montierten Werkzeug.
   Holding nozzle at {}°C to purge previous filament.: Düse wird bei {}°C gehalten, um
     vorheriges Filament auszuspülen.
   Home: Home
@@ -3563,6 +3564,7 @@ translations:
 
   Spools removed: Spulen entnommen
 
+  Sport: Sport
   Square Corner Velocity: Eckgeschwindigkeit
   Stable: Stabil
   Stall detection setup failed for the Z motor — power-cycle to retry: Einrichten der Blockiererkennung für den Z-Motor fehlgeschlagen. Zum erneuten Versuch aus- und einschalten
@@ -3602,6 +3604,7 @@ translations:
   Status: Status
   Status icons: Status-Icons
   Std Deviation: Std.-Abweichung
+  Stealth: Leise
   Step: Schritt
   Step 1 of 3: Schritt 1 von 3
   Step {} of {}: Schritt {} von {}
@@ -3815,6 +3818,7 @@ translations:
   The heater will cycle on and off several times.: Die Heizung wird mehrmals ein-
     und ausschalten.
   The helper macros are installed and activate after Klipper restarts.: 'Die Hilfsmakros sind installiert und werden nach einem Klipper-Neustart aktiv.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Die Verriegelung öffnet sich und {} kann herunterfallen. Halten Sie es fest, bevor Sie fortfahren, und stellen Sie es dann in sein Dock.
   The left RFID reader in this CFS unit may need service: Der linke RFID-Leser dieser CFS-Einheit muss möglicherweise gewartet werden
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : Die geladene Spule ist {}, aber diese Datei wurde für {} gesliced. Gefülltes Filament läuft mit einer niedrigeren Flussrate und erfordert eine gehärtete Düse.
@@ -4130,6 +4134,7 @@ translations:
   Turn off detection: Erkennung ausschalten
   Turn on the lights your light buttons control: Schaltet die Lichter ein, die Ihre Lichttasten steuern
   Turn the extruder heater off after a load or unload finishes: Extruder-Heizung nach Laden oder Entladen ausschalten
+  Turn the nozzle heater off first: Schalten Sie zuerst die Düsenheizung aus
   Turn the picture to match how the screen is mounted. Applies after restart.: Dreht das Bild passend zur Einbaulage des Bildschirms. Wird nach einem Neustart wirksam.
   Turn the printer's lights on or off: Druckerlicht ein- oder ausschalten
   Type: Typ

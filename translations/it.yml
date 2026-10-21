@@ -1727,6 +1727,7 @@ translations:
   High Fly: 'Sopra le nuvole'
   High Water Mark: Picco massimo
   Hold anywhere to cancel: Tieni premuto ovunque per annullare
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Tieni {} completamente sulla testina. Il fermo si blocca e diventa lo strumento montato.
   Holding nozzle at {}°C to purge previous filament.: Mantenimento ugello a {}°C per
     spurgare il filamento precedente.
   Home: Home
@@ -3554,6 +3555,7 @@ translations:
 
   Spools removed: Bobine tolte
 
+  Sport: Sport
   Square Corner Velocity: Velocità angoli retti
   Stable: Stabile
   Stall detection setup failed for the Z motor — power-cycle to retry: Impostazione del rilevamento di stallo per il motore Z non riuscita. Spegnere e riaccendere per riprovare
@@ -3594,6 +3596,7 @@ translations:
   Status: Stato
   Status icons: Icone stato
   Std Deviation: Dev. standard
+  Stealth: Silenzioso
   Step: Passaggio
   Step 1 of 3: Passaggio 1 di 3
   Step {} of {}: Passo {} di {}
@@ -3808,6 +3811,7 @@ translations:
   The heater will cycle on and off several times.: Il riscaldatore si accenderà e
     spegnerà diverse volte.
   The helper macros are installed and activate after Klipper restarts.: 'Le macro di ausilio sono installate e si attivano dopo il riavvio di Klipper.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Il fermo si apre e {} può cadere. Tienilo prima di continuare, poi riponilo nel suo dock.
   The left RFID reader in this CFS unit may need service: Il lettore RFID sinistro di questa unità CFS potrebbe richiedere assistenza
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : La bobina caricata è {}, ma questo file è stato sezionato per {}. Il filamento con cariche richiede un flusso più basso e un ugello indurito.
@@ -4122,6 +4126,7 @@ translations:
   Turn off detection: Disattiva rilevamento
   Turn on the lights your light buttons control: Accende le luci controllate dai pulsanti luce
   Turn the extruder heater off after a load or unload finishes: Spegni il riscaldatore dell'estrusore al termine di un caricamento o scaricamento
+  Turn the nozzle heater off first: Spegni prima il riscaldatore dell'ugello
   Turn the picture to match how the screen is mounted. Applies after restart.: Ruota l'immagine in base a come è montato lo schermo. Ha effetto dopo il riavvio.
   Turn the printer's lights on or off: Accendi o spegni le luci
   Type: Tipo

@@ -1681,6 +1681,7 @@ translations:
   High Fly: High Fly
   High Water Mark: High Water Mark
   Hold anywhere to cancel: Hold anywhere to cancel
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.
   Holding nozzle at {}°C to purge previous filament.: Holding nozzle at {}°C to purge previous filament.
   Home: Home
   Home & Continue: Home & Continue
@@ -3471,6 +3472,7 @@ translations:
   Spools on the bed!: Spools on the bed!
   'Spools on the bed: start drying, or confirm none were placed': 'Spools on the bed: start drying, or confirm none were placed'
   Spools removed: Spools removed
+  Sport: Sport
   Square Corner Velocity: Square Corner Velocity
   Stable: Stable
   Stall detection setup failed for the Z motor — power-cycle to retry: Stall detection setup failed for the Z motor — power-cycle to retry
@@ -3509,6 +3511,7 @@ translations:
   Status: Status
   Status icons: Status icons
   Std Deviation: Std Deviation
+  Stealth: Stealth
   Step: Step
   Step 1 of 3: Step 1 of 3
   Step {} of {}: Step {} of {}
@@ -3720,6 +3723,7 @@ translations:
   The heater will cycle on and off several times.: The heater will cycle on and off
     several times.
   The helper macros are installed and activate after Klipper restarts.: The helper macros are installed and activate after Klipper restarts.
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: The latch opens and {} can drop. Hold it before you continue, then put it in its dock.
   The left RFID reader in this CFS unit may need service: The left RFID reader in this CFS unit may need service
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
@@ -4022,6 +4026,7 @@ translations:
   Turn off detection: Turn off detection
   Turn on the lights your light buttons control: Turn on the lights your light buttons control
   Turn the extruder heater off after a load or unload finishes: Turn the extruder heater off after a load or unload finishes
+  Turn the nozzle heater off first: Turn the nozzle heater off first
   Turn the picture to match how the screen is mounted. Applies after restart.: Turn the picture to match how the screen is mounted. Applies after restart.
   Turn the printer's lights on or off: Turn the printer's lights on or off
   Type: Type

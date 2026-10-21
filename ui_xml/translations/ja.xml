@@ -1577,6 +1577,7 @@
   <translation tag="High Fly" ja="雲の上"/>
   <translation tag="High Water Mark" ja="最大値"/>
   <translation tag="Hold anywhere to cancel" ja="どこかを長押ししてキャンセル"/>
+  <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." ja="{}をヘッドにしっかり押し当ててください。ラッチがロックし、装着中のツールになります。"/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." ja="前のフィラメントをパージするためノズルを {}°C に保持しています。"/>
   <translation tag="Home" ja="ホーム"/>
   <translation tag="Home &amp; Continue" ja="ホーミングして続行"/>
@@ -3237,6 +3238,7 @@
   <translation tag="Spools on the bed!" ja="ベッドにスプールがあります！"/>
   <translation tag="Spools on the bed: start drying, or confirm none were placed" ja="ベッドにスプールがあります: 乾燥を開始するか、置いていないことを確認してください"/>
   <translation tag="Spools removed" ja="スプールを取り出しました"/>
+  <translation tag="Sport" ja="スポーツ"/>
   <translation tag="Square Corner Velocity" ja="直角コーナー速度"/>
   <translation tag="Stable" ja="安定版"/>
   <translation tag="Stall detection setup failed for the Z motor — power-cycle to retry" ja="Z モーターのストール検出の設定に失敗しました。電源を入れ直して再試行してください"/>
@@ -3275,6 +3277,7 @@
   <translation tag="Status" ja="ステータス"/>
   <translation tag="Status icons" ja="ステータスアイコン"/>
   <translation tag="Std Deviation" ja="標準偏差"/>
+  <translation tag="Stealth" ja="静音"/>
   <translation tag="Step" ja="ステップ"/>
   <translation tag="Step 1 of 3" ja="ステップ 1/3"/>
   <translation tag="Step {} of {}" ja="ステップ {} / {}"/>
@@ -3462,6 +3465,7 @@
   <translation tag="The heater was turned off at the heater." ja="ヒーター本体で電源がオフにされました。"/>
   <translation tag="The heater will cycle on and off several times." ja="ヒーターは数回オン/オフを繰り返します。"/>
   <translation tag="The helper macros are installed and activate after Klipper restarts." ja="ヘルパーマクロはインストール済みで、Klipper の再起動後に有効になります。"/>
+  <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." ja="ラッチが開き、{}が落ちる可能性があります。続行する前に手で支え、その後ドックに戻してください。"/>
   <translation tag="The left RFID reader in this CFS unit may need service" ja="この CFS ユニットの左側 RFID リーダーは修理が必要な可能性があります"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." ja="装填中のスプールは {} ですが、このファイルは {} 用にスライスされています。充填材入りフィラメントはフローレートが低くなり、硬化ノズルが必要です。"/>
   <translation tag="The message your printer&apos;s macros show (M117)" ja="プリンターのマクロが表示するメッセージ (M117)"/>
@@ -3712,6 +3716,7 @@
   <translation tag="Turn off detection" ja="検出をオフにする"/>
   <translation tag="Turn on the lights your light buttons control" ja="ライトボタンが操作するライトを点灯します"/>
   <translation tag="Turn the extruder heater off after a load or unload finishes" ja="装填または排出の完了後にエクストルーダーヒーターをオフにします"/>
+  <translation tag="Turn the nozzle heater off first" ja="先にノズルヒーターをオフにしてください"/>
   <translation tag="Turn the picture to match how the screen is mounted. Applies after restart." ja="画面の取り付け向きに合わせて表示を回転します。再起動後に適用されます。"/>
   <translation tag="Turn the printer&apos;s lights on or off" ja="プリンターのライトをオン/オフ"/>
   <translation tag="Type" ja="タイプ"/>

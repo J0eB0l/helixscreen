@@ -1577,6 +1577,7 @@
   <translation tag="High Fly" zh="云端飞翔"/>
   <translation tag="High Water Mark" zh="峰值标记"/>
   <translation tag="Hold anywhere to cancel" zh="长按任意位置取消"/>
+  <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." zh="将{}完全按在打印头上。锁定装置会锁住它，它将成为已安装的工具。"/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." zh="将喷嘴保持在 {}°C 以清洗之前的耗材。"/>
   <translation tag="Home" zh="归位"/>
   <translation tag="Home &amp; Continue" zh="归位并继续"/>
@@ -3237,6 +3238,7 @@
   <translation tag="Spools on the bed!" zh="热床上有料盘！"/>
   <translation tag="Spools on the bed: start drying, or confirm none were placed" zh="料盘在热床上:开始烘干,或确认未放置料盘"/>
   <translation tag="Spools removed" zh="料盘已取下"/>
+  <translation tag="Sport" zh="运动"/>
   <translation tag="Square Corner Velocity" zh="直角转弯速度"/>
   <translation tag="Stable" zh="稳定版"/>
   <translation tag="Stall detection setup failed for the Z motor — power-cycle to retry" zh="Z 电机堵转检测设置失败。请重新上电后重试"/>
@@ -3275,6 +3277,7 @@
   <translation tag="Status" zh="状态"/>
   <translation tag="Status icons" zh="状态图标"/>
   <translation tag="Std Deviation" zh="标准差"/>
+  <translation tag="Stealth" zh="静音"/>
   <translation tag="Step" zh="步骤"/>
   <translation tag="Step 1 of 3" zh="第 1 步，共 3 步"/>
   <translation tag="Step {} of {}" zh="第 {} 步，共 {} 步"/>
@@ -3462,6 +3465,7 @@
   <translation tag="The heater was turned off at the heater." zh="加热器已在加热器本身上关闭。"/>
   <translation tag="The heater will cycle on and off several times." zh="加热器将多次开关循环。"/>
   <translation tag="The helper macros are installed and activate after Klipper restarts." zh="帮助宏已安装，将在 Klipper 重启后启用。"/>
+  <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." zh="锁定装置会打开，{}可能掉落。继续前请用手接住它，然后将其放回停靠位。"/>
   <translation tag="The left RFID reader in this CFS unit may need service" zh="此 CFS 单元的左侧 RFID 读取器可能需要维修"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." zh="当前装载的料盘是 {}，但此文件为 {} 切片。填充耗材需要以更低的流量运行，且需要硬化喷嘴。"/>
   <translation tag="The message your printer&apos;s macros show (M117)" zh="打印机宏显示的消息 (M117)"/>
@@ -3712,6 +3716,7 @@
   <translation tag="Turn off detection" zh="关闭检测"/>
   <translation tag="Turn on the lights your light buttons control" zh="开启灯光按钮所控制的灯光"/>
   <translation tag="Turn the extruder heater off after a load or unload finishes" zh="加载或卸载完成后关闭挤出机加热器"/>
+  <translation tag="Turn the nozzle heater off first" zh="请先关闭喷嘴加热器"/>
   <translation tag="Turn the picture to match how the screen is mounted. Applies after restart." zh="旋转画面以匹配屏幕的安装方向。重启后生效。"/>
   <translation tag="Turn the printer&apos;s lights on or off" zh="开启或关闭打印机灯光"/>
   <translation tag="Type" zh="类型"/>

@@ -1622,6 +1622,7 @@
   <translation tag="High Fly" ru="Над облаками"/>
   <translation tag="High Water Mark" ru="Пиковое значение"/>
   <translation tag="Hold anywhere to cancel" ru="Удерживайте в любом месте для отмены"/>
+  <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." ru="Удерживайте {} плотно на головке. Защелка зафиксирует его, и он станет установленным инструментом."/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." ru="Удержание сопла при {}°C для очистки от предыдущего филамента."/>
   <translation tag="Home" ru="Главная"/>
   <translation tag="Home &amp; Continue" ru="Запарковать и продолжить"/>
@@ -3297,6 +3298,7 @@
   <translation tag="Spools on the bed!" ru="Катушки на столе!"/>
   <translation tag="Spools on the bed: start drying, or confirm none were placed" ru="Катушки на столе: начните сушку или подтвердите, что ничего не положено"/>
   <translation tag="Spools removed" ru="Катушки сняты"/>
+  <translation tag="Sport" ru="Спорт"/>
   <translation tag="Square Corner Velocity" ru="Скорость прохождения углов"/>
   <translation tag="Stable" ru="Стабильная"/>
   <translation tag="Stall detection setup failed for the Z motor — power-cycle to retry" ru="Не удалась настройка детектирования заклинивания двигателя Z. Выключите и включите питание"/>
@@ -3335,6 +3337,7 @@
   <translation tag="Status" ru="Статус"/>
   <translation tag="Status icons" ru="Иконки статуса"/>
   <translation tag="Std Deviation" ru="Станд. отклонение"/>
+  <translation tag="Stealth" ru="Тихий"/>
   <translation tag="Step" ru="Шаг"/>
   <translation tag="Step 1 of 3" ru="Шаг 1 из 3"/>
   <translation tag="Step {} of {}" ru="Шаг {} из {}"/>
@@ -3522,6 +3525,7 @@
   <translation tag="The heater was turned off at the heater." ru="Нагреватель был выключен на самом нагревателе."/>
   <translation tag="The heater will cycle on and off several times." ru="Нагреватель будет несколько раз включаться и выключаться."/>
   <translation tag="The helper macros are installed and activate after Klipper restarts." ru="Вспомогательные макросы установлены и активируются после перезапуска Klipper."/>
+  <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." ru="Защелка откроется, и {} может упасть. Придержите его, прежде чем продолжить, затем поставьте в док."/>
   <translation tag="The left RFID reader in this CFS unit may need service" ru="Левому RFID-считывателю этого блока CFS может требоваться обслуживание"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." ru="Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла."/>
   <translation tag="The message your printer&apos;s macros show (M117)" ru="Сообщение, которое показывают макросы принтера (M117)"/>
@@ -3772,6 +3776,7 @@
   <translation tag="Turn off detection" ru="Отключить обнаружение"/>
   <translation tag="Turn on the lights your light buttons control" ru="Включает свет, которым управляют кнопки света"/>
   <translation tag="Turn the extruder heater off after a load or unload finishes" ru="Выключать нагреватель экструдера после загрузки или выгрузки"/>
+  <translation tag="Turn the nozzle heater off first" ru="Сначала выключите нагреватель сопла"/>
   <translation tag="Turn the picture to match how the screen is mounted. Applies after restart." ru="Поворачивает изображение в соответствии с положением экрана. Применяется после перезапуска."/>
   <translation tag="Turn the printer&apos;s lights on or off" ru="Включить или выключить подсветку"/>
   <translation tag="Type" ru="Тип"/>

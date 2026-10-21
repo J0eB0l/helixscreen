@@ -1731,6 +1731,7 @@ translations:
   High Fly: 'Acima das nuvens'
   High Water Mark: Marca de Pico
   Hold anywhere to cancel: Segure em qualquer lugar para cancelar
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Segure {} totalmente no cabeçote. A trava se fecha nela e ela passa a ser a ferramenta montada.
   Holding nozzle at {}°C to purge previous filament.: Mantendo o bico a {}°C para purgar
     o filamento anterior.
   Home: Início
@@ -3559,6 +3560,7 @@ translations:
 
   Spools removed: Carretéis retirados
 
+  Sport: Esportivo
   Square Corner Velocity: Velocidade em Cantos Retos
   Stable: Estável
   Stall detection setup failed for the Z motor — power-cycle to retry: Falha na configuração da detecção de travamento do motor Z. Desligue e ligue para tentar novamente
@@ -3599,6 +3601,7 @@ translations:
   Status: Estado
   Status icons: Ícones de status
   Std Deviation: Desvio Padrão
+  Stealth: Silencioso
   Step: Etapa
   Step 1 of 3: Etapa 1 de 3
   Step {} of {}: Etapa {} de {}
@@ -3814,6 +3817,7 @@ translations:
   The heater will cycle on and off several times.: O aquecedor ligará e desligará
     várias vezes.
   The helper macros are installed and activate after Klipper restarts.: 'As macros de ajuda estão instaladas e são ativadas após reiniciar o Klipper.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: A trava se abre e {} pode cair. Segure-a antes de continuar e depois coloque-a na sua doca.
   The left RFID reader in this CFS unit may need service: O leitor RFID esquerdo desta unidade CFS pode precisar de manutenção
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : O carretel carregado é {}, mas este arquivo foi fatiado para {}. Filamento composto funciona com fluxo menor e precisa de um bico endurecido.
@@ -4126,6 +4130,7 @@ translations:
   Turn off detection: Desligar detecção
   Turn on the lights your light buttons control: Liga as luzes que os botões de luz controlam
   Turn the extruder heater off after a load or unload finishes: Desliga o aquecedor do extrusor ao concluir um carregamento ou descarregamento
+  Turn the nozzle heater off first: Desligue primeiro o aquecedor do bico
   Turn the picture to match how the screen is mounted. Applies after restart.: Gira a imagem para corresponder à montagem da tela. Aplicado após reiniciar.
   Turn the printer's lights on or off: Ligar ou desligar as luzes
   Type: Tipo

@@ -1636,6 +1636,7 @@ translations:
   High Fly: '雲の上'
   High Water Mark: 最大値
   Hold anywhere to cancel: どこかを長押ししてキャンセル
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: '{}をヘッドにしっかり押し当ててください。ラッチがロックし、装着中のツールになります。'
   Holding nozzle at {}°C to purge previous filament.: 前のフィラメントをパージするためノズルを {}°C に保持しています。
   Home: ホーム
   Home & Continue: ホーミングして続行
@@ -3358,6 +3359,7 @@ translations:
 
   Spools removed: スプールを取り出しました
 
+  Sport: スポーツ
   Square Corner Velocity: 直角コーナー速度
   Stable: 安定版
   Stall detection setup failed for the Z motor — power-cycle to retry: Z モーターのストール検出の設定に失敗しました。電源を入れ直して再試行してください
@@ -3397,6 +3399,7 @@ translations:
   Status: ステータス
   Status icons: ステータスアイコン
   Std Deviation: 標準偏差
+  Stealth: 静音
   Step: ステップ
   Step 1 of 3: ステップ 1/3
   Step {} of {}: ステップ {} / {}
@@ -3600,6 +3603,7 @@ translations:
   The heater was turned off at the heater.: 'ヒーター本体で電源がオフにされました。'
   The heater will cycle on and off several times.: ヒーターは数回オン/オフを繰り返します。
   The helper macros are installed and activate after Klipper restarts.: 'ヘルパーマクロはインストール済みで、Klipper の再起動後に有効になります。'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: ラッチが開き、{}が落ちる可能性があります。続行する前に手で支え、その後ドックに戻してください。
   The left RFID reader in this CFS unit may need service: この CFS ユニットの左側 RFID リーダーは修理が必要な可能性があります
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : 装填中のスプールは {} ですが、このファイルは {} 用にスライスされています。充填材入りフィラメントはフローレートが低くなり、硬化ノズルが必要です。
@@ -3883,6 +3887,7 @@ translations:
   Turn off detection: 検出をオフにする
   Turn on the lights your light buttons control: ライトボタンが操作するライトを点灯します
   Turn the extruder heater off after a load or unload finishes: 装填または排出の完了後にエクストルーダーヒーターをオフにします
+  Turn the nozzle heater off first: 先にノズルヒーターをオフにしてください
   Turn the picture to match how the screen is mounted. Applies after restart.: 画面の取り付け向きに合わせて表示を回転します。再起動後に適用されます。
   Turn the printer's lights on or off: プリンターのライトをオン/オフ
   Type: タイプ

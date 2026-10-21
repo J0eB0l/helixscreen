@@ -1577,6 +1577,7 @@
   <translation tag="High Fly" en="High Fly"/>
   <translation tag="High Water Mark" en="High Water Mark"/>
   <translation tag="Hold anywhere to cancel" en="Hold anywhere to cancel"/>
+  <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." en="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool."/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." en="Holding nozzle at {}°C to purge previous filament."/>
   <translation tag="Home" en="Home"/>
   <translation tag="Home &amp; Continue" en="Home &amp; Continue"/>
@@ -3237,6 +3238,7 @@
   <translation tag="Spools on the bed!" en="Spools on the bed!"/>
   <translation tag="Spools on the bed: start drying, or confirm none were placed" en="Spools on the bed: start drying, or confirm none were placed"/>
   <translation tag="Spools removed" en="Spools removed"/>
+  <translation tag="Sport" en="Sport"/>
   <translation tag="Square Corner Velocity" en="Square Corner Velocity"/>
   <translation tag="Stable" en="Stable"/>
   <translation tag="Stall detection setup failed for the Z motor — power-cycle to retry" en="Stall detection setup failed for the Z motor — power-cycle to retry"/>
@@ -3275,6 +3277,7 @@
   <translation tag="Status" en="Status"/>
   <translation tag="Status icons" en="Status icons"/>
   <translation tag="Std Deviation" en="Std Deviation"/>
+  <translation tag="Stealth" en="Stealth"/>
   <translation tag="Step" en="Step"/>
   <translation tag="Step 1 of 3" en="Step 1 of 3"/>
   <translation tag="Step {} of {}" en="Step {} of {}"/>
@@ -3462,6 +3465,7 @@
   <translation tag="The heater was turned off at the heater." en="The heater was turned off at the heater."/>
   <translation tag="The heater will cycle on and off several times." en="The heater will cycle on and off several times."/>
   <translation tag="The helper macros are installed and activate after Klipper restarts." en="The helper macros are installed and activate after Klipper restarts."/>
+  <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." en="The latch opens and {} can drop. Hold it before you continue, then put it in its dock."/>
   <translation tag="The left RFID reader in this CFS unit may need service" en="The left RFID reader in this CFS unit may need service"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." en="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle."/>
   <translation tag="The message your printer&apos;s macros show (M117)" en="The message your printer&apos;s macros show (M117)"/>
@@ -3712,6 +3716,7 @@
   <translation tag="Turn off detection" en="Turn off detection"/>
   <translation tag="Turn on the lights your light buttons control" en="Turn on the lights your light buttons control"/>
   <translation tag="Turn the extruder heater off after a load or unload finishes" en="Turn the extruder heater off after a load or unload finishes"/>
+  <translation tag="Turn the nozzle heater off first" en="Turn the nozzle heater off first"/>
   <translation tag="Turn the picture to match how the screen is mounted. Applies after restart." en="Turn the picture to match how the screen is mounted. Applies after restart."/>
   <translation tag="Turn the printer&apos;s lights on or off" en="Turn the printer&apos;s lights on or off"/>
   <translation tag="Type" en="Type"/>
