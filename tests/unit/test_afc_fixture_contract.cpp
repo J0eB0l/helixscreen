@@ -29,9 +29,11 @@
  *   the new schema, do not weaken the assertion.
  */
 
-#include "test_helpers/afc_test_access.h"
+#include "ui_update_queue.h"
+
 #include "ams_backend_afc.h"
 #include "ams_types.h"
+#include "test_helpers/afc_test_access.h"
 
 #include <algorithm>
 #include <fstream>
@@ -80,6 +82,11 @@ namespace helix {
 
 class AfcFixtureHelper : public AmsBackendAfc {
   public:
+    // A message frame queues its toast decision for the main thread.
+    ~AfcFixtureHelper() override {
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
     AfcFixtureHelper() : AmsBackendAfc(nullptr, nullptr) {
         std::vector<std::string> names{"lane1", "lane2", "lane3", "lane4"};
         AfcTestAccess::initialize_slots(*this, names);

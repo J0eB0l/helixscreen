@@ -44,6 +44,11 @@ namespace helix {
  */
 class AmsBackendAfcTestHelper : public AmsBackendAfc {
   public:
+    // A message frame queues its toast decision for the main thread.
+    ~AmsBackendAfcTestHelper() override {
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
     AmsBackendAfcTestHelper() : AmsBackendAfc(nullptr, nullptr) {}
 
     // Version is display/diagnostics only — nothing gates on it (AFC stopped

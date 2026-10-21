@@ -1,6 +1,8 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_update_queue.h"
+
 #include "../helix_test_fixture.h"
 #include "ams_backend_afc.h"
 #include "ams_backend_happy_hare.h"
@@ -217,6 +219,11 @@ namespace helix {
 // Re-use the test helper from test_ams_backend_afc.cpp pattern
 class AfcErrorStateHelper : public AmsBackendAfc {
   public:
+    // A message frame queues its toast decision for the main thread.
+    ~AfcErrorStateHelper() override {
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
     AfcErrorStateHelper() : AmsBackendAfc(nullptr, nullptr) {}
 
     void initialize_test_lanes_with_slots(int count) {
