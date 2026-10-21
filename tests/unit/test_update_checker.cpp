@@ -3120,11 +3120,22 @@ TEST_CASE_METHOD(HelixTestFixture,
 
 namespace {
 
-/// Counts config writes; the mock's injected config root records their content.
+/// Counts config reads and writes; the mock's injected config root records their content.
 class CountingTransfers : public MoonrakerFileTransferAPIMock {
   public:
     using MoonrakerFileTransferAPIMock::MoonrakerFileTransferAPIMock;
     int uploads = 0;
+    int downloads = 0;
+    /// Runs after each download has delivered its result.
+    std::function<void()> after_download;
+    void download_file(const std::string& root, const std::string& path, StringCallback on_success,
+                       ErrorCallback on_error) override {
+        ++downloads;
+        MoonrakerFileTransferAPIMock::download_file(root, path, std::move(on_success),
+                                                    std::move(on_error));
+        if (after_download)
+            after_download();
+    }
     void upload_file(const std::string& root, const std::string& path, const std::string& content,
                      SuccessCallback on_success, ErrorCallback on_error) override {
         ++uploads;
@@ -3325,10 +3336,39 @@ TEST_CASE_METHOD(ChannelSyncFixture, "Channel sync abandons a printer it was det
     seed(conf("stable"));
     set_app_channel(1, true);
 
-    start_sync(); // the download answers inline; the upload waits on the queue
-    UpdateChecker::instance().detach(client);
+    // Detached after the read, while the write waits on the queue.
+    api.xfers_.after_download = [this] { UpdateChecker::instance().detach(client); };
 
-    CHECK(drain() == conf("stable"));
+    CHECK(sync() == conf("stable"));
+    CHECK(api.xfers_.downloads == 1);
+    CHECK(api.xfers_.uploads == 0);
+    CHECK(api.restarts == 0);
+}
+
+TEST_CASE_METHOD(ChannelSyncFixture, "Channel sync reads no include after a detach",
+                 "[update_checker][moonraker_channel][update_channel_sync]") {
+    const std::string root = "[include mainsail.conf]\n";
+    seed_files({{"moonraker.conf", root}, {"mainsail.conf", conf("stable")}});
+    set_app_channel(1, true);
+    // Detached between reading moonraker.conf and the file it includes.
+    api.xfers_.after_download = [this] { UpdateChecker::instance().detach(client); };
+
+    CHECK(sync() == root);
+    CHECK(api.xfers_.downloads == 1);
+    CHECK(api.xfers_.get_uploaded_config("mainsail.conf") == conf("stable"));
+    CHECK(api.xfers_.uploads == 0);
+}
+
+TEST_CASE_METHOD(ChannelSyncFixture, "Channel sync writes nothing when an include cannot be read",
+                 "[update_checker][moonraker_channel][update_channel_sync]") {
+    // moonraker.conf defines the stanza itself; the walk still refuses a config
+    // missing a file Moonraker reads, which might hold the stanza that wins.
+    const std::string root = conf("stable") + "\n[include mainsail.conf]\n";
+    api.files_mock().set_config_files({{"moonraker.conf", root}, {"mainsail.conf", ""}});
+    api.xfers_.set_config_files({{"moonraker.conf", root}});
+    set_app_channel(1, true);
+
+    CHECK(sync() == root);
     CHECK(api.xfers_.uploads == 0);
     CHECK(api.restarts == 0);
 }

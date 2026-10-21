@@ -503,7 +503,7 @@ HelixScreen registers itself with Moonraker's `update_manager` for updates via M
 
 ### Configuration Block
 
-The installer appends this to `moonraker.conf`:
+The installer appends this to `moonraker.conf`, unless moonraker.conf or a file it pulls in with `[include]` already holds one:
 
 ```ini
 [update_manager helixscreen]
@@ -523,7 +523,7 @@ Key points:
 
 #### Keeping `channel:` in sync
 
-Mainsail and Fluidd offer whatever release the stanza's `channel:` names, so a stanza that disagrees with the app offers a beta install a "stable" downgrade. The installer sets it (`update_manager_web_channel()` / `sync_update_manager_channel()` in `scripts/lib/installer/moonraker.sh`), and the app keeps it in sync after that: `UpdateChecker::sync_moonraker_channel()` runs on every Moonraker discovery (the `moonraker_update_channel` step in `src/application/discovery_steps.cpp`), on a channel change (`UpdateChecker::on_channel_changed()`), and when the beta-features toggle moves a stored Dev channel. It runs only when Moonraker is on this host (`helix::is_moonraker_on_same_host()`) and the stanza's `path:` resolves to this running install's directory (`app_get_install_root()`), so a remote screen or a second instance never imposes its channel on someone else's stanza. It maps the effective channel the same way the installer does (Dev rides `beta`, and Dev without beta features is Stable), downloads `config/moonraker.conf` through the file API and rewrites the line with `MoonrakerConfigManager::set_existing_value()`. Like the installer, it touches only an existing `channel:` line inside a single `[update_manager helixscreen]`: no stanza (AD5M, an unsupported Moonraker), duplicate stanzas, or a hand-written one without the line means nothing is written. Only the value changes; an inline comment, CRLF line endings and a missing final newline are kept.
+Mainsail and Fluidd offer whatever release the stanza's `channel:` names, so a stanza that disagrees with the app offers a beta install a "stable" downgrade. The installer sets it (`update_manager_web_channel()` / `sync_update_manager_channel()` in `scripts/lib/installer/moonraker.sh`), and the app keeps it in sync after that: `UpdateChecker::sync_moonraker_channel()` runs on every Moonraker discovery (the `moonraker_update_channel` step in `src/application/discovery_steps.cpp`), on a channel change (`UpdateChecker::on_channel_changed()`), and when the beta-features toggle moves a stored Dev channel. It runs only when Moonraker is on this host (`helix::is_moonraker_on_same_host()`) and the stanza's `path:` resolves to this running install's directory (`app_get_install_root()`), so a remote screen or a second instance never imposes its channel on someone else's stanza. It maps the effective channel the same way the installer does (Dev rides `beta`, and Dev without beta features is Stable), and finds the stanza the way Moonraker reads it: it lists the `config` root, downloads `moonraker.conf` and every file its `[include]` lines reach (`helix::system::download_config_include_graph()`; patterns resolve against the including file's directory and may be globs), and `MoonrakerConfigManager::find_section_file()` names the file Moonraker reads the stanza from last, whose options win when several files define it. Each download is issued from the main thread and abandoned once the printer changes, so a walk never reaches a torn-down API. A download that fails abandons the sync: a config missing one of its files cannot say which stanza wins. The line is rewritten in that file with `MoonrakerConfigManager::set_existing_value()` and uploaded back to it. Like the installer, it touches only an existing `channel:` line: no stanza anywhere (AD5M, an unsupported Moonraker), a file defining the stanza twice, or a hand-written one without the line means nothing is written. Only the value changes; an inline comment, CRLF line endings and a missing final newline are kept.
 
 A rewrite is followed by a Moonraker restart, since Moonraker reads its config only at startup. While a job holds the machine (printing or paused), or `machine.update.status` reports `busy` (or cannot be read), the file is still written but the restart is skipped, so the channel takes effect at Moonraker's next start. `UpdateChecker::detach()`, which runs on every printer teardown, bumps a generation that every hop of the sync checks, so a sync in flight across a printer switch is dropped. The restart drops the app's websocket; the reconnect's discovery runs the sync again, finds the stanza matching and writes nothing, so there is no restart loop.
 
@@ -854,7 +854,7 @@ Run with:
 
 **Symptom**: HelixScreen doesn't appear in Moonraker's update manager
 
-- Check that `[update_manager helixscreen]` exists in `moonraker.conf`
+- Check that `[update_manager helixscreen]` exists in `moonraker.conf` or a file it `[include]`s
 - Check that `helixscreen` is listed in `moonraker.asvc`
 - Check that release_info.json exists in the install directory
 - Restart Moonraker after config changes
