@@ -22,6 +22,7 @@
 #include "filament_database.h"
 #include "filament_op_slot_resolver.h"
 #include "filament_temperature_source.h"
+#include "http_request_epoch.h"
 #include "material_settings_manager.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -438,6 +439,110 @@ TEST_CASE_METHOD(CaptureFixture,
 
 namespace {
 
+/// Holds every download until the test answers it, so replies can arrive in any
+/// order and after the REST epoch moves.
+class HeldTransfers : public MoonrakerFileTransferAPIMock {
+  public:
+    using MoonrakerFileTransferAPIMock::MoonrakerFileTransferAPIMock;
+
+    struct Held {
+        std::string path;
+        StringCallback on_success;
+        ErrorCallback on_error;
+    };
+
+    void download_file(const std::string&, const std::string& path, StringCallback on_success,
+                       ErrorCallback on_error) override {
+        held.push_back({path, std::move(on_success), std::move(on_error)});
+    }
+
+    /// Answer every held request in reverse order of arrival.
+    void answer_in_reverse(const std::map<std::string, std::string>& files) {
+        for (auto it = held.rbegin(); it != held.rend(); ++it) {
+            auto file = files.find(it->path);
+            if (file != files.end()) {
+                it->on_success(file->second);
+            } else {
+                it->on_error(MoonrakerError::file_not_found("download_file", it->path));
+            }
+        }
+        held.clear();
+    }
+
+    std::vector<Held> held;
+};
+
+struct HeldCaptureFixture : FilamentTempsFixture {
+    MoonrakerClientMock client;
+    HeldTransfers transfers{client, "http://mock:7125"};
+    const std::map<std::string, std::string> files = {
+        {"snapmaker/filament_para_standard_04.json", kStandard04},
+        {"snapmaker/filament_para_standard_02.json", kStandard02},
+        {"snapmaker/filament_para_high_flow_04.json", kHighFlow04},
+    };
+};
+
+} // namespace
+
+TEST_CASE_METHOD(HeldCaptureFixture,
+                 "filament-temps capture: replies out of order still merge in file order",
+                 "[snapmaker][filament-temps][capture]") {
+    filament_temps::capture_on_connect(transfers, u1_hardware());
+    REQUIRE(transfers.held.size() == 5);
+    // Nothing publishes until the last reply settles.
+    CHECK_FALSE(filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "generic"))
+                    .has_value());
+
+    transfers.answer_in_reverse(files);
+
+    // standard_04 answers last but still leads: its PLA 250 beats standard_02's 230.
+    auto pla = filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "generic"));
+    REQUIRE(pla.has_value());
+    CHECK(pla->load_c.value() == 250);
+    auto pla_hf = filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "HF"));
+    REQUIRE(pla_hf.has_value());
+    CHECK(pla_hf->load_c.value() == 240);
+}
+
+TEST_CASE_METHOD(
+    HeldCaptureFixture,
+    "filament-temps capture: replies landing after REST moved leave the next table alone",
+    "[snapmaker][filament-temps][capture]") {
+    filament_temps::capture_on_connect(transfers, u1_hardware());
+    REQUIRE(transfers.held.size() == 5);
+
+    // REST moves to the next printer, whose own table is already published.
+    helix::http_epoch::advance();
+    store_captured_table();
+    transfers.answer_in_reverse(files);
+
+    // The late replies neither replace the next printer's table nor add to it:
+    // PLA HF falls through to the next table's generic PLA, not the stale 240.
+    auto pla_hf = filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "HF"));
+    REQUIRE(pla_hf.has_value());
+    CHECK(pla_hf->load_c.value() == 250);
+}
+
+TEST_CASE_METHOD(FilamentTempsFixture,
+                 "filament-temps lookup: a table from a printer REST has left answers nothing",
+                 "[snapmaker][filament-temps]") {
+    store_captured_table();
+    REQUIRE(filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "generic"))
+                .has_value());
+
+    // A switch to a printer whose discovery never completes leaves the table in place.
+    helix::http_epoch::advance();
+    CHECK_FALSE(filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "generic"))
+                    .has_value());
+
+    // A table read under the new epoch answers again.
+    store_captured_table();
+    CHECK(filament_temps::lookup_filament_temperatures(slot("Generic", "PLA", "generic"))
+              .has_value());
+}
+
+namespace {
+
 /// Runs the real discovery sequence over the mock transport and records every
 /// gcode script it sends.
 class ScriptRecordingClient : public MoonrakerClientMock {
@@ -479,7 +584,9 @@ TEST_CASE("filament-temps capture: discovering a U1 sends nothing to its console
     REQUIRE(client.discover_real());
 
     REQUIRE(filament_temps::firmware_publishes_filament_temperatures(client.hardware()));
-    CHECK(client.scripts.empty());
+    for (const std::string& script : client.scripts) {
+        CHECK(script.find("FILAMENT_PARA") == std::string::npos);
+    }
 }
 
 // ============================================================================

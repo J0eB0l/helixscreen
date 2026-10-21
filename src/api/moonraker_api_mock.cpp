@@ -362,6 +362,49 @@ void helix::MoonrakerJobAPIMock::start_modified_print(const std::string& origina
     }
 }
 
+namespace {
+
+/// The toolchanger persona's firmware filament tables: the U1's `filament_parameters`
+/// module keeps one per nozzle config under the config root, and the persona advertises
+/// that module, so --test reads them the way a real U1 is read.
+std::optional<std::string> mock_toolchanger_config_file(const std::string& path) {
+    static const std::map<std::string, std::string> kFiles = {
+        {"snapmaker/filament_para_standard_04.json",
+         R"({"version": "1.0.0", "hard_filaments_max_flow_k": 0.4,
+ "generic_PLA_generic_load_temp": 250, "generic_PLA_generic_unload_temp": 250,
+ "generic_PETG_generic_load_temp": 270, "generic_PETG_generic_unload_temp": 270,
+ "generic_ABS_generic_load_temp": 280, "generic_ABS_generic_unload_temp": 280,
+ "generic_TPU_95A HF_load_temp": 250, "generic_TPU_95A HF_unload_temp": 250,
+ "generic_TPU_95A HF_is_soft": true})"},
+        {"snapmaker/filament_para_standard_02.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_PETG_generic_load_temp": 270,
+ "generic_PETG_generic_unload_temp": 270})"},
+        {"snapmaker/filament_para_standard_06.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_ASA_generic_load_temp": 280,
+ "generic_ASA_generic_unload_temp": 280})"},
+        {"snapmaker/filament_para_standard_08.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_PA6-CF_generic_load_temp": 290,
+ "generic_PA6-CF_generic_unload_temp": 290})"},
+        {"snapmaker/filament_para_high_flow_04.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_PETG-CF_generic_load_temp": 270,
+ "generic_PETG-CF_generic_unload_temp": 270})"},
+    };
+    if (!MoonrakerClientMock::mock_toolchanger_selected()) {
+        return std::nullopt;
+    }
+    auto it = kFiles.find(path);
+    if (it == kFiles.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+} // namespace
+
 void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const std::string& path,
                                                  StringCallback on_success,
                                                  ErrorCallback on_error) {
@@ -381,6 +424,14 @@ void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const 
                                                     "Mock config file not found: " + path));
         }
         return;
+    }
+    if (root == "config") {
+        if (auto content = mock_toolchanger_config_file(path)) {
+            spdlog::debug("[MoonrakerAPIMock] Serving toolchanger firmware file: {}", path);
+            if (on_success)
+                on_success(*content);
+            return;
+        }
     }
 
     // Strip any leading directory components to get just the filename

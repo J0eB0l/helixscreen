@@ -112,7 +112,8 @@ void clear_filament_temperatures();
 ///
 /// A spool physically loaded in the machine can sit at step 2 — the status
 /// may name a vendor/sub-type pair the table has no leaf for. nullopt (also
-/// the answer when nothing is published) means "no firmware opinion", never
+/// the answer when nothing is published, or when the table was read from a
+/// printer REST has since moved away from) means "no firmware opinion", never
 /// a temperature of zero.
 [[nodiscard]] std::optional<FilamentTemperatures>
 lookup_filament_temperatures(const SlotInfo& slot);

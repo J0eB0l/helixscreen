@@ -78,6 +78,15 @@ std::optional<int> scalar_temp(const nlohmann::json& value) {
 
 std::mutex g_table_mutex;
 std::map<FilamentKey, FilamentTemperatures> g_table;
+/// The REST epoch the table was read under: a lookup made after REST moved to
+/// another printer must not answer with this one's temperatures.
+uint64_t g_table_epoch = 0;
+
+void store_table(const std::map<FilamentKey, FilamentTemperatures>& table, uint64_t epoch) {
+    std::lock_guard<std::mutex> lock(g_table_mutex);
+    g_table = table;
+    g_table_epoch = epoch;
+}
 
 } // namespace
 
@@ -163,8 +172,7 @@ void merge_filament_temperatures(std::map<FilamentKey, FilamentTemperatures>& ta
 }
 
 void store_filament_temperatures(const std::map<FilamentKey, FilamentTemperatures>& table) {
-    std::lock_guard<std::mutex> lock(g_table_mutex);
-    g_table = table;
+    store_table(table, helix::http_epoch::current());
 }
 
 void clear_filament_temperatures() {
@@ -174,6 +182,9 @@ void clear_filament_temperatures() {
 
 std::optional<FilamentTemperatures> lookup_filament_temperatures(const SlotInfo& slot) {
     std::lock_guard<std::mutex> lock(g_table_mutex);
+    if (g_table_epoch != helix::http_epoch::current()) {
+        return std::nullopt;
+    }
     const std::string main = helix::text_io::to_lower(slot.material);
     const std::string vendor = helix::text_io::to_lower(slot.brand);
     const std::string sub = helix::text_io::to_lower(slot.spool_name);
@@ -203,8 +214,10 @@ void capture_on_connect(ITransfersAPI& transfers, const PrinterDiscovery& hw) {
     if (!p) {
         return;
     }
+    const std::string root = filament_temperature_root(hw);
+    const std::vector<std::string> files = filament_temperature_files(hw);
     spdlog::info("[FilamentTemps] {} keeps per-filament temperatures; reading {} files", p->name,
-                 p->file_count);
+                 files.size());
 
     // Replies arrive on transfer threads in any order; each file keeps its own
     // slot so the merge runs in the provider's order once the last one settles.
@@ -215,8 +228,8 @@ void capture_on_connect(ITransfersAPI& transfers, const PrinterDiscovery& hw) {
         uint64_t epoch = 0;
     };
     auto capture = std::make_shared<Capture>();
-    capture->parts.resize(p->file_count);
-    capture->pending = p->file_count;
+    capture->parts.resize(files.size());
+    capture->pending = files.size();
     capture->epoch = helix::http_epoch::current();
 
     auto settle = [capture](size_t index, std::map<FilamentKey, FilamentTemperatures> part) {
@@ -239,14 +252,14 @@ void capture_on_connect(ITransfersAPI& transfers, const PrinterDiscovery& hw) {
             spdlog::warn("[FilamentTemps] No readable temperature table files");
             return;
         }
-        store_filament_temperatures(table);
+        store_table(table, capture->epoch);
         spdlog::info("[FilamentTemps] Published {} per-filament temperature leaves", table.size());
     };
 
-    for (size_t i = 0; i < p->file_count; ++i) {
-        const std::string path = p->files[i];
+    for (size_t i = 0; i < files.size(); ++i) {
+        const std::string& path = files[i];
         transfers.download_file(
-            p->root, path,
+            root, path,
             [settle, i, path](const std::string& content) {
                 auto part = parse_filament_temperatures(content);
                 if (part.empty()) {

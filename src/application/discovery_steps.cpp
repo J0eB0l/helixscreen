@@ -153,9 +153,6 @@ void manual_probe_autoopen_step(DiscoveryContext& ctx) {
     });
 }
 
-// Re-decide the screen server's mode for this printer (its Moonraker may be on another
-// host) and keep Moonraker's webcam list in step, refreshing the LAN address an
-// absolute entry carries.
 // Per-filament operation temperatures are static firmware data kept in files, not
 // status, so the one read belongs at connect time. No-ops on a printer whose firmware
 // keeps none.
@@ -163,6 +160,9 @@ void filament_temperatures_step(DiscoveryContext& ctx) {
     filament_temps::capture_on_connect(ctx.api.transfers(), ctx.hw);
 }
 
+// Re-decide the screen server's mode for this printer (its Moonraker may be on another
+// host) and keep Moonraker's webcam list in step, refreshing the LAN address an
+// absolute entry carries.
 void remote_screen_webcam_step(DiscoveryContext&) {
     RemoteScreenService::instance().apply_settings();
 }

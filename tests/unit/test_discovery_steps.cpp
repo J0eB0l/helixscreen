@@ -21,6 +21,7 @@
 #include "config.h"
 #include "discovery_steps.h"
 #include "filament_sensor_manager.h"
+#include "filament_temperature_source.h"
 #include "hardware_setup_prompter.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -346,4 +347,37 @@ TEST_CASE_METHOD(StepFixture, "a migrated preset sensor block takes effect in th
     }
 
     CHECK(cc1_sensor_is_runout());
+}
+
+TEST_CASE_METHOD(StepFixture, "the filament_temperatures step publishes the firmware's table",
+                 "[discovery_steps][filament-temps]") {
+    helix::filament_temps::clear_filament_temperatures();
+    api.set_config_files({
+        {"snapmaker/filament_para_standard_04.json",
+         R"({"generic_PLA_generic_load_temp": 250, "generic_PLA_generic_unload_temp": 245})"},
+        {"snapmaker/filament_para_standard_02.json", R"({"generic_PETG_generic_load_temp": 270})"},
+        {"snapmaker/filament_para_standard_06.json", "{}"},
+        {"snapmaker/filament_para_standard_08.json", "{}"},
+        {"snapmaker/filament_para_high_flow_04.json", "{}"},
+    });
+    api.hardware().parse_objects(json::array({"extruder", "filament_parameters"}));
+
+    auto ctx = context(/*hw_changed=*/true);
+    bool found = false;
+    for (const DiscoveryStep& step : helix::discovery_tail_steps()) {
+        if (std::string(step.name) == "filament_temperatures") {
+            found = true;
+            step.run(ctx);
+        }
+    }
+    REQUIRE(found);
+
+    helix::SlotInfo pla;
+    pla.brand = "Generic";
+    pla.material = "PLA";
+    auto t = helix::filament_temps::lookup_filament_temperatures(pla);
+    REQUIRE(t.has_value());
+    CHECK(t->load_c.value() == 250);
+    CHECK(t->unload_c.value() == 245);
+    helix::filament_temps::clear_filament_temperatures();
 }
