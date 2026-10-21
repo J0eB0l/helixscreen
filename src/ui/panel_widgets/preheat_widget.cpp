@@ -28,6 +28,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cstdio>
+#include <memory>
 #include <set>
 #include <utility>
 
@@ -410,6 +411,10 @@ void PreheatWidget::set_temperatures_multi(int nozzle, int bed) {
     const int target_tool = target_tool_index();
     auto heaters = collect_preheat_heaters(tools, target_tool);
 
+    // A refusal (the filament system will not heat the nozzle now) reports
+    // through on_error before set_target() returns, so the summary below can
+    // tell it from a send that went out.
+    auto refused = std::make_shared<bool>(false);
     for (const auto& heater : heaters) {
         spdlog::debug("[PreheatWidget] Setting {} to {}°C", heater, nozzle);
         c->set_target(heater, static_cast<double>(nozzle),
@@ -420,7 +425,8 @@ void PreheatWidget::set_temperatures_multi(int nozzle, int bed) {
                                             nozzle);
                            },
                        .on_error =
-                           [heater](const MoonrakerError& error) {
+                           [heater, refused](const MoonrakerError& error) {
+                               *refused = true;
                                helix::ui::notify_error_tr(TR_NOOP("Failed to set {} temp: {}"),
                                                           heater, error);
                            }});
@@ -431,6 +437,9 @@ void PreheatWidget::set_temperatures_multi(int nozzle, int bed) {
                        NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), bed);
                    }});
 
+    if (*refused) {
+        return;
+    }
     int tool_count = static_cast<int>(heaters.size());
     if (tool_target_ == -1) {
         NOTIFY_SUCCESS(fmt::runtime(helix::ui::tr_plural(nullptr, "Preheat: all {} tools + bed set",

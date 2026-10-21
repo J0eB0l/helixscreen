@@ -11,6 +11,7 @@
 #include "ui_print_start_controller.h"
 #include "ui_toast_manager.h"
 
+#include "ams_state.h"
 #include "app_globals.h"
 #include "display_numbering.h"
 #include "filament_database.h"
@@ -461,6 +462,9 @@ void PaTuningOverlay::confirm_and_start() {
         fail_start(lv_tr("A print is already running."));
         return;
     }
+    if (refuse_blocked_nozzle()) {
+        return;
+    }
     const auto params = build_params();
     const std::string msg = fmt::format(
         "{}\n\n{}",
@@ -483,9 +487,23 @@ void PaTuningOverlay::fail_start(const std::string& message) {
     refresh_setup();
 }
 
+bool PaTuningOverlay::refuse_blocked_nozzle() {
+    // The tower heats its extruder by name, which no printer-side M104 guard
+    // sees, so the filament system's refusal is checked here.
+    const std::string blocked = AmsState::instance().nozzle_heat_blocked_reason();
+    if (blocked.empty()) {
+        return false;
+    }
+    fail_start(blocked);
+    return true;
+}
+
 void PaTuningOverlay::begin_upload() {
     if (!api_) {
         fail_start(lv_tr("No connection to the printer."));
+        return;
+    }
+    if (refuse_blocked_nozzle()) {
         return;
     }
     const auto params = build_params();

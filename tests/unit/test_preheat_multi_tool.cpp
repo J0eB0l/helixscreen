@@ -14,8 +14,11 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/log_capture.h"
 #include "../test_helpers/preheat_widget_test_access.h"
+#include "../test_helpers/registered_backend.h"
 #include "../test_helpers/tool_topologies.h"
+#include "../test_helpers/toolchanger_test_helper.h"
 #include "../test_helpers/update_queue_test_access.h"
+#include "ams_backend_indx.h"
 #include "app_globals.h"
 #include "moonraker_api.h"
 #include "moonraker_client_mock.h"
@@ -560,4 +563,33 @@ TEST_CASE_METHOD(LVGLTestFixture,
 
     ts.clear_ams_topology();
     helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "PreheatWidget: a refused nozzle target announces no preheat",
+                 "[preheat][panel_widget][indx][heat]") {
+    seed_extruders(1);
+
+    MoonrakerClientMock client(MoonrakerClientMock::PrinterType::VORON_24);
+    MoonrakerAPI api(client, get_printer_state());
+    TemperatureController controller(get_printer_state(), &api);
+    get_printer_state().set_klippy_state_sync(helix::KlippyState::READY);
+    helix::PanelWidgetManager::instance().register_shared_resource<helix::TemperatureController>(
+        &controller);
+
+    // A shared-heater backend with no tool on the head refuses nozzle heat.
+    helix::test::RegisteredBackend<helix::test::GcodeCaptureBackend<helix::AmsBackendIndx>> harness;
+    helix::PrinterDiscovery hw;
+    hw.parse_objects(nlohmann::json::array(
+        {"indx", "save_variables", "extruder", "gcode_macro TOOL_POSITIONS",
+         "gcode_macro _TOOLCHANGE_VARS", "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL"}));
+    harness->set_discovery(hw);
+    harness->feed(nlohmann::json{{"save_variables", {{"variables", {{"active_tool", -1}}}}}});
+
+    PreheatWidget widget(get_printer_state());
+    helix::LogCapture log(64);
+    PreheatWidgetTestAccess::set_temperatures_multi(widget, 200, 60);
+    CHECK(log.count_containing("Preheat: all") == 0);
+
+    helix::PanelWidgetManager::instance().register_shared_resource<helix::TemperatureController>(
+        std::shared_ptr<TemperatureController>{});
 }

@@ -5,12 +5,14 @@
 
 #include "ui_callback_helpers.h"
 #include "ui_emergency_stop.h"
+#include "ui_error_reporting.h"
 #include "ui_event_safety.h"
 #include "ui_modal.h"
 #include "ui_nav.h"
 #include "ui_temperature_utils.h"
 #include "ui_timer_guard.h"
 
+#include "ams_state.h"
 #include "app_globals.h"
 #include "config.h"
 #include "filament_database.h"
@@ -806,6 +808,15 @@ void PIDCalibrationPanel::handle_temp_down() {
 void PIDCalibrationPanel::handle_start_clicked() {
     spdlog::debug("[PIDCal] Start clicked (method={})",
                   selected_method_ == CalibMethod::MPC ? "MPC" : "PID");
+    if (selected_heater_ == Heater::EXTRUDER) {
+        // PID_CALIBRATE / MPC_CALIBRATE heat by name, past any printer-side
+        // M104 guard, so the filament system's refusal is checked here.
+        const std::string blocked = helix::AmsState::instance().nozzle_heat_blocked_reason();
+        if (!blocked.empty()) {
+            NOTIFY_WARNING("{}", blocked);
+            return;
+        }
+    }
     if (needs_migration_) {
         confirm_migration();
         return;
