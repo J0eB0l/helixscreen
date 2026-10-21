@@ -1702,7 +1702,7 @@ lv_xml_register_event_cb(nullptr, "on_slider_changed", [](lv_event_t* e) {
 keeps `clicked`.**
 
 LVGL sends `clicked` on every release, the one ending a hold included
-(`lib/lvgl/src/indev/lv_indev.c#indev_proc_release`), so `clicked` beside `long_pressed`
+(`indev_proc_release()` in `lib/lvgl/src/indev/lv_indev.c`), so `clicked` beside `long_pressed`
 fires both: the hold opens its action, then the lift runs the tap behind it. `short_clicked`
 is sent only when no long press was, and LVGL tracks that itself. Do not suppress the tap
 with a flag the hold handler sets: a press that ends in `PRESS_LOST`, or a modal that takes
