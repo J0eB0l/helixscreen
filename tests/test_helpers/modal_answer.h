@@ -7,6 +7,8 @@
 
 #include "lvgl/lvgl.h"
 
+#include <string>
+
 #include "../catch_amalgamated.hpp"
 
 namespace helix::test {
@@ -29,6 +31,26 @@ inline void dismiss_top_modal() {
     REQUIRE(backdrop != nullptr);
     lv_obj_send_event(backdrop, LV_EVENT_CLICKED, nullptr);
     ui::UpdateQueue::instance().drain();
+}
+
+/// Every label's text under @p obj, one per line, in tree order.
+inline std::string subtree_text(lv_obj_t* obj) {
+    std::string text;
+    if (lv_obj_check_type(obj, &lv_label_class)) {
+        text += lv_label_get_text(obj);
+        text += "\n";
+    }
+    const uint32_t n = lv_obj_get_child_count(obj);
+    for (uint32_t i = 0; i < n; ++i) {
+        text += subtree_text(lv_obj_get_child(obj, static_cast<int32_t>(i)));
+    }
+    return text;
+}
+
+/// The text of the top dialog, or empty when no dialog is up.
+inline std::string top_modal_text() {
+    lv_obj_t* dialog = ModalStack::instance().top_dialog();
+    return dialog ? subtree_text(dialog) : std::string{};
 }
 
 } // namespace helix::test

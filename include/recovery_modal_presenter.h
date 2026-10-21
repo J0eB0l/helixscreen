@@ -5,6 +5,7 @@
 
 #include "action_prompt_manager.h" // PromptData / PromptButton
 #include "action_prompt_modal.h"   // helix::ui::ActionPromptModal
+#include "async_lifetime_guard.h"
 #include "error_event.h"
 #include "lvgl.h"
 
@@ -84,6 +85,11 @@ class RecoveryModalPresenter {
     /// taps a recovery button.
     void on_recovery_tapped(const std::string& gcode);
 
+    /// The tap's work once any confirm is answered: preheat first when
+    /// @p needs_hot_nozzle and the nozzle is cold, else send.
+    void continue_recovery(const std::string& gcode, const std::string& tag,
+                           const std::string& label, bool needs_hot_nozzle);
+
     /// Send @p gcode to the printer with the recovery error/toast handling.
     void dispatch_recovery(const std::string& gcode, const std::string& tag);
 
@@ -141,6 +147,9 @@ class RecoveryModalPresenter {
     /// clock keeps the bound honest when the main loop stalls.
     int32_t polls_remaining_ = 0;
     uint32_t preheat_budget_ms_;
+
+    /// Gates a recovery confirm's callbacks; last, so it expires first.
+    helix::AsyncLifetimeGuard lifetime_;
 };
 
 } // namespace helix::ui

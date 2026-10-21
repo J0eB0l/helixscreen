@@ -247,10 +247,33 @@ void RecoveryModalPresenter::on_recovery_tapped(const std::string& gcode) {
         return;
     }
 
+    const bool needs_hot_nozzle = action && action->needs_hot_nozzle;
+    if (action && !action->confirm_message.empty()) {
+        // Copies, not the action: active_actions_ can be replaced by a new
+        // fault before the confirm is answered.
+        helix::ui::ConfirmOptions options;
+        options.owner_token = lifetime_.token();
+        helix::ui::modal_confirm(
+            label.c_str(), action->confirm_message.c_str(), ModalSeverity::Warning, label.c_str(),
+            [this, gcode, tag, label, needs_hot_nozzle]() {
+                continue_recovery(gcode, tag, label, needs_hot_nozzle);
+            },
+            options);
+        return;
+    }
+
+    continue_recovery(gcode, tag, label, needs_hot_nozzle);
+}
+
+void RecoveryModalPresenter::continue_recovery(const std::string& gcode, const std::string& tag,
+                                               const std::string& label, bool needs_hot_nozzle) {
+    if (!api_) {
+        return;
+    }
     // Filament-moving recovery on a cold hotend: heat first, send on arrival.
     // The heater is routinely off by now — the post-op cooldown armed by the
     // operation that failed, TURN_OFF_HEATERS on a print ERROR, or idle_timeout.
-    if (action && action->needs_hot_nozzle && !nozzle_ready_for_extrusion()) {
+    if (needs_hot_nozzle && !nozzle_ready_for_extrusion()) {
         begin_preheat(gcode, tag, label);
         return;
     }
