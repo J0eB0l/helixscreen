@@ -1581,6 +1581,12 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
     if (data.contains("current_index") && data["current_index"].is_number_integer()) {
         manager_states_seat_ = true;
         seat_from_tool_locked(data["current_index"].get<int>());
+    } else if (instance_objects_ && manager_states_seat_ && seat_loaded_ &&
+               system_info_.current_tool >= 0) {
+        // An instance frame: the manager can name a tool before the unit
+        // carrying it reports its slots, so the seat is resolved again each
+        // time a unit's slots or tool numbers may have arrived.
+        seat_from_tool_locked(system_info_.current_tool);
     }
 
     apply_path_sensors_locked(data);

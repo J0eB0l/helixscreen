@@ -337,6 +337,30 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE unit reporting late keeps the other units
     CHECK(helper.get_slot_info(0).color_rgb == kUnit0Slot0Color);
 }
 
+// The manager's current_index can name a tool whose unit has not reported its
+// slots yet; the seat lands on that tool's slot once they arrive.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE seats a tool whose unit reports after the manager",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 1, 5);
+    {
+        const auto info = helper.get_test_system_info();
+        REQUIRE(info.current_tool == 5);
+        REQUIRE(info.current_slot == -1);
+    }
+
+    json frame = json::object();
+    frame["ace_instance_1"] = make_kobra_second_unit_object();
+    send_frame(helper, frame);
+
+    const auto info = helper.get_test_system_info();
+    CHECK(info.current_tool == 5);
+    CHECK(info.current_slot == 5);
+    CHECK(helper.get_slot_info(5).status == SlotStatus::LOADED);
+    CHECK(helper.get_slot_info(4).status != SlotStatus::LOADED);
+}
+
 // A restart drops the session's commands with it: a load sent before it does
 // not keep a later driver toolchange LOADING.
 TEST_CASE_METHOD(LVGLTestFixture, "ACE restart during a load drops the load",
