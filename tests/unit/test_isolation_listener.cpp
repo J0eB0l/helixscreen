@@ -26,6 +26,7 @@
 #include "../test_helpers/thumbnail_processor_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "http_executor.h"
+#include "moonraker_client_mock.h"
 #include "thumbnail_processor.h"
 
 #include <spdlog/sinks/null_sink.h>
@@ -217,6 +218,11 @@ class IsolationListener : public Catch::EventListenerBase {
         // start() is idempotent, so warming both lanes here folds their threads
         // into the baseline.
         helix::http::HttpExecutor::start_all();
+
+        // Every MoonrakerClientMock::connect() would otherwise block the test
+        // that calls it for the mock's simulated handshake, and no test waits
+        // on that pause.
+        MoonrakerClientMock::set_connect_delay_ms(0);
 
         // Record who those pre-warmed threads are, so the first genuine leak is
         // reported as the one name that is not among them.

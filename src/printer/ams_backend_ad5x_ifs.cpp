@@ -158,7 +158,19 @@ AmsBackendAd5xIfs::AmsBackendAd5xIfs(IMoonrakerAPI* api, helix::IMoonrakerClient
     system_info_.supports_purge = false;
 }
 
-AmsBackendAd5xIfs::~AmsBackendAd5xIfs() = default;
+AmsBackendAd5xIfs::~AmsBackendAd5xIfs() {
+    {
+        std::lock_guard<std::mutex> lock(debounce_cancel_->mutex);
+        debounce_cancel_->cancelled = true;
+    }
+    debounce_cancel_->cv.notify_all();
+}
+
+bool AmsBackendAd5xIfs::debounce_wait(const std::shared_ptr<DebounceCancel>& cancel,
+                                      std::chrono::milliseconds window) {
+    std::unique_lock<std::mutex> lock(cancel->mutex);
+    return !cancel->cv.wait_for(lock, window, [&cancel] { return cancel->cancelled; });
+}
 
 // --- Sensor Ownership (#1054) ---
 
@@ -487,9 +499,10 @@ void AmsBackendAd5xIfs::schedule_lane_record_reread() {
     if (lane_reread_pending_.exchange(true))
         return;
     auto token = lifetime_.token();
-    helix::http::HttpExecutor::fast().submit([this, token]() {
+    helix::http::HttpExecutor::fast().submit([this, token, cancel = debounce_cancel_]() {
         // BG THREAD: only the debounce sleep.
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (!debounce_wait(cancel, std::chrono::seconds(2)))
+            return;
         token.defer("Ad5xIfsBackend::lane_record_reread", [this]() {
             lane_reread_pending_.store(false);
             reread_lane_records();
@@ -4806,9 +4819,10 @@ void AmsBackendAd5xIfs::schedule_json_reread() {
 
     // Bounded worker pool — bare std::thread on AD5M can hit EAGAIN under
     // thread exhaustion (feedback_no_bare_threads_arm.md).
-    helix::http::HttpExecutor::fast().submit([this, token]() {
+    helix::http::HttpExecutor::fast().submit([this, token, cancel = debounce_cancel_]() {
         // BG THREAD: only the debounce sleep — no member touch.
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (!debounce_wait(cancel, std::chrono::seconds(2)))
+            return;
 
         // MAIN THREAD: clear the gate atomic and chain into read_adventurer_json,
         // which itself touches api_ and member state.
@@ -4868,11 +4882,12 @@ void AmsBackendAd5xIfs::schedule_zcolor_query(const char* reason) {
     zcolor_worker_submit_count_.fetch_add(1, std::memory_order_relaxed);
 
     auto token = lifetime_.token();
-    helix::http::HttpExecutor::fast().submit([this, token]() {
+    helix::http::HttpExecutor::fast().submit([this, token, cancel = debounce_cancel_]() {
         // BG THREAD: just the debounce sleep — no member touch.
         // Short debounce — coalesce bursts from port-sensor changes, the
         // gcode stream, and unload-complete triggers.
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        if (!debounce_wait(cancel, std::chrono::milliseconds(500)))
+            return;
 
         // MAIN THREAD: disarm so a trigger arriving after this point arms a fresh
         // worker, then claim the pending flag and run the query. Both touch
@@ -4936,8 +4951,9 @@ void AmsBackendAd5xIfs::query_zcolor_silent() {
         // window the GET_ZCOLOR callback uses, so the IFS_STATUS response in the
         // buffer gets parsed + applied (Ports presence stays live, #981).
         spdlog::debug("{} Querying IFS_STATUS only (SILENT demoted)", backend_log_tag());
-        helix::http::HttpExecutor::fast().submit([this, token]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        helix::http::HttpExecutor::fast().submit([this, token, cancel = debounce_cancel_]() {
+            if (!debounce_wait(cancel, std::chrono::milliseconds(500)))
+                return;
             token.defer("Ad5xIfsBackend::ifs_status_finalize_apply",
                         [this]() { finalize_zcolor_response(); });
         });
@@ -4955,14 +4971,16 @@ void AmsBackendAd5xIfs::query_zcolor_silent() {
     // so the next trigger re-arms the poll. Mirrors get_sensors() / EXCLUDE_OBJECT.
     api_->execute_gcode(
         "GET_ZCOLOR SILENT=1",
-        [this, token]() {
-            // BG THREAD: HttpExecutor::fast() is a static accessor — no `this`
-            // touch — so we can submit the debounce worker without a guard.
+        [this, token, cancel = debounce_cancel_]() {
+            // BG THREAD: HttpExecutor::fast() is a static accessor and the
+            // cancel handle was captured on the main thread — no `this` touch
+            // — so we can submit the debounce worker without a guard.
             // Response lines arrive via notify_gcode_response listener;
             // schedule finalization after a short collection window.
-            helix::http::HttpExecutor::fast().submit([this, token]() {
+            helix::http::HttpExecutor::fast().submit([this, token, cancel]() {
                 // BG THREAD: just the debounce sleep.
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                if (!debounce_wait(cancel, std::chrono::milliseconds(500)))
+                    return;
                 // MAIN THREAD: finalize touches mutex_, atomics, and chains
                 // into apply_zcolor_result + possibly query_zcolor_silent.
                 token.defer("Ad5xIfsBackend::zcolor_finalize_apply",
