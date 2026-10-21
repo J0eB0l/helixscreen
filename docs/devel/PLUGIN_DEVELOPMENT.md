@@ -474,7 +474,7 @@ helix.ui.edit_text({title = "Task name", value = name, max_length = 32,
 |---|---|---|
 | `title` | header text, at most 47 bytes | dialog heading, at most 1024 bytes |
 | `value` | starting value (the keypad opens empty, as everywhere in the app) | starting text, no longer than `max_length` |
-| `min`, `max` | required; `0 <= min < max <= 99999` | |
+| `min`, `max` | required; `-99999 <= min < max <= 99999` | |
 | `decimals` | `0` (default), `1` or `2`: digits after the decimal point; `0` hides the point and hands back an integer | |
 | `unit` | shown inside the display, at most 15 bytes | |
 | `placeholder` | | hint shown while the field is empty |
@@ -484,9 +484,10 @@ helix.ui.edit_text({title = "Task name", value = name, max_length = 32,
 | `on_cancel()` | optional | optional |
 | `validate(value)` | optional | optional |
 
-Any other key is an error. The keypad enters zero and positive numbers only: it has no
-sign key, so `min` below 0 is refused. A value outside `min`..`max` is refused by the
-keypad itself with the range in an error toast, before `validate` sees it.
+Any other key is an error. A `min` below 0 adds a +/- key beside the keypad's display,
+which flips the sign of what has been typed; a range at or above zero shows no sign key. A
+value outside `min`..`max` is refused by the keypad itself with the range in an error toast,
+before `validate` sees it.
 
 `validate(value)` runs when the user presses Set or OK. Return `true` to accept, or `false`
 and a message (at most 256 bytes) to keep the editor open with that message in an error

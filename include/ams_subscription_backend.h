@@ -148,15 +148,17 @@ class AmsSubscriptionBackend : public AmsBackend {
     virtual AmsError execute_gcode(const std::string& gcode);
     /// Same as execute_gcode(gcode), but invokes @p on_complete when the gcode
     /// command finishes (Klipper acks the script — i.e. a long macro has fully
-    /// run, not merely been queued). The callback fires on a background thread;
-    /// the caller is responsible for hopping to the main thread. Use this when a
-    /// macro's completion is the reliable terminal signal for an operation.
+    /// run, not merely been queued). The callback runs on the main thread,
+    /// queued behind any status frame that arrived before the answer, and is
+    /// dropped if the backend is destroyed first. Use this when a macro's
+    /// completion is the reliable terminal signal for an operation.
     virtual AmsError execute_gcode(const std::string& gcode, std::function<void()> on_complete);
     /// Same as execute_gcode(gcode, on_complete), plus @p on_error for callers
     /// that hold state the failure has to unwind — an optimistic AmsAction set
     /// before the send stays set forever if nothing runs on the error path.
-    /// Both callbacks fire on a background thread; the caller hops to the main
-    /// thread itself.
+    /// Both callbacks run on the main thread, queued the same way. The one
+    /// exception is a send refused for want of an IMoonrakerAPI: @p on_error
+    /// then runs synchronously, on the caller's stack.
     ///
     /// @p silent suppresses the advisory RPC timeout's toast. Leave it true for
     /// a long macro whose completion is owned by a status signal rather than the
@@ -174,8 +176,9 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// Query homing status and auto-home (G28) if needed before executing gcode.
     /// Returns immediately — homing and gcode execution happen asynchronously.
     /// @p on_complete (optional) fires when the final gcode command finishes
-    /// (Klipper acks the script), on a background thread; the caller hops to the
-    /// main thread. Use when the gcode's macro completion is the terminal signal.
+    /// (Klipper acks the script), on the main thread behind any status frame
+    /// that arrived before the answer. Use when the gcode's macro completion is
+    /// the terminal signal.
     /// @param on_error   Fires on G28 or payload failure. When null the failure
     ///                   is logged and the action is reset to IDLE, matching
     ///                   the historical behaviour.
@@ -616,10 +619,9 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// referenced above — required for fixture compatibility. Any non-default
     /// combination needs a live @p api_: it talks to IMoonrakerAPI directly (the
     /// hardcoded virtuals can't carry a caller's own error/timeout/toast
-    /// policy), the same way AmsBackendCfs::dispatch_action_script used to
-    /// before this method existed to replace it. On that path @p on_complete
-    /// and @p on_error both run on the main thread, queued behind any status
-    /// frame that arrived before the answer.
+    /// policy). On every path @p on_complete
+    /// runs on the main thread, queued behind any status frame that arrived
+    /// before the answer, and so does @p on_error once the send went out.
     ///
     /// @param caller_surfaces_errors Whether @p on_error shows the user
     ///        something. Left unset it is derived from @p on_error being

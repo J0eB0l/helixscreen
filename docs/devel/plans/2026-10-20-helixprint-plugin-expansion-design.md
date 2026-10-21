@@ -71,6 +71,22 @@ or start disables only itself and reports why.
 moment it acts (cheap, and no change notification is needed). The app's settings UI writes it.
 One store, so every screen on the printer agrees.
 
+**One switch per feature (2026-10-21).** A feature may own its switch instead, when its on/off
+depends on more than a boolean (power-loss recovery: `helix-screen` / `plr_user.enabled`, with a
+storage-dependent default). Its `plugin_features` key is then unused, and the `features` map
+reports that feature's own `enabled`. Never two switches for one feature.
+
+**Helix-initiated job marker (2026-10-21).** A plugin path that starts a job itself records it
+before sending the start: `mark_helix_initiated(filename, kind)` with `kind` one of
+`"plr_resume"`, `"print_modified"`, `"print_edited"`. On the matching `job_state` start the plugin
+binds the marker to the history job id (namespace `helix_jobs`, key = job id, value
+`{"kind": ...}`); an unmatched marker expires after 60 s. `helix_initiated(job_id) -> Optional[str]`
+answers for every module. Start-of-job features (Phases 3, 5, 7) check it, so a resumed job does
+not re-run start hooks partway through a part.
+
+**Owner (2026-10-21):** Phase 0 is implemented as the first task of power-loss recovery v1, by the
+session that owns that work.
+
 **App: gate on features, not version equality.** `PrinterPluginStatusState` gains the parsed
 feature map and one query, `plugin_feature(name, min_version) -> {absent, disabled, ready}`.
 Callers ask that, never the version string. Version mismatch keeps driving self-heal, but a
@@ -147,16 +163,26 @@ its queue and backfill) and, per gcode file, writes an analysis record keyed by 
 - `header`: slicer printer model, nozzle diameter(s), bed size if declared, filament types.
 - `objects`: from `EXCLUDE_OBJECT_DEFINE`, else `; printing object` / `M486` labels with
   computed polygons.
-- `layer_index`: byte offset, Z and tool set per layer (the `GCodeLayerIndex` shape) as a compact
-  sidecar file under a dot directory.
+- `layer_index`: byte offset, Z, tool set and the modal state at each layer start (positioning
+  and extrusion modes, logical E, F, active tool, factors, retract state) as a compact sidecar
+  file under a dot directory. The modal state is what lets power-loss recovery's
+  `scan_to_offset(start_offset=..., start_state=...)` begin at a layer start instead of byte 0.
+
+**One shared G-code reader (2026-10-21).** Analysis reads files through
+`helix_gcode_reader.py`, the module power-loss recovery builds: tokenizer, layer markers,
+`EXCLUDE_OBJECT_DEFINE`, `T<n>`, the modal-state reducer and the throttle policy. No second parser.
 - `thumbnail`: generated or extracted when metadata has none, published the way Moonraker
   publishes `.thumbs` so existing clients benefit.
 
 Endpoint: `server.helix.analysis {filename}` returns the record or `pending`. A notification
 `helix:analysis_ready {filename}` lets the detail view refresh.
 
-Cost guard: one file at a time, niced, and skipped while a print runs unless the host is
-multi-core (probe), so analysis never starves the printing Klipper host.
+Cost guard: the throttle policy in `helix_gcode_reader.py`, shared with power-loss recovery.
+One file at a time, niced. While a print runs, whole-file analysis runs only on a multi-core host
+(probe). The one exception is the printing file's own layer index when it does not exist yet:
+power-loss recovery's follower builds it on any host, reading no further than
+`virtual_sdcard.file_position` (bytes Klipper has just read, so already in page cache) at a
+capped rate. It writes the same sidecar, so it is the layer index, not a second one.
 
 ### App integration
 
@@ -233,12 +259,18 @@ The app writes a **standing options record** to `helix-screen` / `standing_print
 subset that makes sense for any print (U1 end-unload tools, timelapse default, AMS pre-print
 routing defaults). The plugin's `helix_print_hooks.py` watches `job_state` and, at the start of a
 job not started through `print_modified`, sends the gcode those options require, through the same
-generators the app uses.
+generators the app uses. A job with a helix-initiated marker (Phase 0) of kind `plr_resume` gets no
+hooks: U1 end-unload, AMS pre-print gcode and timelapse setup already ran when the part started.
 
 **DRY constraint (ruled 2026-10-20): the app renders the gcode.** The record holds finished gcode
 produced by the same functions the screen's own start uses; the plugin only sends it. It is
 current as of the app's last write, so the app rewrites it whenever an input changes (setting
 edit, lane change, backend reconnect). Never reimplement a backend's gcode in Python.
+
+**Exception (ruled 2026-10-21): power-loss recovery renders its resume gcode in the plugin.** The
+resume script is built from a G-code file scan that runs in the plugin, the K-Touch cannot scan
+files, and one endpoint serves every client; no vendor backend's gcode is duplicated. Details and
+the reasoning: `docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md` § 3.2.
 
 Skips and file rewrites are excluded: once a foreign client has started the file, it is too late
 to rewrite it. Moonraker's own queue transitions are in scope.
@@ -335,6 +367,8 @@ stays the single deductor, so double counting is impossible by construction.
 - At job end the plugin writes `{tool, lane, spool_id, grams}` per spool into its own namespace
   keyed by job id (computed from the same position deltas), and into `auxiliary_data` where the
   Moonraker supports it. History detail shows it.
+- A job marked `plr_resume` (Phase 0 marker) continues the interrupted job's per-spool record
+  instead of opening a new one.
 
 ### Fallback
 
@@ -394,7 +428,8 @@ no image field; the app does not parse `auxiliary_data`.
 
 `helix_photos.py` fetches the default webcam's snapshot URL after layer 2 (from `print_stats.info`)
 and at job end, stores JPEGs under a dot directory, links them from the history entry's
-`auxiliary_data`, and prunes them with the history entry. History detail shows them.
+`auxiliary_data`, and prunes them with the history entry. History detail shows them. A job marked
+`plr_resume` (Phase 0 marker) skips the layer-2 photo; the interrupted job already has it.
 
 ### Fallback
 
@@ -420,7 +455,7 @@ health widget. No breakdown, no cleanup, no free-space check before upload.
 ### Design
 
 `server.helix.storage` returns usage by consumer (`.helix_temp`, 3mf outputs, analysis sidecars,
-photos, timelapse, logs, thumbnails, user gcode) and `server.helix.storage_cleanup {consumer, older_than}`.
+photos, timelapse, logs, thumbnails, user gcode, `helix-plr/` power-loss snapshot and mesh file) and `server.helix.storage_cleanup {consumer, older_than}`.
 `print_modified` / `print_edited` refuse with a clear error when the result would leave less than a
 floor free. Opt-in automatic cleanup by age.
 
@@ -494,6 +529,10 @@ Today's polling.
 0 framework -> 1 analysis -> 2 fit check (uses 1) -> 3 hooks -> 4 server edits -> 5 filament
 (uses 1 for per-tool amounts) -> 6 journal -> 7 photos -> 8 storage -> 10 config -> 11 vendor
 shims.
+
+Power-loss recovery is its own design, depending on Phase 0 only, and its v1 starts by
+implementing Phase 0: `docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md`. It also
+builds `helix_gcode_reader.py`, which Phase 1 then uses.
 
 ## Open questions
 

@@ -4,6 +4,7 @@
 #include "ui_filament_runout_handler.h"
 
 #include "ui_resume_dispatch.h"
+#include "ui_unload_lane_choice.h"
 #include "ui_update_queue.h"
 
 #include "ams_backend.h"
@@ -336,6 +337,19 @@ void FilamentRunoutHandler::dispatch_unload() {
 
     // The runout names its head; there is no slot picker under a runout dialog.
     const int slot = helix::ui::runout_target_slot(backend, runout_lane_, /*load=*/false);
+
+    // A backend that cannot name the lane in the toolhead asks first, the same
+    // question the Filament panel and the sidebar ask.
+    if (slot < 0) {
+        lv_obj_t* dialog = runout_modal_.dialog();
+        helix::ui::FilamentOpSurface surface;
+        surface.log_tag = "[FilamentRunoutHandler]";
+        if (helix::ui::ask_lane_then_unload(
+                backend, dialog ? lv_obj_find_by_name(dialog, "btn_unload_filament") : nullptr,
+                surface, lifetime_.token())) {
+            return;
+        }
+    }
 
     // unload_target_is_loaded()'s is_current_slot arm is the whole reason this
     // button works at all here: a runout clears the lane's own sensor while

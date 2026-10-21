@@ -493,9 +493,13 @@ TEST_CASE("unload_target_is_loaded: the active head counts when the toolhead is 
     // refusal: "no slot resolved" must not dispatch on a guess.
     CHECK_FALSE(unload_target_is_loaded(kActiveHeadSlot, false, false, true, true, false));
 
-    // The unaccounted answer speaks for the active head only; any other
-    // negative slot is still "nothing resolved".
-    CHECK_FALSE(unload_target_is_loaded(-3, true, true, true, true, true));
+    // The "Not sure" clear names the same filament and rides the same answer.
+    CHECK(unload_target_is_loaded(helix::kClearToolheadSlot, false, false, false, false, true));
+    CHECK_FALSE(unload_target_is_loaded(helix::kClearToolheadSlot, true, true, true, true, false));
+
+    // The unaccounted answer speaks for the toolhead only; any other negative
+    // slot is still "nothing resolved".
+    CHECK_FALSE(unload_target_is_loaded(-4, true, true, true, true, true));
 }
 
 TEST_CASE("plan_unload: an unaccounted toolhead unloads from the active head, and only from there",
@@ -518,8 +522,17 @@ TEST_CASE("plan_unload: an unaccounted toolhead unloads from the active head, an
     CHECK(refused.tier == FilamentTier::Refused);
     CHECK(refused.refusal == FilamentRefusal::NothingLoaded);
 
+    // "Not sure" reaches the backend unchanged, under the same condition.
+    auto clear = plan_unload(ams, helix::kClearToolheadSlot, /*target_is_loaded=*/true,
+                             /*macro_available=*/true, /*macro_user_configured=*/false);
+    CHECK(clear.tier == FilamentTier::AmsBackend);
+    CHECK(clear.ams_arg == helix::kClearToolheadSlot);
+    auto clear_silent = plan_unload(silent, helix::kClearToolheadSlot, /*target_is_loaded=*/true,
+                                    /*macro_available=*/true, /*macro_user_configured=*/false);
+    CHECK(clear_silent.tier == FilamentTier::Refused);
+
     // Any other negative slot never dispatches, unaccounted or not.
-    auto other = plan_unload(ams, /*target_slot=*/-3, /*target_is_loaded=*/true,
+    auto other = plan_unload(ams, /*target_slot=*/-4, /*target_is_loaded=*/true,
                              /*macro_available=*/true, /*macro_user_configured=*/false);
     CHECK(other.tier == FilamentTier::Refused);
 }
