@@ -5177,7 +5177,9 @@ TEST_CASE("AFC toolchanger load and tool change follow AFC's map, not extruder o
         REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T3"});
     }
 
-    SECTION("change_tool(5) sends T5, which AFC resolves to e2") {
+    SECTION("past-the-end guard: change_tool(5) sends T5, which AFC resolves to e2") {
+        // T5 is past the end of the 4-entry extruder list, so this one never
+        // reached the head-index lookup; it guards the T{n} form, not the bug.
         REQUIRE(helper.change_tool(5));
         REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T5"});
     }

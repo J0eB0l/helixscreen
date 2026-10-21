@@ -11,6 +11,8 @@
  * the ipp/print fallback.
  */
 
+#include "ui_settings_label_printer.h"
+
 #include "../lvgl_test_fixture.h"
 #include "config.h"
 #include "ipp_printer.h"
@@ -51,6 +53,48 @@ struct LabelSettingsScope {
 };
 
 } // namespace
+
+namespace helix::settings {
+
+class LabelPrinterSettingsOverlayTestAccess {
+  public:
+    static void add_discovered(LabelPrinterSettingsOverlay& overlay,
+                               const DiscoveredPrinter& printer, const std::string& protocol) {
+        overlay.discovered_network_printers_.push_back({printer, protocol, 100});
+    }
+};
+
+} // namespace helix::settings
+
+TEST_CASE("A complete mDNS record keeps its TXT rp on the discovered printer", "[label][ipp_rp]") {
+    MdnsTxtFields txt;
+    txt.model_name = "Canon TS8300 series";
+    txt.resource_path = "printers/Canon_TS8350";
+
+    auto printer =
+        make_discovered_printer("Canon TS8300 series", "nas.local", "192.168.2.3", 631, txt);
+
+    REQUIRE(printer.name == "Canon TS8300 series");
+    REQUIRE(printer.hostname == "nas.local");
+    REQUIRE(printer.ip_address == "192.168.2.3");
+    REQUIRE(printer.port == 631);
+    REQUIRE(printer.resource_path == "printers/Canon_TS8350");
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Selecting a discovered IPP printer in settings stores its rp",
+                 "[label][ipp_rp]") {
+    LabelSettingsScope scope;
+    settings::LabelPrinterSettingsOverlay overlay;
+    settings::LabelPrinterSettingsOverlayTestAccess::add_discovered(
+        overlay, discovered("192.168.2.3", 631, "printers/Canon_TS8350"), "ipp");
+
+    overlay.handle_printer_selected(0);
+
+    auto& settings = LabelPrinterSettingsManager::instance();
+    REQUIRE(settings.get_printer_address() == "192.168.2.3");
+    REQUIRE(settings.get_printer_protocol() == "ipp");
+    REQUIRE(settings.get_ipp_resource_path() == "printers/Canon_TS8350");
+}
 
 TEST_CASE("mDNS TXT rp is kept as the resource path", "[label][ipp_rp]") {
     MdnsTxtFields fields;
