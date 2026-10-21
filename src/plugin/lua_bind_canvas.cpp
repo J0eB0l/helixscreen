@@ -26,12 +26,6 @@ const char kCanvasMeta[] = "helix.canvas";
 constexpr int32_t kMaxStroke = 64;
 constexpr int32_t kMaxOpaPercent = 100; // opa is authored 0-100; stored as 0-255
 constexpr size_t kMaxTextBytes = 256;
-// Left uncharged so a plugin whose list has reached the cap can still run: the
-// luaL_error that reports the refused call needs Lua memory to raise into, and
-// the host's next entry into the plugin (compiling a chunk, starting a thread)
-// is how it gets the chance to clear the list. On a full heap that entry fails
-// out of memory and the runtime disables the plugin.
-constexpr size_t kRaiseRoom = 4096;
 
 struct CanvasEntry {
     std::string full;
@@ -287,13 +281,8 @@ void plan_tokens(DisplayList& pending, const char* color, const char* border, co
     }
 }
 
-// Charges `bytes` of canvas data to the plugin's memory budget, or raises with
-// nothing charged.
 void charge(lua_State* L, size_t bytes) {
-    LuaRuntime& rt = context(L).rt;
-    const size_t room = memory_remaining(rt);
-    if (room < kRaiseRoom || bytes > room - kRaiseRoom || !rt.reserve_external(bytes))
-        luaL_error(L, "helix.canvas: plugin memory budget exceeded");
+    charge_plugin_memory(L, bytes, "helix.canvas");
 }
 
 // Appends a fully validated primitive, charging the cap for the exact bytes

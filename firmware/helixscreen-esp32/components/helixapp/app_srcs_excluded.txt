@@ -390,3 +390,5 @@ src/utils/lan_host.cpp  # only the Android LAN routing uses it
 src/plugin/lua_bind_sound.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_icon_image.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_text_entry_modal.cpp  # not in the v1 Core+AMS cut
+src/plugin/plugin_table.cpp  # not in the v1 Core+AMS cut
+src/plugin/lua_bind_table.cpp  # not in the v1 Core+AMS cut

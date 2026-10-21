@@ -56,6 +56,9 @@ void install_widget_bindings(PluginContext& ctx);
 void install_canvas_bindings(PluginContext& ctx);
 /// helix.sound. BoundRuntime users may pass it in `installers`.
 void install_sound_bindings(PluginContext& ctx);
+/// helix.ui.table. Runs after install_ui_bindings; BoundRuntime users may pass it in
+/// `installers`.
+void install_table_bindings(PluginContext& ctx);
 
 /// The shortest gap between two helix.sound cues of one plugin at UI priority, and at
 /// event priority, which holds the speaker against every UI sound. A cue inside its gap
@@ -69,6 +72,11 @@ PluginContext& context(lua_State* L);
 /// http fetches ask for one byte more than this, so a body that fills the ask is refused
 /// by the cap check instead of landing whole in the Lua state.
 size_t memory_remaining(const LuaRuntime& rt);
+
+/// Charges `bytes` of binding-held data (canvas lists, table rows) to the plugin's memory
+/// budget, or raises "<call>: plugin memory budget exceeded" with nothing charged. A little
+/// room stays uncharged so the error itself can still be raised.
+void charge_plugin_memory(lua_State* L, size_t bytes, const char* call);
 
 /// luaL_newmetatable for a binding's userdata type, with `__metatable` set so plugin
 /// code sees a string from getmetatable and cannot edit the table (a `__gc` added to it

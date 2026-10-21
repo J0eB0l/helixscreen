@@ -21,6 +21,7 @@
 #include "panel_widget_registry.h"
 #include "plugin_canvas.h"
 #include "plugin_settings_overlay.h"
+#include "plugin_table.h"
 #include "plugin_xml_policy.h"
 #include "text_io.h"
 #include "translation_loader.h"
@@ -93,6 +94,7 @@ void register_plugin_event_callback() {
     });
     register_plugin_settings_callbacks();
     register_plugin_canvas_widget();
+    register_plugin_table_widget();
     registered = true;
 }
 
@@ -485,7 +487,7 @@ bool PluginHost::load(PluginInfo& info) {
     for (Installer install :
          {&install_core_bindings, &install_ui_bindings, &install_printer_bindings,
           &install_moonraker_bindings, &install_io_bindings, &install_widget_bindings,
-          &install_canvas_bindings, &install_sound_bindings})
+          &install_canvas_bindings, &install_sound_bindings, &install_table_bindings})
         install(*l.ctx);
 
     if (!l.rt->run_file("main.lua")) {

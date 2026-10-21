@@ -259,6 +259,7 @@ Allowed elements (`src/plugin/plugin_xml_policy.cpp#is_allowed_element`):
 - `consts` and, inside it only, the value elements `px`, `int`, `percentage`, `color`
   and `string` (see Responsive sizing)
 - `plugin_canvas`, the plugin drawing surface (below)
+- `plugin_table`, a data table filled from Lua (below and §8, helix.ui.table)
 - the plugin's own components, by name
 
 A `view` may `extends` only another allowed name. `screen_load_event` and
@@ -361,6 +362,19 @@ rule and is the registry key the drawing publishes under. It defaults to 100% wi
 100% height of its parent, is not scrollable, and is not clickable, so a canvas inside a
 clickable tile does not swallow the tile's tap; set `width`/`flex_grow` to shape it like
 any other child. A canvas with no committed list draws nothing.
+
+### plugin_table
+
+`<plugin_table name="<id>__<name>" .../>` is a scrollable data table
+(`src/plugin/plugin_table.cpp#table_xml_create`) whose columns and rows come from
+`helix.ui.table` (§8). Its `name=` follows the owned-name rule and is the key its data
+publishes under: every live `plugin_table` with that name shows the same data, and one
+created later shows it at once. It defaults to 100% width and height of its parent; set
+`width`, `height` or `flex_grow` like any other child. Cells are padded by `#space_sm`.
+The first row is a header of column titles.
+Colors and fonts come from the theme at draw time (text, muted header text, separators,
+and the selected row in the primary color), so a theme switch is just the next repaint.
+A table with no data shows an empty header.
 
 ## 8. The Lua API
 
@@ -490,6 +504,44 @@ settings screen. `edit_text` opens over the plugin's dialog. Neither may be call
 `on_unload` or in a menu check. Unloading the plugin closes its editor and runs neither
 callback.
 
+### Tables
+
+`helix.ui.table(name, spec)` defines the data of the `plugin_table` named `<id>__<name>`
+(§7) and returns its handle. `name` is 1-48 of `[a-z0-9_-]`. Calling it again with the
+same name returns the same handle with the new columns and `on_activate`; the rows and
+the selection are dropped.
+
+```lua
+local tasks = helix.ui.table("tasks", {
+    columns = {{title = "Task", width = 50}, {title = "Interval"}, {title = "Since"}},
+    on_activate = function(key) helix.ui.overlay("maint__task", {task = key}) end,
+})
+tasks:set_rows({
+    {key = "rails-lubrication", "Lubricate rails", "100 h", "120 h"},
+    {key = "belts", "Check belts", "250 h", "180 h"},
+})
+```
+
+| Call | Returns | Notes |
+|---|---|---|
+| `helix.ui.table(name, spec)` | handle | `spec.columns`: 1 to 8 tables with `title` (a string, at most 256 bytes) and an optional `width`, a whole percent from 1 to 100 of the table's width; the widths add up to at most 100 and the columns without one share what is left. `spec.on_activate(key)` is optional |
+| `t:set_rows(rows)` | | replaces every row; `rows` is a list of at most 500 tables, each a `key` (a string of 1 to 128 bytes, unique in the list) and up to one cell per column as positional strings or numbers of at most 256 bytes; a missing cell is empty. `{}` empties the table |
+| `t:selected()` | key or `nil` | the selected row's key |
+| `t:select(key)` | boolean | selects the row with `key`, or clears the selection for `nil`; `false`, changing nothing, when no row has `key`. Selecting is not a tap: `on_activate` does not run |
+
+A tap on any cell of a data row selects that row and runs `on_activate(key)` with the key
+of the row it showed, so a row that moved because others were added or removed still
+answers with its own key. A tap on the header row activates nothing, and neither does a
+scroll: the table scrolls natively and only a press released without scrolling counts.
+When `set_rows` replaces the rows, the selection stays on its key if a row still has it
+and clears if none does; it never moves to whatever took the old position. Validate the
+key against your data before acting on it.
+
+Rows and columns count against the plugin's `memory_mb` like canvas lists: a `set_rows`
+that would cross the cap raises "table:set_rows: plugin memory budget exceeded" and keeps
+the rows it had. Unloading the plugin empties its tables and taps then reach nothing.
+`set_rows`, `select` and `helix.ui.table` are refused in a menu check; `selected` is a read.
+
 ### Menu items
 
 A plugin can add actions to four app menus. Each item names one of the plugin's
@@ -563,7 +615,7 @@ A check runs in check mode (`src/plugin/lua_runtime.cpp#call_sync`): anything wi
 a side effect or a wait raises "`<call>` is not allowed in a menu check" before acting.
 That covers every async call (`helix.gcode`, `helix.moonraker`, `helix.http`,
 `helix.sleep`), `helix.storage.set`, `helix.settings.set`, `subject:set`, opening a
-dialog, overlay, confirm, editor or toast, playing a sound, closing a surface, `helix.canvas` and every canvas
+dialog, overlay, confirm, editor or toast, playing a sound, changing a table, closing a surface, `helix.canvas` and every canvas
 method (a check never draws), creating a subject, `helix.widget`, starting or cancelling
 a timer, registering a handler, observer, watch or subscription, and `require` (a module's
 top level is ordinary entry work, and a refusal inside it would cache a half-loaded
@@ -935,6 +987,7 @@ approval* instead of loading; enabling it again approves only the new lines.
 | Editors | one `helix.ui.edit_number` or `helix.ui.edit_text` shown or waiting per plugin; a validator runs under the menu-check budget | `src/plugin/lua_bind_ui.cpp#start_editor` |
 | Sound cues | per plugin, 150 ms between `"ui"` cues and 1 s between `"event"` cues; a cue inside the gap is dropped | `include/lua_bindings.h#kPluginUiCueIntervalMs` |
 | Canvas list bytes | charged against the plugin memory cap as staged; a call that would cross it raises, never faults | `include/plugin_canvas.h#DisplayList/bytes` |
+| Tables | 8 columns, 500 rows, 256 bytes per cell or title, 128 bytes per row key; rows and columns count against `memory_mb` | `include/plugin_table.h#kMaxTableRows` |
 | Home tiles | at most 32 `widgets` per plugin | `include/plugin_manifest.h#kMaxWidgetsPerPlugin` |
 | Custom icons | at most 16 per plugin; a PNG of at most 64 KB and 256 x 256 pixels, else its fallback draws | `include/plugin_manifest.h#kMaxIconsPerPlugin`, `include/ui_icon_image.h#kMaxImageIconFileBytes` |
 | Menu items | at most 4 per menu per plugin, 16 per manifest; a label is one line of at most 48 bytes | `include/plugin_manifest.h#kMaxMenuItemsPerMenu` |
