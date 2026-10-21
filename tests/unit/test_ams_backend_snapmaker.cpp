@@ -1095,6 +1095,39 @@ TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker a spool-insert preload ends at pre
     CHECK(backend.get_system_info().action == AmsAction::IDLE);
 }
 
+TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker an expired operation stops reporting busy",
+                 "[ams][snapmaker][action_state][op_timeout_expire]") {
+    CapturingSnapmakerBackend backend;
+
+    // A load whose terminal state never arrives.
+    SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_feeding"));
+    REQUIRE(backend.get_current_action() == AmsAction::LOADING);
+
+    backend.expire_stuck_operation();
+
+    CHECK(backend.get_current_action() == AmsAction::IDLE);
+    CHECK(backend.get_system_info().action == AmsAction::IDLE);
+    CHECK(backend.captured_gcodes.empty());
+
+    // The firmware moving on to the next step proves it is still running.
+    SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_heating"));
+    CHECK(ams_action_is_busy(backend.get_current_action()));
+    CHECK(backend.captured_gcodes.empty());
+}
+
+TEST_CASE_METHOD(SnapmakerFixture, "Snapmaker expiring leaves an ERROR in place",
+                 "[ams][snapmaker][action_state][op_timeout_expire]") {
+    CapturingSnapmakerBackend backend;
+
+    SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_feeding"));
+    SnapmakerTestAccess::handle_status(backend, make_feed_status(1, "load_fail"));
+    REQUIRE(backend.get_current_action() == AmsAction::ERROR);
+
+    backend.expire_stuck_operation();
+
+    CHECK(backend.get_current_action() == AmsAction::ERROR);
+}
+
 TEST_CASE_METHOD(SnapmakerFixture,
                  "Snapmaker a previous op's channel_action_state never ends a new one",
                  "[ams][snapmaker][unload][action_state]") {

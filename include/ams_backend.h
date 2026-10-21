@@ -1924,6 +1924,18 @@ class AmsBackend {
     virtual AmsError cancel() = 0;
 
     /**
+     * @brief The UI stopped waiting on the operation in progress: stop reporting busy
+     *
+     * Called when a surface's operation timeout passes with no terminal state
+     * from this backend. Drops a busy action (ams_action_is_busy()) back to IDLE
+     * locally so tool changes and filament ops are accepted again. Sends no
+     * G-code and reports no load or unload outcome; ERROR and PAUSED stay, since
+     * those wait on the user. A later status frame showing the operation still
+     * running reports it busy again. Default: nothing to drop.
+     */
+    virtual void expire_stuck_operation() {}
+
+    /**
      * @brief Whether cancel() can reach what is running now
      *
      * False while the running operation holds something cancel() would queue

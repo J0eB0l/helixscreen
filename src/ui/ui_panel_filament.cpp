@@ -1466,6 +1466,13 @@ void FilamentPanel::begin_operation_guard() {
 // bookkeeping set, which blocked the next op from ever completing (#1183).
 void FilamentPanel::handle_operation_timeout() {
     NOTIFY_WARNING(lv_tr("Filament operation timed out"));
+    // A backend that never reported the op's end still reads busy, which
+    // refuses every tool change and filament op until it is told to stop.
+    if (backend_op_active_) {
+        if (AmsBackend* backend = AmsState::instance().get_backend()) {
+            backend->expire_stuck_operation();
+        }
+    }
     backend_op_active_ = false;
     op_in_flight_.reset();
     if (op_showing_busy_) {
