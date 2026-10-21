@@ -270,14 +270,15 @@ std::vector<helix::RecoveryAction> AmsBackendIndx::build_recovery_actions() cons
 }
 
 HeadFilamentOps AmsBackendIndx::head_filament_ops(int head) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return head_filament_ops_locked(head);
+}
+
+HeadFilamentOps AmsBackendIndx::head_filament_ops_locked(int head) const {
     HeadFilamentOps ops;
     ops.unload = FilamentOpSupport::Manual;
     ops.unload_reason = lv_tr("Pick up the tool, heat it, and pull the filament out");
-    bool no_heat = false;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        no_heat = state_.no_heat_tools && state_.no_heat_tools->count(head) > 0;
-    }
+    const bool no_heat = state_.no_heat_tools && state_.no_heat_tools->count(head) > 0;
     if (no_heat) {
         const std::string reason = indx::heat_blocked_reason(head, {head});
         ops.load = FilamentOpSupport::Unavailable;
@@ -289,6 +290,14 @@ HeadFilamentOps AmsBackendIndx::head_filament_ops(int head) const {
         ops.load_reason = lv_tr("This printer has no INDX LOAD_FILAMENT macro");
     }
     return ops;
+}
+
+int AmsBackendIndx::max_heads_per_filament_op() const {
+    if (!contract_.has_load_filament) {
+        return 1;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    return std::max(sized_tool_count_, 1);
 }
 
 AmsError AmsBackendIndx::do_change_tool(int tool_number) {
@@ -337,44 +346,89 @@ AmsError AmsBackendIndx::do_park_active_tool() {
     return dispatch_operation(indx::park_gcode(), AmsAction::UNLOADING);
 }
 
-AmsError AmsBackendIndx::do_load_filament(int slot_index) {
-    const HeadFilamentOps ops = head_filament_ops(slot_index);
-    SlotInfo slot;
-    std::map<std::string, indx::FilamentPreset> presets;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        AmsError slot_valid = validate_slot_index_locked(slot_index);
-        if (!slot_valid) {
-            return slot_valid;
-        }
-        const std::string blocked = indx::motion_blocked_reason(contract_, state_);
-        if (!blocked.empty()) {
-            return AmsError(AmsResult::WRONG_STATE, "INDX load refused", blocked, "");
-        }
-        if (ops.load != FilamentOpSupport::Automatic) {
-            return AmsError(AmsResult::NOT_SUPPORTED, "INDX load unavailable", ops.load_reason, "");
-        }
-        if (const SlotInfo* lane = system_info_.get_slot_global(slot_index)) {
-            slot = *lane;
-        }
-        // LOAD_FILAMENT picks its tool up first: only the mounted one can be
-        // loaded without swapping nozzles under a paused print.
-        if (slot_index != system_info_.current_slot && print_paused()) {
-            return AmsError(AmsResult::WRONG_STATE, "INDX load of a docked tool while paused",
-                            paused_swap_reason(), "");
-        }
-        presets = state_.presets.value_or(presets);
+AmsError AmsBackendIndx::load_refusal_locked(int slot) const {
+    AmsError slot_valid = validate_slot_index_locked(slot);
+    if (!slot_valid) {
+        return slot_valid;
     }
+    const std::string blocked = indx::motion_blocked_reason(contract_, state_);
+    if (!blocked.empty()) {
+        return AmsError(AmsResult::WRONG_STATE, "INDX load refused", blocked, "");
+    }
+    const HeadFilamentOps ops = head_filament_ops_locked(slot);
+    if (ops.load != FilamentOpSupport::Automatic) {
+        return AmsError(AmsResult::NOT_SUPPORTED, "INDX load unavailable", ops.load_reason, "");
+    }
+    // LOAD_FILAMENT picks its tool up first: only the mounted one can be
+    // loaded without swapping nozzles under a paused print.
+    if (slot != system_info_.current_slot && print_paused()) {
+        return AmsError(AmsResult::WRONG_STATE, "INDX load of a docked tool while paused",
+                        paused_swap_reason(), "");
+    }
+    return AmsErrorHelper::success();
+}
+
+namespace {
+
+/// The LOAD_FILAMENT line for @p slot, by its material's preset or a temperature.
+std::string load_line(int slot_index, const SlotInfo& slot,
+                      const std::map<std::string, indx::FilamentPreset>& presets) {
     const int temp_c =
         helix::ui::resolve_load_preheat_material(slot_index, &slot, nullptr)
             .value_or(helix::ui::PreheatTarget{app_constants::ams::kDefaultLoadPreheatTemp, ""})
             .temp_c;
-    std::string cmd = indx::load_gcode(slot_index, slot.material, temp_c, presets);
-    if (cmd.empty()) {
-        return AmsErrorHelper::invalid_parameter("material '" + slot.material + "'");
+    return indx::load_gcode(slot_index, slot.material, temp_c, presets);
+}
+
+} // namespace
+
+AmsError AmsBackendIndx::do_load_filament(int slot_index) {
+    SlotInfo slot;
+    std::map<std::string, indx::FilamentPreset> presets;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (AmsError refused = load_refusal_locked(slot_index); !refused) {
+            return refused;
+        }
+        if (const SlotInfo* lane = system_info_.get_slot_global(slot_index)) {
+            slot = *lane;
+        }
+        presets = state_.presets.value_or(presets);
     }
+    std::string cmd = load_line(slot_index, slot, presets);
     spdlog::info("{} Loading tool {}: {}", backend_log_tag(), slot_index, cmd);
     return dispatch_operation(std::move(cmd), AmsAction::LOADING);
+}
+
+AmsError AmsBackendIndx::do_filament_batch(const std::vector<int>& slots, bool load) {
+    if (!load) {
+        return AmsError(AmsResult::NOT_SUPPORTED, "INDX batch unload",
+                        lv_tr("Pick up the tool, heat it, and pull the filament out"), "");
+    }
+    if (slots.empty()) {
+        return AmsErrorHelper::invalid_parameter("INDX batch load of no tools");
+    }
+    std::vector<SlotInfo> infos;
+    std::map<std::string, indx::FilamentPreset> presets;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (int slot : slots) {
+            if (AmsError refused = load_refusal_locked(slot); !refused) {
+                return refused;
+            }
+            const SlotInfo* lane = system_info_.get_slot_global(slot);
+            infos.push_back(lane ? *lane : SlotInfo{});
+        }
+        presets = state_.presets.value_or(presets);
+    }
+    std::string script;
+    for (size_t i = 0; i < slots.size(); ++i) {
+        script += (script.empty() ? "" : "\n") + load_line(slots[i], infos[i], presets);
+    }
+    spdlog::info("{} Loading {} tools: {}", backend_log_tag(), slots.size(), script);
+    return dispatch_operation(std::move(script), AmsAction::LOADING,
+                              static_cast<uint32_t>(slots.size()) *
+                                  IMoonrakerAPI::kAmsOperationTimeoutMs);
 }
 
 // ============================================================================

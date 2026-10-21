@@ -75,10 +75,9 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     [[nodiscard]] bool unload_is_manual() const override {
         return true;
     }
-    /// Each LOAD_FILAMENT leaves its tool mounted and hot.
-    [[nodiscard]] int max_heads_per_filament_op() const override {
-        return 1;
-    }
+    /// Every tool in one Load: one LOAD_FILAMENT per tool, in order. Each
+    /// leaves its tool mounted and hot, so the last one stays on the head.
+    [[nodiscard]] int max_heads_per_filament_op() const override;
 
     [[nodiscard]] const char* get_klipper_object_name() const override {
         return "indx";
@@ -111,6 +110,8 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     AmsError do_change_tool(int tool_number) override;
     AmsError do_park_active_tool() override;
     AmsError do_load_filament(int slot_index) override;
+    /// Load only: unload is by hand. One ineligible tool refuses the batch.
+    AmsError do_filament_batch(const std::vector<int>& slots, bool load) override;
     AmsError do_execute_device_action(const std::string& action_id, const std::any& value) override;
     /// The tool cycle and the calibrations report when the printer finishes
     /// them; every other action is the untracked one.
@@ -120,6 +121,13 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     /// The nozzle heater's target in C; 0 without a printer. Virtual so tests
     /// can heat without one.
     [[nodiscard]] virtual double nozzle_target_c() const;
+
+    /// head_filament_ops() with mutex_ held by the caller.
+    [[nodiscard]] HeadFilamentOps head_filament_ops_locked(int head) const;
+
+    /// Why @p slot may not be loaded now, or success: the checks a single
+    /// load and every tool of a batch share. Caller holds mutex_.
+    [[nodiscard]] AmsError load_refusal_locked(int slot) const;
 
     /// Fold the offsets @p status carries into the held ones; true when one
     /// changed. Caller holds mutex_.

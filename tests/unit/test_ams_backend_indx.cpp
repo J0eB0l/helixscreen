@@ -523,9 +523,14 @@ class RecordingIndx : public AmsBackendIndx {
             json{{"method", "notify_status_update"}, {"params", json::array({status, 0.0})}});
     }
 
+    bool paused = false;
+
   protected:
     [[nodiscard]] double nozzle_target_c() const override {
         return 0.0;
+    }
+    [[nodiscard]] bool print_paused() const override {
+        return paused;
     }
 };
 
@@ -617,4 +622,85 @@ TEST_CASE_METHOD(IndxFixture,
 
     b.feed(json{{"save_variables", {{"variables", {{"seat_suspect", -1}}}}}});
     CHECK_FALSE(b.current_error().has_value());
+}
+
+// ============================================================================
+// Batch Load
+// ============================================================================
+
+namespace {
+
+/// A registered INDX on a recording API with 4 tools, presets for PLA and
+/// PETG, PLA on slot 0 and PETG on slot 2.
+struct BatchRig {
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    helix::PrinterState state;
+    test::GcodeRecordingApi api{client, state};
+    test::RegisteredBackend<RecordingIndx> harness{&api, &client};
+    RecordingIndx& b = *harness;
+
+    explicit BatchRig(const json& objects) {
+        b.set_discovery(discover(objects));
+        b.feed(json{{"save_variables", {{"variables", {{"active_tool", -1}}}}},
+                    {"gcode_macro LOAD_FILAMENT",
+                     {{"filament_presets",
+                       {{"PLA", {{"temp", 210}, {"density", 1.24}, {"hc", 1.8}}},
+                        {"PETG", {{"temp", 240}, {"density", 1.27}, {"hc", 1.3}}}}}}}});
+        set_material(0, "PLA");
+        set_material(2, "PETG");
+    }
+    void set_material(int slot, const char* material) {
+        SlotInfo info = b.get_slot_info(slot);
+        info.material = material;
+        REQUIRE(test::apply_edit(b, slot, info).success());
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(IndxFixture, "INDX batch: one LOAD_FILAMENT per tool, in order",
+                 "[ams][indx][batch]") {
+    BatchRig rig(indx_objects());
+    CHECK(rig.b.max_heads_per_filament_op() == 4);
+    REQUIRE(rig.b.load_filament_batch({2, 0}).success());
+    REQUIRE(rig.api.sent.size() == 1);
+    CHECK(rig.api.sent[0] == "LOAD_FILAMENT TOOL=2 TYPE=PETG\nLOAD_FILAMENT TOOL=0 TYPE=PLA");
+    CHECK(rig.api.timeouts[0] == 2 * IMoonrakerAPI::kAmsOperationTimeoutMs);
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX batch: one ineligible tool refuses the whole batch",
+                 "[ams][indx][batch]") {
+    BatchRig rig(indx_objects());
+    rig.b.feed(json{{"gcode_macro TOOL_POSITIONS", {{"no_heat_tools", json::array({3})}}}});
+    const AmsError no_heat = rig.b.load_filament_batch({0, 3});
+    CHECK_FALSE(no_heat.success());
+    CHECK_THAT(no_heat.user_msg, Catch::Matchers::ContainsSubstring("no hotend"));
+    CHECK(rig.api.sent.empty());
+
+    rig.b.feed(json{{"save_variables", {{"variables", {{"seat_suspect", 1}}}}}});
+    CHECK_FALSE(rig.b.load_filament_batch({0}).success());
+    CHECK(rig.api.sent.empty());
+
+    rig.b.feed(
+        json{{"save_variables", {{"variables", {{"seat_suspect", -1}, {"active_tool", 1}}}}}});
+    rig.b.paused = true;
+    const AmsError docked = rig.b.load_filament_batch({1, 2});
+    CHECK_FALSE(docked.success());
+    CHECK_THAT(docked.user_msg, Catch::Matchers::ContainsSubstring("different nozzle"));
+    CHECK(rig.api.sent.empty());
+    REQUIRE(rig.b.load_filament_batch({1}).success());
+    REQUIRE(rig.api.sent.size() == 1);
+    CHECK(rig.api.sent[0].rfind("LOAD_FILAMENT TOOL=1 ", 0) == 0);
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX batch: unload is not a batch", "[ams][indx][batch]") {
+    BatchRig rig(indx_objects());
+    CHECK_FALSE(rig.b.unload_filament_batch({0}).success());
+    CHECK(rig.api.sent.empty());
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX batch: no LOAD_FILAMENT, no batch", "[ams][indx][batch]") {
+    IndxHelper b;
+    b.set_discovery(discover(without(indx_objects(), "gcode_macro LOAD_FILAMENT")));
+    CHECK(b.max_heads_per_filament_op() == 1);
 }
