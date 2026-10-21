@@ -82,3 +82,75 @@ TEST_CASE_METHOD(LVGLUITestFixture, "spool_canvas: a small spool keeps a solid f
 
     CHECK(grey(px(canvas, 18, 7)));
 }
+
+// The front view looks at the spool face-on, scaled so its flange fills the
+// canvas: an 80 px spool's flange has radius 39 and the vent geometry's size
+// is 39 / 0.42. The top slot's centre is near (40, 17), (67, 40) is flange
+// between the 0 degree neighbours, (19, 28) the upper-left slot and (60, 51)
+// the lower-right one.
+namespace {
+constexpr int32_t kFrontSlotX = 40;
+constexpr int32_t kFrontSlotY = 17;
+constexpr int32_t kFrontWebX = 67;
+constexpr int32_t kFrontWebY = 40;
+
+lv_obj_t* front_spool(lv_obj_t* parent, float fill) {
+    lv_obj_t* canvas = ui_spool_canvas_create(parent, kSpool);
+    REQUIRE(canvas != nullptr);
+    helix::ui::spool_canvas_set_view(canvas, helix::ui::SpoolView::Front);
+    REQUIRE(helix::ui::spool_canvas_get_view(canvas) == helix::ui::SpoolView::Front);
+    ui_spool_canvas_set_fill_level(canvas, fill);
+    return canvas;
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "spool_canvas: the front view smokes the flange over the filament",
+                 "[spool_canvas][spool_vents]") {
+    lv_obj_t* canvas = front_spool(test_screen(), 1.0f);
+    ui_spool_canvas_set_color(canvas, lv_color_hex(0xD02020));
+
+    const lv_color32_t slot = px(canvas, kFrontSlotX, kFrontSlotY);
+    const lv_color32_t smoke = px(canvas, kFrontWebX, kFrontWebY);
+    CHECK(reddish(slot));
+    CHECK(smoke.red > smoke.green + 15); // the filament reads through the smoke
+    CHECK(slot.red > smoke.red);         // and reads clearest through a slot
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "spool_canvas: the front view's slots go dark past the filament",
+                 "[spool_canvas][spool_vents]") {
+    lv_obj_t* canvas = front_spool(test_screen(), 0.1f);
+    ui_spool_canvas_set_color(canvas, lv_color_hex(0xD02020));
+
+    CHECK(grey(px(canvas, kFrontSlotX, kFrontSlotY)));
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "spool_canvas: a front view keeps the multi-colour split",
+                 "[spool_canvas][spool_vents]") {
+    lv_obj_t* canvas = front_spool(test_screen(), 1.0f);
+    helix::ui::spool_canvas_set_filament(canvas, 0xFF0000, "#FF0000,#0000FF",
+                                         helix::ui::SwatchFinish::Plain);
+
+    const lv_color32_t upper_left = px(canvas, 19, 28);
+    const lv_color32_t lower_right = px(canvas, 60, 51);
+    CHECK(upper_left.red > upper_left.blue + 40);
+    CHECK(lower_right.blue > lower_right.red + 40);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "spool_canvas: the view is part of the rendered spool",
+                 "[spool_canvas][spool_vents]") {
+    // Same size, colour and fill: a side render cached first must not be
+    // served to the front view.
+    lv_obj_t* side = ui_spool_canvas_create(test_screen(), kSpool);
+    REQUIRE(side != nullptr);
+    ui_spool_canvas_set_fill_level(side, 1.0f);
+    ui_spool_canvas_set_color(side, lv_color_hex(0xD02020));
+
+    lv_obj_t* front = front_spool(test_screen(), 1.0f);
+    ui_spool_canvas_set_color(front, lv_color_hex(0xD02020));
+
+    // (67, 40) is solid flange from the side and smoked filament face-on.
+    CHECK(grey(px(side, kFrontWebX, kFrontWebY)));
+    CHECK_FALSE(grey(px(front, kFrontWebX, kFrontWebY)));
+}

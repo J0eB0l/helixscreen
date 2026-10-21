@@ -81,6 +81,17 @@ void spool_canvas_set_filament(lv_obj_t* canvas, uint32_t rgb, const std::string
 /// spool_canvas_set_filament() from a slot's colour, multi-colour list and finish.
 void spool_canvas_set_filament(lv_obj_t* canvas, const SlotInfo& slot);
 
+/// Which way a spool canvas looks at its spool: from the side (the pseudo-3D
+/// drum between two flanges) or face-on (the vented front flange over the
+/// wound filament).
+enum class SpoolView : uint8_t { Side, Front };
+
+/// Look at @p canvas's spool from @p view; redraws when it changes.
+void spool_canvas_set_view(lv_obj_t* canvas, SpoolView view);
+
+/// The view @p canvas draws.
+SpoolView spool_canvas_get_view(lv_obj_t* canvas);
+
 /**
  * @brief Create a glow layer: an image the caller places behind a spool,
  *        centered on it and sized like it.
