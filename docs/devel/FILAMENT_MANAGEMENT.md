@@ -3045,6 +3045,36 @@ and are registered by `register_cfs_device_flows()` at startup, before any overl
 (`Application::register_xml_components()`, and the ESP32 `app_boot.cpp` boot path). A new
 vendor flow is one new file plus one `guided_flow` string on its backend's action.
 
+#### Tracked device actions
+
+`AmsBackend::run_device_action(id, value, on_done)` is `execute_device_action()` for an action
+that runs for minutes on the printer: the return says whether it was sent, `on_done` how it
+ended, once, on the main thread. `AmsSubscriptionBackend` runs both through one gate,
+`device_action_refusal()` (not listed, listed disabled, moving the machine while a print holds
+it), so a backend cannot skip it. The default `do_run_device_action()` reports success as soon
+as `do_execute_device_action()` sends; a backend overrides it to answer from the macro's own rpc
+(`src/printer/ams_backend_indx.cpp#do_run_device_action`, which reports a
+Moonraker timeout as `AmsResult::TIMEOUT` so the flow can say the printer may still be at it).
+`DeviceAction::info()` is the read-only row: its value is a `std::string`, shown as is.
+
+#### Recovery actions that ask first
+
+A `RecoveryAction` with a non-empty `confirm_message` is not sent on the tap:
+`src/ui/recovery_modal_presenter.cpp#on_recovery_tapped` opens a confirm
+titled with the action's label, and only its primary button continues to the hot-nozzle check
+and the send. Cancel and a dismissal send nothing; the fault stays handled either way, so it
+does not re-present. For a recovery the user does with their hands (holding a tool while a latch
+opens).
+
+#### Edit follow-ups
+
+After a slot edit commits, `helix::ui::offer_edit_follow_up()` (`src/ui/ui_ams_edit_follow_up.cpp`)
+asks the backend's `edit_follow_up(slot, before, after)` whether the edit implies printer state
+it did not write, and offers it as a confirm; yes runs `run_edit_follow_up(slot, after)`, which
+`AmsSubscriptionBackend` refuses while a print holds the printer, paused included. Every
+`commit_slot_edit()` call site calls it on success or a partial apply. The default offers
+nothing. INDX offers its heater-model update after a material edit.
+
 #### Unavailable operations explain themselves
 
 `AmsBackend::unload_blocked_reason(slot)` and `eject_unavailable_reason(slot)` return a

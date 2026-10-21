@@ -33,7 +33,9 @@ contract. Nothing outside these two tables is read or sent.
 | Tool on the head | `save_variables.variables.active_tool` | `0..N-1`, `-1` empty head. Absent until `INIT_STATE` runs: no news, not "empty" |
 | Half-seated fault | `save_variables.variables.seat_suspect` | `>= 0` names a tool that may be half on the head; changes, parks and `G28 Z` refuse until `MANUAL_TOOL_REMOVE` / `MANUAL_TOOL_SEAT` clear it |
 | Toolchange count | `save_variables.variables.toolchange_count` | Diagnostic |
-| Latch, speed mode | `gcode_macro _TOOLCHANGE_VARS.toolhead_state` / `.mode` | `0` locked, `2` open; diagnostic |
+| Latch | `gcode_macro _TOOLCHANGE_VARS.toolhead_state` | `0` locked, `2` open; diagnostic |
+| Speed mode | `gcode_macro _TOOLCHANGE_VARS.mode` | `stealth`, `normal`, `sport` in any case; any other value selects nothing in the Speed dropdown |
+| Tool offsets | `save_variables.variables.t<n>_offset_x\|y\|z`, `.global_z_offset` | Millimeters, written by INDX's own calibration. Read-only here (the `INDX save_variables` row of `src/printer/tool_offsets.cpp`): absence is no news, never zero |
 | Tool count | `gcode_macro TOOL_POSITIONS.tool_count` | Slot count. `indx::config_tool_count()` also reads `variable_tool_count` from the macro's config (`CachedMacroInfo::variables`) so the slots exist before the first frame. An `active_tool` past the count is treated as unknown |
 | Tools with no hotend | `gcode_macro TOOL_POSITIONS.no_heat_tools` | A pen or cutter: never heated, no filament ops |
 | Docks measured | `gcode_macro TOOL_POSITIONS.docks_calibrated` | `False` refuses every change and park |
@@ -50,6 +52,17 @@ Status keys are matched case-insensitively and subscribed under the configured c
 | `T<n>` when `gcode_macro T<n>` exists, else `CHANGE_TOOL TOOL=<n>` | Change tool. `T<n>` runs a user's wrapper exactly as a slicer change does. The macro homes an unhomed printer, turns the coil off before docking and `M109`s the new tool to the outgoing target |
 | `PARK_TOOL` | Park, leaving the head empty |
 | `LOAD_FILAMENT TOOL=<n> TYPE=<preset>`, or `TEMP=<c>` when the material names no preset (`helix::match_material`: case, then filament family) or is unsafe on a gcode line | Load: picks the tool up, sets the heater's filament model, heats, feeds and primes. Leaves the tool mounted and hot |
+| The same, one line per tool, as one script | Batch Load, in the order chosen; the last tool stays mounted and hot. The rpc timeout is one operation's per tool |
+| `MODE_STEALTH`, `MODE_NORMAL`, `MODE_SPORT` | Speed dropdown |
+| `TC_CYCLE_ALL` | Cycle every tool: each is picked up and parked; the head ends empty |
+| `MANUAL_TOOL_SEAT TOOL=<n>` | Seat a tool held on the head by hand (seat-fault recovery, and seat by hand for a first Z home) |
+| `MANUAL_TOOL_REMOVE` | Open the latch so the half-seated tool can be taken off (seat-fault recovery) |
+| `INDX_CALIBRATE`, `INDX_FAN_CALIBRATE` | The heater and part-fan fits. `[indx]` module commands with no `desc=`, so they cannot be probed and are offered whenever the contract is recognized |
+| `SET_TOOL_FILAMENT TOOL=<n> DENSITY=<d> HEAT_CAPACITY=<hc>` | The heater-model update offered after a material edit |
+| `SAVE_CONFIG` | After a calibration, through `helix::ui::SaveConfigWatch` only |
+
+Optional macros are used only when listed: `MODE_*` (all three), `TC_CYCLE_ALL`,
+`MANUAL_TOOL_SEAT` with `MANUAL_TOOL_REMOVE`, `SET_TOOL_FILAMENT` (`indx::Contract::has_*`).
 
 ### Recognized, or not
 
@@ -110,8 +123,47 @@ Every tool prints through the one `extruder`, so the backend answers
 | Unload | Manual: "Pick up the tool, heat it, and pull the filament out". Upstream has no unload macro |
 | Change, park | `T<n>` / `CHANGE_TOOL`, `PARK_TOOL`; refused on an unrecognized contract, a half-seated tool, uncalibrated docks, or a paused print (resuming would print with another nozzle). Loading the mounted tool while paused is allowed; loading a docked one is a swap and is refused |
 
-A half-seated tool shows as an error with the macro's own instructions and no recovery
-buttons: `MANUAL_TOOL_REMOVE` opens the latch, so a tool can drop.
+Batch Load sends one `LOAD_FILAMENT` per tool when the macro exists
+(`max_heads_per_filament_op()` is the tool count). Every tool passes the single Load's checks
+first (`AmsBackendIndx::load_refusal_locked`): one refusal, a no-hotend tool or a docked tool
+under a paused print, refuses the whole batch, naming the reason, and nothing is sent. Unload
+is never a batch.
+
+A half-seated tool shows as an error with the macro's own instructions. With the `MANUAL_*`
+macros it carries two recovery buttons, each behind a confirm
+(`RecoveryAction::confirm_message`, see FILAMENT_MANAGEMENT.md): **Tool is seated** sends
+`MANUAL_TOOL_SEAT TOOL=<n>` ("Hold Tool 3 (T2) fully on the head..."), **Remove tool** sends
+`MANUAL_TOOL_REMOVE` ("The latch opens and Tool 3 (T2) can drop. Hold it..."). Without them the
+dialog has no buttons.
+
+## Device actions
+
+Four sections on the device operations overlay, each listed only when it holds an action, and
+nothing at all on an unrecognized contract:
+
+| Section | Actions | Gates |
+|---|---|---|
+| Speed | Tool change speed dropdown (`MODE_*`) | Any time, printing included. An unknown `mode` selects nothing and sends nothing |
+| Calibration | Calibrate heater, Calibrate part fan (guided flows), Seat a tool by hand | Calibrations move the machine (refused printing or paused) and need a mounted tool with a hotend; the heater fit also a nozzle target of 0 ("Turn the nozzle heater off first"). Seat by hand is never greyed by a seat fault, uncalibrated docks or an empty head: it is how those get unstuck |
+| Maintenance | Cycle every tool (guided flow) | Refused printing or paused; greyed by a seat fault or uncalibrated docks |
+| Tool Offsets | One read-only row per tool ("X 0.120  Y -0.045  Z 0.030 mm", an unknown axis `-`), and the global Z offset | None |
+
+The flows live in `src/ui/ui_indx_device_flows.cpp`: each asks first, then runs through
+`run_device_action()` and keeps one status line under the section's buttons
+(`ui_xml/components/indx_flow_status.xml`) from "Calibrating..." to the result. A calibration
+that succeeds offers **Save & Restart** / **Later**; one that times out says the printer may
+still be calibrating and offers no save.
+
+The Tool Offsets entry (Controls calibration tile, Advanced row, printer manager chip) opens
+the seat-by-hand flow on an INDX with `MANUAL_TOOL_SEAT`
+(`src/printer/tool_offset_calibration.cpp#guided_flow`): pick the tool you are holding, confirm,
+`MANUAL_TOOL_SEAT`. The Advanced row's description comes from `entry_description()`.
+
+After a material edit on the mounted tool, or with the head empty, a material that names a
+different preset offers **Update heater model?**, which sends `SET_TOOL_FILAMENT`. Never while
+printing, never for a no-hotend tool, never for a docked tool while another is mounted:
+`SET_TOOL_FILAMENT` loads the values into the live heater model, which belongs to the mounted
+tool.
 
 ## Spoolman
 
@@ -125,7 +177,10 @@ a macro set that does keeps it.
 `HELIX_MOCK_AMS=indx` is mock hardware with the real backend (it implies `--real-ams`). The
 mock publishes the objects and macro state above, only when they change; a change publishes
 its park and its pickup before the gcode acks, as the real macro does; heat is refused with no
-tool on the head or on a no-hotend tool, so a missing gate shows as a target that never moves. Knobs in
+tool on the head or on a no-hotend tool, so a missing gate shows as a target that never moves.
+It lists the phase-3 macros, publishes `mode` and per-tool offsets, and answers
+`INDX_CALIBRATE`, `INDX_FAN_CALIBRATE` and `TC_CYCLE_ALL` a sim-speed-scaled minute later, so
+the status line is visible at `--sim-speed 6`. Knobs in
 `docs/devel/MOCK_ENVIRONMENT_VARIABLES.md`.
 
 ## Not yet hardware-verified
