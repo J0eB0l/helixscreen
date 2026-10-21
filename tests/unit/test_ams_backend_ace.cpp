@@ -3609,6 +3609,27 @@ TEST_CASE("ACE slot actions keep slot 0 on single-hub drivers with nothing loade
     CHECK(run_slot_actions(b).front() == "ACE_FEED INDEX=0 LENGTH=50 SPEED=50");
 }
 
+// A slotless ace_instance_N delta (a notify frame that beat the bootstrap
+// answer onto a REST rig) says nothing about slots, so it must not move the
+// backend onto the object path, where a slot with no published tool refuses a
+// load, nor write the unit the REST bridge owns.
+TEST_CASE("ACE slotless instance delta leaves a REST rig on the REST path", "[ams][ace][kobra]") {
+    AmsBackendAceTestHelper b;
+    b.set_running(true);
+    present_driver_surface(b, "rest+ace_manager");
+    b.test_handle_status_update(
+        status_notification("ace_instance_0", json{{"status", "loading"}, {"temp", 44}}));
+
+    CHECK(b.get_test_system_info().action == AmsAction::IDLE);
+    b.captured_gcodes.clear();
+    REQUIRE(b.start_drying(50.0f, 60, -1, 0).success());
+    CHECK(b.captured_gcodes.back() == "ACE_START_DRYING INSTANCE=0 TEMP=50 DURATION=60");
+    b.captured_gcodes.clear();
+    REQUIRE(b.load_filament(1).success());
+    REQUIRE_FALSE(b.captured_gcodes.empty());
+    CHECK(b.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=1");
+}
+
 // The REST bridge serves one unit: the instance its /status names in
 // instance_index, which it picks from current_index when asked for none. Slot
 // and dryer commands address that instance; a dryer command without INSTANCE=

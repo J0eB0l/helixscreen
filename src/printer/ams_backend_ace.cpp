@@ -56,6 +56,13 @@ static constexpr int kMaxInfoFetchFailures = 3;
 
 namespace {
 
+/// Whether a status object carries real slot data: a non-empty `slots` array,
+/// the exact key parse_ace_object reads.
+bool object_carries_slots(const json& obj) {
+    return obj.is_object() && obj.contains("slots") && obj["slots"].is_array() &&
+           !obj["slots"].empty();
+}
+
 /// What every ACEPRO unit's Klipper object is named, before its number.
 constexpr std::string_view kAceInstancePrefix = "ace_instance_";
 
@@ -323,13 +330,25 @@ void AmsBackendAce::handle_status(const json& status_obj) {
         return;
 
     if (!instances.empty()) {
+        // Only an instance that carries slots (or the bootstrap's pick) puts
+        // the backend on the object path. A slotless delta on a rig the REST
+        // bridge serves says nothing about slots, and parsing it would write
+        // the unit the bridge owns.
+        const bool carries_slots =
+            std::any_of(instances.begin(), instances.end(), [](const auto& instance) {
+                return object_carries_slots(*instance.second);
+            });
+        bool object_path = false;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            instance_objects_ = true;
             instance_commands_ = true;
+            instance_objects_ = instance_objects_ || carries_slots;
+            object_path = instance_objects_;
         }
-        for (const auto& [unit, instance] : instances) {
-            parse_ace_object(*instance, unit);
+        if (object_path) {
+            for (const auto& [unit, instance] : instances) {
+                parse_ace_object(*instance, unit);
+            }
         }
     }
     if (ace_data) {
@@ -1647,8 +1666,7 @@ const json* AmsBackendAce::select_ace_object(const json& status, std::string* ma
         if (!obj.is_object() || obj.empty() || &obj == skip) {
             return false;
         }
-        return !require_slots ||
-               (obj.contains("slots") && obj["slots"].is_array() && !obj["slots"].empty());
+        return !require_slots || object_carries_slots(obj);
     };
 
     // Preference order: filament_hub (native GoKlipper), then ace (community
