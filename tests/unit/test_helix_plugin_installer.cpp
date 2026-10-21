@@ -485,6 +485,12 @@ TEST_CASE("restart_moonraker_for_plugin reads install.sh --restart-moonraker's e
         sandbox.write_script("exec sleep 30");
         CHECK(helix::restart_moonraker_for_plugin(script, 1) == Outcome::TimedOut);
     }
+    SECTION("a script that ignores SIGTERM is still killed so the call returns") {
+        sandbox.write_script("trap '' TERM\nwhile :; do sleep 1; done");
+        const auto started = std::chrono::steady_clock::now();
+        CHECK(helix::restart_moonraker_for_plugin(script, 1) == Outcome::TimedOut);
+        CHECK(std::chrono::steady_clock::now() - started < std::chrono::seconds(10));
+    }
     SECTION("an inherited HELIX_JOB_STATE never reaches the script, which asks Moonraker") {
         helix::ScopedEnv inherited("HELIX_JOB_STATE", "idle");
         sandbox.write_script("[ -z \"${HELIX_JOB_STATE+set}\" ] && exit 0\nexit 9");

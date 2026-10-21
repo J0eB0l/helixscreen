@@ -73,17 +73,17 @@ helix::ui::UpdateQueue::instance().drain();
 
 The test binary builds its display with a bare `lv_display_create()`. No driver, so nothing
 ever calls `lv_tick_set_cb()` and `lv_tick_get()` returns exactly what `lv_tick_inc()` has
-been fed. `process_lvgl()` is the thing feeding it, and it barely sleeps: 1ms of real time per
-5ms step, and **zero** below `ms <= 50`, which skips the sleep entirely.
+been fed. `process_lvgl()` is the thing feeding it, and it never sleeps: the only real time it
+takes is the CPU its timers use.
 
 So a loop that counts nominal milliseconds toward a timeout is not waiting for anything:
 
 ```cpp
 int waited = 0;
-while (!done && waited < 120000) { process_lvgl(100); waited += 100; }   // ← 24s, at best
+while (!done && waited < 120000) { process_lvgl(100); waited += 100; }   // ← milliseconds
 ```
 
-That burns a two-minute budget in seconds and never meaningfully yields to the thread it is
+That burns a two-minute budget at once and never yields to the thread it is
 watching. The symptom is baffling rather than obvious: the test runs on past the assertion,
 the fixture destructor tears down the screen, and teardown effects appear to happen mid-test.
 

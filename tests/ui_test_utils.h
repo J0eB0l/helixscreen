@@ -288,12 +288,20 @@ bool type_text(lv_obj_t* textarea, const std::string& text);
 bool send_key(uint32_t key);
 
 /**
+ * @brief Advance LVGL's VIRTUAL clock by @p ms in 5ms steps, pumping timers
+ *
+ * Never sleeps: no real time passes beyond the CPU the timers take, so another
+ * thread gets no time slice from it. The input helpers above use it, as does
+ * LVGLTestFixture::process_lvgl().
+ */
+void advance_ms(uint32_t ms);
+
+/**
  * @brief Wait @p ms of REAL time, pumping LVGL and advancing its clock in step
  *
  * Sleeps in 5ms slices, advancing the virtual tick by 5ms per slice and running
- * lv_timer_handler_safe(). Real and virtual time therefore track each other —
- * unlike LVGLTestFixture::process_lvgl(), which advances virtual time only and
- * returns in a fraction of the nominal duration.
+ * lv_timer_handler_safe(). Real and virtual time therefore track each other,
+ * unlike advance_ms().
  */
 void wait_ms(uint32_t ms);
 
