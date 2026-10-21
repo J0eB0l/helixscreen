@@ -8,6 +8,7 @@
 #include "../test_helpers/plugin_test_support.h"
 #include "lua_bindings.h"
 #include "plugin_table.h"
+#include "theme_manager.h"
 
 #include <string>
 #include <vector>
@@ -94,6 +95,8 @@ TEST_CASE_METHOD(LVGLTestFixture, "a plugin table shows its columns and rows",
         CHECK(cell(t, 2, 2) == "180");
         CHECK(cell(t, 3, 2) == ""); // a missing cell reads empty
         CHECK(lv_table_get_column_width(t, 0) == lv_obj_get_content_width(t) / 2);
+        // Rows are measured in the face they are drawn in.
+        CHECK(lv_obj_get_style_text_font(t, LV_PART_ITEMS) == theme_manager_get_font("font_body"));
     }
     CHECK(table_instance_count("test-plugin__tasks") == 2);
 

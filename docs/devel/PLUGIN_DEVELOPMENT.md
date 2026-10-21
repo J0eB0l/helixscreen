@@ -372,8 +372,9 @@ publishes under: every live `plugin_table` with that name shows the same data, a
 created later shows it at once. It defaults to 100% width and height of its parent; set
 `width`, `height` or `flex_grow` like any other child. Cells are padded by `#space_sm`.
 The first row is a header of column titles.
-Colors and fonts come from the theme at draw time (text, muted header text, separators,
-and the selected row in the primary color), so a theme switch is just the next repaint.
+Cells use the theme's body font. Colors come from the theme at draw time (text, muted
+header text, separators, and the selected row in the primary color), so a theme switch is
+just the next repaint.
 A table with no data shows an empty header.
 
 ## 8. The Lua API

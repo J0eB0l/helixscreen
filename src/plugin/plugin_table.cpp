@@ -9,7 +9,6 @@
 #include "helix-xml/src/xml/lv_xml_parser.h"
 #include "helix-xml/src/xml/lv_xml_widget.h"
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
-#include "plugin_canvas.h"
 #include "theme_manager.h"
 
 #include <algorithm>
@@ -130,7 +129,7 @@ void table_on_value_changed(lv_event_t* e) {
         fn(key);
 }
 
-// Colors and fonts resolve here, on every draw, so a theme switch is the next repaint.
+// Colors resolve here, on every draw, so a theme switch is the next repaint.
 void table_on_draw_task(lv_event_t* e) {
     lv_draw_task_t* task = lv_event_get_draw_task(e);
     auto* base = static_cast<lv_draw_dsc_base_t*>(lv_draw_task_get_draw_dsc(task));
@@ -144,8 +143,6 @@ void table_on_draw_task(lv_event_t* e) {
     case LV_DRAW_TASK_TYPE_LABEL: {
         auto* d = lv_draw_task_get_label_dsc(task);
         d->color = theme_manager_get_color(row == 0 ? "text_muted" : "text");
-        if (const lv_font_t* f = canvas_resolve_font(row == 0 ? "body_bold" : "body"))
-            d->font = f;
         break;
     }
     case LV_DRAW_TASK_TYPE_FILL: {
@@ -186,7 +183,8 @@ void* table_xml_create(lv_xml_parser_state_t* state, const char** attrs) {
             name_attr = attrs[i + 1];
     }
 
-    // Geometry only: every color and font comes from the draw-task hook.
+    // Geometry and the cell face only: every color comes from the draw-task hook. The face
+    // is a style because lv_table measures each row in it, header included.
     lv_obj_t* obj = lv_table_create(parent);
     lv_obj_set_size(obj, lv_pct(100), lv_pct(100));
     lv_obj_set_style_bg_opa(obj, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -195,6 +193,7 @@ void* table_xml_create(lv_xml_parser_state_t* state, const char** attrs) {
     lv_obj_set_style_radius(obj, 0, LV_PART_MAIN);
     const int32_t pad = theme_manager_get_spacing("space_sm");
     lv_obj_set_style_pad_all(obj, pad, LV_PART_ITEMS);
+    lv_obj_set_style_text_font(obj, theme_manager_get_font("font_body"), LV_PART_ITEMS);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, LV_PART_ITEMS);
     lv_obj_set_style_border_width(obj, 1, LV_PART_ITEMS);
     lv_obj_set_style_border_side(obj, LV_BORDER_SIDE_BOTTOM, LV_PART_ITEMS);
