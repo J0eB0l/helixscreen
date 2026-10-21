@@ -963,6 +963,7 @@
   <translation tag="Disable Motors?" fr="Désactiver les moteurs ?"/>
   <translation tag="Disable the security PIN" fr="Désactiver le PIN de sécurité"/>
   <translation tag="Disabling motors..." fr="Désactivation des moteurs..."/>
+  <translation tag="Disarmed" fr="Désarmé"/>
   <translation tag="Discard" fr="Abandonner"/>
   <translation tag="Discard Changes?" fr="Abandonner les modifications ?"/>
   <translation tag="Disconnected" fr="Déconnecté"/>
@@ -2816,9 +2817,9 @@
   <translation tag="Requires Moonraker power device" fr="Nécessite un périphérique d&apos;alimentation Moonraker"/>
   <translation tag="Requires Moonraker-Timelapse plugin" fr="Nécessite le plugin Moonraker-Timelapse"/>
   <translation tag="Requires Multi-Filament System or MMU hardware" fr="Nécessite un système multi-filament ou du matériel MMU"/>
+  <translation tag="Requires a clog detector or filament motion sensor" fr="Nécessite un détecteur de bourrage ou un capteur de mouvement du filament"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" fr="Nécessite un capteur de pression de filament ou un retour de synchronisation"/>
   <translation tag="Requires a filament system with bypass" fr="Nécessite un système de filament avec bypass"/>
-  <translation tag="Requires clog detection hardware" fr="Nécessite du matériel de détection de bourrage"/>
   <translation tag="Resend write failed at chunk {}" fr="Échec du renvoi de l&apos;écriture au bloc {}"/>
   <translation tag="Reset" fr="Réinitialiser"/>
   <translation tag="Reset Blade Counter" fr="Réinitialiser le compteur de lame"/>

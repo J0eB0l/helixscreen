@@ -47,6 +47,7 @@
 #include "test_helpers/ams_state_test_access.h"
 #include "test_helpers/config_test_access.h"
 #include "test_helpers/emergency_stop_test_access.h"
+#include "test_helpers/filament_sensor_manager_test_access.h"
 #include "test_helpers/layout_manager_test_access.h"
 #include "test_helpers/print_control_buttons_test_access.h"
 #include "test_helpers/printer_state_test_access.h"
@@ -702,6 +703,12 @@ void HelixTestFixture::reset_all() {
     // observer-lifetime trap that keeps PrinterStateTestAccess::reset() out of
     // this function. discover({}) clears the sensor list and touches no subject.
     helix::sensors::TemperatureSensorManager::instance().discover({});
+
+    // FilamentSensorManager's sensor list has the same lack of a lifetime hook,
+    // and discover({}) keeps missing sensors for a reconnect, so it cannot
+    // clear it. A motion sensor left enabled turns the clog meter on for every
+    // later test that syncs a snapshot with no backend detector.
+    helix::FilamentSensorManagerTestAccess::clear_sensors(helix::FilamentSensorManager::instance());
 
     // NOTE: NavigationManager has no public reset API (clear_overlay_stack is
     // private; shutdown() is a one-way teardown for app exit). Add a reset

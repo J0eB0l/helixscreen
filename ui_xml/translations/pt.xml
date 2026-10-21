@@ -963,6 +963,7 @@
   <translation tag="Disable Motors?" pt="Desligar Motores?"/>
   <translation tag="Disable the security PIN" pt="Desabilitar o PIN de segurança"/>
   <translation tag="Disabling motors..." pt="Desativando motores..."/>
+  <translation tag="Disarmed" pt="Desarmado"/>
   <translation tag="Discard" pt="Descartar"/>
   <translation tag="Discard Changes?" pt="Descartar Alterações?"/>
   <translation tag="Disconnected" pt="Desconectado"/>
@@ -2816,9 +2817,9 @@
   <translation tag="Requires Moonraker power device" pt="Requer um dispositivo de energia do Moonraker"/>
   <translation tag="Requires Moonraker-Timelapse plugin" pt="Requer plugin Moonraker-Timelapse"/>
   <translation tag="Requires Multi-Filament System or MMU hardware" pt="Requer sistema multi-filamento ou hardware MMU"/>
+  <translation tag="Requires a clog detector or filament motion sensor" pt="Requer um detector de entupimento ou um sensor de movimento de filamento"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" pt="Requer um sensor de pressão de filamento ou feedback de sincronização"/>
   <translation tag="Requires a filament system with bypass" pt="Requer um sistema de filamento com bypass"/>
-  <translation tag="Requires clog detection hardware" pt="Requer hardware de detecção de entupimento"/>
   <translation tag="Resend write failed at chunk {}" pt="Falha ao reenviar a escrita no fragmento {}"/>
   <translation tag="Reset" pt="Resetar"/>
   <translation tag="Reset Blade Counter" pt="Resetar o contador de lâmina"/>

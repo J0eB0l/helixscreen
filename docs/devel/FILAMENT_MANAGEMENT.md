@@ -1623,13 +1623,30 @@ Per-slot error indicators and per-unit error badges, driven by `SlotInfo.error` 
 
 ### Clog / flow meter
 
-Three sources (encoder, Flowguard, AFC buffer) feed one set of `clog_meter_*`
+Three backend sources (encoder, Flowguard, AFC buffer) feed one set of `clog_meter_*`
 subjects, derived in `AmsState::sync_clog_meter_from_info()`
 (`src/printer/ams_state_clog.cpp`). Source precedence is **flowguard > encoder > AFC
 buffer** (then the legacy `clog_detection` flag), overridable per widget via
 `set_source_override()` (0 auto, 1 encoder, 2 flowguard, 3 AFC). A buffer's
 position is not clog detection and never reaches these subjects; see
 [Filament buffer reading](#filament-buffer-reading).
+
+**Last: a plain Klipper `filament_motion_sensor`** (`ClogMeterMode::Motion`, #1823),
+used only when the backend reports none of the three, whatever the override says,
+so it also covers printers with no AMS at all. `FilamentSensorManager::clog_motion_sensor()`
+picks it among the motion sensors Settings > Filament sensors lists and has enabled (AMS-owned
+sensors, `PrinterHardware::is_ams_sensor()`, are excluded): the one on
+the active lane, else the first armed one reporting no movement (the worst reading: an
+idle encoder keeps reading detected), else the first one Klipper has armed, else the first. It is a state,
+not a gauge (`motion_sensor_value()` -> `kMotion*Value`): moving is OK with an empty fill,
+a jam is the warning flag with a full fill, and a sensor Klipper has disarmed reads
+`ClogMeterStatus::Off`. No movement is a jam only while `print_job_running()` (printing
+or paused): outside a print there is nothing to move, and a backend may run the sensor
+as a presence switch (the U1's heads), so an idle empty sensor reads OK.
+There is no danger band or peak (`clog_meter_is_state()`). Sensor frames reach the meter
+without a backend sync through the manager's `filament_motion_signature` subject, which
+`AmsState::install_motion_sensor_observer()` watches; the meter also re-evaluates on
+every `print_lifecycle` change.
 
 **Two presentations, one model.** `UiClogBar` draws a wide horizontal scale,
 `UiClogMeter` a compact arc. Neither owns any interpretation:

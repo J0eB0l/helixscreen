@@ -963,6 +963,7 @@
   <translation tag="Disable Motors?" zh="关闭电机？"/>
   <translation tag="Disable the security PIN" zh="禁用安全 PIN"/>
   <translation tag="Disabling motors..." zh="正在禁用电机..."/>
+  <translation tag="Disarmed" zh="未启用"/>
   <translation tag="Discard" zh="丢弃"/>
   <translation tag="Discard Changes?" zh="丢弃更改？"/>
   <translation tag="Disconnected" zh="已断开"/>
@@ -2816,9 +2817,9 @@
   <translation tag="Requires Moonraker power device" zh="需要 Moonraker 电源设备"/>
   <translation tag="Requires Moonraker-Timelapse plugin" zh="需要 Moonraker-Timelapse 插件"/>
   <translation tag="Requires Multi-Filament System or MMU hardware" zh="需要多耗材系统或 MMU 硬件"/>
+  <translation tag="Requires a clog detector or filament motion sensor" zh="需要堵塞检测器或耗材运动传感器"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" zh="需要耗材压力传感器或同步反馈"/>
   <translation tag="Requires a filament system with bypass" zh="需要支持旁路的耗材系统"/>
-  <translation tag="Requires clog detection hardware" zh="需要堵塞检测硬件"/>
   <translation tag="Resend write failed at chunk {}" zh="区块 {} 重发写入失败"/>
   <translation tag="Reset" zh="重置"/>
   <translation tag="Reset Blade Counter" zh="重置刀片计数器"/>

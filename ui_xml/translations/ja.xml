@@ -963,6 +963,7 @@
   <translation tag="Disable Motors?" ja="モーターを無効にしますか？"/>
   <translation tag="Disable the security PIN" ja="セキュリティ PIN を無効化"/>
   <translation tag="Disabling motors..." ja="モーターを無効化中..."/>
+  <translation tag="Disarmed" ja="無効"/>
   <translation tag="Discard" ja="破棄"/>
   <translation tag="Discard Changes?" ja="変更を破棄しますか？"/>
   <translation tag="Disconnected" ja="切断"/>
@@ -2816,9 +2817,9 @@
   <translation tag="Requires Moonraker power device" ja="Moonraker電源デバイスが必要です"/>
   <translation tag="Requires Moonraker-Timelapse plugin" ja="Moonraker-Timelapse プラグインが必要です"/>
   <translation tag="Requires Multi-Filament System or MMU hardware" ja="マルチフィラメントシステムまたはMMUハードウェアが必要です"/>
+  <translation tag="Requires a clog detector or filament motion sensor" ja="詰まり検出器またはフィラメントモーションセンサーが必要です"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" ja="フィラメント圧力センサーまたは同期フィードバックが必要です"/>
   <translation tag="Requires a filament system with bypass" ja="バイパスに対応したフィラメントシステムが必要です"/>
-  <translation tag="Requires clog detection hardware" ja="詰まり検出ハードウェアが必要です"/>
   <translation tag="Resend write failed at chunk {}" ja="チャンク {} で再送信の書き込みに失敗しました"/>
   <translation tag="Reset" ja="リセット"/>
   <translation tag="Reset Blade Counter" ja="ブレードカウンターをリセット"/>

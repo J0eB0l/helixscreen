@@ -11,9 +11,36 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <string>
+#include <string_view>
 
 namespace helix::sim {
+
+MockFilamentSensorEnvState mock_filament_sensor_env_state(const std::string& short_name) {
+    MockFilamentSensorEnvState out;
+    const char* env = std::getenv("HELIX_MOCK_FILAMENT_STATE");
+    if (!env) {
+        return out;
+    }
+    std::string_view rest(env);
+    while (!rest.empty()) {
+        const size_t comma = rest.find(',');
+        const std::string_view token = rest.substr(0, comma);
+        rest = comma == std::string_view::npos ? std::string_view{} : rest.substr(comma + 1);
+        const size_t colon = token.find(':');
+        if (colon == std::string_view::npos || token.substr(0, colon) != short_name) {
+            continue;
+        }
+        const std::string_view state = token.substr(colon + 1);
+        if (state == "disabled") {
+            out.enabled = false;
+        } else {
+            out.filament_detected = state != "empty" && state != "0" && state != "false";
+        }
+    }
+    return out;
+}
 
 std::vector<std::string> mock_padded_macro_names() {
     std::vector<std::string> names;
@@ -879,14 +906,17 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
             for (auto it = objects.begin(); it != objects.end(); ++it) {
                 if (it.key().rfind("filament_switch_sensor ", 0) == 0 ||
                     it.key().rfind("filament_motion_sensor ", 0) == 0) {
+                    const auto env = helix::sim::mock_filament_sensor_env_state(
+                        it.key().substr(it.key().find(' ') + 1));
                     // The K2 Plus's toolhead switch follows the loaded bay.
                     const bool detected = it.key() == "filament_switch_sensor filament_sensor" &&
                                                   self->get_printer_type() ==
                                                       helix::mock::PrinterType::CREALITY_K2_PLUS
                                               ? self->cfs_toolhead_filament_detected()
-                                              : true;
-                    status_obj[it.key()] = {
-                        {"filament_detected", detected}, {"enabled", true}, {"detection_count", 0}};
+                                              : env.filament_detected;
+                    status_obj[it.key()] = {{"filament_detected", detected},
+                                            {"enabled", env.enabled},
+                                            {"detection_count", 0}};
                 }
             }
 

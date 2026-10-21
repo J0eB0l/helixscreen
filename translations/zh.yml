@@ -993,6 +993,7 @@ translations:
   Disable Motors?: 关闭电机？
   Disable the security PIN: 禁用安全 PIN
   Disabling motors...: 正在禁用电机...
+  Disarmed: '未启用'
   Discard: 丢弃
   Discard Changes?: 丢弃更改？
   Disconnected: 已断开
@@ -2914,7 +2915,7 @@ translations:
   Requires Multi-Filament System or MMU hardware: '需要多耗材系统或 MMU 硬件'
   Requires a filament system with bypass: 需要支持旁路的耗材系统
   Requires a filament pressure sensor or sync feedback: '需要耗材压力传感器或同步反馈'
-  Requires clog detection hardware: '需要堵塞检测硬件'
+  Requires a clog detector or filament motion sensor: '需要堵塞检测器或耗材运动传感器'
   Resend write failed at chunk {}: 区块 {} 重发写入失败
   Reset: 重置
   Reset Blade Counter: '重置刀片计数器'
