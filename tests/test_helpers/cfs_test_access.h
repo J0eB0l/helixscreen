@@ -194,6 +194,11 @@ class CfsTestAccess {
         b.begin_phase_tracking();
     }
 
+    static bool phase_active(const helix::printer::AmsBackendCfs& b) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        return b.phase_tracker_.active;
+    }
+
     /// Read back the bypass flag do_unload_filament latched on the phase
     /// tracker. The verdict for a bypass unload hangs off this, and nothing on
     /// the public surface reports which script actually went out.

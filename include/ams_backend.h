@@ -116,13 +116,6 @@ struct BackendTraits {
     }
 };
 
-/// Why a busy filament operation stops being reported busy without a terminal
-/// state from the firmware (AmsBackend::expire_stuck_operation()).
-enum class OperationExpiry : uint8_t {
-    SurfaceTimeout, ///< A surface's operation timeout passed; the firmware may still run it
-    KlipperRestart, ///< Klipper restarted, which ends every firmware-side operation
-};
-
 /// How a head's filament op is done on this machine.
 enum class FilamentOpSupport : uint8_t {
     Automatic,   ///< The backend runs it
@@ -1931,17 +1924,16 @@ class AmsBackend {
     virtual AmsError cancel() = 0;
 
     /**
-     * @brief Stop reporting busy for an operation that will not report its end
+     * @brief Klipper came back ready after a restart, which ended every
+     *        firmware-side filament operation
      *
-     * Called when a surface's operation timeout passes with no terminal state
-     * from this backend, and when Klipper comes back ready after a restart.
-     * Drops a busy action (ams_action_is_busy()) back to IDLE locally so tool
-     * changes and filament ops are accepted again. Sends no G-code and reports
-     * no load or unload outcome; ERROR and PAUSED stay, since those wait on the
-     * user. A later status frame showing the operation still running reports it
-     * busy again. Default: nothing to drop.
+     * Drops a busy action (ams_action_is_busy()) back to IDLE locally, along
+     * with any per-operation tracking the backend keeps, so tool changes and
+     * filament ops are accepted again. Sends no G-code and reports no load or
+     * unload outcome; ERROR and PAUSED stay, since those wait on the user.
+     * Main thread, from AmsState's klippy_state observer. Default: nothing to end.
      */
-    virtual void expire_stuck_operation(OperationExpiry /*why*/) {}
+    virtual void on_klipper_restarted() {}
 
     /**
      * @brief Whether cancel() can reach what is running now

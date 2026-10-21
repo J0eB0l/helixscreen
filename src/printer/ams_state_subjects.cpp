@@ -641,7 +641,7 @@ void AmsState::install_klippy_state_observer() {
             }
             for (int i = 0; i < self->backend_count(); ++i) {
                 if (AmsBackend* backend = self->get_backend(i)) {
-                    backend->expire_stuck_operation(OperationExpiry::KlipperRestart);
+                    backend->on_klipper_restarted();
                 }
             }
         },
