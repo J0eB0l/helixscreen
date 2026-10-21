@@ -2274,6 +2274,7 @@ translations:
   No file loaded: ファイルが読み込まれていません
   No file to reprint: 再印刷するファイルがありません
   No files available for printing: 印刷可能なファイルがありません
+  No hotend: ホットエンドなし
   No hub configured: 'Hub が設定されていません'
   No humidity sensor detected: '湿度センサーが検出されません'
   No images found on USB drive: USBドライブに画像が見つかりません

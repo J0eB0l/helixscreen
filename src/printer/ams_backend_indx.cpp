@@ -120,6 +120,7 @@ void AmsBackendIndx::handle_status(const nlohmann::json& status) {
         const indx::Reading before = state_;
         indx::merge(state_, *update);
         changed = !(state_ == before) || offsets_changed;
+        changed |= apply_seat_fault_locked();
         if (contract_.recognized && update->tool_count &&
             *update->tool_count != sized_tool_count_) {
             resize = *update->tool_count;
@@ -171,6 +172,34 @@ void AmsBackendIndx::handle_status(const nlohmann::json& status) {
         }
     }
     emit_event(EVENT_STATE_CHANGED);
+}
+
+bool AmsBackendIndx::apply_seat_fault_locked() {
+    const bool fault = contract_.recognized && state_.seat_suspect.value_or(-1) >= 0;
+    if (fault) {
+        const std::string detail = indx::motion_blocked_reason(contract_, state_);
+        if (seat_fault_raised_ && system_info_.action == AmsAction::ERROR &&
+            system_info_.operation_detail == detail) {
+            return false;
+        }
+        if (!seat_fault_raised_) {
+            spdlog::warn("{} {}", backend_log_tag(), detail);
+        }
+        seat_fault_raised_ = true;
+        system_info_.action = AmsAction::ERROR;
+        system_info_.operation_detail = detail;
+        return true;
+    }
+    if (!seat_fault_raised_) {
+        return false;
+    }
+    seat_fault_raised_ = false;
+    spdlog::info("{} Half-seated fault cleared", backend_log_tag());
+    if (system_info_.action == AmsAction::ERROR) {
+        system_info_.action = AmsAction::IDLE;
+        system_info_.operation_detail.clear();
+    }
+    return true;
 }
 
 bool AmsBackendIndx::merge_offsets_locked(const nlohmann::json& status) {
@@ -281,7 +310,9 @@ HeadFilamentOps AmsBackendIndx::head_filament_ops_locked(int head) const {
     ops.unload_reason = lv_tr("Pick up the tool, heat it, and pull the filament out");
     const bool no_heat = state_.no_heat_tools && state_.no_heat_tools->count(head) > 0;
     if (no_heat) {
-        const std::string reason = indx::heat_blocked_reason(head, {head});
+        // Shown beside the tool's own name (a picker row, a slot's menu), so
+        // it does not repeat it.
+        const std::string reason = lv_tr("No hotend");
         ops.load = FilamentOpSupport::Unavailable;
         ops.load_reason = reason;
         ops.unload = FilamentOpSupport::Unavailable;
@@ -355,6 +386,11 @@ AmsError AmsBackendIndx::load_refusal_locked(int slot) const {
     const std::string blocked = indx::motion_blocked_reason(contract_, state_);
     if (!blocked.empty()) {
         return AmsError(AmsResult::WRONG_STATE, "INDX load refused", blocked, "");
+    }
+    if (state_.no_heat_tools && state_.no_heat_tools->count(slot) > 0) {
+        // A refusal stands alone, so it names the tool.
+        return AmsError(AmsResult::NOT_SUPPORTED, "INDX load unavailable",
+                        indx::heat_blocked_reason(slot, {slot}), "");
     }
     const HeadFilamentOps ops = head_filament_ops_locked(slot);
     if (ops.load != FilamentOpSupport::Automatic) {

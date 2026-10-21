@@ -2235,6 +2235,7 @@
   <translation tag="No file loaded" ru="Файл не загружен"/>
   <translation tag="No file to reprint" ru="Нет файла для повторной печати"/>
   <translation tag="No files available for printing" ru="Нет файлов для печати"/>
+  <translation tag="No hotend" ru="Нет хотэнда"/>
   <translation tag="No hub configured" ru="Hub не настроен"/>
   <translation tag="No humidity sensor detected" ru="Датчик влажности не обнаружен"/>
   <translation tag="No images found on USB drive" ru="Изображения на USB-накопителе не найдены"/>

@@ -2190,6 +2190,7 @@
   <translation tag="No file loaded" pt="Nenhum arquivo carregado"/>
   <translation tag="No file to reprint" pt="Nenhum arquivo para reimprimir"/>
   <translation tag="No files available for printing" pt="Nenhum arquivo disponível para impressão"/>
+  <translation tag="No hotend" pt="Sem hotend"/>
   <translation tag="No hub configured" pt="Nenhum Hub configurado"/>
   <translation tag="No humidity sensor detected" pt="Nenhum sensor de umidade detectado"/>
   <translation tag="No images found on USB drive" pt="Nenhuma imagem encontrada na unidade USB"/>

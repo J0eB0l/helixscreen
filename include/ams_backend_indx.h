@@ -151,6 +151,12 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     /// load and every tool of a batch share. Caller holds mutex_.
     [[nodiscard]] AmsError load_refusal_locked(int slot) const;
 
+    /// Raise the half-seated fault as the backend's ERROR action while
+    /// seat_suspect holds, and withdraw it when it clears, so the error bridge
+    /// presents current_error() and its recovery buttons. True when the action
+    /// changed. Caller holds mutex_.
+    bool apply_seat_fault_locked();
+
     /// Fold the offsets @p status carries into the held ones; true when one
     /// changed. Caller holds mutex_.
     bool merge_offsets_locked(const nlohmann::json& status);
@@ -166,6 +172,9 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     int sized_tool_count_ = -1;
     /// An out-of-range active_tool was logged; reset by an in-range one.
     bool warned_out_of_range_ = false;
+
+    /// apply_seat_fault_locked() holds the ERROR action. Under mutex_.
+    bool seat_fault_raised_ = false;
 
     /// The printer's measured offsets, read-only. Under mutex_.
     helix::tool_offsets::OffsetReader offset_reader_;

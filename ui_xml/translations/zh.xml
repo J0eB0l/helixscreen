@@ -2190,6 +2190,7 @@
   <translation tag="No file loaded" zh="未加载文件"/>
   <translation tag="No file to reprint" zh="没有可重新打印的文件"/>
   <translation tag="No files available for printing" zh="没有可用于打印的文件"/>
+  <translation tag="No hotend" zh="无热端"/>
   <translation tag="No hub configured" zh="未配置 Hub"/>
   <translation tag="No humidity sensor detected" zh="未检测到湿度传感器"/>
   <translation tag="No images found on USB drive" zh="USB驱动器上未找到图片"/>

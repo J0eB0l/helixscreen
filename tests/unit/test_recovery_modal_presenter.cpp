@@ -13,6 +13,7 @@
 #include "printer_state.h"
 #include "recovery_modal_presenter.h"
 #include "safety_settings_manager.h"
+#include "theme_manager.h"
 
 #include <memory>
 #include <string>
@@ -415,4 +416,47 @@ TEST_CASE_METHOD(RecoveryPreheatFixture,
     CHECK(gcode_count(mock_client_, "MANUAL_TOOL_SEAT TOOL=2") == 1);
     const auto* after = ModalStack::instance().top_dialog();
     CHECK((after == nullptr || after == before));
+}
+
+namespace {
+
+/// The background colour @p role paints, for telling which variant a button took.
+lv_color_t style_bg(StyleRole role) {
+    lv_style_value_t v{};
+    REQUIRE(lv_style_get_prop(ThemeManager::instance().get_style(role), LV_STYLE_BG_COLOR, &v) ==
+            LV_STYLE_RES_FOUND);
+    return v.color;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(RecoveryPreheatFixture,
+                 "A danger recovery's confirm keeps the danger style on its button",
+                 "[error-center][recovery-presenter]") {
+    auto fault = make_seat_fault();
+    fault.recovery_actions[0].confirm_message = "Hold it on";
+    presenter().present(fault);
+    process_lvgl(20);
+
+    TA::tap(presenter(), "MANUAL_TOOL_REMOVE");
+    process_lvgl(20);
+    lv_obj_t* dialog = ModalStack::instance().top_dialog();
+    REQUIRE(dialog != nullptr);
+    lv_obj_t* btn = lv_obj_find_by_name(dialog, "btn_primary");
+    REQUIRE(btn != nullptr);
+    CHECK(lv_color_eq(lv_obj_get_style_bg_color(btn, LV_PART_MAIN),
+                      style_bg(StyleRole::ButtonDanger)));
+    helix::test::answer_top_modal("btn_secondary");
+    process_lvgl(20);
+
+    TA::tap(presenter(), "MANUAL_TOOL_SEAT TOOL=2");
+    process_lvgl(20);
+    dialog = ModalStack::instance().top_dialog();
+    REQUIRE(dialog != nullptr);
+    btn = lv_obj_find_by_name(dialog, "btn_primary");
+    REQUIRE(btn != nullptr);
+    CHECK(lv_color_eq(lv_obj_get_style_bg_color(btn, LV_PART_MAIN),
+                      style_bg(StyleRole::ButtonPrimary)));
+    helix::test::answer_top_modal("btn_secondary");
+    process_lvgl(20);
 }

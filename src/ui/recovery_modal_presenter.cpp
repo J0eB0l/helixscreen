@@ -253,6 +253,8 @@ void RecoveryModalPresenter::on_recovery_tapped(const std::string& gcode) {
         // fault before the confirm is answered.
         helix::ui::ConfirmOptions options;
         options.owner_token = lifetime_.token();
+        // The confirm's button takes the fault modal button's danger style.
+        options.destructive = action->style == "danger";
         helix::ui::modal_confirm(
             label.c_str(), action->confirm_message.c_str(), ModalSeverity::Warning, label.c_str(),
             [this, gcode, tag, label, needs_hot_nozzle]() {

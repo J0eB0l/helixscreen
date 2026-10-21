@@ -363,3 +363,32 @@ TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: the running line shows while the 
     ui::destroy_static_panels();
     settle();
 }
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: the seat picker holds one tool", "[indx][flows]") {
+    start(indx::kSeatByHandFlowId);
+    lv_obj_t* picker = ModalStack::instance().top_dialog();
+    REQUIRE(picker != nullptr);
+    lv_obj_t* first = lv_obj_find_by_name(picker, "item_1");
+    lv_obj_t* second = lv_obj_find_by_name(picker, "item_2");
+    REQUIRE(first != nullptr);
+    REQUIRE(second != nullptr);
+    const auto checked = [](lv_obj_t* row) {
+        lv_obj_t* box = lv_obj_find_by_name(row, "check");
+        REQUIRE(box != nullptr);
+        return lv_obj_has_state(box, LV_STATE_CHECKED);
+    };
+    CHECK_FALSE(checked(first));
+    CHECK_FALSE(checked(second));
+
+    lv_obj_send_event(first, LV_EVENT_CLICKED, nullptr);
+    lv_obj_send_event(second, LV_EVENT_CLICKED, nullptr);
+    CHECK_FALSE(checked(first));
+    CHECK(checked(second));
+
+    test::answer_top_modal("btn_primary");
+    process_lvgl(20);
+    CHECK(test::top_modal_text().find(indx::seat_confirm_message(2)) != std::string::npos);
+    test::answer_top_modal("btn_secondary");
+    settle();
+    CHECK(api.sent.empty());
+}

@@ -2190,6 +2190,7 @@
   <translation tag="No file loaded" ja="ファイルが読み込まれていません"/>
   <translation tag="No file to reprint" ja="再印刷するファイルがありません"/>
   <translation tag="No files available for printing" ja="印刷可能なファイルがありません"/>
+  <translation tag="No hotend" ja="ホットエンドなし"/>
   <translation tag="No hub configured" ja="Hub が設定されていません"/>
   <translation tag="No humidity sensor detected" ja="湿度センサーが検出されません"/>
   <translation tag="No images found on USB drive" ja="USBドライブに画像が見つかりません"/>

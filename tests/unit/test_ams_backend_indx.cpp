@@ -3,17 +3,24 @@
 // AmsBackendIndx against synthetic status shaped like Bondtech's upstream
 // macros (BondtechAB/INDX). Gcode is captured, never sent.
 
+#include "ui_batch_filament_modal.h"
+
 #include "../lvgl_test_fixture.h"
+#include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/backend_user_edit.h"
 #include "../test_helpers/gcode_recording_api.h"
 #include "../test_helpers/print_state_test_drivers.h"
+#include "../test_helpers/recovery_modal_presenter_test_access.h"
 #include "../test_helpers/registered_backend.h"
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_backend_indx.h"
+#include "ams_error_bridge.h"
+#include "ams_state.h"
 #include "macro_param_cache.h"
 #include "moonraker_client_mock.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
+#include "recovery_modal_presenter.h"
 
 #include <any>
 #include <string>
@@ -897,4 +904,69 @@ TEST_CASE_METHOD(IndxFixture, "INDX device: the seat-by-hand entry and action ag
         CHECK(indx::supports_seat_by_hand(hw) == (find_action(actions, "seat_by_hand") != nullptr));
     }
     CHECK(indx::supports_seat_by_hand(discover(indx_objects(4, {"MANUAL_TOOL_SEAT"}))));
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX recovery: a half-seated tool holds the ERROR action",
+                 "[ams][indx][recovery]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(active(0));
+    CHECK(b.get_current_action() == AmsAction::IDLE);
+    b.feed(json{{"save_variables", {{"variables", {{"seat_suspect", 2}}}}}});
+    CHECK(b.get_current_action() == AmsAction::ERROR);
+    CHECK_THAT(b.get_system_info().operation_detail,
+               Catch::Matchers::ContainsSubstring("half seated"));
+    b.feed(json{{"save_variables", {{"variables", {{"seat_suspect", -1}}}}}});
+    CHECK(b.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "INDX recovery: the error bridge presents the seat fault",
+                 "[ams][indx][recovery]") {
+    IndxFixture cache_reset;
+    auto& ams = AmsState::instance();
+    ams.init_subjects(true);
+    auto owned = std::make_unique<IndxHelper>();
+    IndxHelper* b = owned.get();
+    ams.set_backend(std::move(owned));
+    b->set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b->feed(active(0));
+    helix::ui::UpdateQueue::instance().drain();
+
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    helix::AmsErrorBridge bridge(presenter);
+    bridge.start();
+
+    b->feed(json{{"save_variables", {{"variables", {{"seat_suspect", 2}}}}}});
+    helix::ui::UpdateQueue::instance().drain();
+    process_lvgl(20);
+    REQUIRE(presenter.is_visible());
+    const auto& actions = RecoveryModalPresenterTestAccess::active_actions(presenter);
+    REQUIRE(actions.size() == 2);
+    CHECK(actions[0].gcode == "MANUAL_TOOL_SEAT TOOL=2");
+    CHECK(actions[1].gcode == "MANUAL_TOOL_REMOVE");
+
+    b->feed(json{{"save_variables", {{"variables", {{"seat_suspect", -1}}}}}});
+    helix::ui::UpdateQueue::instance().drain();
+    process_lvgl(20);
+    CHECK_FALSE(presenter.is_visible());
+
+    ams.set_backend(nullptr);
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX batch: a no-hotend row reads like the other disabled rows",
+                 "[ams][indx][batch]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(6), 6));
+    b.feed(json{{"gcode_macro TOOL_POSITIONS", {{"no_heat_tools", json::array({5})}}}});
+    const auto ops = b.head_filament_ops(5);
+    CHECK(ops.load == FilamentOpSupport::Unavailable);
+    CHECK(ops.load_reason.find("Tool") == std::string::npos);
+
+    helix::ui::BatchFilamentModal::HeadRowText text;
+    text.head_noun = helix::ui::LaneNoun::Tool;
+    text.slot_noun = helix::ui::LaneNoun::Slot;
+    text.head = 5;
+    text.slot = 5;
+    text.reason = ops.load_reason;
+    CHECK(helix::ui::BatchFilamentModal::head_row_label(text) == "Tool 6 (No hotend)");
 }
