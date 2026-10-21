@@ -230,6 +230,14 @@ Contract check_contract(const PrinterDiscovery& hw) {
     return c;
 }
 
+std::string missing_text(const Contract& contract) {
+    std::string text;
+    for (const auto& name : contract.missing) {
+        text += (text.empty() ? "" : ", ") + name;
+    }
+    return text;
+}
+
 bool macros_set_active_spool(const PrinterDiscovery& hw) {
     const auto& cache = MacroParamCache::instance();
     for (const auto& macro : hw.macros()) {

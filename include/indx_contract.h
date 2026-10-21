@@ -85,6 +85,9 @@ struct Contract {
     bool has_load_filament = false;
 };
 
+/// The missing objects as one comma-separated line, for logs and the error.
+[[nodiscard]] std::string missing_text(const Contract& contract);
+
 /// Check the discovered objects against the contract.
 [[nodiscard]] Contract check_contract(const PrinterDiscovery& hw);
 

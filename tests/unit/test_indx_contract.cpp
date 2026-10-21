@@ -142,6 +142,13 @@ TEST_CASE("INDX: each missing required object is named", "[ams][indx][contract]"
     }
 }
 
+TEST_CASE("INDX: the missing objects read as one line", "[ams][indx][contract]") {
+    indx::Contract c;
+    CHECK(indx::missing_text(c).empty());
+    c.missing = {"save_variables", "gcode_macro PARK_TOOL"};
+    CHECK(indx::missing_text(c) == "save_variables, gcode_macro PARK_TOOL");
+}
+
 TEST_CASE("INDX: LOAD_FILAMENT is optional", "[ams][indx][contract]") {
     auto contract =
         indx::check_contract(discover(without(indx_objects(), "gcode_macro LOAD_FILAMENT")));

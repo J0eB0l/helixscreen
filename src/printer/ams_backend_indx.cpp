@@ -51,12 +51,8 @@ void AmsBackendIndx::set_discovery(const helix::PrinterDiscovery& discovery) {
     set_tool_commands(std::move(commands));
 
     if (!contract_.recognized) {
-        std::string missing;
-        for (const auto& name : contract_.missing) {
-            missing += (missing.empty() ? "" : ", ") + name;
-        }
         spdlog::warn("{} INDX macros not recognized (missing: {}); nothing will be sent",
-                     backend_log_tag(), missing);
+                     backend_log_tag(), indx::missing_text(contract_));
         size_tools(0);
         return;
     }
@@ -192,13 +188,10 @@ std::string AmsBackendIndx::motion_blocked_reason() const {
 std::optional<helix::ErrorEvent> AmsBackendIndx::current_error() const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!contract_.recognized) {
-        std::string missing;
-        for (const auto& name : contract_.missing) {
-            missing += (missing.empty() ? "" : ", ") + name;
-        }
         return helix::make_ams_fault_event(
             helix::ErrorSource::TOOLCHANGER, lv_tr("INDX macros not recognized"),
-            fmt::format(fmt::runtime(lv_tr("This printer's INDX macros are missing: {}")), missing),
+            fmt::format(fmt::runtime(lv_tr("This printer's INDX macros are missing: {}")),
+                        indx::missing_text(contract_)),
             {});
     }
     if (state_.seat_suspect.value_or(-1) >= 0) {
