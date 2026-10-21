@@ -1025,11 +1025,8 @@ void FilamentPanel::handle_preset_button(int material_id) {
                     helix::presets::name(material_id)),
                 hw),
             [this]() {
+                send_nozzle_target();
                 if (auto* c = get_temperature_controller()) {
-                    c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
-                                  {.toast = true, .on_success = [target = nozzle_target_]() {
-                                       NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
-                                   }});
                     c->set_target(helix::HeaterType::Bed, static_cast<double>(bed_target_),
                                   {.toast = true, .on_success = [target = bed_target_]() {
                                        NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), target);
@@ -1213,6 +1210,35 @@ void FilamentPanel::handle_custom_chamber_confirmed(float value) {
     }
 }
 
+void FilamentPanel::send_nozzle_target() {
+    auto* c = get_temperature_controller();
+    if (!c) {
+        return;
+    }
+    // nozzle_target_ already shows the request. A refused or failed send must
+    // not leave it there: the panel would claim a target the printer never got.
+    c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
+                  {.toast = true,
+                   .on_success =
+                       [target = nozzle_target_]() {
+                           NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
+                       },
+                   .on_error =
+                       [this](const MoonrakerError&) {
+                           object_lifetime_.defer("FilamentPanel::nozzle_target_refused",
+                                                  [this]() { show_printer_nozzle_target(); });
+                       }});
+}
+
+void FilamentPanel::show_printer_nozzle_target() {
+    nozzle_target_ = helix::ui::temperature::deci_to_degrees(lv_subject_get_int(
+        printer_state_.temperature_state().get_active_extruder_target_subject()));
+    update_temp_display();
+    update_material_temp_display();
+    update_status();
+    check_and_auto_select_preset();
+}
+
 void FilamentPanel::handle_custom_nozzle_confirmed(float value) {
     spdlog::info("[{}] Custom nozzle temperature confirmed: {}°C", get_name(),
                  static_cast<int>(value));
@@ -1226,13 +1252,7 @@ void FilamentPanel::handle_custom_nozzle_confirmed(float value) {
     update_material_temp_display();
     update_status();
 
-    // Send temperature command to printer
-    if (auto* c = get_temperature_controller()) {
-        c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
-                      {.toast = true, .on_success = [target = nozzle_target_]() {
-                           NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
-                       }});
-    }
+    send_nozzle_target();
 }
 
 void FilamentPanel::handle_custom_bed_confirmed(float value) {
@@ -2222,11 +2242,8 @@ void FilamentPanel::handle_spool_preset_button() {
                                   cached_active_material_->material_name),
                               hw),
         [this]() {
+            send_nozzle_target();
             if (auto* c = get_temperature_controller()) {
-                c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
-                              {.toast = true, .on_success = [t = nozzle_target_]() {
-                                   NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), t);
-                               }});
                 c->set_target(helix::HeaterType::Bed, static_cast<double>(bed_target_),
                               {.toast = true, .on_success = [t = bed_target_]() {
                                    NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), t);

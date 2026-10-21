@@ -939,10 +939,23 @@ void ControlsPanel::handle_custom_nozzle_confirmed(float value) {
     cached_extruder_target_ = helix::units::to_decidegrees(value);
 
     if (auto* c = controller()) {
-        c->set_target(helix::HeaterType::Nozzle, value,
-                      {.toast = true, .on_success = [target = static_cast<int>(value)]() {
-                           NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
-                       }});
+        c->set_target(
+            helix::HeaterType::Nozzle, value,
+            {.toast = true,
+             .on_success =
+                 [target = static_cast<int>(value)]() {
+                     NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
+                 },
+             // A refused or failed send leaves the printer's own target, which
+             // the next keypad opens on.
+             .on_error =
+                 [this](const MoonrakerError&) {
+                     object_lifetime_.defer("ControlsPanel::nozzle_target_refused", [this]() {
+                         cached_extruder_target_ =
+                             lv_subject_get_int(printer_state_.temperature_state()
+                                                    .get_active_extruder_target_subject());
+                     });
+                 }});
     }
 }
 
