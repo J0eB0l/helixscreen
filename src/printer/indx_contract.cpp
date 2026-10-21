@@ -229,7 +229,8 @@ Contract check_contract(const PrinterDiscovery& hw) {
     c.has_speed_modes = std::all_of(kModeMacros.begin(), kModeMacros.end(),
                                     [&](const char* m) { return hw.has_macro(m); });
     c.has_cycle_all = hw.has_macro(kCycleAll);
-    c.has_manual_tool_recovery = hw.has_macro(kManualRemove) && hw.has_macro(kManualSeat);
+    c.has_manual_tool_seat = hw.has_macro(kManualSeat);
+    c.has_manual_tool_recovery = c.has_manual_tool_seat && hw.has_macro(kManualRemove);
     c.has_set_tool_filament = hw.has_macro(kSetToolFilament);
     return c;
 }
@@ -430,7 +431,11 @@ std::string set_tool_filament_gcode(int tool, const FilamentPreset& preset) {
 }
 
 bool supports_seat_by_hand(const PrinterDiscovery& hw) {
-    return present(hw) && hw.has_macro(kManualSeat);
+    if (!present(hw)) {
+        return false;
+    }
+    const Contract contract = check_contract(hw);
+    return contract.recognized && contract.has_manual_tool_seat;
 }
 
 std::string seat_confirm_message(int tool) {

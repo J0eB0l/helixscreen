@@ -302,6 +302,10 @@ class PrinterCapabilitiesState {
         return &tool_offset_cal_description_;
     }
 
+    /// Re-render the translated strings this state holds in the new language.
+    /// Main thread.
+    void on_language_changed();
+
     /**
      * @brief Set speaker availability from local sound backend detection.
      *
@@ -396,8 +400,12 @@ class PrinterCapabilitiesState {
     std::array<lv_subject_t, kCapabilityCount> capability_subjects_{};
     lv_subject_t tool_offset_cal_description_{};
     char tool_offset_cal_description_buf_[160] = {};
-    /// The description set_hardware() chose, held for an init that comes later.
-    std::string tool_offset_cal_description_text_;
+    /// The untranslated description set_hardware() chose; rendered through
+    /// lv_tr() at init, on set_hardware() and on a language change.
+    const char* tool_offset_cal_description_key_ = "";
+
+    /// Write the description in the current language, once the subject exists.
+    void render_tool_offset_cal_description();
     std::vector<WebcamInfo> webcams_; // every enabled webcam, Moonraker order
     std::string webcam_stream_url_;   // auto-pick: MJPEG stream URL
     std::string webcam_snapshot_url_; // snapshot URL

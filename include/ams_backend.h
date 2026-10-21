@@ -2966,6 +2966,12 @@ class AmsBackend {
         return AmsErrorHelper::not_supported("Device actions");
     }
 
+    /// A run_device_action() has been sent and has not reported its end. While
+    /// it holds, filament ops and other machine-moving actions are refused.
+    [[nodiscard]] virtual bool device_action_running() const {
+        return false;
+    }
+
     /// A question the UI asks after a slot edit commits, for printer state the
     /// edit implies but did not write. Strings are translated.
     struct EditFollowUp {
@@ -2993,12 +2999,18 @@ class AmsBackend {
     /**
      * @brief Apply the follow-up edit_follow_up() offered, once the user agrees
      *
+     * Re-asks the offer's question first: the printer may have moved on while
+     * the dialog was up.
+     *
      * @param slot_index The edited slot
+     * @param before The slot as it was before the edit
      * @param after The slot as committed
      * @return AmsError indicating success/failure
      */
-    virtual AmsError run_edit_follow_up(int slot_index, const SlotInfo& after) {
+    virtual AmsError run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                        const SlotInfo& after) {
         (void)slot_index;
+        (void)before;
         (void)after;
         return AmsErrorHelper::not_supported("Edit follow-up");
     }

@@ -124,7 +124,17 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     AmsError do_run_device_action(const std::string& action_id, const std::any& value,
                                   DeviceActionDone on_done) override;
 
-    AmsError do_run_edit_follow_up(int slot_index, const SlotInfo& after) override;
+    AmsError do_run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                   const SlotInfo& after) override;
+
+    /// Why the heater-model update for this edit may not be offered or sent
+    /// now, or success with @p values set to the preset it sends: the
+    /// SET_TOOL_FILAMENT macro, a preset the material names and the old one did
+    /// not, a tool with a hotend, and that tool mounted or the head empty.
+    /// Caller holds mutex_.
+    [[nodiscard]] AmsError follow_up_refusal_locked(int slot_index, const SlotInfo& before,
+                                                    const SlotInfo& after, std::string& preset_key,
+                                                    indx::FilamentPreset& values) const;
 
     /// A print holds the printer, paused included. Virtual so tests can print
     /// without a printer.

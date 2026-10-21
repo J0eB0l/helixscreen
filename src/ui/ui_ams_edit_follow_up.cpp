@@ -28,13 +28,13 @@ void offer_edit_follow_up(int slot_index, const SlotInfo& before, const SlotInfo
     modal_confirm(
         offer->title.c_str(), offer->message.c_str(), ModalSeverity::Info,
         offer->confirm_label.c_str(),
-        [slot_index, after]() {
+        [slot_index, before, after]() {
             // Re-fetched: the backend can be replaced while the dialog is up.
             AmsBackend* current = AmsState::instance().get_backend();
             if (!current) {
                 return;
             }
-            const AmsError err = current->run_edit_follow_up(slot_index, after);
+            const AmsError err = current->run_edit_follow_up(slot_index, before, after);
             if (!err.success()) {
                 notify_ams_error(err);
             }

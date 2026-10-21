@@ -9,9 +9,16 @@
  * capability question; the rpc's completion is the run's.
  */
 
+#include "../test_helpers/printer_state_test_access.h"
+#include "../test_helpers/update_queue_test_access.h"
+#include "../ui_test_utils.h"
+#include "app_globals.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "printer_discovery.h"
+#include "printer_state.h"
 #include "snapmaker_nozzle_offset.h"
 #include "tool_offset_calibration.h"
+#include "translation_loader.h"
 
 #include "../catch_amalgamated.hpp"
 #include "hv/json.hpp"
@@ -134,4 +141,29 @@ TEST_CASE("tool offset calibration: the entry describes what it does", "[tool_of
     CHECK(cal::entry_description(snapmaker_u1()) == measure);
     CHECK(std::string(cal::entry_description(indx_printer(true))) ==
           "Seat a tool by hand for the first Z home");
+}
+
+TEST_CASE("tool offset calibration: the Advanced row's description follows the language",
+          "[tool_offset_cal][i18n]") {
+    lv_init_safe();
+    helix::PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(true);
+    state.set_hardware(indx_printer(true));
+    helix::ui::UpdateQueueTestAccess::drain(helix::ui::UpdateQueue::instance());
+
+    lv_subject_t* text = lv_xml_get_subject(nullptr, "printer_tool_offset_cal_description");
+    REQUIRE(text != nullptr);
+    CHECK(std::string(lv_subject_get_string(text)) == "Seat a tool by hand for the first Z home");
+
+    helix::ui::ensure_translation_loaded("de");
+    lv_translation_set_language("de");
+    state.capabilities_state().on_language_changed();
+    CHECK(std::string(lv_subject_get_string(text)) ==
+          "Für die erste Z-Referenzfahrt ein Werkzeug von Hand einsetzen");
+
+    lv_translation_set_language("en");
+    state.capabilities_state().on_language_changed();
+    CHECK(std::string(lv_subject_get_string(text)) == "Seat a tool by hand for the first Z home");
+    PrinterStateTestAccess::reset(state);
 }

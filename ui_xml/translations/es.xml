@@ -3058,6 +3058,7 @@
   <translation tag="Seat a tool by hand" es="Asentar una herramienta a mano"/>
   <translation tag="Seat a tool by hand for the first Z home" es="Asentar una herramienta a mano para el primer origen de Z"/>
   <translation tag="Seat which tool by hand?" es="¿Qué herramienta asentar a mano?"/>
+  <translation tag="Seating {}..." es="Asentando {}..."/>
   <translation tag="Secondary" es="Secundario"/>
   <translation tag="Section Detail" es="Detalle de sección"/>
   <translation tag="Security" es="Seguridad"/>
@@ -4182,7 +4183,6 @@
   <translation tag="{} is not available on this device. Printing original file." es="{} no está disponible en este dispositivo. Se imprimirá el archivo original."/>
   <translation tag="{} is not set up on this printer" es="{} no está configurado en esta impresora"/>
   <translation tag="{} is still printing. The print keeps running after you switch." es="{} sigue imprimiendo. La impresión continúa después de cambiar."/>
-  <translation tag="{} is the mounted tool" es="{} es la herramienta montada"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." es="{} no está cargado. La impresión se pausará cuando lo necesite."/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" es="{} bloqueó la pantalla repetidamente; elige una impresora para conectar"/>
   <translation tag="{} kept crashing the panel; switched back to {}" es="{} bloqueó la pantalla repetidamente; se volvió a {}"/>

@@ -107,6 +107,8 @@ struct Contract {
     bool has_cycle_all = false;
     /// MANUAL_TOOL_REMOVE and MANUAL_TOOL_SEAT are both there.
     bool has_manual_tool_recovery = false;
+    /// MANUAL_TOOL_SEAT is there.
+    bool has_manual_tool_seat = false;
     /// SET_TOOL_FILAMENT is there to update a tool's heater model.
     bool has_set_tool_filament = false;
 };
@@ -210,7 +212,9 @@ preset_for_material(const std::string& material,
 /// The guided flow that seats a tool held on the head by hand.
 inline constexpr const char* kSeatByHandFlowId = "indx_seat_by_hand";
 
-/// An INDX whose macros can seat a tool by hand (MANUAL_TOOL_SEAT).
+/// An INDX with a recognized contract whose macros can seat a tool by hand
+/// (MANUAL_TOOL_SEAT): the one answer for the Tool Offsets entry and the
+/// seat_by_hand device action.
 [[nodiscard]] bool supports_seat_by_hand(const PrinterDiscovery& hw);
 
 /// Confirm text before MANUAL_TOOL_SEAT for @p tool.

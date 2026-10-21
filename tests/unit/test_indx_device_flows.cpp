@@ -10,8 +10,10 @@
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/gcode_recording_api.h"
 #include "../test_helpers/modal_answer.h"
+#include "../test_helpers/print_state_test_drivers.h"
 #include "../test_helpers/registered_backend.h"
 #include "ams_backend_indx.h"
+#include "ams_state.h"
 #include "app_globals.h"
 #include "indx_contract.h"
 #include "macro_param_cache.h"
@@ -20,6 +22,7 @@
 #include "printer_state.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -76,12 +79,24 @@ class IndxFlowFixture : public LVGLUITestFixture {
     IndxFlowFixture() {
         set_moonraker_api(&api);
         register_indx_flows_once();
+        reset_flow_subjects();
         harness->set_discovery(indx_discovery(kFlowMacros));
         harness->feed(json{{"save_variables", {{"variables", {{"active_tool", 1}}}}}});
     }
     ~IndxFlowFixture() override {
+        reset_flow_subjects();
         set_moonraker_api(nullptr);
         MacroParamCache::instance().clear();
+    }
+
+    /// The flows' status subjects are file statics: each case starts and ends idle.
+    static void reset_flow_subjects() {
+        if (lv_subject_t* phase = lv_xml_get_subject(nullptr, "indx_flow_phase")) {
+            lv_subject_set_int(phase, 0);
+        }
+        if (lv_subject_t* status = lv_xml_get_subject(nullptr, "indx_flow_status")) {
+            lv_subject_copy_string(status, "");
+        }
     }
 
     static void register_indx_flows_once() {
@@ -217,4 +232,47 @@ TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: seat by hand picks, asks, then se
     test::answer_top_modal("btn_primary");
     settle();
     CHECK(api.sent == std::vector<std::string>{"MANUAL_TOOL_SEAT TOOL=2"});
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: a backend replaced mid-run does not wedge the flows",
+                 "[indx][flows]") {
+    api.hold_acks = true;
+    start("indx_heater_calibration");
+    test::answer_top_modal("btn_primary");
+    settle();
+    REQUIRE(phase() == 1);
+
+    // A printer switch replaces the backend; the old run's answer never comes.
+    auto replacement = std::make_unique<FlowIndx>(&api, &client);
+    FlowIndx* fresh = replacement.get();
+    AmsState::instance().set_backend(std::move(replacement));
+    fresh->set_discovery(indx_discovery(kFlowMacros));
+    fresh->feed(json{{"save_variables", {{"variables", {{"active_tool", 1}}}}}});
+    api.ack_held();
+    settle();
+
+    api.hold_acks = false;
+    start("indx_cycle_all");
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK(sent("TC_CYCLE_ALL"));
+    CHECK(phase() == 2);
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("finished"));
+}
+
+TEST_CASE_METHOD(IndxFlowFixture, "INDX flows: Save & Restart refuses under a print",
+                 "[indx][flows]") {
+    start("indx_heater_calibration");
+    test::answer_top_modal("btn_primary");
+    settle();
+    REQUIRE(phase() == 2);
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+
+    helix::test::set_wire_state(get_printer_state(), helix::PrintJobState::PRINTING);
+    test::answer_top_modal("btn_primary");
+    settle();
+    CHECK_FALSE(sent("SAVE_CONFIG"));
+    CHECK_THAT(status(), Catch::Matchers::ContainsSubstring("not saved"));
+    helix::test::set_wire_state(get_printer_state(), helix::PrintJobState::STANDBY);
 }

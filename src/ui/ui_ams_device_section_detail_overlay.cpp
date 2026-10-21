@@ -346,14 +346,17 @@ void AmsDeviceSectionDetailOverlay::create_setting_row(lv_obj_t* parent,
         // required-names: setting_dropdown_row
         lv_obj_t* dropdown = helix::ui::find_required(row, "dropdown", get_name());
         const auto* current = std::any_cast<std::string>(&action.current_value);
-        if (dropdown && current) {
-            const auto it = std::find(action.options.begin(), action.options.end(), *current);
-            if (it != action.options.end()) {
-                lv_dropdown_set_selected(dropdown,
-                                         static_cast<uint32_t>(it - action.options.begin()));
-            }
-        } else if (action.current_value.has_value()) {
+        if (current == nullptr && action.current_value.has_value()) {
             spdlog::warn("[{}] Dropdown value for {} is not a string", get_name(), action.id);
+        }
+        const auto it = current ? std::find(action.options.begin(), action.options.end(), *current)
+                                : action.options.end();
+        if (dropdown && it != action.options.end()) {
+            lv_dropdown_set_selected(dropdown, static_cast<uint32_t>(it - action.options.begin()));
+        } else if (dropdown) {
+            // A value the backend cannot prove shows as unknown, not as the first
+            // option it would otherwise read as.
+            lv_dropdown_set_text(dropdown, kUnknownDropdownText);
         }
     }
 }
@@ -639,6 +642,8 @@ void AmsDeviceSectionDetailOverlay::on_dropdown_changed(lv_event_t* e) {
     auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
     auto& overlay = get_ams_device_section_detail_overlay();
     if (const auto* action = overlay.action_for_event(e)) {
+        // A pick replaces the unknown placeholder with the option itself.
+        lv_dropdown_set_text(dropdown, nullptr);
         const uint32_t selected = lv_dropdown_get_selected(dropdown);
         if (selected < action->options.size()) {
             const std::string& choice = action->options[selected];

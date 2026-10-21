@@ -112,9 +112,14 @@ class AmsSubscriptionBackend : public AmsBackend {
     AmsError run_device_action(const std::string& action_id, const std::any& value,
                                DeviceActionDone on_done) final;
 
+    [[nodiscard]] bool device_action_running() const final {
+        return tracked_run_active_.load();
+    }
+
     /// Refuses while a print holds the printer, paused included, then
     /// do_run_edit_follow_up().
-    AmsError run_edit_follow_up(int slot_index, const SlotInfo& after) final;
+    AmsError run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                const SlotInfo& after) final;
     AmsError unload_filament_batch(const std::vector<int>& slots) final;
 
     /// This backend's echo guard. A store other writers co-author can hold
@@ -406,14 +411,24 @@ class AmsSubscriptionBackend : public AmsBackend {
 
     /// Backend implementation of run_edit_follow_up(), reached only when no
     /// print holds the printer. Default refuses.
-    virtual AmsError do_run_edit_follow_up(int slot_index, const SlotInfo& after) {
+    virtual AmsError do_run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                           const SlotInfo& after) {
         (void)slot_index;
+        (void)before;
         (void)after;
         return AmsErrorHelper::not_supported("Edit follow-up");
     }
 
-    /// Why @p action_id may not run now (not listed, listed disabled, or moving
-    /// the machine while a print holds it), or success when it may.
+    /// Mark a tracked device action as sent; false when one already is. A
+    /// backend whose do_run_device_action() answers later calls this before
+    /// the send and end_tracked_run() on both of its answers and on a failed
+    /// send.
+    [[nodiscard]] bool begin_tracked_run();
+    void end_tracked_run();
+
+    /// Why @p action_id may not run now (not listed, listed disabled, moving
+    /// the machine while a print holds it or while a tracked run is in flight),
+    /// or success when it may.
     [[nodiscard]] AmsError device_action_refusal(const std::string& action_id) const;
 
     /// Whether this backend's firmware publishes lane identity of its own,
@@ -585,6 +600,9 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// The action the in-flight op stands for, so a refused second op names it
     /// the same way an AMS-reported busy state would.
     AmsAction filament_op_claimed_action_ = AmsAction::IDLE;
+
+    /// A tracked device action is on the printer (begin_tracked_run()).
+    std::atomic<bool> tracked_run_active_{false};
 
     EventCallback event_callback_;
     SubscriptionGuard subscription_;

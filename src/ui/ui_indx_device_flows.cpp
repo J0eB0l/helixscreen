@@ -13,6 +13,8 @@
 #include "filament_action_set.h"
 #include "indx_contract.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "print_lifecycle_state.h"
+#include "printer_state.h"
 #include "save_config_restart.h"
 #include "static_panel_registry.h"
 #include "static_subject_registry.h"
@@ -59,10 +61,15 @@ void ensure_flow_subjects() {
     }
 }
 
-void set_flow_state(const std::string& text, int phase) {
+/// Write the status line's subjects. The bound line follows on its own.
+void write_flow_subjects(const std::string& text, int phase) {
     ensure_flow_subjects();
     lv_subject_copy_string(&s_indx_flow_status, text.c_str());
     lv_subject_set_int(&s_indx_flow_phase, phase);
+}
+
+void set_flow_state(const std::string& text, int phase) {
+    write_flow_subjects(text, phase);
     // The backend's gates change with the run; the section shows that once
     // rebuilt. Never builds the overlay: a completion can land during teardown.
     if (auto* overlay = lazy_global_if_exists<AmsDeviceSectionDetailOverlay>()) {
@@ -70,9 +77,23 @@ void set_flow_state(const std::string& text, int phase) {
     }
 }
 
+/// Whether a flow's run is still on the printer. Its end arrives through the
+/// backend that sent it; a running phase whose backend is gone (replaced on a
+/// printer switch) or no longer runs anything would otherwise refuse every
+/// later flow, so it is cleared here.
 bool flow_running() {
     ensure_flow_subjects();
-    return lv_subject_get_int(&s_indx_flow_phase) == kPhaseRunning;
+    if (lv_subject_get_int(&s_indx_flow_phase) != kPhaseRunning) {
+        return false;
+    }
+    const AmsBackend* backend = AmsState::instance().get_backend();
+    if (backend != nullptr && backend->device_action_running()) {
+        return true;
+    }
+    spdlog::info("[IndxDeviceFlows] The tracked run's backend no longer runs it; clearing");
+    // Subjects only: this runs inside a section build, which a refresh would tear down.
+    write_flow_subjects("", kPhaseIdle);
+    return false;
 }
 
 /// The save watch outlives any one flow. Held in an optional and destroyed
@@ -114,6 +135,16 @@ void run_tracked(const char* action_id, const std::string& running_text,
 }
 
 void save_calibration() {
+    // SAVE_CONFIG restarts Klipper: never under a print, paused included.
+    if (print_blocks_filament_op(get_printer_state().print_state().get_print_lifecycle(),
+                                 /*backend_self_homes=*/true)) {
+        notify_ams_error(AmsErrorHelper::busy_with_print());
+        return;
+    }
+    if (save_watch().in_flight()) {
+        NOTIFY_WARNING("{}", lv_tr("Wait for the current operation to complete"));
+        return;
+    }
     IMoonrakerAPI* api = get_moonraker_api();
     set_flow_state(lv_tr("Saving calibration..."), kPhaseResult);
     save_watch().begin(
@@ -189,8 +220,10 @@ void seat_by_hand() {
                                   notify_ams_error(err);
                                   return;
                               }
-                              NOTIFY_SUCCESS(
-                                  lv_tr("{} is the mounted tool"),
+                              // Sent, not done: the tool reads as mounted once
+                              // the printer reports it.
+                              NOTIFY_INFO(
+                                  lv_tr("Seating {}..."),
                                   active_tool_label(tool_label(head), head, ToolLabelForm::Full));
                           });
         });
@@ -198,7 +231,7 @@ void seat_by_hand() {
 
 /// The status line, once per section: the section's flows share it.
 void attach_status(lv_obj_t* actions_container) {
-    ensure_flow_subjects();
+    flow_running(); // a stale "Calibrating" never reaches a new section build
     if (lv_obj_find_by_name(actions_container, "indx_flow_status_line") != nullptr) {
         return;
     }

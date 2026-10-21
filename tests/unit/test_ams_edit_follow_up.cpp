@@ -32,7 +32,7 @@ class FollowUpBackend : public AmsBackendMock {
         }
         return EditFollowUp{"Update model?", "Tool 2 now holds PETG", "Update"};
     }
-    AmsError run_edit_follow_up(int slot_index, const SlotInfo&) override {
+    AmsError run_edit_follow_up(int slot_index, const SlotInfo&, const SlotInfo&) override {
         ++runs;
         last_slot = slot_index;
         return AmsErrorHelper::success();

@@ -1052,7 +1052,8 @@ class GatedActionsBackend : public helix::AmsBackendQidi {
         ++runs;
         return AmsBackendQidi::do_run_device_action(id, value, std::move(on_done));
     }
-    helix::AmsError do_run_edit_follow_up(int, const helix::SlotInfo&) override {
+    helix::AmsError do_run_edit_follow_up(int, const helix::SlotInfo&,
+                                          const helix::SlotInfo&) override {
         ++follow_ups;
         return helix::AmsErrorHelper::success();
     }
@@ -1107,12 +1108,12 @@ TEST_CASE_METHOD(GatedActionsFixture, "run_edit_follow_up refuses while a print 
                  "[ams][device_actions]") {
     helix::SlotInfo after;
     helix::test::set_wire_state(state, helix::PrintJobState::PRINTING);
-    CHECK_FALSE(backend->run_edit_follow_up(0, after).success());
+    CHECK_FALSE(backend->run_edit_follow_up(0, helix::SlotInfo{}, after).success());
     helix::test::set_wire_state(state, helix::PrintJobState::PAUSED);
-    CHECK_FALSE(backend->run_edit_follow_up(0, after).success());
+    CHECK_FALSE(backend->run_edit_follow_up(0, helix::SlotInfo{}, after).success());
     CHECK(backend->follow_ups == 0);
 
     helix::test::set_wire_state(state, helix::PrintJobState::STANDBY);
-    CHECK(backend->run_edit_follow_up(0, after).success());
+    CHECK(backend->run_edit_follow_up(0, helix::SlotInfo{}, after).success());
     CHECK(backend->follow_ups == 1);
 }

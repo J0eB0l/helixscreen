@@ -113,6 +113,8 @@ class AmsDeviceSectionDetailOverlay : public OverlayBase {
 
     /// The always-1 subject a disabled action's row names as its `disabled` subject.
     static constexpr const char* kActionDisabledSubject = "ams_device_action_disabled";
+    /// What a dropdown shows when the backend reports no value it lists.
+    static constexpr const char* kUnknownDropdownText = "-";
 
     //
     // === Internal Methods ===

@@ -573,6 +573,13 @@ TEST_CASE_METHOD(IndxFixture, "INDX device: a calibration reports when it ends",
         CHECK(calls == 1);
         CHECK(last.result == AmsResult::TIMEOUT);
     }
+    SECTION("a dropped connection reads as no answer, not a failure") {
+        api.connection_lost = {"INDX_CALIBRATE"};
+        REQUIRE(b.run_device_action("calibrate_heater", {}, on_done).success());
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(calls == 1);
+        CHECK(last.result == AmsResult::TIMEOUT);
+    }
     SECTION("Klipper's refusal is a failure") {
         api.fail = {"INDX_FAN_CALIBRATE"};
         REQUIRE(b.run_device_action("calibrate_fan", {}, on_done).success());
@@ -741,9 +748,29 @@ TEST_CASE_METHOD(IndxFixture,
     CHECK_FALSE(offer->title.empty());
     CHECK_FALSE(offer->confirm_label.empty());
 
-    REQUIRE(b.run_edit_follow_up(1, with_material("PETG")).success());
+    REQUIRE(b.run_edit_follow_up(1, with_material("PLA"), with_material("PETG")).success());
     CHECK(b.sent() ==
           std::vector<std::string>{"SET_TOOL_FILAMENT TOOL=1 DENSITY=1.270 HEAT_CAPACITY=1.300"});
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX follow-up: the confirm re-checks the head before sending",
+                 "[ams][indx][follow_up]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(kPresetFrame);
+    b.feed(active(1));
+    REQUIRE(b.edit_follow_up(1, with_material("PLA"), with_material("PETG")).has_value());
+
+    // A console CHANGE_TOOL while the dialog is up: T3 now owns the live model.
+    b.feed(active(3));
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PLA"), with_material("PETG")).success());
+    CHECK(b.sent().empty());
+
+    b.feed(active(1));
+    b.feed(json{{"gcode_macro TOOL_POSITIONS", {{"no_heat_tools", json::array({1})}}}});
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PLA"), with_material("PETG")).success());
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PETG"), with_material("PETG")).success());
+    CHECK(b.sent().empty());
 }
 
 TEST_CASE_METHOD(IndxFixture, "INDX follow-up: nothing to offer", "[ams][indx][follow_up]") {
@@ -800,8 +827,74 @@ TEST_CASE_METHOD(PrintingIndxFixture, "INDX follow-up: refused while printing",
 
     helix::test::set_wire_state(state, helix::PrintJobState::PRINTING);
     CHECK_FALSE(b.edit_follow_up(1, with_material("PLA"), with_material("PETG")).has_value());
-    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PETG")).success());
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PLA"), with_material("PETG")).success());
     helix::test::set_wire_state(state, helix::PrintJobState::PAUSED);
-    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PETG")).success());
+    CHECK_FALSE(b.run_edit_follow_up(1, with_material("PLA"), with_material("PETG")).success());
     CHECK(api.sent.empty());
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX device: a tracked run holds the backend busy until it ends",
+                 "[ams][indx][device]") {
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    helix::PrinterState state;
+    test::GcodeRecordingApi api{client, state};
+    RecordingIndx b{&api, &client};
+    b.set_discovery(discover(indx_objects(4, kPhase3Macros)));
+    b.feed(active(1));
+    api.hold_acks = true;
+
+    int calls = 0;
+    REQUIRE(b.run_device_action("calibrate_heater", {}, [&calls](const AmsError&) {
+                 ++calls;
+             }).success());
+    CHECK(b.device_action_running());
+
+    CHECK_FALSE(b.load_filament(1).success());
+    CHECK_FALSE(b.change_tool(2).success());
+    CHECK_FALSE(b.execute_device_action("seat_by_hand", std::any(2)).success());
+    CHECK_FALSE(b.run_device_action("cycle_all", {}, [](const AmsError&) {}).success());
+    auto actions = b.get_device_actions();
+    for (const char* id : {"calibrate_heater", "calibrate_fan", "cycle_all", "seat_by_hand"}) {
+        INFO(id);
+        const auto* a = find_action(actions, id);
+        REQUIRE(a != nullptr);
+        CHECK_FALSE(a->enabled);
+    }
+    // Not machine motion: the speed mode still sets.
+    CHECK(b.execute_device_action("speed_mode", std::string("Sport")).success());
+    CHECK(api.sent == std::vector<std::string>{"INDX_CALIBRATE", "MODE_SPORT"});
+
+    api.ack_held();
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(calls == 1);
+    CHECK_FALSE(b.device_action_running());
+    actions = b.get_device_actions();
+    CHECK(find_action(actions, "cycle_all")->enabled);
+    api.hold_acks = false;
+    CHECK(b.change_tool(2).success());
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX device: the seat-by-hand entry and action agree",
+                 "[ams][indx][device]") {
+    struct Case {
+        const char* name;
+        json objects;
+    };
+    const std::vector<Case> cases = {
+        {"seat and remove", indx_objects(4, {"MANUAL_TOOL_SEAT", "MANUAL_TOOL_REMOVE"})},
+        {"seat alone", indx_objects(4, {"MANUAL_TOOL_SEAT"})},
+        {"remove alone", indx_objects(4, {"MANUAL_TOOL_REMOVE"})},
+        {"seat, contract not recognized",
+         without(indx_objects(4, {"MANUAL_TOOL_SEAT"}), "gcode_macro CHANGE_TOOL")},
+    };
+    for (const auto& c : cases) {
+        INFO(c.name);
+        const auto hw = discover(c.objects);
+        HeatedIndx b;
+        b.set_discovery(hw);
+        b.feed(active(1));
+        const auto actions = b.get_device_actions();
+        CHECK(indx::supports_seat_by_hand(hw) == (find_action(actions, "seat_by_hand") != nullptr));
+    }
+    CHECK(indx::supports_seat_by_hand(discover(indx_objects(4, {"MANUAL_TOOL_SEAT"}))));
 }

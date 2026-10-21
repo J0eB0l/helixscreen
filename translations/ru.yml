@@ -3391,6 +3391,7 @@ translations:
   Seat a tool by hand: Установить инструмент вручную
   Seat a tool by hand for the first Z home: Установить инструмент вручную для первой парковки Z
   Seat which tool by hand?: Какой инструмент установить вручную?
+  Seating {}...: Установка {}...
   Secondary: Вторичный
   Section Detail: Детали раздела
   Security: Безопасность
@@ -4666,7 +4667,6 @@ translations:
   '{} left': 'осталось {}'
   '{} lines in helixscreen.env were ignored': 'В helixscreen.env проигнорировано строк: {}'
   '{} kept crashing the panel; switched back to {}': '{} постоянно вызывал сбой экрана; возврат к {}'
-  '{} is the mounted tool': '{} — установленный инструмент'
   "{} isn't loaded. The print will pause when it needs it.": '{}: филамент не загружен. Печать приостановится, когда он понадобится.'
   '{} kept crashing the panel; pick a printer to connect': '{} постоянно вызывал сбой экрана; выберите принтер для подключения'
   '{} looser than {}': "{} слабее, чем {}"

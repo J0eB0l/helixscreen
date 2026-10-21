@@ -3366,6 +3366,7 @@ translations:
   Seat a tool by hand: Installer un outil à la main
   Seat a tool by hand for the first Z home: Installer un outil à la main pour la première prise d'origine Z
   Seat which tool by hand?: Quel outil installer à la main ?
+  Seating {}...: Installation de {}...
   Secondary: Secondaire
   Section Detail: Détail de section
   Security: Sécurité
@@ -4652,7 +4653,6 @@ translations:
   '{} left': '{} restant'
   '{} lines in helixscreen.env were ignored': '{} lignes de helixscreen.env ont été ignorées'
   '{} kept crashing the panel; switched back to {}': '{} a planté l''écran à plusieurs reprises ; retour à {}'
-  '{} is the mounted tool': "{} est l'outil monté"
   "{} isn't loaded. The print will pause when it needs it.": '{} n''est pas chargé. L''impression se mettra en pause quand elle en aura besoin.'
   '{} kept crashing the panel; pick a printer to connect': '{} a planté l''écran à plusieurs reprises ; choisissez une imprimante à connecter'
   '{} looser than {}': "{} plus lâche que {}"

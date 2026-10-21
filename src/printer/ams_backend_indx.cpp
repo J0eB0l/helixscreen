@@ -532,12 +532,17 @@ std::vector<helix::printer::DeviceAction> AmsBackendIndx::get_device_actions() c
                                        "speed", "Stealth is quiet, Sport is fastest"));
     }
 
+    // One device action on the printer at a time: the rest grey until it ends.
+    const std::string running_reason =
+        device_action_running() ? lv_tr("Wait for the current operation to complete") : "";
+    const auto gate = [&running_reason](DA& action, std::string reason) {
+        action.disable_reason = reason.empty() ? running_reason : std::move(reason);
+        action.enabled = action.disable_reason.empty();
+    };
     const auto add_calibration = [&](indx::HeaterCalibration which, DA action) {
         action.guided_flow = which == indx::HeaterCalibration::Heater ? "indx_heater_calibration"
                                                                       : "indx_fan_calibration";
-        action.disable_reason =
-            indx::calibration_blocked_reason(contract_, state_, which, target_c);
-        action.enabled = action.disable_reason.empty();
+        gate(action, indx::calibration_blocked_reason(contract_, state_, which, target_c));
         actions.push_back(std::move(action));
     };
     add_calibration(indx::HeaterCalibration::Heater,
@@ -549,11 +554,12 @@ std::vector<helix::printer::DeviceAction> AmsBackendIndx::get_device_actions() c
                                "Fit how the part fan cools the nozzle")
                         .with_machine_motion());
 
-    if (contract_.has_manual_tool_recovery) {
+    if (contract_.has_manual_tool_seat) {
         DA seat = DA::button("seat_by_hand", "Seat a tool by hand", "calibration", "lock",
                              "For a first Z home: claim the tool you put on the head")
                       .with_machine_motion();
         seat.guided_flow = indx::kSeatByHandFlowId;
+        gate(seat, {});
         actions.push_back(std::move(seat));
     }
 
@@ -562,8 +568,7 @@ std::vector<helix::printer::DeviceAction> AmsBackendIndx::get_device_actions() c
                               "Pick up and park each tool in turn")
                        .with_machine_motion();
         cycle.guided_flow = "indx_cycle_all";
-        cycle.disable_reason = indx::motion_blocked_reason(contract_, state_);
-        cycle.enabled = cycle.disable_reason.empty();
+        gate(cycle, indx::motion_blocked_reason(contract_, state_));
         actions.push_back(std::move(cycle));
     }
 
@@ -629,21 +634,32 @@ AmsError AmsBackendIndx::do_run_device_action(const std::string& action_id, cons
     } else {
         return AmsBackendToolChanger::do_run_device_action(action_id, value, std::move(on_done));
     }
+    if (!begin_tracked_run()) {
+        return AmsErrorHelper::busy("a device action");
+    }
     spdlog::info("{} Running {} (tracked)", backend_log_tag(), cmd);
-    // The macros home themselves; the answer arrives on the main thread.
+    emit_event(EVENT_STATE_CHANGED);
+    // The macros home themselves. Both answers arrive on the main thread,
+    // behind the backend's lifetime token, so `this` is alive when they run.
     auto done = std::make_shared<DeviceActionDone>(std::move(on_done));
-    return ensure_homed_then(
+    AmsError sent = ensure_homed_then(
         cmd,
-        [done]() {
+        [this, done]() {
+            end_tracked_run();
+            emit_event(EVENT_STATE_CHANGED);
             if (*done) {
                 (*done)(AmsErrorHelper::success());
             }
         },
-        [done, cmd](const MoonrakerError& err) {
+        [this, done, cmd](const MoonrakerError& err) {
+            end_tracked_run();
+            emit_event(EVENT_STATE_CHANGED);
             if (!*done) {
                 return;
             }
-            if (err.type == MoonrakerErrorType::TIMEOUT) {
+            // No answer is not a failure: the macro may still be running.
+            if (err.type == MoonrakerErrorType::TIMEOUT ||
+                err.type == MoonrakerErrorType::CONNECTION_LOST) {
                 (*done)(AmsErrorHelper::timeout(cmd));
                 return;
             }
@@ -654,6 +670,10 @@ AmsError AmsBackendIndx::do_run_device_action(const std::string& action_id, cons
         },
         indx::kCalibrationTimeoutMs, /*skip_homing=*/true, /*silent=*/true,
         /*caller_surfaces_errors=*/false);
+    if (!sent) {
+        end_tracked_run();
+    }
+    return sent;
 }
 
 // ============================================================================
@@ -666,58 +686,83 @@ bool AmsBackendIndx::print_holds_printer() const {
                                     /*backend_self_homes=*/true);
 }
 
-std::optional<AmsBackend::EditFollowUp>
-AmsBackendIndx::edit_follow_up(int slot_index, const SlotInfo& before,
-                               const SlotInfo& after) const {
-    if (!contract_.recognized || !contract_.has_set_tool_filament || print_holds_printer()) {
-        return std::nullopt;
+AmsError AmsBackendIndx::follow_up_refusal_locked(int slot_index, const SlotInfo& before,
+                                                  const SlotInfo& after, std::string& preset_key,
+                                                  indx::FilamentPreset& values) const {
+    const auto refuse = [](const char* why) {
+        return AmsError(AmsResult::WRONG_STATE, std::string("INDX heater model update: ") + why,
+                        lv_tr("Not available now"), "");
+    };
+    if (!contract_.recognized || !contract_.has_set_tool_filament) {
+        return AmsErrorHelper::not_supported("SET_TOOL_FILAMENT");
     }
-    std::lock_guard<std::mutex> lock(mutex_);
+    if (AmsError slot_valid = validate_slot_index_locked(slot_index); !slot_valid) {
+        return slot_valid;
+    }
     const auto presets = state_.presets.value_or(std::map<std::string, indx::FilamentPreset>{});
     const auto preset = indx::preset_for_material(after.material, presets);
-    if (!preset || indx::preset_for_material(before.material, presets) == preset) {
-        return std::nullopt;
+    if (!preset) {
+        return AmsErrorHelper::invalid_parameter("material '" + after.material + "'");
+    }
+    if (indx::preset_for_material(before.material, presets) == preset) {
+        return refuse("the preset did not change");
     }
     if (state_.no_heat_tools && state_.no_heat_tools->count(slot_index) > 0) {
-        return std::nullopt;
+        return refuse("the tool has no hotend");
     }
     // SET_TOOL_FILAMENT also loads the values into the live heater model,
     // which belongs to whatever tool is on the head.
     const int mounted = state_.active_tool.value_or(-2);
     if (mounted != slot_index && mounted != -1) {
+        return refuse("another tool is mounted");
+    }
+    const auto it = presets.find(*preset);
+    if (it == presets.end()) {
+        return AmsErrorHelper::invalid_parameter("material '" + after.material + "'");
+    }
+    preset_key = *preset;
+    values = it->second;
+    return AmsErrorHelper::success();
+}
+
+std::optional<AmsBackend::EditFollowUp>
+AmsBackendIndx::edit_follow_up(int slot_index, const SlotInfo& before,
+                               const SlotInfo& after) const {
+    if (print_holds_printer()) {
         return std::nullopt;
     }
-    const indx::FilamentPreset& values = presets.at(*preset);
+    std::string preset;
+    indx::FilamentPreset values;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!follow_up_refusal_locked(slot_index, before, after, preset, values)) {
+            return std::nullopt;
+        }
+    }
     EditFollowUp offer;
     offer.title = lv_tr("Update heater model?");
     offer.message = fmt::format(
         fmt::runtime(lv_tr("Update the INDX heater model too? {} now holds {}: density {:.2f}, "
                            "heat capacity {:.2f}.")),
-        indx::tool_text(slot_index), *preset, values.density, values.heat_capacity);
+        indx::tool_text(slot_index), preset, values.density, values.heat_capacity);
     offer.confirm_label = lv_tr("Update");
     return offer;
 }
 
-AmsError AmsBackendIndx::do_run_edit_follow_up(int slot_index, const SlotInfo& after) {
-    std::optional<indx::FilamentPreset> values;
+AmsError AmsBackendIndx::do_run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                               const SlotInfo& after) {
+    std::string preset;
+    indx::FilamentPreset values;
     {
+        // Asked again: the head or the presets may have changed while the
+        // dialog was up.
         std::lock_guard<std::mutex> lock(mutex_);
-        if (!contract_.has_set_tool_filament) {
-            return AmsErrorHelper::not_supported("SET_TOOL_FILAMENT");
-        }
-        if (AmsError slot_valid = validate_slot_index_locked(slot_index); !slot_valid) {
-            return slot_valid;
-        }
-        // Re-derived: the presets may have changed since the offer.
-        const auto presets = state_.presets.value_or(std::map<std::string, indx::FilamentPreset>{});
-        if (auto preset = indx::preset_for_material(after.material, presets)) {
-            values = presets.at(*preset);
+        if (AmsError refused = follow_up_refusal_locked(slot_index, before, after, preset, values);
+            !refused) {
+            return refused;
         }
     }
-    if (!values) {
-        return AmsErrorHelper::invalid_parameter("material '" + after.material + "'");
-    }
-    std::string cmd = indx::set_tool_filament_gcode(slot_index, *values);
+    std::string cmd = indx::set_tool_filament_gcode(slot_index, values);
     spdlog::info("{} Updating the heater model: {}", backend_log_tag(), cmd);
     return execute_gcode(cmd);
 }
