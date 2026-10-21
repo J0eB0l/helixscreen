@@ -362,21 +362,20 @@ class AmsBackendAce : public AmsSubscriptionBackend {
                                                    const nlohmann::json* skip = nullptr);
 
     /**
-     * @brief The lowest-numbered `ace_instance_N` key whose value satisfies
+     * @brief The lowest-numbered `ace_instance_N` object whose value satisfies
      *        @p predicate: the bootstrap's pick when it decides whether the
-     *        the ACEPRO driver's objects carry slot data (#1107).
+     *        ACEPRO driver's objects carry slot data (#1107). Walks
+     *        ace_instance_objects, so the same instances in the same order.
      *
      * @param status A query result.status object or one notify frame's status
-     * @param predicate Object filter; defaults to "non-empty object", the
-     *        notify-delta shape. Borrowed by select_ace_object with its own
-     *        mode-specific filter.
-     * @return Pointer to the key (borrowed from @p status), or null
+     * @param predicate Object filter; defaults to any instance object.
+     *        Borrowed by select_ace_object with its own mode-specific filter.
+     * @return The instance number and its object (borrowed from @p status),
+     *         or nullopt
      */
-    static const std::string* lowest_ace_instance_key(
-        const nlohmann::json& status,
-        const std::function<bool(const nlohmann::json&)>& predicate = [](const nlohmann::json& o) {
-            return o.is_object() && !o.empty();
-        });
+    static std::optional<std::pair<int, const nlohmann::json*>> lowest_ace_instance(
+        const nlohmann::json& status, const std::function<bool(const nlohmann::json&)>& predicate =
+                                          [](const nlohmann::json&) { return true; });
 
     /**
      * @brief The manager-shaped `ace` object in a status frame, when one is
@@ -404,7 +403,7 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     std::string slot_command(const std::string& verb, int slot) const;
 
     /// Every non-empty `ace_instance_N` object in a status frame with its
-    /// instance number N, in ascending N.
+    /// instance number N below kMaxUnits, in ascending numeric N.
     static std::vector<std::pair<int, const nlohmann::json*>>
     ace_instance_objects(const nlohmann::json& status);
 
@@ -426,8 +425,9 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     bool seat_from_tool_locked(int tool);
 
     /// The global slot that feeds driver tool @p tool, or -1 when no slot
-    /// does. Read from the tool number each ACEPRO slot publishes; a driver that
-    /// publishes none numbers its tools by slot. Caller holds mutex_.
+    /// does. Read from each slot's mapped_tool, the tool number each ACEPRO
+    /// slot publishes; a driver that publishes none numbers its tools by slot.
+    /// Caller holds mutex_.
     int slot_for_tool_locked(int tool) const;
 
     /// The driver tool global slot @p slot_index feeds, the inverse of
@@ -511,10 +511,6 @@ class AmsBackendAce : public AmsSubscriptionBackend {
         std::string firmware; // `firmware`
     };
     std::vector<UnitIdentity> unit_identities_;
-
-    // The driver tool each global slot feeds, from the ACEPRO slots' `tool`.
-    // Empty for drivers that publish none. Guarded by mutex_.
-    std::map<int, int> slot_tools_;
 
     // The ACEPRO driver's `ace_instance_N` objects discovery found, which the bootstrap
     // queries. Guarded by mutex_.

@@ -755,3 +755,23 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE load from here ends with its ack or its e
     send_frame(helper, manager_delta({{"target_index", -1}}));
     CHECK(helper.get_test_system_info().action == AmsAction::IDLE);
 }
+
+// A slot's `tool` sizes the published tool map, so only a number a chain of
+// kMaxUnits units could carry is taken; anything else names no tool and the
+// slot refuses a load.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE ignores a slot tool number out of range",
+                 "[ams][ace][multiunit]") {
+    const json bad = GENERATE(json(1000000), json(-3), json(64), json("5"), json(2.5));
+    CAPTURE(bad.dump());
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 1, -1, 1,
+                [&bad](json& status) { status["ace_instance_0"]["slots"][1]["tool"] = bad; });
+
+    const auto info = helper.get_test_system_info();
+    CHECK(helper.get_slot_info(1).mapped_tool == -1);
+    CHECK(info.tool_to_slot_map.size() <= 4);
+    helper.set_running(true);
+    CHECK_FALSE(helper.load_filament(1).success());
+    CHECK(helper.get_slot_info(2).mapped_tool == 2);
+}

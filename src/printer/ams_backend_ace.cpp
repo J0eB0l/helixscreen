@@ -56,6 +56,9 @@ static constexpr int kMaxInfoFetchFailures = 3;
 
 namespace {
 
+/// What every ACEPRO unit's Klipper object is named, before its number.
+constexpr std::string_view kAceInstancePrefix = "ace_instance_";
+
 /// The name shown for an ACEPRO unit: the product its `protocol` drives.
 /// Product names, so not translated.
 std::string ace_unit_short_name(const std::string& protocol) {
@@ -136,7 +139,6 @@ void AmsBackendAce::on_started() {
         rest_instance_ = 0;
         instance_objects_ = false;
         unit_actions_.clear();
-        slot_tools_.clear();
         unit_links_.clear();
         // The load's ack died with the old session, so nothing would end it.
         if (own_load_ && (system_info_.action == AmsAction::LOADING ||
@@ -228,7 +230,7 @@ void AmsBackendAce::on_started() {
                 if (response.contains("result") && response["result"].contains("status")) {
                     const json& status = response["result"]["status"];
                     ace_data = select_ace_object(status, &matched_key);
-                    if (lowest_ace_instance_key(status)) {
+                    if (lowest_ace_instance(status)) {
                         // The ACEPRO driver, whether its instances carry the slots or
                         // the REST bridge serves them.
                         std::lock_guard<std::mutex> lock(mutex_);
@@ -241,7 +243,7 @@ void AmsBackendAce::on_started() {
                     spdlog::info("[ACE] Klipper '{}' object has status data — "
                                  "using native WebSocket subscription",
                                  matched_key);
-                    if (matched_key.rfind("ace_instance", 0) == 0) {
+                    if (matched_key.rfind(kAceInstancePrefix, 0) == 0) {
                         // The ACEPRO driver: every instance is a unit of its own.
                         {
                             std::lock_guard<std::mutex> lock(mutex_);
@@ -840,7 +842,7 @@ void AmsBackendAce::set_discovery(const helix::PrinterDiscovery& discovery) {
     std::lock_guard<std::mutex> lock(mutex_);
     discovered_instances_.clear();
     for (const auto& name : discovery.ace_object_names()) {
-        if (name.rfind("ace_instance_", 0) == 0) {
+        if (name.rfind(kAceInstancePrefix, 0) == 0) {
             discovered_instances_.push_back(name);
         }
     }
@@ -1165,24 +1167,29 @@ int AmsBackendAce::slot_for_tool_locked(int tool) const {
     if (tool < 0) {
         return -1;
     }
-    if (slot_tools_.empty()) {
-        return tool < system_info_.total_slots ? tool : -1;
-    }
-    for (const auto& [slot, slot_tool] : slot_tools_) {
-        if (slot_tool == tool) {
-            return slot;
+    bool any_named = false;
+    for (const auto& unit : system_info_.units) {
+        for (const auto& slot : unit.slots) {
+            any_named |= slot.mapped_tool >= 0;
+            if (slot.mapped_tool == tool) {
+                return slot.global_index;
+            }
         }
     }
-    return -1;
+    if (any_named) {
+        return -1;
+    }
+    return tool < system_info_.total_slots ? tool : -1;
 }
 
 int AmsBackendAce::tool_for_slot_locked(int slot_index) const {
     // Caller holds mutex_.
-    // The ACEPRO driver names every slot's tool; a slot it has not named yet has none,
-    // since slot order need not be tool order. Other drivers number them alike.
-    const auto it = slot_tools_.find(slot_index);
-    if (it != slot_tools_.end()) {
-        return it->second;
+    // The ACEPRO driver names every slot's tool; a slot it has not named yet
+    // has none, since slot order need not be tool order. Other drivers number
+    // them alike.
+    const SlotInfo* slot = slot_info_locked(slot_index);
+    if (slot != nullptr && slot->mapped_tool >= 0) {
+        return slot->mapped_tool;
     }
     return instance_objects_ ? -1 : slot_index;
 }
@@ -1342,6 +1349,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
                 last_spool_evidence_.clear();
             }
 
+            bool tools_named = false;
             for (size_t i = 0; i < slots_arr.size(); ++i) {
                 const auto& slot_json = slots_arr[i];
                 if (!slot_json.is_object())
@@ -1350,12 +1358,13 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
                 auto& slot = unit.slots[i];
                 const int idx = slot.global_index;
                 note_park_state_locked(idx, slot_json);
-                if (slot_json.contains("tool") && slot_json["tool"].is_number_integer()) {
-                    slot_tools_[idx] = slot_json["tool"].get<int>();
+                if (const auto tool =
+                        helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit)) {
                     // Published as the slot's tool so a Load with a tool seated
                     // is planned as the toolchange the driver performs, and the
                     // step bar shows its cut and retract.
-                    slot.mapped_tool = slot_tools_[idx];
+                    slot.mapped_tool = *tool;
+                    tools_named = true;
                 }
                 if (instance_objects_) {
                     slot.extruder_name = "extruder";
@@ -1488,7 +1497,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit_index) {
                 // kPollIntervalMs, so ACE names no slot to cached_slot_locked().
                 apply_resolved_lane(slot, idx);
             }
-            if (!slot_tools_.empty()) {
+            if (tools_named) {
                 // The driver names each slot's tool: publish the map in both
                 // directions, so the T badges show only where tool and spool
                 // numbers part.
@@ -1655,28 +1664,23 @@ const json* AmsBackendAce::select_ace_object(const json& status, std::string* ma
             *matched_key = "ace";
         return &status["ace"];
     }
-    if (const std::string* instance_key = lowest_ace_instance_key(status, matches)) {
+    if (const auto instance = lowest_ace_instance(status, matches)) {
         if (matched_key)
-            *matched_key = *instance_key;
-        return &status[*instance_key];
+            *matched_key = ace_instance_key(instance->first);
+        return instance->second;
     }
     return nullptr;
 }
 
-const std::string*
-AmsBackendAce::lowest_ace_instance_key(const json& status,
-                                       const std::function<bool(const json&)>& predicate) {
-    if (!status.is_object()) {
-        return nullptr;
-    }
-    const std::string* best_key = nullptr;
-    for (auto it = status.begin(); it != status.end(); ++it) {
-        if (it.key().rfind("ace_instance", 0) == 0 && predicate(it.value()) &&
-            (best_key == nullptr || it.key() < *best_key)) {
-            best_key = &it.key();
+std::optional<std::pair<int, const json*>>
+AmsBackendAce::lowest_ace_instance(const json& status,
+                                   const std::function<bool(const json&)>& predicate) {
+    for (const auto& instance : ace_instance_objects(status)) {
+        if (predicate(*instance.second)) {
+            return instance;
         }
     }
-    return best_key;
+    return std::nullopt;
 }
 
 std::vector<std::pair<int, const json*>> AmsBackendAce::ace_instance_objects(const json& status) {
@@ -1684,12 +1688,13 @@ std::vector<std::pair<int, const json*>> AmsBackendAce::ace_instance_objects(con
     if (!status.is_object()) {
         return found;
     }
-    static constexpr std::string_view kPrefix = "ace_instance_";
     for (auto it = status.begin(); it != status.end(); ++it) {
-        if (it.key().rfind(kPrefix, 0) != 0 || !it.value().is_object() || it.value().empty()) {
+        if (it.key().rfind(kAceInstancePrefix, 0) != 0 || !it.value().is_object() ||
+            it.value().empty()) {
             continue;
         }
-        const auto number = helix::text_io::parse_leading<int>(it.key().substr(kPrefix.size()));
+        const auto number =
+            helix::text_io::parse_leading<int>(it.key().substr(kAceInstancePrefix.size()));
         if (!number || *number < 0 || *number >= kMaxUnits) {
             spdlog::debug("[ACE] Ignoring '{}': not an ACE instance this backend shows", it.key());
             continue;
@@ -2107,9 +2112,8 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         const bool states_status = slot_json.contains("status") && slot_json["status"].is_string();
         std::optional<bool> observed_present;
         if (states_status) {
-            // Mirror the object path exactly via the shared vocabulary map —
-            // this driver emits `ready` (and can emit `unknown`), which the old
-            // empty/available/loaded-only mapping misclassified (#1069).
+            // Mirror the object path exactly via the shared vocabulary map:
+            // this driver emits `ready` (and can emit `unknown`) (#1069).
             SlotStatus status =
                 helix::ace::slot_status_from_string(slot_json["status"].get<std::string>());
             observed_present = slot_status_reports_filament(status);
@@ -2246,7 +2250,7 @@ std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const
 }
 
 std::string AmsBackendAce::ace_instance_key(int n) {
-    return fmt::format("ace_instance_{}", n);
+    return std::string(kAceInstancePrefix) + std::to_string(n);
 }
 
 AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,

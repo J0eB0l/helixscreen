@@ -3,6 +3,7 @@
 
 #include "ace_slot_parse.h"
 
+#include "json_utils.h"
 #include "lane_translation.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 
@@ -78,6 +79,18 @@ std::optional<std::string> read_slot_material(const json& slot_json) {
         return material;
     }
     return get_str("type");
+}
+
+std::optional<int> read_slot_tool(const json& slot_json, int tool_limit) {
+    const json* tool = helix::json_util::find_member(slot_json, "tool");
+    if (tool == nullptr || !tool->is_number_integer()) {
+        return std::nullopt;
+    }
+    const int value = helix::json_util::as_int(*tool, -1);
+    if (value < 0 || value >= tool_limit) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 std::optional<uint32_t> parse_slot_color(const json& color_val) {

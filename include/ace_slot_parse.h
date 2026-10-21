@@ -46,6 +46,11 @@ inline constexpr int kDryerMaxDurationMin = 720;
 /// `type` (ValgACE) when both are stated. Empty or absent states no reading.
 [[nodiscard]] std::optional<std::string> read_slot_material(const nlohmann::json& slot_json);
 
+/// The driver tool a slot entry names in `tool`, when it is an integer in
+/// [0, @p tool_limit). Anything else (absent, not a number, out of range)
+/// names none: the number sizes the published tool map.
+[[nodiscard]] std::optional<int> read_slot_tool(const nlohmann::json& slot_json, int tool_limit);
+
 /// What a slot entry's `rfid` field says about the bay's tag reader.
 enum class TagRead {
     Silent,     ///< no `rfid` field: the frame says nothing about the reader
