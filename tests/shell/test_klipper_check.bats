@@ -390,3 +390,33 @@ EOF2
     contains "Klipper does not appear to be running" "$output"
     contains "Moonraker does not appear to be running" "$output"
 }
+
+# ===========================================================================
+# The HTTP probe follows the process probes
+# ===========================================================================
+
+@test "check_klipper_ecosystem: Moonraker in /proc, bare ps showing nothing, not answering -> not responding" {
+    mock_command_script ps "printf '  PID TTY          TIME CMD\\n 9001 pts/0    00:00:00 sh\\n'"
+    mock_proc_cmdline 123 /usr/bin/python3 /usr/share/klipper/klippy/klippy.py printer.cfg
+    mock_proc_cmdline 456 /usr/bin/python3 /usr/data/moonraker/moonraker/moonraker.py
+
+    run_klipper_check "k2" "" 1
+    [ "$status" -eq 0 ]
+    contains "Moonraker is running but not responding on http://127.0.0.1:7125" "$output"
+    lacks "Moonraker does not appear to be running" "$output"
+}
+
+@test "check_klipper_ecosystem: a ps line naming moonraker-obico, Moonraker absent -> no HTTP probe" {
+    local ps_file="$BATS_TEST_TMPDIR/ps_output"
+    cat > "$ps_file" <<'EOF2'
+  PID USER     COMMAND
+  123 root     python3 klippy/klippy.py
+  204 root     /usr/bin/python3 -m moonraker_obico.app -c moonraker-obico.cfg
+EOF2
+    mock_proc_cmdline 123 /usr/bin/python3 /usr/share/klipper/klippy/klippy.py printer.cfg
+
+    run_klipper_check "k1" "$ps_file" 1
+    [ "$status" -eq 0 ]
+    contains "Moonraker does not appear to be running" "$output"
+    lacks "not responding" "$output"
+}
