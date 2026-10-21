@@ -546,9 +546,8 @@ int ui_edit_number(lua_State* L) {
     const double decimals = o.num("decimals").value_or(0);
     if (!min || !max)
         return luaL_error(L, "%s: min and max are required", fn);
-    // The host keypad has no sign key: it enters zero and positive numbers only.
-    if (*min < 0)
-        return luaL_error(L, "%s: min must be at least 0; the keypad cannot enter a sign", fn);
+    if (*min < -kMaxKeypadValue)
+        return luaL_error(L, "%s: min must be at least -%d", fn, static_cast<int>(kMaxKeypadValue));
     if (*max <= *min || *max > kMaxKeypadValue)
         return luaL_error(L, "%s: max must be above min and at most %d", fn,
                           static_cast<int>(kMaxKeypadValue));
@@ -589,7 +588,8 @@ int ui_edit_number(lua_State* L) {
             config.title_label = refs->keypad_title.c_str();
             config.unit_label = refs->keypad_unit.c_str();
             config.allow_decimal = places > 0;
-            config.allow_negative = false;
+            // A range reaching below zero gets the keypad's sign key.
+            config.allow_negative = min < 0;
             config.max_fraction_digits = places > 0 ? places : 1;
             config.validate = [refs, push_value](float v) { return refs->judge(push_value(v)); };
             config.on_confirm = [refs, push_value](float v) { refs->run_accept(push_value(v)); };

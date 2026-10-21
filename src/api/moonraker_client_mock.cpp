@@ -262,6 +262,25 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     if (is_mock_ifs_module() && std::getenv("HELIX_MOCK_IFS_UNACCOUNTED") != nullptr) {
         ifs_module_head_loaded_.store(true);
     }
+    if (is_mock_ifs_module()) {
+        // Which lanes hold filament ("1,3"; "none" for none), and which lane the
+        // module's ifs_at_hub record names: the states a toolhead unload has to
+        // find its lane from.
+        if (const char* lanes = std::getenv("HELIX_MOCK_IFS_LANES")) {
+            uint8_t mask = 0;
+            for (const char* c = lanes; *c != '\0'; ++c) {
+                if (*c >= '1' && *c <= '4') {
+                    mask |= static_cast<uint8_t>(1u << (*c - '1'));
+                }
+            }
+            ifs_module_presence_.store(mask);
+        }
+        if (const char* at_hub = std::getenv("HELIX_MOCK_IFS_AT_HUB")) {
+            if (at_hub[0] >= '1' && at_hub[0] <= '4' && at_hub[1] == '\0') {
+                ifs_module_at_hub_.store(at_hub[0] - '0');
+            }
+        }
+    }
 
     // OpenAMS reads no identity off its spools: color and material come from the
     // override store, which reads the shared lane_data namespace (laneN keys,
@@ -2360,7 +2379,8 @@ nlohmann::json MoonrakerClientMock::ifs_module_materials_json() const {
 }
 
 nlohmann::json MoonrakerClientMock::ifs_module_vars_json() const {
-    return json{{"variables", json{{"ifs_loaded", ifs_module_loaded_.load()}, {"ifs_at_hub", 0}}}};
+    return json{{"variables", json{{"ifs_loaded", ifs_module_loaded_.load()},
+                                   {"ifs_at_hub", ifs_module_at_hub_.load()}}}};
 }
 
 bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const std::string& gcode) {
@@ -2408,6 +2428,7 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
         const int slot = slot_param();
         if (slot >= 1 && slot <= 4) {
             ifs_module_loaded_.store(slot);
+            ifs_module_at_hub_.store(slot);
             ifs_module_head_loaded_.store(true);
             spdlog::info("[MoonrakerClientMock] IFS module: loaded slot {}", slot);
         }
@@ -2415,8 +2436,15 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
     }
     if (cmd == "IFS_UNLOAD") {
         ifs_module_loaded_.store(0);
+        ifs_module_at_hub_.store(0);
         ifs_module_head_loaded_.store(false);
         spdlog::info("[MoonrakerClientMock] IFS module: unloaded");
+        return true;
+    }
+    if (cmd == "_IFS_CLEAR_EXTRUDER") {
+        // Cut and withdraw the extruder only: no lane moves, no record changes.
+        ifs_module_head_loaded_.store(false);
+        spdlog::info("[MoonrakerClientMock] IFS module: extruder cleared");
         return true;
     }
     if (cmd == "IFS_EJECT") {
@@ -2426,6 +2454,9 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
             if (ifs_module_loaded_.load() == slot) {
                 ifs_module_loaded_.store(0);
                 ifs_module_head_loaded_.store(false);
+            }
+            if (ifs_module_at_hub_.load() == slot) {
+                ifs_module_at_hub_.store(0);
             }
             spdlog::info("[MoonrakerClientMock] IFS module: ejected slot {}", slot);
         }
@@ -2438,6 +2469,7 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
         const int tool = std::stoi(cmd.substr(1));
         if (tool >= 0 && tool < 4) {
             ifs_module_loaded_.store(tool + 1);
+            ifs_module_at_hub_.store(tool + 1);
             ifs_module_head_loaded_.store(true);
             spdlog::info("[MoonrakerClientMock] IFS module: T{} -> slot {}", tool, tool + 1);
         }

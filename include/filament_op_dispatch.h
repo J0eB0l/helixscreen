@@ -242,7 +242,10 @@ inline constexpr int kActiveHeadSlot = -1;
         // that can name a real target: filament is at the toolhead and no lane
         // claims it, so the per-lane arms below have nothing to consult and the
         // backend's unaccounted answer decides on its own.
-        return target_slot == kActiveHeadSlot && toolhead_unaccounted;
+        // kClearToolheadSlot names the same filament: the user's "Not sure"
+        // answer for it.
+        return (target_slot == kActiveHeadSlot || target_slot == kClearToolheadSlot) &&
+               toolhead_unaccounted;
     }
     return slot_actively_loaded || slot_filament_at_toolhead || is_current_slot;
 }
@@ -291,11 +294,14 @@ inline constexpr int kActiveHeadSlot = -1;
         // sends MMU_UNLOAD). kActiveHeadSlot joins it only while the backend
         // reports the toolhead unaccounted: filament at the nozzle that no
         // lane claims, so only the backend can resolve the real channel, which
-        // every backend's unload_filament(-1) does. Any other negative slot
-        // still means "nothing resolved" and must not dispatch against whatever
-        // the firmware last touched.
-        const bool resolvable = target_slot >= 0 || target_slot == kExternalSpoolSlot ||
-                                (target_slot == kActiveHeadSlot && caps.toolhead_unaccounted);
+        // every backend's unload_filament(-1) does. kClearToolheadSlot rides
+        // the same condition: it clears that filament without naming a lane.
+        // Any other negative slot still means "nothing resolved" and must not
+        // dispatch against whatever the firmware last touched.
+        const bool resolvable =
+            target_slot >= 0 || target_slot == kExternalSpoolSlot ||
+            ((target_slot == kActiveHeadSlot || target_slot == kClearToolheadSlot) &&
+             caps.toolhead_unaccounted);
         if (!resolvable || !target_is_loaded) {
             return {FilamentTier::Refused, FilamentRefusal::NothingLoaded, AmsCall::None, -1};
         }

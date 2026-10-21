@@ -748,11 +748,13 @@ translations:
   Clear Console?: Effacer la console ?
   Clear Spool: Retirer la bobine
   Clear every Endless Spool backup: Effacer toutes les réserves de la bobine infinie
+  Clear extruder only: 'Vider l''extrudeur seulement'
   Clear failed: Échec de l'effacement
   ? Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
 
   : Dégagez l'espace au-dessus et en dessous du plateau. Posez les bobines sur le plateau, couvrez-les d'une boîte (un couvercle imprimé ou l'emballage du filament) et fermez la porte.
 
+  Clear the extruder?: 'Vider l''extrudeur ?'
   Clear the plate and load {}. The tower prints in the middle of the bed.: Dégagez le plateau et chargez {}. La tour s'imprime au centre du plateau.
   Cleared from settings — system unpair failed, may need OS Bluetooth: Effacé des
     paramètres ; échec du désappairage système, utiliser le Bluetooth de l'OS si besoin
@@ -834,6 +836,7 @@ translations:
   Confirm (full, ~{} min): "Confirmer (complet, ~{} min)"
   Confirm PIN: Confirmer le code PIN
   Confirm before running macros: Confirmer avant d'exécuter les macros
+  Confirm clearing the extruder to unload it: 'Confirmez le vidage de l''extrudeur pour décharger'
   Confirm tool changes: 'Confirmer les changements d''outil'
   Connect: Connecter
   Connect a USB label printer first: Connectez d'abord une imprimante d'étiquettes
@@ -2428,6 +2431,7 @@ translations:
   No humidity sensor detected: 'Aucun capteur d''humidité détecté'
   No images found on USB drive: Aucune image trouvée sur la clé USB
   No jobs in queue: Aucun travail en file
+  No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.: 'Aucune voie ne contient de filament, donc aucune ne peut être rétractée. Le vidage coupe le filament dans l''extrudeur et le retire.'
   No macro devices configured: Aucun appareil de macro configuré
   No macros available: Aucune macro disponible
   No matches in SpoolmanDB: 'Aucun résultat dans SpoolmanDB'
@@ -3659,6 +3663,7 @@ translations:
   Step: Étape
   Step 1 of 3: Étape 1 sur 3
   Step {} of {}: Étape {} sur {}
+  Still reading the printer's lane record. Try again in a moment.: 'Lecture de l''enregistrement des voies de l''imprimante en cours. Réessayez dans un instant.'
   Still saving this spool…: 'Enregistrement de cette bobine en cours…'
   Still working... taking longer than usual: Toujours en cours... cela prend plus
     de temps que d'habitude
@@ -3929,10 +3934,12 @@ translations:
     a été mise hors tension pendant l''impression de {}. Reprendre là où elle s''est
     arrêtée ?'
   The printer lost power while printing {}. The resumed layer may not line up exactly.: L'imprimante a été mise hors tension pendant l'impression de {}. La couche reprise peut ne pas s'aligner exactement.
+  The printer records lane {} in the toolhead, not this one: 'L''imprimante enregistre la voie {} dans la tête, pas celle-ci'
   'The printer refused that port: check the port (Moonraker is usually 7125).': "L'imprimante a refusé ce port : vérifiez le port (Moonraker utilise généralement 7125)."
   The printer rejected the filament configuration. The print was not started.: L'imprimante
     a rejeté la configuration du filament. L'impression n'a pas été démarrée.
   The printer reports measured fan speeds. HelixScreen shows them on the Fans screen.: 'L''imprimante signale les vitesses mesurées des ventilateurs. HelixScreen les affiche sur l''écran Ventilateurs.'
+  The printer reports no lane record, so only clearing the extruder can unload it.: 'L''imprimante n''indique aucun enregistrement de voie, donc seul le vidage de l''extrudeur peut décharger.'
   The printer swaps between several toolheads. Manage the tools on the filament system screen.: 'L''imprimante change entre plusieurs têtes d''outil. Gérez les outils sur l''écran du système de filament.'
   The printer's firmware chooses where to switch on runout: Le firmware de l'imprimante choisit lui-même vers où basculer en fin de filament
   The requested position is outside the printer's bounds: 'La position demandée est en dehors des limites de l''imprimante'

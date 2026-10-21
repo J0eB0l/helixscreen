@@ -178,9 +178,8 @@ class CfsLifecycleHelper : public CfsRemapHelper {
 
 // The calibration flows ack through the on_complete overloads (a macro's
 // completion is their terminal signal), so the capture helper must intercept
-// those too, firing on_complete inline where the real client fires it from a
-// background thread. The chained next step reaches the wire from a
-// token.defer() lambda, i.e. one UpdateQueue hop per command.
+// those too, firing on_complete inline where the real path defers it to the
+// main thread. CfsLiveCalibBackend below covers that queue hop.
 class CfsCalibHelper : public CfsLifecycleHelper {
   public:
     CfsCalibHelper() {
@@ -243,8 +242,8 @@ class CfsCalibHelper : public CfsLifecycleHelper {
     }
 };
 
-// A defer chain (home done -> PREPARE sent -> prepare done) needs one queue
-// pass per hop; drain_all() repeats until the queue is empty.
+// The failure legs hop through the queue, and the live backend needs one pass
+// per answer; drain_all() repeats until the queue is empty.
 void drain_calib_queue() {
     helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
 }
@@ -699,6 +698,45 @@ TEST_CASE("CFS chute save failure re-parks and reports the firmware message (#12
                                     "BOX_CUSTOM_COMMAND CMD=Y_SAFE"}));
     CHECK_FALSE(saved);
     CHECK_FALSE(failed_msg.empty());
+}
+
+// The calibration flows against a real MoonrakerAPI over the mock client, with
+// no execute_gcode override: each answer reaches the flow through the base
+// class's own single defer. A step that adds a second hop costs a queue pass.
+class CfsLiveCalibBackend : public AmsBackendCfs {
+  public:
+    MockPrinter printer;
+
+    CfsLiveCalibBackend() : AmsBackendCfs(nullptr, nullptr) {
+        api_ = &printer.api;
+        CfsTestAccess::set_macro_variant_k1(*this);
+    }
+    ~CfsLiveCalibBackend() override {
+        drain_calib_queue();
+    }
+};
+
+TEST_CASE("CFS calibration steps complete in the queue pass after each answer",
+          "[ams][cfs][calib][threading][1761]") {
+    using helix::ui::UpdateQueueTestAccess;
+    CfsLiveCalibBackend backend;
+
+    SECTION("cutter calibration: one answer, one pass") {
+        bool got_result = false;
+        REQUIRE(backend.calibrate_cutter([&](bool ok, const std::string&) { got_result = ok; })
+                    .success());
+        CHECK(UpdateQueueTestAccess::passes_until([&] { return got_result; }) == 1);
+    }
+    SECTION("chute calibration: home then prepare, one pass each") {
+        bool ready = false;
+        REQUIRE(backend.start_chute_calibration([&] { ready = true; }).success());
+        CHECK(UpdateQueueTestAccess::passes_until([&] { return ready; }) == 2);
+    }
+    SECTION("chute save: save then re-park, one pass each") {
+        bool saved = false;
+        REQUIRE(backend.save_chute_position([&] { saved = true; }).success());
+        CHECK(UpdateQueueTestAccess::passes_until([&] { return saved; }) == 2);
+    }
 }
 
 TEST_CASE("CFS refuses a second calibration while one is in flight (#1282)", "[ams][cfs][calib]") {

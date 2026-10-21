@@ -24,6 +24,10 @@
     <!-- Titles render in capitals; "none" keeps the title's own case (a name
          whose case carries meaning, like "LEDs"). -->
     <prop name="title_transform" type="string" default="uppercase"/>
+    <!-- Title font and line budget; mirrors the base header_bar. -->
+    <prop name="title_font" type="string" default="#font_heading"/>
+    <prop name="title_long_mode" type="string" default="clip"/>
+    <prop name="title_max_lines" type="string" default="1"/>
     <!-- Optional trailing badge: a small icon plus a short label, for a screen
          that needs to show WHICH record it is editing. Both parts are empty by
          default and the group stays hidden unless title_badge_subject resolves
@@ -111,9 +115,9 @@
            for its slot onto a second line mid-word. clip measures the text
            unwrapped, so the title stays one line and is cut at the slot edge. -->
       <text_heading name="header_title"
-                    long_mode="clip" bind_text="$title_subject" text="$title" translation_tag="$title_tag"
-                    text_transform="$title_transform" flex_grow="1" style_text_align="left" clickable="false"
-                    event_bubble="true" scrollable="false"/>
+                    long_mode="$title_long_mode" max_lines="$title_max_lines" bind_text="$title_subject" text="$title"
+                    translation_tag="$title_tag" text_transform="$title_transform" style_text_font="$title_font"
+                    flex_grow="1" style_text_align="left" clickable="false" event_bubble="true" scrollable="false"/>
       <!-- Trailing badge (icon + label), see the props above. -->
       <lv_obj name="header_title_badge"
               width="content" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"

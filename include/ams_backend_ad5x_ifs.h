@@ -125,6 +125,11 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     static constexpr int kNumPorts = 4;
     static constexpr int kToolMapSize = 16;
     static constexpr int kUnmappedPort = 5;
+    /// The module's _IFS_CLEAR_EXTRUDER refuses below this nozzle temperature.
+    static constexpr int kClearToolheadMinTempC = 150;
+    /// Extruder-clear temperature when no lane names a material and the nozzle
+    /// has no usable target: ZMOD's own default for the same clear.
+    static constexpr int kClearToolheadFallbackTempC = 220;
 
     /// Which auto-switchover macro package is driving the IFS, if any.
     ///
@@ -374,9 +379,59 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     /// nullopt until the switch has ever published a reading.
     [[nodiscard]] std::optional<bool> toolhead_filament_unaccounted() const override;
 
-    /// The standalone module's IFS_UNLOAD needs a lane number; native ZMOD's
-    /// toolhead unload resolves the channel itself and never asks.
-    [[nodiscard]] std::vector<int> unload_lane_candidates() const override;
+    /// Asks for the lane in the toolhead when no record names it, offering the
+    /// lanes holding filament plus an extruder-only clear; with no lane holding
+    /// filament it asks to confirm the clear.
+    [[nodiscard]] UnloadLaneQuestion unload_lane_question() const override;
+
+    /// How a toolhead unload finds its lane (#1324).
+    enum class UnloadLaneVerdict {
+        NotToolhead, ///< head reads empty: the cold lane-eject routing applies
+        UnloadLane,  ///< a record names the lane: unload it, no question
+        ConfirmLane, ///< one lane holds filament: ask the user to confirm it
+        PickLane,    ///< several lanes hold filament: ask which one
+        ConfirmClear ///< no lane holds filament: ask to confirm an extruder-only clear
+    };
+
+    /// What native ZMOD's unload needs before it names the right lane, given
+    /// what Adventurer5M.json last said FFMInfo.channel was.
+    enum class NativeLaneDispatch {
+        AsRecorded,      ///< the file already records this lane
+        Declare,         ///< the file records 0: declare the lane first
+        RecordUnread,    ///< the file has not been read: nothing is known
+        NoRecord,        ///< the file was read and has no FFMInfo.channel
+        RecordNamesOther ///< the file records a different lane
+    };
+
+    /// Pure: @p lane is 0-based, @p file_read says Adventurer5M.json has been
+    /// read, @p file_channel is FFMInfo.channel as read from it (1-based,
+    /// 0 = none), nullopt when the file carries no such record.
+    [[nodiscard]] static NativeLaneDispatch native_lane_dispatch(int lane, bool file_read,
+                                                                 std::optional<int> file_channel);
+
+    struct UnloadLaneInputs {
+        /// Standalone IFS module; false is native ZMOD.
+        bool module = false;
+        /// 0-based lane a record names (active slot, seated channel, ZMOD's
+        /// FFMInfo.channel, the remembered lane), -1 for none.
+        int recorded_lane = -1;
+        /// The module's `ifs_at_hub` record, 0-based, -1 for none. Ignored on
+        /// native ZMOD, which keeps no such record.
+        int at_hub_lane = -1;
+        /// Per-lane filament presence at the IFS entry.
+        std::array<bool, kNumPorts> present{};
+        /// The toolhead sensor reads filament.
+        bool head_loaded = false;
+    };
+
+    struct UnloadLaneDecision {
+        UnloadLaneVerdict verdict = UnloadLaneVerdict::NotToolhead;
+        /// The lane for UnloadLane and ConfirmLane, else -1.
+        int lane = -1;
+    };
+
+    /// Pure: which lane a toolhead unload takes, and whether to ask the user.
+    [[nodiscard]] static UnloadLaneDecision decide_unload_lane(const UnloadLaneInputs& in);
 
     /// Which auto-switchover plugin the live printer has, from the same two
     /// signals apply_user_edit()/parse_save_variables() already trust: the
@@ -734,6 +789,16 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     /// pointer nor the seated channel names one: the remembered seated lane, if
     /// that lane still holds filament.
     [[nodiscard]] std::optional<int> remembered_unload_lane_locked() const;
+
+    /// decide_unload_lane() over the live state. Caller MUST hold mutex_.
+    [[nodiscard]] UnloadLaneDecision unload_lane_decision_locked() const;
+
+    /// The gcode that cuts and clears the extruder and retracts no lane, for
+    /// filament no lane can be named for.
+    [[nodiscard]] static std::string clear_toolhead_gcode(bool module_live, int nozzle_target_deci);
+
+    /// Why only the extruder clear can run when native ZMOD's file has no lane record.
+    [[nodiscard]] static std::string no_lane_record_message();
     // One-shot fetch of /mod_data/user.cfg. Parses the [zmod_ifs] section for
     // `filament_<NAME>: <TEMP>` entries — zmod's mechanism for user-defined
     // material types beyond the AD5X firmware whitelist (e.g., PLA+, RPLA,
@@ -1342,6 +1407,13 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // apply_zcolor_result. 0 (nothing seated, or forgotten across a reboot) falls
     // back to the persisted-lane floor / Chan.
     int ffm_channel_ = 0;
+    // Adventurer5M.json has been read at least once.
+    bool ffm_file_read_ = false;
+    // FFMInfo.channel exactly as Adventurer5M.json last said it, nullopt before
+    // the first read or when the file has no integer channel. ffm_channel_ is
+    // Helix's working copy and is zeroed locally on an eject while the file
+    // keeps the ejected lane.
+    std::optional<int> ffm_file_channel_;
     // Last lane (0-based slot index) we saw loaded to the toolhead, persisted to
     // the Moonraker "lane_data" DB (sibling "seated" key) so it survives a power
     // cycle. The firmware forgets the seated channel across a reboot — IFS_STATUS
@@ -1350,6 +1422,11 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // this lane's port still reads present, it is restored as the seated channel
     // so the Unload/Eject menu labels correctly. nullopt = nothing remembered.
     std::optional<int> persisted_seated_slot_;
+    // The standalone module's `ifs_at_hub` save_variable (1-based; 0 = none):
+    // the lane holding the shared path, claimed before any feed enters it, so
+    // it survives a load that failed after the feed. Read only while the
+    // module is live; native ZMOD writes no such row.
+    int module_at_hub_ = 0;
     // Gates the cold-boot seated-lane restore to genuine power-cycle amnesia.
     // False until we observe a definitive seated signal this session — a real
     // IFS_STATUS Chan>0, or a confirmed-empty head (Chan==0 with head_filament_

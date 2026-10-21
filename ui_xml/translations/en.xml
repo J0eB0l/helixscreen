@@ -677,8 +677,10 @@
   <translation tag="Clear Console?" en="Clear Console?"/>
   <translation tag="Clear Spool" en="Clear Spool"/>
   <translation tag="Clear every Endless Spool backup" en="Clear every Endless Spool backup"/>
+  <translation tag="Clear extruder only" en="Clear extruder only"/>
   <translation tag="Clear failed" en="Clear failed"/>
   <translation tag="Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament&apos;s packaging) and close the door." en="Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament&apos;s packaging) and close the door."/>
+  <translation tag="Clear the extruder?" en="Clear the extruder?"/>
   <translation tag="Clear the plate and load {}. The tower prints in the middle of the bed." en="Clear the plate and load {}. The tower prints in the middle of the bed."/>
   <translation tag="Cleared from settings — system unpair failed, may need OS Bluetooth" en="Cleared from settings — system unpair failed, may need OS Bluetooth"/>
   <translation tag="Clipboard unavailable - use SSH" en="Clipboard unavailable - use SSH"/>
@@ -752,6 +754,7 @@
   <translation tag="Confirm (full, ~{} min)" en="Confirm (full, ~{} min)"/>
   <translation tag="Confirm PIN" en="Confirm PIN"/>
   <translation tag="Confirm before running macros" en="Confirm before running macros"/>
+  <translation tag="Confirm clearing the extruder to unload it" en="Confirm clearing the extruder to unload it"/>
   <translation tag="Confirm tool changes" en="Confirm tool changes"/>
   <translation tag="Connect" en="Connect"/>
   <translation tag="Connect a USB label printer first" en="Connect a USB label printer first"/>
@@ -2197,6 +2200,7 @@
   <translation tag="No humidity sensor detected" en="No humidity sensor detected"/>
   <translation tag="No images found on USB drive" en="No images found on USB drive"/>
   <translation tag="No jobs in queue" en="No jobs in queue"/>
+  <translation tag="No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it." en="No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it."/>
   <translation tag="No macro devices configured" en="No macro devices configured"/>
   <translation tag="No macros available" en="No macros available"/>
   <translation tag="No matches in SpoolmanDB" en="No matches in SpoolmanDB"/>
@@ -3316,6 +3320,7 @@
   <translation tag="Step" en="Step"/>
   <translation tag="Step 1 of 3" en="Step 1 of 3"/>
   <translation tag="Step {} of {}" en="Step {} of {}"/>
+  <translation tag="Still reading the printer&apos;s lane record. Try again in a moment." en="Still reading the printer&apos;s lane record. Try again in a moment."/>
   <translation tag="Still saving this spool…" en="Still saving this spool…"/>
   <translation tag="Still working... taking longer than usual" en="Still working... taking longer than usual"/>
   <translation tag="Stop" en="Stop"/>
@@ -3540,9 +3545,11 @@
   <translation tag="The printer lost power during a print. The resumed layer may not line up exactly." en="The printer lost power during a print. The resumed layer may not line up exactly."/>
   <translation tag="The printer lost power while printing {}. Resume where it left off?" en="The printer lost power while printing {}. Resume where it left off?"/>
   <translation tag="The printer lost power while printing {}. The resumed layer may not line up exactly." en="The printer lost power while printing {}. The resumed layer may not line up exactly."/>
+  <translation tag="The printer records lane {} in the toolhead, not this one" en="The printer records lane {} in the toolhead, not this one"/>
   <translation tag="The printer refused that port: check the port (Moonraker is usually 7125)." en="The printer refused that port: check the port (Moonraker is usually 7125)."/>
   <translation tag="The printer rejected the filament configuration. The print was not started." en="The printer rejected the filament configuration. The print was not started."/>
   <translation tag="The printer reports measured fan speeds. HelixScreen shows them on the Fans screen." en="The printer reports measured fan speeds. HelixScreen shows them on the Fans screen."/>
+  <translation tag="The printer reports no lane record, so only clearing the extruder can unload it." en="The printer reports no lane record, so only clearing the extruder can unload it."/>
   <translation tag="The printer swaps between several toolheads. Manage the tools on the filament system screen." en="The printer swaps between several toolheads. Manage the tools on the filament system screen."/>
   <translation tag="The printer&apos;s firmware chooses where to switch on runout" en="The printer&apos;s firmware chooses where to switch on runout"/>
   <translation tag="The requested position is outside the printer&apos;s bounds" en="The requested position is outside the printer&apos;s bounds"/>

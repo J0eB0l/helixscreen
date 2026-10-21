@@ -47,6 +47,10 @@ struct FilamentPanelTestAccess {
     static void handle_unload_button(FilamentPanel& p) {
         p.handle_unload_button();
     }
+    /// The Unload handler re-entered with the user's answer to the lane question.
+    static void handle_unload_button(FilamentPanel& p, int chosen_lane) {
+        p.handle_unload_button(chosen_lane);
+    }
 
     static void handle_preset_button(FilamentPanel& p, int slot) {
         p.handle_preset_button(slot);
