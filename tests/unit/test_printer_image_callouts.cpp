@@ -641,7 +641,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     lv_subject_t* mode = lv_xml_get_subject(nullptr, "temp_graph_mode");
     REQUIRE(mode);
     lv_subject_set_int(mode, static_cast<int>(TempGraphOverlay::Mode::GraphOnly));
-    lv_obj_send_event(h.child("callout_chip_bed"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_bed"));
     process_lvgl(30);
     CHECK(lv_subject_get_int(mode) == static_cast<int>(TempGraphOverlay::Mode::Bed));
     CHECK_FALSE(
@@ -649,16 +649,6 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 }
 
 namespace {
-
-/// The home panel sets EVENT_BUBBLE on every descendant of a page so a long-press
-/// anywhere reaches grid edit mode; a chip tap must stay contained in it (#1397).
-void bubble_like_home_panel(lv_obj_t* obj) {
-    for (uint32_t i = 0; i < lv_obj_get_child_count(obj); ++i) {
-        lv_obj_t* child = lv_obj_get_child(obj, static_cast<int32_t>(i));
-        lv_obj_add_flag(child, LV_OBJ_FLAG_EVENT_BUBBLE);
-        bubble_like_home_panel(child);
-    }
-}
 
 bool printer_manager_open() {
     lv_obj_t* root = get_printer_manager_overlay().get_root();
@@ -706,10 +696,10 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     ScopedLedStrips::report("neopixel chamber_light", true);
     settle();
     REQUIRE(shown(h, "callout_chip_light"));
-    bubble_like_home_panel(h.root());
+    helix::ui::set_event_bubble_recursive(h.root());
 
     rig.client.clear_gcode_script_history();
-    lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_light"));
     settle();
     CHECK(scripts_naming(rig.client, R"(LED="chamber_light" RED=0 GREEN=0 BLUE=0)") == 1);
     CHECK(scripts_naming(rig.client, "sb_leds") == 0);
@@ -720,7 +710,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     settle();
     REQUIRE(shown(h, "callout_chip_light"));
     rig.client.clear_gcode_script_history();
-    lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_light"));
     settle();
     CHECK(scripts_naming(rig.client, "chamber_light") == 1);
     CHECK(scripts_naming(rig.client, "RED=0 GREEN=0 BLUE=0") == 0);
@@ -742,7 +732,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     helix::led::LedController::instance().set_power({"neopixel sb_leds"}, true);
     REQUIRE(helix::led::LedController::instance().light_command_in_flight());
     rig.client.clear_gcode_script_history();
-    lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_light"));
     CHECK(rig.client.gcode_script_history().empty());
     settle();
 }
@@ -778,7 +768,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     int long_presses_reaching_grid = 0;
     lv_obj_add_event_cb(h.root(), count_event_cb, LV_EVENT_LONG_PRESSED,
                         &long_presses_reaching_grid);
-    bubble_like_home_panel(h.root());
+    helix::ui::set_event_bubble_recursive(h.root());
     lv_obj_update_layout(test_screen());
     lv_area_t box;
     lv_obj_get_coords(h.child("callout_chip_light"), &box);
@@ -788,16 +778,20 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     lv_obj_t* hit = lv_indev_search_obj(test_screen(), &centre);
     REQUIRE(hit == h.child("callout_chip_light"));
 
-    // A real press, held past the long-press time, then lifted: the lift
-    // must not also toggle the light.
+    // A real press, held for three times the long-press time, then lifted: it is one
+    // hold, and the lift must not also toggle the light.
+    int holds_on_chip = 0;
+    lv_obj_add_event_cb(h.child("callout_chip_light"), count_event_cb, LV_EVENT_LONG_PRESSED,
+                        &holds_on_chip);
     rig.client.clear_gcode_script_history();
     helix_test::ScopedPointerIndev finger;
     finger.press(x, y);
-    finger.hold(finger.long_press_hold_ms());
+    finger.hold(3 * finger.long_press_hold_ms());
     finger.release(x, y);
     settle();
     CHECK(get_led_control_overlay().focused_device() == "neopixel chamber_light");
     CHECK(long_presses_reaching_grid == 0);
+    CHECK(holds_on_chip == 1);
     CHECK(scripts_naming(rig.client, "chamber_light") == 0);
     NavigationManager::instance().go_back();
     settle();
@@ -821,7 +815,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     const lv_color_t lamp = theme_manager_get_color("light_icon_on");
     REQUIRE_FALSE(lv_color_eq(resting, lamp));
 
-    lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_light"));
     CHECK(lv_color_eq(lv_obj_get_style_text_color(dark, LV_PART_MAIN), lamp));
 
     // The flash ends back on the chip's own muted color.
@@ -848,7 +842,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     REQUIRE_FALSE(lv_obj_has_flag(dark, LV_OBJ_FLAG_HIDDEN));
     const lv_color_t resting = lv_obj_get_style_text_color(dark, LV_PART_MAIN);
 
-    lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_light"));
     CHECK(lv_color_eq(lv_obj_get_style_text_color(dark, LV_PART_MAIN), resting));
     settle();
 }
@@ -899,7 +893,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     {
         const ScopedScreenLock locked;
         rig.client.clear_gcode_script_history();
-        lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+        helix::ui::send_tap(h.child("callout_chip_light"));
         lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_LONG_PRESSED, nullptr);
         settle();
         CHECK(rig.client.gcode_script_history().empty());
@@ -908,7 +902,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     }
 
     // Unlocked, the same tap switches the light: the guard is the lock, not a latch.
-    lv_obj_send_event(h.child("callout_chip_light"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_light"));
     settle();
     CHECK(scripts_naming(rig.client, "chamber_light") == 1);
 }
@@ -922,14 +916,14 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     h.resize(4, 4, 160, 160);
     lv_subject_set_int(state().temperature_state().get_bed_target_subject(), 600);
     settle();
-    bubble_like_home_panel(h.root());
+    helix::ui::set_event_bubble_recursive(h.root());
 
     TempGraphOverlayScope overlay_scope;
     get_global_temp_graph_overlay().init_subjects();
     lv_subject_t* mode = lv_xml_get_subject(nullptr, "temp_graph_mode");
     REQUIRE(mode);
     lv_subject_set_int(mode, static_cast<int>(TempGraphOverlay::Mode::GraphOnly));
-    lv_obj_send_event(h.child("callout_chip_bed"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("callout_chip_bed"));
     process_lvgl(30);
     CHECK(lv_subject_get_int(mode) == static_cast<int>(TempGraphOverlay::Mode::Bed));
     CHECK_FALSE(printer_manager_open());
@@ -943,9 +937,9 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     PanelWidgetHarness<PrinterImageWidget> h(test_screen());
     h.resize(4, 4, 160, 160);
     settle();
-    bubble_like_home_panel(h.root());
+    helix::ui::set_event_bubble_recursive(h.root());
 
-    lv_obj_send_event(h.child("printer_image"), LV_EVENT_CLICKED, nullptr);
+    helix::ui::send_tap(h.child("printer_image"));
     process_lvgl(30);
     CHECK(printer_manager_open());
     destroy_printer_manager_overlay();
@@ -959,7 +953,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     h.resize(4, 4, 160, 160);
     lv_subject_set_int(state().temperature_state().get_bed_target_subject(), 600);
     settle();
-    bubble_like_home_panel(h.root());
+    helix::ui::set_event_bubble_recursive(h.root());
 
     int pressed = 0;
     int long_pressed = 0;

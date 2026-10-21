@@ -10,6 +10,7 @@
 #include "ui_printer_manager_overlay.h"
 #include "ui_temperature_utils.h"
 #include "ui_timer_guard.h"
+#include "ui_utils.h"
 
 #include "ams_state.h"
 #include "app_globals.h"
@@ -737,16 +738,14 @@ void PrinterImageWidget::printer_callout_light_cb(lv_event_t* e) {
 
 void PrinterImageWidget::printer_callout_light_hold_cb(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[PrinterImageWidget] printer_callout_light_hold_cb");
-    // A hold on the bulb opens the light's controls rather than grid edit mode.
-    // Its release still sends CLICKED, so the press is cancelled here: a hold
-    // must not also toggle the light.
+    // A hold on the bulb opens the light's controls rather than grid edit mode,
+    // and ends the press so its release does not also toggle the light.
     lv_event_stop_bubbling(e);
     auto* self = widget_from_chip(e);
-    if (lv_indev_t* indev = lv_indev_active())
-        lv_indev_reset(indev, nullptr);
     if (light_chip_locked())
         return; // inside the SAFE_EVENT_CB try block; END closes it below
     if (self) {
+        helix::ui::end_press(e);
         self->record_interaction();
         open_led_control_overlay(self->parent_screen_,
                                  helix::led::LedController::instance().chamber_light());

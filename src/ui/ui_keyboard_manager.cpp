@@ -458,6 +458,8 @@ void KeyboardManager::textarea_delete_event_cb(lv_event_t* e) {
 }
 
 void KeyboardManager::longpress_event_handler(lv_event_t* e) {
+    // HOLD_DECLINES_OK: the alternates popover picks its character on the release,
+    // so a hold here never ends the press.
     LVGL_SAFE_EVENT_CB_BEGIN("longpress_event_handler");
 
     auto& mgr = KeyboardManager::instance();

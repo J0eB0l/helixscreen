@@ -85,14 +85,18 @@ void InputSettingsManager::deinit_subjects() {
 // Scroll throw, scroll limit and long-press time are live indev properties:
 // the next gesture uses the new values. Every pointer indev gets them, so this
 // works the same whichever platform layer created the indev.
+void InputSettingsManager::apply_to_pointer(lv_indev_t* indev) const {
+    if (!indev || lv_indev_get_type(indev) != LV_INDEV_TYPE_POINTER) {
+        return;
+    }
+    lv_indev_set_scroll_throw(indev, static_cast<uint8_t>(get_scroll_throw()));
+    lv_indev_set_scroll_limit(indev, static_cast<uint8_t>(get_scroll_limit()));
+    lv_indev_set_long_press_time(indev, static_cast<uint16_t>(get_long_press_time()));
+}
+
 void InputSettingsManager::apply_to_pointers() const {
     for (lv_indev_t* indev = lv_indev_get_next(nullptr); indev; indev = lv_indev_get_next(indev)) {
-        if (lv_indev_get_type(indev) != LV_INDEV_TYPE_POINTER) {
-            continue;
-        }
-        lv_indev_set_scroll_throw(indev, static_cast<uint8_t>(get_scroll_throw()));
-        lv_indev_set_scroll_limit(indev, static_cast<uint8_t>(get_scroll_limit()));
-        lv_indev_set_long_press_time(indev, static_cast<uint16_t>(get_long_press_time()));
+        apply_to_pointer(indev);
     }
     // The post-scroll click guard decides "was this a scroll" by the same limit.
     if (auto* dm = DisplayManager::instance()) {

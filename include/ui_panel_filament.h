@@ -348,8 +348,9 @@ class FilamentPanel : public PanelBase {
     /**
      * @brief Handle a long-press on a preset button: opens the material picker
      * @param slot Preset slot index that was long-pressed
+     * @return true when the picker opened, so the hold ends its press
      */
-    void handle_preset_longpress(int slot);
+    bool handle_preset_longpress(int slot);
 
   private:
     //
