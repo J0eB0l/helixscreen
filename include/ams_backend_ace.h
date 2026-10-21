@@ -467,8 +467,9 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     // The Kobra S1 fork's instance number for units[0], or -1 until that
     // driver's surface is seen. Its slot commands take INSTANCE= + INDEX=; the
-    // base is N of the displayed `ace_instance_N`, or 0 when only the REST
-    // bridge's `ace_manager` has been seen. Guarded by mutex_.
+    // base is N of the `ace_instance_N` the initial query picked for display,
+    // or 0 when the REST bridge serves the data. Reset on every start.
+    // Guarded by mutex_.
     int instance_base_ = -1;
 
     /// Guards ACE's own RPC and REST callbacks. Separate from the base

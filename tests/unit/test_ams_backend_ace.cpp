@@ -3624,3 +3624,44 @@ TEST_CASE("ACE slot actions take INSTANCE= from the driver's own instance number
                                      "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=2",
                                  });
 }
+
+namespace {
+// Answer the backend's startup printer.objects.query with @p status.
+void answer_initial_query(helix::test::FakeMoonrakerClient& client, const json& status) {
+    REQUIRE_FALSE(client.rpc_calls.empty());
+    const auto& call = client.rpc_calls.back();
+    REQUIRE(call.method == "printer.objects.query");
+    REQUIRE(call.success_cb);
+    call.success_cb(json{{"result", json{{"status", status}}}});
+    helix::ui::UpdateQueue::instance().drain();
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "ACE INSTANCE= base follows the displayed instance, not a delta",
+                 "[ams][ace][device_actions][kobra]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+
+    SECTION("a delta naming only a higher instance leaves the base alone") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()}}},
+                                          {"ace_instance_1", json{{"slots", four_slot_array()}}}});
+        b.test_handle_status_update(
+            status_notification("ace_instance_1", json{{"status", "ready"}}));
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=0 INDEX=2 LENGTH=50 SPEED=50");
+    }
+    SECTION("a slotless ace_instance_0 is not the displayed unit") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"status", "ready"}}},
+                                          {"ace_instance_1", json{{"slots", four_slot_array()}}}});
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50");
+    }
+    SECTION("a restart onto a single-hub driver drops the base") {
+        answer_initial_query(client, json{{"ace_instance_1", json{{"slots", four_slot_array()}}}});
+        b.test_on_started();
+        answer_initial_query(client, json{{"ace", json{{"slots", four_slot_array()}}}});
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INDEX=2 LENGTH=50 SPEED=50");
+    }
+}

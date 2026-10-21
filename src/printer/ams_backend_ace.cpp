@@ -107,6 +107,7 @@ void AmsBackendAce::on_started() {
         park_states_.clear();
         last_spool_evidence_.clear();
         pending_insert_reads_.clear();
+        instance_base_ = -1;
     }
 
     // Load persisted per-slot overrides from the shared FilamentSlotOverrideStore
@@ -177,9 +178,12 @@ void AmsBackendAce::on_started() {
                 if (response.contains("result") && response["result"].contains("status")) {
                     const json& status = response["result"]["status"];
                     ace_data = select_ace_object(status, &matched_key);
-                    if (const std::string* instance_key = lowest_ace_instance_key(status)) {
+                    if (lowest_ace_instance_key(status)) {
+                        // The displayed unit is the instance the pick chose;
+                        // with no slot-bearing instance the REST bridge serves
+                        // instance 0.
                         std::lock_guard<std::mutex> lock(mutex_);
-                        instance_base_ = ace_instance_number(*instance_key);
+                        instance_base_ = ace_data ? ace_instance_number(matched_key) : 0;
                     }
                 }
 
@@ -250,8 +254,12 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     const json* ace_data = nullptr;
     if (const std::string* instance_key = lowest_ace_instance_key(*status)) {
         ace_data = &(*status)[*instance_key];
+        // A delta names only the objects that changed, so it never moves the
+        // base the initial query chose; it fills one only before that answer.
         std::lock_guard<std::mutex> lock(mutex_);
-        instance_base_ = ace_instance_number(*instance_key);
+        if (instance_base_ < 0) {
+            instance_base_ = ace_instance_number(*instance_key);
+        }
     } else {
         ace_data = select_ace_object(*status, nullptr, /*require_slots=*/true);
         if (!ace_data) {
