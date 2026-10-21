@@ -446,8 +446,14 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     /// The ` INSTANCE=N` argument (with its leading space) dryer commands
     /// address unit @p unit by: empty on drivers with one unit, nullopt for a
-    /// unit the fork does not have. Locks mutex_.
+    /// unit the ACEPRO driver does not have. Locks mutex_.
     [[nodiscard]] std::optional<std::string> dryer_instance_argument(int unit) const;
+
+    /// The ACEPRO instance number unit @p unit is: the unit index itself when
+    /// each `ace_instance_N` is its own unit, and on the REST bridge (which
+    /// serves one unit) the instance its /status reported serving. Caller
+    /// holds mutex_.
+    [[nodiscard]] int ace_instance_for_unit_locked(int unit) const;
 
     /// Unit @p unit's dryer, created with the ACE Pro's defaults when the
     /// frame names it first. Caller holds mutex_.
@@ -537,6 +543,11 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // or the REST bridge's `ace_manager`): its slot commands take INSTANCE= +
     // INDEX=. Reset on every start. Guarded by mutex_.
     bool instance_commands_ = false;
+
+    // The ACEPRO instance the REST bridge's /status serves (`instance_index`):
+    // without ?instance= the bridge picks it from current_index, so it is read
+    // back rather than assumed. Guarded by mutex_.
+    int rest_instance_ = 0;
 
     /// Guards ACE's own RPC and REST callbacks. Separate from the base
     /// lifetime_ because cancel() and on_stopping() expire these without

@@ -133,6 +133,7 @@ void AmsBackendAce::on_started() {
         last_spool_evidence_.clear();
         pending_insert_reads_.clear();
         instance_commands_ = false;
+        rest_instance_ = 0;
         instance_objects_ = false;
         unit_actions_.clear();
         slot_tools_.clear();
@@ -976,14 +977,20 @@ AmsError AmsBackendAce::stop_drying(int unit) {
 
 std::optional<std::string> AmsBackendAce::dryer_instance_argument(int unit) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    // Without INSTANCE= the fork dries every unit it has; other drivers have one.
-    if (!instance_objects_) {
+    // Without INSTANCE= the ACEPRO driver dries every unit it has; other
+    // drivers have one.
+    if (!instance_commands_) {
         return std::string();
     }
     if (unit < 0 || static_cast<size_t>(unit) >= system_info_.units.size()) {
         return std::nullopt;
     }
-    return " INSTANCE=" + std::to_string(unit);
+    return " INSTANCE=" + std::to_string(ace_instance_for_unit_locked(unit));
+}
+
+int AmsBackendAce::ace_instance_for_unit_locked(int unit) const {
+    // Caller holds mutex_.
+    return instance_objects_ ? unit : rest_instance_;
 }
 
 AmsError AmsBackendAce::update_drying(float temp_c, int duration_min, int fan_pct, int unit) {
@@ -1989,6 +1996,10 @@ bool AmsBackendAce::parse_status_response(const json& data) {
     if (data.contains("ace_manager")) {
         instance_commands_ = true;
     }
+    if (data.contains("instance_index") && data["instance_index"].is_number_integer() &&
+        data["instance_index"].get<int>() >= 0) {
+        rest_instance_ = data["instance_index"].get<int>();
+    }
 
     // The fork's /status states the seat through the manager's
     // current_index instead of loaded_slot — same semantics, global tool
@@ -2226,10 +2237,10 @@ std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const
     if (!instance_commands_) {
         return fmt::format("{} INDEX={}", verb, slot);
     }
-    int instance = 0;
+    int instance = ace_instance_for_unit_locked(0);
     int local = slot;
     if (const AmsUnit* unit = system_info_.get_unit_for_slot(slot)) {
-        instance = unit->unit_index;
+        instance = ace_instance_for_unit_locked(unit->unit_index);
         local = slot - unit->first_slot_global_index;
     }
     return fmt::format("{} INSTANCE={} INDEX={}", verb, instance, local);

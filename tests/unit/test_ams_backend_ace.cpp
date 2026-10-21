@@ -3459,15 +3459,18 @@ TEST_CASE("ACE slot actions name INSTANCE= and the local INDEX= on the Kobra S1 
                                          "ACE_DISABLE_FEED_ASSIST INSTANCE=0 INDEX=2",
                                      });
     }
-    SECTION("two units: global slot 5 is the second unit's slot 1") {
-        AceTestAccess::append_unit(b, 4);
-        AceTestAccess::set_seat(b, 5, true);
-        CHECK(run_slot_actions(b) == std::vector<std::string>{
-                                         "ACE_FEED INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
-                                         "ACE_RETRACT INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
-                                         "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
-                                         "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
-                                     });
+    // The REST bridge serves one unit, so only the object path has a second.
+    if (surface == "ace_instance_0") {
+        SECTION("two units: global slot 5 is the second unit's slot 1") {
+            AceTestAccess::append_unit(b, 4);
+            AceTestAccess::set_seat(b, 5, true);
+            CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                             "ACE_FEED INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                             "ACE_RETRACT INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                             "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                             "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                         });
+        }
     }
 }
 
@@ -3603,6 +3606,39 @@ TEST_CASE("ACE slot actions keep slot 0 on single-hub drivers with nothing loade
     REQUIRE(b.get_current_slot() == -1);
 
     CHECK(run_slot_actions(b).front() == "ACE_FEED INDEX=0 LENGTH=50 SPEED=50");
+}
+
+// The REST bridge serves one unit: the instance its /status names in
+// instance_index, which it picks from current_index when asked for none. Slot
+// and dryer commands address that instance; a dryer command without INSTANCE=
+// would dry every unit on the chain.
+TEST_CASE("ACE REST bridge commands name the instance its /status serves",
+          "[ams][ace][device_actions][kobra]") {
+    AmsBackendAceTestHelper b;
+    b.set_running(true);
+    b.test_parse_slots_response(json{{"slots", four_slot_array()}});
+
+    SECTION("instance 0 by default") {
+        b.test_parse_status_response(
+            json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
+        b.captured_gcodes.clear();
+        REQUIRE(b.start_drying(50.0f, 60, -1, 0).success());
+        REQUIRE(b.stop_drying(0).success());
+        CHECK(b.captured_gcodes == std::vector<std::string>{
+                                       "ACE_START_DRYING INSTANCE=0 TEMP=50 DURATION=60",
+                                       "ACE_STOP_DRYING INSTANCE=0",
+                                   });
+    }
+    SECTION("the instance the bridge reports serving") {
+        b.test_parse_status_response(json{{"model", "ACE Pro"},
+                                          {"instance_index", 1},
+                                          {"ace_manager", json{{"current_index", -1}}}});
+        b.captured_gcodes.clear();
+        REQUIRE(b.start_drying(50.0f, 60, -1, 0).success());
+        CHECK(b.captured_gcodes.back() == "ACE_START_DRYING INSTANCE=1 TEMP=50 DURATION=60");
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50");
+    }
 }
 
 // ============================================================================
