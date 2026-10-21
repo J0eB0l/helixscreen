@@ -241,8 +241,16 @@ class ToolState {
     [[nodiscard]] const std::vector<PhysicalHead>& physical_heads() const;
 
     /// The physical heads that name an extruder, in physical_heads() order:
-    /// the ones a heater target can be aimed at.
+    /// the ones a heater target can be aimed at. Heads sharing one heater
+    /// count once, through the head that reads it (head_reads_heater()), or
+    /// their lowest while none is mounted.
     [[nodiscard]] std::vector<PhysicalHead> heated_heads() const;
+
+    /// Whether head @p head_index (into physical_heads()) shows its extruder's
+    /// temperature as its own: it names an extruder, and either its heater is
+    /// its own or it is the mounted head of a shared one. A docked nozzle on a
+    /// shared heater is cold whatever the heater reads.
+    [[nodiscard]] bool head_reads_heater(int head_index) const;
 
     /// Whether the printer has several physical toolheads: a tool changer or
     /// more than one hotend. AMS slots feeding one hotend do not count.

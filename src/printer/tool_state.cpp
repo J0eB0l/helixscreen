@@ -865,21 +865,32 @@ const std::vector<PhysicalHead>& ToolState::physical_heads() const {
     return *heads_cache_;
 }
 
+bool ToolState::head_reads_heater(int head_index) const {
+    const auto& heads = physical_heads();
+    if (head_index < 0 || head_index >= static_cast<int>(heads.size()) ||
+        !heads[static_cast<size_t>(head_index)].extruder_name) {
+        return false;
+    }
+    return !heads_share_heater() ||
+           heads[static_cast<size_t>(head_index)].holds_tool(active_tool_index_);
+}
+
 std::vector<PhysicalHead> ToolState::heated_heads() const {
     std::vector<PhysicalHead> heated;
-    for (const PhysicalHead& head : physical_heads()) {
-        if (!head.extruder_name) {
-            continue;
+    const auto& heads = physical_heads();
+    for (size_t i = 0; i < heads.size(); ++i) {
+        if (head_reads_heater(static_cast<int>(i))) {
+            heated.push_back(heads[i]);
         }
-        // Nozzles sharing one heater are one heated head: the one heater can
-        // only be aimed at whichever of them is mounted, which stands for it.
-        auto same = std::find_if(heated.begin(), heated.end(), [&](const PhysicalHead& h) {
-            return h.extruder_name == head.extruder_name;
-        });
-        if (same == heated.end()) {
-            heated.push_back(head);
-        } else if (head.holds_tool(active_tool_index_)) {
-            *same = head;
+    }
+    // A shared heater with nothing mounted is still a heater: its lowest head
+    // stands for it.
+    if (heads_share_heater() && heated.empty()) {
+        for (const PhysicalHead& head : heads) {
+            if (head.extruder_name) {
+                heated.push_back(head);
+                break;
+            }
         }
     }
     return heated;

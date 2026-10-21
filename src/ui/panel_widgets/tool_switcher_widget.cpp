@@ -679,7 +679,8 @@ void ToolSwitcherWidget::rebuild_head_temps() {
 }
 
 std::string ToolSwitcherWidget::head_temp_text(int i) const {
-    if (i < 0 || i >= static_cast<int>(head_temps_.size()) || !head_temps_[i].known)
+    if (i < 0 || i >= static_cast<int>(head_temps_.size()) || !head_temps_[i].known ||
+        !ToolState::instance().head_reads_heater(i))
         return {};
     char buf[16];
     return ui::temperature::format_temperature(
@@ -688,7 +689,7 @@ std::string ToolSwitcherWidget::head_temp_text(int i) const {
 
 bool ToolSwitcherWidget::head_hot(int i) const {
     return i >= 0 && i < static_cast<int>(head_temps_.size()) && head_temps_[i].known &&
-           head_temps_[i].deci >= kHotDeci;
+           ToolState::instance().head_reads_heater(i) && head_temps_[i].deci >= kHotDeci;
 }
 
 std::string ToolSwitcherWidget::detail_head_text(int i, const ToolInfo& tool, bool main) const {

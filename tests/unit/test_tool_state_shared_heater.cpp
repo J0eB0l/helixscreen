@@ -107,3 +107,20 @@ TEST_CASE_METHOD(SharedHeaterFixture, "A lane AMS on one hotend still names no n
     CHECK_FALSE(ts.names_mounted_nozzle());
     CHECK(ts.nozzle_label() == "Nozzle");
 }
+
+TEST_CASE_METHOD(SharedHeaterFixture, "Shared heater: only the mounted nozzle reads the heater",
+                 "[tool_state][shared_heater]") {
+    apply(topology(4, 2, /*share=*/true));
+    auto& ts = ToolState::instance();
+    CHECK(ts.head_reads_heater(2));
+    CHECK_FALSE(ts.head_reads_heater(0));
+    CHECK_FALSE(ts.head_reads_heater(3));
+
+    // Nothing mounted: no nozzle is hot, but the heater still has a stand-in.
+    apply(topology(4, -1, /*share=*/true));
+    for (int i = 0; i < 4; ++i) {
+        CHECK_FALSE(ts.head_reads_heater(i));
+    }
+    REQUIRE(ts.heated_heads().size() == 1);
+    CHECK(ts.heated_heads()[0].holds_tool(0));
+}
