@@ -1941,38 +1941,7 @@ nlohmann::json TelemetryManager::build_hw_capabilities_section(const helix::Prin
 
 nlohmann::json TelemetryManager::build_hw_ams_section(const helix::PrinterDiscovery& hw) const {
     json ams;
-    switch (hw.mmu_type()) {
-    case AmsType::HAPPY_HARE:
-        ams["type"] = "happy_hare";
-        break;
-    case AmsType::AFC:
-        ams["type"] = "afc";
-        break;
-    case AmsType::ACE:
-        ams["type"] = "ace";
-        break;
-    case AmsType::TOOL_CHANGER:
-        ams["type"] = "tool_changer";
-        break;
-    case AmsType::AD5X_IFS:
-        ams["type"] = "ifs";
-        break;
-    case AmsType::CFS:
-        ams["type"] = "cfs";
-        break;
-    case AmsType::QIDI_BOX:
-        ams["type"] = "qidi_box";
-        break;
-    case AmsType::OPENAMS:
-        ams["type"] = "openams";
-        break;
-    default: {
-        // A type with no telemetry name of its own reports its display name.
-        const std::string name = helix::text_io::to_lower(ams_type_to_string(hw.mmu_type()));
-        ams["type"] = name == "none" ? "unknown" : name;
-        break;
-    }
-    }
+    ams["type"] = ams_type_telemetry_slug(hw.mmu_type());
     ams["unit_count"] = lv_subject_get_int(AmsState::instance().get_backend_count_subject());
     // Bays that exist: the slot-count subject is the index span, which counts a
     // box held at its address while off the bus.

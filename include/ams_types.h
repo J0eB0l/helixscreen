@@ -106,6 +106,39 @@ inline const char* ams_type_to_string(AmsType type) {
 }
 
 /**
+ * @brief The type's name in the telemetry hardware profile (`ams.type`)
+ *
+ * The values are a published schema the telemetry dashboard groups by: never
+ * rename one. "unknown" when there is no filament system.
+ */
+inline const char* ams_type_telemetry_slug(AmsType type) {
+    switch (type) {
+    case AmsType::HAPPY_HARE:
+        return "happy_hare";
+    case AmsType::AFC:
+        return "afc";
+    case AmsType::ACE:
+        return "ace";
+    case AmsType::TOOL_CHANGER:
+        return "tool_changer";
+    case AmsType::AD5X_IFS:
+        return "ifs";
+    case AmsType::CFS:
+        return "cfs";
+    case AmsType::SNAPMAKER:
+        return "snapmaker";
+    case AmsType::QIDI_BOX:
+        return "qidi_box";
+    case AmsType::OPENAMS:
+        return "openams";
+    case AmsType::INDX:
+        return "indx";
+    default:
+        return "unknown";
+    }
+}
+
+/**
  * @brief Parse AMS type from string (for Moonraker responses)
  * @param str String to parse (case-insensitive)
  * @return Matching AmsType or NONE if not recognized
