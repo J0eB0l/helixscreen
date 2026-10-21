@@ -784,6 +784,33 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 }
 
 TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AD5X: the extruder-only clear answer reaches the backend from the Filament panel",
+                 "[filament][op_slot][panel][1324]") {
+    AmsSystemInfo sys = boxturtle_sys();
+    sys.type = AmsType::AD5X_IFS;
+    sys.current_slot = -1;
+    ToolTopology topo = identity_topo();
+    topo.active_tool = -1;
+
+    OpSlotHarness h(*this, sys, /*loaded_slot=*/-1, topo);
+    h.select_tool(1);
+    TA::handle_extruder_changed(*h.panel);
+    process_lvgl(10);
+
+    SECTION("dispatched unchanged while the toolhead is unaccounted") {
+        h.mock->unaccounted_ = true;
+        TA::handle_unload_button(*h.panel, helix::kClearToolheadSlot);
+        REQUIRE(h.mock->unload_calls == 1);
+        CHECK(h.mock->last_unload_slot == helix::kClearToolheadSlot);
+    }
+    SECTION("refused, sending nothing, when the backend accounts for the toolhead") {
+        h.mock->unaccounted_ = false;
+        TA::handle_unload_button(*h.panel, helix::kClearToolheadSlot);
+        CHECK(h.mock->unload_calls == 0);
+    }
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
                  "Filament panel greys Load/Unload when a print owns the toolhead",
                  "[filament][op_slot][panel][print_guard]") {
     auto read = [](const char* name) {

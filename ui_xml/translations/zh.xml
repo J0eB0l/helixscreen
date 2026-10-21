@@ -668,8 +668,10 @@
   <translation tag="Clear Console?" zh="清空控制台？"/>
   <translation tag="Clear Spool" zh="移除料盘"/>
   <translation tag="Clear every Endless Spool backup" zh="清除所有无限料盘备用设置"/>
+  <translation tag="Clear extruder only" zh="只清空挤出机"/>
   <translation tag="Clear failed" zh="清除失败"/>
   <translation tag="Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament&apos;s packaging) and close the door." zh="清空热床上方和下方的区域。把料盘放在热床上,用盒子(打印的盖子或耗材的包装盒)罩住,然后关好门。"/>
+  <translation tag="Clear the extruder?" zh="清空挤出机？"/>
   <translation tag="Clear the plate and load {}. The tower prints in the middle of the bed." zh="请清空热床并装入{}。测试塔打印在热床中央。"/>
   <translation tag="Cleared from settings — system unpair failed, may need OS Bluetooth" zh="已从设置中清除；系统解除配对失败，可能需使用系统蓝牙设置"/>
   <translation tag="Clipboard unavailable - use SSH" zh="剪贴板不可用 - 请使用 SSH"/>
@@ -743,6 +745,7 @@
   <translation tag="Confirm (full, ~{} min)" zh="确认(完整,约 {} 分钟)"/>
   <translation tag="Confirm PIN" zh="确认 PIN 码"/>
   <translation tag="Confirm before running macros" zh="运行宏前进行确认"/>
+  <translation tag="Confirm clearing the extruder to unload it" zh="请确认清空挤出机以卸载"/>
   <translation tag="Confirm tool changes" zh="确认切换工具"/>
   <translation tag="Connect" zh="连接"/>
   <translation tag="Connect a USB label printer first" zh="请先连接 USB 标签打印机"/>
@@ -2175,6 +2178,7 @@
   <translation tag="No humidity sensor detected" zh="未检测到湿度传感器"/>
   <translation tag="No images found on USB drive" zh="USB驱动器上未找到图片"/>
   <translation tag="No jobs in queue" zh="队列中无任务"/>
+  <translation tag="No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it." zh="没有耗材通道有耗材，所以无法回抽。清空会切断挤出机里的耗材并将其抽出。"/>
   <translation tag="No macro devices configured" zh="未配置宏设备"/>
   <translation tag="No macros available" zh="无可用宏"/>
   <translation tag="No matches in SpoolmanDB" zh="SpoolmanDB 中无匹配项"/>
@@ -2255,7 +2259,6 @@
   <translation tag="Not in your spools? Set it up" zh="不在您的料盘中？立即设置"/>
   <translation tag="Not now" zh="暂不"/>
   <translation tag="Not set" zh="未设置"/>
-  <translation tag="Not sure" zh="不确定"/>
   <translation tag="Not turned" zh="未转动"/>
   <translation tag="Not yet available on this display" zh="此屏幕暂不支持"/>
   <translation tag="Not yet calibrated" zh="尚未校准"/>
@@ -2633,8 +2636,6 @@
   <translation tag="Prints" zh="打印次数"/>
   <translation tag="Prints Trend" zh="打印趋势"/>
   <translation tag="Private:" zh="私有："/>
-  <translation tag="Probably {}, the only lane holding filament." zh="可能是{}，只有这个耗材通道有耗材。"/>
-  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." zh="可能是{}，只有这个耗材通道有耗材。选择“不确定”会只清空挤出机，不回抽任何耗材通道。"/>
   <translation tag="Probe" zh="探针"/>
   <translation tag="Probe Accuracy Failed" zh="探针精度测试失败"/>
   <translation tag="Probe Accuracy Test" zh="探针精度测试"/>
@@ -3282,6 +3283,7 @@
   <translation tag="Step" zh="步骤"/>
   <translation tag="Step 1 of 3" zh="第 1 步，共 3 步"/>
   <translation tag="Step {} of {}" zh="第 {} 步，共 {} 步"/>
+  <translation tag="Still reading the printer&apos;s lane record. Try again in a moment." zh="仍在读取打印机的耗材通道记录，请稍后再试。"/>
   <translation tag="Still saving this spool…" zh="此料盘仍在保存中…"/>
   <translation tag="Still working... taking longer than usual" zh="仍在处理……耗时比平常更长"/>
   <translation tag="Stop" zh="停止"/>
@@ -3503,6 +3505,7 @@
   <translation tag="The printer lost power during a print. The resumed layer may not line up exactly." zh="打印机在打印过程中断电。恢复后的层可能无法完全对准。"/>
   <translation tag="The printer lost power while printing {}. Resume where it left off?" zh="打印机在打印 {} 时断电。是否从中断处继续？"/>
   <translation tag="The printer lost power while printing {}. The resumed layer may not line up exactly." zh="打印机在打印 {} 时断电。恢复后的层可能无法完全对准。"/>
+  <translation tag="The printer records lane {} in the toolhead, not this one" zh="打印机记录的工具头里是耗材通道{}，不是这个"/>
   <translation tag="The printer refused that port: check the port (Moonraker is usually 7125)." zh="打印机拒绝了该端口:请检查端口(Moonraker 通常为 7125)。"/>
   <translation tag="The printer rejected the filament configuration. The print was not started." zh="打印机拒绝了该耗材配置。打印未启动。"/>
   <translation tag="The printer reports measured fan speeds. HelixScreen shows them on the Fans screen." zh="打印机会报告测得的风扇转速。HelixScreen 在风扇界面显示。"/>

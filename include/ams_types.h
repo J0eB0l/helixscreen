@@ -53,7 +53,7 @@ constexpr int kAmsMaxSlots = 64;
 
 /// unload_filament() slot meaning "clear the toolhead and retract no lane":
 /// cut and withdraw what the extruder holds, for filament no lane can be named
-/// for. Only a backend whose UnloadLaneQuestion offers it accepts it.
+/// for. Only a backend that asks an UnloadLaneQuestion accepts it.
 inline constexpr int kClearToolheadSlot = -3;
 
 /**
@@ -61,12 +61,15 @@ inline constexpr int kClearToolheadSlot = -3;
  *        backend cannot name the lane in the toolhead itself.
  */
 struct UnloadLaneQuestion {
-    /// 0-based lanes to offer. One lane asks the user to confirm it, several
-    /// ask them to pick one, none means no question: unload_filament(-1)
-    /// resolves the lane itself.
+    /// 0-based lanes to offer, alongside an extruder-only clear
+    /// (kClearToolheadSlot) and a cancel.
     std::vector<int> lanes;
-    /// Offer a "Not sure" answer, which unloads kClearToolheadSlot.
-    bool offers_clear_toolhead = false;
+    /// No lane to offer: ask to confirm the extruder-only clear.
+    bool confirm_clear_toolhead = false;
+
+    [[nodiscard]] bool asks() const {
+        return !lanes.empty() || confirm_clear_toolhead;
+    }
 };
 
 /**

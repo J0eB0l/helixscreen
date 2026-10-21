@@ -668,8 +668,10 @@
   <translation tag="Clear Console?" ja="コンソールをクリアしますか？"/>
   <translation tag="Clear Spool" ja="スプールを解除"/>
   <translation tag="Clear every Endless Spool backup" ja="エンドレススプールの予備をすべて消去"/>
+  <translation tag="Clear extruder only" ja="エクストルーダーだけを空にする"/>
   <translation tag="Clear failed" ja="クリアに失敗しました"/>
   <translation tag="Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament&apos;s packaging) and close the door." ja="ベッドの上と下を片付けてください。スプールをベッドに置き、箱(印刷したふたやフィラメントの梱包箱)でかぶせてドアを閉めてください。"/>
+  <translation tag="Clear the extruder?" ja="エクストルーダーを空にしますか？"/>
   <translation tag="Clear the plate and load {}. The tower prints in the middle of the bed." ja="ベッドを片付けて{}をロードしてください。タワーはベッド中央に印刷されます。"/>
   <translation tag="Cleared from settings — system unpair failed, may need OS Bluetooth" ja="設定から削除しました。システムのペアリング解除に失敗、OS の Bluetooth 設定が必要な場合があります"/>
   <translation tag="Clipboard unavailable - use SSH" ja="クリップボード利用不可 - SSHを使用してください"/>
@@ -743,6 +745,7 @@
   <translation tag="Confirm (full, ~{} min)" ja="確認(フル、約{}分)"/>
   <translation tag="Confirm PIN" ja="PIN を確認"/>
   <translation tag="Confirm before running macros" ja="マクロ実行前に確認する"/>
+  <translation tag="Confirm clearing the extruder to unload it" ja="取り出すには、エクストルーダーを空にすることを確認してください"/>
   <translation tag="Confirm tool changes" ja="ツール交換を確認する"/>
   <translation tag="Connect" ja="接続"/>
   <translation tag="Connect a USB label printer first" ja="先にUSBラベルプリンターを接続してください"/>
@@ -2175,6 +2178,7 @@
   <translation tag="No humidity sensor detected" ja="湿度センサーが検出されません"/>
   <translation tag="No images found on USB drive" ja="USBドライブに画像が見つかりません"/>
   <translation tag="No jobs in queue" ja="キューにジョブがありません"/>
+  <translation tag="No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it." ja="フィラメントが入っているレーンがないため、引き戻せるレーンはありません。空にすると、エクストルーダー内のフィラメントを切断して引き抜きます。"/>
   <translation tag="No macro devices configured" ja="マクロデバイスが設定されていません"/>
   <translation tag="No macros available" ja="利用可能なマクロがありません"/>
   <translation tag="No matches in SpoolmanDB" ja="SpoolmanDB に一致なし"/>
@@ -2255,7 +2259,6 @@
   <translation tag="Not in your spools? Set it up" ja="スプールにない？登録する"/>
   <translation tag="Not now" ja="後で"/>
   <translation tag="Not set" ja="未設定"/>
-  <translation tag="Not sure" ja="わからない"/>
   <translation tag="Not turned" ja="未回転"/>
   <translation tag="Not yet available on this display" ja="このディスプレイではまだ利用できません"/>
   <translation tag="Not yet calibrated" ja="未キャリブレーション"/>
@@ -2633,8 +2636,6 @@
   <translation tag="Prints" ja="印刷"/>
   <translation tag="Prints Trend" ja="印刷傾向"/>
   <translation tag="Private:" ja="プライベート:"/>
-  <translation tag="Probably {}, the only lane holding filament." ja="おそらく{}です。フィラメントが入っているのはこのレーンだけです。"/>
-  <translation tag="Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane." ja="おそらく{}です。フィラメントが入っているのはこのレーンだけです。「わからない」を選ぶと、レーンを引き戻さずにエクストルーダーだけを空にします。"/>
   <translation tag="Probe" ja="プローブ"/>
   <translation tag="Probe Accuracy Failed" ja="プローブ精度テスト失敗"/>
   <translation tag="Probe Accuracy Test" ja="プローブ精度テスト"/>
@@ -3282,6 +3283,7 @@
   <translation tag="Step" ja="ステップ"/>
   <translation tag="Step 1 of 3" ja="ステップ 1/3"/>
   <translation tag="Step {} of {}" ja="ステップ {} / {}"/>
+  <translation tag="Still reading the printer&apos;s lane record. Try again in a moment." ja="プリンターのレーン記録をまだ読み込んでいます。少し待ってからもう一度お試しください。"/>
   <translation tag="Still saving this spool…" ja="このスプールはまだ保存中です…"/>
   <translation tag="Still working... taking longer than usual" ja="まだ処理中です... 通常より時間がかかっています"/>
   <translation tag="Stop" ja="停止"/>
@@ -3503,6 +3505,7 @@
   <translation tag="The printer lost power during a print. The resumed layer may not line up exactly." ja="印刷中にプリンターの電源が失われました。再開したレイヤーがわずかにずれる可能性があります。"/>
   <translation tag="The printer lost power while printing {}. Resume where it left off?" ja="{} の印刷中にプリンターの電源が失われました。中断した箇所から再開しますか？"/>
   <translation tag="The printer lost power while printing {}. The resumed layer may not line up exactly." ja="{} の印刷中にプリンターの電源が失われました。再開したレイヤーがわずかにずれる可能性があります。"/>
+  <translation tag="The printer records lane {} in the toolhead, not this one" ja="プリンターの記録ではツールヘッドにあるのはレーン{}で、このレーンではありません"/>
   <translation tag="The printer refused that port: check the port (Moonraker is usually 7125)." ja="プリンターがそのポートを拒否しました: ポートを確認してください(Moonrakerは通常7125)。"/>
   <translation tag="The printer rejected the filament configuration. The print was not started." ja="プリンターがフィラメント設定を拒否しました。印刷は開始されませんでした。"/>
   <translation tag="The printer reports measured fan speeds. HelixScreen shows them on the Fans screen." ja="プリンターはファンの実測回転数を報告します。HelixScreenはファン画面に表示します。"/>

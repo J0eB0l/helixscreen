@@ -732,11 +732,13 @@ translations:
   Clear Console?: Limpar Console?
   Clear Spool: Remover bobina
   Clear every Endless Spool backup: Limpar todas as reservas do carretel infinito
+  Clear extruder only: 'Esvaziar apenas o extrusor'
   Clear failed: Falha ao limpar
   ? Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
 
   : Libere a área acima e abaixo da mesa. Coloque os carretéis sobre a mesa, cubra-os com uma caixa (uma tampa impressa ou a embalagem do filamento) e feche a porta.
 
+  Clear the extruder?: 'Esvaziar o extrusor?'
   Clear the plate and load {}. The tower prints in the middle of the bed.: Limpe a mesa e carregue {}. A torre é impressa no centro da mesa.
   Cleared from settings — system unpair failed, may need OS Bluetooth: Removido das
     configurações; falha ao desemparelhar no sistema, pode ser necessário o Bluetooth
@@ -819,6 +821,7 @@ translations:
   Confirm (full, ~{} min): "Confirmar (completo, ~{} min)"
   Confirm PIN: Confirmar PIN
   Confirm before running macros: Confirmar antes de executar macros
+  Confirm clearing the extruder to unload it: 'Confirme o esvaziamento do extrusor para descarregar'
   Confirm tool changes: 'Confirmar trocas de ferramenta'
   Connect: Conectar
   Connect a USB label printer first: Conecte primeiro uma impressora de etiquetas
@@ -2393,6 +2396,7 @@ translations:
   No humidity sensor detected: 'Nenhum sensor de umidade detectado'
   No images found on USB drive: Nenhuma imagem encontrada na unidade USB
   No jobs in queue: Nenhum trabalho na fila
+  No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.: 'Nenhuma lane tem filamento, então nenhuma pode ser recolhida. Esvaziar corta o filamento no extrusor e o retira.'
   No macro devices configured: Nenhum dispositivo de macro configurado
   No macros available: Nenhuma macro disponível
   No matches in SpoolmanDB: 'Nenhum resultado no SpoolmanDB'
@@ -2477,7 +2481,6 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: Não há espaço suficiente para este widget. Reorganize ou remova widgets para criar espaço.
   Not in your spools? Set it up: Não está nos seus carretéis? Configure aqui
   Not now: Agora não
-  Not sure: 'Não tenho certeza'
   Not turned: 'Não girado'
   Not set: Não definido
   Not yet available on this display: 'Ainda não disponível neste display'
@@ -2884,8 +2887,6 @@ translations:
   Prints: Impressões
   Prints Trend: Tendência de Impressões
   'Private:': 'Privado:'
-  Probably {}, the only lane holding filament.: 'Provavelmente {}, a única lane com filamento.'
-  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: 'Provavelmente {}, a única lane com filamento. Não tenho certeza esvazia o extrusor sem recolher nenhuma lane.'
   Probe: Sonda
   Probe Accuracy Failed: Precisão da Sonda Falhou
   Probe Accuracy Test: Teste de Precisão da Sonda
@@ -3606,6 +3607,7 @@ translations:
   Step: Etapa
   Step 1 of 3: Etapa 1 de 3
   Step {} of {}: Etapa {} de {}
+  Still reading the printer's lane record. Try again in a moment.: 'Ainda lendo o registro de lanes da impressora. Tente novamente em instantes.'
   Still saving this spool…: 'Ainda salvando este carretel…'
   Still working... taking longer than usual: Ainda processando... está demorando mais
     que o normal
@@ -3868,6 +3870,7 @@ translations:
   The printer lost power while printing {}. Resume where it left off?: A impressora perdeu
     energia ao imprimir {}. Retomar de onde parou?
   The printer lost power while printing {}. The resumed layer may not line up exactly.: A impressora perdeu energia ao imprimir {}. A camada retomada pode não se alinhar exatamente.
+  The printer records lane {} in the toolhead, not this one: 'A impressora registra a lane {} no cabeçote, não esta'
   'The printer refused that port: check the port (Moonraker is usually 7125).': "A impressora recusou essa porta: verifique a porta (o Moonraker costuma usar a 7125)."
   The printer rejected the filament configuration. The print was not started.: A impressora
     rejeitou a configuração do filamento. A impressão não foi iniciada.

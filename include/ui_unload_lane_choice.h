@@ -30,10 +30,10 @@ unload_lane_choices(const std::vector<int>& candidates,
  * @brief Ask which lane is in the toolhead before a slotless unload, when the
  *        backend cannot name it.
  *
- * One candidate lane asks the user to confirm it in a dialog; several show the
- * lane picker anchored to @p anchor. @p on_chosen receives the chosen 0-based
- * slot, or kClearToolheadSlot for "Not sure" when the backend offers it.
- * Dismissing either cancels the unload.
+ * Candidate lanes open the lane picker anchored to @p anchor, with an
+ * extruder-only clear and a Cancel row; no lane at all asks to confirm the
+ * clear in a dialog. @p on_chosen receives the chosen 0-based slot, or
+ * kClearToolheadSlot for the clear. Cancel, a backdrop tap or ESC sends nothing.
  *
  * @return true when the picker took over the unload, false (showing nothing)
  *         when the backend resolves the lane itself

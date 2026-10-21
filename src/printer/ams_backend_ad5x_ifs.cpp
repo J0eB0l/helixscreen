@@ -2131,7 +2131,7 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
     int current_slot;
     int seated_slot; // 0-based slot of the IFS_STATUS-seated port (-1 = none)
     UnloadLaneDecision decision;
-    int ffm_channel;
+    std::optional<int> ffm_file_channel;
     int nozzle_target_deci;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -2150,7 +2150,7 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
         current_slot = system_info_.current_slot;
         seated_slot = seated_chan_ > 0 ? seated_chan_ - 1 : -1;
         decision = unload_lane_decision_locked();
-        ffm_channel = ffm_channel_;
+        ffm_file_channel = ffm_file_channel_;
         nozzle_target_deci = last_extruder_target_deci_;
     }
     const bool module_live = ifs_module_live_.load();
@@ -2235,19 +2235,22 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
     }
 
     // With no live active slot, decide_unload_lane() names the lane from the
-    // records (#1324). A lane that only the user can name is refused here,
-    // before anything heats, and the caller asks (unload_lane_question());
-    // with no lane holding filament there is nothing to retract and the
-    // extruder alone is cleared.
+    // records (#1324). Anything only the user can answer - which lane, or
+    // whether to clear the extruder alone - is refused here, before anything
+    // heats, and the caller asks (unload_lane_question()).
     int lane = slot_index;
     if (!clear_toolhead && slot_index < 0 && current_slot < 0) {
         switch (decision.verdict) {
         case UnloadLaneVerdict::UnloadLane:
             lane = decision.lane;
             break;
-        case UnloadLaneVerdict::ExtruderOnlyClear:
-            clear_toolhead = true;
-            break;
+        case UnloadLaneVerdict::ConfirmClear:
+            spdlog::info("{} Toolhead unload with no lane holding filament -> refused, the "
+                         "extruder clear must be confirmed",
+                         backend_log_tag());
+            return AmsError(AmsResult::WRONG_STATE,
+                            "unload_filament: only an extruder clear is possible, unconfirmed",
+                            lv_tr("Confirm clearing the extruder to unload it"));
         case UnloadLaneVerdict::ConfirmLane:
         case UnloadLaneVerdict::PickLane:
             spdlog::info("{} Toolhead unload with no active, seated or remembered lane -> "
@@ -2258,6 +2261,42 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
                             lv_tr("Choose which lane is in the toolhead to unload it"));
         case UnloadLaneVerdict::NotToolhead:
             break;
+        }
+    }
+    // The module's IFS_UNLOAD is always told the lane: bare, it falls back on
+    // its own records, which can disagree with the active slot shown here.
+    if (module_live && !clear_toolhead && lane < 0 && current_slot >= 0) {
+        lane = current_slot;
+    }
+
+    // Native ZMOD unloads the lane in FFMInfo.channel. With no active slot
+    // that record has to be the lane being unloaded, and only the file says
+    // what it holds: Helix's own copy is zeroed on an eject while the file
+    // keeps the ejected lane.
+    bool declare_lane = false;
+    if (!module_live && !clear_toolhead && lane >= 0 && current_slot < 0) {
+        switch (native_lane_dispatch(lane, ffm_file_channel)) {
+        case NativeLaneDispatch::AsRecorded:
+            break;
+        case NativeLaneDispatch::Declare:
+            declare_lane = true;
+            break;
+        case NativeLaneDispatch::RecordUnread:
+            spdlog::info("{} Toolhead unload of slot {} before FFMInfo was read -> refused, "
+                         "re-reading",
+                         backend_log_tag(), lane);
+            read_adventurer_json();
+            return AmsError(AmsResult::WRONG_STATE, "unload_filament: FFMInfo.channel not read yet",
+                            lv_tr("Still reading the printer's lane record. Try again in a "
+                                  "moment."));
+        case NativeLaneDispatch::RecordNamesOther:
+            spdlog::info("{} Toolhead unload of slot {} while FFMInfo.channel={} -> refused",
+                         backend_log_tag(), lane, ffm_file_channel.value_or(0));
+            return AmsError(
+                AmsResult::WRONG_STATE, "unload_filament: FFMInfo.channel names another lane",
+                fmt::format(fmt::runtime(lv_tr("The printer records lane {} in the toolhead, "
+                                               "not this one")),
+                            ffm_file_channel.value_or(0)));
         }
     }
 
@@ -2317,9 +2356,7 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
     } else if (module_live) {
         // Standalone module: IFS_UNLOAD takes the nozzle contents back into the
         // lane and leaves it threaded (70 mm), resolving the heat from the
-        // slot's material. With a live active slot, "unload whatever is
-        // active" sends it bare and the macro defaults SLOT= from its own
-        // ifs_loaded record; otherwise lane names it.
+        // slot's material.
         std::string cmd = "IFS_UNLOAD";
         if (lane >= 0) {
             cmd += " SLOT=";
@@ -2328,11 +2365,10 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
         result = execute_gcode(std::move(cmd), on_complete, on_error);
     } else {
         // _IFS_REMOVE_CURRENT_PRUTOK unloads the lane in FFMInfo.channel and
-        // does nothing at all when that is 0. With no live active slot and no
-        // channel on record, declare the lane first: SET_EXTRUDER_SLOT only
-        // writes FFMInfo.channel and moves nothing.
+        // does nothing at all when that is 0, so a 0 gets the lane declared
+        // first: SET_EXTRUDER_SLOT only writes FFMInfo.channel and moves nothing.
         std::string cmd;
-        if (lane >= 0 && current_slot < 0 && ffm_channel == 0) {
+        if (declare_lane) {
             cmd = "SET_EXTRUDER_SLOT SLOT=" +
                   std::to_string(lane + 1) + // DISPLAY_NUMBERING_OK: gcode wire, not a label
                   "\n";
@@ -2907,7 +2943,7 @@ AmsBackendAd5xIfs::decide_unload_lane(const UnloadLaneInputs& in) {
         }
     }
     if (count == 0) {
-        return {UnloadLaneVerdict::ExtruderOnlyClear, -1};
+        return {UnloadLaneVerdict::ConfirmClear, -1};
     }
     if (count == 1) {
         return {UnloadLaneVerdict::ConfirmLane, lone};
@@ -2926,7 +2962,10 @@ AmsBackendAd5xIfs::UnloadLaneDecision AmsBackendAd5xIfs::unload_lane_decision_lo
     } else if (!in.module && ffm_channel_ > 0 && ffm_channel_ <= kNumPorts) {
         // _IFS_REMOVE_CURRENT_PRUTOK resolves this lane itself.
         in.recorded_lane = ffm_channel_ - 1;
-    } else {
+    } else if (in.module || ffm_file_channel_.has_value()) {
+        // On native ZMOD the remembered lane stands in only once the file has
+        // been read: before that the firmware may record another lane, and
+        // declaring this one would overwrite it.
         in.recorded_lane = remembered_unload_lane_locked().value_or(-1);
     }
     in.at_hub_lane = (module_at_hub_ >= 1 && module_at_hub_ <= kNumPorts) ? module_at_hub_ - 1 : -1;
@@ -2946,25 +2985,42 @@ UnloadLaneQuestion AmsBackendAd5xIfs::unload_lane_question() const {
                 question.lanes.push_back(i);
             }
         }
+    } else if (decision.verdict == UnloadLaneVerdict::ConfirmClear) {
+        question.confirm_clear_toolhead = true;
     }
-    question.offers_clear_toolhead = !question.lanes.empty();
     return question;
 }
 
+AmsBackendAd5xIfs::NativeLaneDispatch
+AmsBackendAd5xIfs::native_lane_dispatch(int lane, std::optional<int> file_channel) {
+    if (!file_channel.has_value()) {
+        return NativeLaneDispatch::RecordUnread;
+    }
+    if (*file_channel == 0) {
+        return NativeLaneDispatch::Declare;
+    }
+    return *file_channel == lane + 1 ? NativeLaneDispatch::AsRecorded
+                                     : NativeLaneDispatch::RecordNamesOther;
+}
+
 std::string AmsBackendAd5xIfs::clear_toolhead_gcode(bool module_live, int nozzle_target_deci) {
+    // No lane names a material to take a temperature from, so a nozzle the
+    // user already heated keeps its target. The module's clear refuses below
+    // 150C.
+    const int target_c = nozzle_target_deci / 10;
+    const int temp_c = target_c >= kClearToolheadMinTempC ? target_c : kClearToolheadFallbackTempC;
     if (module_live) {
         // The module's extruder clear (cut, wipe, withdraw) with no SLOT=: it
-        // clamps and retracts no lane. It refuses below 150C, and with no lane
-        // there is no material to take a temperature from, so a nozzle the
-        // user already heated keeps its target.
-        const int target_c = nozzle_target_deci / 10;
-        const int temp_c =
-            target_c >= kClearToolheadMinTempC ? target_c : kClearToolheadFallbackTempC;
-        return "_IFS_CLEAR_EXTRUDER TEMP=" + std::to_string(temp_c);
+        // clamps and retracts no lane.
+        // The private macro does not restore a toolhead sensor an earlier
+        // failed op left muted; every public module entry point does that first.
+        return "_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=" + std::to_string(temp_c);
     }
-    // ZMOD's own no-IFS unload: PRUTOK=0 heats, cuts, drops the stub in the
-    // trash and withdraws the extruder, touching no lane.
-    return "REMOVE_PRUTOK_IFS PRUTOK=0";
+    // ZMOD's own no-IFS unload, the PRUTOK=0 branch of _REMOVE_PRUTOK_IFS:
+    // home, heat, cut, drop the stub in the trash and withdraw the extruder,
+    // touching no lane. Called directly because its public wrapper fills TEMP
+    // from a lane's config, and lane 0 has none.
+    return "_REMOVE_PRUTOK_IFS PRUTOK=0 TEMP=" + std::to_string(temp_c);
 }
 
 // --- Plugin visibility (lessWaste / bambufy auto switchover) ---
@@ -6321,6 +6377,7 @@ void AmsBackendAd5xIfs::parse_adventurer_json(const std::string& content) {
             const int prev_current_slot = system_info_.current_slot;
             const int fw_chan = chan_it->get<int>();
             ffm_channel_ = (fw_chan >= 1 && fw_chan <= kNumPorts) ? fw_chan : 0;
+            ffm_file_channel_ = ffm_channel_;
             // Head-gate (#1065 row 28): the file's FFMInfo.channel is sticky and
             // survives an eject, so a plain poll re-reads a stale channel. Adopt it
             // as seated ONLY when the toolhead SWITCH sensor corroborates filament

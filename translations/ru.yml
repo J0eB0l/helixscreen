@@ -777,11 +777,13 @@ translations:
   Clear Console?: Очистить консоль?
   Clear Spool: Убрать катушку
   Clear every Endless Spool backup: Очистить все резервы бесконечной катушки
+  Clear extruder only: 'Только очистить экструдер'
   Clear failed: Ошибка очистки
   ? Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
 
   : Освободите место над столом и под ним. Положите катушки на стол, накройте их коробкой (напечатанной крышкой или упаковкой филамента) и закройте дверцу.
 
+  Clear the extruder?: 'Очистить экструдер?'
   Clear the plate and load {}. The tower prints in the middle of the bed.: Освободите стол и загрузите {}. Башня печатается в центре стола.
   Cleared from settings — system unpair failed, may need OS Bluetooth: Удалено из
     настроек; не удалось отменить сопряжение в системе, возможно нужен Bluetooth ОС
@@ -865,6 +867,7 @@ translations:
   Confirm (full, ~{} min): "Подтвердить (полный, ~{} мин)"
   Confirm PIN: Подтвердите PIN
   Confirm before running macros: Подтверждать перед запуском макросов
+  Confirm clearing the extruder to unload it: 'Подтвердите очистку экструдера, чтобы выгрузить'
   Confirm tool changes: 'Подтверждать смену инструмента'
   Connect: Подключить
   Connect a USB label printer first: Сначала подключите USB-принтер этикеток
@@ -2430,6 +2433,7 @@ translations:
   No humidity sensor detected: 'Датчик влажности не обнаружен'
   No images found on USB drive: Изображения на USB-накопителе не найдены
   No jobs in queue: Очередь пуста
+  No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.: 'Ни в одном канале нет филамента, поэтому втянуть нечего. Очистка обрезает филамент в экструдере и извлекает его.'
   No macro devices configured: Макро-устройства не настроены
   No macros available: Нет доступных макросов
   No matches in SpoolmanDB: 'Нет совпадений в SpoolmanDB'
@@ -2514,7 +2518,6 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: Недостаточно места для этого виджета. Измените раскладку или удалите виджеты, чтобы освободить место.
   Not in your spools? Set it up: Нет в ваших катушках? Настроить
   Not now: Не сейчас
-  Not sure: 'Не уверен'
   Not turned: 'Не повёрнут'
   Not set: Не задана
   Not yet available on this display: 'Пока недоступно на этом дисплее'
@@ -2926,8 +2929,6 @@ translations:
   Prints: Печати
   Prints Trend: Тренд печатей
   'Private:': 'Закрытая:'
-  Probably {}, the only lane holding filament.: 'Вероятно, {} — единственный канал с филаментом.'
-  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: 'Вероятно, {} — единственный канал с филаментом. «Не уверен» очищает экструдер, не втягивая ни один канал.'
   Probe: Зонд
   Probe Accuracy Failed: Ошибка теста точности зонда
   Probe Accuracy Test: Тест точности датчика
@@ -3651,6 +3652,7 @@ translations:
   Step: Шаг
   Step 1 of 3: Шаг 1 из 3
   Step {} of {}: Шаг {} из {}
+  Still reading the printer's lane record. Try again in a moment.: 'Запись каналов принтера ещё читается. Повторите попытку через мгновение.'
   Still saving this spool…: 'Эта катушка ещё сохраняется…'
   Still working... taking longer than usual: Всё ещё выполняется... дольше обычного
   Stop: Стоп
@@ -3909,6 +3911,7 @@ translations:
   The printer lost power during a print. The resumed layer may not line up exactly.: Принтер потерял питание во время печати. Возобновлённый слой может не совпасть точно.
   The printer lost power while printing {}. Resume where it left off?: Принтер потерял питание при печати {}. Продолжить с места остановки?
   The printer lost power while printing {}. The resumed layer may not line up exactly.: Принтер потерял питание при печати {}. Возобновлённый слой может не совпасть точно.
+  The printer records lane {} in the toolhead, not this one: 'По записи принтера в печатающей головке канал {}, а не этот'
   'The printer refused that port: check the port (Moonraker is usually 7125).': "Принтер отклонил этот порт: проверьте порт (Moonraker обычно использует 7125)."
   The printer rejected the filament configuration. The print was not started.: Принтер
     отклонил конфигурацию филамента. Печать не была запущена.

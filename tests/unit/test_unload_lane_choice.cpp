@@ -158,29 +158,50 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture,
     }
 }
 
-TEST_CASE_METHOD(UnloadLaneSidebarFixture, "Sidebar sends the toolhead clear for Not sure",
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "Sidebar sends the extruder-only clear when chosen",
                  "[ams][1324]") {
     sidebar_->handle_unload(helix::kClearToolheadSlot, /*lane_in_toolhead=*/true);
-    CHECK(backend_->sent == std::vector<std::string>{"_IFS_CLEAR_EXTRUDER TEMP=220"});
+    CHECK(backend_->sent ==
+          std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
 }
 
-TEST_CASE_METHOD(UnloadLaneSidebarFixture, "The lane picker offers Not sure after the lanes",
+namespace {
+
+lv_obj_t* find_on_screen(const char* name) {
+    return lv_obj_find_by_name(lv_screen_active(), name);
+}
+
+void tap(lv_obj_t* obj) {
+    REQUIRE(obj != nullptr);
+    lv_obj_send_event(obj, LV_EVENT_CLICKED, nullptr);
+}
+
+} // namespace
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "The lane picker offers the lanes, an extruder-only clear and Cancel",
                  "[ams][1324]") {
     std::vector<int> chosen;
-    lv_obj_t* anchor = lv_obj_find_by_name(panel_, "btn_unload");
-    REQUIRE(anchor != nullptr);
-    REQUIRE(helix::ui::choose_unload_lane(backend_, anchor,
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
                                           [&chosen](int slot) { chosen.push_back(slot); }));
     CHECK(ModalStack::instance().stack_empty());
 
-    lv_obj_t* not_sure = lv_obj_find_by_name(lv_screen_active(), "extra_choice");
-    REQUIRE(not_sure != nullptr);
-    lv_obj_send_event(not_sure, LV_EVENT_CLICKED, nullptr);
-    CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+    SECTION("Clear extruder only asks for the toolhead clear") {
+        tap(find_on_screen("extra_choice"));
+        CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+    }
+    SECTION("Cancel answers nothing and closes the picker") {
+        tap(find_on_screen("cancel_choice"));
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(10);
+        CHECK(chosen.empty());
+        CHECK(find_on_screen("extra_choice") == nullptr);
+        CHECK(backend_->sent.empty());
+    }
 }
 
-TEST_CASE_METHOD(UnloadLaneSidebarFixture, "One lane holding filament is confirmed in a dialog",
-                 "[ams][1324]") {
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "One lane holding filament still gets the three-way picker", "[ams][1324]") {
     helix::Ad5xIfsTestAccess::handle_status(
         *backend_, nlohmann::json{{"ifs", {{"loaded_channels", {3}}, {"active_channel", 0}}}});
     AmsState::instance().sync_from_backend();
@@ -189,19 +210,39 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture, "One lane holding filament is confirm
     std::vector<int> chosen;
     REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
                                           [&chosen](int slot) { chosen.push_back(slot); }));
-    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
-    CHECK(lv_obj_find_by_name(lv_screen_active(), "extra_choice") == nullptr);
+    // A picker, not a dialog whose cancel position would heat and cut.
+    CHECK(ModalStack::instance().stack_empty());
+    REQUIRE(find_on_screen("extra_choice") != nullptr);
+    tap(find_on_screen("cancel_choice"));
+    CHECK(chosen.empty());
+    CHECK(backend_->sent.empty());
+}
 
-    SECTION("Unload names the lane") {
+TEST_CASE_METHOD(UnloadLaneSidebarFixture,
+                 "No lane holding filament asks to confirm the extruder clear", "[ams][1324]") {
+    helix::Ad5xIfsTestAccess::handle_status(
+        *backend_,
+        nlohmann::json{
+            {"ifs", {{"loaded_channels", nlohmann::json::array()}, {"active_channel", 0}}}});
+    AmsState::instance().sync_from_backend();
+    REQUIRE(backend_->unload_lane_question().confirm_clear_toolhead);
+
+    std::vector<int> chosen;
+    REQUIRE(helix::ui::choose_unload_lane(backend_, lv_obj_find_by_name(panel_, "btn_unload"),
+                                          [&chosen](int slot) { chosen.push_back(slot); }));
+    REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+
+    SECTION("Clear asks for the toolhead clear") {
         helix::test::answer_top_modal("btn_primary");
-        CHECK(chosen == std::vector<int>{2});
-    }
-    SECTION("Not sure asks for the toolhead clear") {
-        helix::test::answer_top_modal("btn_secondary");
         CHECK(chosen == std::vector<int>{helix::kClearToolheadSlot});
+    }
+    SECTION("Cancel answers nothing") {
+        helix::test::answer_top_modal("btn_secondary");
+        CHECK(chosen.empty());
     }
     SECTION("dismissing answers nothing") {
         helix::test::dismiss_top_modal();
         CHECK(chosen.empty());
     }
+    CHECK(backend_->sent.empty());
 }

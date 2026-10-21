@@ -714,9 +714,11 @@ translations:
   Clear Console?: Clear Console?
   Clear Spool: Clear Spool
   Clear every Endless Spool backup: Clear every Endless Spool backup
+  Clear extruder only: Clear extruder only
   Clear failed: Clear failed
   ? Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
   : Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
+  Clear the extruder?: Clear the extruder?
   Clear the plate and load {}. The tower prints in the middle of the bed.: Clear the plate and load {}. The tower prints in the middle of the bed.
   Cleared from settings — system unpair failed, may need OS Bluetooth: Cleared from
     settings — system unpair failed, may need OS Bluetooth
@@ -795,6 +797,7 @@ translations:
   Confirm (full, ~{} min): Confirm (full, ~{} min)
   Confirm PIN: Confirm PIN
   Confirm before running macros: Confirm before running macros
+  Confirm clearing the extruder to unload it: Confirm clearing the extruder to unload it
   Confirm tool changes: Confirm tool changes
   Connect: Connect
   Connect a USB label printer first: Connect a USB label printer first
@@ -2331,6 +2334,7 @@ translations:
   No humidity sensor detected: No humidity sensor detected
   No images found on USB drive: No images found on USB drive
   No jobs in queue: No jobs in queue
+  No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.: No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.
   No macro devices configured: No macro devices configured
   No macros available: No macros available
   No matches in SpoolmanDB: No matches in SpoolmanDB
@@ -2413,7 +2417,6 @@ translations:
   Not enough room for this widget. Rearrange or remove widgets to make space.: Not enough room for this widget. Rearrange or remove widgets to make space.
   Not in your spools? Set it up: Not in your spools? Set it up
   Not now: Not now
-  Not sure: Not sure
   Not turned: Not turned
   Not set: Not set
   Not yet available on this display: Not yet available on this display
@@ -2814,8 +2817,6 @@ translations:
   Prints: Prints
   Prints Trend: Prints Trend
   'Private:': 'Private:'
-  Probably {}, the only lane holding filament.: Probably {}, the only lane holding filament.
-  Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.: Probably {}, the only lane holding filament. Not sure clears the extruder without retracting any lane.
   Probe: Probe
   Probe Accuracy Failed: Probe Accuracy Failed
   Probe Accuracy Test: Probe Accuracy Test
@@ -3516,6 +3517,7 @@ translations:
   Step: Step
   Step 1 of 3: Step 1 of 3
   Step {} of {}: Step {} of {}
+  Still reading the printer's lane record. Try again in a moment.: Still reading the printer's lane record. Try again in a moment.
   Still saving this spool…: Still saving this spool…
   Still working... taking longer than usual: Still working... taking longer than usual
   Stop: Stop
@@ -3768,6 +3770,7 @@ translations:
   The printer lost power during a print. The resumed layer may not line up exactly.: The printer lost power during a print. The resumed layer may not line up exactly.
   The printer lost power while printing {}. Resume where it left off?: The printer lost power while printing {}. Resume where it left off?
   The printer lost power while printing {}. The resumed layer may not line up exactly.: The printer lost power while printing {}. The resumed layer may not line up exactly.
+  The printer records lane {} in the toolhead, not this one: The printer records lane {} in the toolhead, not this one
   'The printer refused that port: check the port (Moonraker is usually 7125).': 'The printer refused that port: check the port (Moonraker is usually 7125).'
   The printer rejected the filament configuration. The print was not started.: The
     printer rejected the filament configuration. The print was not started.

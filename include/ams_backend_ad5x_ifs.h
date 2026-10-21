@@ -379,19 +379,33 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     /// nullopt until the switch has ever published a reading.
     [[nodiscard]] std::optional<bool> toolhead_filament_unaccounted() const override;
 
-    /// Asks for the lane in the toolhead when no record names it: a confirm
-    /// for the one lane holding filament, a pick among several, both with a
-    /// "Not sure" answer that clears the toolhead without retracting a lane.
+    /// Asks for the lane in the toolhead when no record names it, offering the
+    /// lanes holding filament plus an extruder-only clear; with no lane holding
+    /// filament it asks to confirm the clear.
     [[nodiscard]] UnloadLaneQuestion unload_lane_question() const override;
 
     /// How a toolhead unload finds its lane (#1324).
     enum class UnloadLaneVerdict {
-        NotToolhead,      ///< head reads empty: the cold lane-eject routing applies
-        UnloadLane,       ///< a record names the lane: unload it, no question
-        ConfirmLane,      ///< one lane holds filament: ask the user to confirm it
-        PickLane,         ///< several lanes hold filament: ask which one
-        ExtruderOnlyClear ///< no lane holds filament: cut and clear the extruder only
+        NotToolhead, ///< head reads empty: the cold lane-eject routing applies
+        UnloadLane,  ///< a record names the lane: unload it, no question
+        ConfirmLane, ///< one lane holds filament: ask the user to confirm it
+        PickLane,    ///< several lanes hold filament: ask which one
+        ConfirmClear ///< no lane holds filament: ask to confirm an extruder-only clear
     };
+
+    /// What native ZMOD's unload needs before it names the right lane, given
+    /// what Adventurer5M.json last said FFMInfo.channel was.
+    enum class NativeLaneDispatch {
+        AsRecorded,      ///< the file already records this lane
+        Declare,         ///< the file records 0: declare the lane first
+        RecordUnread,    ///< the file has not been read: nothing is known
+        RecordNamesOther ///< the file records a different lane
+    };
+
+    /// Pure: @p lane is 0-based, @p file_channel is FFMInfo.channel as read
+    /// from the file (1-based, 0 = none), nullopt before the first read.
+    [[nodiscard]] static NativeLaneDispatch native_lane_dispatch(int lane,
+                                                                 std::optional<int> file_channel);
 
     struct UnloadLaneInputs {
         /// Standalone IFS module; false is native ZMOD.
@@ -1388,6 +1402,10 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // apply_zcolor_result. 0 (nothing seated, or forgotten across a reboot) falls
     // back to the persisted-lane floor / Chan.
     int ffm_channel_ = 0;
+    // FFMInfo.channel exactly as Adventurer5M.json last said it, nullopt until
+    // the first read. ffm_channel_ is Helix's working copy and is zeroed
+    // locally on an eject while the file keeps the ejected lane.
+    std::optional<int> ffm_file_channel_;
     // Last lane (0-based slot index) we saw loaded to the toolhead, persisted to
     // the Moonraker "lane_data" DB (sibling "seated" key) so it survives a power
     // cycle. The firmware forgets the seated channel across a reboot — IFS_STATUS

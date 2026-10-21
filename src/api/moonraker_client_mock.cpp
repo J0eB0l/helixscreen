@@ -2441,6 +2441,9 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
         spdlog::info("[MoonrakerClientMock] IFS module: unloaded");
         return true;
     }
+    if (cmd == "_IFS_SENSOR_RESUME") {
+        return true;
+    }
     if (cmd == "_IFS_CLEAR_EXTRUDER") {
         // Cut and withdraw the extruder only: no lane moves, no record changes.
         ifs_module_head_loaded_.store(false);

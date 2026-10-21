@@ -61,7 +61,7 @@ TEST_CASE_METHOD(HelixTestFixture, "ifs-module mock stages lanes, the at-hub rec
     SECTION("the extruder clear empties the head and keeps the record") {
         ScopedEnv hub_env("HELIX_MOCK_IFS_AT_HUB", "2");
         MoonrakerClientMock client;
-        client.gcode_script("_IFS_CLEAR_EXTRUDER TEMP=220");
+        client.gcode_script("_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220");
         CHECK_FALSE(TA::ifs_module_head_loaded(client));
         CHECK(at_hub(client) == 2);
     }

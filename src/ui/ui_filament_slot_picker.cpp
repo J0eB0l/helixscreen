@@ -111,6 +111,9 @@ void FilamentSlotPicker::show(lv_obj_t* parent, lv_obj_t* trigger,
     if (!options.extra_choice.empty()) {
         create_extra_row(card, options.extra_choice);
     }
+    if (!options.cancel_choice.empty()) {
+        create_cancel_row(card, options.cancel_choice);
+    }
 
     // Position anchored to trigger widget
     position_card(card);
@@ -233,6 +236,25 @@ void FilamentSlotPicker::create_extra_row(lv_obj_t* list, const std::string& tex
             sel.is_extra = true;
             self->select(sel);
         },
+        LV_EVENT_CLICKED, this);
+}
+
+void FilamentSlotPicker::create_cancel_row(lv_obj_t* list, const std::string& text) {
+    auto* row = static_cast<lv_obj_t*>(lv_xml_create(list, "filament_slot_picker_row", nullptr));
+    if (!row) {
+        return;
+    }
+    lv_obj_set_name(row, "cancel_choice");
+    if (auto* swatch = helix::ui::find_required(row, "swatch", "FilamentSlotPicker")) {
+        lv_obj_add_flag(swatch, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (auto* label = helix::ui::find_required(row, "slot_label", "FilamentSlotPicker")) {
+        lv_label_set_text(label, text.c_str());
+    }
+    lv_obj_set_user_data(row, reinterpret_cast<void*>(static_cast<intptr_t>(-1)));
+    lv_obj_add_event_cb(
+        row,
+        [](lv_event_t* e) { static_cast<FilamentSlotPicker*>(lv_event_get_user_data(e))->hide(); },
         LV_EVENT_CLICKED, this);
 }
 

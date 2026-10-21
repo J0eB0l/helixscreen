@@ -9,7 +9,6 @@
 #include "ams_state.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 
-#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -37,9 +36,30 @@ bool choose_unload_lane(helix::AmsBackend* backend, lv_obj_t* anchor,
         return false;
     }
     const helix::UnloadLaneQuestion question = backend->unload_lane_question();
-    if (question.lanes.empty()) {
+    if (!question.asks()) {
         return false;
     }
+
+    if (question.lanes.empty()) {
+        // No lane holds filament, so a clear is the only unload there is - but
+        // it heats and cuts, so it still waits for a yes.
+        spdlog::info("[UnloadLane] Asking to confirm an extruder-only clear");
+        ConfirmOptions options;
+        options.on_dismiss = []() { spdlog::info("[UnloadLane] Extruder clear dismissed"); };
+        modal_confirm(
+            lv_tr("Clear the extruder?"),
+            lv_tr("No lane holds filament, so none can be pulled back. Clearing cuts "
+                  "the filament in the extruder and withdraws it."),
+            ModalSeverity::Info, lv_tr("Clear"),
+            [on_chosen]() {
+                if (on_chosen) {
+                    on_chosen(helix::kClearToolheadSlot);
+                }
+            },
+            options);
+        return true;
+    }
+
     const std::vector<helix::AvailableSlot> choices =
         unload_lane_choices(question.lanes, AmsState::instance().collect_available_slots());
     if (choices.empty()) {
@@ -48,52 +68,19 @@ bool choose_unload_lane(helix::AmsBackend* backend, lv_obj_t* anchor,
         return false;
     }
 
-    if (choices.size() == 1) {
-        // One lane holds filament, which makes it likely but not certain:
-        // the user confirms it, and "Not sure" clears the toolhead instead.
-        const int lane = choices.front().slot_index;
-        const std::string message =
-            question.offers_clear_toolhead
-                ? fmt::format(fmt::runtime(lv_tr("Probably {}, the only lane holding filament. Not "
-                                                 "sure clears the extruder without retracting "
-                                                 "any lane.")),
-                              helix::FilamentMapper::format_slot_label(choices.front()))
-                : fmt::format(fmt::runtime(lv_tr("Probably {}, the only lane holding filament.")),
-                              helix::FilamentMapper::format_slot_label(choices.front()));
-        spdlog::info("[UnloadLane] Asking to confirm slot {} as the lane in the toolhead", lane);
-        ConfirmOptions options;
-        if (question.offers_clear_toolhead) {
-            options.cancel_text = lv_tr("Not sure");
-            options.on_cancel = [on_chosen]() {
-                if (on_chosen) {
-                    on_chosen(helix::kClearToolheadSlot);
-                }
-            };
-        }
-        options.on_dismiss = []() { spdlog::info("[UnloadLane] Lane question dismissed"); };
-        modal_confirm(
-            lv_tr("Which lane is in the toolhead?"), message.c_str(), ModalSeverity::Info,
-            lv_tr("Unload"),
-            [on_chosen, lane]() {
-                if (on_chosen) {
-                    on_chosen(lane);
-                }
-            },
-            options);
-        return true;
-    }
-
-    // One question at a time, so one picker serves every Unload button. Never
-    // destroyed: its destructor deletes LVGL objects, and a static's destructor
-    // runs after lv_deinit(), which already freed the screen holding them.
+    // Even one lane holding filament is only likely, not certain, so every
+    // case asks: the lanes, an extruder-only clear, and a Cancel that sends
+    // nothing. One question at a time, so one picker serves every Unload
+    // button. Never destroyed: its destructor deletes LVGL objects, and a
+    // static's destructor runs after lv_deinit(), which already freed the
+    // screen holding them.
     static FilamentSlotPicker* picker = new FilamentSlotPicker();
     spdlog::info("[UnloadLane] Asking which of {} lane(s) is in the toolhead", choices.size());
     FilamentSlotPicker::Options options;
     options.title = lv_tr("Which lane is in the toolhead?");
     options.highlight_trigger = false;
-    if (question.offers_clear_toolhead) {
-        options.extra_choice = lv_tr("Not sure");
-    }
+    options.extra_choice = lv_tr("Clear extruder only");
+    options.cancel_choice = lv_tr("Cancel");
     picker->show(
         lv_screen_active(), anchor, choices, FilamentSlotPicker::Selection{},
         [on_chosen = std::move(on_chosen)](const FilamentSlotPicker::Selection& sel) {
