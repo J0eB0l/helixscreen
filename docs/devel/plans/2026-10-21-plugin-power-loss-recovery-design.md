@@ -378,7 +378,10 @@ then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`
     `helix_print.py#_patch_history_entry` path. Before sending `M23`, the plugin records the
     helix-initiated marker with kind `plr_resume` (umbrella Phase 0), so start hooks (Phase 3: U1
     end-unload, AMS pre-print gcode, timelapse setup), per-job spool records (Phase 5) and the
-    layer-2 photo (Phase 7) do not run again for the resumed job.
+    layer-2 photo (Phase 7) do not run again for the resumed job. The marker is keyed by filename
+    (the root-level symlink's name when there is one, since that is what history records) and
+    binds to the job id on history's `added` event; those consumers act from that event, not
+    from the `job_state` start, where `helix_initiated()` can still be None.
 
 ### 6.4 Mesh carry-over
 
