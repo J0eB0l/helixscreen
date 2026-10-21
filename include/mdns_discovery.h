@@ -53,6 +53,21 @@ inline void apply_mdns_txt_entry(MdnsTxtFields& fields, const std::string& key,
     }
 }
 
+/// The printer a complete service record describes. display_name is chosen by the
+/// caller (TXT "ty" > TXT "product" > hostname).
+inline DiscoveredPrinter make_discovered_printer(const std::string& display_name,
+                                                 const std::string& hostname,
+                                                 const std::string& ip_address, uint16_t port,
+                                                 const MdnsTxtFields& txt) {
+    DiscoveredPrinter printer;
+    printer.name = display_name;
+    printer.hostname = hostname;
+    printer.ip_address = ip_address;
+    printer.port = port;
+    printer.resource_path = txt.resource_path;
+    return printer;
+}
+
 /**
  * @brief Abstract interface for mDNS discovery
  *

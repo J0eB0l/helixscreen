@@ -17,13 +17,11 @@
 
 #include <spdlog/spdlog.h>
 
+#include <chrono>
+
 namespace helix {
 
 namespace ipp {
-
-namespace {
-constexpr int kMaxInterimResponses = 8;
-} // namespace
 
 std::shared_ptr<HttpResponse> post_request(const std::string& host, uint16_t port,
                                            const std::string& resource_path,
@@ -35,18 +33,20 @@ std::shared_ptr<HttpResponse> post_request(const std::string& host, uint16_t por
     req->SetHeader("Content-Type", "application/ipp");
     req->body.assign(reinterpret_cast<const char*>(body.data()), body.size());
 
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_s);
     auto resp = std::make_shared<HttpResponse>();
     hv::HttpClient client;
     if (client.send(req.get(), resp.get()) != 0) {
         return nullptr;
     }
     // 101 Switching Protocols is a final answer to an Upgrade, not an interim one.
-    int interim_seen = 0;
+    // libhv has no per-read timeout for recvResponse(): each read keeps the socket
+    // receive timeout send() left behind, at most timeout_s, so a printer that
+    // stalls after an interim response holds this thread under 2 * timeout_s.
     while (resp->status_code >= 100 && resp->status_code < 200 &&
            resp->status_code != HTTP_STATUS_SWITCHING_PROTOCOLS) {
-        if (++interim_seen > kMaxInterimResponses) {
-            spdlog::error("IPP Printer: no final response after {} interim responses",
-                          kMaxInterimResponses);
+        if (std::chrono::steady_clock::now() >= deadline) {
+            spdlog::error("IPP Printer: no final response within {}s", timeout_s);
             return nullptr;
         }
         spdlog::debug("IPP Printer: skipping interim HTTP {}", static_cast<int>(resp->status_code));

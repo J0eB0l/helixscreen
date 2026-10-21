@@ -12,13 +12,20 @@
  * exactly which bytes arrive in which write (prestonbrown/helixscreen#1822).
  */
 
+#include "../lvgl_test_fixture.h"
+#include "../lvgl_ui_test_fixture.h"
+#include "config.h"
 #include "hv/HttpMessage.h"
+#include "ipp_print_modal.h"
 #include "ipp_printer.h"
 #include "ipp_protocol.h"
+#include "label_printer_settings.h"
+#include "label_printer_utils.h"
 
 #include <arpa/inet.h>
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
@@ -50,7 +57,8 @@ std::string final_ok_response() {
 /// writes each scripted chunk, pausing between chunks so each lands in its own recv.
 class ScriptedServer {
   public:
-    explicit ScriptedServer(std::vector<std::string> chunks) : chunks_(std::move(chunks)) {
+    explicit ScriptedServer(std::vector<std::string> chunks, int gap_ms = 150)
+        : chunks_(std::move(chunks)), gap_ms_(gap_ms) {
         listen_fd_ = ::socket(AF_INET, SOCK_STREAM, 0);
         int one = 1;
         ::setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -78,6 +86,11 @@ class ScriptedServer {
     }
     size_t body_bytes_received() const {
         return body_bytes_.load();
+    }
+    /// The request line, e.g. "POST /ipp/print HTTP/1.1"; empty until a request arrived.
+    std::string request_line() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return request_line_;
     }
 
   private:
@@ -111,10 +124,14 @@ class ScriptedServer {
         }
         if (header_end != std::string::npos)
             body_bytes_ = request.size() - header_end - 4;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            request_line_ = request.substr(0, request.find("\r\n"));
+        }
 
         for (size_t i = 0; i < chunks_.size(); ++i) {
             if (i > 0)
-                std::this_thread::sleep_for(std::chrono::milliseconds(150));
+                std::this_thread::sleep_for(std::chrono::milliseconds(gap_ms_));
             ::send(fd, chunks_[i].data(), chunks_[i].size(), MSG_NOSIGNAL);
         }
         // Keep the connection open until the client hangs up, as a printer would.
@@ -124,6 +141,9 @@ class ScriptedServer {
     }
 
     std::vector<std::string> chunks_;
+    int gap_ms_;
+    mutable std::mutex mutex_;
+    std::string request_line_;
     int listen_fd_ = -1;
     uint16_t port_ = 0;
     std::atomic<size_t> body_bytes_{0};
@@ -187,4 +207,90 @@ TEST_CASE("IPP POST returns nullptr when only an interim response arrives",
     auto resp = ipp::post_request("127.0.0.1", server.port(), "ipp/print", job_body(), 2);
 
     REQUIRE(resp == nullptr);
+}
+
+TEST_CASE("IPP POST gives up at its deadline while interim responses keep coming",
+          "[label][ipp][ipp_http]") {
+    // Each 100 lands well inside the per-read timeout, so only an overall deadline
+    // stops the wait.
+    ScriptedServer server(std::vector<std::string>(12, kContinue), 400);
+
+    const auto start = std::chrono::steady_clock::now();
+    auto resp = ipp::post_request("127.0.0.1", server.port(), "ipp/print", job_body(), 1);
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+
+    REQUIRE(resp == nullptr);
+    REQUIRE(elapsed < std::chrono::milliseconds(2500));
+}
+
+namespace {
+
+/// Points the label-printer settings at a loopback IPP server for one test.
+struct IppSettingsScope {
+    explicit IppSettingsScope(uint16_t port, const std::string& rp) {
+        Config::get_instance();
+        auto& s = LabelPrinterSettingsManager::instance();
+        s.init_subjects();
+        s.set_printer_type("network");
+        s.set_printer_protocol("ipp");
+        s.set_printer_address("127.0.0.1");
+        s.set_printer_port(port);
+        s.set_ipp_resource_path(rp);
+        s.set_label_size_index(0);
+    }
+    ~IppSettingsScope() {
+        auto& s = LabelPrinterSettingsManager::instance();
+        s.set_printer_address("");
+        s.set_ipp_resource_path("");
+        s.set_printer_port(9100);
+        s.set_printer_protocol("raw");
+        s.deinit_subjects();
+    }
+};
+
+SpoolInfo test_spool() {
+    SpoolInfo spool;
+    spool.id = 42;
+    spool.vendor = "Hatchbox";
+    spool.material = "PLA";
+    spool.color_hex = "#1A1A2E";
+    return spool;
+}
+
+class OkableIppPrintModal : public IppPrintModal {
+  public:
+    using IppPrintModal::on_ok;
+};
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "print_spool_label posts to the configured IPP resource path",
+                 "[label][ipp_http][ipp_rp]") {
+    ScriptedServer server({final_ok_response()});
+    IppSettingsScope scope(server.port(), "/printers/Canon_TS8350");
+
+    bool done = false;
+    bool ok = false;
+    print_spool_label(test_spool(), [&](bool success, const std::string&) {
+        ok = success;
+        done = true;
+    });
+
+    REQUIRE(wait_until([&] { return done; }, 15000));
+    REQUIRE(server.request_line() == "POST /printers/Canon_TS8350 HTTP/1.1");
+    REQUIRE(ok);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "The IPP print modal posts to the configured resource path",
+                 "[label][ipp_http][ipp_rp]") {
+    ScriptedServer server({final_ok_response()});
+    IppSettingsScope scope(server.port(), "printers/Canon_TS8350");
+
+    bool done = false;
+    OkableIppPrintModal modal;
+    modal.show_for_spool(test_spool(), [&](bool, const std::string&) { done = true; });
+    modal.on_ok();
+
+    REQUIRE(wait_until([&] { return done; }, 15000));
+    REQUIRE(server.request_line() == "POST /printers/Canon_TS8350 HTTP/1.1");
 }

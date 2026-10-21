@@ -381,12 +381,9 @@ class MdnsDiscovery::Impl {
 
                 // Only add complete records
                 if (record.is_complete()) {
-                    DiscoveredPrinter printer;
-                    printer.name = record.best_display_name();
-                    printer.hostname = record.hostname;
-                    printer.ip_address = record.ip_address;
-                    printer.port = record.port;
-                    printer.resource_path = record.txt.resource_path;
+                    auto printer =
+                        make_discovered_printer(record.best_display_name(), record.hostname,
+                                                record.ip_address, record.port, record.txt);
 
                     // Deduplicate by IP:port
                     auto it = std::find(new_printers.begin(), new_printers.end(), printer);
