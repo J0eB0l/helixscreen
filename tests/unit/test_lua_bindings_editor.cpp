@@ -160,7 +160,7 @@ TEST_CASE_METHOD(EditorFixture, "a validator with side effects or errors rejects
     type_and_confirm("5");
     CHECK(ui_keypad_is_visible());
     CHECK(b.t.global("got") == "nil");
-    CHECK(logs.has_line_with({"helix.ui.toast", "not allowed in a menu check"}));
+    CHECK(logs.has_line_with({"helix.ui.toast", "not allowed in an editor validator"}));
     ui_keypad_hide();
     drain();
     CHECK(b.t.global("cancels") == "1");

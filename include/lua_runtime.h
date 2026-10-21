@@ -68,6 +68,8 @@ class LuaRuntime {
     struct CheckLimits {
         std::chrono::milliseconds time_budget{10};
         std::chrono::milliseconds wall_ceiling{100};
+        /// What the check is, as every log line and refusal inside it names it.
+        const char* label = "menu check";
     };
 
     /// A suspended async call. Copyable; `resolve` is thread-safe and one-shot.
@@ -162,6 +164,12 @@ class LuaRuntime {
     bool in_check() const {
         return in_check_;
     }
+    /// The running check's CheckLimits::label; meaningful only while in_check().
+    const char* check_label() const {
+        return check_label_;
+    }
+    /// "a" or "an", whichever reads before check_label().
+    const char* check_article() const;
 
     /// For a binding: runs `start` with a Pending for the running coroutine `co`, then
     /// yields it. Raises a Lua error when `co` is not an entry coroutine or cannot yield.
@@ -203,6 +211,7 @@ class LuaRuntime {
     Clock::time_point wall_deadline_{};
     bool yielded_for_async_ = false;
     bool in_check_ = false;
+    const char* check_label_ = "menu check";
     bool killed_ = false;
     bool faulted_ = false;
     std::string fault_reason_;

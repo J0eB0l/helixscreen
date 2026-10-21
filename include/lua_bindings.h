@@ -84,7 +84,7 @@ void charge_plugin_memory(lua_State* L, size_t bytes, const char* call);
 /// the metatable on the stack. Every binding metatable is made through this.
 void new_locked_metatable(lua_State* L, const char* name);
 
-/// Raises "<call> is not allowed in a menu check" while the runtime runs a check
+/// Raises "<call> is not allowed in a <check label>" while the runtime runs a check
 /// (LuaRuntime::call_sync). The first statement of every binding with a side effect;
 /// async bindings are refused by await_async.
 void forbid_in_check(lua_State* L, const char* call);

@@ -466,14 +466,19 @@ struct EditorRefs {
             return {};
         bool ok = false;
         std::string why;
-        const bool ran = rt->call_sync(validate, push, [&](lua_State* co, int nres) {
-            ok = nres >= 1 && lua_type(co, -nres) == LUA_TBOOLEAN && lua_toboolean(co, -nres);
-            if (nres >= 2 && lua_type(co, -nres + 1) == LUA_TSTRING) {
-                size_t len = 0;
-                const char* s = lua_tolstring(co, -nres + 1, &len);
-                why.assign(s, std::min(len, kMaxEditorMessage));
-            }
-        });
+        LuaRuntime::CheckLimits limits;
+        limits.label = "editor validator";
+        const bool ran = rt->call_sync(
+            validate, push,
+            [&](lua_State* co, int nres) {
+                ok = nres >= 1 && lua_type(co, -nres) == LUA_TBOOLEAN && lua_toboolean(co, -nres);
+                if (nres >= 2 && lua_type(co, -nres + 1) == LUA_TSTRING) {
+                    size_t len = 0;
+                    const char* s = lua_tolstring(co, -nres + 1, &len);
+                    why.assign(s, std::min(len, kMaxEditorMessage));
+                }
+            },
+            limits);
         if (ran && ok)
             return {};
         return why.empty() ? std::string(lv_tr("Invalid value")) : why;

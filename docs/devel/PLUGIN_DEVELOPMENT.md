@@ -492,7 +492,8 @@ toast. It runs under the menu-check rules (§8, Menu items): synchronous, a shor
 budget, and no side effects, so `helix.ui.toast`, `subject:set`, storage writes and every
 async call raise inside it. A validator that raises, overruns or returns anything but
 `true` rejects the value with "Invalid value"; the error counts toward the plugin's error
-limit like a failed check.
+limit like a failed check. The log names it an "editor validator" (for example
+"helix.ui.toast is not allowed in an editor validator").
 
 `on_accept(value)` runs once with the accepted value, after the editor has closed.
 `on_cancel()` runs once for every other ending: Back, Cancel, a tap on the backdrop, ESC,

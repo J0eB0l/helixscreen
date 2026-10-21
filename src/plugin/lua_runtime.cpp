@@ -277,7 +277,8 @@ int LuaRuntime::lua_require(lua_State* L) {
     // A module's top level is an ordinary entry's work; run from a check, a refused
     // call inside it would leave a half-loaded module cached.
     if (rt.in_check_)
-        return luaL_error(L, "require is not allowed in a menu check");
+        return luaL_error(L, "require is not allowed in %s %s", rt.check_article(),
+                          rt.check_label_);
     std::string name = luaL_checkstring(L, 1);
     lua_rawgetp(L, LUA_REGISTRYINDEX, &kLoadedKey);
     lua_getfield(L, -1, name.c_str());
@@ -372,11 +373,16 @@ void LuaRuntime::invoke(int fn_ref, const PushFn& push_args) {
     spawn(push_args);
 }
 
+const char* LuaRuntime::check_article() const {
+    const char c = check_label_[0];
+    return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' ? "an" : "a";
+}
+
 bool LuaRuntime::call_sync(int fn_ref, const PushFn& args, const ReadFn& read, CheckLimits limits) {
     if (faulted_)
         return false;
     if (depth_ > 0) {
-        report_error("a menu check cannot run inside another plugin entry");
+        report_error(std::string(limits.label) + " cannot run inside another plugin entry");
         return false;
     }
     lua_State* co = nullptr;
@@ -392,7 +398,7 @@ bool LuaRuntime::call_sync(int fn_ref, const PushFn& args, const ReadFn& read, C
     if (used_ > limits_.memory_bytes) {
         lua_settop(co, 0);
         drop(co);
-        report_error("menu check arguments exceed the plugin memory cap");
+        report_error(std::string(limits.label) + " arguments exceed the plugin memory cap");
         return false;
     }
 
@@ -403,6 +409,7 @@ bool LuaRuntime::call_sync(int fn_ref, const PushFn& args, const ReadFn& read, C
     killed_ = false;
     yielded_for_async_ = false;
     in_check_ = true;
+    check_label_ = limits.label;
     ++depth_;
     int nres = 0;
     int status = lua_resume(co, L_, nargs, &nres);
@@ -412,9 +419,9 @@ bool LuaRuntime::call_sync(int fn_ref, const PushFn& args, const ReadFn& read, C
     // <close> handlers (protected, so one that raises is only a failure).
     std::string failure;
     if (killed_) {
-        failure = "menu check exceeded its time budget";
+        failure = std::string(limits.label) + " exceeded its time budget";
     } else if (status == LUA_YIELD) {
-        failure = "menu check yielded; a check must return without waiting";
+        failure = std::string(limits.label) + " yielded; a check must return without waiting";
     } else if (status != LUA_OK) {
         HostWorkGuard host_work(host_work_);
         const char* msg = lua_tostring(co, -1);
@@ -430,11 +437,11 @@ bool LuaRuntime::call_sync(int fn_ref, const PushFn& args, const ReadFn& read, C
     if (lua_closethread(co, L_) != LUA_OK) {
         std::string why;
         if (killed_ && !killed_before_close) {
-            why = "menu check exceeded its time budget in a <close> handler";
+            why = std::string(limits.label) + " exceeded its time budget in a <close> handler";
         } else {
             const char* msg = lua_tostring(co, -1);
-            why = std::string("menu check <close> handler failed: ") +
-                  (msg ? msg : "(error object is not a string)");
+            why = std::string(limits.label) +
+                  " <close> handler failed: " + (msg ? msg : "(error object is not a string)");
         }
         failure = failure.empty() ? why : failure + "; " + why;
     }
@@ -597,7 +604,7 @@ int LuaRuntime::await_async(lua_State* co, const std::function<void(Pending)>& s
         const char* name = lua_getstack(co, 0, &ar) && lua_getinfo(co, "n", &ar) && ar.name
                                ? ar.name
                                : "an async call";
-        return luaL_error(co, "%s is not allowed in a menu check", name);
+        return luaL_error(co, "%s is not allowed in %s %s", name, check_article(), check_label_);
     }
     if (!threads_.count(co) || !lua_isyieldable(co))
         return luaL_error(co, "async call not allowed here: call it from a handler or the top "
