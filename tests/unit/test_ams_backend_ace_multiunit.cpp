@@ -912,3 +912,54 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE load or unload ack keeps a unit's error",
     helix::ui::UpdateQueue::instance().drain();
     CHECK(helper.get_test_system_info().action == AmsAction::ERROR);
 }
+
+// A gap takes no display number: instances 0 and 2 of one model read
+// "ACE Pro" and "ACE Pro #2", and the gap between them shows no name.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE gap does not take a display number",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 3, -1, /*ace_pro_units=*/3,
+                [](json& status) { status.erase("ace_instance_1"); });
+
+    const auto info = helper.get_test_system_info();
+    REQUIRE(info.units.size() == 3);
+    REQUIRE(info.units[1].absent);
+    CHECK(info.units[0].display_name == "ACE Pro");
+    CHECK(info.units[1].display_name.empty());
+    CHECK(info.units[2].display_name == "ACE Pro #2");
+}
+
+// A tool number belongs to the frame that names it: a slot whose frame names
+// none, or a unit that a restart leaves as a gap, carries no tool, so a seat
+// on that tool marks no slot.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE drops a tool number no frame names any more",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 3, -1);
+    REQUIRE(helper.get_slot_info(5).mapped_tool == 5);
+
+    SECTION("a restart leaves the unit carrying the seated tool a gap") {
+        start_units(helper, client, 3, 5, 1, [](json& status) { status.erase("ace_instance_1"); });
+        const auto info = helper.get_test_system_info();
+        REQUIRE(info.units.size() == 3);
+        REQUIRE(info.units[1].absent);
+        CHECK(helper.get_slot_info(5).mapped_tool == -1);
+        CHECK(info.current_tool == 5);
+        CHECK(info.current_slot == -1);
+        for (int slot = 0; slot < info.total_slots; ++slot) {
+            CHECK(helper.get_slot_info(slot).status != SlotStatus::LOADED);
+        }
+    }
+    SECTION("a slots frame that names no tool for a slot") {
+        json unit1 = make_kobra_second_unit_object();
+        unit1["slots"][1].erase("tool");
+        json frame = json::object();
+        frame["ace_instance_1"] = unit1;
+        send_frame(helper, frame);
+        CHECK(helper.get_slot_info(5).mapped_tool == -1);
+        send_frame(helper, manager_delta({{"current_index", 5}}));
+        CHECK(helper.get_test_system_info().current_slot == -1);
+    }
+}

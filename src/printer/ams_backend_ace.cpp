@@ -1089,6 +1089,20 @@ AmsUnit& AmsBackendAce::unit_locked(int unit) {
     return system_info_.units[index];
 }
 
+void AmsBackendAce::publish_tool_map_locked() {
+    // Caller holds mutex_.
+    const bool tools_named =
+        std::any_of(system_info_.units.begin(), system_info_.units.end(), [](const AmsUnit& unit) {
+            return std::any_of(unit.slots.begin(), unit.slots.end(),
+                               [](const SlotInfo& slot) { return slot.mapped_tool >= 0; });
+        });
+    if (tools_named) {
+        helix::printer::sync_tool_map_from_slots(system_info_);
+    } else {
+        system_info_.tool_to_slot_map.clear();
+    }
+}
+
 void AmsBackendAce::keep_units(size_t count) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (system_info_.units.size() > count) {
@@ -1102,16 +1116,7 @@ void AmsBackendAce::keep_units(size_t count) {
     }
     unit_links_.erase(unit_links_.lower_bound(static_cast<int>(count)), unit_links_.end());
     (void)index_units_locked();
-    const bool tools_named =
-        std::any_of(system_info_.units.begin(), system_info_.units.end(), [](const AmsUnit& unit) {
-            return std::any_of(unit.slots.begin(), unit.slots.end(),
-                               [](const SlotInfo& slot) { return slot.mapped_tool >= 0; });
-        });
-    if (tools_named) {
-        helix::printer::sync_tool_map_from_slots(system_info_);
-    } else {
-        system_info_.tool_to_slot_map.clear();
-    }
+    publish_tool_map_locked();
     apply_unit_identities_locked();
     if (system_info_.current_slot >= system_info_.total_slots) {
         // The seat named a slot on a unit that is gone: state the tool alone.
@@ -1141,6 +1146,7 @@ bool AmsBackendAce::index_units_locked() {
 void AmsBackendAce::apply_unit_identities_locked() {
     // Caller holds mutex_.
     std::map<std::string, int> seen;
+    bool tools_cleared = false;
     for (size_t i = 0; i < system_info_.units.size(); ++i) {
         auto& unit = system_info_.units[i];
         const UnitIdentity identity =
@@ -1152,13 +1158,23 @@ void AmsBackendAce::apply_unit_identities_locked() {
         // A unit no instance has reported is a gap in the chain: nothing may
         // be sent to it.
         unit.absent = instance_objects_ && !identity.reported;
-        if (!instance_objects_) {
+        if (unit.absent) {
+            // A gap names no tool and takes no display number.
+            for (auto& slot : unit.slots) {
+                tools_cleared |= slot.mapped_tool >= 0;
+                slot.mapped_tool = -1;
+            }
+        }
+        if (!instance_objects_ || unit.absent) {
             unit.display_name.clear();
             continue;
         }
         const std::string base = ace_unit_short_name(identity.protocol);
         const int count = ++seen[base];
         unit.display_name = count == 1 ? base : base + " #" + std::to_string(count);
+    }
+    if (tools_cleared) {
+        publish_tool_map_locked();
     }
 }
 
@@ -1262,6 +1278,9 @@ int AmsBackendAce::slot_for_tool_locked(int tool) const {
     }
     bool any_named = false;
     for (const auto& unit : system_info_.units) {
+        if (unit.absent) {
+            continue;
+        }
         for (const auto& slot : unit.slots) {
             any_named |= slot.mapped_tool >= 0;
             if (slot.mapped_tool == tool) {
@@ -1445,7 +1464,7 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit) {
                 last_spool_evidence_.clear();
             }
 
-            bool tools_named = false;
+            bool tools_changed = false;
             for (size_t i = 0; i < slots_arr.size(); ++i) {
                 const auto& slot_json = slots_arr[i];
                 if (!slot_json.is_object())
@@ -1454,14 +1473,13 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit) {
                 auto& slot = unit.slots[i];
                 const int idx = slot.global_index;
                 note_park_state_locked(idx, slot_json);
-                if (const auto tool =
-                        helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit)) {
-                    // Published as the slot's tool so a Load with a tool seated
-                    // is planned as the toolchange the driver performs, and the
-                    // step bar shows its cut and retract.
-                    slot.mapped_tool = *tool;
-                    tools_named = true;
-                }
+                // Published as the slot's tool so a Load with a tool seated is
+                // planned as the toolchange the driver performs, and the step
+                // bar shows its cut and retract. A frame naming none clears it.
+                const int tool =
+                    helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit).value_or(-1);
+                tools_changed |= slot.mapped_tool != tool;
+                slot.mapped_tool = tool;
                 if (instance_objects_) {
                     slot.extruder_name = "extruder";
                 }
@@ -1593,11 +1611,11 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit) {
                 // kPollIntervalMs, so ACE names no slot to cached_slot_locked().
                 apply_resolved_lane(slot, idx);
             }
-            if (tools_named) {
+            if (tools_changed) {
                 // The driver names each slot's tool: publish the map in both
                 // directions, so the T badges show only where tool and spool
                 // numbers part.
-                helix::printer::sync_tool_map_from_slots(system_info_);
+                publish_tool_map_locked();
             }
         }
     }
@@ -2190,7 +2208,7 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
     // STATE_CHANGED event forever.
     clear_seated_slot_stamp_locked();
 
-    bool tools_named = false;
+    bool tools_changed = false;
     for (size_t i = 0; i < slots_data.size(); ++i) {
         const auto& slot_json = slots_data[i];
 
@@ -2204,11 +2222,10 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         slot.global_index = static_cast<int>(i);
 
         changed |= note_park_state_locked(static_cast<int>(i), slot_json);
-        if (const auto tool = helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit)) {
-            changed |= slot.mapped_tool != *tool;
-            slot.mapped_tool = *tool;
-            tools_named = true;
-        }
+        const int tool =
+            helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit).value_or(-1);
+        tools_changed |= slot.mapped_tool != tool;
+        slot.mapped_tool = tool;
 
         const bool states_status = slot_json.contains("status") && slot_json["status"].is_string();
         std::optional<bool> observed_present;
@@ -2274,10 +2291,11 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         }
     }
 
-    if (tools_named) {
+    if (tools_changed) {
         // The ACEPRO bridge names each slot's tool, as its instances do on
         // the object path; the seat and ACE_CHANGE_TOOL follow it.
-        helix::printer::sync_tool_map_from_slots(system_info_);
+        changed = true;
+        publish_tool_map_locked();
         if (manager_states_seat_ && seat_loaded_ && system_info_.current_tool >= 0) {
             changed |= seat_from_tool_locked(system_info_.current_tool);
         }

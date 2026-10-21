@@ -444,6 +444,10 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// holds mutex_.
     AmsUnit& unit_locked(int unit);
 
+    /// Publish every slot's mapped_tool as the tool map, in both directions;
+    /// with no slot naming a tool the map is empty. Caller holds mutex_.
+    void publish_tool_map_locked();
+
     /// Drop every unit at or past @p count, with its dryer, status word and
     /// link: the bootstrap answer names every unit there is, so one it does
     /// not name is gone (a restart onto fewer units, or onto another driver).
