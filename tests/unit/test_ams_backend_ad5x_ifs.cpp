@@ -7716,6 +7716,41 @@ TEST_CASE("AD5X IFS native ZMOD declares a lane only once the file says the reco
     }
 }
 
+TEST_CASE("AD5X IFS native ZMOD reads the lane record from Adventurer5M.json",
+          "[ams][ad5x_ifs][1324]") {
+    TestableAd5xIfsBackend backend;
+    seat_unrecorded_zmod(backend, {true, false, true, false}, /*file_channel=*/std::nullopt);
+    REQUIRE_FALSE(backend.unload_filament(2).success());
+    backend.captured_gcodes.clear();
+
+    SECTION("a file recording 0 lets the chosen lane be declared") {
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, R"({"FFMInfo": {"channel": 0}})");
+        REQUIRE(backend.unload_filament(2).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"SET_EXTRUDER_SLOT SLOT=3\n_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("a file with no integer channel is read, with no record to name a lane by") {
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, R"({"FFMInfo": {"channel": "none"}})");
+        const helix::UnloadLaneQuestion question = backend.unload_lane_question();
+        CHECK(question.lanes.empty());
+        CHECK(question.confirm_clear_toolhead);
+        CHECK_FALSE(question.reason.empty());
+        const helix::AmsError err = backend.unload_filament(2);
+        CHECK_FALSE(err.success());
+        CHECK(err.user_msg == question.reason);
+        CHECK(backend.captured_gcodes.empty());
+        REQUIRE(backend.unload_filament(helix::kClearToolheadSlot).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"_REMOVE_PRUTOK_IFS PRUTOK=0 TEMP=220"});
+    }
+    SECTION("a file with no FFMInfo section is read, with no record") {
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, R"({"other": 1})");
+        CHECK(backend.unload_lane_question().confirm_clear_toolhead);
+        CHECK_FALSE(backend.unload_filament(0).success());
+        CHECK(backend.captured_gcodes.empty());
+    }
+}
+
 TEST_CASE("AD5X IFS unhomed load sends exactly one G28 then the load macro (#1248)",
           "[ams][ad5x_ifs][homing][1248]") {
     // INSERT_PRUTOK_IFS's leading _G28 is conditional, not a second home: its

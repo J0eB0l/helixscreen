@@ -364,14 +364,16 @@ On the module a lane always goes out as `IFS_UNLOAD SLOT={n}`, including the act
 bare `IFS_UNLOAD` falls back on the module's own records, which can disagree with the screen.
 
 On native ZMOD with no active slot, `_IFS_REMOVE_CURRENT_PRUTOK` unloads the lane in
-`FFMInfo.channel` and does nothing when that is 0. `ffm_file_channel_` holds the channel exactly
-as Adventurer5M.json last said it (nullopt before the first read), apart from `ffm_channel_`,
+`FFMInfo.channel` and does nothing when that is 0. `ffm_file_read_` says the file has been read and
+`ffm_file_channel_` holds the channel exactly as it said it (nullopt before the first read or
+with no integer channel), apart from `ffm_channel_`,
 Helix's working copy, which `clear_seated_if_ejected_locked()` zeroes on an eject while the file
 keeps the ejected lane. `native_lane_dispatch()` decides:
 
 | File says | Dispatch |
 |---|---|
 | not read yet | refused ("Still reading the printer's lane record"), and a re-read is requested |
+| read, but no integer `FFMInfo.channel` (or no `FFMInfo`) | no lane can be named to the firmware: refused with "The printer reports no lane record, so only clearing the extruder can unload it.", and `unload_lane_question()` offers only the clear, with that sentence as the confirmation's text (`UnloadLaneQuestion::reason`) |
 | 0 | `SET_EXTRUDER_SLOT SLOT={n}` then `_IFS_REMOVE_CURRENT_PRUTOK`, one script. `SET_EXTRUDER_SLOT` is ZMOD's `ad5x.cfg` wrapper over `cmd_SET_EXTRUDER_SLOT` in ZMOD's zmod_color.py, which writes `FFMInfo.channel` and moves nothing |
 | lane n | `_IFS_REMOVE_CURRENT_PRUTOK` |
 | another lane | refused ("The printer records lane {} in the toolhead, not this one"): declaring would overwrite the firmware's record, and the plain macro would unload the other lane |
@@ -407,7 +409,8 @@ The UI asks before any of this. `AmsBackend::unload_lane_question()` asks nothin
 on this backend it returns the lanes to offer (rows 3-4) or `confirm_clear_toolhead` (row 5).
 The AMS sidebar's Unload (`src/ui/ui_ams_sidebar.cpp#"void AmsOperationSidebar::handle_unload()"`)
 and the Filament panel's Unload (`src/ui/ui_panel_filament.cpp#handle_unload_button`) both call
-`src/ui/ui_unload_lane_choice.cpp#choose_unload_lane` first. Lanes open the slot picker titled
+`src/ui/ui_unload_lane_choice.cpp#choose_unload_lane` first, and so does the runout dialog's
+Unload (`src/ui/ui_filament_runout_handler.cpp#dispatch_unload`) when the runout names no lane. Lanes open the slot picker titled
 "Which lane is in the toolhead?" anchored to the Unload button: one row per lane, a "Clear
 extruder only" row (`FilamentSlotPicker::Options::extra_choice`, answers `kClearToolheadSlot`)
 and a "Cancel" row (`Options::cancel_choice`), even for a single lane, so the harmless way out

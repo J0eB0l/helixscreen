@@ -66,6 +66,9 @@ struct UnloadLaneQuestion {
     std::vector<int> lanes;
     /// No lane to offer: ask to confirm the extruder-only clear.
     bool confirm_clear_toolhead = false;
+    /// Why the clear is the only answer, shown in its confirmation in place
+    /// of the default explanation; empty for the default.
+    std::string reason;
 
     [[nodiscard]] bool asks() const {
         return !lanes.empty() || confirm_clear_toolhead;

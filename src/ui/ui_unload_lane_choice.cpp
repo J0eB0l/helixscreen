@@ -41,16 +41,18 @@ bool choose_unload_lane(helix::AmsBackend* backend, lv_obj_t* anchor,
     }
 
     if (question.lanes.empty()) {
-        // No lane holds filament, so a clear is the only unload there is - but
-        // it heats and cuts, so it still waits for a yes.
+        // A clear is the only unload there is - but it heats and cuts, so it
+        // still waits for a yes.
         spdlog::info("[UnloadLane] Asking to confirm an extruder-only clear");
+        const std::string message =
+            question.reason.empty()
+                ? std::string(lv_tr("No lane holds filament, so none can be pulled back. "
+                                    "Clearing cuts the filament in the extruder and withdraws it."))
+                : question.reason;
         ConfirmOptions options;
         options.on_dismiss = []() { spdlog::info("[UnloadLane] Extruder clear dismissed"); };
         modal_confirm(
-            lv_tr("Clear the extruder?"),
-            lv_tr("No lane holds filament, so none can be pulled back. Clearing cuts "
-                  "the filament in the extruder and withdraws it."),
-            ModalSeverity::Info, lv_tr("Clear"),
+            lv_tr("Clear the extruder?"), message.c_str(), ModalSeverity::Info, lv_tr("Clear"),
             [on_chosen]() {
                 if (on_chosen) {
                     on_chosen(helix::kClearToolheadSlot);

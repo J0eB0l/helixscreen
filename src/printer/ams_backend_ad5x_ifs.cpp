@@ -2131,6 +2131,7 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
     int current_slot;
     int seated_slot; // 0-based slot of the IFS_STATUS-seated port (-1 = none)
     UnloadLaneDecision decision;
+    bool ffm_file_read;
     std::optional<int> ffm_file_channel;
     int nozzle_target_deci;
     {
@@ -2150,6 +2151,7 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
         current_slot = system_info_.current_slot;
         seated_slot = seated_chan_ > 0 ? seated_chan_ - 1 : -1;
         decision = unload_lane_decision_locked();
+        ffm_file_read = ffm_file_read_;
         ffm_file_channel = ffm_file_channel_;
         nozzle_target_deci = last_extruder_target_deci_;
     }
@@ -2275,7 +2277,7 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
     // keeps the ejected lane.
     bool declare_lane = false;
     if (!module_live && !clear_toolhead && lane >= 0 && current_slot < 0) {
-        switch (native_lane_dispatch(lane, ffm_file_channel)) {
+        switch (native_lane_dispatch(lane, ffm_file_read, ffm_file_channel)) {
         case NativeLaneDispatch::AsRecorded:
             break;
         case NativeLaneDispatch::Declare:
@@ -2289,6 +2291,13 @@ AmsError AmsBackendAd5xIfs::do_unload_filament(int slot_index) {
             return AmsError(AmsResult::WRONG_STATE, "unload_filament: FFMInfo.channel not read yet",
                             lv_tr("Still reading the printer's lane record. Try again in a "
                                   "moment."));
+        case NativeLaneDispatch::NoRecord:
+            spdlog::info("{} Toolhead unload of slot {} with no FFMInfo.channel in the file -> "
+                         "refused, only the extruder clear can run",
+                         backend_log_tag(), lane);
+            return AmsError(AmsResult::WRONG_STATE,
+                            "unload_filament: Adventurer5M.json has no FFMInfo.channel",
+                            no_lane_record_message());
         case NativeLaneDispatch::RecordNamesOther:
             spdlog::info("{} Toolhead unload of slot {} while FFMInfo.channel={} -> refused",
                          backend_log_tag(), lane, ffm_file_channel.value_or(0));
@@ -2988,13 +2997,30 @@ UnloadLaneQuestion AmsBackendAd5xIfs::unload_lane_question() const {
     } else if (decision.verdict == UnloadLaneVerdict::ConfirmClear) {
         question.confirm_clear_toolhead = true;
     }
+    // Native ZMOD names its lane only through FFMInfo.channel. A file read
+    // with no such record leaves no lane the firmware can be told to unload,
+    // so the extruder clear is the one answer that can run.
+    if (question.asks() && !ifs_module_live_.load() && ffm_file_read_ &&
+        !ffm_file_channel_.has_value()) {
+        question.lanes.clear();
+        question.confirm_clear_toolhead = true;
+        question.reason = no_lane_record_message();
+    }
     return question;
 }
 
+std::string AmsBackendAd5xIfs::no_lane_record_message() {
+    return lv_tr("The printer reports no lane record, so only clearing the extruder can unload "
+                 "it.");
+}
+
 AmsBackendAd5xIfs::NativeLaneDispatch
-AmsBackendAd5xIfs::native_lane_dispatch(int lane, std::optional<int> file_channel) {
-    if (!file_channel.has_value()) {
+AmsBackendAd5xIfs::native_lane_dispatch(int lane, bool file_read, std::optional<int> file_channel) {
+    if (!file_read) {
         return NativeLaneDispatch::RecordUnread;
+    }
+    if (!file_channel.has_value()) {
+        return NativeLaneDispatch::NoRecord;
     }
     if (*file_channel == 0) {
         return NativeLaneDispatch::Declare;
@@ -6216,6 +6242,9 @@ void AmsBackendAd5xIfs::parse_adventurer_json(const std::string& content) {
     auto ffm_it = doc.find("FFMInfo");
     if (ffm_it == doc.end() || !ffm_it->is_object()) {
         spdlog::debug("{} No FFMInfo section in Adventurer5M.json", backend_log_tag());
+        std::lock_guard<std::mutex> lock(mutex_);
+        ffm_file_read_ = true;
+        ffm_file_channel_.reset();
         return;
     }
     const auto& ffm = *ffm_it;
@@ -6373,6 +6402,10 @@ void AmsBackendAd5xIfs::parse_adventurer_json(const std::string& content) {
         // promptly (and remembers it for the post-reboot floor) without waiting for
         // the next IFS_STATUS frame.
         auto chan_it = ffm.find("channel");
+        ffm_file_read_ = true;
+        if (chan_it == ffm.end() || !chan_it->is_number_integer()) {
+            ffm_file_channel_.reset();
+        }
         if (chan_it != ffm.end() && chan_it->is_number_integer()) {
             const int prev_current_slot = system_info_.current_slot;
             const int fw_chan = chan_it->get<int>();

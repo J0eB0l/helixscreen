@@ -3509,6 +3509,7 @@
   <translation tag="The printer refused that port: check the port (Moonraker is usually 7125)." it="La stampante ha rifiutato quella porta: controlla la porta (Moonraker di solito usa la 7125)."/>
   <translation tag="The printer rejected the filament configuration. The print was not started." it="La stampante ha rifiutato la configurazione del filamento. La stampa non è stata avviata."/>
   <translation tag="The printer reports measured fan speeds. HelixScreen shows them on the Fans screen." it="La stampante riporta le velocità misurate delle ventole. HelixScreen le mostra nella schermata Ventole."/>
+  <translation tag="The printer reports no lane record, so only clearing the extruder can unload it." it="La stampante non riporta alcun registro delle corsie, quindi solo lo svuotamento dell&apos;estrusore può scaricare."/>
   <translation tag="The printer swaps between several toolheads. Manage the tools on the filament system screen." it="La stampante cambia tra più testine. Gestisci gli strumenti nella schermata del sistema filamento."/>
   <translation tag="The printer&apos;s firmware chooses where to switch on runout" it="Il firmware della stampante sceglie dove passare a filamento esaurito"/>
   <translation tag="The requested position is outside the printer&apos;s bounds" it="La posizione richiesta è fuori dai limiti della stampante"/>

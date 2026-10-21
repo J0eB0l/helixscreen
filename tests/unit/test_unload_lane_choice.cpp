@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "ui_ams_sidebar.h"
+#include "ui_filament_runout_handler.h"
 #include "ui_unload_lane_choice.h"
 #include "ui_update_queue.h"
 
@@ -10,6 +11,7 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "test_helpers/ad5x_ifs_test_access.h"
 #include "test_helpers/ams_sidebar_xml.h"
+#include "test_helpers/filament_runout_handler_test_access.h"
 #include "test_helpers/modal_answer.h"
 
 #include <functional>
@@ -245,4 +247,29 @@ TEST_CASE_METHOD(UnloadLaneSidebarFixture,
         CHECK(chosen.empty());
     }
     CHECK(backend_->sent.empty());
+}
+
+TEST_CASE_METHOD(UnloadLaneSidebarFixture, "The runout dialog's Unload asks the same question",
+                 "[ams][runout][1324]") {
+    helix::ui::FilamentRunoutHandler handler(nullptr);
+
+    SECTION("lanes holding filament open the picker; Cancel sends nothing") {
+        helix::ui::FilamentRunoutHandlerTestAccess::dispatch_unload(handler);
+        REQUIRE(find_on_screen("extra_choice") != nullptr);
+        tap(find_on_screen("cancel_choice"));
+        CHECK(backend_->sent.empty());
+    }
+    SECTION("no lane holding filament asks to confirm the clear, which then runs") {
+        helix::Ad5xIfsTestAccess::handle_status(
+            *backend_,
+            nlohmann::json{
+                {"ifs", {{"loaded_channels", nlohmann::json::array()}, {"active_channel", 0}}}});
+        AmsState::instance().sync_from_backend();
+        helix::ui::FilamentRunoutHandlerTestAccess::dispatch_unload(handler);
+        REQUIRE(ModalStack::instance().top_dialog() != nullptr);
+        CHECK(backend_->sent.empty());
+        helix::test::answer_top_modal("btn_primary");
+        CHECK(backend_->sent ==
+              std::vector<std::string>{"_IFS_SENSOR_RESUME\n_IFS_CLEAR_EXTRUDER TEMP=220"});
+    }
 }

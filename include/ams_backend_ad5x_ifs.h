@@ -399,12 +399,14 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
         AsRecorded,      ///< the file already records this lane
         Declare,         ///< the file records 0: declare the lane first
         RecordUnread,    ///< the file has not been read: nothing is known
+        NoRecord,        ///< the file was read and has no FFMInfo.channel
         RecordNamesOther ///< the file records a different lane
     };
 
-    /// Pure: @p lane is 0-based, @p file_channel is FFMInfo.channel as read
-    /// from the file (1-based, 0 = none), nullopt before the first read.
-    [[nodiscard]] static NativeLaneDispatch native_lane_dispatch(int lane,
+    /// Pure: @p lane is 0-based, @p file_read says Adventurer5M.json has been
+    /// read, @p file_channel is FFMInfo.channel as read from it (1-based,
+    /// 0 = none), nullopt when the file carries no such record.
+    [[nodiscard]] static NativeLaneDispatch native_lane_dispatch(int lane, bool file_read,
                                                                  std::optional<int> file_channel);
 
     struct UnloadLaneInputs {
@@ -794,6 +796,9 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     /// The gcode that cuts and clears the extruder and retracts no lane, for
     /// filament no lane can be named for.
     [[nodiscard]] static std::string clear_toolhead_gcode(bool module_live, int nozzle_target_deci);
+
+    /// Why only the extruder clear can run when native ZMOD's file has no lane record.
+    [[nodiscard]] static std::string no_lane_record_message();
     // One-shot fetch of /mod_data/user.cfg. Parses the [zmod_ifs] section for
     // `filament_<NAME>: <TEMP>` entries — zmod's mechanism for user-defined
     // material types beyond the AD5X firmware whitelist (e.g., PLA+, RPLA,
@@ -1402,9 +1407,12 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // apply_zcolor_result. 0 (nothing seated, or forgotten across a reboot) falls
     // back to the persisted-lane floor / Chan.
     int ffm_channel_ = 0;
-    // FFMInfo.channel exactly as Adventurer5M.json last said it, nullopt until
-    // the first read. ffm_channel_ is Helix's working copy and is zeroed
-    // locally on an eject while the file keeps the ejected lane.
+    // Adventurer5M.json has been read at least once.
+    bool ffm_file_read_ = false;
+    // FFMInfo.channel exactly as Adventurer5M.json last said it, nullopt before
+    // the first read or when the file has no integer channel. ffm_channel_ is
+    // Helix's working copy and is zeroed locally on an eject while the file
+    // keeps the ejected lane.
     std::optional<int> ffm_file_channel_;
     // Last lane (0-based slot index) we saw loaded to the toolhead, persisted to
     // the Moonraker "lane_data" DB (sibling "seated" key) so it survives a power
