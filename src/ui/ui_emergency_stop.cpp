@@ -961,6 +961,10 @@ void EmergencyStopOverlay::recovery_restart_klipper_clicked(lv_event_t* e) {
     LV_UNUSED(e);
     spdlog::debug("[KlipperRecovery] Restart Klipper clicked");
     auto& instance = EmergencyStopOverlay::instance();
+    // A refused tap keeps the dialog, the user's only way to retry.
+    if (instance.refuse_restart_in_flight()) {
+        return;
+    }
     instance.dismiss_recovery_dialog();
     instance.restart_klipper();
 }
@@ -969,6 +973,10 @@ void EmergencyStopOverlay::recovery_firmware_restart_clicked(lv_event_t* e) {
     LV_UNUSED(e);
     spdlog::debug("[KlipperRecovery] Firmware Restart clicked");
     auto& instance = EmergencyStopOverlay::instance();
+    // A refused tap keeps the dialog, the user's only way to retry.
+    if (instance.refuse_restart_in_flight()) {
+        return;
+    }
     instance.dismiss_recovery_dialog();
     instance.firmware_restart();
 }
