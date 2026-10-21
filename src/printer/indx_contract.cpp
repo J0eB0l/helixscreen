@@ -275,7 +275,8 @@ nlohmann::json required_status_objects(const PrinterDiscovery& hw) {
 }
 
 std::string change_tool_gcode(const PrinterDiscovery& hw, int tool) {
-    const std::string t_macro = "T" + std::to_string(tool);
+    const std::string t_macro =
+        "T" + std::to_string(tool); // DISPLAY_NUMBERING_OK: gcode macro name
     if (hw.has_macro(t_macro)) {
         return t_macro;
     }

@@ -248,14 +248,19 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
             return std::nullopt;
         }
         if (indx_.seat_suspect >= 0) {
-            return refuse("T" + std::to_string(indx_.seat_suspect) +
-                          " may be half seated on the head");
+            return refuse(
+                "T" +
+                std::to_string(
+                    indx_.seat_suspect) + // DISPLAY_NUMBERING_OK: Klipper macro error text
+                " may be half seated on the head");
         }
         if (!indx_.docks_calibrated) {
             return refuse("INDX: the dock positions are not calibrated yet");
         }
         if (tool >= indx_.tool_count) {
-            return refuse("T" + std::to_string(tool) + " is not configured");
+            return refuse("T" +
+                          std::to_string(tool) + // DISPLAY_NUMBERING_OK: Klipper macro error text
+                          " is not configured");
         }
         if (park && indx_.active_tool < 0) {
             return 0;
