@@ -1687,13 +1687,67 @@ lv_xml_register_event_cb(nullptr, "on_slider_changed", [](lv_event_t* e) {
 
 | Trigger | When Fired |
 |---------|------------|
-| `clicked` | Button click (press + release) |
+| `clicked` | Every release on the object that no scroll took, **including the release that ends a long press** |
+| `short_clicked` | A release that ends a press with no long press. Never a tap's trigger: see "Tap and hold" |
 | `value_changed` | Slider, dropdown, switch |
 | `pressed` | Object pressed down |
 | `released` | Object released |
-| `long_pressed` | Long press detected |
+| `long_pressed` | Long press detected, while the finger is still down |
 | `focused` | Object gains focus |
 | `ready` | Text area complete |
+
+### Tap and hold
+
+**A tap always binds `clicked`. A hold handler that acts ends the press with
+`helix::ui::end_press(e)` (`include/ui_utils.h`); a hold handler that declines leaves the
+press alone.**
+
+LVGL sends `clicked` on every release that no scroll took, the one ending a long press
+included (`indev_proc_release()` in `lib/lvgl/src/indev/lv_indev.c`). It starts the long
+press on time alone, so only the hold handler knows whether the hold meant something.
+`end_press()` wraps `lv_indev_wait_release()`: the release then sends `press_lost` in
+place of `released` and `clicked`, and the rest of the press scrolls and drags nothing.
+A handler that declines (an edit mode that is switched off, a locked screen, a finger
+that drifted, a folder card with no hold action) does not call it, so the press still
+ends in its tap. A slow tap on such a widget works.
+
+```xml
+<lv_obj name="row">
+    <event_cb trigger="clicked" callback="on_row_tapped"/>
+    <event_cb trigger="long_pressed" callback="on_row_held"/>
+</lv_obj>
+```
+
+```cpp
+lv_xml_register_event_cb(nullptr, "on_row_held", [](lv_event_t* e) {
+    if (get_global_rows().handle_hold())   // true when the hold acted
+        helix::ui::end_press(e);
+});
+```
+
+This also holds across a bubbling tree. The home grid sets `EVENT_BUBBLE` on every
+descendant of a page (`helix::ui::set_event_bubble_recursive`), so a hold on a child
+reaches the grid and a tap on a child reaches the widget's own tap: a hold that ends the
+press leaves every ancestor's `clicked` unfired, which is why a reset hold on the Speed /
+Flow value never also opens Tune.
+
+Do not use `short_clicked` for a tap. LVGL skips it after any press that ran past the
+long-press time, whether or not a hold handler acted, so a slow tap does nothing. Do not
+suppress the tap with a flag the hold handler sets either: a press that ends in
+`press_lost`, or a modal that takes the release, leaves the flag set and eats the next
+real tap. And do not `lv_indev_reset()` from a hold handler: the next read finds the
+object again and carries on a press the handler meant to end.
+
+Gesture state machines that need the release keep it, and say so with
+`// HOLD_DECLINES_OK: <reason>` in the handler: the keyboard's long-press alternates pick
+their character on the release. The home grid's grab, a hold inside edit mode, also keeps
+the press, because the drag that follows is the rest of it.
+
+Two gates hold this: `tests/shell/test_code_lint.bats` fails any `short_clicked` tap, and
+`scripts/check_hold_ends_press.py` (`qc_hold_ends_press`) fails a `long_pressed` handler
+whose body, or a function it hands its event to, neither calls `end_press()` nor carries
+`HOLD_DECLINES_OK`. `helix-screen ctl click` sends `short_clicked` then `clicked`, as a
+real quick tap does.
 
 ---
 

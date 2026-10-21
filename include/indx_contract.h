@@ -13,10 +13,13 @@
 //
 // Pure functions, no I/O: AmsBackendIndx owns the state and the sends.
 
+#include <array>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "hv/json.hpp"
@@ -98,6 +101,16 @@ struct Contract {
     std::vector<std::string> missing;
     /// LOAD_FILAMENT is there to load a tool.
     bool has_load_filament = false;
+    /// MODE_STEALTH, MODE_NORMAL and MODE_SPORT are all there.
+    bool has_speed_modes = false;
+    /// TC_CYCLE_ALL is there.
+    bool has_cycle_all = false;
+    /// MANUAL_TOOL_REMOVE and MANUAL_TOOL_SEAT are both there.
+    bool has_manual_tool_recovery = false;
+    /// MANUAL_TOOL_SEAT is there.
+    bool has_manual_tool_seat = false;
+    /// SET_TOOL_FILAMENT is there to update a tool's heater model.
+    bool has_set_tool_filament = false;
 };
 
 /// The missing objects as one comma-separated line, for logs and the error.
@@ -140,5 +153,74 @@ struct Contract {
 
 /// Why a tool change or park may not be sent now, or empty when it may.
 [[nodiscard]] std::string motion_blocked_reason(const Contract& contract, const Reading& state);
+
+/// "Tool 4 (T3)": the app's full tool name, safe off the main thread.
+[[nodiscard]] std::string tool_text(int tool);
+
+/// A heater calibration runs the full fit with the nozzle heating to 200C and
+/// back; the rpc must outlive it.
+inline constexpr uint32_t kCalibrationTimeoutMs = 1800000;
+
+/// Tool-change speed, the upstream MODE_* macros.
+enum class SpeedMode { Stealth, Normal, Sport };
+inline constexpr std::array<SpeedMode, 3> kSpeedModes = {SpeedMode::Stealth, SpeedMode::Normal,
+                                                         SpeedMode::Sport};
+
+/// The dropdown option for @p mode, untranslated ("Stealth").
+[[nodiscard]] const char* speed_mode_option(SpeedMode mode);
+
+/// `_TOOLCHANGE_VARS.mode` or a dropdown option, in any case; nullopt for a
+/// mode this module does not know.
+[[nodiscard]] std::optional<SpeedMode> parse_speed_mode(std::string_view text);
+
+/// `MODE_STEALTH`, `MODE_NORMAL` or `MODE_SPORT`.
+[[nodiscard]] std::string speed_mode_gcode(SpeedMode mode);
+
+/// Pick up and park every tool in turn; the head ends empty.
+[[nodiscard]] std::string cycle_all_gcode();
+
+/// Open the latch so the tool on the head can be taken off by hand.
+[[nodiscard]] std::string manual_remove_gcode();
+
+/// Lock the latch onto @p tool, held on the head by hand, and record it as mounted.
+[[nodiscard]] std::string manual_seat_gcode(int tool);
+
+/// The two fits of the induction heater's safety model.
+enum class HeaterCalibration { Heater, Fan };
+
+/// `INDX_CALIBRATE` or `INDX_FAN_CALIBRATE`.
+[[nodiscard]] std::string calibration_gcode(HeaterCalibration which);
+
+/// Why @p which may not start now, or empty when it may: the contract and a
+/// half-seated tool first (uncalibrated docks do not matter: nothing docks),
+/// then a mounted tool with a hotend, then for the heater fit a nozzle target
+/// of zero.
+[[nodiscard]] std::string calibration_blocked_reason(const Contract& contract, const Reading& state,
+                                                     HeaterCalibration which,
+                                                     double nozzle_target_c);
+
+/// The preset key @p material names, spelled as the printer wrote it
+/// (helix::match_material: case, then filament family); nullopt for no match
+/// or a material that is not safe on a gcode line.
+[[nodiscard]] std::optional<std::string>
+preset_for_material(const std::string& material,
+                    const std::map<std::string, FilamentPreset>& presets);
+
+/// `SET_TOOL_FILAMENT TOOL=<n> DENSITY=<d> HEAT_CAPACITY=<hc>`.
+[[nodiscard]] std::string set_tool_filament_gcode(int tool, const FilamentPreset& preset);
+
+/// The guided flow that seats a tool held on the head by hand.
+inline constexpr const char* kSeatByHandFlowId = "indx_seat_by_hand";
+
+/// An INDX with a recognized contract whose macros can seat a tool by hand
+/// (MANUAL_TOOL_SEAT): the one answer for the Tool Offsets entry and the
+/// seat_by_hand device action.
+[[nodiscard]] bool supports_seat_by_hand(const PrinterDiscovery& hw);
+
+/// Confirm text before MANUAL_TOOL_SEAT for @p tool.
+[[nodiscard]] std::string seat_confirm_message(int tool);
+
+/// Confirm text before MANUAL_TOOL_REMOVE with @p tool on the head.
+[[nodiscard]] std::string remove_confirm_message(int tool);
 
 } // namespace helix::indx

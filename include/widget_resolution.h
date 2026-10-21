@@ -20,6 +20,9 @@
 
 struct _lv_obj_t;
 typedef struct _lv_obj_t lv_obj_t;
+struct _lv_event_t;
+typedef struct _lv_event_t lv_event_t;
+typedef void (*lv_event_cb_t)(lv_event_t* e);
 
 namespace helix {
 
@@ -110,14 +113,26 @@ lv_obj_t* resolve_path(const std::string& path, lv_obj_t* base = nullptr,
 bool is_value_control(lv_obj_t* o);
 
 /**
- * @brief Whether @p o carries a click handler somebody explicitly attached.
+ * @brief Whether @p o carries a tap handler somebody explicitly attached.
  *
  * Class-level handlers are deliberately not counted: every lv_obj has one, so
  * counting them would make the predicate universally true. Only an added
- * callback whose filter admits LV_EVENT_CLICKED means "clicking this does
- * something".
+ * callback whose filter admits LV_EVENT_CLICKED or LV_EVENT_SHORT_CLICKED
+ * means "tapping this does something". SHORT_CLICKED counts because a real
+ * quick tap delivers it too.
+ *
+ * @param cb When set, only a handler that calls this function counts.
  */
-bool has_own_click_handler(lv_obj_t* o);
+bool has_own_click_handler(lv_obj_t* o, lv_event_cb_t cb = nullptr);
+
+/**
+ * @brief Whether a tap on @p o reaches any tap handler: its own, or one on an
+ * ancestor its events bubble to.
+ *
+ * False means a tap there does nothing a registered callback can see, which is
+ * the case for a widget whose only action is a hold.
+ */
+bool tap_reaches_handler(lv_obj_t* o);
 
 /**
  * @brief Resolve the widget a `click`/`set_value` should actually land on.

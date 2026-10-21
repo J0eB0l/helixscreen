@@ -46,6 +46,9 @@ struct RecoveryAction {
     /// operation that raised the error. False for anything that moves filament
     /// only between the lane and the spool, or that just clears state.
     bool needs_hot_nozzle = false;
+    /// Asked before the gcode is sent, as the body of a confirm titled with
+    /// label; empty sends on the tap.
+    std::string confirm_message;
 };
 
 /// Result of classifying one gcode-response line. Produced by the pure

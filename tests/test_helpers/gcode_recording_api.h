@@ -13,8 +13,9 @@
 namespace helix::test {
 
 /// Records every gcode a backend sends through IMoonrakerAPI and answers it
-/// synchronously: success, Klipper's error for a command named in `fail`, or a
-/// request timeout for one named in `time_out`. With `hold_acks` set, a success
+/// synchronously: success, Klipper's error for a command named in `fail`, a
+/// request timeout for one named in `time_out`, or a dropped connection for one
+/// named in `connection_lost`. With `hold_acks` set, a success
 /// waits in `held_acks` until ack_held() sends it, the way a blocking macro's
 /// answer arrives only when the macro finishes.
 class GcodeRecordingApi : public MoonrakerAPIMock {
@@ -22,16 +23,26 @@ class GcodeRecordingApi : public MoonrakerAPIMock {
     using MoonrakerAPIMock::MoonrakerAPIMock;
 
     void execute_gcode(const std::string& gcode, SuccessCallback on_success, ErrorCallback on_error,
-                       uint32_t /*timeout_ms*/ = 0, bool /*silent*/ = false,
+                       uint32_t timeout_ms = 0, bool /*silent*/ = false,
                        SuccessCallback /*on_queued*/ = nullptr,
                        bool /*caller_surfaces_errors*/ = true,
                        bool /*bypass_busy_gate*/ = false) override {
         sent.push_back(gcode);
+        timeouts.push_back(timeout_ms);
         if (fail.count(gcode) != 0) {
             if (on_error) {
                 MoonrakerError err;
                 err.type = MoonrakerErrorType::UNKNOWN;
                 err.message = "Klipper refused " + gcode;
+                on_error(err);
+            }
+            return;
+        }
+        if (connection_lost.count(gcode) != 0) {
+            if (on_error) {
+                MoonrakerError err;
+                err.type = MoonrakerErrorType::CONNECTION_LOST;
+                err.message = "Connection lost: " + gcode;
                 on_error(err);
             }
             return;
@@ -76,9 +87,12 @@ class GcodeRecordingApi : public MoonrakerAPIMock {
 
     std::set<std::string> fail;
     std::set<std::string> time_out;
+    std::set<std::string> connection_lost;
     bool hold_acks = false;
     std::vector<SuccessCallback> held_acks;
     std::vector<std::string> sent;
+    /// The timeout each send in `sent` asked for, in the same order.
+    std::vector<uint32_t> timeouts;
 };
 
 } // namespace helix::test

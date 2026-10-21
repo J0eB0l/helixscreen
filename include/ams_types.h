@@ -2638,7 +2638,7 @@ struct DeviceAction {
     /// executing the action directly. Empty for an ordinary action.
     std::string guided_flow;
 
-    // Factories for the four control types. Argument order is fixed: id, label, section, the
+    // Factories for the five control types. Argument order is fixed: id, label, section, the
     // type-specific fields, then optional icon and description. scripts/translations/
     // cpp_tables.py reads the label and description positions of each call, so keep them literal.
 
@@ -2684,6 +2684,17 @@ struct DeviceAction {
                                 std::move(value), std::move(icon), std::move(description));
         a.type = ActionType::DROPDOWN;
         a.options = std::move(options);
+        return a;
+    }
+
+    /// A read-only row showing @p value as text.
+    static DeviceAction info(std::string id, std::string label, std::string section,
+                             std::string value, std::string icon = {},
+                             std::string description = {}) {
+        DeviceAction a =
+            toggle(std::move(id), std::move(label), std::move(section), std::any(std::move(value)),
+                   std::move(icon), std::move(description));
+        a.type = ActionType::INFO;
         return a;
     }
 

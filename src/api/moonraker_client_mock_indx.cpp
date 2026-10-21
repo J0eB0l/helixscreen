@@ -10,6 +10,8 @@
 #include "env_knobs.h"
 #include "mock_persona.h"
 #include "moonraker_client_mock.h"
+#include "moonraker_error.h"
+#include "simulated_clock.h"
 #include "text_io.h"
 
 #include <spdlog/spdlog.h>
@@ -80,6 +82,8 @@ void MoonrakerClientMock::read_indx_knobs() {
     indx_.spool_ids.clear();
     for (int i = 0; i < indx_.tool_count; ++i) {
         indx_.spool_ids.push_back(i + 1);
+        // Tool 0 is the reference every other tool is measured against.
+        indx_.offsets.push_back({0.1 * i, -0.05 * i, 0.02 * i});
     }
     spdlog::info("[MoonrakerClientMock] INDX mock: {} tools, fault={}, spool macros={}",
                  indx_.tool_count, f.empty() ? "none" : f, indx_.spool_macros);
@@ -94,7 +98,8 @@ void MoonrakerClientMock::append_indx_objects(nlohmann::json& objects) const {
     objects.push_back("load_cell_probe");
     for (const char* macro :
          {"TOOL_POSITIONS", "_TOOLCHANGE_VARS", "PARK_TOOL", "LOAD_FILAMENT", "SET_TOOL_FILAMENT",
-          "TOOL_STATUS", "MANUAL_TOOL_REMOVE", "MANUAL_TOOL_SEAT"}) {
+          "TOOL_STATUS", "MANUAL_TOOL_REMOVE", "MANUAL_TOOL_SEAT", "MODE_STEALTH", "MODE_NORMAL",
+          "MODE_SPORT", "TC_CYCLE_ALL"}) {
         objects.push_back(std::string("gcode_macro ") + macro);
     }
     if (!indx_.unrecognized) {
@@ -128,12 +133,18 @@ nlohmann::json MoonrakerClientMock::indx_config_sections() const {
 nlohmann::json MoonrakerClientMock::indx_status_json() const {
     std::lock_guard<std::mutex> lock(indx_mutex_);
     nlohmann::json status = nlohmann::json::object();
-    status["save_variables"] = {{"variables",
-                                 {{"active_tool", indx_.active_tool},
-                                  {"toolchange_count", indx_.toolchange_count},
-                                  {"seat_suspect", indx_.seat_suspect},
-                                  {"toolhead_state", indx_.toolhead_state},
-                                  {"global_z_offset", 0.0}}}};
+    nlohmann::json variables = {{"active_tool", indx_.active_tool},
+                                {"toolchange_count", indx_.toolchange_count},
+                                {"seat_suspect", indx_.seat_suspect},
+                                {"toolhead_state", indx_.toolhead_state},
+                                {"global_z_offset", indx_.global_z}};
+    for (size_t i = 0; i < indx_.offsets.size(); ++i) {
+        const std::string prefix = "t" + std::to_string(i) + "_offset_";
+        variables[prefix + "x"] = indx_.offsets[i][0];
+        variables[prefix + "y"] = indx_.offsets[i][1];
+        variables[prefix + "z"] = indx_.offsets[i][2];
+    }
+    status["save_variables"] = {{"variables", variables}};
     nlohmann::json tools = nlohmann::json::array();
     for (int i = 0; i < indx_.tool_count; ++i) {
         tools.push_back({{"x", 45.0 * i}, {"dock_y", -26.0}});
@@ -143,7 +154,7 @@ nlohmann::json MoonrakerClientMock::indx_status_json() const {
                                             {"no_heat_tools", indx_.no_heat_tools},
                                             {"docks_calibrated", indx_.docks_calibrated}};
     status["gcode_macro _TOOLCHANGE_VARS"] = {{"toolhead_state", indx_.toolhead_state},
-                                              {"mode", "normal"}};
+                                              {"mode", indx_.mode}};
     status["gcode_macro LOAD_FILAMENT"] = {
         {"filament_presets",
          {{"PLA", {{"temp", 210}, {"density", 1.24}, {"hc", 1.80}}},
@@ -206,6 +217,36 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         return std::nullopt;
     }
 
+    // What every macro that docks refuses on. Caller holds indx_mutex_.
+    auto dock_refusal = [this]() -> std::string {
+        if (indx_.seat_suspect >= 0) {
+            return "T" +
+                   std::to_string(
+                       indx_.seat_suspect) + // DISPLAY_NUMBERING_OK: Klipper macro error text
+                   " may be half seated on the head";
+        }
+        if (!indx_.docks_calibrated) {
+            return "INDX: the dock positions are not calibrated yet";
+        }
+        return {};
+    };
+    if (cmd == "TC_CYCLE_ALL") {
+        int count = 0;
+        {
+            std::lock_guard<std::mutex> lock(indx_mutex_);
+            if (auto reason = dock_refusal(); !reason.empty()) {
+                return refuse(reason);
+            }
+            count = indx_.tool_count;
+        }
+        for (int t = 0; t < count; ++t) {
+            run_indx_change(t, 0.0);
+        }
+        run_indx_change(-1, 0.0);
+        spdlog::info("[MoonrakerClientMock] INDX TC_CYCLE_ALL: cycled {} tools", count);
+        return 0;
+    }
+
     int tool = tool_command(cmd);
     if (cmd == "CHANGE_TOOL" || cmd == "LOAD_FILAMENT") {
         tool = helix::text_io::parse_leading<int>(param(gcode, "TOOL")).value_or(-1);
@@ -227,6 +268,40 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         publish_indx_if_changed();
         return 0;
     }
+    if (cmd == "MODE_STEALTH" || cmd == "MODE_NORMAL" || cmd == "MODE_SPORT") {
+        {
+            std::lock_guard<std::mutex> lock(indx_mutex_);
+            indx_.mode = helix::text_io::to_lower(cmd.substr(5));
+        }
+        publish_indx_if_changed();
+        return 0;
+    }
+    if (cmd == "SET_TOOL_FILAMENT") {
+        for (const char* key : {"TOOL", "DENSITY", "HEAT_CAPACITY"}) {
+            if (param(gcode, key).empty()) {
+                return refuse(std::string("Error on 'SET_TOOL_FILAMENT': missing ") + key);
+            }
+        }
+        spdlog::info("[MoonrakerClientMock] INDX: {}", gcode);
+        return 0;
+    }
+    if (cmd == "INDX_CALIBRATE" || cmd == "INDX_FAN_CALIBRATE") {
+        if (cmd == "INDX_CALIBRATE" && extruder_target_.load() > 0) {
+            return refuse(
+                "Cannot calibrate while the heater is active. Turn the heater off first.");
+        }
+        {
+            std::lock_guard<std::mutex> lock(indx_mutex_);
+            if (indx_.active_tool < 0) {
+                return refuse("No tool on the head");
+            }
+        }
+        dispatch_gcode_response(cmd == "INDX_CALIBRATE"
+                                    ? "INDX calibration complete. Run SAVE_CONFIG to save the new "
+                                      "parameters and restart."
+                                    : "Run SAVE_CONFIG to save the new fan parameters.");
+        return 0;
+    }
     if (tool < 0 && !park) {
         return std::nullopt;
     }
@@ -241,21 +316,13 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         target = helix::text_io::parse_leading<double>(param(gcode, "TEMP"))
                      .value_or(preset != kPresetTemps.end() ? preset->second : 0.0);
     }
-    bool parks = false;
     {
         std::lock_guard<std::mutex> lock(indx_mutex_);
         if (cmd == "CHANGE_TOOL" && indx_.unrecognized) {
             return std::nullopt;
         }
-        if (indx_.seat_suspect >= 0) {
-            return refuse(
-                "T" +
-                std::to_string(
-                    indx_.seat_suspect) + // DISPLAY_NUMBERING_OK: Klipper macro error text
-                " may be half seated on the head");
-        }
-        if (!indx_.docks_calibrated) {
-            return refuse("INDX: the dock positions are not calibrated yet");
+        if (auto reason = dock_refusal(); !reason.empty()) {
+            return refuse(reason);
         }
         if (tool >= indx_.tool_count) {
             return refuse("T" +
@@ -268,13 +335,26 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         if (!park && tool == indx_.active_tool && cmd != "LOAD_FILAMENT") {
             return 0;
         }
-        parks = indx_.active_tool >= 0 && tool != indx_.active_tool;
     }
 
     // Klipper runs the macro to the end before the gcode call returns, so the
-    // park and the pickup are both on the wire before this acks. The coil
-    // goes off before the head drives into a dock.
+    // park and the pickup are both on the wire before this acks.
+    run_indx_change(park ? -1 : tool, target);
+    if (cmd == "LOAD_FILAMENT") {
+        dispatch_gcode_response("LOAD_FILAMENT: T" + std::to_string(tool) + " loaded");
+    }
+    spdlog::info("[MoonrakerClientMock] INDX {}: {}", cmd, park ? "parking" : "changing tool");
+    return 0;
+}
+
+void MoonrakerClientMock::run_indx_change(int tool, double target_c) {
+    // The coil goes off before the head drives into a dock.
     set_extruder_target(0.0);
+    bool parks = false;
+    {
+        std::lock_guard<std::mutex> lock(indx_mutex_);
+        parks = indx_.active_tool >= 0 && tool != indx_.active_tool;
+    }
     if (parks) {
         {
             std::lock_guard<std::mutex> lock(indx_mutex_);
@@ -283,24 +363,51 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_indx(const std::stri
         }
         publish_indx_if_changed();
     }
-    if (!park) {
-        bool heat = false;
-        {
-            std::lock_guard<std::mutex> lock(indx_mutex_);
-            indx_.active_tool = tool;
-            indx_.toolhead_state = 0;
-            ++indx_.toolchange_count;
-            heat = std::count(indx_.no_heat_tools.begin(), indx_.no_heat_tools.end(), tool) == 0 &&
-                   target > 0;
-        }
-        publish_indx_if_changed();
-        if (heat) {
-            set_extruder_target(target);
-        }
+    if (tool < 0) {
+        return;
     }
-    if (cmd == "LOAD_FILAMENT") {
-        dispatch_gcode_response("LOAD_FILAMENT: T" + std::to_string(tool) + " loaded");
+    bool heat = false;
+    {
+        std::lock_guard<std::mutex> lock(indx_mutex_);
+        indx_.active_tool = tool;
+        indx_.toolhead_state = 0;
+        ++indx_.toolchange_count;
+        heat = std::count(indx_.no_heat_tools.begin(), indx_.no_heat_tools.end(), tool) == 0 &&
+               target_c > 0;
     }
-    spdlog::info("[MoonrakerClientMock] INDX {}: {}", cmd, park ? "parking" : "changing tool");
-    return 0;
+    publish_indx_if_changed();
+    if (heat) {
+        set_extruder_target(target_c);
+    }
+}
+
+bool MoonrakerClientMock::simulate_indx_blocking(
+    const std::string& script, std::function<void(const nlohmann::json&)> success_cb,
+    std::function<void(const MoonrakerError&)> error_cb) {
+    if (!is_mock_indx()) {
+        return false;
+    }
+    const std::string cmd =
+        helix::text_io::to_upper(script.substr(0, script.find_first_of(" \t\n")));
+    if (cmd != "INDX_CALIBRATE" && cmd != "INDX_FAN_CALIBRATE" && cmd != "TC_CYCLE_ALL") {
+        return false;
+    }
+    if (gcode_script(script) != 0) {
+        if (error_cb) {
+            error_cb(
+                MoonrakerError::json_rpc_error("printer.gcode.script", get_last_gcode_error()));
+        }
+        return true;
+    }
+    // A calibration heats to 200C and cools again, a cycle visits every dock:
+    // minutes on the printer, seconds at --sim-speed 6.
+    constexpr int kBlockingSimMs = 60000;
+    play_console_steps(
+        {}, static_cast<uint32_t>(std::max(1, sim_speed().shorten_wait_ms(kBlockingSimMs))),
+        [success_cb = std::move(success_cb)] {
+            if (success_cb) {
+                success_cb(nlohmann::json::object());
+            }
+        });
+    return true;
 }

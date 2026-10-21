@@ -156,6 +156,11 @@ class InputSettingsManager {
         return settings_.subject(Key::KeypadLayout);
     }
 
+    /// Give one pointer device the scroll throw, scroll limit and long-press time
+    /// the settings hold. A pointer created after the settings applied (the ctl
+    /// and screen-server pointer) calls this so its holds time like a finger's.
+    void apply_to_pointer(lv_indev_t* indev) const;
+
   private:
     InputSettingsManager();
     ~InputSettingsManager() = default;

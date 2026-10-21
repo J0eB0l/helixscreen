@@ -578,8 +578,10 @@ translations:
   Calibrate X: Калибровать X
   Calibrate Y: Калибровать Y
   Calibrate All Tools: Калибровать все инструменты
+  Calibrate heater: Калибровать нагреватель
   Calibrate input shaping to reduce ringing artifacts in prints: Калибровка компенсации
     вибраций для уменьшения артефактов звона
+  Calibrate part fan: Калибровать обдув модели
   Calibrate tool offsets?: Калибровать смещения инструментов?
   Calibrate your touchscreen for accurate input: Калибровка сенсорного экрана для
     точного ввода
@@ -589,6 +591,7 @@ translations:
   Calibrating {} axis...: 'Калибровка оси {}...'
   Calibrating...: Калибровка...
   Calibrating... (about 1 minute): 'Калибровка... (около 1 минуты)'
+  Calibrating... (several minutes): Калибровка... (несколько минут)
   Calibration: Калибровка
   Calibration & Tools: Калибровка и инструменты
   Calibration Complete!: Калибровка завершена!
@@ -604,11 +607,14 @@ translations:
   Calibration failed: Калибровка не удалась
   Calibration failed - touch targets more precisely.: Калибровка не удалась – нажимайте
     на цели точнее.
+  'Calibration failed: {}': 'Ошибка калибровки: {}'
+  Calibration finished, not saved yet: Калибровка завершена, ещё не сохранена
   Calibration in progress: "Идёт калибровка"
   Calibration kept timing out. Your previous settings were kept.: Калибровка постоянно завершалась по тайм-ауту. Прежние настройки сохранены.
   Calibration may still be running — printer connection was interrupted: 'Калибровка может ещё выполняться — соединение с принтером прервано'
   Calibration may still be running — response timed out: 'Калибровка может ещё выполняться — время ожидания истекло'
   Calibration move may still be running — printer connection was interrupted: 'Движение калибровки может ещё выполняться — соединение с принтером прервано'
+  Calibration saved: Калибровка сохранена
   Calibration saved but cannot apply on SDL display: Калибровка сохранена, но не может
     быть применена на SDL дисплее
   Calibration succeeded, but the frequency chart data couldn't be read.: Калибровка завершена
@@ -707,6 +713,7 @@ translations:
   Check AFC configuration: 'Проверьте конфигурацию AFC'
   Check Again: Проверить снова
   Check Klipper console for details: Подробности смотрите в консоли Klipper
+  Check every dock: Проверить каждый док
   Check extruder temperature and try again. Manual removal may be required.: Проверьте температуру экструдера и повторите попытку. Может потребоваться удалить филамент вручную.
   Check failed: Ошибка проверки
   Check filament: Проверьте филамент
@@ -1044,6 +1051,8 @@ translations:
   Cutter jam: Замятие резака
   Cutting: Резка
   Cutting filament...: Обрезка филамента...
+  Cycle every tool: Перебрать все инструменты
+  Cycling tools...: Перебор инструментов...
   DETECTED USB PRINTERS: ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ
   DEVICES: УСТРОЙСТВА
   DISABLED: ОТКЛЮЧЕНО
@@ -1303,6 +1312,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: Всё остальное сохранено. Измените их в Spoolman.
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: 'Всё остальное сохранено. Переименуйте материал, используя буквы, цифры, пробелы и + - _ . ( ) /'
   Every object is set to skip, so there is nothing to print: 'Все объекты отмечены для пропуска, печатать нечего'
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: Каждый инструмент по очереди берётся и ставится на место. В конце головка остаётся пустой. Это займёт несколько минут.
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: Смещения всех инструментов измеряются заново и заменяют текущие. После этого сохраните, чтобы оставить результат.
   Excellent Accuracy: Отличная точность
   'Exception: {}': 'Исключение: {}'
@@ -1593,6 +1603,9 @@ translations:
   'Firmware restart failed: {}': 'Ошибка перезапуска прошивки: {}'
   Firmware restarting...: Перезапуск прошивки...
   Firmware saved X = Y's value; the measured X result was discarded: Прошивка сохранила для X значение Y; результат измерения X был отброшен
+  Fit how the part fan cools the nozzle: Определить, как обдув охлаждает сопло
+  Fit the heater model with the part fan off: Определить модель нагревателя при выключенном обдуве
+  Fit the induction heater's safety model: Определить модель безопасности индукционного нагревателя
   'Fix: chmod 644 {}, then restart': 'Исправление: chmod 644 {}, затем перезапустите'
   'Fix: chown {} {}, then restart': 'Исправление: chown {} {}, затем перезапустите'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1613,6 +1626,7 @@ translations:
   Focused: 'Сосредоточенный'
   Follow active tool: Следовать активному инструменту
   Follow graph screen: Следовать экрану графика
+  'For a first Z home: claim the tool you put on the head': 'Для первой парковки Z: закрепить инструмент, установленный на головку'
   Force/weight sensors: 'Датчики силы/веса'
   Forget: Забыть
   Forget Network?: Забыть сеть?
@@ -1656,6 +1670,7 @@ translations:
   Generic: Общий
   Get help and share feedback: Получить помощь и поделиться отзывом
   Global: Общий
+  Global Z offset: Общее смещение Z
   Good: Хорошо
   Good Accuracy: Хорошая точность
   Good Enough: "Достаточно"
@@ -1772,6 +1787,7 @@ translations:
   High Fly: 'Над облаками'
   High Water Mark: Пиковое значение
   Hold anywhere to cancel: Удерживайте в любом месте для отмены
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Удерживайте {} плотно на головке. Защелка зафиксирует его, и он станет установленным инструментом.
   Holding nozzle at {}°C to purge previous filament.: Удержание сопла при {}°C для очистки от предыдущего филамента.
   Home: Главная
   Home & Continue: Запарковать и продолжить
@@ -1817,6 +1833,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): Насколько глубоко филамент
     задвигается обратно в коробку при извлечении (мм)
   How fast filament is pushed back on eject: "Как быстро филамент задвигается обратно при извлечении"
+  How fast the head moves while changing tools: Скорость головки при смене инструмента
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Сколько удерживать, чтобы нажатие считалось долгим, в мс (увеличьте, если режим редактирования срабатывает случайно)'
   How many labels to print: Сколько этикеток напечатать
@@ -2253,6 +2270,7 @@ translations:
   : Отсчитывайте высоту от стола. Острые углы без наплывов и пропусков означают верный K. Каждая строка - диапазон высот и K, который принтер сообщал во время его печати.
   Measured (shaper off): Измерено (шейпер выключен)
   Measured filament diameter: Измеренный диаметр филамента
+  Measured offsets, read-only: Измеренные смещения, только чтение
   Measured pressure advance: 'Измеренный Pressure Advance'
   Measurement incomplete. Try again.: Измерение не завершено. Повторите попытку.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Измеряет смещение X, Y и Z каждой головки, чтобы все печатали в одной точке. Занимает около 20 минут.
@@ -2401,6 +2419,7 @@ translations:
   No USB printers found: USB-принтеры не найдены
   No actions right now: 'Сейчас нет действий'
   No active Spoolman spool.: Нет активной катушки Spoolman.
+  No answer from the printer; it may still be calibrating: Принтер не отвечает; возможно, калибровка ещё идёт
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "Нет ответа: проверьте IP-адрес и что это устройство в Wi-Fi принтера, а не в мобильной сети."
   "No answer: check the IP address and that this device is on the printer's network.": "Нет ответа: проверьте IP-адрес и что это устройство в сети принтера."
   No buffer data available: Данные буфера недоступны
@@ -2426,6 +2445,7 @@ translations:
   No file loaded: Файл не загружен
   No file to reprint: Нет файла для повторной печати
   No files available for printing: Нет файлов для печати
+  No hotend: Нет хотэнда
   No hub configured: 'Hub не настроен'
   No humidity sensor detected: 'Датчик влажности не обнаружен'
   No images found on USB drive: Изображения на USB-накопителе не найдены
@@ -2576,6 +2596,7 @@ translations:
   'Off:': 'Выкл:'
   'Off: runs with these values without asking': 'Выкл.: запуск с этими значениями без запроса'
   Offer to save Z-offset changes to the printer config: 'Предлагать сохранить изменения Z-Offset в конфигурации принтера'
+  Offset: Смещение
   Offsets Saved: Смещения сохранены
   Offsets saved: Смещения сохранены
   "Old setting on today's data: {} residual - now: {}": 'Прежняя настройка на сегодняшних данных: остаточная вибрация {} — сейчас: {}'
@@ -2709,6 +2730,7 @@ translations:
   Pick Color: Выбрать цвет
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках.'
   Pick the best band: Выберите лучшую полосу
+  Pick up and park each tool in turn: Взять и поставить на место каждый инструмент по очереди
   Pick up the tool, heat it, and pull the filament out: "Возьмите инструмент, нагрейте его и вытяните филамент"
   Pick up tool: Забрать инструмент
   Picking up tool: Захват инструмента
@@ -3103,6 +3125,7 @@ translations:
 
   Remove the spools now?: Снять катушки сейчас?
 
+  Remove tool: Снять инструмент
   Remove your tags for this image?: Удалить ваши отметки для этого изображения?
   Remove your tags for this image? Its chips go back to the shipped positions.: Удалить ваши отметки для этого изображения? Метки вернутся на исходные места.
   Rename: Переименовать
@@ -3291,11 +3314,13 @@ translations:
   Save Z-Offset: Сохранить Z-Offset
   Save Z-Offset Buttons: 'Кнопки сохранения Z-Offset'
   Save Z-Offset?: Сохранить Z-Offset?
+  Save calibration: Сохранить калибровку
   Save changes to persist them across restarts?: Сохранить изменения, чтобы они сохранились
     после перезапуска?
   'Save failed: {}': 'Ошибка сохранения: {}'
   Save Offsets: Сохранить смещения
   Save offsets?: Сохранить смещения?
+  Save the new heater values to printer.cfg? Klipper restarts.: Сохранить новые значения нагревателя в printer.cfg? Klipper перезапустится.
   Save to Spool: Сохранить на катушку
   Save to Spoolman: Сохранить в Spoolman
   Saved Z-Offset: Сохранённый Z-Offset
@@ -3310,6 +3335,8 @@ translations:
   Saving Configuration...: Сохранение конфигурации...
   Saving Z-offset...: Сохранение Z-offset...
   Saving and finishing...: Сохранение и завершение...
+  Saving calibration: Сохранение калибровки
+  Saving calibration...: Сохранение калибровки...
   Saving config... Klipper will restart.: Сохранение конфигурации... Klipper перезапустится.
   Saving offsets...: Сохранение смещений...
   Saving the position and parking the toolhead.: Сохранение позиции и парковка печатающей головки.
@@ -3362,6 +3389,11 @@ translations:
   Search vendors...: Поиск производителей...
   Search widgets...: Поиск виджетов...
   Searching...: Поиск...
+  Seat: Установить
+  Seat a tool by hand: Установить инструмент вручную
+  Seat a tool by hand for the first Z home: Установить инструмент вручную для первой парковки Z
+  Seat which tool by hand?: Какой инструмент установить вручную?
+  Seating {}...: Установка {}...
   Secondary: Вторичный
   Section Detail: Детали раздела
   Security: Безопасность
@@ -3606,6 +3638,7 @@ translations:
 
   Spools removed: Катушки сняты
 
+  Sport: Спорт
   Square Corner Velocity: Скорость прохождения углов
   Stable: Стабильная
   Stall detection setup failed for the Z motor — power-cycle to retry: Не удалась настройка детектирования заклинивания двигателя Z. Выключите и включите питание
@@ -3645,6 +3678,8 @@ translations:
   Status: Статус
   Status icons: Иконки статуса
   Std Deviation: Станд. отклонение
+  Stealth: Тихий
+  Stealth is quiet, Sport is fastest: Тихий самый тихий, Спорт самый быстрый
   Step: Шаг
   Step 1 of 3: Шаг 1 из 3
   Step {} of {}: Шаг {} из {}
@@ -3859,11 +3894,16 @@ translations:
   The heater will cycle on and off several times.: Нагреватель будет несколько раз
     включаться и выключаться.
   The helper macros are installed and activate after Klipper restarts.: 'Вспомогательные макросы установлены и активируются после перезапуска Klipper.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Защелка откроется, и {} может упасть. Придержите его, прежде чем продолжить, затем поставьте в док.
   The left RFID reader in this CFS unit may need service: Левому RFID-считывателю этого блока CFS может требоваться обслуживание
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла.
   The message your printer's macros show (M117): 'Сообщение, которое показывают макросы принтера (M117)'
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'Сопло делает несколько коротких тестовых перемещений в углу, в стороне от зоны печати, и повторяет их до сходимости.'
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : Сопло нагреется до 200°C, пока обдув перебирает скорости. Для точного результата установите воздуховод так же, как при печати. Это займёт несколько минут.
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее».
   The plate and the spools are still hot. Use gloves.: Стол и катушки ещё горячие. Используйте перчатки.
@@ -4102,7 +4142,11 @@ translations:
   Tool Offsets: Смещения инструментов
   Tool Switcher: 'Переключатель инструментов'
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
+  Tool change speed: Скорость смены инструмента
   Tool change to T{}: 'Смена инструмента на T{}'
+  'Tool cycle failed: {}': 'Ошибка перебора инструментов: {}'
+  Tool cycle finished: Перебор инструментов завершён
+  Tool is seated: Инструмент установлен
   Tool may be half seated: "Инструмент может быть установлен не полностью"
   Tool offsets (mm): Смещения инструментов (мм)
   Tool offsets saved: Смещения инструментов сохранены
@@ -4163,6 +4207,7 @@ translations:
   Turn off detection: Отключить обнаружение
   Turn on the lights your light buttons control: Включает свет, которым управляют кнопки света
   Turn the extruder heater off after a load or unload finishes: Выключать нагреватель экструдера после загрузки или выгрузки
+  Turn the nozzle heater off first: Сначала выключите нагреватель сопла
   Turn the picture to match how the screen is mounted. Applies after restart.: Поворачивает изображение в соответствии с положением экрана. Применяется после перезапуска.
   Turn the printer's lights on or off: Включить или выключить подсветку
   Type: Тип
@@ -4246,6 +4291,7 @@ translations:
   Update Success: Обновление успешно
   Update from a Terminal: Обновление через терминал
   Update installed!: Обновление установлено!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 'Обновить и модель нагревателя INDX? В {} теперь {}: плотность {:.2f}, теплоёмкость {:.2f}.'
   Update your security PIN: Обновите ваш PIN-код
   Updates: Обновления
   Updating Configuration...: Обновление конфигурации...
@@ -4312,6 +4358,7 @@ translations:
   Wait for the current filament operation to finish: Дождитесь завершения текущей операции с филаментом
   Wait for the current operation to complete: Дождитесь завершения текущей операции
   Wait for the current operation to complete or cancel it first: Дождитесь завершения текущей операции или сначала отмените её
+  Wait for the running INDX operation to finish: Дождитесь завершения текущей операции INDX
   Wait until the print finishes: Дождитесь завершения печати
   Waiting for Moonraker...: Ожидание Moonraker...
   Waiting for %s to finish. One heater at a time.: Ожидание завершения %s. Только один нагреватель одновременно.
@@ -4693,6 +4740,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'Не совпадает со связанной катушкой Spoolman. Обновить в Spoolman или отвязать и оставить на этом слоте?'
   'Unlink, keep on this slot': 'Отвязать, оставить на этом слоте'
   'Unsaved changes': 'Несохранённые изменения'
+  Update heater model?: Обновить модель нагревателя?
   'Update in Spoolman': 'Обновить в Spoolman'
   'Variant': 'Вариант'
   'from tag': 'с метки'

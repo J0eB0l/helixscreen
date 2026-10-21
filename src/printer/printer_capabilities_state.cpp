@@ -13,6 +13,7 @@
 #include "ui_update_queue.h"
 
 #include "layer_pause.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "pa_calibration.h"
 #include "printer_fan_state.h"
 #include "sound_manager.h"
@@ -109,8 +110,19 @@ void PrinterCapabilitiesState::init_subjects(bool register_xml) {
         }
     }
 
+    lv_subject_init_string(&tool_offset_cal_description_, tool_offset_cal_description_buf_, nullptr,
+                           sizeof(tool_offset_cal_description_buf_), "");
+    constexpr const char* kToolOffsetCalDescription = "printer_tool_offset_cal_description";
+    subjects_.register_subject(&tool_offset_cal_description_,
+                               register_xml ? kToolOffsetCalDescription : nullptr);
+    if (register_xml) {
+        helix::xml::register_subject_in_current_scope(kToolOffsetCalDescription,
+                                                      &tool_offset_cal_description_);
+    }
+
     subjects_initialized_ = true;
     apply_pending_capability_values();
+    render_tool_offset_cal_description();
     spdlog::trace("[PrinterCapabilitiesState] Subjects initialized successfully");
 }
 
@@ -248,6 +260,8 @@ void PrinterCapabilitiesState::set_hardware(const PrinterDiscovery& hardware,
     // Automatic tool offset calibration: the module owns what "can" means.
     set_capability(Capability::HasToolOffsetCal,
                    helix::tool_offset_calibration::supported(hardware) ? 1 : 0);
+    tool_offset_cal_description_key_ = helix::tool_offset_calibration::entry_description(hardware);
+    render_tool_offset_cal_description();
 
     // Automatic pressure advance calibration. Which firmwares can measure it,
     // and how, belongs to helix::pacal - this only asks whether one matched.
@@ -263,6 +277,18 @@ void PrinterCapabilitiesState::set_hardware(const PrinterDiscovery& hardware,
     spdlog::debug("[PrinterCapabilitiesState] Hardware set (with overrides): {}",
                   overrides.summary());
     bump_hardware_generation();
+}
+
+void PrinterCapabilitiesState::render_tool_offset_cal_description() {
+    if (!subjects_initialized_) {
+        return;
+    }
+    const char* key = tool_offset_cal_description_key_;
+    lv_subject_copy_string(&tool_offset_cal_description_, key[0] != '\0' ? lv_tr(key) : "");
+}
+
+void PrinterCapabilitiesState::on_language_changed() {
+    render_tool_offset_cal_description();
 }
 
 void PrinterCapabilitiesState::bump_hardware_generation() {

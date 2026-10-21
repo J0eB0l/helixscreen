@@ -1401,7 +1401,8 @@ void AmsBackendToolChanger::finalize_dispatch_after_macro(uint64_t generation) {
     }
 }
 
-AmsError AmsBackendToolChanger::dispatch_operation(std::string gcode, AmsAction action) {
+AmsError AmsBackendToolChanger::dispatch_operation(std::string gcode, AmsAction action,
+                                                   uint32_t timeout_ms) {
     uint64_t generation;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -1414,12 +1415,15 @@ AmsError AmsBackendToolChanger::dispatch_operation(std::string gcode, AmsAction 
     emit_event(EVENT_STATE_CHANGED);
 
     auto token = lifetime_.token();
-    AmsError result = ensure_homed_then(std::move(gcode), [this, token, generation]() {
-        // L081 Mechanism C: the gcode ack lands on a background thread and the
-        // handler writes system_info_ under mutex_. Marshal to main.
-        token.defer("AmsBackendToolChanger::dispatch_macro_complete",
-                    [this, generation]() { finalize_dispatch_after_macro(generation); });
-    });
+    AmsError result = ensure_homed_then(
+        std::move(gcode),
+        [this, token, generation]() {
+            // L081 Mechanism C: the gcode ack lands on a background thread and the
+            // handler writes system_info_ under mutex_. Marshal to main.
+            token.defer("AmsBackendToolChanger::dispatch_macro_complete",
+                        [this, generation]() { finalize_dispatch_after_macro(generation); });
+        },
+        nullptr, timeout_ms);
 
     if (!result) {
         // The gcode never left: no IMoonrakerAPI, or the send was refused. No ack

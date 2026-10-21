@@ -532,8 +532,10 @@ translations:
   Calibrate X: Calibrar X
   Calibrate Y: Calibrar Y
   Calibrate All Tools: Calibrar todas las herramientas
+  Calibrate heater: Calibrar calentador
   Calibrate input shaping to reduce ringing artifacts in prints: Calibrar input shaping
     para reducir artefactos de resonancia en impresiones
+  Calibrate part fan: Calibrar ventilador de pieza
   Calibrate tool offsets?: ¿Calibrar los offsets de herramienta?
   Calibrate your touchscreen for accurate input: Calibrar la pantalla táctil para
     una entrada precisa
@@ -543,6 +545,7 @@ translations:
   Calibrating {} axis...: 'Calibrando el eje {}...'
   Calibrating...: Calibrando...
   Calibrating... (about 1 minute): 'Calibrando... (unos 1 minuto)'
+  Calibrating... (several minutes): Calibrando... (varios minutos)
   Calibration: Calibración
   Calibration & Tools: Calibración y herramientas
   Calibration Complete!: ¡Calibración Completa!
@@ -558,11 +561,14 @@ translations:
   Calibration failed: Calibración fallida
   Calibration failed - touch targets more precisely.: Calibración fallida – toca los
     objetivos con más precisión.
+  'Calibration failed: {}': 'Calibración fallida: {}'
+  Calibration finished, not saved yet: Calibración terminada, aún sin guardar
   Calibration in progress: "Calibración en curso"
   Calibration kept timing out. Your previous settings were kept.: La calibración siguió agotando el tiempo de espera. Se conservó su configuración anterior.
   Calibration may still be running — printer connection was interrupted: 'La calibración puede seguir en curso — se interrumpió la conexión con la impresora'
   Calibration may still be running — response timed out: La calibración puede seguir en curso — se agotó el tiempo de respuesta
   Calibration move may still be running — printer connection was interrupted: 'El movimiento de calibración puede seguir en curso — se interrumpió la conexión con la impresora'
+  Calibration saved: Calibración guardada
   Calibration saved but cannot apply on SDL display: Calibración guardada pero no
     se puede aplicar en pantalla SDL
   Calibration succeeded, but the frequency chart data couldn't be read.: La calibración
@@ -663,6 +669,7 @@ translations:
   Check AFC configuration: 'Compruebe la configuración de AFC'
   Check Again: Verificar de nuevo
   Check Klipper console for details: Consulte la consola de Klipper para más detalles
+  Check every dock: Comprobar cada base
   Check extruder temperature and try again. Manual removal may be required.: Compruebe la temperatura del extrusor e inténtelo de nuevo. Es posible que deba retirarse manualmente.
   Check failed: Error al verificar
   Check filament: Comprobar filamento
@@ -1001,6 +1008,8 @@ translations:
   Cutter jam: Atasco del cortador
   Cutting: Cortando
   Cutting filament...: Cortando filamento...
+  Cycle every tool: Ciclar todas las herramientas
+  Cycling tools...: Ciclando herramientas...
   DETECTED USB PRINTERS: IMPRESORAS USB DETECTADAS
   DEVICES: DISPOSITIVOS
   DISABLED: DESACTIVADO
@@ -1262,6 +1271,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: Todo lo demás se guardó. Cámbielos en Spoolman.
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: 'Todo lo demás se guardó. Renombre el material usando letras, dígitos, espacios y + - _ . ( ) /'
   Every object is set to skip, so there is nothing to print: 'Todos los objetos están marcados para omitir, no hay nada que imprimir'
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: Cada herramienta se toma y se aparca por turno. El cabezal queda vacío al final. Esto tarda unos minutos.
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: Los offsets de todas las herramientas se miden de nuevo y reemplazan a los actuales. Guarda después para conservar el resultado.
   Excellent Accuracy: Precisión Excelente
   'Exception: {}': 'Excepción: {}'
@@ -1555,6 +1565,9 @@ translations:
   'Firmware restart failed: {}': 'Reinicio de firmware fallido: {}'
   Firmware restarting...: Reiniciando firmware...
   Firmware saved X = Y's value; the measured X result was discarded: El firmware guardó el valor de Y para X; el resultado medido de X se descartó
+  Fit how the part fan cools the nozzle: Ajustar cómo el ventilador de pieza enfría la boquilla
+  Fit the heater model with the part fan off: Ajustar el modelo del calentador con el ventilador de pieza apagado
+  Fit the induction heater's safety model: Ajustar el modelo de seguridad del calentador de inducción
   'Fix: chmod 644 {}, then restart': 'Solución: chmod 644 {}, luego reinicie'
   'Fix: chown {} {}, then restart': 'Solución: chown {} {}, luego reinicie'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1575,6 +1588,7 @@ translations:
   Focused: 'Enfocado'
   Follow active tool: Seguir herramienta activa
   Follow graph screen: Seguir pantalla del gráfico
+  'For a first Z home: claim the tool you put on the head': 'Para el primer origen de Z: registrar la herramienta que colocó en el cabezal'
   Force/weight sensors: 'Sensores de fuerza/peso'
   Forget: Olvidar
   Forget Network?: ¿Olvidar red?
@@ -1614,6 +1628,7 @@ translations:
   Generic: Genérico
   Get help and share feedback: Obtén ayuda y comparte comentarios
   Global: Global
+  Global Z offset: Desfase Z global
   Good: Bueno
   Good Accuracy: Buena Precisión
   Good Enough: "Suficiente"
@@ -1731,6 +1746,7 @@ translations:
   High Fly: 'Sobre las nubes'
   High Water Mark: Marca de máximo histórico
   Hold anywhere to cancel: Mantén pulsado en cualquier lugar para cancelar
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Sujete {} completamente en el cabezal. El cierre se bloquea y pasa a ser la herramienta montada.
   Holding nozzle at {}°C to purge previous filament.: Manteniendo la boquilla a {}°C
     para purgar el filamento anterior.
   Home: Inicio
@@ -1777,6 +1793,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): Cuánto se empuja el
     filamento de vuelta a la caja al expulsar (mm)
   How fast filament is pushed back on eject: "Qué tan rápido se empuja el filamento de vuelta al expulsar"
+  How fast the head moves while changing tools: Velocidad del cabezal durante el cambio de herramienta
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Cuánto hay que mantener pulsado para que cuente como pulsación larga, en ms (auméntalo si el modo de edición u otras acciones se activan por accidente)'
   How many labels to print: Cuántas etiquetas imprimir
@@ -2212,6 +2229,7 @@ translations:
   : Mide desde la cama. Esquinas nítidas sin abultamiento ni huecos indican el K correcto. Cada fila es un rango de altura y el K que informó la impresora mientras se imprimía.
   Measured (shaper off): Medición (moldeador desactivado)
   Measured filament diameter: Diámetro medido del filamento
+  Measured offsets, read-only: Desfases medidos, solo lectura
   Measured pressure advance: 'Pressure Advance medido'
   Measurement incomplete. Try again.: Medición incompleta. Inténtelo de nuevo.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Mide el offset X, Y y Z de cada cabezal para que todos impriman en el mismo lugar. Tarda unos 20 minutos.
@@ -2361,6 +2379,7 @@ translations:
   No USB printers found: No se encontraron impresoras USB
   No actions right now: 'No hay acciones ahora'
   No active Spoolman spool.: No hay bobina activa en Spoolman.
+  No answer from the printer; it may still be calibrating: Sin respuesta de la impresora; puede que siga calibrando
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "Sin respuesta: comprueba la dirección IP y que este dispositivo esté en el Wi-Fi de la impresora, no en datos móviles."
   "No answer: check the IP address and that this device is on the printer's network.": "Sin respuesta: comprueba la dirección IP y que este dispositivo esté en la red de la impresora."
   No buffer data available: Sin datos de búfer disponibles
@@ -2387,6 +2406,7 @@ translations:
   No file loaded: Sin archivo cargado
   No file to reprint: No hay archivo para reimprimir
   No files available for printing: No hay archivos disponibles para imprimir
+  No hotend: Sin hotend
   No hub configured: 'No hay ningún Hub configurado'
   No humidity sensor detected: 'No se detectó sensor de humedad'
   No images found on USB drive: No se encontraron imágenes en la unidad USB
@@ -2537,6 +2557,7 @@ translations:
   'Off:': 'Apagado:'
   'Off: runs with these values without asking': 'Desactivado: ejecuta con estos valores sin preguntar'
   Offer to save Z-offset changes to the printer config: 'Ofrecer guardar los cambios de Z-Offset en la configuración de la impresora'
+  Offset: Desfase
   Offsets Saved: Offsets guardados
   Offsets saved: Offsets guardados
   "Old setting on today's data: {} residual - now: {}": 'Ajuste anterior en los datos de hoy: {} de vibración residual - ahora: {}'
@@ -2672,6 +2693,7 @@ translations:
   Pick Color: Elegir Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Elige cómo se comporta HelixScreen. Puedes cambiarlo más tarde en Ajustes.'
   Pick the best band: Elige la mejor franja
+  Pick up and park each tool in turn: Tomar y aparcar cada herramienta por turno
   Pick up the tool, heat it, and pull the filament out: "Toma la herramienta, caliéntala y saca el filamento"
   Pick up tool: Recoger herramienta
   Picking up tool: Recogiendo herramienta
@@ -3056,6 +3078,7 @@ translations:
 
   Remove the spools now?: ¿Retirar las bobinas ahora?
 
+  Remove tool: Retirar herramienta
   Remove your tags for this image?: '¿Quitar sus marcas de esta imagen?'
   Remove your tags for this image? Its chips go back to the shipped positions.: '¿Quitar sus marcas de esta imagen? Las etiquetas vuelven a sus posiciones de fábrica.'
   Rename: Renombrar
@@ -3246,11 +3269,13 @@ translations:
   Save Z-Offset: Guardar Z-Offset
   Save Z-Offset Buttons: 'Botones de guardar Z-Offset'
   Save Z-Offset?: ¿Guardar Z-Offset?
+  Save calibration: Guardar calibración
   Save changes to persist them across restarts?: ¿Guardar cambios para mantenerlos
     entre reinicios?
   'Save failed: {}': 'Error al guardar: {}'
   Save Offsets: Guardar offsets
   Save offsets?: ¿Guardar offsets?
+  Save the new heater values to printer.cfg? Klipper restarts.: ¿Guardar los nuevos valores del calentador en printer.cfg? Klipper se reiniciará.
   Save to Spool: Guardar en bobina
   Save to Spoolman: Guardar en Spoolman
   Saved Z-Offset: Z-Offset guardado
@@ -3266,6 +3291,8 @@ translations:
   Saving Configuration...: Guardando Configuración...
   Saving Z-offset...: Guardando Z-offset...
   Saving and finishing...: Guardando y finalizando...
+  Saving calibration: Guardando calibración
+  Saving calibration...: Guardando calibración...
   Saving config... Klipper will restart.: Guardando config... Klipper se reiniciará.
   Saving offsets...: Guardando offsets...
   Saving the position and parking the toolhead.: Guardando la posición y estacionando el cabezal.
@@ -3319,6 +3346,11 @@ translations:
   Search vendors...: Buscar proveedores...
   Search widgets...: Buscar widgets...
   Searching...: Buscando...
+  Seat: Asentar
+  Seat a tool by hand: Asentar una herramienta a mano
+  Seat a tool by hand for the first Z home: Asentar una herramienta a mano para el primer origen de Z
+  Seat which tool by hand?: ¿Qué herramienta asentar a mano?
+  Seating {}...: Asentando {}...
   Secondary: Secundario
   Section Detail: Detalle de sección
   Security: Seguridad
@@ -3555,6 +3587,7 @@ translations:
 
   Spools removed: Bobinas retiradas
 
+  Sport: Deportivo
   Square Corner Velocity: Velocidad de Esquina Cuadrada
   Stable: Estable
   Stall detection setup failed for the Z motor — power-cycle to retry: Falló la configuración de la detección de bloqueo del motor Z. Apague y encienda para reintentar
@@ -3595,6 +3628,8 @@ translations:
   Status: Estado
   Status icons: Iconos de estado
   Std Deviation: Desviación Estándar
+  Stealth: Silencioso
+  Stealth is quiet, Sport is fastest: Silencioso es el más callado, Deportivo el más rápido
   Step: Paso
   Step 1 of 3: Paso 1 de 3
   Step {} of {}: Paso {} de {}
@@ -3810,11 +3845,16 @@ translations:
   The heater will cycle on and off several times.: El calentador se encenderá y apagará
     varias veces.
   The helper macros are installed and activate after Klipper restarts.: 'Las macros de ayuda están instaladas y se activan tras reiniciar Klipper.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: El cierre se abre y {} puede caer. Sujétela antes de continuar y luego colóquela en su base.
   The left RFID reader in this CFS unit may need service: Puede que el lector RFID izquierdo de esta unidad CFS necesite servicio
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : La bobina cargada es {}, pero este archivo se laminó para {}. El filamento con relleno funciona con un caudal menor y necesita una boquilla endurecida.
   The message your printer's macros show (M117): 'El mensaje que muestran las macros de tu impresora (M117)'
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : La boquilla montada se calienta a 200°C y vuelve a enfriarse mientras se ajusta el modelo de seguridad del calentador. Mantenga apagado el ventilador de pieza y el material inflamable lejos del cabezal. Esto tarda varios minutos.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'La boquilla hace unos movimientos de prueba cortos en una esquina, lejos de la zona de impresión, y repite hasta que los valores coinciden.'
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : La boquilla se calienta a 200°C mientras el ventilador de pieza recorre sus velocidades. Para un ajuste preciso, monte el conducto como imprime con él. Esto tarda varios minutos.
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : La boquilla está caliente. Límpiala con el cepillo de alambre incluido, mantén limpia la posición de anclaje y pulsa Siguiente.
   The plate and the spools are still hot. Use gloves.: La cama y las bobinas siguen calientes. Usa guantes.
@@ -4062,7 +4102,11 @@ translations:
   Tool Offsets: Offsets de herramienta
   Tool Switcher: 'Selector de herramientas'
   'Tool change failed: {}': 'Error al cambiar herramienta: {}'
+  Tool change speed: Velocidad de cambio de herramienta
   Tool change to T{}: 'Cambio de herramienta a T{}'
+  'Tool cycle failed: {}': 'El ciclo de herramientas falló: {}'
+  Tool cycle finished: Ciclo de herramientas terminado
+  Tool is seated: La herramienta está asentada
   Tool may be half seated: "La herramienta puede estar mal asentada"
   Tool offsets (mm): Offsets de herramienta (mm)
   Tool offsets saved: Offsets de herramienta guardados
@@ -4123,6 +4167,7 @@ translations:
   Turn off detection: Desactivar detección
   Turn on the lights your light buttons control: Enciende las luces que controlan tus botones de luz
   Turn the extruder heater off after a load or unload finishes: Apagar el calentador del extrusor al terminar una carga o descarga
+  Turn the nozzle heater off first: Apague primero el calentador de la boquilla
   Turn the picture to match how the screen is mounted. Applies after restart.: Gira la imagen para que coincida con el montaje de la pantalla. Se aplica tras reiniciar.
   Turn the printer's lights on or off: Encender o apagar las luces
   Type: Tipo
@@ -4206,6 +4251,7 @@ translations:
   Update Success: Actualización correcta
   Update from a Terminal: Actualizar desde un terminal
   Update installed!: ¡Actualización instalada!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': '¿Actualizar también el modelo del calentador INDX? {} ahora tiene {}: densidad {:.2f}, capacidad calorífica {:.2f}.'
   Update your security PIN: Actualice su PIN de seguridad
     en esta instalación.
   Updates: Actualizaciones
@@ -4274,6 +4320,7 @@ translations:
   Wait for the current filament operation to finish: Espere a que termine la operación de filamento actual
   Wait for the current operation to complete: Espere a que se complete la operación actual
   Wait for the current operation to complete or cancel it first: Espere a que se complete la operación actual o cancélela primero
+  Wait for the running INDX operation to finish: Espere a que termine la operación INDX en curso
   Wait until the print finishes: Espere a que termine la impresión
   Waiting for Moonraker...: Esperando a Moonraker...
   Waiting for %s to finish. One heater at a time.: Esperando a que %s termine. Solo un calentador a la vez.
@@ -4628,6 +4675,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'No coincide con el carrete vinculado de Spoolman. ¿Actualizarlo en Spoolman o desvincularlo y mantenerlo en este carril?'
   'Unlink, keep on this slot': 'Desvincular, mantener en este carril'
   'Unsaved changes': 'Cambios sin guardar'
+  Update heater model?: ¿Actualizar modelo del calentador?
   'Update in Spoolman': 'Actualizar en Spoolman'
   'Variant': 'Variante'
   'from tag': 'del tag'

@@ -15,9 +15,14 @@
 
 #include "ui_overlay_timelapse_videos.h"
 #include "ui_update_queue.h"
+#include "ui_utils.h"
 
-#include "../lvgl_test_fixture.h"
+#include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/scoped_pointer_indev.h"
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
 #include "moonraker_types.h"
+#include "printer_state.h"
 
 #include <string>
 #include <vector>
@@ -38,6 +43,21 @@ struct TimelapseVideosOverlayTestAccess {
     }
     static void clear_video_grid(TimelapseVideosOverlay& o) {
         o.clear_video_grid();
+    }
+    /// A player that exists, against a remote Moonraker: a tap downloads first.
+    static void set_remote_player(TimelapseVideosOverlay& o, const std::string& command) {
+        o.can_play_ = true;
+        o.player_command_ = command;
+        o.is_local_moonraker_ = false;
+    }
+    /// The card handlers populate_video_grid() attaches.
+    static void attach_card_handlers(TimelapseVideosOverlay& o, lv_obj_t* card) {
+        lv_obj_add_event_cb(card, TimelapseVideosOverlay::on_card_clicked, LV_EVENT_CLICKED, &o);
+        lv_obj_add_event_cb(card, TimelapseVideosOverlay::on_card_long_pressed,
+                            LV_EVENT_LONG_PRESSED, &o);
+    }
+    static const std::string& pending_delete(const TimelapseVideosOverlay& o) {
+        return o.pending_delete_filename_;
     }
 };
 
@@ -101,4 +121,38 @@ TEST_CASE_METHOD(LVGLTestFixture, "timelapse grid clears without running queued 
     CHECK(ran);
     TimelapseVideosOverlayTestAccess::set_video_grid(overlay, nullptr);
     process_lvgl(20);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "timelapse: a held card asks to delete and its lift plays nothing",
+                 "[timelapse][tap_hold]") {
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    helix::PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPIMock api{client, state};
+    TimelapseVideosOverlay overlay(&api);
+    TimelapseVideosOverlayTestAccess::set_remote_player(overlay, "/bin/true");
+
+    lv_obj_t* card = lv_obj_create(test_screen());
+    lv_obj_set_size(card, 200, 120);
+    REQUIRE(helix::ui::set_owned_user_string(card, "a.mp4"));
+    TimelapseVideosOverlayTestAccess::attach_card_handlers(overlay, card);
+    lv_obj_update_layout(test_screen());
+    lv_area_t a;
+    lv_obj_get_coords(card, &a);
+    const int x = (a.x1 + a.x2) / 2, y = (a.y1 + a.y2) / 2;
+    const auto& downloads = api.transfers_mock().download_destinations();
+    helix_test::ScopedPointerIndev finger;
+
+    // A quick tap plays the video: for a remote Moonraker, a download first.
+    finger.press(x, y);
+    finger.release(x, y);
+    REQUIRE(downloads.size() == 1);
+
+    finger.press(x, y);
+    finger.hold(finger.long_press_hold_ms());
+    finger.release(x, y);
+    CHECK(TimelapseVideosOverlayTestAccess::pending_delete(overlay) == "a.mp4");
+    CHECK(downloads.size() == 1);
+    helix::ui::UpdateQueue::instance().drain();
 }

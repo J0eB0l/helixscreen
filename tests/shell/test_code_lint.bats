@@ -3514,3 +3514,34 @@ CPP
         done
     done
 }
+
+# A tap binds clicked; a hold handler that acts ends its press with
+# helix::ui::end_press() (docs/devel/LVGL9_XML_GUIDE.md § "Tap and hold").
+# short_clicked is never a tap's trigger: LVGL skips it after any press that ran
+# past the long-press time, whether or not a hold handler acted, so a slow tap on
+# a short_clicked widget does nothing. Names every XML trigger and C++ registration.
+short_clicked_taps() {
+    grep -rnE 'trigger="short_clicked"' "$1" --include='*.xml' 2>/dev/null
+    grep -rnE 'lv_obj_add_event_cb\([^;]*LV_EVENT_SHORT_CLICKED' "$2" --include='*.cpp' \
+        --include='*.h' 2>/dev/null
+    return 0
+}
+
+@test "no tap binds short_clicked" {
+    run short_clicked_taps ui_xml/ src/
+    [ "$status" -eq 0 ]
+    [ -z "$output" ] || fail "$output"
+}
+
+@test "the short_clicked gate fires on an XML trigger and a C++ registration" {
+    local d="${BATS_TEST_TMPDIR}/short_clicked"
+    mkdir -p "$d/xml" "$d/src"
+    printf '%s\n' '<lv_obj><event_cb trigger="short_clicked" callback="on_tap"/></lv_obj>' \
+        > "$d/xml/offender.xml"
+    printf '%s\n' 'void f(lv_obj_t* o) { lv_obj_add_event_cb(o, cb, LV_EVENT_SHORT_CLICKED, nullptr); }' \
+        > "$d/src/offender.cpp"
+    run short_clicked_taps "$d/xml" "$d/src"
+    [ "$status" -eq 0 ]
+    contains "offender.xml" "$output"
+    contains "offender.cpp" "$output"
+}

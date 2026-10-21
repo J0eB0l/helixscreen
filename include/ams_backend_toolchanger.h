@@ -532,9 +532,11 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     void apply_tool_sensor_locked(const helix::toolchanger_addon::ToolReading& reading);
 
     /// Send a tool operation: set @p action optimistically, dispatch @p gcode
-    /// through ensure_homed_then(), and resolve on the macro's ack. Caller must
-    /// NOT hold mutex_ and must have passed check_preconditions().
-    AmsError dispatch_operation(std::string gcode, AmsAction action);
+    /// through ensure_homed_then(), and resolve on the macro's ack, waiting up
+    /// to @p timeout_ms for it. Caller must NOT hold mutex_ and must have
+    /// passed check_preconditions().
+    AmsError dispatch_operation(std::string gcode, AmsAction action,
+                                uint32_t timeout_ms = IMoonrakerAPI::kAmsOperationTimeoutMs);
 
   private:
     // --- Mount-to-feed (mount_feed_sequence.h) ---------------------------------

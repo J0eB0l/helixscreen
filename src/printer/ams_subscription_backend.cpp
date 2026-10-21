@@ -478,6 +478,11 @@ AmsError AmsSubscriptionBackend::state_preconditions_unlocked() const {
     if (system_info_.is_busy()) {
         return AmsErrorHelper::busy(ams_action_to_string(system_info_.action));
     }
+    // A calibration or tool cycle the printer is still running: Klipper would
+    // queue the op behind it, to run unattended minutes later.
+    if (tracked_run_active_.load()) {
+        return AmsErrorHelper::busy("a device action");
+    }
     return AmsErrorHelper::success();
 }
 
@@ -582,8 +587,7 @@ AmsError AmsSubscriptionBackend::send_endless_spool_switch(const std::string& gc
         });
 }
 
-AmsError AmsSubscriptionBackend::execute_device_action(const std::string& action_id,
-                                                       const std::any& value) {
+AmsError AmsSubscriptionBackend::device_action_refusal(const std::string& action_id) const {
     // Only an action the backend offers right now runs: one it no longer lists
     // (its hardware went away, its config changed) has no moves_machine answer
     // to gate it by.
@@ -604,13 +608,56 @@ AmsError AmsSubscriptionBackend::execute_device_action(const std::string& action
                         lv_tr("Not available now"), lv_tr(it->disable_reason.c_str()));
     }
     if (it->moves_machine) {
-        AmsError refused =
-            it->allowed_while_paused ? refuse_if_printing() : refuse_motion_if_printing();
-        if (!refused.success()) {
-            return refused;
+        if (tracked_run_active_.load()) {
+            return AmsErrorHelper::busy("a device action");
         }
+        return it->allowed_while_paused ? refuse_if_printing() : refuse_motion_if_printing();
+    }
+    return AmsErrorHelper::success();
+}
+
+bool AmsSubscriptionBackend::begin_tracked_run() {
+    bool expected = false;
+    return tracked_run_active_.compare_exchange_strong(expected, true);
+}
+
+void AmsSubscriptionBackend::end_tracked_run() {
+    tracked_run_active_.store(false);
+}
+
+AmsError AmsSubscriptionBackend::execute_device_action(const std::string& action_id,
+                                                       const std::any& value) {
+    if (auto refused = device_action_refusal(action_id); !refused.success()) {
+        return refused;
     }
     return do_execute_device_action(action_id, value);
+}
+
+AmsError AmsSubscriptionBackend::run_device_action(const std::string& action_id,
+                                                   const std::any& value,
+                                                   DeviceActionDone on_done) {
+    if (auto refused = device_action_refusal(action_id); !refused.success()) {
+        return refused;
+    }
+    return do_run_device_action(action_id, value, std::move(on_done));
+}
+
+AmsError AmsSubscriptionBackend::do_run_device_action(const std::string& action_id,
+                                                      const std::any& value,
+                                                      DeviceActionDone on_done) {
+    AmsError result = do_execute_device_action(action_id, value);
+    if (result.success() && on_done) {
+        on_done(result);
+    }
+    return result;
+}
+
+AmsError AmsSubscriptionBackend::run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                                    const SlotInfo& after) {
+    if (auto refused = refuse_if_printing(/*paused_blocks=*/true); !refused.success()) {
+        return refused;
+    }
+    return do_run_edit_follow_up(slot_index, before, after);
 }
 
 bool AmsSubscriptionBackend::toolhead_homed() const {

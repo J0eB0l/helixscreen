@@ -1310,6 +1310,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
                                             std::function<void(const nlohmann::json&)> success_cb,
                                             std::function<void(const MoonrakerError&)> error_cb);
 
+    /**
+     * @brief Answer an INDX command that blocks for minutes on the real
+     *        printer (INDX_CALIBRATE, INDX_FAN_CALIBRATE, TC_CYCLE_ALL)
+     *
+     * The command runs at once; the rpc is answered later on an lv_timer,
+     * scaled by the simulation speed, so a screen tracking it is observable.
+     * A refusal answers at once.
+     *
+     * @return true if the script was handled here (the callbacks are owned)
+     */
+    bool simulate_indx_blocking(const std::string& script,
+                                std::function<void(const nlohmann::json&)> success_cb,
+                                std::function<void(const MoonrakerError&)> error_cb);
+
     /// The U1 persona's extruder_offset for head @p head (0-3), as the
     /// objects query reports it.
     [[nodiscard]] std::array<double, 3> nozzle_offset(int head) const;
@@ -2390,10 +2404,14 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
         int toolhead_state = 0; ///< 0 locked, 2 open
         bool docks_calibrated = true;
         std::vector<int> no_heat_tools{5};
-        bool spool_macros = false;  ///< T<n> declares spool_id and sets the active spool
-        bool kalico = false;        ///< [indx] in configfile only, not in the objects list
-        bool unrecognized = false;  ///< CHANGE_TOOL missing
-        std::vector<int> spool_ids; ///< Per tool, with spool_macros
+        bool spool_macros = false;   ///< T<n> declares spool_id and sets the active spool
+        bool kalico = false;         ///< [indx] in configfile only, not in the objects list
+        bool unrecognized = false;   ///< CHANGE_TOOL missing
+        std::vector<int> spool_ids;  ///< Per tool, with spool_macros
+        std::string mode = "normal"; ///< _TOOLCHANGE_VARS.mode
+        /// Per tool: the X, Y, Z offset its calibration measured.
+        std::vector<std::array<double, 3>> offsets;
+        double global_z = -0.05; ///< save_variables global_z_offset
     };
     mutable std::mutex indx_mutex_;
     IndxMockState indx_;
@@ -2407,6 +2425,9 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     [[nodiscard]] nlohmann::json indx_config_sections() const;
     /// Send the INDX objects when they differ from the last frame sent.
     void publish_indx_if_changed();
+    /// Park the mounted tool, then pick up @p tool (none for -1) and heat it
+    /// to @p target_c when it has a hotend: the end of every change macro.
+    void run_indx_change(int tool, double target_c);
 
     /// Advance the armed swap by one notification interval. No-op when idle.
     void advance_medusa_swap();
