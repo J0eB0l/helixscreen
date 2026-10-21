@@ -36,16 +36,25 @@ Recorded as given.
    Tier 1 (assisted Z) stays as a tier a DB entry or the user can select.
 8. Keep the vendor backends (U1, K1/K2, old QIDI) as they are.
 
-### Defaults, not yet ruled
+### Rulings on the design review (Preston, 2026-10-21)
 
-These stand as the design's defaults until Preston rules otherwise:
+Accepted as recommended in the first draft, or decided on review:
 
-| ID | Default | Alternative |
-|---|---|---|
-| D1 | No offer after `klippy_shutdown` / `error` in v1 (power loss only) | Offer with a warning |
-| D2 | Adaptive-mesh carry-over needs an opt-in `[include helix-plr/*.cfg]` line in printer.cfg (§ 6.4) | Always add it at install; or no mesh carry-over |
-| D3 | Multi-material: refuse when the scan's active tool or the filament backend's loaded/mounted tool does not match | Route a tool change through the filament backend |
-| D4 | No Klipper extra in v1 | Ship one for exact executed-line tracking and mesh restore |
+| ID | Ruling |
+|---|---|
+| O1 | The fast and slow blocks live in the plugin's two-slot file (§ 4.2). Job identity and mesh stay in the Moonraker namespace. Why SQLite was avoided is recorded in § 4.2. |
+| O2 | Decided by test. Initial default: skip ahead half a snapshot interval past the executed point (`resume_skip_fraction = 0.5`, § 6.2), one named tunable. Task T2 (§ 11.3) compares re-trace and skip-half on real prints. |
+| O3 | Scan at resume time. Measured first (task T1, § 11.3): a 100 MB file on a K1C-class host must scan in 30 s or less. Over 30 s, v1 switches to background per-layer checkpoints during the print (§ 6.2). |
+| D1 | No offer after `klippy_shutdown` / `error` in v1 (power loss only). |
+| D2 | Adaptive-mesh carry-over needs an opt-in `[include helix-plr/*.cfg]` line in printer.cfg (§ 6.4). |
+| D3 | Multi-material: refuse when the scan's active tool or the filament backend's loaded/mounted tool does not match. |
+| D4 | No Klipper extra in v1. |
+| O5 | Unknown layer count (no `SET_PRINT_STATS_INFO`): the offer gates on 120 s of print time instead of layer >= 2. |
+| O6 | Cold-bed threshold `kPlrColdBedDiffC` = 10 °C until the adhesion test (§ 11.3) says otherwise. |
+| O7 | No Fluidd/Mainsail resume macro in v1; every resume goes through the screen's confirmations. Later phase. |
+| O9 | The mesh include line is added opt-in from both an installer prompt and a settings button. |
+
+Still open: O4 and O8 (§ 14).
 
 ---
 
@@ -156,7 +165,7 @@ unsaved mesh, which is also written to `helix-plr/mesh.cfg` (§ 6.4).
 
 ### 4.2 Store
 
-Ruled cadence (1 Hz) makes the write path the main wear question (§ 5). Proposal:
+Ruled cadence (1 Hz) makes the write path the main wear question (§ 5). Ruled (O1):
 
 - **Fast and slow blocks: a plugin-owned slot file** `<data>/helix-plr/snapshot.bin`, two fixed
   4 KiB slots written alternately with `pwrite` + `fdatasync`. Each slot: magic, `seq`, length,
@@ -168,7 +177,16 @@ Ruled cadence (1 Hz) makes the write path the main wear question (§ 5). Proposa
 - The payload is capped at 4 KiB minus header; objects and macro vars that do not fit move to the
   namespace record (written on change, rarely).
 
-Open question O1 is whether to use Moonraker's SQLite for everything instead.
+**Why not Moonraker's SQLite for the 1 Hz record.** Moonraker opens its database with no
+pragmas, so SQLite runs its rollback journal (`journal_mode=DELETE`, `synchronous=FULL`), and
+`_insert_record` commits every upsert in its own transaction [src]. Each 1 Hz save would then
+journal and rewrite two 4 KiB pages, create and delete the journal file and pay two or three
+fsyncs with their filesystem metadata: ~30-40 KB per save, ~1.25 GB per 10 h print, and 2-4x
+that in NAND writes after eMMC's internal amplification of small synchronous writes (§ 5.2).
+Moonraker owns the connection, so the plugin cannot move it to WAL. The slot file writes one
+4 KiB block per save with no metadata commit, about a fifth of that. Records written once per
+job (identity, mesh) have no such cost and stay in the Moonraker namespace, where other tools
+can read them.
 
 ### 4.3 Lifecycle
 
@@ -256,9 +274,13 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    `live_pos.xy` instead.
 4. **Check.** The chosen line's XY segment passes within `kMatchTolMm` (0.5 mm) of `live_pos.xy`,
    and its gcode Z is consistent with the layer. Arcs (`G2`/`G3`) are checked with arc geometry.
-5. **Snapshot age.** The nozzle kept going for up to one save interval after the snapshot; the
-   resume point is the snapshot's executing line, so up to ~1 s of path prints twice (a small
-   ridge, never a gap). Reported as `retrace_estimate_mm`.
+5. **Snapshot age (O2).** The nozzle kept going for an unknown time of up to one save interval
+   after the snapshot. The resume point is the executing point advanced by
+   `resume_skip_fraction x save_interval` seconds of motion, walking forward through the window
+   at each line's feedrate (F times the speed factor, capped by the velocity limit). At 0 the
+   resume re-traces up to one interval (a ridge, never a gap); at 1 it skips the whole interval
+   (no ridge, possibly a gap). Initial default 0.5, settled by task T2. Reported as
+   `retrace_estimate_mm` and `skip_estimate_mm`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the current
    layer, `method: "layer_start"`, with a warning in the plan. Never a byte rewind.
 
@@ -267,6 +289,7 @@ Signatures (Python, `helix_plr_scan.py`, pure, no Moonraker imports):
 ```python
 kWindowBytes = 256 * 1024
 kMatchTolMm = 0.5
+kResumeSkipFractionDefault = 0.5    # tunable: plr_profile.resume_skip_fraction overrides
 
 class ModalState:            # dataclass-like; fields named for the gcode_move state above
     ...
@@ -287,6 +310,7 @@ class ResumePoint(NamedTuple):
     state: ModalState                  # modal state just before that line
     method: str                        # "measured" | "layer_start"
     retrace_estimate_mm: float
+    skip_estimate_mm: float
     warnings: List[str]
 
 def scan_to_offset(stream: BinaryIO, end_offset: int, start_offset: int = 0,
@@ -295,11 +319,18 @@ def scan_to_offset(stream: BinaryIO, end_offset: int, start_offset: int = 0,
 def locate_executed_line(scan: ScanResult, toolhead_pos: Sequence[float],
                          live_pos: Sequence[float], extrude_factor: float,
                          retract_length: float) -> Optional[ResumePoint]: ...
+def advance_by_time(scan: ScanResult, point: ResumePoint, seconds: float,
+                    speed_factor: float, max_velocity: float) -> ResumePoint: ...
 def layer_start_fallback(scan: ScanResult, layer: Optional[int]) -> Optional[ResumePoint]: ...
 ```
 
-The scan runs in a worker thread, cancellable, when the plan is requested; its cost is measured
-on the slowest listed host before v1 ships (O3).
+The scan runs in a worker thread, cancellable, when the plan is requested (O3). Task T1 measures it
+first: a 100 MB Orca file on a K1C-class host (the slowest listed) must finish in **30 s or
+less**. If it does not, v1 adds background per-layer checkpoints: during the print, a low-priority
+follower reads the file up to `file_position` and, at each layer start, persists the modal state
+and byte offset to the namespace record; the resume scan then starts at the current layer's
+checkpoint. `scan_to_offset`'s `start_offset`/`start_state` parameters exist for that case and for
+umbrella Phase 1's `layer_index`.
 
 ### 6.3 Resume sequence (generic backend)
 
@@ -394,6 +425,7 @@ In `assets/config/printer_database.json`, per printer. Absent block = tier 0.
 | `z_lift_mm` | float | 5.0 | Cold lift before XY homing |
 | `purge_gcode` | string \| null | null | Purge/wipe macro; null = generic purge |
 | `z_rehome` | `"none"` \| `"probe_clear_spot"` \| `"z_max"` | `"none"` | Tier 3, reserved |
+| `resume_skip_fraction` | float 0-1 | 0.5 | Fraction of the save interval skipped past the executed point (§ 6.2); the user may override |
 
 User overrides (settings, `helix-screen` / `plr_user`): `enabled` (bool), `tier` (int, may lower or
 raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
@@ -401,15 +433,21 @@ raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
 The app resolves DB + user into `plr_profile` and writes it whenever an input changes:
 
 ```cpp
+enum class PlrBackendKind { Generic, QidiPrintState, Vendor };
+enum class StorageHint { Emmc, Sd, Nand, Ssd, Unknown };
+struct PlrHomingCheck { bool xy_home_safe = false; bool has_xy_home_override = false; };
+
 struct PlrDbBlock { int tier = 0; PlrBackendKind backend = PlrBackendKind::Generic;
                     StorageHint storage = StorageHint::Unknown; bool z_holds_unpowered = false;
                     std::string xy_home_gcode = "G28 X Y"; float z_lift_mm = 5.0f;
-                    std::optional<std::string> purge_gcode; };
+                    std::optional<std::string> purge_gcode; float resume_skip_fraction = 0.5f; };
 struct PlrUserOverride { std::optional<bool> enabled; std::optional<int> tier;
-                         std::optional<std::string> xy_home_gcode, purge_gcode; };
+                         std::optional<std::string> xy_home_gcode, purge_gcode;
+                         std::optional<float> resume_skip_fraction; };
 struct PlrProfile { int tier; PlrBackendKind backend; StorageHint storage_hint;
                     std::string xy_home_gcode; float z_lift_mm;
-                    std::optional<std::string> purge_gcode; std::optional<bool> user_enabled; };
+                    std::optional<std::string> purge_gcode; std::optional<bool> user_enabled;
+                    float resume_skip_fraction; };
 
 std::optional<PlrDbBlock> plr_parse_db_block(const nlohmann::json& printer_entry);
 PlrProfile plr_resolve_profile(const std::optional<PlrDbBlock>& db, const PlrUserOverride& user,
@@ -656,7 +694,8 @@ Wizard and decisions (signatures in § 12.2), each a table test:
 | QIDI Q2 | Same, generic path | Ruling 6 re-evaluation |
 | Q2, K1C, Voron V0 | Log `toolhead.position` vs `live_position` 4 Hz for 5 min of walls and infill | The lead in § 6.1, and the walk's line choice offline against the logged frames |
 | K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` | § 7.4 on real `/sys` |
-| K1C (slowest listed host) | Scan of a 100 MB file | O3 budget |
+| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | Pass: median <= 30 s, scan at resume ships. Fail: background per-layer checkpoints join v1 (O3) |
+| One listed printer, PLA, 0.2 mm layers | **T2**: 6 power cuts per arm, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | Picks the default (O2): the arm with no gaps and the smaller ridge wins; a gap on any wall cut rules out that arm |
 | One tier-2 model | Power cut after 10, 30, 60 min, PLA and PETG | Z holds; adhesion; cold-bed threshold |
 | Any eMMC host | `iostat`/`/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | § 5.2 numbers |
 
@@ -729,10 +768,12 @@ rewrites `plr_profile`.
 
 **v1**
 
+- T1 first (§ 11.3): the K1C scan measurement decides whether background checkpoints are in v1.
 - `helix_plr.py`, `helix_plr_scan.py`: snapshot loop and slot store, storage verdict, offer,
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
 - QIDI-new adapter.
+- T2 before the `resume_skip_fraction` default is final.
 - App: GENERIC backend, wizard, settings, profile resolution, DB `plr` blocks for the models
   tested in § 11.3.
 
@@ -754,12 +795,17 @@ rewrites `plr_profile`.
 
 | ID | Question | Recommendation |
 |---|---|---|
-| O1 | Store: plugin slot file (≈5x fewer writes) or Moonraker SQLite for the fast block? | Slot file; identity and mesh in the Moonraker namespace |
-| O2 | Inside the ≤1 s snapshot-age window: re-print it (ridge) or skip half an interval (possible gap)? | Re-print |
-| O3 | Scan at resume time from byte 0, or a follower scan during the print that checkpoints modal state per layer? | Scan at resume in v1 if the K1C 100 MB budget is under ~30 s; else follower |
 | O4 | Raw NAND (UBIFS) hosts: wear-tolerant only when the DB says so, or never? | Only when the DB says so |
-| O5 | Unknown layer count (no `SET_PRINT_STATS_INFO`): gate on 120 s of print time? | Yes |
-| O6 | Cold-bed threshold `kPlrColdBedDiffC` | 10 °C until the adhesion test says otherwise |
-| O7 | Offer a resume from Fluidd/Mainsail via a `HELIX_PLR_RESUME` macro that calls the plugin? | Later; v1 is screen-only so every resume has the wizard's confirmations |
-| O8 | QIDI Z residual (offset + mesh): accept, or switch QIDI to the generic path if the Q2 test shows > 0.1 mm? | Decide from the test (ruling 6 already schedules it) |
-| O9 | Who adds the mesh include line (D2): installer prompt, settings button, or both? | Both, opt-in |
+| O8 | QIDI Z residual (offset + mesh): accept, or switch QIDI to the generic path? | Decided by the Q2 power-cut test (§ 11.3): switch if the first resumed layer is off by more than 0.1 mm |
+
+## 15. Preconditions before execution
+
+- Umbrella Phase 0 merged: `PluginFeatureState` and `plugin_feature()` exist, the `features` map is
+  served, the Python 3.8 CI job exists.
+- The § 12.1 C++ block passes `scripts/syntax_check.py` once Phase 0's `PluginFeatureState` exists
+  (it cannot be compiled before). The § 7.2 and § 12.2 blocks and the Python blocks in § 6.2,
+  § 6.5, § 7.3, § 7.4 and § 8 were checked on 2026-10-21: the two C++ blocks compiled together
+  with `scripts/syntax_check.py`; the Python blocks parsed with `ast.parse(feature_version=(3, 8))`
+  and `py_compile`. That checks 3.8 grammar only; no 3.8 interpreter was available, so stdlib
+  API use is left to the 3.8 CI job.
+- T1 measured.
