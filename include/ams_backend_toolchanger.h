@@ -523,6 +523,15 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     void on_stopping() override;
     [[nodiscard]] bool needs_mount_to_feed(int head) const override;
 
+    /// Apply an add-on dock-sensor reading over the toolchanger's own claim.
+    /// Caller holds mutex_.
+    void apply_tool_sensor_locked(const helix::toolchanger_addon::ToolReading& reading);
+
+    /// Send a tool operation: set @p action optimistically, dispatch @p gcode
+    /// through ensure_homed_then(), and resolve on the macro's ack. Caller must
+    /// NOT hold mutex_ and must have passed check_preconditions().
+    AmsError dispatch_operation(std::string gcode, AmsAction action);
+
   private:
     // --- Mount-to-feed (mount_feed_sequence.h) ---------------------------------
     /// Start a Load (@p load) or Unload of @p heads' filament through the
@@ -725,10 +734,6 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
      */
     void parse_toolchanger_state(const nlohmann::json& tc_data);
 
-    /// Apply an add-on dock-sensor reading over the toolchanger's own claim.
-    /// Caller holds mutex_.
-    void apply_tool_sensor_locked(const helix::toolchanger_addon::ToolReading& reading);
-
     /// Latch one firmware material reading: the types and palette it carried,
     /// and each slot's material and colour filed as vendor-cache observations.
     /// Caller holds mutex_.
@@ -855,11 +860,6 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// toolchanger never took the operation over. Main thread; must NOT hold
     /// mutex_.
     void finalize_dispatch_after_macro(uint64_t generation);
-
-    /// Send a tool operation: set @p action optimistically, dispatch @p gcode
-    /// through ensure_homed_then(), and resolve on the macro's ack. Caller must
-    /// NOT hold mutex_ and must have passed check_preconditions().
-    AmsError dispatch_operation(std::string gcode, AmsAction action);
 
     // Tool changer specific state
     std::vector<std::string> tool_names_; ///< Tool names from discovery

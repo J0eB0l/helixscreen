@@ -351,6 +351,27 @@ class AmsBackend {
     }
 
     /**
+     * @brief Whether every tool prints through one shared extruder and heater
+     *
+     * The tools are separate nozzles (separate heads to the UI), but the one
+     * heater only ever heats the mounted nozzle, so heater surfaces show one
+     * temperature that follows the mounted tool.
+     */
+    [[nodiscard]] virtual bool heads_share_heater() const {
+        return false;
+    }
+
+    /**
+     * @brief Why the nozzle heater must not be given a target now
+     *
+     * Non-empty refuses any nozzle target above 0 (e.g. no tool mounted on a
+     * shared-heater changer). Empty when heating is allowed.
+     */
+    [[nodiscard]] virtual std::string nozzle_heat_blocked_reason() const {
+        return {};
+    }
+
+    /**
      * @brief Toolhead style this backend implies when the printer database has none
      *
      * Same vocabulary as the database's toolhead_style field (e.g. "creality_k2");

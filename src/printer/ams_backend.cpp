@@ -5,6 +5,7 @@
 
 #include "ams_backend_afc.h"
 #include "ams_backend_happy_hare.h"
+#include "ams_backend_indx.h"
 #include "ams_backend_openams.h"
 #include "ams_state.h"
 #include "settings_manager.h"
@@ -803,13 +804,14 @@ static std::unique_ptr<AmsBackend> try_create_mock(IMoonrakerClient* mock_client
                      mode);
         return nullptr;
     }
-    // multiACE on a U1: mock hardware the same way. MoonrakerClientMock seeds
-    // the `ace` + `filament_detect` objects and the engine-shaped frames, and
-    // the production AmsBackendMultiAce runs against them (pair with
+    // multiACE on a U1 and INDX: mock hardware the same way. MoonrakerClientMock
+    // seeds their objects and frames, and the production AmsBackendMultiAce /
+    // AmsBackendIndx run against them (multiACE pairs with
     // HELIX_MOCK_PRINTER=snapmaker_u1).
-    if (mode == "multiace") {
-        spdlog::info("[AMS Backend] HELIX_MOCK_AMS=multiace selects mock hardware, not a mock "
-                     "backend - deferring to real discovery");
+    if (mode == "multiace" || mode == "indx") {
+        spdlog::info("[AMS Backend] HELIX_MOCK_AMS={} selects mock hardware, not a mock "
+                     "backend - deferring to real discovery",
+                     mode);
         return nullptr;
     }
     // Personas that model firmware HelixScreen talks to through a production
@@ -856,6 +858,7 @@ bool AmsBackend::sensor_belongs_to_backend(AmsType type, const std::string& bare
 #endif
     case AmsType::ACE:
     case AmsType::TOOL_CHANGER:
+    case AmsType::INDX:
     case AmsType::SNAPMAKER:
     case AmsType::QIDI_BOX:
     case AmsType::OPENAMS:
@@ -876,6 +879,7 @@ nlohmann::json AmsBackend::required_status_objects(const helix::PrinterDiscovery
     merge(AmsBackendAfc::required_status_objects(hw));
     merge(AmsBackendHappyHare::required_status_objects(hw));
     merge(AmsBackendOpenAms::required_status_objects(hw));
+    merge(AmsBackendIndx::required_status_objects(hw));
 #if HELIX_HAS_IFS
     if (hw.mmu_type() == AmsType::AD5X_IFS) {
         for (const auto& name : AmsBackendAd5xIfs::required_status_objects(hw)) {
@@ -956,6 +960,15 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type, IMoonraker
         spdlog::debug("[AMS Backend] Creating Tool Changer backend");
         // Note: Caller must use set_discovered_tools() after creation to set tool names
         return std::make_unique<AmsBackendToolChanger>(api, client);
+
+    case AmsType::INDX:
+        if (!api || !client) {
+            spdlog::error("[AMS Backend] INDX requires IMoonrakerAPI and MoonrakerClient");
+            return nullptr;
+        }
+        spdlog::debug("[AMS Backend] Creating INDX backend");
+        // Sized and wired by set_discovery() before start()
+        return std::make_unique<AmsBackendIndx>(api, client);
 
     case AmsType::AD5X_IFS:
 #if HELIX_HAS_IFS
