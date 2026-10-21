@@ -2,6 +2,7 @@
 
 #include "tool_offsets.h"
 
+#include "indx_contract.h"
 #include "printer_discovery.h"
 
 #include <cmath>
@@ -28,7 +29,10 @@ struct Provider {
     /// at discovery, so no read has to scan the frame for it.
     std::optional<int> (*read)(const nlohmann::json& status, const std::string& store_object,
                                Axis axis, int tool_index, const std::string& tool_name);
-    /// Runtime write - takes effect now, not persisted.
+    /// The offset added to every tool's own; nullptr when the model keeps none.
+    std::optional<int> (*read_global_z)(const nlohmann::json& status);
+    /// Runtime write - takes effect now, not persisted. nullptr for a
+    /// read-only model, one the printer measures and writes itself.
     std::string (*set_gcode)(const PrinterDiscovery& hw, Axis axis, int tool_index, int microns);
     /// Durable write. Self-sufficient and idempotent after set_gcode().
     std::string (*save_gcode)(const PrinterDiscovery& hw, Axis axis, int tool_index, int microns);
@@ -173,6 +177,54 @@ std::string save_tool_offset_macro(const PrinterDiscovery& hw, Axis axis, int to
            "_gcode_z_offset VALUE=" + mm_literal(microns) + "\n" + runtime;
 }
 
+// --- Bondtech INDX: save_variables, written by its own calibration ---------
+//
+// INDX's calibration macros measure each tool against tool 0 and keep the
+// result in save_variables as t<n>_offset_x|y|z, plus a global_z_offset added
+// to every tool. Its tool-change macros apply them; nothing else writes them,
+// so the row is read-only.
+bool supports_axis_all(Axis /*axis*/) {
+    return true;
+}
+
+/// save_variables.variables, or nullptr.
+const nlohmann::json* save_variables(const nlohmann::json& status) {
+    const nlohmann::json* sv = status_object(status, "save_variables");
+    if (!sv) {
+        return nullptr;
+    }
+    auto it = sv->find("variables");
+    return it != sv->end() && it->is_object() ? &(*it) : nullptr;
+}
+
+std::optional<int> read_indx(const nlohmann::json& status, const std::string& /*store_object*/,
+                             Axis axis, int tool_index, const std::string& /*tool_name*/) {
+    const nlohmann::json* vars = save_variables(status);
+    if (!vars || tool_index < 0) {
+        return std::nullopt;
+    }
+    const std::string key = "t" + std::to_string(tool_index) + "_offset_" + axis_letter(axis);
+    auto it = vars->find(key);
+    if (it == vars->end()) {
+        return std::nullopt;
+    }
+    return to_microns(*it);
+}
+
+std::optional<int> read_global_z_indx(const nlohmann::json& status) {
+    const nlohmann::json* vars = save_variables(status);
+    if (!vars) {
+        return std::nullopt;
+    }
+    auto it = vars->find("global_z_offset");
+    if (it == vars->end()) {
+        return std::nullopt;
+    }
+    return to_microns(*it);
+}
+
+std::vector<std::string> status_objects_none(const PrinterDiscovery& /*hw*/);
+
 // --- viesturz/klipper-toolchanger -------------------------------------------
 //
 // Each `tool T<n>` object publishes gcode_x/y/z_offset, and ToolGcodeTransform
@@ -246,14 +298,20 @@ std::string save_toolchanger(const PrinterDiscovery& hw, Axis axis, int tool_ind
 
 const std::vector<Provider>& providers() {
     // Row order is match priority, as in z_offset_persistence.cpp. MedusaHC
-    // FIRST: it is a klipper-toolchanger printer too, so it matches both rows,
-    // and the second one would write a store its macros never read.
+    // before klipper-toolchanger: it is a klipper-toolchanger printer too, so
+    // it matches both rows, and the later one would write a store its macros
+    // never read.
+    // INDX's subscription already carries save_variables, so its row asks for
+    // nothing more.
     static const std::vector<Provider> table = {
+        {"INDX save_variables", &helix::indx::present, &supports_axis_all, &status_objects_none,
+         &read_indx, &read_global_z_indx, nullptr, nullptr, false},
         {"TOOL_OFFSET macro", &detect_tool_offset_macro, &supports_axis_tool_offset_macro,
-         &status_objects_tool_offset_macro, &read_tool_offset_macro, &set_tool_offset_macro,
-         &save_tool_offset_macro, false},
+         &status_objects_tool_offset_macro, &read_tool_offset_macro, nullptr,
+         &set_tool_offset_macro, &save_tool_offset_macro, false},
         {"klipper-toolchanger", &detect_toolchanger, &supports_axis_toolchanger,
-         &status_objects_none, &read_toolchanger, &set_toolchanger, &save_toolchanger, true},
+         &status_objects_none, &read_toolchanger, nullptr, &set_toolchanger, &save_toolchanger,
+         true},
     };
     return table;
 }
@@ -267,13 +325,24 @@ const Provider* match(const PrinterDiscovery& hw) {
     return nullptr;
 }
 
+/// The matched row when HelixScreen may write it, else nullptr.
+const Provider* match_writable(const PrinterDiscovery& hw) {
+    const Provider* p = match(hw);
+    return p != nullptr && p->set_gcode != nullptr ? p : nullptr;
+}
+
 } // namespace
 
 bool supports_per_tool_offsets(const PrinterDiscovery& hw) {
-    return match(hw) != nullptr;
+    return match_writable(hw) != nullptr;
 }
 
 bool supports_axis(const PrinterDiscovery& hw, Axis axis) {
+    const Provider* p = match_writable(hw);
+    return p != nullptr && p->supports_axis(axis);
+}
+
+bool reads_axis(const PrinterDiscovery& hw, Axis axis) {
     const Provider* p = match(hw);
     return p != nullptr && p->supports_axis(axis);
 }
@@ -313,9 +382,18 @@ std::optional<int> read_tool_offset_microns(const OffsetReader& reader,
     return p->read(status, reader.store_object, axis, tool_index, tool_name);
 }
 
+std::optional<int> read_global_z_offset_microns(const OffsetReader& reader,
+                                                const nlohmann::json& status) {
+    const Provider* p = reader.provider;
+    if (!p || !p->read_global_z) {
+        return std::nullopt;
+    }
+    return p->read_global_z(status);
+}
+
 std::string set_tool_offset_gcode(const PrinterDiscovery& hw, Axis axis, int tool_index,
                                   int microns) {
-    const Provider* p = match(hw);
+    const Provider* p = match_writable(hw);
     if (!p || !p->supports_axis(axis) || tool_index < 0) {
         return {};
     }
@@ -324,7 +402,7 @@ std::string set_tool_offset_gcode(const PrinterDiscovery& hw, Axis axis, int too
 
 std::string save_tool_offset_gcode(const PrinterDiscovery& hw, Axis axis, int tool_index,
                                    int microns) {
-    const Provider* p = match(hw);
+    const Provider* p = match_writable(hw);
     if (!p || !p->supports_axis(axis) || tool_index < 0) {
         return {};
     }
