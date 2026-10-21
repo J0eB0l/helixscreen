@@ -111,9 +111,20 @@ struct BuildVolume {
     float plate_x_max = 0.0f;
     float plate_y_min = 0.0f;
     float plate_y_max = 0.0f;
+
+    /// Printable size along X and Y, for display and reporting: the declared bed
+    /// where the firmware states one, else printable_axis_span() of the travel.
+    float printable_x() const;
+    float printable_y() const;
 };
 
 namespace helix {
+/// Printable span of one travel range. A negative minimum that is small next to
+/// the maximum is endstop overtravel (a Y endstop 14mm behind the bed homes to -14),
+/// not room to print in, so the span starts at 0. A centre-origin range (a delta's
+/// -100..100) keeps its full extent.
+float printable_axis_span(float min, float max);
+
 /// Klipper's probe x_offset/y_offset: the probe's position relative to the nozzle.
 struct ProbeXYOffset {
     double x = 0.0;

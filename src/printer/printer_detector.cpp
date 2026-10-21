@@ -46,6 +46,21 @@ using namespace helix;
 
 namespace hfs = helix::fs;
 
+float helix::printable_axis_span(float min, float max) {
+    if (min < 0.0f && -min * 2.0f < max) {
+        return max;
+    }
+    return max - min;
+}
+
+float BuildVolume::printable_x() const {
+    return declared_bed_x > 0.0f ? declared_bed_x : printable_axis_span(x_min, x_max);
+}
+
+float BuildVolume::printable_y() const {
+    return declared_bed_y > 0.0f ? declared_bed_y : printable_axis_span(y_min, y_max);
+}
+
 // ============================================================================
 // JSON Database Loader with User Extensions Support
 // ============================================================================

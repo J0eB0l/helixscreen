@@ -1017,7 +1017,7 @@ download_step() {
 # a step with nothing to do is skipped only under the same conditions that
 # left it out of the count, or the [n/N] numbering is wrong.
 apply_install() {
-    local uis seed_pid
+    local uis stopping seed_pid
 
     if [ "${platform:-}" = "x86-desktop" ]; then
         apply_desktop_install
@@ -1049,7 +1049,8 @@ apply_install() {
     # names what detection found; without a find the step stays hidden
     # unless the platform half fails.
     uis="${COMPETING_UIS_FOUND:-}"
-    step "Stopping ${uis:-the stock screen}" "Stopped ${uis:-the stock screen}"
+    stopping=$(stop_step_noun)
+    step "Stopping $stopping" "Stopped $stopping"
     configure_platform
     INSTALL_STOPPED="${INSTALL_STOPPED:-}${uis:+ $uis}"
     stop_competing_uis

@@ -55,11 +55,11 @@
   - Tabs and newlines inside title/detail become single spaces.
 - Human output is unchanged (still on stderr).
 
-- [ ] **Step 1: Write failing bats tests** covering: `--progress` emits exactly one `platform` line; every `step ... start` is followed by exactly one terminal status for the same `n`; a forced failure (existing test hooks used by `test_install_e2e.bats`) ends with `result fail` and a reason; without `--progress` stdout has no `HELIX-PROGRESS` line; a title containing a tab is flattened.
-- [ ] **Step 2: Run** `make test-shell` (or `bats tests/shell/test_installer_progress.bats`); expect FAIL.
-- [ ] **Step 3: Implement** a single `_progress_emit` helper in `common.sh` called from the step functions and `main.sh`; gate on `PROGRESS=1`.
-- [ ] **Step 4: Run** the new file plus `test_install_e2e.bats` and `test_installer_step_reachability_gate.bats`; expect PASS.
-- [ ] **Step 5: Commit** with `git commit -- <paths>` (shared main tree rules), then `make full-test-run` once at the end of the milestone.
+- [x] **Step 1: Write failing bats tests** covering: `--progress` emits exactly one `platform` line; every `step ... start` is followed by exactly one terminal status for the same `n`; a forced failure (existing test hooks used by `test_install_e2e.bats`) ends with `result fail` and a reason; without `--progress` stdout has no `HELIX-PROGRESS` line; a title containing a tab is flattened.
+- [x] **Step 2: Run** `make test-shell` (or `bats tests/shell/test_installer_progress.bats`); expect FAIL.
+- [x] **Step 3: Implement** a single `_progress_emit` helper in `common.sh` called from the step functions and `main.sh`; gate on `PROGRESS=1`.
+- [x] **Step 4: Run** the new file plus `test_install_e2e.bats` and `test_installer_step_reachability_gate.bats`; expect PASS.
+- [x] **Step 5: Commit** with `git commit -- <paths>` (shared main tree rules), then `make full-test-run` once at the end of the milestone.
 
 ---
 
@@ -74,11 +74,11 @@
 **Interfaces:**
 - Produces: `helix_installer_core` crate with no Tauri dependency; `helix_installer_app` depends on it.
 
-- [ ] **Step 1:** Confirm repo creation with Preston, then `gh repo create prestonbrown/helix-installer --public`.
-- [ ] **Step 2:** Scaffold with `cargo create-tauri-app` (Svelte + TS), move Rust into `crates/app`, add `crates/core`.
-- [ ] **Step 3:** CI matrix `ubuntu-latest, macos-latest, windows-latest`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace`, `npm ci && npm run check` in `ui/`. Linux job installs `libwebkit2gtk-4.1-dev`.
-- [ ] **Step 4:** Smoke test asserts the core crate links; push; CI green on all three.
-- [ ] **Step 5:** Commit.
+- [x] **Step 1:** Confirm repo creation with Preston, then `gh repo create prestonbrown/helix-installer --public`.
+- [x] **Step 2:** Scaffold with `cargo create-tauri-app` (Svelte + TS), move Rust into `crates/app`, add `crates/core`.
+- [x] **Step 3:** CI matrix `ubuntu-latest, macos-latest, windows-latest`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace`, `npm ci && npm run check` in `ui/`. Linux job installs `libwebkit2gtk-4.1-dev`.
+- [x] **Step 4:** Smoke test asserts the core crate links; push; CI green on all three.
+- [x] **Step 5:** Commit.
 
 ### Task 3: Facts and firmware version ranges
 
@@ -91,9 +91,9 @@
   - `pub type Facts = BTreeMap<String, serde_json::Value>;`
   - `pub struct FwVersion(Vec<u32>)` with `pub fn parse(s: &str) -> Option<FwVersion>`: accepts dotted numerics, strips a leading `v`/`V`, ignores a `-suffix` (`5.1.7-beta` parses as 5.1.7). Anything else is `None`.
   - `pub struct VersionRange` with `pub fn parse(s: &str) -> Result<VersionRange, RangeError>` and `pub fn matches(&self, v: &FwVersion) -> bool`. Grammar: alternatives split by `||`; each alternative is space-separated comparators ANDed; comparator is `>=|<=|>|<|=` plus a version, or a bare version meaning `=`; a final `x` component is a wildcard (`5.1.x`). Comparison pads the shorter version with zeros.
-- [ ] **Step 1: Failing tests:** `1.3.3.5 < 1.3.3.46`; `3.1.10 > 3.1.9`; `V1.2.3 == 1.2.3`; `5.1.7-beta` matches `5.1.x`; `">=1.1.7 <=1.2.3 || 3.0.3 || 3.0.9 || 3.1.0"` matches `1.2.0` and `3.0.9`, not `3.0.4` or `3.1.4`; `"2.6.5"` padded equals `2.6.5.0`; `parse("abc")`, `parse("")`, `parse("1..2")` are `None`; `VersionRange::parse(">= 1.2")` (space after operator) is an error, not a silent match-all.
-- [ ] **Steps 2-4:** run `cargo test -p helix_installer_core --test version` (FAIL), implement, run (PASS).
-- [ ] **Step 5:** Commit.
+- [x] **Step 1: Failing tests:** `1.3.3.5 < 1.3.3.46`; `3.1.10 > 3.1.9`; `V1.2.3 == 1.2.3`; `5.1.7-beta` matches `5.1.x`; `">=1.1.7 <=1.2.3 || 3.0.3 || 3.0.9 || 3.1.0"` matches `1.2.0` and `3.0.9`, not `3.0.4` or `3.1.4`; `"2.6.5"` padded equals `2.6.5.0`; `parse("abc")`, `parse("")`, `parse("1..2")` are `None`; `VersionRange::parse(">= 1.2")` (space after operator) is an error, not a silent match-all.
+- [x] **Steps 2-4:** run `cargo test -p helix_installer_core --test version` (FAIL), implement, run (PASS).
+- [x] **Step 5:** Commit.
 
 ### Task 4: Manifest model and signature
 
@@ -112,8 +112,8 @@
   - `pub enum Step` (serde tag `type`): `Info{text, image}`, `UserAction{text, image, verify: Option<Probe>}`, `Ask{fact, question, choices: Vec<Choice>}`, `Probe(Probe)`, `Require{fact, range, doc}`, `Download{artifact}`, `WriteStick{artifacts: Vec<String>, rename: BTreeMap<String,String>}`, `WaitFor{target: WaitTarget, timeout_s, message, help}`, `SshLogin{logins: Vec<Login>, ask_if_failed: bool}`, `SshRun{command, timeout_s}`, `MoonrakerGcode{script}`, `MoonrakerUpdate{name}`, `HelixInstall{platform: PlatformSel, update: bool, dir: Option<String>}`, every variant also carrying `#[serde(default)] commits: bool` (marks the point of no return).
   - `pub fn verify_and_parse(bytes: &[u8], sig: &str, pubkey: &str, app_version: &str) -> Result<Manifest, ManifestError>`; errors: `BadSignature`, `TooNew{min_app_version}`, `Malformed(String)`.
   - `pub struct ManifestCache { dir: PathBuf }` with `load(now) -> Option<Manifest>` returning only a validly signed manifest fetched under 30 days ago, and `store(bytes, sig, now)`.
-- [ ] **Step 1: Failing tests:** good signature parses; one flipped byte fails `BadSignature`; `min_app_version` above the running version fails `TooNew`; an unknown step `type` fails `Malformed` (never ignored); cache returns `None` at 30 days + 1 s and `Some` at 29 days; a cached file with a broken signature returns `None`.
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests:** good signature parses; one flipped byte fails `BadSignature`; `min_app_version` above the running version fails `TooNew`; an unknown step `type` fails `Malformed` (never ignored); cache returns `None` at 30 days + 1 s and `Some` at 29 days; a cached file with a broken signature returns `None`.
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 5: Identification
 
@@ -129,8 +129,8 @@
   - A printer nothing on the network can see (a rooted-stock K1 has no Moonraker) is identified from the fact `user_model`, set when the user picks it from the model grid.
   - `pub enum Identified { Recipe{printer_id: String, state: StartState, recipe_id: String}, Ambiguous{candidates: Vec<String>}, Refuse{printer_id: Option<String>, doc: String, reason: String} }`
   - `pub fn identify(m: &Manifest, f: &Facts) -> Identified`. A printer matches when every key/value of any one of its `identify` rules equals the fact. Zero printers match: `Refuse` with the generic doc. Two or more: `Ambiguous` (UI asks). Then the first `RecipeChoice` whose every `when` key matches wins; a version key whose fact is missing or unparseable does not match. No choice matches: the printer's `fallback`.
-- [ ] **Step 1: Failing tests** with probe fixtures for: K1 rooted stock (no Moonraker), K1 with Simple AF, K2 stock, Q2, Max 4, MainsailOS Pi 5, AD5X stock 3.1.4 (refuse in v1), AD5X with ZMOD, AD5M stock 3.1.5, any printer with `helix_installed` (upgrade recipe). Plus: a fact matching two printers gives `Ambiguous`; a `stock_version` of `"unknown"` refuses; `user_model=k1` with no network facts gives the K1 stock recipe; a `contains` rule matches only list facts.
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests** with probe fixtures for: K1 rooted stock (no Moonraker), K1 with Simple AF, K2 stock, Q2, Max 4, MainsailOS Pi 5, AD5X stock 3.1.4 (refuse in v1), AD5X with ZMOD, AD5M stock 3.1.5, any printer with `helix_installed` (upgrade recipe). Plus: a fact matching two printers gives `Ambiguous`; a `stock_version` of `"unknown"` refuses; `user_model=k1` with no network facts gives the K1 stock recipe; a `contains` rule matches only list facts.
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 6: Manifest lint
 
@@ -141,7 +141,7 @@
 **Interfaces:**
 - Produces: `pub fn lint(m: &Manifest, asset_root: &Path) -> Vec<LintError>`; binary exits 1 on any error and prints one line each.
 - Rules: every artifact has a 64-hex sha256 and an https URL; every printer has `fallback.refuse == true` with a doc URL, and a `restore` naming an existing recipe; every recipe and artifact referenced exists; every `image`/`photo` file exists under `asset_root`; every recipe ends in a step that leaves the run done or refused (last step is not `Info`-only padding: allowed terminals are `WaitFor` on a HelixScreen service, `HelixInstall`, `MoonrakerUpdate`, or `Require`); each printer's `RecipeChoice` list has no two choices that can both match the same facts (checked over the cross product of exact values and range boundary versions); at most one step per recipe has `commits: true`; a printer without `verified` fails lint unless `--allow-unverified`.
-- [ ] **Steps 1-5:** one failing test per rule (a manifest violating only that rule), implement, pass, commit.
+- [x] **Steps 1-5:** one failing test per rule (a manifest violating only that rule), implement, pass, commit.
 
 ### Task 7: Transport traits and fakes
 
@@ -158,7 +158,7 @@
   - `trait Fetch { async fn get(&self, url: &str, dest: &Path, progress: &dyn Fn(u64, Option<u64>)) -> Result<()>; async fn get_text(&self, url: &str) -> Result<String>; }`
   - `pub struct Env { pub moonraker: Arc<dyn Moonraker>, pub ssh: Arc<dyn Ssh>, pub drives: Arc<dyn Drives>, pub fetch: Arc<dyn Fetch>, pub clock: Arc<dyn Clock> }`
   - Fakes: `FakeMoonraker` (per-host canned JSON, records gcode calls), `FakeSsh` (per-login accept/reject, a scripted command table, a `drop_after(n)` knob that kills the session mid-job), `FakeDrives`, `FakeFetch` (serves bytes from a map), `FakeClock`.
-- [ ] **Steps 1-5:** tests that each fake records and replays what later tasks need; commit.
+- [x] **Steps 1-5:** tests that each fake records and replays what later tasks need; commit.
 
 ### Task 8: Download and cache
 
@@ -168,8 +168,8 @@
 
 **Interfaces:**
 - Produces: `pub async fn fetch_artifact(env: &Env, a: &Artifact, cache_dir: &Path) -> Result<PathBuf, DownloadError>`; `DownloadError::{Network, HashMismatch{expected, got}}`. A cached file is re-hashed before reuse; a mismatching partial or cached file is deleted.
-- [ ] **Step 1: Failing tests:** wrong bytes give `HashMismatch` and leave no file; a correct cached file is reused without a fetch; a corrupted cached file is refetched.
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests:** wrong bytes give `HashMismatch` and leave no file; a correct cached file is reused without a fetch; a corrupted cached file is refetched.
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 9: Runner
 
@@ -186,8 +186,8 @@
   - `pub enum Event { NeedInput(Prompt), Progress{step: usize, total: usize, title: String, detail: Option<String>, fraction: Option<f32>}, Done, Refused{doc: String, reason: String}, Failed{committed: bool, step: usize, reason: String, help: Option<String>} }`
   - `pub struct Runner` with `pub fn new(env, manifest, state) -> Runner`, `pub async fn advance(&mut self, input: Option<Input>) -> Event`, `pub fn save(&self, dir: &Path) -> io::Result<()>`, `pub fn load(dir: &Path, run_id: &str) -> io::Result<RunState>`, `pub fn list_unfinished(dir: &Path) -> Vec<RunState>`.
   - After a `commits: true` step completes, every subsequent `Probe` result for `model` or `serial` is compared with the facts recorded before the commit; a difference is `Failed{committed: true}` with "this is not the printer the install started on".
-- [ ] **Step 1: Failing tests:** a 3-step recipe of `Info`, `Require` (pass) and `WaitFor` against fakes reaches `Done`; a failing `Require` before any commit gives `Refused` with the doc URL; a `WaitFor` timeout after a commit gives `Failed{committed: true}` with the step's help text; state saved after step 2 and loaded into a new `Runner` resumes at step 3; `list_unfinished` returns it; the saved JSON contains no field named or containing `password`; a model change after commit fails as above.
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests:** a 3-step recipe of `Info`, `Require` (pass) and `WaitFor` against fakes reaches `Done`; a failing `Require` before any commit gives `Refused` with the doc URL; a `WaitFor` timeout after a commit gives `Failed{committed: true}` with the step's help text; state saved after step 2 and loaded into a new `Runner` resumes at step 3; `list_unfinished` returns it; the saved JSON contains no field named or containing `password`; a model change after commit fails as above.
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 10: Discovery
 
@@ -202,8 +202,8 @@
   - `pub fn parse_flashforge_reply(bytes: &[u8]) -> Option<Facts>` setting `flashforge_udp.model`, `serial`.
   - Facts from Moonraker: `has_moonraker`, `klipper_hostname`, `cpu_arch`, `os_distribution`, `klipper_objects` (list, from `printer.objects.list`), `services` (list, `machine.system_info` `available_services`), `helix_installed`/`helix_version` (from the update_manager entry `helixscreen`, else `helixscreen` in `services`).
   - `pub fn manual_host(ip: &str) -> Result<Host>` for typing an IP.
-- [ ] **Step 1: Failing tests:** parse a captured 276-byte FlashForge reply (fixture from `GhostTypes/ff-5mp-api-py` test data or our own capture in Task 18); a truncated reply is `None`; one printer seen by mDNS and by the sweep on the same IP, and a printer seen on two IPs with the same serial, each yield one candidate; Moonraker 404 on update_manager still yields `has_moonraker=true`.
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests:** parse a captured 276-byte FlashForge reply (fixture from `GhostTypes/ff-5mp-api-py` test data or our own capture in Task 18); a truncated reply is `None`; one printer seen by mDNS and by the sweep on the same IP, and a printer seen on two IPs with the same serial, each yield one candidate; Moonraker 404 on update_manager still yields `has_moonraker=true`.
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 11: SSH transport
 
@@ -217,8 +217,8 @@
 - `spawn_detached(cmd, sudo)` runs `setsid sh -c '<cmd>; echo "HELIX-EXIT $?"' > <log> 2>&1 < /dev/null &` (falls back to `nohup` when `setsid` is missing) under `/tmp/helix-installer-<id>.log`; with `sudo` it prefixes `sudo -S -p ''` and writes the password plus newline to stdin. If sudo answers "you must have a tty", it retries once with a PTY.
 - `read_job` reads from the byte offset with `tail -c +<n>`; `exit` is set when the `HELIX-EXIT` line arrives.
 - Login policy lives in the `SshLogin` step (Task 15), not here: one `connect` per credential.
-- [ ] **Step 1: Failing tests:** upload of 5 MB round-trips byte-exact; a dropped connection during a job, then a new session's `read_job`, still sees the `HELIX-EXIT 0` line; sudo password goes through stdin (the test server's command log never contains it); a wrong password returns `AuthFailed` (not `Other`).
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests:** upload of 5 MB round-trips byte-exact; a dropped connection during a job, then a new session's `read_job`, still sees the `HELIX-EXIT 0` line; sudo password goes through stdin (the test server's command log never contains it); a wrong password returns `AuthFailed` (not `Other`).
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 12: `helix_install`, `ssh_run`, `moonraker_*` steps
 
@@ -232,8 +232,8 @@
   - `pub fn parse_progress_line(line: &str) -> Option<ProgressEvent>`; `ProgressEvent::{Platform(String), Step{n, total, status, title, detail}, Result{ok: bool, reason: Option<String>}}`.
   - `PlatformSel` is either a fixed platform (`"k1"`) or `{ "from_arch": {"aarch64": "pi", "armv7l": "pi32"} }` resolved from the `cpu_arch` fact.
   - `helix_install` fetches `https://releases.helixscreen.org/stable/manifest.json`, takes `assets.<platform>.zip_url` and `zip_sha256`, downloads the zip and `https://releases.helixscreen.org/install.sh` on the PC, uploads both to a writable dir the recipe names (default `/tmp`; AD5M recipes use `/data`), runs `sh <dir>/install.sh --local <dir>/helixscreen-<platform>.zip --progress [--update]` detached, and maps progress lines to `Event::Progress`. Success requires `result ok` and the installer's reported platform equal to the chosen one.
-- [ ] **Step 1: Failing tests:** progress parser round-trips every line form and rejects garbage; platform mismatch (`pi` chosen, installer says `pi32`) fails; `result fail` surfaces the reason; a job that dies without a `result` line after its log stops growing for the step timeout fails as a timeout, not success.
-- [ ] **Steps 2-5:** fail, implement, pass, commit.
+- [x] **Step 1: Failing tests:** progress parser round-trips every line form and rejects garbage; platform mismatch (`pi` chosen, installer says `pi32`) fails; `result fail` surfaces the reason; a job that dies without a `result` line after its log stops growing for the step timeout fails as a timeout, not success.
+- [x] **Steps 2-5:** fail, implement, pass, commit.
 
 ### Task 13: Drives and `write_stick`
 
@@ -244,9 +244,9 @@
 **Interfaces:**
 - `drives_sys` uses `sysinfo::Disks` for mount, filesystem, size and the removable flag, and marks `system: true` for the disk holding the OS root, the user's home or the app's own directory. Platform eject: macOS `diskutil eject`, Linux `udisksctl unmount` + `power-off`, Windows `ShellExecute` of the Eject verb via PowerShell `(New-Object -comObject Shell.Application).Namespace(17).ParseName('<X:>').InvokeVerb('Eject')`. If `sysinfo`'s removable flag proves wrong on a platform, port the matching check from Raspberry Pi Imager's `drivelist` (Apache-2.0) with attribution.
 - `write_stick` lists only `removable && !system` drives, refuses non-FAT32 (`vfat`, `msdos`, `FAT32` spellings) and too little free space, copies each artifact under its `rename` name, verifies sha256 of the copied file, and ejects.
-- [ ] **Step 1: Failing tests:** a non-removable drive and a removable drive marked `system` never appear in `ChooseDrive`; exFAT and NTFS sticks refuse with the "reformat as FAT32" help; a stick 1 byte too small refuses before copying; the copy is verified by hash; the Pro rename applies.
+- [x] **Step 1: Failing tests:** a non-removable drive and a removable drive marked `system` never appear in `ChooseDrive`; exFAT and NTFS sticks refuse with the "reformat as FAT32" help; a stick 1 byte too small refuses before copying; the copy is verified by hash; the Pro rename applies.
 - [ ] **Step 2-4:** fail, implement, pass. Manual: run the `drives-probe` debug binary on Windows, macOS and Linux with a stick inserted; record output in the PR.
-- [ ] **Step 5:** Commit.
+- [x] **Step 5:** Commit.
 
 ### Task 14: Support bundle
 
@@ -256,7 +256,7 @@
 
 **Interfaces:**
 - Produces: `pub fn support_bundle(state: &RunState, job_logs: &[String], mask: bool) -> String` (plain text). Strips anything matching a login password seen in the run, masks IPv4/IPv6, MACs and the `serial` fact unless `mask` is false.
-- [ ] **Steps 1-5:** tests with a log containing a password, an IP, a MAC and a serial; fail, implement, pass, commit.
+- [x] **Steps 1-5:** tests with a log containing a password, an IP, a MAC and a serial; fail, implement, pass, commit.
 
 ### Task 15: `ssh_login` step
 
@@ -266,7 +266,7 @@
 
 **Interfaces:**
 - Tries each `Login` in order once; on `AuthFailed` for all, emits `Prompt::Login` if `ask_if_failed`, else `Failed`. A user-supplied login gets three tries, then `Failed` with the recipe's help. Sets fact `ssh_user` and `needs_sudo` (`id -u` is not 0). The password is held in memory on the `Runner` only.
-- [ ] **Steps 1-5:** tests: first default wins; second default wins; both fail then prompt; three wrong user logins stop; `needs_sudo` set for a non-root user; fail, implement, pass, commit.
+- [x] **Steps 1-5:** tests: first default wins; second default wins; both fail then prompt; three wrong user logins stop; `needs_sudo` set for a non-root user; fail, implement, pass, commit.
 
 ### Task 16: UI
 
@@ -277,7 +277,7 @@
 **Interfaces:**
 - Tauri commands: `discover() -> Vec<CandidateView>`, `start_run(candidate_key, printer_id?) -> RunId`, `advance(run_id, input?) -> Event`, `unfinished_runs() -> Vec<RunSummary>`, `export_bundle(run_id, mask) -> String`, `add_manual_host(ip) -> CandidateView`.
 - Screens: printer picker (discovered printers plus "My printer isn't listed", which shows the model grid and an IP field); one screen per `Prompt`; a progress screen; recovery mode when `Failed{committed: true}` (names the state, the next action, the support bundle button, never "something went wrong"); a resume banner on launch when `unfinished_runs` is non-empty.
-- [ ] **Steps 1-5:** api tests for each command's error mapping; a full run against fakes driven from `crates/app/tests`; commit. Screenshot each screen at 1280x800 and 1024x640 for review.
+- [x] **Steps 1-5:** api tests for each command's error mapping; a full run against fakes driven from `crates/app/tests`; commit. Screenshot each screen at 1280x800 and 1024x640 for review.
 
 ### Task 17: Record mode
 
@@ -287,7 +287,7 @@
 
 **Interfaces:**
 - `pub fn record(candidate: &Candidate, probes: &[(String, Value)]) -> String` writes JSON identical in shape to the Task 5 fixtures, with the same masking as the support bundle except `model`, firmware version facts and `cpu_arch`.
-- [ ] **Steps 1-5:** a recorded fixture round-trips through `identify`; commit.
+- [x] **Steps 1-5:** a recorded fixture round-trips through `identify`; commit.
 
 ---
 
@@ -300,7 +300,7 @@ Each task: write the manifest entry and screenshots, run the lint, run the recip
 **Files:**
 - Create: `manifest/manifest.json`, `manifest/img/`, `.github/workflows/manifest.yml`
 - Interfaces: CI runs `manifest-lint`, then signs with the key in the `MANIFEST_SIGNING_KEY` secret (environment with required reviewer: Preston), and uploads `manifest.json` + `.minisig` + `img/` to `releases.helixscreen.org/installer/`.
-- [ ] Steps: lint gate on PRs, sign-and-publish only on `main`, generate the production key offline and commit only the public key into `crates/core/src/keys.rs`; commit.
+- [x] Steps: lint gate on PRs, sign-and-publish only on `main`, generate the production key offline and commit only the public key into `crates/core/src/keys.rs`; commit.
 
 ### Task 19: Generic Klipper host and QIDI recipes
 
@@ -343,4 +343,4 @@ Each task: write the manifest entry and screenshots, run the lint, run the recip
 
 - helixscreen.org/installer page choosing the file by OS. `docs/user/INSTALL.md` gets an "Easy installer" section first in Quick Start; each printer guide gets one line pointing at it.
 - Per `docs/CLAUDE.md`, when the app ships delete this plan and the design spec, moving durable facts into the installer repo's README and `docs/devel/INSTALLER.md`.
-- [ ] Steps: write, review, commit.
+- [x] Steps: write, review, commit.

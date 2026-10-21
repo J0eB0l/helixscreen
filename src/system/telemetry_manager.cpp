@@ -1547,8 +1547,8 @@ nlohmann::json TelemetryManager::build_session_event() const {
         const auto& bv = hw.build_volume();
         if (bv.x_max > 0 && bv.y_max > 0) {
             // Format as "XxYxZ" using integer dimensions
-            std::string vol = std::to_string(static_cast<int>(bv.x_max - bv.x_min)) + "x" +
-                              std::to_string(static_cast<int>(bv.y_max - bv.y_min));
+            std::string vol = std::to_string(static_cast<int>(bv.printable_x())) + "x" +
+                              std::to_string(static_cast<int>(bv.printable_y()));
             if (bv.z_max > 0) {
                 vol += "x" + std::to_string(static_cast<int>(bv.z_max));
             }
@@ -2060,8 +2060,8 @@ nlohmann::json TelemetryManager::build_hardware_profile_event() const {
             const auto& bv = api ? api->hardware().build_volume() : hw.build_volume();
             if (bv.x_max > 0 && bv.y_max > 0) {
                 json build_volume;
-                build_volume["x_mm"] = static_cast<int>(bv.x_max - bv.x_min);
-                build_volume["y_mm"] = static_cast<int>(bv.y_max - bv.y_min);
+                build_volume["x_mm"] = static_cast<int>(bv.printable_x());
+                build_volume["y_mm"] = static_cast<int>(bv.printable_y());
                 build_volume["z_mm"] = static_cast<int>(bv.z_max);
                 event["build_volume"] = build_volume;
             }
