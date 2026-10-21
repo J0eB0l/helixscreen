@@ -1634,7 +1634,8 @@ position is not clog detection and never reaches these subjects; see
 **Last: a plain Klipper `filament_motion_sensor`** (`ClogMeterMode::Motion`, #1823),
 used only when the backend reports none of the three, whatever the override says,
 so it also covers printers with no AMS at all. `FilamentSensorManager::clog_motion_sensor()`
-picks it among the motion sensors enabled in Settings > Filament sensors: the one on
+picks it among the motion sensors Settings > Filament sensors lists and has enabled (AMS-owned
+sensors, `PrinterHardware::is_ams_sensor()`, are excluded): the one on
 the active lane, else the first one Klipper has armed, else the first. It is a state,
 not a gauge (`kMotion*Value`): moving is OK with an empty fill, a jam is the warning
 flag with a full fill, and a sensor Klipper has disarmed reads `ClogMeterStatus::Off`.

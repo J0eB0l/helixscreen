@@ -19,6 +19,7 @@
 #include "clog_meter_geometry.h"
 #include "filament_sensor_manager.h"
 #include "panel_widget_registry.h"
+#include "printer_discovery.h"
 #include "printer_state.h"
 
 #include <string>
@@ -112,14 +113,29 @@ std::string text(lv_subject_t* subject) {
     return lv_subject_get_string(subject);
 }
 
-/// No AMS backend, the meter observing the sensor manager the way
-/// SubjectInitializer wires it, and every singleton put back afterwards.
+/// A discovery from printer.objects.list names.
+helix::PrinterDiscovery discovery_of(std::initializer_list<const char*> objects) {
+    helix::PrinterDiscovery hw;
+    nlohmann::json list = nlohmann::json::array();
+    for (const char* o : objects) {
+        list.push_back(o);
+    }
+    hw.parse_objects(list);
+    return hw;
+}
+
+/// No AMS backend on a printer with no MMU, the meter observing the sensor
+/// manager the way SubjectInitializer wires it, and every singleton put back
+/// afterwards.
 struct MotionSensorFixture : LVGLTestFixture {
     AmsState& ams = AmsState::instance();
     FilamentSensorManager& fsm = FilamentSensorManager::instance();
+    helix::PrinterDiscovery saved_discovery;
 
     MotionSensorFixture() {
         get_printer_state().init_subjects(false);
+        saved_discovery = get_printer_state().get_discovery();
+        get_printer_state().set_hardware(discovery_of({"extruder", "heater_bed", "gcode_move"}));
         ams.init_subjects(false);
         ams.clear_backends();
         fsm.init_subjects();
@@ -132,6 +148,7 @@ struct MotionSensorFixture : LVGLTestFixture {
         FilamentSensorManagerTestAccess::reset(fsm);
         ams.set_source_override(0);
         AmsStateTestAccess::sync_clog_meter(ams, AmsSystemInfo{});
+        get_printer_state().set_hardware(saved_discovery);
         helix::ui::UpdateQueue::instance().drain();
     }
 
@@ -299,6 +316,23 @@ TEST_CASE_METHOD(MotionSensorFixture, "clog meter: which motion sensors make the
         AmsStateTestAccess::sync_clog_meter(ams, AmsSystemInfo{});
         CHECK(mode(ams) == static_cast<int>(ClogMeterMode::Motion));
         CHECK(status() == static_cast<int>(ClogMeterStatus::Ok));
+    }
+
+    SECTION("an AMS-named motion sensor is not one Settings lists") {
+        constexpr const char* kLane = "filament_motion_sensor lane1";
+        discover({kLane});
+        feed(motion_frame(kLane, true, true));
+        CHECK(mode(ams) == 0);
+    }
+
+    SECTION("a sensor an AMS backend owns is not one Settings lists") {
+        constexpr const char* kToolhead = "filament_motion_sensor toolhead";
+        get_printer_state().set_hardware(discovery_of(
+            {"mmu", "mmu_encoder mmu_encoder", "extruder", "heater_bed", "gcode_move"}));
+        discover({kToolhead});
+        feed(motion_frame(kToolhead, false, true));
+        AmsStateTestAccess::sync_clog_meter(ams, AmsSystemInfo{});
+        CHECK(mode(ams) == 0); // clog_meter_mode is the tile's gate: not placeable
     }
 
     SECTION("nothing discovered, nothing to show") {

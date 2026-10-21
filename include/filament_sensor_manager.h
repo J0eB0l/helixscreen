@@ -424,8 +424,9 @@ class FilamentSensorManager {
     /**
      * @brief The motion sensor that watches for jams, for the clog meter
      *
-     * Only motion sensors the user has enabled (with the master switch on) and
-     * that Klipper reports are candidates. Among them: the one whose lane is
+     * Only motion sensors Settings lists (not AMS-owned), that the user has
+     * enabled (with the master switch on) and that Klipper reports are
+     * candidates. Among them: the one whose lane is
      * @p active_lane, else the first one Klipper has armed, else the first.
      *
      * @param active_lane Loaded slot or tool, -1 when none

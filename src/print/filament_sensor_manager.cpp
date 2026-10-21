@@ -14,6 +14,7 @@
 #include "json_utils.h"
 #include "print_lifecycle_state.h"
 #include "printer_discovery.h"
+#include "printer_hardware.h"
 #include "printer_state.h"
 #include "spdlog/fmt/fmt.h"
 #include "spdlog/spdlog.h"
@@ -960,11 +961,16 @@ std::optional<ClogMotionSensor> FilamentSensorManager::clog_motion_sensor(int ac
         return std::nullopt;
     }
 
+    // An AMS-owned sensor is hidden from Settings > Filament sensors, so the
+    // user cannot have enabled it there, and its backend may run it as a
+    // presence switch outside a print, where an empty head would read jammed.
+    const auto& discovery = get_printer_state().get_discovery();
     const FilamentSensorConfig* first = nullptr;
     const FilamentSensorConfig* first_armed = nullptr;
     const FilamentSensorConfig* on_lane = nullptr;
     for (const auto& sensor : sensors_) {
-        if (sensor.type != FilamentSensorType::MOTION || !sensor.enabled) {
+        if (sensor.type != FilamentSensorType::MOTION || !sensor.enabled ||
+            PrinterHardware::is_ams_sensor(sensor.sensor_name, discovery)) {
             continue;
         }
         const auto* st = sensors_.state(sensor.klipper_name);
