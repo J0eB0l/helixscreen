@@ -89,6 +89,15 @@ using ConfigDownloadFn =
 /// completion callback returns, so the walk can hold one more than this.
 inline constexpr size_t kMaxConfigDownloadsInFlight = 4;
 
+/// A ConfigDownloadFn that fetches through @p api, always from the main thread.
+/// The walk asks for each next file from the previous download's completion, on
+/// a background thread, and printer teardown destroys the API on the main thread
+/// without draining those; on the main thread @p api's lifetime token proves it
+/// still alive. Once the API is gone, or @p still_wanted (run on the main thread)
+/// returns false, the request fails without touching @p api.
+[[nodiscard]] ConfigDownloadFn api_config_download(IMoonrakerAPI& api,
+                                                   std::function<bool()> still_wanted = {});
+
 /// Download @p root_file and every file its [include] chain reaches, following
 /// globs against @p listing (every path in the config root) and paths relative
 /// to the including file. Files outside the chain are never fetched. A download
@@ -103,9 +112,8 @@ void download_include_graph(std::vector<std::string> listing, const std::string&
 
 /// Lists the "config" root through @p api, then download_include_graph() from
 /// @p root_file over every listed file whose name ends in @p suffix ("" keeps
-/// every file). Each file is fetched with @p download, or through @p api when
-/// it is empty; the download runs on whatever thread the previous completion
-/// arrived on, so a caller whose API can be torn down mid-walk supplies its own.
+/// every file). Each file is fetched with @p download, or with
+/// api_config_download(@p api) when it is empty.
 void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_file,
                                    const std::string& suffix,
                                    ActiveFilesWithContentCallback on_complete,

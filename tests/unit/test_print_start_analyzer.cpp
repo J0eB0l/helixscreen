@@ -1,9 +1,14 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_update_queue.h"
+
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
 #include "moonraker_types.h"
 #include "operation_patterns.h"
 #include "print_start_analyzer.h"
+#include "printer_state.h"
 
 #include <algorithm> // for std::find
 #include <map>
@@ -1059,4 +1064,27 @@ TEST_CASE("PrintStartAnalyzer does not follow a numbered gcode override", "[prin
 
     REQUIRE(result.macro_chain == std::vector<std::string>{"PRINT_START"});
     REQUIRE_FALSE(result.has_operation(helix::PrintStartOpCategory::NOZZLE_CLEAN));
+}
+
+TEST_CASE("PrintStartAnalyzer::analyze stops at a printer teardown mid-walk",
+          "[print_start][include_walk_lifetime]") {
+    helix::PrinterState state;
+    MoonrakerClientMock client;
+    auto api = std::make_unique<MoonrakerAPIMock>(client, state);
+    api->set_config_files({{"printer.cfg", "[include macros.cfg]\n[printer]\n"},
+                           {"macros.cfg", "[gcode_macro PRINT_START]\ngcode:\n  G28\n"}});
+
+    PrintStartAnalyzer analyzer;
+    bool completed = false;
+    std::string error;
+    analyzer.analyze(
+        api.get(), [&](const helix::PrintStartAnalysis&) { completed = true; },
+        [&](const MoonrakerError& err) { error = err.message; });
+
+    helix::ui::UpdateQueue::instance().drain(); // printer.cfg arrives
+    api.reset();
+    helix::ui::UpdateQueue::instance().drain();
+
+    CHECK_FALSE(completed);
+    CHECK(error.find("disconnected") != std::string::npos);
 }
