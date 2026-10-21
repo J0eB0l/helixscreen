@@ -405,6 +405,9 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     /// N of an `ace_instance_N` key, or 0 when the suffix is not a number.
     static int ace_instance_number(const std::string& key);
 
+    /// The `ace_instance_N` key for instance @p n.
+    static std::string ace_instance_key(int n);
+
     /// Fold the manager's path sensors (`rdm_sensor` at the hub,
     /// `toolhead_sensor` at the extruder) into the cached readings and onto the
     /// unit. A frame stating neither leaves the last reading standing: notify

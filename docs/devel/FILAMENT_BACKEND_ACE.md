@@ -198,7 +198,8 @@ frame with no slots array at all falls back to the first non-empty object rather
 being dropped.
 
 **Multi-unit rigs** (`ace_instances > 1`, unobserved — every capture so far has one unit):
-the backend displays one instance only, the lowest one with slots at startup. A `current_index` beyond that unit's slots
+the backend displays one instance only, the lowest one with slots at startup. A
+`current_index` beyond that unit's slots
 seats the tool and marks no slot, and the active-material display falls back to the
 external-spool profile while printing from an undisplayed unit's lane.
 

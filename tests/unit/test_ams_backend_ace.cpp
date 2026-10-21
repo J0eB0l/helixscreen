@@ -3677,6 +3677,30 @@ void answer_initial_query(helix::test::FakeMoonrakerClient& client, const json& 
 }
 } // namespace
 
+TEST_CASE_METHOD(LVGLTestFixture, "ACE delta for an undisplayed instance after the startup query",
+                 "[ams][ace][1835]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+
+    json other = make_kobra_instance_object();
+    other["slots"][0]["material"] = "ABS";
+
+    SECTION("displayed instance 0, delta for instance 1") {
+        answer_initial_query(client, json{{"ace_instance_0", make_kobra_instance_object()}});
+        REQUIRE(b.get_slot_info(0).material == "PLA");
+        b.test_handle_status_update(status_notification("ace_instance_1", other));
+        CHECK(b.get_slot_info(0).material == "PLA");
+    }
+    SECTION("displayed instance 1, delta for instance 0") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"status", "ready"}}},
+                                          {"ace_instance_1", make_kobra_instance_object()}});
+        REQUIRE(b.get_slot_info(0).material == "PLA");
+        b.test_handle_status_update(status_notification("ace_instance_0", other));
+        CHECK(b.get_slot_info(0).material == "PLA");
+    }
+}
+
 TEST_CASE_METHOD(LVGLTestFixture, "ACE INSTANCE= base follows the displayed instance, not a delta",
                  "[ams][ace][device_actions][kobra]") {
     helix::test::FakeMoonrakerClient client;

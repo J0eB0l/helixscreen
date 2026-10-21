@@ -155,7 +155,7 @@ void AmsBackendAce::on_started() {
     objects_to_query["filament_hub"] = nullptr;
     objects_to_query["ace"] = nullptr;
     for (int i = 0; i < 4; ++i) {
-        objects_to_query[fmt::format("ace_instance_{}", i)] = nullptr;
+        objects_to_query[ace_instance_key(i)] = nullptr;
     }
 
     json params = {{"objects", objects_to_query}};
@@ -264,7 +264,7 @@ void AmsBackendAce::handle_status(const json& status_obj) {
             }
             base = instance_base_;
         }
-        const std::string displayed_key = fmt::format("ace_instance_{}", base);
+        const std::string displayed_key = ace_instance_key(base);
         if (status->contains(displayed_key)) {
             ace_data = &(*status)[displayed_key];
         }
@@ -1968,6 +1968,10 @@ std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const
         local = slot - unit->first_slot_global_index;
     }
     return fmt::format("{} INSTANCE={} INDEX={}", verb, instance, local);
+}
+
+std::string AmsBackendAce::ace_instance_key(int n) {
+    return fmt::format("ace_instance_{}", n);
 }
 
 int AmsBackendAce::ace_instance_number(const std::string& key) {
