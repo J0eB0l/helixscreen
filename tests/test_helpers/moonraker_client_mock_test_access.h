@@ -28,6 +28,18 @@ class MoonrakerClientMockTestAccess {
         c.dispatch_initial_state();
     }
 
+    // The standalone IFS module mock's pushed objects, as the simulation tick
+    // publishes them, and its toolhead switch reading.
+    static nlohmann::json ifs_module_status(const MoonrakerClientMock& c) {
+        return c.ifs_module_status_json();
+    }
+    static nlohmann::json ifs_module_vars(const MoonrakerClientMock& c) {
+        return c.ifs_module_vars_json();
+    }
+    static bool ifs_module_head_loaded(const MoonrakerClientMock& c) {
+        return c.ifs_module_head_loaded_.load();
+    }
+
     // Simulation-loop iterations begun so far. Once it reads n + 1, iteration
     // n has pushed its status frame.
     static uint32_t tick_count(const MoonrakerClientMock& c) {

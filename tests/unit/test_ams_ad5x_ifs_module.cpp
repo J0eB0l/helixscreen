@@ -808,6 +808,21 @@ TEST_CASE("AD5X IFS module clears the extruder alone when no lane can be named",
         CHECK_FALSE(backend.unload_filament(helix::kClearToolheadSlot).success());
         CHECK(backend.captured_gcodes.empty());
     }
+    SECTION("an empty head never turns the clear into a cold eject of the recorded lane") {
+        // A record can name a lane while the switch reads empty; the empty-head
+        // routing would cold-eject that lane, which "clear the toolhead" never means.
+        TestableModuleBackend backend;
+        seat_unrecorded_module(backend, {1, 2}, /*at_hub=*/0);
+        Ad5xIfsTestAccess::handle_status(
+            backend, json{{"save_variables", {{"variables", {{"ifs_loaded", 2}}}}}});
+        Ad5xIfsTestAccess::set_head_switch(backend, true, false);
+        Ad5xIfsTestAccess::set_head_filament(backend, false);
+        REQUIRE(Ad5xIfsTestAccess::seated_chan(backend) == 2);
+        const helix::AmsError err = backend.unload_filament(helix::kClearToolheadSlot);
+        CHECK_FALSE(err.success());
+        CHECK(err.result == helix::AmsResult::WRONG_STATE);
+        CHECK(backend.captured_gcodes.empty());
+    }
 }
 
 TEST_CASE("AD5X IFS module ops dispatch the module's macros", "[ams][ad5x_ifs][ifs_module]") {
