@@ -42,7 +42,6 @@ namespace helix::snapmaker {
 //  - sets_loaded:   SET the "loaded at toolhead" latch true (load_finish only).
 //  - clears_loaded: CLEAR the latch false (unload_finish/wait_insert/preload_finish).
 //  - ignore:        the factory 'test' state; touch nothing.
-//  - known:         listed in the table; an unknown state ends no operation.
 struct ChannelStateInfo {
     AmsAction action = AmsAction::IDLE;
     int phase = -1;
@@ -51,7 +50,6 @@ struct ChannelStateInfo {
     bool sets_loaded = false;
     bool clears_loaded = false;
     bool ignore = false;
-    bool known = true; ///< false for a state the table does not list
 };
 
 [[nodiscard]] ChannelStateInfo classify_channel_state(const std::string& state);
