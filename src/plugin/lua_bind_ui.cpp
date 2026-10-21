@@ -426,6 +426,10 @@ struct EditorRefs {
     int accept = LUA_NOREF;
     int cancel = LUA_NOREF;
     int validate = LUA_NOREF;
+    /// The keypad's header and unit. The keypad's stored config points into these, and
+    /// keeps this object alive through the hooks it holds.
+    std::string keypad_title;
+    std::string keypad_unit;
 
     bool live() const {
         return !editor->done && !token.expired();
@@ -580,8 +584,10 @@ int ui_edit_number(lua_State* L) {
             config.initial_value = static_cast<float>(value);
             config.min_value = static_cast<float>(min);
             config.max_value = static_cast<float>(max);
-            config.title_label = title.c_str();
-            config.unit_label = unit.c_str();
+            refs->keypad_title = title;
+            refs->keypad_unit = unit;
+            config.title_label = refs->keypad_title.c_str();
+            config.unit_label = refs->keypad_unit.c_str();
             config.allow_decimal = places > 0;
             config.allow_negative = false;
             config.max_fraction_digits = places > 0 ? places : 1;
