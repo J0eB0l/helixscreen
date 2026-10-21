@@ -4,8 +4,11 @@
 <!-- Numeric Keypad Overlay - Responsive layout for all screen sizes -->
 <component>
   <consts>
-    <!-- keypad_width: Panel width (right-aligned overlay) -->
-    <px name="keypad_width_tiny" value="320"/>
+    <!-- keypad_width: Panel width (right-aligned overlay). Short screens get a narrower
+         pad so the keys keep roughly the 800x480 shape (about 1.4:1) instead of flattening:
+         the rows share the screen height, so a shorter screen means shorter keys. -->
+    <px name="keypad_width_micro" value="200"/>
+    <px name="keypad_width_tiny" value="260"/>
     <px name="keypad_width_small" value="320"/>
     <px name="keypad_width_medium" value="340"/>
     <px name="keypad_width_large" value="400"/>
@@ -43,7 +46,8 @@
               style_border_width="0" scrollable="false" clickable="false" flex_flow="row"
               style_flex_cross_place="center" style_margin_bottom="#space_md">
         <ui_button name="btn_sign"
-                   width="#button_height" height="100%" text="+/-" variant="secondary" style_radius="#border_radius">
+                   width="content" height="100%" style_min_width="#button_height" style_pad_hor="#space_sm"
+                   style_pad_ver="0" text="+/-" variant="secondary" style_radius="#border_radius">
           <bind_flag_if_eq subject="keypad_allow_negative" flag="hidden" ref_value="0"/>
           <event_cb trigger="clicked" callback="on_keypad_sign"/>
         </ui_button>

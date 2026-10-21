@@ -3817,6 +3817,7 @@
     "keypad_width",
     "keypad_width_large",
     "keypad_width_medium",
+    "keypad_width_micro",
     "keypad_width_small",
     "keypad_width_tiny",
     "led_chip_gap",
