@@ -367,3 +367,46 @@ G1 X20 Y20 E2
     CHECK(scan.layer_marks[1].layer == 2);
     CHECK(scan.layer_marks[1].byte_fraction > scan.layer_marks[0].byte_fraction);
 }
+
+TEST_CASE("PauseScan - a carriage return ends the layer scan",
+          "[gcode][pause_scan][layer_pause][1703]") {
+    CHECK_FALSE(reported_current_layer("SET_PRINT_STATS_INFO TOTAL_LAYER=50\r").has_value());
+    CHECK_FALSE(reported_current_layer("SET_PRINT_STATS_INFO TOTAL_LAYER=50\r\n").has_value());
+    CHECK_FALSE(reported_current_layer("SET_PRINT_STATS_INFO\r").has_value());
+    CHECK(reported_current_layer("SET_PRINT_STATS_INFO CURRENT_LAYER=3\r") == 3);
+    CHECK(reported_current_layer("SET_PRINT_STATS_INFO CURRENT_LAYER=3\r\n") == 3);
+    CHECK(reported_current_layer("SET_PRINT_STATS_INFO TOTAL_LAYER=50\r CURRENT_LAYER=4") == 4);
+
+    PauseScan scan;
+    scan.begin(200);
+    scan.feed_line("SET_PRINT_STATS_INFO TOTAL_LAYER=2\r", 0, -1);
+    scan.feed_line("SET_PRINT_STATS_INFO CURRENT_LAYER=1\r", 40, 0);
+    scan.feed_line("M600\r", 80, 0);
+    scan.feed_line("SET_PRINT_STATS_INFO CURRENT_LAYER=2\r", 100, 1);
+    REQUIRE(scan.layer_marks().size() == 2);
+    CHECK(scan.layer_marks()[0].layer == 1);
+    CHECK(scan.layer_marks()[1].layer == 2);
+    CHECK(scan.pauses().size() == 1);
+}
+
+TEST_CASE("GCodeLayerIndex - a CRLF file still records layer marks",
+          "[gcode][pause_scan][layer_pause][1703]") {
+    std::string gcode = "SET_PRINT_STATS_INFO TOTAL_LAYER=2\r\n"
+                        ";LAYER_CHANGE\r\n"
+                        "SET_PRINT_STATS_INFO CURRENT_LAYER=1\r\n"
+                        "G1 Z0.2 F1000\r\n"
+                        "G1 X10 Y10 E1\r\n"
+                        ";LAYER_CHANGE\r\n"
+                        "SET_PRINT_STATS_INFO CURRENT_LAYER=2\r\n"
+                        "G1 Z0.4 F1000\r\n"
+                        "G1 X20 Y20 E2\r\n";
+
+    TempPauseScanGCode file(gcode);
+    GCodeLayerIndex index;
+    REQUIRE(index.build_from_file(file.path()));
+    REQUIRE(index.get_stats().pause_scan != nullptr);
+    const auto& scan = *index.get_stats().pause_scan;
+    REQUIRE(scan.layer_marks.size() == 2);
+    CHECK(scan.layer_marks[0].layer == 1);
+    CHECK(scan.layer_marks[1].layer == 2);
+}
