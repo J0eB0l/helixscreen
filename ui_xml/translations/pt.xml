@@ -2880,6 +2880,7 @@
   <translation tag="Resume macro not configured" pt="Macro de retomada não configurado"/>
   <translation tag="Resume preparation failed" pt="Falha na preparação para retomar"/>
   <translation tag="Resuming print..." pt="Retomando impressão..."/>
+  <translation tag="Resuming would print with a different nozzle. Change tools after the print." pt="Ao retomar, a impressão usaria outro bico. Troque de ferramenta depois da impressão."/>
   <translation tag="Resuming..." pt="Retomando..."/>
   <translation tag="Retract" pt="Retrair"/>
   <translation tag="Retract Distance" pt="Distância de Retração"/>

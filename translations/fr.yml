@@ -3163,6 +3163,7 @@ translations:
   Resume macro not configured: Macro de reprise non configurée
   Resume preparation failed: Échec de la préparation à la reprise
   Resuming print...: Reprise de l'impression...
+  Resuming would print with a different nozzle. Change tools after the print.: "La reprise imprimerait avec une autre buse. Changez d'outil après l'impression."
   Resuming...: Reprise en cours...
   Retract: Rétracter
   Retract Distance: Distance de rétraction

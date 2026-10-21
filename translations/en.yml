@@ -3072,6 +3072,7 @@ translations:
   Resume macro not configured: Resume macro not configured
   Resume preparation failed: Resume preparation failed
   'Resuming print...': 'Resuming print...'
+  Resuming would print with a different nozzle. Change tools after the print.: Resuming would print with a different nozzle. Change tools after the print.
   Resuming...: Resuming...
   Retract: Retract
   Retract Distance: Retract Distance

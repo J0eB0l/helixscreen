@@ -2880,6 +2880,7 @@
   <translation tag="Resume macro not configured" zh="恢复宏未配置"/>
   <translation tag="Resume preparation failed" zh="恢复准备失败"/>
   <translation tag="Resuming print..." zh="恢复打印中..."/>
+  <translation tag="Resuming would print with a different nozzle. Change tools after the print." zh="继续打印会换成另一个喷嘴。请在打印结束后再更换工具。"/>
   <translation tag="Resuming..." zh="恢复中..."/>
   <translation tag="Retract" zh="回抽"/>
   <translation tag="Retract Distance" zh="回抽距离"/>

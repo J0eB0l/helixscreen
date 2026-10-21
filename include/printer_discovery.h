@@ -243,12 +243,6 @@ class PrinterDiscovery {
         return has_indx_;
     }
 
-    /// `variable_tool_count` from the INDX `TOOL_POSITIONS` macro's config,
-    /// 0 when absent.
-    [[nodiscard]] int indx_tool_count() const {
-        return indx_tool_count_;
-    }
-
     /// The `save_variables` object exists.
     [[nodiscard]] bool has_save_variables() const {
         return has_save_variables_;
@@ -1045,7 +1039,6 @@ class PrinterDiscovery {
     bool has_medusahc_ = false;
     std::string medusahc_object_name_;
     bool has_indx_ = false;
-    int indx_tool_count_ = 0;
     bool has_save_variables_ = false;
     bool has_chamber_heater_ = false;
     bool has_chamber_sensor_ = false;

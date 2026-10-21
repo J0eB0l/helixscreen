@@ -2984,6 +2984,7 @@ translations:
   Resume macro not configured: 再開マクロが未設定です
   Resume preparation failed: 再開準備に失敗しました
   Resuming print...: 印刷を再開中...
+  Resuming would print with a different nozzle. Change tools after the print.: "再開すると別のノズルで印刷されます。ツールは印刷後に交換してください。"
   Resuming...: 再開中...
   Retract: 引き戻し
   Retract Distance: リトラクト距離

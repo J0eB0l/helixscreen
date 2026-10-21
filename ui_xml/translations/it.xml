@@ -2880,6 +2880,7 @@
   <translation tag="Resume macro not configured" it="Macro ripresa non configurata"/>
   <translation tag="Resume preparation failed" it="Preparazione alla ripresa fallita"/>
   <translation tag="Resuming print..." it="Ripresa della stampa..."/>
+  <translation tag="Resuming would print with a different nozzle. Change tools after the print." it="Riprendendo si stamperebbe con un ugello diverso. Cambia strumento dopo la stampa."/>
   <translation tag="Resuming..." it="Ripresa..."/>
   <translation tag="Retract" it="Retrazione"/>
   <translation tag="Retract Distance" it="Distanza retrazione"/>

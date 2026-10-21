@@ -3190,6 +3190,7 @@ translations:
   Resume macro not configured: Макрос возобновления не настроен
   Resume preparation failed: Не удалось подготовиться к возобновлению
   Resuming print...: Возобновление печати...
+  Resuming would print with a different nozzle. Change tools after the print.: "При продолжении печать пойдёт другим соплом. Меняйте инструмент после печати."
   Resuming...: Возобновление...
   Retract: Ретракция
   Retract Distance: Расстояние ретракта

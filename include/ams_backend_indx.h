@@ -38,8 +38,6 @@ class AmsBackendIndx : public AmsBackendToolChanger {
         // preheats nor needs the head loaded first.
         t.load_feeds_filament = true;
         t.supports_auto_heat_on_load = true;
-        // CHANGE_TOOL homes an unhomed printer itself, fetching T0 to probe Z.
-        t.filament_ops_self_home = true;
         return t;
     }();
     [[nodiscard]] BackendTraits traits() const override {
@@ -88,6 +86,9 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     [[nodiscard]] std::string motion_blocked_reason() const;
 
   protected:
+    /// A print is paused. Virtual so tests can pause without a printer.
+    [[nodiscard]] virtual bool print_paused() const;
+
     AmsError additional_start_checks() override;
     void handle_status(const nlohmann::json& status) override;
     const char* backend_log_tag() const override {
@@ -106,6 +107,8 @@ class AmsBackendIndx : public AmsBackendToolChanger {
     std::vector<std::string> change_gcodes_;
     bool macros_set_active_spool_ = false;
     int sized_tool_count_ = -1;
+    /// An out-of-range active_tool was logged; reset by an in-range one.
+    bool warned_out_of_range_ = false;
 };
 
 } // namespace helix

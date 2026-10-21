@@ -2934,6 +2934,7 @@
   <translation tag="Resume macro not configured" ru="Макрос возобновления не настроен"/>
   <translation tag="Resume preparation failed" ru="Не удалось подготовиться к возобновлению"/>
   <translation tag="Resuming print..." ru="Возобновление печати..."/>
+  <translation tag="Resuming would print with a different nozzle. Change tools after the print." ru="При продолжении печать пойдёт другим соплом. Меняйте инструмент после печати."/>
   <translation tag="Resuming..." ru="Возобновление..."/>
   <translation tag="Retract" ru="Ретракция"/>
   <translation tag="Retract Distance" ru="Расстояние ретракта"/>

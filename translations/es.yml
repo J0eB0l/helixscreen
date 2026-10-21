@@ -3145,6 +3145,7 @@ translations:
   Resume macro not configured: Macro de reanudación no configurado
   Resume preparation failed: La preparación para reanudar falló
   Resuming print...: Reanudando impresión...
+  Resuming would print with a different nozzle. Change tools after the print.: "Al reanudar se imprimiría con otra boquilla. Cambia de herramienta después de la impresión."
   Resuming...: Reanudando...
   Retract: Retraer
   Retract Distance: Distancia de Retracción

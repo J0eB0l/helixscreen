@@ -27,11 +27,17 @@ class PrinterDiscovery;
 
 namespace helix::indx {
 
+/// Upstream ships T0..T3 and tells users to add more; the README's own
+/// ceiling is ten tools.
+inline constexpr int kMaxTools = 10;
+
 /// One entry of `gcode_macro LOAD_FILAMENT.filament_presets`.
 struct FilamentPreset {
     float temp_c = 0.0f;
     float density = 0.0f;
     float heat_capacity = 0.0f;
+
+    bool operator==(const FilamentPreset&) const = default;
 };
 
 /// What one status frame said. Every field is nullopt (or empty) when the
@@ -46,11 +52,13 @@ struct Reading {
     std::optional<int> tool_count;         ///< TOOL_POSITIONS.tool_count
     std::optional<std::set<int>> no_heat_tools; ///< TOOL_POSITIONS.no_heat_tools
     std::optional<bool> docks_calibrated;       ///< TOOL_POSITIONS.docks_calibrated
-    /// LOAD_FILAMENT.filament_presets, keyed by upper-case material name.
+    /// LOAD_FILAMENT.filament_presets, keyed as the printer writes them.
     std::optional<std::map<std::string, FilamentPreset>> presets;
     /// T<n>.spool_id, where the T<n> macro declares one (not upstream; the
     /// variable exists only on macro sets that track a spool per tool).
     std::map<int, int> tool_spool_ids;
+
+    bool operator==(const Reading&) const = default;
 };
 
 /// Pull a reading out of a status frame. nullopt when the frame held nothing
@@ -85,6 +93,10 @@ struct Contract {
 /// MacroParamCache, which discovery fills from configfile.
 [[nodiscard]] bool macros_set_active_spool(const PrinterDiscovery& hw);
 
+/// `variable_tool_count` from the TOOL_POSITIONS config (MacroParamCache), so
+/// the slots exist before the first status frame. 0 when absent.
+[[nodiscard]] int config_tool_count();
+
 /// Status objects to subscribe, with field allowlists. Empty unless @p hw is
 /// an INDX printer.
 [[nodiscard]] nlohmann::json required_status_objects(const PrinterDiscovery& hw);
@@ -97,8 +109,9 @@ struct Contract {
 [[nodiscard]] std::string park_gcode();
 
 /// `LOAD_FILAMENT TOOL=<n> TYPE=<preset>` when @p material names a preset
-/// (case-insensitive), else `LOAD_FILAMENT TOOL=<n> TEMP=<temp_c>`. Empty when
-/// @p material is not safe on a gcode line.
+/// (helix::match_material: case, then filament family), with the preset key as
+/// the printer wrote it; else `LOAD_FILAMENT TOOL=<n> TEMP=<temp_c>`, which is
+/// also the answer for a material that is not safe on a gcode line.
 [[nodiscard]] std::string load_gcode(int tool, const std::string& material, int temp_c,
                                      const std::map<std::string, FilamentPreset>& presets);
 

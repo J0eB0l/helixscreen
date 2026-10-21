@@ -872,17 +872,6 @@ void PrinterDiscovery::parse_config_keys(const nlohmann::json& config) {
             has_snapmaker_auto_screws_tilt_ = true;
             spdlog::debug("[PrinterDiscovery] auto_screws_tilt_adjust detected from config");
         }
-
-        // Bondtech INDX: the tool count sizes its slots before the first
-        // status frame. Klipper keeps the section's own case here.
-        if (value.is_object() && helix::text_io::to_lower(key) == "gcode_macro tool_positions") {
-            auto it = value.find("variable_tool_count");
-            if (it != value.end() && it->is_string()) {
-                if (auto count = helix::text_io::parse_leading<int>(it->get<std::string>())) {
-                    indx_tool_count_ = std::max(0, *count);
-                }
-            }
-        }
     }
 
     // [indx] on Kalico may have no get_status(), so the configfile section is
@@ -1092,7 +1081,6 @@ void PrinterDiscovery::clear() {
     has_medusahc_ = false;
     medusahc_object_name_.clear();
     has_indx_ = false;
-    indx_tool_count_ = 0;
     has_save_variables_ = false;
     has_chamber_heater_ = false;
     has_chamber_sensor_ = false;

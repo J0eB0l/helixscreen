@@ -2975,6 +2975,7 @@ translations:
   Resume macro not configured: 恢复宏未配置
   Resume preparation failed: 恢复准备失败
   Resuming print...: 恢复打印中...
+  Resuming would print with a different nozzle. Change tools after the print.: "继续打印会换成另一个喷嘴。请在打印结束后再更换工具。"
   Resuming...: 恢复中...
   Retract: 回抽
   Retract Distance: 回抽距离

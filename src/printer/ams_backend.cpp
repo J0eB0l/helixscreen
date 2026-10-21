@@ -559,37 +559,27 @@ AmsError AmsBackend::commit_user_edit(int slot_index, const SlotInfo& original,
     return kept_by_spool;
 }
 
-std::string AmsBackend::normalize_material(const std::string& material) const {
-    auto supported = get_supported_materials();
-    if (!supported || supported->empty()) {
-        return material;
-    }
-    const auto& list = *supported;
+std::optional<std::string>
+match_material(const std::string& material, const std::vector<std::string>& list,
+               const std::vector<std::pair<std::string, std::string>>& aliases) {
+    const std::string input_lc = helix::text_io::to_lower(material);
 
-    // Case-insensitive lowercase helper.
-    auto lower = [](std::string s) {
-        s = helix::text_io::to_lower(s);
-        return s;
-    };
-
-    // (2) Case-insensitive exact match against the whitelist.
-    const std::string input_lc = lower(material);
+    // Case-insensitive exact match against the whitelist.
     for (const auto& s : list) {
-        if (lower(s) == input_lc) {
+        if (helix::text_io::to_lower(s) == input_lc) {
             return s;
         }
     }
 
-    // (3) Firmware-specific aliases (backends override get_material_aliases()
-    //     to handle names the shared filament DB groups differently than
-    //     firmware does — e.g., "Silk PLA" -> "SILK" on AD5X).
-    for (const auto& [alias, target] : get_material_aliases()) {
-        if (lower(alias) == input_lc) {
+    // Firmware-specific aliases (e.g. "Silk PLA" -> "SILK" on AD5X, which the
+    // shared filament DB groups differently).
+    for (const auto& [alias, target] : aliases) {
+        if (helix::text_io::to_lower(alias) == input_lc) {
             return target;
         }
     }
 
-    // (4) compat_group match via the filament database.
+    // compat_group match via the filament database.
     auto info = filament::find_material(material);
     if (info.has_value() && info->compat_group != nullptr) {
         std::string_view group(info->compat_group);
@@ -601,9 +591,17 @@ std::string AmsBackend::normalize_material(const std::string& material) const {
             }
         }
     }
+    return std::nullopt;
+}
 
-    // (5) Fallback: first whitelist entry (typically the safest / most common).
-    return list.front();
+std::string AmsBackend::normalize_material(const std::string& material) const {
+    auto supported = get_supported_materials();
+    if (!supported || supported->empty()) {
+        return material;
+    }
+    // Fallback: first whitelist entry (typically the safest / most common).
+    return match_material(material, *supported, get_material_aliases())
+        .value_or(supported->front());
 }
 
 #ifdef HELIX_ENABLE_MOCKS

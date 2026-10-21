@@ -143,6 +143,16 @@ void MacroParamCache::populate_from_configfile(
         info.stops_printer = stop.calls;
         info.stop_message = std::move(stop.message);
         info.sets_active_spool = template_sets_active_spool(gcode_template);
+        if (it.value().is_object()) {
+            static constexpr std::string_view kVariablePrefix = "variable_";
+            for (const auto& [field, value] : it.value().items()) {
+                if (field.size() > kVariablePrefix.size() &&
+                    field.compare(0, kVariablePrefix.size(), kVariablePrefix) == 0 &&
+                    value.is_string()) {
+                    info.variables[field.substr(kVariablePrefix.size())] = value.get<std::string>();
+                }
+            }
+        }
         auto params = parse_macro_params(gcode_template);
 
         // Note: variable_* keys (Klipper SET_GCODE_VARIABLE state) are

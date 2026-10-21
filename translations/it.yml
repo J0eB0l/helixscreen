@@ -3142,6 +3142,7 @@ translations:
   Resume macro not configured: Macro ripresa non configurata
   Resume preparation failed: Preparazione alla ripresa fallita
   Resuming print...: Ripresa della stampa...
+  Resuming would print with a different nozzle. Change tools after the print.: "Riprendendo si stamperebbe con un ugello diverso. Cambia strumento dopo la stampa."
   Resuming...: Ripresa...
   Retract: Retrazione
   Retract Distance: Distanza retrazione

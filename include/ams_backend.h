@@ -138,6 +138,17 @@ struct HeadFilamentOps {
 };
 
 /**
+ * @brief The entry of @p list that @p material names, or nullopt
+ *
+ * Case-insensitive exact match, then @p aliases, then the filament database's
+ * compat_group (e.g. "Wood PLA" -> "PLA"). No fallback: an unmatched material
+ * stays unmatched. AmsBackend::normalize_material() adds its own.
+ */
+[[nodiscard]] std::optional<std::string>
+match_material(const std::string& material, const std::vector<std::string>& list,
+               const std::vector<std::pair<std::string, std::string>>& aliases = {});
+
+/**
  * @brief Abstract interface for AMS/MMU backend implementations
  *
  * Provides a platform-agnostic API for multi-filament operations.

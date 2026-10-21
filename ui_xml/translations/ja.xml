@@ -2880,6 +2880,7 @@
   <translation tag="Resume macro not configured" ja="再開マクロが未設定です"/>
   <translation tag="Resume preparation failed" ja="再開準備に失敗しました"/>
   <translation tag="Resuming print..." ja="印刷を再開中..."/>
+  <translation tag="Resuming would print with a different nozzle. Change tools after the print." ja="再開すると別のノズルで印刷されます。ツールは印刷後に交換してください。"/>
   <translation tag="Resuming..." ja="再開中..."/>
   <translation tag="Retract" ja="引き戻し"/>
   <translation tag="Retract Distance" ja="リトラクト距離"/>

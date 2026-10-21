@@ -3151,6 +3151,7 @@ translations:
   Resume macro not configured: Fortsetzen-Makro nicht konfiguriert
   Resume preparation failed: Vorbereitung zum Fortsetzen fehlgeschlagen
   Resuming print...: Druck fortsetzen...
+  Resuming would print with a different nozzle. Change tools after the print.: "Beim Fortsetzen würde mit einer anderen Düse gedruckt. Werkzeuge erst nach dem Druck wechseln."
   Resuming...: Fortsetzen...
   Retract: Einziehen
   Retract Distance: Rückzugsabstand

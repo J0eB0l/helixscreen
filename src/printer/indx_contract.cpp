@@ -2,6 +2,7 @@
 
 #include "indx_contract.h"
 
+#include "ams_backend.h"
 #include "display_numbering.h"
 #include "i_moonraker_api.h"
 #include "json_utils.h"
@@ -25,10 +26,6 @@ constexpr const char* kToolchangeVars = "_TOOLCHANGE_VARS";
 constexpr const char* kChangeTool = "CHANGE_TOOL";
 constexpr const char* kParkTool = "PARK_TOOL";
 constexpr const char* kLoadFilament = "LOAD_FILAMENT";
-
-/// Upstream ships T0..T3 and tells users to add more; the README's own
-/// ceiling is "ten" tools.
-constexpr int kMaxTools = 10;
 
 /// A strict int: Klipper serializes these variables as JSON ints, and a
 /// float or string here is a macro set this module does not understand.
@@ -149,7 +146,7 @@ bool read_presets(const json& obj, Reading& r) {
         p.temp_c = json_util::safe_float(preset, "temp");
         p.density = json_util::safe_float(preset, "density");
         p.heat_capacity = json_util::safe_float(preset, "hc");
-        presets[helix::text_io::to_upper(name)] = p;
+        presets[name] = p;
     }
     r.presets = std::move(presets);
     return true;
@@ -283,14 +280,30 @@ std::string park_gcode() {
 
 std::string load_gcode(int tool, const std::string& material, int temp_c,
                        const std::map<std::string, FilamentPreset>& presets) {
-    if (!material.empty() && !IMoonrakerAPI::is_safe_material_param(material)) {
-        return {};
+    std::vector<std::string> keys;
+    for (const auto& [key, preset] : presets) {
+        if (IMoonrakerAPI::is_safe_gcode_param(key)) {
+            keys.push_back(key);
+        }
     }
-    const std::string key = helix::text_io::to_upper(material);
-    if (!key.empty() && presets.count(key) && IMoonrakerAPI::is_safe_gcode_param(key)) {
-        return fmt::format("{} TOOL={} TYPE={}", kLoadFilament, tool, key);
+    // A material that names a preset (directly or by its filament family)
+    // loads as that preset, spelled as the printer wrote it. Anything else,
+    // an unsafe string included, loads by temperature alone.
+    if (!material.empty() && IMoonrakerAPI::is_safe_material_param(material)) {
+        if (auto key = match_material(material, keys)) {
+            return fmt::format("{} TOOL={} TYPE={}", kLoadFilament, tool, *key);
+        }
     }
     return fmt::format("{} TOOL={} TEMP={}", kLoadFilament, tool, temp_c);
+}
+
+int config_tool_count() {
+    const CachedMacroInfo info = MacroParamCache::instance().get(kToolPositions);
+    auto it = info.variables.find("tool_count");
+    if (it == info.variables.end()) {
+        return 0;
+    }
+    return std::clamp(helix::text_io::parse_leading<int>(it->second).value_or(0), 0, kMaxTools);
 }
 
 std::string heat_blocked_reason(int active_tool, const std::set<int>& no_heat_tools) {

@@ -2880,6 +2880,7 @@
   <translation tag="Resume macro not configured" de="Fortsetzen-Makro nicht konfiguriert"/>
   <translation tag="Resume preparation failed" de="Vorbereitung zum Fortsetzen fehlgeschlagen"/>
   <translation tag="Resuming print..." de="Druck fortsetzen..."/>
+  <translation tag="Resuming would print with a different nozzle. Change tools after the print." de="Beim Fortsetzen würde mit einer anderen Düse gedruckt. Werkzeuge erst nach dem Druck wechseln."/>
   <translation tag="Resuming..." de="Fortsetzen..."/>
   <translation tag="Retract" de="Einziehen"/>
   <translation tag="Retract Distance" de="Rückzugsabstand"/>

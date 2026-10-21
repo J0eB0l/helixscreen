@@ -43,9 +43,17 @@ PrinterDiscovery discover(const json& objects, const json& config = json::object
     hw.parse_objects(objects);
     if (!config.empty()) {
         hw.parse_config_keys(config);
+        MacroParamCache::instance().populate_from_configfile(config, hw.macros());
     }
     return hw;
 }
+
+/// MacroParamCache is process-wide: a case that fills it empties it again.
+struct CacheReset {
+    ~CacheReset() {
+        MacroParamCache::instance().clear();
+    }
+};
 
 } // namespace
 
@@ -68,20 +76,22 @@ TEST_CASE("INDX: an [indx] config section registers the backend after objects fo
     PrinterDiscovery hw;
     hw.parse_objects(without(indx_objects(), "indx"));
     REQUIRE(hw.mmu_type() == AmsType::NONE);
-    hw.parse_config_keys(json{{"indx", {{"mcu", "indxmcu"}}},
-                              {"gcode_macro TOOL_POSITIONS", {{"variable_tool_count", "6"}}}});
+    hw.parse_config_keys(json{{"indx", {{"mcu", "indxmcu"}}}});
     CHECK(indx::present(hw));
     CHECK(hw.mmu_type() == AmsType::INDX);
     REQUIRE(hw.detected_ams_systems().size() == 1);
     CHECK(hw.detected_ams_systems()[0].type == AmsType::INDX);
-    CHECK(hw.indx_tool_count() == 6);
 }
 
 TEST_CASE("INDX: the tool count is read from the config section in any case",
           "[ams][indx][detect]") {
+    CacheReset reset;
+    CHECK(indx::config_tool_count() == 0);
     auto hw = discover(indx_objects(),
                        json{{"gcode_macro tool_positions", {{"variable_tool_count", "3"}}}});
-    CHECK(hw.indx_tool_count() == 3);
+    CHECK(indx::config_tool_count() == 3);
+    discover(indx_objects(), json{{"gcode_macro TOOL_POSITIONS", {{"variable_tool_count", "40"}}}});
+    CHECK(indx::config_tool_count() == indx::kMaxTools);
 }
 
 TEST_CASE("INDX: the macros without the [indx] module are someone else's", "[ams][indx][detect]") {
@@ -141,6 +151,7 @@ TEST_CASE("INDX: LOAD_FILAMENT is optional", "[ams][indx][contract]") {
 
 TEST_CASE("INDX: a T<n> wrapper calling SET_ACTIVE_SPOOL manages the active spool",
           "[ams][indx][contract][spool]") {
+    CacheReset reset;
     auto hw = discover(indx_objects(2));
     json config = {
         {"gcode_macro T0",
@@ -236,7 +247,7 @@ TEST_CASE("INDX: non-int values are ignored", "[ams][indx][status]") {
     }
 }
 
-TEST_CASE("INDX: filament presets are keyed upper-case", "[ams][indx][status]") {
+TEST_CASE("INDX: filament presets keep the printer's own keys", "[ams][indx][status]") {
     auto r =
         indx::read_status(json{{"gcode_macro LOAD_FILAMENT",
                                 {{"filament_presets",
@@ -244,8 +255,8 @@ TEST_CASE("INDX: filament presets are keyed upper-case", "[ams][indx][status]") 
                                    {"petg", {{"temp", 240}, {"density", 1.27}, {"hc", 1.3}}}}}}}});
     REQUIRE(r.has_value());
     REQUIRE(r->presets.has_value());
-    REQUIRE(r->presets->count("PETG") == 1);
-    CHECK(r->presets->at("PETG").temp_c == Catch::Approx(240.0f));
+    REQUIRE(r->presets->count("petg") == 1);
+    CHECK(r->presets->at("petg").temp_c == Catch::Approx(240.0f));
     CHECK(r->presets->at("PLA").heat_capacity == Catch::Approx(1.8f));
 }
 
@@ -280,9 +291,15 @@ TEST_CASE("INDX: load names a preset, else a temperature", "[ams][indx][commands
     std::map<std::string, indx::FilamentPreset> presets = {{"PLA", {210, 1.24f, 1.8f}},
                                                            {"PETG", {240, 1.27f, 1.3f}}};
     CHECK(indx::load_gcode(1, "petg", 230, presets) == "LOAD_FILAMENT TOOL=1 TYPE=PETG");
-    CHECK(indx::load_gcode(0, "PLA+", 215, presets) == "LOAD_FILAMENT TOOL=0 TEMP=215");
+    CHECK(indx::load_gcode(0, "Xenomat-9", 215, presets) == "LOAD_FILAMENT TOOL=0 TEMP=215");
     CHECK(indx::load_gcode(0, "", 220, presets) == "LOAD_FILAMENT TOOL=0 TEMP=220");
-    CHECK(indx::load_gcode(0, "PLA\nM112", 220, presets).empty());
+    // Unsafe on a gcode line: never sent as a TYPE, loaded by temperature.
+    CHECK(indx::load_gcode(0, "PLA\nM112", 220, presets) == "LOAD_FILAMENT TOOL=0 TEMP=220");
+    // The preset is sent as the printer spells it.
+    std::map<std::string, indx::FilamentPreset> mixed = {{"Petg", {240, 1.27f, 1.3f}}};
+    CHECK(indx::load_gcode(2, "PETG", 230, mixed) == "LOAD_FILAMENT TOOL=2 TYPE=Petg");
+    // A family member loads as its family's preset.
+    CHECK(indx::load_gcode(0, "PLA+", 215, presets) == "LOAD_FILAMENT TOOL=0 TYPE=PLA");
 }
 
 TEST_CASE("INDX: motion refused on an unrecognized contract, seat fault, uncalibrated docks",
