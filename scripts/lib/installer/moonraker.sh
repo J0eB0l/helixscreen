@@ -1032,16 +1032,7 @@ configure_moonraker_updates() {
         local removed_stale=0
         if [ -n "$stanza_files" ]; then
             log_warn "Removing the existing [update_manager helixscreen] section."
-            local stale_file
-            while IFS= read -r stale_file; do
-                if host_path_is_mod_owned "$stale_file"; then
-                    log_warn "$stale_file belongs to the firmware mod - remove its stanza by hand"
-                    continue
-                fi
-                remove_update_manager_section "$stale_file" && removed_stale=1
-            done <<STALE_FILES
-$stanza_files
-STALE_FILES
+            remove_update_manager_section && removed_stale=1
         fi
 
         # These two are orthogonal to the updater and must not regress just
@@ -1120,17 +1111,37 @@ STANZA_FILES
     restart_moonraker
 }
 
-# Remove update_manager section from moonraker.conf
+# Remove [update_manager helixscreen] from conf @1, or with no argument from
+# every file Moonraker reads it from: find_moonraker_conf and the files its
+# [include] lines reach. A mod-owned file is left in place with a warning.
 # Called during uninstallation
-# Returns: 1 when the file needed the edit and could not take it (left whole)
-# Args: $1 = the conf to remove it from (default: find_moonraker_conf)
+# Returns: 1 when a file needed the edit and could not take it (left whole)
 remove_update_manager_section() {
-    local conf="${1:-}"
-    [ -n "$conf" ] || conf=$(find_moonraker_conf)
-
-    if [ -z "$conf" ]; then
-        return 0
+    if [ -n "${1:-}" ]; then
+        _remove_update_manager_section_from "$1"
+        return
     fi
+    local conf stanza_file rc=0
+    conf=$(find_moonraker_conf)
+    [ -n "$conf" ] || return 0
+    while IFS= read -r stanza_file; do
+        [ -n "$stanza_file" ] || continue
+        if host_path_is_mod_owned "$stanza_file"; then
+            log_warn "[update_manager helixscreen] is in $stanza_file, which the firmware mod owns - leaving it in place"
+            continue
+        fi
+        _remove_update_manager_section_from "$stanza_file" || rc=1
+    done <<STANZA_FILES
+$(update_manager_stanza_files "$conf")
+STANZA_FILES
+    return $rc
+}
+
+# Remove [update_manager helixscreen] and the comment block the installer
+# writes above it from conf @1.
+# Returns: 1 when the file needed the edit and could not take it (left whole)
+_remove_update_manager_section_from() {
+    local conf="$1"
 
     if ! has_update_manager_section "$conf"; then
         return 0
