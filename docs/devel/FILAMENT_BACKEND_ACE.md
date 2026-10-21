@@ -211,25 +211,38 @@ no slots array at all falls back to the first non-empty object rather than being
 numbers its instances in USB daisy-chain order, ACE Pro units first and ACE 2 units on the
 shared bus after them, and `ace_instance_N` is unit N here, its slots numbered globally
 after the units before it (`#index_units_locked`). A delta for one instance updates that
-unit only, looked up by its number (`#ace_instance_objects`); a unit named before the ones
-below it have reported leaves them as four disconnected placeholder slots, so numbering
-never shifts. Every ACEPRO lane names the `extruder` and the hub `ace`: all units feed one
+unit only, looked up by its number (`#ace_instance_objects`, numeric order, instances
+below `kMaxUnits`). Only an instance that carries `slots`, or the bootstrap's pick, puts
+the backend on this path: a slotless delta on a rig the REST bridge serves is ignored. A
+unit named before the ones below it have reported leaves them as four disconnected
+placeholder slots, so numbering never shifts; a placeholder no instance has reported is
+`absent` and takes no dryer or slot command, since no instance answers to its
+`INSTANCE=`. The bootstrap answer names every unit there is, so units it does not name
+are dropped (`#keep_units`), as on a restart onto a shorter chain or another driver.
+A unit created after the manager's last sensor frame takes the sensor readings already
+in hand. Every ACEPRO lane names the `extruder` and the hub `ace`: all units feed one
 toolhead through the one hub `rdm_sensor` watches.
 
-- **Names** (`#apply_unit_identities_locked`): a unit shows the `model` it states, else a
-  translated `ACE Pro` / `ACE Pro 2` for its `protocol`, numbered `#2`, `#3` when a name
-  repeats. The protocol words themselves never reach the screen. Model, protocol and
+- **Names** (`#apply_unit_identities_locked`): a unit shows the short product name for
+  its `protocol`, `ACE Pro` (`ace1_json`) or `ACE Pro 2` (`ace2_proto`; anything else
+  reads `ACE Pro`), numbered `#2`, `#3` when a name repeats. Product names, so not
+  translated. The `model` string stays the unit's `name`, never its display name, and the
+  protocol words never reach the screen. Model, protocol and
   firmware are kept per unit, apart from the units, so identity a frame states before the
   unit's slots arrive is not lost; each unit carries its own `firmware_version`, and the
   system version is unit 0's.
-- **Tools**: a slot's tool is the `tool` it publishes (`#slot_for_tool_locked`,
-  `#tool_for_slot_locked`), and `ACE_CHANGE_TOOL TOOL=` sends that number. A slot the
+- **Tools**: a slot's tool is the `tool` it publishes, taken only as an integer below
+  `kMaxUnits * kSlotsPerUnit` (`src/printer/ace_slot_parse.cpp#read_slot_tool`) and kept
+  as the slot's `mapped_tool`, which `sync_tool_map_from_slots` publishes in both
+  directions (`#slot_for_tool_locked`, `#tool_for_slot_locked` read it). `ACE_CHANGE_TOOL
+  TOOL=` sends that number. A slot the
   driver has named no tool for refuses a load. A `current_index` naming a tool whose unit
   has not reported is stated with no slot marked, and every instance frame resolves the
   seat again, so it lands once that unit's slots arrive.
 - **Status**: each unit's `status` word is kept apart, so one unit reading `ready` does
-  not end another's `loading` (`#set_unit_action_locked`); `connection_state` sets the
-  unit's link.
+  not end another's `loading` (`#set_unit_action_locked`), and an IDLE resolved from them
+  (`busy` or `ready` while the driver feeds) leaves a load sent from the screen LOADING
+  until its own ack; `connection_state` sets the unit's link.
 - **Dryer**: each unit keeps its own dryer and environment, and the dryer commands name
   it: `ACE_START_DRYING INSTANCE=N TEMP= DURATION=` and `ACE_STOP_DRYING INSTANCE=N`
   (`#dryer_instance_argument`). **Without `INSTANCE=` the driver acts on every unit**, so
@@ -239,12 +252,16 @@ toolhead through the one hub `rdm_sensor` watches.
   publish it.
 
 **REST surface** (`ace_status.py`; used when no slot-bearing object answers the initial
-query). **The REST path shows one unit only**: the instance `/status` serves, at unit 0.
+query). **The REST path shows one unit only**: instance 0, at unit 0. The backend polls
+`/status?instance=0` and `/slots?instance=0` (`#kRestStatusPath`; the ValgACE bridge
+ignores the argument), reads each REST slot's `tool` as the object path does, and names
+the instance `/status` reports serving in its slot and dryer commands
+(`#ace_instance_for_unit_locked`).
 
 | Endpoint | Behaviour |
 |----------|-----------|
-| `GET /server/ace/status[?instance=N]` | One instance's `get_status()` verbatim **plus** an envelope: `instance_index` (the instance served), `instances[]` (every unit's get_status), `ace_manager` (the manager fields — **`current_index` seats here**, `#parse_status_response`), `ace_instance_count`. With `?instance=N` it serves instance N. **Without it the bridge picks the instance whose number equals `current_index`** (a tool number, not an instance), else instance 0, so the served unit can change with the seat; the backend reads `instance_index` back and addresses that instance in its slot and dryer commands (`#ace_instance_for_unit_locked`). The top-level `status` field is the action alias for the bridge's `action` |
-| `GET /server/ace/slots` | `{slots: [...]}` — the slots of the instance `/status` would serve, `material` key confirmed live |
+| `GET /server/ace/status[?instance=N]` | One instance's `get_status()` verbatim **plus** an envelope: `instance_index` (the instance served), `instances[]` (every unit's get_status), `ace_manager` (the manager fields — **`current_index` seats here**, `#parse_status_response`), `ace_instance_count`. With `?instance=N` it serves instance N. **Without it the bridge picks the instance whose number equals `current_index`** (a tool number, not an instance), else instance 0, so the served unit would change with the seat, which is why the backend always asks for instance 0. The top-level `status` field is the action alias for the bridge's `action` |
+| `GET /server/ace/slots[?instance=N]` | `{slots: [...]}` — the slots of the instance `/status` would serve for the same arguments, each with its `tool`; `material` key confirmed live |
 | `GET /server/ace/info` | **404 — this driver's bridge has no such endpoint.** The backend treats /info as optional and identifies the hardware from /status's model + firmware |
 | `POST /server/ace/command` | Passes `ACE_*` gcode through — `ACE_CHANGE_TOOL TOOL=`, `ACE_START_DRYING [INSTANCE=] TEMP= [DURATION=]`, `ACE_STOP_DRYING [INSTANCE=]` are source-confirmed, matching what the backend sends |
 
@@ -301,7 +318,8 @@ These are the real native verbs from GoKlipper `extras_ace.go` — the backend d
 > `src/printer/ams_backend_ace.cpp#slot_command` sends the `INSTANCE=` form with the slot's
 > own unit's instance and its local index (on the REST path, the instance `/status`
 > serves); GoKlipper and ValgACE keep `INDEX=`. With nothing seated the commands address
-> the first unit's slot 0, as on every driver. A seated tool whose unit has not reported
+> the first slot of the first unit present, as slot 0 is on every driver; a slot on an
+> `absent` placeholder refuses them. A seated tool whose unit has not reported
 > its slots refuses them, since slot 0 would feed a second strand into its path.
 
 > Note: `ACE_RECOVER` and `ACE_RESET` are **not** native GoKlipper commands — do not send them on the native path.
