@@ -103,11 +103,13 @@ void download_include_graph(std::vector<std::string> listing, const std::string&
 
 /// Lists the "config" root through @p api, then download_include_graph() from
 /// @p root_file over every listed file whose name ends in @p suffix ("" keeps
-/// every file).
+/// every file). Each file is fetched with @p download, or through @p api when
+/// it is empty; the download runs on whatever thread the previous completion
+/// arrived on, so a caller whose API can be torn down mid-walk supplies its own.
 void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_file,
                                    const std::string& suffix,
                                    ActiveFilesWithContentCallback on_complete,
-                                   ErrorCallback on_error);
+                                   ErrorCallback on_error, ConfigDownloadFn download = {});
 
 /// Async wrapper: lists config directory via Moonraker, downloads printer.cfg and
 /// all included files, then resolves the active file set.

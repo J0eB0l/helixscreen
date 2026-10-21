@@ -232,6 +232,21 @@ update_manager_stanza_files() {
     helix_conf_files_matching "$1" "$(running_moonraker_root)" '^\[update_manager helixscreen\]'
 }
 
+# True, after a warning, when config file @1, which holds section @2, belongs
+# to the firmware mod: the mod's own files are never edited here.
+conf_left_to_mod() {
+    host_path_is_mod_owned "$1" || return 1
+    log_warn "$2 is in $1, which the firmware mod owns - leaving it in place"
+}
+
+# update_manager_stanza_files @1 without the firmware mod's files, each of
+# which is warned about and left out: the stanza files the installer may edit.
+update_manager_editable_stanza_files() {
+    update_manager_stanza_files "$1" | while IFS= read -r _umes_file; do
+        conf_left_to_mod "$_umes_file" "[update_manager helixscreen]" || printf '%s\n' "$_umes_file"
+    done
+}
+
 # The channel Moonraker's type:web updater should follow. Moonraker accepts
 # only stable and beta here; the dev channel has no Moonraker lane and rides
 # beta, the closest published feed.
@@ -776,10 +791,7 @@ _remove_helix_print_inline() {
     # includes. That covers the [update_manager helix_print] a git-clone
     # install of the plugin wrote.
     for section_conf in $(helix_print_owned_files "$conf" "$(running_moonraker_root)"); do
-        if host_path_is_mod_owned "$section_conf"; then
-            log_warn "[helix_print] is in $section_conf, which the firmware mod owns - leaving it in place"
-            continue
-        fi
+        conf_left_to_mod "$section_conf" "[helix_print]" && continue
         local fs
         fs=$(file_sudo "$section_conf")
         $fs cp "$section_conf" "${section_conf}.bak.helixscreen-uninstall" 2>/dev/null || true
@@ -1003,11 +1015,12 @@ configure_moonraker_updates() {
 
     # The stanza may sit in a file the conf includes rather than in the conf.
     # Every check and rewrite below goes to the files Moonraker reads it from;
-    # appending one to the conf would leave two for Moonraker to merge.
-    local stanza_files stanza_conf
+    # appending one to the conf would leave two for Moonraker to merge. A
+    # stanza in the firmware mod's files counts as present but is never edited.
+    local stanza_files editable_files stanza_conf
     stanza_files=$(update_manager_stanza_files "$conf")
-    stanza_conf=$(printf '%s\n' "$stanza_files" | sed -n 1p)
-    [ -n "$stanza_conf" ] || stanza_conf="$conf"
+    editable_files=$(update_manager_editable_stanza_files "$conf")
+    stanza_conf=$(printf '%s\n' "$editable_files" | sed -n 1p)
 
     # Gate on Moonraker's asset_name support before arming the one-click
     # updater (prestonbrown/helixscreen#993). On a Moonraker that ignores
@@ -1030,9 +1043,14 @@ configure_moonraker_updates() {
         # The gun may already be loaded from an earlier install that ran before
         # this gate existed -- unload it.
         local removed_stale=0
-        if [ -n "$stanza_files" ]; then
+        if [ -n "$editable_files" ]; then
             log_warn "Removing the existing [update_manager helixscreen] section."
-            remove_update_manager_section && removed_stale=1
+            local stale_file
+            while IFS= read -r stale_file; do
+                _remove_update_manager_section_from "$stale_file" && removed_stale=1
+            done <<STALE_FILES
+$editable_files
+STALE_FILES
         fi
 
         # These two are orthogonal to the updater and must not regress just
@@ -1062,7 +1080,8 @@ configure_moonraker_updates() {
 
     # Migrate old git_repo or zip config to type: web
     # (type: zip shows perpetual UP-TO-DATE in Mainsail — see mainsail-crew/mainsail#2444)
-    if has_old_git_repo_section "$stanza_conf" || has_old_zip_section "$stanza_conf"; then
+    if [ -n "$stanza_conf" ] \
+        && { has_old_git_repo_section "$stanza_conf" || has_old_zip_section "$stanza_conf"; }; then
         migrate_to_web_type "$stanza_conf" || true
         # Where the OS has no package manager, silence the provider warnings.
         disable_system_updates_on_buildroot "$conf"
@@ -1077,10 +1096,7 @@ configure_moonraker_updates() {
         _UPDATE_MANAGER_SYNCED=""
         local stanza_file
         while IFS= read -r stanza_file; do
-            if host_path_is_mod_owned "$stanza_file"; then
-                log_warn "[update_manager helixscreen] is in $stanza_file, which the firmware mod owns - leaving it in place"
-                continue
-            fi
+            [ -n "$stanza_file" ] || continue
             log_info "update_manager section already exists in $stanza_file"
             # path: is only ever written when the section is first added, so an
             # install that has moved leaves it naming the tree we left behind.
@@ -1092,7 +1108,7 @@ configure_moonraker_updates() {
             # top-level names only and cannot preserve our config/ layout).
             cleanup_unsupported_options "$stanza_file"
         done <<STANZA_FILES
-$stanza_files
+$editable_files
 STANZA_FILES
         # Where the OS has no package manager, silence the provider warnings.
         disable_system_updates_on_buildroot "$conf"
@@ -1126,13 +1142,9 @@ remove_update_manager_section() {
     [ -n "$conf" ] || return 0
     while IFS= read -r stanza_file; do
         [ -n "$stanza_file" ] || continue
-        if host_path_is_mod_owned "$stanza_file"; then
-            log_warn "[update_manager helixscreen] is in $stanza_file, which the firmware mod owns - leaving it in place"
-            continue
-        fi
         _remove_update_manager_section_from "$stanza_file" || rc=1
     done <<STANZA_FILES
-$(update_manager_stanza_files "$conf")
+$(update_manager_editable_stanza_files "$conf")
 STANZA_FILES
     return $rc
 }

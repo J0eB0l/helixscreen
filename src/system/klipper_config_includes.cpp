@@ -345,12 +345,23 @@ void download_include_graph(std::vector<std::string> listing, const std::string&
 void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_file,
                                    const std::string& suffix,
                                    ActiveFilesWithContentCallback on_complete,
-                                   ErrorCallback on_error) {
-    // api must outlive all async callbacks (guaranteed: IMoonrakerAPI is owned by PrinterState
-    // singleton)
+                                   ErrorCallback on_error, ConfigDownloadFn download) {
+    if (!download) {
+        // api must outlive all async callbacks (guaranteed: IMoonrakerAPI is owned by
+        // PrinterState singleton)
+        download = [&api](const std::string& path, std::function<void(std::string)> ok,
+                          std::function<void(std::string, bool)> fail) {
+            api.transfers().download_file(
+                "config", path, [ok](const std::string& content) { ok(content); },
+                [fail](const MoonrakerError& err) {
+                    fail(err.message, err.type == MoonrakerErrorType::QUEUE_FULL);
+                });
+        };
+    }
     api.files().list_files(
         "config", "", true,
-        [&api, root_file, suffix, on_complete, on_error](const std::vector<FileInfo>& file_list) {
+        [root_file, suffix, download, on_complete,
+         on_error](const std::vector<FileInfo>& file_list) {
             std::vector<std::string> paths;
             for (const auto& f : file_list) {
                 if (!f.is_dir) {
@@ -361,17 +372,7 @@ void download_config_include_graph(IMoonrakerAPI& api, const std::string& root_f
                     }
                 }
             }
-            download_include_graph(
-                std::move(paths), root_file,
-                [&api](const std::string& path, std::function<void(std::string)> ok,
-                       std::function<void(std::string, bool)> fail) {
-                    api.transfers().download_file(
-                        "config", path, [ok](const std::string& content) { ok(content); },
-                        [fail](const MoonrakerError& err) {
-                            fail(err.message, err.type == MoonrakerErrorType::QUEUE_FULL);
-                        });
-                },
-                on_complete, on_error);
+            download_include_graph(std::move(paths), root_file, download, on_complete, on_error);
         },
         [on_error](const MoonrakerError& err) {
             if (on_error)

@@ -3153,6 +3153,27 @@ void UpdateChecker::sync_moonraker_channel_for(const std::string& install_root) 
     // Taken here on the main thread; the transfer callbacks run on background threads.
     auto tok = async_lifetime_.token();
 
+    // Each include is requested from the previous download's completion, on a
+    // background thread, and a printer switch frees the API without draining
+    // those. The request hops to the main thread, where the generation proves
+    // the API still current; a stale walk fails without touching it.
+    helix::system::ConfigDownloadFn download =
+        [this, tok, api, gen](const std::string& path, std::function<void(std::string)> ok,
+                              std::function<void(std::string, bool)> fail) {
+            tok.defer("UpdateChecker::sync_moonraker_channel_download",
+                      [this, api, gen, path, ok, fail]() {
+                          if (gen != moonraker_sync_generation_.load()) {
+                              fail("the printer changed during the sync", false);
+                              return;
+                          }
+                          api->transfers().download_file(
+                              "config", path, [ok](const std::string& content) { ok(content); },
+                              [fail](const MoonrakerError& err) {
+                                  fail(err.message, err.type == MoonrakerErrorType::QUEUE_FULL);
+                              });
+                      });
+        };
+
     // The stanza may sit in a file moonraker.conf pulls in with [include], as
     // mainsail.conf does on some firmware; it is rewritten where Moonraker reads it.
     helix::system::download_config_include_graph(
@@ -3162,9 +3183,9 @@ void UpdateChecker::sync_moonraker_channel_for(const std::string& install_root) 
             const std::string file = helix::MoonrakerConfigManager::find_section_file(
                 files, kMoonrakerConf, kHelixStanza);
             if (file.empty()) {
-                spdlog::info("[UpdateChecker] No [{}] in moonraker.conf or its includes; "
-                             "Moonraker's update channel is not synced",
-                             kHelixStanza);
+                spdlog::debug("[UpdateChecker] No [{}] in moonraker.conf or its includes; "
+                              "Moonraker's update channel is not synced",
+                              kHelixStanza);
                 return;
             }
             const std::string& content = files.at(file);
@@ -3204,7 +3225,8 @@ void UpdateChecker::sync_moonraker_channel_for(const std::string& install_root) 
             spdlog::info("[UpdateChecker] Could not read moonraker.conf to sync the update "
                          "channel: {}",
                          err);
-        });
+        },
+        std::move(download));
 }
 
 void UpdateChecker::restart_moonraker_for_channel(IMoonrakerAPI& api, uint64_t gen) {

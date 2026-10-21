@@ -758,6 +758,87 @@ create_moonraker_conf_including_helix() {
     grep -q '^\[include mainsail.conf\]' "$conf"
 }
 
+# moonraker.conf including a conf under a firmware mod's root, which holds a
+# stanza. Sets MOD_CONF.
+create_moonraker_conf_including_mod_stanza() {
+    local conf="$1"
+    HOST_MOD_ROOT="$BATS_TEST_TMPDIR/mod"
+    MOD_CONF="$HOST_MOD_ROOT/mod.conf"
+    mkdir -p "$HOST_MOD_ROOT"
+    printf '[server]\n\n[include %s]\n' "$MOD_CONF" > "$conf"
+    printf '[update_manager helixscreen]\ntype: web\nchannel: stable\npath: %s\n' \
+        "$INSTALL_DIR" > "$MOD_CONF"
+}
+
+@test "configure_moonraker_updates leaves a stanza in the firmware mod's files alone" {
+    local conf before
+    conf=$(setup_moonraker_home)
+    create_moonraker_conf_including_mod_stanza "$conf"
+    before=$(cat "$MOD_CONF")
+    MOONRAKER_CONF_PATHS="$conf"
+    rm -f "$INSTALL_DIR/bin/helix-screen"
+    restart_moonraker() { :; }
+    R2_CHANNEL=beta
+
+    configure_moonraker_updates "pi" 2>"$BATS_TEST_TMPDIR/out.log"
+
+    [ "$(cat "$MOD_CONF")" = "$before" ]
+    refute_grep '^\[update_manager helixscreen\]' "$conf"
+    grep -q 'which the firmware mod owns - leaving it in place' "$BATS_TEST_TMPDIR/out.log"
+}
+
+@test "configure_moonraker_updates: unsupported reports no removal of a mod-owned stanza" {
+    local conf before restarted="$BATS_TEST_TMPDIR/restarted"
+    conf=$(setup_moonraker_home)
+    create_moonraker_conf_including_mod_stanza "$conf"
+    before=$(cat "$MOD_CONF")
+    MOONRAKER_CONF_PATHS="$conf"
+    rm -f "$INSTALL_DIR/bin/helix-screen"
+    fake_moonraker_src "zip_deploy.py" "class ZipDeploy(AppDeploy): pass" >/dev/null
+    mock_command_script "systemctl" 'exit 0'
+    restart_moonraker() { touch "$restarted"; }
+
+    configure_moonraker_updates "pi" 2>"$BATS_TEST_TMPDIR/gate.log"
+
+    [ "$(cat "$MOD_CONF")" = "$before" ]
+    refute_grep 'Removing the existing' "$BATS_TEST_TMPDIR/gate.log"
+    [ ! -e "$restarted" ]
+}
+
+@test "remove_update_manager_section removes an included stanza and leaves the mod's" {
+    local conf conf_dir before
+    conf=$(setup_moonraker_home)
+    conf_dir=$(dirname "$conf")
+    create_moonraker_conf_including_mod_stanza "$conf"
+    printf '[include mainsail.conf]\n' >> "$conf"
+    printf '[update_manager helixscreen]\ntype: web\npath: %s\n' "$INSTALL_DIR" > "$conf_dir/mainsail.conf"
+    before=$(cat "$MOD_CONF")
+    MOONRAKER_CONF_PATHS="$conf"
+
+    remove_update_manager_section
+
+    refute_grep '^\[update_manager helixscreen\]' "$conf_dir/mainsail.conf"
+    [ "$(cat "$MOD_CONF")" = "$before" ]
+}
+
+@test "configure_moonraker_updates migrates an old stanza in the file moonraker.conf includes" {
+    local conf conf_dir
+    conf=$(setup_moonraker_home)
+    conf_dir=$(dirname "$conf")
+    printf '[server]\n\n[include mainsail.conf]\n' > "$conf"
+    create_moonraker_conf_with_git_repo "$conf_dir/mainsail.conf"
+    MOONRAKER_CONF_PATHS="$conf"
+    rm -f "$INSTALL_DIR/bin/helix-screen"
+    restart_moonraker() { :; }
+
+    configure_moonraker_updates "pi"
+
+    [ "$(grep -c '^\[update_manager helixscreen\]' "$conf_dir/mainsail.conf")" -eq 1 ]
+    awk '/^\[update_manager helixscreen\]/{found=1; next} found && /^\[/{exit} found && /^type:/{print; exit}' \
+        "$conf_dir/mainsail.conf" | grep -qx 'type: web'
+    refute_grep '^\[update_manager helixscreen\]' "$conf"
+}
+
 # =============================================================================
 # migrate_to_web_type
 # =============================================================================
