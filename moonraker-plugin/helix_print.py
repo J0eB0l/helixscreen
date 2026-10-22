@@ -136,6 +136,7 @@ def _load_sibling(name: str) -> Optional[Any]:
 
 helix_capabilities = _load_sibling("helix_capabilities")
 helix_3mf = _load_sibling("helix_3mf")
+helix_plr = _load_sibling("helix_plr")
 
 
 # ============================================================================
@@ -414,6 +415,7 @@ class HelixPrint:
         self.convert_3mf = config.getboolean("convert_3mf", True)
         self.start_3mf_on_upload = config.getboolean("start_3mf_on_upload", False)
         self.converter: Optional[Any] = None
+        self.plr: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -704,6 +706,7 @@ class HelixPrint:
 
         await self._start_3mf_converter()
         self._register_3mf_feature()
+        self._start_plr()
 
         await self._load_job_markers()
 
@@ -759,6 +762,31 @@ class HelixPrint:
 
         self.register_feature(
             "convert_3mf", 1, acts=False, switch=switch, probe=self._3mf_availability,
+        )
+
+    def _data_dir(self) -> Path:
+        """Moonraker's data directory (printer_data)."""
+        get_args = getattr(self.server, "get_app_args", None)
+        if get_args is not None:
+            data_path = get_args().get("data_path")
+            if data_path:
+                return Path(data_path)
+        return self.gc_path.parent if self.gc_path is not None else Path(".")
+
+    def _start_plr(self) -> None:
+        """Power-loss recovery (helix_plr.py), switched by its own plr_user
+        record rather than plugin_features."""
+        if helix_plr is None:
+            self.register_feature(
+                "plr", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_plr", "module_missing"),
+            )
+            return
+        self.plr = helix_plr.HelixPlr(self, self._data_dir())
+        self.plr.start()
+        self.register_feature(
+            helix_plr.PLR_FEATURE, helix_plr.PLR_FEATURE_VERSION, acts=True,
+            switch=self.plr.saving_enabled, probe=self.plr.availability,
         )
 
     async def close(self) -> None:
