@@ -1207,6 +1207,27 @@ def test_plan_warns_about_a_lost_mesh_and_a_cold_bed(plr, helix, resume):
                                  "accept_cold_bed"]
 
 
+def test_a_kept_plan_reports_the_bed_as_it_is_now(plr, helix, resume):
+    """The plan asked again 90 minutes on, same snapshot: the bed has cooled
+    since the first answer."""
+    first = run(plr.handle_plan(Req()))
+    assert first["bed"]["current"] == 55.0 and "cold_bed" not in first["warnings"]
+    plr.clock.t += 90 * 60
+    plr.printer.bed = 27.0
+    again = run(plr.handle_plan(Req()))
+    assert again["plan_id"] == first["plan_id"]
+    assert again["bed"] == {"target": 60.0, "current": 27.0}
+    assert again["warnings"] == ["cold_bed"] and again["requires"][-1] == "accept_cold_bed"
+    plr.printer.bed = 58.0
+    warm = run(plr.handle_plan(Req()))
+    assert warm["bed"]["current"] == 58.0 and "accept_cold_bed" not in warm["requires"]
+    plr.printer.bed = 27.0
+    run(plr.handle_plan(Req()))
+    run(plr.handle_prepare(Req(plan_id=again["plan_id"])))
+    with pytest.raises(Exception, match="plr_missing_confirmation: accept_cold_bed"):
+        commit(plr, again["plan_id"])
+
+
 def test_include_file_mesh_needs_no_extra_confirmation(plr, helix, resume):
     plr.job["mesh"] = {"profile": "adaptive", "saved": False, "min": [0, 0], "max": [1, 1],
                        "points": [[0.0]]}

@@ -752,6 +752,17 @@ OFFER_MIN_PRINT_S = 120.0
 COLD_BED_DIFF_C = 10.0
 
 
+def bed_warnings(warnings: List[str], bed_target: float,
+                 bed_now: Optional[float]) -> Tuple[List[str], bool]:
+    """`warnings` with cold_bed set from the bed's temperature now, and
+    whether it is cold."""
+    cold = bool(bed_target and bed_now is not None and bed_now < bed_target - COLD_BED_DIFF_C)
+    out = [w for w in warnings if w != "cold_bed"]
+    if cold:
+        out.append("cold_bed")
+    return out, cold
+
+
 class OfferInputs(NamedTuple):
     newest_job_status: Optional[str]  # Moonraker history
     snapshot_job_id: Optional[str]
@@ -1614,6 +1625,7 @@ class HelixPlr:
         profile = await self.profile()
         if self._plan is not None and snapshot is not None \
                 and self._plan_seq == snapshot.get("seq") and self._sequence is None:
+            self._plan = await self._with_live_bed(self._plan)
             return self._plan_reply(self._plan)
         if self._pending is not None and not self._pending.done():
             return {"pending": True, "plan_id": self._pending_id}
@@ -1740,9 +1752,7 @@ class HelixPlr:
                               400)
         live = snapshot.get("live_pos") or [0.0, 0.0, 0.0, 0.0]
         bed_now = _num(_obj(status, "heater_bed").get("temperature"))
-        bed_cold = bool(bed_target and bed_now is not None and bed_now < bed_target - COLD_BED_DIFF_C)
-        if bed_cold:
-            warnings.append("cold_bed")
+        warnings, bed_cold = bed_warnings(warnings, bed_target, bed_now)
         filename = job.get("filename", "")
         start_name, history_name = self._start_name(filename)
         plan = helix_plr_render.ResumePlan(
@@ -1769,6 +1779,16 @@ class HelixPlr:
         self._plan_file_size = os.stat(str(target[0])).st_size if target else None
         self._bed_now = bed_now
         return plan
+
+    async def _with_live_bed(self, plan: Any) -> Any:
+        """A kept plan with the bed as it is now: the plan can be hours old,
+        and the bed has cooled since."""
+        bed_now = _num(_obj(await self._query({"heater_bed": ["temperature"]}), "heater_bed")
+                       .get("temperature"))
+        warnings, cold = bed_warnings(plan.warnings, plan.bed_target, bed_now)
+        self._bed_now = bed_now
+        return plan._replace(warnings=warnings, requires=helix_plr_render.required_confirmations(
+            plan.tier, warnings, cold))
 
     def _check_qidi_landing(self, snapshot: Dict[str, Any], mesh: Any) -> None:
         """QIDI's landing move is off by the gcode offset plus the mesh at the
