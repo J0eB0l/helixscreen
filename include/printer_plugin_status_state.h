@@ -3,6 +3,7 @@
 
 #include "helix_plugin_features.h"
 #include "plr_backend.h"
+#include "print_photos.h"
 #include "standing_print_options.h"
 #include "subject_managed_panel.h"
 
@@ -28,10 +29,12 @@ struct PluginSwitchFeature {
     const char* on_subject;
 };
 
-inline constexpr std::array<PluginSwitchFeature, 2> kPluginSwitchFeatures = {{
+inline constexpr std::array<PluginSwitchFeature, 3> kPluginSwitchFeatures = {{
     {kPlrFeatureName, kPlrFeatureMinVersion, false, true, "plugin_feature_mode_plr", nullptr},
     {kPrintHooksFeature, kPrintHooksMinVersion, true, true, "plugin_feature_mode_print_hooks",
      "plugin_feature_on_print_hooks"},
+    {kPhotosFeature, kPhotosMinVersion, true, false, "plugin_feature_mode_photos",
+     "plugin_feature_on_photos"},
 }};
 
 /// helix_plugin_installed values once the probe has answered (-1 before). A

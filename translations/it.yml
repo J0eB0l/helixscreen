@@ -1219,6 +1219,7 @@ translations:
 
   Encoder: Encoder
   Encoder Error: 'Errore dell''encoder'
+  End: 'Fine'
   End K: K finale
   End Test: Termina test
   End calibration: 'Termina calibrazione'
@@ -2053,6 +2054,7 @@ translations:
   Last print failed: Ultima stampa fallita
   Later: Dopo
   Layer: Strato
+  Layer 2: 'Strato 2'
   Layer Height: Altezza layer
   Layer Macro captures one frame per layer change. Best for most prints.: Layer Macro
     cattura un fotogramma per ogni cambio di strato. Ideale per la maggior parte delle
@@ -2130,6 +2132,7 @@ translations:
   Loading filament...: Caricamento filamento...
   Loading filaments...: Caricamento filamenti...
   Loading history...: Caricamento cronologia...
+  Loading photo: 'Caricamento foto'
   Loading spools...: Caricamento bobine...
   Loading vendors...: Caricamento fornitori...
   Loading...: Caricamento...
@@ -2735,6 +2738,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Telefono
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: Telefono mette 1 2 3 nella riga in alto, calcolatrice 7 8 9
+  Photo unavailable: 'Foto non disponibile'
   Pick: Scegli
   Pick Color: Scegli colore
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Scegli come si comporta HelixScreen. Puoi cambiare tutto più tardi in Impostazioni.'
@@ -2834,6 +2838,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'Calibrazione pressure advance'
+  Preview: 'Anteprima'
   Preview Sounds: Anteprima suoni
   Previous: Precedente
   Price: Prezzo
@@ -2882,6 +2887,7 @@ translations:
   Print issue detected: Problema di stampa rilevato
   Print jobs waiting to run: Lavori di stampa in attesa
   Print paused: Stampa in pausa
+  Print photos: 'Foto di stampa'
   'Print preparation failed: {}': 'Preparazione stampa fallita: {}'
   Print resumed: Stampa ripresa
   Print server rejected the job — check printer status: Il server di stampa ha rifiutato
@@ -3354,6 +3360,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Salvato su {}. Viene applicato ogni volta che questo filamento diventa attivo.
   Saved values, and whether to ask before running: 'Valori salvati e se chiedere prima di eseguire'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Salvato. Spoolman è offline, quindi prezzo, posizione, lotto e note restano qui non salvati.'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'Salva una foto della telecamera dopo lo strato 2 e alla fine di ogni stampa, visibile nella cronologia stampe.'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Salva la posizione di stampa circa una volta al secondo, così una stampa può riprendere dopo un'interruzione di corrente. Su una scheda SD questo aumenta l'usura.
   Saves to Klipper config and restarts firmware.: Salva nella configurazione Klipper
     e riavvia il firmware.

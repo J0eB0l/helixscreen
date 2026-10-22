@@ -1147,6 +1147,7 @@ translations:
 
   Encoder: 编码器
   Encoder Error: '编码器错误'
+  End: '结束'
   End K: 结束K值
   End Test: 结束测试
   End calibration: '结束校准'
@@ -1934,6 +1935,7 @@ translations:
   Last print failed: 上次打印失败
   Later: 稍后
   Layer: 层
+  Layer 2: '第 2 层'
   Layer Height: 层高
   Layer Macro captures one frame per layer change. Best for most prints.: 层变化宏在每次层变化时捕获一帧。适合大多数打印。
   Layer Pause: '层暂停'
@@ -2005,6 +2007,7 @@ translations:
   Loading filament...: 正在加载耗材...
   Loading filaments...: 正在加载耗材...
   Loading history...: 正在加载历史...
+  Loading photo: '正在加载照片'
   Loading spools...: 正在加载料盘...
   Loading vendors...: 正在加载供应商…
   Loading...: 正在加载...
@@ -2590,6 +2593,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: 电话
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: 电话布局第一行为 1 2 3，计算器布局第一行为 7 8 9
+  Photo unavailable: '照片不可用'
   Pick: 选取
   Pick Color: 选择颜色
   Pick how HelixScreen behaves. You can change any of these later in Settings.: '选择 HelixScreen 的行为方式。以后可在“设置”中更改。'
@@ -2684,6 +2688,7 @@ translations:
   Pressure Adv.: '压力提前'
   Pressure Advance: '压力提前'
   Pressure Advance Calibration: '压力提前校准'
+  Preview: '预览'
   Preview Sounds: 预览声音
   Previous: 上一步
   Price: 价格
@@ -2731,6 +2736,7 @@ translations:
   Print issue detected: 检测到打印问题
   Print jobs waiting to run: 等待执行的打印任务
   Print paused: 打印已暂停
+  Print photos: '打印照片'
   'Print preparation failed: {}': '打印准备失败: {}'
   Print resumed: 打印已恢复
   Print server rejected the job — check printer status: 打印服务器拒绝了任务 — 请检查打印机状态
@@ -3177,6 +3183,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: 已保存到{}。每当该耗材启用时都会应用。
   Saved values, and whether to ask before running: '保存的值,以及运行前是否询问'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: '已保存。Spoolman 离线，因此价格、位置、批次和备注暂留在此处，尚未保存。'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: '在第 2 层之后和每次打印结束时保存一张摄像头照片，显示在打印历史中。'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: 大约每秒保存一次打印位置，以便断电后可以恢复打印。在 SD 卡上这会增加磨损。
   Saves to Klipper config and restarts firmware.: 保存到 Klipper 配置并重启固件。
   Saving Configuration...: 正在保存配置...

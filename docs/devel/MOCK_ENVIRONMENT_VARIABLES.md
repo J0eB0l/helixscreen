@@ -416,8 +416,9 @@ Printer Events button shows the plugin's journal. Installed and not `disabled`, 
 also reports `print_hooks`, `enabled` from the mock database's
 `helix-screen`/`plugin_features.print_hooks` (off until the Printing page's switch
 writes it; `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false` with
-`reason: "load_failed"`), and `file_analysis`, `server_edits` and `config_edit`, each
-`Ready`. The mock has no `server.helix.config`, so a config edit falls back to the file API.
+`reason: "load_failed"`), `photos`, on unless the mock database's
+`helix-screen`/`plugin_features.photos` is `false`, and `file_analysis`, `server_edits`
+and `config_edit`, each `Ready`. The mock has no `server.helix.config`, so a config edit falls back to the file API.
 `HELIX_MOCK_PLR` adds the `plr` entry (below); no other feature is reported.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker
@@ -430,6 +431,29 @@ in a mock run, including the pre-print options and the G-code rewrite remap.
 ./build/bin/helix-screen --test -vv                          # Install row
 HELIX_MOCK_HELIX_PLUGIN=1 ./build/bin/helix-screen --test -vv # Uninstall row
 HELIX_MOCK_HELIX_PLUGIN=disabled ./build/bin/helix-screen --test -vv # Install row, as absent
+```
+
+### `HELIX_MOCK_PRINT_PHOTOS`
+
+Give the newest mock history job its two camera photos, linked from its
+`auxiliary_data` the way the HelixPrint plugin's `photos` feature links them
+(`.helix_photos/<job>_<start>_layer2.jpg` and `_end.jpg`). Downloading any path
+under `.helix_photos/` serves one of two stock pictures,
+`assets/test_gcodes/mock_print_photo_layer2.jpg` or `mock_print_photo_end.jpg`,
+by the path's kind.
+
+| Property | Value |
+|----------|-------|
+| Values | `1` = on |
+| Default | off |
+| Affects | `server.history.list` (the newest job only), `download_file` under `.helix_photos/` |
+
+The history detail overlay then opens on the end photo with Preview / Layer 2 /
+End tabs. Independent of `HELIX_MOCK_HELIX_PLUGIN`: the history shape is the
+same whoever took the photos.
+
+```bash
+HELIX_MOCK_PRINT_PHOTOS=1 ./build/bin/helix-screen --test -vv   # Advanced > Print History > View Full History > newest job
 ```
 
 ### `HELIX_MOCK_PLR`

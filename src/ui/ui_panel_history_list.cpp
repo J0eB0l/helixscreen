@@ -898,6 +898,7 @@ void HistoryListPanel::init_detail_subjects() {
     UI_MANAGED_SUBJECT_INT(detail_can_reprint_, 1, "history_detail_can_reprint", subjects_);
     UI_MANAGED_SUBJECT_INT(detail_status_code_, 0, "history_detail_status_code", subjects_);
     UI_MANAGED_SUBJECT_INT(detail_has_timelapse_, 0, "history_detail_has_timelapse", subjects_);
+    photo_viewer_.init_subjects(subjects_);
 
     spdlog::debug("[{}] Detail overlay subjects initialized", get_name());
 }
@@ -1012,6 +1013,8 @@ void HistoryListPanel::show_detail_overlay(const PrintHistoryJob& job) {
             spdlog::debug("[{}] No thumbnail path, showing fallback", get_name());
         }
     }
+
+    photo_viewer_.show_job(job, detail_overlay_);
 
     // Register detail sub-overlay with nullptr lifecycle — managed by HistoryListPanel
     helix::nav::register_overlay(detail_overlay_, nullptr);
@@ -1206,6 +1209,7 @@ void HistoryListPanel::confirm_delete() {
     const auto& job = filtered_jobs_[selected_job_index_];
     std::string job_id = job.job_id;
     std::string filename = job.filename;
+    PrintHistoryJob deleted = job;
 
     spdlog::info("[{}] Confirming delete for job_id: {}", get_name(), job_id);
 
@@ -1214,9 +1218,10 @@ void HistoryListPanel::confirm_delete() {
         api->history().delete_history_job(
             job_id,
             lifetime_.bg_cb("HistoryListPanel::confirm_delete",
-                            [this, job_id, filename]() {
+                            [this, job_id, filename, deleted]() {
                                 spdlog::info("[{}] Job deleted: {} ({})", get_name(), filename,
                                              job_id);
+                                helix::ui::HistoryPhotoViewer::delete_photos(deleted);
 
                                 // Remove from jobs_ and filtered_jobs_
                                 jobs_.erase(std::remove_if(jobs_.begin(), jobs_.end(),

@@ -40,6 +40,18 @@ Check this page after you add or remove hardware, so HelixScreen's list matches 
 
 Opens your printer's camera full screen. See [Camera](../camera.md) for rotation, stream status and the home screen camera widget.
 
+### Print photos
+
+> Only shown when a webcam is set up in Moonraker.
+
+When this switch is on, HelixScreen saves two pictures from your camera for every print: one once the second layer is done, so you can check the first layers went down well, and one when the print ends (finished, canceled or failed). They appear on the print's page in [Print History](../print-history.md#print-details--reprinting). It is on by default.
+
+With the [HelixPrint plugin](../helixprint-plugin.md) installed, the printer takes the photos itself, for every print, whichever app started it, and whether or not a screen is connected. Without the plugin, the screen takes them while it is connected to the printer, so a print that runs while this screen is off or away gets no photos. On a screen that is not attached to the printer (a tablet, a desktop), the row says so and offers to install the plugin.
+
+The photos are kept on the printer. They are removed when you delete the print from the history, and the oldest go once there are photos of 500 prints.
+
+The ESP32 screen does not show the photos and cannot take them itself; with the plugin installed, the printer still takes them, and other screens show them.
+
 ---
 
 ## Fans

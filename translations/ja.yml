@@ -1151,6 +1151,7 @@ translations:
 
   Encoder: エンコーダー
   Encoder Error: 'エンコーダーエラー'
+  End: '終了'
   End K: 終了K
   End Test: テスト終了
   End calibration: 'キャリブレーションを終了'
@@ -1939,6 +1940,7 @@ translations:
   Last print failed: 前回の印刷が失敗しました
   Later: 後で
   Layer: レイヤー
+  Layer 2: 'レイヤー2'
   Layer Height: レイヤー高さ
   Layer Macro captures one frame per layer change. Best for most prints.: レイヤーマクロはレイヤーが変わるごとに
     1 フレームを撮影します。ほとんどの印刷に最適です。
@@ -2011,6 +2013,7 @@ translations:
   Loading filament...: フィラメントを装填中...
   Loading filaments...: フィラメントを読み込み中...
   Loading history...: 履歴を読み込み中...
+  Loading photo: '写真を読み込み中'
   Loading spools...: スプールを読み込み中...
   Loading vendors...: ベンダーを読み込み中...
   Loading...: 読み込み中...
@@ -2597,6 +2600,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: 電話
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: 電話は上段が 1 2 3、計算機は上段が 7 8 9
+  Photo unavailable: '写真を表示できません'
   Pick: 選択
   Pick Color: 色を選択
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'HelixScreen の動作を選択します。すべて後で「設定」から変更できます。'
@@ -2692,6 +2696,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'プレッシャーアドバンスキャリブレーション'
+  Preview: 'プレビュー'
   Preview Sounds: サウンドをプレビュー
   Previous: 前回
   Price: 価格
@@ -2739,6 +2744,7 @@ translations:
   Print issue detected: 印刷の問題を検出しました
   Print jobs waiting to run: 実行待ちの印刷ジョブ
   Print paused: 印刷一時停止
+  Print photos: '印刷写真'
   'Print preparation failed: {}': '印刷準備に失敗しました: {}'
   Print resumed: 印刷を再開しました
   Print server rejected the job — check printer status: 印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください
@@ -3186,6 +3192,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: '{}に保存しました。このフィラメントが使用中になるたびに適用されます。'
   Saved values, and whether to ask before running: '保存した値と、実行前に確認するかどうか'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: '保存しました。Spoolmanがオフラインのため、価格、場所、ロット、メモは未保存のままここに残ります。'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'レイヤー2の後と各印刷の終了時にカメラの写真を保存し、印刷履歴に表示します。'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: 停電後に印刷を再開できるよう、約1秒ごとに印刷位置を保存します。SDカードでは摩耗が多くなります。
   Saves to Klipper config and restarts firmware.: Klipper 設定に保存してファームウェアを再起動します。
   Saving Configuration...: 設定を保存中...

@@ -13,6 +13,7 @@
 #include "moonraker_client_mock_internal.h"
 #include "plugin_source_app.h"
 #include "power_device_state.h"
+#include "print_photos.h"
 #include "runtime_config.h"
 #include "screws_tilt_parser.h"
 #include "sensor_state.h"
@@ -473,6 +474,14 @@ void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const 
 
     // Strip any leading directory components to get just the filename
     std::string filename = helix::gcode::get_filename_basename(path);
+    // A print photo (HELIX_MOCK_PRINT_PHOTOS) is one of two stock pictures.
+    if (root == "gcodes" && helix::is_photo_path(path)) {
+        const std::string layer_suffix = std::string("_") + helix::kPhotoKindLayer + ".jpg";
+        const bool layer = filename.size() > layer_suffix.size() &&
+                           filename.compare(filename.size() - layer_suffix.size(),
+                                            layer_suffix.size(), layer_suffix) == 0;
+        filename = layer ? "mock_print_photo_layer2.jpg" : "mock_print_photo_end.jpg";
+    }
 
     spdlog::debug("[MoonrakerAPIMock] download_file: root='{}', path='{}' -> filename='{}'", root,
                   path, filename);

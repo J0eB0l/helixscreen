@@ -1103,6 +1103,7 @@
   <translation tag="Enclosure" it="Chiusura"/>
   <translation tag="Encoder" it="Encoder"/>
   <translation tag="Encoder Error" it="Errore dell&apos;encoder"/>
+  <translation tag="End" it="Fine"/>
   <translation tag="End K" it="K finale"/>
   <translation tag="End Test" it="Termina test"/>
   <translation tag="End calibration" it="Termina calibrazione"/>
@@ -1860,6 +1861,7 @@
   <translation tag="Last print failed" it="Ultima stampa fallita"/>
   <translation tag="Later" it="Dopo"/>
   <translation tag="Layer" it="Strato"/>
+  <translation tag="Layer 2" it="Strato 2"/>
   <translation tag="Layer Height" it="Altezza layer"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." it="Layer Macro cattura un fotogramma per ogni cambio di strato. Ideale per la maggior parte delle stampe."/>
   <translation tag="Layer Pause" it="Pausa al layer"/>
@@ -1932,6 +1934,7 @@
   <translation tag="Loading filament..." it="Caricamento filamento..."/>
   <translation tag="Loading filaments..." it="Caricamento filamenti..."/>
   <translation tag="Loading history..." it="Caricamento cronologia..."/>
+  <translation tag="Loading photo" it="Caricamento foto"/>
   <translation tag="Loading spools..." it="Caricamento bobine..."/>
   <translation tag="Loading vendors..." it="Caricamento fornitori..."/>
   <translation tag="Loading..." it="Caricamento..."/>
@@ -2499,6 +2502,7 @@
   <translation tag="Phomemo M110" it="Phomemo M110"/>
   <translation tag="Phone" it="Telefono"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" it="Telefono mette 1 2 3 nella riga in alto, calcolatrice 7 8 9"/>
+  <translation tag="Photo unavailable" it="Foto non disponibile"/>
   <translation tag="Pick" it="Scegli"/>
   <translation tag="Pick Color" it="Scegli colore"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." it="Scegli come si comporta HelixScreen. Puoi cambiare tutto più tardi in Impostazioni."/>
@@ -2588,6 +2592,7 @@
   <translation tag="Pressure advance" it="Pressure Advance"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." it="Il Pressure Advance sale man mano che la torre cresce. Osserva gli angoli: tocca - o + quando vuoi e la rampa si ferma così puoi valutare il tuo valore."/>
   <translation tag="Pressure:" it="Pressione:"/>
+  <translation tag="Preview" it="Anteprima"/>
   <translation tag="Preview Sounds" it="Anteprima suoni"/>
   <translation tag="Previous" it="Precedente"/>
   <translation tag="Price" it="Prezzo"/>
@@ -2639,6 +2644,7 @@
   <translation tag="Print issue detected" it="Problema di stampa rilevato"/>
   <translation tag="Print jobs waiting to run" it="Lavori di stampa in attesa"/>
   <translation tag="Print paused" it="Stampa in pausa"/>
+  <translation tag="Print photos" it="Foto di stampa"/>
   <translation tag="Print preparation failed: {}" it="Preparazione stampa fallita: {}"/>
   <translation tag="Print resumed" it="Stampa ripresa"/>
   <translation tag="Print server rejected the job — check printer status" it="Il server di stampa ha rifiutato il lavoro — controlla lo stato della stampante"/>
@@ -3075,6 +3081,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." it="Salvato su {}. Viene applicato ogni volta che questo filamento diventa attivo."/>
   <translation tag="Saved values, and whether to ask before running" it="Valori salvati e se chiedere prima di eseguire"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." it="Salvato. Spoolman è offline, quindi prezzo, posizione, lotto e note restano qui non salvati."/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." it="Salva una foto della telecamera dopo lo strato 2 e alla fine di ogni stampa, visibile nella cronologia stampe."/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." it="Salva la posizione di stampa circa una volta al secondo, così una stampa può riprendere dopo un&apos;interruzione di corrente. Su una scheda SD questo aumenta l&apos;usura."/>
   <translation tag="Saves to Klipper config and restarts firmware." it="Salva nella configurazione Klipper e riavvia il firmware."/>
   <translation tag="Saving Configuration..." it="Salvataggio configurazione..."/>
