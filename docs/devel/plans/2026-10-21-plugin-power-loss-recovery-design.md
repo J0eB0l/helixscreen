@@ -695,9 +695,12 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   retracts 1 mm and drops to standby (`nozzle_standby`, R30). A plan, or a prepare, with no nozzle temperature is
   refused with `plr_scan_failed: no_nozzle_target` rather than moving a cold nozzle.
 - `status` answers from the backend and offer that `server:klippy_ready` decides (objects, homing,
-  the QIDI check). Asked while Klippy is ready but that check has not finished, it waits for it,
-  at most 15 s (`READY_WAIT_S`). The check ends by sending its result as
-  `helix_print:plr_status` (clients: `notify_plr_status`), whose payload is the `status` reply.
+  the QIDI check). Asked while Klippy is ready or still starting up and that check has not
+  finished, it waits for its result, success or failure, at most 45 s (`READY_WAIT_S`, under the
+  app's 60 s request timeout; on the Q2 Klippy's startup plus the check passes 15 s). Asked while
+  Klippy is down, it answers at once. The check ends, also when it fails, by sending its result
+  as `helix_print:plr_status` (clients: `notify_plr_status`), whose payload is the `status`
+  reply, so a client that got an early answer is corrected.
 - Single flight: each prepare or commit is a run with its own abort flag, taken before its first
   await. `plan`, `prepare`, `commit` and `discard` answer `plr_busy` until the previous run has
   exited, whatever its state label (an aborted run finishes its current step first). An abort

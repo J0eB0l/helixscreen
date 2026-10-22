@@ -1639,6 +1639,86 @@ def test_the_wait_for_klippy_ready_is_bounded(plr, helix, qidi_resume):
     assert plr.clock.t - started == pytest.approx(helix_plr.READY_WAIT_S, abs=1.0)
 
 
+class StartingKlippy:
+    """Moonraker's klippy_connection while Klippy is still starting up."""
+
+    class state:
+        name = "STARTUP"
+
+    def is_ready(self):
+        return False
+
+
+def restart_moonraker(plr, helix):
+    """A fresh Moonraker: no backend detected yet for any connection."""
+    reconnect_with_a_slow_qidi_check(plr, helix)
+    plr.qidi = None
+
+
+def test_a_qidi_check_slower_than_15s_still_answers_its_backend(plr, helix, qidi_resume):
+    restart_moonraker(plr, helix)
+    started = plr.clock.t
+
+    async def slower_help(*args):
+        for _ in range(20):
+            plr.clock.t += 1.0
+            await asyncio.sleep(0)
+        return {"SDCARD_POWER_OFF_CONTINUES_PINT_FILE": "resume"}
+
+    helix.klippy_apis._send_klippy_request = slower_help
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        await asyncio.sleep(0)
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert (reply["backend"], reply["tier"]) == ("qidi_print_state", 2)
+    assert plr.clock.t - started >= 20.0
+
+
+def test_status_asked_while_klippy_starts_waits_for_its_ready(plr, helix, qidi_resume):
+    restart_moonraker(plr, helix)
+    starting = StartingKlippy()
+    helix.server.components["klippy_connection"] = starting
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        for _ in range(40):                 # 10 s of Klippy startup
+            await asyncio.sleep(0)
+        helix.server.components["klippy_connection"] = ReadyKlippy()
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert (reply["backend"], reply["tier"]) == ("qidi_print_state", 2)
+
+
+def test_a_failed_backend_detection_answers_at_once(plr, helix, qidi_resume, monkeypatch):
+    restart_moonraker(plr, helix)
+
+    def broken(*args):
+        raise RuntimeError("no gcode_move")
+
+    monkeypatch.setattr(helix_plr_qidi, "qidi_print_state_present", broken)
+    helix.klippy_apis._send_klippy_request = AsyncMock(return_value={})
+    plr.events.clear()
+    started = plr.clock.t
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        await asyncio.sleep(0)
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert reply["backend"] == "none"
+    assert plr.clock.t - started < 1.0
+    announced = [p for e, p in plr.events if e == "helix_print:plr_status"]
+    assert len(announced) == 1 and announced[0]["backend"] == "none"
+
+
 def test_klippy_ready_announces_the_status_it_decided(plr, helix, qidi_resume):
     reconnect_with_a_slow_qidi_check(plr, helix)
     plr.events.clear()

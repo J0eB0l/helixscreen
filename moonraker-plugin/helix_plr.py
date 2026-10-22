@@ -985,6 +985,9 @@ class HelixPlr:
         self._ready_token = token
         try:
             await self._klippy_ready()
+        except Exception:
+            # A status still answers, and is announced, with what was read.
+            logging.exception("HelixPrint: PLR could not read Klipper at ready")
         finally:
             # Unless Klippy went away meanwhile and this is another connection.
             if self._ready_token is token:
@@ -1435,12 +1438,23 @@ class HelixPlr:
         except Exception:
             return False
 
+    def _klippy_coming_up(self) -> bool:
+        """Klippy is ready, or connected and still starting up: either way
+        on_klippy_ready is about to run or running."""
+        if self._klippy_connection_ready():
+            return True
+        conn = self.server.lookup_component("klippy_connection", None)
+        state = getattr(conn, "state", None)
+        return str(getattr(state, "name", state)).lower() == "startup"
+
     async def _wait_ready_settled(self) -> None:
-        """Klippy is ready but on_klippy_ready (objects, homing, the QIDI
-        check) has not finished for it: an answer now would carry the
-        backend and the offer of no connection at all. Wait for it, bounded."""
+        """on_klippy_ready (objects, homing, the backend detection) has not
+        finished for a Klippy that is up or coming up: an answer now would
+        carry the backend and the offer of no connection at all. Wait for its
+        result, success or failure, bounded under the app's request timeout.
+        A Klippy that is down answers at once; its ready announces the status."""
         started = self.clock()
-        while not self._ready_settled and self._klippy_connection_ready() \
+        while not self._ready_settled and self._klippy_coming_up() \
                 and self.clock() - started < READY_WAIT_S:
             await self._sleep(READY_POLL_S)
 
@@ -2247,9 +2261,10 @@ PROGRESS_EVENT = "helix_print:plr_progress"
 PLAN_READY_EVENT = "helix_print:plr_plan_ready"
 PLR_STATUS_EVENT = "helix_print:plr_status"
 
-# plr.status waits at most this long for on_klippy_ready to finish when Klippy
-# is already ready (the QIDI check alone has taken 5-10 s on a Q2).
-READY_WAIT_S = 15.0
+# plr.status waits at most this long for on_klippy_ready to finish while Klippy
+# is up or starting: on a Q2 Klippy's startup plus the QIDI check passes 15 s.
+# The app's default request timeout is 60 s.
+READY_WAIT_S = 45.0
 READY_POLL_S = 0.25
 
 # A plan whose scan takes longer replies {"pending": true} and announces itself.
