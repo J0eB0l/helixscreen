@@ -67,6 +67,28 @@ struct ConfigEdit {
 /// empty list is false — it asserts nothing about any section.
 bool all_add_key(const std::vector<ConfigEdit>& edits);
 
+/// The config-root directory HelixScreen's config backups live in, each at its
+/// file's own relative path. Klipper's include globs never match a dot
+/// directory, so no [include dir/*] reads a backup as config.
+inline constexpr const char* kConfigBackupDir = ".helix_backups";
+
+/// Where the file-API path backs config file @p file up:
+/// .helix_backups/<file>.helix_backup.
+std::string config_backup_path(const std::string& file);
+
+/// The config file a config_backup_path() names; nullopt for any other path.
+std::optional<std::string> config_backup_original(const std::string& path);
+
+/// The file a file-API edit list for @p section goes to: the file of the
+/// section's last definition in @p section_map, else the root (printer.cfg)
+/// when no file defines the section and every edit is ADD_KEY. An ADD_KEY of
+/// an option only the root's SAVE_CONFIG block defines also goes to the root:
+/// Klipper's SAVE_CONFIG comments out a root definition of an option it saves,
+/// but refuses one in an included file. Empty when no file can take the list.
+std::string config_edit_target_file(const std::map<std::string, SectionLocation>& section_map,
+                                    const std::string& root_content, const std::string& section,
+                                    const std::vector<ConfigEdit>& edits);
+
 /// The HelixPrint plugin feature that reads and writes the config
 /// (server.helix.config / server.helix.config_edit), and the contract this
 /// editor speaks.
@@ -177,14 +199,14 @@ class KlipperConfigEditor {
                     const std::string& new_value, SuccessCallback on_success,
                     ErrorCallback on_error);
 
-    /// Create backup of a config file (file.cfg -> file.cfg.helix_backup)
+    /// Create backup of a config file at config_backup_path()
     void backup_file(IMoonrakerAPI& api, const std::string& file_path, SuccessCallback on_success,
                      ErrorCallback on_error);
 
-    /// Restore all .helix_backup files to their original names
+    /// Copy every config_backup_path() backup back over its file
     void restore_backups(IMoonrakerAPI& api, SuccessCallback on_complete, ErrorCallback on_error);
 
-    /// Delete all .helix_backup files (cleanup after successful edit)
+    /// Delete every config_backup_path() backup (cleanup after successful edit)
     void cleanup_backups(IMoonrakerAPI& api, SuccessCallback on_complete);
 
     /// Get cached section map from last load_config_files() call

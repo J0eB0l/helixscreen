@@ -500,3 +500,89 @@ TEST_CASE_METHOD(LVGLTestFixture, "safe_edit_value takes the plugin path when it
     CHECK(writes[0]["edits"][0]["expect"] == "1.2");
     CHECK(writes[0]["edits"][0]["value"] == "1.3");
 }
+
+// ============================================================================
+// Backups and the SAVE_CONFIG block on the file-API path
+// ============================================================================
+
+TEST_CASE("config backups live under .helix_backups at the file's own path",
+          "[plugin_config_edit][config]") {
+    CHECK(config_backup_path("printer.cfg") == ".helix_backups/printer.cfg.helix_backup");
+    CHECK(config_backup_path("conf.d/a.cfg") == ".helix_backups/conf.d/a.cfg.helix_backup");
+    CHECK(config_backup_original(".helix_backups/conf.d/a.cfg.helix_backup") == "conf.d/a.cfg");
+    CHECK_FALSE(config_backup_original("printer.cfg.helix_backup"));
+    CHECK_FALSE(config_backup_original(".helix_backups/printer.cfg.helixbak-20261022-101500"));
+    CHECK_FALSE(config_backup_original(".helix_backups/.helix_backup"));
+}
+
+namespace {
+
+const std::string kRootWithAutosave = "[include shaper.cfg]\n"
+                                      "[printer]\n"
+                                      "kinematics: corexy\n"
+                                      "\n"
+                                      "#*# <---------------------- SAVE_CONFIG "
+                                      "---------------------->\n"
+                                      "#*# DO NOT EDIT THIS BLOCK OR BELOW. The contents are "
+                                      "auto-generated.\n"
+                                      "#*#\n"
+                                      "#*# [input_shaper]\n"
+                                      "#*# shaper_freq_x = 48.2\n";
+const std::string kShaperInclude = "[input_shaper]\nshaper_type_y: ei\n";
+
+} // namespace
+
+TEST_CASE("config_edit_target_file sends a SAVE_CONFIG-only option to printer.cfg",
+          "[plugin_config_edit][config]") {
+    KlipperConfigEditor editor;
+    const std::map<std::string, std::string> files = {{"printer.cfg", kRootWithAutosave},
+                                                      {"shaper.cfg", kShaperInclude}};
+    const auto sections = editor.resolve_includes(files, "printer.cfg");
+    REQUIRE(sections.at("input_shaper").file_path == "shaper.cfg");
+
+    CHECK(config_edit_target_file(sections, kRootWithAutosave, "input_shaper",
+                                  {{ConfigEdit::Type::ADD_KEY, "shaper_freq_x", "41.6"}}) ==
+          "printer.cfg");
+    CHECK(config_edit_target_file(sections, kRootWithAutosave, "input_shaper",
+                                  {{ConfigEdit::Type::ADD_KEY, "shaper_type_y", "mzv"}}) ==
+          "shaper.cfg");
+    CHECK(config_edit_target_file(sections, kRootWithAutosave, "input_shaper",
+                                  {{ConfigEdit::Type::ADD_KEY, "damping_ratio_x", "0.1"}}) ==
+          "shaper.cfg");
+    CHECK(config_edit_target_file(sections, kRootWithAutosave, "firmware_retraction",
+                                  {{ConfigEdit::Type::ADD_KEY, "retract_length", "1"}}) ==
+          "printer.cfg");
+    CHECK(config_edit_target_file(sections, kRootWithAutosave, "firmware_retraction",
+                                  {{ConfigEdit::Type::SET_VALUE, "retract_length", "1"}})
+              .empty());
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "file API writes a SAVE_CONFIG-only option into printer.cfg behind a backup",
+                 "[plugin_config_edit][config][editor]") {
+    PrinterState state;
+    ConfigPluginMockClient client;
+    MoonrakerAPIMock api(client, state);
+    api.set_config_files({{"printer.cfg", kRootWithAutosave}, {"shaper.cfg", kShaperInclude}});
+    MoonrakerClientTestAccess::force_connection_state(client, ConnectionState::CONNECTED);
+
+    KlipperConfigEditor editor;
+    editor.set_feature_state_source([]() { return PluginFeatureState::Absent; });
+    EditorRun run;
+    run_multi_edit(*this, editor, api, "input_shaper",
+                   {{ConfigEdit::Type::ADD_KEY, "shaper_freq_x", "41.6"}}, run);
+
+    CHECK(run.succeeded);
+    auto root = api.get_uploaded_config("printer.cfg");
+    REQUIRE(root.has_value());
+    CHECK(root->find("[input_shaper]\nshaper_freq_x: 41.6") < root->find("#*# <---"));
+    CHECK(api.get_uploaded_config("shaper.cfg") == kShaperInclude);
+
+    auto dirs = client.params_of("server.files.post_directory");
+    REQUIRE(dirs.size() == 1);
+    CHECK(dirs[0]["path"] == "config/.helix_backups");
+    auto copies = client.params_of("server.files.copy");
+    REQUIRE(copies.size() == 1);
+    CHECK(copies[0]["source"] == "config/printer.cfg");
+    CHECK(copies[0]["dest"] == "config/.helix_backups/printer.cfg.helix_backup");
+}

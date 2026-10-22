@@ -378,14 +378,14 @@ class TestWrite:
         backups = write_plan(tree_copy, plan, 1700000000.0)
         assert target.read_text() == plan.changed["conf.d/20-overrides.cfg"]
         assert len(backups) == 1 and backups[0]["file"] == "conf.d/20-overrides.cfg"
-        assert backups[0]["backup"].startswith("conf.d/20-overrides.cfg.helixbak-")
+        assert backups[0]["backup"].startswith(".helix_backups/conf.d/20-overrides.cfg.helixbak-")
         assert (tree_copy / backups[0]["backup"]).read_text() == before
 
     def test_backup_names_never_collide(self, tree_copy):
         for value, expect in (("1.6", "1.5"), ("1.7", "1.6")):
             plan = plan_edits(tree_copy, [_set("probe", "z_offset", value, expect)])
             write_plan(tree_copy, plan, 1700000000.0)
-        assert len(list((tree_copy / "conf.d").glob("20-overrides.cfg.helixbak-*"))) == 2
+        assert len(list((tree_copy / ".helix_backups/conf.d").glob("20-overrides.cfg.helixbak-*"))) == 2
 
     def test_crash_between_temp_and_rename_leaves_the_file_whole(self, tmp_path):
         target = tmp_path / "printer.cfg"
@@ -434,16 +434,29 @@ class TestWrite:
             write_plan(tree_copy, plan_edits(tree_copy, [_set("probe", "z_offset", new, value)]),
                        1700000000.0 + n)
             value = new
-        backups = list((tree_copy / "conf.d").glob("20-overrides.cfg.helixbak-*"))
+        backups = list((tree_copy / ".helix_backups/conf.d").glob("20-overrides.cfg.helixbak-*"))
         assert len(backups) == helix_config.BACKUPS_KEPT
 
+    def test_backups_are_out_of_reach_of_every_include_glob(self, tree_copy):
+        (tree_copy / "printer.cfg").write_text(
+            "[include *]\n[include conf.d/*]\n[include **/*]\n"
+            + (tree_copy / "printer.cfg").read_text()
+        )
+        before = read_config(tree_copy).files
+        plan = plan_edits(tree_copy, [_set("probe", "z_offset", "1.75", "1.5")])
+        write_plan(tree_copy, plan, 1700000000.0)
+        assert read_config(tree_copy).files == before
+        assert not any(".helix" in f for f in before)
+
     def test_old_backups_are_pruned(self, tmp_path):
-        target = tmp_path / "printer.cfg"
-        target.write_text("x")
+        backup_dir = tmp_path / ".helix_backups"
+        backup_dir.mkdir()
         for i in range(8):
-            (tmp_path / f"printer.cfg.helixbak-2026010{i}-000000").write_text(str(i))
-        prune_backups(target)
-        left = sorted(p.name for p in tmp_path.glob("printer.cfg.helixbak-*"))
+            (backup_dir / f"printer.cfg.helixbak-2026010{i}-000000").write_text(str(i))
+        (backup_dir / "printer.cfg.other").write_text("kept")
+        prune_backups(tmp_path, "printer.cfg")
+        assert (backup_dir / "printer.cfg.other").exists()
+        left = sorted(p.name for p in backup_dir.glob("printer.cfg.helixbak-*"))
         assert left == [f"printer.cfg.helixbak-2026010{i}-000000" for i in range(3, 8)]
 
 
@@ -509,6 +522,7 @@ class TestEndpoints:
         handler = mock_server.endpoints["/server/helix/config_edit"]
         out = await handler(MockWebRequest({"edits": [_set("probe", "z_offset", "1.75", "1.5")]}))
         assert "z_offset: 1.75" in (tree_copy / "conf.d/20-overrides.cfg").read_text()
+        assert out["backups"][0]["backup"].startswith(".helix_backups/")
         assert (tree_copy / out["backups"][0]["backup"]).read_text().count("z_offset: 1.5") == 1
 
     @pytest.mark.asyncio

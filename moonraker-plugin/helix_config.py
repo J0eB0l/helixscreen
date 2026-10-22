@@ -41,8 +41,11 @@ CONFIG_EDIT_FEATURE_VERSION = 1
 # The file Klipper starts from, relative to Moonraker's config root.
 ROOT_FILE = "printer.cfg"
 
-# printer.cfg.helixbak-20261022-101500: the screen's macro installer names its
-# printer.cfg backups the same way, so one listing shows both.
+# Backups live under this directory of the config root, at the edited file's
+# own relative path: .helix_backups/conf.d/probe.cfg.helixbak-20261022-101500.
+# Klipper's include globs never match a dot directory, so no [include dir/*]
+# can read a backup as config.
+BACKUP_DIR = ".helix_backups"
 BACKUP_INFIX = ".helixbak-"
 BACKUP_STAMP_FORMAT = "%Y%m%d-%H%M%S"
 # Backups kept per file; older ones are deleted after each write.
@@ -555,13 +558,19 @@ def plan_edits(root_dir: Path, raw_edits: List[Any],
 # Writing
 # ============================================================================
 
-def backup_name(path: Path, now: float) -> Path:
-    """A free timestamped backup path beside `path`."""
+def backup_base(root: Path, name: str) -> Path:
+    """Where the backups of config file `name` go, before their stamp."""
+    return Path(root) / BACKUP_DIR / f"{name}{BACKUP_INFIX}"
+
+
+def backup_name(root: Path, name: str, now: float) -> Path:
+    """A free timestamped backup path for config file `name`."""
     stamp = time.strftime(BACKUP_STAMP_FORMAT, time.localtime(now))
-    candidate = path.with_name(f"{path.name}{BACKUP_INFIX}{stamp}")
+    base = str(backup_base(root, name))
+    candidate = Path(base + stamp)
     n = 1
     while candidate.exists():
-        candidate = path.with_name(f"{path.name}{BACKUP_INFIX}{stamp}-{n}")
+        candidate = Path(f"{base}{stamp}-{n}")
         n += 1
     return candidate
 
@@ -604,10 +613,10 @@ def atomic_write(path: Path, text: str,
     _fsync_dir(path.parent)
 
 
-def prune_backups(path: Path, keep: int = BACKUPS_KEPT) -> List[Path]:
-    """Delete all but the newest `keep` backups of `path`."""
-    backups = sorted(path.parent.glob(glob.escape(path.name) + BACKUP_INFIX + "*"),
-                     key=lambda p: p.name)
+def prune_backups(root: Path, name: str, keep: int = BACKUPS_KEPT) -> List[Path]:
+    """Delete all but the newest `keep` backups of config file `name`."""
+    base = backup_base(root, name)
+    backups = sorted(base.parent.glob(glob.escape(base.name) + "*"), key=lambda p: p.name)
     removed = backups[:-keep] if keep > 0 else backups
     for old in removed:
         try:
@@ -627,24 +636,25 @@ def write_plan(root_dir: Path, plan: EditPlan, now: float,
         if name in plan.changed and read_file_text(str(root / name)) != original:
             raise ConfigEditRefused("moved", f"{name} changed while the edit was prepared")
     backups: List[Dict[str, str]] = []
-    written: List[Tuple[Path, Path]] = []
+    written: List[Tuple[str, Path, Path]] = []
     try:
         for name in sorted(plan.changed):
             path = root / name
-            backup = backup_name(path, now)
+            backup = backup_name(root, name, now)
+            backup.parent.mkdir(parents=True, exist_ok=True)
             _write_durably(backup, path.read_bytes())
             backups.append({"file": name, "backup": _display_path(str(backup), str(root))})
             atomic_write(path, plan.changed[name], replace)
-            written.append((path, backup))
+            written.append((name, path, backup))
     except BaseException:
-        for path, backup in written:
+        for _, path, backup in written:
             try:
                 atomic_write(path, read_file_text(str(backup)))
             except OSError:
                 logging.exception(f"HelixConfig: could not restore {path} from {backup}")
         raise
-    for path, _ in written:
-        prune_backups(path)
+    for name, _, _ in written:
+        prune_backups(root, name)
     return backups
 
 

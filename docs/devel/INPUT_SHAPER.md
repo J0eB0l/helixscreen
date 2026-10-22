@@ -428,6 +428,17 @@ The Stop button (`ui_xml/input_shaper_panel.xml#btn_abort`, the wizard's `ui_xml
 
 Saving never sends `SET_INPUT_SHAPER` or `SAVE_CONFIG`: `handle_save_clicked()` resolves each axis's selection via `selected_shaper_for()`, `shaper_config_edits()` builds `[input_shaper]` `ADD_KEY` edits (`shaper_type_x`, `shaper_freq_x` formatted `%.1f`, same for Y), and the `safe_multi_edit()` call ends in a `FIRMWARE_RESTART` so the written config is applied atomically.
 
+### Where the save writes
+
+`KlipperConfigEditor` (`src/system/klipper_config_editor.cpp`) serves this save, PID/MPC migration (`ui_panel_calibration_pid.cpp`) and the probe overlay's config rows (`safe_edit_value()`). `config_edit_route()` picks one of two writers from `plugin_feature("config_edit", 1)`:
+
+- **Plugin ready:** `plugin_multi_edit()` reads the section with `server.helix.config`, `plan_plugin_config_edits()` turns the edit list into `server.helix.config_edit` edits that each carry the option's current value as `expect`, and the plugin writes them atomically into the file and line that define each option, after a backup under `.helix_backups/`. A revert copies the backups it returned back over their files.
+- **Otherwise, and when the plugin path hands back:** the file API. `load_config_files()` downloads the include chain, `resolve_includes()` maps each section to the file of its last definition in Klipper's read order (an include is read where its line stands, so a section an include redefines belongs to the include), `config_edit_target_file()` picks the file, `apply_edits()` edits it in memory, `backup_file()` copies it to `config_backup_path()` (`.helix_backups/<file>.helix_backup`), and the upload replaces it. `restore_backups()` / `cleanup_backups()` find backups by `config_backup_original()`.
+
+The plugin refuses options that live only in the `SAVE_CONFIG` block, so `plan_plugin_config_edits()` routes such a list to the file API. There an `ADD_KEY` of such an option is written into `printer.cfg`, never an include: Klipper reads a regular definition instead of the block's, and its next `SAVE_CONFIG` of that option comments out a duplicate in `printer.cfg` but refuses one in an included file ("conflicts with included value"). A failed `server.helix.config` read also falls back, since nothing is written yet. Both writers end in the same `restart_and_monitor()`: `FIRMWARE_RESTART`, wait for Klipper, and on timeout restore the backups and restart again.
+
+Tests: `[plugin_config_edit]` (`tests/unit/test_config_edit_plugin.cpp`), which also pins `resolve_includes()` against the plugin's reader on the shared fixture tree `tests/fixtures/klipper_config_tree/`.
+
 ---
 
 ## Probe Preparation (runtime rules)

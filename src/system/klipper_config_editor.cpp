@@ -533,24 +533,68 @@ void KlipperConfigEditor::load_config_files(IMoonrakerAPI& api, SectionMapCallba
         });
 }
 
+namespace {
+
+constexpr const char* kBackupSuffix = ".helix_backup";
+
+/// Create each directory of @p dirs in turn, then run @p done. A directory
+/// that already exists answers with an error, which is what most of these are.
+void create_config_dirs(IMoonrakerAPI& api, std::vector<std::string> dirs, std::size_t index,
+                        std::function<void()> done) {
+    if (index >= dirs.size()) {
+        done();
+        return;
+    }
+    const std::string dir = "config/" + dirs[index];
+    auto next = [&api, dirs, index, done]() { create_config_dirs(api, dirs, index + 1, done); };
+    api.files().create_directory(dir, next, [next](const MoonrakerError&) { next(); });
+}
+
+} // namespace
+
+std::string config_backup_path(const std::string& file) {
+    return std::string(kConfigBackupDir) + "/" + file + kBackupSuffix;
+}
+
+std::optional<std::string> config_backup_original(const std::string& path) {
+    const std::string prefix = std::string(kConfigBackupDir) + "/";
+    const std::string suffix = kBackupSuffix;
+    if (path.size() <= prefix.size() + suffix.size() || path.compare(0, prefix.size(), prefix) ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix)) {
+        return std::nullopt;
+    }
+    return path.substr(prefix.size(), path.size() - prefix.size() - suffix.size());
+}
+
 void KlipperConfigEditor::backup_file(IMoonrakerAPI& api, const std::string& file_path,
                                       SuccessCallback on_success, ErrorCallback on_error) {
+    const std::string backup = config_backup_path(file_path);
     std::string source = "config/" + file_path;
-    std::string dest = "config/" + file_path + ".helix_backup";
+    std::string dest = "config/" + backup;
+
+    // Moonraker copies into an existing directory only.
+    std::vector<std::string> dirs;
+    for (size_t slash = backup.find('/'); slash != std::string::npos;
+         slash = backup.find('/', slash + 1)) {
+        dirs.push_back(backup.substr(0, slash));
+    }
 
     spdlog::info("[ConfigEditor] Creating backup: {} -> {}", source, dest);
 
-    api.files().copy_file(
-        source, dest,
-        [file_path, on_success]() {
-            spdlog::debug("[ConfigEditor] Backup created for {}", file_path);
-            if (on_success)
-                on_success();
-        },
-        [file_path, on_error](const MoonrakerError& err) {
-            spdlog::error("[ConfigEditor] Failed to backup {}: {}", file_path, err.message);
-            if (on_error)
-                on_error("Failed to backup " + file_path + ": " + err.message);
+    create_config_dirs(
+        api, std::move(dirs), 0, [&api, source, dest, file_path, on_success, on_error]() {
+            api.files().copy_file(
+                source, dest,
+                [file_path, on_success]() {
+                    spdlog::debug("[ConfigEditor] Backup created for {}", file_path);
+                    if (on_success)
+                        on_success();
+                },
+                [file_path, on_error](const MoonrakerError& err) {
+                    spdlog::error("[ConfigEditor] Failed to backup {}: {}", file_path, err.message);
+                    if (on_error)
+                        on_error("Failed to backup " + file_path + ": " + err.message);
+                });
         });
 }
 
@@ -644,12 +688,11 @@ void KlipperConfigEditor::restore_backups(IMoonrakerAPI& api, SuccessCallback on
     api.files().list_files(
         "config", "", true,
         [&api, on_complete, on_error](const std::vector<FileInfo>& files) {
-            // Find all .helix_backup files
-            std::vector<std::string> backup_files;
+            std::vector<std::pair<std::string, std::string>> backup_files;
             for (const auto& f : files) {
                 std::string path = f.path.empty() ? f.filename : f.path;
-                if (path.size() > 13 && path.substr(path.size() - 13) == ".helix_backup") {
-                    backup_files.push_back(path);
+                if (auto original = config_backup_original(path)) {
+                    backup_files.emplace_back(path, *original);
                 }
             }
 
@@ -664,9 +707,9 @@ void KlipperConfigEditor::restore_backups(IMoonrakerAPI& api, SuccessCallback on
                 std::make_shared<std::atomic<int>>(static_cast<int>(backup_files.size()));
             auto had_error = std::make_shared<std::atomic<bool>>(false);
 
-            for (const auto& backup_path : backup_files) {
-                // Remove .helix_backup suffix to get original path
-                std::string original = backup_path.substr(0, backup_path.size() - 13);
+            for (const auto& entry : backup_files) {
+                const std::string& backup_path = entry.first;
+                const std::string& original = entry.second;
                 std::string source = "config/" + backup_path;
                 std::string dest = "config/" + original;
 
@@ -706,11 +749,10 @@ void KlipperConfigEditor::cleanup_backups(IMoonrakerAPI& api, SuccessCallback on
     api.files().list_files(
         "config", "", true,
         [&api, on_complete](const std::vector<FileInfo>& files) {
-            // Find all .helix_backup files
             std::vector<std::string> backup_files;
             for (const auto& f : files) {
                 std::string path = f.path.empty() ? f.filename : f.path;
-                if (path.size() > 13 && path.substr(path.size() - 13) == ".helix_backup") {
+                if (config_backup_original(path)) {
                     backup_files.push_back(path);
                 }
             }
@@ -841,6 +883,55 @@ KlipperConfigEditor::apply_edits(const std::string& content, const std::string& 
     }
 
     return current;
+}
+
+namespace {
+
+/// The root file's SAVE_CONFIG block, parsed as the config Klipper reads from it.
+ConfigStructure autosave_structure(const std::string& root_content) {
+    const int start = KlipperConfigEditor::parse_structure(root_content).save_config_line;
+    if (start < 0)
+        return {};
+    std::string block;
+    int index = 0;
+    for (std::string_view line : helix::text_io::lines(root_content)) {
+        if (index++ <= start || line.substr(0, 3) != "#*#")
+            continue;
+        block += std::string(line.size() > 4 ? line.substr(4) : std::string_view()) + "\n";
+    }
+    return KlipperConfigEditor::parse_structure(block);
+}
+
+} // namespace
+
+std::string config_edit_target_file(const std::map<std::string, SectionLocation>& section_map,
+                                    const std::string& root_content, const std::string& section,
+                                    const std::vector<ConfigEdit>& edits) {
+    auto it = section_map.find(section);
+    if (it == section_map.end()) {
+        // A printer that has never run this calibration has no such section
+        // anywhere. apply_edits() creates it for an all-ADD_KEY list ("make sure
+        // this key says X") in the root, the one file that always exists and is
+        // always active.
+        return all_add_key(edits) ? kRootConfigFile : "";
+    }
+    const SectionLocation& location = it->second;
+    if (location.file_path == kRootConfigFile)
+        return location.file_path;
+    const ConfigStructure autosave = autosave_structure(root_content);
+    for (const auto& edit : edits) {
+        if (edit.type != ConfigEdit::Type::ADD_KEY)
+            continue;
+        const bool in_file =
+            std::any_of(location.section.keys.begin(), location.section.keys.end(),
+                        [&](const ConfigKey& key) { return key.name == edit.key; });
+        if (!in_file && autosave.find_key(section, edit.key)) {
+            spdlog::info("[ConfigEditor] [{}] {} lives in SAVE_CONFIG; writing to {}", section,
+                         edit.key, kRootConfigFile);
+            return kRootConfigFile;
+        }
+    }
+    return location.file_path;
 }
 
 // ============================================================================
@@ -1057,23 +1148,10 @@ void KlipperConfigEditor::file_api_multi_edit(IMoonrakerAPI& api, const std::str
         api,
         [this, &api, section, edits, on_success, on_error,
          restart_timeout_ms](std::map<std::string, SectionLocation> section_map) {
-            // Step 2: Find which file contains the section
-            std::string file_path;
-            auto sec_it = section_map.find(section);
-            if (sec_it != section_map.end()) {
-                file_path = sec_it->second.file_path;
-                spdlog::debug("[ConfigEditor] Section [{}] found in {}", section, file_path);
-            } else if (all_add_key(edits)) {
-                // A printer that has never run this calibration has no such
-                // section anywhere, and no file claims it. apply_edits() already
-                // creates the section for an all-ADD_KEY list ("make sure this
-                // key says X"), so the only thing missing is a file to put it
-                // in: the root, which is the one file that always exists and is
-                // always active.
-                file_path = kRootConfigFile;
-                spdlog::info("[ConfigEditor] Section [{}] absent from config - creating it in {}",
-                             section, file_path);
-            } else {
+            // Step 2: Find which file the edits belong in
+            const std::string file_path = config_edit_target_file(
+                section_map, get_cached_file(kRootConfigFile).value_or(""), section, edits);
+            if (file_path.empty()) {
                 // SET_VALUE / REMOVE_KEY name something that is supposed to
                 // already be there, so a missing section stays an error rather
                 // than inventing one to satisfy a typo'd section name.
@@ -1082,6 +1160,7 @@ void KlipperConfigEditor::file_api_multi_edit(IMoonrakerAPI& api, const std::str
                     on_error("Section [" + section + "] not found in config");
                 return;
             }
+            spdlog::debug("[ConfigEditor] Editing [{}] in {}", section, file_path);
 
             // Step 3: Get the file content from cache
             auto cached = get_cached_file(file_path);

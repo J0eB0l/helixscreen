@@ -339,14 +339,16 @@ yet. Edits apply in order. `set` rewrites the line that defines the option, keep
 inline comment; a new option goes at the end of the section's last block, and a new section
 at the end of `printer.cfg` above the `SAVE_CONFIG` block.
 
-Each changed file is first copied to `<file>.helixbak-<YYYYmmdd-HHMMSS>` beside it (the
-newest five are kept), then written through a temp file, `fsync` and rename.
+Each changed file is first copied to `.helix_backups/<file>.helixbak-<YYYYmmdd-HHMMSS>`
+under the config root (the newest five per file are kept), then written through a temp
+file, `fsync` and rename. Klipper's include globs never match a dot directory, so no
+`[include dir/*]` reads a backup as config.
 `dry_run` writes nothing and returns the same diff.
 
 ```json
 {"dry_run": false, "files": ["conf.d/20-overrides.cfg"],
  "backups": [{"file": "conf.d/20-overrides.cfg",
-              "backup": "conf.d/20-overrides.cfg.helixbak-20261022-101500"}],
+              "backup": ".helix_backups/conf.d/20-overrides.cfg.helixbak-20261022-101500"}],
  "diff": "--- a/conf.d/20-overrides.cfg\n+++ b/conf.d/20-overrides.cfg\n..."}
 ```
 
