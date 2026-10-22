@@ -165,13 +165,14 @@ void IppPrinter::print(const LabelBitmap& bitmap, const LabelSize& size, PrintCa
             params.bits_per_color = 8;
             params.bits_per_pixel = 8;
             params.num_colors = 1;
+            auto media_keyword = label::get_pwg_media_keyword(paper_size);
+            params.page_size_name = media_keyword;
 
             auto pwg_data = helix::pwg::generate(page_bitmap, params);
             spdlog::info("IPP Printer: generated {} bytes of PWG Raster data", pwg_data.size());
 
             // Build IPP request
             auto printer_uri = ipp::make_printer_uri(host, port, resource_path);
-            auto media_keyword = label::get_pwg_media_keyword(paper_size);
 
             auto request = ipp::build_print_job(printer_uri, "HelixScreen Label",
                                                 "image/pwg-raster", media_keyword);

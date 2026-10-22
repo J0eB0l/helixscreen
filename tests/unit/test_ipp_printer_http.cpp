@@ -21,6 +21,7 @@
 #include "ipp_protocol.h"
 #include "label_printer_settings.h"
 #include "label_printer_utils.h"
+#include "sheet_label_layout.h"
 
 #include <arpa/inet.h>
 #include <atomic>
@@ -92,6 +93,11 @@ class ScriptedServer {
         std::lock_guard<std::mutex> lock(mutex_);
         return request_line_;
     }
+    /// The request body as received; empty until a request arrived.
+    std::string body() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return body_;
+    }
 
   private:
     void serve() {
@@ -127,6 +133,8 @@ class ScriptedServer {
         {
             std::lock_guard<std::mutex> lock(mutex_);
             request_line_ = request.substr(0, request.find("\r\n"));
+            if (header_end != std::string::npos)
+                body_ = request.substr(header_end + 4);
         }
 
         for (size_t i = 0; i < chunks_.size(); ++i) {
@@ -144,6 +152,7 @@ class ScriptedServer {
     int gap_ms_;
     mutable std::mutex mutex_;
     std::string request_line_;
+    std::string body_;
     int listen_fd_ = -1;
     uint16_t port_ = 0;
     std::atomic<size_t> body_bytes_{0};
@@ -293,4 +302,40 @@ TEST_CASE_METHOD(LVGLUITestFixture, "The IPP print modal posts to the configured
 
     REQUIRE(wait_until([&] { return done; }, 15000));
     REQUIRE(server.request_line() == "POST /printers/Canon_TS8350 HTTP/1.1");
+}
+
+// The PWG page header carries the paper by name at PageSizeName (PWG 5102.4
+// offset 1732, counted from the end of the "RaS2" sync word). A printer sizes
+// the page from it, so it must match the paper the template is laid out on.
+TEST_CASE_METHOD(LVGLTestFixture, "The IPP job's PWG header names the template's paper",
+                 "[label][ipp_http][pwg]") {
+    const auto paper = GENERATE(label::PaperSize::LETTER, label::PaperSize::A4);
+    const std::string keyword = label::get_pwg_media_keyword(paper);
+    CAPTURE(keyword);
+    const auto& templates = label::get_sheet_templates();
+    const auto on_paper = label::get_templates_for_paper(paper);
+    REQUIRE_FALSE(on_paper.empty());
+    const int index = static_cast<int>(on_paper.front() - templates.data());
+
+    ScriptedServer server({final_ok_response()});
+    IppPrinter printer;
+    printer.set_target("127.0.0.1", server.port(), "ipp/print");
+    printer.set_sheet_template(index);
+
+    bool done = false;
+    bool ok = false;
+    printer.print(LabelBitmap(64, 32), label::sheet_template_to_label_size(templates[index], 300),
+                  [&](bool success, const std::string&) {
+                      ok = success;
+                      done = true;
+                  });
+    REQUIRE(wait_until([&] { return done; }, 15000));
+    REQUIRE(ok);
+
+    const std::string body = server.body();
+    const size_t sync = body.find("RaS2");
+    REQUIRE(sync != std::string::npos);
+    const size_t field = sync + 4 + 1732;
+    REQUIRE(body.size() > field + 64);
+    CHECK(std::string(body.c_str() + field) == keyword);
 }
