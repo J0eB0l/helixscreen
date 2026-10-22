@@ -8,6 +8,7 @@
 #include "json_fwd.h"
 #include "plr_backend.h"
 #include "plr_wizard.h"
+#include "print_lifecycle_state.h"
 
 #include <optional>
 #include <string>
@@ -43,9 +44,9 @@ namespace helix::ui {
 ///                        it offers a resume. Side-effect free, asked once per
 ///                        connection once Klipper is ready.
 ///
-/// Five observers, all on STATIC subjects (singleton lifetime, no
-/// SubjectLifetime token needed). The authoritative account of WHEN the offer
-/// fires and re-fires lives at the plr_should_offer decision site in
+/// The offer observers all watch PrinterState / app-global subjects, each
+/// registered with that owner's SubjectLifetime. The authoritative account of
+/// WHEN the offer fires and re-fires lives at the plr_should_offer decision site in
 /// evaluate_offer (ui_plr_offer_controller.cpp); the observers below are just
 /// the edges that drive it:
 ///   - pl_env_valid (PRIMARY Snapmaker trigger): a genuine 0->1 edge offers.
@@ -62,6 +63,9 @@ namespace helix::ui {
 ///     so an offer that was suppressed only because the wizard owned the
 ///     screen now fires. This is what makes wizard suppression temporary
 ///     instead of permanent.
+///   - print lifecycle: a job that drops straight to Idle (Klipper restarted
+///     under it) re-evaluates the offer and retries the Creality probe, both
+///     of which the dead job's lifecycle held back.
 ///
 /// Observer callbacks all run on the main thread — observe<int> defers via
 /// the update queue and plr_should_offer/plr_should_rearm are pure. The one
@@ -89,6 +93,9 @@ class PlrOfferController {
     void on_creality_capable_changed(int capable);
     void on_connection_state_changed(int new_conn_state);
     void on_wizard_active_changed(int wizard_active);
+    /// A held -> Idle edge with no terminal state between re-evaluates the
+    /// offer (and the Creality probe) the dead job's lifecycle held back.
+    void on_print_lifecycle_changed(PrintState next);
 
     /// Fire the Creality probe at most once per connection, and only from
     /// STANDBY. See the header warning on
@@ -118,6 +125,7 @@ class PlrOfferController {
     ObserverGuard creality_capable_observer_;
     ObserverGuard conn_observer_;
     ObserverGuard wizard_observer_;
+    ObserverGuard lifecycle_observer_;
     ObserverGuard plr_feature_observer_;
     ObserverGuard printer_type_observer_;
     ObserverGuard plugin_probe_observer_;
@@ -133,6 +141,9 @@ class PlrOfferController {
     helix::PlrDetectResult creality_detect_{};
     std::string creality_recovery_file_;
     int last_conn_state_ = 0;
+    PrintState last_lifecycle_ = PrintState::Idle;
+    /// Prompts shown over the controller's life.
+    int offers_shown_ = 0;
 
     /// The plugin's answer this connection; nullopt until it answers.
     std::optional<helix::PlrPluginStatus> plugin_status_;

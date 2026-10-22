@@ -758,3 +758,95 @@ TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR leaves an identical stored p
     CHECK(posts == 0);
     ps.set_printer_type_sync("");
 }
+
+// ===========================================================================
+// A host-stack restart under a running print: the plugin can push its offering
+// status before print_stats reports standby, so the lifecycle still reads the
+// dead job when the offer is first evaluated.
+// ===========================================================================
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR offers once the dead job's lifecycle drops to idle",
+                 "[plr][generic][print_state]") {
+    auto& ps = get_printer_state();
+    helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+    settle();
+    PlrOfferController controller;
+    settle();
+
+    PlrOfferControllerTestAccess::plugin_status_arrived(controller,
+                                                        offering(helix::PlrPluginBackend::Generic));
+    settle();
+    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
+
+    helix::test::set_wire_state(ps, PrintJobState::STANDBY);
+    settle();
+    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 1);
+
+    // The user answered the prompt. A later job dropping to idle on the same
+    // connection does not ask again.
+    helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+    settle();
+    helix::test::set_wire_state(ps, PrintJobState::STANDBY);
+    settle();
+    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 1);
+}
+
+TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR does not offer when a normal print ends",
+                 "[plr][qidi][print_state]") {
+    // was_interrupted stays true through the print, so an end that passes
+    // through Complete must not read as a job that vanished.
+    auto& ps = get_printer_state();
+    helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+    settle();
+    PlrOfferController controller;
+    settle();
+    REQUIRE(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
+
+    helix::test::set_wire_state(ps, PrintJobState::COMPLETE);
+    settle();
+    helix::test::set_wire_state(ps, PrintJobState::STANDBY);
+    settle();
+    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
+}
+
+TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR offers when Klipper restarts under a print",
+                 "[plr][qidi][print_state]") {
+    auto& ps = get_printer_state();
+    helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+    settle();
+    PlrOfferController controller;
+    settle();
+    REQUIRE(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
+
+    helix::test::set_wire_state(ps, PrintJobState::STANDBY);
+    settle();
+    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 1);
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Creality PLR probes once the dead job's lifecycle drops to idle",
+                 "[plr][print_state]") {
+    // The probe is refused outside standby, so a capability edge that lands
+    // while the lifecycle still reads the dead job must be retried.
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+    settle();
+    PlrOfferController controller;
+    settle();
+
+    ps.update_from_status(json{{"print_stats", {{"power_loss", 0}}}});
+    settle();
+    REQUIRE(lv_subject_get_int(ps.print_state().get_plr_power_loss_signal_subject()) == 1);
+    const int while_printing = client.call_count(helix::kCrealityDetectRpc);
+
+    helix::test::set_wire_state(ps, PrintJobState::STANDBY);
+    settle();
+    const int after_idle = client.call_count(helix::kCrealityDetectRpc);
+    set_moonraker_api(nullptr);
+    CHECK(while_printing == 0);
+    CHECK(after_idle == 1);
+}

@@ -33,6 +33,8 @@ PlrOfferController::PlrOfferController() {
     // not spuriously re-arm the latch.
     last_conn_state_ =
         lv_subject_get_int(ps.network_state().get_printer_connection_state_subject());
+    // Same seeding for the lifecycle, so its registration-fire is not an edge.
+    last_lifecycle_ = ps.print_state().get_print_lifecycle();
 
     // pl_env_valid is the PRIMARY Snapmaker trigger. observe<int> fires once
     // at registration with the current value (deferred via the update queue), so
@@ -74,6 +76,13 @@ PlrOfferController::PlrOfferController() {
         &get_wizard_active_subject(), this,
         [](PlrOfferController* self, int value) { self->on_wizard_active_changed(value); },
         get_app_globals_subjects_lifetime());
+
+    // A job that vanishes under the app: re-evaluate an offer the stale job
+    // held back. See on_print_lifecycle_changed.
+    lifecycle_observer_ = observe_print_lifecycle(
+        ps.print_state().get_print_lifecycle_subject(), this,
+        [](PlrOfferController* self, PrintState state) { self->on_print_lifecycle_changed(state); },
+        ps.get_subjects_lifetime());
 
     // The plugin's status is asked once the `plr` feature is Ready and Klipper
     // is ready; whichever arrives last asks.
@@ -180,6 +189,10 @@ void PlrOfferController::evaluate_offer() {
     //   - Wizard active: prompted_this_connect_ stays unset, and the
     //     wizard-active subject's 1->0 edge routes back here the moment the
     //     wizard closes (on_wizard_active_changed), so the deferred offer fires.
+    //   - Not idle: a host-stack restart can hand over the snapshot before
+    //     print_stats reports standby, while the lifecycle still reads the dead
+    //     job. Its held -> Idle edge routes back here
+    //     (on_print_lifecycle_changed).
     //   - Reconnect: on_connection_state_changed re-arms the latch AND forces
     //     the capability subjects to 0, so the reconnect's status re-dispatch
     //     drives real 0->1 edges back into the observers -> here. (Without the
@@ -207,6 +220,7 @@ void PlrOfferController::evaluate_offer() {
     }
 
     prompted_this_connect_ = true;
+    ++offers_shown_;
     spdlog::info("[PLR] Offering power-loss recovery (backend={}, idle={}, file='{}')",
                  static_cast<int>(backend), idle, plan.recovery_file);
     show_plr_recovery_prompt(get_moonraker_api(), plan);
@@ -481,6 +495,26 @@ void PlrOfferController::on_wizard_active_changed(int wizard_active) {
     if (wizard_active == 0) {
         evaluate_offer();
     }
+}
+
+void PlrOfferController::on_print_lifecycle_changed(PrintState next) {
+    const PrintState prev = last_lifecycle_;
+    last_lifecycle_ = next;
+    // Only a job that drops straight to Idle, with no Complete, Cancelled or
+    // Error between, counts: that is Klipper restarting under it. A normal end
+    // passes through Complete, and Qidi's was_interrupted stays true through
+    // every normal print, so re-evaluating there would offer to resume a print
+    // that finished.
+    if (!job_holds_machine(prev) || next != PrintState::Idle) {
+        return;
+    }
+    // The Creality probe is refused outside STANDBY just as the offer is
+    // refused outside idle, and its capability edge may have come first.
+    if (lv_subject_get_int(get_printer_state().print_state().get_plr_power_loss_signal_subject()) !=
+        0) {
+        probe_creality_once();
+    }
+    evaluate_offer();
 }
 
 } // namespace helix::ui
