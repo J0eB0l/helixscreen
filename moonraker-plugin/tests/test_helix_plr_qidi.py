@@ -485,7 +485,29 @@ class TestWriter:
 # ---------------------------------------------------------------------------
 
 
+async def no_wait():
+    pass
+
+
 class TestResume:
+    @pytest.mark.asyncio
+    async def test_prepare_only_waits(self, cache_dir):
+        adapter, db, kapis, _c, log = make_adapter(cache_dir)
+
+        async def heat_wait():
+            log.append(("heat_wait",))
+
+        await adapter.prepare(heat_wait)
+        assert log == [("heat_wait",)]
+
+    @pytest.mark.asyncio
+    async def test_abort_keeps_the_rows(self, cache_dir):
+        adapter, db, _k, _c, log = make_adapter(cache_dir)
+        await adapter.on_snapshot(make_snapshot())
+        adapter.abort()
+        assert not any(entry[0] == "delete" for entry in log)
+        assert await adapter.has_resume_rows() is True
+
     @pytest.mark.asyncio
     async def test_bed_wait_rows_marker_then_endpoint(self, cache_dir):
         adapter, db, kapis, _c, log = make_adapter(cache_dir)
@@ -493,7 +515,7 @@ class TestResume:
         async def heat_wait():
             log.append(("heat_wait",))
 
-        result = await adapter.resume(heat_wait, make_snapshot(), 200000, 5000000)
+        result = await adapter.commit(make_snapshot(), 200000, 5000000, heat_wait)
         assert result == "ok"
         ops = [entry[0] for entry in log]
         assert ops == ["heat_wait", "batch", "mark", "power_off_print"]
@@ -504,14 +526,14 @@ class TestResume:
     async def test_failed_endpoint_withdraws_the_marker(self, cache_dir):
         adapter, db, kapis, _c, log = make_adapter(cache_dir, kapis_fail=True)
         with pytest.raises(RuntimeError):
-            await adapter.commit(make_snapshot(), 200000, 5000000)
+            await adapter.commit(make_snapshot(), 200000, 5000000, no_wait)
         assert log[-1] == ("unmark", str(Path(cache_dir) / "cube.gcode"))
 
     @pytest.mark.asyncio
     async def test_no_endpoint_call_when_rows_fail(self, cache_dir):
         adapter, db, kapis, _c, log = make_adapter(cache_dir, db_fail=1)
         with pytest.raises(q.QidiPrintStateError):
-            await adapter.commit(make_snapshot(), 200000, 5000000)
+            await adapter.commit(make_snapshot(), 200000, 5000000, no_wait)
         assert ("power_off_print",) not in log
         assert not any(entry[0] == "mark" for entry in log)
 
@@ -519,7 +541,7 @@ class TestResume:
     async def test_empty_cache_refuses(self, tmp_path):
         adapter, db, kapis, _c, log = make_adapter(str(tmp_path / "missing"))
         with pytest.raises(q.QidiPrintStateError):
-            await adapter.commit(make_snapshot(), 200000, 5000000)
+            await adapter.commit(make_snapshot(), 200000, 5000000, no_wait)
         assert ("power_off_print",) not in log
 
     @pytest.mark.asyncio

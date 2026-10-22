@@ -373,10 +373,11 @@ class QidiPrintStateAdapter:
       on_snapshot(snap, status) after each snapshot it persists; force=True
                                 for an event save
       on_job_end()              a job completed or was cancelled
-      prepare(heat_wait)        the bed/chamber wait, nothing else
-      commit(...)               rewrite the rows for the resume point, mark
-                                the job, call power_off_print
-      discard()                 delete the section
+      prepare(heat_wait)        § 9 prepare: the bed/chamber wait, nothing else
+      commit(..., heat_wait)    § 9 commit: bed wait, rows for the resume
+                                point, marker, power_off_print
+      abort()                   § 9 abort: rows kept
+      discard()                 § 9 discard: delete the section
       has_resume_rows()         the offer's extra rule
     """
 
@@ -462,8 +463,8 @@ class QidiPrintStateAdapter:
         return bool(row)
 
     async def prepare(self, heat_wait: Callable[[], Awaitable[Any]]) -> None:
-        """The bed and chamber wait, helix_plr.py's own (§ 6.3 step 2). QIDI's
-        sequence sends M140 without M190, so it is run before the endpoint."""
+        """§ 9 prepare for this backend: the bed and chamber wait only
+        (helix_plr.py's § 6.3 step 2), nozzle untouched."""
         await heat_wait()
 
     async def commit(
@@ -471,11 +472,19 @@ class QidiPrintStateAdapter:
         snapshot: Mapping[str, Any],
         resume_offset: int,
         file_size: int,
+        heat_wait: Callable[[], Awaitable[Any]],
         resume_state: Any = None,
         qidi_status: Optional[Mapping[str, Any]] = None,
     ) -> Any:
-        """Rewrite the rows for the resume point, mark the job and call QIDI's
-        resume. Run prepare() first."""
+        """§ 9 commit for this backend: the bed wait, the rows for the resume
+        point, the marker, then QIDI's resume.
+
+        The wait runs again here because QIDI's sequence sends M140 without
+        M190 and the bed may have cooled while the screen asked its
+        confirmations; at temperature it returns at once. The marker is set
+        immediately before the endpoint call and withdrawn if the call fails.
+        """
+        await heat_wait()
         rows = resume_rows(snapshot, resume_offset, file_size, resume_state, qidi_status)
         if not await self._write(rows):
             raise QidiPrintStateError("print_state write failed")
@@ -492,18 +501,9 @@ class QidiPrintStateAdapter:
                 self._unmark(name)
             raise
 
-    async def resume(
-        self,
-        heat_wait: Callable[[], Awaitable[Any]],
-        snapshot: Mapping[str, Any],
-        resume_offset: int,
-        file_size: int,
-        resume_state: Any = None,
-        qidi_status: Optional[Mapping[str, Any]] = None,
-    ) -> Any:
-        """prepare then commit, for a caller with no confirmation between."""
-        await self.prepare(heat_wait)
-        return await self.commit(snapshot, resume_offset, file_size, resume_state, qidi_status)
+    def abort(self) -> None:
+        """§ 9 abort keeps the snapshot: the rows stay, so the offer stands.
+        Rows a commit already rewrote point at the same resume point."""
 
     async def discard(self) -> None:
         await self._db.delete_value_from_config(PRINT_STATE_SECTION, None)
