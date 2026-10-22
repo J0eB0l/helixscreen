@@ -52,6 +52,9 @@ bool TagReading::states(TagField field) const {
 }
 
 bool TagReading::empty() const {
+    if (spoolman_id) {
+        return false;
+    }
     for (const TagField f :
          {TagField::Material, TagField::Brand, TagField::Product, TagField::Color,
           TagField::NozzleTemp, TagField::BedTemp, TagField::Weight}) {
