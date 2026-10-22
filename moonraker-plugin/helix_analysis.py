@@ -1047,8 +1047,6 @@ class HelixAnalysis:
         return getattr(self.helix, "gc_path", None)
 
     def availability(self) -> Tuple[bool, Optional[str]]:
-        if not getattr(self.helix, "enabled", True):
-            return False, "plugin_disabled"
         if self.gc_path is None:
             return False, "no_gcodes_dir"
         return True, None

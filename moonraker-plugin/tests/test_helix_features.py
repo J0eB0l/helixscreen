@@ -685,3 +685,140 @@ def test_a_features_extra_fields_join_its_entry_and_cannot_replace_the_base(heli
     assert features["demo"]["saving"] is True and features["demo"]["enabled"] is True
     assert features["broken"] == {"version": 1, "available": True, "enabled": True,
                                   "reason": None}
+
+
+# ============================================================================
+# [helix_print] enabled: False, and a feature that fails to start
+# ============================================================================
+
+FEATURE_MODULE_NAMES = ("plr", "file_analysis", "event_journal", "config_edit",
+                        "server_edits", "print_hooks", "convert_3mf")
+
+
+@pytest.fixture
+def disabled_component(mock_server, temp_gcodes_dir):
+    from test_helix_print import MockDatabase
+    mock_server.components["file_manager"] = MockFileManager(temp_gcodes_dir)
+    mock_server.components["database"] = MockDatabase()
+    mock_server.components["klippy_apis"] = MockKlippyApis()
+    mock_server.components["history"] = MockHistory()
+    return load_component(MockConfigHelper(mock_server, {
+        "temp_dir": ".helix_temp", "symlink_dir": ".helix_print",
+        "cleanup_delay": 3600, "enabled": False,
+    }))
+
+
+class TestPluginDisabled:
+
+    @pytest.mark.asyncio
+    async def test_every_feature_reads_plugin_disabled(self, disabled_component, mock_server):
+        await disabled_component.component_init()
+        features = (await _status(disabled_component, mock_server))["features"]
+        assert set(FEATURE_MODULE_NAMES) <= set(features)
+        for name, entry in features.items():
+            assert (entry["available"], entry["enabled"], entry["reason"]) == \
+                (False, False, "plugin_disabled"), name
+            assert await disabled_component.feature_enabled(name) is False
+
+    @pytest.mark.asyncio
+    async def test_no_feature_module_starts(self, disabled_component, mock_server):
+        """Nothing a module registers exists, so nothing can send gcode, write
+        a config file, record an event or run a worker."""
+        await disabled_component.component_init()
+        assert disabled_component.print_hooks is None
+        assert disabled_component.journal is None
+        assert disabled_component.analysis is None
+        assert disabled_component.plr is None
+        for path in ("/server/helix/config_edit", "/server/helix/config",
+                     "/server/helix/print_edited", "/server/helix/journal",
+                     "/server/helix/analysis", "/server/helix/print_hooks/screen_start"):
+            assert path not in mock_server.endpoints, path
+        assert "/server/helix/status" in mock_server.endpoints
+
+    @pytest.mark.asyncio
+    async def test_history_events_send_nothing_even_opted_in(self, disabled_component,
+                                                             mock_server):
+        import helix_print_hooks
+        await disabled_component.component_init()
+        await _opt_in(disabled_component, {"print_hooks": True})
+        await disabled_component.database.insert_item(
+            HELIX_SCREEN_NAMESPACE, helix_print_hooks.STANDING_OPTIONS_KEY,
+            {"version": 1, "gcode": "SET_X Y=1"})
+        for handler in mock_server.event_handlers.get("history:history_changed", []):
+            await handler({
+                "action": "added",
+                "job": {"job_id": "000001", "filename": "a.gcode", "start_time": T0},
+            })
+        mock_server.components["klippy_apis"].run_gcode.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_feature_registered_later_reads_plugin_disabled(self, disabled_component,
+                                                                    mock_server):
+        await disabled_component.component_init()
+        disabled_component.register_feature("late", 1, acts=False)
+        entry = (await _status(disabled_component, mock_server))["features"]["late"]
+        assert entry["reason"] == "plugin_disabled"
+        assert await disabled_component.feature_enabled("late") is False
+
+
+class TestFeatureStartIsolation:
+
+    @pytest.mark.asyncio
+    async def test_a_feature_that_raises_on_start_disables_only_itself(
+        self, helix_print_component, mock_server, monkeypatch
+    ):
+        import helix_journal
+
+        class Broken(helix_journal.HelixJournal):
+            async def load(self):
+                raise RuntimeError("store unreadable")
+
+        monkeypatch.setattr(helix_journal, "HelixJournal", Broken)
+        await helix_print_component.component_init()
+
+        features = (await _status(helix_print_component, mock_server))["features"]
+        assert features["event_journal"]["available"] is False
+        assert features["event_journal"]["reason"] == \
+            "start_failed: RuntimeError: store unreadable"
+        for name in ("config_edit", "server_edits", "file_analysis", "plr"):
+            assert features[name]["available"] is True, name
+        assert "/server/helix/print_modified" in mock_server.endpoints
+
+    @pytest.mark.asyncio
+    async def test_a_constructor_that_raises_is_isolated_too(
+        self, helix_print_component, mock_server, monkeypatch
+    ):
+        import helix_config
+
+        def broken(helix):
+            raise ValueError("bad")
+
+        monkeypatch.setattr(helix_config, "HelixConfig", broken)
+        await helix_print_component.component_init()
+        features = (await _status(helix_print_component, mock_server))["features"]
+        assert features["config_edit"]["reason"] == "start_failed: ValueError: bad"
+        assert features["print_hooks"]["available"] is True
+
+
+@pytest.mark.asyncio
+async def test_analysis_starts_only_after_recovery_knows_its_job(
+    helix_print_component, monkeypatch
+):
+    """Analysis prunes layer indexes as it starts; recovery's job names the
+    ones it must keep, so that job is loaded first."""
+    order = []
+    loop = helix_print_component.eventloop
+    monkeypatch.setattr(loop, "register_callback",
+                        lambda cb, *a: order.append(getattr(cb, "__qualname__", cb)),
+                        raising=False)
+    import helix_plr
+    real_load = helix_plr.HelixPlr.load_job
+
+    async def load_job(self):
+        order.append("load_job")
+        return await real_load(self)
+
+    monkeypatch.setattr(helix_plr.HelixPlr, "load_job", load_job)
+    await helix_print_component.component_init()
+    assert "HelixAnalysis.start" in order
+    assert order.index("load_job") < order.index("HelixAnalysis.start")

@@ -542,8 +542,8 @@ class HelixEdits:
 
     async def handle_print_edited(self, web_request: Any) -> Dict[str, Any]:
         helix = self.helix
-        if not helix.enabled:
-            raise self.server.error("HelixPrint component is disabled", 503)
+        if not await helix.feature_enabled(SERVER_EDITS_FEATURE):
+            raise self.server.error("Server-side edits are unavailable", 503)
         if helix.gc_path is None:
             raise self.server.error("File manager not initialized", 500)
 

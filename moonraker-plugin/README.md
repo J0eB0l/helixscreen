@@ -93,7 +93,9 @@ Add to your `moonraker.conf`:
 
 ```ini
 [helix_print]
-# Enable/disable the plugin (default: True)
+# Enable/disable the plugin (default: True). False refuses print_modified and
+# starts no feature module: every feature reads `available: false`,
+# reason "plugin_disabled".
 enabled: True
 
 # Directory for storing modified G-code (relative to gcodes root)
@@ -162,7 +164,7 @@ Each optional feature has one entry in `features`, keyed by name:
 | `version` | The feature's own contract version, bumped when its endpoints change shape. Clients gate on a minimum version of a feature, never on the plugin's `version` string |
 | `available` | Its module loaded and its requirements (Moonraker version, components) hold |
 | `enabled` | The user's choice, and always `false` when not available |
-| `reason` | Why it is not available (`null` when it is), e.g. `"module_missing"` or `"load_failed: ..."` |
+| `reason` | Why it is not available (`null` when it is), e.g. `"plugin_disabled"`, `"module_missing"`, `"load_failed: ..."` or `"start_failed: ..."` |
 
 A feature that only observes defaults on; one that acts on a print or a spool defaults off.
 The user's choices live in Moonraker's database, namespace `helix-screen`, key
@@ -175,7 +177,8 @@ A feature may own its switch instead, when its on/off depends on more than a boo
 `convert_3mf` is one: `convert_3mf` under `[helix_print]` in `moonraker.conf` switches it.
 
 A feature lives in its own `helix_<feature>.py` beside `helix_print.py`. One that fails to
-import reports `available: false` with the reason, and every other feature keeps working.
+import or to start reports `available: false` with the reason, and every other feature keeps
+working.
 
 #### Helix-initiated jobs
 

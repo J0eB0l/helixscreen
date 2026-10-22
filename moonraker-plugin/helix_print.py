@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import glob as glob_module
 import importlib.util
+import inspect
 import json
 import logging
 import os
@@ -235,10 +236,20 @@ def opt_in_enabled(opt_ins: Any, name: str, acts: bool) -> bool:
     return not acts
 
 
-def feature_entry(feature: Feature, enabled: bool) -> Dict[str, Any]:
+def feature_availability(feature: Feature, plugin_enabled: bool) -> Tuple[bool, Optional[str]]:
+    """Whether a feature can run now, and why not. `[helix_print] enabled:
+    False` stops every feature, whatever its own probe says."""
+    if not plugin_enabled:
+        return False, "plugin_disabled"
+    return feature.availability()
+
+
+def feature_entry(
+    feature: Feature, enabled: bool, plugin_enabled: bool = True
+) -> Dict[str, Any]:
     """The status map's entry for a feature. A feature that cannot run is
     never enabled, whatever its switch says."""
-    available, reason = feature.availability()
+    available, reason = feature_availability(feature, plugin_enabled)
     return {
         "version": feature.version,
         "available": available,
@@ -624,7 +635,7 @@ class HelixPrint:
         on. Read at the moment a feature acts, so a settings change applies
         without any notification."""
         feature = self.features.get(name)
-        if feature is None or not feature.availability()[0]:
+        if feature is None or not feature_availability(feature, self.enabled)[0]:
             return False
         return await self._feature_switch_value(feature, None)
 
@@ -633,7 +644,7 @@ class HelixPrint:
         result: Dict[str, Any] = {}
         for name, feature in self.features.items():
             enabled = await self._feature_switch_value(feature, opt_ins)
-            entry = feature_entry(feature, enabled)
+            entry = feature_entry(feature, enabled, self.enabled)
             if feature.extra is not None:
                 try:
                     entry.update({k: v for k, v in (await feature.extra()).items()
@@ -754,16 +765,43 @@ class HelixPrint:
 
         await self._start_3mf_converter()
         self._register_3mf_feature()
-        self._start_plr()
-        self._start_analysis()
-        await self._start_journal()
-        self._start_config()
-        self._start_edits()
-        self._start_print_hooks()
+        await self._start_isolated("plr", True, self._start_plr)
+        await self._start_isolated("file_analysis", False, self._start_analysis)
+        await self._start_isolated("event_journal", False, self._start_journal)
+        await self._start_isolated("config_edit", True, self._start_config)
+        await self._start_isolated("server_edits", False, self._start_edits)
+        await self._start_isolated("print_hooks", True, self._start_print_hooks)
 
         await self._load_job_markers()
         if self.plr is not None:
-            await self.plr.load_job()
+            await self._start_isolated("plr", True, self.plr.load_job)
+        # Analysis prunes stale layer indexes as it starts, and recovery's job,
+        # loaded just above, names the ones it must keep.
+        if self.analysis is not None and self.features["file_analysis"].available \
+                and self.enabled:
+            self.eventloop.register_callback(self.analysis.start)
+
+    async def _start_isolated(
+        self, name: str, acts: bool, start: Callable[[], Any]
+    ) -> None:
+        """Run one feature module's start. One that raises is registered
+        unavailable with the reason, and the component and every other
+        feature keep running. With the plugin disabled no module starts: no
+        handler, endpoint or worker of one exists."""
+        if not self.enabled:
+            self.register_feature(name, 1, acts=acts, available=False, reason="plugin_disabled")
+            return
+        try:
+            result = start()
+            if inspect.isawaitable(result):
+                await result
+        except Exception as e:
+            logging.exception(f"HelixPrint: feature {name} failed to start")
+            previous = self.features.get(name)
+            self.register_feature(
+                name, previous.version if previous is not None else 1, acts=acts,
+                available=False, reason=f"start_failed: {type(e).__name__}: {e}",
+            )
 
     async def _start_3mf_converter(self) -> None:
         if not (self.enabled and self.convert_3mf):
@@ -798,8 +836,6 @@ class HelixPrint:
         top-level convert_3mf field."""
         if self._converter_active():
             return True, None
-        if not self.enabled:
-            return False, "plugin_disabled"
         if not self.convert_3mf:
             # Off by its own switch, not unavailable
             return True, None
@@ -860,8 +896,6 @@ class HelixPrint:
             helix_analysis.ANALYSIS_FEATURE, helix_analysis.ANALYSIS_FEATURE_VERSION,
             acts=False, switch=always_on, probe=self.analysis.availability,
         )
-        if self.enabled:
-            self.eventloop.register_callback(self.analysis.start)
 
     async def _start_journal(self) -> None:
         """Printer event journal (helix_journal.py). It has no switch: it owns
