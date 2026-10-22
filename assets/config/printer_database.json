@@ -4637,7 +4637,7 @@
       "enclosed": true,
       "name": "FLSUN T1 Pro",
       "manufacturer": "FLSUN",
-      "image": "flsun-delta.png",
+      "image": "flsun-t1-pro.png",
       "preset": "flsun_t1",
       "heuristics": [
         {

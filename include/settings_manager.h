@@ -606,6 +606,27 @@ class SettingsManager {
     }
 
     /**
+     * @brief Link a lane to the Spoolman spool its tag names when the spool is seated.
+     *
+     * Read by AmsState's tag-link pass, which acts only on backends whose tags
+     * can name a spool (AmsBackend::tags_name_spoolman_spools()). Default on.
+     * Per-printer setting.
+     */
+    bool get_ams_tag_links_spoolman() const {
+        return settings_.get_bool(Key::AmsTagLinksSpoolman);
+    }
+
+    /** @brief Set whether a tag naming a Spoolman spool links its lane */
+    void set_ams_tag_links_spoolman(bool enabled) {
+        settings_.set(Key::AmsTagLinksSpoolman, enabled);
+    }
+
+    /** @brief Tag-links-Spoolman subject (integer: 0=off, 1=on) */
+    lv_subject_t* subject_ams_tag_links_spoolman() {
+        return settings_.subject(Key::AmsTagLinksSpoolman);
+    }
+
+    /**
      * @brief Expose the bypass controls even though the firmware reports none.
      *
      * Distinct from get_ams_always_show_bypass_spool(), which only un-suppresses
@@ -917,6 +938,7 @@ class SettingsManager {
         EndOfPrintUnloadTools,
         AmsAlwaysShowBypassSpool,
         AmsKeepSpoolInfoOnEject,
+        AmsTagLinksSpoolman,
         AmsForceBypassControls,
         FilamentAutoCooldown,
         FilamentAutoOpenEditor,

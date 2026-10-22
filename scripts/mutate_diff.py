@@ -1881,7 +1881,9 @@ class Suites:
                 # Slots beyond the one this run holds are jobserver tokens.
                 extra = [t for t in (JOBS.try_token() for _ in range(self.jobs - 1))
                          if t is not None]
-                cmd += ['--jobs', str(1 + len(extra)), '--no-parallelize-within-files']
+                # bats refuses --no-parallelize-within-files below --jobs 2.
+                if extra:
+                    cmd += ['--jobs', str(1 + len(extra)), '--no-parallelize-within-files']
             cmd.append(self.args.shell_tests)
             try:
                 state, why = self._run_group(cmd, name, 'the bats suite', timeout)

@@ -2005,6 +2005,33 @@ If the item is missing there, HelixScreen did not detect it, and the screens tha
 
 If the detail is wrong (for example **Probe · BLTouch** on a Beacon), include a screenshot of the Capabilities section in your report.
 
+### Mainsail or Fluidd shows an old `helix_print` update
+
+**Symptoms:**
+- The update manager in Mainsail (Machine page) or Fluidd (Settings > Software Updates) lists a `helix_print` row with a version like `v1.1.0-beta.9-461-g...`
+- That row offers an update, or says it is up to date while HelixScreen itself is newer
+
+**Why:** the HelixPrint plugin was installed with the old one-line installer, which downloaded a separate copy of the plugin into `~/helix_print` and added that row so Moonraker could update it. Current HelixScreen loads the plugin it ships with instead, and updating HelixScreen updates the plugin. The old row only tracks the separate copy, which is no longer used.
+
+**Do not click Update on that row.** It downloads unreleased development code into the old copy and restarts Moonraker for nothing.
+
+**Fix:** restart HelixScreen. When it starts, it switches the plugin over and removes the old row (it keeps a backup of each config file it edits next to that file, for example `moonraker.conf.bak.helix.<date>`). The row disappears after Moonraker's next restart. To do it by hand instead, run the plugin installer that came with HelixScreen:
+
+```bash
+# Use your actual install path: ~/helixscreen on most systems,
+# /opt/helixscreen or /usr/data/helixscreen on some printers
+~/helixscreen/moonraker-plugin/install.sh --auto
+```
+
+**Removing the old copy:** check where Moonraker loads the plugin from first:
+
+```bash
+# Moonraker's folder varies by platform too (~/moonraker on most systems)
+readlink -f ~/moonraker/moonraker/components/helix_print.py
+```
+
+If the result points inside your HelixScreen folder and not into `~/helix_print`, the old copy is unused and you can delete it with `rm -rf ~/helix_print`. If it still points into `~/helix_print`, leave the folder alone and run the installer command above first.
+
 ### Reset HelixScreen or re-run the setup wizard
 
 **Option 1: Factory Reset from the UI (easiest).** Go to **Settings > System > Factory Reset** and confirm. This wipes all HelixScreen settings, clears the backup copies so the old settings cannot come back, and restarts the Setup Wizard on the next start. It does not touch Klipper, Moonraker, or any files on the printer itself.

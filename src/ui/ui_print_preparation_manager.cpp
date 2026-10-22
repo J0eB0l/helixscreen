@@ -1299,7 +1299,8 @@ std::optional<gcode::OperationType> file_embeddable_op_for_id(const std::string&
 // operation, i.e. the file performs that step itself. Only the same command
 // counts: other BED_MESH_* lines load, clear or offset a stored mesh, and a
 // START_PRINT parameter asking for a mesh proves nothing about a macro that may
-// ignore it. The scan keeps one op per type, so a miss sends the line.
+// ignore it. A miss sends the line: in doubt the step runs twice rather than
+// not at all.
 bool file_runs_command(const gcode::ScanResult& scan, const std::string& option_id,
                        const std::string& line) {
     const std::optional<gcode::OperationType> op = file_embeddable_op_for_id(option_id);
@@ -1307,12 +1308,7 @@ bool file_runs_command(const gcode::ScanResult& scan, const std::string& option_
         return false;
     }
     const std::string word = text_io::to_upper(gcode::GCodeOpsDetector::command_word(line));
-    return std::any_of(
-        scan.operations.begin(), scan.operations.end(), [&](const gcode::DetectedOperation& found) {
-            return found.type == *op &&
-                   found.embedding != gcode::OperationEmbedding::MACRO_PARAMETER &&
-                   text_io::to_upper(gcode::GCodeOpsDetector::command_word(found.raw_line)) == word;
-        });
+    return scan.operation_commands.count({*op, word}) > 0;
 }
 
 // Whether turning this option off may strip its op out of the sliced file. Not

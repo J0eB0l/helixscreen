@@ -521,6 +521,16 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     // connected. A unit with no entry has not stated one. Guarded by mutex_.
     std::map<int, bool> unit_links_;
 
+    // The unit-local slot each unit's driver is feed-assisting
+    // (`feed_assist_slot`), -1 for none, by unit. A unit with no entry has not
+    // stated one. Guarded by mutex_.
+    std::map<int, int> feed_assist_slots_;
+
+    /// The Feed Assist toggle for the loaded slot: on when its unit assists that
+    /// slot, without a value until the unit has said, and disabled with nothing
+    /// loaded.
+    [[nodiscard]] helix::printer::DeviceAction feed_assist_action_locked() const;
+
     // What each unit states about itself, by unit index. Kept apart from the
     // units: a notify frame can name a unit before its slots arrive, and a
     // later frame restates only the fields that changed. Guarded by mutex_.

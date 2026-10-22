@@ -193,6 +193,7 @@ is the only seat signal.
 | `protocol` | `"ace1_json"` (ACE Pro) or `"ace2_proto"` (ACE 2) |
 | `model`, `firmware`, `boot_firmware`, `usb_port`, `usb_path` | Identity/telemetry (`"Anycubic Color Engine Pro"` / `"V1.3.856"` captured). An ACE 2 whose device reports no model gets the driver's own label (`"ACE2 (Shared Bus)"` or `"ACE2 (<port>)"`) |
 | `connection_state` | `connected`, or `initializing` / `connecting` / `reconnecting` / `disabled`; read as the unit's link |
+| `feed_assist_slot` | The unit-local slot the driver is feed-assisting, `-1` for none. The driver turns it on at the end of a load and keeps it on through a print. The Feed Assist toggle shows it for the loaded slot (`src/printer/ams_backend_ace.cpp#feed_assist_action_locked`), carries no value until the unit has stated it, and is disabled with nothing loaded, where `ACE_ENABLE/DISABLE_FEED_ASSIST` would have no slot to mean |
 
 **How the backend reads it** (`src/printer/ams_backend_ace.cpp#on_started`,
 `#handle_status`): the bootstrap queries every `ace_instance_N` discovery found

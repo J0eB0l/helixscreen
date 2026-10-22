@@ -355,6 +355,12 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   of the spool it held, so a spool swapped while HelixScreen was not running clears the old
   spool's edits instead of painting them onto the new one. Works on QIDI Box, the Snapmaker
   U1 (by the spool's RFID tag) and Creality CFS, including Kalico-based CFS setups.
+- **A spool's tag can link its slot to Spoolman** - when a tag names a Spoolman spool, putting
+  that spool in a slot links the slot to it, exactly as picking it by hand would. A tag that
+  names a spool Spoolman doesn't have gets a short notice and leaves the slot alone, and a
+  spool you pick while the same tag stays seated is kept. On by default; **Link Spools from
+  Tags** in the filament system's settings turns it off. Creality CFS reads the Spoolman id
+  that tag writers such as CFTag put in the tag's serial number.
 - **QIDI Box lanes behave like every other system** (#1632) - slot presence, swap detection,
   edits that persist and repaint, and a Clear Spool that clears the Box's own records.
 - **Humidity and drying per box** - the filament environment screen follows the way your
@@ -1174,6 +1180,9 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   slot on a box whose size was not yet known, and threw away the record a reattached box
   needed. Clearing a slot left a dangling Spoolman link, and bypass after an unload could stay
   armed forever.
+- **Creality CFS: a tag's raw record showed as the brand** - a tagged spool whose material
+  code HelixScreen doesn't know showed a 40-character string as its brand. Creality spools now
+  read as Creality, and other tags show no brand.
 - **AD5X IFS** (#1631, #1654, #1626) - your own colour edit was recorded as if the printer had
   reported it, colours set from the stock screen were misread, and the runout warning never
   lit: the filament system's snapshot dropped the runout flag the backend raised, along with

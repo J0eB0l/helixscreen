@@ -172,9 +172,13 @@ TEST_CASE("decide_plugin_self_heal: what the startup check does about the plugin
         f.job_holds = true;
         CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::WaitForJob);
     }
-    SECTION("a plugin this app did not find installed is never touched") {
+    SECTION("a plugin this app did not find installed is never touched, only reported") {
         f.link = PluginLinkCheck::NotOurs;
         f.reported_version = "1.1.0";
+        CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::ReportOnly);
+        f.job_holds = true;
+        CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::ReportOnly);
+        f.reported_version = "1.2.0";
         CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::Nothing);
     }
     SECTION("a failed relink restarts nothing") {

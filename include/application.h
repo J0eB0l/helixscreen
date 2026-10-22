@@ -155,10 +155,10 @@ class Application {
     std::optional<std::string> m_screen_size_env;
     bool m_screen_size_env_valid = false;
 
-    // First-boot rotation probe decision and the kernel panel_orientation it
-    // read (-1 = none), both taken in init_display() before the display exists
+    // First-boot rotation probe decision, taken in init_display() before the
+    // display exists; the orientation that boot applied without asking is
+    // DisplayManager::first_boot_orientation()
     bool m_rotation_probe_wanted = false;
-    int m_kernel_orientation = -1;
 
     // Screen (not owned, managed by LVGL); the session reads it through a reference
     lv_obj_t* m_screen = nullptr;

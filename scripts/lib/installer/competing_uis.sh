@@ -41,11 +41,12 @@ COMPETING_UIS="guppyscreen GuppyScreen grumpyscreen Grumpyscreen KlipperScreen k
 #   - The unit runs /home/<klipper-user>/QD_Q2/bin/client, which outlives the
 #     unit as a bare process. Its basename is `client`, so pidof would match
 #     unrelated processes on a general-purpose SBC; it is matched by full path.
-#   - A unit a later firmware renames still has to exec the screen out of the
-#     stock tree's bin directory, so units are discovered by what their
-#     ExecStart runs rather than by what they are called. The tree root alone
-#     is not the match: it would also reach any support unit the vendor places
-#     under it, and disabling one of those can cost the user their network.
+#   - A unit a later firmware renames still runs the client or its start.sh
+#     launcher, so units are discovered by what their ExecStart runs rather
+#     than by what they are called. Match those entry points, not the whole
+#     bin directory: it also contains tuning.sh for makerbase-tuning, which
+#     must remain enabled. Require a token boundary to spare similarly named
+#     helpers and backup scripts too.
 #     This arm has no state gate at all, so it also reaches a stock screen the
 #     vendor ships neither running nor enabled, and it folds case because a
 #     unit name's capitalisation is the vendor's to change.
@@ -54,7 +55,7 @@ COMPETING_UIS="guppyscreen GuppyScreen grumpyscreen Grumpyscreen KlipperScreen k
 # hostname gate. Both arms are reversible and recorded, so uninstall's
 # reenable_disabled_services() puts the stock screen back.
 QIDI_STOCK_UI_BINS="/home/mks/QD_Q2/bin/client /home/qidi/QD_Q2/bin/client"
-QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/|qidiclient|qidi-client|makerbase-client'
+QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([^[:alnum:]_.-]|$)|qidiclient|qidi-client|makerbase-client'
 
 # Wayland compositors that hold the DRM/KMS master. On Armbian/Pi-class boards
 # (e.g. BTT CB1) KlipperScreen commonly runs *inside* one of these; the

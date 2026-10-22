@@ -3303,6 +3303,14 @@ TEST_CASE_METHOD(HelixTestFixture,
                                "G1 X10 Y10 E5\n"));
         CHECK_FALSE(sends_mesh("  bed_mesh_calibrate_start_print\n"
                                "G1 X10 Y10 E5\n"));
+        // Other mesh lines ahead of the call do not hide it.
+        CHECK_FALSE(sends_mesh("BED_MESH_CLEAR\n"
+                               "BED_MESH_CALIBRATE_START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                               "G1 X10 Y10 E5\n"));
+        CHECK_FALSE(sends_mesh("BED_MESH_PROFILE LOAD=default\n"
+                               "G28\n"
+                               "BED_MESH_CALIBRATE_START_PRINT\n"
+                               "G1 X10 Y10 E5\n"));
 
         // Lines that use a stored mesh or only ask for one do not mesh.
         CHECK(sends_mesh("BED_MESH_PROFILE LOAD=default\n"

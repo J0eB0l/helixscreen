@@ -901,6 +901,7 @@ translations:
   Cooling Tube Length: 'Lunghezza del tubo di raffreddamento'
   Cooling Tube Retraction: 'Retrazione del tubo di raffreddamento'
   Cooling for probing...: Raffreddamento per il sondaggio...
+  "Cooling the nozzle to standby while you check the print": "Raffreddamento dell'ugello in standby mentre controlli la stampa"
   Cooling {}...: Raffreddamento {}...
   Copied to clipboard!: Copiato negli appunti!
   Copy: "Copia"
@@ -1203,7 +1204,6 @@ translations:
   Enable assisted retraction at hub: 'Abilita la retrazione assistita all''hub'
   Enable audio feedback: Abilita feedback audio
   Enable brush wipe after purging: 'Abilita la pulizia con spazzola dopo lo spurgo'
-  Enable feed assist for active slot during printing: 'Abilita l''assistenza all''alimentazione per lo slot attivo durante la stampa'
   Enable or disable the hub cutter: 'Abilita o disabilita la taglierina dell''hub'
   Enable plugin?: 'Abilitare il plugin?'
   Enable purging during tool changes: 'Abilita lo spurgo durante i cambi utensile'
@@ -1729,6 +1729,7 @@ translations:
   Heating nozzle to $1°C...: Riscaldamento ugello a $1°C...
   Heating nozzle...: Riscaldamento ugello...
   Heating the bed: Riscaldamento del piano
+  "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it": "Riscaldamento di piano e ugello: la stampa torna ad aderire e l'ugello si stacca"
   Heating the nozzle: 'Riscaldamento dell''ugello'
   Heating to %d°C... %.0f°C: Riscaldamento a %d°C... %.0f°C
   Heating to {}°C before {}...: Riscaldamento a {}°C prima di {}...
@@ -2086,6 +2087,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: 'La riga {} chiama {}, che questa stampante tratta come un arresto di emergenza. Sezionare di nuovo il file con un profilo creato per questa stampante.'
   Linear rails: 'Guide lineari'
   Linear rails interval: 'Intervallo guide lineari'
+  Link Spools from Tags: 'Collega bobine dai tag'
+  Link a slot to the Spoolman spool its tag names: 'Collega uno slot alla bobina Spoolman indicata dal suo tag'
   Listen to all theme sounds: Ascolta tutti i suoni del tema
   Live Z-offset, with baby steps and Save: Z-Offset in tempo reale, con micro-passi e Salva
   Live view from your webcam: Vista live dalla webcam
@@ -3668,6 +3671,7 @@ translations:
   Start Anyway: Avvia comunque
   Start Calibration: Avvia calibrazione
   Start Drying: Avvia essiccazione
+  Start Heating: "Avvia riscaldamento"
   Start K: K iniziale
   Start Print: Avvia stampa
   Start Probing: Avvia sondaggio
@@ -3862,6 +3866,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Quel giro non si è ancora visto. Allenta {0} di un altro giro completo."
   That turn didn't register yet. Tighten {0} a little more.: "Quel giro non si è ancora visto. Tendi {0} ancora un po'."
   That turn didn't register yet. Tighten {0} one more full turn.: "Quel giro non si è ancora visto. Tendi {0} di un altro giro completo."
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "L'ACE spinge il filamento caricato insieme all'estrusore. Il driver attiva l'assistenza all'alimentazione dopo un caricamento"
   The CFS odometer hardware is faulty and needs repair or replacement: L'hardware dell'odometro del CFS è guasto e va riparato o sostituito
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'Il CFS ha esaurito il filamento in {}. La stampa continua con quello rimasto nel tubo.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'Il CFS ha esaurito il filamento. La stampa continua con quello rimasto nel tubo.'
@@ -3876,6 +3881,7 @@ translations:
     interfering with prints. You can re-enable it in Settings > Display.
   : Il salvaschermo animato è stato disattivato su questo dispositivo per evitare
     che interferisca con le stampe. Puoi riattivarlo in Impostazioni > Schermo.
+  "The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it.": "Piano e ugello si riscaldano insieme prima di qualsiasi movimento, così la stampa torna ad aderire e l'ugello si stacca."
   The bed has cooled. Take the spools off the plate, then confirm.: Il piano si è raffreddato. Togli le bobine dal piano, poi conferma.
 
   The bed is too small for settling laps.: 'Il piano è troppo piccolo per i giri di assestamento.'
@@ -3920,19 +3926,20 @@ translations:
   The helper macros are installed and activate after Klipper restarts.: 'Le macro di ausilio sono installate e si attivano dopo il riavvio di Klipper.'
   The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Il fermo si apre e {} può cadere. Tienilo prima di continuare, poi riponilo nel suo dock.
   The left RFID reader in this CFS unit may need service: Il lettore RFID sinistro di questa unità CFS potrebbe richiedere assistenza
+  The loaded slot is not known yet: "Lo slot caricato non è ancora noto"
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : La bobina caricata è {}, ma questo file è stato sezionato per {}. Il filamento con cariche richiede un flusso più basso e un ugello indurito.
   The message your printer's macros show (M117): 'Il messaggio mostrato dalle macro della stampante (M117)'
   ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
   : L'ugello montato si scalda a 200°C e si raffredda di nuovo mentre viene adattato il modello di sicurezza del riscaldatore. Tieni spenta la ventola pezzo e il materiale infiammabile lontano dalla testina. Richiede diversi minuti.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'L''ugello fa alcuni brevi movimenti di prova in un angolo, lontano dall''area di stampa, e ripete finché i valori convergono.'
+  "The nozzle hasn't moved since the power went out. Check that it sits just above the top of the print, then resume.": "L'ugello non si è mosso dall'interruzione di corrente. Controlla che sia appena sopra la sommità della stampa, poi riprendi."
   ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
   : L'ugello si scalda a 200°C mentre la ventola pezzo passa per le sue velocità. Per una misura precisa, monta il condotto come quando stampi. Richiede diversi minuti.
-  ? The nozzle is back above the print at the height it stopped at. Check that it sits just above the top of the print, then resume.
-  : L'ugello è di nuovo sopra la stampa all'altezza in cui si è fermato. Controlla che sia appena sopra la sommità della stampa, poi riprendi.
   The nozzle is clear of the print: L'ugello non tocca la stampa
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : L'ugello è caldo. Puliscilo con la spazzola metallica in dotazione, mantieni pulita la posizione di aggancio, poi tocca Avanti.
+  The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "L'ugello è sollevato dalla stampa e X e Y sono azzerati. Riprendendo, scende di nuovo all'altezza in cui si è fermato."
   The plate and the spools are still hot. Use gloves.: Il piano e le bobine sono ancora caldi. Usa i guanti.
 
   The plate finishes its current move, but drying will not start.: 'Il piano termina lo spostamento in corso, ma l''essiccazione non partirà.'
@@ -4715,6 +4722,7 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} ha bloccato ripetutamente lo schermo; tornato a {}'
   "{} isn't loaded. The print will pause when it needs it.": '{} non è caricato. La stampa andrà in pausa quando ne avrà bisogno.'
   '{} kept crashing the panel; pick a printer to connect': '{} ha bloccato ripetutamente lo schermo; scegli una stampante a cui connetterti'
+  '{} linked to Spoolman spool #{} from its tag': 'Collegamento di {} alla bobina Spoolman #{} dal suo tag'
   '{} looser than {}': "{} più lenta di {}"
   '{} m': '{} m'
   '{} macro not configured': Macro {} non configurata
@@ -4754,6 +4762,7 @@ translations:
   '{} — response timed out': '{} — tempo scaduto'
   '{} → {}: no filament loaded.': '{} → {}: nessun filamento caricato.'
   "{}'s peak moved out of the zone. Widening it.": "Il picco di {} è uscito dalla zona. Allargamento."
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: il tag indica la bobina Spoolman #{}, che non esiste'
   '{}:{:02} elapsed': '{}:{:02} trascorso'
   '{}% left': '{}% rimanente'
   'Basic': 'Base'

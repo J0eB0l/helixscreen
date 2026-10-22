@@ -21,6 +21,7 @@
 
 #include "../test_helpers/config_dir_guard.h"
 #include "../test_helpers/log_capture.h"
+#include "../test_helpers/scoped_board.h"
 #include "../test_helpers/scoped_env.h"
 #include "display_backend.h"
 #include "text_io.h"
@@ -528,8 +529,50 @@ TEST_CASE("standalone_rotation prefers the CLI value, then the configured one",
     helix::ConfigDirGuard guard("standalone_rotation");
     REQUIRE(helix::text_io::write_file((guard.dir / "settings.json").string(),
                                        R"({"display": {"rotate": 180}})"));
-    CHECK(helix::standalone_rotation(90) == 90);
-    CHECK(helix::standalone_rotation(0) == 180);
+    CHECK(helix::standalone_rotation(90, 480, 800) == 90);
+    CHECK(helix::standalone_rotation(0, 480, 800) == 180);
+}
+
+TEST_CASE("standalone_rotation draws a first boot in the board's known mount",
+          "[display][rotation]") {
+    helix::ConfigDirGuard guard("standalone_rotation_mount");
+    helix::test::ScopedBoard board(helix::board::Board::K1);
+    helix::ScopedEnv no_force("HELIX_FORCE_ROTATION_PROBE", nullptr);
+    const auto settings = (guard.dir / "settings.json").string();
+
+    SECTION("no saved rotation: the K1 mount") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {}})"));
+        CHECK(helix::standalone_rotation(0, 480, 800) == 270);
+    }
+    SECTION("another framebuffer on a K1-resolved board: no mount") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {}})"));
+        CHECK(helix::standalone_rotation(0, 800, 480) == 0);
+    }
+    SECTION("a saved 0 is the user's and wins") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {"rotate": 0}})"));
+        CHECK(helix::standalone_rotation(0, 480, 800) == 0);
+    }
+    SECTION("the CLI wins over the mount") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {}})"));
+        CHECK(helix::standalone_rotation(90, 480, 800) == 90);
+    }
+}
+
+TEST_CASE("a forced rotation probe skips the board's mount", "[display][rotation]") {
+    helix::test::ScopedBoard board(helix::board::Board::K1);
+    {
+        helix::ScopedEnv no_force("HELIX_FORCE_ROTATION_PROBE", nullptr);
+        CHECK(helix::first_boot_board_mount(-1, 480, 800) == 270);
+    }
+    helix::ScopedEnv force("HELIX_FORCE_ROTATION_PROBE", "1");
+    CHECK(helix::first_boot_board_mount(-1, 480, 800) == -1);
+}
+
+TEST_CASE("a kernel panel_orientation leaves the board's mount out", "[display][rotation]") {
+    helix::test::ScopedBoard board(helix::board::Board::K1);
+    helix::ScopedEnv no_force("HELIX_FORCE_ROTATION_PROBE", nullptr);
+    CHECK(helix::first_boot_board_mount(0, 480, 800) == -1);
+    CHECK(helix::first_boot_board_mount(90, 480, 800) == -1);
 }
 
 // The kernel's panel_orientation has to reach DisplayManager::init() as the

@@ -139,6 +139,7 @@ BACKENDS = ("generic", "qidi_print_state", "vendor")
 
 DEFAULT_XY_HOME_GCODE = "G28 X Y"
 DEFAULT_Z_LIFT_MM = 5.0
+DEFAULT_NOZZLE_STANDBY_DROP_C = 70.0
 RESUME_SKIP_FRACTION_DEFAULT = 0.5
 
 
@@ -152,6 +153,9 @@ class PlrProfile(NamedTuple):
     purge_gcode: Optional[str] = None
     resume_skip_fraction: float = RESUME_SKIP_FRACTION_DEFAULT
     macro_vars: Dict[str, Tuple[str, ...]] = {}
+    # Once the nozzle has let go of the part, prepare drops it this far under
+    # the print temperature until commit (R30).
+    nozzle_standby_drop_c: float = DEFAULT_NOZZLE_STANDBY_DROP_C
 
 
 def _num(value: Any) -> Optional[float]:
@@ -175,6 +179,7 @@ def parse_profile(record: Any) -> PlrProfile:
     holds = record.get("z_holds_unpowered")
     xy_home = record.get("xy_home_gcode")
     lift = _num(record.get("z_lift_mm"))
+    drop = _num(record.get("nozzle_standby_drop_c"))
     purge = record.get("purge_gcode")
     skip = _num(record.get("resume_skip_fraction"))
     macro_vars = {}  # type: Dict[str, Tuple[str, ...]]
@@ -191,6 +196,8 @@ def parse_profile(record: Any) -> PlrProfile:
         xy_home_gcode=xy_home if isinstance(xy_home, str) and xy_home.strip() else d.xy_home_gcode,
         z_lift_mm=(max(lift, helix_plr_render.MIN_LIFT_MM) if lift is not None and lift > 0.0
                    else d.z_lift_mm),
+        nozzle_standby_drop_c=drop if drop is not None and drop >= 0.0
+        else d.nozzle_standby_drop_c,
         purge_gcode=purge if isinstance(purge, str) and purge.strip() else None,
         resume_skip_fraction=(
             skip if skip is not None and 0.0 <= skip <= 1.0 else d.resume_skip_fraction
@@ -727,6 +734,17 @@ OFFER_MIN_PRINT_S = 120.0
 COLD_BED_DIFF_C = 10.0
 
 
+def bed_warnings(warnings: List[str], bed_target: float,
+                 bed_now: Optional[float]) -> Tuple[List[str], bool]:
+    """`warnings` with cold_bed set from the bed's temperature now, and
+    whether it is cold."""
+    cold = bool(bed_target and bed_now is not None and bed_now < bed_target - COLD_BED_DIFF_C)
+    out = [w for w in warnings if w != "cold_bed"]
+    if cold:
+        out.append("cold_bed")
+    return out, cold
+
+
 class OfferInputs(NamedTuple):
     newest_job_status: Optional[str]  # Moonraker history
     snapshot_job_id: Optional[str]
@@ -833,6 +851,9 @@ class HelixPlr:
         self._active_backend = "none"
         self._skip_chamber = False
         self.klippy_ready = False
+        # on_klippy_ready has finished for the current Klippy connection.
+        self._ready_settled = False
+        self._ready_token = None  # type: Optional[object]
         self.homing = HomingCheck(True, None)
         self.axis_min = None  # type: Optional[list]
         self.axis_max = None  # type: Optional[list]
@@ -958,6 +979,23 @@ class HelixPlr:
     # -- Klipper -------------------------------------------------------------
 
     async def on_klippy_ready(self) -> None:
+        """Read Klipper's objects, homing config and backend for this
+        connection, then announce the status they decide (PLR_STATUS_EVENT)."""
+        token = object()
+        self._ready_token = token
+        try:
+            await self._klippy_ready()
+        finally:
+            # Unless Klippy went away meanwhile and this is another connection.
+            if self._ready_token is token:
+                self._ready_settled = True
+        if self._ready_token is token:
+            try:
+                self._notify(PLR_STATUS_EVENT, await self.status_reply())
+            except Exception as e:
+                logging.warning("HelixPrint: PLR could not announce its status: %s", e)
+
+    async def _klippy_ready(self) -> None:
         apis = self.helix.klippy_apis
         if apis is None:
             return
@@ -1371,6 +1409,7 @@ class HelixPlr:
         if register is not None:
             register(PROGRESS_EVENT)
             register(PLAN_READY_EVENT)
+            register(PLR_STATUS_EVENT)
 
     def _error(self, code: str, message: str, status: int = 400) -> Exception:
         error = self.server.error("%s: %s" % (code, message), status)
@@ -1384,7 +1423,26 @@ class HelixPlr:
 
     def on_klippy_gone(self, *args: Any) -> None:
         self.klippy_ready = False
+        self._ready_settled = False
+        self._ready_token = None
         self._klippy_generation += 1
+
+    def _klippy_connection_ready(self) -> bool:
+        conn = self.server.lookup_component("klippy_connection", None)
+        is_ready = getattr(conn, "is_ready", None)
+        try:
+            return bool(is_ready()) if callable(is_ready) else False
+        except Exception:
+            return False
+
+    async def _wait_ready_settled(self) -> None:
+        """Klippy is ready but on_klippy_ready (objects, homing, the QIDI
+        check) has not finished for it: an answer now would carry the
+        backend and the offer of no connection at all. Wait for it, bounded."""
+        started = self.clock()
+        while not self._ready_settled and self._klippy_connection_ready() \
+                and self.clock() - started < READY_WAIT_S:
+            await self._sleep(READY_POLL_S)
 
     async def _query(self, objects: Dict[str, Any]) -> Dict[str, Any]:
         apis = self.helix.klippy_apis
@@ -1511,6 +1569,11 @@ class HelixPlr:
             return None
 
     async def handle_status(self, web_request: Any) -> Dict[str, Any]:
+        await self._wait_ready_settled()
+        return await self.status_reply()
+
+    async def status_reply(self) -> Dict[str, Any]:
+        """The plr.status reply, also sent as PLR_STATUS_EVENT."""
         profile = await self.profile()
         snapshot = self._load_snapshot()
         verdict, tier = await self._offer(profile, snapshot)
@@ -1552,7 +1615,7 @@ class HelixPlr:
         profile = await self.profile()
         if self._plan is not None and snapshot is not None \
                 and self._plan_seq == snapshot.get("seq") and self._sequence is None:
-            return self._plan_reply(self._plan)
+            return self._plan_reply(await self._with_live_bed(self._plan))
         if self._pending is not None and not self._pending.done():
             return {"pending": True, "plan_id": self._pending_id}
         if self._plan_error is not None and snapshot is not None \
@@ -1642,10 +1705,13 @@ class HelixPlr:
                 warnings.append("mesh_unavailable")
         heaters = snapshot.get("heaters") or {}
         bed_target = (heaters.get("heater_bed") or {}).get("target") or 0.0
+        # The snapshot's target, or the file's at the resume point when higher
+        # (R28): a snapshot taken with the heater down still resumes at the
+        # temperature the resume line prints at.
         nozzle = (heaters.get("extruder") or {}).get("target") or 0.0
         nozzle = max(nozzle, point.state.heater_targets.get("extruder", 0.0))
         if nozzle <= 0.0:
-            raise self._error("plr_scan_failed", "no nozzle temperature to resume at", 400)
+            raise self._error("plr_scan_failed", NO_NOZZLE_TARGET, 400)
         chamber = None
         for name, heater in sorted(heaters.items()):
             if name.startswith("heater_generic ") and "chamber" in name \
@@ -1678,9 +1744,7 @@ class HelixPlr:
                               400)
         live = snapshot.get("live_pos") or [0.0, 0.0, 0.0, 0.0]
         bed_now = _num(_obj(status, "heater_bed").get("temperature"))
-        bed_cold = bool(bed_target and bed_now is not None and bed_now < bed_target - COLD_BED_DIFF_C)
-        if bed_cold:
-            warnings.append("cold_bed")
+        warnings, bed_cold = bed_warnings(warnings, bed_target, bed_now)
         filename = job.get("filename", "")
         start_name, history_name = self._start_name(filename)
         plan = helix_plr_render.ResumePlan(
@@ -1707,6 +1771,28 @@ class HelixPlr:
         self._plan_file_size = os.stat(str(target[0])).st_size if target else None
         self._bed_now = bed_now
         return plan
+
+    async def _with_live_bed(self, plan: Any) -> Any:
+        """The kept plan, made current with the bed as it is now: the plan
+        can be hours old, and the bed has cooled since. A prepare that took
+        the plan during the read keeps it unchanged, so commit never asks for
+        a confirmation the app was not shown; a failed read keeps the last
+        reading."""
+        try:
+            status = await self._query({"heater_bed": ["temperature"]})
+        except Exception as e:
+            logging.warning("HelixPrint: PLR kept the last bed reading: %s", e)
+            status = {}
+        if self._plan is not plan or self._sequence is not None:
+            return self._plan if self._plan is not None else plan
+        bed_now = _num(_obj(status, "heater_bed").get("temperature"))
+        if bed_now is None:
+            return plan
+        warnings, cold = bed_warnings(plan.warnings, plan.bed_target, bed_now)
+        self._bed_now = bed_now
+        self._plan = plan._replace(warnings=warnings, requires=helix_plr_render
+                                   .required_confirmations(plan.tier, warnings, cold))
+        return self._plan
 
     def _check_qidi_landing(self, snapshot: Dict[str, Any], mesh: Any) -> None:
         """QIDI's landing move is off by the gcode offset plus the mesh at the
@@ -1828,13 +1914,17 @@ class HelixPlr:
             await self._sleep(HEAT_POLL_S)
         self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "done"})
 
-    async def _heat(self, plan: Any, skip_chamber: bool = False) -> None:
-        """§ 6.3 step 2: set each heater, then poll it to temperature."""
-        for heat in helix_plr_render.render_heat_wait(plan, skip_chamber):
+    async def _heat(self, plan: Any, skip_chamber: bool = False,
+                    nozzle_in_place: bool = False) -> None:
+        """§ 6.3 step 2: set every heater at once, then poll each to
+        temperature (R29): nothing waits for the bed before the nozzle starts."""
+        heats = helix_plr_render.render_heat_wait(plan, skip_chamber, nozzle_in_place)
+        for heat in heats:
             await self._send(plan.plan_id, heat.step, heat.lines, done=not heat.wait)
+        for heat in heats:
             if heat.wait:
-                timeout = BED_WAIT_TIMEOUT_S if heat.sensor == "heater_bed" \
-                    else CHAMBER_WAIT_TIMEOUT_S
+                timeout = {"heater_bed": BED_WAIT_TIMEOUT_S, "extruder": NOZZLE_WAIT_TIMEOUT_S} \
+                    .get(heat.sensor, CHAMBER_WAIT_TIMEOUT_S)
                 await self._wait_temp(plan.plan_id, heat.step, heat.sensor, heat.minimum, timeout)
 
     async def _heaters_off(self, plan: Any) -> None:
@@ -1880,6 +1970,10 @@ class HelixPlr:
         plan = self._current_plan(plan_id)
         if plan.tier < 1:
             raise self._error("plr_no_plan", "not_supported")
+        if not plan.nozzle_target or plan.nozzle_target <= 0.0:
+            # The nozzle is heated in place before anything moves; without a
+            # target it would be dragged out of the plastic cold.
+            raise self._error("plr_scan_failed", NO_NOZZLE_TARGET, 400)
         previous = self._claim("preparing")
         run = self._run
         try:
@@ -1893,7 +1987,13 @@ class HelixPlr:
                 raise
             self._skip_chamber = skip_chamber
             try:
-                await self._heat(plan, skip_chamber)
+                if plan.backend == "qidi_print_state":
+                    await self.qidi.prepare(self._heat_wait(plan, skip_chamber, nozzle_in_place=True))
+                    # No lift: QIDI declares Z from its row and lands on it.
+                    await self._send(plan_id, "nozzle_standby",
+                                     helix_plr_render.nozzle_standby_lines(plan, profile))
+                else:
+                    await self._heat(plan, skip_chamber, nozzle_in_place=True)
                 if motion is not None:
                     declare, lift = motion
                     for step, lines in helix_plr_render.render_prepare_script(
@@ -2001,7 +2101,9 @@ class HelixPlr:
                 if plan.backend == "qidi_print_state":
                     await self._commit_qidi(plan)
                 else:
-                    await self._heat(plan, self._skip_chamber)
+                    # Back to print temperature where the nozzle stands, before
+                    # the tier-1 Z reference or any other move.
+                    await self._heat(plan, self._skip_chamber, nozzle_in_place=True)
                     for step, lines in helix_plr_render.render_commit_script(
                             plan, profile, z_reference):
                         await self._send(plan_id, step, lines, done=step != "heat_nozzle")
@@ -2034,10 +2136,11 @@ class HelixPlr:
             raise self._error("plr_stale_plan",
                               "Klipper lost its position since prepare; prepare again", 409)
 
-    def _heat_wait(self, plan: Any, skip_chamber: bool = False) -> Callable[[], Any]:
+    def _heat_wait(self, plan: Any, skip_chamber: bool = False,
+                   nozzle_in_place: bool = False) -> Callable[[], Any]:
         """§ 6.3 step 2 as the coroutine the QIDI adapter awaits."""
         async def wait() -> None:
-            await self._heat(plan, skip_chamber)
+            await self._heat(plan, skip_chamber, nozzle_in_place)
         return wait
 
     def _mark_qidi(self, name: str, kind: str) -> None:
@@ -2051,7 +2154,8 @@ class HelixPlr:
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
             await self.qidi.commit(plan.snapshot, plan.resume_offset, self._plan_file_size,
-                                   self._heat_wait(plan, self._skip_chamber), plan.state,
+                                   self._heat_wait(plan, self._skip_chamber, nozzle_in_place=True),
+                                   plan.state,
                                    self._qidi_status())
         except Exception as e:
             self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "failed"})
@@ -2137,12 +2241,22 @@ class HelixPlr:
         return {"ok": True}
 
 
-# Notifications to clients: notify_plr_progress, notify_plr_plan_ready.
+# Notifications to clients: notify_plr_progress, notify_plr_plan_ready,
+# notify_plr_status (the plr.status reply, once Klippy's connection is read).
 PROGRESS_EVENT = "helix_print:plr_progress"
 PLAN_READY_EVENT = "helix_print:plr_plan_ready"
+PLR_STATUS_EVENT = "helix_print:plr_status"
+
+# plr.status waits at most this long for on_klippy_ready to finish when Klippy
+# is already ready (the QIDI check alone has taken 5-10 s on a Q2).
+READY_WAIT_S = 15.0
+READY_POLL_S = 0.25
 
 # A plan whose scan takes longer replies {"pending": true} and announces itself.
 PLAN_SYNC_WAIT_S = 10.0
+
+# Neither the snapshot nor the file names a nozzle temperature to heat it to.
+NO_NOZZLE_TARGET = "no_nozzle_target: no nozzle temperature to resume at"
 
 # Heat waits poll the heater this often, and give up after these.
 HEAT_POLL_S = 2.0

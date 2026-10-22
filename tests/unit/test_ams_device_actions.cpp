@@ -654,7 +654,8 @@ TEST_CASE("ACE device actions - sections and actions", "[ams][device_actions][ac
             CHECK_FALSE(action.id.empty());
             CHECK_FALSE(action.label.empty());
             CHECK_FALSE(action.section.empty());
-            CHECK(action.enabled == true);
+            // Nothing is loaded, which leaves Feed Assist no slot to act on.
+            CHECK(action.enabled == (action.id != "ace_feed_assist_toggle"));
         }
     }
 
@@ -723,16 +724,12 @@ TEST_CASE("ACE device actions - execute valid actions", "[ams][device_actions][a
         CHECK(result.result == helix::AmsResult::NOT_CONNECTED);
     }
 
-    SECTION("ace_feed_assist_toggle with enable=true returns not_connected") {
-        auto result = backend.execute_device_action("ace_feed_assist_toggle", true);
-        CHECK_FALSE(result);
-        CHECK(result.result == helix::AmsResult::NOT_CONNECTED);
-    }
-
-    SECTION("ace_feed_assist_toggle with enable=false returns not_connected") {
-        auto result = backend.execute_device_action("ace_feed_assist_toggle", false);
-        CHECK_FALSE(result);
-        CHECK(result.result == helix::AmsResult::NOT_CONNECTED);
+    SECTION("ace_feed_assist_toggle with nothing loaded is refused, either way") {
+        for (const bool enable : {true, false}) {
+            auto result = backend.execute_device_action("ace_feed_assist_toggle", enable);
+            CHECK_FALSE(result);
+            CHECK(result.result == helix::AmsResult::WRONG_STATE);
+        }
     }
 
     SECTION("ace_feed_assist_toggle with no value is refused before anything is sent") {
