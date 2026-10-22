@@ -624,3 +624,23 @@ TEST_CASE_METHOD(RecoveryPreheatFixture, "A Klipper action:prompt macro keeps th
     helix::ActionPromptManager::set_instance(nullptr);
     process_lvgl(20);
 }
+
+TEST_CASE_METHOD(RecoveryPreheatFixture, "A fault with no actions offers OK to close it",
+                 "[error-center][recovery-presenter][1838]") {
+    helix::ErrorEvent fault = make_afc_jam();
+    fault.recovery_actions.clear();
+    presenter().present(fault);
+    process_lvgl(20);
+    REQUIRE(presenter().is_visible());
+
+    lv_obj_t* ok = fault_button("btn_primary");
+    CHECK(helix::test::subtree_text(ok).find(lv_tr("OK")) != std::string::npos);
+    CHECK(shown(ok));
+    CHECK_FALSE(shown(fault_button("btn_secondary")));
+
+    press("btn_primary");
+    process_lvgl(20);
+    CHECK(mock_client_.gcode_script_history().empty());
+    CHECK_FALSE(presenter().is_visible());
+    CHECK(TA::handled_detail(presenter()) == fault.detail);
+}

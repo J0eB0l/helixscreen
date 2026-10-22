@@ -39,6 +39,10 @@ bool RecoveryFaultModal::show_fault(lv_obj_t* parent, const std::string& title,
     }
 
     actions_ = actions;
+    // A fault the backend offers nothing for still needs a way to close it.
+    if (actions_.empty()) {
+        actions_.push_back({lv_tr("OK"), "", "recovery_fault::dismiss", "primary"});
+    }
     if (actions_.size() > kMaxActions) {
         spdlog::warn("[{}] {} recovery actions, showing the first {}", get_name(), actions_.size(),
                      kMaxActions);

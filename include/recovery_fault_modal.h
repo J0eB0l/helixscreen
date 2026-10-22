@@ -47,7 +47,7 @@ class RecoveryFaultModal : public Modal {
      * @brief Show the fault, replacing the one on screen if any
      *
      * Actions past kMaxActions are not shown. An action with an empty gcode
-     * closes the dialog and sends nothing.
+     * closes the dialog and sends nothing; with no actions, an OK button does.
      *
      * @return true if the dialog is on screen
      */
