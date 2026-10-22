@@ -66,7 +66,7 @@
                               description="Print hours between filter changes. Off hides this meter."
                               bind_selected="maintenance_m0_interval" callback="maintenance_interval_0_cb"/>
         <setting_dropdown_row name="row_interval_1"
-                              label="Nozzle interval" icon="filament"
+                              label="Nozzle interval" icon="nozzle"
                               description="Print hours between nozzle changes. Off hides this meter."
                               bind_selected="maintenance_m1_interval" callback="maintenance_interval_1_cb"/>
         <setting_dropdown_row name="row_interval_2"

@@ -50,7 +50,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from moonraker.common import RequestType, WebRequest
@@ -64,7 +64,10 @@ HELIX_TEMP_TABLE = "helix_temp_files"
 DB_RECORD_MAX_AGE = 30 * 86400
 
 # Plugin version - used for API version detection by clients
-PLUGIN_VERSION = "1.2.0"
+PLUGIN_VERSION = "1.3.0"
+
+# Shape of the status reply; 2 added the `features` map
+STATUS_API = 2
 
 # Namespace for the key-value storage fallback (database without execute_db_command)
 HELIX_NAMESPACE = "helix_temp_files"
@@ -98,31 +101,274 @@ def _legacy_records(value: Any, depth: int = 0) -> List[Dict[str, Any]]:
 HELIX_AUX_PROVIDER = "helix_print"
 
 
+# Why each sibling module that did not load is missing, by module name. A
+# feature built on one reports this as its `reason`.
+SIBLING_LOAD_ERRORS: Dict[str, str] = {}
+
+
 def _load_sibling(name: str) -> Optional[Any]:
     """Load <name>.py from beside this file.
 
     Moonraker imports this component through a symlink in its components
     directory, where no sibling module exists, so the import follows the link
     to the plugin's own directory. None when the file is missing or fails to
-    load: the plugin then runs without what it provides.
+    load: the plugin then runs without what it provides, and
+    SIBLING_LOAD_ERRORS says why.
     """
+    SIBLING_LOAD_ERRORS.pop(name, None)
     path = Path(__file__).resolve().parent / f"{name}.py"
     if not path.is_file():
+        SIBLING_LOAD_ERRORS[name] = "module_missing"
         return None
     spec = importlib.util.spec_from_file_location(name, str(path))
     if spec is None or spec.loader is None:
+        SIBLING_LOAD_ERRORS[name] = "module_missing"
         return None
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-    except Exception:
+    except Exception as e:
         logging.exception(f"HelixPrint: {name}.py failed to load")
+        SIBLING_LOAD_ERRORS[name] = f"load_failed: {type(e).__name__}: {e}"
         return None
     return module
 
 
 helix_capabilities = _load_sibling("helix_capabilities")
 helix_3mf = _load_sibling("helix_3mf")
+
+
+# ============================================================================
+# Feature framework
+# ============================================================================
+
+# The app's settings namespace. Opt-ins live in its `plugin_features` record,
+# {"<feature>": bool, ...}, written by the app's settings UI.
+HELIX_SCREEN_NAMESPACE = "helix-screen"
+PLUGIN_FEATURES_KEY = "plugin_features"
+
+# A feature's own switch: answers its `enabled` instead of plugin_features.
+FeatureSwitch = Callable[[], Awaitable[bool]]
+
+# A feature's live availability: (available, reason when not).
+FeatureProbe = Callable[[], Tuple[bool, Optional[str]]]
+
+
+class Feature:
+    """One entry of the status `features` map.
+
+    `acts` is True for a feature that acts on a print or a spool: it is off
+    until the user opts in. A feature that only observes is on unless the
+    user opts out.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        version: int,
+        acts: bool,
+        available: bool = True,
+        reason: Optional[str] = None,
+        switch: Optional[FeatureSwitch] = None,
+        probe: Optional[FeatureProbe] = None,
+    ) -> None:
+        self.name = name
+        self.version = version
+        self.acts = acts
+        self.available = available
+        self.reason = reason
+        self.switch = switch
+        self.probe = probe
+
+    def availability(self) -> Tuple[bool, Optional[str]]:
+        """Whether the feature can run now, read from its probe when it has
+        one, and why not."""
+        if self.probe is not None:
+            return self.probe()
+        return self.available, self.reason
+
+
+def opt_in_enabled(opt_ins: Any, name: str, acts: bool) -> bool:
+    """A feature's opt-in from the plugin_features record.
+
+    A key holding a bool is the user's choice; anything else, including no
+    record at all, is the default: observers on, actors off.
+    """
+    if isinstance(opt_ins, dict):
+        value = opt_ins.get(name)
+        if isinstance(value, bool):
+            return value
+    return not acts
+
+
+def feature_entry(feature: Feature, enabled: bool) -> Dict[str, Any]:
+    """The status map's entry for a feature. A feature that cannot run is
+    never enabled, whatever its switch says."""
+    available, reason = feature.availability()
+    return {
+        "version": feature.version,
+        "available": available,
+        "enabled": bool(available and enabled),
+        "reason": None if available else (reason or "unavailable"),
+    }
+
+
+# ============================================================================
+# Helix-initiated job marker
+# ============================================================================
+
+# Plugin paths that start a job themselves, as recorded against its history id
+HELIX_JOB_KINDS = ("plr_resume", "print_modified", "print_edited")
+
+# Where a bound marker persists: key = history job id, value
+# {"kind": ..., "filenames": [...], "start_time": ..., "bound_at": <unix time>}
+HELIX_JOBS_NAMESPACE = "helix_jobs"
+
+# How long a marker waits for history to add its job. A marker is set
+# immediately before the single command that starts the print, so this spans
+# only that command reaching Klipper and history adding the job.
+HELIX_MARKER_TTL_S = 60.0
+
+# How long a binding is kept once bound
+HELIX_BINDING_MAX_AGE_S = 30 * 86400
+
+
+def _job_key(job_id: Any) -> str:
+    """History's job id as the hex string it reports; an int is rendered the
+    same way so both spellings name one job."""
+    if isinstance(job_id, int):
+        return f"{job_id:06X}"
+    return str(job_id)
+
+
+class JobBinding:
+    """A marker bound to one history job."""
+
+    def __init__(
+        self, kind: str, filenames: List[str], start_time: Any, bound_at: float
+    ) -> None:
+        self.kind = kind
+        self.filenames = filenames
+        self.start_time = start_time
+        self.bound_at = bound_at
+
+    def record(self) -> Dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "filenames": list(self.filenames),
+            "start_time": self.start_time,
+            "bound_at": self.bound_at,
+        }
+
+
+class HelixJobMarkers:
+    """Markers a plugin path leaves before it starts a job, and the history
+    job ids they were bound to.
+
+    A marker is matched by filename to the next job history adds for that
+    file, oldest marker first. Unmatched markers expire after
+    HELIX_MARKER_TTL_S. History reuses job ids (after a delete, or a
+    delete-all and restart), so a binding answers only for its job's start
+    time and one of its filenames, and an id history adds again without a
+    marker loses its binding.
+    """
+
+    def __init__(
+        self,
+        clock: Callable[[], float] = time.monotonic,
+        wall_clock: Callable[[], float] = time.time,
+    ) -> None:
+        self._clock = clock
+        self._wall_clock = wall_clock
+        # (start filename, kind, marked at, history filename or None)
+        self._pending: List[Tuple[str, str, float, Optional[str]]] = []
+        self._bound: Dict[str, JobBinding] = {}
+
+    def _expire(self) -> None:
+        cutoff = self._clock() - HELIX_MARKER_TTL_S
+        self._pending = [p for p in self._pending if p[2] >= cutoff]
+
+    def mark(self, filename: str, kind: str, history_name: Optional[str] = None) -> None:
+        if kind not in HELIX_JOB_KINDS:
+            raise ValueError(f"unknown helix job kind {kind!r}")
+        self._expire()
+        self._pending.append((filename, kind, self._clock(), history_name))
+
+    def unmark(self, filename: str) -> bool:
+        """Withdraw the newest pending marker for filename, for a start that
+        failed. False when there was none."""
+        for i in range(len(self._pending) - 1, -1, -1):
+            if self._pending[i][0] == filename:
+                del self._pending[i]
+                return True
+        return False
+
+    def bind(self, filename: str, job_id: Any, start_time: Any) -> Optional[JobBinding]:
+        """Bind the oldest live marker for filename to job_id; the binding, or
+        None when no marker matches (a job some other client started)."""
+        self._expire()
+        for i, (name, kind, _t, history_name) in enumerate(self._pending):
+            if name == filename:
+                del self._pending[i]
+                names = [name]
+                if history_name and history_name != name:
+                    names.append(history_name)
+                binding = JobBinding(kind, names, start_time, self._wall_clock())
+                self._bound[_job_key(job_id)] = binding
+                return binding
+        return None
+
+    def forget(self, job_id: Any) -> bool:
+        """Drop the binding for job_id; True when there was one."""
+        return self._bound.pop(_job_key(job_id), None) is not None
+
+    def restore(self, job_id: Any, binding: JobBinding) -> None:
+        """A binding read back from the database."""
+        if binding.kind in HELIX_JOB_KINDS:
+            self._bound[_job_key(job_id)] = binding
+
+    def prune(self) -> List[str]:
+        """Drop bindings older than HELIX_BINDING_MAX_AGE_S; their keys."""
+        cutoff = self._wall_clock() - HELIX_BINDING_MAX_AGE_S
+        old = [k for k, b in self._bound.items() if b.bound_at < cutoff]
+        for key in old:
+            del self._bound[key]
+        return old
+
+    def kind_of(self, job_id: Any, filename: str, start_time: Any) -> Optional[str]:
+        bound = self._bound.get(_job_key(job_id))
+        if bound is None or filename not in bound.filenames:
+            return None
+        if bound.start_time != start_time:
+            return None
+        return bound.kind
+
+    def pending_count(self) -> int:
+        self._expire()
+        return len(self._pending)
+
+
+def _binding_from_record(record: Any) -> Optional[JobBinding]:
+    """A stored binding, or None for a record that is not one."""
+    if not isinstance(record, dict):
+        return None
+    kind = record.get("kind")
+    filenames = record.get("filenames")
+    start_time = record.get("start_time")
+    bound_at = record.get("bound_at")
+    if kind not in HELIX_JOB_KINDS:
+        return None
+    if not isinstance(filenames, list) or not filenames:
+        return None
+    if not all(isinstance(f, str) for f in filenames):
+        return None
+    if "start_time" not in record or isinstance(start_time, bool):
+        return None
+    if start_time is not None and not isinstance(start_time, (int, float)):
+        return None
+    if isinstance(bound_at, bool) or not isinstance(bound_at, (int, float)):
+        return None
+    return JobBinding(kind, filenames, start_time, float(bound_at))
 
 
 class PrintInfo:
@@ -183,6 +429,8 @@ class HelixPrint:
 
         # State tracking
         self.active_prints: Dict[str, PrintInfo] = {}
+        self.features: Dict[str, Feature] = {}
+        self.job_markers = HelixJobMarkers()
         self.gc_path: Optional[Path] = None
 
         # Database backend flags (mutually exclusive, one will be True after init)
@@ -279,6 +527,159 @@ class HelixPrint:
         return s.replace('"', "").replace("'", "")
 
     # =========================================================================
+    # Features
+    # =========================================================================
+
+    def register_feature(
+        self,
+        name: str,
+        version: int,
+        *,
+        acts: bool,
+        available: bool = True,
+        reason: Optional[str] = None,
+        switch: Optional[FeatureSwitch] = None,
+        probe: Optional[FeatureProbe] = None,
+    ) -> Feature:
+        """Add a feature to the status `features` map.
+
+        A feature with a `switch` owns its on/off: its plugin_features key is
+        never read. One with a `probe` reads its availability live instead of
+        from `available` / `reason`. Registering a name again replaces the
+        entry.
+        """
+        feature = Feature(name, version, acts, available, reason, switch, probe)
+        self.features[name] = feature
+        return feature
+
+    async def _plugin_feature_opt_ins(self) -> Dict[str, Any]:
+        if self.database is None:
+            return {}
+        try:
+            record = await self.database.get_item(
+                HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, None
+            )
+        except Exception:
+            return {}
+        return record if isinstance(record, dict) else {}
+
+    async def _feature_switch_value(
+        self, feature: Feature, opt_ins: Optional[Dict[str, Any]]
+    ) -> bool:
+        if feature.switch is not None:
+            try:
+                return bool(await feature.switch())
+            except Exception:
+                logging.exception(f"HelixPrint: switch of feature {feature.name} failed")
+                return False
+        if opt_ins is None:
+            opt_ins = await self._plugin_feature_opt_ins()
+        return opt_in_enabled(opt_ins, feature.name, feature.acts)
+
+    async def feature_enabled(self, name: str) -> bool:
+        """Whether a feature may run now: registered, available and switched
+        on. Read at the moment a feature acts, so a settings change applies
+        without any notification."""
+        feature = self.features.get(name)
+        if feature is None or not feature.availability()[0]:
+            return False
+        return await self._feature_switch_value(feature, None)
+
+    async def _features_status(self) -> Dict[str, Any]:
+        opt_ins = await self._plugin_feature_opt_ins()
+        result: Dict[str, Any] = {}
+        for name, feature in self.features.items():
+            enabled = await self._feature_switch_value(feature, opt_ins)
+            result[name] = feature_entry(feature, enabled)
+        return result
+
+    # =========================================================================
+    # Helix-initiated jobs
+    # =========================================================================
+
+    def mark_helix_initiated(
+        self, filename: str, kind: str, history_name: Optional[str] = None
+    ) -> None:
+        """Record that a plugin path is starting `filename`, so history's job
+        for that file carries `kind` (one of HELIX_JOB_KINDS). `history_name`
+        is the name the finished history entry is rewritten to, when the start
+        goes through a link (_patch_history_entry); the job answers to both.
+
+        Call it immediately before the single command that starts the print
+        (SDCARD_PRINT_FILE, or the M24 of an M23/M26/M24 resume), never before
+        a script that homes, heats or purges first: the marker waits only
+        HELIX_MARKER_TTL_S for history to add the job. A start that fails
+        calls unmark_helix_initiated().
+        """
+        self.job_markers.mark(filename, kind, history_name)
+
+    def unmark_helix_initiated(self, filename: str) -> bool:
+        """Withdraw the marker of a start that failed."""
+        return self.job_markers.unmark(filename)
+
+    def helix_initiated(
+        self, job_id: Any, filename: str, start_time: Any
+    ) -> Optional[str]:
+        """The kind of plugin path that started history job `job_id`, or None
+        for a job some other client started. `filename` and `start_time` are
+        the job's as history reports them, before or after the finish rename:
+        history reuses ids, and a binding for a reused id names another file
+        or start time."""
+        return self.job_markers.kind_of(job_id, filename, start_time)
+
+    async def _drop_job_bindings(self, keys: List[str], must_exist: bool) -> None:
+        """Delete bindings from the database. A failure where the record must
+        exist leaves a stale binding for the next restart, so it warns."""
+        if self.database is None:
+            return
+        for key in keys:
+            try:
+                await self.database.delete_item(HELIX_JOBS_NAMESPACE, [key])
+            except Exception as e:
+                if must_exist:
+                    logging.warning(f"HelixPrint: Failed to drop job marker {key}: {e}")
+                else:
+                    logging.debug(f"HelixPrint: No job marker {key} to drop: {e}")
+
+    async def _load_job_markers(self) -> None:
+        """Read bound markers back. Records that are malformed or older than
+        HELIX_BINDING_MAX_AGE_S are deleted."""
+        if self.database is None:
+            return
+        cutoff = time.time() - HELIX_BINDING_MAX_AGE_S
+        drop: List[str] = []
+        for key, record in await self._namespace_items(HELIX_JOBS_NAMESPACE):
+            binding = _binding_from_record(record)
+            if binding is None or binding.bound_at < cutoff:
+                drop.append(key)
+                continue
+            self.job_markers.restore(key, binding)
+        await self._drop_job_bindings(drop, must_exist=True)
+
+    async def _bind_job_marker(self, filename: str, job_id: Any, start_time: Any) -> None:
+        """Bind or clear the marker for a job history just added. The
+        in-memory binding is made before the first await, so another
+        module's handler of the same event already sees it."""
+        binding = self.job_markers.bind(filename, job_id, start_time)
+        pruned = self.job_markers.prune()
+        forgotten: List[str] = []
+        if binding is None and self.job_markers.forget(job_id):
+            forgotten.append(_job_key(job_id))
+        await self._drop_job_bindings(pruned, must_exist=False)
+        await self._drop_job_bindings(forgotten, must_exist=True)
+        if binding is None:
+            return
+        logging.info(f"HelixPrint: Job {job_id} is helix-initiated ({binding.kind})")
+        if self.database is None:
+            return
+        try:
+            await self.database.insert_item(
+                HELIX_JOBS_NAMESPACE, [_job_key(job_id)], binding.record()
+            )
+        except Exception as e:
+            logging.warning(f"HelixPrint: Failed to persist job marker: {e}")
+
+    # =========================================================================
     # Component Lifecycle
     # =========================================================================
 
@@ -302,6 +703,9 @@ class HelixPrint:
         self.eventloop.register_callback(self._startup_cleanup)
 
         await self._start_3mf_converter()
+        self._register_3mf_feature()
+
+        await self._load_job_markers()
 
     async def _start_3mf_converter(self) -> None:
         if not (self.enabled and self.convert_3mf):
@@ -327,6 +731,35 @@ class HelixPrint:
             logging.exception("HelixPrint: .3mf converter failed to start")
             await self.converter.close()
             self.converter.active = False
+
+    def _converter_active(self) -> bool:
+        return self.converter is not None and self.converter.active
+
+    def _3mf_availability(self) -> Tuple[bool, Optional[str]]:
+        """The converter's state now, from the same source as the status'
+        top-level convert_3mf field."""
+        if self._converter_active():
+            return True, None
+        if not self.enabled:
+            return False, "plugin_disabled"
+        if not self.convert_3mf:
+            # Off by its own switch, not unavailable
+            return True, None
+        return False, (
+            SIBLING_LOAD_ERRORS.get("helix_3mf")
+            or SIBLING_LOAD_ERRORS.get("helix_capabilities")
+            or ("stopped" if self.converter is not None else "start_failed")
+        )
+
+    def _register_3mf_feature(self) -> None:
+        """.gcode.3mf conversion, switched by convert_3mf in moonraker.conf."""
+
+        async def switch() -> bool:
+            return self.convert_3mf
+
+        self.register_feature(
+            "convert_3mf", 1, acts=False, switch=switch, probe=self._3mf_availability,
+        )
 
     async def close(self) -> None:
         if self.converter is not None:
@@ -405,10 +838,12 @@ class HelixPrint:
             "cleanup_delay": self.cleanup_delay,
             "active_prints": len(self.active_prints),
             "version": PLUGIN_VERSION,
-            "convert_3mf": self.converter is not None and self.converter.active,
+            "convert_3mf": self._converter_active(),
             "start_3mf_on_upload": (
                 self.converter is not None and self.converter.hook_installed
             ),
+            "api": STATUS_API,
+            "features": await self._features_status(),
         }
 
     async def _handle_3mf_conversions(self, web_request: WebRequest) -> Dict[str, Any]:
@@ -539,6 +974,9 @@ class HelixPrint:
         await self._persist_print_info(print_info)
 
         # Start the print with symlink path (escape filename for G-code)
+        self.mark_helix_initiated(
+            symlink_filename, "print_modified", self._history_name(original_filename)
+        )
         safe_symlink = self._escape_gcode_string(symlink_filename)
         try:
             await self.klippy_apis.run_gcode(
@@ -547,6 +985,7 @@ class HelixPrint:
             logging.info(f"HelixPrint: Started print with {symlink_filename}")
         except Exception as e:
             # Clean up on print start failure
+            self.unmark_helix_initiated(symlink_filename)
             self._remove_symlink(symlink_path)
             temp_path.unlink(missing_ok=True)
             del self.active_prints[symlink_filename]
@@ -558,6 +997,13 @@ class HelixPrint:
             "temp_filename": temp_filename,
             "status": "printing",
         }
+
+    def _history_name(self, original_filename: str) -> str:
+        """The name _patch_history_entry gives a finished job: the original
+        file, without the symlink dir prefix."""
+        if original_filename.startswith(f"{self.symlink_dir}/"):
+            return original_filename[len(self.symlink_dir) + 1 :]
+        return original_filename
 
     def _remove_symlink(self, symlink_path: Path) -> None:
         """Remove a print symlink and any directories it leaves empty, up to
@@ -686,14 +1132,15 @@ class HelixPrint:
         if payload.get("action") != "added":
             return
         job = payload.get("job") or {}
-        print_info = self.active_prints.get(job.get("filename", ""))
-        if print_info is None:
-            return
         job_id = job.get("job_id")
         if not job_id:
             return
-        print_info.job_id = job_id
-        logging.info(f"HelixPrint: Job started with ID {job_id}")
+        filename = job.get("filename", "")
+        print_info = self.active_prints.get(filename)
+        if print_info is not None:
+            print_info.job_id = job_id
+            logging.info(f"HelixPrint: Job started with ID {job_id}")
+        await self._bind_job_marker(filename, job_id, job.get("start_time"))
 
     async def _on_klippy_ready(self) -> None:
         """Handle Klipper ready event - recover from any interrupted prints."""
@@ -775,10 +1222,7 @@ class HelixPrint:
                 )
                 return
 
-            # Strip the symlink dir prefix if present
-            original = print_info.original_filename
-            if original.startswith(f"{self.symlink_dir}/"):
-                original = original[len(self.symlink_dir) + 1 :]
+            original = self._history_name(print_info.original_filename)
 
             # auxiliary_data is a list of provider entries. Keep every other
             # provider's, and drop any earlier entry of ours so re-patching the
@@ -964,8 +1408,8 @@ class HelixPrint:
         except Exception as e:
             logging.warning(f"HelixPrint: Failed to update cleanup status: {e}")
 
-    async def _namespace_items(self) -> List[Any]:
-        """(key, value) pairs of our namespace; empty when it does not exist.
+    async def _namespace_items(self, namespace: str = HELIX_NAMESPACE) -> List[Any]:
+        """(key, value) pairs of a namespace; empty when it does not exist.
 
         get_item with no key returns the whole namespace as a dict, and with a
         default it does not raise for a namespace never written. That is what
@@ -973,14 +1417,14 @@ class HelixPrint:
         cannot answer that way.
         """
         try:
-            whole = await self.database.get_item(HELIX_NAMESPACE, None, {})
+            whole = await self.database.get_item(namespace, None, {})
         except Exception:
             whole = None
         if isinstance(whole, dict):
             return list(whole.items())
         if hasattr(self.database, "ns_items"):
             try:
-                return list(await self.database.ns_items(HELIX_NAMESPACE))
+                return list(await self.database.ns_items(namespace))
             except Exception:
                 return []
         return []

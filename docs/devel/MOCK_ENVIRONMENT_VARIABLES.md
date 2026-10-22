@@ -406,6 +406,11 @@ to get the **Uninstall** row instead. `disabled` is a plugin whose
 serves nothing, so the app reads it as not installed (Install row, install
 prompt), and an install switches it back on.
 
+Installed, the status is in the plugin's current shape: `api: 2` and a `features` map
+with one entry, `convert_3mf`, which owns its switch. With `1` it is `Ready` to
+`plugin_feature("convert_3mf", 1)`; with `disabled` it reports `available: false`
+(`reason: "plugin_disabled"`) and reads `Absent`. No other feature is reported.
+
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker
 does for an endpoint it has no component for. That distinction is the point: a
 method the mock leaves unregistered invokes NEITHER callback, so the plugin

@@ -43,6 +43,9 @@ OUT = ROOT / "assets" / "fonts" / "helix-custom-icons.ttf"
 # codepoint (U+F1D17), so MDI growth never lands on one of these.
 GLYPHS = {
     0xFE000: "spoolman",
+    0xFE001: "spool",
+    0xFE002: "spool_outline",
+    0xFE003: "spool_alert",
 }
 
 # MDI's metrics: 512 units per em, a 24-unit design grid whose top edge sits at
