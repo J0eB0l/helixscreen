@@ -179,6 +179,8 @@ inline constexpr const char* kPlrAbortRpc = "server.helix.plr.abort";
 inline constexpr const char* kPlrDiscardRpc = "server.helix.plr.discard";
 inline constexpr const char* kPlrProgressNotify = "notify_plr_progress";
 inline constexpr const char* kPlrPlanReadyNotify = "notify_plr_plan_ready";
+/// helix_print:plr_status; its payload is the server.helix.plr.status reply.
+inline constexpr const char* kPlrStatusNotify = "notify_plr_status";
 
 /// Snapmaker fork gcode.
 inline constexpr const char* kSnapmakerResumeGcode = "SDCARD_PRINT_PL_RESTORE";

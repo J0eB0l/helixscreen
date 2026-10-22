@@ -76,6 +76,8 @@ static lv_subject_t s_plr_ack_cold_bed;
 
 namespace {
 
+bool s_wizard_open = false;
+
 constexpr const char* kNotifyHandler = "plr_wizard";
 constexpr std::array<double, 3> kJogStepsMm = {0.05, 0.1, 1.0};
 constexpr int kDefaultJogStep = 1;
@@ -116,6 +118,10 @@ bool live_step(PlrWizardStep step) {
 }
 
 } // namespace
+
+bool plr_wizard_open() {
+    return s_wizard_open;
+}
 
 const char* plr_progress_step_text(const std::string& step) {
     // prepare; bed_wait and chamber_wait come again in commit when it re-heats.
@@ -161,6 +167,7 @@ const char* plr_progress_step_text(const std::string& step) {
 }
 
 PlrWizardOverlay::~PlrWizardOverlay() {
+    s_wizard_open = false;
     stop_listening();
     if (subjects_initialized_) {
         subjects_.deinit_all();
@@ -279,6 +286,7 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
         return;
     }
     awake_.acquire();
+    s_wizard_open = true;
     for (lv_subject_t* s :
          {&s_plr_ack_part, &s_plr_ack_nozzle, &s_plr_ack_no_mesh, &s_plr_ack_next_layer,
           &s_plr_ack_cold_bed, &s_plr_need_part, &s_plr_need_nozzle, &s_plr_need_no_mesh,
@@ -308,6 +316,7 @@ void PlrWizardOverlay::on_dismissed() {
     }
     stop_listening();
     awake_.reset();
+    s_wizard_open = false;
     // Replies still in flight belong to this opening, not the next.
     ++session_;
     jog_.reset();

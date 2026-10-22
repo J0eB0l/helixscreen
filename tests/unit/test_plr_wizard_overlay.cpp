@@ -19,6 +19,7 @@
 
 #include "../../src/ui/ui_plr_prompt.h"
 #include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/plr_offer_controller_test_access.h"
 #include "../test_helpers/plr_wizard_overlay_test_access.h"
 #include "../test_helpers/scoped_env.h"
 #include "app_globals.h"
@@ -27,9 +28,11 @@
 #include "display_awake_hold.h"
 #include "first_run_tour.h"
 #include "helix-xml/src/xml/lv_xml.h"
+#include "helix_plugin_features.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
 #include "plr_backend.h"
+#include "plr_offer_controller.h"
 #include "printer_state.h"
 #include "static_panel_registry.h"
 
@@ -664,6 +667,83 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR: the first-run tour waits for the resume
     settle();
     CHECK(tour.is_running());
     tour.skip();
+}
+
+namespace {
+
+/// The plugin's helix:plr_status push, carrying a status that offers a resume.
+json offering_status_push() {
+    const json status = {{"backend", "generic"},
+                         {"tier", 2},
+                         {"snapshot", {{"filename", "3DBenchy.gcode"}}},
+                         {"offer", {{"available", true}, {"blocked_by", json::array()}}}};
+    return json{
+        {"jsonrpc", "2.0"}, {"method", helix::kPlrStatusNotify}, {"params", json::array({status})}};
+}
+
+/// The offer controller's view of a connected printer whose plugin has a ready
+/// plr feature, on this fixture's API.
+struct OfferControllerScope {
+    explicit OfferControllerScope(MoonrakerAPIMock& api) {
+        set_moonraker_api(&api);
+        auto& plugin = get_printer_state().plugin_status_state();
+        helix::PluginFeatureEntry entry;
+        entry.version = helix::kPlrFeatureMinVersion;
+        entry.available = true;
+        entry.enabled = true;
+        plugin.set_features({{helix::kPlrFeatureName, entry}});
+        plugin.set_installed(true);
+    }
+    ~OfferControllerScope() {
+        auto& plugin = get_printer_state().plugin_status_state();
+        plugin.set_features({});
+        plugin.set_installed(false);
+        set_moonraker_api(nullptr);
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR offer: a pushed plugin status that offers shows the prompt",
+                 "[plr][prompt][generic]") {
+    OfferControllerScope scope{api};
+    // The plugin has nothing to offer when the controller first asks.
+    client.send_jsonrpc(
+        helix::kPlrDiscardRpc, json::object(), [](const json&) {}, [](const MoonrakerError&) {});
+    REQUIRE_FALSE(client.mock_plr_interrupted());
+    helix::ui::PlrOfferController controller;
+    settle();
+    REQUIRE(client.count(helix::kPlrStatusRpc) >= 1);
+    REQUIRE_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+
+    client.dispatch_method_callback(helix::kPlrStatusNotify, offering_status_push());
+    settle();
+    CHECK(PlrOfferControllerTestAccess::prompted(controller));
+    CHECK(ModalStack::instance().top_dialog() != nullptr);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR offer: a pushed status never prompts over the open wizard",
+                 "[plr][prompt][generic]") {
+    OfferControllerScope scope{api};
+    open();
+    REQUIRE(wizard_step() == PlrWizardStep::Checks);
+    REQUIRE(helix::ui::plr_wizard_open());
+
+    // Both the controller's own ask and the push find a resume to offer.
+    helix::ui::PlrOfferController controller;
+    settle();
+    client.dispatch_method_callback(helix::kPlrStatusNotify, offering_status_push());
+    settle();
+    CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+    CHECK(ModalStack::instance().empty());
+
+    // With the wizard gone the same push offers, so the wizard is what held it.
+    NavigationManager::instance().go_back();
+    settle();
+    REQUIRE_FALSE(helix::ui::plr_wizard_open());
+    client.dispatch_method_callback(helix::kPlrStatusNotify, offering_status_push());
+    settle();
+    CHECK(PlrOfferControllerTestAccess::prompted(controller));
 }
 
 TEST_CASE("PLR wizard: every plugin progress step has words", "[plr][wizard_overlay]") {

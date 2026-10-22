@@ -181,7 +181,12 @@ offer controller asks it once per connection, when the link is up, Klipper repor
 features map), the Klipper state and the connection state each trigger the check,
 so whichever arrives last asks. An answer blocked by `klippy_not_ready` is not
 kept, so the next Klipper-ready edge asks again. The disconnect edge drops the
-answer with the other latches.
+answer with the other latches. The plugin also pushes its status as
+`helix:plr_status` (delivered as `notify_plr_status`, payload = the `status`
+reply) each time its own Klippy-ready handling finishes; the controller takes it
+in place of its answer, so an offer that turns available after the first ask
+still reaches the screen. The one-prompt-per-connection latch still applies, and
+no offer shows while the resume wizard is open (`plr_wizard_open()`).
 
 **The profile and the switch.** The plugin acts on two Moonraker database records
 in the `helix-screen` namespace, so it has them with the screen off:

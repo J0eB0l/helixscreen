@@ -29,6 +29,9 @@ class PlrWizardOverlayTestAccess;
 /// step this app has no words for, which leaves the previous line up.
 const char* plr_progress_step_text(const std::string& step);
 
+/// True from a successful PlrWizardOverlay::open() until the wizard is dismissed.
+bool plr_wizard_open();
+
 /**
  * @brief Guided resume after a power loss, for the HelixPrint plugin's `plr`
  * feature (PlrBackendType::GENERIC).
