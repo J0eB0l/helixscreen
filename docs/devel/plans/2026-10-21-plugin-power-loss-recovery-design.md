@@ -614,32 +614,104 @@ Errors: Moonraker errors with codes `plr_no_plan`, `plr_stale_plan`, `plr_missin
 ## 10. QIDI-new adapter (ruling 6)
 
 Lives in its own module, `helix_plr_qidi.py`, per umbrella Phase 11's one-module-per-vendor rule;
-`helix_plr.py` stays vendor-free and asks it capability questions.
+`helix_plr.py` stays vendor-free and asks it capability questions. Sources below are QIDI's own,
+copied from the Q2 on 01.01.02.01 (`qidi-src/`).
 
-Selected when the plugin sees `SDCARD_POWER_OFF_CONTINUES_PINT_FILE` in `/printer/gcode/help` or
-`speed_factor_2` in `gcode_move` status (QIDI report §4; not by path, since `/home/mks` symlinks
-to `/home/qidi` there).
+**Selection.** Both must hold:
 
-**Save side.** From the same snapshot loop, write QIDI's `print_state` rows in QIDI's formats
-(`file_position` int string, `gcode_position`/`homing_position`/`base_position` JSON array strings,
-`speed_factor` from `speed_factor_2`, never the public 1.0 value, `%f` floats, fan 0..1, objects as
-JSON strings; table in the #1716 report). Every key once at job start, then on change at most 1 Hz.
-One transaction for all changed keys when QIDI's database provider exposes it, else one
-`config.update` per key. QIDI's own Moonraker deletes the section on complete/cancel/standby.
+- `qidi_print_state_present(gcode_help, gcode_move_status)`: `SDCARD_POWER_OFF_CONTINUES_PINT_FILE`
+  in `/printer/gcode/help` (QIDI registers it with `desc=`) or `speed_factor_2` in `gcode_move`
+  status (QIDI report §4; not by path, since `/home/mks` symlinks to `/home/qidi` there).
+- `moonraker_resumes_print_state(klippy_apis, database)`: Moonraker carries `power_off_print` and
+  the config-table methods. `speed_factor_2` alone may also appear on older QIDI firmware without
+  the endpoint.
 
-**Resume side.**
+**Save side.** From the same snapshot loop, write QIDI's `print_state` rows, every value a string
+(Moonraker binds it straight into SQLite). Formats follow the parser
+(`database.py#MoonrakerDatabase.generate_power_off_print_gcode`,
+`virtual_sdcard.py#VirtualSD._set_printer_state_internal`):
 
-1. `prepare`: `M140` + `M190 S<heater_bed_target>`, chamber wait as § 6.3; nozzle untouched.
-2. `commit`: compute our measured resume offset (§ 6.2) from our snapshot, then rewrite the
-   `file_position` row to `min(offset + 4096, file_size)` so QIDI's `max(file_position - 4096, 0)`
-   lands on our point; then call `printer.print.power_off_print`.
+| Row | Written as | QIDI reads it as |
+|---|---|---|
+| `file_position` | integer string | `int(float(v))`, then `max(v - 4096, 0)` |
+| `gcode_position`, `homing_position`, `base_position` | JSON 4-vector | `json.loads`, `float` per element |
+| `speed` | `%f`, gcode_move's internal speed (`speed_2`) | assigned to `gcode_move.speed` |
+| `speed_factor` | `%f` of `speed_factor_2` (public / 60), 0.016667 at 100 %; never the public 1.0 | `M220 S{int(v * 60 * 100)}` |
+| `extrude_factor` | `%f` | `M221 S{int(v * 100)}` |
+| `absolute_coord`, `absolute_extrude` | `"1"` / `"0"` | true for `"1"`, `"true"`, `"yes"` |
+| `extruder_target`, `heater_bed_target`, `chamber_target` | integer string, `%f` when fractional | `M104`/`M140`/`M141 S{:.2f}` |
+| `cooling_fan_speed`, `auxiliary_cooling_fan_speed`, `chamber_circulation_fan_speed` | `%f`, 0..1 | `M106 [P2/P3] S{int(v * 255)}` |
+| `all_objects`, `exclude_objects` | JSON of `exclude_object.objects` / `.excluded_objects` | `json.loads` |
+| `plate_index` | `virtual_sdcard.plate_index`, default `"1"` | 3MF plate to extract |
+| `current_layer` | integer string | not read by the resume |
 
-**Residual, not fixable through QIDI's contract:** QIDI declares `SET_KINEMATIC_POSITION
-Z={gcode_position.z}` and later commands `G1 Z{gcode_position.z}` with the offset and mesh active,
-so the nozzle lands off by `gcode_offset_z + mesh(x,y)` (typically 0.05-0.3 mm) [inf from
-`qidi-src/klipper/virtual_sdcard.py#VirtualSD._set_printer_state_internal`]. One field feeds both
-the declaration and the final move, so it cannot be corrected without changing QIDI's sequence.
-Measured in the Q2 M1 test (§ 11.4); if it matters, the generic path is the fix.
+**Rounding.** The parser truncates with `int()`, so a plain `%f` sends the wrong integer for many
+values: `int(float("0.015000") * 60 * 100)` is 89, not 90. With `%f`, 119 of the M220 percentages
+10..300, 7 of the M221 percentages 10..200 and 125 of the 256 fan values come out one low; QIDI's
+own screen has the same fault. The adapter writes `%f` raised by the fewest millionths that make
+the parser send `round(value x scale)`.
+
+**Cadence.** Every key at job start, then changed keys at most 1 Hz; event saves bypass the
+throttle. One transaction for all changed keys through QIDI's in-process
+`update_value_from_config_batch` (`executemany` in one `with conn:`), else one
+`update_value_from_config` per key. QIDI's Moonraker deletes the section on complete, cancel and
+standby, and on a job start while history still holds a current job
+(`database.py#MoonrakerDatabase._on_job_state_changed`); the order of that handler against ours is
+not fixed, so the job's first full write waits 2 s after the start (`FIRST_WRITE_DELAY_S`).
+
+**Resume side** (§ 9 steps for `backend: "qidi_print_state"`).
+
+1. `prepare`: the bed and chamber wait of § 6.3 step 2; nozzle untouched.
+2. `commit`: the bed and chamber wait again (QIDI sends `M140` without `M190`, and the bed may have
+   cooled during the confirmations; at temperature it returns at once), then rewrite every row in
+   one transaction for the measured resume point (§ 6.2), then the helix-initiated marker, then
+   `printer.print.power_off_print` (in-process `klippy_apis.power_off_print`); the marker is
+   withdrawn if the call fails. Rows from the resume point's modal state: `gcode_position` X, Y and
+   E (where QIDI travels and what it `G92 E`s), `absolute_coord`, `absolute_extrude`, `speed`.
+3. `abort`: the rows stay, so the offer stands. `discard`: delete the `print_state` section.
+
+**+4096 rule.** `file_position` row = `clamp(offset, 0, file_size) + 4096`. QIDI never checks the
+row against the file size, so the row may exceed it, and QIDI's `max(row - 4096, 0)` lands exactly
+on the offset, including in the file's last 4 KiB (a `min(offset + 4096, file_size)` clamp would
+land up to 4 KiB early there).
+
+**What the `gcode_position.z` row can and cannot fix (O8).** QIDI declares
+`SET_KINEMATIC_POSITION Z=<row z>`, applies `SET_GCODE_OFFSET` and the mesh, and lands with
+`G1 Z<row z>`. The declared value becomes the frame every later line prints in, so the rest of the
+print is off by `(physical Z at the cut) - (row z)`.
+
+- Fixed: the adapter writes the physical (kinematic) Z, `live_pos.z`, else `toolhead_pos.z`, else
+  `gcode_pos.z + gcode_offset.z`. From the file's next Z move on, the print is in the right frame.
+  The gcode-frame Z QIDI's own screen stores leaves the whole remaining print off by
+  `gcode_offset_z + mesh(x, y at the cut)`.
+- Not fixable through the row: the declaration and the landing move share it, so the rest of the
+  resumed layer, until the file's next Z move, prints `gcode_offset_z + mesh(x, y at the cut)` high
+  (typically 0.05-0.3 mm) whatever the row holds. QIDI also loads
+  `BED_MESH_PROFILE LOAD={save_variables.profile_name}`, not a mesh from the rows, so an adaptive or
+  different mesh adds its own error. A cut mid Z-hop declares the hop height.
+- Measured in the Q2 M1 test (§ 11.4); if the remainder-of-layer error matters, the generic path is
+  the fix.
+
+**Limits of QIDI's endpoint.**
+
+- Objects: with more than 64 objects QIDI clears all objects AND exclusions before resuming, so
+  excluded objects print again. Object names go into `EXCLUDE_OBJECT_DEFINE NAME=<name>` unquoted.
+- The file QIDI prints: every job runs from QIDI's `.cache` copy
+  (`klippy_apis.py#KlippyAPI.start_print`), and a `.3mf` from the extracted
+  `Metadata/plate_<n>.gcode` (`virtual_sdcard.py#VirtualSD._load_file`). `file_position` counts
+  bytes of that file. For `.gcode` it matches the gcodes file; for `.3mf` the scan must run over
+  plate `<n>` extracted from the 3MF (`.temp` is wiped on every Klipper start), and its size is the
+  one the +4096 rule clamps to.
+- The resumed job's name: QIDI opens `glob(".cache/*")[0]` and passes that absolute path to
+  `print_stats`, so history records `/home/qidi/printer_data/.cache/<name>`. The marker is keyed on
+  that path; history is not rewritten back to the gcodes name, and snapshot identity for the
+  resumed job does not resolve under the gcodes root.
+
+**Q2 checks still owed** (§ 11.4): the stock-screen row capture (formats here come from the
+parser, not stored rows); the O8 first-layer height check with zero and non-zero Z offset (expect
+only the remainder-of-layer error); the 2 s first-write delay against the start-time delete; the
+resumed job's history filename; in-process behaviour of `update_value_from_config_batch` and
+`power_off_print`.
 
 **Offer.** `offer_verdict` as § 8 plus "the `print_state` section has a `file_position` row".
 The app's legacy QIDI backend (`DETECT_INTERRUPTION` + `was_interrupted`) must not select on this
