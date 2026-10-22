@@ -610,6 +610,43 @@ TEST_CASE("GCodeFileModifier - Streaming with no modifications", "[gcode][modifi
     std::filesystem::remove(result.modified_path);
 }
 
+TEST_CASE("GCodeFileModifier - Buffered copy with no modifications keeps the final newline",
+          "[gcode][modifier]") {
+    // A small file takes the buffered path, whose empty-set branch copies the
+    // source line by line. The copy ends with a newline exactly when the source
+    // does: Klipper never runs an unterminated final line.
+    auto copy_of = [](const std::string& source) {
+        GCodeFileModifier modifier;
+        std::string test_path =
+            "/tmp/helix_buffered_test_empty_" + std::to_string(getpid()) + ".gcode";
+        {
+            std::ofstream out(test_path);
+            out << source;
+        }
+
+        auto result = modifier.apply(test_path);
+        REQUIRE(result.success);
+        REQUIRE(result.modified_path != test_path);
+
+        std::string content;
+        {
+            std::ifstream in(result.modified_path);
+            content.assign((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        }
+        std::filesystem::remove(test_path);
+        std::filesystem::remove(result.modified_path);
+        return content;
+    };
+
+    SECTION("source ends with a newline") {
+        REQUIRE(copy_of("G28\nG1 X0 Y0\nM104 S200\n") == "G28\nG1 X0 Y0\nM104 S200\n");
+    }
+
+    SECTION("source has no trailing newline") {
+        REQUIRE(copy_of("G28\nG1 X0 Y0\nM104 S200") == "G28\nG1 X0 Y0\nM104 S200");
+    }
+}
+
 TEST_CASE("GCodeFileModifier - Auto-select streaming for large files",
           "[gcode][modifier][streaming]") {
     // This test verifies that apply() selects the appropriate mode based on file size

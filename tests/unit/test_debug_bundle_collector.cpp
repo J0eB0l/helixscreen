@@ -654,6 +654,39 @@ TEST_CASE("DebugBundleCollector: collect_moonraker_info returns object with expe
     REQUIRE(mr.contains("config"));
 }
 
+TEST_CASE("DebugBundleCollector: collect includes the screen's event journal", "[debug-bundle]") {
+    // With no plugin journal to read, the bundle carries the screen's own.
+    json bundle = helix::DebugBundleCollector::collect();
+    REQUIRE(bundle.contains("event_journal"));
+    CHECK(bundle["event_journal"]["source"] == "screen");
+    CHECK(bundle["event_journal"]["entries"].is_array());
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "DebugBundleCollector: the snapshot reads the journal from a ready plugin",
+                 "[debug-bundle]") {
+    auto& ps = get_printer_state();
+    PrinterStateTestAccess::reset(ps);
+    ps.init_subjects(false);
+    auto& plugin = ps.plugin_status_state();
+
+    CHECK_FALSE(helix::DebugBundleCollector::snapshot_printer_state().journal_from_plugin);
+
+    helix::PluginFeatureEntry journal;
+    journal.version = helix::kJournalFeatureMinVersion;
+    journal.available = true;
+    journal.enabled = true;
+    plugin.set_installed(true);
+    plugin.set_features({{helix::kJournalFeatureName, journal}});
+    const helix::PrinterSnapshot snap = helix::DebugBundleCollector::snapshot_printer_state();
+    REQUIRE(snap.captured);
+    CHECK(snap.journal_from_plugin);
+
+    plugin.set_features({});
+    plugin.set_installed(false);
+    helix::ui::UpdateQueue::instance().drain();
+}
+
 TEST_CASE("DebugBundleCollector: collect includes moonraker section", "[debug-bundle][moonraker]") {
     json bundle = helix::DebugBundleCollector::collect();
     REQUIRE(bundle.contains("moonraker"));

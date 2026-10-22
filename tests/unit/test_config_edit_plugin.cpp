@@ -515,6 +515,28 @@ TEST_CASE("config backups live under .helix_backups at the file's own path",
     CHECK_FALSE(config_backup_original(".helix_backups/.helix_backup"));
 }
 
+TEST_CASE_METHOD(LVGLTestFixture, "cleanup_backups deletes only the editor's own backups",
+                 "[plugin_config_edit][config]") {
+    PrinterState state;
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api(client, state);
+    // A .helix_backup outside .helix_backups is a file the user named, not
+    // one restore_backups() would ever restore.
+    api.set_config_files({{"printer.cfg", "[printer]\n"},
+                          {"printer.cfg.helix_backup", "[printer]\n"},
+                          {".helix_backups/printer.cfg.helix_backup", "[printer]\n"},
+                          {".helix_backups/conf.d/a.cfg.helix_backup", "[a]\n"}});
+
+    KlipperConfigEditor editor;
+    bool completed = false;
+    editor.cleanup_backups(api, [&completed]() { completed = true; });
+
+    CHECK(completed);
+    CHECK(api.files_mock().deleted_files() ==
+          std::vector<std::string>{"config/.helix_backups/conf.d/a.cfg.helix_backup",
+                                   "config/.helix_backups/printer.cfg.helix_backup"});
+}
+
 namespace {
 
 const std::string kRootWithAutosave = "[include shaper.cfg]\n"

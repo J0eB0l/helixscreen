@@ -5,9 +5,11 @@
 #include "../fake_moonraker_client.h"
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/print_state_test_drivers.h"
+#include "../test_helpers/scoped_env.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
 #include "event_journal_recorder.h"
+#include "gcode_response_routing.h"
 #include "printer_state.h"
 #include "test_helpers/printer_state_test_access.h"
 
@@ -211,4 +213,26 @@ TEST_CASE_METHOD(RecorderFixture, "recorder leaves no handler behind",
     CHECK(client_.handler_count("notify_gcode_response", "event_journal") == 1);
     recorder_.reset();
     CHECK(client_.live_handlers() == handlers_before_);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "a printer scope's routing records the journal and stops before the client goes",
+                 "[plugin_event_journal][event_journal_recorder]") {
+    auto& ps = get_printer_state();
+    PrinterStateTestAccess::reset(ps);
+    ps.init_subjects(false);
+    // The routing's recorder keeps its journal in the config dir.
+    const std::string dir = "/tmp/helix_routing_journal_" + std::to_string(::getpid());
+    ScopedEnv config_dir{"HELIX_CONFIG_DIR", dir.c_str()};
+    test::FakeMoonrakerClient client;
+    {
+        GcodeResponseRouting routing;
+        routing.attach(&client, nullptr);
+        CHECK(client.handler_count("notify_klippy_ready", "event_journal") == 1);
+
+        routing.detach_handlers(&client);
+        routing.release_routers();
+        CHECK(client.handler_count("notify_klippy_ready", "event_journal") == 0);
+    }
+    ui::UpdateQueueTestAccess::drain_all(ui::UpdateQueue::instance());
 }

@@ -11,6 +11,7 @@
 #include "helix_plugin_features.h"
 #include "moonraker_api.h"
 #include "moonraker_client_mock.h"
+#include "plr_plugin_rpc.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 #include "snapmaker_print_preferences.h"
@@ -291,6 +292,21 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
             "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, 0,
             [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
         CHECK(screen_start_ledger().claim(".helix_print/abcd_benchy.gcode"));
+    }
+
+    SECTION("a start through the plugin's link claims the next job, whatever its name") {
+        api.job().start_modified_print(
+            "benchy.gcode", ".helix_temp/benchy.gcode", {}, [](const ModifiedPrintResult&) {},
+            [](const MoonrakerError&) {});
+        CHECK(screen_start_ledger().claim(".helix_print/abcd_benchy.gcode"));
+    }
+
+    SECTION("a PLR resume the plugin starts after heating is the screen's own") {
+        plr_rpc::commit(api, "plan-1", {}, 1, [] {}, [](const MoonrakerError&) {});
+        // The plugin heats and purges first: the note waits as long as the commit may.
+        CHECK(screen_start_ledger().claim(
+            "benchy.gcode", ScreenStartLedger::Clock::now() +
+                                std::chrono::milliseconds(plr_rpc::kCommitTimeoutMs) - 1min));
     }
 
     SECTION("an edited start's note outlasts the plugin's rewrite of a large file") {

@@ -38,7 +38,6 @@ struct PrintHooksRowFixture : LVGLUITestFixture {
         SettingsManager::instance().init_subjects();
         get_global_settings_panel().init_subjects();
         helix::settings::get_printing_settings_overlay().register_callbacks();
-        helix::ui::register_plugin_feature_row_callbacks();
         set_moonraker_api(&api);
         root_ = static_cast<lv_obj_t*>(
             lv_xml_create(test_screen(), "settings_printing_overlay", nullptr));
@@ -166,6 +165,25 @@ TEST_CASE_METHOD(PrintHooksRowFixture,
         CHECK(visible(toggle()));
         CHECK(visible(in_row("fallback_update_text")));
         CHECK_FALSE(visible(in_row("install_button")));
+    }
+    SECTION("a locality verdict arriving after the plugin state moves the hint") {
+        set_local(true);
+        plugin.set_installed(false);
+        process_lvgl(5);
+        REQUIRE_FALSE(visible(in_row("plugin_hint")));
+
+        set_local(false);
+        process_lvgl(5);
+        CHECK(visible(in_row("plugin_hint")));
+
+        set_local(true);
+        process_lvgl(5);
+        REQUIRE_FALSE(visible(in_row("plugin_hint")));
+        // An unknown locality is not a local screen.
+        get_printer_state().clear_moonraker_locality();
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(5);
+        CHECK(visible(in_row("plugin_hint")));
     }
     SECTION("the switch shows the stored opt-in and writes it") {
         plugin.set_installed(false);
