@@ -232,7 +232,7 @@ These two switches come from the **HelixPrint plugin** on your printer.
 Without the plugin on the printer:
 
 - **Power-loss recovery** is greyed out with **Requires the HelixPrint plugin** and an **Install** button (or asks for a newer plugin when yours is too old). If your printer cannot use it at all, the switch is not shown.
-- **Apply start options to prints from other apps** still works: HelixScreen sends the options itself when it sees the print start. That only happens while HelixScreen is running and connected. On a screen attached to the printer that is all the time, so there is no note. On a phone, tablet or other remote screen the switch says **Only while this app is connected** and offers **Install**, because with the plugin the printer sends them even when no screen is on.
+- **Apply start options to prints from other apps** still works: HelixScreen sends the options itself when it sees a print start, as long as the HelixScreen app is running and connected to the printer. A screen attached to the printer covers almost every print (only a print that starts while the printer is booting or HelixScreen is restarting is missed), so it shows no note. A phone, tablet or other remote screen covers prints only while it is connected, so there the switch says **Only while this app is connected** and offers **Install**: with the plugin, the printer applies the options to every print itself.
 
 If several HelixScreens are connected to one printer, only one of them sends the options: the one attached to the printer, or a remote one when none is attached.
 
