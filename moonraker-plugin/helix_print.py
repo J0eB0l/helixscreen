@@ -709,6 +709,8 @@ class HelixPrint:
         self._start_plr()
 
         await self._load_job_markers()
+        if self.plr is not None:
+            await self.plr.load_job()
 
     async def _start_3mf_converter(self) -> None:
         if not (self.enabled and self.convert_3mf):
