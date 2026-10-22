@@ -2348,8 +2348,11 @@ nlohmann::json RemoteControlServer::handle_scroll(const nlohmann::json& params) 
             lv_obj_scroll_by(obj, dx, dy, LV_ANIM_OFF);
             return {{"scrolled", target_label(params)}, {"dx", dx}, {"dy", dy}};
         }
-        // Bring the target into its scroll parent's viewport (walks ancestors).
-        lv_obj_scroll_to_view(obj, LV_ANIM_OFF);
+        if (lv_obj_t* clipper = helix::scroll_into_view(obj)) {
+            throw std::runtime_error("Widget '" + target_label(params) +
+                                     "' is still out of view: clipped by " +
+                                     helix::path_of(clipper));
+        }
         return {{"scrolled_into_view", target_label(params)}};
     });
 }

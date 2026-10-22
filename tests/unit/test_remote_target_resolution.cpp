@@ -839,3 +839,86 @@ TEST_CASE_METHOD(LVGLTestFixture,
     CHECK(found[0].right == 4);
     CHECK(found[0].bottom == 0);
 }
+
+// --- ctl scroll --------------------------------------------------------------
+
+namespace {
+
+// An overlay shape: a scrolling viewport holding a plain, non-scrolling column
+// that is taller than the viewport, with the target row at its far end.
+struct ScrollTree {
+    lv_obj_t* viewport;
+    lv_obj_t* column;
+    lv_obj_t* row;
+};
+
+ScrollTree build_scroll_tree(lv_obj_t* screen) {
+    auto box = [](lv_obj_t* parent, int32_t w, int32_t h) {
+        lv_obj_t* o = lv_obj_create(parent);
+        lv_obj_set_size(o, w, h);
+        lv_obj_set_style_pad_all(o, 0, 0);
+        lv_obj_set_style_border_width(o, 0, 0);
+        return o;
+    };
+    ScrollTree t{};
+    t.viewport = box(screen, 200, 200);
+    t.column = box(t.viewport, 200, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(t.column, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(t.column, 0, 0);
+    for (int i = 0; i < 9; ++i) {
+        box(t.column, 200, 100);
+    }
+    t.row = box(t.column, 200, 100);
+    lv_obj_update_layout(screen);
+    return t;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: a row below the fold ends up inside the viewport",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    REQUIRE(helix::view_clipper(t.row) == t.viewport);
+
+    CHECK(helix::scroll_into_view(t.row) == nullptr);
+
+    lv_area_t row, view;
+    lv_obj_get_coords(t.row, &row);
+    lv_obj_get_coords(t.viewport, &view);
+    CHECK(row.y1 >= view.y1);
+    CHECK(row.y2 <= view.y2);
+    CHECK(lv_obj_get_scroll_y(t.viewport) == 800);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: an ancestor that cannot scroll is reported",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    lv_obj_remove_flag(t.viewport, LV_OBJ_FLAG_SCROLLABLE);
+
+    CHECK(helix::scroll_into_view(t.row) == t.viewport);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ctl scroll: a widget taller than the viewport only has to overlap it",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    lv_obj_set_height(t.row, 300);
+    lv_obj_update_layout(test_screen());
+
+    CHECK(helix::scroll_into_view(t.row) == nullptr);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: overflow-visible ancestors do not clip",
+                 "[remote][ctl][scroll]") {
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_size(host, 100, 100);
+    lv_obj_set_style_pad_all(host, 0, 0);
+    lv_obj_t* child = lv_obj_create(host);
+    lv_obj_set_size(child, 50, 50);
+    lv_obj_set_pos(child, 0, 150);
+    lv_obj_update_layout(test_screen());
+    REQUIRE(helix::view_clipper(child) == host);
+
+    lv_obj_add_flag(host, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    CHECK(helix::view_clipper(child) == nullptr);
+}

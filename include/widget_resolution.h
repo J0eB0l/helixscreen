@@ -177,6 +177,26 @@ lv_obj_t* resolve_actionable(lv_obj_t* target, lv_obj_t** descended_to,
 const char* click_blocker(lv_obj_t* obj);
 
 /**
+ * @brief The nearest ancestor that clips @p obj out of sight, or nullptr when it shows.
+ *
+ * Every ancestor without LV_OBJ_FLAG_OVERFLOW_VISIBLE clips its children to its
+ * own box, so what shows is the intersection of those boxes. Per axis, a widget
+ * that fits in that area must lie wholly inside it; one larger than it must at
+ * least overlap it.
+ */
+lv_obj_t* view_clipper(lv_obj_t* obj);
+
+/**
+ * @brief Scroll every scrollable ancestor of @p obj until it shows, then check it does.
+ *
+ * The widget's own parent is often a plain column that does not scroll, while
+ * the container that does sits further up, so each ancestor is scrolled in turn.
+ *
+ * @return The ancestor still clipping @p obj (see view_clipper()), or nullptr.
+ */
+lv_obj_t* scroll_into_view(lv_obj_t* obj);
+
+/**
  * @brief Append every widget below @p root whose name satisfies @p pred, depth first.
  *
  * A widget the author never named is not nameless: lv_obj_get_name_resolved()

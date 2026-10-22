@@ -4,6 +4,7 @@
 #include "widget_resolution.h"
 
 #include "lvgl.h"
+#include "lvgl/src/misc/lv_area_private.h" // lv_area_intersect
 
 // lv_event_dsc_t's filter is not exposed by the public API, and
 // has_own_click_handler() needs it to tell a click target from scaffolding.
@@ -436,6 +437,55 @@ const char* click_blocker(lv_obj_t* obj) {
         return "disabled";
     }
     return nullptr;
+}
+
+namespace {
+
+bool axis_shows(int32_t lo, int32_t hi, int32_t view_lo, int32_t view_hi) {
+    if (hi - lo <= view_hi - view_lo) {
+        return lo >= view_lo && hi <= view_hi;
+    }
+    return lo <= view_hi && hi >= view_lo;
+}
+
+} // namespace
+
+lv_obj_t* view_clipper(lv_obj_t* obj) {
+    if (obj == nullptr) {
+        return nullptr;
+    }
+    lv_obj_update_layout(obj);
+    lv_area_t box;
+    lv_obj_get_coords(obj, &box);
+    lv_area_t view{};
+    bool clipped = false;
+    for (lv_obj_t* a = lv_obj_get_parent(obj); a != nullptr; a = lv_obj_get_parent(a)) {
+        if (lv_obj_has_flag(a, LV_OBJ_FLAG_OVERFLOW_VISIBLE)) {
+            continue;
+        }
+        // What shows is the intersection of every clipping box on the way up.
+        lv_area_t own;
+        lv_obj_get_coords(a, &own);
+        if (!clipped) {
+            view = own;
+            clipped = true;
+        } else if (!lv_area_intersect(&view, &view, &own)) {
+            return a;
+        }
+        if (!axis_shows(box.x1, box.x2, view.x1, view.x2) ||
+            !axis_shows(box.y1, box.y2, view.y1, view.y2)) {
+            return a;
+        }
+    }
+    return nullptr;
+}
+
+lv_obj_t* scroll_into_view(lv_obj_t* obj) {
+    if (obj == nullptr) {
+        return nullptr;
+    }
+    lv_obj_scroll_to_view_recursive(obj, LV_ANIM_OFF);
+    return view_clipper(obj);
 }
 
 } // namespace helix
