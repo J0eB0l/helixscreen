@@ -253,8 +253,10 @@ nlohmann::json multi_extruder_no_toolchanger_status() {
 
 TEST_CASE("AFC load and tool change name the lane or T number on every topology",
           "[ams][afc][toolchanger][status][1200][1824]") {
-    // AFC owns lane -> extruder and T -> lane, and swaps heads inside both
-    // CHANGE_TOOL and T{n}, so the frame's topology never changes the command.
+    // AFC owns lane -> extruder and T -> lane, so a load names the lane on
+    // every topology. A tool change sends T{n} except on a toolchanger, where
+    // it only mounts a head and needs the lane's extruder, which these frames
+    // never publish: there it refuses and sends nothing.
     const std::vector<std::pair<const char*, nlohmann::json>> frames{
         {"toolchanger", toolchanger_status()},
         {"single extruder", single_extruder_status()},
@@ -270,8 +272,13 @@ TEST_CASE("AFC load and tool change name the lane or T number on every topology"
 
         AfcStatusDispatchHelper change;
         change.feed_afc(frame);
-        REQUIRE(change.change_tool(1));
-        CHECK(change.captured == std::vector<std::string>{"T1"});
+        if (std::string(label) == "toolchanger") {
+            CHECK_FALSE(change.change_tool(1));
+            CHECK(change.captured.empty());
+        } else {
+            REQUIRE(change.change_tool(1));
+            CHECK(change.captured == std::vector<std::string>{"T1"});
+        }
     }
 }
 

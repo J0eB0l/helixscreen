@@ -5254,18 +5254,43 @@ AmsError AmsBackendAfc::do_select_slot(int slot_index) {
 }
 
 AmsError AmsBackendAfc::do_change_tool(int tool_number) {
+    bool toolchanger = false;
+    std::string lane_extruder;
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (tool_number < 0 || tool_number >= slots_.slot_count()) {
             return AmsErrorHelper::tool_out_of_range(tool_number);
         }
+        toolchanger = std::any_of(unit_infos_.begin(), unit_infos_.end(),
+                                  [](const AfcUnitInfo& u) { return u.type == "Toolchanger"; });
+        for (int i = 0; i < slots_.slot_count(); ++i) {
+            const auto* entry = slots_.get(i);
+            if (entry && entry->info.mapped_tool == tool_number) {
+                lane_extruder = entry->info.extruder_name;
+                break;
+            }
+        }
     }
 
-    // T{n} on every topology: AFC registers a T-command per lane and
-    // cmd_CHANGE_TOOL resolves the lane, and from it the head, from the
-    // current map. tool_number is a T number, never a head index.
-    std::string cmd = "T" + std::to_string(tool_number);
+    // tool_number is a T number, never a head index. On a toolchanger a tool
+    // change mounts the head that T number's lane feeds and moves no filament:
+    // T{n} runs AFC's CHANGE_TOOL, which unloads the current lane and loads
+    // the new one, so selecting a parked head would swap filament. Filament
+    // moves only through load_filament() / unload_filament().
+    std::string cmd;
+    if (toolchanger) {
+        if (lane_extruder.empty()) {
+            return AmsErrorHelper::invalid_parameter(
+                "T" + std::to_string(tool_number) +
+                " has no lane with a known extruder; cannot choose a toolhead");
+        }
+        cmd = "AFC_SELECT_TOOL TOOL=" + lane_extruder;
+    } else {
+        // AFC registers a T-command per lane; CHANGE_TOOL resolves the lane
+        // from the current map and swaps filament into the shared path.
+        cmd = "T" + std::to_string(tool_number);
+    }
 
     spdlog::info("[AMS AFC] Tool change: {}", cmd);
     // SELECTING, not LOADING: every AFC toolchanger state (ToolSwap, ToolDock,
