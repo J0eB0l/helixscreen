@@ -361,7 +361,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    rotation = helix::standalone_rotation(rotation);
+    rotation = helix::standalone_rotation(rotation, width, height);
     if (rotation != 0) {
         lv_display_set_rotation(display, degrees_to_lv_rotation(rotation));
         // Update dimensions to match rotated resolution for splash layout
