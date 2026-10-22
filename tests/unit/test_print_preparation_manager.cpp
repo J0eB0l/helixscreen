@@ -3280,34 +3280,39 @@ TEST_CASE_METHOD(HelixTestFixture,
         REQUIRE(found);
     }
 
-    SECTION("enabled sends nothing when the file runs the mesh itself") {
+    SECTION("the file's own mesh call replaces the pre-start one") {
         // A slicer start sequence that calls BED_MESH_CALIBRATE_START_PRINT
         // meshes on its own; sending the macro ahead of the job meshes twice.
-        gcode::ScanResult scan;
-        gcode::DetectedOperation op;
-        op.type = gcode::OperationType::BED_MESH;
-        op.embedding = gcode::OperationEmbedding::DIRECT_COMMAND;
-        op.line_number = 397;
-        op.raw_line = "BED_MESH_CALIBRATE_START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80";
-        scan.operations.push_back(op);
-
         manager.set_option_state_provider(
             [](const std::string& id) { return id == "bed_mesh" ? 1 : -1; });
-        auto lines = PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(
-            manager, "part.gcode", &scan);
-        for (const auto& l : lines) {
-            REQUIRE(l.find("BED_MESH_CALIBRATE_START_PRINT") == std::string::npos);
-        }
+        const auto sends_mesh = [&](const std::string& start_gcode) {
+            const gcode::ScanResult scan = gcode::GCodeOpsDetector().scan_content(start_gcode);
+            for (const auto& l : PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(
+                     manager, "part.gcode", &scan)) {
+                if (l.find("BED_MESH_CALIBRATE_START_PRINT") != std::string::npos) {
+                    return true;
+                }
+            }
+            return false;
+        };
 
-        // The same start with a file that leaves the mesh out still sends it.
-        gcode::ScanResult plain;
-        lines = PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(manager, "part.gcode",
-                                                                             &plain);
-        bool found = false;
-        for (const auto& l : lines) {
-            found = found || l.find("BED_MESH_CALIBRATE_START_PRINT") != std::string::npos;
-        }
-        REQUIRE(found);
+        CHECK_FALSE(sends_mesh("G28\n"
+                               "BED_MESH_CALIBRATE_START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                               "START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                               "G1 X10 Y10 E5\n"));
+        CHECK_FALSE(sends_mesh("  bed_mesh_calibrate_start_print\n"
+                               "G1 X10 Y10 E5\n"));
+
+        // Lines that use a stored mesh or only ask for one do not mesh.
+        CHECK(sends_mesh("BED_MESH_PROFILE LOAD=default\n"
+                         "START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                         "G1 X10 Y10 E5\n"));
+        CHECK(sends_mesh("BED_MESH_CLEAR\n"
+                         "G1 X10 Y10 E5\n"));
+        CHECK(sends_mesh("START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80 FORCE_LEVELING=true\n"
+                         "G1 X10 Y10 E5\n"));
+        CHECK(sends_mesh("G28\n"
+                         "G1 X10 Y10 E5\n"));
     }
 
     SECTION("temps render 0 when the start has no START_PRINT call of its own") {

@@ -1294,6 +1294,26 @@ std::optional<gcode::OperationType> file_embeddable_op_for_id(const std::string&
     return std::nullopt;
 }
 
+// Whether @p scan holds a call of @p line's own command word under @p option_id's
+// operation, i.e. the file performs that step itself. Only the same command
+// counts: other BED_MESH_* lines load, clear or offset a stored mesh, and a
+// START_PRINT parameter asking for a mesh proves nothing about a macro that may
+// ignore it. The scan keeps one op per type, so a miss sends the line.
+bool file_runs_command(const gcode::ScanResult& scan, const std::string& option_id,
+                       const std::string& line) {
+    const std::optional<gcode::OperationType> op = file_embeddable_op_for_id(option_id);
+    if (!op) {
+        return false;
+    }
+    const std::string word = text_io::to_upper(gcode::GCodeOpsDetector::command_word(line));
+    return std::any_of(
+        scan.operations.begin(), scan.operations.end(), [&](const gcode::DetectedOperation& found) {
+            return found.type == *op &&
+                   found.embedding != gcode::OperationEmbedding::MACRO_PARAMETER &&
+                   text_io::to_upper(gcode::GCodeOpsDetector::command_word(found.raw_line)) == word;
+        });
+}
+
 // Whether turning this option off may strip its op out of the sliced file. Not
 // when a self-storing firmware holds the option's value (supplied through
 // preprint_prefs::read_persisted_defaults()): that firmware skips the file's
@@ -1699,18 +1719,6 @@ std::vector<std::string> PrintPreparationManager::collect_pre_start_gcode_lines(
             continue;
         }
 
-        // A line with no off form IS the step; a file that runs the step
-        // itself would have the printer run it twice.
-        if (enabled && pre && !pre->emit_when_disabled && scan) {
-            const std::optional<gcode::OperationType> op = file_embeddable_op_for_id(opt.id);
-            if (op && scan->has_operation(*op)) {
-                spdlog::info("[PrintPreparationManager] Not sending pre-start '{}': {} runs it "
-                             "itself",
-                             opt.id, filename);
-                continue;
-            }
-        }
-
         PreStartGcodeContext ctx;
         ctx.filename = filename;
         if (job_start) {
@@ -1720,6 +1728,15 @@ std::vector<std::string> PrintPreparationManager::collect_pre_start_gcode_lines(
         std::string line = render_pre_start_gcode(opt, enabled, ctx);
         if (line.empty()) {
             // render_pre_start_gcode logs its own warning on type mismatch.
+            continue;
+        }
+
+        // A line with no off form IS the step; a file that runs the step
+        // itself would have the printer run it twice.
+        if (enabled && pre && !pre->emit_when_disabled && scan &&
+            file_runs_command(*scan, opt.id, line)) {
+            spdlog::info("[PrintPreparationManager] Not sending pre-start '{}': {} runs it itself",
+                         opt.id, filename);
             continue;
         }
         spdlog::debug("[PrintPreparationManager] Pre-start gcode for option '{}' (enabled={}): {}",
