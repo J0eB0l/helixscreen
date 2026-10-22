@@ -326,3 +326,25 @@ TEST_CASE_METHOD(TagLinkFixture, "a tag arriving in a single-slot update links i
     ui::UpdateQueue::instance().drain();
     CHECK(linked() == kTaggedSpool);
 }
+
+TEST_CASE_METHOD(TagLinkFixture, "a single-slot update from a box off the bus is not a removal",
+                 "[ams][tag_link]") {
+    insert(kTaggedSpool);
+    REQUIRE(linked() == kTaggedSpool);
+    REQUIRE(AmsState::instance()
+                .link_spool_to_slot(0, make_spool(kOtherSpool, "Sunlu"))
+                .error.success());
+    frame();
+    REQUIRE(linked() == kOtherSpool);
+
+    backend->unit_absent = true;
+    backend->force_slot_status(0, SlotStatus::EMPTY);
+    frame();
+    AmsState::instance().update_slot_for_backend(0, 0);
+    ui::UpdateQueue::instance().drain();
+
+    backend->unit_absent = false;
+    backend->force_slot_status(0, SlotStatus::AVAILABLE);
+    frame();
+    CHECK(linked() == kOtherSpool);
+}
