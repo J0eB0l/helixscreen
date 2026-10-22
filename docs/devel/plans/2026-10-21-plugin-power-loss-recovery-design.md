@@ -53,6 +53,8 @@ Accepted as recommended in the first draft, or decided on review:
 | O6 | Cold-bed threshold `kPlrColdBedDiffC` = 10 °C until the adhesion test (§ 11.4) says otherwise. |
 | O7 | No Fluidd/Mainsail resume macro in v1; every resume goes through the screen's confirmations. Later phase. |
 | O9 | The mesh include line is added opt-in from both an installer prompt and a settings button. |
+| R26 | When the executed line cannot be found, resume at the start of the NEXT layer, not the current one: printing a layer again over itself at the same Z risks a collision, a skipped partial layer is a cosmetic gap. The warning keeps its name, `layer_start`, now meaning "resumes at the next layer start", and keeps its confirmation in the app. (2026-10-21) |
+| R27 | `no_purge_location` stays a warning; no new Confirmation value. (2026-10-21) |
 
 Still open: O4 and O8 (§ 14).
 
@@ -273,13 +275,13 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    commands, `SET_PRESSURE_ADVANCE`, `SET_VELOCITY_LIMIT`, `M220`/`M221`, `G10`/`G11` retract state,
    `EXCLUDE_OBJECT_DEFINE`, `SET_PRINT_STATS_INFO`, layer markers (`;LAYER_CHANGE`, `;LAYER:`,
    `SET_PRINT_STATS_INFO CURRENT_LAYER=`). Keep a ring of per-line records for the last
-   `kWindowBytes` (256 KiB) behind the head: offset, start and end position in the kinematic XY
+   `WINDOW_BYTES` (256 KiB) behind the head: offset, start and end position in the kinematic XY
    frame, toolhead-E delta, Z, layer.
 3. **Walk back by the measured lead.** `dE = toolhead_pos.e - live_pos.e`. Walk the ring
    backwards subtracting each line's toolhead-E delta (negative for retracts, including firmware
    retract) until `dE` is consumed. Inside a travel run (zero E), consume XY path length toward
    `live_pos.xy` instead.
-4. **Check.** The chosen line's XY segment passes within `kMatchTolMm` (0.5 mm) of `live_pos.xy`,
+4. **Check.** The chosen line's XY segment passes within `MATCH_TOL_MM` (0.5 mm) of `live_pos.xy`,
    and its gcode Z is consistent with the layer. Arcs (`G2`/`G3`) are checked with arc geometry.
 5. **Snapshot age (O2).** The nozzle kept going for an unknown time of up to one save interval
    after the snapshot. The resume point is the executing point advanced by
@@ -288,30 +290,38 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    resume re-traces up to one interval (a ridge, never a gap); at 1 it skips the whole interval
    (no ridge, possibly a gap). Initial default 0.5, settled by task T2. Reported as
    `retrace_estimate_mm` and `skip_estimate_mm`.
-6. **Fallback.** If the walk does not converge or the check fails: the start of the current
-   layer, `method: "layer_start"`, with a warning in the plan. Never a byte rewind.
+6. **Fallback.** If the walk does not converge or the check fails: the start of the next
+   layer (ruling R26; the partial layer is skipped), `method: "layer_start"`, with the
+   `layer_start` warning. The scan reads on past the head when it has not reached that layer;
+   no next layer (the last one) or no layer markers means no plan. Never a byte rewind.
 
-Signatures (Python, `helix_plr_scan.py` over `helix_gcode_reader.py`, pure, no Moonraker
-imports; `ModalState` and the tokenizer live in the reader, the window walk in the scan):
+Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `ScanResult` and
+`scan_to_offset` are built and live in `helix_gcode_reader.py` (the plugin's constants are
+`UPPER_SNAKE`, as in the rest of the plugin); the window walk lives in `helix_plr_scan.py`:
 
 ```python
-kWindowBytes = 256 * 1024
-kMatchTolMm = 0.5
-kResumeSkipFractionDefault = 0.5    # tunable: plr_profile.resume_skip_fraction overrides
+WINDOW_BYTES = 256 * 1024                  # helix_gcode_reader.py
+MATCH_TOL_MM = 0.5                         # helix_plr_scan.py from here down
+RESUME_SKIP_FRACTION_DEFAULT = 0.5         # tunable: plr_profile.resume_skip_fraction overrides
 
-class ModalState:            # dataclass-like; fields named for the gcode_move state above
-    ...
+class ModalState:            # __slots__ class; gcode_move fields plus tool, heaters, fans, PA,
+    ...                      # limits, retract, layer; copy(), to_dict()/from_dict() for layer_index
 
-class LineRecord(NamedTuple):
+class LineRecord(NamedTuple):              # positions in the toolhead (kinematic) frame
     offset: int; end_offset: int
     start_xy: Tuple[float, float]; end_xy: Tuple[float, float]
     z: float; toolhead_de: float; layer: Optional[int]; is_arc: bool
+    arc_center: Optional[Tuple[float, float]]; arc_cw: bool   # I/J arcs
+    speed: float                           # F in mm/s before speed_factor (for advance_by_time)
+    retract: int                           # -1 G10, +1 G11 (length is Klipper config), else 0
 
 class ScanResult(NamedTuple):
     state_at_head: ModalState
     window: List[LineRecord]           # oldest first, ends at the head
     object_defines: List[str]          # verbatim EXCLUDE_OBJECT_DEFINE lines
-    layer_starts: Dict[int, Tuple[int, ModalState]]   # layer -> (offset, state at that offset)
+    layer_starts: Dict[int, Tuple[int, ModalState]]   # layers starting in the window, plus the one
+                                                      # it begins in: (offset, state before that line)
+    offset: int                        # line-aligned offset reached
 
 class ResumePoint(NamedTuple):
     offset: int                        # byte offset of the first line to print, at a line boundary
@@ -323,18 +333,26 @@ class ResumePoint(NamedTuple):
 
 def scan_to_offset(stream: BinaryIO, end_offset: int, start_offset: int = 0,
                    start_state: Optional[ModalState] = None,
-                   cancel: Optional[threading.Event] = None) -> ScanResult: ...
+                   cancel: Optional[threading.Event] = None,
+                   throttle: Optional[Callable[[int], None]] = None,     # RateLimiter.pace
+                   on_layer_start: Optional[Callable[[int, int, ModalState], None]] = None,
+                   ) -> ScanResult: ...      # on_layer_start feeds the layer_index sidecar
 def locate_executed_line(scan: ScanResult, toolhead_pos: Sequence[float],
                          live_pos: Sequence[float], extrude_factor: float,
-                         retract_length: float) -> Optional[ResumePoint]: ...
-def advance_by_time(scan: ScanResult, point: ResumePoint, seconds: float,
-                    speed_factor: float, max_velocity: float) -> ResumePoint: ...
+                         retract_length: float,
+                         gcode_offset: Sequence[float] = (0, 0, 0, 0)) -> Optional[ExecutedLine]: ...
+def advance_by_time(scan: ScanResult, executed: ExecutedLine, seconds: float,
+                    speed_factor: float, max_velocity: float
+                    ) -> Tuple[int, float, float]: ...   # (window index, retrace_mm, skip_mm)
+def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict, skip_fraction: float,
+                 save_interval_s: float) -> Optional[ResumePoint]: ...   # measured, else layer start
 def layer_start_fallback(scan: ScanResult, layer: Optional[int]) -> Optional[ResumePoint]: ...
 ```
 
 The scan runs in a worker thread, cancellable, when the plan is requested (O3). Task T1 measures it
 first: a 100 MB Orca file on a K1C-class host (the slowest listed) must finish in **30 s or
-less**. If it does not, v1 adds background per-layer checkpoints: during the print, a low-priority
+less**. **T1 failed (2026-10-21): 394 s median on the K1C** (§ 11.5), so v1 adds background
+per-layer checkpoints: during the print, a low-priority
 follower reads the file up to `file_position` and, at each layer start, records the byte offset
 and modal state. Those checkpoints ARE umbrella Phase 1's `layer_index` sidecar, written in its
 format through `helix_gcode_reader.py`; when Phase 1 has already indexed the file, the follower
@@ -342,6 +360,29 @@ does nothing. One throttle policy, in the reader, governs both (umbrella Phase 1
 the follower runs on any host while printing, reads no further than `file_position` and is
 rate-capped; whole-file analysis runs while printing only on multi-core hosts. The resume scan
 then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`start_state`.
+
+**Checkpoint sidecar (contract).** One file per printed file at
+`<gcodes>/.helix_index/<relpath>.layers.jsonl`; a printed file outside the gcodes root (a
+firmware's cache copy) indexes under `<gcodes>/.helix_index/.external/<name>.layers.jsonl`. JSON
+lines, append-only: a header `{"format": 1, "file_size", "file_mtime", "file_hash"}` naming the
+file version it indexes (a mismatch starts the index over), one line per layer start
+`{"layer", "offset", "z", "state": ModalState.to_dict()}`, and `{"complete": true, "end_offset"}`
+once a completed print was followed to the end (a complete index is not followed again). The
+reader and writer are `helix_gcode_reader.read_layer_index` / `LayerIndexWriter`; a line cut short
+by a crash is skipped. The follower runs only while PLR saving is enabled (it is started from the
+save path) and is held to `FOLLOWER_CPU_FRACTION` (15 %) of one core plus the byte cap.
+Visibility: Moonraker's gcodes file list only lists G-code extensions
+(`file_manager.py#FileManager.get_file_list`, `VALID_GCODE_EXTS`), so the `.jsonl` files never
+appear as files; the `.helix_index` directory appears in a directory listing the way
+`.helix_temp`, `.helix_print` and `.thumbs` already do, and the app and Mainsail/Fluidd hide
+dot-directories (`ui_print_select_file_provider.cpp`). Checked in mainline Moonraker's source; the
+QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified there.
+
+**The file that is scanned.** `file_position` counts bytes of the file Klipper is reading,
+`virtual_sdcard.file_path`, which on QIDI is a `.cache` copy, or for a `.3mf` the extracted
+`plate_<n>.gcode`. The snapshot loop records that path and its identity in the job record
+(`print_path`, `print_identity`) on the first save, and the follower, the resume scan and QIDI's
+`file_size` all use it; the gcodes file is the fallback before it is known.
 
 ### 6.3 Resume sequence (generic backend)
 
@@ -451,6 +492,14 @@ In `assets/config/printer_database.json`, per printer. Absent block = tier 0.
 User overrides (settings, `helix-screen` / `plr_user`): `enabled` (bool), `tier` (int, may lower or
 raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
 
+**Contract with the plugin.** The app folds the user overrides into `helix-screen` / `plr_profile`,
+a JSON object of the `PlrProfile` fields in snake_case: `tier` (int 0-3), `backend`
+(`"generic"`|`"qidi_print_state"`|`"vendor"`), `storage_hint` (`"emmc"`|`"sd"`|`"nand"`|`"ssd"`|
+`"unknown"`), `z_holds_unpowered` (bool), `xy_home_gcode` (str), `z_lift_mm` (float), `purge_gcode`
+(str|null), `resume_skip_fraction` (float 0-1), `macro_vars` ({macro: [variable, ...]}). A missing
+record is tier 0; a missing or wrongly typed key takes the default above. The plugin reads only
+`enabled` from `plr_user`; it is PLR's single switch.
+
 The app resolves DB + user into `plr_profile` and writes it whenever an input changes:
 
 ```cpp
@@ -545,6 +594,7 @@ class OfferInputs(NamedTuple):
     layer: Optional[int]
     tier: int
     klippy_ready: bool
+    print_duration: Optional[float] = None   # O5
 
 class OfferVerdict(NamedTuple):
     available: bool
@@ -563,6 +613,7 @@ Available when all hold, else `blocked_by` lists each failing rule:
 | `layer >= 2` (unknown layer: `print_duration >= 120` s) | `too_early` |
 | tier >= 1 | `not_supported` |
 | Klipper ready | `klippy_not_ready` |
+| Z headroom to lift clear of the print | `no_lift_room` |
 
 The app adds its existing idle, latch and wizard rules (`plr_should_offer()`).
 
@@ -583,14 +634,15 @@ Feature entry in `server.helix.status` `features` (umbrella Phase 0):
 | Method (JSON-RPC / HTTP) | Params | Reply |
 |---|---|---|
 | `server.helix.plr.status` / `GET /server/helix/plr/status` | none | `{"saving": bool, "storage": StorageVerdict, "tier": int, "backend": "generic"\|"qidi_print_state"\|"none", "snapshot": {"job_id", "filename", "layer", "z", "saved_at", "age_s"} \| null, "offer": OfferVerdict}` |
-| `server.helix.plr.plan` / `POST /server/helix/plr/plan` | none | `{"plan_id": str, "filename", "method": "measured"\|"layer_start", "resume_offset": int, "layer": int, "z_gcode": float, "z_physical": float, "retrace_estimate_mm": float, "bed": {"target", "current"}, "restores": [str], "warnings": [str], "requires": [Confirmation]}`; long scan replies `{"pending": true}` and emits `helix:plr_plan_ready {plan_id}` |
+| `server.helix.plr.plan` / `POST /server/helix/plr/plan` | none | `{"plan_id": str, "tier": int, "filename", "method": "measured"\|"layer_start", "resume_offset": int, "layer": int, "z_gcode": float, "z_physical": float, "retrace_estimate_mm": float, "bed": {"target", "current"}, "restores": [str], "warnings": [str], "requires": [Confirmation]}`; long scan replies `{"pending": true}` and emits `helix:plr_plan_ready {plan_id}` |
 | `server.helix.plr.prepare` / `POST .../prepare` | `{"plan_id": str, "skip_chamber_wait": bool}` | `{"ok": true}` when steps 1-5 are done; progress via `helix:plr_progress {plan_id, step, state}` |
 | `server.helix.plr.commit` / `POST .../commit` | `{"plan_id": str, "confirmations": {Confirmation: true}, "z_reference": "trusted"\|"part_top"}` | `{"ok": true, "job_started": true}` after `M24` |
 | `server.helix.plr.abort` / `POST .../abort` | `{"plan_id": str}` | `{"ok": true}`; stops the sequence, heaters off, keeps the snapshot |
 | `server.helix.plr.discard` / `POST .../discard` | none | `{"ok": true}`; deletes snapshot and mesh file |
 
 `Confirmation` values: `part_attached`, `nozzle_clear`, `z_confirmed` (tier 2), `z_jogged`
-(tier 1), `accept_no_mesh`, `accept_cold_bed`. `commit` refuses unless every entry of the plan's
+(tier 1), `accept_no_mesh`, `accept_cold_bed`, `accept_next_layer` (with the `layer_start`
+warning, R26). `commit` refuses unless every entry of the plan's
 `requires` is present, and refuses a `plan_id` that is not the latest or whose snapshot changed.
 
 For `backend: "qidi_print_state"`, `prepare` runs only the bed/chamber wait and `commit` calls
@@ -599,37 +651,209 @@ QIDI's endpoint (§ 10); the reply shapes are the same.
 Errors: Moonraker errors with codes `plr_no_plan`, `plr_stale_plan`, `plr_missing_confirmation`,
 `plr_busy`, `plr_scan_failed`, `plr_klippy_error` (message carries Klipper's text).
 
+As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged:
+
+- An error's message is `"<code>: <detail>"`, e.g. `plr_no_plan: not_interrupted,too_early` (the
+  detail of `plr_no_plan` is the offer's `blocked_by`), `plr_missing_confirmation: z_confirmed`.
+  A multi-extruder snapshot or a `T<n>` other than 0 at the resume point is refused with
+  `plr_scan_failed: multi_material: ...` (D3, single extruder in v1).
+- `helix:plr_progress` and `helix:plr_plan_ready` are the Moonraker events
+  `helix_print:plr_progress` / `helix_print:plr_plan_ready`, which clients receive as
+  `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed_wait`, `chamber_wait`, `lift`,
+  `home_xy`, `position` (tier 1) for prepare; `bed_wait`, `chamber_wait`, `z_reference` (tier 1),
+  `restore`, `heat_nozzle`, `move_to_resume`, `start` for commit; states `running`, `done`,
+  `failed`; commit also has `purge`, after `heat_nozzle`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
+  (`"<code>: <detail>"`), and `plan` answers that error until the snapshot changes.
+- Heat waits are not M190/TEMPERATURE_WAIT (those hold Klipper's G-code lock, so an abort's
+  heaters-off could not run): the plugin sets the target, then polls the heater every 2 s,
+  checking for an abort between polls, and fails after 20 min (bed) / 45 min (chamber). Commit
+  repeats the bed (and chamber) wait first, because the bed may have been turned off
+  (`idle_timeout`) while the screen waited on the confirmations.
+- Single flight: each prepare or commit is a run with its own abort flag, taken before its first
+  await. `plan`, `prepare`, `commit` and `discard` answer `plr_busy` until the previous run has
+  exited, whatever its state label (an aborted run finishes its current step first). An abort
+  is checked before every G-code send and immediately before the start (or QIDI's resume
+  call), clears the plan (later calls get `plr_no_plan`), and turns off the bed, extruder, every
+  `heater_generic` and the part fan.
+- The nozzle heats like the bed: `heat_nozzle` moves to where it may heat and sends `M104`, the
+  plugin polls the extruder (abortable, 10 min timeout), then `purge` runs; an abort during the
+  wait never reaches the purge.
+- Prepare's lift, decided from `toolhead.homed_axes` before anything moves: with Z homed, nothing
+  is declared and the nozzle always lifts first (by `z_lift_mm`, clamped under the top of
+  travel); with Z unhomed, the snapshot's Z is declared on the first prepare, the recorded
+  lifted Z when nothing has moved the nozzle since that lift, and otherwise the prepare is
+  refused (`plr_stale_plan: position_unknown`). The lift record is invalidated when a tier-1
+  prepare ends (the jog follows) and when a commit starts.
+- `SET_HOMED` needs a Klipper whose `SET_KINEMATIC_POSITION` has it (Kalico from v2026.08.00,
+  `force_move.py`; the mainline and vendor-fork versions are not pinned here, so the plugin
+  checks the result instead of a version); older builds mark X and Y homed too. Prepare checks `homed_axes` after the
+  lift and refuses (`plr_klippy_error: set_homed_unsupported`) before XY homing when X or Y
+  became homed, unless the XY homing is a plain `G28 X Y` with no `[homing_override]` (which
+  homes whatever Klipper believes); a custom `xy_home_gcode` is refused there too.
+- Tier 1 with no purge line and no XY homing position (`position_endstop`) is refused
+  (`plr_scan_failed: no_purge_location`): nowhere is known to be off the part for the nozzle to
+  heat.
+- `commit` re-checks the machine: if Klipper restarted since prepare, or the axes prepare homed
+  are no longer homed (`toolhead.homed_axes`: x, y, z at tier 2; x, y at tier 1; e.g. after
+  `idle_timeout`'s motors-off), it refuses with `plr_stale_plan` and the next call is a new
+  `prepare`. Z is declared with `SET_KINEMATIC_POSITION ... SET_HOMED=Z`, so an XY homing
+  macro that homes only unhomed axes still homes X and Y. Once a prepare has lifted the
+  nozzle, a later prepare of the same snapshot does not declare the snapshot Z again: nothing
+  when Z is still homed, the lifted Z when Klipper restarted. A snapshot without `live_pos` is
+  refused (`plr_scan_failed: no_live_position`).
+- `offer.blocked_by` adds `no_lift_room`: less than `MIN_LIFT_MM` (2 mm) between the snapshot Z
+  and the top of travel (`z_lift_mm` itself is never below 2 mm; 0 or less means the default).
+- Tier 1 declares the jogged-onto height as the G-code Z of the last extruding move before the
+  resume point (refused with `plr_scan_failed: no_part_top` when there is none), plus the gcode
+  offset, plus the mesh only when commit will load one, faded as `bed_mesh` fades it.
+- The purge line is placed inside `[bed_mesh] mesh_min/mesh_max` (else the job mesh's bounds),
+  clamped to the axis limits; without a purge line, and before a purge macro, the nozzle
+  travels lifted to the XY homing position (`stepper_x/y position_endstop`) before it heats.
+- XY-homing check reasons: `override_homes_z`, `override_sets_z` (`set_position_z`),
+  `override_unknown` (any override command not known to leave Z alone), `delta_kinematics`.
+- QIDI: commit refuses (`plr_scan_failed: qidi_cache_mismatch`) unless the file in QIDI's
+  `.cache` has the snapshot's file size and hash, and a plan refuses
+  (`plr_scan_failed: qidi_landing_below_part`) when offset + mesh at the cut is below -0.05 mm.
+- `commit` takes `z_reference: "part_top"` at tier 1 and `"trusted"` at tier 2 and refuses the other.
+- `warnings` values: `layer_start` (resumes at the next layer's start, R26; adds the
+  Confirmation `accept_next_layer` to `requires`, so commit refuses without it), `mesh_unavailable`,
+  `cold_bed` (bed more than
+  `COLD_BED_DIFF_C` under target at plan time, which also adds `accept_cold_bed` to `requires`),
+  `no_purge_location` (no objects known, so the nozzle heats and primes at the XY home position).
+- `restores` values: `bed_mesh`, `gcode_offset`, `pressure_advance`, `velocity_limits`,
+  `retraction`, `speed_factor`, `extrude_factor`, `objects`, `excluded_objects`, `fans`, `macro_vars`.
+- A file outside the gcodes root starts through the root-level link `helix_plr_resume.gcode`; the
+  finished history entry is renamed back by `_patch_history_entry`, and the link is removed when
+  the resumed job completes or is cancelled.
+- The plan reply carries `tier` (as status does), so the app need not read status again.
+- Events are sent as `helix_print:plr_progress` / `helix_print:plr_plan_ready`; Moonraker delivers
+  them to clients as `notify_plr_progress` / `notify_plr_plan_ready`.
+- `backend` and `tier` (`helix_plr.py#HelixPlr.backend`): the profile's tier, capped at 2, and
+  lowered to 1 unless `z_holds_unpowered`; tier 0 never acts (`none`). `qidi_print_state` only
+  for a profile with `backend: "qidi_print_state"` on QIDI's fork with QIDI's endpoint
+  (`qidi_print_state_present` AND `moonraker_resumes_print_state`) at tier 2, since QIDI's
+  sequence declares the snapshot's Z itself and has no jog step (tier 1 there is `none`). A
+  `generic` profile is generic on any firmware, at the effective tier (§ 7.3). For
+  `qidi_print_state` the offer also needs QIDI's `file_position` row (else `no_snapshot`), the
+  plan skips purge and mesh (QIDI's sequence does both), `prepare` runs only the heat wait,
+  `commit` checks QIDI's `.cache` file is the one printed (`print_path`, its size and hash) and
+  hands the heat wait to the adapter's `commit` (an abort stops it at the marker, immediately
+  before `power_off_print`; a skipped chamber wait stays skipped), `abort` keeps the rows (the
+  plugin turns the heaters off), and `discard` deletes the rows as well as the snapshot and mesh
+  file. A failing print_state write is logged and the snapshot loop carries on.
+- The generic path refuses (`plr_scan_failed: printed_copy`) when Klipper read a different file
+  than the job's (a cache copy, a `.3mf` plate): the offset was found in that file, and the
+  start selects the job's.
+- The `plr` feature's `enabled` is "saving is on, or a saved snapshot is waiting": turning saving
+  off stops new snapshots without withdrawing the offer for one already saved, until it is
+  resumed or discarded. The entry also carries `saving` (bool): `saving_enabled(...)` as applied
+  (plr_user.enabled, else the storage and tier default) and PLR able to run. The settings switch
+  shows `saving`, not `enabled`: `{"version": 1, "available", "enabled", "reason", "saving"}`.
+- `plr_profile` and the switch: § 7.2. The checkpoint sidecar: § 6.2.
+
 ---
 
 ## 10. QIDI-new adapter (ruling 6)
 
 Lives in its own module, `helix_plr_qidi.py`, per umbrella Phase 11's one-module-per-vendor rule;
-`helix_plr.py` stays vendor-free and asks it capability questions.
+`helix_plr.py` stays vendor-free and asks it capability questions. Sources below are QIDI's own,
+copied from the Q2 on 01.01.02.01 (`qidi-src/`).
 
-Selected when the plugin sees `SDCARD_POWER_OFF_CONTINUES_PINT_FILE` in `/printer/gcode/help` or
-`speed_factor_2` in `gcode_move` status (QIDI report §4; not by path, since `/home/mks` symlinks
-to `/home/qidi` there).
+**Selection.** Both must hold:
 
-**Save side.** From the same snapshot loop, write QIDI's `print_state` rows in QIDI's formats
-(`file_position` int string, `gcode_position`/`homing_position`/`base_position` JSON array strings,
-`speed_factor` from `speed_factor_2`, never the public 1.0 value, `%f` floats, fan 0..1, objects as
-JSON strings; table in the #1716 report). Every key once at job start, then on change at most 1 Hz.
-One transaction for all changed keys when QIDI's database provider exposes it, else one
-`config.update` per key. QIDI's own Moonraker deletes the section on complete/cancel/standby.
+- `qidi_print_state_present(gcode_help, gcode_move_status)`: `SDCARD_POWER_OFF_CONTINUES_PINT_FILE`
+  in `/printer/gcode/help` (QIDI registers it with `desc=`) or `speed_factor_2` in `gcode_move`
+  status (QIDI report §4; not by path, since `/home/mks` symlinks to `/home/qidi` there).
+- `moonraker_resumes_print_state(klippy_apis, database)`: Moonraker carries `power_off_print` and
+  the config-table methods. `speed_factor_2` alone may also appear on older QIDI firmware without
+  the endpoint.
 
-**Resume side.**
+**Save side.** From the same snapshot loop, write QIDI's `print_state` rows, every value a string
+(Moonraker binds it straight into SQLite). Formats follow the parser
+(`database.py#MoonrakerDatabase.generate_power_off_print_gcode`,
+`virtual_sdcard.py#VirtualSD._set_printer_state_internal`):
 
-1. `prepare`: `M140` + `M190 S<heater_bed_target>`, chamber wait as § 6.3; nozzle untouched.
-2. `commit`: compute our measured resume offset (§ 6.2) from our snapshot, then rewrite the
-   `file_position` row to `min(offset + 4096, file_size)` so QIDI's `max(file_position - 4096, 0)`
-   lands on our point; then call `printer.print.power_off_print`.
+| Row | Written as | QIDI reads it as |
+|---|---|---|
+| `file_position` | integer string | `int(float(v))`, then `max(v - 4096, 0)` |
+| `gcode_position`, `homing_position`, `base_position` | JSON 4-vector | `json.loads`, `float` per element |
+| `speed` | `%f`, gcode_move's internal speed (`speed_2`) | assigned to `gcode_move.speed` |
+| `speed_factor` | `%f` of `speed_factor_2` (public / 60), 0.016667 at 100 %; never the public 1.0 | `M220 S{int(v * 60 * 100)}` |
+| `extrude_factor` | `%f` | `M221 S{int(v * 100)}` |
+| `absolute_coord`, `absolute_extrude` | `"1"` / `"0"` | true for `"1"`, `"true"`, `"yes"` |
+| `extruder_target`, `heater_bed_target`, `chamber_target` | integer string, `%f` when fractional | `M104`/`M140`/`M141 S{:.2f}` |
+| `cooling_fan_speed`, `auxiliary_cooling_fan_speed`, `chamber_circulation_fan_speed` | `%f`, 0..1 | `M106 [P2/P3] S{int(v * 255)}` |
+| `all_objects`, `exclude_objects` | JSON of `exclude_object.objects` / `.excluded_objects` | `json.loads` |
+| `plate_index` | `virtual_sdcard.plate_index`, default `"1"` | 3MF plate to extract |
+| `current_layer` | integer string | not read by the resume |
 
-**Residual, not fixable through QIDI's contract:** QIDI declares `SET_KINEMATIC_POSITION
-Z={gcode_position.z}` and later commands `G1 Z{gcode_position.z}` with the offset and mesh active,
-so the nozzle lands off by `gcode_offset_z + mesh(x,y)` (typically 0.05-0.3 mm) [inf from
-`qidi-src/klipper/virtual_sdcard.py#VirtualSD._set_printer_state_internal`]. One field feeds both
-the declaration and the final move, so it cannot be corrected without changing QIDI's sequence.
-Measured in the Q2 M1 test (§ 11.4); if it matters, the generic path is the fix.
+**Rounding.** The parser truncates with `int()`, so a plain `%f` sends the wrong integer for many
+values: `int(float("0.015000") * 60 * 100)` is 89, not 90. With `%f`, 119 of the M220 percentages
+10..300, 7 of the M221 percentages 10..200 and 125 of the 256 fan values come out one low; QIDI's
+own screen has the same fault. The adapter writes `%f` raised by the fewest millionths that make
+the parser send `round(value x scale)`.
+
+**Cadence.** Every key at job start, then changed keys at most 1 Hz; event saves bypass the
+throttle. One transaction for all changed keys through QIDI's in-process
+`update_value_from_config_batch` (`executemany` in one `with conn:`), else one
+`update_value_from_config` per key. QIDI's Moonraker deletes the section on complete, cancel and
+standby, and on a job start while history still holds a current job
+(`database.py#MoonrakerDatabase._on_job_state_changed`); the order of that handler against ours is
+not fixed, so the job's first full write waits 2 s after the start (`FIRST_WRITE_DELAY_S`).
+
+**Resume side** (§ 9 steps for `backend: "qidi_print_state"`).
+
+1. `prepare`: the bed and chamber wait of § 6.3 step 2; nozzle untouched.
+2. `commit`: the bed and chamber wait again (QIDI sends `M140` without `M190`, and the bed may have
+   cooled during the confirmations; at temperature it returns at once), then rewrite every row in
+   one transaction for the measured resume point (§ 6.2), then the helix-initiated marker, then
+   `printer.print.power_off_print` (in-process `klippy_apis.power_off_print`); the marker is
+   withdrawn if the call fails. Rows from the resume point's modal state: `gcode_position` X, Y and
+   E (where QIDI travels and what it `G92 E`s), `absolute_coord`, `absolute_extrude`, `speed`.
+3. `abort`: the rows stay, so the offer stands. `discard`: delete the `print_state` section.
+
+**+4096 rule.** `file_position` row = `clamp(offset, 0, file_size) + 4096`. QIDI never checks the
+row against the file size, so the row may exceed it, and QIDI's `max(row - 4096, 0)` lands exactly
+on the offset, including in the file's last 4 KiB (a `min(offset + 4096, file_size)` clamp would
+land up to 4 KiB early there).
+
+**What the `gcode_position.z` row can and cannot fix (O8).** QIDI declares
+`SET_KINEMATIC_POSITION Z=<row z>`, applies `SET_GCODE_OFFSET` and the mesh, and lands with
+`G1 Z<row z>`. The declared value becomes the frame every later line prints in, so the rest of the
+print is off by `(physical Z at the cut) - (row z)`.
+
+- Fixed: the adapter writes the physical (kinematic) Z, `live_pos.z`, else `toolhead_pos.z`, else
+  `gcode_pos.z + gcode_offset.z`. From the file's next Z move on, the print is in the right frame.
+  The gcode-frame Z QIDI's own screen stores leaves the whole remaining print off by
+  `gcode_offset_z + mesh(x, y at the cut)`.
+- Not fixable through the row: the declaration and the landing move share it, so the rest of the
+  resumed layer, until the file's next Z move, prints `gcode_offset_z + mesh(x, y at the cut)` high
+  (typically 0.05-0.3 mm) whatever the row holds. QIDI also loads
+  `BED_MESH_PROFILE LOAD={save_variables.profile_name}`, not a mesh from the rows, so an adaptive or
+  different mesh adds its own error. A cut mid Z-hop declares the hop height.
+- Measured in the Q2 M1 test (§ 11.4); if the remainder-of-layer error matters, the generic path is
+  the fix.
+
+**Limits of QIDI's endpoint.**
+
+- Objects: with more than 64 objects QIDI clears all objects AND exclusions before resuming, so
+  excluded objects print again. Object names go into `EXCLUDE_OBJECT_DEFINE NAME=<name>` unquoted.
+- The file QIDI prints: every job runs from QIDI's `.cache` copy
+  (`klippy_apis.py#KlippyAPI.start_print`), and a `.3mf` from the extracted
+  `Metadata/plate_<n>.gcode` (`virtual_sdcard.py#VirtualSD._load_file`). `file_position` counts
+  bytes of that file. For `.gcode` it matches the gcodes file; for `.3mf` the scan must run over
+  plate `<n>` extracted from the 3MF (`.temp` is wiped on every Klipper start), and its size is the
+  one the +4096 rule clamps to.
+- The resumed job's name: QIDI opens `glob(".cache/*")[0]` and passes that absolute path to
+  `print_stats`, so history records `/home/qidi/printer_data/.cache/<name>`. The marker is keyed on
+  that path; history is not rewritten back to the gcodes name, and snapshot identity for the
+  resumed job does not resolve under the gcodes root.
+
+**Q2 checks still owed** (§ 11.4): the stock-screen row capture (formats here come from the
+parser, not stored rows); the O8 first-layer height check with zero and non-zero Z offset (expect
+only the remainder-of-layer error); the 2 s first-write delay against the start-time delete; the
+resumed job's history filename; in-process behaviour of `update_value_from_config_batch` and
+`power_off_print`.
 
 **Offer.** `offer_verdict` as § 8 plus "the `print_state` section has a `file_position` row".
 The app's legacy QIDI backend (`DETECT_INTERRUPTION` + `was_interrupted`) must not select on this
@@ -677,8 +901,8 @@ Other pytest:
 - `render_prepare_script` / `render_commit_script`: golden files for tier 1, tier 2, saved mesh,
   include-file mesh, no mesh, purge macro vs generic purge, subfolder file (symlink path).
 - `generic_purge_xy`: objects covering the front edge pick another edge; full-bed objects -> None.
-- QIDI adapter: row formats against the #1716 table (`speed_factor` 0.016667 at 100 %), +4096 with
-  clamp at file end, offset < 4096.
+- QIDI adapter: row formats against the #1716 table (`speed_factor` 0.016667 at 100 %), the +4096
+  rule (clamp the offset into the file, then add 4096), offset < 4096.
 - Lifecycle: cleared on complete/cancel, kept on error and restart, no writes while paused.
 - `commit` refuses missing confirmations, stale `plan_id`.
 - Python 3.8 job runs these (umbrella Phase 0 adds it).
@@ -794,11 +1018,37 @@ does on the host side.
 | Q2, K1C, Voron V0 | Lead logging, 5 min of walls and infill | M3 | § 6.1 lead; walk line choice offline |
 | K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` on real `/sys` | M3 | § 7.4 |
 | eMMC host and SD host | 3 reboots each mid-print, slot file read back | M2 | Slot durability on real filesystems |
-| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | Pass: median <= 30 s, scan at resume ships. Fail: background per-layer checkpoints join v1 (O3) |
+| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | **Done 2026-10-21: FAIL, 394 s median (§ 11.5).** Background per-layer checkpoints join v1 (O3) |
 | One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out |
 | One tier-2 model (dedicated Z `enable_pin`s) | Z hold: kill, wait 10 / 30 / 60 min, measure Z drift with a dial indicator before resume; adhesion: same waits, PLA and PETG | M1 + wait | Z holds unpowered; adhesion; cold-bed threshold (O6) |
 | Any eMMC host | `/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | M3 | § 5.2 numbers |
 | `--test` mock | Offer, wizard steps, tier 1 and 2, every `HELIX_MOCK_PLR_WARNINGS` and `_FAIL` value | M3 | App flow before any hardware run |
+
+### 11.5 T1 result (2026-10-21)
+
+**Verdict: fail.** Median 394 s against the 30 s bar, so background per-layer checkpoints join v1
+(O3). Scan at resume time stays, but only from the current layer's checkpoint.
+
+| Host | Interpreter | Runs (wall s) | Median wall | Median CPU | Peak RSS |
+|---|---|---|---|---|---|
+| K1C (Ingenic XBurst2 MIPS, 2 cores, 214 MB RAM, Buildroot 2020.02, eMMC `/usr/data`), printer idle in `standby` | Moonraker's own `/usr/data/moonraker-env/bin/python3`, CPython 3.8.2 | 395.0, 393.6, 394.1 | **394.1 s** | 388.1 s | 8.7 MiB (7.0-7.7 before the scan) |
+| K1C, page cache dropped first (as after a reboot) | same | 403.1 | 403.1 s | 394.8 s | 8.7 MiB |
+| thelio (Ryzen 9 9950X) | CPython 3.8.20 | 4.12, 4.31, 4.33 | 4.31 s | 4.31 s | 18.6 MiB |
+| thelio | CPython 3.12.3 | 4.92, 4.83, 4.80 | 4.83 s | 4.82 s | 16.9 MiB |
+
+The K1C is ~90x slower than thelio and CPU-bound (wall within 2 % of CPU; cold cache adds ~2 %).
+No reducer change closes that gap: on the K1C, merely iterating the file's lines in Python takes
+13.4 s, splitting every line 20.4 s, and testing every line for a layer marker 28.8 s. A follower
+that runs the full reducer over a print costs the same ~390 s of CPU, spread over the print's hours.
+
+File: `t1_eiffel_100mb.gcode`, 104,815,389 bytes, 5,162,780 lines, 6048 layers, sha1
+`23014ecdacee3b915a7e9479f61b323bc8e7a4a0`. Built by `moonraker-plugin/tools/make_t1_gcode.py
+assets/test_gcodes/eiffel_final_PLA_2h42m.gcode OUT --size-mb 100` (OrcaSlicer 2.4.2, M83,
+`SET_PRINT_STATS_INFO`, no arcs): the start and config blocks once, the print body stacked 8 times
+with Z raised and layer numbers continued, so the line mix is Orca's own (94 % `G1`, plus
+`SET_VELOCITY_LIMIT`, `M106`, `;TYPE`/`;WIDTH`/`;WIPE` comments). Timed with
+`moonraker-plugin/tools/plr_t1_scan_timing.py FILE --runs 3`, each run a fresh child process,
+scanning to 1 KiB before the end.
 
 ---
 
@@ -873,8 +1123,11 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
 
 - First: implement umbrella Phase 0 (features map, `plugin_feature()`, own-switch rule, the
   helix-initiated job marker, the Python 3.8 CI job).
-- T1 (§ 11.4): the K1C scan measurement decides whether background checkpoints are in v1.
-- `helix_gcode_reader.py`: the shared reader (§ 3.3), built here and reused by umbrella Phase 1.
+- T1 (§ 11.4): measured 2026-10-21, failed (§ 11.5), so background per-layer checkpoints are in
+  v1: the follower writes the layer_index sidecar through `helix_gcode_reader.py`
+  (`scan_to_offset(..., throttle=RateLimiter(...).pace, on_layer_start=...)`).
+- `helix_gcode_reader.py`: the shared reader (§ 3.3), built here and reused by umbrella Phase 1
+  (built 2026-10-21; `moonraker-plugin/tests/test_helix_gcode_reader.py`).
 - `helix_plr.py`, `helix_plr_scan.py`: snapshot loop and slot store, storage verdict, offer,
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
@@ -915,4 +1168,4 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
   with `scripts/syntax_check.py`; the Python blocks parsed with `ast.parse(feature_version=(3, 8))`
   and `py_compile`. That checks 3.8 grammar only; no 3.8 interpreter was available, so stdlib
   API use is left to the 3.8 CI job.
-- T1 measured.
+- T1 measured: done 2026-10-21, K1C median 394 s, fail; checkpoints join v1 (§ 11.5).

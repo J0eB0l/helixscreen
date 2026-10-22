@@ -15,6 +15,7 @@
 #include "ui_filename_utils.h"
 
 #include "macro_manager.h"
+#include "plr_backend.h"
 #include "state/subject_macros.h"
 
 #include <spdlog/spdlog.h>
@@ -35,6 +36,10 @@ void PrinterPluginStatusState::init_subjects(bool register_xml) {
     INIT_SUBJECT_INT(helix_plugin_installed, -1, subjects_, register_xml);
     INIT_SUBJECT_INT(helix_macros_status, static_cast<int>(HelixMacrosStatus::Unknown), subjects_,
                      register_xml);
+    INIT_SUBJECT_INT(plr_feature_state, static_cast<int>(PluginFeatureState::Absent), subjects_,
+                     register_xml);
+    INIT_SUBJECT_INT(plr_saving_enabled, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(helix_plugin_probe_seq, 0, subjects_, register_xml);
 
     // Fresh subjects mean a fresh session: re-initialization (test fixtures
     // re-init the shared PrinterState between cases) must not read a base
@@ -61,6 +66,23 @@ void PrinterPluginStatusState::set_installed(bool installed) {
     lv_subject_set_int(&helix_plugin_installed_,
                        installed ? kHelixPluginInstalled : kHelixPluginAbsent);
     spdlog::info("[PrinterPluginStatusState] HelixPrint plugin installed: {}", installed);
+    publish_plr_feature();
+}
+
+void PrinterPluginStatusState::publish_plr_feature() {
+    if (!subjects_initialized_) {
+        return;
+    }
+    const PluginFeatureState state = plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);
+    lv_subject_set_int(&plr_feature_state_, static_cast<int>(state));
+    bool saving = state == PluginFeatureState::Ready;
+    if (state != PluginFeatureState::Absent) {
+        const auto it = features_.find(kPlrFeatureName);
+        if (it != features_.end() && it->second.saving) {
+            saving = *it->second.saving;
+        }
+    }
+    lv_subject_set_int(&plr_saving_enabled_, saving ? 1 : 0);
 }
 
 void PrinterPluginStatusState::set_link_dir(const std::string& dir) {

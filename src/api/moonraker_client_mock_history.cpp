@@ -76,7 +76,6 @@ void register_history_handlers(std::unordered_map<std::string, MethodHandler>& r
         [](MoonrakerClientMock* self, const json& params,
            std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
-        (void)self;
         (void)error_cb;
 
         // Dynamically scan test gcode directory - same source as file list mock
@@ -88,7 +87,12 @@ void register_history_handlers(std::unordered_map<std::string, MethodHandler>& r
 
         // Status distribution: ~70% completed, ~15% cancelled, ~15% error
         // Using simple pattern: every 7th is cancelled, every 8th is error
-        auto get_status = [](size_t idx) -> const char* {
+        // A power-loss snapshot on record makes the newest job the
+        // interrupted one, as Moonraker marks it after the restart.
+        const bool interrupted = self->mock_plr_interrupted();
+        auto get_status = [interrupted](size_t idx) -> const char* {
+            if (idx == 0 && interrupted)
+                return "interrupted";
             if (idx % 8 == 7)
                 return "error";
             if (idx % 7 == 6)

@@ -962,6 +962,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// CANCEL_PRINT clears both schedules, as client.cfg's does.
     void reset_layer_pause();
 
+    /// HELIX_MOCK_PLR with HELIX_MOCK_HELIX_PLUGIN: the plugin's `plr`
+    /// feature entry for server.helix.status; null when the knob is off.
+    /// `enabled` follows a written `helix-screen` / `plr_user`, on by default.
+    [[nodiscard]] json mock_plr_feature_entry();
+    /// A power-loss snapshot is on record: the newest history job reads
+    /// `interrupted` until a discard or a resume clears it.
+    [[nodiscard]] bool mock_plr_interrupted() const;
+    /// The plugin's saving switch: a written `plr_user.enabled`, else on.
+    [[nodiscard]] bool mock_plr_saving();
+    /// Answer one server.helix.plr.* request (moonraker_client_mock_plr.cpp).
+    void mock_plr_request(const std::string& method, const json& params,
+                          std::function<void(const json&)> success_cb,
+                          std::function<void(const MoonrakerError&)> error_cb);
+
     /// A print-start step reaching its wrapper: true, and the flag restored,
     /// when a skip was set for it.
     bool consume_skip(helix::skip_wrappers::Op op);
@@ -2106,6 +2120,12 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// Last layer announced on the console. Sim thread only.
     int last_console_layer_ = 0;
     int layer_pause_last_layer_ = 0; ///< status thread only
+    /// server.helix.plr.* state: the snapshot is kept until a discard or a
+    /// committed resume, and each plan request issues a new plan id. Main
+    /// thread only, like every mock RPC handler.
+    bool plr_snapshot_cleared_ = false;
+    int plr_plan_seq_ = 0;
+    std::string plr_plan_id_;
     std::atomic<bool> layer_pause_next_{false};
     std::atomic<int> layer_pause_next_armed_at_{0}; ///< layer the request arrived on
     std::atomic<bool> layer_pause_at_enable_{false};

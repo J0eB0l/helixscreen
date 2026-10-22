@@ -25,6 +25,8 @@ Both sharing and control are **off** until you turn them on, on the printer itse
 On some printers a **Pairing Code** row appears once control is on. See [Two ways it works](#two-ways-it-works) below for which printers, and why.
 
 > The rows are hidden on printers whose own firmware already shares its screen, such as the Snapmaker U1 with its stock screen page. Use that instead.
+>
+> Screen sharing isn't available in the Android app or on the BigTreeTech K-Touch.
 
 Turning **Share Screen** off stops it straight away and removes the webcam from Mainsail and Fluidd.
 

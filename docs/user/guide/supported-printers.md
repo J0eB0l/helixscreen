@@ -221,6 +221,7 @@ If your printer isn't in the list above, it still works — it just uses generic
 - Macros, console, and the file browser / print controls
 - Firmware retraction, chamber heating, input shaper, exclude-objects, and [Spoolman](filament-tracking.md) — each when detected
 - Timelapse, when the Moonraker-Timelapse plugin is installed
+- [Screen sharing and remote control](screen-sharing.md) from a browser, and as a webcam in Mainsail and Fluidd
 
 The printer database (100+ models across Voron, RatRig, Prusa-on-Klipper, VzBot, Elegoo Neptune, Sovol, Anycubic, Artillery, FLSUN - including the S1 and S1 Pro - Kingroon, Zero G, and more) adds the finishing touches — your printer's name, image, bed size, and preset options. A printer that isn't in the database misses only those cosmetic and preset details; every control above still works.
 

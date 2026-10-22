@@ -485,7 +485,7 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
     // subject stays at its -1 unknown and every surface gated on it is
     // unreachable in a mock run.
     registry["server.helix.status"] =
-        [](MoonrakerClientMock* /*self*/, const json& /*params*/,
+        [](MoonrakerClientMock* self, const json& /*params*/,
            std::function<void(const json&)> success_cb,
            std::function<void(const MoonrakerError&)> error_cb) -> bool {
         const char* mode = std::getenv("HELIX_MOCK_HELIX_PLUGIN");
@@ -518,6 +518,9 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                            {"symlink_dir", link_dir && *link_dir ? link_dir : ".helix_print"},
                            {"api", 2},
                            {"features", {{"convert_3mf", convert_3mf}}}}}};
+        if (json plr = self->mock_plr_feature_entry(); !disabled && !plr.is_null()) {
+            response["result"]["features"]["plr"] = std::move(plr);
+        }
         if (success_cb) {
             success_cb(response);
         }

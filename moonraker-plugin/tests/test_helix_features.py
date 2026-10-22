@@ -668,3 +668,20 @@ class TestFinishRename:
         assert markers.kind_of("00001A", "benchy.gcode", T0) == "plr_resume"
         assert markers.kind_of("00001A", ".helix_print/full/benchy.gcode", T0) == "plr_resume"
         assert markers.kind_of("00001A", "cube.gcode", T0) is None
+
+
+def test_a_features_extra_fields_join_its_entry_and_cannot_replace_the_base(helix_print_component):
+    import asyncio
+
+    async def extra():
+        return {"saving": True, "enabled": "overridden"}
+
+    async def boom():
+        raise RuntimeError("probe failed")
+
+    helix_print_component.register_feature("demo", 1, acts=False, extra=extra)
+    helix_print_component.register_feature("broken", 1, acts=False, extra=boom)
+    features = asyncio.run(helix_print_component._features_status())
+    assert features["demo"]["saving"] is True and features["demo"]["enabled"] is True
+    assert features["broken"] == {"version": 1, "available": True, "enabled": True,
+                                  "reason": None}

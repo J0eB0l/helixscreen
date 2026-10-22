@@ -422,6 +422,7 @@
   <translation tag="Bed clear · Start next" ru="Стол свободен · Запустить следующую"/>
   <translation tag="Bed cooling, spools still on the bed:" ru="Стол остывает, катушки всё ещё на нём:"/>
   <translation tag="Bed is Level!" ru="Стол выровнен!"/>
+  <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." ru="Стол нагрет до {:.0f}°C, печати нужно {:.0f}°C."/>
   <translation tag="Bed mesh calibration failed: {}" ru="Ошибка калибровки сетки стола: {}"/>
   <translation tag="Bed mesh operation timed out" ru="Сетка стола — время ожидания истекло"/>
   <translation tag="Bed mesh..." ru="Сетка стола..."/>
@@ -430,6 +431,8 @@
   <translation tag="Bed target set to {}°C" ru="Целевая температура стола {}°C"/>
   <translation tag="Bed temp must be 0-%d°C" ru="Температура стола должна быть 0-%d°C"/>
   <translation tag="Bed warming timed out" ru="Нагрев стола — время ожидания истекло"/>
+  <translation tag="Bed {:.0f} / {:.0f}°C" ru="Стол {:.0f} / {:.0f}°C"/>
+  <translation tag="Bed {:.0f}°C" ru="Стол {:.0f}°C"/>
   <translation tag="Before starting" ru="Перед началом"/>
   <translation tag="Below target" ru="Ниже цели"/>
   <translation tag="Belt Tension" ru="Натяжение ремня"/>
@@ -1455,6 +1458,7 @@
   <translation tag="File not found: {}" ru="Файл не найден: {}"/>
   <translation tag="Filename" ru="Имя файла"/>
   <translation tag="Filter Fan" ru="Вентилятор фильтра"/>
+  <translation tag="Finding where the print stopped..." ru="Поиск места, где остановилась печать..."/>
   <translation tag="Fine" ru="Точно"/>
   <translation tag="Fine Inner" ru="Точно (внутренний)"/>
   <translation tag="Fine Outer" ru="Точно (внешний)"/>
@@ -1575,6 +1579,7 @@
   <translation tag="Heat Capacity" ru="Теплоёмкость"/>
   <translation tag="Heat Soak" ru="Прогрев"/>
   <translation tag="Heat Soaking..." ru="Прогрев..."/>
+  <translation tag="Heat and Home" ru="Нагреть и запарковать"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." ru="Нагрейте стол перед калибровкой для точного смещения с учётом теплового расширения."/>
   <translation tag="Heat nozzle" ru="Нагреть сопло"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." ru="Прогрев камеры даёт корпусу нагреться перед печатью. Он показан, потому что у принтера есть макрос прогрева или он включён в настройках; HelixScreen его не запускает."/>
@@ -1609,6 +1614,8 @@
   <translation tag="Heating nozzle" ru="Нагрев сопла"/>
   <translation tag="Heating nozzle to $1°C..." ru="Нагрев сопла до $1°C..."/>
   <translation tag="Heating nozzle..." ru="Нагрев сопла..."/>
+  <translation tag="Heating the bed" ru="Нагрев стола"/>
+  <translation tag="Heating the nozzle" ru="Нагрев сопла"/>
   <translation tag="Heating to %d°C... %.0f°C" ru="Нагрев до %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ru="Нагрев до {}°C перед «{}»..."/>
   <translation tag="Heating to {}°C for {}..." ru="Нагрев до {}°C в течение {}..."/>
@@ -1654,6 +1661,7 @@
   <translation tag="Home printer first?" ru="Сначала запарковать принтер?"/>
   <translation tag="Homing AFC system..." ru="Парковка системы AFC..."/>
   <translation tag="Homing Failed" ru="Ошибка парковки"/>
+  <translation tag="Homing X and Y" ru="Парковка X и Y"/>
   <translation tag="Homing X..." ru="Парковка X..."/>
   <translation tag="Homing XY..." ru="Парковка XY..."/>
   <translation tag="Homing Y..." ru="Парковка Y..."/>
@@ -1886,6 +1894,7 @@
   <translation tag="Layer mode captures one frame per layer change. Best for most prints." ru="Послойный режим захватывает один кадр на каждую смену слоя. Лучший выбор для большинства печатей."/>
   <translation tag="Layer {} of {} · {:.2f} mm" ru="Слой {} из {} · {:.2f} мм"/>
   <translation tag="Layer {} of {}." ru="Слой {} из {}."/>
+  <translation tag="Layer {}, Z {:.2f} mm" ru="Слой {}, Z {:.2f} мм"/>
   <translation tag="Layers" ru="Слои"/>
   <translation tag="Layout" ru="Раскладка"/>
   <translation tag="Layout changes are off in safe mode. Restart to edit." ru="Изменение раскладки отключено в безопасном режиме. Перезапустите, чтобы редактировать."/>
@@ -1901,6 +1910,7 @@
   <translation tag="Level" ru="Уровень"/>
   <translation tag="Leveling Gantry..." ru="Выравнивание портала..."/>
   <translation tag="Library" ru="Библиотека"/>
+  <translation tag="Lifting the nozzle clear of the print" ru="Подъём сопла над печатью"/>
   <translation tag="Light" ru="Подсветка"/>
   <translation tag="Light Mode" ru="Светлый режим"/>
   <translation tag="Light will switch when the current operation finishes" ru="Подсветка переключится после завершения текущей операции"/>
@@ -1972,9 +1982,12 @@
   <translation tag="Loosen {}" ru="Ослабить {}"/>
   <translation tag="Lost connection during print — try again" ru="Потеряно соединение во время печати — попробуйте снова"/>
   <translation tag="Lost connection to CFS unit" ru="Потеряна связь с блоком CFS"/>
+  <translation tag="Lost the connection to the printer." ru="Связь с принтером потеряна."/>
   <translation tag="Lot # (optional)" ru="Партия # (необязательно)"/>
   <translation tag="Lot/Batch Nr" ru="Nr. партии/серии"/>
   <translation tag="Low Memory" ru="Мало памяти"/>
+  <translation tag="Lower" ru="Опустить"/>
+  <translation tag="Lower the nozzle until it just touches the top of the print, then resume." ru="Опустите сопло, пока оно едва не коснётся верха печати, затем продолжите."/>
   <translation tag="Lowest notification level that interrupts with a toast" ru="Минимальный уровень уведомления, прерывающий всплывающим сообщением"/>
   <translation tag="M to toggle" ru="M для переключения"/>
   <translation tag="MAC:" ru="MAC:"/>
@@ -2135,7 +2148,9 @@
   <translation tag="Move speed multipliers" ru="Множители скорости перемещения"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." ru="Перемещайте печатающую головку, паркуйте оси, выравнивайте стол и точно настраивайте температуры, вентиляторы и другие параметры движения."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." ru="Перемещает печатающую головку для измерения частот вибрации по каждой оси. Занимает 2-3 минуты. Принтер будет шуметь — это нормально."/>
+  <translation tag="Moving back to the print" ru="Возврат к печати"/>
   <translation tag="Moving lane" ru="Перемещение канала"/>
+  <translation tag="Moving over the resume point" ru="Перемещение к точке продолжения"/>
   <translation tag="Moving the plate..." ru="Перемещение стола..."/>
   <translation tag="Moving {} to the front..." ru="Перемещение вперёд: {}..."/>
   <translation tag="Multi-Filament" ru="Мульти-филамент"/>
@@ -2552,7 +2567,11 @@
   <translation tag="Power Devices" ru="Устройства питания"/>
   <translation tag="Power devices Moonraker can switch. Turn them on and off on the Power screen." ru="Устройства питания, которые может переключать Moonraker. Включаются и выключаются на экране «Питание»."/>
   <translation tag="Power off the printer or screen" ru="Выключить принтер или экран"/>
+  <translation tag="Power was lost about {} hours ago." ru="Питание пропало примерно {} ч назад."/>
+  <translation tag="Power was lost about {} minutes ago." ru="Питание пропало примерно {} мин назад."/>
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" ru="Во время печати пропало питание; принтер остановился и сохранил прогресс"/>
+  <translation tag="Power was lost less than a minute ago." ru="Питание пропало меньше минуты назад."/>
+  <translation tag="Power-loss recovery" ru="Восстановление после отключения питания"/>
   <translation tag="Pre-heat the extruder first" ru="Сначала прогрейте экструдер"/>
   <translation tag="Pre-print command failed: {}" ru="Ошибка команды перед печатью: {}"/>
   <translation tag="Pre-print homing..." ru="Парковка перед печатью..."/>
@@ -2575,6 +2594,7 @@
   <translation tag="Preparing" ru="Подготовка"/>
   <translation tag="Preparing Print" ru="Подготовка печати"/>
   <translation tag="Preparing Print..." ru="Подготовка печати..."/>
+  <translation tag="Preparing the printer" ru="Подготовка принтера"/>
   <translation tag="Preparing to Print..." ru="Подготовка к печати..."/>
   <translation tag="Preparing to clean..." ru="Подготовка к очистке..."/>
   <translation tag="Preparing..." ru="Подготовка..."/>
@@ -2641,6 +2661,7 @@
   <translation tag="Print issue detected" ru="Обнаружена проблема печати"/>
   <translation tag="Print jobs waiting to run" ru="Задания печати в очереди"/>
   <translation tag="Print preparation failed: {}" ru="Ошибка подготовки печати: {}"/>
+  <translation tag="Print resumed" ru="Печать продолжена"/>
   <translation tag="Print server rejected the job — check printer status" ru="Сервер печати отклонил задание — проверьте статус принтера"/>
   <translation tag="Print setup failed" ru="Не удалось подготовить печать"/>
   <translation tag="Print setup failed: internal error" ru="Не удалось подготовить печать: внутренняя ошибка"/>
@@ -2796,6 +2817,7 @@
   <translation tag="RSS" ru="RSS"/>
   <translation tag="RSS:" ru="RSS:"/>
   <translation tag="Rails" ru="Направл."/>
+  <translation tag="Raise" ru="Поднять"/>
   <translation tag="Ramming Volume" ru="Объём рэмминга"/>
   <translation tag="Ramp: band {} of {}" ru="Рампа: полоса {} из {}"/>
   <translation tag="Ramp: base layers" ru="Рампа: базовые слои"/>
@@ -2956,13 +2978,20 @@
   <translation tag="Restore Defaults" ru="Восстановить по умолчанию"/>
   <translation tag="Restore tool" ru="Вернуть инструмент"/>
   <translation tag="Restoring position" ru="Восстановление позиции"/>
+  <translation tag="Restoring the print settings" ru="Восстановление настроек печати"/>
   <translation tag="Resume" ru="Продолжить"/>
   <translation tag="Resume Print" ru="Продолжить печать"/>
   <translation tag="Resume Requires Restart" ru="Для возобновления нужен перезапуск"/>
+  <translation tag="Resume canceled" ru="Продолжение отменено"/>
+  <translation tag="Resume even though the bed cooled down" ru="Продолжить, хотя стол остыл"/>
+  <translation tag="Resume failed" ru="Не удалось продолжить"/>
   <translation tag="Resume interrupted print?" ru="Продолжить прерванную печать?"/>
   <translation tag="Resume macro not configured" ru="Макрос возобновления не настроен"/>
   <translation tag="Resume preparation failed" ru="Не удалось подготовиться к возобновлению"/>
+  <translation tag="Resume without the bed mesh this print used" ru="Продолжить без сетки стола этой печати"/>
+  <translation tag="Resuming is not set up for this printer." ru="Продолжение не настроено для этого принтера."/>
   <translation tag="Resuming print..." ru="Возобновление печати..."/>
+  <translation tag="Resuming the print" ru="Продолжение печати"/>
   <translation tag="Resuming would print with a different nozzle. Change tools after the print." ru="При продолжении печать пойдёт другим соплом. Меняйте инструмент после печати."/>
   <translation tag="Resuming..." ru="Возобновление..."/>
   <translation tag="Retract" ru="Ретракция"/>
@@ -3064,6 +3093,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." ru="Сохранено в {}. Применяется каждый раз, когда этот филамент становится активным."/>
   <translation tag="Saved values, and whether to ask before running" ru="Сохранённые значения и запрос перед запуском"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." ru="Сохранено. Spoolman не в сети, поэтому цена, расположение, партия и заметки остаются здесь несохранёнными."/>
+  <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." ru="Сохраняет позицию печати примерно раз в секунду, чтобы печать можно было продолжить после отключения питания. На SD-карте это увеличивает износ."/>
   <translation tag="Saves to Klipper config and restarts firmware." ru="Сохраняет в конфигурацию Klipper и перезапускает прошивку."/>
   <translation tag="Saving Configuration..." ru="Сохранение конфигурации..."/>
   <translation tag="Saving Z-offset..." ru="Сохранение Z-offset..."/>
@@ -3198,6 +3228,7 @@
   <translation tag="Set up" ru="Настроить"/>
   <translation tag="Set up your label printer in Settings" ru="Настройте принтер этикеток в Настройках"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." ru="Укажите, что на самом деле выбрано и загружено. Ничего не двигается."/>
+  <translation tag="Setting the nozzle height" ru="Установка высоты сопла"/>
   <translation tag="Settings" ru="Настройки"/>
   <translation tag="Settings Snapshot" ru="Снимок настроек"/>
   <translation tag="Settings reset to defaults. Restarting..." ru="Настройки сброшены к значениям по умолчанию. Перезапуск..."/>
@@ -3244,6 +3275,7 @@
   <translation tag="Size" ru="Размер"/>
   <translation tag="Skip" ru="Пропустить"/>
   <translation tag="Skip Objects..." ru="Пропустить объекты..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" ru="Пропустить остаток этого слоя и продолжить со следующего"/>
   <translation tag="Skipped" ru="Пропущено"/>
   <translation tag="Sleep While Printing" ru="Спящий режим при печати"/>
   <translation tag="Sleep adjusted to match dim timeout" ru="Таймаут сна изменён"/>
@@ -3363,6 +3395,7 @@
   <translation tag="Starting download..." ru="Начало загрузки..."/>
   <translation tag="Starting nozzle clean..." ru="Запуск очистки сопла..."/>
   <translation tag="Starting print..." ru="Запуск печати..."/>
+  <translation tag="Starting the print" ru="Запуск печати"/>
   <translation tag="Starting {}…" ru="Запуск {}…"/>
   <translation tag="Starting..." ru="Запуск..."/>
   <translation tag="Starts after the current print" ru="Начнётся после текущей печати"/>
@@ -3542,6 +3575,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." ru="Платы контроллеров, на которых работает Klipper. Их загрузку можно посмотреть в системных настройках."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" ru="Лезвие не вернулось. Проверьте, не намотался ли филамент на режущий механизм"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" ru="Резак смещён. Выполните повторную калибровку командой CALIBRATE_CUT_POS"/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." ru="Точное место остановки не найдено. Печать продолжится с начала следующего слоя, остаток этого слоя будет пропущен."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" ru="Экструдер не может тянуть равномерно. Проверьте катушку на запутывание или узел, а трубку PTFE на резкий изгиб"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." ru="Филамент не дошёл до сопла. CFS не сообщила об ошибке, но датчик печатающей головки по-прежнему не видит филамент. Проверьте, что катушка установлена правильно и путь свободен, затем повторите попытку."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" ru="Возможно, филамент втянут не полностью. Повторите или вытяните вручную"/>
@@ -3570,6 +3604,8 @@
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." ru="Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут."/>
   <translation tag="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself." ru="Сопло делает несколько коротких тестовых перемещений в углу, в стороне от зоны печати, и повторяет их до сходимости."/>
   <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." ru="Сопло нагреется до 200°C, пока обдув перебирает скорости. Для точного результата установите воздуховод так же, как при печати. Это займёт несколько минут."/>
+  <translation tag="The nozzle is back above the print at the height it stopped at. Check that it sits just above the top of the print, then resume." ru="Сопло снова над печатью на той высоте, где оно остановилось. Убедитесь, что оно чуть выше верха печати, затем продолжите."/>
+  <translation tag="The nozzle is clear of the print" ru="Сопло не касается печати"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." ru="Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее»."/>
   <translation tag="The plate and the spools are still hot. Use gloves." ru="Стол и катушки ещё горячие. Используйте перчатки."/>
   <translation tag="The plate finishes its current move, but drying will not start." ru="Стол завершит текущее перемещение, но сушка не начнётся."/>
@@ -3577,6 +3613,7 @@
   <translation tag="The print is canceled and you pick the best band from what has printed so far." ru="Печать будет отменена, и вы выберете лучшую полосу из уже напечатанного."/>
   <translation tag="The print is on its last layer." ru="Печатается последний слой."/>
   <translation tag="The print is paused. Changing tools now moves the toolhead and swaps the filament at the nozzle. Resume the print once the change finishes." ru="Печать на паузе. Смена инструмента сейчас переместит печатающую головку и заменит филамент в сопле. Возобновите печать после завершения смены."/>
+  <translation tag="The print is still stuck to the bed" ru="Модель всё ещё держится на столе"/>
   <translation tag="The print is waiting for the chamber to reach {}°C, but the heater is not heating." ru="Печать ждёт, пока камера нагреется до {}°C, но нагреватель не греет."/>
   <translation tag="The print is waiting for the chamber, but the heater is not heating." ru="Печать ждёт камеру, но нагреватель не греет."/>
   <translation tag="The printable size in millimeters (X × Y × Z), from the axis limits in the printer&apos;s Klipper config." ru="Размер области печати в миллиметрах (X × Y × Z) по пределам осей в конфигурации Klipper принтера."/>
@@ -3585,6 +3622,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." ru="Принтер может автоматически измерить смещение каждого инструмента. Запустите это на экране калибровки смещений инструментов."/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." ru="Принтер может сам измерить pressure advance. Запускается на экране «Калибровка PA»."/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." ru="Принтер может встать на паузу на выбранном слое, для смены филамента или вставки детали. Слой задается в предпросмотре печати."/>
+  <translation tag="The printer could not work out where to resume." ru="Принтер не смог определить, откуда продолжить."/>
   <translation tag="The printer did not change its bed check" ru="Принтер не изменил проверку стола"/>
   <translation tag="The printer did not change its bed check: {}" ru="Принтер не изменил проверку стола: {}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." ru="Принтер выдавливает пластик в углу и повторяет, пока показания не сойдутся. Ничего не нужно оценивать на глаз."/>
@@ -3603,6 +3641,8 @@
   <translation tag="The printer lost power during a print. The resumed layer may not line up exactly." ru="Принтер потерял питание во время печати. Возобновлённый слой может не совпасть точно."/>
   <translation tag="The printer lost power while printing {}. Resume where it left off?" ru="Принтер потерял питание при печати {}. Продолжить с места остановки?"/>
   <translation tag="The printer lost power while printing {}. The resumed layer may not line up exactly." ru="Принтер потерял питание при печати {}. Возобновлённый слой может не совпасть точно."/>
+  <translation tag="The printer no longer has a print to resume." ru="У принтера больше нет печати для продолжения."/>
+  <translation tag="The printer reads the file up to the last saved position. A large file can take a minute." ru="Принтер читает файл до последней сохранённой позиции. Большой файл может занять минуту."/>
   <translation tag="The printer records lane {} in the toolhead, not this one" ru="По записи принтера в печатающей головке канал {}, а не этот"/>
   <translation tag="The printer refused that port: check the port (Moonraker is usually 7125)." ru="Принтер отклонил этот порт: проверьте порт (Moonraker обычно использует 7125)."/>
   <translation tag="The printer rejected the filament configuration. The print was not started." ru="Принтер отклонил конфигурацию филамента. Печать не была запущена."/>
@@ -3613,6 +3653,7 @@
   <translation tag="The requested position is outside the printer&apos;s bounds" ru="Запрошенная позиция находится за пределами рабочей области принтера"/>
   <translation tag="The right RFID reader in this CFS unit may need service" ru="Правому RFID-считывателю этого блока CFS может требоваться обслуживание"/>
   <translation tag="The runout sensor indicates no filament is loaded. Start print anyway?" ru="Датчик окончания филамента показывает, что филамент не загружен. Всё равно начать печать?"/>
+  <translation tag="The saved position is kept. Reconnect or restart the screen to be offered the resume again." ru="Сохранённая позиция остаётся. Переподключитесь или перезапустите экран, чтобы снова получить предложение продолжить."/>
   <translation tag="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service" ru="Не удаётся считать датчик этого блока CFS. Проверьте подключение, иначе блоку требуется обслуживание"/>
   <translation tag="The speed of one fan you choose" ru="Скорость выбранного вентилятора"/>
   <translation tag="The time, date, and system uptime" ru="Время, дата и время работы системы"/>
@@ -3688,6 +3729,7 @@
   <translation tag="This replaces the printer&apos;s helper macros with the current version and restarts Klipper." ru="Это заменит вспомогательные макросы принтера текущей версией и перезапустит Klipper."/>
   <translation tag="This replaces the printer&apos;s helper macros with the current version. A print is running, so Klipper restarts after it finishes." ru="Это заменит вспомогательные макросы принтера текущей версией. Идёт печать, поэтому Klipper перезапустится после её завершения."/>
   <translation tag="This replaces this screen&apos;s home layout for this printer with the one on the printer&apos;s own screen." ru="Раскладка главного экрана этого экрана для данного принтера будет заменена раскладкой с экрана самого принтера."/>
+  <translation tag="This resume needs a newer version of HelixScreen." ru="Для этого продолжения нужна более новая версия HelixScreen."/>
   <translation tag="This slot feeds no tool" ru="Этот слот не подаёт филамент ни в один инструмент"/>
   <translation tag="This spool&apos;s details haven&apos;t loaded from Spoolman yet. Try Save again." ru="Данные этой катушки ещё не загружены из Spoolman. Нажмите «Сохранить» ещё раз."/>
   <translation tag="This system does not support bypass mode" ru="Эта система не поддерживает режим обхода"/>
@@ -3974,6 +4016,7 @@
   <translation tag="Wait for the current filament operation to finish" ru="Дождитесь завершения текущей операции с филаментом"/>
   <translation tag="Wait for the current operation to complete" ru="Дождитесь завершения текущей операции"/>
   <translation tag="Wait for the current operation to complete or cancel it first" ru="Дождитесь завершения текущей операции или сначала отмените её"/>
+  <translation tag="Wait for the nozzle to stop moving" ru="Дождитесь остановки сопла"/>
   <translation tag="Wait for the running INDX operation to finish" ru="Дождитесь завершения текущей операции INDX"/>
   <translation tag="Wait until the print finishes" ru="Дождитесь завершения печати"/>
   <translation tag="Waiting for %s to finish. One heater at a time." ru="Ожидание завершения %s. Только один нагреватель одновременно."/>
@@ -3982,7 +4025,9 @@
   <translation tag="Waiting for bed to reach temperature for accurate calibration." ru="Ожидание нагрева стола для точной калибровки."/>
   <translation tag="Waiting for chamber {} / {}°C" ru="Ожидание камеры {} / {}°C"/>
   <translation tag="Waiting for chamber {}°C" ru="Ожидание камеры {}°C"/>
+  <translation tag="Waiting for the chamber to heat" ru="Ожидание нагрева камеры"/>
   <translation tag="Waiting for the filament system to report its state" ru="Ожидание состояния системы филамента"/>
+  <translation tag="Waiting for the printer" ru="Ожидание принтера"/>
   <translation tag="Warm" ru="Тёплый"/>
   <translation tag="Warm Bed" ru="Прогреть стол"/>
   <translation tag="Warm up for a material in one tap" ru="Преднагрев под материал одним нажатием"/>
@@ -4087,6 +4132,7 @@
   <translation tag="Z jog feedrate" ru="Скорость перемещения по оси Z"/>
   <translation tag="Z motor calibration failed" ru="Не удалась калибровка двигателя Z"/>
   <translation tag="Z probes for bed leveling and mesh generation" ru="Z-зонды для выравнивания стола и создания сетки"/>
+  <translation tag="Z {:.2f} mm" ru="Z {:.2f} мм"/>
   <translation tag="Z {}, will lift to {}mm" ru="Z {}, подъём до {}мм"/>
   <translation tag="Z-Off:" ru="Z-Off:"/>
   <translation tag="Z-Offset" ru="Z-Offset"/>

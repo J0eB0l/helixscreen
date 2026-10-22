@@ -4,6 +4,7 @@
 #pragma once
 
 #include "belt_tension_types.h"
+#include "plr_profile.h"
 #include "pre_print_option.h"
 
 #include <map>
@@ -642,6 +643,10 @@ class PrinterDetector {
     /// its Klipper skips dot-directories when it resolves a file to print, so a
     /// copy staged under one fails to open. False when absent or unknown.
     static bool klipper_hides_dot_dirs(const std::string& printer_name);
+
+    /// The database's power-loss recovery `plr` block for @p printer_name;
+    /// nullopt when the printer is unknown or unlisted for it (tier 0).
+    static std::optional<helix::PlrDbBlock> get_plr_block(const std::string& printer_name);
 
     /**
      * @brief Check if connected printer is a Creality K1 series
