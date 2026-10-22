@@ -337,6 +337,21 @@ std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<Gc
     return use_current_assignments(tools, slots, routing);
 }
 
+void FilamentMapper::apply_picks(std::vector<ToolMapping>& current,
+                                 const std::vector<ToolMapping>& picks) {
+    for (const auto& pick : picks) {
+        if (!pick.user_picked) {
+            continue;
+        }
+        const auto target =
+            std::find_if(current.begin(), current.end(),
+                         [&pick](const ToolMapping& m) { return m.tool_index == pick.tool_index; });
+        if (target != current.end()) {
+            *target = pick;
+        }
+    }
+}
+
 bool FilamentMapper::follow_seed(std::vector<ToolMapping>& current,
                                  const std::vector<ToolMapping>& seed) {
     bool changed = false;
