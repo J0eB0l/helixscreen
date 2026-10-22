@@ -130,6 +130,8 @@ void ScrewsTiltPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(recenter_hint_available_, 0, "screws_tilt_recenter_available",
                            subjects_);
     UI_MANAGED_SUBJECT_INT(results_is_leveled_subject_, 0, "results_is_leveled", subjects_);
+    UI_MANAGED_SUBJECT_STRING(tilt_spread_subject_, tilt_spread_buf_, "", "screws_tilt_spread_text",
+                              subjects_);
 
     subjects_initialized_ = true;
     spdlog::debug("[ScrewsTilt] Subjects initialized and registered");
@@ -457,6 +459,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
 
 void ScrewsTiltPanel::clear_results() {
     helix::ui::safe_delete(tilt_surface_);
+    lv_subject_copy_string(&tilt_spread_subject_, "");
 
     // Clear bed diagram indicators (dynamically positioned)
     for (auto* indicator : screw_indicators_) {
@@ -471,6 +474,9 @@ void ScrewsTiltPanel::clear_results() {
 }
 
 namespace {
+
+/// Grid cells per side: a sense of scale across the bed, not real positions.
+constexpr int kTiltGridDivisions = 6;
 
 void tilt_surface_delete_cb(lv_event_t* e) {
     lv_obj_t* image = lv_event_get_target_obj(e);
@@ -491,6 +497,11 @@ void ScrewsTiltPanel::create_tilt_surface() {
     if (!surface.valid) {
         return;
     }
+    snprintf(tilt_spread_buf_, kTiltSpreadBufSize, "%s",
+             fmt::format(fmt::runtime(lv_tr("Corners differ by {} mm")),
+                         fmt::format("{:.2f}", surface.spread_mm))
+                 .c_str());
+    lv_subject_copy_string(&tilt_spread_subject_, tilt_spread_buf_);
 
     // Rendered at the box's own size: a stretched image samples past its edges
     // and bleeds the opposite corner's colour into each one.
@@ -505,13 +516,26 @@ void ScrewsTiltPanel::create_tilt_surface() {
         spdlog::error("[ScrewsTilt] Failed to create {}x{} tilt surface buffer", w, h);
         return;
     }
+    // Interior lines only: the box edge already frames the bed.
+    auto on_grid_line = [](int32_t pos, int32_t size) {
+        for (int i = 1; i < kTiltGridDivisions; i++) {
+            if (pos == size * i / kTiltGridDivisions) {
+                return true;
+            }
+        }
+        return false;
+    };
     for (int32_t y = 0; y < h; y++) {
         auto* row = reinterpret_cast<uint16_t*>(buf->data + y * buf->header.stride);
         const double v = 1.0 - static_cast<double>(y) / (h - 1); // rear of the bed on top
+        const bool grid_row = on_grid_line(y, h);
         for (int32_t x = 0; x < w; x++) {
-            const lv_color_t c =
+            lv_color_t c =
                 bed_mesh_gradient_height_to_color(surface.z_at(static_cast<double>(x) / (w - 1), v),
                                                   surface.color_min, surface.color_max);
+            if (grid_row || on_grid_line(x, w)) {
+                c = lv_color_mix(lv_color_black(), c, LV_OPA_40);
+            }
             row[x] = lv_color_to_u16(c);
         }
     }
@@ -521,6 +545,7 @@ void ScrewsTiltPanel::create_tilt_surface() {
     lv_image_set_src(tilt_surface_, buf);
     lv_obj_set_style_radius(tilt_surface_,
                             lv_obj_get_style_radius(bed_diagram_container_, LV_PART_MAIN), 0);
+    lv_obj_set_style_image_opa(tilt_surface_, LV_OPA_50, 0); // a backdrop to the screw icons
     lv_obj_remove_flag(tilt_surface_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_move_to_index(tilt_surface_, 0); // beneath the screw indicators
 }

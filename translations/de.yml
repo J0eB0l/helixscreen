@@ -917,6 +917,7 @@ translations:
   Copying from USB stopped responding: 'Kopieren von USB reagiert nicht mehr'
   Copying from USB...: 'Kopieren von USB...'
   Corner roundness: Eckenrundung
+  Corners differ by {} mm: "Ecken weichen um {} mm ab"
   Correction (Ki): Korrektur (Ki)
   Could not add to queue: Konnte nicht zur Warteschlange hinzufügen
   Could not analyze PRINT_START macro. Some print options may be unavailable.: PRINT_START-Makro

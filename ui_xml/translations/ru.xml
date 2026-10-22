@@ -872,6 +872,7 @@
   <translation tag="Copying from USB stopped responding" ru="Копирование с USB перестало отвечать"/>
   <translation tag="Copying from USB..." ru="Копирование с USB..."/>
   <translation tag="Corner roundness" ru="Скругление углов"/>
+  <translation tag="Corners differ by {} mm" ru="Разница углов {} мм"/>
   <translation tag="Correction (Ki)" ru="Коррекция (Ki)"/>
   <translation tag="Could not add to queue" ru="Не удалось добавить в очередь"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." ru="Не удалось проанализировать макрос PRINT_START. Некоторые параметры печати могут быть недоступны."/>

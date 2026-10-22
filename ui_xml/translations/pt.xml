@@ -830,6 +830,7 @@
   <translation tag="Copying from USB stopped responding" pt="A cópia do USB parou de responder"/>
   <translation tag="Copying from USB..." pt="Copiando do USB..."/>
   <translation tag="Corner roundness" pt="Arredondamento dos cantos"/>
+  <translation tag="Corners differ by {} mm" pt="Os cantos diferem {} mm"/>
   <translation tag="Correction (Ki)" pt="Correção (Ki)"/>
   <translation tag="Could not add to queue" pt="Não foi possível adicionar à fila"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." pt="Não foi possível analisar a macro PRINT_START. Algumas opções de impressão podem estar indisponíveis."/>

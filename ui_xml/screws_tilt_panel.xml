@@ -117,6 +117,7 @@
             </lv_obj>
             <!-- FRONT label below diagram -->
             <text_xs text="^ FRONT"/>
+            <text_xs name="tilt_spread" bind_text="screws_tilt_spread_text"/>
           </lv_obj>
           <!-- RIGHT: Screw List + Buttons (takes ~55% width) -->
           <lv_obj name="results_right_column"

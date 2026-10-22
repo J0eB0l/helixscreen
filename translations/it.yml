@@ -909,6 +909,7 @@ translations:
   Copying from USB stopped responding: 'La copia da USB non risponde più'
   Copying from USB...: 'Copia da USB...'
   Corner roundness: Arrotondamento angoli
+  Corners differ by {} mm: "Gli angoli differiscono di {} mm"
   Correction (Ki): Correzione (Ki)
   Could not add to queue: Impossibile aggiungere alla coda
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Impossibile

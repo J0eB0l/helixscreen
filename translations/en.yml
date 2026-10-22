@@ -888,6 +888,7 @@ translations:
   Copying from USB stopped responding: Copying from USB stopped responding
   Copying from USB...: Copying from USB...
   Corner roundness: Corner roundness
+  Corners differ by {} mm: Corners differ by {} mm
   Correction (Ki): Correction (Ki)
   Could not add to queue: Could not add to queue
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Could

@@ -830,6 +830,7 @@
   <translation tag="Copying from USB stopped responding" ja="USB からのコピーが応答しなくなりました"/>
   <translation tag="Copying from USB..." ja="USB からコピー中..."/>
   <translation tag="Corner roundness" ja="角の丸み"/>
+  <translation tag="Corners differ by {} mm" ja="四隅の差 {} mm"/>
   <translation tag="Correction (Ki)" ja="補正 (Ki)"/>
   <translation tag="Could not add to queue" ja="キューに追加できませんでした"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." ja="PRINT_START マクロを分析できませんでした。一部の印刷オプションが利用できない場合があります。"/>

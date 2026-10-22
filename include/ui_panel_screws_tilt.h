@@ -228,6 +228,9 @@ class ScrewsTiltPanel : public OverlayBase {
     lv_subject_t recenter_hint_subject_{};   ///< Alternative that turns fewer screws
     lv_subject_t recenter_hint_available_{}; ///< 1 when the hint is worth showing
     lv_subject_t results_is_leveled_subject_{};
+    lv_subject_t tilt_spread_subject_{}; ///< "Corners differ by 0.23 mm"
+    static constexpr size_t kTiltSpreadBufSize = 64;
+    char tilt_spread_buf_[kTiltSpreadBufSize] = {};
     char probe_count_buf_[kProbeCountBufSize] = {};
     char error_message_buf_[kErrorMsgBufSize] = {};
     static constexpr size_t kRecenterHintBufSize = 160;

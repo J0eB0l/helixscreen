@@ -77,6 +77,7 @@ TEST_CASE("The colour scale spans the probed heights, never less than the floor"
 
     SECTION("a spread wider than the floor fills the scale") {
         const ScrewTiltSurface s = fit_screw_tilt_surface(screws, 0.05);
+        CHECK(s.spread_mm == Catch::Approx(0.2));
         CHECK(s.color_min == Catch::Approx(1.0));
         CHECK(s.color_max == Catch::Approx(1.2));
     }

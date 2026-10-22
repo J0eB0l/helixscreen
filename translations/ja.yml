@@ -848,6 +848,7 @@ translations:
   Copying from USB stopped responding: 'USB からのコピーが応答しなくなりました'
   Copying from USB...: 'USB からコピー中...'
   Corner roundness: 角の丸み
+  Corners differ by {} mm: "四隅の差 {} mm"
   Correction (Ki): 補正 (Ki)
   Could not add to queue: キューに追加できませんでした
   Could not analyze PRINT_START macro. Some print options may be unavailable.: PRINT_START

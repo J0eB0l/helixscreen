@@ -830,6 +830,7 @@
   <translation tag="Copying from USB stopped responding" zh="从 USB 复制已停止响应"/>
   <translation tag="Copying from USB..." zh="正在从 USB 复制..."/>
   <translation tag="Corner roundness" zh="圆角程度"/>
+  <translation tag="Corners differ by {} mm" zh="四角相差 {} mm"/>
   <translation tag="Correction (Ki)" zh="校正 (Ki)"/>
   <translation tag="Could not add to queue" zh="无法添加到队列"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." zh="无法分析 PRINT_START 宏。部分打印选项可能不可用。"/>

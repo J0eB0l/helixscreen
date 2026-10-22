@@ -846,6 +846,7 @@ translations:
   Copying from USB stopped responding: '从 USB 复制已停止响应'
   Copying from USB...: '正在从 USB 复制...'
   Corner roundness: 圆角程度
+  Corners differ by {} mm: "四角相差 {} mm"
   Correction (Ki): 校正 (Ki)
   Could not add to queue: 无法添加到队列
   Could not analyze PRINT_START macro. Some print options may be unavailable.: 无法分析

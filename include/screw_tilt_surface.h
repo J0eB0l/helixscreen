@@ -30,6 +30,7 @@ struct ScrewTiltSurface {
     float max_y = 0.0f;
     /// z = c0 + c1*u + c2*v + c3*u*v, with u/v the position across the bounds in [0, 1]
     std::array<double, 4> coef{};
+    double spread_mm = 0.0; ///< Highest probed height minus the lowest
     double color_min = 0.0; ///< Heights at the two ends of the colour scale
     double color_max = 0.0;
 
@@ -127,6 +128,7 @@ fit_screw_tilt_surface(const std::vector<ScrewTiltResult>& results, double min_h
 
     const double center = (z_lo + z_hi) / 2.0;
     const double half = std::max((z_hi - z_lo) / 2.0, min_half_range_mm);
+    s.spread_mm = z_hi - z_lo;
     s.color_min = center - half;
     s.color_max = center + half;
     s.valid = true;

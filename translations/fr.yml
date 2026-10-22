@@ -920,6 +920,7 @@ translations:
   Copying from USB stopped responding: 'La copie depuis l''USB ne répond plus'
   Copying from USB...: 'Copie depuis l''USB...'
   Corner roundness: Arrondi des coins
+  Corners differ by {} mm: "Les coins diffèrent de {} mm"
   Correction (Ki): Correction (Ki)
   Could not add to queue: Impossible d'ajouter à la file
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Impossible

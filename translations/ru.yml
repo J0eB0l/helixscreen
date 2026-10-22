@@ -958,6 +958,7 @@ translations:
   Copying from USB stopped responding: 'Копирование с USB перестало отвечать'
   Copying from USB...: 'Копирование с USB...'
   Corner roundness: Скругление углов
+  Corners differ by {} mm: "Разница углов {} мм"
   Correction (Ki): Коррекция (Ki)
   Could not add to queue: Не удалось добавить в очередь
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Не
