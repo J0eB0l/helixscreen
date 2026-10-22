@@ -656,6 +656,8 @@ class HelixEdits:
                 worker_command(str(original), partial), json.dumps(edits).encode("utf-8"),
                 reader.worker_timeout(original.stat().st_size))
             changed = decode_worker_output(out)
+            # mkstemp makes the partial 0600; the copy reads like its original.
+            os.chmod(partial, original.stat().st_mode & 0o666 or 0o644)
             reader.atomic_publish(partial, str(output), exclusive=True)
             return changed
         except EditRefused as e:

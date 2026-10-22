@@ -306,7 +306,10 @@ per file: analysis writes `<index>.tmp` and publishes it whole (`atomic_publish`
 follower appends during a print and never touches a complete one. One prune rule:
 `prune_layer_indexes` removes an index whose source is gone or changed, `.external` indexes and
 orphaned `.tmp` files, except the paths PLR protects (the one it follows and the one its waiting
-snapshot resumes from) and the index of the file the worker is reading. Analysis starts, and so
+snapshot resumes from) and the index of the file the worker is reading. A `.tmp` is orphaned
+(`temp_index_orphaned`) once its source is gone or it is older than `worker_timeout()` for its
+source's size, so PLR's job-start prune, which knows nothing of analysis, never removes one a
+worker is still writing. Analysis starts, and so
 prunes, only after PLR has loaded its job.
 
 **Worker.** One file at a time in a child process (Moonraker's interpreter, nice 19,
@@ -362,7 +365,8 @@ settings, so only the screen whose `fallback_sender_role` is Sender writes it, a
 empty one: before the filament backend reports, nothing is known, and no record beats a wrong
 one (`src/printer/standing_print_options.cpp#writes_standing_record`). `POST /server/helix/print_hooks/screen_start
 {"filename"}`: the screen announces its own direct start just before `printer.print.start`,
-only while `print_hooks` is Ready; a private marker (`SCREEN_START_TTL_S`, 15 s) that
+only while `print_hooks` is Ready; a private marker (`SCREEN_START_TTL_S`, 600 s: the start command can wait that long
+behind Klipper's queue, as long as the app waits for it) that
 `helix_initiated()` never answers. `{"filename", "withdraw": true}` takes it back after a
 start that failed, so a start of the same file elsewhere still gets its hooks. The plugin acts
 from history `added`, and sends only if `job_still_running()` holds when it is about to:
@@ -421,8 +425,8 @@ plugin disabled the endpoint does not exist. A range stays one span (`resolve_sp
 plan's size follows the edit count, never a range's length. The rewrite runs in a worker process
 (`helix_edits.py` as a script, nice 19), never in Moonraker's: its stdout is `{"changed"}` or
 `{"refused": line}`. It writes a uniquely named `<name>.<random>.part` beside the copy, which is
-published with `atomic_publish(exclusive=True)`: two requests for one path give one whole copy
-and a 409. The job is marked `print_edited` immediately before `SDCARD_PRINT_FILE`. Edit grammar
+published with `atomic_publish(exclusive=True)` and the original's mode: two requests for one
+path give one whole copy and a 409. The job is marked `print_edited` immediately before `SDCARD_PRINT_FILE`. Edit grammar
 (`comment_out`, `delete`, `inject_before`, `inject_after`, `replace`, `tool_remap`) and line
 rules: README § Start Edited Print.
 

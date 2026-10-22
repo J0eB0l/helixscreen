@@ -31,10 +31,10 @@ STANDING_OPTIONS_VERSION = 1
 # the screen sends its own options with such a start.
 SCREEN_START_KIND = "screen_start"
 
-# How long a screen start waits for history's job. The screen announces it
-# immediately before its start command, and history adds the job as the print
-# begins, so a marker older than this belongs to a start that never happened.
-SCREEN_START_TTL_S = 15.0
+# How long a screen start waits for history's job. The start command can wait
+# behind Klipper's gcode queue for as long as the app waits for it (10
+# minutes), and a start that fails is withdrawn instead of left to expire.
+SCREEN_START_TTL_S = 600.0
 
 # How many job starts are remembered to keep a repeated `added` from
 # sending twice.

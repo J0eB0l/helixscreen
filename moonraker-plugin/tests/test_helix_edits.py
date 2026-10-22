@@ -418,6 +418,15 @@ class TestPrintEdited:
         helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_the_copy_takes_the_originals_mode(self, helix_print_component,
+                                                     mock_server, gcodes):
+        """A Klipper running as another user still reads the copy it prints."""
+        (gcodes / "benchy.gcode").chmod(0o664)
+        await helix_print_component.component_init()
+        result = await mock_server.endpoints[PRINT_EDITED](_request())
+        assert (gcodes / result["temp_filename"]).stat().st_mode & 0o777 == 0o664
+
+    @pytest.mark.asyncio
     async def test_two_requests_for_one_copy_never_publish_a_mix(
         self, helix_print_component, mock_server, gcodes
     ):

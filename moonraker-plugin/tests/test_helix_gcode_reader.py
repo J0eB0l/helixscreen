@@ -12,6 +12,7 @@ import io
 import json
 import sys
 import threading
+import time
 import tracemalloc
 from pathlib import Path
 
@@ -701,6 +702,9 @@ def test_prune_removes_stale_indexes_and_keeps_current_ones(tmp_path):
     removed.append(external)
     orphan = kept[0] + ".tmp"
     open(orphan, "w").write("{}\n")
+    # Older than any worker for a source under 1 GB could run
+    long_ago = time.time() - reader.worker_timeout(1 << 30)
+    os.utime(orphan, (long_ago, long_ago))
     removed.append(orphan)
     assert sorted(reader.prune_layer_indexes(tmp_path)) == sorted(removed)
     assert all(os.path.exists(p) for p in kept)
@@ -714,10 +718,36 @@ def test_prune_spares_a_temp_index_a_live_writer_holds(tmp_path):
     path = layer_index_path(tmp_path, "a.gcode")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path + ".tmp", "w").write("{}\n")
+    # A writer may hold it until the worker for its source would time out.
+    assert reader.prune_layer_indexes(tmp_path) == []
+    held_until = time.time() - reader.worker_timeout(f.stat().st_size)
+    os.utime(path + ".tmp", (held_until + 30, held_until + 30))
+    assert reader.prune_layer_indexes(tmp_path) == []
+    os.utime(path + ".tmp", (held_until - 30, held_until - 30))
     assert reader.prune_layer_indexes(tmp_path, [path]) == []
-    assert os.path.exists(path + ".tmp")
     assert reader.prune_layer_indexes(tmp_path, [path + ".tmp"]) == []
     assert reader.prune_layer_indexes(tmp_path) == [path + ".tmp"]
+
+
+def test_prune_removes_a_temp_index_whose_source_is_gone(tmp_path):
+    import os
+    path = layer_index_path(tmp_path, "gone.gcode")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path + ".tmp", "w").write("{}\n")
+    assert reader.prune_layer_indexes(tmp_path) == [path + ".tmp"]
+
+
+def test_a_large_sources_temp_index_is_held_longer(tmp_path):
+    import os
+    big = tmp_path / "big.gcode"
+    with open(str(big), "wb") as f:
+        f.truncate(50 * 1024 * 1024)
+    path = layer_index_path(tmp_path, "big.gcode")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path + ".tmp", "w").write("{}\n")
+    age = reader.worker_timeout(0) + 60
+    os.utime(path + ".tmp", (time.time() - age, time.time() - age))
+    assert reader.prune_layer_indexes(tmp_path) == []
 
 
 def test_prune_spares_protected_indexes_even_when_stale(tmp_path):

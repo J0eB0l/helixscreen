@@ -215,7 +215,8 @@ POST /server/helix/print_hooks/screen_start
 {"filename": "benchy.gcode"}
 ```
 
-The announcement waits 15 s for its job, and it is private to this feature:
+The announcement waits 10 minutes for its job (a start can wait that long behind a busy
+Klipper), and it is private to this feature:
 `helix_initiated()` never answers it. A screen whose start command fails withdraws it, so a
 start of the same file from elsewhere still gets its hooks:
 

@@ -254,6 +254,23 @@ class TestHookStaysQuiet:
         assert _sent(helix_print_component) == [GCODE]
 
     @pytest.mark.asyncio
+    async def test_a_screen_start_held_up_behind_a_busy_queue_is_still_the_screens(
+            self, helix_print_component, mock_server):
+        """SDCARD_PRINT_FILE waits behind Klipper's gcode queue, so history can
+        add the job long after the announcement."""
+        await _setup(helix_print_component, record=_record())
+        markers = helix_print_component.print_hooks.screen_starts
+        now = [1000.0]
+        markers._clock = lambda: now[0]
+        await mock_server.endpoints["/server/helix/print_hooks/screen_start"](
+            MockWebRequest({"filename": "benchy.gcode"}))
+        now[0] += 30
+
+        await _history(mock_server, _added("benchy.gcode", "00002A"))
+
+        assert _sent(helix_print_component) == []
+
+    @pytest.mark.asyncio
     async def test_a_screen_start_lasts_only_the_binding_window(
             self, helix_print_component, mock_server):
         await _setup(helix_print_component, record=_record())

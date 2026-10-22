@@ -9,6 +9,7 @@ Run with: pytest tests/test_helix_plr.py -v
 import asyncio
 import json
 import os
+import time
 import sys
 from pathlib import Path
 
@@ -1967,6 +1968,23 @@ def test_the_prune_spares_the_indexes_recovery_is_using(plr, helix, monkeypatch)
     assert plr.protected_index_paths() == []
     plr._prune_indexes()
     assert not os.path.exists(index)
+
+
+def test_the_job_start_prune_spares_a_temp_index_analysis_is_writing(plr, helix):
+    """The one prune rule: a whole-file write's temp index stays while its
+    worker could still be writing it, whoever runs the prune."""
+    path = helix.gc_path / "sub" / "other.gcode"
+    path.write_bytes(layered_gcode())
+    tmp = helix_gcode_reader.layer_index_path(helix.gc_path, "sub/other.gcode") + ".tmp"
+    os.makedirs(os.path.dirname(tmp), exist_ok=True)
+    open(tmp, "w").write("{}\n")
+    plr._follow_executor = SyncExecutor()
+    plr._prune_indexes()
+    assert os.path.exists(tmp)
+    old = time.time() - helix_gcode_reader.worker_timeout(path.stat().st_size) - 60
+    os.utime(tmp, (old, old))
+    plr._prune_indexes()
+    assert not os.path.exists(tmp)
 
 
 def test_a_waiting_snapshots_index_is_protected(plr, helix):

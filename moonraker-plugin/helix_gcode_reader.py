@@ -1269,13 +1269,32 @@ def layer_index_stale(index_path: str, source_path: Optional[str]) -> bool:
     return header.get("file_size") != st.st_size or header.get("file_mtime") != st.st_mtime
 
 
+def temp_index_orphaned(tmp_path: str, source_path: Optional[str], now: float) -> bool:
+    """Whether a whole-file write's temp index can no longer have a writer:
+    its source is gone, or it is older than the longest a worker may run for
+    that source (worker_timeout). An index of a file outside gcodes
+    (`source_path` None) gets the timeout of an empty file."""
+    try:
+        age = now - os.stat(tmp_path).st_mtime
+    except OSError:
+        return False
+    size = 0
+    if source_path is not None:
+        try:
+            size = os.stat(source_path).st_size
+        except OSError:
+            return True
+    return age > worker_timeout(size)
+
+
 def prune_layer_indexes(gcodes_root: "os.PathLike",
                         protected: Iterable[str] = ()) -> List[str]:
     """Remove every stale layer index (layer_index_stale) except the
     @p protected paths: the index power-loss recovery is following during a
     print and the one its waiting snapshot resumes from. A whole-file write's
-    `.tmp` is removed as an orphan unless it or the index it becomes is
-    protected (a live writer's). Returns the removed paths."""
+    `.tmp` is an orphan once no writer can still hold it (temp_index_orphaned),
+    and is kept while it or the index it becomes is protected. Returns the
+    removed paths."""
     root = os.path.join(str(gcodes_root), LAYER_INDEX_DIR)
     external = os.path.join(root, ".external") + os.sep
     keep = {os.path.abspath(p) for p in protected if p}
@@ -1285,6 +1304,12 @@ def prune_layer_indexes(gcodes_root: "os.PathLike",
             path = os.path.join(dirpath, name)
             if name.endswith(LAYER_INDEX_SUFFIX + ".tmp"):
                 if os.path.abspath(path) in keep or os.path.abspath(path[:-4]) in keep:
+                    continue
+                source = None
+                if not path.startswith(external):
+                    source = os.path.join(str(gcodes_root), os.path.relpath(
+                        path, root)[:-len(LAYER_INDEX_SUFFIX + ".tmp")])
+                if not temp_index_orphaned(path, source, time.time()):
                     continue
                 try:
                     os.remove(path)
