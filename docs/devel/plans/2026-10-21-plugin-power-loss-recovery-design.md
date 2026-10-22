@@ -653,9 +653,41 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   `plr_scan_failed: multi_material: ...` (D3, single extruder in v1).
 - `helix:plr_progress` and `helix:plr_plan_ready` are the Moonraker events
   `helix_print:plr_progress` / `helix_print:plr_plan_ready`, which clients receive as
-  `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed`, `chamber`, `lift`, `home_xy`,
-  `position` (tier 1) for prepare; `z_reference` (tier 1), `restore`, `purge`, `return`, `start` for
-  commit; states `running`, `done`, `failed`.
+  `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed_wait`, `chamber_wait`, `lift`,
+  `home_xy`, `position` (tier 1) for prepare; `bed_wait`, `chamber_wait`, `z_reference` (tier 1),
+  `restore`, `heat_nozzle`, `move_to_resume`, `start` for commit; states `running`, `done`,
+  `failed`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
+  (`"<code>: <detail>"`), and `plan` answers that error until the snapshot changes.
+- Heat waits are not M190/TEMPERATURE_WAIT (those hold Klipper's G-code lock, so an abort's
+  heaters-off could not run): the plugin sets the target, then polls the heater every 2 s,
+  checking for an abort between polls, and fails after 20 min (bed) / 45 min (chamber). Commit
+  repeats the bed (and chamber) wait first, because the bed may have been turned off
+  (`idle_timeout`) while the screen waited on the confirmations.
+- Single flight: `prepare` and `commit` take the sequence before their first await; a second
+  call while one runs is `plr_busy`. An abort is checked before every G-code send and
+  immediately before the start (or QIDI's resume call), clears the plan (later calls get
+  `plr_no_plan`), and turns off the bed, extruder, every `heater_generic` and the part fan.
+- `commit` re-checks the machine: if Klipper restarted since prepare, or the axes prepare homed
+  are no longer homed (`toolhead.homed_axes`: x, y, z at tier 2; x, y at tier 1; e.g. after
+  `idle_timeout`'s motors-off), it refuses with `plr_stale_plan` and the next call is a new
+  `prepare`. Z is declared with `SET_KINEMATIC_POSITION ... SET_HOMED=Z`, so an XY homing
+  macro that homes only unhomed axes still homes X and Y. Once a prepare has lifted the
+  nozzle, a later prepare of the same snapshot does not declare the snapshot Z again: nothing
+  when Z is still homed, the lifted Z when Klipper restarted. A snapshot without `live_pos` is
+  refused (`plr_scan_failed: no_live_position`).
+- `offer.blocked_by` adds `no_lift_room`: less than `MIN_LIFT_MM` (2 mm) between the snapshot Z
+  and the top of travel (`z_lift_mm` itself is never below 2 mm; 0 or less means the default).
+- Tier 1 declares the jogged-onto height as the G-code Z of the last extruding move before the
+  resume point (refused with `plr_scan_failed: no_part_top` when there is none), plus the gcode
+  offset, plus the mesh only when commit will load one, faded as `bed_mesh` fades it.
+- The purge line is placed inside `[bed_mesh] mesh_min/mesh_max` (else the job mesh's bounds),
+  clamped to the axis limits; without a purge line, and before a purge macro, the nozzle
+  travels lifted to the XY homing position (`stepper_x/y position_endstop`) before it heats.
+- XY-homing check reasons: `override_homes_z`, `override_sets_z` (`set_position_z`),
+  `override_unknown` (any override command not known to leave Z alone), `delta_kinematics`.
+- QIDI: commit refuses (`plr_scan_failed: qidi_cache_mismatch`) unless the file in QIDI's
+  `.cache` has the snapshot's file size and hash, and a plan refuses
+  (`plr_scan_failed: qidi_landing_below_part`) when offset + mesh at the cut is below -0.05 mm.
 - `commit` takes `z_reference: "part_top"` at tier 1 and `"trusted"` at tier 2 and refuses the other.
 - `warnings` values: `layer_start`, `mesh_unavailable`, `cold_bed` (bed more than
   `COLD_BED_DIFF_C` under target at plan time, which also adds `accept_cold_bed` to `requires`),
