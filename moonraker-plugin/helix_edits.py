@@ -656,10 +656,12 @@ class HelixEdits:
                 worker_command(str(original), partial), json.dumps(edits).encode("utf-8"),
                 reader.worker_timeout(original.stat().st_size))
             changed = decode_worker_output(out)
-            os.replace(partial, str(output))
+            reader.atomic_publish(partial, str(output), exclusive=True)
             return changed
         except EditRefused as e:
             raise self.server.error(f"Refusing to edit {original_filename}: {e}", 409)
+        except FileExistsError:
+            raise self.server.error(f"{output.name} already exists", 409)
         except (WorkerFailed, reader.WorkerStopped, OSError) as e:
             raise self.server.error(f"Failed to write the edited copy: {e}", 500)
         finally:

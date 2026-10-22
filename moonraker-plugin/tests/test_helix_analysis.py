@@ -16,6 +16,7 @@ Run with: pytest tests/test_helix_analysis.py -v
 import asyncio
 import io
 import json
+import os
 import shutil
 import sys
 import threading
@@ -489,6 +490,19 @@ class TestComponent:
                            "relative_path": ".thumbs/cura_mesh-300x300.png"}]
 
     @pytest.mark.asyncio
+    async def test_a_thumbnail_is_published_through_the_shared_atomic_write(
+            self, gc, monkeypatch):
+        written = []
+        real = reader.atomic_write_bytes
+        monkeypatch.setattr(reader, "atomic_write_bytes",
+                            lambda path, data, **k: written.append(path) or real(path, data, **k))
+        helix, comp = await make(gc, files={"cura_mesh.gcode"})
+        await settle(comp)
+        thumb = comp.records["cura_mesh.gcode"]["thumbnail"]
+        assert written == [str(gc / thumb["relative_path"])]
+        assert not [p for p in (gc / ".thumbs").iterdir() if p.name.endswith(".tmp")]
+
+    @pytest.mark.asyncio
     async def test_a_changed_file_is_pending_until_reanalyzed(self, gc):
         helix, comp = await make(gc, files={"no_define.gcode"})
         await settle(comp)
@@ -738,6 +752,131 @@ class TestWorker:
         await comp.on_job_state_changed(None, {}, {"state": "complete"})
         await settle(comp)
         assert "no_define.gcode" in comp.records
+
+
+class TestRobustness:
+
+    def test_an_unterminated_thumbnail_does_not_swallow_later_comments(self):
+        c = analysis.AnalysisCollector(want_thumbnail=True)
+        c.comment(None, b"; thumbnail begin 32x32 100", 0)
+        c.comment(None, b"; iVBORw0KGgo=", 0)
+        c.comment(None, b";TYPE:WALL-OUTER", 0)
+        c.comment(None, b"; nozzle_diameter = 0.4", 0)
+        assert c.feature == "WALL-OUTER"
+        assert c.config.get("nozzle_diameter") == "0.4"
+        assert c.thumbnails == []
+
+    def test_a_thumbnail_past_the_cap_is_dropped_as_it_grows(self, monkeypatch):
+        monkeypatch.setattr(analysis, "MAX_EMBEDDED_THUMB_B64", 100)
+        c = analysis.AnalysisCollector(want_thumbnail=True)
+        c.comment(None, b"; thumbnail begin 32x32 100", 0)
+        for _ in range(10):
+            c.comment(None, b"; " + b"A" * 40, 0)
+        assert c._thumb is None
+        c.comment(None, b"; thumbnail end", 0)
+        assert c.thumbnails == []
+
+    def test_a_whole_thumbnail_still_reads(self):
+        c = analysis.AnalysisCollector(want_thumbnail=True)
+        c.comment(None, b"; thumbnail begin 32x32 8", 0)
+        c.comment(None, b"; iVBORw0K", 0)
+        c.comment(None, b"; Ggo=", 0)
+        c.comment(None, b"; thumbnail end", 0)
+        assert c.thumbnails == [("PNG", 32, 32, "iVBORw0KGgo=")]
+
+    def test_an_absurd_move_is_clipped_to_the_grid(self):
+        import time
+        fp = analysis.Footprint()
+        started = time.monotonic()
+        fp.segment(0.0, 0.0, 0.0, 0.0, 0.2, 0)
+        fp.segment(0.0, 0.0, 1e9, 0.0, 0.2, 0)
+        fp.segment(-1e12, -1e12, 1e12, 1e12, 0.2, 0)
+        assert time.monotonic() - started < 1.0
+        n = analysis.FOOTPRINT_CELLS
+        row = n // 2
+        assert all(fp._height[row * n + x] for x in range(n // 2, n))
+        assert all(fp._height[k * n + k] for k in range(n))
+
+    def test_a_move_entirely_off_the_grid_marks_nothing(self):
+        fp = analysis.Footprint()
+        fp.segment(0.0, 0.0, 0.0, 0.0, 0.2, 0)
+        before = bytes(fp._height)
+        fp.segment(1e6, 1e6, 2e6, 2e6, 0.2, 0)
+        assert bytes(fp._height) == before
+
+    @pytest.mark.asyncio
+    async def test_a_file_deleted_during_its_pass_leaves_no_record(self, gc, monkeypatch):
+        helix, comp = await make(gc, files=set())
+        real = comp._run_worker
+
+        async def delete_meanwhile(path, metadata, size):
+            out = await real(path, metadata, size)
+            (gc / path).unlink()
+            return out
+
+        monkeypatch.setattr(comp, "_run_worker", delete_meanwhile)
+        shutil.copy(str(FIXTURES / "no_define.gcode"), str(gc / "no_define.gcode"))
+        await comp.on_filelist_changed({"action": "create_file",
+                                        "item": {"root": "gcodes", "path": "no_define.gcode"}})
+        await settle(comp)
+        assert comp.records == {}
+        assert analysis.DB_NAMESPACE not in helix.database.ns or \
+            helix.database.ns[analysis.DB_NAMESPACE] == {}
+        assert not os.path.exists(reader.layer_index_path(gc, "no_define.gcode"))
+        assert not [e for e in helix.server.events if e[0] == analysis.READY_EVENT]
+
+    @pytest.mark.asyncio
+    async def test_a_file_changed_during_its_pass_is_analyzed_again(self, gc, monkeypatch):
+        helix, comp = await make(gc, files=set())
+        real = comp._run_worker
+        changed = []
+
+        async def change_once(path, metadata, size):
+            out = await real(path, metadata, size)
+            if not changed:
+                changed.append(1)
+                with open(str(gc / path), "ab") as f:
+                    f.write(b"; edited\n")
+            return out
+
+        monkeypatch.setattr(comp, "_run_worker", change_once)
+        shutil.copy(str(FIXTURES / "no_define.gcode"), str(gc / "no_define.gcode"))
+        await comp.on_filelist_changed({"action": "create_file",
+                                        "item": {"root": "gcodes", "path": "no_define.gcode"}})
+        await settle(comp)
+        record = comp.records["no_define.gcode"]
+        assert record["file_size"] == (gc / "no_define.gcode").stat().st_size
+
+    @pytest.mark.asyncio
+    async def test_a_failing_backfill_is_logged(self, gc, caplog):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+
+        async def broken():
+            raise RuntimeError("scan exploded")
+
+        comp.backfill = broken
+        comp._stale = True
+        with open(str(gc / "no_define.gcode"), "ab") as f:
+            f.write(b"; changed\n")
+        await ask(comp, "no_define.gcode")
+        await asyncio.sleep(0.01)
+        assert "scan exploded" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_the_prune_spares_the_file_being_analyzed(self, gc, monkeypatch):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        tmp = reader.layer_index_path(gc, "busy.gcode") + ".tmp"
+        open(tmp, "w").write("{}\n")
+        comp._analyzing = "busy.gcode"
+        assert tmp in [p for p in comp._protected_indexes()] or \
+            reader.layer_index_path(gc, "busy.gcode") in comp._protected_indexes()
+        await comp.backfill()
+        assert os.path.exists(tmp)
+        comp._analyzing = None
+        await comp.backfill()
+        assert not os.path.exists(tmp)
 
 
 class NsItemsOnlyDatabase(FakeDatabase):

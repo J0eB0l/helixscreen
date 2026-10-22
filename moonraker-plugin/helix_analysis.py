@@ -511,6 +511,29 @@ def _hex_rgb(color: Optional[str]) -> Tuple[int, int, int]:
     return 0x4C, 0xAF, 0x50
 
 
+def clip_segment(x0: float, y0: float, x1: float, y1: float, xmin: float, ymin: float,
+                 xmax: float, ymax: float) -> Optional[Tuple[float, float, float, float]]:
+    """The part of a segment inside a box (Liang-Barsky), or None when no part
+    of it is."""
+    t0, t1 = 0.0, 1.0
+    dx, dy = x1 - x0, y1 - y0
+    for p, q in ((-dx, x0 - xmin), (dx, xmax - x0), (-dy, y0 - ymin), (dy, ymax - y0)):
+        if p == 0:
+            if q < 0:
+                return None
+            continue
+        t = q / p
+        if p < 0:
+            if t > t1:
+                return None
+            t0 = max(t0, t)
+        else:
+            if t < t0:
+                return None
+            t1 = min(t1, t)
+    return x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy
+
+
 class Footprint:
     """Top-down height map of the extruding moves, for a thumbnail when the
     file has none. The grid is centred on the first extruding point."""
@@ -531,8 +554,13 @@ class Footprint:
         self._max_z = max(self._max_z, z)
         level = max(1, min(255, int(z) + 1))
         ox, oy = self._origin
-        steps = int(max(abs(x1 - x0), abs(y1 - y0)) / FOOTPRINT_CELL_MM) + 1
         n = FOOTPRINT_CELLS
+        span = n * FOOTPRINT_CELL_MM
+        clipped = clip_segment(x0, y0, x1, y1, ox, oy, ox + span, oy + span)
+        if clipped is None:
+            return
+        x0, y0, x1, y1 = clipped
+        steps = int(max(abs(x1 - x0), abs(y1 - y0)) / FOOTPRINT_CELL_MM) + 1
         for i in range(steps + 1):
             f = i / steps
             cx = int((x0 + (x1 - x0) * f - ox) / FOOTPRINT_CELL_MM)
@@ -588,6 +616,8 @@ class Footprint:
             rows.append(bytes(row))
         return encode_png(size, size, rows)
 
+
+_BASE64 = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
 _THUMB_BEGIN = (b"thumbnail begin", b"thumbnail_PNG begin", b"thumbnail_JPG begin",
                 b"thumbnail_QOI begin")
@@ -787,14 +817,18 @@ class AnalysisCollector(ScanObserver):
         if self._thumb is not None:
             text = line[1:].strip()
             if text.startswith(b"thumbnail") and text.endswith(b"end"):
-                kind, w, h, parts = self._thumb
+                kind, w, h, parts, _size = self._thumb
                 self._thumb = None
-                data = "".join(parts)
-                if len(data) <= MAX_EMBEDDED_THUMB_B64:
-                    self.thumbnails.append((kind, w, h, data))
-            else:
-                self._thumb[3].append(text.decode("ascii", "replace"))
-            return
+                self.thumbnails.append((kind, w, h, "".join(parts)))
+                return
+            fits = self._thumb[4] + len(text) <= MAX_EMBEDDED_THUMB_B64
+            if fits and text.rstrip(_BASE64) == b"":
+                self._thumb[3].append(text.decode("ascii"))
+                self._thumb[4] += len(text)
+                return
+            # Past the cap, or a line no thumbnail holds: the block ended
+            # unterminated, and this line is read as any other comment.
+            self._thumb = None
         text = line[1:].lstrip()
         if text.startswith(b"TYPE:"):
             self.feature = text[5:].strip().decode("utf-8", "replace") or None
@@ -820,7 +854,7 @@ class AnalysisCollector(ScanObserver):
                         w, h = int(a), int(b)
                     except ValueError:
                         w = h = 0
-                self._thumb = [kind, w, h, []]
+                self._thumb = [kind, w, h, [], 0]
                 return
         if self.slicer is None and (text[:9].lower() == b"generated"
                                     or text.startswith(b"BambuStudio ")):
@@ -1020,6 +1054,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0
 
 
+def _log_task_failure(task: "asyncio.Future") -> None:
+    if not task.cancelled() and task.exception() is not None:
+        logging.error("HelixPrint: analysis backfill failed: %r", task.exception())
+
+
 class HelixAnalysis(file_queue.FileTracker):
     """Analyzes G-code files one at a time and answers for their records."""
 
@@ -1035,6 +1074,9 @@ class HelixAnalysis(file_queue.FileTracker):
         self._failure_store = file_queue.RecordStore(
             database, DB_FAILURES_NAMESPACE, "the failed analysis")
         self._executor = None  # type: Optional[Any]
+        self._backfill_task = None  # type: Optional[asyncio.Future]
+        # The file the worker is reading now; prune spares its index
+        self._analyzing = None  # type: Optional[str]
         self._runner = reader.WorkerProcess()
         # path -> (size, mtime, failed attempts) of the version last tried
         self._failures = {}  # type: Dict[str, Tuple[int, float, int]]
@@ -1149,7 +1191,8 @@ class HelixAnalysis(file_queue.FileTracker):
             return {"filename": filename, "status": "failed"}
         if self._stale:
             self._stale = False
-            asyncio.ensure_future(self.backfill())
+            self._backfill_task = asyncio.ensure_future(self.backfill())
+            self._backfill_task.add_done_callback(_log_task_failure)
         self.enqueue(filename, front=True)
         return {"filename": filename, "status": "pending"}
 
@@ -1203,7 +1246,10 @@ class HelixAnalysis(file_queue.FileTracker):
         """Indexes power-loss recovery is using, which no prune may remove."""
         plr = getattr(self.helix, "plr", None)
         protected = getattr(plr, "protected_index_paths", None)
-        return list(protected()) if protected is not None else []
+        paths = list(protected()) if protected is not None else []
+        if self._analyzing is not None and self.gc_path is not None:
+            paths.append(reader.layer_index_path(self.gc_path, self._analyzing))
+        return paths
 
     # -- one file ------------------------------------------------------------
 
@@ -1224,7 +1270,7 @@ class HelixAnalysis(file_queue.FileTracker):
             self._executor = ThreadPoolExecutor(
                 max_workers=1, thread_name_prefix="helix-analysis",
                 initializer=reader.lower_thread_priority)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(self._executor, fn, *args)
 
     async def analyze(self, path: str) -> Optional[Dict[str, Any]]:
@@ -1240,8 +1286,14 @@ class HelixAnalysis(file_queue.FileTracker):
             return self.records[path]
         if self._gave_up(path, st.st_size, st.st_mtime):
             return None
-        out = await self._run_worker(path, self._metadata(path), st.st_size)
+        self._analyzing = path
+        try:
+            out = await self._run_worker(path, self._metadata(path), st.st_size)
+        finally:
+            self._analyzing = None
         await self._clear_failure(path)
+        if not await self._still_the_version(path, st):
+            return None
         record = out.record
         if out.thumbnail_png is not None:
             record["thumbnail"] = await self._run_in_thread(
@@ -1251,6 +1303,21 @@ class HelixAnalysis(file_queue.FileTracker):
         await self._save(path)
         self._notify(path)
         return record
+
+    async def _still_the_version(self, path: str, before: os.stat_result) -> bool:
+        """After a pass: whether the file is still the version it read. A file
+        deleted meanwhile is forgotten, sidecar included; one changed
+        meanwhile loses the sidecar just written and is queued again."""
+        try:
+            st = os.stat(str(self.gc_path / path))
+        except OSError:
+            await self.forget(path)
+            return False
+        if (st.st_size, st.st_mtime) == (before.st_size, before.st_mtime):
+            return True
+        await self._run_in_thread(self._remove_files, path, None)
+        self.enqueue(path)
+        return False
 
     async def _run_worker(self, path: str, metadata: Dict[str, Any],
                           size: int) -> AnalysisOutput:
@@ -1294,9 +1361,7 @@ class HelixAnalysis(file_queue.FileTracker):
         dest = self.gc_path / rel
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
-            tmp = dest.with_name(dest.name + ".tmp")
-            tmp.write_bytes(png)
-            os.replace(str(tmp), str(dest))
+            reader.atomic_write_bytes(str(dest), png)
         except OSError as e:
             logging.warning("HelixPrint: could not write thumbnail for %s: %s", path, e)
             return None

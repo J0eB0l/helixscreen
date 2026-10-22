@@ -418,6 +418,26 @@ class TestPrintEdited:
         helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_two_requests_for_one_copy_never_publish_a_mix(
+        self, helix_print_component, mock_server, gcodes
+    ):
+        """Both pass the existence check while their workers run; only the
+        first to finish may publish, whole, and the other is refused."""
+        import asyncio
+        await helix_print_component.component_init()
+        a = _request(edits=[_edit(1, "replace", "G28", gcode="A" * 20000)])
+        b = _request(edits=[_edit(1, "replace", "G28", gcode="B" * 20000)])
+        results = await asyncio.gather(mock_server.endpoints[PRINT_EDITED](a),
+                                       mock_server.endpoints[PRINT_EDITED](b),
+                                       return_exceptions=True)
+        refused = [r for r in results if isinstance(r, Exception)]
+        assert len(refused) == 1 and "409" in str(refused[0])
+        body = (gcodes / ".helix_temp" / "modified_1_benchy.gcode").read_bytes()
+        assert body.split(b"\n")[0] in (b"A" * 20000, b"B" * 20000)
+        assert sorted(p.name for p in (gcodes / ".helix_temp").iterdir()) == \
+            ["modified_1_benchy.gcode"]
+
+    @pytest.mark.asyncio
     async def test_without_a_path_the_copy_goes_to_the_temp_dir(
         self, helix_print_component, mock_server, gcodes
     ):

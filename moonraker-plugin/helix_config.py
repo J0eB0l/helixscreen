@@ -35,7 +35,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from helix_gcode_reader import fsync_dir
+import helix_gcode_reader as reader
 
 CONFIG_EDIT_FEATURE = "config_edit"
 CONFIG_EDIT_FEATURE_VERSION = 1
@@ -603,19 +603,13 @@ def _write_durably(path: Path, data: bytes) -> None:
 def atomic_write(path: Path, text: str,
                  replace: Callable[[str, str], None] = os.replace) -> None:
     """Write `text` to `path` through a temp file beside it, fsynced, then
-    renamed over it. A crash before the rename leaves `path` as it was."""
-    tmp = path.with_name(f".{path.name}.helixtmp-{os.getpid()}")
+    renamed over it with the file's own mode. A crash before the rename leaves
+    `path` as it was."""
     try:
-        _write_durably(tmp, text.encode("utf-8"))
-        try:
-            os.chmod(str(tmp), os.stat(str(path)).st_mode & 0o7777)
-        except OSError:
-            pass
-        replace(str(tmp), str(path))
-    finally:
-        if tmp.exists():
-            tmp.unlink()
-    fsync_dir(path.parent)
+        mode: Optional[int] = os.stat(str(path)).st_mode & 0o7777
+    except OSError:
+        mode = None
+    reader.atomic_write_bytes(str(path), text.encode("utf-8"), replace=replace, mode=mode)
 
 
 def prune_backups(root: Path, name: str, keep: int = BACKUPS_KEPT) -> List[Path]:

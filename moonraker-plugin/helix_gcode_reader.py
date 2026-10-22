@@ -849,6 +849,51 @@ def fsync_dir(directory: Any) -> None:
         os.close(fd)
 
 
+def atomic_publish(tmp: str, path: str, exclusive: bool = False,
+                   replace: Callable[[str, str], None] = os.replace) -> None:
+    """Move the finished file `tmp` to `path` in one step, durably. With
+    `exclusive` an existing `path` is never replaced: FileExistsError, and
+    `tmp` stays for the caller to remove. On a filesystem without hard links
+    (vfat) the exclusive check and the rename are two steps."""
+    if exclusive:
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            raise
+        except OSError:
+            if os.path.lexists(path):
+                raise FileExistsError(path)
+            replace(tmp, path)
+        else:
+            os.unlink(tmp)
+    else:
+        replace(tmp, path)
+    fsync_dir(os.path.dirname(path) or ".")
+
+
+def atomic_write_bytes(path: str, data: bytes, fsync: bool = True,
+                       replace: Callable[[str, str], None] = os.replace,
+                       mode: Optional[int] = None) -> None:
+    """Write `data` to `path` through a hidden, uniquely named temp file
+    beside it, then rename it over `path`. A failure at any point leaves
+    `path` as it was and no temp file behind."""
+    import tempfile
+    path = str(path)
+    directory, name = os.path.split(path)
+    fd, tmp = tempfile.mkstemp(dir=directory or ".", prefix="." + name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            if fsync:
+                os.fsync(f.fileno())
+        os.chmod(tmp, 0o644 if mode is None else mode)
+        atomic_publish(tmp, path, replace=replace)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
 def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     """Nice the calling thread only (Linux: a thread id is a PRIO_PROCESS
     target). Returns False where that is not possible."""
@@ -1132,9 +1177,11 @@ def write_layer_index(path: str, identity: dict,
         if summary is not None:
             writer.summary(summary)
         writer.finish(end_offset)
+        if writer._f is not None:
+            os.fsync(writer._f.fileno())
     finally:
         writer.close()
-    os.replace(tmp, path)
+    atomic_publish(tmp, path)
 
 
 class LayerIndexSummary(NamedTuple):
@@ -1226,17 +1273,27 @@ def prune_layer_indexes(gcodes_root: "os.PathLike",
                         protected: Iterable[str] = ()) -> List[str]:
     """Remove every stale layer index (layer_index_stale) except the
     @p protected paths: the index power-loss recovery is following during a
-    print and the one its waiting snapshot resumes from. Writes in progress
-    (`.tmp`) are left to their writer. Returns the removed paths."""
+    print and the one its waiting snapshot resumes from. A whole-file write's
+    `.tmp` is removed as an orphan unless it or the index it becomes is
+    protected (a live writer's). Returns the removed paths."""
     root = os.path.join(str(gcodes_root), LAYER_INDEX_DIR)
     external = os.path.join(root, ".external") + os.sep
     keep = {os.path.abspath(p) for p in protected if p}
     removed = []  # type: List[str]
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
+            path = os.path.join(dirpath, name)
+            if name.endswith(LAYER_INDEX_SUFFIX + ".tmp"):
+                if os.path.abspath(path) in keep or os.path.abspath(path[:-4]) in keep:
+                    continue
+                try:
+                    os.remove(path)
+                    removed.append(path)
+                except OSError:
+                    pass
+                continue
             if not name.endswith(LAYER_INDEX_SUFFIX):
                 continue
-            path = os.path.join(dirpath, name)
             if os.path.abspath(path) in keep:
                 continue
             source = None
