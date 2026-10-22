@@ -213,12 +213,12 @@ own recovery serves it and outranks the generic backend (ruling 8).
 
 | Step | What happens |
 |------|-------------|
-| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then |
+| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then. A `plan_ready` carrying `error`, or a plan still `pending` after `plan_ready`, fails the wizard with that message instead of starting the scan over |
 | Checks | File, layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
-| Preparing | `prepare`: bed (and chamber) wait, cold lift, X/Y home, and at tier 1 the move over the resume point. `helix:plr_progress` (`notify_plr_progress`) names each step; the live bed temperature shows beside it |
-| ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`). Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume waits while a jog is still moving |
-| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): the plugin heats the nozzle, purges and starts the print at the resume offset |
-| Done / Failed / Aborted | Leaving a step after `prepare` started (Cancel, back, a failed RPC) sends `abort`: the plugin stops, turns the heaters off and keeps the snapshot |
+| Preparing | `prepare`: steps `bed`, `chamber`, `lift`, `home_xy`, and at tier 1 `position` (over the resume point). `helix:plr_progress` (`notify_plr_progress`, `{plan_id, step, state}` with state `running` / `done` / `failed`) names each; the wizard shows the `running` step and the live bed temperature |
+| ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`). Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume stays disabled until a downward jog has landed (the part top is where the user lowered the nozzle to), and waits while a jog is still moving |
+| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): steps `z_reference`, `restore`, `purge`, `return`, `start`; the print starts at the resume offset |
+| Done / Failed / Aborted | Leaving the wizard after `prepare` started (Cancel, back, closing it, a failed RPC) sends `abort`: the plugin stops, turns the heaters off and keeps the snapshot. A screensaver, display sleep or a view pushed on top (Print Status opens as the print starts) is not leaving: the sequence keeps running. Entering any step drops queued jogs, and a jog ack after the Z step sends nothing more |
 
 Two safety properties are pinned by the tests: the wizard never commits on its
 own (Committing is reached only from ZStep with every required confirmation, and

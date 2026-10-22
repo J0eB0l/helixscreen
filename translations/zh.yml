@@ -1616,6 +1616,7 @@ translations:
   Heating Chamber...: 正在加热腔体...
   Heating Nozzle...: 正在加热喷嘴...
   Heating and homing: 加热并归零中
+  Heating and purging the nozzle: 正在加热喷嘴并排料
   Heating bed to $1°C...: 正在加热热床至 $1°C...
   Heating bed...: 正在加热热床...
   Heating chamber...: 正在加热腔体...
@@ -1624,7 +1625,6 @@ translations:
   Heating nozzle to $1°C...: 正在加热喷嘴至 $1°C...
   Heating nozzle...: 正在加热喷嘴...
   Heating the bed: 正在加热热床
-  Heating the nozzle: 正在加热喷嘴
   Heating to %d°C... %.0f°C: 加热至 %d°C... %.0f°C
   Heating to {}°C before {}...: 正在加热至{}°C，然后{}...
   Heating to {}°C for {}...: 正在加热至{}°C，持续{}...
@@ -2178,6 +2178,7 @@ translations:
   ? Moves the print head to measure vibration frequencies on each axis. Takes 2-3
     minutes. The printer will make noise — this is normal.
   : 移动打印头以测量每个轴上的振动频率。需要 2-3 分钟。打印机会发出噪音——这是正常的。
+  Moving back to the print: 正在移回打印件
   Moving lane: 正在移动耗材通道
   Moving over the resume point: 正在移动到恢复点上方
   Moving the plate...: 正在移动热床...
@@ -2819,7 +2820,6 @@ translations:
   Purge tower and brush settings: '排料塔与刷子设置'
   Purging: 正在清料
   Purging nozzle: 正在清洗喷嘴
-  Purging the nozzle: 正在为喷嘴排料
   Purging...: 正在清料...
   QGL: QGL
   'QGL failed: {}': 'QGL 失败: {}'
@@ -3019,6 +3019,7 @@ translations:
   Restore Defaults: 恢复默认设置
   Restore tool: '恢复工具'
   Restoring position: 正在恢复位置
+  Restoring the print settings: 正在恢复打印设置
   Resume: 恢复
   Resume Print: 恢复打印
   Resume Requires Restart: '恢复打印需要重新开始'
@@ -3279,6 +3280,7 @@ translations:
   Set up: 设置
   Set up your label printer in Settings: 在设置中配置标签打印机
   Set what is really selected and loaded. Nothing moves.: '设置实际选择和加载的状态。不会移动任何部件。'
+  Setting the nozzle height: 正在设置喷嘴高度
   Settings: 设置
   Settings Snapshot: 设置快照
   Settings reset to defaults. Restarting...: 设置已重置为默认值。正在重启...
@@ -3695,6 +3697,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: '打印机可自动测量每个工具的偏移。可在工具偏移校准页面运行。'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: '打印机可以自行测量压力提前量(pressure advance)。在 PA 校准界面运行。'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: '打印机可在选定的层暂停,用于换料或嵌入零件。在打印预览中设置层。'
+  The printer could not work out where to resume.: 打印机无法确定从哪里恢复。
   The printer did not change its bed check: '打印机未更改热床检查'
   'The printer did not change its bed check: {}': '打印机未更改热床检查：{}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: '打印机在角落挤出并重复，直到读数一致为止。你无需用肉眼判断任何东西。'

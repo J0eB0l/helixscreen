@@ -61,6 +61,7 @@ class PlrWizardOverlay : public OverlayBase {
 
     lv_obj_t* create(lv_obj_t* parent) override;
     void on_deactivating(DeactivateReason reason) override;
+    void on_dismissed() override;
 
     /// Show the wizard and ask the plugin for its plan. @p api must outlive the
     /// overlay; the app-global IMoonrakerAPI does.
@@ -87,7 +88,7 @@ class PlrWizardOverlay : public OverlayBase {
     void on_plan(const PlrPlanReply& plan);
     void on_rpc_error(const MoonrakerError& err);
     void on_progress(const PlrProgressEvent& event);
-    void on_plan_ready(const std::string& plan_id);
+    void on_plan_ready(const PlrPlanReady& ready);
     void on_connection_changed(int state);
 
     void handle_continue();
@@ -119,6 +120,8 @@ class PlrWizardOverlay : public OverlayBase {
     /// asked in, and one from an earlier opening is ignored.
     int session_ = 0;
     bool listening_ = false;
+    /// helix:plr_plan_ready arrived this opening.
+    bool plan_ready_seen_ = false;
 
     JogCoalescer jog_;
 

@@ -1664,6 +1664,7 @@ translations:
   'Heating Chamber...': 'Heating Chamber...'
   Heating Nozzle...: Heating Nozzle...
   Heating and homing: Heating and homing
+  Heating and purging the nozzle: Heating and purging the nozzle
   'Heating bed to $1°C...': 'Heating bed to $1°C...'
   'Heating bed...': 'Heating bed...'
   'Heating chamber...': 'Heating chamber...'
@@ -1672,7 +1673,6 @@ translations:
   'Heating nozzle to $1°C...': 'Heating nozzle to $1°C...'
   'Heating nozzle...': 'Heating nozzle...'
   Heating the bed: Heating the bed
-  Heating the nozzle: Heating the nozzle
   Heating to %d°C... %.0f°C: Heating to %d°C... %.0f°C
   Heating to {}°C before {}...: Heating to {}°C before {}...
   Heating to {}°C for {}...: Heating to {}°C for {}...
@@ -2256,6 +2256,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Moves the print head to measure vibration frequencies on each axis. Takes 2-3
     minutes. The printer will make noise — this is normal.
+  Moving back to the print: Moving back to the print
   Moving lane: Moving lane
   Moving over the resume point: Moving over the resume point
   Moving the plate...: Moving the plate...
@@ -2910,7 +2911,6 @@ translations:
   Purge tower and brush settings: Purge tower and brush settings
   Purging: Purging
   Purging nozzle: Purging nozzle
-  Purging the nozzle: Purging the nozzle
   Purging...: Purging...
   QGL: QGL
   'QGL failed: {}': 'QGL failed: {}'
@@ -3116,6 +3116,7 @@ translations:
   Restore Defaults: Restore Defaults
   Restore tool: Restore tool
   Restoring position: Restoring position
+  Restoring the print settings: Restoring the print settings
   Resume: Resume
   Resume Print: Resume Print
   Resume Requires Restart: Resume Requires Restart
@@ -3394,6 +3395,7 @@ translations:
   Set up: Set up
   Set up your label printer in Settings: Set up your label printer in Settings
   Set what is really selected and loaded. Nothing moves.: Set what is really selected and loaded. Nothing moves.
+  Setting the nozzle height: Setting the nozzle height
   Settings: Settings
   Settings Snapshot: Settings Snapshot
   Settings reset to defaults. Restarting...: Settings reset to defaults. Restarting...
@@ -3823,6 +3825,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: The printer can measure pressure advance on its own. Run it on the PA calibration screen.
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.
+  The printer could not work out where to resume.: The printer could not work out where to resume.
   The printer did not change its bed check: The printer did not change its bed check
   'The printer did not change its bed check: {}': 'The printer did not change its bed check: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.

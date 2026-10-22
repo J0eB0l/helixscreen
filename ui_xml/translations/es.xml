@@ -1562,6 +1562,7 @@
   <translation tag="Heating Chamber..." es="Calentando cámara..."/>
   <translation tag="Heating Nozzle..." es="Calentando boquilla..."/>
   <translation tag="Heating and homing" es="Calentando y haciendo homing"/>
+  <translation tag="Heating and purging the nozzle" es="Calentando y purgando la boquilla"/>
   <translation tag="Heating bed to $1°C..." es="Calentando cama a $1°C..."/>
   <translation tag="Heating bed..." es="Calentando cama..."/>
   <translation tag="Heating chamber..." es="Calentando cámara..."/>
@@ -1570,7 +1571,6 @@
   <translation tag="Heating nozzle to $1°C..." es="Calentando boquilla a $1°C..."/>
   <translation tag="Heating nozzle..." es="Calentando boquilla..."/>
   <translation tag="Heating the bed" es="Calentando la cama"/>
-  <translation tag="Heating the nozzle" es="Calentando la boquilla"/>
   <translation tag="Heating to %d°C... %.0f°C" es="Calentando a %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." es="Calentando a {}°C antes de {}..."/>
   <translation tag="Heating to {}°C for {}..." es="Calentando a {}°C durante {}..."/>
@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" es="Multiplicadores de velocidad de movimiento"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." es="Mueve el cabezal, haz origen de los ejes, nivela la cama y ajusta temperaturas, ventiladores y otros parámetros de movimiento."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." es="Mueve el cabezal para medir frecuencias de vibración en cada eje. Tarda 2-3 minutos. La impresora hará ruido — esto es normal."/>
+  <translation tag="Moving back to the print" es="Volviendo a la impresión"/>
   <translation tag="Moving lane" es="Moviendo carril"/>
   <translation tag="Moving over the resume point" es="Moviendo sobre el punto de reanudación"/>
   <translation tag="Moving the plate..." es="Moviendo la cama..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" es="Ajustes de torre de purga y cepillo"/>
   <translation tag="Purging" es="Purgando"/>
   <translation tag="Purging nozzle" es="Purgando boquilla"/>
-  <translation tag="Purging the nozzle" es="Purgando la boquilla"/>
   <translation tag="Purging..." es="Purgando..."/>
   <translation tag="QGL" es="QGL"/>
   <translation tag="QGL failed: {}" es="Error en QGL: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" es="Restaurar valores predeterminados"/>
   <translation tag="Restore tool" es="Restaurar herramienta"/>
   <translation tag="Restoring position" es="Restaurando posición"/>
+  <translation tag="Restoring the print settings" es="Restaurando los ajustes de impresión"/>
   <translation tag="Resume" es="Reanudar"/>
   <translation tag="Resume Print" es="Reanudar Impresión"/>
   <translation tag="Resume Requires Restart" es="Reanudar requiere reiniciar"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" es="Configurar"/>
   <translation tag="Set up your label printer in Settings" es="Configure su impresora de etiquetas en Ajustes"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." es="Indica qué está realmente seleccionado y cargado. Nada se mueve."/>
+  <translation tag="Setting the nozzle height" es="Ajustando la altura de la boquilla"/>
   <translation tag="Settings" es="Ajustes"/>
   <translation tag="Settings Snapshot" es="Instantánea de ajustes"/>
   <translation tag="Settings reset to defaults. Restarting..." es="Ajustes restablecidos a valores predeterminados. Reiniciando..."/>
@@ -3559,6 +3561,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." es="La impresora puede medir el desfase de cada herramienta automáticamente. Ejecútalo en la pantalla de calibración de desfases."/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." es="La impresora puede medir el pressure advance por sí sola. Ejecútalo en la pantalla Calibración PA."/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." es="La impresora puede pausar en una capa elegida, para cambiar de filamento o colocar un inserto. Define la capa desde la vista previa de impresión."/>
+  <translation tag="The printer could not work out where to resume." es="La impresora no pudo determinar dónde reanudar."/>
   <translation tag="The printer did not change its bed check" es="La impresora no cambió su comprobación de cama"/>
   <translation tag="The printer did not change its bed check: {}" es="La impresora no cambió su comprobación de cama: {}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." es="La impresora extruye en una esquina y repite hasta que las lecturas coinciden. Tú no juzgas nada a ojo."/>

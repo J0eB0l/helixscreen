@@ -1562,6 +1562,7 @@
   <translation tag="Heating Chamber..." ja="チャンバー加熱中..."/>
   <translation tag="Heating Nozzle..." ja="ノズル加熱中..."/>
   <translation tag="Heating and homing" ja="加熱とホーミング中"/>
+  <translation tag="Heating and purging the nozzle" ja="ノズルを加熱してパージ中"/>
   <translation tag="Heating bed to $1°C..." ja="ベッドを$1°Cに加熱中..."/>
   <translation tag="Heating bed..." ja="ベッド加熱中..."/>
   <translation tag="Heating chamber..." ja="チャンバー加熱中..."/>
@@ -1570,7 +1571,6 @@
   <translation tag="Heating nozzle to $1°C..." ja="ノズルを$1°Cに加熱中..."/>
   <translation tag="Heating nozzle..." ja="ノズル加熱中..."/>
   <translation tag="Heating the bed" ja="ベッドを加熱中"/>
-  <translation tag="Heating the nozzle" ja="ノズルを加熱中"/>
   <translation tag="Heating to %d°C... %.0f°C" ja="%d°Cに加熱中... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ja="{}°Cに加熱中（{}の前）..."/>
   <translation tag="Heating to {}°C for {}..." ja="{}°Cに加熱中（{}）..."/>
@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" ja="移動速度の倍率"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." ja="ツールヘッドを動かし、軸をホーミングし、ベッドをレベリングし、温度、ファン、その他のモーション設定を微調整します。"/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." ja="プリントヘッドを移動させて各軸の振動周波数を測定します。2〜3分かかります。プリンターから音がしますが、これは正常です。"/>
+  <translation tag="Moving back to the print" ja="印刷物の上へ戻っています"/>
   <translation tag="Moving lane" ja="レーンを移動中"/>
   <translation tag="Moving over the resume point" ja="再開位置の上へ移動中"/>
   <translation tag="Moving the plate..." ja="ベッドを移動中..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" ja="パージタワーとブラシの設定"/>
   <translation tag="Purging" ja="パージ中"/>
   <translation tag="Purging nozzle" ja="ノズルをパージ中"/>
-  <translation tag="Purging the nozzle" ja="ノズルをパージ中"/>
   <translation tag="Purging..." ja="パージ中..."/>
   <translation tag="QGL" ja="QGL"/>
   <translation tag="QGL failed: {}" ja="QGL に失敗しました: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" ja="デフォルトに戻す"/>
   <translation tag="Restore tool" ja="ツールを元に戻す"/>
   <translation tag="Restoring position" ja="位置を復元中"/>
+  <translation tag="Restoring the print settings" ja="印刷設定を復元中"/>
   <translation tag="Resume" ja="再開"/>
   <translation tag="Resume Print" ja="印刷を再開"/>
   <translation tag="Resume Requires Restart" ja="再開には再起動が必要です"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" ja="セットアップ"/>
   <translation tag="Set up your label printer in Settings" ja="設定でラベルプリンターをセットアップしてください"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." ja="実際に選択・装填されている状態を設定します。何も動きません。"/>
+  <translation tag="Setting the nozzle height" ja="ノズルの高さを設定中"/>
   <translation tag="Settings" ja="設定"/>
   <translation tag="Settings Snapshot" ja="設定スナップショット"/>
   <translation tag="Settings reset to defaults. Restarting..." ja="設定をデフォルトにリセットしました。再起動中..."/>
@@ -3559,6 +3561,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." ja="プリンターは各ツールのオフセットを自動で測定できます。ツールオフセット校正画面で実行します。"/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." ja="プリンターはプレッシャーアドバンスを自分で測定できます。PAキャリブレーション画面で実行できます。"/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." ja="プリンターは、フィラメント交換やインサート挿入のために、選んだレイヤーで一時停止できます。レイヤーは印刷プレビューで設定します。"/>
+  <translation tag="The printer could not work out where to resume." ja="プリンターは再開位置を特定できませんでした。"/>
   <translation tag="The printer did not change its bed check" ja="プリンターはベッドチェックを変更しませんでした"/>
   <translation tag="The printer did not change its bed check: {}" ja="プリンターはベッドチェックを変更しませんでした：{}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." ja="プリンターは隅で押出しを行い、測定値が一致するまで繰り返します。目視での判断は不要です。"/>

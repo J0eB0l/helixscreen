@@ -1712,6 +1712,7 @@ translations:
   Heating Chamber...: Aquecendo câmara...
   Heating Nozzle...: Aquecendo bocal...
   Heating and homing: Aquecendo e fazendo homing
+  Heating and purging the nozzle: Aquecendo e purgando o bico
   Heating bed to $1°C...: Aquecendo mesa a $1°C...
   Heating bed...: Aquecendo mesa...
   Heating chamber...: Aquecendo câmara...
@@ -1720,7 +1721,6 @@ translations:
   Heating nozzle to $1°C...: Aquecendo bico a $1°C...
   Heating nozzle...: Aquecendo bico...
   Heating the bed: Aquecendo a mesa
-  Heating the nozzle: Aquecendo o bico
   Heating to %d°C... %.0f°C: Aquecendo a %d°C... %.0f°C
   Heating to {}°C before {}...: Aquecendo a {}°C antes de {}...
   Heating to {}°C for {}...: Aquecendo a {}°C por {}...
@@ -2314,6 +2314,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Move o cabeçote para medir frequências de vibração em cada eixo. Leva 2-3 minutos.
     A impressora fará barulho — isso é normal.
+  Moving back to the print: Voltando para a impressão
   Moving lane: Movendo lane
   Moving over the resume point: Movendo sobre o ponto de retomada
   Moving the plate...: Movendo a mesa...
@@ -2981,7 +2982,6 @@ translations:
   Purge tower and brush settings: 'Configurações da torre de purga e da escova'
   Purging: Purgando
   Purging nozzle: Purgando bico
-  Purging the nozzle: Purgando o bico
   Purging...: Purgando...
   QGL: QGL
   'QGL failed: {}': 'Falha no QGL: {}'
@@ -3190,6 +3190,7 @@ translations:
   Restore Defaults: Restaurar Padrões
   Restore tool: 'Restaurar ferramenta'
   Restoring position: Restaurando posição
+  Restoring the print settings: Restaurando as configurações de impressão
   Resume: Retomar
   Resume Print: Retomar Impressão
   Resume Requires Restart: 'Retomar exige reiniciar'
@@ -3475,6 +3476,7 @@ translations:
   Set up your label printer in Settings: Configure sua impressora de etiquetas em
     Configurações
   Set what is really selected and loaded. Nothing moves.: 'Defina o que está realmente selecionado e carregado. Nada se move.'
+  Setting the nozzle height: Definindo a altura do bico
   Settings: Configurações
   Settings Snapshot: Captura de Configurações
   Settings reset to defaults. Restarting...: Configurações restauradas para os padrões.
@@ -3919,6 +3921,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'A impressora pode medir o deslocamento de cada ferramenta automaticamente. Execute na tela de calibração de deslocamento.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'A impressora pode medir o pressure advance por conta própria. Execute na tela Calibração de PA.'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'A impressora pode pausar em uma camada escolhida, para trocar o filamento ou colocar um inserto. Defina a camada na pré-visualização da impressão.'
+  The printer could not work out where to resume.: A impressora não conseguiu determinar onde retomar.
   The printer did not change its bed check: 'A impressora não alterou a verificação da mesa'
   'The printer did not change its bed check: {}': 'A impressora não alterou a verificação da mesa: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'A impressora extruda num canto e repete até as leituras coincidirem. Você não julga nada a olho.'

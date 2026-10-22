@@ -1725,6 +1725,7 @@ translations:
   Heating Chamber...: Chauffe de la chambre...
   Heating Nozzle...: Chauffe de la buse...
   Heating and homing: Chauffe et mise à l'origine
+  Heating and purging the nozzle: Chauffage et purge de la buse
   Heating bed to $1°C...: Chauffe du plateau à $1°C...
   Heating bed...: Chauffe du plateau...
   Heating chamber...: Chauffe de la chambre...
@@ -1733,7 +1734,6 @@ translations:
   Heating nozzle to $1°C...: Chauffe de la buse à $1°C...
   Heating nozzle...: Chauffe de la buse...
   Heating the bed: Chauffage du plateau
-  Heating the nozzle: Chauffage de la buse
   Heating to %d°C... %.0f°C: Chauffe à %d°C... %.0f°C
   Heating to {}°C before {}...: Chauffe à {}°C avant {}...
   Heating to {}°C for {}...: Chauffe à {}°C pendant {}...
@@ -2327,6 +2327,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Déplace la tête d'impression pour mesurer les fréquences de vibration sur chaque
     axe. Prend 2-3 minutes. L'imprimante fera du bruit — c'est normal.
+  Moving back to the print: Retour au-dessus de l'impression
   Moving lane: Déplacement de la voie
   Moving over the resume point: Déplacement au-dessus du point de reprise
   Moving the plate...: Déplacement du plateau...
@@ -2997,7 +2998,6 @@ translations:
   Purge tower and brush settings: 'Paramètres de tour de purge et de brosse'
   Purging: Purge en cours
   Purging nozzle: Purge de la buse
-  Purging the nozzle: Purge de la buse
   Purging...: Purge...
   QGL: QGL
   'QGL failed: {}': 'Échec du QGL : {}'
@@ -3207,6 +3207,7 @@ translations:
   Restore Defaults: Restaurer les valeurs par défaut
   Restore tool: 'Rétablir l''outil'
   Restoring position: Restauration de la position
+  Restoring the print settings: Restauration des réglages d'impression
   Resume: Reprendre
   Resume Print: Reprendre l'impression
   Resume Requires Restart: 'La reprise nécessite un redémarrage'
@@ -3492,6 +3493,7 @@ translations:
   Set up your label printer in Settings: Configurez votre imprimante d'étiquettes
     dans les Paramètres
   Set what is really selected and loaded. Nothing moves.: 'Indiquez ce qui est réellement sélectionné et chargé. Rien ne bouge.'
+  Setting the nozzle height: Réglage de la hauteur de la buse
   Settings: Paramètres
   Settings Snapshot: Instantané des paramètres
   Settings reset to defaults. Restarting...: Paramètres réinitialisés par défaut.
@@ -3938,6 +3940,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'L''imprimante peut mesurer automatiquement le décalage de chaque outil. Lancez-le dans l''écran de calibration des décalages d''outils.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'L''imprimante peut mesurer le pressure advance toute seule. Lancez-le sur l''écran Calibration PA.'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'L''imprimante peut se mettre en pause à une couche choisie, pour changer de filament ou insérer une pièce. Choisissez la couche depuis l''aperçu d''impression.'
+  The printer could not work out where to resume.: L'imprimante n'a pas pu déterminer où reprendre.
   The printer did not change its bed check: 'L''imprimante n''a pas modifié sa vérification du plateau'
   'The printer did not change its bed check: {}': 'L''imprimante n''a pas modifié sa vérification du plateau: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'L''imprimante extrude dans un coin et répète jusqu''à ce que les mesures concordent. Vous ne jugez rien à l''œil.'

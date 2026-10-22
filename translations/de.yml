@@ -1721,6 +1721,7 @@ translations:
   Heating Chamber...: Kammer aufheizen...
   Heating Nozzle...: Düse aufheizen...
   Heating and homing: Aufheizen und Referenzfahrt
+  Heating and purging the nozzle: Düse wird aufgeheizt und entlüftet
   Heating bed to $1°C...: Bett heizt auf $1°C auf...
   Heating bed...: Bett aufheizen...
   Heating chamber...: Kammer aufheizen...
@@ -1729,7 +1730,6 @@ translations:
   Heating nozzle to $1°C...: Düse heizt auf $1°C auf...
   Heating nozzle...: Düse aufheizen...
   Heating the bed: Heizbett wird aufgeheizt
-  Heating the nozzle: Düse wird aufgeheizt
   Heating to %d°C... %.0f°C: Aufheizen auf %d°C... %.0f°C
   Heating to {}°C before {}...: Aufheizen auf {}°C vor {}...
   Heating to {}°C for {}...: Aufheizen auf {}°C für {}...
@@ -2321,6 +2321,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Bewegt den Druckkopf, um Vibrationsfrequenzen auf jeder Achse zu messen. Dauert
     2-3 Minuten. Der Drucker wird Geräusche machen — das ist normal.
+  Moving back to the print: Fahrt zurück zum Druck
   Moving lane: Spur bewegen
   Moving over the resume point: Fahrt über den Fortsetzungspunkt
   Moving the plate...: Heizbett wird bewegt...
@@ -2988,7 +2989,6 @@ translations:
   Purge tower and brush settings: 'Einstellungen für Reinigungsturm und Bürste'
   Purging: Spülen
   Purging nozzle: Düse wird gespült
-  Purging the nozzle: Düse wird entlüftet
   Purging...: Entlüften...
   QGL: QGL
   'QGL failed: {}': 'QGL fehlgeschlagen: {}'
@@ -3195,6 +3195,7 @@ translations:
   Restore Defaults: Standardeinstellungen wiederherstellen
   Restore tool: 'Werkzeug wiederherstellen'
   Restoring position: Position wiederherstellen
+  Restoring the print settings: Druckeinstellungen werden wiederhergestellt
   Resume: Fortsetzen
   Resume Print: Druck fortsetzen
   Resume Requires Restart: 'Fortsetzen erfordert Neustart'
@@ -3480,6 +3481,7 @@ translations:
   Set up: Einrichten
   Set up your label printer in Settings: Etikettendrucker in Einstellungen einrichten
   Set what is really selected and loaded. Nothing moves.: 'Festlegen, was wirklich ausgewählt und geladen ist. Nichts bewegt sich.'
+  Setting the nozzle height: Düsenhöhe wird festgelegt
   Settings: Einstellungen
   Settings Snapshot: Einstellungen-Momentaufnahme
   Settings reset to defaults. Restarting...: Einstellungen auf Standardwerte zurückgesetzt.
@@ -3921,6 +3923,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'Der Drucker kann den Versatz jedes Werkzeugs automatisch messen. Starten Sie dies im Bildschirm Werkzeugversatz-Kalibrierung.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'Der Drucker kann Pressure Advance selbst messen. Starte es im PA-Kalibrierung-Bildschirm.'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'Der Drucker kann bei einer gewählten Schicht pausieren, etwa für einen Filamentwechsel oder ein Einlegeteil. Lege die Schicht in der Druckvorschau fest.'
+  The printer could not work out where to resume.: Der Drucker konnte nicht ermitteln, wo fortgesetzt werden soll.
   The printer did not change its bed check: 'Der Drucker hat seine Bettprüfung nicht geändert'
   'The printer did not change its bed check: {}': 'Der Drucker hat seine Bettprüfung nicht geändert: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'Der Drucker extrudiert in einer Ecke und wiederholt, bis die Messwerte übereinstimmen. Du beurteilst nichts mit dem Auge.'

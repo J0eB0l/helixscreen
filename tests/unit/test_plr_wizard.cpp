@@ -398,8 +398,11 @@ TEST_CASE("plr_parse_progress_event and plan_ready read the notification payload
     CHECK(ev->state == "running");
     CHECK_FALSE(helix::plr_parse_progress_event(json{{"params", json::array()}}).has_value());
 
-    CHECK(helix::plr_parse_plan_ready(json{{"params", {{{"plan_id", "p9"}}}}}) == "p9");
-    CHECK(helix::plr_parse_plan_ready(json::object()).empty());
+    CHECK(helix::plr_parse_plan_ready(json{{"params", {{{"plan_id", "p9"}}}}}).plan_id == "p9");
+    auto failed = helix::plr_parse_plan_ready(
+        json{{"params", {{{"plan_id", "p9"}, {"error", "multi_material"}}}}});
+    CHECK(failed.error == "multi_material");
+    CHECK(helix::plr_parse_plan_ready(json::object()).plan_id.empty());
 }
 
 TEST_CASE("plr_commit_params: confirmations and the tier's Z reference", "[plr][wizard]") {

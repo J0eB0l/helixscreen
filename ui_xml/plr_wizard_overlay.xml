@@ -156,6 +156,7 @@
             <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
           </ui_button>
           <ui_button name="btn_plr_resume" flex_grow="2" text="Resume Print" variant="success" moves_machine="true">
+            <bind_state_if cond="plr_wizard_tier eq 1 and plr_z_jogged eq 0" state="disabled"/>
             <event_cb trigger="clicked" callback="on_plr_wizard_resume"/>
           </ui_button>
         </lv_obj>

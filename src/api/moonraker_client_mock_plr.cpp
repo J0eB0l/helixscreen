@@ -202,6 +202,25 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
             fail(plr_error(method, "plr_no_plan", "No power-loss snapshot"));
             return;
         }
+        if (cfg.fail == "plan_background" || cfg.fail == "plan_loop") {
+            // A long scan answers pending, then reports through plan_ready:
+            // with an error, or (plan_loop) with nothing a re-request can use.
+            const bool with_error = cfg.fail == "plan_background";
+            play_console_steps(
+                {[this, with_error]() {
+                    json ready = {{"plan_id", with_error ? "" : "mock-plan-pending"}};
+                    if (with_error) {
+                        ready["error"] = "multi_material: the file uses 2 tools";
+                    }
+                    dispatch_method_callback(helix::kPlrPlanReadyNotify,
+                                             json{{"jsonrpc", "2.0"},
+                                                  {"method", helix::kPlrPlanReadyNotify},
+                                                  {"params", {ready}}});
+                }},
+                kMockPlrStepIntervalMs, []() {});
+            reply({{"pending", true}});
+            return;
+        }
         plr_plan_id_ = fmt::format("mock-plan-{}", ++plr_plan_seq_);
         json requires_list = json::array();
         for (PlrConfirmation c : mock_requires(cfg)) {
@@ -258,10 +277,10 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
             return;
         }
         set_bed_target(kMockPlrBedTarget);
-        std::vector<std::function<void()>> steps = {progress("bed_wait"), progress("lift"),
+        std::vector<std::function<void()>> steps = {progress("bed"), progress("lift"),
                                                     progress("home_xy")};
         if (cfg.tier == 1) {
-            steps.push_back(progress("move_to_resume"));
+            steps.push_back(progress("position"));
         }
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs,
                            [reply]() { reply({{"ok", true}}); });
@@ -281,7 +300,8 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                 return;
             }
         }
-        std::vector<std::function<void()>> steps = {progress("heat_nozzle"), progress("purge"),
+        std::vector<std::function<void()>> steps = {progress("z_reference"), progress("restore"),
+                                                    progress("purge"), progress("return"),
                                                     progress("start")};
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs, [this, reply]() {
             plr_snapshot_cleared_ = true;

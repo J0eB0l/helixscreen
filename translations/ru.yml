@@ -1754,6 +1754,7 @@ translations:
   Heating Chamber...: Нагрев камеры...
   Heating Nozzle...: Нагрев сопла...
   Heating and homing: Нагрев и парковка
+  Heating and purging the nozzle: Нагрев и продувка сопла
   Heating bed to $1°C...: Нагрев стола до $1°C...
   Heating bed...: Нагрев стола...
   Heating chamber...: Нагрев камеры...
@@ -1762,7 +1763,6 @@ translations:
   Heating nozzle to $1°C...: Нагрев сопла до $1°C...
   Heating nozzle...: Нагрев сопла...
   Heating the bed: Нагрев стола
-  Heating the nozzle: Нагрев сопла
   Heating to %d°C... %.0f°C: Нагрев до %d°C... %.0f°C
   Heating to {}°C before {}...: Нагрев до {}°C перед «{}»...
   Heating to {}°C for {}...: Нагрев до {}°C в течение {}...
@@ -2352,6 +2352,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Перемещает печатающую головку для измерения частот вибрации по каждой оси. Занимает
     2-3 минуты. Принтер будет шуметь — это нормально.
+  Moving back to the print: Возврат к печати
   Moving lane: Перемещение канала
   Moving over the resume point: Перемещение к точке продолжения
   Moving the plate...: Перемещение стола...
@@ -3027,7 +3028,6 @@ translations:
   Purge tower and brush settings: 'Настройки башни продувки и щётки'
   Purging: Продувка
   Purging nozzle: Продувка сопла
-  Purging the nozzle: Продувка сопла
   Purging...: Продувка...
   QGL: QGL
   'QGL failed: {}': 'Ошибка QGL: {}'
@@ -3234,6 +3234,7 @@ translations:
   Restore Defaults: Восстановить по умолчанию
   Restore tool: 'Вернуть инструмент'
   Restoring position: Восстановление позиции
+  Restoring the print settings: Восстановление настроек печати
   Resume: Продолжить
   Resume Print: Продолжить печать
   Resume Requires Restart: 'Для возобновления нужен перезапуск'
@@ -3515,6 +3516,7 @@ translations:
   Set up: Настроить
   Set up your label printer in Settings: Настройте принтер этикеток в Настройках
   Set what is really selected and loaded. Nothing moves.: 'Укажите, что на самом деле выбрано и загружено. Ничего не двигается.'
+  Setting the nozzle height: Установка высоты сопла
   Settings: Настройки
   Settings Snapshot: Снимок настроек
   Settings reset to defaults. Restarting...: Настройки сброшены к значениям по умолчанию.
@@ -3962,6 +3964,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'Принтер может автоматически измерить смещение каждого инструмента. Запустите это на экране калибровки смещений инструментов.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'Принтер может сам измерить pressure advance. Запускается на экране «Калибровка PA».'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'Принтер может встать на паузу на выбранном слое, для смены филамента или вставки детали. Слой задается в предпросмотре печати.'
+  The printer could not work out where to resume.: Принтер не смог определить, откуда продолжить.
   The printer did not change its bed check: 'Принтер не изменил проверку стола'
   'The printer did not change its bed check: {}': 'Принтер не изменил проверку стола: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'Принтер выдавливает пластик в углу и повторяет, пока показания не сойдутся. Ничего не нужно оценивать на глаз.'

@@ -1562,6 +1562,7 @@
   <translation tag="Heating Chamber..." zh="正在加热腔体..."/>
   <translation tag="Heating Nozzle..." zh="正在加热喷嘴..."/>
   <translation tag="Heating and homing" zh="加热并归零中"/>
+  <translation tag="Heating and purging the nozzle" zh="正在加热喷嘴并排料"/>
   <translation tag="Heating bed to $1°C..." zh="正在加热热床至 $1°C..."/>
   <translation tag="Heating bed..." zh="正在加热热床..."/>
   <translation tag="Heating chamber..." zh="正在加热腔体..."/>
@@ -1570,7 +1571,6 @@
   <translation tag="Heating nozzle to $1°C..." zh="正在加热喷嘴至 $1°C..."/>
   <translation tag="Heating nozzle..." zh="正在加热喷嘴..."/>
   <translation tag="Heating the bed" zh="正在加热热床"/>
-  <translation tag="Heating the nozzle" zh="正在加热喷嘴"/>
   <translation tag="Heating to %d°C... %.0f°C" zh="加热至 %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." zh="正在加热至{}°C，然后{}..."/>
   <translation tag="Heating to {}°C for {}..." zh="正在加热至{}°C，持续{}..."/>
@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" zh="移动速度倍率"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." zh="移动打印头、归位轴、调平热床，并微调温度、风扇及其他运动设置。"/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." zh="移动打印头以测量每个轴上的振动频率。需要 2-3 分钟。打印机会发出噪音——这是正常的。"/>
+  <translation tag="Moving back to the print" zh="正在移回打印件"/>
   <translation tag="Moving lane" zh="正在移动耗材通道"/>
   <translation tag="Moving over the resume point" zh="正在移动到恢复点上方"/>
   <translation tag="Moving the plate..." zh="正在移动热床..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" zh="排料塔与刷子设置"/>
   <translation tag="Purging" zh="正在清料"/>
   <translation tag="Purging nozzle" zh="正在清洗喷嘴"/>
-  <translation tag="Purging the nozzle" zh="正在为喷嘴排料"/>
   <translation tag="Purging..." zh="正在清料..."/>
   <translation tag="QGL" zh="QGL"/>
   <translation tag="QGL failed: {}" zh="QGL 失败: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" zh="恢复默认设置"/>
   <translation tag="Restore tool" zh="恢复工具"/>
   <translation tag="Restoring position" zh="正在恢复位置"/>
+  <translation tag="Restoring the print settings" zh="正在恢复打印设置"/>
   <translation tag="Resume" zh="恢复"/>
   <translation tag="Resume Print" zh="恢复打印"/>
   <translation tag="Resume Requires Restart" zh="恢复打印需要重新开始"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" zh="设置"/>
   <translation tag="Set up your label printer in Settings" zh="在设置中配置标签打印机"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." zh="设置实际选择和加载的状态。不会移动任何部件。"/>
+  <translation tag="Setting the nozzle height" zh="正在设置喷嘴高度"/>
   <translation tag="Settings" zh="设置"/>
   <translation tag="Settings Snapshot" zh="设置快照"/>
   <translation tag="Settings reset to defaults. Restarting..." zh="设置已重置为默认值。正在重启..."/>
@@ -3559,6 +3561,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." zh="打印机可自动测量每个工具的偏移。可在工具偏移校准页面运行。"/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." zh="打印机可以自行测量压力提前量(pressure advance)。在 PA 校准界面运行。"/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." zh="打印机可在选定的层暂停,用于换料或嵌入零件。在打印预览中设置层。"/>
+  <translation tag="The printer could not work out where to resume." zh="打印机无法确定从哪里恢复。"/>
   <translation tag="The printer did not change its bed check" zh="打印机未更改热床检查"/>
   <translation tag="The printer did not change its bed check: {}" zh="打印机未更改热床检查：{}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." zh="打印机在角落挤出并重复，直到读数一致为止。你无需用肉眼判断任何东西。"/>

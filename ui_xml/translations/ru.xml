@@ -1607,6 +1607,7 @@
   <translation tag="Heating Chamber..." ru="Нагрев камеры..."/>
   <translation tag="Heating Nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating and homing" ru="Нагрев и парковка"/>
+  <translation tag="Heating and purging the nozzle" ru="Нагрев и продувка сопла"/>
   <translation tag="Heating bed to $1°C..." ru="Нагрев стола до $1°C..."/>
   <translation tag="Heating bed..." ru="Нагрев стола..."/>
   <translation tag="Heating chamber..." ru="Нагрев камеры..."/>
@@ -1615,7 +1616,6 @@
   <translation tag="Heating nozzle to $1°C..." ru="Нагрев сопла до $1°C..."/>
   <translation tag="Heating nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating the bed" ru="Нагрев стола"/>
-  <translation tag="Heating the nozzle" ru="Нагрев сопла"/>
   <translation tag="Heating to %d°C... %.0f°C" ru="Нагрев до %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ru="Нагрев до {}°C перед «{}»..."/>
   <translation tag="Heating to {}°C for {}..." ru="Нагрев до {}°C в течение {}..."/>
@@ -2148,6 +2148,7 @@
   <translation tag="Move speed multipliers" ru="Множители скорости перемещения"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." ru="Перемещайте печатающую головку, паркуйте оси, выравнивайте стол и точно настраивайте температуры, вентиляторы и другие параметры движения."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." ru="Перемещает печатающую головку для измерения частот вибрации по каждой оси. Занимает 2-3 минуты. Принтер будет шуметь — это нормально."/>
+  <translation tag="Moving back to the print" ru="Возврат к печати"/>
   <translation tag="Moving lane" ru="Перемещение канала"/>
   <translation tag="Moving over the resume point" ru="Перемещение к точке продолжения"/>
   <translation tag="Moving the plate..." ru="Перемещение стола..."/>
@@ -2780,7 +2781,6 @@
   <translation tag="Purge tower and brush settings" ru="Настройки башни продувки и щётки"/>
   <translation tag="Purging" ru="Продувка"/>
   <translation tag="Purging nozzle" ru="Продувка сопла"/>
-  <translation tag="Purging the nozzle" ru="Продувка сопла"/>
   <translation tag="Purging..." ru="Продувка..."/>
   <translation tag="QGL" ru="QGL"/>
   <translation tag="QGL failed: {}" ru="Ошибка QGL: {}"/>
@@ -2978,6 +2978,7 @@
   <translation tag="Restore Defaults" ru="Восстановить по умолчанию"/>
   <translation tag="Restore tool" ru="Вернуть инструмент"/>
   <translation tag="Restoring position" ru="Восстановление позиции"/>
+  <translation tag="Restoring the print settings" ru="Восстановление настроек печати"/>
   <translation tag="Resume" ru="Продолжить"/>
   <translation tag="Resume Print" ru="Продолжить печать"/>
   <translation tag="Resume Requires Restart" ru="Для возобновления нужен перезапуск"/>
@@ -3227,6 +3228,7 @@
   <translation tag="Set up" ru="Настроить"/>
   <translation tag="Set up your label printer in Settings" ru="Настройте принтер этикеток в Настройках"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." ru="Укажите, что на самом деле выбрано и загружено. Ничего не двигается."/>
+  <translation tag="Setting the nozzle height" ru="Установка высоты сопла"/>
   <translation tag="Settings" ru="Настройки"/>
   <translation tag="Settings Snapshot" ru="Снимок настроек"/>
   <translation tag="Settings reset to defaults. Restarting..." ru="Настройки сброшены к значениям по умолчанию. Перезапуск..."/>
@@ -3619,6 +3621,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." ru="Принтер может автоматически измерить смещение каждого инструмента. Запустите это на экране калибровки смещений инструментов."/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." ru="Принтер может сам измерить pressure advance. Запускается на экране «Калибровка PA»."/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." ru="Принтер может встать на паузу на выбранном слое, для смены филамента или вставки детали. Слой задается в предпросмотре печати."/>
+  <translation tag="The printer could not work out where to resume." ru="Принтер не смог определить, откуда продолжить."/>
   <translation tag="The printer did not change its bed check" ru="Принтер не изменил проверку стола"/>
   <translation tag="The printer did not change its bed check: {}" ru="Принтер не изменил проверку стола: {}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." ru="Принтер выдавливает пластик в углу и повторяет, пока показания не сойдутся. Ничего не нужно оценивать на глаз."/>

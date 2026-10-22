@@ -1710,6 +1710,7 @@ translations:
   Heating Chamber...: Riscaldamento camera...
   Heating Nozzle...: Riscaldamento ugello...
   Heating and homing: Riscaldamento e homing
+  Heating and purging the nozzle: Riscaldamento e spurgo dell'ugello
   Heating bed to $1°C...: Riscaldamento piano a $1°C...
   Heating bed...: Riscaldamento piano...
   Heating chamber...: Riscaldamento camera...
@@ -1718,7 +1719,6 @@ translations:
   Heating nozzle to $1°C...: Riscaldamento ugello a $1°C...
   Heating nozzle...: Riscaldamento ugello...
   Heating the bed: Riscaldamento del piano
-  Heating the nozzle: Riscaldamento dell'ugello
   Heating to %d°C... %.0f°C: Riscaldamento a %d°C... %.0f°C
   Heating to {}°C before {}...: Riscaldamento a {}°C prima di {}...
   Heating to {}°C for {}...: Riscaldamento a {}°C per {}...
@@ -2312,6 +2312,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Muove la testina per misurare le frequenze di vibrazione su ogni asse. Richiede
     2-3 minuti. La stampante farà rumore — è normale.
+  Moving back to the print: Ritorno sulla stampa
   Moving lane: Spostamento corsia
   Moving over the resume point: Spostamento sopra il punto di ripresa
   Moving the plate...: Spostamento del piano...
@@ -2978,7 +2979,6 @@ translations:
   Purge tower and brush settings: 'Impostazioni della torre di spurgo e della spazzola'
   Purging: Spurgo
   Purging nozzle: Spurgo ugello
-  Purging the nozzle: Spurgo dell'ugello
   Purging...: Spurgo...
   QGL: QGL
   'QGL failed: {}': 'QGL fallito: {}'
@@ -3186,6 +3186,7 @@ translations:
   Restore Defaults: Ripristina predefiniti
   Restore tool: 'Ripristina strumento'
   Restoring position: Ripristino posizione
+  Restoring the print settings: Ripristino delle impostazioni di stampa
   Resume: Riprendi
   Resume Print: Riprendi stampa
   Resume Requires Restart: 'La ripresa richiede un riavvio'
@@ -3470,6 +3471,7 @@ translations:
   Set up: Configura
   Set up your label printer in Settings: Configura la stampante etichette nelle Impostazioni
   Set what is really selected and loaded. Nothing moves.: 'Imposta cosa è davvero selezionato e caricato. Nulla si muove.'
+  Setting the nozzle height: Impostazione dell'altezza dell'ugello
   Settings: Impostazioni
   Settings Snapshot: Istantanea delle impostazioni
   Settings reset to defaults. Restarting...: Impostazioni ripristinate ai valori predefiniti.
@@ -3913,6 +3915,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'La stampante può misurare automaticamente l''offset di ogni utensile. Avvialo nella schermata di calibrazione offset utensili.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'La stampante può misurare il pressure advance da sola. Eseguilo nella schermata Calibrazione PA.'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'La stampante può mettersi in pausa a un layer scelto, per cambiare filamento o inserire un componente. Imposta il layer dall''anteprima di stampa.'
+  The printer could not work out where to resume.: La stampante non è riuscita a capire da dove riprendere.
   The printer did not change its bed check: 'La stampante non ha modificato il controllo del piano'
   'The printer did not change its bed check: {}': 'La stampante non ha modificato il controllo del piano: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'La stampante estrude in un angolo e ripete finché le letture concordano. Non giudichi nulla a occhio.'

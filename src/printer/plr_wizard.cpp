@@ -306,9 +306,14 @@ std::optional<PlrProgressEvent> plr_parse_progress_event(const nlohmann::json& m
     return event;
 }
 
-std::string plr_parse_plan_ready(const nlohmann::json& msg) {
+PlrPlanReady plr_parse_plan_ready(const nlohmann::json& msg) {
+    PlrPlanReady ready;
     const nlohmann::json* payload = json_util::notification_payload(msg);
-    return payload ? json_util::safe_string(*payload, "plan_id", "") : std::string();
+    if (payload != nullptr) {
+        ready.plan_id = json_util::safe_string(*payload, "plan_id", "");
+        ready.error = json_util::safe_string(*payload, "error", "");
+    }
+    return ready;
 }
 
 nlohmann::json plr_commit_params(const std::string& plan_id,

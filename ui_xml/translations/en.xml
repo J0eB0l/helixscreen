@@ -1562,6 +1562,7 @@
   <translation tag="Heating Chamber..." en="Heating Chamber..."/>
   <translation tag="Heating Nozzle..." en="Heating Nozzle..."/>
   <translation tag="Heating and homing" en="Heating and homing"/>
+  <translation tag="Heating and purging the nozzle" en="Heating and purging the nozzle"/>
   <translation tag="Heating bed to $1°C..." en="Heating bed to $1°C..."/>
   <translation tag="Heating bed..." en="Heating bed..."/>
   <translation tag="Heating chamber..." en="Heating chamber..."/>
@@ -1570,7 +1571,6 @@
   <translation tag="Heating nozzle to $1°C..." en="Heating nozzle to $1°C..."/>
   <translation tag="Heating nozzle..." en="Heating nozzle..."/>
   <translation tag="Heating the bed" en="Heating the bed"/>
-  <translation tag="Heating the nozzle" en="Heating the nozzle"/>
   <translation tag="Heating to %d°C... %.0f°C" en="Heating to %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." en="Heating to {}°C before {}..."/>
   <translation tag="Heating to {}°C for {}..." en="Heating to {}°C for {}..."/>
@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" en="Move speed multipliers"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." en="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." en="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal."/>
+  <translation tag="Moving back to the print" en="Moving back to the print"/>
   <translation tag="Moving lane" en="Moving lane"/>
   <translation tag="Moving over the resume point" en="Moving over the resume point"/>
   <translation tag="Moving the plate..." en="Moving the plate..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" en="Purge tower and brush settings"/>
   <translation tag="Purging" en="Purging"/>
   <translation tag="Purging nozzle" en="Purging nozzle"/>
-  <translation tag="Purging the nozzle" en="Purging the nozzle"/>
   <translation tag="Purging..." en="Purging..."/>
   <translation tag="QGL" en="QGL"/>
   <translation tag="QGL failed: {}" en="QGL failed: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" en="Restore Defaults"/>
   <translation tag="Restore tool" en="Restore tool"/>
   <translation tag="Restoring position" en="Restoring position"/>
+  <translation tag="Restoring the print settings" en="Restoring the print settings"/>
   <translation tag="Resume" en="Resume"/>
   <translation tag="Resume Print" en="Resume Print"/>
   <translation tag="Resume Requires Restart" en="Resume Requires Restart"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" en="Set up"/>
   <translation tag="Set up your label printer in Settings" en="Set up your label printer in Settings"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." en="Set what is really selected and loaded. Nothing moves."/>
+  <translation tag="Setting the nozzle height" en="Setting the nozzle height"/>
   <translation tag="Settings" en="Settings"/>
   <translation tag="Settings Snapshot" en="Settings Snapshot"/>
   <translation tag="Settings reset to defaults. Restarting..." en="Settings reset to defaults. Restarting..."/>
@@ -3559,6 +3561,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." en="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen."/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." en="The printer can measure pressure advance on its own. Run it on the PA calibration screen."/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." en="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview."/>
+  <translation tag="The printer could not work out where to resume." en="The printer could not work out where to resume."/>
   <translation tag="The printer did not change its bed check" en="The printer did not change its bed check"/>
   <translation tag="The printer did not change its bed check: {}" en="The printer did not change its bed check: {}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." en="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye."/>

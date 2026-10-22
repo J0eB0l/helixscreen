@@ -324,3 +324,160 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a disconnect mid-prepare fails a
     CHECK(client.count(helix::kPlrCommitRpc) == 0);
     set_connection(helix::ConnectionState::CONNECTED);
 }
+
+namespace {
+
+/// Every gcode script sent from index @p from on that moves Z.
+int z_moves_since(const RecordingClient& client, size_t from) {
+    int n = 0;
+    for (size_t i = from; i < client.sent.size(); ++i) {
+        if (client.sent[i].first == "printer.gcode.script" &&
+            client.sent[i].second.value("script", "").find(" Z") != std::string::npos) {
+            ++n;
+        }
+    }
+    return n;
+}
+
+std::string subject_text(const char* name) {
+    lv_subject_t* s = lv_xml_get_subject(nullptr, name);
+    REQUIRE(s != nullptr);
+    return lv_subject_get_string(s);
+}
+
+} // namespace
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a jog queued before Abort is never sent",
+                 "[plr][wizard_overlay]") {
+    helix::ScopedEnv tier{"HELIX_MOCK_PLR_TIER", "1"};
+    open();
+    set_subject("plr_ack_part", 1);
+    set_subject("plr_ack_nozzle", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(run_past(PlrWizardStep::Preparing));
+    REQUIRE(wizard_step() == PlrWizardStep::ZStep);
+
+    // The first jog stays in flight; the next taps queue behind it.
+    client.defer_next("printer.gcode.script");
+    PlrWizardOverlayTestAccess::tap_jog(get_plr_wizard_overlay(), -1);
+    PlrWizardOverlayTestAccess::tap_jog(get_plr_wizard_overlay(), -1);
+    PlrWizardOverlayTestAccess::tap_jog(get_plr_wizard_overlay(), -1);
+    settle();
+    PlrWizardOverlayTestAccess::tap_abort(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Aborted);
+
+    const size_t before = client.sent.size();
+    client.fire_deferred("printer.gcode.script");
+    settle();
+    CHECK(z_moves_since(client, before) == 0);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the screensaver does not abort a bed wait",
+                 "[plr][wizard_overlay]") {
+    open();
+    set_subject("plr_ack_part", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Preparing);
+
+    get_plr_wizard_overlay().on_deactivating(DeactivateReason::Suspended);
+    settle();
+    CHECK(wizard_step() == PlrWizardStep::Preparing);
+    // The prepare reply still lands in this opening.
+    REQUIRE(run_past(PlrWizardStep::Preparing));
+    CHECK(wizard_step() == PlrWizardStep::ZStep);
+    CHECK(client.count(helix::kPlrAbortRpc) == 0);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: leaving the wizard mid-prepare aborts",
+                 "[plr][wizard_overlay]") {
+    open();
+    set_subject("plr_ack_part", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Preparing);
+
+    NavigationManager::instance().go_back();
+    settle();
+    CHECK(client.count(helix::kPlrAbortRpc) == 1);
+    CHECK(wizard_step() == PlrWizardStep::Aborted);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: tier 1 resumes only after jogging down",
+                 "[plr][wizard_overlay]") {
+    helix::ScopedEnv tier{"HELIX_MOCK_PLR_TIER", "1"};
+    open();
+    set_subject("plr_ack_part", 1);
+    set_subject("plr_ack_nozzle", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(run_past(PlrWizardStep::Preparing));
+    REQUIRE(wizard_step() == PlrWizardStep::ZStep);
+    CHECK(subject("plr_z_jogged") == 0);
+
+    PlrWizardOverlayTestAccess::tap_resume(get_plr_wizard_overlay());
+    settle();
+    CHECK(wizard_step() == PlrWizardStep::ZStep);
+
+    // Raising never reaches the part.
+    PlrWizardOverlayTestAccess::tap_jog(get_plr_wizard_overlay(), 1);
+    settle();
+    PlrWizardOverlayTestAccess::tap_resume(get_plr_wizard_overlay());
+    settle();
+    CHECK(wizard_step() == PlrWizardStep::ZStep);
+    CHECK(client.count(helix::kPlrCommitRpc) == 0);
+
+    PlrWizardOverlayTestAccess::tap_jog(get_plr_wizard_overlay(), -1);
+    settle();
+    CHECK(subject("plr_z_jogged") == 1);
+    PlrWizardOverlayTestAccess::tap_resume(get_plr_wizard_overlay());
+    settle();
+    CHECK(wizard_step() == PlrWizardStep::Committing);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: progress shows the plugin's step names",
+                 "[plr][wizard_overlay]") {
+    open();
+    set_subject("plr_ack_part", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Preparing);
+    bool saw_bed = false;
+    for (int i = 0; i < 20 && wizard_step() == PlrWizardStep::Preparing; ++i) {
+        saw_bed = saw_bed || subject_text("plr_wizard_progress") == "Heating the bed";
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(500);
+    }
+    CHECK(saw_bed);
+
+    PlrWizardOverlayTestAccess::tap_resume(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Committing);
+    bool saw_start = false;
+    for (int i = 0; i < 20 && wizard_step() == PlrWizardStep::Committing; ++i) {
+        saw_start = saw_start || subject_text("plr_wizard_progress") == "Starting the print";
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(500);
+    }
+    CHECK(saw_start);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a background plan failure shows an error",
+                 "[plr][wizard_overlay]") {
+    SECTION("the plugin reports the error with plan_ready") {
+        helix::ScopedEnv fail{"HELIX_MOCK_PLR_FAIL", "plan_background"};
+        open();
+        REQUIRE(run_past(PlrWizardStep::Offer));
+        CHECK(wizard_step() == PlrWizardStep::Failed);
+        CHECK(subject_text("plr_wizard_error").find("multi_material") != std::string::npos);
+    }
+    SECTION("the plan stays pending after plan_ready") {
+        helix::ScopedEnv fail{"HELIX_MOCK_PLR_FAIL", "plan_loop"};
+        open();
+        REQUIRE(run_past(PlrWizardStep::Offer));
+        CHECK(wizard_step() == PlrWizardStep::Failed);
+        CHECK(client.count(helix::kPlrPlanRpc) == 2);
+    }
+}

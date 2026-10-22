@@ -159,8 +159,14 @@ struct PlrProgressEvent {
 /// Reads the whole notification message; nullopt when it carries no payload.
 std::optional<PlrProgressEvent> plr_parse_progress_event(const nlohmann::json& msg);
 
-/// The plan_id of a helix:plr_plan_ready notification, empty when absent.
-std::string plr_parse_plan_ready(const nlohmann::json& msg);
+/// helix:plr_plan_ready: the plan it finished, or why the scan failed.
+struct PlrPlanReady {
+    std::string plan_id;
+    /// Non-empty when the background scan failed; no plan follows.
+    std::string error;
+};
+
+PlrPlanReady plr_parse_plan_ready(const nlohmann::json& msg);
 
 /// The commit request: every given confirmation, and the Z reference the tier
 /// resumes from (tier 1 the part top the user jogged to, else the trusted frame).
