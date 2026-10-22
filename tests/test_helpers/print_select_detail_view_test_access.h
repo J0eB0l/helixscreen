@@ -4,6 +4,7 @@
 
 #include "ui_print_select_detail_view.h"
 
+#include <set>
 #include <string>
 
 #include "../catch_amalgamated.hpp"
@@ -21,6 +22,18 @@ class PrintSelectDetailViewTestAccess {
     static void apply_file_metadata(helix::ui::PrintSelectDetailView& view, const std::string& key,
                                     const FileMetadata& metadata) {
         view.apply_file_metadata(key, metadata);
+    }
+    /// The headless scan's chip render, as apply_scan_result() runs it.
+    static void render_authoritative_chips(helix::ui::PrintSelectDetailView& view,
+                                           const std::set<int>& tools_used,
+                                           bool refresh_card_from_palette) {
+        view.render_authoritative_chips(tools_used, refresh_card_from_palette);
+    }
+    /// The footer read's answer, as the headless scan delivers it.
+    static void apply_footer_summary(helix::ui::PrintSelectDetailView& view,
+                                     const helix::gcode::GcodeFooterSummary& summary,
+                                     bool tools_answered) {
+        view.apply_footer_summary(summary, tools_answered);
     }
     /// What the plugin card's Set up tap and the remap help's Install button run.
     static void request_plugin_setup(helix::ui::PrintSelectDetailView& view) {

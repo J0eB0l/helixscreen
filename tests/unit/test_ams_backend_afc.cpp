@@ -18,6 +18,7 @@
 #include "filament_op_execute.h"
 #include "filament_op_router.h"
 #include "filament_slot_override_store.h"
+#include "gcode_footer_summary.h"
 #include "lane_translation.h"
 #include "lvgl_ui_test_fixture.h"
 #include "moonraker_api.h"
@@ -31,6 +32,7 @@
 #include "test_helpers/config_dir_guard.h"
 #include "test_helpers/log_capture.h"
 #include "test_helpers/mock_printer.h"
+#include "test_helpers/print_select_detail_view_test_access.h"
 #include "test_helpers/print_start_controller_test_access.h"
 #include "test_helpers/registered_backend.h"
 #include "test_helpers/scoped_cache_dir.h"
@@ -2123,6 +2125,22 @@ struct AfcOpenDetailFixture : LVGLUITestFixture {
         drain();
     }
 
+    /// The user puts T1 on lane4 in the remap modal.
+    void pick_t1_on_lane4() {
+        auto mappings = view.get_filament_mappings();
+        REQUIRE(mappings.size() == 2);
+        mappings[1].mapped_slot = 3;
+        mappings[1].user_picked = true;
+        view.set_filament_mappings(mappings);
+    }
+
+    void check_t1_pick_kept() {
+        const auto mappings = view.get_filament_mappings();
+        REQUIRE(mappings.size() == 2);
+        CHECK(mappings[1].mapped_slot == 3);
+        CHECK(mappings[1].user_picked);
+    }
+
     /// Open a file using T0 and T1, sliced in @p palette.
     void open(const std::vector<std::string>& palette) {
         view.init_subjects();
@@ -2164,6 +2182,49 @@ TEST_CASE_METHOD(AfcOpenDetailFixture,
     REQUIRE(after.size() == 2);
     CHECK(after[0].mapped_slot == 0);
     CHECK(after[1].mapped_slot == 3);
+}
+
+TEST_CASE_METHOD(AfcOpenDetailFixture,
+                 "A print detail coming back re-seeds for a map that moved while it was away",
+                 "[ams][afc][tool_mapping][routing][print_select]") {
+    // While another view holds the screen the detail view ignores AMS changes,
+    // so activation is the only thing that catches it up.
+    feed_lanes();
+    open({"#FF0000", "#00FF00"});
+    REQUIRE(view.get_filament_mappings()[1].mapped_slot == 1);
+
+    view.on_deactivate(DeactivateReason::NavigateAway);
+    afc().feed_afc_stepper("lane2", {{"map", "T3"}});
+    afc().feed_afc_stepper("lane4", {{"map", "T1"}});
+    drain();
+    REQUIRE(view.get_filament_mappings()[1].mapped_slot == 1);
+
+    view.on_activate();
+    drain();
+    CHECK(view.get_filament_mappings()[1].mapped_slot == 3);
+}
+
+TEST_CASE_METHOD(AfcOpenDetailFixture, "A palette re-read for the open file keeps the user's pick",
+                 "[ams][afc][tool_mapping][routing][print_select]") {
+    feed_lanes();
+
+    SECTION("the headless scan's chip render") {
+        open({"#FF0000", "#00FF00"});
+        pick_t1_on_lane4();
+        PrintSelectDetailViewTestAccess::render_authoritative_chips(view, {0, 1}, true);
+        check_t1_pick_kept();
+    }
+
+    SECTION("a footer backfill of a palette the metadata lacked") {
+        // Materials alone are enough to show the card (OrcaSlicer on a K2 Plus
+        // states no colours), so a pick can exist before the colours arrive.
+        open({});
+        pick_t1_on_lane4();
+        helix::gcode::GcodeFooterSummary summary;
+        summary.colours = {"#FF0000", "#00FF00"};
+        PrintSelectDetailViewTestAccess::apply_footer_summary(view, summary, false);
+        check_t1_pick_kept();
+    }
 }
 
 TEST_CASE_METHOD(AfcOpenDetailFixture,

@@ -418,6 +418,39 @@ const char* kToolPlate = "; HEADER\n"
 
 } // namespace
 
+TEST_CASE_METHOD(PickStartFixture, "The remap modal's OK lays only its picks over the card",
+                 "[print_select][remap][routing]") {
+    // The modal hands back the rows as they stood when it opened. A row the user
+    // did not touch may have followed the printer since; only the pick is news.
+    helix::test::RegisteredBackend<helix::AmsBackendMock> ams{4};
+    const auto strategy = GENERATE(helix::AmsBackend::RemapStrategy::Native,
+                                   helix::AmsBackend::RemapStrategy::PrePrintSend);
+    ams->set_remap_strategy(strategy);
+    drain();
+
+    std::vector<helix::ToolMapping> current(2);
+    current[0].tool_index = 0;
+    current[0].mapped_slot = 3; // followed the printer while the modal was open
+    current[0].reason = helix::ToolMapping::MatchReason::FIRMWARE_MAPPING;
+    current[1].tool_index = 1;
+    current[1].mapped_slot = 1;
+    current[1].reason = helix::ToolMapping::MatchReason::FIRMWARE_MAPPING;
+    detail->set_filament_mappings(current);
+
+    std::vector<helix::ToolMapping> from_modal = current;
+    from_modal[0].mapped_slot = 0; // the snapshot the modal opened with
+    from_modal[1].mapped_slot = 2;
+    from_modal[1].user_picked = true;
+    PrintSelectPanelTestAccess::apply_remap(*panel_, from_modal);
+
+    const auto stored = detail->get_filament_mappings();
+    REQUIRE(stored.size() == 2);
+    CHECK(stored[0].mapped_slot == 3);
+    CHECK_FALSE(stored[0].user_picked);
+    CHECK(stored[1].mapped_slot == 2);
+    CHECK(stored[1].user_picked);
+}
+
 TEST_CASE_METHOD(PickStartFixture, "A rewritten-remap start carries the picks after confirmation",
                  "[print_select][pre_start_exclude][start][remap]") {
     RewriteRemap remap;
