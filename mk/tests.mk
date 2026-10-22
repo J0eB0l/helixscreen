@@ -447,9 +447,9 @@ full-test-run:
 	$(Q)TEST_HOST="$(TEST_HOST)" MAKE="$(MAKE)" scripts/full-test-run.sh
 
 # land-gate: the pre-landing gate - what CI will judge the branch on, run before
-# it reaches main. full-test-run's sweep and bats, plus the sweep again in CI's
-# shard layout (CI_SHARDS, build.yml's 8 shards across its two test legs: which tests
-# share a process decides what a use-after-free corrupts), CI's tests/ui slice
+# it reaches main. The C++ suite once, in CI's shard layout only (CI_SHARDS,
+# build.yml's 8 shards across its two test legs: which tests share a process
+# decides what a use-after-free corrupts), bats, CI's tests/ui slice
 # and the moonraker plugin tests, and the generated-artefact freshness checks.
 # The C++ lane goes to the test host as full-test-run's does (TEST_HOST); the
 # rest run here in parallel. Prints a PASS/FAIL table; scripts/land-gate.sh.
@@ -488,7 +488,7 @@ test-run:
 	echo "         the feature is finished."; \
 	echo ""; \
 	echo "  $(CYAN)May this land on main - will CI go green?$(RESET)"; \
-	echo "      make land-gate         full-test-run + CI's shard layout + tests/ui + freshness, ~10m"; \
+	echo "      make land-gate         C++ in CI's shard layout + bats + tests/ui + freshness, ~10m"; \
 	echo ""; \
 	echo "A full run cannot tell you your feature works, only that something else broke."; \
 	echo "Cadence table: tests/CLAUDE.md, 'What to run when'."; \
@@ -1500,7 +1500,7 @@ help-test:
 	echo "  $${G}test$${X}                 - Build tests (does not run)"; \
 	echo "  $${G}unit-sweep$${X}           - C++ unit tests, sharded in PARALLEL"; \
 	echo "  $${G}full-test-run$${X}        - unit-sweep + bats shell suite (the completion gate)"; \
-	echo "  $${G}land-gate$${X}            - full-test-run + CI's 8-shard layout + tests/ui + freshness (before landing)"; \
+	echo "  $${G}land-gate$${X}            - C++ in CI's 8-shard layout + bats + tests/ui + freshness (before landing)"; \
 	echo "  $${G}test-run$${X}             - Signpost only: refuses, names the target that fits"; \
 	echo "  $${G}test-serial$${X}          - Run tests sequentially (for debugging)"; \
 	echo "  $${G}test-smoke$${X}           - Quick smoke test (~30s) for rapid iteration"; \

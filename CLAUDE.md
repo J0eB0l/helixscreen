@@ -69,12 +69,13 @@ make full-test-run                   # unit-sweep + the bats suite (~2m) - the c
 #   `make test-run` runs nothing: it prints which of these fits the question
 #   you have and exits non-zero. Cadence table: tests/CLAUDE.md.
 make land-gate                       # THE pre-landing gate (~10m): ONCE per batch, before anything reaches main
-#   full-test-run, plus the sweep in CI's 8-shard layout, CI's tests/ui pytest
-#   slice (headless), the moonraker plugin tests, and the generated-artefact
-#   checks (theme token table, xml schema + lint-xml, lvgl event codes). C++ on
-#   the test host as full-test-run's sweep goes; the rest here in parallel; a
-#   PASS/FAIL table with durations at the end. full-test-run alone is NOT a
-#   landing gate: it skips tests/ui and CI's shard layout, both of which red CI.
+#   The C++ suite once, in CI's 8-shard layout (not the local sweep's 96: CI
+#   never runs that grouping), bats, CI's tests/ui pytest slice (headless), the
+#   moonraker plugin tests, and the generated-artefact checks (theme token
+#   table, xml schema + lint-xml, lvgl event codes). C++ on the test host as
+#   full-test-run's sweep goes; the rest here in parallel; a PASS/FAIL table
+#   with durations at the end. full-test-run alone is NOT a landing gate: it
+#   skips tests/ui and CI's shard layout, both of which red CI.
 
 make dev-timing                      # What the dev loop costs, measured (ledger from transcripts)
 #   Medians for every build, suite and test run, so "is this worth running" is

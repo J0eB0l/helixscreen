@@ -11,7 +11,7 @@ load helpers
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 GATE="$REPO_ROOT/scripts/land-gate.sh"
 
-ALL_STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes"
+ALL_STEPS="app-build ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes"
 
 # Every make here is a stub, and a stub must never reach the real make or the
 # jobpool shim: JOBPOOL=0 keeps the shim out of any make that does run, and the
@@ -37,7 +37,7 @@ exit "$rc"'
     mock_command_script fake-test-host-run '
 echo "host-run $*" >> "$CALLS"
 case "$1" in
-    sweep) echo "host sweep $*"; case "$*" in *NPROCS=*) exit "${RC_host_ci:-0}" ;; *) exit "${RC_host_sweep:-0}" ;; esac ;;
+    sweep) echo "host sweep $*"; exit "${RC_host_ci:-0}" ;;
     --probe) exit 1 ;;
 esac'
     # take exits $CLAIM_TAKE_RC (default 0); every call is recorded.
@@ -66,7 +66,6 @@ row() { # <status> <step>: the table row for step has that status
     for s in $ALL_STEPS; do row PASS "$s"; done
     contains "LAND GATE: PASS" "$output"
     grep -qx "make app" "$CALLS"
-    grep -qx "make unit-sweep" "$CALLS"
     grep -qx "make test-shell BATS_REQUIRED=1" "$CALLS"
     grep -qx "make test-ui-ci" "$CALLS"
     grep -qx "make test-plugin" "$CALLS"
@@ -77,9 +76,10 @@ row() { # <status> <step>: the table row for step has that status
     grep -qx "make check-lvgl-event-codes" "$CALLS"
 }
 
-@test "the second sweep runs in CI's 8-shard layout, and CI_SHARDS changes it" {
+@test "the C++ suite runs once, in CI's 8-shard layout, and CI_SHARDS changes it" {
     run "$GATE"
     [ "$status" -eq 0 ]
+    [ "$(grep -c "unit-sweep" "$CALLS")" -eq 1 ]
     grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
     : >"$CALLS"
     CI_SHARDS=12 run "$GATE"
@@ -98,7 +98,7 @@ row() { # <status> <step>: the table row for step has that status
 
 @test "each failing step fails the gate and shows FAIL in its own row" {
     local target step
-    for pair in app:app-build unit-sweep:sweep test-shell:bats test-ui-ci:ui test-plugin:plugin test-python:python \
+    for pair in app:app-build unit-sweep:ci-shards test-shell:bats test-ui-ci:ui test-plugin:plugin test-python:python \
                 check-theme-tokens:theme-tokens check-xml-schema:xml-schema lint-xml:lint-xml \
                 check-lvgl-event-codes:lvgl-event-codes; do
         target=${pair%%:*} step=${pair#*:}
@@ -112,10 +112,9 @@ row() { # <status> <step>: the table row for step has that status
     done
 }
 
-@test "a red CI-layout pass alone fails the gate while the local layout passes" {
+@test "a red CI-layout run on the test host fails the gate" {
     TEST_HOST=1 RC_host_ci=1 run "$GATE"
     [ "$status" -eq 1 ]
-    row PASS sweep
     row FAIL ci-shards
 }
 
@@ -129,10 +128,10 @@ row() { # <status> <step>: the table row for step has that status
     row PASS bats
 }
 
-@test "TEST_HOST=1 sends both sweeps to the test host and runs neither here" {
+@test "TEST_HOST=1 sends the C++ run to the test host, once, and runs none here" {
     TEST_HOST=1 run "$GATE"
     [ "$status" -eq 0 ]
-    grep -qx "host-run sweep" "$CALLS"
+    [ "$(grep -c "^host-run sweep" "$CALLS")" -eq 1 ]
     grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
     refute_grep "make unit-sweep" "$CALLS"
     grep -qx "make test-shell BATS_REQUIRED=1" "$CALLS"
