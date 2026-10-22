@@ -322,6 +322,17 @@ TEST_CASE_METHOD(GuidedFlowFixture, "an open section follows the backend's actio
         REQUIRE(now != nullptr);
         CHECK(lv_obj_has_state(now, LV_STATE_CHECKED));
     }
+    SECTION("a switch the backend never confirms goes back") {
+        lv_obj_add_state(sw, LV_STATE_CHECKED);
+        lv_obj_send_event(sw, LV_EVENT_VALUE_CHANGED, nullptr);
+        settle();
+        REQUIRE(backend->get_last_executed_action().first == "assist");
+        AmsState::instance().bump_data_revision();
+        settle();
+        lv_obj_t* now = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+        REQUIRE(now != nullptr);
+        CHECK_FALSE(lv_obj_has_state(now, LV_STATE_CHECKED));
+    }
     SECTION("an action becoming unavailable is locked") {
         DeviceAction off = DeviceAction::toggle("assist", "Feed Assist", "prefs", false);
         off.enabled = false;

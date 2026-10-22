@@ -2397,10 +2397,14 @@ helix::printer::DeviceAction AmsBackendAce::feed_assist_action_locked() const {
     DA action =
         DA::toggle("ace_feed_assist_toggle", "Feed Assist", "maintenance", std::move(value), "",
                    "The ACE pushes the loaded filament along with the extruder. The driver turns "
-                   "it on after a load");
+                   "Feed Assist on after a load");
     if (slot < 0) {
         action.enabled = false;
-        action.disable_reason = TR_NOOP("Load filament first");
+        // A seated tool whose unit has not reported its slots is loaded, just
+        // not yet placed, which the execute path refuses the same way.
+        action.disable_reason = instance_commands_ && seat_loaded_
+                                    ? TR_NOOP("The loaded slot is not known yet")
+                                    : TR_NOOP("Load filament first");
     }
     return action;
 }

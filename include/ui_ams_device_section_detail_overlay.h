@@ -146,8 +146,9 @@ class AmsDeviceSectionDetailOverlay : public OverlayBase {
     /// The row or button built for @p action_id, or nullptr.
     [[nodiscard]] lv_obj_t* row_for(const std::string& action_id) const;
 
-    /// Run @p action through the backend, reporting a failure. Returns the result.
-    AmsError execute(const helix::printer::DeviceAction& action, std::any value) const;
+    /// Run @p action through the backend, reporting a failure, and on success record
+    /// @p value as the one its row shows. Returns the result.
+    AmsError execute(const helix::printer::DeviceAction& action, std::any value);
 
     /// Show slider @p position as @p action's value in its row's value display.
     void show_slider_value(lv_obj_t* row, const helix::printer::DeviceAction& action,

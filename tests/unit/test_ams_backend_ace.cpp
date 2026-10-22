@@ -3882,6 +3882,19 @@ TEST_CASE("ACE Feed Assist shows the driver's feed_assist_slot for the loaded sl
     }
 }
 
+TEST_CASE("ACE Feed Assist says the loaded slot is unknown when a tool's unit has not reported",
+          "[ams][ace][device_actions][kobra][1853]") {
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, "rest+ace_manager");
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
+    REQUIRE(b.get_current_slot() == -1);
+
+    const auto action = feed_assist_action(b);
+    CHECK_FALSE(action.enabled);
+    CHECK(action.disable_reason == "The loaded slot is not known yet");
+}
+
 TEST_CASE("ACE Feed Assist carries no value until the driver reports one",
           "[ams][ace][device_actions][1853]") {
     AmsBackendAceTestHelper b;

@@ -3830,7 +3830,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Quel giro non si è ancora visto. Allenta {0} di un altro giro completo."
   That turn didn't register yet. Tighten {0} a little more.: "Quel giro non si è ancora visto. Tendi {0} ancora un po'."
   That turn didn't register yet. Tighten {0} one more full turn.: "Quel giro non si è ancora visto. Tendi {0} di un altro giro completo."
-  The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load: "L'ACE spinge il filamento caricato insieme all'estrusore. Il driver la attiva dopo un caricamento"
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "L'ACE spinge il filamento caricato insieme all'estrusore. Il driver attiva l'assistenza all'alimentazione dopo un caricamento"
   The CFS odometer hardware is faulty and needs repair or replacement: L'hardware dell'odometro del CFS è guasto e va riparato o sostituito
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'Il CFS ha esaurito il filamento in {}. La stampa continua con quello rimasto nel tubo.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'Il CFS ha esaurito il filamento. La stampa continua con quello rimasto nel tubo.'
@@ -3889,6 +3889,7 @@ translations:
   The helper macros are installed and activate after Klipper restarts.: 'Le macro di ausilio sono installate e si attivano dopo il riavvio di Klipper.'
   The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Il fermo si apre e {} può cadere. Tienilo prima di continuare, poi riponilo nel suo dock.
   The left RFID reader in this CFS unit may need service: Il lettore RFID sinistro di questa unità CFS potrebbe richiedere assistenza
+  The loaded slot is not known yet: "Lo slot caricato non è ancora noto"
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : La bobina caricata è {}, ma questo file è stato sezionato per {}. Il filamento con cariche richiede un flusso più basso e un ugello indurito.
   The message your printer's macros show (M117): 'Il messaggio mostrato dalle macro della stampante (M117)'

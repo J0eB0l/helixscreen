@@ -3880,7 +3880,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Этот поворот ещё не отразился. Ослабьте {0} ещё на один полный оборот."
   That turn didn't register yet. Tighten {0} a little more.: "Этот поворот ещё не отразился. Натяните {0} ещё немного."
   That turn didn't register yet. Tighten {0} one more full turn.: "Этот поворот ещё не отразился. Натяните {0} ещё на один полный оборот."
-  The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load: "ACE проталкивает загруженный филамент вместе с экструдером. Драйвер включает её после загрузки"
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "ACE проталкивает загруженный филамент вместе с экструдером. Драйвер включает помощь подачи после загрузки"
   The CFS odometer hardware is faulty and needs repair or replacement: Оборудование одометра CFS неисправно и требует ремонта или замены
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'В CFS закончился филамент в {}. Печать продолжается остатком в трубке.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'В CFS закончился филамент. Печать продолжается остатком в трубке.'
@@ -3939,6 +3939,7 @@ translations:
   The helper macros are installed and activate after Klipper restarts.: 'Вспомогательные макросы установлены и активируются после перезапуска Klipper.'
   The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Защелка откроется, и {} может упасть. Придержите его, прежде чем продолжить, затем поставьте в док.
   The left RFID reader in this CFS unit may need service: Левому RFID-считывателю этого блока CFS может требоваться обслуживание
+  The loaded slot is not known yet: "Загруженный слот пока неизвестен"
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла.
   The message your printer's macros show (M117): 'Сообщение, которое показывают макросы принтера (M117)'

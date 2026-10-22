@@ -489,15 +489,26 @@ lv_obj_t* AmsDeviceSectionDetailOverlay::row_for(const std::string& action_id) c
 }
 
 AmsError AmsDeviceSectionDetailOverlay::execute(const helix::printer::DeviceAction& action,
-                                                std::any value) const {
+                                                std::any value) {
     AmsBackend* backend = AmsState::instance().get_backend();
     if (!backend) {
         spdlog::warn("[{}] No backend available for '{}'", get_name(), action.id);
         return AmsErrorHelper::not_connected("No backend");
     }
-    AmsError result = backend->execute_device_action(action.id, value);
+    const std::string id = action.id;
+    AmsError result = backend->execute_device_action(id, value);
     if (!result.success()) {
         helix::ui::notify_ams_error(result);
+    } else if (value.has_value()) {
+        // The row now shows the sent value. Recording it as shown means a backend
+        // that never takes it up differs from the row on the next data tick, and
+        // the row goes back to what the backend reports.
+        for (auto& cached : cached_actions_) {
+            if (cached.id == id) {
+                cached.current_value = std::move(value);
+                break;
+            }
+        }
     }
     return result;
 }

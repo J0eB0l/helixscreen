@@ -3836,7 +3836,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Esse giro ainda não apareceu. Afrouxe {0} mais uma volta completa."
   That turn didn't register yet. Tighten {0} a little more.: "Esse giro ainda não apareceu. Aperte {0} um pouco mais."
   That turn didn't register yet. Tighten {0} one more full turn.: "Esse giro ainda não apareceu. Aperte {0} mais uma volta completa."
-  The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load: "O ACE empurra o filamento carregado junto com o extrusor. O driver a ativa após um carregamento"
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "O ACE empurra o filamento carregado junto com o extrusor. O driver ativa a assistência de alimentação após um carregamento"
   The CFS odometer hardware is faulty and needs repair or replacement: O hardware do odômetro do CFS está com defeito e precisa de reparo ou substituição
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'O CFS ficou sem filamento em {}. A impressão continua com o que resta no tubo.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'O CFS ficou sem filamento. A impressão continua com o que resta no tubo.'
@@ -3895,6 +3895,7 @@ translations:
   The helper macros are installed and activate after Klipper restarts.: 'As macros de ajuda estão instaladas e são ativadas após reiniciar o Klipper.'
   The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: A trava se abre e {} pode cair. Segure-a antes de continuar e depois coloque-a na sua doca.
   The left RFID reader in this CFS unit may need service: O leitor RFID esquerdo desta unidade CFS pode precisar de manutenção
+  The loaded slot is not known yet: "O slot carregado ainda não é conhecido"
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : O carretel carregado é {}, mas este arquivo foi fatiado para {}. Filamento composto funciona com fluxo menor e precisa de um bico endurecido.
   The message your printer's macros show (M117): 'A mensagem que as macros da sua impressora mostram (M117)'
