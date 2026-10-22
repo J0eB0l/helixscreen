@@ -87,13 +87,13 @@ trap 'rm -rf "$WORK"; cleanup_ctl' EXIT
 
 # Tracked delta. Submodule gitlinks are excluded — `git apply` cannot act on them
 # and the pins are handled separately above.
-git diff --binary "$BASE" -- . ':(exclude)lib' ':(exclude).claude-recall' \
+git diff --binary "$BASE" -- . ':(exclude)lib' \
     > "$WORK/local.patch" || true
 PATCH_BYTES=$(wc -c < "$WORK/local.patch" | tr -d ' ')
 
 # Untracked files the patch cannot carry (a brand-new test or source file).
 git ls-files --others --exclude-standard \
-    -- . ':(exclude)build' ':(exclude).claude-recall' > "$WORK/untracked.txt"
+    -- . ':(exclude)build' > "$WORK/untracked.txt"
 UNTRACKED_COUNT=$(wc -l < "$WORK/untracked.txt" | tr -d ' ')
 if [[ "$UNTRACKED_COUNT" -gt 0 ]]; then
     tar czf "$WORK/untracked.tgz" -T "$WORK/untracked.txt"

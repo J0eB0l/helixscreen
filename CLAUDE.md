@@ -130,8 +130,8 @@ scripts/test-host-run.sh sweep                   # make unit-sweep on the test h
 scripts/setup-worktree.sh feature/my-branch  # Symlinks shared deps, builds fast
 #   lib/lvgl, lib/libhv, lib/lua and lib/helix-xml get a PRIVATE checkout per worktree
 #   (patches/ is per-branch); everything else in lib/ is a symlink shared with
-#   the main tree. Also writes .claude/settings.local.json with PROJECT_DIR set
-#   to the MAIN tree so claude-recall writes lessons and stats there.
+#   the main tree. Also copies the main tree's .claude/settings.local.json with
+#   its paths rewritten to the worktree.
 #   The directory is named after the branch's LAST segment, so it refuses an
 #   existing .worktrees/<name>: a re-setup needs --setup-only, the same branch,
 #   and no other session's live worktree: claim on it.
