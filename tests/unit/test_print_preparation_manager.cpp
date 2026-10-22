@@ -21,6 +21,7 @@
 #include "../ui_test_utils.h"
 #include "app_globals.h"
 #include "capability_matrix.h"
+#include "gcode_edit_list.h"
 #include "gcode_file_modifier.h"
 #include "gcode_ops_detector.h"
 #include "hv/EventLoopThread.h"
@@ -3943,6 +3944,55 @@ TEST_CASE_METHOD(HelixTestFixture,
     CHECK(api.job_mock().modified_prints().empty());
     CHECK_FALSE(state.print_state().has_preparing_job());
     CHECK(state.print_state().last_preparing_exit() == helix::PreparingExit::Failed);
+}
+
+TEST_CASE_METHOD(HelixTestFixture,
+                 "PrintPreparationManager: a remap travels to the plugin as an edit list when "
+                 "server_edits is ready",
+                 "[print_preparation][remap][plugin_server_edits]") {
+    lv_init_safe();
+    PrinterStateTestAccess::reset(get_printer_state());
+    get_printer_state().init_subjects(false);
+
+    MockPrinter mock_printer;
+    auto& state = mock_printer.state;
+    auto& api = mock_printer.api;
+    state.set_helix_plugin_installed(true);
+
+    const bool enabled = GENERATE(true, false);
+    CAPTURE(enabled);
+    PluginFeatureEntry entry;
+    entry.version = gcode::kServerEditsMinVersion;
+    entry.available = true;
+    entry.enabled = enabled;
+    state.plugin_status_state().set_features({{gcode::kServerEditsFeature, entry}});
+    drain_until_quiet();
+
+    PrintPreparationManager manager;
+    manager.set_dependencies(&api, &state);
+    state.print_state().begin_preparing(PrintJobRef{kRemapFixture, "gcodes", ""});
+
+    manager.modify_and_print_with_remap(kRemapFixture, {{1, 2}}, nullptr);
+    drain_until_quiet();
+
+    const auto& edited = api.job_mock().edited_prints();
+    if (enabled) {
+        // Nothing crosses the wire but the edit list.
+        CHECK(api.transfers_mock().download_destinations().empty());
+        CHECK(api.transfers_mock().path_uploads().empty());
+        CHECK(api.job_mock().modified_prints().empty());
+        REQUIRE(edited.size() == 1);
+        CHECK(edited[0].original_filename == kRemapFixture);
+        CHECK(gcode::is_uploaded_rewrite_path(edited[0].temp_file_path));
+        CHECK(gcode::resolve_gcode_filename(edited[0].temp_file_path) == kRemapFixture);
+        CHECK(edited[0].edits == *gcode::to_server_edits(gcode::EditList{{}, {{1, 2}}}));
+        CHECK(edited[0].modifications == std::vector<std::string>{"remap_T1_to_T2"});
+    } else {
+        // Switched off, the screen rewrites the file as it always has.
+        CHECK(edited.empty());
+        CHECK(api.transfers_mock().path_uploads().size() == 1);
+        CHECK(api.job_mock().modified_prints().size() == 1);
+    }
 }
 
 TEST_CASE_METHOD(HelixTestFixture,

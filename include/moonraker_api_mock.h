@@ -546,10 +546,10 @@ class MoonrakerFileAPIMock : public MoonrakerFileAPI {
 /**
  * @brief Mock Job API covering the endpoints MoonrakerClientMock does not serve
  *
- * Only start_modified_print() is intercepted: it reaches Moonraker through the
- * HelixPrint plugin's server.helix.print_modified, which the client mock's RPC
- * registry has no handler for. start_print() is recorded and then forwarded to
- * the real implementation, so the mock print simulation still runs.
+ * Only start_modified_print() and start_edited_print() are intercepted: they
+ * reach Moonraker through the HelixPrint plugin's server.helix.print_modified
+ * and print_edited, which the client mock's RPC registry has no handler for. start_print() is
+ * recorded and then forwarded to the real implementation, so the mock print simulation still runs.
  */
 namespace helix {
 
@@ -578,6 +578,23 @@ class MoonrakerJobAPIMock : public MoonrakerJobAPI {
                               const std::vector<std::string>& modifications,
                               ModifiedPrintCallback on_success, ErrorCallback on_error) override;
 
+    /// One recorded start_edited_print() call
+    struct EditedPrintRecord {
+        std::string original_filename;
+        std::string temp_file_path;
+        json edits;
+        std::vector<std::string> modifications;
+    };
+
+    void start_edited_print(const std::string& original_filename, const std::string& temp_file_path,
+                            const json& edits, const std::vector<std::string>& modifications,
+                            ModifiedPrintCallback on_success, ErrorCallback on_error) override;
+
+    /// Recorded start_edited_print() calls, in call order
+    [[nodiscard]] const std::vector<EditedPrintRecord>& edited_prints() const {
+        return edited_prints_;
+    }
+
     /// Filenames handed to start_print(), in call order
     [[nodiscard]] const std::vector<std::string>& started_prints() const {
         return started_prints_;
@@ -588,8 +605,8 @@ class MoonrakerJobAPIMock : public MoonrakerJobAPI {
         return modified_prints_;
     }
 
-    /// Make every later start_modified_print() call on_error instead of
-    /// on_success. The call is still recorded.
+    /// Make every later start_modified_print() and start_edited_print() call
+    /// on_error instead of on_success. The call is still recorded.
     void mock_fail_modified_prints(bool fail = true) {
         fail_modified_prints_ = fail;
     }
@@ -597,6 +614,7 @@ class MoonrakerJobAPIMock : public MoonrakerJobAPI {
   private:
     std::vector<std::string> started_prints_;
     std::vector<ModifiedPrintRecord> modified_prints_;
+    std::vector<EditedPrintRecord> edited_prints_;
     bool fail_modified_prints_ = false;
 };
 

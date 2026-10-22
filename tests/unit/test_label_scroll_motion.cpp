@@ -26,6 +26,7 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/lv_text_private.h"
+#include "utf8_validation.h"
 
 #include <cstring>
 #include <optional>
@@ -82,29 +83,7 @@ int32_t drawn_width(const std::string& text, const lv_font_t* font) {
     return lv_text_get_width(text.c_str(), static_cast<uint32_t>(text.size()), font, &attributes);
 }
 
-/// True when every byte sequence in @p text is a complete UTF-8 glyph: a cut that
-/// lands inside a multi-byte glyph leaves a stray continuation byte at a boundary.
-bool is_valid_utf8(const std::string& text) {
-    size_t i = 0;
-    while (i < text.size()) {
-        const auto lead = static_cast<unsigned char>(text[i]);
-        size_t len = lead < 0x80           ? 1
-                     : (lead >> 5) == 0x6  ? 2
-                     : (lead >> 4) == 0xE  ? 3
-                     : (lead >> 3) == 0x1E ? 4
-                                           : 0;
-        if (len == 0 || i + len > text.size()) {
-            return false;
-        }
-        for (size_t k = 1; k < len; ++k) {
-            if ((static_cast<unsigned char>(text[i + k]) & 0xC0) != 0x80) {
-                return false;
-            }
-        }
-        i += len;
-    }
-    return true;
-}
+using helix::text_io::is_valid_utf8;
 
 /// Captures the text of the label draw task LVGL is about to hand a draw unit.
 void capture_drawn_text(lv_event_t* e) {

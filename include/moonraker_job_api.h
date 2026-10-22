@@ -114,6 +114,21 @@ class MoonrakerJobAPI : public helix::IJobAPI {
                               ModifiedPrintCallback on_success, ErrorCallback on_error) override;
 
     /**
+     * @brief Have the helix_print plugin apply @p edits to the original and start the result
+     *
+     * server.helix.print_edited: the plugin rewrites @p original_filename into
+     * @p temp_file_path beside it (gcode_edit_list.h has the edit grammar) and
+     * starts that copy as start_modified_print() would. Nothing is uploaded.
+     * Gate on the plugin's `server_edits` feature (gcode::choose_edit_transport).
+     *
+     * A refusal is final: there is no uploaded copy to fall back to, and a
+     * stale line refuses the same edits wherever they run.
+     */
+    void start_edited_print(const std::string& original_filename, const std::string& temp_file_path,
+                            const json& edits, const std::vector<std::string>& modifications,
+                            ModifiedPrintCallback on_success, ErrorCallback on_error) override;
+
+    /**
      * @brief Check if helix_print plugin is available
      *
      * Queries /server/helix/status to detect plugin availability.

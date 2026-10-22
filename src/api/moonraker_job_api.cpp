@@ -124,6 +124,28 @@ void MoonrakerJobAPI::check_helix_plugin(PluginInfoCallback on_result, ErrorCall
         true); // silent: suppress RPC_ERROR events/toasts
 }
 
+namespace {
+
+/// The plugin's answer to print_modified or print_edited.
+ModifiedPrintResult linked_print_result(const json& response,
+                                        const std::string& original_filename) {
+    ModifiedPrintResult result;
+    if (response.contains("result")) {
+        const auto& r = response["result"];
+        result.original_filename =
+            helix::json_util::safe_string(r, "original_filename", original_filename);
+        result.print_filename = helix::json_util::safe_string(r, "print_filename", "");
+        result.temp_filename = helix::json_util::safe_string(r, "temp_filename", "");
+        result.status = helix::json_util::safe_string(r, "status", "unknown");
+    } else {
+        result.original_filename = original_filename;
+        result.status = "printing";
+    }
+    return result;
+}
+
+} // namespace
+
 void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
                                            const std::string& temp_file_path,
                                            const std::vector<std::string>& modifications,
@@ -155,18 +177,7 @@ void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
     client_.send_jsonrpc(
         "server.helix.print_modified", params,
         [on_success, original_filename](const json& response) {
-            ModifiedPrintResult result;
-            if (response.contains("result")) {
-                const auto& r = response["result"];
-                result.original_filename =
-                    helix::json_util::safe_string(r, "original_filename", original_filename);
-                result.print_filename = helix::json_util::safe_string(r, "print_filename", "");
-                result.temp_filename = helix::json_util::safe_string(r, "temp_filename", "");
-                result.status = helix::json_util::safe_string(r, "status", "unknown");
-            } else {
-                result.original_filename = original_filename;
-                result.status = "printing";
-            }
+            const ModifiedPrintResult result = linked_print_result(response, original_filename);
             spdlog::info("[Moonraker API] Modified print started: {} -> {}",
                          result.original_filename, result.print_filename);
             on_success(result);
@@ -224,6 +235,46 @@ void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
                 },
                 // Fallback ALSO failed — only now surface the error to the caller.
                 on_error);
+        },
+        kPrintModifiedTimeoutMs);
+}
+
+void MoonrakerJobAPI::start_edited_print(const std::string& original_filename,
+                                         const std::string& temp_file_path, const json& edits,
+                                         const std::vector<std::string>& modifications,
+                                         ModifiedPrintCallback on_success, ErrorCallback on_error) {
+    if (reject_invalid_path(original_filename, "start_edited_print", on_error))
+        return;
+    if (reject_invalid_path(temp_file_path, "start_edited_print", on_error))
+        return;
+    if (refused_by_spool_latch("server.helix.print_edited", on_error))
+        return;
+
+    json params = {{"original_filename", original_filename},
+                   {"temp_file_path", temp_file_path},
+                   {"edits", edits},
+                   {"modifications", modifications}};
+
+    spdlog::info("[Moonraker API] Starting edited print via helix_print plugin: {} ({} edits, "
+                 "copy: {})",
+                 original_filename, edits.size(), temp_file_path);
+
+    client_.send_jsonrpc(
+        "server.helix.print_edited", params,
+        [on_success, original_filename](const json& response) {
+            const ModifiedPrintResult result = linked_print_result(response, original_filename);
+            spdlog::info("[Moonraker API] Edited print started: {} -> {}", result.original_filename,
+                         result.print_filename);
+            if (on_success) {
+                on_success(result);
+            }
+        },
+        [on_error](const MoonrakerError& err) {
+            spdlog::error("[Moonraker API] helix_print plugin print_edited failed: {}",
+                          err.message);
+            if (on_error) {
+                on_error(err);
+            }
         },
         kPrintModifiedTimeoutMs);
 }

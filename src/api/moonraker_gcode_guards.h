@@ -65,8 +65,8 @@ bool reject_job_while_spools_on_bed(const helix::PrinterState* state, const char
 #if HELIX_HAS_PLUGINS
 /// Apply the refusals the app's own send paths enforce to a raw JSON-RPC request issued on a
 /// plugin's behalf. Covers print start (path and spool latch), resume, queue start, modified
-/// print, Klipper restarts and `printer.gcode.script`, and refuses every `server.helix.*`
-/// method except print_modified and the read-only ones
+/// and edited print, Klipper restarts and `printer.gcode.script`, and refuses every
+/// `server.helix.*` method except print_modified, print_edited and the read-only ones
 /// (helix::plugin::is_readonly_moonraker_method). Every other method passes. Returns true
 /// when refused, with @p on_error already called and nothing to send.
 bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,

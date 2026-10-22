@@ -120,7 +120,8 @@ bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
         return moonraker_internal::reject_invalid_path(str("filename"), method.c_str(), on_error) ||
                reject_job_while_spools_on_bed(&state, method.c_str(), on_error);
     }
-    if (method == "server.helix.print_modified") {
+    // Both start a print from a linked copy of a file the screen already validated.
+    if (method == "server.helix.print_modified" || method == "server.helix.print_edited") {
         return moonraker_internal::reject_invalid_path(str("original_filename"), method.c_str(),
                                                        on_error) ||
                moonraker_internal::reject_invalid_path(str("temp_file_path"), method.c_str(),

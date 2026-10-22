@@ -238,6 +238,59 @@ Response:
 | 500 | Failed to create the symlink or start the print |
 | 503 | Plugin is disabled |
 
+### Start Edited Print
+
+Feature `server_edits` (on by default: it moves where a print the user started from the
+screen is rewritten, and acts on nothing by itself). The client sends the edits instead of an
+edited copy; the plugin applies them beside the original and starts the result as
+`print_modified` does, marked `print_edited`.
+
+```http
+POST /server/helix/print_edited
+Content-Type: application/json
+
+{
+  "original_filename": "benchy.gcode",
+  "temp_file_path": ".helix_temp/modified_1702400000_benchy.gcode",
+  "edits": [
+    {"line_number": 12, "expect_raw_line": "BED_MESH_CALIBRATE", "action": "comment_out",
+     "args": {"comment": "Disabled Bed mesh"}}
+  ],
+  "modifications": ["bed_mesh_disabled"]
+}
+```
+
+The response is `print_modified`'s, plus `lines_changed`. Each edit is
+`{line_number, expect_raw_line, action, args}`:
+
+| `action` | `args` |
+|----------|--------|
+| `comment_out` | `comment`?, `end_line`? |
+| `delete` | `end_line`? |
+| `inject_before`, `inject_after` | `gcode` |
+| `replace` | `gcode`, `comment`? |
+| `tool_remap` | `map`: `{"<logical tool>": <physical tool>}`; `line_number` 0, and the only edit in the list |
+
+A non-empty `expect_raw_line` must match the file's line, surrounding whitespace ignored, or
+the whole list is refused and nothing is written or started. The app applies the same grammar
+itself when the feature is off; `tests/fixtures/gcode_edits/` holds the cases both
+implementations must turn into the same bytes.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `original_filename` | string | Yes | - | The file to edit (relative to gcodes root) |
+| `temp_file_path` | string | No | `<temp_dir>/modified_<time>_<name>` | Where the edited copy goes (relative to gcodes root) |
+| `edits` | array | Yes | - | The edit list |
+| `modifications` | array | No | `[]` | List of modification identifiers (for logging/history) |
+
+| Code | Description |
+|------|-------------|
+| 400 | Malformed edit list, original not found, or a path outside the gcodes root |
+| 403 | `server_edits` is switched off |
+| 409 | A line differs from its `expect_raw_line` |
+| 500 | Failed to write the copy, create the symlink or start the print |
+| 503 | Plugin is disabled |
+
 ### List .3mf Conversions
 
 ```http

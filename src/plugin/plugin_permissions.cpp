@@ -20,10 +20,20 @@ constexpr std::array<std::pair<Permission, const char*>, 4> kNames{{
 
 // Also the only server.helix.* methods a plugin may call besides the guarded
 // print_modified: reject_plugin_rpc refuses every other one.
-constexpr std::array<std::string_view, 9> kReadonlyMethods{
-    "printer.objects.query", "printer.objects.list",  "server.info",
-    "server.files.list",     "server.files.metadata", "server.temperature_store",
-    "machine.system_info",   "server.helix.status",   "server.helix.plr.status",
+constexpr std::array<std::string_view, 13> kReadonlyMethods{
+    "printer.objects.query",
+    "printer.objects.list",
+    "server.info",
+    "server.files.list",
+    "server.files.metadata",
+    "server.temperature_store",
+    "machine.system_info",
+    "server.helix.status",
+    "server.helix.plr.status",
+    "server.helix.3mf_conversions",
+    "server.helix.analysis",
+    "server.helix.journal",
+    "server.helix.config",
 };
 } // namespace
 
