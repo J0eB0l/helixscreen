@@ -2407,7 +2407,7 @@ void AmsState::sync_tag_spool_link(AmsBackend& backend, int slot_index, const Sl
     if (!api_ || !get_printer_state().is_spoolman_available()) {
         return;
     }
-    tag_link_tracker_.begin_lookup(slot_index, spool_id);
+    tag_link_tracker_.begin_lookup(slot_index, spool_id, slot.spoolman_id);
     spdlog::info("[AMS State] Slot {} tag names Spoolman spool {}; looking it up", slot_index,
                  spool_id);
     auto tok = async_lifetime_.token();

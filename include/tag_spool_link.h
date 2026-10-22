@@ -36,8 +36,10 @@ class TagSpoolLinkTracker {
     /// no lookup is running for, else nullopt.
     [[nodiscard]] std::optional<int> observe(int slot_index, const TagSpoolSighting& sighting);
 
-    /// A lookup for @p spool_id started: observe() stops offering it.
-    void begin_lookup(int slot_index, int spool_id);
+    /// A lookup for @p spool_id started while the lane was linked to
+    /// @p lane_spoolman_id: observe() stops offering it, and a frame showing the
+    /// lane linked to anything else (a pick made meanwhile) drops the want.
+    void begin_lookup(int slot_index, int spool_id, int lane_spoolman_id);
 
     /// Whether @p spool_id is still what the lane wants. A lookup that answers
     /// after the tag changed is answering for a spool no longer seated.
@@ -58,6 +60,8 @@ class TagSpoolLinkTracker {
         std::optional<int> seen;
         std::optional<int> want;
         bool in_flight = false;
+        /// The lane's link when the running lookup began.
+        int lookup_base = 0;
     };
     /// A lane with no entry has not been seen this session.
     std::unordered_map<int, Lane> lanes_;

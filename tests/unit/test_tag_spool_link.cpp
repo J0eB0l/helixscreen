@@ -93,7 +93,7 @@ TEST_CASE("a wanted link stands until it is settled", "[ams][tag_link]") {
 TEST_CASE("a running lookup is not offered again", "[ams][tag_link]") {
     TagSpoolLinkTracker t;
     REQUIRE(t.observe(0, seated(42)) == 42);
-    t.begin_lookup(0, 42);
+    t.begin_lookup(0, 42, 0);
     CHECK_FALSE(t.observe(0, seated(42)));
     CHECK(t.wants(0, 42));
 }
@@ -101,7 +101,7 @@ TEST_CASE("a running lookup is not offered again", "[ams][tag_link]") {
 TEST_CASE("a lookup answering after the tag changed is stale", "[ams][tag_link]") {
     TagSpoolLinkTracker t;
     REQUIRE(t.observe(0, seated(42)) == 42);
-    t.begin_lookup(0, 42);
+    t.begin_lookup(0, 42, 0);
     CHECK(t.observe(0, seated(43)) == 43);
     CHECK_FALSE(t.wants(0, 42));
     t.settle(0, 42);
@@ -111,7 +111,7 @@ TEST_CASE("a lookup answering after the tag changed is stale", "[ams][tag_link]"
 TEST_CASE("a lookup answering after the lane emptied is stale", "[ams][tag_link]") {
     TagSpoolLinkTracker t;
     REQUIRE(t.observe(0, seated(42)) == 42);
-    t.begin_lookup(0, 42);
+    t.begin_lookup(0, 42, 0);
     CHECK_FALSE(t.observe(0, empty_lane()));
     CHECK_FALSE(t.wants(0, 42));
 }
@@ -128,4 +128,23 @@ TEST_CASE("lanes are tracked apart", "[ams][tag_link]") {
     REQUIRE(t.observe(0, seated(42)) == 42);
     t.settle(0, 42);
     CHECK(t.observe(1, seated(42)) == 42);
+}
+
+TEST_CASE("a lane linked by hand while its lookup runs keeps the pick", "[ams][tag_link]") {
+    TagSpoolLinkTracker t;
+    REQUIRE(t.observe(0, seated(42)) == 42);
+    t.begin_lookup(0, 42, 0);
+    CHECK_FALSE(t.observe(0, seated(42, 99)));
+    CHECK_FALSE(t.wants(0, 42));
+    CHECK_FALSE(t.observe(0, seated(42, 99)));
+}
+
+TEST_CASE("a running lookup holds while the lane's link stands still", "[ams][tag_link]") {
+    TagSpoolLinkTracker t;
+    REQUIRE(t.observe(0, seated(42, 7)) == std::nullopt);
+    CHECK_FALSE(t.observe(0, empty_lane(7)));
+    REQUIRE(t.observe(0, seated(42, 7)) == 42);
+    t.begin_lookup(0, 42, 7);
+    CHECK_FALSE(t.observe(0, seated(42, 7)));
+    CHECK(t.wants(0, 42));
 }
