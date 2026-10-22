@@ -444,7 +444,8 @@ connect. Each `plan` issues a new `plan_id`; `prepare` and `commit` refuse any
 other id (`plr_stale_plan`), and `commit` refuses a missing confirmation
 (`plr_missing_confirmation`). `prepare` sets the bed target to 60°C, emits
 `notify_plr_progress` for `bed_wait` and `nozzle_in_place`, then for `generic`
-only `lift`, `home_xy` (and `position` at tier 1), 1.5 s apart, then answers. `commit` emits `z_reference`, `restore`, `bed_wait`,
+`lift`, `nozzle_standby`, `home_xy` (and `position` at tier 1), for
+`qidi_print_state` only `nozzle_standby`, 1.5 s apart, then answers. `commit` emits `z_reference`, `restore`, `bed_wait`,
 `heat_nozzle`, `move_to_resume`, `start` (the plugin's step names),
 starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
 `discard` clears it too; `abort` keeps it and turns the bed off. The feature's

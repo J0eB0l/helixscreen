@@ -46,7 +46,7 @@
                         width="100%" bind_text="plr_wizard_bed" long_mode="wrap" style_text_color="#text_muted"/>
             <text_small name="plr_heat_in_place_note"
                         width="100%" long_mode="wrap" style_text_color="#text_muted"
-                        text="The nozzle is heated where it stopped before anything moves, so it lets go of the print."/>
+                        text="The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it."/>
             <text_small name="plr_layer_start_note"
                         width="100%" long_mode="wrap" style_text_color="#warning"
                         text="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.">
@@ -100,7 +100,8 @@
                    width="90%" bind_text="plr_wizard_progress" style_text_align="center" long_mode="wrap"/>
         <text_small name="plr_bed_live"
                     width="90%" bind_text="plr_wizard_bed_live" style_text_align="center" style_text_color="#text_muted"/>
-        <ui_button name="btn_plr_cancel_preparing" width="40%" text="Cancel" variant="danger">
+        <ui_button name="btn_plr_cancel_preparing"
+                   width="100%" height="#button_height_lg" icon="alert_octagon" text="Cancel" variant="danger">
           <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
         </ui_button>
       </lv_obj>
@@ -186,7 +187,9 @@
         <text_heading width="100%" text="Resuming the print" style_text_align="center" long_mode="wrap"/>
         <text_body name="plr_commit_progress"
                    width="90%" bind_text="plr_wizard_progress" style_text_align="center" long_mode="wrap"/>
-        <ui_button name="btn_plr_cancel_committing" width="40%" text="Cancel" variant="danger">
+        <ui_button name="btn_plr_cancel_committing"
+                   width="100%" height="#button_height_lg" icon="alert_octagon" text="Cancel" variant="danger">
+          <bind_flag_if_eq subject="plr_print_starting" flag="hidden" ref_value="1"/>
           <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
         </ui_button>
       </lv_obj>

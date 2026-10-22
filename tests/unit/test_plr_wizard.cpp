@@ -4,6 +4,7 @@
 // the bed and confirmation decisions, the wizard's step machine, and the
 // readers for the plugin's server.helix.plr.* replies. No LVGL, no network.
 
+#include "plr_plugin_rpc.h"
 #include "plr_wizard.h"
 
 #include "../catch_amalgamated.hpp"
@@ -466,4 +467,13 @@ TEST_CASE("plr_commit_allowed: a layer_start plan waits for accept_next_layer", 
     CHECK_FALSE(helix::plr_commit_allowed(plan, given, PlrBedState::Ok));
     given.push_back(PlrConfirmation::AcceptNextLayer);
     CHECK(helix::plr_commit_allowed(plan, given, PlrBedState::Ok));
+}
+
+TEST_CASE("PLR prepare and commit outlast the plugin's longest heat waits", "[plr][wizard]") {
+    // moonraker-plugin/helix_plr.py: BED_WAIT_TIMEOUT_S, CHAMBER_WAIT_TIMEOUT_S,
+    // NOZZLE_WAIT_TIMEOUT_S. Both phases can run all three waits back to back.
+    constexpr uint32_t kHeatWaitsMs = (20U + 45U + 10U) * 60U * 1000U;
+    constexpr uint32_t kMotionMarginMs = 10U * 60U * 1000U;
+    STATIC_CHECK(helix::plr_rpc::kPrepareTimeoutMs >= kHeatWaitsMs + kMotionMarginMs);
+    STATIC_CHECK(helix::plr_rpc::kCommitTimeoutMs >= kHeatWaitsMs + kMotionMarginMs);
 }

@@ -12,6 +12,7 @@
  * the plugin: which endpoints, with which confirmations.
  */
 
+#include "ui_button.h"
 #include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_plr_wizard_overlay.h"
@@ -359,6 +360,22 @@ std::string subject_text(const char* name) {
     return lv_subject_get_string(s);
 }
 
+lv_obj_t* wizard_widget(const char* name) {
+    lv_obj_t* root = get_plr_wizard_overlay().get_root();
+    REQUIRE(root != nullptr);
+    lv_obj_t* obj = lv_obj_find_by_name(root, name);
+    REQUIRE(obj != nullptr);
+    return obj;
+}
+
+/// The text a wizard label or ui_button shows.
+std::string widget_text(const char* name) {
+    lv_obj_t* obj = wizard_widget(name);
+    lv_obj_t* label = lv_obj_check_type(obj, &lv_label_class) ? obj : ui_button_get_label(obj);
+    REQUIRE(label != nullptr);
+    return lv_label_get_text(label);
+}
+
 } // namespace
 
 TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the header names the file as the app shows it",
@@ -369,6 +386,17 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the header names the file as the
     CHECK(subject_text("plr_wizard_file") == "3DBenchy");
 }
 
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the Checks card says the heat comes before motion",
+                 "[plr][wizard_overlay]") {
+    open();
+    REQUIRE(wizard_step() == PlrWizardStep::Checks);
+    lv_obj_t* note = wizard_widget("plr_heat_in_place_note");
+    CHECK_FALSE(lv_obj_has_flag(note, LV_OBJ_FLAG_HIDDEN));
+    CHECK(widget_text("plr_heat_in_place_note") ==
+          "The bed and nozzle heat together before anything moves, so the print re-grips and "
+          "the nozzle lets go of it.");
+}
+
 TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the words follow what prepare moves",
                  "[plr][wizard_overlay]") {
     SECTION("generic lifts the nozzle and homes X and Y") {
@@ -376,6 +404,7 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the words follow what prepare mo
         REQUIRE(wizard_step() == PlrWizardStep::Checks);
         CHECK(subject("plr_wizard_z_kind") == static_cast<int>(helix::PlrZStepKind::ConfirmLifted));
         CHECK(subject_text("plr_wizard_continue_text") == "Heat and Home");
+        CHECK(widget_text("btn_plr_continue") == "Heat and Home");
     }
     SECTION("QIDI moves nothing, so prepare never reports a lift") {
         helix::ScopedEnv backend{"HELIX_MOCK_PLR", "qidi_print_state"};
@@ -384,18 +413,22 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the words follow what prepare mo
         CHECK(subject("plr_wizard_z_kind") ==
               static_cast<int>(helix::PlrZStepKind::ConfirmInPlace));
         CHECK(subject_text("plr_wizard_continue_text") == "Start Heating");
+        CHECK(widget_text("btn_plr_continue") == "Start Heating");
 
         set_subject("plr_ack_part", 1);
         PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
         settle();
         REQUIRE(wizard_step() == PlrWizardStep::Preparing);
         bool saw_heat_in_place = false;
+        bool saw_standby = false;
         bool saw_motion = false;
         for (int i = 0; i < 20 && wizard_step() == PlrWizardStep::Preparing; ++i) {
             const std::string text = subject_text("plr_wizard_progress");
             saw_heat_in_place =
                 saw_heat_in_place ||
                 text == "Heating the nozzle where it stopped so it lets go of the print";
+            saw_standby =
+                saw_standby || text == "Cooling the nozzle to standby while you check the print";
             saw_motion = saw_motion || text == "Lifting the nozzle clear of the print" ||
                          text == "Homing X and Y";
             helix::ui::UpdateQueue::instance().drain();
@@ -403,6 +436,7 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the words follow what prepare mo
         }
         CHECK(wizard_step() == PlrWizardStep::ZStep);
         CHECK(saw_heat_in_place);
+        CHECK(saw_standby);
         CHECK_FALSE(saw_motion);
     }
     SECTION("tier 1 jogs") {
@@ -432,11 +466,64 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the display stays awake while it
         helix::ScopedEnv fail{"HELIX_MOCK_PLR_FAIL", "plan"};
         open();
         REQUIRE(wizard_step() == PlrWizardStep::Failed);
-        CHECK(helix::display_awake_hold().is_held());
+        // Left open on the Failed step, the wizard holds nothing.
+        CHECK_FALSE(helix::display_awake_hold().is_held());
         NavigationManager::instance().go_back();
         settle();
         CHECK_FALSE(helix::display_awake_hold().is_held());
     }
+}
+
+TEST_CASE_METHOD(PlrWizardFixture,
+                 "PLR wizard: once the print starts, Cancel goes and the display hold ends",
+                 "[plr][wizard_overlay]") {
+    open();
+    set_subject("plr_ack_part", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(run_past(PlrWizardStep::Preparing));
+    PlrWizardOverlayTestAccess::tap_resume(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Committing);
+    CHECK(helix::display_awake_hold().is_held());
+    CHECK_FALSE(lv_obj_has_flag(wizard_widget("btn_plr_cancel_committing"), LV_OBJ_FLAG_HIDDEN));
+
+    bool saw_start = false;
+    for (int i = 0; i < 40 && !saw_start && wizard_step() == PlrWizardStep::Committing; ++i) {
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(500);
+        saw_start = subject_text("plr_wizard_progress") == "Starting the print";
+    }
+    REQUIRE(saw_start);
+    REQUIRE(wizard_step() == PlrWizardStep::Committing);
+    // The running print's own sleep rules apply from here.
+    CHECK_FALSE(helix::display_awake_hold().is_held());
+    CHECK(lv_obj_has_flag(wizard_widget("btn_plr_cancel_committing"), LV_OBJ_FLAG_HIDDEN));
+    // A Cancel tap that slipped through would turn the heaters off under the print.
+    PlrWizardOverlayTestAccess::tap_abort(get_plr_wizard_overlay());
+    settle();
+    CHECK(wizard_step() == PlrWizardStep::Committing);
+    CHECK(client.count(helix::kPlrAbortRpc) == 0);
+
+    // Done with the wizard still in the stack under Print Status: the screen may sleep.
+    REQUIRE(run_past(PlrWizardStep::Committing));
+    REQUIRE(wizard_step() == PlrWizardStep::Done);
+    CHECK(helix::ui::plr_wizard_open());
+    CHECK_FALSE(helix::display_awake_hold().is_held());
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: an aborted wizard left open holds nothing",
+                 "[plr][wizard_overlay]") {
+    open();
+    set_subject("plr_ack_part", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Preparing);
+    CHECK(helix::display_awake_hold().is_held());
+    PlrWizardOverlayTestAccess::tap_abort(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Aborted);
+    CHECK_FALSE(helix::display_awake_hold().is_held());
 }
 
 TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a jog queued before Abort is never sent",
@@ -748,14 +835,16 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR offer: a pushed status never prompts ove
 
 TEST_CASE("PLR wizard: every plugin progress step has words", "[plr][wizard_overlay]") {
     using helix::ui::plr_progress_step_text;
-    for (const char* step :
-         {"bed_wait", "chamber_wait", "nozzle_in_place", "lift", "home_xy", "position",
-          "z_reference", "restore", "heat_nozzle", "purge", "move_to_resume", "start"}) {
+    for (const char* step : {"bed_wait", "chamber_wait", "nozzle_in_place", "nozzle_standby",
+                             "lift", "home_xy", "position", "z_reference", "restore", "heat_nozzle",
+                             "purge", "move_to_resume", "start"}) {
         INFO(step);
         CHECK(plr_progress_step_text(step) != nullptr);
     }
     CHECK(std::string(plr_progress_step_text("bed_wait")) == "Heating the bed");
     CHECK(std::string(plr_progress_step_text("heat_nozzle")) == "Heating the nozzle");
+    CHECK(std::string(plr_progress_step_text("nozzle_standby")) ==
+          "Cooling the nozzle to standby while you check the print");
     CHECK(std::string(plr_progress_step_text("nozzle_in_place")) ==
           "Heating the nozzle where it stopped so it lets go of the print");
     CHECK(std::string(plr_progress_step_text("purge")) == "Purging nozzle");

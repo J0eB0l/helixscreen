@@ -906,6 +906,7 @@ translations:
   Cooling Tube Length: 'Longueur du tube de refroidissement'
   Cooling Tube Retraction: 'Rétraction du tube de refroidissement'
   Cooling for probing...: Refroidissement avant palpage...
+  "Cooling the nozzle to standby while you check the print": "Refroidissement de la buse en veille pendant que vous vérifiez l'impression"
   Cooling {}...: Refroidissement de {}...
   Copied to clipboard!: Copié dans le presse-papiers !
   Copy: "Copier"
@@ -3875,6 +3876,7 @@ translations:
   : L'économiseur d'écran animé a été désactivé sur cet appareil pour éviter qu'il
     n'interfère avec les impressions. Vous pouvez le réactiver dans Paramètres > Affichage
     et son.
+  "The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it.": "Le plateau et la buse chauffent ensemble avant tout mouvement, pour que l'impression adhère de nouveau et que la buse s'en détache."
   The bed has cooled. Take the spools off the plate, then confirm.: Le plateau a refroidi. Retirez les bobines du plateau, puis confirmez.
 
   The bed is too small for settling laps.: 'Le plateau est trop petit pour les tours de mise en place.'
@@ -3930,7 +3932,6 @@ translations:
   ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
   : La buse chauffe à 200°C pendant que le ventilateur de pièce parcourt ses vitesses. Pour un ajustement précis, montez le conduit comme pour imprimer. Cela prend plusieurs minutes.
   The nozzle is clear of the print: La buse ne touche pas l'impression
-  The nozzle is heated where it stopped before anything moves, so it lets go of the print.: "La buse est chauffée là où elle s'est arrêtée avant tout mouvement, pour qu'elle se détache de l'impression."
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : La buse est chaude. Brossez-la avec la brosse métallique fournie, gardez la position d'ancrage propre, puis appuyez sur Suivant.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "La buse est levée au-dessus de l'impression et X et Y sont mis à l'origine. La reprise la redescend à la hauteur où elle s'est arrêtée."

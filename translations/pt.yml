@@ -900,6 +900,7 @@ translations:
   Cooling Tube Length: 'Comprimento do tubo de resfriamento'
   Cooling Tube Retraction: 'Retração do tubo de resfriamento'
   Cooling for probing...: Resfriando para sondagem...
+  "Cooling the nozzle to standby while you check the print": "Resfriando o bico para espera enquanto você confere a impressão"
   Cooling {}...: Resfriando {}...
   Copied to clipboard!: Copiado para a área de transferência!
   Copy: "Copiar"
@@ -3855,6 +3856,7 @@ translations:
     interfering with prints. You can re-enable it in Settings > Display.
   : O protetor de tela animado foi desativado neste dispositivo para evitar que interfira
     nas impressões. Você pode reativá-lo em Configurações > Tela.
+  "The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it.": "A mesa e o bico aquecem juntos antes de qualquer movimento, para que a impressão volte a aderir e o bico se solte dela."
   The bed has cooled. Take the spools off the plate, then confirm.: A mesa esfriou. Tire os carretéis da mesa e depois confirme.
 
   The bed is too small for settling laps.: 'A mesa é pequena demais para as voltas de assentamento.'
@@ -3910,7 +3912,6 @@ translations:
   ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
   : O bico aquece até 200°C enquanto a ventoinha da peça percorre suas velocidades. Para um ajuste preciso, monte o duto como você imprime com ele. Isso leva vários minutos.
   The nozzle is clear of the print: O bico não está tocando a impressão
-  The nozzle is heated where it stopped before anything moves, so it lets go of the print.: "O bico é aquecido onde parou antes de qualquer movimento, para que se solte da impressão."
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : O bico está quente. Limpe-o com a escova de arame que acompanha a impressora, mantenha limpa a posição de encaixe e toque em Próximo.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "O bico está afastado da impressão e X e Y estão posicionados. Ao retomar, ele desce de novo até a altura em que parou."

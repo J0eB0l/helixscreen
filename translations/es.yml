@@ -900,6 +900,7 @@ translations:
   Cooling Tube Length: 'Longitud del tubo de enfriamiento'
   Cooling Tube Retraction: 'Retracción del tubo de enfriamiento'
   Cooling for probing...: Enfriando para el sondeo...
+  "Cooling the nozzle to standby while you check the print": "Enfriando la boquilla a espera mientras revisa la impresión"
   Cooling {}...: Enfriando {}...
   Copied to clipboard!: ¡Copiado al portapapeles!
   Copy: "Copiar"
@@ -3850,6 +3851,7 @@ translations:
     interfering with prints. You can re-enable it in Settings > Display.
   : El salvapantallas animado se ha desactivado en este dispositivo para evitar que
     interfiera con las impresiones. Puede volver a activarlo en Ajustes > Pantalla.
+  "The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it.": "La cama y la boquilla se calientan juntas antes de que nada se mueva, para que la impresión vuelva a adherirse y la boquilla se suelte de ella."
   The bed has cooled. Take the spools off the plate, then confirm.: La cama se ha enfriado. Quita las bobinas de la cama y luego confirma.
 
   The bed is too small for settling laps.: 'La cama es demasiado pequeña para las vueltas de asentamiento.'
@@ -3905,7 +3907,6 @@ translations:
   ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
   : La boquilla se calienta a 200°C mientras el ventilador de pieza recorre sus velocidades. Para un ajuste preciso, monte el conducto como imprime con él. Esto tarda varios minutos.
   The nozzle is clear of the print: La boquilla no toca la impresión
-  The nozzle is heated where it stopped before anything moves, so it lets go of the print.: "La boquilla se calienta donde se detuvo antes de que nada se mueva, para que se suelte de la impresión."
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : La boquilla está caliente. Límpiala con el cepillo de alambre incluido, mantén limpia la posición de anclaje y pulsa Siguiente.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "La boquilla está separada de la impresión y X e Y están posicionados. Al reanudar, baja de nuevo a la altura en que se detuvo."

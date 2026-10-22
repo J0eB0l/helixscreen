@@ -816,6 +816,7 @@
   <translation tag="Cooling Tube Length" en="Cooling Tube Length"/>
   <translation tag="Cooling Tube Retraction" en="Cooling Tube Retraction"/>
   <translation tag="Cooling for probing..." en="Cooling for probing..."/>
+  <translation tag="Cooling the nozzle to standby while you check the print" en="Cooling the nozzle to standby while you check the print"/>
   <translation tag="Cooling {}..." en="Cooling {}..."/>
   <translation tag="Copied to clipboard!" en="Copied to clipboard!"/>
   <translation tag="Copy" en="Copy"/>
@@ -3507,6 +3508,7 @@
   <translation tag="The PEI sheet is still on the bed. Take it off, then tap Next." en="The PEI sheet is still on the bed. Take it off, then tap Next."/>
   <translation tag="The Spoolman spool currently loaded" en="The Spoolman spool currently loaded"/>
   <translation tag="The animated screensaver has been turned off on this device to prevent it from interfering with prints. You can re-enable it in Settings &gt; Display." en="The animated screensaver has been turned off on this device to prevent it from interfering with prints. You can re-enable it in Settings &gt; Display."/>
+  <translation tag="The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it." en="The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it."/>
   <translation tag="The bed has cooled. Take the spools off the plate, then confirm." en="The bed has cooled. Take the spools off the plate, then confirm."/>
   <translation tag="The bed heater. Set its temperature and watch its graph on the bed temperature screen." en="The bed heater. Set its temperature and watch its graph on the bed temperature screen."/>
   <translation tag="The bed is too small for settling laps." en="The bed is too small for settling laps."/>
@@ -3553,7 +3555,6 @@
   <translation tag="The nozzle hasn&apos;t moved since the power went out. Check that it sits just above the top of the print, then resume." en="The nozzle hasn&apos;t moved since the power went out. Check that it sits just above the top of the print, then resume."/>
   <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." en="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes."/>
   <translation tag="The nozzle is clear of the print" en="The nozzle is clear of the print"/>
-  <translation tag="The nozzle is heated where it stopped before anything moves, so it lets go of the print." en="The nozzle is heated where it stopped before anything moves, so it lets go of the print."/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." en="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next."/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." en="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at."/>
   <translation tag="The plate and the spools are still hot. Use gloves." en="The plate and the spools are still hot. Use gloves."/>
