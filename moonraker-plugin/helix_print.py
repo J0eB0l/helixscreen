@@ -107,7 +107,7 @@ SIBLING_LOAD_ERRORS: Dict[str, str] = {}
 
 
 def _load_sibling(name: str) -> Optional[Any]:
-    """Load <name>.py from beside this file.
+    """Load <name>.py from beside this file, as module `name`.
 
     Moonraker imports this component through a symlink in its components
     directory, where no sibling module exists, so the import follows the link
@@ -117,6 +117,9 @@ def _load_sibling(name: str) -> Optional[Any]:
     """
     SIBLING_LOAD_ERRORS.pop(name, None)
     path = Path(__file__).resolve().parent / f"{name}.py"
+    loaded = sys.modules.get(name)
+    if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == path:
+        return loaded
     if not path.is_file():
         SIBLING_LOAD_ERRORS[name] = "module_missing"
         return None
@@ -125,9 +128,13 @@ def _load_sibling(name: str) -> Optional[Any]:
         SIBLING_LOAD_ERRORS[name] = "module_missing"
         return None
     module = importlib.util.module_from_spec(spec)
+    # Registered before it runs, as an import would, so a sibling loaded
+    # later can import this one by name.
+    sys.modules[name] = module
     try:
         spec.loader.exec_module(module)
     except Exception as e:
+        del sys.modules[name]
         logging.exception(f"HelixPrint: {name}.py failed to load")
         SIBLING_LOAD_ERRORS[name] = f"load_failed: {type(e).__name__}: {e}"
         return None
@@ -136,6 +143,8 @@ def _load_sibling(name: str) -> Optional[Any]:
 
 helix_capabilities = _load_sibling("helix_capabilities")
 helix_3mf = _load_sibling("helix_3mf")
+# Dependencies first: helix_plr imports the reader by name.
+helix_gcode_reader = _load_sibling("helix_gcode_reader")
 helix_plr = _load_sibling("helix_plr")
 
 
@@ -792,6 +801,8 @@ class HelixPrint:
         )
 
     async def close(self) -> None:
+        if self.plr is not None:
+            self.plr.close()
         if self.converter is not None:
             await self.converter.close()
 

@@ -503,3 +503,111 @@ def test_modal_state_round_trips_and_copies_deeply():
     assert state.last_position[0] != 999.0
     assert state.fan_speeds["fan"] == 1.0
     assert state.pressure_advance["extruder"]["advance"] == 0.05
+
+
+# --------------------------------------------------------------------------
+# Duty cycle and the layer index sidecar
+# --------------------------------------------------------------------------
+
+from helix_gcode_reader import (  # noqa: E402
+    DutyCycleLimiter,
+    LayerIndexWriter,
+    layer_index_path,
+    read_layer_index,
+)
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+        self.slept = []
+
+    def __call__(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+        self.now += seconds
+
+
+def test_duty_cycle_sleeps_in_proportion_to_work():
+    clock = FakeClock()
+    limiter = DutyCycleLimiter(0.2, max_bytes_per_s=1e12, clock=clock, sleep=clock.sleep)
+    clock.now += 1.0          # one second of work
+    limiter.pace(1000)
+    clock.now += 0.5          # half a second more
+    limiter.pace(2000)
+    assert clock.slept == approx_list([4.0, 2.0])
+    busy = 1.5
+    assert busy / clock.now == pytest.approx(0.2)
+
+
+def test_duty_cycle_obeys_the_byte_cap_when_it_is_stricter():
+    clock = FakeClock()
+    limiter = DutyCycleLimiter(0.5, max_bytes_per_s=100, clock=clock, sleep=clock.sleep)
+    clock.now += 0.1
+    limiter.pace(1000)        # 1000 bytes are due at t=10
+    assert clock.slept == approx_list([9.9])
+
+
+@pytest.mark.parametrize("fraction", [0.0, -0.1, 1.5])
+def test_duty_cycle_rejects_a_bad_fraction(fraction):
+    with pytest.raises(ValueError):
+        DutyCycleLimiter(fraction)
+
+
+IDENT = {"file_size": 1234, "file_mtime": 1700000000.5, "file_hash": "abc"}
+
+
+def test_layer_index_round_trip(tmp_path):
+    path = layer_index_path(tmp_path, "sub/part.gcode")
+    assert path == str(tmp_path / ".helix_index" / "sub" / "part.gcode.layers.jsonl")
+    states = {}
+    w = LayerIndexWriter(path, dict(IDENT, job_id="x"))
+    for layer, offset in ((1, 100), (2, 500), (3, 900)):
+        st = ModalState()
+        st.last_position[2] = layer * 0.2
+        st.layer = layer - 1
+        states[layer] = st
+        w.append(layer, offset, st)
+    w.close()
+    summary = read_layer_index(path, IDENT, max_offset=600)
+    assert (summary.last.layer, summary.last.offset) == (3, 900)
+    assert summary.last.state == states[3]
+    assert (summary.at_or_before.layer, summary.at_or_before.offset) == (2, 500)
+    assert summary.complete is False
+    assert read_layer_index(path, IDENT, max_offset=50).at_or_before is None
+
+
+def test_layer_index_for_another_file_version_is_ignored_and_restarted(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    w = LayerIndexWriter(path, IDENT)
+    w.append(1, 100, ModalState())
+    w.close()
+    changed = dict(IDENT, file_hash="def")
+    assert read_layer_index(path, changed) is None
+    w = LayerIndexWriter(path, changed)
+    w.append(1, 50, ModalState())
+    w.close()
+    summary = read_layer_index(path, changed)
+    assert summary.last.offset == 50
+    assert read_layer_index(path, IDENT) is None
+
+
+def test_layer_index_appends_and_survives_a_cut_line(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    w = LayerIndexWriter(path, IDENT)
+    w.append(1, 100, ModalState())
+    w.close()
+    with open(path, "a") as f:
+        f.write('{"layer": 2, "offset": 2')     # a write cut short
+    w = LayerIndexWriter(path, IDENT)
+    w.append(3, 300, ModalState())
+    w.finish(400)
+    w.close()
+    summary = read_layer_index(path, IDENT)
+    assert summary.last.offset == 300 and summary.complete is True
+
+
+def test_missing_layer_index_is_none(tmp_path):
+    assert read_layer_index(str(tmp_path / "nope.jsonl"), IDENT) is None

@@ -62,6 +62,10 @@ FOLLOWER_MAX_BYTES_PER_S = 4 * 1024 * 1024
 # Nice increment for a background reader thread.
 BACKGROUND_NICE = 10
 
+# Share of one core a background follower may use while a print runs; it
+# sleeps (1 - f) / f seconds for each second of work.
+FOLLOWER_CPU_FRACTION = 0.15
+
 _AXES = b"XYZE"
 
 
@@ -743,6 +747,44 @@ class RateLimiter:
             self._sleep(ahead)
 
 
+class DutyCycleLimiter:
+    """A ThrottleHook holding a reader to a share of one core and to a byte rate.
+
+    Between two pace() calls the reader was working; it then sleeps long
+    enough that work is cpu_fraction of the elapsed time, or longer when the
+    byte cap asks for more. Measured in wall time, which is what the printer's
+    other processes lose to it.
+    """
+
+    def __init__(
+        self,
+        cpu_fraction: float = FOLLOWER_CPU_FRACTION,
+        max_bytes_per_s: float = FOLLOWER_MAX_BYTES_PER_S,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        if not 0.0 < cpu_fraction <= 1.0:
+            raise ValueError("cpu_fraction must be in (0, 1]")
+        self._ratio = (1.0 - cpu_fraction) / cpu_fraction
+        self._clock = clock
+        self._sleep = sleep
+        self._bytes = RateLimiter(max_bytes_per_s, clock, self._sleep_noted)
+        self._byte_sleep = 0.0
+        self._work_start = clock()
+
+    def _sleep_noted(self, seconds: float) -> None:
+        self._byte_sleep = seconds
+
+    def pace(self, bytes_read: int) -> None:
+        work = self._clock() - self._work_start
+        self._byte_sleep = 0.0
+        self._bytes.pace(bytes_read)
+        pause = max(work * self._ratio, self._byte_sleep)
+        if pause > 0:
+            self._sleep(pause)
+        self._work_start = self._clock()
+
+
 def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     """Nice the calling thread only (Linux: a thread id is a PRIO_PROCESS
     target). Returns False where that is not possible."""
@@ -753,3 +795,138 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     except (AttributeError, OSError):
         return False
     return True
+
+
+# --------------------------------------------------------------------------
+# Layer index sidecar
+# --------------------------------------------------------------------------
+
+# A file's layer starts with the modal state at each, so a scan can begin at a
+# layer instead of byte 0. JSON lines: a header naming the file it indexes,
+# one line per layer start, and a closing line once the whole file is
+# indexed. Append-only, so a reader that stops anywhere leaves a valid prefix;
+# an unreadable line (a write cut short) is skipped.
+LAYER_INDEX_FORMAT = 1
+LAYER_INDEX_DIR = ".helix_index"
+LAYER_INDEX_SUFFIX = ".layers.jsonl"
+
+# The file identity a layer index is valid for.
+IDENTITY_KEYS = ("file_size", "file_mtime", "file_hash")
+
+
+class LayerCheckpoint(NamedTuple):
+    layer: int
+    offset: int
+    state: ModalState
+
+
+def layer_index_path(gcodes_root: "os.PathLike", relpath: str) -> str:
+    return os.path.join(str(gcodes_root), LAYER_INDEX_DIR, relpath + LAYER_INDEX_SUFFIX)
+
+
+def _identity(record: dict) -> dict:
+    return {k: record.get(k) for k in IDENTITY_KEYS}
+
+
+class LayerIndexWriter:
+    """Appends checkpoints to a file's layer index, starting it over when the
+    one on disk indexes another version of the file."""
+
+    def __init__(self, path: str, identity: dict) -> None:
+        self.path = path
+        self.identity = _identity(identity)
+        self._f = None
+
+    def _open(self) -> None:
+        state = read_layer_index(self.path, self.identity)
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        if state is None:
+            self._f = open(self.path, "w")
+            self._write(dict(self.identity, format=LAYER_INDEX_FORMAT))
+        else:
+            self._f = open(self.path, "a")
+            # A line cut short by a crash would swallow the next record.
+            with open(self.path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                if f.tell() > 0:
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        self._f.write("\n")
+
+    def _write(self, record: dict) -> None:
+        import json
+        self._f.write(json.dumps(record, separators=(",", ":")) + "\n")
+        self._f.flush()
+
+    def append(self, layer: int, offset: int, state: ModalState) -> None:
+        if self._f is None:
+            self._open()
+        self._write({"layer": layer, "offset": offset, "z": state.last_position[2],
+                     "state": state.to_dict()})
+
+    def finish(self, end_offset: int) -> None:
+        if self._f is None:
+            self._open()
+        self._write({"complete": True, "end_offset": end_offset})
+
+    def close(self) -> None:
+        if self._f is not None:
+            self._f.close()
+            self._f = None
+
+
+class LayerIndexSummary(NamedTuple):
+    last: Optional[LayerCheckpoint]  # the checkpoint furthest into the file
+    at_or_before: Optional[LayerCheckpoint]  # furthest one at or before max_offset
+    complete: bool
+
+
+def read_layer_index(path: str, identity: dict,
+                     max_offset: Optional[int] = None) -> Optional[LayerIndexSummary]:
+    """Stream a layer index; None when it is missing, unreadable or indexes a
+    different version of the file. Memory stays constant in its length."""
+    import json
+    try:
+        f = open(path, "r")
+    except OSError:
+        return None
+    last = None
+    best = None
+    complete = False
+    with f:
+        header = None
+        for line in f:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            if header is None:
+                header = record
+                if header.get("format") != LAYER_INDEX_FORMAT \
+                        or _identity(header) != _identity(identity):
+                    return None
+                continue
+            if record.get("complete"):
+                complete = True
+                continue
+            layer = record.get("layer")
+            offset = record.get("offset")
+            if not isinstance(layer, int) or not isinstance(offset, int) \
+                    or not isinstance(record.get("state"), dict):
+                continue
+            if last is None or offset >= last[1]:
+                last = (layer, offset, record)
+            if (max_offset is None or offset <= max_offset) \
+                    and (best is None or offset >= best[1]):
+                best = (layer, offset, record)
+    if header is None:
+        return None
+
+    def checkpoint(entry):
+        if entry is None:
+            return None
+        return LayerCheckpoint(entry[0], entry[1], ModalState.from_dict(entry[2]["state"]))
+
+    return LayerIndexSummary(checkpoint(last), checkpoint(best), complete)

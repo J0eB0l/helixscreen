@@ -23,6 +23,9 @@ import zlib
 from pathlib import Path
 from typing import Any, Callable, Dict, NamedTuple, Optional, Tuple
 
+# helix_print.py loads its siblings into sys.modules in dependency order.
+import helix_gcode_reader
+
 # ============================================================================
 # Storage safety (§ 7.4)
 # ============================================================================
@@ -631,6 +634,78 @@ def _fsync_dir(path: Path) -> None:
 
 
 # ============================================================================
+# Layer checkpoints (§ 6.2, O3: T1 failed, so they are in v1)
+# ============================================================================
+
+# The follower runs when the print has moved this far past it, or this long
+# after its last run.
+FOLLOW_MIN_BYTES = 64 * 1024
+FOLLOW_INTERVAL_S = 10.0
+
+
+class LayerFollower:
+    """Builds the printing file's layer index (helix_gcode_reader's sidecar)
+    up to file_position while the print runs, so a resume scan starts at a
+    layer instead of byte 0. It reads only bytes Klipper has already read,
+    under a DutyCycleLimiter. step() and finish() run on the follower thread.
+    """
+
+    def __init__(self, path: Path, index_path: str, identity: Dict[str, Any],
+                 limiter: Optional[Any] = None) -> None:
+        self.path = path
+        self.index_path = index_path
+        self.identity = identity
+        self.limiter = limiter
+        self.offset = 0
+        self.state = None  # type: Optional[Any]
+        self.complete = False
+        self._loaded = False
+        self._written = -1
+        self._writer = None  # type: Optional[Any]
+
+    def _load(self) -> None:
+        self._loaded = True
+        summary = helix_gcode_reader.read_layer_index(self.index_path, self.identity)
+        if summary is not None:
+            self.complete = summary.complete
+            if summary.last is not None:
+                self.offset = summary.last.offset
+                self.state = summary.last.state
+                self._written = summary.last.offset
+        self._writer = helix_gcode_reader.LayerIndexWriter(self.index_path, self.identity)
+        if self.limiter is None:
+            self.limiter = helix_gcode_reader.DutyCycleLimiter()
+
+    def _on_layer(self, layer: int, offset: int, state: Any) -> None:
+        if offset > self._written:
+            self._writer.append(layer, offset, state)
+            self._written = offset
+
+    def step(self, file_position: int) -> None:
+        if not self._loaded:
+            self._load()
+        if self.complete or file_position <= self.offset:
+            return
+        with open(str(self.path), "rb") as f:
+            result = helix_gcode_reader.scan_to_offset(
+                f, file_position, self.offset, self.state,
+                throttle=self.limiter.pace, on_layer_start=self._on_layer,
+            )
+        self.offset = result.offset
+        self.state = result.state_at_head
+
+    def finish(self, file_size: Optional[int]) -> None:
+        """Close the index. A print that completed (file_size given) and was
+        followed to the end marks it complete."""
+        if self._writer is None:
+            return
+        if not self.complete and file_size is not None and self.offset >= file_size:
+            self._writer.finish(self.offset)
+            self.complete = True
+        self._writer.close()
+
+
+# ============================================================================
 # The Moonraker-facing component
 # ============================================================================
 
@@ -681,6 +756,10 @@ class HelixPlr:
         self._switch = (False, float("-inf"))  # (value, read at)
         self._writing = False
         self._macro_vars = {}  # type: Dict[str, Tuple[str, ...]]
+        self.follower = None  # type: Optional[LayerFollower]
+        self._follow_future = None  # type: Optional[Any]
+        self._follow_at = float("-inf")
+        self._follow_executor = None  # type: Optional[Any]
 
     def detect_storage(self) -> Tuple[str, Optional[str]]:
         try:
@@ -818,6 +897,72 @@ class HelixPlr:
             return
         await self._persist(now, record)
         await self._maybe_save_mesh(record)
+        self._maybe_follow(now, record.get("file_position"))
+
+    # -- layer checkpoints ---------------------------------------------------
+
+    def _make_follower(self) -> Optional[LayerFollower]:
+        gc_path = getattr(self.helix, "gc_path", None)
+        job = self.job
+        if gc_path is None or job is None or not job.get("file_hash"):
+            return None
+        filename = job.get("filename", "")
+        return LayerFollower(
+            gc_path / filename, helix_gcode_reader.layer_index_path(gc_path, filename), job)
+
+    def _executor(self) -> Any:
+        if self._follow_executor is None:
+            from concurrent.futures import ThreadPoolExecutor
+            self._follow_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="helix-plr-follower",
+                initializer=helix_gcode_reader.lower_thread_priority)
+        return self._follow_executor
+
+    def _maybe_follow(self, now: float, file_position: Any) -> None:
+        """Start a follower step when the print has moved far enough or long
+        enough past the last one. One step runs at a time."""
+        if not isinstance(file_position, int):
+            return
+        if self._follow_future is not None and not self._follow_future.done():
+            return
+        if self.follower is None:
+            self.follower = self._make_follower()
+            if self.follower is None:
+                return
+        behind = file_position - self.follower.offset
+        if behind <= 0 or (behind < FOLLOW_MIN_BYTES and now - self._follow_at < FOLLOW_INTERVAL_S):
+            return
+        self._follow_at = now
+        future = self._executor().submit(self.follower.step, file_position)
+        future.add_done_callback(self._follow_done)
+        self._follow_future = future
+
+    @staticmethod
+    def _follow_done(future: Any) -> None:
+        if not future.cancelled() and future.exception() is not None:
+            logging.warning("HelixPrint: PLR layer follower failed: %s", future.exception())
+
+    async def _stop_follower(self, file_size: Optional[int]) -> None:
+        follower = self.follower
+        self.follower = None
+        if follower is None:
+            return
+        import asyncio
+        if self._follow_future is not None:
+            try:
+                await asyncio.wrap_future(self._follow_future)
+            except Exception:
+                pass
+        self._follow_future = None
+        try:
+            await asyncio.wrap_future(self._executor().submit(follower.finish, file_size))
+        except Exception as e:
+            logging.warning("HelixPrint: PLR could not close the layer index: %s", e)
+
+    def close(self) -> None:
+        if self._follow_executor is not None:
+            self._follow_executor.shutdown(wait=False)
+        self.store.close()
 
     async def _persist(self, now: float, record: Dict[str, Any]) -> None:
         try:
@@ -902,6 +1047,8 @@ class HelixPlr:
         job_id = str(job["job_id"])
         filename = job.get("filename", "")
         await self._ns_put(NEWEST_JOB_KEY, {"job_id": job_id, "filename": filename})
+        await self._stop_follower(None)
+        self._follow_at = self.clock()
         self.policy.reset()
         self._switch = (False, float("-inf"))
         if self.store_error is None:
@@ -925,6 +1072,8 @@ class HelixPlr:
         if self.job is None or str(job["job_id"]) != self.job.get("job_id"):
             return
         status = job.get("status")
+        await self._stop_follower(
+            self.job.get("file_size") if status == "completed" else None)
         if status in _CLEARED_STATUSES:
             await self.discard()
             return
@@ -932,7 +1081,9 @@ class HelixPlr:
         await self._ns_put(JOB_KEY, self.job)
 
     async def discard(self) -> None:
-        """Delete the snapshot, the job record and the mesh file."""
+        """Delete the snapshot, the job record and the mesh file. The layer
+        index stays: it describes the file, not the job."""
+        await self._stop_follower(None)
         self.job = None
         self.policy.reset()
         if self.store_error is None:

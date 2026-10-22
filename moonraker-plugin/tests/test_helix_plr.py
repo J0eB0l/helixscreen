@@ -762,3 +762,175 @@ def test_idle_updates_do_not_read_the_switch(plr):
     plr.saving_enabled = boom
     tick(plr, **printing_status(100, state="standby"))
     tick(plr, **printing_status(100, state="complete"))
+
+
+# --------------------------------------------------------------------------
+# Layer follower
+# --------------------------------------------------------------------------
+
+import io  # noqa: E402
+
+import helix_gcode_reader  # noqa: E402
+from helix_plr import LayerFollower  # noqa: E402
+
+
+def layered_gcode(layers=40, lines=30):
+    out = ["M83"]
+    for n in range(1, layers + 1):
+        out.append(";LAYER_CHANGE")
+        out.append("G1 Z%.1f" % (n * 0.2))
+        out.extend("G1 X%d Y%d E.05" % (i, n) for i in range(lines))
+    return ("\n".join(out) + "\n").encode()
+
+
+class NoThrottle:
+    def __init__(self):
+        self.calls = 0
+
+    def pace(self, n):
+        self.calls += 1
+
+
+@pytest.fixture
+def gfile(tmp_path):
+    path = tmp_path / "gcodes" / "part.gcode"
+    path.parent.mkdir()
+    path.write_bytes(layered_gcode())
+    return path
+
+
+def ident(path):
+    return helix_plr.file_identity(path)
+
+
+def full_scan_starts(data):
+    starts = {}
+    helix_gcode_reader.scan_to_offset(
+        io.BytesIO(data), len(data),
+        on_layer_start=lambda layer, off, st: starts.__setitem__(layer, (off, st)))
+    return starts
+
+
+def test_follower_builds_the_index_in_steps(gfile):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    f = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    for pos in (1000, 5000, 5001, len(data) // 2, len(data)):
+        f.step(pos)
+    assert f.offset == len(data)
+    f.finish(len(data))
+    summary = helix_gcode_reader.read_layer_index(index, ident(gfile))
+    assert summary.complete is True
+    expected = full_scan_starts(data)
+    for layer in (1, 17, 40):
+        cp = helix_gcode_reader.read_layer_index(index, ident(gfile),
+                                                 max_offset=expected[layer][0])
+        assert cp.at_or_before.layer == layer
+        assert cp.at_or_before.offset == expected[layer][0]
+        assert cp.at_or_before.state == expected[layer][1]
+
+
+def test_follower_never_reads_past_file_position(gfile):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    f = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    f.step(3000)
+    assert f.offset <= 3000
+    summary = helix_gcode_reader.read_layer_index(index, ident(gfile))
+    assert summary.last.offset < 3000
+
+
+def test_follower_resumes_from_its_index_after_a_restart(gfile):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    a = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    a.step(len(data) // 2)
+    a.finish(len(data))
+    b = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    b.step(0)
+    assert b.offset == helix_gcode_reader.read_layer_index(index, ident(gfile)).last.offset
+    b.step(len(data))
+    b.finish(len(data))
+    lines = open(index).read().splitlines()
+    layers = [json.loads(l)["layer"] for l in lines[1:] if "layer" in json.loads(l)]
+    assert layers == list(range(1, 41))          # no layer twice, none missing
+
+
+def test_a_complete_index_is_not_followed_again(gfile):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    a = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    a.step(len(data))
+    a.finish(len(data))
+    throttle = NoThrottle()
+    b = LayerFollower(gfile, index, ident(gfile), limiter=throttle)
+    b.step(len(data))
+    assert b.complete is True and b.offset < len(data) and throttle.calls == 0
+
+
+def test_follower_is_throttled(gfile, monkeypatch):
+    monkeypatch.setattr(helix_gcode_reader, "CHECK_INTERVAL_BYTES", 256)
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    throttle = NoThrottle()
+    LayerFollower(gfile, index, ident(gfile), limiter=throttle).step(len(data))
+    assert throttle.calls >= len(data) // 256 - 2 > 10
+
+
+class SyncExecutor:
+    """Runs follower steps at once on the calling thread."""
+
+    def submit(self, fn, *args):
+        from concurrent.futures import Future
+        fut = Future()
+        try:
+            fut.set_result(fn(*args))
+        except Exception as e:
+            fut.set_exception(e)
+        return fut
+
+    def shutdown(self, wait=True):
+        pass
+
+
+def test_component_follows_the_print_and_closes_the_index(plr, helix, monkeypatch):
+    monkeypatch.setattr(helix_plr, "FOLLOW_MIN_BYTES", 1000)
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    size = path.stat().st_size
+    plr._follow_executor = SyncExecutor()
+    added(plr)
+    plr.follower = None
+    tick(plr, **printing_status(500))
+    assert plr.follower is not None and plr.follower.offset == 0   # under FOLLOW_MIN_BYTES
+    tick(plr, 0.1, **printing_status(size // 2, layer=2))
+    assert 0 < plr.follower.offset <= size // 2
+    tick(plr, 0.1, **printing_status(size, layer=3))
+    follower = plr.follower
+    finished(plr, "completed")
+    index = helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")
+    assert helix_gcode_reader.read_layer_index(index, ident(path)).complete is True
+    assert plr.follower is None and follower.complete is True
+
+
+def test_component_follows_on_the_interval_too(plr, helix, monkeypatch):
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    plr._follow_executor = SyncExecutor()
+    added(plr)
+    tick(plr, **printing_status(600))
+    assert plr.follower.offset == 0
+    tick(plr, helix_plr.FOLLOW_INTERVAL_S, **printing_status(700))
+    assert 0 < plr.follower.offset <= 700
+
+
+def test_a_cancelled_print_leaves_the_index_open(plr, helix):
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    plr._follow_executor = SyncExecutor()
+    added(plr)
+    tick(plr, helix_plr.FOLLOW_INTERVAL_S, **printing_status(path.stat().st_size))
+    finished(plr, "cancelled")
+    index = helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")
+    summary = helix_gcode_reader.read_layer_index(index, ident(path))
+    assert summary.last is not None and summary.complete is False
