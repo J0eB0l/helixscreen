@@ -438,7 +438,7 @@ While **not** in Edit Mode, widgets respond to taps and other gestures:
 | Print Stats | Opens print history overlay |
 | Printer Message | — (display only) |
 | Job Queue | Opens Job Queue Manager modal; the **Start next** button starts the next job instead |
-| Speed / Flow | Opens the Print Tune overlay. At its largest sizes during a print, the **-** and **+** buttons change speed or flow by 5% without opening anything, and a long press on a value sets it back to 100% |
+| Speed / Flow | Opens the Print Tune overlay. At its largest sizes during a print, the **-** and **+** buttons change speed by 5% or flow by 1% without opening anything, and a long press on a value sets it back to 100% |
 | Z-Offset | Opens the Print Tune overlay. At 2x2 and larger, the arrow buttons nudge the offset and the step button cycles the step size. From 2x1 up, **Save** appears while there is an unsaved offset |
 | Exclude Objects | Opens the Print Status screen with its objects map. Does nothing when there is no print or only one object |
 | Digital Clock | — (display only) |

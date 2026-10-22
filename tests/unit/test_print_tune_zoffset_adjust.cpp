@@ -2,7 +2,7 @@
 //
 // Wiring tests for PrintTuneOverlay's z-offset baby-step: which base it adjusts
 // from, and which SET_GCODE_OFFSET form it puts on the wire. The pressure
-// advance row's case shares the overlay fixture.
+// advance row's and the speed/flow step buttons' cases share the overlay fixture.
 //
 // The helper choosing between relative and absolute is unit-tested in
 // test_z_offset_utils.cpp. These tests pin the WIRING: that the overlay seeds its
@@ -19,6 +19,7 @@
 #include "ui_nav_manager.h"
 #include "ui_print_tune_overlay.h"
 #include "ui_update_queue.h"
+#include "ui_utils.h"
 
 #include "../lvgl_ui_test_fixture.h"
 #include "config.h"
@@ -397,4 +398,28 @@ TEST_CASE_METHOD(PrintTuneZOffsetFixture,
     overlay.handle_pa_adjust(1);
     helix::ui::UpdateQueue::instance().drain();
     CHECK(last_gcode() == "SET_PRESSURE_ADVANCE EXTRUDER=extruder ADVANCE=0.0410");
+}
+
+TEST_CASE_METHOD(PrintTuneZOffsetFixture,
+                 "PrintTune: flow buttons step 5 and 1 percent, speed buttons 10 and 5",
+                 "[ui_integration][print_tune][speed_flow_steps]") {
+    auto& overlay = show_overlay();
+    overlay.update_speed_flow_display(100, 100);
+    auto tap = [&](const char* name) {
+        lv_obj_t* btn = lv_obj_find_by_name(overlay.get_panel(), name);
+        REQUIRE(btn != nullptr);
+        helix::ui::send_tap(btn);
+        helix::ui::UpdateQueue::instance().drain();
+        return last_gcode();
+    };
+
+    CHECK(tap("btn_flow_minus_5") == "M221 S95");
+    CHECK(tap("btn_flow_minus_1") == "M221 S94");
+    CHECK(tap("btn_flow_plus_1") == "M221 S95");
+    CHECK(tap("btn_flow_plus_5") == "M221 S100");
+
+    CHECK(tap("btn_speed_minus_10") == "M220 S90");
+    CHECK(tap("btn_speed_minus_5") == "M220 S85");
+    CHECK(tap("btn_speed_plus_5") == "M220 S90");
+    CHECK(tap("btn_speed_plus_10") == "M220 S100");
 }

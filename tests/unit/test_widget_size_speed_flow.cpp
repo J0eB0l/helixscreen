@@ -337,7 +337,8 @@ struct SpeedFlowActionFixture : public SpeedFlowFixture {
 
 } // namespace
 
-TEST_CASE_METHOD(SpeedFlowActionFixture, "speed_flow: steppers send 5 percent steps, clamped",
+TEST_CASE_METHOD(SpeedFlowActionFixture,
+                 "speed_flow: speed steppers step 5 percent, flow 1 percent, clamped",
                  "[widget_size][speed_flow][actions]") {
     PanelWidgetHarness<SpeedFlowWidget> h(test_screen(), state());
     h.resize(1, 1, 234, 232);
@@ -349,9 +350,9 @@ TEST_CASE_METHOD(SpeedFlowActionFixture, "speed_flow: steppers send 5 percent st
     tap(part(h, "speed", "speed_flow_minus"));
     CHECK(last_sent() == "M220 S95");
     tap(part(h, "flow", "speed_flow_plus"));
-    CHECK(last_sent() == "M221 S105");
+    CHECK(last_sent() == "M221 S101");
     tap(part(h, "flow", "speed_flow_minus"));
-    CHECK(last_sent() == "M221 S95");
+    CHECK(last_sent() == "M221 S99");
 
     set_percentages(helix::tune::kSpeedMaxPct, helix::tune::kFlowMaxPct);
     tap(part(h, "speed", "speed_flow_plus"));
