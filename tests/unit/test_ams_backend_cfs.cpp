@@ -8003,3 +8003,30 @@ TEST_CASE("CFS tool-table remap is the routing an unremapped print runs with",
     REQUIRE(seed.size() == 1);
     CHECK(seed[0].mapped_slot == live[1]);
 }
+
+TEST_CASE("CFS routing ignores our own unconfirmed tool-table write",
+          "[ams][cfs][remap][routing]") {
+    // BOX_MODIFY_TN updates the local table the moment it is sent. Until a box
+    // frame carries a map, that table is our intent, not what the printer routes
+    // by, so an unremapped print must not be seeded from it.
+    CfsRemapHelper helper;
+    auto status = make_cfs_status_json();
+    status["box"].erase("map");
+    json notification = {{"method", "notify_status_update"}, {"params", json::array({status, 0})}};
+    CfsTestAccess::handle_status(helper, notification);
+    REQUIRE(helper.firmware_tool_mapping_generation() == 0);
+
+    REQUIRE(helper.set_tool_mapping(1, 3).result == AmsResult::SUCCESS);
+    REQUIRE(helper.get_tool_mapping().size() > 1);
+    REQUIRE(helper.get_tool_mapping()[1] == 3);
+
+    CHECK(helper.firmware_default_routing().head(1) == 1);
+
+    SECTION("a box frame that reports the map makes it the routing") {
+        status["box"]["map"] = {{"T1A", "T1A"}, {"T1B", "T1D"}, {"T1C", "T1C"}, {"T1D", "T1B"}};
+        json frame = {{"method", "notify_status_update"}, {"params", json::array({status, 0})}};
+        CfsTestAccess::handle_status(helper, frame);
+        REQUIRE(helper.firmware_tool_mapping_generation() > 0);
+        CHECK(helper.firmware_default_routing().head(1) == 3);
+    }
+}
