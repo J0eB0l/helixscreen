@@ -149,6 +149,7 @@ helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
+helix_config = _load_sibling("helix_config")
 
 
 # ============================================================================
@@ -732,6 +733,7 @@ class HelixPrint:
         await self._start_3mf_converter()
         self._register_3mf_feature()
         self._start_plr()
+        self._start_config()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -815,6 +817,26 @@ class HelixPrint:
             helix_plr.PLR_FEATURE, helix_plr.PLR_FEATURE_VERSION, acts=True,
             switch=self.plr.feature_enabled, probe=self.plr.availability,
             extra=self.plr.feature_extra,
+        )
+
+    def _start_config(self) -> None:
+        """Config read and edit (helix_config.py). It acts only when the user
+        saves a change on the screen, which is its own consent, so it has no
+        switch: always on while the module loads."""
+        if helix_config is None:
+            self.register_feature(
+                "config_edit", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_config", "module_missing"),
+            )
+            return
+        helix_config.HelixConfig(self).start()
+
+        async def always_on() -> bool:
+            return True
+
+        self.register_feature(
+            helix_config.CONFIG_EDIT_FEATURE, helix_config.CONFIG_EDIT_FEATURE_VERSION,
+            acts=True, switch=always_on,
         )
 
     async def close(self) -> None:
