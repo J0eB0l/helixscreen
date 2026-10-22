@@ -213,19 +213,36 @@ def user_enabled(record: Any) -> Optional[bool]:
 
 class HomingCheck(NamedTuple):
     xy_home_safe: bool
-    reason: Optional[str]  # "override_homes_z" | "delta_kinematics" | None
+    # "override_homes_z" | "override_sets_z" | "override_unknown" | "delta_kinematics" | None
+    reason: Optional[str]
 
 
-def _homes_z(gcode: str) -> bool:
-    """Whether homing_override gcode homes Z: a G28 naming Z, or a bare G28."""
+# Commands a homing_override may run without making `G28 X Y` unsafe. Anything
+# else (a macro, SET_KINEMATIC_POSITION, a probe) may home or move Z, and the
+# override cannot be read further.
+_OVERRIDE_SAFE_COMMANDS = frozenset((
+    "G0", "G1", "G4", "G90", "G91", "M400", "M204", "M220", "M221", "M114", "M117", "M118",
+    "RESPOND", "SET_VELOCITY_LIMIT", "SET_TMC_CURRENT", "SAVE_GCODE_STATE",
+    "RESTORE_GCODE_STATE",
+))
+
+
+def _override_problem(gcode: str) -> Optional[str]:
+    """Why a homing_override's gcode makes `G28 X Y` unsafe, or None: a G28
+    that homes Z (or a bare G28), or any command not known to be harmless.
+    Template lines ({% ... %}) are skipped; their commands are read."""
     for line in gcode.splitlines():
         words = line.split(";", 1)[0].upper().split()
-        if not words or words[0] != "G28":
+        if not words or words[0].startswith("{"):
             continue
-        axes = [w for w in words[1:] if w[:1] in ("X", "Y", "Z")]
-        if not axes or any(w[:1] == "Z" for w in axes):
-            return True
-    return False
+        if words[0] == "G28":
+            axes = [w for w in words[1:] if w[:1] in ("X", "Y", "Z")]
+            if not axes or any(w[:1] == "Z" for w in axes):
+                return "override_homes_z"
+            continue
+        if words[0] not in _OVERRIDE_SAFE_COMMANDS:
+            return "override_unknown"
+    return None
 
 
 def check_xy_homing(configfile_settings: Any, kinematics: str) -> HomingCheck:
@@ -247,11 +264,16 @@ def check_xy_homing(configfile_settings: Any, kinematics: str) -> HomingCheck:
     axes = str(axes).lower()
     if "x" not in axes and "y" not in axes:
         return HomingCheck(True, None)
+    if override.get("set_position_z") is not None:
+        # Klipper declares Z after the override runs, replacing the frame
+        # prepare declared from the snapshot.
+        return HomingCheck(False, "override_sets_z")
     gcode = override.get("gcode", "")
     if isinstance(gcode, list):
         gcode = "\n".join(str(g) for g in gcode)
-    if _homes_z(str(gcode)):
-        return HomingCheck(False, "override_homes_z")
+    problem = _override_problem(str(gcode))
+    if problem is not None:
+        return HomingCheck(False, problem)
     return HomingCheck(True, None)
 
 
@@ -831,6 +853,10 @@ class HelixPlr:
         self.homing = HomingCheck(True, None)
         self.axis_min = None  # type: Optional[list]
         self.axis_max = None  # type: Optional[list]
+        self.bed_min = None  # type: Optional[list]
+        self.bed_max = None  # type: Optional[list]
+        self.mesh_fade = None  # type: Optional[Dict[str, Any]]
+        self.park_xy = None  # type: Optional[Tuple[float, float]]
         self._plan = None  # type: Optional[Any]
         self._plan_seq = None  # type: Optional[int]
         self._plan_executor = None  # type: Optional[Any]
@@ -1348,6 +1374,16 @@ class HelixPlr:
         th = _obj(status, "toolhead")
         self.axis_min = _vec(th.get("axis_minimum"), 3)
         self.axis_max = _vec(th.get("axis_maximum"), 3)
+        settings = settings if isinstance(settings, dict) else {}
+        bm = settings.get("bed_mesh") if isinstance(settings.get("bed_mesh"), dict) else {}
+        self.mesh_fade = {k: bm[k] for k in ("fade_start", "fade_end", "fade_target")
+                          if isinstance(bm.get(k), (int, float))} or None
+        self.bed_min = _vec(bm.get("mesh_min"), 2)
+        self.bed_max = _vec(bm.get("mesh_max"), 2)
+        sx = settings.get("stepper_x") if isinstance(settings.get("stepper_x"), dict) else {}
+        sy = settings.get("stepper_y") if isinstance(settings.get("stepper_y"), dict) else {}
+        px, py = _num(sx.get("position_endstop")), _num(sy.get("position_endstop"))
+        self.park_xy = (px, py) if px is not None and py is not None else None
 
     async def _newest_job_status(self, newest: Optional[Dict[str, Any]]) -> Optional[str]:
         if not newest:
@@ -1581,11 +1617,15 @@ class HelixPlr:
             macro_vars = (job.get("overflow") or {}).get("macro_vars")
         purge = None
         if not profile.purge_gcode and not qidi:
-            if self.axis_min and self.axis_max:
-                purge = helix_plr_render.generic_purge_xy(
-                    objects, tuple(self.axis_min[:2]), tuple(self.axis_max[:2]))
+            bed = self._bed_limits(job.get("mesh"))
+            if bed is not None:
+                purge = helix_plr_render.generic_purge_xy(objects, bed[0], bed[1])
             if purge is None:
                 warnings.append("no_purge_location")
+        part_top = _part_top_z(scan, point)
+        if tier == 1 and part_top is None and not qidi:
+            raise self._error("plr_scan_failed", "no_part_top: no extrusion before the resume point",
+                              400)
         live = snapshot.get("live_pos") or [0.0, 0.0, 0.0, 0.0]
         bed_now = _num(_obj(status, "heater_bed").get("temperature"))
         bed_cold = bool(bed_target and bed_now is not None and bed_now < bed_target - COLD_BED_DIFF_C)
@@ -1608,6 +1648,7 @@ class HelixPlr:
             method=point.method, retrace_estimate_mm=point.retrace_estimate_mm,
             skip_estimate_mm=point.skip_estimate_mm, warnings=warnings,
             requires=helix_plr_render.required_confirmations(tier, warnings, bed_cold),
+            part_top_z=part_top, mesh_fade=self.mesh_fade, park_xy=self.park_xy,
         )
         self._plan = plan
         self._plan_seq = snapshot.get("seq")
@@ -1615,6 +1656,20 @@ class HelixPlr:
         self._plan_file_size = os.stat(str(target[0])).st_size if target else None
         self._bed_now = bed_now
         return plan
+
+    def _bed_limits(self, mesh: Any) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:
+        """The bed, not the travel: [bed_mesh] mesh_min/mesh_max, else the
+        job's mesh bounds, clamped to the axis limits. The travel envelope
+        often reaches a purge bucket, brush or clips past the bed."""
+        lo, hi = self.bed_min, self.bed_max
+        if (lo is None or hi is None) and isinstance(mesh, dict):
+            lo, hi = mesh.get("min"), mesh.get("max")
+        if not lo or not hi:
+            return None
+        if self.axis_min and self.axis_max:
+            lo = [max(lo[i], self.axis_min[i]) for i in (0, 1)]
+            hi = [min(hi[i], self.axis_max[i]) for i in (0, 1)]
+        return (lo[0], lo[1]), (hi[0], hi[1])
 
     def _start_name(self, filename: str) -> Tuple[str, Optional[str]]:
         """M23 finds files at the gcodes root only; a file elsewhere, or one
@@ -1971,6 +2026,16 @@ def _resolve_link(gc_path: Path, filename: str) -> Optional[str]:
         return str(real.relative_to(gc_path.resolve()))
     except (OSError, ValueError):
         return None
+
+
+def _part_top_z(scan: Any, point: Any) -> Optional[float]:
+    """G-code Z of the last extruding move before the resume point: the top of
+    the plastic. The resume line's own Z may be a Z-hop or the next layer."""
+    base_z = point.state.last_position[2] - point.state.gcode_position()[2]
+    for rec in reversed(scan.window):
+        if rec.offset < point.offset and rec.toolhead_de > 0.0:
+            return rec.z - base_z
+    return None
 
 
 def _scan_and_locate(path: Path, file_position: int, index_path: Optional[str],

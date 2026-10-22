@@ -1080,7 +1080,11 @@ class FakePrinter:
             out["toolhead"] = {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0],
                                "homed_axes": self.homed}
         if "configfile" in objects:
-            out["configfile"] = {"settings": {"printer": {"kinematics": "corexy"}}}
+            out["configfile"] = {"settings": {
+                "printer": {"kinematics": "corexy"},
+                "bed_mesh": {"mesh_min": [10.0, 10.0], "mesh_max": [210.0, 210.0]},
+                "stepper_x": {"position_endstop": 220.0},
+                "stepper_y": {"position_endstop": 220.0}}}
         return out
 
 
@@ -1159,11 +1163,13 @@ def test_plan_warns_about_a_lost_mesh_and_a_cold_bed(plr, helix, resume):
     plr.job["mesh"] = {"profile": "adaptive", "saved": False, "min": [0, 0], "max": [1, 1],
                        "points": [[0.0]]}
 
+    base = plr.printer.query
+
     async def query(objects):
-        out = {"print_stats": {"state": "standby"},
-               "heater_bed": {"temperature": 30.0}, "bed_mesh": {"profiles": {}},
-               "toolhead": {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0]}}
-        return {k: v for k, v in out.items() if k in objects}
+        out = await base(objects)
+        out.update({k: v for k, v in {"heater_bed": {"temperature": 30.0},
+                                       "bed_mesh": {"profiles": {}}}.items() if k in objects})
+        return out
 
     helix.klippy_apis.query_objects.side_effect = query
     reply = run(plr.handle_plan(Req()))
@@ -1817,3 +1823,64 @@ def test_qidi_refuses_a_cache_file_that_is_not_the_snapshots(plr, helix, qidi_re
     with pytest.raises(Exception, match="plr_scan_failed: qidi_cache_mismatch"):
         commit(plr, plan_id)
     assert helix.klippy_apis.power_off_print.await_count == 0
+
+
+# --------------------------------------------------------------------------
+# Part top, bed limits, homing overrides
+# --------------------------------------------------------------------------
+
+from helix_plr_scan import ResumePoint, state_before  # noqa: E402
+
+
+def point_at(data, needle):
+    scan = helix_gcode_reader.scan_to_offset(io.BytesIO(data), len(data))
+    offset = data.index(needle)
+    return scan, ResumePoint(offset, state_before(io.BytesIO(data), scan, offset),
+                             "measured", 0.0, 0.0, [])
+
+
+def test_part_top_skips_a_z_hop_at_the_cut():
+    data = b"M83\nG1 Z.4\nG1 X10 Y10 E1\nG1 X20 Y10 E1\nG1 Z.8\nG1 X50 Y50\nG1 Z.4\n"
+    scan, point = point_at(data, b"G1 X50 Y50")
+    assert point.state.gcode_position()[2] == pytest.approx(0.8)
+    assert helix_plr._part_top_z(scan, point) == pytest.approx(0.4)
+
+
+def test_part_top_skips_the_next_layers_z():
+    data = b"M83\nG1 Z.4\nG1 X10 Y10 E1\n;LAYER_CHANGE\nG1 Z.6\nG1 X20 Y20 E1\n"
+    scan, point = point_at(data, b"G1 X20 Y20 E1")
+    assert helix_plr._part_top_z(scan, point) == pytest.approx(0.4)
+
+
+def test_tier1_without_any_extrusion_before_the_point_is_refused(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 1}))
+    import helix_plr as module
+    real = module._part_top_z
+    module._part_top_z = lambda scan, point: None
+    try:
+        with pytest.raises(Exception, match="plr_scan_failed: no_part_top"):
+            run(plr.handle_plan(Req()))
+    finally:
+        module._part_top_z = real
+
+
+def test_the_purge_line_runs_inside_the_bed_not_the_travel(plr, resume):
+    run(plr.handle_plan(Req()))
+    x0, y0, x1, y1 = plr._plan.purge_xy
+    assert (x0, y0) == (15.0, 205.0)     # back edge: mesh_max 210 - margin, not the axis 220
+    assert plr._plan.park_xy == (220.0, 220.0)
+
+
+@pytest.mark.parametrize(
+    "override, reason",
+    [
+        ({"axes": "xyz", "gcode": "G28 X\nG28 Y", "set_position_z": 0.0}, "override_sets_z"),
+        ({"axes": "xyz", "gcode": "_HOME_X\n_HOME_Y\n_HOME_Z"}, "override_unknown"),
+        ({"axes": "xyz", "gcode": "{% if 'x' not in printer.toolhead.homed_axes %}\n"
+                                  "G28 X\n{% endif %}\nG90\nG1 X100 F6000\nG28 Y"}, None),
+        ({"axes": "xy", "gcode": "SET_KINEMATIC_POSITION Z=0\nG28 X Y"}, "override_unknown"),
+    ],
+)
+def test_homing_overrides_that_may_move_z(override, reason):
+    check = check_xy_homing({"homing_override": override}, "corexy")
+    assert check == HomingCheck(reason is None, reason)

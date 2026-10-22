@@ -280,3 +280,65 @@ def test_mesh_z_at_interpolates_and_clamps():
     assert mesh_z_at(mesh, 100.0, 0.0) == pytest.approx(0.2)
     assert mesh_z_at(mesh, -50.0, 500.0) == pytest.approx(0.4)
     assert mesh_z_at(None, 1.0, 1.0) is None
+
+
+# --------------------------------------------------------------------------
+# Tier-1 part-top Z, mesh fade, heating away from the part
+# --------------------------------------------------------------------------
+
+from helix_plr_render import mesh_adjustment  # noqa: E402
+
+FLAT_MESH = {"points": [[0.1, 0.1], [0.1, 0.1]], "min": [0.0, 0.0], "max": [200.0, 200.0]}
+
+
+def z_ref(p):
+    return dict(render_commit_script(p, PROFILE, "part_top"))["z_reference"][0]
+
+
+def test_part_top_uses_the_printed_layer_not_a_hop():
+    # The resume line is a Z-hop travel at 12.4; the plastic under the nozzle is at 12.0.
+    p = plan(tier=1, part_top_z=12.0, mesh_loadable=None)
+    assert z_ref(p) == "SET_KINEMATIC_POSITION Z=12.05 SET_HOMED=Z"
+
+
+def test_part_top_adds_the_mesh_only_when_it_will_be_loaded():
+    with_mesh = plan(tier=1, part_top_z=12.0, mesh=FLAT_MESH, mesh_loadable="default")
+    assert z_ref(with_mesh) == "SET_KINEMATIC_POSITION Z=12.15 SET_HOMED=Z"
+    lost = plan(tier=1, part_top_z=12.0, mesh=FLAT_MESH, mesh_loadable=None)
+    assert z_ref(lost) == "SET_KINEMATIC_POSITION Z=12.05 SET_HOMED=Z"
+
+
+def test_part_top_applies_the_mesh_fade():
+    faded = plan(tier=1, part_top_z=12.0, mesh=FLAT_MESH, mesh_loadable="default",
+                 mesh_fade={"fade_start": 1.0, "fade_end": 10.0, "fade_target": 0.0})
+    assert z_ref(faded) == "SET_KINEMATIC_POSITION Z=12.05 SET_HOMED=Z"
+
+
+def test_mesh_adjustment_follows_bed_mesh_fade():
+    mesh = {"points": [[0.0, 0.4], [0.0, 0.4]], "min": [0.0, 0.0], "max": [100.0, 100.0]}
+    assert mesh_adjustment(mesh, 50, 50, 5.0, None) == pytest.approx(0.2)
+    fade = {"fade_start": 1.0, "fade_end": 10.0, "fade_target": 0.0}
+    assert mesh_adjustment(mesh, 50, 50, 0.5, fade) == pytest.approx(0.2)        # below start
+    assert mesh_adjustment(mesh, 50, 50, 20.0, fade) == pytest.approx(0.0)       # past end
+    mid = mesh_adjustment(mesh, 50, 50, 5.5, fade)
+    assert mid == pytest.approx((10.0 + 0.0 - 5.5) / (9.0 - 0.2) * 0.2)
+    averaged = {"fade_start": 1.0, "fade_end": 10.0}
+    assert mesh_adjustment(mesh, 50, 50, 20.0, averaged) == pytest.approx(0.2)   # mesh average
+
+
+def test_the_lifted_height_clears_the_part_top():
+    steps = dict(render_commit_script(plan(part_top_z=13.0), PROFILE, "trusted"))
+    assert "G1 Z18 F300" in steps["move_to_resume"]
+
+
+def test_without_a_purge_line_the_nozzle_heats_at_the_park_position():
+    purge = dict(render_commit_script(plan(tier=1, part_top_z=12.0, purge_xy=None,
+                                           park_xy=(220.0, 220.0)), PROFILE,
+                                      "part_top"))["heat_nozzle"]
+    assert purge[:4] == ["G90", "G1 Z17.4 F300", "G1 X220 Y220 F6000", "M109 S220"]
+
+
+def test_a_purge_macro_heats_at_the_park_position_too():
+    purge = dict(render_commit_script(plan(park_xy=(0.0, 0.0)),
+                                      PlrProfile(tier=2, purge_gcode="PURGE"), "trusted"))["heat_nozzle"]
+    assert purge == ["G90", "G1 Z17.4 F300", "G1 X0 Y0 F6000", "M109 S220", "PURGE"]

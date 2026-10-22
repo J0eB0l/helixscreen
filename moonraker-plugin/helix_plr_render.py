@@ -99,6 +99,14 @@ class ResumePlan(NamedTuple):
     skip_estimate_mm: float
     warnings: List[str]
     requires: List[str]
+    # G-code Z of the last extruding move before the resume point: the top of
+    # the plastic a tier-1 nozzle is jogged onto.
+    part_top_z: Optional[float] = None
+    # bed_mesh fade_start, fade_end, fade_target (None = the mesh's average).
+    mesh_fade: Optional[Dict[str, Any]] = None
+    # A part-free XY (the XY homing position) to heat the nozzle over when
+    # there is no purge line.
+    park_xy: Optional[Tuple[float, float]] = None
 
 
 # --------------------------------------------------------------------------
@@ -159,6 +167,31 @@ def generic_purge_xy(objects: List[dict], bed_min: Tuple[float, float],
         if all(b[2] < lo_x or b[0] > hi_x or b[3] < lo_y or b[1] > hi_y for b in boxes):
             return (cx0, cy0, cx1, cy1)
     return None
+
+
+def mesh_adjustment(mesh: Optional[Dict[str, Any]], x: float, y: float, z: float,
+                    fade: Optional[Dict[str, Any]]) -> Optional[float]:
+    """What bed_mesh adds to a move to (x, y, z), fade included
+    (bed_mesh.py#BedMesh.move: past fade_end only fade_target remains)."""
+    raw = mesh_z_at(mesh, x, y)
+    if raw is None:
+        return None
+    fade = fade or {}
+    start, end = fade.get("fade_start", 1.0), fade.get("fade_end", 0.0)
+    if not isinstance(start, (int, float)) or not isinstance(end, (int, float)) \
+            or end - start <= 0.0:
+        return raw
+    target = fade.get("fade_target")
+    if not isinstance(target, (int, float)):
+        points = [v for row in mesh["points"] for v in row]
+        target = sum(points) / len(points)
+    adj = raw - target
+    if max(z, z - adj) >= start:
+        # 0 past fade_end, so only fade_target remains there.
+        factor = max(0.0, min(1.0, (end + target - z) / ((end - start) - adj)))
+    else:
+        factor = 1.0
+    return factor * adj + target
 
 
 def mesh_z_at(mesh: Optional[Dict[str, Any]], x: float, y: float) -> Optional[float]:
@@ -328,18 +361,32 @@ def _macro_value(value: Any) -> str:
 
 
 def _safe_z(plan: ResumePlan) -> float:
-    """The lifted height in the restored G-code frame."""
-    return _resume_xyz(plan.state)[2] + plan.lift_mm
+    """The lifted height in the restored G-code frame, above both the resume
+    line's Z and the top of the plastic."""
+    rz = _resume_xyz(plan.state)[2]
+    top = plan.part_top_z if plan.part_top_z is not None else rz
+    return max(rz, top) + plan.lift_mm
+
+
+def _park_lines(plan: ResumePlan) -> List[str]:
+    """Travel, lifted, to the part-free park position before the nozzle heats."""
+    if plan.park_xy is None:
+        return []
+    offset = plan.snapshot.get("gcode_offset") or [0.0, 0.0]
+    return ["G90", "G1 Z%s F%d" % (_f(_safe_z(plan)), Z_FEED),
+            "G1 X%s Y%s F%d" % (_f(plan.park_xy[0] - offset[0]),
+                                _f(plan.park_xy[1] - offset[1]), TRAVEL_FEED)]
 
 
 def _purge_lines(plan: ResumePlan, profile: Any) -> List[str]:
     target = _f(plan.nozzle_target)
     if profile.purge_gcode:
-        return ["M109 S%s" % target] + [l for l in profile.purge_gcode.splitlines() if l.strip()]
+        return _park_lines(plan) + ["M109 S%s" % target] + \
+            [l for l in profile.purge_gcode.splitlines() if l.strip()]
     if plan.purge_xy is None:
-        # No known part-free spot: heat and prime where XY homing left the
-        # nozzle, lifted above the part.
-        return ["M109 S%s" % target, "M83",
+        # No purge line: heat and prime lifted, at the XY homing position,
+        # never over the resume point a tier-1 jog left the nozzle at.
+        return _park_lines(plan) + ["M109 S%s" % target, "M83",
                 "G1 E%s F%d" % (_f(HOME_PRIME_E_MM), PURGE_FEED // 4),
                 "G1 E-%s F%d" % (_f(PURGE_RETRACT_MM), RETRACT_FEED)]
     x0, y0, x1, y1 = plan.purge_xy
@@ -364,10 +411,14 @@ def render_commit_script(plan: ResumePlan, profile: Any,
     steps = []  # type: List[Tuple[str, List[str]]]
     rx, ry, rz = _resume_xyz(plan.state)
     if z_reference == "part_top":
-        offset_z = (plan.snapshot.get("gcode_offset") or [0.0, 0.0, 0.0])[2]
-        mesh_z = mesh_z_at(plan.mesh, rx + (plan.snapshot.get("gcode_offset") or [0.0])[0],
-                           ry + (plan.snapshot.get("gcode_offset") or [0.0, 0.0])[1]) or 0.0
-        z = rz + offset_z + mesh_z
+        # The nozzle rests on the plastic: declare the height that plastic was
+        # printed at, through the offset and the mesh the resume runs with.
+        offset = plan.snapshot.get("gcode_offset") or [0.0, 0.0, 0.0]
+        top = plan.part_top_z if plan.part_top_z is not None else rz
+        z = top + offset[2]
+        if plan.mesh_loadable:
+            z += mesh_adjustment(plan.mesh, rx + offset[0], ry + offset[1], z,
+                                 plan.mesh_fade) or 0.0
         lines = ["SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(z)]
         lines += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]
         steps.append(("z_reference", lines))
