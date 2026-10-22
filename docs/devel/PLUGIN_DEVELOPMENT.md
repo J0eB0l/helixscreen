@@ -824,7 +824,7 @@ end)
 | Call | Permission | Returns | Notes |
 |---|---|---|---|
 | `helix.moonraker.query(objects)` | none | table or `nil, err` | `objects` maps a status object name to `true` (every field) or a list of field names |
-| `helix.moonraker.call(method[, params])` | none for the seven read-only methods below, else `moonraker_write` | value or `nil, err` | the app's print, restart and G-code guards can refuse a write with `nil, err` (below) |
+| `helix.moonraker.call(method[, params])` | none for the read-only methods below, else `moonraker_write` | value or `nil, err` | the app's print, restart and G-code guards can refuse a write with `nil, err` (below) |
 | `helix.moonraker.upload(root, path, content)` | `moonraker_write` | `true` or `nil, err` | writes a file through Moonraker; `root` is `"gcodes"` or `"config"` |
 | `helix.moonraker.download(root, path)` | `moonraker_write` | string or `nil, err` | `root` is `"gcodes"` or `"config"`; a body over the memory cap comes back as an error, not a fault |
 | `helix.moonraker.on_agent_event(event, fn)` | none | | `fn(agent, data)` when Moonraker posts that agent event; the channel to a companion process on the printer (a slicer-side calibration wizard, an OrcaSlicer plugin); at most 16 handlers per plugin |
@@ -832,17 +832,29 @@ end)
 | `helix.gcode(script)` | `gcode` | `true` or `nil, err` | runs one G-code script |
 
 Read-only methods callable through `helix.moonraker.call` without any permission
-(`src/plugin/plugin_permissions.cpp#is_readonly_moonraker_method`):
+(`src/api/moonraker_gcode_guards.cpp#is_readonly_moonraker_method`):
 `printer.objects.query`, `printer.objects.list`, `server.info`, `server.files.list`,
-`server.files.metadata`, `server.temperature_store`, `machine.system_info`.
+`server.files.metadata`, `server.temperature_store`, `machine.system_info`, and the
+HelixPrint plugin's reads: `server.helix.status`, `server.helix.3mf_conversions`,
+`server.helix.analysis`, `server.helix.journal`, `server.helix.storage`,
+`server.helix.config`, `server.helix.plr.status`.
+
+The HelixPrint plugin's other methods are closed to plugins whatever their permissions,
+because they move, heat or rewrite the printer on the screen user's confirmation:
+`server.helix.plr.prepare` and `plr.commit` (a power-loss resume), `config_edit`,
+`print_hooks.screen_start`, `storage_cleanup`, and any `server.helix.*` method not
+named here, including ones added later, come back as `nil, err` naming the method. The
+exceptions are `server.helix.print_modified` and `server.helix.print_edited`, which
+start a print the way `printer.print.start` does and carry its checks (below). A new
+read-only HelixPrint endpoint joins the list above in the same change that adds it.
 
 A write the permission allows can still come back as `nil, err`: `helix.moonraker.call`
 applies the refusals the app's own print, restart and G-code paths apply, before
 anything is sent (`src/api/moonraker_gcode_guards.cpp#reject_plugin_rpc`).
-`printer.print.start` and `server.helix.print_modified` refuse a file path with
+`printer.print.start`, `server.helix.print_modified` and `server.helix.print_edited` refuse a file path with
 directory traversal or illegal characters. While spools lie on the bed (the drying
-latch), print start, `printer.print.resume`, `server.job_queue.start`, the modified-print
-start, `printer.restart`, `printer.firmware_restart` and a `machine.services.restart` of a
+latch), print start, `printer.print.resume`, `server.job_queue.start`, the modified- and edited-print
+starts, `printer.restart`, `printer.firmware_restart` and a `machine.services.restart` of a
 Klipper service are refused, and so is `printer.gcode.script` with any G-code the latch
 does not allow. `printer.gcode.script` with homing G-code is refused while a print is
 printing or paused. `helix.gcode` goes through the app's own G-code path, so the homing

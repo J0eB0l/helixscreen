@@ -23,7 +23,4 @@ const char* permission_name(Permission p);
 std::vector<Permission> permission_growth(const PermissionSet& granted,
                                           const PermissionSet& requested);
 
-/// Moonraker methods `helix.moonraker.call` accepts without `moonraker_write`.
-bool is_readonly_moonraker_method(std::string_view method);
-
 } // namespace helix::plugin

@@ -3,6 +3,7 @@
 
 #if HELIX_HAS_PLUGINS
 
+#include "../api/moonraker_gcode_guards.h"
 #include "i_moonraker_client.h"
 #include "json_utils.h"
 #include "lua_bindings.h"
@@ -166,7 +167,7 @@ int gcode(lua_State* L) {
 
 int call(lua_State* L) {
     std::string method = luaL_checkstring(L, 1);
-    if (!is_readonly_moonraker_method(method))
+    if (!helix::api::is_readonly_moonraker_method(method))
         require_permission(L, Permission::MoonrakerWrite, "helix.moonraker.call");
     json params = params_arg(L, 2);
     PluginBackend* backend = &context(L).backend;

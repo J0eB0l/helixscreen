@@ -106,6 +106,29 @@ bool reject_restart_while_spools_on_bed(
     return true;
 }
 
+namespace {
+
+constexpr std::string_view kReadonlyMethods[] = {
+    "printer.objects.query", "printer.objects.list",    "server.info",
+    "server.files.list",     "server.files.metadata",   "server.temperature_store",
+    "machine.system_info",   "server.helix.status",     "server.helix.3mf_conversions",
+    "server.helix.analysis", "server.helix.journal",    "server.helix.storage",
+    "server.helix.config",   "server.helix.plr.status",
+};
+
+constexpr std::string_view kHelixMethodPrefix = "server.helix.";
+
+} // namespace
+
+bool is_readonly_moonraker_method(std::string_view method) {
+    for (std::string_view m : kReadonlyMethods) {
+        if (method == m) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
                        const nlohmann::json& params,
                        const std::function<void(const MoonrakerError&)>& on_error) {
@@ -118,12 +141,20 @@ bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
         return moonraker_internal::reject_invalid_path(str("filename"), method.c_str(), on_error) ||
                reject_job_while_spools_on_bed(&state, method.c_str(), on_error);
     }
-    if (method == "server.helix.print_modified") {
+    if (method == "server.helix.print_modified" || method == "server.helix.print_edited") {
         return moonraker_internal::reject_invalid_path(str("original_filename"), method.c_str(),
                                                        on_error) ||
                moonraker_internal::reject_invalid_path(str("temp_file_path"), method.c_str(),
                                                        on_error) ||
                reject_job_while_spools_on_bed(&state, method.c_str(), on_error);
+    }
+    if (method.compare(0, kHelixMethodPrefix.size(), kHelixMethodPrefix) == 0 &&
+        !is_readonly_moonraker_method(method)) {
+        spdlog::warn("{} Refusing {}: not open to plugins", kTag, method);
+        if (on_error) {
+            on_error(MoonrakerError::not_ready(method, method + " is not available to plugins"));
+        }
+        return true;
     }
     if (method == "printer.print.resume" || method == "server.job_queue.start") {
         return reject_job_while_spools_on_bed(&state, method.c_str(), on_error);

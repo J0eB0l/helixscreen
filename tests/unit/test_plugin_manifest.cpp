@@ -3,6 +3,7 @@
 
 #if HELIX_HAS_PLUGINS
 
+#include "../../src/api/moonraker_gcode_guards.h"
 #include "plugin_manifest.h"
 #include "plugin_permissions.h"
 
@@ -246,12 +247,12 @@ TEST_CASE("permissions", "[plugin][manifest]") {
     CHECK(permission_growth(granted, {Permission::Http, Permission::Gcode}) ==
           std::vector<Permission>{Permission::Http});
 
-    CHECK(is_readonly_moonraker_method("printer.objects.query"));
-    CHECK(is_readonly_moonraker_method("machine.system_info"));
-    CHECK(is_readonly_moonraker_method("server.temperature_store"));
-    CHECK_FALSE(is_readonly_moonraker_method("printer.gcode.script"));
-    CHECK_FALSE(is_readonly_moonraker_method("server.files.delete_file"));
-    CHECK_FALSE(is_readonly_moonraker_method("printer.objects.query.extra"));
+    CHECK(helix::api::is_readonly_moonraker_method("printer.objects.query"));
+    CHECK(helix::api::is_readonly_moonraker_method("machine.system_info"));
+    CHECK(helix::api::is_readonly_moonraker_method("server.temperature_store"));
+    CHECK_FALSE(helix::api::is_readonly_moonraker_method("printer.gcode.script"));
+    CHECK_FALSE(helix::api::is_readonly_moonraker_method("server.files.delete_file"));
+    CHECK_FALSE(helix::api::is_readonly_moonraker_method("printer.objects.query.extra"));
 }
 
 TEST_CASE("manifest widgets parse with cell spans", "[plugin][manifest]") {

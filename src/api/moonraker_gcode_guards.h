@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "hv/json.hpp"
 
@@ -62,10 +63,18 @@ bool reject_restart_while_spools_on_bed(const helix::PrinterState* state, const 
 bool reject_job_while_spools_on_bed(const helix::PrinterState* state, const char* method,
                                     const std::function<void(const MoonrakerError&)>& on_error);
 
+/// Moonraker methods that read and change nothing: a plugin calls them without
+/// `moonraker_write`, and they are the only `server.helix.*` methods besides the linked print
+/// starts that a plugin may call at all.
+bool is_readonly_moonraker_method(std::string_view method);
+
 /// Apply the refusals the app's own send paths enforce to a raw JSON-RPC request issued on a
-/// plugin's behalf. Covers print start (path and spool latch), resume, queue start, modified
-/// print, Klipper restarts and `printer.gcode.script`; every other method passes. Returns true
-/// when refused, with @p on_error already called and nothing to send.
+/// plugin's behalf. Covers print start (path and spool latch), resume, queue start, the
+/// HelixPrint linked starts (print_modified, print_edited), Klipper restarts and
+/// `printer.gcode.script`. Every other `server.helix.*` method is refused unless it is
+/// read-only: the HelixPrint plugin's actions move, heat or rewrite on the screen user's
+/// confirmation, never a plugin's. Every other method passes. Returns true when refused, with
+/// @p on_error already called and nothing to send.
 bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
                        const nlohmann::json& params,
                        const std::function<void(const MoonrakerError&)>& on_error);

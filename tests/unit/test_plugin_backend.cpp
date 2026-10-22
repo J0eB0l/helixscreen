@@ -170,6 +170,55 @@ TEST_CASE_METHOD(PluginCallFixture, "plugin call refuses every job method while 
     CHECK(mock.last_send_method() != "machine.services.restart");
 }
 
+TEST_CASE_METHOD(PluginCallFixture,
+                 "plugin call gives print_edited the linked-start checks print_modified has",
+                 "[plugin][backend][spool_latch][plugin_server_edits]") {
+    const json edited = {{"original_filename", "a.gcode"},
+                         {"temp_file_path", ".helix_temp/b.gcode"},
+                         {"edits", json::array()}};
+
+    get_printer_state().print_state().set_spool_latch(true);
+    const RpcResult latched = call("server.helix.print_edited", edited);
+    CHECK_FALSE(latched.ok);
+    CHECK(latched.error.find("Spools are on the bed") != std::string::npos);
+    CHECK(mock.last_send_method() != "server.helix.print_edited");
+    get_printer_state().print_state().set_spool_latch(false);
+
+    for (const char* key : {"original_filename", "temp_file_path"}) {
+        INFO(key);
+        json bad = edited;
+        bad[key] = "../etc/passwd";
+        const RpcResult r = call("server.helix.print_edited", bad);
+        CHECK_FALSE(r.ok);
+        CHECK(r.error.find("Invalid path") != std::string::npos);
+        CHECK(mock.last_send_method() != "server.helix.print_edited");
+    }
+
+    call("server.helix.print_edited", edited);
+    CHECK(mock.last_send_method() == "server.helix.print_edited");
+}
+
+TEST_CASE_METHOD(PluginCallFixture,
+                 "plugin call refuses every HelixPrint action that is not read-only",
+                 "[plugin][backend][plugin_server_edits]") {
+    for (const char* method : {"server.helix.plr.commit", "server.helix.plr.prepare",
+                               "server.helix.config_edit", "server.helix.print_hooks.screen_start",
+                               "server.helix.storage_cleanup", "server.helix.foo"}) {
+        INFO(method);
+        const RpcResult r = call(method, json::object());
+        CHECK_FALSE(r.ok);
+        CHECK(r.error.find(method) != std::string::npos);
+        CHECK(mock.last_send_method() != method);
+    }
+
+    for (const char* method : {"server.helix.status", "server.helix.journal",
+                               "server.helix.plr.status", "server.helix.analysis"}) {
+        INFO(method);
+        call(method, json::object());
+        CHECK(mock.last_send_method() == method);
+    }
+}
+
 TEST_CASE_METHOD(PluginCallFixture, "plugin call applies the gcode guards to printer.gcode.script",
                  "[plugin][backend][spool_latch]") {
     get_printer_state().print_state().set_spool_latch(true);
