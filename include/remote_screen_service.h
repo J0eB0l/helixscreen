@@ -56,6 +56,9 @@ class RemoteScreenService {
 
     bool available() const;
     bool running() const;
+    /// A person is watching: the server is up and the viewer page polled within
+    /// kViewerIdleMs (ScreenFrameStore::page_viewer_present). Atomics only, any thread.
+    bool viewer_active() const;
     /// Bound port while running, else 0.
     int port() const;
     std::shared_ptr<ScreenFrameStore> store() const {

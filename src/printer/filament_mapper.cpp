@@ -154,12 +154,13 @@ SlotKey FilamentMapper::find_closest_color_slot(uint32_t target_color,
 }
 
 std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<GcodeToolInfo>& tools,
-                                                          const std::vector<AvailableSlot>& slots) {
+                                                          const std::vector<AvailableSlot>& slots,
+                                                          const FirmwareRouting& routing) {
     std::vector<ToolMapping> mappings;
     mappings.reserve(tools.size());
 
-    // Track which slots have been claimed for positional fallback deduplication.
-    // Color matching allows slot re-use, but positional fallback avoids it.
+    // Track which slots have been claimed by the routed and free-lane fallbacks.
+    // Color matching allows slot re-use, but those fallbacks avoid it.
     std::vector<SlotKey> used_slots;
 
     for (const auto& tool : tools) {
@@ -196,7 +197,7 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
         // Searching for the nearest lane to a stand-in picks one on the strength
         // of a value the file never expressed, and the material gate is no
         // protection: with four ASA lanes loaded it just picks whichever ASA
-        // happens to sit closest to grey. The positional fallback below is the
+        // happens to sit closest to grey. The routed-lane fallback below is the
         // honest answer, and it is already what runs when nothing lands within
         // kColorMatchTolerance. Firmware mappings (Priority 1, above) are
         // unaffected — those are the printer's own statement, not a guess.
@@ -227,29 +228,32 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
             continue;
         }
 
-        // Priority 3: Positional fallback — assign to the slot matching the tool index
+        // Priority 3: the lane the firmware routes this tool to. Any other lane
+        // goes out at print start as a remap over the printer's own table.
         {
-            int tool_idx = tool.tool_index;
+            const int head = routing.head(tool.tool_index);
             for (const auto& slot : slots) {
                 // Only a LOADED lane can serve as a substitute — an empty lane has
                 // no filament to route the tool to.
-                if (slot.slot_index == tool_idx && slot.backend_index == 0 && !slot.is_empty) {
+                if (head >= 0 && slot.slot_index == head && slot.backend_index == 0 &&
+                    !slot.is_empty) {
                     auto key = slot.key();
                     if (std::find(used_slots.begin(), used_slots.end(), key) == used_slots.end()) {
                         mapping.mapped_slot = slot.slot_index;
                         mapping.mapped_backend = slot.backend_index;
-                        mapping.reason = ToolMapping::MatchReason::COLOR_MATCH;
-                        // The tool's own positional lane is a deliberate default:
-                        // assign it but flag what is wrong with it so
-                        // PrintStartController can warn. (Only the fallback below
-                        // refuses incompatible lanes outright.)
+                        // The printer's own routing, not a match: print start
+                        // leaves it to the printer and sends nothing for it.
+                        mapping.reason = ToolMapping::MatchReason::FIRMWARE_MAPPING;
+                        // A deliberate default: assign it but flag what is wrong
+                        // with it so PrintStartController can warn. (Only the
+                        // fallback below refuses incompatible lanes outright.)
                         mapping.set_mismatches(classify_mismatches(tool, slot));
                         used_slots.push_back(key);
                     }
                     break;
                 }
             }
-            // No positional lane: rather than grab an arbitrary unclaimed lane (the
+            // No routed lane: rather than grab an arbitrary unclaimed lane (the
             // old material-blind behavior that misrouted prints — a PLA tool into a
             // PETG/TPU lane), take the first unclaimed lane that is not known to be
             // incompatible. Unknown/empty materials can't be proven incompatible, so
@@ -329,9 +333,45 @@ std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<Gc
         for (auto& s : slots_for_matching) {
             s.current_tool_mapping = -1;
         }
-        return compute_defaults(tools, slots_for_matching);
+        return compute_defaults(tools, slots_for_matching, routing);
     }
     return use_current_assignments(tools, slots, routing);
+}
+
+void FilamentMapper::apply_picks(std::vector<ToolMapping>& current,
+                                 const std::vector<ToolMapping>& picks) {
+    for (const auto& pick : picks) {
+        if (!pick.user_picked) {
+            continue;
+        }
+        const auto target =
+            std::find_if(current.begin(), current.end(),
+                         [&pick](const ToolMapping& m) { return m.tool_index == pick.tool_index; });
+        if (target != current.end()) {
+            *target = pick;
+        }
+    }
+}
+
+bool FilamentMapper::follow_seed(std::vector<ToolMapping>& current,
+                                 const std::vector<ToolMapping>& seed) {
+    bool changed = false;
+    for (auto& m : current) {
+        if (m.user_picked) {
+            continue;
+        }
+        const auto fresh = std::find_if(seed.begin(), seed.end(), [&m](const ToolMapping& s) {
+            return s.tool_index == m.tool_index;
+        });
+        if (fresh == seed.end()) {
+            continue;
+        }
+        changed = changed || fresh->mapped_slot != m.mapped_slot ||
+                  fresh->mapped_backend != m.mapped_backend || fresh->is_auto != m.is_auto ||
+                  fresh->reason != m.reason;
+        m = *fresh;
+    }
+    return changed;
 }
 
 std::vector<uint32_t> FilamentMapper::effective_tool_colors(const std::vector<GcodeToolInfo>& tools,

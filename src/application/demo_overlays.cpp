@@ -35,6 +35,7 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "led/ui_led_control_overlay.h"
 #include "preflight_validator.h"
+#include "recovery_fault_modal.h"
 
 #include <spdlog/spdlog.h>
 
@@ -201,6 +202,37 @@ bool show_demo_overlay(const std::string& name, std::string* error) {
                         []() {});
         // The stack frees the demo instance when the dialog closes.
         if (shown) {
+            lv_obj_t* backdrop = modal->backdrop();
+            ModalStack::instance().assume_ownership(backdrop, std::move(modal));
+        }
+        return true;
+    }
+
+    if (name == "recovery-fault-afc" || name == "recovery-fault-hh") {
+        // The dialog RecoveryModalPresenter raises for a filament system fault.
+        // Unreachable in mock mode: AmsBackendMock classifies no `!!` line as its
+        // own fault. The AFC one carries a lane fault, so the position diagram
+        // shows; the Happy Hare one fills all four button slots.
+        const bool afc = name == "recovery-fault-afc";
+        const std::string title = afc ? "Filament System Error" : "Filament runout";
+        const std::string detail =
+            afc ? "lane1 filament failed to trigger pre extruder gear toolhead sensor, "
+                  "CHECK FILAMENT PATH"
+                : "Runout detected on gate 2. Load filament into the gate and resume.";
+        std::vector<helix::RecoveryAction> actions;
+        if (afc) {
+            actions = {{"Resume", "RESUME", "afc::resume", "primary", true},
+                       {"Unload", "TOOL_UNLOAD", "afc::tool_unload", "", true},
+                       {"Recover", "AFC_RESET", "afc::reset", "danger"}};
+        } else {
+            actions = {{"Resume", "RESUME", "hh::resume", "primary", true},
+                       {"Recover", "MMU_RECOVER", "hh::recover", ""},
+                       {"Unload", "MMU_UNLOAD", "hh::unload", "", true},
+                       {"Unlock", "MMU_UNLOCK", "hh::unlock", "danger"}};
+        }
+        auto modal = std::make_unique<helix::ui::RecoveryFaultModal>();
+        // The stack frees the demo instance when the dialog closes.
+        if (modal->show_fault(screen, title, detail, actions)) {
             lv_obj_t* backdrop = modal->backdrop();
             ModalStack::instance().assume_ownership(backdrop, std::move(modal));
         }

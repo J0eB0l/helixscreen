@@ -39,7 +39,7 @@ translations:
   '%lu min ago': '%lu min fa'
   '%s Filament': '%s: Filamento'
   '%s has about %.0fg but %s needs about %.0fg. Start anyway?': '%s ha circa %.0fg ma %s ne richiede circa %.0fg. Avviare comunque?'
-  '%s has no filament loaded — this print will run out.': '%s non ha filamento caricato — questa stampa lo esaurirà.'
+  '%s has no lane assigned. Pick one before printing.': '%s non ha nessuna corsia assegnata. Scegline una prima di stampare.'
   '%s needs filament in %s, which is empty — this print will run out.': '%s richiede filamento e %s non ne ha — questa stampa lo esaurirà.'
   '%s unsaved': '%s non salvato'
   '%s uses %s, which has filament but no material set — the printer will not start until you set it.': '%s usa %s, che ha filamento ma nessun materiale impostato — la stampante non partirà finché non lo imposti.'

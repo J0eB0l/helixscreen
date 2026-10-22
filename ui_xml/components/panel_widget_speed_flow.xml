@@ -29,7 +29,8 @@
       <speed_flow_part name="speed_flow_flow_part"
                        icon="water" label="Flow" value_subject="speed_flow_flow_text"
                        measured_subject="speed_flow_flow_measured" status_subject="speed_flow_flow_status"
-                       step_callback="speed_flow_flow_step_cb" reset_callback="speed_flow_flow_reset_cb">
+                       step_callback="speed_flow_flow_step_cb" reset_callback="speed_flow_flow_reset_cb" step_down="-1"
+                       step_up="1">
         <bind_flag_if_eq subject="speed_flow_rung" flag="hidden" ref_value="0"/>
       </speed_flow_part>
     </pass_through>

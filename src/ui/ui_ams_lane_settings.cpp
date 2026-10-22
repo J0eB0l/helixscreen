@@ -94,6 +94,13 @@ std::string tool_options(int tool_count) {
 
 int assigned_tool(const AmsBackend& backend, int slot) {
     const auto mapping = backend.get_tool_mapping();
+    // A multi-tool lane routes several tools; the one it is running is the
+    // slot's own mapped_tool, when the table agrees it runs this slot.
+    const int active = backend.get_slot_info(slot).mapped_tool;
+    if (active >= 0 && static_cast<size_t>(active) < mapping.size() &&
+        mapping[static_cast<size_t>(active)] == slot) {
+        return active;
+    }
     for (size_t tool = 0; tool < mapping.size(); ++tool) {
         if (mapping[tool] == slot) {
             return static_cast<int>(tool);
