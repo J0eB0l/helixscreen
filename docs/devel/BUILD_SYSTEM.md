@@ -664,7 +664,7 @@ between ~400s and a few tens of seconds.
 
 But it only helps across worktrees if it is configured for it. The native build compiles with `-g` (debug info), and ccache's default `hash_dir=true` folds the absolute working directory into the cache key — so an object cached while building in the main tree never matches the same source compiled under `.worktrees/<name>/`. Every worktree would start stone cold.
 
-`setup-worktree.sh` fixes this once, by writing global ccache config (only when unset, so it never clobbers a value you chose):
+`setup-worktree.sh` fixes this once, by writing global ccache config through `scripts/ccache-shared-config.sh apply`, which keeps a `base_dir` that already covers `$HOME` and a larger `max_size`:
 
 | ccache setting | Set to | Why |
 |----------------|--------|-----|
@@ -1400,6 +1400,7 @@ host simply runs both suites locally, without a word.
 | `HELIX_TEST_TREES_HOST` | same | mirror root on the host, relative to the ssh user's home unless absolute (`helix-test/trees`) |
 | `HELIX_TEST_TREES` | same | the same directory inside the container (`/work/trees`) |
 | `HELIX_TEST_CCACHE` | same | ccache dir inside the container (`/work/ccache`) |
+| `HELIX_TEST_CCACHE_SIZE` | `test-host-run.sh`, `test-host-setup.sh` | `max_size` floor for that cache, never lowered (`200G`) |
 | `HELIX_TEST_WORKDIR` | `test-host-run.sh --commit` | the shared git checkout inside the container (`/work/helixscreen`); mutate checkouts copy it |
 | `HELIX_TEST_SEED` | `test-host-run.sh` | `0` starts a new mirror cold instead of copying the nearest warm one (`1`) |
 | `HELIX_TEST_PRUNE_DAYS` | `test-host-run.sh` | creating a mirror or mutate checkout removes those unused this many days; `0` never (`14`) |
@@ -1435,6 +1436,13 @@ streamed over ssh, and starts the container with the parent of
 `HELIX_TEST_TREES_HOST` mounted at the parent of `HELIX_TEST_TREES`. Re-run it
 after the Dockerfile changes; `--recreate` swaps the container for one from the
 new image.
+
+**One cache for every tree.** The setup and every `test-host-run.sh` run apply
+`scripts/ccache-shared-config.sh` to `HELIX_TEST_CCACHE` (`base_dir` = the
+mounted work directory, `hash_dir=false`, `max_size` at least
+`HELIX_TEST_CCACHE_SIZE`), so mirrors, mutate checkouts and the `--commit`
+checkout reuse each other's compiles; a run whose build directory the effective
+`base_dir` does not cover prints a `⚠ ccache base_dir` warning.
 
 **Mirrors start warm.** A tree whose mirror has no `build/` yet (a new worktree)
 is seeded before its first sync: the run copies the mirror whose recorded HEAD

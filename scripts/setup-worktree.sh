@@ -1349,16 +1349,10 @@ done
 
 # Step 9b: Configure ccache for cross-worktree reuse
 #
-# The native build compiles with -g (debug info). With ccache's default
-# hash_dir=true, the absolute working directory is folded into the cache key,
-# so an object compiled in the main tree NEVER matches the same source compiled
-# under .worktrees/<name>/ — every worktree starts cold and recompiles from
-# scratch. Two settings fix this:
-#   - base_dir: rewrite absolute paths under it to relative before hashing
-#   - hash_dir=false: stop hashing the cwd (the -g debug-path component)
-# With both, a worktree build reuses the main tree's cached objects, so the
-# "rebuild everything" make does after a fresh checkout becomes cache hits
-# instead of real compiles.
+# Worktrees sit at different absolute paths, so ccache shares nothing between
+# them without base_dir and hash_dir=false; scripts/ccache-shared-config.sh
+# says why and writes both. With them, the "rebuild everything" make does after
+# a fresh checkout becomes cache hits instead of real compiles.
 CCACHE_BIN="$(command -v ccache 2>/dev/null || true)"
 if [[ -n "$CCACHE_BIN" ]]; then
     echo -e "${CYAN}Configuring ccache for cross-worktree reuse...${RESET}"
@@ -1374,23 +1368,14 @@ if [[ -n "$CCACHE_BIN" ]]; then
     }
     BUILD_BASEDIR="$(common_ancestor "$MAIN_TREE" "$WORKTREE_PATH")"
 
-    # Persist global ccache config so later manual `make` runs in the worktree
-    # hit the shared cache too — not just this script's initial build. base_dir
-    # defaults to $HOME (the standard broad choice covering all in-home worktrees);
-    # only set when unset so we never override an intentional user value.
-    CUR_BASEDIR="$(ccache --get-config base_dir 2>/dev/null || true)"
-    if [[ -z "$CUR_BASEDIR" ]]; then
-        ccache --set-config "base_dir=$HOME" 2>/dev/null \
-            && echo -e "  base_dir: ${GREEN}set to $HOME${RESET}"
-    else
-        echo -e "  base_dir: ${GREEN}already set ($CUR_BASEDIR)${RESET}"
-    fi
-    if [[ "$(ccache --get-config hash_dir 2>/dev/null || true)" == "true" ]]; then
-        ccache --set-config hash_dir=false 2>/dev/null \
-            && echo -e "  hash_dir: ${GREEN}disabled (paths no longer in cache key)${RESET}"
-    else
-        echo -e "  hash_dir: ${GREEN}already disabled${RESET}"
-    fi
+    # Persist the shared-cache settings so later manual `make` runs in the
+    # worktree hit the shared cache too, not just this script's initial build.
+    # $HOME is the broad prefix covering every in-home worktree; a main tree
+    # outside it gets the common ancestor instead.
+    SHARED_PREFIX="$HOME"
+    case "$MAIN_TREE/" in "$HOME"/*) ;; *) SHARED_PREFIX="$BUILD_BASEDIR" ;; esac
+    "$SCRIPT_DIR/ccache-shared-config.sh" apply "$SHARED_PREFIX" 25G \
+        || echo -e "  ${YELLOW}could not apply the shared ccache settings${RESET}"
 
     # WITHOUT THIS, ccache CACHES NOTHING. Every native build compiles with
     # -include include/lvgl_pch.h, and ccache refuses to cache any compilation using a
@@ -1412,35 +1397,6 @@ if [[ -n "$CCACHE_BIN" ]]; then
             && echo -e "  sloppiness: ${GREEN}pch_defines,time_macros (forced-include builds are now cacheable)${RESET}"
     else
         echo -e "  sloppiness: ${GREEN}already allows forced-include caching ($CUR_SLOPPY)${RESET}"
-    fi
-
-    # The shared cache thrashes hard once a couple of worktrees + cross-compiles
-    # pile in (default 5 GiB fills and evicts constantly, re-causing cold misses).
-    # Raise the ceiling so objects survive between builds. Only ever raise it.
-    #
-    # ccache spells this three ways depending on version and value: human
-    # readable ("5.0 GiB"), parsable ("5.0G"), and a bare byte count below a
-    # megabyte, where 0 means unlimited. A unit is therefore optional, so
-    # neither grep may decide the script's exit status — under `set -o
-    # pipefail` a non-matching grep in an assignment aborts the whole run.
-    CUR_MAX="$(ccache --get-config max_size 2>/dev/null || true)"
-    MAX_NUM="$(printf '%s' "$CUR_MAX" | grep -oE '[0-9]+' | head -1 || true)"
-    MAX_UNIT="$(printf '%s' "$CUR_MAX" | grep -oiE '[KMGT]' | head -1 || true)"
-    raise_max=false
-    case "$MAX_UNIT" in
-        [Kk]|[Mm]) raise_max=true ;;
-        [Gg]) if [[ -n "$MAX_NUM" && "$MAX_NUM" -lt 25 ]]; then raise_max=true; fi ;;
-        [Tt]) ;;
-        *) if [[ -n "$MAX_NUM" && "$MAX_NUM" -ne 0 ]]; then raise_max=true; fi ;;
-    esac
-    if [[ "$raise_max" == true ]]; then
-        if ccache --max-size=25G >/dev/null 2>&1; then
-            echo -e "  max_size: ${GREEN}raised to 25G (was $CUR_MAX)${RESET}"
-        else
-            echo -e "  max_size: ${YELLOW}could not raise it from $CUR_MAX${RESET}"
-        fi
-    else
-        echo -e "  max_size: ${GREEN}already ample ($CUR_MAX)${RESET}"
     fi
 
     # Export for this script's own build below. base_dir must be a prefix of the
