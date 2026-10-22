@@ -81,6 +81,7 @@ import zlib
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
+import helix_file_queue as file_queue
 import helix_gcode_reader as reader
 from helix_gcode_reader import ModalState, ScanObserver
 
@@ -88,6 +89,10 @@ ANALYSIS_FEATURE = "file_analysis"
 ANALYSIS_FEATURE_VERSION = 1
 RECORD_SCHEMA = 1
 DB_NAMESPACE = "helix_analysis"
+# A file version that failed MAX_ATTEMPTS times, by path: [size, mtime, attempts].
+# Kept across restarts, so a file that crashes the worker is not retried at
+# every Moonraker start.
+DB_FAILURES_NAMESPACE = "helix_analysis_failures"
 READY_EVENT = "helix:analysis_ready"
 
 GCODE_EXTS = (".gcode", ".g", ".gco")
@@ -106,7 +111,6 @@ MAX_EMBEDDED_THUMB_B64 = 1024 * 1024
 FOOTPRINT_CELLS = 1024
 FOOTPRINT_CELL_MM = 0.5
 
-_IDLE_JOB_STATES = ("complete", "cancelled", "error", "standby")
 
 # Lines a progress bar places markers from; helix_gcode_reader stores them
 # in the layer index for the screen to classify.
@@ -1016,7 +1020,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0
 
 
-class HelixAnalysis:
+class HelixAnalysis(file_queue.FileTracker):
     """Analyzes G-code files one at a time and answers for their records."""
 
     def __init__(self, helix: Any, cpu_count: Optional[int] = None) -> None:
@@ -1025,8 +1029,11 @@ class HelixAnalysis:
         self.records = {}  # type: Dict[str, Dict[str, Any]]
         self.printing = False
         self.cpu_count = os.cpu_count() if cpu_count is None else cpu_count
-        self._queue = {}  # type: Dict[str, None]
-        self._worker = None  # type: Optional[asyncio.Future]
+        self._queue = file_queue.WorkQueue(self._analyze_queued, self._queue_ready, "analysis")
+        database = lambda: getattr(self.helix, "database", None)  # noqa: E731
+        self._store = file_queue.RecordStore(database, DB_NAMESPACE, "the analysis")
+        self._failure_store = file_queue.RecordStore(
+            database, DB_FAILURES_NAMESPACE, "the failed analysis")
         self._executor = None  # type: Optional[Any]
         self._runner = reader.WorkerProcess()
         # path -> (size, mtime, failed attempts) of the version last tried
@@ -1065,8 +1072,7 @@ class HelixAnalysis:
         await self.backfill()
 
     async def close(self) -> None:
-        if self._worker is not None:
-            self._worker.cancel()
+        self._queue.cancel()
         await self._runner.stop()
         if self._executor is not None:
             self._executor.shutdown(wait=False)
@@ -1100,40 +1106,28 @@ class HelixAnalysis:
         state = new_stats.get("state", "")
         if state in ("printing", "paused"):
             self._set_printing(True)
-        elif state in _IDLE_JOB_STATES:
+        elif state in file_queue.IDLE_JOB_STATES:
             self._set_printing(False)
 
     # -- events --------------------------------------------------------------
 
-    async def on_filelist_changed(self, payload: Dict[str, Any]) -> None:
-        if not self.started:
-            return
-        action = payload.get("action", "")
-        item = payload.get("item") or {}
-        if item.get("root", "gcodes") != "gcodes":
-            return
-        path = (item.get("path") or "").lstrip("/")
-        old = ((payload.get("source_item") or {}).get("path") or "").lstrip("/")
-        if action in ("create_file", "modify_file"):
-            if is_analyzable(path):
-                self.enqueue(path)
-        elif action == "delete_file":
-            await self.forget(path)
-        elif action == "move_file":
-            if old in self.records and is_analyzable(path):
-                await self._rekey(old, path)
-            else:
-                await self.forget(old)
-                if is_analyzable(path):
-                    self.enqueue(path)
-        elif action == "delete_dir":
-            prefix = path.rstrip("/") + "/"
-            for name in [n for n in self.records if n.startswith(prefix)]:
-                await self.forget(name)
-        elif action == "move_dir":
-            prefix = old.rstrip("/") + "/"
-            for name in [n for n in self.records if n.startswith(prefix)]:
-                await self._rekey(name, path.rstrip("/") + "/" + name[len(prefix):])
+    def tracking(self) -> bool:
+        return self.started
+
+    async def file_changed(self, path: str) -> None:
+        if is_analyzable(path):
+            self.enqueue(path)
+
+    async def file_deleted(self, path: str) -> None:
+        await self.forget(path)
+
+    async def file_moved(self, old: str, new: str) -> None:
+        if old in self.records and is_analyzable(new):
+            await self._rekey(old, new)
+        else:
+            await self.forget(old)
+            if is_analyzable(new):
+                self.enqueue(new)
 
     # -- endpoint ------------------------------------------------------------
 
@@ -1162,41 +1156,32 @@ class HelixAnalysis:
     # -- queue ---------------------------------------------------------------
 
     def enqueue(self, path: str, front: bool = False) -> None:
-        if front:
-            self._queue = {path: None, **{k: v for k, v in self._queue.items() if k != path}}
-        else:
-            self._queue.setdefault(path, None)
-        if self._worker is None or self._worker.done():
-            self._worker = asyncio.ensure_future(self._run_queue())
+        self._queue.put(path, front=front)
 
     async def wait_idle(self) -> None:
-        while self._worker is not None and not self._worker.done():
-            await self._worker
+        await self._queue.wait_idle()
 
-    async def _run_queue(self) -> None:
-        while self._queue:
-            if not await self.helix.feature_enabled(ANALYSIS_FEATURE):
-                # Switched off: drop the queue; the next request while on backfills.
-                self._queue.clear()
-                self._stale = True
-                return
-            if self._resume is not None:
-                await self._resume.wait()
-            path = next(iter(self._queue))
-            del self._queue[path]
-            try:
-                await self.analyze(path)
-            except reader.ScanCancelled:
-                # A print started on a one-core host: back of the queue, run later.
-                self._queue.setdefault(path, None)
-            except WorkerFailed as e:
-                if self._note_failure(path):
-                    logging.warning("HelixPrint: analysis of %s failed (%s), retrying", path, e)
-                    self._queue.setdefault(path, None)
-                else:
-                    logging.warning("HelixPrint: analysis of %s failed again (%s)", path, e)
-            except Exception:
-                logging.exception("HelixPrint: analysis of %s failed", path)
+    async def _queue_ready(self) -> bool:
+        if not await self.helix.feature_enabled(ANALYSIS_FEATURE):
+            # Switched off: the queue drops; the next request while on backfills.
+            self._stale = True
+            return False
+        if self._resume is not None:
+            await self._resume.wait()
+        return True
+
+    async def _analyze_queued(self, path: str, _item: Any) -> None:
+        try:
+            await self.analyze(path)
+        except reader.ScanCancelled:
+            # A print started on a one-core host: back of the queue, run later.
+            self.enqueue(path)
+        except WorkerFailed as e:
+            if await self._note_failure(path):
+                logging.warning("HelixPrint: analysis of %s failed (%s), retrying", path, e)
+                self.enqueue(path)
+            else:
+                logging.warning("HelixPrint: analysis of %s failed again (%s)", path, e)
 
     async def backfill(self) -> None:
         """Queue every file without a current record, newest first; drop
@@ -1205,8 +1190,9 @@ class HelixAnalysis:
             return
         await self._run_in_thread(reader.prune_layer_indexes, self.gc_path,
                                   self._protected_indexes())
-        found = await self._run_in_thread(self._scan_files)
-        for name in [n for n in self.records if n not in found]:
+        found = await self._run_in_thread(
+            file_queue.scan_files, self.gc_path, is_analyzable)
+        for name in [n for n in set(self.records) | set(self._failures) if n not in found]:
             await self.forget(name)
         for name, (size, mtime) in sorted(found.items(), key=lambda kv: -kv[1][1]):
             if not record_current(self.records.get(name), size, mtime) \
@@ -1218,22 +1204,6 @@ class HelixAnalysis:
         plr = getattr(self.helix, "plr", None)
         protected = getattr(plr, "protected_index_paths", None)
         return list(protected()) if protected is not None else []
-
-    def _scan_files(self) -> Dict[str, Tuple[int, float]]:
-        found = {}
-        root = str(self.gc_path)
-        for dirpath, dirs, files in os.walk(root):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
-            for name in files:
-                rel = os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
-                if not is_analyzable(rel):
-                    continue
-                try:
-                    st = os.stat(os.path.join(dirpath, name))
-                except OSError:
-                    continue
-                found[rel] = (st.st_size, st.st_mtime)
-        return found
 
     # -- one file ------------------------------------------------------------
 
@@ -1271,7 +1241,7 @@ class HelixAnalysis:
         if self._gave_up(path, st.st_size, st.st_mtime):
             return None
         out = await self._run_worker(path, self._metadata(path), st.st_size)
-        self._failures.pop(path, None)
+        await self._clear_failure(path)
         record = out.record
         if out.thumbnail_png is not None:
             record["thumbnail"] = await self._run_in_thread(
@@ -1294,9 +1264,9 @@ class HelixAnalysis:
             raise reader.ScanCancelled()
         return decode_output(out)
 
-    def _note_failure(self, path: str) -> bool:
+    async def _note_failure(self, path: str) -> bool:
         """Count a failed attempt at the file's current version; True when it
-        gets another."""
+        gets another. The count is stored once it gives up."""
         try:
             st = os.stat(str(self.gc_path / path))
         except (OSError, TypeError):
@@ -1306,7 +1276,13 @@ class HelixAnalysis:
             count = 0
         count += 1
         self._failures[path] = (st.st_size, st.st_mtime, count)
+        if count >= MAX_ATTEMPTS:
+            await self._failure_store.save(path, [st.st_size, st.st_mtime, count])
         return count < MAX_ATTEMPTS
+
+    async def _clear_failure(self, path: str) -> None:
+        if self._failures.pop(path, None) is not None:
+            await self._failure_store.delete(path)
 
     def _gave_up(self, path: str, size: int, mtime: float) -> bool:
         failed = self._failures.get(path)
@@ -1364,11 +1340,11 @@ class HelixAnalysis:
     async def forget(self, path: str) -> None:
         """Drop a file's record, its layer index and a thumbnail we generated."""
         record = self.records.pop(path, None)
-        self._queue.pop(path, None)
-        self._failures.pop(path, None)
+        self._queue.discard(path)
+        await self._clear_failure(path)
         if self.gc_path is not None:
             await self._run_in_thread(self._remove_files, path, record)
-        await self._delete(path)
+        await self._store.delete(path)
 
     def _remove_files(self, path: str, record: Optional[Dict[str, Any]]) -> None:
         targets = [reader.layer_index_path(self.gc_path, path)]
@@ -1383,7 +1359,8 @@ class HelixAnalysis:
 
     async def _rekey(self, old: str, new: str) -> None:
         record = self.records.pop(old, None)
-        self._queue.pop(old, None)
+        self._queue.discard(old)
+        await self._clear_failure(old)
         if record is None:
             return
         if self.gc_path is not None:
@@ -1398,7 +1375,7 @@ class HelixAnalysis:
         # A thumbnail lives beside its file; the moved file gets a new one.
         record["thumbnail"] = None
         record["filename"] = new
-        await self._delete(old)
+        await self._store.delete(old)
         try:
             st = os.stat(str(self.gc_path / new)) if self.gc_path is not None else None
         except OSError:
@@ -1412,35 +1389,17 @@ class HelixAnalysis:
     # -- persistence ---------------------------------------------------------
 
     async def _load_records(self) -> None:
-        db = getattr(self.helix, "database", None)
-        if db is None:
-            return
-        try:
-            stored = await db.get_item(DB_NAMESPACE, None, {})
-        except Exception as e:
-            logging.warning("HelixPrint: could not read analysis records: %s", e)
-            return
-        for name, record in (stored or {}).items():
+        for name, record in (await self._store.load()).items():
             if isinstance(record, dict) and record.get("schema") == RECORD_SCHEMA:
                 self.records[name] = record
+        for name, failed in (await self._failure_store.load()).items():
+            if isinstance(failed, list) and len(failed) == 3 \
+                    and all(isinstance(v, (int, float)) for v in failed):
+                self._failures[name] = (failed[0], failed[1], int(failed[2]))
 
     async def _save(self, path: str) -> None:
-        db = getattr(self.helix, "database", None)
-        if db is None or path not in self.records:
-            return
-        try:
-            await db.insert_item(DB_NAMESPACE, [path], self.records[path])
-        except Exception as e:
-            logging.warning("HelixPrint: could not save the analysis of %s: %s", path, e)
-
-    async def _delete(self, path: str) -> None:
-        db = getattr(self.helix, "database", None)
-        if db is None:
-            return
-        try:
-            await db.delete_item(DB_NAMESPACE, [path])
-        except Exception:
-            pass
+        if path in self.records:
+            await self._store.save(path, self.records[path])
 
 
 if __name__ == "__main__":

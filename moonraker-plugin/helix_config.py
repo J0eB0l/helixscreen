@@ -35,6 +35,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from helix_gcode_reader import fsync_dir
+
 CONFIG_EDIT_FEATURE = "config_edit"
 CONFIG_EDIT_FEATURE_VERSION = 1
 
@@ -575,19 +577,6 @@ def backup_name(root: Path, name: str, now: float) -> Path:
     return candidate
 
 
-def _fsync_dir(directory: Path) -> None:
-    try:
-        fd = os.open(str(directory), os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        pass
-    finally:
-        os.close(fd)
-
-
 def _write_durably(path: Path, data: bytes) -> None:
     with open(str(path), "wb") as f:
         f.write(data)
@@ -610,7 +599,7 @@ def atomic_write(path: Path, text: str,
     finally:
         if tmp.exists():
             tmp.unlink()
-    _fsync_dir(path.parent)
+    fsync_dir(path.parent)
 
 
 def prune_backups(root: Path, name: str, keep: int = BACKUPS_KEPT) -> List[Path]:

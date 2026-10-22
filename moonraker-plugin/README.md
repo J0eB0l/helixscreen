@@ -384,7 +384,8 @@ idle I/O priority where `ionice` exists, so the scan never stalls Moonraker.
 While a print runs, analysis continues only on a multi-core host; on a one-core
 host the worker is stopped and the file waits for the print to end. A worker
 that crashes or runs past its timeout (10 minutes plus 60 s per MB) is retried
-once; after that the file reads `failed` until it changes.
+once; after that the file reads `failed` until it changes, across Moonraker restarts too
+(the `helix_analysis_failures` namespace keeps the failed version's size and mtime).
 
 ```http
 GET /server/helix/analysis?filename=parts/benchy.gcode

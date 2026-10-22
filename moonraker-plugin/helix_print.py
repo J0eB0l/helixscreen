@@ -147,6 +147,8 @@ def _load_sibling(name: str) -> Optional[Any]:
 
 
 helix_capabilities = _load_sibling("helix_capabilities")
+# Dependencies first: helix_3mf and helix_analysis import it by name.
+helix_file_queue = _load_sibling("helix_file_queue")
 helix_3mf = _load_sibling("helix_3mf")
 # Dependencies first: helix_plr imports the reader by name.
 helix_gcode_reader = _load_sibling("helix_gcode_reader")
@@ -1649,25 +1651,11 @@ class HelixPrint:
             logging.warning(f"HelixPrint: Failed to update cleanup status: {e}")
 
     async def _namespace_items(self, namespace: str = HELIX_NAMESPACE) -> List[Any]:
-        """(key, value) pairs of a namespace; empty when it does not exist.
-
-        get_item with no key returns the whole namespace as a dict, and with a
-        default it does not raise for a namespace never written. That is what
-        Moonraker 0.9.3's database offers; ns_items is used where get_item
-        cannot answer that way.
-        """
-        try:
-            whole = await self.database.get_item(namespace, None, {})
-        except Exception:
-            whole = None
-        if isinstance(whole, dict):
-            return list(whole.items())
-        if hasattr(self.database, "ns_items"):
-            try:
-                return list(await self.database.ns_items(namespace))
-            except Exception:
-                return []
-        return []
+        """(key, value) pairs of a namespace; empty when it does not exist
+        (helix_file_queue.namespace_items)."""
+        if helix_file_queue is None:
+            return []
+        return await helix_file_queue.namespace_items(self.database, namespace)
 
     async def _migrate_legacy_keys(self) -> None:
         """Re-store records a dotted string key left nested, one record per key.

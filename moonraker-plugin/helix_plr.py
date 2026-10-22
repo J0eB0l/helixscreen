@@ -640,17 +640,7 @@ class SlotStore:
         os.fdatasync(self._fd)
 
 
-def _fsync_dir(path: Path) -> None:
-    try:
-        fd = os.open(str(path), os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(fd)
-    except OSError:
-        pass
-    finally:
-        os.close(fd)
+_fsync_dir = helix_gcode_reader.fsync_dir
 
 
 # ============================================================================

@@ -777,3 +777,12 @@ G1 X1 Y1 E0.5
     assert plain.state_at_head == watched.state_at_head
     assert plain.window == watched.window
     assert sorted(plain.layer_starts) == sorted(watched.layer_starts)
+
+
+def test_fsync_dir_is_the_one_both_durable_writers_use(tmp_path):
+    import helix_config
+    import helix_plr
+    assert helix_config.fsync_dir is reader.fsync_dir
+    assert helix_plr._fsync_dir is reader.fsync_dir
+    reader.fsync_dir(tmp_path)
+    reader.fsync_dir(tmp_path / "missing")

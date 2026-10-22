@@ -740,6 +740,85 @@ class TestWorker:
         assert "no_define.gcode" in comp.records
 
 
+class NsItemsOnlyDatabase(FakeDatabase):
+    """A database whose get_item cannot read a whole namespace, only ns_items."""
+
+    async def get_item(self, namespace, key=None, default=None):
+        if key is None:
+            raise KeyError(namespace)
+        return await super().get_item(namespace, key, default)
+
+    async def ns_items(self, namespace):
+        return list(self.ns.get(namespace, {}).items())
+
+
+async def restart(gc, database, files=None):
+    """A second component on the same database, as after a Moonraker restart."""
+    helix = FakeHelix(gc)
+    helix.database = database
+    comp = HelixAnalysis(helix, cpu_count=4)
+    comp.register()
+    await comp.start()
+    return helix, comp
+
+
+class TestPersistence:
+    @pytest.mark.asyncio
+    async def test_records_load_where_only_ns_items_reads_a_namespace(
+            self, gc, tmp_path, monkeypatch):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        db = NsItemsOnlyDatabase()
+        db.ns = helix.database.ns
+        argv, log = fake_worker(tmp_path, "sys.exit(3)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix2, comp2 = await restart(gc, db)
+        await settle(comp2)
+        assert calls(log) == 0
+        assert (await ask(comp2, "no_define.gcode"))["status"] == "ready"
+
+    @pytest.mark.asyncio
+    async def test_a_file_that_failed_twice_stays_failed_across_a_restart(
+            self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "sys.exit(3)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        assert calls(log) == 2
+        helix2, comp2 = await restart(gc, helix.database)
+        await settle(comp2)
+        assert calls(log) == 2
+        assert (await ask(comp2, "no_define.gcode"))["status"] == "failed"
+        await settle(comp2)
+        assert calls(log) == 2
+
+    @pytest.mark.asyncio
+    async def test_a_changed_file_drops_its_stored_failure(self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "sys.exit(3)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        monkeypatch.undo()
+        path = gc / "no_define.gcode"
+        path.write_bytes(path.read_bytes() + b"; changed\n")
+        helix2, comp2 = await restart(gc, helix.database)
+        await settle(comp2)
+        assert (await ask(comp2, "no_define.gcode"))["status"] == "ready"
+        assert helix.database.ns.get(analysis.DB_FAILURES_NAMESPACE, {}) == {}
+
+    @pytest.mark.asyncio
+    async def test_a_deleted_file_drops_its_stored_failure(self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "sys.exit(3)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        assert helix.database.ns[analysis.DB_FAILURES_NAMESPACE]
+        (gc / "no_define.gcode").unlink()
+        await comp.on_filelist_changed({"action": "delete_file",
+                                        "item": {"root": "gcodes", "path": "no_define.gcode"}})
+        assert helix.database.ns[analysis.DB_FAILURES_NAMESPACE] == {}
+
+
 @pytest.mark.asyncio
 async def test_startup_prunes_stale_indexes_but_not_the_ones_recovery_uses(gc):
     import os

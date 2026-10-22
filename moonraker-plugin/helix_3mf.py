@@ -30,6 +30,8 @@ import zlib
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
+import helix_file_queue as file_queue
+
 # Database namespace holding one record list per source .3mf
 DB_NAMESPACE = "helix_3mf"
 
@@ -60,10 +62,6 @@ PARTIAL_GLOB = "3mf-*.partial"
 STATE_DONE = "done"
 STATE_PENDING = "pending"
 STATE_FAILED = "failed"
-
-# Klipper print states after which a file it held is free to replace.
-_IDLE_JOB_STATES = ("standby", "complete", "cancelled", "error")
-
 
 class ConversionError(Exception):
     """A .3mf that cannot be turned into G-code; the message is user-facing."""
@@ -103,11 +101,6 @@ def sliced_plates(names: Iterable[str]) -> List[int]:
         if digits.isdigit():
             plates.append(int(digits))
     return sorted(set(plates))
-
-
-def _is_hidden(path: str) -> bool:
-    """Under a dot-directory or a dot-file: Moonraker's and our own staging."""
-    return any(part.startswith(".") for part in path.split("/") if part)
 
 
 def plate_entry(plate: int) -> str:
@@ -308,7 +301,7 @@ def _print_result(started: bool = False, queued: bool = False) -> Dict[str, bool
     return {"print_started": started, "print_queued": queued}
 
 
-class Helix3mfConverter:
+class Helix3mfConverter(file_queue.FileTracker):
     """Converts uploaded .3mf files, one at a time, off Moonraker's event loop."""
 
     def __init__(
@@ -337,8 +330,9 @@ class Helix3mfConverter:
         self.records: Dict[str, List[Conversion]] = {}
         self.active = False
         self.hook_installed = False
-        self._queue: Dict[str, _Request] = {}
-        self._worker: Optional[asyncio.Task] = None
+        self._queue = file_queue.WorkQueue(self._convert_queued, name=".3mf conversion")
+        self._store = file_queue.RecordStore(
+            lambda: self.database, DB_NAMESPACE, ".3mf conversion")
         self._original_finalize: Optional[Callable] = None
         # Owned outputs whose delete was refused because a print holds them.
         self._deferred_deletes: List[Conversion] = []
@@ -398,8 +392,7 @@ class Helix3mfConverter:
             self.file_manager.finalize_upload = self._original_finalize
             self._original_finalize = None
             self.hook_installed = False
-        if self._worker is not None:
-            self._worker.cancel()
+        self._queue.cancel()
 
     # -- endpoint ------------------------------------------------------------
 
@@ -413,44 +406,32 @@ class Helix3mfConverter:
 
     # -- events --------------------------------------------------------------
 
-    async def on_filelist_changed(self, payload: Dict[str, Any]) -> None:
-        if not self.active:
-            return
-        action = payload.get("action", "")
-        item = payload.get("item") or {}
-        if item.get("root", "gcodes") != "gcodes":
-            return
-        path = (item.get("path") or "").lstrip("/")
-        source_item = payload.get("source_item") or {}
-        old_path = (source_item.get("path") or "").lstrip("/")
-        if _is_hidden(path) or _is_hidden(old_path):
-            return
+    def tracking(self) -> bool:
+        return self.active
 
-        if action in ("create_file", "modify_file"):
-            if is_3mf(path):
-                self.enqueue(path)
-        elif action == "delete_file":
-            if is_3mf(path):
-                await self.remove_source(path)
-            else:
-                await self._forget_output(path)
-        elif action == "move_file":
-            if is_3mf(old_path) and old_path in self.records:
-                self._rekey(old_path, path)
-                await self._save(path)
-            elif is_3mf(path):
-                self.enqueue(path)
-            else:
-                await self._move_output(old_path, path)
-        elif action == "delete_dir":
-            prefix = path.rstrip("/") + "/"
-            for source in [s for s in self.records if s.startswith(prefix)]:
-                await self.remove_source(source)
+    async def file_changed(self, path: str) -> None:
+        if is_3mf(path):
+            self.enqueue(path)
+
+    async def file_deleted(self, path: str) -> None:
+        if is_3mf(path):
+            await self.remove_source(path)
+        else:
+            await self._forget_output(path)
+
+    async def file_moved(self, old: str, new: str) -> None:
+        if is_3mf(old) and old in self.records:
+            await self._rekey(old, new)
+            await self._save(new)
+        elif is_3mf(new):
+            self.enqueue(new)
+        else:
+            await self._move_output(old, new)
 
     async def on_job_state_changed(
         self, job_event: Any, prev_stats: Dict[str, Any], new_stats: Dict[str, Any]
     ) -> None:
-        if not self.active or new_stats.get("state", "") not in _IDLE_JOB_STATES:
+        if not self.active or new_stats.get("state", "") not in file_queue.IDLE_JOB_STATES:
             return
         if self._deferred_deletes:
             deferred, self._deferred_deletes = self._deferred_deletes, []
@@ -468,55 +449,34 @@ class Helix3mfConverter:
         """Queue @p source; the future resolves to _print_result(). With
         @p front it goes ahead of everything waiting (a slicer waiting on its
         upload response should not wait on a startup backfill)."""
-        request = self._queue.get(source)
-        if request is None:
-            request = _Request()
-            self._queue[source] = request
-        if front:
-            self._queue = {source: request, **{k: v for k, v in self._queue.items() if k != source}}
+        request = self._queue.put(source, _Request, front=front)
         if start_print:
             request.start_print = True
             request.user = user
         waiter = asyncio.get_event_loop().create_future()
         request.waiters.append(waiter)
-        if self._worker is None or self._worker.done():
-            self._worker = asyncio.ensure_future(self._run_queue())
         return waiter
 
-    async def _run_queue(self) -> None:
-        while self._queue:
-            source = next(iter(self._queue))
-            request = self._queue.pop(source)
-            outcome = _print_result()
-            try:
-                outcome = await self.convert(source, request.start_print, request.user)
-            except Exception:
-                logging.exception(f"HelixPrint: .3mf conversion of {source} failed")
-            for waiter in request.waiters:
-                if not waiter.done():
-                    waiter.set_result(outcome)
+    async def _convert_queued(self, source: str, request: _Request) -> None:
+        outcome = _print_result()
+        try:
+            outcome = await self.convert(source, request.start_print, request.user)
+        except Exception:
+            logging.exception(f"HelixPrint: .3mf conversion of {source} failed")
+        for waiter in request.waiters:
+            if not waiter.done():
+                waiter.set_result(outcome)
 
     async def wait_idle(self) -> None:
-        while self._worker is not None and not self._worker.done():
-            await self._worker
+        await self._queue.wait_idle()
 
     async def backfill(self) -> None:
         """Queue every .3mf with no up-to-date conversion; drop vanished sources."""
-        found = await self.eventloop.run_in_thread(self._scan_3mf_files)
+        found = await self.eventloop.run_in_thread(file_queue.scan_files, self.gc_path, is_3mf)
         for source in [s for s in self.records if s not in found]:
             await self.remove_source(source)
         for source in sorted(found):
             self.enqueue(source)
-
-    def _scan_3mf_files(self) -> List[str]:
-        found = []
-        for root, dirs, files in os.walk(self.gc_path):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
-            for name in files:
-                if is_3mf(name) and not name.startswith("."):
-                    full = Path(root) / name
-                    found.append(str(full.relative_to(self.gc_path)))
-        return found
 
     # -- conversion ----------------------------------------------------------
 
@@ -812,24 +772,19 @@ class Helix3mfConverter:
                     await self._save(source)
                     return
 
-    def _rekey(self, old: str, new: str) -> None:
+    async def _rekey(self, old: str, new: str) -> None:
         group = self.records.pop(old)
         for conv in group:
             conv.source = new
         self.records[new] = group
-        asyncio.ensure_future(self._delete_record(old))
+        await self._delete_record(old)
 
     # -- persistence ---------------------------------------------------------
 
     async def _load_records(self) -> None:
         if self.database is None:
             return
-        try:
-            stored = await self.database.get_item(DB_NAMESPACE, None, {})
-        except Exception as e:
-            logging.warning(f"HelixPrint: could not read .3mf conversions: {e}")
-            return
-        for source, group in (stored or {}).items():
+        for source, group in (await self._store.load()).items():
             try:
                 self.records[source] = [Conversion.from_dict(r) for r in group]
             except (TypeError, KeyError):
@@ -841,13 +796,8 @@ class Helix3mfConverter:
             logging.warning(f"HelixPrint: could not read deferred .3mf output deletes: {e}")
 
     async def _save(self, source: str) -> None:
-        if self.database is None or source not in self.records:
-            return
-        value = [c.to_dict() for c in self.records[source]]
-        try:
-            await self.database.insert_item(DB_NAMESPACE, [source], value)
-        except Exception as e:
-            logging.warning(f"HelixPrint: could not save .3mf conversion of {source}: {e}")
+        if source in self.records:
+            await self._store.save(source, [c.to_dict() for c in self.records[source]])
 
     async def _save_deferred(self) -> None:
         if self.database is None:
@@ -859,12 +809,7 @@ class Helix3mfConverter:
             logging.warning(f"HelixPrint: could not save deferred .3mf output deletes: {e}")
 
     async def _delete_record(self, source: str) -> None:
-        if self.database is None:
-            return
-        try:
-            await self.database.delete_item(DB_NAMESPACE, [source])
-        except Exception:
-            pass
+        await self._store.delete(source)
 
     # -- upload hook ---------------------------------------------------------
 

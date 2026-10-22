@@ -834,6 +834,21 @@ class DutyCycleLimiter:
         self._work_start = self._clock()
 
 
+def fsync_dir(directory: Any) -> None:
+    """Make a rename or create inside the directory at `directory` durable.
+    Best effort: one that cannot be opened or synced is left as it is."""
+    try:
+        fd = os.open(str(directory), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
 def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     """Nice the calling thread only (Linux: a thread id is a PRIO_PROCESS
     target). Returns False where that is not possible."""
