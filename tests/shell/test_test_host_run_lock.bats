@@ -381,6 +381,79 @@ exit 0'
     contains "using -j" "$output"
 }
 
+# --- mutate yields to every other job ---------------------------------------
+
+# docker exec runs the mutate job's bash -lc script here for real, against a
+# python3 that prints the scheduling it inherited and the jobserver it was handed.
+run_mutate_for_real() {
+    mock_command_script python3 'echo "POLICY: $(chrt -p $$)"; echo "NICE: $(nice)"; echo "MAKEFLAGS=${MAKEFLAGS:-}"'
+    mock_command_script docker '
+case "$1" in
+    ps) echo helix-test ;;
+    inspect) [ -n "${MOCK_MOUNTS:-}" ] && echo "$MOCK_MOUNTS" ;;
+    exec)
+        case "$*" in
+            *pgrep*) exit 1 ;;
+            *mutate_diff*)
+                unset MAKEFLAGS MFLAGS MAKELEVEL
+                shift
+                while [ "$1" != bash ]; do
+                    [ "$1" = -e ] && export "$2"
+                    shift
+                done
+                exec bash -c "$3" ;;
+            *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG" ;;
+        esac ;;
+esac
+exit 0'
+}
+
+@test "mutate beside a jobpool runs outside it, at SCHED_IDLE and nice 19" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run_mutate_for_real
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    contains "background job: SCHED_IDLE, outside the jobpool" "$output"
+    contains "SCHED_IDLE" "$output"
+    contains "NICE: 19" "$output"
+    printf '%s\n' "$output" | grep -qx 'MAKEFLAGS='
+    lacks "could not lower the priority" "$output"
+    [ ! -e "$MOCK_JOBPOOL_LOG" ]
+}
+
+@test "mutate beside a jobpool skips the global lock that sizes unpooled runs" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run_mutate_for_real
+    exec 9>>"$HELIX_TEST_LOCK_DIR/helix-test-host-run.global.lock"
+    flock -n 9
+    run timeout 30 "$SCRIPT" mutate --tests '[x]'
+    exec 9>&-
+    [ "$status" -eq 0 ]
+    lacks "waiting for the run ahead" "$output"
+    contains "SCHED_IDLE" "$output"
+}
+
+@test "mutate on a host without a jobpool still drops to SCHED_IDLE" {
+    run_mutate_for_real
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    contains "using -j" "$output"
+    contains "SCHED_IDLE" "$output"
+    contains "NICE: 19" "$output"
+}
+
+@test "only mutate yields: a sweep beside the same pool joins it at its own priority" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run "$SCRIPT" --commit sweep
+    [ "$status" -eq 0 ]
+    lacks "background job" "$output"
+    [ "$(cat "$MOCK_JOBPOOL_LOG")" = "jobpool exec" ]
+    refute_grep "chrt" "$MOCK_DOCKER_LOG"
+}
+
 # --- ZFS: leftover cap marker, zfs_arc_sys_free check ----------------------
 
 fake_zfs() { # <zfs_arc_max> <zfs_arc_sys_free>
