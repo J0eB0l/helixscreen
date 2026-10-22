@@ -313,8 +313,8 @@ class HelixJobMarkers:
     job ids they were bound to.
 
     A marker is matched by filename to the next job history adds for that
-    file, oldest marker first. Unmatched markers expire after
-    HELIX_MARKER_TTL_S. History reuses job ids (after a delete, or a
+    file, oldest marker first. Unmatched markers expire after `ttl`
+    (HELIX_MARKER_TTL_S unless the owner sets its own). History reuses job ids (after a delete, or a
     delete-all and restart), so a binding answers only for its job's start
     time and one of its filenames, and an id history adds again without a
     marker loses its binding.
@@ -325,7 +325,9 @@ class HelixJobMarkers:
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
         kinds: Tuple[str, ...] = HELIX_JOB_KINDS,
+        ttl: float = HELIX_MARKER_TTL_S,
     ) -> None:
+        self._ttl = ttl
         self._clock = clock
         self._wall_clock = wall_clock
         # The kinds mark() accepts: a module keeping markers of its own passes
@@ -336,7 +338,7 @@ class HelixJobMarkers:
         self._bound: Dict[str, JobBinding] = {}
 
     def _expire(self) -> None:
-        cutoff = self._clock() - HELIX_MARKER_TTL_S
+        cutoff = self._clock() - self._ttl
         self._pending = [p for p in self._pending if p[2] >= cutoff]
 
     def mark(self, filename: str, kind: str, history_name: Optional[str] = None) -> None:
@@ -956,7 +958,8 @@ class HelixPrint:
                 reason=SIBLING_LOAD_ERRORS.get("helix_print_hooks", "module_missing"),
             )
             return
-        markers = HelixJobMarkers(kinds=(helix_print_hooks.SCREEN_START_KIND,))
+        markers = HelixJobMarkers(kinds=(helix_print_hooks.SCREEN_START_KIND,),
+                                  ttl=helix_print_hooks.SCREEN_START_TTL_S)
         self.print_hooks = helix_print_hooks.PrintHooks(self, markers, HELIX_SCREEN_NAMESPACE)
         self.print_hooks.start()
         self.register_feature(

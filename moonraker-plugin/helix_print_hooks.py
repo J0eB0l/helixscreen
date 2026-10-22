@@ -31,6 +31,11 @@ STANDING_OPTIONS_VERSION = 1
 # the screen sends its own options with such a start.
 SCREEN_START_KIND = "screen_start"
 
+# How long a screen start waits for history's job. The screen announces it
+# immediately before its start command, and history adds the job as the print
+# begins, so a marker older than this belongs to a start that never happened.
+SCREEN_START_TTL_S = 15.0
+
 # How many job starts are remembered to keep a repeated `added` from
 # sending twice.
 _SEEN_JOBS_MAX = 32
@@ -64,6 +69,15 @@ def hook_gcode(
     return standing_gcode(record)
 
 
+def job_still_running(status: Any, filename: str) -> bool:
+    """Whether Klipper's print_stats says the job for `filename` is printing:
+    the last thing checked before any standing gcode is sent."""
+    stats = status.get("print_stats") if isinstance(status, dict) else None
+    if not isinstance(stats, dict):
+        return False
+    return stats.get("state") == "printing" and stats.get("filename") == filename
+
+
 class PrintHooks:
     """The Moonraker-facing half, created by helix_print.py."""
 
@@ -86,10 +100,13 @@ class PrintHooks:
 
     async def handle_screen_start(self, web_request: Any) -> Dict[str, Any]:
         """The screen is about to start `filename` and sends its own options
-        with it. Called immediately before its start command."""
+        with it. Called immediately before its start command; with `withdraw`
+        after that command failed, so a start elsewhere gets its hooks."""
         filename = web_request.get_str("filename")
         if not filename:
             raise self.server.error("filename is required", 400)
+        if web_request.get_boolean("withdraw", False):
+            return {"filename": filename, "withdrawn": self.screen_starts.unmark(filename)}
         self.screen_starts.mark(filename, SCREEN_START_KIND)
         return {"filename": filename}
 
@@ -109,6 +126,15 @@ class PrintHooks:
             return await database.get_item(self.namespace, STANDING_OPTIONS_KEY, None)
         except Exception:
             return None
+
+    async def _still_running(self, filename: str) -> bool:
+        try:
+            status = await self.helix.klippy_apis.query_objects(
+                {"print_stats": ["state", "filename"]})
+        except Exception as e:
+            logging.info("HelixPrint: could not read print_stats: %s", e)
+            return False
+        return job_still_running(status, filename)
 
     async def on_history_changed(self, payload: Dict[str, Any]) -> None:
         if not isinstance(payload, dict) or payload.get("action") != "added":
@@ -132,6 +158,10 @@ class PrintHooks:
         if gcode is None:
             logging.debug("HelixPrint: no print hooks for job %s (%s)", job_id,
                           kind or (SCREEN_START_KIND if screen_started else "not opted in"))
+            return
+        if not await self._still_running(filename):
+            logging.info("HelixPrint: job %s (%s) is no longer printing, no print hooks",
+                         job_id, filename)
             return
         logging.info("HelixPrint: print hooks for job %s (%s):\n%s", job_id, filename, gcode)
         try:

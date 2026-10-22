@@ -47,8 +47,17 @@ def _added(filename, job_id, start_time=T0):
     }
 
 
-async def _history(mock_server, payload):
-    """Every history handler in registration order, as Moonraker gathers them."""
+def _printing(mock_server, filename, state="printing"):
+    mock_server.components["klippy_apis"].query_objects.return_value = {
+        "print_stats": {"state": state, "filename": filename}}
+
+
+async def _history(mock_server, payload, running=True):
+    """Every history handler in registration order, as Moonraker gathers them.
+    With `running`, Klipper reports the added job printing."""
+    job = payload.get("job") if isinstance(payload, dict) else None
+    if running and payload.get("action") == "added" and isinstance(job, dict):
+        _printing(mock_server, job.get("filename", ""))
     await asyncio.gather(
         *(h(payload) for h in mock_server.event_handlers["history:history_changed"])
     )
@@ -204,6 +213,60 @@ class TestHookFires:
 
 
 class TestHookStaysQuiet:
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state,filename", [
+        ("standby", "benchy.gcode"),
+        ("cancelled", "benchy.gcode"),
+        ("error", "benchy.gcode"),
+        ("printing", "cube.gcode"),
+    ])
+    async def test_not_once_the_job_stopped_or_another_runs(
+            self, helix_print_component, mock_server, state, filename):
+        """The send comes after awaits; by then the job may be gone, and the
+        standing gcode must never reach an idle printer or another job."""
+        await _setup(helix_print_component, record=_record())
+        _printing(mock_server, filename, state)
+
+        await _history(mock_server, _added("benchy.gcode", "00002A"), running=False)
+
+        assert _sent(helix_print_component) == []
+
+    @pytest.mark.asyncio
+    async def test_not_when_klipper_cannot_say(self, helix_print_component, mock_server):
+        await _setup(helix_print_component, record=_record())
+        mock_server.components["klippy_apis"].query_objects.side_effect = RuntimeError("gone")
+
+        await _history(mock_server, _added("benchy.gcode", "00002A"), running=False)
+
+        assert _sent(helix_print_component) == []
+
+    @pytest.mark.asyncio
+    async def test_a_withdrawn_screen_start_no_longer_shadows_a_foreign_one(
+            self, helix_print_component, mock_server):
+        await _setup(helix_print_component, record=_record())
+        endpoint = mock_server.endpoints["/server/helix/print_hooks/screen_start"]
+        await endpoint(MockWebRequest({"filename": "benchy.gcode"}))
+        await endpoint(MockWebRequest({"filename": "benchy.gcode", "withdraw": True}))
+
+        await _history(mock_server, _added("benchy.gcode", "00002A"))
+
+        assert _sent(helix_print_component) == [GCODE]
+
+    @pytest.mark.asyncio
+    async def test_a_screen_start_lasts_only_the_binding_window(
+            self, helix_print_component, mock_server):
+        await _setup(helix_print_component, record=_record())
+        markers = helix_print_component.print_hooks.screen_starts
+        now = [1000.0]
+        markers._clock = lambda: now[0]
+        await mock_server.endpoints["/server/helix/print_hooks/screen_start"](
+            MockWebRequest({"filename": "benchy.gcode"}))
+        now[0] += helix_print_hooks.SCREEN_START_TTL_S + 1
+
+        await _history(mock_server, _added("benchy.gcode", "00002A"))
+
+        assert _sent(helix_print_component) == [GCODE]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("kind", HELIX_JOB_KINDS)
