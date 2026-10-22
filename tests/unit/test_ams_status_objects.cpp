@@ -90,8 +90,8 @@ TEST_CASE("each backend's required_status_objects matches its own printer and is
 
     SECTION("ACE subscribes every detected object name") {
         const json objects =
-            AmsBackendAce::required_status_objects(discover({"ace_instance0", "ace_instance1"}));
-        CHECK(keys(objects) == std::set<std::string>{"ace_instance0", "ace_instance1"});
+            AmsBackendAce::required_status_objects(discover({"ace_instance_0", "ace_instance_1"}));
+        CHECK(keys(objects) == std::set<std::string>{"ace_instance_0", "ace_instance_1"});
         const json single = AmsBackendAce::required_status_objects(discover({"filament_hub"}));
         CHECK(keys(single) == std::set<std::string>{"filament_hub"});
     }

@@ -116,7 +116,7 @@ TEST_CASE("subscription objects are unchanged for every backend fixture", "[subs
 
     SECTION("ACE with named instances") {
         Printer p;
-        p.obj("ace_instance0").obj("ace_instance1");
+        p.obj("ace_instance_0").obj("ace_instance_1");
         check_against_golden("ace_named", p.build());
     }
 

@@ -179,9 +179,9 @@ The **Anycubic ACE Pro** filament system is integrated on the Kobra 2 Pro, Kobra
 **What works:**
 - **Native ACE filament system** — per-slot color and material, load/unload, and [filament drying](filament.md#filament-drying-and-humidity) (the ACE has a heated drying chamber)
 
-**Requirements:** Community firmware such as [Rinkhals](https://github.com/jbatonnet/Rinkhals) (Anycubic) providing Moonraker. ACE integration needs the community `ace_status.py` Moonraker component (ValgACE) — if it's missing, HelixScreen shows a prompt telling you to install it. The Kobra S1's firmware ships a different, mainline-Python fork of that component; HelixScreen talks to it over its REST interface, so it works without the ValgACE install.
+**Requirements:** Community firmware such as [Rinkhals](https://github.com/jbatonnet/Rinkhals) (Anycubic) providing Moonraker. ACE integration needs the community `ace_status.py` Moonraker component (ValgACE) — if it's missing, HelixScreen shows a prompt telling you to install it. Printers running the [ACEPRO](https://github.com/Kobra-S1/ACEPRO) Klipper driver (Kobra S1, Kobra X and the Kobra 3 family on vanilla Klipper) need no ValgACE install either: HelixScreen reads that driver directly. With several ACE units daisy-chained on ACEPRO, each one shows as its own unit, with its own slots and its own dryer.
 
-**Status:** Community (auto-detected; not yet tested on our hardware - Kobra S1 fork support comes from captured status data, not a live machine).
+**Status:** Community (auto-detected; not yet tested on our hardware - ACEPRO support comes from captured status data and the driver's source, not a live machine).
 
 ---
 
