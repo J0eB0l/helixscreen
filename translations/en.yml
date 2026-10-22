@@ -1183,6 +1183,7 @@ translations:
   Enclosure: Enclosure
   Encoder: Encoder
   Encoder Error: Encoder Error
+  End: End
   End K: End K
   End Test: End Test
   End calibration: End calibration
@@ -1999,6 +2000,7 @@ translations:
   Last print failed: Last print failed
   Later: Later
   Layer: Layer
+  Layer 2: Layer 2
   Layer Height: Layer Height
   Layer Macro captures one frame per layer change. Best for most prints.: Layer Macro
     captures one frame per layer change. Best for most prints.
@@ -2073,6 +2075,7 @@ translations:
   Loading filament...: Loading filament...
   Loading filaments...: Loading filaments...
   Loading history...: Loading history...
+  Loading photo: Loading photo
   Loading spools...: Loading spools...
   Loading vendors...: Loading vendors...
   Loading...: Loading...
@@ -2674,6 +2677,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Phone
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there
+  Photo unavailable: Photo unavailable
   Pick: Pick
   Pick Color: Pick Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: Pick how HelixScreen behaves. You can change any of these later in Settings.
@@ -2771,6 +2775,7 @@ translations:
   Pressure Adv.: Pressure Adv.
   Pressure Advance: Pressure Advance
   Pressure Advance Calibration: Pressure Advance Calibration
+  Preview: Preview
   Preview Sounds: Preview Sounds
   Previous: Previous
   Price: Price
@@ -2819,6 +2824,7 @@ translations:
   Print issue detected: Print issue detected
   Print jobs waiting to run: Print jobs waiting to run
   Print paused: Print paused
+  Print photos: Print photos
   'Print preparation failed: {}': 'Print preparation failed: {}'
   Print resumed: Print resumed
   Print server rejected the job — check printer status: Print server rejected the
@@ -3286,6 +3292,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Saved to {}. It applies whenever this filament becomes active.
   Saved values, and whether to ask before running: Saved values, and whether to ask before running
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: Saves a camera photo after layer 2 and when each print ends, shown in print history.
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.
   Saves to Klipper config and restarts firmware.: Saves to Klipper config and restarts
     firmware.

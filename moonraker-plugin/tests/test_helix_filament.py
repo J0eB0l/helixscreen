@@ -97,10 +97,11 @@ def _added(job_id, filename="part.gcode", start_time=T0):
             "job": {"job_id": job_id, "filename": filename, "start_time": start_time}}
 
 
-def _finished(job_id, status="completed", filename="part.gcode", end_time=T0 + 600):
+def _finished(job_id, status="completed", filename="part.gcode", end_time=T0 + 600,
+              start_time=T0):
     return {"action": "finished",
             "job": {"job_id": job_id, "filename": filename, "status": status,
-                    "end_time": end_time}}
+                    "start_time": start_time, "end_time": end_time}}
 
 
 async def _update(mock_server, status):
@@ -380,8 +381,8 @@ class TestFilamentAccounting:
         assert spoolman.calls == []
         await _update(mock_server, {"save_variables": {"variables": {"active_tool": 1}}})
         assert spoolman.calls == [22]
-        subscribed = mock_server.components["klippy_apis"].subscribe_objects.call_args.args[0]
-        assert subscribed["save_variables"] == ["variables"]
+        calls = mock_server.components["klippy_apis"].subscribe_objects.call_args_list
+        assert any(c.args[0].get("save_variables") == ["variables"] for c in calls)
 
     @pytest.mark.asyncio
     async def test_no_switch_while_idle(self, helix_print_component, mock_server):
@@ -500,40 +501,62 @@ class TestFilamentAccounting:
         assert sorted(k for k in ns if k.startswith(JOB_KEY_PREFIX)) == [
             JOB_KEY_PREFIX + "000012", JOB_KEY_PREFIX + "000013"]
 
+class TestHistoryAuxiliaryData:
     @pytest.mark.asyncio
-    async def test_history_auxiliary_field_follows_the_ledger(
+    async def test_photos_modifications_and_spools_coexist(
             self, helix_print_component, mock_server):
-        class Tracker:
-            value: Any = None
-
-            def update(self, value):
-                self.value = value
-
-        class Field:
-            tracker = Tracker()
-
-        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
-        helix_print_component.filament._aux = Field()
-        await _history(mock_server, _added("00000F"))
-        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 6.0]}})
-        assert Field.tracker.value[0]["mm"] == 6.0
-
-
-class TestHistoryPatchKeepsTheRecord:
-    @pytest.mark.asyncio
-    async def test_patch_replaces_only_the_modifications_entry(
-            self, helix_print_component, mock_server):
+        """Every feature rewrites a finished history row through
+        patch_history_job, each replacing only its own entry."""
+        import helix_photos
         from helix_print import PrintInfo
-        await helix_print_component.component_init()
         history = mock_server.components["history"]
-        ours = {"provider": HELIX_AUX_PROVIDER, "name": "filament_spools", "value": [1]}
-        old = {"provider": HELIX_AUX_PROVIDER, "name": "modifications", "value": {}}
-        history.add_job("00002A", auxiliary_data=[ours, old])
+
+        async def save_job(job, job_id=None):
+            history.save_job_calls.append((job, job_id))
+            row = history.jobs[history._key(job_id)]
+            row["filename"] = job.filename
+            row["auxiliary_data"] = job.auxiliary_data
+
+        history.save_job = save_job
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        spoolman_entry = {"provider": "spoolman", "name": "spool_ids", "value": [11]}
+        history.add_job("00002A", filename=".helix_print/x.gcode", start_time=T0,
+                        auxiliary_data=[spoolman_entry])
+
+        # The photos feature links its end photo.
+        photo_record = {"photos": [{"path": ".helix_photos/00002A_end.jpg"}]}
+
+        def link_photos(row):
+            row["auxiliary_data"] = helix_photos.merge_aux(row.get("auxiliary_data"),
+                                                           photo_record)
+            return True
+
+        assert await helix_print_component.patch_history_job("00002A", link_photos)
+        # This feature records the job's spools when history finishes it.
+        await _history(mock_server, _added("00002A", filename=".helix_print/x.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 5.0]}})
+        await _history(mock_server, _finished("00002A", filename=".helix_print/x.gcode"))
+        # The linked print's rename adds its modifications entry.
         info = PrintInfo("benchy.gcode", ".helix_temp/x.gcode", ".helix_print/x.gcode",
                          ["skip"], 0.0)
         info.job_id = "00002A"
         await helix_print_component._patch_history_entry(info, "complete")
-        saved = history.save_job_calls[-1][0].auxiliary_data
-        assert ours in saved
-        assert [e["name"] for e in saved if e.get("provider") == HELIX_AUX_PROVIDER] == [
-            "filament_spools", "modifications"]
+        # Each feature again: its own entry is replaced, never stacked.
+        assert await helix_print_component.patch_history_job("00002A", link_photos)
+
+        aux = history.jobs[history._key("00002A")]["auxiliary_data"]
+        names = [(e["provider"], e["name"]) for e in aux]
+        assert sorted(names) == sorted([
+            ("spoolman", "spool_ids"), (HELIX_AUX_PROVIDER, "photos"),
+            (HELIX_AUX_PROVIDER, "filament_spools"), (HELIX_AUX_PROVIDER, "modifications")])
+        spools = next(e for e in aux if e["name"] == "filament_spools")["value"]
+        assert spools[0]["mm"] == 5.0 and spools[0]["spool_id"] == 11
+
+    @pytest.mark.asyncio
+    async def test_a_reused_job_id_is_not_written(self, helix_print_component, mock_server):
+        history = mock_server.components["history"]
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        history.add_job("00002B", start_time=T0 + 999, auxiliary_data=[])
+        await _history(mock_server, _added("00002B"))
+        await _history(mock_server, _finished("00002B"))
+        assert history.save_job_calls == []

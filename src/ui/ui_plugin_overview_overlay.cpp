@@ -4,6 +4,7 @@
 
 #include "ui_callback_helpers.h"
 #include "ui_event_safety.h"
+#include "ui_settings_hardware.h"
 #include "ui_settings_printing.h"
 #include "ui_spoolman_overlay.h"
 #include "ui_utils.h"
@@ -157,6 +158,9 @@ void PluginOverviewOverlay::on_feature_clicked(lv_event_t* e) {
                 spoolman.show(overlay.parent_screen_);
                 break;
             }
+            case PluginFeatureHome::Devices:
+                helix::settings::get_hardware_settings_overlay().show(overlay.parent_screen_);
+                break;
             case PluginFeatureHome::None:
                 break;
             }

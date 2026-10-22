@@ -127,6 +127,7 @@ enum class PluginFeatureHome {
     None,     ///< no setting: the overview shows its status only
     Printing, ///< Settings > Printing
     Spoolman, ///< Settings > Devices > Spoolman
+    Devices,  ///< Settings > Devices
 };
 
 /// What this app knows about a plugin feature. Labels are English; the UI
@@ -151,6 +152,7 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},
     {"server_edits", TR_NOOP("Server-side edits"), "pencil", PluginFeatureHome::None},
     {"config_edit", TR_NOOP("Config editing"), "wrench", PluginFeatureHome::None},
+    {"photos", TR_NOOP("Print photos"), "image_area", PluginFeatureHome::Devices},
 };
 
 /// The icon of a feature this app does not know.

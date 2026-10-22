@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ui_history_list_view.h"
+#include "ui_history_photos.h"
 #include "ui_observer_guard.h"
 #include "ui_search_debounce.h"
 
@@ -318,6 +319,8 @@ class HistoryListPanel : public OverlayBase {
     /// Bumped per detail open, so a spool record still in flight for an
     /// earlier job is dropped.
     uint32_t detail_spools_request_ = 0;
+    /// The job's camera photos on the detail overlay's preview card
+    helix::ui::HistoryPhotoViewer photo_viewer_;
 
     // Buffers for string subjects (LVGL 9.4 requires pre-allocated buffers)
     static constexpr size_t kDetailBufSize = 128;

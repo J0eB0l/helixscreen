@@ -49,10 +49,9 @@ MAX_JOB_RECORDS = 500
 # loses at most this much of the record.
 PERSIST_INTERVAL_S = 30.0
 
-# The history auxiliary field the record is mirrored into where Moonraker has
-# one (history.register_auxiliary_field, Moonraker 0.9 and later).
-AUX_PROVIDER = "helix_print"
-AUX_FIELD = "filament_spools"
+# The finished job's history auxiliary_data entry, where history can rewrite a
+# job (get_job/save_job, Moonraker 0.9 and later).
+AUX_NAME = "filament_spools"
 
 # Who switches the active spool (active_spool_owner).
 OWNER_NO_SPOOLMAN = "no_spoolman"
@@ -419,7 +418,6 @@ class FilamentAccounting:
         self._last_persist = float("-inf")
         self._dirty = False
         self._map: Optional[SpoolMap] = None
-        self._aux: Optional[Any] = None
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -431,36 +429,11 @@ class FilamentAccounting:
         self.server.register_event_handler("server:klippy_ready", self.on_klippy_ready)
         self.server.register_event_handler("server:klippy_disconnect", self.on_klippy_gone)
         self.server.register_event_handler("spoolman:active_spool_set", self.on_spool_set)
-        self._register_aux_field()
 
     async def load(self) -> None:
         """Read back the job a restart interrupted."""
         self.job = OpenJob.from_state(await self._ns_get(ACTIVE_KEY))
         await self._prune()
-
-    def _register_aux_field(self) -> None:
-        history = getattr(self.helix, "history", None)
-        if history is None or not hasattr(history, "register_auxiliary_field"):
-            return
-        try:
-            from moonraker.common import HistoryFieldData  # type: ignore
-        except Exception:
-            return
-        try:
-            field = HistoryFieldData(AUX_FIELD, AUX_PROVIDER, "Filament used per spool",
-                                     "basic", reset_callback=lambda: None)
-            history.register_auxiliary_field(field)
-            self._aux = field
-        except Exception as e:
-            logging.info("HelixPrint: filament record not in history's auxiliary data: %s", e)
-
-    def _update_aux(self) -> None:
-        if self._aux is None or self.job is None:
-            return
-        try:
-            self._aux.tracker.update(self.job.ledger.spools())
-        except Exception:
-            pass
 
     # -- database ------------------------------------------------------------
 
@@ -620,7 +593,6 @@ class FilamentAccounting:
         _key, feed = feeding(self._map, self.status)
         self._attribute(feed)
         self._dirty = True
-        self._update_aux()
 
     async def on_status_update(self, status: Dict[str, Any], *args: Any) -> None:
         if not isinstance(status, dict):
@@ -643,8 +615,7 @@ class FilamentAccounting:
                 self._attribute(feed)
                 self._dirty = True
         if self._dirty:
-            self._update_aux()
-            await self._persist()
+                await self._persist()
 
     def _job_running(self) -> bool:
         stats = self.status.get("print_stats") or {}
@@ -699,7 +670,6 @@ class FilamentAccounting:
             self._attribute(feed)
         else:
             self._attribute(None)
-        self._update_aux()
         await self._persist(force=True)
 
     async def _query_signals(self, spool_map: SpoolMap) -> Dict[str, Any]:
@@ -721,13 +691,33 @@ class FilamentAccounting:
         if self.job is None or str(job["job_id"]) != self.job.job_id:
             return
         end_time = job.get("end_time")
-        await self._close(self.job, job.get("status"),
-                          float(end_time) if isinstance(end_time, (int, float))
-                          and not isinstance(end_time, bool) else None)
+        closing = self.job
         self.job = None
+        record = await self._close(closing, job.get("status"),
+                                   float(end_time) if isinstance(end_time, (int, float))
+                                   and not isinstance(end_time, bool) else None)
+        await self._link_in_history(job, record)
+
+    async def _link_in_history(self, job: Dict[str, Any], record: Dict[str, Any]) -> None:
+        """Put the spools in the finished job's auxiliary_data, through the
+        one history rewrite every feature shares. History reuses job ids, so
+        the row must still have this job's start time."""
+        patch = getattr(self.helix, "patch_history_job", None)
+        if patch is None:
+            return
+        start_time = job.get("start_time")
+
+        def update(row: Dict[str, Any]) -> bool:
+            if start_time is not None and row.get("start_time") != start_time:
+                return False
+            row["auxiliary_data"] = self.helix.set_history_aux(
+                row.get("auxiliary_data"), AUX_NAME, record["spools"], "Filament used per spool")
+            return True
+
+        await patch(job["job_id"], update)
 
     async def _close(self, open_job: OpenJob, status: Optional[str],
-                     end_time: Optional[float]) -> None:
+                     end_time: Optional[float]) -> Dict[str, Any]:
         """Write the job's record and drop the open ledger. A job closed by
         the next job's start, with no finish seen, has no status."""
         record = job_record(open_job.job_id, open_job.filename, status, open_job.ledger,
@@ -738,6 +728,7 @@ class FilamentAccounting:
         logging.info("HelixPrint: filament record for job %s: %s", open_job.job_id,
                      record["spools"])
         await self._prune()
+        return record
 
     # -- endpoint ------------------------------------------------------------
 

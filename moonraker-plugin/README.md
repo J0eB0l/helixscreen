@@ -283,9 +283,12 @@ is on, whoever switches the spool. Namespace `helix_filament`, key `job_<job id>
 under `active` every 30 s while filament moves, and a restart mid-print keeps counting. A job
 closed by the next job's start, with no finish seen (a power cut), has `status: null`. A
 power-loss resume (helix-initiated `plr_resume`) continues the interrupted job's spools, with
-`continues` naming that job. The newest 500 records are kept. Where Moonraker's history has
-auxiliary fields (0.9 and later), the `spools` list is also history's `helix_print` /
-`filament_spools` field of the job.
+`continues` naming that job. The newest 500 records are kept. When history finishes the job,
+and where it can rewrite a job (`get_job`/`save_job`, Moonraker 0.9 and newer), the `spools`
+list also goes into the job's `auxiliary_data` as `{"provider": "helix_print", "name":
+"filament_spools"}`, through the same locked rewrite as photos and `modifications`, so none
+of them saves over another. A row whose `start_time` is not this job's (a reused id) is left
+alone.
 
 ```
 GET /server/helix/filament_usage?job_id=00002A
@@ -293,6 +296,45 @@ GET /server/helix/filament_usage?job_id=00002A
 
 returns `{"job_id", "enabled", "record"}`: the stored record, the live ledger (status
 `in_progress`) of the job still printing, or `null` for a job the feature did not count.
+
+### Camera photos (`photos`)
+
+Saves the default webcam's snapshot twice per job: once the print finishes layer 2 and once
+when it ends `completed`, `cancelled` or `error`. On by default (it only observes); opt out
+with `helix-screen` / `plugin_features.photos = false`. No endpoint: clients read the record
+and the files.
+
+- **When.** Layer 2 is done when `print_stats.info.current_layer` is seen moving from 1 or 2
+  past 2 in a job history added, so a print whose slicer emits no `SET_PRINT_STATS_INFO`, a
+  job first seen past layer 2 (a restart mid-print) and a job marked `plr_resume` get no
+  layer photo. The end photo is taken on history's `finished` event.
+- **Which camera.** Of the enabled webcams with a snapshot URL that is not an HTML page
+  (HelixScreen's own screen-server entry excluded), the first MJPEG one, else the first. A
+  relative URL is fetched from `http://127.0.0.1`. No webcam: nothing happens.
+- **What is kept.** The bytes, unchanged, when they start like a JPEG and are at most 8 MB, as
+  `gcodes/.helix_photos/<job id>_<start time>_<layer2|end>.jpg`. No photo is taken while the
+  volume has less than 256 MB free.
+- **Record.** Namespace `helix_photos`, key = the history job id:
+
+  ```json
+  {"version": 1, "job_id": "00002A", "filename": "benchy.gcode", "start_time": 1700000000.2,
+   "photos": [{"kind": "layer2", "path": ".helix_photos/00002A_1700000000_layer2.jpg",
+               "size": 48213, "taken_at": 1700000300.1, "source": "plugin"},
+              {"kind": "end", "path": ".helix_photos/00002A_1700000000_end.jpg",
+               "size": 51022, "taken_at": 1700003600.4, "source": "plugin"}]}
+  ```
+
+  The screen writes the same record with `"source": "app"` when it takes the photos itself.
+  History reuses job ids, so a record answers only for the job whose `start_time` matches.
+- **History link.** Where history has `get_job`/`save_job` (Moonraker 0.9 and newer), the job's
+  `auxiliary_data` gets `{"provider": "helix_print", "name": "photos", "value": [<paths>]}`.
+  Every rewrite of a history row by the plugin goes through one lock, so it never saves over
+  the `modifications` entry of a linked print, or the other way round.
+- **Pruning.** At startup and after each job ends: a record whose history job is gone, or
+  whose id history now uses for a later job, is deleted with its files; then the oldest jobs
+  go until at most 500 remain and their photos fit in 128 MB; then files in `.helix_photos`
+  that no record lists and that are over an hour old. A Moonraker whose history cannot be
+  asked keeps every record (the bounds still apply).
 
 ### Start Modified Print
 
@@ -805,6 +847,8 @@ After installation:
 │   └── benchy.gcode          # Symlink → .helix_temp/mod_...
 ├── .helix_index/
 │   └── benchy.gcode.layers.jsonl  # Layer index (file analysis, power-loss recovery)
+├── .helix_photos/
+│   └── 00002A_1700000000_end.jpg  # Camera photos of history jobs
 └── .thumbs/
     ├── benchy-32x32.png      # Original thumbnails
     └── mod_1702400000_benchy-32x32.png  # Symlink → original

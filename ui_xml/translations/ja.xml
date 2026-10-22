@@ -1103,6 +1103,7 @@
   <translation tag="Enclosure" ja="筐体"/>
   <translation tag="Encoder" ja="エンコーダー"/>
   <translation tag="Encoder Error" ja="エンコーダーエラー"/>
+  <translation tag="End" ja="終了"/>
   <translation tag="End K" ja="終了K"/>
   <translation tag="End Test" ja="テスト終了"/>
   <translation tag="End calibration" ja="キャリブレーションを終了"/>
@@ -1860,6 +1861,7 @@
   <translation tag="Last print failed" ja="前回の印刷が失敗しました"/>
   <translation tag="Later" ja="後で"/>
   <translation tag="Layer" ja="レイヤー"/>
+  <translation tag="Layer 2" ja="レイヤー2"/>
   <translation tag="Layer Height" ja="レイヤー高さ"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." ja="レイヤーマクロはレイヤーが変わるごとに 1 フレームを撮影します。ほとんどの印刷に最適です。"/>
   <translation tag="Layer Pause" ja="レイヤー一時停止"/>
@@ -1932,6 +1934,7 @@
   <translation tag="Loading filament..." ja="フィラメントを装填中..."/>
   <translation tag="Loading filaments..." ja="フィラメントを読み込み中..."/>
   <translation tag="Loading history..." ja="履歴を読み込み中..."/>
+  <translation tag="Loading photo" ja="写真を読み込み中"/>
   <translation tag="Loading spools..." ja="スプールを読み込み中..."/>
   <translation tag="Loading vendors..." ja="ベンダーを読み込み中..."/>
   <translation tag="Loading..." ja="読み込み中..."/>
@@ -2501,6 +2504,7 @@
   <translation tag="Phomemo M110" ja="Phomemo M110"/>
   <translation tag="Phone" ja="電話"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" ja="電話は上段が 1 2 3、計算機は上段が 7 8 9"/>
+  <translation tag="Photo unavailable" ja="写真を表示できません"/>
   <translation tag="Pick" ja="選択"/>
   <translation tag="Pick Color" ja="色を選択"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." ja="HelixScreen の動作を選択します。すべて後で「設定」から変更できます。"/>
@@ -2590,6 +2594,7 @@
   <translation tag="Pressure advance" ja="Pressure Advance"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." ja="タワーが高くなるにつれてPressure Advanceが上がります。角を見てください: いつでも-か+をタップするとランプが止まり、自分の値を判断できます。"/>
   <translation tag="Pressure:" ja="圧力:"/>
+  <translation tag="Preview" ja="プレビュー"/>
   <translation tag="Preview Sounds" ja="サウンドをプレビュー"/>
   <translation tag="Previous" ja="前回"/>
   <translation tag="Price" ja="価格"/>
@@ -2641,6 +2646,7 @@
   <translation tag="Print issue detected" ja="印刷の問題を検出しました"/>
   <translation tag="Print jobs waiting to run" ja="実行待ちの印刷ジョブ"/>
   <translation tag="Print paused" ja="印刷一時停止"/>
+  <translation tag="Print photos" ja="印刷写真"/>
   <translation tag="Print preparation failed: {}" ja="印刷準備に失敗しました: {}"/>
   <translation tag="Print resumed" ja="印刷を再開しました"/>
   <translation tag="Print server rejected the job — check printer status" ja="印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください"/>
@@ -3077,6 +3083,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." ja="{}に保存しました。このフィラメントが使用中になるたびに適用されます。"/>
   <translation tag="Saved values, and whether to ask before running" ja="保存した値と、実行前に確認するかどうか"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." ja="保存しました。Spoolmanがオフラインのため、価格、場所、ロット、メモは未保存のままここに残ります。"/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." ja="レイヤー2の後と各印刷の終了時にカメラの写真を保存し、印刷履歴に表示します。"/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." ja="停電後に印刷を再開できるよう、約1秒ごとに印刷位置を保存します。SDカードでは摩耗が多くなります。"/>
   <translation tag="Saves to Klipper config and restarts firmware." ja="Klipper 設定に保存してファームウェアを再起動します。"/>
   <translation tag="Saving Configuration..." ja="設定を保存中..."/>
