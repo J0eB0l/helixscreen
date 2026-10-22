@@ -11,11 +11,14 @@
 #include "ui_utils.h"
 
 #include "app_globals.h"
+#include "bed_mesh_gradient.h"
 #include "i18n_plural.h"
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
+#include "lv_draw_buf_guard.h"
 #include "moonraker_error.h"
 #include "printer_state.h"
+#include "screw_tilt_surface.h"
 #include "screws_tilt_dialect.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
@@ -370,6 +373,8 @@ void ScrewsTiltPanel::on_screws_tilt_results(const std::vector<ScrewTiltResult>&
     }
 
     set_state(State::RESULTS);
+    // Only once the results view is shown does the diagram have a size to render at.
+    create_tilt_surface();
 }
 
 void ScrewsTiltPanel::on_screws_tilt_error(const std::string& message) {
@@ -451,6 +456,8 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
 }
 
 void ScrewsTiltPanel::clear_results() {
+    helix::ui::safe_delete(tilt_surface_);
+
     // Clear bed diagram indicators (dynamically positioned)
     for (auto* indicator : screw_indicators_) {
         helix::ui::safe_delete(indicator);
@@ -461,6 +468,61 @@ void ScrewsTiltPanel::clear_results() {
     for (size_t i = 0; i < kMaxScrews; i++) {
         lv_subject_set_int(&screw_visible_subjects_[i], 0);
     }
+}
+
+namespace {
+
+void tilt_surface_delete_cb(lv_event_t* e) {
+    lv_obj_t* image = lv_event_get_target_obj(e);
+    auto* buf = static_cast<lv_draw_buf_t*>(const_cast<void*>(lv_image_get_src(image)));
+    helix::safe_draw_buf_destroy(buf, "tilt_surface_buf");
+}
+
+} // namespace
+
+void ScrewsTiltPanel::create_tilt_surface() {
+    if (!bed_diagram_container_) {
+        return;
+    }
+    const double tolerance_mm = static_cast<double>(level_report_.tolerance_minutes) /
+                                kScrewMinutesPerTurn * screw_pitch_mm_;
+    const helix::ScrewTiltSurface surface =
+        helix::fit_screw_tilt_surface(screw_results_, tolerance_mm);
+    if (!surface.valid) {
+        return;
+    }
+
+    // Rendered at the box's own size: a stretched image samples past its edges
+    // and bleeds the opposite corner's colour into each one.
+    lv_obj_update_layout(bed_diagram_container_);
+    const int32_t w = lv_obj_get_content_width(bed_diagram_container_);
+    const int32_t h = lv_obj_get_content_height(bed_diagram_container_);
+    if (w < 2 || h < 2) {
+        return;
+    }
+    lv_draw_buf_t* buf = lv_draw_buf_create(w, h, LV_COLOR_FORMAT_RGB565, 0);
+    if (!buf) {
+        spdlog::error("[ScrewsTilt] Failed to create {}x{} tilt surface buffer", w, h);
+        return;
+    }
+    for (int32_t y = 0; y < h; y++) {
+        auto* row = reinterpret_cast<uint16_t*>(buf->data + y * buf->header.stride);
+        const double v = 1.0 - static_cast<double>(y) / (h - 1); // rear of the bed on top
+        for (int32_t x = 0; x < w; x++) {
+            const lv_color_t c =
+                bed_mesh_gradient_height_to_color(surface.z_at(static_cast<double>(x) / (w - 1), v),
+                                                  surface.color_min, surface.color_max);
+            row[x] = lv_color_to_u16(c);
+        }
+    }
+
+    tilt_surface_ = lv_image_create(bed_diagram_container_);
+    lv_obj_add_event_cb(tilt_surface_, tilt_surface_delete_cb, LV_EVENT_DELETE, nullptr);
+    lv_image_set_src(tilt_surface_, buf);
+    lv_obj_set_style_radius(tilt_surface_,
+                            lv_obj_get_style_radius(bed_diagram_container_, LV_PART_MAIN), 0);
+    lv_obj_remove_flag(tilt_surface_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_move_to_index(tilt_surface_, 0); // beneath the screw indicators
 }
 
 /**

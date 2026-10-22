@@ -174,6 +174,7 @@ class ScrewsTiltPanel : public OverlayBase {
     void populate_results(const std::vector<ScrewTiltResult>& results);
     void clear_results();
     void update_screw_diagram();
+    void create_tilt_surface();
     void create_screw_indicator(size_t index, const ScrewTiltResult& screw, bool in_spec,
                                 bool is_worst);
     [[nodiscard]] lv_color_t get_adjustment_color(const ScrewTiltResult& screw, bool in_spec,
@@ -196,6 +197,9 @@ class ScrewsTiltPanel : public OverlayBase {
     // Results UI elements
     lv_obj_t* bed_diagram_container_ = nullptr;
     lv_obj_t* results_instruction_ = nullptr;
+
+    // Bed surface shaded by height, beneath the indicators
+    lv_obj_t* tilt_surface_ = nullptr;
 
     // Dynamic screw indicators (bed diagram only - positions vary)
     std::vector<lv_obj_t*> screw_indicators_;
