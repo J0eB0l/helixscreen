@@ -237,15 +237,20 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
     SECTION("Multiple threads calling connect() simultaneously") {
         constexpr int NUM_THREADS = 5;
         std::atomic<int> connect_attempts{0};
-        std::atomic<int> connect_successes{0};
-        std::atomic<int> disconnects{0};
+        // The client keeps the last connect()'s callbacks until it is destroyed, and the
+        // fixture destructor's disconnect() closes a still-dialing socket whose onclose
+        // calls on_disconnected on the event-loop thread. Counters on this stack frame
+        // would be written after the body returns, into whatever frame reuses the
+        // slot (prestonbrown/helixscreen#1839), so they live on the heap with the callbacks.
+        auto connect_successes = std::make_shared<std::atomic<int>>(0);
+        auto disconnects = std::make_shared<std::atomic<int>>(0);
 
         auto attempt_connect = [&]() {
             connect_attempts++;
-            int result = client_->connect(
+            client_->connect(
                 "ws://192.0.2.1:7125/websocket", // TEST-NET-1
-                [&connect_successes]() { connect_successes++; },
-                [&disconnects]() { disconnects++; });
+                [connect_successes]() { (*connect_successes)++; },
+                [disconnects]() { (*disconnects)++; });
         };
 
         std::vector<std::thread> threads;
@@ -262,7 +267,7 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
 
         // Key: no crashes with concurrent connects
         CHECK(connect_attempts == NUM_THREADS);
-        CHECK(connect_successes == 0); // Invalid address shouldn't connect
+        CHECK(*connect_successes == 0); // Invalid address shouldn't connect
     }
 
     SECTION("Connect and disconnect from different threads") {
