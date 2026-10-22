@@ -125,6 +125,7 @@ translations:
   3D Maze: 3D Maze
   3D Pipes: 3D Pipes
   3D View: 3D View
+  3MF conversion: 3MF conversion
   4. Paper should move but with resistance: 4. Paper should move but with resistance
   4. Repeat until bed is level: 4. Repeat until bed is level
   5 min: 5 min
@@ -305,6 +306,7 @@ translations:
   : "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   Applies to: Applies to
   Apply: Apply
+  Apply start options to prints from other apps: Apply start options to prints from other apps
   Aqua Surface: Aqua Surface
   Archive: Archive
   Archive Spool?: Archive Spool?
@@ -2539,6 +2541,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: One tap runs this macro. Dangerous macros still ask.
   'Only on A: {} Hz': 'Only on A: {} Hz'
   'Only on B: {} Hz': 'Only on B: {} Hz'
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: Only while this app is connected. Install the HelixPrint plugin to cover every print.
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: Only while this app is connected. Update the HelixPrint plugin to cover every print.
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   Ooze Reduction: Ooze Reduction
@@ -3081,6 +3085,8 @@ translations:
   Requires a filament system with bypass: Requires a filament system with bypass
   Requires a filament pressure sensor or sync feedback: 'Requires a filament pressure sensor or sync feedback'
   Requires a clog detector or filament motion sensor: Requires a clog detector or filament motion sensor
+  Requires a newer HelixPrint plugin: Requires a newer HelixPrint plugin
+  Requires the HelixPrint plugin: Requires the HelixPrint plugin
   Resend write failed at chunk {}: Resend write failed at chunk {}
   Reset: Reset
   Reset Blade Counter: Reset Blade Counter
@@ -3380,6 +3386,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Send this crash report to help
     improve HelixScreen.
   Sending...: Sending...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.
   Sensor: Sensor
   Sensor Error: Sensor Error
   Sensor Response: Sensor Response
@@ -3583,6 +3590,7 @@ translations:
   Start failed: Start failed
   Start next: Start next
   'Start next: {}': 'Start next: {}'
+  Start options for prints from other apps: Start options for prints from other apps
   Start print anyway?: Start print anyway?
   Started: Started
   Starting Print...: Starting Print...
@@ -4159,6 +4167,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Unable to reach printer. Check power and network connection.
   Unavailable: Unavailable
   Unavailable on this printer: Unavailable on this printer
+  'Unavailable: {}': 'Unavailable: {}'
   Undo: Undo
   Uninstall: Uninstall
   Uninstall HelixPrint Plugin: Uninstall HelixPrint Plugin
@@ -4265,6 +4274,7 @@ translations:
   Verifying...: Verifying...
   Version: Version
   Version and printer info: Version and printer info
+  Version and what the plugin runs: Version and what the plugin runs
   Version {}: Version {}
   Vertical: Vertical
   Vibration: Vibration

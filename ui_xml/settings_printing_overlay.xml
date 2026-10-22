@@ -81,14 +81,17 @@
                               label="Timelapse" icon="camera_timer" description="Configure timelapse recording"
                               callback="on_timelapse_settings_clicked"/>
         </lv_obj>
-        <!-- POWER-LOSS RECOVERY: only while the HelixPrint plugin's plr feature can run -->
-        <lv_obj name="container_power_loss_recovery" width="100%" style_pad_all="0" scrollable="false">
-          <bind_flag_if_eq subject="plr_feature_state" flag="hidden" ref_value="0"/>
-          <setting_toggle_row name="row_power_loss_recovery"
-                              label="Power-loss recovery" icon="power_plug"
-                              description="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear."
-                              subject="plr_saving_enabled" callback="on_power_loss_recovery_changed"/>
-        </lv_obj>
+        <!-- POWER-LOSS RECOVERY: the plugin's plr feature, which owns its switch -->
+        <plugin_feature_toggle_row name="row_power_loss_recovery"
+                                   feature="plr" label="Power-loss recovery" icon="power_plug"
+                                   description="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear."
+                                   subject="plr_saving_enabled" callback="on_power_loss_recovery_changed"/>
+        <!-- START OPTIONS FOR PRINTS FROM OTHER APPS: the plugin's print_hooks feature -->
+        <plugin_feature_toggle_row name="row_print_hooks"
+                                   feature="print_hooks" label="Apply start options to prints from other apps"
+                                   icon="play_circle"
+                                   description="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue."
+                                   subject="plugin_feature_on_print_hooks" callback="on_plugin_feature_switch_changed"/>
         <setting_action_row name="row_macro_buttons"
                             label="Macro Buttons" icon="script_text"
                             description="Configure quick buttons and standard macros"

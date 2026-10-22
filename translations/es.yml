@@ -131,6 +131,7 @@ translations:
   3D Maze: Laberinto 3D
   3D Pipes: 3D Pipes
   3D View: Vista 3D
+  3MF conversion: 'Conversión 3MF'
   4. Paper should move but with resistance: 4. El papel debe moverse pero con resistencia
   4. Repeat until bed is level: 4. Repita hasta que la cama esté nivelada
   5 min: '5 min'
@@ -312,6 +313,7 @@ translations:
   : 'Aplicado a {}. Klipper lo olvida al reiniciar: introduce {} como Pressure Advance en el perfil de filamento de tu laminador o guárdalo en la bobina.'
   Applies to: Se aplica a
   Apply: Aplicar
+  Apply start options to prints from other apps: 'Aplicar opciones de inicio a impresiones de otras apps'
   Aqua Surface: 'Superficie acuática'
   Archive: Archivar
   Archive Spool?: ¿Archivar bobina?
@@ -2602,6 +2604,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'Un toque ejecuta esta macro. Las macros peligrosas siguen preguntando.'
   'Only on A: {} Hz': "Solo en A: {} Hz"
   'Only on B: {} Hz': "Solo en B: {} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Solo mientras esta app esté conectada. Instala el plugin HelixPrint para cubrir todas las impresiones.'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Solo mientras esta app esté conectada. Actualiza el plugin HelixPrint para cubrir todas las impresiones.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "Solo hay {} MB de memoria libre y el análisis de Klipper necesita unos {} MB. La prueba dejaría la impresora bloqueada hasta apagarla y encenderla."
   Ooze Reduction: 'Reducción de goteo'
@@ -3153,6 +3157,8 @@ translations:
   Requires a filament system with bypass: Requiere un sistema de filamento con bypass
   Requires a filament pressure sensor or sync feedback: 'Requiere un sensor de presión de filamento o retroalimentación de sincronización'
   Requires a clog detector or filament motion sensor: 'Requiere un detector de atascos o un sensor de movimiento de filamento'
+  Requires a newer HelixPrint plugin: 'Requiere un plugin HelixPrint más reciente'
+  Requires the HelixPrint plugin: 'Requiere el plugin HelixPrint'
   Resend write failed at chunk {}: Error al reenviar la escritura en el fragmento
     {}
   Reset: Restablecer
@@ -3457,6 +3463,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Envíe este reporte de fallo
     para ayudar a mejorar HelixScreen.
   Sending...: Enviando...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Envía tus opciones de impresión fijas, como descargar al final, cuando una impresión se inicia desde otra app o la cola de trabajos.'
   Sensor: Sensor
   Sensor Error: 'Error del sensor'
   Sensor Response: Respuesta del sensor
@@ -3667,6 +3674,7 @@ translations:
   Start failed: Inicio fallido
   Start next: 'Iniciar siguiente'
   'Start next: {}': 'Iniciar siguiente: {}'
+  Start options for prints from other apps: 'Opciones de inicio para impresiones de otras apps'
   Start print anyway?: ¿Iniciar la impresión de todos modos?
   Started: Iniciado
   Starting Print...: Iniciando impresión...
@@ -4259,6 +4267,7 @@ translations:
   Unable to reach printer. Check power and network connection.: No se puede conectar con la impresora. Comprueba la alimentación y la conexión de red.
   Unavailable: No disponible
   Unavailable on this printer: No disponible en esta impresora
+  'Unavailable: {}': 'No disponible: {}'
   Undo: Deshacer
   Uninstall: Desinstalar
   Uninstall HelixPrint Plugin: Desinstalar Plugin HelixPrint
@@ -4362,6 +4371,7 @@ translations:
   Verifying...: Verificando...
   Version: Versión
   Version and printer info: Versión e información de la impresora
+  Version and what the plugin runs: 'Versión y lo que ejecuta el plugin'
   Version {}: Versión {}
   Vertical: Vertical
   Vibration: Vibración

@@ -124,6 +124,7 @@
   <translation tag="3D Maze" de="3D-Labyrinth"/>
   <translation tag="3D Pipes" de="3D Pipes"/>
   <translation tag="3D View" de="3D-Ansicht"/>
+  <translation tag="3MF conversion" de="3MF-Konvertierung"/>
   <translation tag="4. Paper should move but with resistance" de="4. Papier sollte sich bewegen, aber mit Widerstand"/>
   <translation tag="4. Repeat until bed is level" de="4. Wiederholen bis das Bett nivelliert ist"/>
   <translation tag="5 min" de="5 Min"/>
@@ -289,6 +290,7 @@
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." de="Auf {} angewendet. Klipper vergisst den Wert beim Neustart: Trage {} als Pressure Advance im Filamentprofil deines Slicers ein oder speichere ihn auf der Spule."/>
   <translation tag="Applies to" de="Gilt für"/>
   <translation tag="Apply" de="Anwenden"/>
+  <translation tag="Apply start options to prints from other apps" de="Startoptionen auf Drucke aus anderen Apps anwenden"/>
   <translation tag="Aqua Surface" de="Wasseroberfläche"/>
   <translation tag="Archive" de="Archivieren"/>
   <translation tag="Archive Spool?" de="Spule archivieren?"/>
@@ -2376,6 +2378,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." de="Ein Tipp führt dieses Makro aus. Gefährliche Makros fragen weiterhin nach."/>
   <translation tag="Only on A: {} Hz" de="Nur bei A: {} Hz"/>
   <translation tag="Only on B: {} Hz" de="Nur bei B: {} Hz"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." de="Nur solange diese App verbunden ist. Installieren Sie das HelixPrint-Plugin, um jeden Druck abzudecken."/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." de="Nur solange diese App verbunden ist. Aktualisieren Sie das HelixPrint-Plugin, um jeden Druck abzudecken."/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." de="Nur {} MB Speicher sind frei, und die Auswertung von Klipper benötigt etwa {} MB. Der Test würde den Drucker blockieren, bis er aus- und wieder eingeschaltet wird."/>
   <translation tag="Ooze Reduction" de="Ooze-Reduzierung"/>
   <translation tag="Open" de="Öffnen"/>
@@ -2887,6 +2891,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" de="Erfordert einen Verstopfungsdetektor oder einen Filament-Bewegungssensor"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" de="Erfordert einen Filament-Drucksensor oder Sync-Feedback"/>
   <translation tag="Requires a filament system with bypass" de="Erfordert ein Filamentsystem mit Bypass"/>
+  <translation tag="Requires a newer HelixPrint plugin" de="Erfordert ein neueres HelixPrint-Plugin"/>
+  <translation tag="Requires the HelixPrint plugin" de="Erfordert das HelixPrint-Plugin"/>
   <translation tag="Resend write failed at chunk {}" de="Erneuter Schreibvorgang bei Block {} fehlgeschlagen"/>
   <translation tag="Reset" de="Zurücksetzen"/>
   <translation tag="Reset Blade Counter" de="Klingenzähler zurücksetzen"/>
@@ -3159,6 +3165,7 @@
   <translation tag="Send commands directly to printer" de="Befehle direkt an Drucker senden"/>
   <translation tag="Send this crash report to help improve HelixScreen." de="Senden Sie diesen Absturzbericht, um HelixScreen zu verbessern."/>
   <translation tag="Sending..." de="Wird gesendet..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." de="Sendet Ihre festen Druckoptionen, etwa Entladen am Ende, wenn ein Druck aus einer anderen App oder der Auftragswarteschlange startet."/>
   <translation tag="Sensor" de="Sensor"/>
   <translation tag="Sensor Error" de="Sensorfehler"/>
   <translation tag="Sensor Response" de="Sensor-Reaktion"/>
@@ -3348,6 +3355,7 @@
   <translation tag="Start failed" de="Start fehlgeschlagen"/>
   <translation tag="Start next" de="Nächstes starten"/>
   <translation tag="Start next: {}" de="Nächstes starten: {}"/>
+  <translation tag="Start options for prints from other apps" de="Startoptionen für Drucke aus anderen Apps"/>
   <translation tag="Start print anyway?" de="Druck trotzdem starten?"/>
   <translation tag="Started" de="Gestartet"/>
   <translation tag="Starting Print..." de="Druck starten..."/>
@@ -3842,6 +3850,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." de="Drucker nicht erreichbar. Prüfe Stromversorgung und Netzwerkverbindung."/>
   <translation tag="Unavailable" de="Nicht verfügbar"/>
   <translation tag="Unavailable on this printer" de="Auf diesem Drucker nicht verfügbar"/>
+  <translation tag="Unavailable: {}" de="Nicht verfügbar: {}"/>
   <translation tag="Undo" de="Rückgängig"/>
   <translation tag="Uninstall" de="Deinstallieren"/>
   <translation tag="Uninstall HelixPrint Plugin" de="HelixPrint-Plugin deinstallieren"/>
@@ -3948,6 +3957,7 @@
   <translation tag="Verifying..." de="Wird überprüft..."/>
   <translation tag="Version" de="Version"/>
   <translation tag="Version and printer info" de="Version und Druckerinfo"/>
+  <translation tag="Version and what the plugin runs" de="Version und was das Plugin ausführt"/>
   <translation tag="Version {}" de="Version {}"/>
   <translation tag="Vertical" de="Vertikal"/>
   <translation tag="Vibration" de="Vibration"/>

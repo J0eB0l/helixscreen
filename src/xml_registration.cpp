@@ -33,6 +33,7 @@
 #include "ui_panel_home.h"
 #include "ui_panel_settings.h"
 #include "ui_pin_entry_modal.h"
+#include "ui_plugin_feature_row.h"
 #include "ui_plugin_menu_rows.h"
 #include "ui_printer_switch_menu.h"
 #include "ui_progress_bar.h"
@@ -416,6 +417,8 @@ void register_xml_components() {
     // Backdrop tap and close/Done for every context menu — one pair, routed through
     // ContextMenu::active(), rather than a callback per menu.
     helix::ui::ContextMenu::register_shared_callbacks();
+    // plugin_feature_toggle_row: any settings page may place one.
+    helix::ui::register_plugin_feature_row_callbacks();
     lv_subject_init_int(&s_noop_subject, 0);
     lv_xml_register_subject(nullptr, "", &s_noop_subject);
     s_noop_subject_initialized = true;

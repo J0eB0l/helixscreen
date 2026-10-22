@@ -153,6 +153,7 @@ helix_analysis = _load_sibling("helix_analysis")
 helix_journal = _load_sibling("helix_journal")
 helix_config = _load_sibling("helix_config")
 helix_edits = _load_sibling("helix_edits")
+helix_print_hooks = _load_sibling("helix_print_hooks")
 
 
 # ============================================================================
@@ -306,9 +307,13 @@ class HelixJobMarkers:
         self,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
+        kinds: Tuple[str, ...] = HELIX_JOB_KINDS,
     ) -> None:
         self._clock = clock
         self._wall_clock = wall_clock
+        # The kinds mark() accepts: a module keeping markers of its own passes
+        # its private kinds, which helix_initiated() never answers.
+        self._kinds = kinds
         # (start filename, kind, marked at, history filename or None)
         self._pending: List[Tuple[str, str, float, Optional[str]]] = []
         self._bound: Dict[str, JobBinding] = {}
@@ -318,7 +323,7 @@ class HelixJobMarkers:
         self._pending = [p for p in self._pending if p[2] >= cutoff]
 
     def mark(self, filename: str, kind: str, history_name: Optional[str] = None) -> None:
-        if kind not in HELIX_JOB_KINDS:
+        if kind not in self._kinds:
             raise ValueError(f"unknown helix job kind {kind!r}")
         self._expire()
         self._pending.append((filename, kind, self._clock(), history_name))
@@ -446,6 +451,7 @@ class HelixPrint:
         self.plr: Optional[Any] = None
         self.analysis: Optional[Any] = None
         self.journal: Optional[Any] = None
+        self.print_hooks: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -749,6 +755,7 @@ class HelixPrint:
         await self._start_journal()
         self._start_config()
         self._start_edits()
+        self._start_print_hooks()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -868,6 +875,7 @@ class HelixPrint:
             switch=always_on,
         )
         await self.journal.load()
+
     def _start_config(self) -> None:
         """Config read and edit (helix_config.py). It acts only when the user
         saves a change on the screen, which is its own consent, so it has no
@@ -897,6 +905,24 @@ class HelixPrint:
         self.register_feature(
             helix_edits.SERVER_EDITS_FEATURE, helix_edits.SERVER_EDITS_FEATURE_VERSION,
             acts=False, switch=always_on,
+        )
+
+    def _start_print_hooks(self) -> None:
+        """Print-start hooks for prints started anywhere (helix_print_hooks.py),
+        opted into through plugin_features."""
+        if helix_print_hooks is None:
+            self.register_feature(
+                "print_hooks", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_print_hooks", "module_missing"),
+            )
+            return
+        markers = HelixJobMarkers(kinds=(helix_print_hooks.SCREEN_START_KIND,))
+        self.print_hooks = helix_print_hooks.PrintHooks(self, markers, HELIX_SCREEN_NAMESPACE)
+        self.print_hooks.start()
+        self.register_feature(
+            helix_print_hooks.PRINT_HOOKS_FEATURE,
+            helix_print_hooks.PRINT_HOOKS_FEATURE_VERSION,
+            acts=True,
         )
 
     async def close(self) -> None:

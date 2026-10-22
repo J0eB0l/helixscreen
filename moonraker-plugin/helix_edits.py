@@ -498,8 +498,6 @@ class HelixEdits:
             raise self.server.error("HelixPrint component is disabled", 503)
         if helix.gc_path is None:
             raise self.server.error("File manager not initialized", 500)
-        if not await helix.feature_enabled(SERVER_EDITS_FEATURE):
-            raise self.server.error("Server-side edits are switched off", 403)
 
         original_filename = web_request.get_str("original_filename")
         temp_file_path = web_request.get_str("temp_file_path", "")

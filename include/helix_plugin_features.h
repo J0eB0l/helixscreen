@@ -6,9 +6,13 @@
 // feature and the minimum contract version it needs, never on the plugin's
 // version string, so an older plugin loses only the features it lacks.
 
+#include "translation_loader.h" // TR_NOOP
+
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "hv/json.hpp"
 
@@ -44,5 +48,118 @@ PluginFeatureMap parse_plugin_features(const nlohmann::json& status_result);
 /// installed and enabled: without it every feature is Absent.
 PluginFeatureState plugin_feature_state(bool plugin_available, const PluginFeatureMap& features,
                                         const std::string& name, int min_version);
+
+/// Where the user's opt-ins live: the app's settings namespace, this key,
+/// {"<feature>": bool, ...}. The plugin reads it when a feature acts.
+inline constexpr const char* kPluginFeaturesNamespace = "helix-screen";
+inline constexpr const char* kPluginFeaturesKey = "plugin_features";
+
+/// The user's opt-in for feature @p name from the plugin_features record, by
+/// the plugin's own rule: a bool under the name is the choice, anything else
+/// the default, on for a feature that only observes and off for one that
+/// @p acts on a print or a spool.
+bool plugin_feature_opted_in(const nlohmann::json& record, const std::string& name, bool acts);
+
+/// How a settings row for a plugin feature's switch shows, by the plugin's
+/// state. Values are what the row's mode subject carries.
+enum class PluginSwitchMode {
+    Hidden = 0,      ///< the plugin runs, but the feature cannot on this printer
+    Switch = 1,      ///< a working switch, no hint
+    NeedsPlugin = 2, ///< greyed, "Requires the HelixPrint plugin", Install
+    NeedsUpdate = 3, ///< greyed, the installed plugin is too old for it
+    /// A working switch the app's fallback serves on a remote screen while no
+    /// plugin is installed: a hint that it only covers prints while this app
+    /// is connected, and Install.
+    FallbackInstallHint = 4,
+    /// The same with a plugin too old for the feature: the hint asks for an update.
+    FallbackUpdateHint = 5,
+};
+
+/// The row mode for feature @p name at contract @p min_version.
+/// @p has_fallback: the app does the feature itself when the plugin cannot,
+/// so its switch keeps working without one. @p is_local: this screen runs on
+/// the printer's own host, where the app is up whenever the printer is, so a
+/// fallback needs no hint there. A feature the plugin reports
+/// `available: false` cannot run on this printer at all and shows no row.
+PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMap& features,
+                                    const std::string& name, int min_version, bool has_fallback,
+                                    bool is_local);
+
+/// Which HelixScreen on a printer sends a fallback's gcode, so a screen on the
+/// printer and a tablet never both send it.
+enum class FallbackSenderRole {
+    Sender,  ///< this instance sends
+    Standby, ///< another instance does, or it cannot be ruled out
+};
+
+/// The one rule: the instance on the printer's host sends; a remote one sends
+/// only when no HelixScreen on the printer's host is connected.
+/// @p local_screen_present is nullopt when that cannot be told, and a remote
+/// instance then stands by rather than risk a second send.
+FallbackSenderRole fallback_sender_role(bool is_local, std::optional<bool> local_screen_present);
+
+/// Where a HelixScreen on the printer's host announces itself, in the
+/// kPluginFeaturesNamespace: {"seen_at": <unix seconds>}, rewritten every
+/// kLocalScreenPresenceIntervalS while it is connected. Moonraker lists no
+/// connected clients, so this record is how a remote instance knows.
+inline constexpr const char* kLocalScreenPresenceKey = "local_screen";
+inline constexpr int64_t kLocalScreenPresenceIntervalS = 600;
+
+/// The presence record for @p now.
+nlohmann::json local_screen_presence_record(int64_t now);
+
+/// Whether a local screen is connected, from its presence record as read at
+/// @p now: present when it announced itself within two intervals (one missed
+/// beat, plus clock drift between the two hosts). A record that is not one
+/// cannot be judged.
+std::optional<bool> local_screen_present(const nlohmann::json& record, int64_t now);
+
+/// Where a feature's setting lives, for the plugin overview to lead to it.
+enum class PluginFeatureHome {
+    None,     ///< no setting: the overview shows its status only
+    Printing, ///< Settings > Printing
+};
+
+/// What this app knows about a plugin feature. Labels are English; the UI
+/// translates them.
+struct KnownPluginFeature {
+    const char* name;
+    const char* label;
+    const char* icon;
+    PluginFeatureHome home;
+};
+
+/// Every feature this app can name. A feature the plugin reports that is not
+/// listed shows by its key, with no setting to lead to.
+inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
+    {"print_hooks", TR_NOOP("Start options for prints from other apps"), "play_circle",
+     PluginFeatureHome::Printing},
+    {"plr", TR_NOOP("Power-loss recovery"), "power_plug", PluginFeatureHome::Printing},
+    {"convert_3mf", TR_NOOP("3MF conversion"), "cube_outline", PluginFeatureHome::None},
+};
+
+/// The icon of a feature this app does not know.
+inline constexpr const char* kUnknownPluginFeatureIcon = "puzzle_outline";
+
+/// A feature's state as the plugin overview reports it.
+enum class PluginFeatureStatus {
+    Active,      ///< available and switched on
+    Off,         ///< available and switched off
+    Unavailable, ///< cannot run here; the plugin says why
+};
+
+/// One line of the plugin overview.
+struct PluginFeatureLine {
+    std::string name;  ///< the feature's key in the status map
+    std::string label; ///< English, or the key itself for an unknown feature
+    std::string icon;
+    PluginFeatureStatus status = PluginFeatureStatus::Unavailable;
+    std::string reason; ///< why it is unavailable; empty otherwise
+    PluginFeatureHome home = PluginFeatureHome::None;
+};
+
+/// The overview lines for @p features: known features in kKnownPluginFeatures
+/// order, then unknown ones by name.
+std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& features);
 
 } // namespace helix

@@ -157,6 +157,7 @@
   <translation tag="3D Maze" ru="3D лабиринт"/>
   <translation tag="3D Pipes" ru="3D трубы"/>
   <translation tag="3D View" ru="3D вид"/>
+  <translation tag="3MF conversion" ru="Преобразование 3MF"/>
   <translation tag="4. Paper should move but with resistance" ru="4. Бумага должна двигаться, но с сопротивлением"/>
   <translation tag="4. Repeat until bed is level" ru="4. Повторяйте, пока стол не выровняется"/>
   <translation tag="5 min" ru="5 мин"/>
@@ -322,6 +323,7 @@
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." ru="Применено к {}. Klipper забудет значение после перезапуска: укажите {} как Pressure Advance в профиле филамента в слайсере или сохраните его на катушку."/>
   <translation tag="Applies to" ru="Применяется к"/>
   <translation tag="Apply" ru="Применить"/>
+  <translation tag="Apply start options to prints from other apps" ru="Применять параметры запуска к печати из других приложений"/>
   <translation tag="Aqua Surface" ru="Водная гладь"/>
   <translation tag="Archive" ru="Архивировать"/>
   <translation tag="Archive Spool?" ru="Архивировать катушку?"/>
@@ -2421,6 +2423,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." ru="Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение."/>
   <translation tag="Only on A: {} Hz" ru="Только на A: {} Гц"/>
   <translation tag="Only on B: {} Hz" ru="Только на B: {} Гц"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." ru="Только пока это приложение подключено. Установите плагин HelixPrint, чтобы охватить всю печать."/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." ru="Только пока это приложение подключено. Обновите плагин HelixPrint, чтобы охватить всю печать."/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." ru="Свободно всего {} МБ памяти, а анализу Klipper нужно около {} МБ. Тест оставит принтер зависшим, пока его не выключат и снова не включат."/>
   <translation tag="Ooze Reduction" ru="Снижение подтекания"/>
   <translation tag="Open" ru="Открыть"/>
@@ -2941,6 +2945,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" ru="Требуется датчик засора или датчик движения филамента"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" ru="Требуется датчик давления филамента или обратная связь синхронизации"/>
   <translation tag="Requires a filament system with bypass" ru="Требуется система филамента с байпасом"/>
+  <translation tag="Requires a newer HelixPrint plugin" ru="Требуется более новый плагин HelixPrint"/>
+  <translation tag="Requires the HelixPrint plugin" ru="Требуется плагин HelixPrint"/>
   <translation tag="Resend write failed at chunk {}" ru="Не удалось повторно отправить запись в блоке {}"/>
   <translation tag="Reset" ru="Сброс"/>
   <translation tag="Reset Blade Counter" ru="Сбросить счётчик лезвия"/>
@@ -3213,6 +3219,7 @@
   <translation tag="Send commands directly to printer" ru="Отправлять команды напрямую принтеру"/>
   <translation tag="Send this crash report to help improve HelixScreen." ru="Отправьте этот отчёт об ошибке, чтобы помочь улучшить HelixScreen."/>
   <translation tag="Sending..." ru="Отправка..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." ru="Отправляет ваши постоянные параметры печати, например выгрузку в конце, когда печать запускается из другого приложения или из очереди заданий."/>
   <translation tag="Sensor" ru="Датчик"/>
   <translation tag="Sensor Error" ru="Ошибка датчика"/>
   <translation tag="Sensor Response" ru="Отклик датчика"/>
@@ -3408,6 +3415,7 @@
   <translation tag="Start failed" ru="Ошибка запуска"/>
   <translation tag="Start next" ru="Запустить следующую"/>
   <translation tag="Start next: {}" ru="Запустить следующую: {}"/>
+  <translation tag="Start options for prints from other apps" ru="Параметры запуска для печати из других приложений"/>
   <translation tag="Start print anyway?" ru="Всё равно начать печать?"/>
   <translation tag="Started" ru="Начато"/>
   <translation tag="Starting Print..." ru="Запуск печати..."/>
@@ -3902,6 +3910,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." ru="Не удаётся связаться с принтером. Проверьте питание и сетевое подключение."/>
   <translation tag="Unavailable" ru="Недоступно"/>
   <translation tag="Unavailable on this printer" ru="Недоступно на этом принтере"/>
+  <translation tag="Unavailable: {}" ru="Недоступно: {}"/>
   <translation tag="Undo" ru="Шаг назад"/>
   <translation tag="Uninstall" ru="Удалить"/>
   <translation tag="Uninstall HelixPrint Plugin" ru="Удалить плагин HelixPrint"/>
@@ -4008,6 +4017,7 @@
   <translation tag="Verifying..." ru="Проверка..."/>
   <translation tag="Version" ru="Версия"/>
   <translation tag="Version and printer info" ru="Версия и сведения о принтере"/>
+  <translation tag="Version and what the plugin runs" ru="Версия и что выполняет плагин"/>
   <translation tag="Version {}" ru="Версия {}"/>
   <translation tag="Vertical" ru="Вертикально"/>
   <translation tag="Vibration" ru="Вибрация"/>

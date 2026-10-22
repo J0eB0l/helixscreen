@@ -566,6 +566,7 @@ constexpr const char* kNoMachineControlFiles[] = {
     "ui_xml/overlay_backdrop.xml",
     "ui_xml/overlay_panel.xml",
     "ui_xml/panel_belt_tension.xml",
+    "ui_xml/plugin_feature_toggle_row.xml",
     "ui_xml/plugin_install_modal.xml",
     "ui_xml/portrait/print_status_panel.xml",
     "ui_xml/portrait/print_tune_panel.xml",

@@ -124,6 +124,7 @@
   <translation tag="3D Maze" ja="3D迷路"/>
   <translation tag="3D Pipes" ja="3Dパイプ"/>
   <translation tag="3D View" ja="3Dビュー"/>
+  <translation tag="3MF conversion" ja="3MF変換"/>
   <translation tag="4. Paper should move but with resistance" ja="4. 紙が抵抗を感じながら動く状態が適切です"/>
   <translation tag="4. Repeat until bed is level" ja="4. ベッドが水平になるまで繰り返してください"/>
   <translation tag="5 min" ja="5分"/>
@@ -289,6 +290,7 @@
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." ja="{}に適用しました。Klipperは再起動で忘れます: スライサーのフィラメントプロファイルでPressure Advanceに{}を入力するか、スプールに保存してください。"/>
   <translation tag="Applies to" ja="適用対象"/>
   <translation tag="Apply" ja="適用"/>
+  <translation tag="Apply start options to prints from other apps" ja="他のアプリからの印刷にも開始オプションを適用"/>
   <translation tag="Aqua Surface" ja="水面"/>
   <translation tag="Archive" ja="アーカイブ"/>
   <translation tag="Archive Spool?" ja="スプールをアーカイブしますか？"/>
@@ -2376,6 +2378,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." ja="ワンタップでこのマクロを実行します。危険なマクロは確認を求めます。"/>
   <translation tag="Only on A: {} Hz" ja="Aのみ: {} Hz"/>
   <translation tag="Only on B: {} Hz" ja="Bのみ: {} Hz"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." ja="このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインをインストールしてください。"/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." ja="このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインを更新してください。"/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." ja="空きメモリは{} MBしかなく、Klipperの解析には約{} MB必要です。テストを実行すると、電源を入れ直すまでプリンターが停止したままになります。"/>
   <translation tag="Ooze Reduction" ja="にじみ低減"/>
   <translation tag="Open" ja="開く"/>
@@ -2887,6 +2891,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" ja="詰まり検出器またはフィラメントモーションセンサーが必要です"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" ja="フィラメント圧力センサーまたは同期フィードバックが必要です"/>
   <translation tag="Requires a filament system with bypass" ja="バイパスに対応したフィラメントシステムが必要です"/>
+  <translation tag="Requires a newer HelixPrint plugin" ja="より新しいHelixPrintプラグインが必要です"/>
+  <translation tag="Requires the HelixPrint plugin" ja="HelixPrintプラグインが必要です"/>
   <translation tag="Resend write failed at chunk {}" ja="チャンク {} で再送信の書き込みに失敗しました"/>
   <translation tag="Reset" ja="リセット"/>
   <translation tag="Reset Blade Counter" ja="ブレードカウンターをリセット"/>
@@ -3159,6 +3165,7 @@
   <translation tag="Send commands directly to printer" ja="プリンターに直接コマンドを送信"/>
   <translation tag="Send this crash report to help improve HelixScreen." ja="HelixScreen の改善にこのクラッシュレポートを送信してください。"/>
   <translation tag="Sending..." ja="送信中..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." ja="別のアプリやジョブキューから印刷が開始されたときに、終了時のアンロードなどの常設の印刷オプションを送信します。"/>
   <translation tag="Sensor" ja="センサー"/>
   <translation tag="Sensor Error" ja="センサーエラー"/>
   <translation tag="Sensor Response" ja="センサー応答"/>
@@ -3348,6 +3355,7 @@
   <translation tag="Start failed" ja="開始に失敗"/>
   <translation tag="Start next" ja="次を開始"/>
   <translation tag="Start next: {}" ja="次を開始：{}"/>
+  <translation tag="Start options for prints from other apps" ja="他のアプリからの印刷の開始オプション"/>
   <translation tag="Start print anyway?" ja="それでも印刷を開始しますか？"/>
   <translation tag="Started" ja="開始"/>
   <translation tag="Starting Print..." ja="印刷開始中..."/>
@@ -3842,6 +3850,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." ja="プリンターに接続できません。電源とネットワーク接続を確認してください。"/>
   <translation tag="Unavailable" ja="利用不可"/>
   <translation tag="Unavailable on this printer" ja="このプリンターでは利用できません"/>
+  <translation tag="Unavailable: {}" ja="利用不可: {}"/>
   <translation tag="Undo" ja="元に戻す"/>
   <translation tag="Uninstall" ja="アンインストール"/>
   <translation tag="Uninstall HelixPrint Plugin" ja="HelixPrint プラグインをアンインストール"/>
@@ -3948,6 +3957,7 @@
   <translation tag="Verifying..." ja="検証中..."/>
   <translation tag="Version" ja="バージョン"/>
   <translation tag="Version and printer info" ja="バージョンとプリンター情報"/>
+  <translation tag="Version and what the plugin runs" ja="バージョンとプラグインが実行する機能"/>
   <translation tag="Version {}" ja="バージョン {}"/>
   <translation tag="Vertical" ja="垂直"/>
   <translation tag="Vibration" ja="振動"/>

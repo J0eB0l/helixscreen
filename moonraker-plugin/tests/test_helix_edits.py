@@ -304,14 +304,14 @@ class TestPrintEdited:
         helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_switched_off_it_refuses(self, helix_print_component, mock_server, gcodes):
+    async def test_a_plugin_features_opt_out_is_ignored(self, helix_print_component,
+                                                         mock_server, gcodes):
         await helix_print_component.component_init()
         await helix_print_component.database.insert_item(
             HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, {"server_edits": False}
         )
-        with pytest.raises(Exception, match="403"):
-            await mock_server.endpoints[PRINT_EDITED](_request())
-        assert not (gcodes / ".helix_temp" / "modified_1_benchy.gcode").exists()
+        await mock_server.endpoints[PRINT_EDITED](_request())
+        assert (gcodes / ".helix_temp" / "modified_1_benchy.gcode").exists()
 
     @pytest.mark.asyncio
     async def test_paths_outside_gcodes_are_refused(self, helix_print_component,

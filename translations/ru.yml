@@ -174,6 +174,7 @@ translations:
   3D Maze: 3D лабиринт
   3D Pipes: 3D трубы
   3D View: 3D вид
+  3MF conversion: 'Преобразование 3MF'
   4. Paper should move but with resistance: 4. Бумага должна двигаться, но с сопротивлением
   4. Repeat until bed is level: 4. Повторяйте, пока стол не выровняется
   5 min: '5 мин'
@@ -352,6 +353,7 @@ translations:
   : 'Применено к {}. Klipper забудет значение после перезапуска: укажите {} как Pressure Advance в профиле филамента в слайсере или сохраните его на катушку.'
   Applies to: Применяется к
   Apply: Применить
+  Apply start options to prints from other apps: 'Применять параметры запуска к печати из других приложений'
   Aqua Surface: 'Водная гладь'
   Archive: Архивировать
   Archive Spool?: Архивировать катушку?
@@ -2640,6 +2642,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение.'
   'Only on A: {} Hz': "Только на A: {} Гц"
   'Only on B: {} Hz': "Только на B: {} Гц"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Только пока это приложение подключено. Установите плагин HelixPrint, чтобы охватить всю печать.'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Только пока это приложение подключено. Обновите плагин HelixPrint, чтобы охватить всю печать.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "Свободно всего {} МБ памяти, а анализу Klipper нужно около {} МБ. Тест оставит принтер зависшим, пока его не выключат и снова не включат."
   Ooze Reduction: 'Снижение подтекания'
@@ -3200,6 +3204,8 @@ translations:
   Requires a filament system with bypass: Требуется система филамента с байпасом
   Requires a filament pressure sensor or sync feedback: 'Требуется датчик давления филамента или обратная связь синхронизации'
   Requires a clog detector or filament motion sensor: 'Требуется датчик засора или датчик движения филамента'
+  Requires a newer HelixPrint plugin: 'Требуется более новый плагин HelixPrint'
+  Requires the HelixPrint plugin: 'Требуется плагин HelixPrint'
   Resend write failed at chunk {}: Не удалось повторно отправить запись в блоке {}
   Reset: Сброс
   Reset Blade Counter: 'Сбросить счётчик лезвия'
@@ -3500,6 +3506,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Отправьте этот отчёт об ошибке,
     чтобы помочь улучшить HelixScreen.
   Sending...: Отправка...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Отправляет ваши постоянные параметры печати, например выгрузку в конце, когда печать запускается из другого приложения или из очереди заданий.'
   Sensor: Датчик
   Sensor Error: 'Ошибка датчика'
   Sensor Response: Отклик датчика
@@ -3718,6 +3725,7 @@ translations:
   Start failed: Ошибка запуска
   Start next: 'Запустить следующую'
   'Start next: {}': 'Запустить следующую: {}'
+  Start options for prints from other apps: 'Параметры запуска для печати из других приложений'
   Start print anyway?: Всё равно начать печать?
   Started: Начато
   Starting Print...: Запуск печати...
@@ -4299,6 +4307,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Не удаётся связаться с принтером. Проверьте питание и сетевое подключение.
   Unavailable: Недоступно
   Unavailable on this printer: Недоступно на этом принтере
+  'Unavailable: {}': 'Недоступно: {}'
   Undo: Шаг назад
   Uninstall: Удалить
   Uninstall HelixPrint Plugin: Удалить плагин HelixPrint
@@ -4401,6 +4410,7 @@ translations:
   Verifying...: Проверка...
   Version: Версия
   Version and printer info: Версия и сведения о принтере
+  Version and what the plugin runs: 'Версия и что выполняет плагин'
   Version {}: Версия {}
   Vertical: Вертикально
   Vibration: Вибрация

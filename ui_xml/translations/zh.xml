@@ -124,6 +124,7 @@
   <translation tag="3D Maze" zh="3D 迷宫"/>
   <translation tag="3D Pipes" zh="3D 管道"/>
   <translation tag="3D View" zh="3D 视图"/>
+  <translation tag="3MF conversion" zh="3MF 转换"/>
   <translation tag="4. Paper should move but with resistance" zh="4. 纸张应能移动但有阻力"/>
   <translation tag="4. Repeat until bed is level" zh="4. 重复直到热床水平"/>
   <translation tag="5 min" zh="5分钟"/>
@@ -289,6 +290,7 @@
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." zh="已应用到{}。Klipper重启后会丢失: 请在切片软件的耗材配置中将压力提前设为{},或保存到料盘。"/>
   <translation tag="Applies to" zh="适用于"/>
   <translation tag="Apply" zh="应用"/>
+  <translation tag="Apply start options to prints from other apps" zh="将启动选项应用于其他应用发起的打印"/>
   <translation tag="Aqua Surface" zh="水面"/>
   <translation tag="Archive" zh="归档"/>
   <translation tag="Archive Spool?" zh="归档料盘？"/>
@@ -2376,6 +2378,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." zh="单击即可运行此宏。危险宏仍会询问。"/>
   <translation tag="Only on A: {} Hz" zh="仅 A：{} Hz"/>
   <translation tag="Only on B: {} Hz" zh="仅 B：{} Hz"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." zh="仅在此应用连接时生效。安装 HelixPrint 插件以覆盖所有打印。"/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." zh="仅在此应用连接时生效。更新 HelixPrint 插件以覆盖所有打印。"/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." zh="可用内存仅 {} MB，而 Klipper 的分析需要约 {} MB。运行测试会使打印机卡住，直到断电重启。"/>
   <translation tag="Ooze Reduction" zh="减少渗漏"/>
   <translation tag="Open" zh="打开"/>
@@ -2887,6 +2891,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" zh="需要堵塞检测器或耗材运动传感器"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" zh="需要耗材压力传感器或同步反馈"/>
   <translation tag="Requires a filament system with bypass" zh="需要支持旁路的耗材系统"/>
+  <translation tag="Requires a newer HelixPrint plugin" zh="需要更新版本的 HelixPrint 插件"/>
+  <translation tag="Requires the HelixPrint plugin" zh="需要 HelixPrint 插件"/>
   <translation tag="Resend write failed at chunk {}" zh="区块 {} 重发写入失败"/>
   <translation tag="Reset" zh="重置"/>
   <translation tag="Reset Blade Counter" zh="重置刀片计数器"/>
@@ -3159,6 +3165,7 @@
   <translation tag="Send commands directly to printer" zh="直接向打印机发送命令"/>
   <translation tag="Send this crash report to help improve HelixScreen." zh="发送此崩溃报告以帮助改进 HelixScreen。"/>
   <translation tag="Sending..." zh="正在发送..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." zh="当从其他应用或任务队列开始打印时，发送您的常设打印选项（如结束时卸载）。"/>
   <translation tag="Sensor" zh="传感器"/>
   <translation tag="Sensor Error" zh="传感器错误"/>
   <translation tag="Sensor Response" zh="传感器响应"/>
@@ -3348,6 +3355,7 @@
   <translation tag="Start failed" zh="启动失败"/>
   <translation tag="Start next" zh="开始下一个"/>
   <translation tag="Start next: {}" zh="开始下一个：{}"/>
+  <translation tag="Start options for prints from other apps" zh="其他应用发起的打印的启动选项"/>
   <translation tag="Start print anyway?" zh="仍要开始打印吗？"/>
   <translation tag="Started" zh="已开始"/>
   <translation tag="Starting Print..." zh="正在启动打印..."/>
@@ -3842,6 +3850,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." zh="无法连接到打印机。请检查电源和网络连接。"/>
   <translation tag="Unavailable" zh="不可用"/>
   <translation tag="Unavailable on this printer" zh="此打印机上不可用"/>
+  <translation tag="Unavailable: {}" zh="不可用：{}"/>
   <translation tag="Undo" zh="撤销"/>
   <translation tag="Uninstall" zh="卸载"/>
   <translation tag="Uninstall HelixPrint Plugin" zh="卸载 HelixPrint 插件"/>
@@ -3948,6 +3957,7 @@
   <translation tag="Verifying..." zh="验证中..."/>
   <translation tag="Version" zh="版本"/>
   <translation tag="Version and printer info" zh="版本和打印机信息"/>
+  <translation tag="Version and what the plugin runs" zh="版本及插件运行的功能"/>
   <translation tag="Version {}" zh="版本 {}"/>
   <translation tag="Vertical" zh="垂直"/>
   <translation tag="Vibration" zh="振动"/>

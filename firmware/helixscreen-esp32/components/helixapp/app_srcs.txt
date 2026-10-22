@@ -261,6 +261,8 @@ src/printer/fixed_tool_topology.cpp
 src/printer/plr_backend.cpp
 src/printer/plr_offer.cpp
 src/printer/plr_plugin_rpc.cpp
+src/printer/standing_print_options.cpp
+src/printer/standing_print_options_controller.cpp
 src/printer/plr_profile.cpp
 src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp
@@ -578,6 +580,8 @@ src/ui/ui_overlay_printer_type.cpp
 src/ui/ui_overlay_retraction_settings.cpp
 src/ui/ui_overlay_temp_graph.cpp
 src/ui/ui_panel_advanced.cpp
+src/ui/ui_plugin_overview_overlay.cpp
+src/ui/ui_plugin_feature_row.cpp
 src/ui/ui_panel_ams.cpp
 src/ui/ui_panel_ams_overview.cpp
 src/ui/ui_panel_base.cpp
@@ -753,6 +757,7 @@ src/api/moonraker_advanced_api.cpp
 src/api/moonraker_file_api.cpp
 src/api/moonraker_history_api.cpp
 src/api/moonraker_job_api.cpp
+src/api/moonraker_db_item.cpp
 src/api/moonraker_motion_api.cpp
 src/api/moonraker_queue_api.cpp
 src/api/rpc_error_correlation.cpp

@@ -126,6 +126,7 @@ translations:
   3D Maze: 3D 迷宫
   3D Pipes: 3D 管道
   3D View: 3D 视图
+  3MF conversion: '3MF 转换'
   4. Paper should move but with resistance: 4. 纸张应能移动但有阻力
   4. Repeat until bed is level: 4. 重复直到热床水平
   5 min: '5分钟'
@@ -293,6 +294,7 @@ translations:
   : '已应用到{}。Klipper重启后会丢失: 请在切片软件的耗材配置中将压力提前设为{},或保存到料盘。'
   Applies to: 适用于
   Apply: 应用
+  Apply start options to prints from other apps: '将启动选项应用于其他应用发起的打印'
   Aqua Surface: '水面'
   Archive: 归档
   Archive Spool?: 归档料盘？
@@ -2460,6 +2462,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: '单击即可运行此宏。危险宏仍会询问。'
   'Only on A: {} Hz': "仅 A：{} Hz"
   'Only on B: {} Hz': "仅 B：{} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: '仅在此应用连接时生效。安装 HelixPrint 插件以覆盖所有打印。'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: '仅在此应用连接时生效。更新 HelixPrint 插件以覆盖所有打印。'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "可用内存仅 {} MB，而 Klipper 的分析需要约 {} MB。运行测试会使打印机卡住，直到断电重启。"
   Ooze Reduction: '减少渗漏'
@@ -2985,6 +2989,8 @@ translations:
   Requires a filament system with bypass: 需要支持旁路的耗材系统
   Requires a filament pressure sensor or sync feedback: '需要耗材压力传感器或同步反馈'
   Requires a clog detector or filament motion sensor: '需要堵塞检测器或耗材运动传感器'
+  Requires a newer HelixPrint plugin: '需要更新版本的 HelixPrint 插件'
+  Requires the HelixPrint plugin: '需要 HelixPrint 插件'
   Resend write failed at chunk {}: 区块 {} 重发写入失败
   Reset: 重置
   Reset Blade Counter: '重置刀片计数器'
@@ -3266,6 +3272,7 @@ translations:
   Send commands directly to printer: 直接向打印机发送命令
   Send this crash report to help improve HelixScreen.: 发送此崩溃报告以帮助改进 HelixScreen。
   Sending...: 正在发送...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: '当从其他应用或任务队列开始打印时，发送您的常设打印选项（如结束时卸载）。'
   Sensor: 传感器
   Sensor Error: '传感器错误'
   Sensor Response: 传感器响应
@@ -3462,6 +3469,7 @@ translations:
   Start failed: 启动失败
   Start next: '开始下一个'
   'Start next: {}': '开始下一个：{}'
+  Start options for prints from other apps: '其他应用发起的打印的启动选项'
   Start print anyway?: 仍要开始打印吗？
   Started: 已开始
   Starting Print...: 正在启动打印...
@@ -4010,6 +4018,7 @@ translations:
   Unable to reach printer. Check power and network connection.: 无法连接到打印机。请检查电源和网络连接。
   Unavailable: 不可用
   Unavailable on this printer: 此打印机上不可用
+  'Unavailable: {}': '不可用：{}'
   Undo: 撤销
   Uninstall: 卸载
   Uninstall HelixPrint Plugin: 卸载 HelixPrint 插件
@@ -4109,6 +4118,7 @@ translations:
   Verifying...: 验证中...
   Version: 版本
   Version and printer info: 版本和打印机信息
+  Version and what the plugin runs: '版本及插件运行的功能'
   Version {}: 版本 {}
   Vertical: 垂直
   Vibration: 振动

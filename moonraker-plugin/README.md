@@ -192,6 +192,26 @@ binds both names, the link's and the original file's that history shows once the
 and either answers. History reuses job ids after a delete, so a binding answers only for its
 job's `start_time` and names, and an id history adds again with no marker loses its binding.
 
+### Print hooks (`print_hooks`)
+
+Applies the screen's standing print options to a print some other client started: Mainsail,
+Fluidd, a slicer, or Moonraker's job queue moving to its next job. Off until the user opts in.
+
+The screen keeps the options in Moonraker's database, namespace `helix-screen`, key
+`standing_print_options`, as finished G-code rendered by the same code its own print start
+uses: `{"version": 1, "gcode": "..."}`. The plugin never renders backend G-code itself. When
+history adds a job that no HelixScreen path started, the plugin sends that G-code once. A job
+with a helix-initiated marker of any kind gets nothing, and neither does a start the screen
+made itself, which it announces just before its start command:
+
+```
+POST /server/helix/print_hooks/screen_start
+{"filename": "benchy.gcode"}
+```
+
+The announcement waits 60 s for its job, like a helix-initiated marker, but it is private to
+this feature: `helix_initiated()` never answers it.
+
 ### Start Modified Print
 
 The client uploads the modified file first, through Moonraker's own file upload, into
@@ -286,7 +306,6 @@ implementations must turn into the same bytes.
 | Code | Description |
 |------|-------------|
 | 400 | Malformed edit list, original not found, or a path outside the gcodes root |
-| 403 | `server_edits` is switched off |
 | 409 | A line differs from its `expect_raw_line` |
 | 500 | Failed to write the copy, create the symlink or start the print |
 | 503 | Plugin is disabled |

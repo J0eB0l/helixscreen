@@ -133,6 +133,7 @@ translations:
   3D Maze: Labyrinthe 3D
   3D Pipes: 3D Pipes
   3D View: Vue 3D
+  3MF conversion: 'Conversion 3MF'
   4. Paper should move but with resistance: 4. Le papier doit bouger mais avec résistance
   4. Repeat until bed is level: 4. Répétez jusqu'à ce que le plateau soit niveau
   5 min: '5 min'
@@ -317,6 +318,7 @@ translations:
   : "Appliqué à {}. Klipper l'oublie au redémarrage : saisissez {} comme Pressure Advance dans le profil de filament de votre trancheur, ou enregistrez-le sur la bobine."
   Applies to: S'applique à
   Apply: Appliquer
+  Apply start options to prints from other apps: 'Appliquer les options de démarrage aux impressions d''autres applis'
   Aqua Surface: 'Surface aquatique'
   Archive: Archiver
   Archive Spool?: Archiver la bobine ?
@@ -2616,6 +2618,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'Un appui exécute cette macro. Les macros dangereuses demandent toujours confirmation.'
   'Only on A: {} Hz': "Seulement sur A : {} Hz"
   'Only on B: {} Hz': "Seulement sur B : {} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Uniquement tant que cette appli est connectée. Installez le plugin HelixPrint pour couvrir chaque impression.'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Uniquement tant que cette appli est connectée. Mettez à jour le plugin HelixPrint pour couvrir chaque impression.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "Seulement {} Mo de mémoire sont libres, et l'analyse de Klipper a besoin d'environ {} Mo. Le test bloquerait l'imprimante jusqu'à ce qu'elle soit éteinte puis rallumée."
   Ooze Reduction: 'Réduction du suintement'
@@ -3172,6 +3176,8 @@ translations:
   Requires a filament system with bypass: Nécessite un système de filament avec bypass
   Requires a filament pressure sensor or sync feedback: 'Nécessite un capteur de pression de filament ou un retour de synchronisation'
   Requires a clog detector or filament motion sensor: 'Nécessite un détecteur de bourrage ou un capteur de mouvement du filament'
+  Requires a newer HelixPrint plugin: 'Nécessite un plugin HelixPrint plus récent'
+  Requires the HelixPrint plugin: 'Nécessite le plugin HelixPrint'
   Resend write failed at chunk {}: Échec du renvoi de l'écriture au bloc {}
   Reset: Réinitialiser
   Reset Blade Counter: 'Réinitialiser le compteur de lame'
@@ -3476,6 +3482,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Envoyez ce rapport de crash
     pour aider à améliorer HelixScreen.
   Sending...: Envoi...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Envoie vos options d''impression permanentes, comme le déchargement en fin d''impression, quand une impression démarre depuis une autre appli ou la file d''impression.'
   Sensor: Capteur
   Sensor Error: 'Erreur du capteur'
   Sensor Response: Réponse du capteur
@@ -3691,6 +3698,7 @@ translations:
   Start failed: Échec du démarrage
   Start next: 'Lancer le suivant'
   'Start next: {}': 'Lancer le suivant : {}'
+  Start options for prints from other apps: 'Options de démarrage des impressions d''autres applis'
   Start print anyway?: Démarrer l'impression quand même ?
   Started: Démarré
   Starting Print...: Démarrage de l'impression...
@@ -4290,6 +4298,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Impossible de joindre l'imprimante. Vérifiez l'alimentation et la connexion réseau.
   Unavailable: Indisponible
   Unavailable on this printer: Non disponible sur cette imprimante
+  'Unavailable: {}': 'Indisponible : {}'
   Undo: Défaire
   Uninstall: Désinstaller
   Uninstall HelixPrint Plugin: Désinstaller le plugin HelixPrint
@@ -4394,6 +4403,7 @@ translations:
   Verifying...: Vérification...
   Version: Version
   Version and printer info: Version et infos imprimante
+  Version and what the plugin runs: 'Version et ce que le plugin exécute'
   Version {}: Version {}
   Vertical: Vertical
   Vibration: Vibration

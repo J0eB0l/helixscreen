@@ -14,6 +14,7 @@
 #include "ui_panel_console.h"
 #include "ui_panel_macros.h"
 #include "ui_panel_spoolman.h"
+#include "ui_plugin_overview_overlay.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 
@@ -74,6 +75,11 @@ void AdvancedPanel::init_subjects() {
         {"on_history_row_clicked", on_history_clicked},
         {"on_helix_plugin_install_clicked", on_helix_plugin_install_clicked},
         {"on_helix_plugin_uninstall_clicked", on_helix_plugin_uninstall_clicked},
+        {"on_helix_plugin_overview_clicked",
+         [](lv_event_t*) {
+             helix::ui::get_plugin_overview_overlay().show(
+                 get_global_advanced_panel().parent_screen_);
+         }},
         {"on_helix_macros_install_clicked", on_helix_macros_install_clicked},
         {"on_helix_macros_update_clicked", on_helix_macros_update_clicked},
         {"on_pid_tuning_clicked", on_pid_tuning_clicked},
