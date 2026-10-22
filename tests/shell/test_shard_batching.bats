@@ -28,6 +28,7 @@ while [ $# -gt 0 ]; do
 done
 echo "ran under token=${FAKE_TOKEN:-none}"
 [ "$i" = "${FAIL_SHARD:-x}" ] && { echo "test cases: 1 | 1 failed"; exit 1; }
+[ -n "${HELIX_TEST_PROGRESS_FILE:-}" ] && echo "running case of shard $i" > "$HELIX_TEST_PROGRESS_FILE"
 [ "$i" = "${HANG_SHARD:-x}" ] && sleep 5
 echo "All tests passed"
 [ -n "${FAKE_TOKEN:-}" ] && echo "end $FAKE_TOKEN" >> "$POOL_LOG"
@@ -97,6 +98,14 @@ token_of() { # <shard> <output>
     contains "One or more test shards failed" "$output"
     [ "$(grep -c '^take' "$POOL_LOG")" -eq 2 ]
     [ "$(grep -c '^give' "$POOL_LOG")" -eq 2 ]
+}
+
+@test "a timed-out shard is named by the case it was running" {
+    HANG_SHARD=2 run sweep 3 SHARD_TIMEOUT=1
+    [ "$status" -ne 0 ]
+    contains "Shard 2 failed (exit 124)" "$output"
+    contains "died inside: case of shard 2" "$output"
+    lacks "died inside: case of shard 1" "$output"
 }
 
 @test "a with-token that cannot start still runs its shards" {

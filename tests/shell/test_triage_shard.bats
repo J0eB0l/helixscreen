@@ -236,6 +236,30 @@ triage() {
     [ ! -s "$DIR/5.failed" ]
 }
 
+@test "a shard killed with no FAILED case is placed by its progress record" {
+    printf '=== shard 5/12\n' > "$DIR/5.log"
+
+    printf 'running victim\n' > "$DIR/5.progress"
+    FAKE_MODE=never triage
+    contains "no FAILED marker; died inside: victim" "$output"
+    lacks "teardown" "$output"
+
+    printf 'after victim\n' > "$DIR/5.progress"
+    FAKE_MODE=never triage
+    contains "died after victim returned" "$output"
+
+    printf 'run-ended\nstale tail\n' > "$DIR/5.progress"
+    FAKE_MODE=never triage
+    contains "every case had finished: died in exit-time teardown" "$output"
+}
+
+@test "a shard killed with no FAILED case and no progress record does not guess" {
+    printf '=== shard 5/12\n' > "$DIR/5.log"
+    FAKE_MODE=never triage
+    contains "no progress record" "$output"
+    lacks "teardown" "$output"
+}
+
 @test "a SIGTERM at a case's line is the shard timeout, not a failing assertion" {
     local rule
     rule=$(printf -- '-%.0s' $(seq 79))
