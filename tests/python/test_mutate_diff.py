@@ -678,6 +678,39 @@ def test_a_jobserver_named_but_not_handed_down_is_dropped(tmp_path):
     assert budget.pass_fds == ()
 
 
+def _bats_cmd(monkeypatch, tmp_path, tokens):
+    """The bats command line one Suites run builds when `tokens` slots are free."""
+    class Budget:
+        free = tokens
+        def try_token(self):
+            if self.free:
+                self.free -= 1
+                return object()
+            return None
+        def give(self, tok):
+            pass
+    monkeypatch.setattr(md, 'JOBS', Budget())
+    monkeypatch.setattr(md.shutil, 'which', lambda name: '/usr/bin/' + name)
+    seen = []
+    args = type('A', (), {'jobs': 4, 'shards': 1, 'shell_tests': 'tests/shell'})()
+    suites = md.Suites(tmp_path, args, open(os.devnull, 'w'))
+    monkeypatch.setattr(suites, '_run_group',
+                        lambda cmd, *a: (seen.append(cmd), (md.GREEN, ""))[1])
+    suites._dispatch('bats', 1.0)
+    return seen[0]
+
+
+def test_bats_runs_serially_when_no_slot_beside_its_own_is_free(monkeypatch, tmp_path):
+    cmd = _bats_cmd(monkeypatch, tmp_path, 0)
+    assert '--jobs' not in cmd and '--no-parallelize-within-files' not in cmd, \
+        'bats refuses --no-parallelize-within-files with --jobs 1'
+
+
+def test_bats_takes_the_free_slots_as_jobs(monkeypatch, tmp_path):
+    cmd = _bats_cmd(monkeypatch, tmp_path, 2)
+    assert cmd[cmd.index('--jobs') + 1] == '3'
+
+
 def test_slots_beside_the_runs_own_are_tokens_and_go_back():
     budget = md.JobBudget()
     env = {}
