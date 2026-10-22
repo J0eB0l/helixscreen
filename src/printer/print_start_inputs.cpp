@@ -7,10 +7,13 @@
 
 #include "ams_state.h"
 #include "app_globals.h"
+#include "file_analysis.h"
 #include "gcode_parser.h"
 #include "gcode_preview_fetcher.h"
 #include "http_executor.h"
 #include "i_moonraker_api.h"
+#include "json_utils.h"
+#include "printer_state.h"
 #include "text_io.h"
 #include "tools_used_cache.h"
 
@@ -154,9 +157,14 @@ void FileStartFactsLoader::load(const std::string& filename, ReadyFn on_ready, D
         return;
     }
 
+    const FileAnalysisSource analysis_source =
+        file_analysis_source(get_printer_state().plugin_status_state().plugin_feature(
+                                 kFileAnalysisFeature, kFileAnalysisMinVersion),
+                             filename);
+
     auto after_metadata = [this, generation, filename, on_ready = std::move(on_ready),
                            download = std::move(download), on_metadata = std::move(on_metadata),
-                           read](std::optional<FileMetadata> metadata) {
+                           read, analysis_source](std::optional<FileMetadata> metadata) {
         if (generation != generation_) {
             return;
         }
@@ -180,38 +188,84 @@ void FileStartFactsLoader::load(const std::string& filename, ReadyFn on_ready, D
             return;
         }
 
-        ScanRequest req;
-        req.file_key = filename;
-        req.version = version;
-        req.gcode_end_byte = metadata ? metadata->gcode_end_byte : 0;
-        req.need =
-            gcode::footer_read_need(cached.has_value(), !facts->palette.colors.empty(), false);
-        req.palette_size = facts->palette.colors.size();
-        req.download = download;
-        req.allow_full_scan = read == FileRead::Whole;
+        // What the plugin's record left unanswered, read from the file itself.
+        auto read_file = [this, facts, filename, version, metadata, download, read,
+                          on_ready](bool tools_known) {
+            ScanRequest req;
+            req.file_key = filename;
+            req.version = version;
+            req.gcode_end_byte = metadata ? metadata->gcode_end_byte : 0;
+            req.need = gcode::footer_read_need(tools_known, !facts->palette.colors.empty(),
+                                               !facts->tool_grams.empty());
+            req.palette_size = facts->palette.colors.size();
+            req.download = download;
+            req.allow_full_scan = read == FileRead::Whole;
 
-        auto answer = [facts, on_ready]() { on_ready(std::move(*facts)); };
+            auto answer = [facts, on_ready]() { on_ready(std::move(*facts)); };
 
-        ScanHooks hooks;
-        hooks.on_footer = [facts, answer](const gcode::GcodeFooterSummary& s, bool tools_answered) {
-            gcode::backfill_from_footer(s, facts->palette.colors, facts->tool_grams);
-            if (tools_answered) {
-                facts->tools_used = s.tools_used;
-            }
-            answer();
-        };
-        hooks.on_footer_unanswered = [answer](bool full_scan_follows) {
-            if (!full_scan_follows) {
+            ScanHooks hooks;
+            hooks.on_footer = [facts, answer](const gcode::GcodeFooterSummary& s,
+                                              bool tools_answered) {
+                gcode::backfill_from_footer(s, facts->palette.colors, facts->tool_grams);
+                if (tools_answered) {
+                    facts->tools_used = s.tools_used;
+                }
+                answer();
+            };
+            hooks.on_footer_unanswered = [answer](bool full_scan_follows) {
+                if (!full_scan_follows) {
+                    answer();
+                }
+            };
+            hooks.on_tools_scanned = [facts, answer](std::set<int> tools, bool /*read_file*/) {
+                facts->tools_used = std::move(tools);
+                answer();
+            };
+            if (scan(std::move(req), std::move(hooks)) != ScanStart::Started) {
                 answer();
             }
         };
-        hooks.on_tools_scanned = [facts, answer](std::set<int> tools, bool /*read_file*/) {
-            facts->tools_used = std::move(tools);
-            answer();
-        };
-        if (scan(std::move(req), std::move(hooks)) != ScanStart::Started) {
-            answer();
+
+        if (analysis_source == FileAnalysisSource::Fallback) {
+            read_file(cached.has_value());
+            return;
         }
+        // The plugin's record is the first source; each field it leaves
+        // unanswered falls back to the file read.
+        const bool cache_known = cached.has_value();
+        auto on_reply = [this, generation, facts, filename, version, read_file,
+                         cache_known](FileAnalysisReply reply) {
+            if (generation != generation_) {
+                return;
+            }
+            bool tools_known = cache_known;
+            if (reply.status == FileAnalysisReply::Status::Ready && reply.record) {
+                apply_file_analysis(*facts, *reply.record);
+                if (!reply.record->tools.empty()) {
+                    tools_used_cache().store(filename, version, facts->tools_used);
+                    tools_known = true;
+                }
+                spdlog::debug("[FileStartFacts] Analysis record for {}: {} tool(s)", filename,
+                              reply.record->tools.size());
+            }
+            read_file(tools_known);
+        };
+        api_->get_client().send_jsonrpc(
+            kFileAnalysisRpc, nlohmann::json{{"filename", filename}},
+            lifetime_.bg_cb("FileStartFactsLoader::analysis",
+                            [on_reply](const nlohmann::json& response) {
+                                const nlohmann::json* result =
+                                    json_util::find_member(response, "result");
+                                on_reply(parse_file_analysis_reply(
+                                    result != nullptr ? *result : nlohmann::json::object()));
+                            }),
+            lifetime_.bg_cb("FileStartFactsLoader::analysis_failed",
+                            [on_reply, filename](const MoonrakerError& error) {
+                                spdlog::debug("[FileStartFacts] No analysis for {}: {}", filename,
+                                              error.message);
+                                on_reply(FileAnalysisReply{});
+                            }),
+            0, /*silent=*/true);
     };
 
     api_->files().get_file_metadata(

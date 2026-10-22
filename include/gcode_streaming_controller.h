@@ -233,6 +233,14 @@ class GCodeStreamingController {
      */
     bool open_source(std::unique_ptr<GCodeDataSource> source);
 
+    /// Build the next open's index from the HelixPrint plugin's layer index
+    /// sidecar (GCodeLayerIndex::build_from_sidecar) instead of a pass over
+    /// the file. Set before open_file*() / open_source(); a sidecar that does
+    /// not index the opened file falls back to the pass. That open consumes it.
+    void set_layer_index_sidecar(std::string sidecar) {
+        layer_index_sidecar_ = std::move(sidecar);
+    }
+
     /// Test seam: when set, the async index worker calls it as its first
     /// statement, before build_index() runs. Lets a test park the worker in
     /// the launch window and prove a close() that lands there still cancels
@@ -556,6 +564,8 @@ class GCodeStreamingController {
     // Components (order matters for destruction)
     std::unique_ptr<GCodeDataSource> data_source_;
     GCodeLayerIndex index_;
+    /// Read only by build_index(), which an open starts after it is set.
+    std::string layer_index_sidecar_;
     GCodeLayerCache cache_;
 
     // Async indexing

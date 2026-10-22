@@ -389,6 +389,17 @@ void ui_gcode_viewer_register(void);
 #include <vector>
 
 /**
+ * @brief Hand the next load the HelixPrint plugin's layer index sidecar for its file
+ *
+ * A streaming load builds its layer index from it instead of reading the
+ * whole file first (GCodeStreamingController::set_layer_index_sidecar); a
+ * full load ignores it. The next ui_gcode_viewer_load_file() consumes it.
+ */
+namespace helix {
+void ui_gcode_viewer_set_layer_index_sidecar(lv_obj_t* obj, std::string sidecar);
+} // namespace helix
+
+/**
  * @brief Set per-tool AMS color overrides for multi-color prints
  * @param obj Viewer widget
  * @param colors Vector of RGB colors indexed by tool (0xRRGGBB)

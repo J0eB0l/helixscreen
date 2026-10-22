@@ -407,6 +407,10 @@ class GCodeViewerState {
     /// Disable streaming mode (detail panel uses full-load + budget instead)
     bool streaming_disabled_{false};
 
+    /// The plugin's layer index sidecar for the next load's file, or empty
+    /// (ui_gcode_viewer_set_layer_index_sidecar).
+    std::string layer_index_sidecar_;
+
     /// Helper to check if currently using 2D layer renderer
     bool is_using_2d_mode() const {
 #ifdef ENABLE_3D_RENDERER

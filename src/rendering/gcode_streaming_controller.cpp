@@ -840,6 +840,18 @@ bool GCodeStreamingController::build_index() {
     // disk return the staged path once ensure_indexable() has materialized it
     std::string file_path = data_source_->indexable_file_path();
 
+    if (!layer_index_sidecar_.empty() && !file_path.empty()) {
+        const std::string sidecar = std::move(layer_index_sidecar_);
+        layer_index_sidecar_.clear();
+        if (index_.build_from_sidecar(sidecar, data_source_->file_size(),
+                                      layer_index_file_hash(file_path), file_path)) {
+            index_progress_.store(1.0f);
+            return true;
+        }
+        spdlog::info("[StreamingController] The plugin's layer index does not match this file; "
+                     "indexing it");
+    }
+
     if (!file_path.empty()) {
         // Publish real indexing progress. Before this the atomic went 0.0 to
         // 1.0 with nothing in between, so get_index_progress() could only ever
