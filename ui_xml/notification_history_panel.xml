@@ -16,7 +16,16 @@
             width="100%" flex_grow="1" style_pad_all="#space_lg" style_pad_gap="#space_sm" flex_flow="column"
             scrollbar_mode="active">
       <bind_flag_if_eq subject="notification_has_entries" flag="hidden" ref_value="0"/>
-      <!-- Notification list items added dynamically via C++ -->
+      <!-- Sole child: rebuilt rows append to the end of their parent. -->
+      <repeat count="notification_row_count">
+        <notification_history_item severity_subject="notification_row_severity_${i}"
+                                   title_subject="notification_row_title_${i}"
+                                   message_subject="notification_row_message_${i}"
+                                   has_message_subject="notification_row_has_message_${i}"
+                                   timestamp_subject="notification_row_time_${i}"
+                                   has_action_subject="notification_row_has_action_${i}"
+                                   click_callback="on_notification_item_clicked" row_index="${i}"/>
+      </repeat>
     </lv_obj>
     <!-- Empty state (shown when no notifications) -->
     <lv_obj name="empty_state"

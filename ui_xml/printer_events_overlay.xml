@@ -16,9 +16,11 @@
               style_pad_gap="#space_sm">
         <bind_flag_if_eq subject="printer_events_count" flag="hidden" ref_value="0"/>
         <repeat count="printer_events_count">
-          <printer_event_row severity_subject="printer_event_severity_${i}"
-                             title_subject="printer_event_title_${i}" message_subject="printer_event_message_${i}"
-                             has_message_subject="printer_event_has_message_${i}" time_subject="printer_event_time_${i}"/>
+          <notification_history_item severity_subject="printer_event_severity_${i}"
+                                     title_subject="printer_event_title_${i}"
+                                     message_subject="printer_event_message_${i}"
+                                     has_message_subject="printer_event_has_message_${i}"
+                                     timestamp_subject="printer_event_time_${i}"/>
         </repeat>
       </lv_obj>
       <lv_obj name="empty_state"

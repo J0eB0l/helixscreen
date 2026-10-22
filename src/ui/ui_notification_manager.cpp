@@ -16,6 +16,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <cstdlib>
 #include <cstring>
 
 using namespace helix;
@@ -105,6 +106,15 @@ void NotificationManager::register_callbacks() {
     // printer events live in one place.
     lv_xml_register_event_cb(nullptr, "on_open_printer_events", [](lv_event_t*) {
         helix::ui::get_printer_events_overlay().show(lv_screen_active());
+    });
+    // A tap on a history row. An XML event_cb's user_data is the row_index
+    // attribute as a heap string.
+    lv_xml_register_event_cb(nullptr, "on_notification_item_clicked", [](lv_event_t* e) {
+        const char* index = static_cast<const char*>(lv_event_get_user_data(e));
+        if (index != nullptr) {
+            get_global_notification_history_panel().handle_item_clicked(
+                static_cast<size_t>(std::atoi(index)));
+        }
     });
     callbacks_registered_ = true;
     spdlog::debug("[NotificationManager] Event callbacks registered");

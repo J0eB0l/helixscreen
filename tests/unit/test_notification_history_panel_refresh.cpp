@@ -212,3 +212,37 @@ TEST_CASE_METHOD(NotificationHistoryPanelFixture,
     helix::nav::unregister_overlay(root_);
     lv_obj_delete(base);
 }
+
+TEST_CASE_METHOD(NotificationHistoryPanelFixture,
+                 "NotificationHistoryPanel: a row with an action is clickable and runs it",
+                 "[ui][notifications]") {
+    REQUIRE(root_ != nullptr);
+    std::string ran;
+    helix::ui::set_notification_action_handler("history_row_test",
+                                               [&ran](const std::string& arg) { ran = arg; });
+
+    NotificationHistoryEntry plain = make_entry("Plain", "no action");
+    NotificationHistoryEntry acting = make_entry("Acting", "has an action");
+    acting.severity = ToastSeverity::ERROR;
+    strncpy(acting.action, "history_row_test:second", sizeof(acting.action) - 1);
+    NotificationHistory::instance().add(plain);
+    NotificationHistory::instance().add(acting);
+    panel_->refresh();
+
+    lv_obj_t* overlay = content();
+    REQUIRE(lv_obj_get_child_count(overlay) == 2);
+    lv_obj_t* first = lv_obj_get_child(overlay, 0); // newest first: "Acting"
+    lv_obj_t* second = lv_obj_get_child(overlay, 1);
+    CHECK(lv_obj_has_flag(first, LV_OBJ_FLAG_CLICKABLE));
+    CHECK_FALSE(lv_obj_has_flag(second, LV_OBJ_FLAG_CLICKABLE));
+    CHECK_FALSE(lv_obj_has_flag(lv_obj_find_by_name(first, "icon_error"), LV_OBJ_FLAG_HIDDEN));
+    CHECK(lv_obj_has_flag(lv_obj_find_by_name(first, "icon_info"), LV_OBJ_FLAG_HIDDEN));
+
+    panel_->handle_item_clicked(1);
+    CHECK(ran.empty());
+    panel_->handle_item_clicked(0);
+    CHECK(ran == "second");
+    panel_->handle_item_clicked(7);
+
+    helix::ui::set_notification_action_handler("history_row_test", {});
+}
