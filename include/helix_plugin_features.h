@@ -136,6 +136,10 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
      PluginFeatureHome::Printing},
     {"plr", TR_NOOP("Power-loss recovery"), "power_plug", PluginFeatureHome::Printing},
     {"convert_3mf", TR_NOOP("3MF conversion"), "cube_outline", PluginFeatureHome::None},
+    {"file_analysis", TR_NOOP("File analysis"), "magnify_scan", PluginFeatureHome::None},
+    {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},
+    {"server_edits", TR_NOOP("Server-side edits"), "pencil", PluginFeatureHome::None},
+    {"config_edit", TR_NOOP("Config editing"), "wrench", PluginFeatureHome::None},
 };
 
 /// The icon of a feature this app does not know.

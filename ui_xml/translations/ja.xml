@@ -732,6 +732,7 @@
   <translation tag="Computing calibration..." ja="キャリブレーション計算中..."/>
   <translation tag="Config Dir" ja="設定ディレクトリ"/>
   <translation tag="Config Edit Failed" ja="設定の編集に失敗しました"/>
+  <translation tag="Config editing" ja="設定の編集"/>
   <translation tag="Config-defined (read-only)" ja="設定で定義済み（読み取り専用）"/>
   <translation tag="Configuration added successfully." ja="設定が正常に追加されました。"/>
   <translation tag="Configuration already present." ja="設定は既に存在します。"/>
@@ -1416,6 +1417,7 @@
   <translation tag="File" ja="ファイル"/>
   <translation tag="File Size" ja="ファイルサイズ"/>
   <translation tag="File Will Stop the Printer" ja="ファイルがプリンターを停止します"/>
+  <translation tag="File analysis" ja="ファイル解析"/>
   <translation tag="File not found on printer." ja="プリンター上にファイルが見つかりません。"/>
   <translation tag="File not found: {}" ja="ファイルが見つかりません: {}"/>
   <translation tag="Filename" ja="ファイル名"/>
@@ -2671,6 +2673,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" ja="プリンターが想定されるサービスを公開していません — デバイスが違う可能性があります"/>
   <translation tag="Printer error" ja="プリンターエラー"/>
   <translation tag="Printer event" ja="プリンターイベント"/>
+  <translation tag="Printer events" ja="プリンターのイベント"/>
   <translation tag="Printer hardware detected" ja="プリンターのハードウェアを検出"/>
   <translation tag="Printer image set to auto-detect" ja="プリンター画像を自動検出に設定しました"/>
   <translation tag="Printer is busy - {} stays in the queue" ja="プリンターは使用中です – {} はキューに残ります"/>
@@ -3178,6 +3181,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." ja="送り出し中のフィラメント径を測るセンサー。センサー設定で構成できます。"/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." ja="個別のオン/オフマクロ。HelixScreenが状態を追跡します。"/>
   <translation tag="Server Setup" ja="サーバー設定"/>
+  <translation tag="Server-side edits" ja="サーバー側の編集"/>
   <translation tag="Service hours for the filter, nozzle, and rails" ja="フィルター、ノズル、レールの稼働時間"/>
   <translation tag="Servo" ja="サーボ"/>
   <translation tag="Servo Down" ja="サーボを下げる"/>

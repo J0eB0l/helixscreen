@@ -732,6 +732,7 @@
   <translation tag="Computing calibration..." de="Kalibrierung wird berechnet..."/>
   <translation tag="Config Dir" de="Konfig-Verzeichnis"/>
   <translation tag="Config Edit Failed" de="Konfigurationsänderung fehlgeschlagen"/>
+  <translation tag="Config editing" de="Konfiguration bearbeiten"/>
   <translation tag="Config-defined (read-only)" de="Konfigurationsdefiniert (schreibgeschützt)"/>
   <translation tag="Configuration added successfully." de="Konfiguration erfolgreich hinzugefügt."/>
   <translation tag="Configuration already present." de="Konfiguration bereits vorhanden."/>
@@ -1416,6 +1417,7 @@
   <translation tag="File" de="Datei"/>
   <translation tag="File Size" de="Dateigröße"/>
   <translation tag="File Will Stop the Printer" de="Datei stoppt den Drucker"/>
+  <translation tag="File analysis" de="Dateianalyse"/>
   <translation tag="File not found on printer." de="Datei auf dem Drucker nicht gefunden."/>
   <translation tag="File not found: {}" de="Datei nicht gefunden: {}"/>
   <translation tag="Filename" de="Dateiname"/>
@@ -2671,6 +2673,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" de="Drucker bietet nicht den erwarteten Dienst — falsches Gerät?"/>
   <translation tag="Printer error" de="Druckerfehler"/>
   <translation tag="Printer event" de="Druckerereignis"/>
+  <translation tag="Printer events" de="Druckerereignisse"/>
   <translation tag="Printer hardware detected" de="Druckerhardware erkannt"/>
   <translation tag="Printer image set to auto-detect" de="Druckerbild auf Auto-Erkennung gesetzt"/>
   <translation tag="Printer is busy - {} stays in the queue" de="Drucker ist beschäftigt – {} bleibt in der Warteschlange"/>
@@ -3178,6 +3181,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." de="Sensoren, die den Filamentdurchmesser beim Einzug messen. Konfiguriere sie in den Sensoreinstellungen."/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." de="Separate Ein-/Aus-Makros. HelixScreen verfolgt den Status."/>
   <translation tag="Server Setup" de="Server-Einrichtung"/>
+  <translation tag="Server-side edits" de="Bearbeitung auf dem Server"/>
   <translation tag="Service hours for the filter, nozzle, and rails" de="Wartungsstunden für Filter, Düse und Schienen"/>
   <translation tag="Servo" de="Servo"/>
   <translation tag="Servo Down" de="Servo runter"/>

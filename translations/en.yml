@@ -781,6 +781,7 @@ translations:
   Computing calibration...: Computing calibration...
   Config Dir: Config Dir
   Config Edit Failed: Config Edit Failed
+  Config editing: Config editing
   Config-defined (read-only): Config-defined (read-only)
   Configuration added successfully.: Configuration added successfully.
   Configuration already present.: Configuration already present.
@@ -1513,6 +1514,7 @@ translations:
   File: File
   File Size: File Size
   File Will Stop the Printer: File Will Stop the Printer
+  File analysis: File analysis
   File not found on printer.: File not found on printer.
   'File not found: {}': 'File not found: {}'
   Filename: Filename
@@ -2853,6 +2855,7 @@ translations:
     the expected service — wrong device?
   Printer error: Printer error
   Printer event: Printer event
+  Printer events: Printer events
   Printer hardware detected: Printer hardware detected
   Printer image set to auto-detect: Printer image set to auto-detect
   Printer is busy - {} stays in the queue: Printer is busy - {} stays in the queue
@@ -3400,6 +3403,7 @@ translations:
   Separate on/off macros. HelixScreen tracks the state.: Separate on/off macros. HelixScreen
     tracks the state.
   Server Setup: Server Setup
+  Server-side edits: Server-side edits
   Service hours for the filter, nozzle, and rails: Service hours for the filter, nozzle, and rails
   Servo: Servo
   Servo Down: Servo Down

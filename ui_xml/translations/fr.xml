@@ -732,6 +732,7 @@
   <translation tag="Computing calibration..." fr="Calcul de la calibration..."/>
   <translation tag="Config Dir" fr="Dossier de configuration"/>
   <translation tag="Config Edit Failed" fr="Échec de la modification de la configuration"/>
+  <translation tag="Config editing" fr="Modification de la configuration"/>
   <translation tag="Config-defined (read-only)" fr="Défini par la config (lecture seule)"/>
   <translation tag="Configuration added successfully." fr="Configuration ajoutée avec succès."/>
   <translation tag="Configuration already present." fr="Configuration déjà présente."/>
@@ -1416,6 +1417,7 @@
   <translation tag="File" fr="Fichier"/>
   <translation tag="File Size" fr="Taille du fichier"/>
   <translation tag="File Will Stop the Printer" fr="Le fichier arrêtera l&apos;imprimante"/>
+  <translation tag="File analysis" fr="Analyse des fichiers"/>
   <translation tag="File not found on printer." fr="Fichier introuvable sur l&apos;imprimante."/>
   <translation tag="File not found: {}" fr="Fichier introuvable : {}"/>
   <translation tag="Filename" fr="Nom du fichier"/>
@@ -2671,6 +2673,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" fr="L&apos;imprimante n&apos;expose pas le service attendu — mauvais appareil ?"/>
   <translation tag="Printer error" fr="Erreur d&apos;imprimante"/>
   <translation tag="Printer event" fr="Événement d&apos;imprimante"/>
+  <translation tag="Printer events" fr="Événements de l&apos;imprimante"/>
   <translation tag="Printer hardware detected" fr="Matériel d&apos;imprimante détecté"/>
   <translation tag="Printer image set to auto-detect" fr="Image de l&apos;imprimante en auto-détection"/>
   <translation tag="Printer is busy - {} stays in the queue" fr="L&apos;imprimante est occupée – {} reste dans la file"/>
@@ -3178,6 +3181,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." fr="Capteurs qui mesurent le diamètre du filament pendant l&apos;alimentation. Configurez-les dans les paramètres des capteurs."/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." fr="Macros marche/arrêt séparées. HelixScreen suit l&apos;état."/>
   <translation tag="Server Setup" fr="Configuration du serveur"/>
+  <translation tag="Server-side edits" fr="Modifications sur le serveur"/>
   <translation tag="Service hours for the filter, nozzle, and rails" fr="Heures de service du filtre, de la buse et des rails"/>
   <translation tag="Servo" fr="Servo"/>
   <translation tag="Servo Down" fr="Servo en bas"/>

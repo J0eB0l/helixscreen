@@ -746,6 +746,7 @@ translations:
   Computing calibration...: 正在计算校准...
   Config Dir: 配置目录
   Config Edit Failed: '配置编辑失败'
+  Config editing: '配置编辑'
   Config-defined (read-only): 配置定义（只读）
   Configuration added successfully.: 配置添加成功。
   Configuration already present.: 配置已存在。
@@ -1467,6 +1468,7 @@ translations:
   File: 文件
   File Size: 文件大小
   File Will Stop the Printer: '文件会使打印机停止'
+  File analysis: '文件分析'
   File not found on printer.: 打印机上未找到文件。
   'File not found: {}': '未找到文件: {}'
   Filename: 文件名
@@ -2764,6 +2766,7 @@ translations:
   Printer doesn't expose the expected service — wrong device?: 打印机未提供预期的服务 — 设备是否有误？
   Printer error: 打印机错误
   Printer event: 打印机事件
+  Printer events: '打印机事件'
   Printer hardware detected: 检测到打印机硬件
   Printer image set to auto-detect: 打印机图片已设为自动检测
   Printer is busy - {} stays in the queue: '打印机忙碌中 – {} 保留在队列中'
@@ -3285,6 +3288,7 @@ translations:
   Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings.: '测量送料时耗材直径的传感器。在传感器设置中配置。'
   Separate on/off macros. HelixScreen tracks the state.: 独立的开/关宏。HelixScreen 跟踪状态。
   Server Setup: 服务器设置
+  Server-side edits: '服务器端编辑'
   Service hours for the filter, nozzle, and rails: '过滤器、喷嘴和导轨的使用小时数'
   Servo: 舵机
   Servo Down: '舵机落下'

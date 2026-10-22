@@ -732,6 +732,7 @@
   <translation tag="Computing calibration..." zh="正在计算校准..."/>
   <translation tag="Config Dir" zh="配置目录"/>
   <translation tag="Config Edit Failed" zh="配置编辑失败"/>
+  <translation tag="Config editing" zh="配置编辑"/>
   <translation tag="Config-defined (read-only)" zh="配置定义（只读）"/>
   <translation tag="Configuration added successfully." zh="配置添加成功。"/>
   <translation tag="Configuration already present." zh="配置已存在。"/>
@@ -1416,6 +1417,7 @@
   <translation tag="File" zh="文件"/>
   <translation tag="File Size" zh="文件大小"/>
   <translation tag="File Will Stop the Printer" zh="文件会使打印机停止"/>
+  <translation tag="File analysis" zh="文件分析"/>
   <translation tag="File not found on printer." zh="打印机上未找到文件。"/>
   <translation tag="File not found: {}" zh="未找到文件: {}"/>
   <translation tag="Filename" zh="文件名"/>
@@ -2671,6 +2673,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" zh="打印机未提供预期的服务 — 设备是否有误？"/>
   <translation tag="Printer error" zh="打印机错误"/>
   <translation tag="Printer event" zh="打印机事件"/>
+  <translation tag="Printer events" zh="打印机事件"/>
   <translation tag="Printer hardware detected" zh="检测到打印机硬件"/>
   <translation tag="Printer image set to auto-detect" zh="打印机图片已设为自动检测"/>
   <translation tag="Printer is busy - {} stays in the queue" zh="打印机忙碌中 – {} 保留在队列中"/>
@@ -3178,6 +3181,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." zh="测量送料时耗材直径的传感器。在传感器设置中配置。"/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." zh="独立的开/关宏。HelixScreen 跟踪状态。"/>
   <translation tag="Server Setup" zh="服务器设置"/>
+  <translation tag="Server-side edits" zh="服务器端编辑"/>
   <translation tag="Service hours for the filter, nozzle, and rails" zh="过滤器、喷嘴和导轨的使用小时数"/>
   <translation tag="Servo" zh="舵机"/>
   <translation tag="Servo Down" zh="舵机落下"/>

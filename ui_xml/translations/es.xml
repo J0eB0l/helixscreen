@@ -732,6 +732,7 @@
   <translation tag="Computing calibration..." es="Calculando calibración..."/>
   <translation tag="Config Dir" es="Directorio de Configuración"/>
   <translation tag="Config Edit Failed" es="Error al editar la configuración"/>
+  <translation tag="Config editing" es="Edición de la configuración"/>
   <translation tag="Config-defined (read-only)" es="Definido en configuración (solo lectura)"/>
   <translation tag="Configuration added successfully." es="Configuración añadida correctamente."/>
   <translation tag="Configuration already present." es="Configuración ya presente."/>
@@ -1416,6 +1417,7 @@
   <translation tag="File" es="Archivo"/>
   <translation tag="File Size" es="Tamaño del archivo"/>
   <translation tag="File Will Stop the Printer" es="El archivo detendrá la impresora"/>
+  <translation tag="File analysis" es="Análisis de archivos"/>
   <translation tag="File not found on printer." es="Archivo no encontrado en la impresora."/>
   <translation tag="File not found: {}" es="Archivo no encontrado: {}"/>
   <translation tag="Filename" es="Nombre de Archivo"/>
@@ -2671,6 +2673,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" es="La impresora no expone el servicio esperado — ¿dispositivo equivocado?"/>
   <translation tag="Printer error" es="Error de la impresora"/>
   <translation tag="Printer event" es="Evento de la impresora"/>
+  <translation tag="Printer events" es="Eventos de la impresora"/>
   <translation tag="Printer hardware detected" es="Hardware de impresora detectado"/>
   <translation tag="Printer image set to auto-detect" es="Imagen de impresora configurada en auto-detectar"/>
   <translation tag="Printer is busy - {} stays in the queue" es="La impresora está ocupada: {} permanece en la cola"/>
@@ -3178,6 +3181,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." es="Sensores que miden el diámetro del filamento mientras avanza. Configúralos en los ajustes de sensores."/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." es="Macros separados de encendido/apagado. HelixScreen rastrea el estado."/>
   <translation tag="Server Setup" es="Configuración del Servidor"/>
+  <translation tag="Server-side edits" es="Ediciones en el servidor"/>
   <translation tag="Service hours for the filter, nozzle, and rails" es="Horas de servicio del filtro, la boquilla y los rieles"/>
   <translation tag="Servo" es="Servo"/>
   <translation tag="Servo Down" es="Servo abajo"/>

@@ -732,6 +732,7 @@
   <translation tag="Computing calibration..." en="Computing calibration..."/>
   <translation tag="Config Dir" en="Config Dir"/>
   <translation tag="Config Edit Failed" en="Config Edit Failed"/>
+  <translation tag="Config editing" en="Config editing"/>
   <translation tag="Config-defined (read-only)" en="Config-defined (read-only)"/>
   <translation tag="Configuration added successfully." en="Configuration added successfully."/>
   <translation tag="Configuration already present." en="Configuration already present."/>
@@ -1416,6 +1417,7 @@
   <translation tag="File" en="File"/>
   <translation tag="File Size" en="File Size"/>
   <translation tag="File Will Stop the Printer" en="File Will Stop the Printer"/>
+  <translation tag="File analysis" en="File analysis"/>
   <translation tag="File not found on printer." en="File not found on printer."/>
   <translation tag="File not found: {}" en="File not found: {}"/>
   <translation tag="Filename" en="Filename"/>
@@ -2671,6 +2673,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" en="Printer doesn&apos;t expose the expected service — wrong device?"/>
   <translation tag="Printer error" en="Printer error"/>
   <translation tag="Printer event" en="Printer event"/>
+  <translation tag="Printer events" en="Printer events"/>
   <translation tag="Printer hardware detected" en="Printer hardware detected"/>
   <translation tag="Printer image set to auto-detect" en="Printer image set to auto-detect"/>
   <translation tag="Printer is busy - {} stays in the queue" en="Printer is busy - {} stays in the queue"/>
@@ -3178,6 +3181,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." en="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings."/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." en="Separate on/off macros. HelixScreen tracks the state."/>
   <translation tag="Server Setup" en="Server Setup"/>
+  <translation tag="Server-side edits" en="Server-side edits"/>
   <translation tag="Service hours for the filter, nozzle, and rails" en="Service hours for the filter, nozzle, and rails"/>
   <translation tag="Servo" en="Servo"/>
   <translation tag="Servo Down" en="Servo Down"/>

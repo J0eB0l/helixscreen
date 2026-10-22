@@ -851,6 +851,7 @@ translations:
   Computing calibration...: Вычисление калибровки...
   Config Dir: Директория конфигурации
   Config Edit Failed: 'Не удалось изменить конфигурацию'
+  Config editing: 'Редактирование конфигурации'
   Config-defined (read-only): Определено в конфигурации (только чтение)
   Configuration added successfully.: Конфигурация успешно добавлена.
   Configuration already present.: Конфигурация уже присутствует.
@@ -1597,6 +1598,7 @@ translations:
   File: Файл
   File Size: Размер файла
   File Will Stop the Printer: 'Файл остановит принтер'
+  File analysis: 'Анализ файлов'
   File not found on printer.: Файл не найден на принтере.
   'File not found: {}': 'Файл не найден: {}'
   Filename: Имя файла
@@ -2964,6 +2966,7 @@ translations:
     ожидаемый сервис — не то устройство?
   Printer error: Ошибка принтера
   Printer event: Событие принтера
+  Printer events: 'События принтера'
   Printer hardware detected: Обнаружено оборудование принтера
   Printer image set to auto-detect: Изображение принтера — автоопределение
   Printer is busy - {} stays in the queue: 'Принтер занят – {} остаётся в очереди'
@@ -3520,6 +3523,7 @@ translations:
   Separate on/off macros. HelixScreen tracks the state.: Отдельные макросы вкл/выкл.
     HelixScreen отслеживает состояние.
   Server Setup: Настройка сервера
+  Server-side edits: 'Правка на сервере'
   Service hours for the filter, nozzle, and rails: 'Моточасы фильтра, сопла и направляющих'
   Servo: Сервопривод
   Servo Down: 'Сервопривод вниз'

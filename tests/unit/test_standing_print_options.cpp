@@ -369,6 +369,22 @@ TEST_CASE("the plugin overview lists every reported feature with its status", "[
     CHECK(plugin_feature_lines({}).empty());
 }
 
+TEST_CASE("the overview names every batch feature and gives the switchless ones no home",
+          "[plugin_feature]") {
+    PluginFeatureMap features;
+    for (const char* name : {"file_analysis", "event_journal", "server_edits", "config_edit"}) {
+        features[name] = entry(1, true, true);
+    }
+    const auto lines = plugin_feature_lines(features);
+    REQUIRE(lines.size() == 4);
+    for (const PluginFeatureLine& line : lines) {
+        INFO(line.name);
+        CHECK(line.label != line.name);
+        CHECK(line.icon != kUnknownPluginFeatureIcon);
+        CHECK(line.home == PluginFeatureHome::None);
+    }
+}
+
 #if HELIX_HAS_SNAPMAKER
 
 namespace {

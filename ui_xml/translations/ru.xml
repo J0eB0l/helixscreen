@@ -774,6 +774,7 @@
   <translation tag="Computing calibration..." ru="Вычисление калибровки..."/>
   <translation tag="Config Dir" ru="Директория конфигурации"/>
   <translation tag="Config Edit Failed" ru="Не удалось изменить конфигурацию"/>
+  <translation tag="Config editing" ru="Редактирование конфигурации"/>
   <translation tag="Config-defined (read-only)" ru="Определено в конфигурации (только чтение)"/>
   <translation tag="Configuration added successfully." ru="Конфигурация успешно добавлена."/>
   <translation tag="Configuration already present." ru="Конфигурация уже присутствует."/>
@@ -1458,6 +1459,7 @@
   <translation tag="File" ru="Файл"/>
   <translation tag="File Size" ru="Размер файла"/>
   <translation tag="File Will Stop the Printer" ru="Файл остановит принтер"/>
+  <translation tag="File analysis" ru="Анализ файлов"/>
   <translation tag="File not found on printer." ru="Файл не найден на принтере."/>
   <translation tag="File not found: {}" ru="Файл не найден: {}"/>
   <translation tag="Filename" ru="Имя файла"/>
@@ -2722,6 +2724,7 @@
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" ru="Принтер не предоставляет ожидаемый сервис — не то устройство?"/>
   <translation tag="Printer error" ru="Ошибка принтера"/>
   <translation tag="Printer event" ru="Событие принтера"/>
+  <translation tag="Printer events" ru="События принтера"/>
   <translation tag="Printer hardware detected" ru="Обнаружено оборудование принтера"/>
   <translation tag="Printer image set to auto-detect" ru="Изображение принтера — автоопределение"/>
   <translation tag="Printer is busy - {} stays in the queue" ru="Принтер занят – {} остаётся в очереди"/>
@@ -3232,6 +3235,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." ru="Датчики, измеряющие диаметр филамента при подаче. Настраиваются в настройках датчиков."/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." ru="Отдельные макросы вкл/выкл. HelixScreen отслеживает состояние."/>
   <translation tag="Server Setup" ru="Настройка сервера"/>
+  <translation tag="Server-side edits" ru="Правка на сервере"/>
   <translation tag="Service hours for the filter, nozzle, and rails" ru="Моточасы фильтра, сопла и направляющих"/>
   <translation tag="Servo" ru="Сервопривод"/>
   <translation tag="Servo Down" ru="Сервопривод вниз"/>

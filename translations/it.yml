@@ -801,6 +801,7 @@ translations:
   Computing calibration...: Calcolo calibrazione...
   Config Dir: Dir configurazione
   Config Edit Failed: 'Modifica della configurazione non riuscita'
+  Config editing: 'Modifica della configurazione'
   Config-defined (read-only): Definito nella configurazione (sola lettura)
   Configuration added successfully.: Configurazione aggiunta con successo.
   Configuration already present.: Configurazione già presente.
@@ -1556,6 +1557,7 @@ translations:
   File: File
   File Size: Dimensione file
   File Will Stop the Printer: 'Il file fermerà la stampante'
+  File analysis: 'Analisi dei file'
   File not found on printer.: File non trovato sulla stampante.
   'File not found: {}': 'File non trovato: {}'
   Filename: Nome file
@@ -2919,6 +2921,7 @@ translations:
     il servizio previsto — dispositivo errato?
   Printer error: Errore della stampante
   Printer event: Evento della stampante
+  Printer events: 'Eventi della stampante'
   Printer hardware detected: Hardware stampante rilevato
   Printer image set to auto-detect: Immagine stampante impostata su rilevamento auto
   Printer is busy - {} stays in the queue: 'La stampante è occupata – {} resta in coda'
@@ -3475,6 +3478,7 @@ translations:
   Separate on/off macros. HelixScreen tracks the state.: Macro on/off separate. HelixScreen
     traccia lo stato.
   Server Setup: Configurazione server
+  Server-side edits: 'Modifiche sul server'
   Service hours for the filter, nozzle, and rails: 'Ore di servizio di filtro, ugello e guide'
   Servo: Servo
   Servo Down: 'Servo giù'

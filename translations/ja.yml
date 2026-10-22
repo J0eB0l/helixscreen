@@ -748,6 +748,7 @@ translations:
   Computing calibration...: キャリブレーション計算中...
   Config Dir: 設定ディレクトリ
   Config Edit Failed: '設定の編集に失敗しました'
+  Config editing: '設定の編集'
   Config-defined (read-only): 設定で定義済み（読み取り専用）
   Configuration added successfully.: 設定が正常に追加されました。
   Configuration already present.: 設定は既に存在します。
@@ -1471,6 +1472,7 @@ translations:
   File: ファイル
   File Size: ファイルサイズ
   File Will Stop the Printer: 'ファイルがプリンターを停止します'
+  File analysis: 'ファイル解析'
   File not found on printer.: プリンター上にファイルが見つかりません。
   'File not found: {}': 'ファイルが見つかりません: {}'
   Filename: ファイル名
@@ -2773,6 +2775,7 @@ translations:
     — デバイスが違う可能性があります
   Printer error: プリンターエラー
   Printer event: プリンターイベント
+  Printer events: 'プリンターのイベント'
   Printer hardware detected: プリンターのハードウェアを検出
   Printer image set to auto-detect: プリンター画像を自動検出に設定しました
   Printer is busy - {} stays in the queue: 'プリンターは使用中です – {} はキューに残ります'
@@ -3294,6 +3297,7 @@ translations:
   Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings.: '送り出し中のフィラメント径を測るセンサー。センサー設定で構成できます。'
   Separate on/off macros. HelixScreen tracks the state.: 個別のオン/オフマクロ。HelixScreenが状態を追跡します。
   Server Setup: サーバー設定
+  Server-side edits: 'サーバー側の編集'
   Service hours for the filter, nozzle, and rails: 'フィルター、ノズル、レールの稼働時間'
   Servo: サーボ
   Servo Down: 'サーボを下げる'
