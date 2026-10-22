@@ -3972,6 +3972,7 @@ TEST_CASE_METHOD(HelixTestFixture,
     manager.set_dependencies(&api, &state);
     state.print_state().begin_preparing(PrintJobRef{kRemapFixture, "gcodes", ""});
 
+    manager.set_cached_file_size(123456);
     manager.modify_and_print_with_remap(kRemapFixture, {{1, 2}}, nullptr);
     drain_until_quiet();
 
@@ -3987,11 +3988,87 @@ TEST_CASE_METHOD(HelixTestFixture,
         CHECK(gcode::resolve_gcode_filename(edited[0].temp_file_path) == kRemapFixture);
         CHECK(edited[0].edits == *gcode::to_server_edits(gcode::EditList{{}, {{1, 2}}}));
         CHECK(edited[0].modifications == std::vector<std::string>{"remap_T1_to_T2"});
+        CHECK(edited[0].file_size == 123456);
     } else {
         // Switched off, the screen rewrites the file as it always has.
         CHECK(edited.empty());
         CHECK(api.transfers_mock().path_uploads().size() == 1);
         CHECK(api.job_mock().modified_prints().size() == 1);
+    }
+}
+
+TEST_CASE_METHOD(HelixTestFixture,
+                 "PrintPreparationManager: a failed print_edited falls back only when the "
+                 "plugin cannot do the edit",
+                 "[print_preparation][remap][plugin_server_edits]") {
+    lv_init_safe();
+    PrinterStateTestAccess::reset(get_printer_state());
+    get_printer_state().init_subjects(false);
+
+    MockPrinter mock_printer;
+    auto& state = mock_printer.state;
+    auto& api = mock_printer.api;
+    state.set_helix_plugin_installed(true);
+    PluginFeatureEntry entry;
+    entry.version = gcode::kServerEditsMinVersion;
+    entry.available = true;
+    entry.enabled = true;
+    state.plugin_status_state().set_features({{gcode::kServerEditsFeature, entry}});
+    drain_until_quiet();
+
+    auto rpc = [](int code, const char* message) {
+        return MoonrakerError::from_json_rpc({{"code", code}, {"message", message}},
+                                             "server.helix.print_edited");
+    };
+    MoonrakerError lost;
+    lost.type = MoonrakerErrorType::CONNECTION_LOST;
+
+    struct Case {
+        const char* what;
+        MoonrakerError error;
+        bool falls_back;
+    };
+    const Case cases[] = {
+        {"timeout", MoonrakerError::timeout("server.helix.print_edited", 1000), false},
+        {"connection lost", lost, false},
+        {"file changed", rpc(409, "Refusing to edit: line 3 is not the line the scan found"),
+         false},
+        {"method not found", rpc(-32601, "Method not found"), true},
+        {"edit kind the plugin lacks", rpc(400, "Invalid edit list: edit 0: unknown action"), true},
+    };
+    for (const auto& c : cases) {
+        CAPTURE(c.what);
+        api.job_mock().mock_edited_print_error(c.error);
+        const size_t edited_before = api.job_mock().edited_prints().size();
+        const size_t downloads_before = api.transfers_mock().download_destinations().size();
+        const size_t modified_before = api.job_mock().modified_prints().size();
+        const size_t deletes_before = api.files_mock().deleted_files().size();
+
+        PrintPreparationManager manager;
+        manager.set_dependencies(&api, &state);
+        state.print_state().begin_preparing(PrintJobRef{kRemapFixture, "gcodes", ""});
+        std::optional<bool> completed;
+        manager.modify_and_print_with_remap(
+            kRemapFixture, {{1, 2}}, nullptr,
+            [&completed](bool ok, const std::string&) { completed = ok; });
+        drain_until_quiet();
+
+        CHECK(api.job_mock().edited_prints().size() == edited_before + 1);
+        // The plugin removes its own copy; nothing here deletes a file it may be printing.
+        CHECK(api.files_mock().deleted_files().size() == deletes_before);
+        if (c.falls_back) {
+            CHECK(api.transfers_mock().download_destinations().size() == downloads_before + 1);
+            CHECK(api.job_mock().modified_prints().size() == modified_before + 1);
+        } else {
+            // No second start: after a timeout the plugin may still start this one.
+            CHECK(api.transfers_mock().download_destinations().size() == downloads_before);
+            CHECK(api.job_mock().modified_prints().size() == modified_before);
+            CHECK(api.job_mock().started_prints().empty());
+            CHECK_FALSE(state.print_state().has_preparing_job());
+            REQUIRE(completed.has_value());
+            CHECK_FALSE(*completed);
+        }
+        state.print_state().retire_preparing(helix::PreparingExit::Failed);
     }
 }
 

@@ -2025,6 +2025,7 @@ void PrintPreparationManager::modify_and_print(
         edits.modifications = modifier.modifications();
     }
     route.server_edits = gcode::to_server_edits(edits);
+    route.file_size = cached_file_size_.value_or(0);
     // Copied for the HTTP thread: the edits were made against this file's own scan.
     route.rewrite = [mods =
                          std::move(edits.modifications)](const std::string& local_download_path) {
@@ -2097,6 +2098,7 @@ void PrintPreparationManager::modify_and_print_with_remap(
     route.download_error = TR_NOOP("Failed to download G-code for Filament Mapping: {}");
     route.upload_error = TR_NOOP("Failed to upload the rewritten G-code: {}");
     route.server_edits = gcode::to_server_edits(gcode::EditList{{}, remap});
+    route.file_size = cached_file_size_.value_or(0);
     route.rewrite = [file_path, remap](const std::string& download_path) {
         // A download that produced nothing is a failed download, not a file
         // whose every line happens to be unchanged, and the two must not
@@ -2346,9 +2348,48 @@ void PrintPreparationManager::start_staged_print(std::shared_ptr<const RewriteRo
     };
 
     if (plugin_edits) {
-        // The plugin writes the copy itself, then starts it as below.
+        // The plugin writes the copy itself, and removes it if the start fails, so no
+        // branch here deletes it.
+        auto on_edit_error = [this, token, job, on_navigate_to_status,
+                              on_completion](const MoonrakerError& error) {
+            switch (gcode::classify_print_edited_failure(error)) {
+            case gcode::EditedPrintFailure::Unsupported:
+                spdlog::warn("[PrintPreparationManager] Plugin cannot edit {} ({}); rewriting "
+                             "on the screen",
+                             job->file_path, error.message);
+                token.defer("PrintPreparationManager::edit_fallback",
+                            [this, job, on_navigate_to_status, on_completion]() {
+                                RewriteRoute route = *job;
+                                route.server_edits.reset();
+                                rewrite_and_print(std::move(route), on_navigate_to_status,
+                                                  on_completion);
+                            });
+                return;
+            case gcode::EditedPrintFailure::Unanswered:
+                // The plugin may still start this print: starting it again here would
+                // print the job twice.
+                queue_busy_hide();
+                helix::ui::notify_error_tr(
+                    TR_NOOP("The printer did not confirm the print started ({}). It may still "
+                            "start: check the printer before starting it again."),
+                    error);
+                LOG_ERROR_INTERNAL("[PrintPreparationManager] print_edited unanswered for {}: {}",
+                                   job->file_path, error.message);
+                break;
+            case gcode::EditedPrintFailure::Refused:
+                queue_busy_hide();
+                helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
+                LOG_ERROR_INTERNAL("[PrintPreparationManager] print_edited refused for {}: {}",
+                                   job->file_path, error.message);
+                break;
+            }
+            token.defer("PrintPreparationManager::edit_error_cleanup", [this, on_completion]() {
+                abandon_start("print_edited_failed", on_completion);
+            });
+        };
         api_->job().start_edited_print(job->file_path, remote_temp_path, *job->server_edits,
-                                       job->mod_names, on_plugin_accepted, on_print_error);
+                                       job->mod_names, job->file_size, on_plugin_accepted,
+                                       on_edit_error);
     } else if (job->use_plugin) {
         // The plugin symlinks the copy under the original name,
         // patches history, and starts the print.

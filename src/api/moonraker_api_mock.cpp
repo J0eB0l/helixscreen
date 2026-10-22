@@ -362,21 +362,25 @@ void helix::MoonrakerJobAPIMock::start_modified_print(const std::string& origina
     }
 }
 
-void helix::MoonrakerJobAPIMock::start_edited_print(const std::string& original_filename,
-                                                    const std::string& temp_file_path,
-                                                    const json& edits,
-                                                    const std::vector<std::string>& modifications,
-                                                    ModifiedPrintCallback on_success,
-                                                    ErrorCallback on_error) {
+void helix::MoonrakerJobAPIMock::start_edited_print(
+    const std::string& original_filename, const std::string& temp_file_path, const json& edits,
+    const std::vector<std::string>& modifications, uint64_t file_size,
+    ModifiedPrintCallback on_success, ErrorCallback on_error) {
     if (refused_by_spool_latch("server.helix.print_edited", on_error)) {
         return;
     }
-    edited_prints_.push_back({original_filename, temp_file_path, edits, modifications});
+    edited_prints_.push_back({original_filename, temp_file_path, edits, modifications, file_size});
 
     spdlog::info("[MoonrakerAPIMock] Mock start_edited_print: original='{}', temp='{}', "
                  "{} edit(s)",
                  original_filename, temp_file_path, edits.size());
 
+    if (edited_print_error_) {
+        if (on_error) {
+            on_error(*edited_print_error_);
+        }
+        return;
+    }
     if (fail_modified_prints_) {
         if (on_error) {
             on_error(MoonrakerError::unknown("Mock plugin rejected: " + temp_file_path,

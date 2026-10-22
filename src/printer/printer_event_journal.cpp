@@ -68,12 +68,18 @@ const ClassMarkers kClassMarkers[] = {
     {"command", {"unknown command", "error evaluating", "malformed command"}},
 };
 
+double latest_occurrence(const JournalEntry& e) {
+    return e.count > 1 && e.last_time > e.time ? e.last_time : e.time;
+}
+
 bool same_event(const JournalEntry& a, const JournalEntry& b) {
     // gcode_store backfill knows no job, so an entry without one matches a
     // live entry of any job.
     const bool same_job = a.job_id == b.job_id || a.job_id.empty() || b.job_id.empty();
-    return a.kind == b.kind && a.text == b.text && a.detail == b.detail && same_job &&
-           std::fabs(a.time - b.time) <= kJournalDedupWindowS;
+    // A counted entry stands for every occurrence from its time to its last.
+    const bool in_span = b.time >= a.time - kJournalDedupWindowS &&
+                         b.time <= latest_occurrence(a) + kJournalDedupWindowS;
+    return a.kind == b.kind && a.text == b.text && a.detail == b.detail && same_job && in_span;
 }
 
 /// The number at @p pos, or nullopt when there is none.
@@ -161,6 +167,40 @@ JournalPlan decide_journal_source(PluginFeatureState state, bool recorder_built)
 // Wire format
 // ---------------------------------------------------------------------------
 
+std::optional<std::size_t> journal_repeat_of(const std::vector<JournalEntry>& entries,
+                                             const JournalEntry& e) {
+    if (e.kind != journal_kind::kGcodeError) {
+        return std::nullopt;
+    }
+    const std::size_t first =
+        entries.size() > kJournalRepeatLookback ? entries.size() - kJournalRepeatLookback : 0;
+    for (std::size_t i = entries.size(); i-- > first;) {
+        const JournalEntry& held = entries[i];
+        if (held.kind == e.kind && held.text == e.text && held.cls == e.cls &&
+            held.detail == e.detail && held.job_id == e.job_id && held.filename == e.filename &&
+            e.time - latest_occurrence(held) <= kJournalRepeatWindowS) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+namespace {
+
+/// Counts @p e on the entry it repeats; false when it repeats none.
+bool count_repeat(std::vector<JournalEntry>& entries, const JournalEntry& e) {
+    const auto index = journal_repeat_of(entries, e);
+    if (!index) {
+        return false;
+    }
+    JournalEntry& held = entries[*index];
+    held.last_time = std::max(latest_occurrence(held), e.time);
+    held.count += 1;
+    return true;
+}
+
+} // namespace
+
 std::optional<JournalEntry> journal_entry_from_json(const nlohmann::json& j) {
     using namespace json_util;
     if (!j.is_object()) {
@@ -178,6 +218,10 @@ std::optional<JournalEntry> journal_entry_from_json(const nlohmann::json& j) {
     e.cls = safe_string(j, "class");
     e.detail = safe_string(j, "detail");
     e.recovered = safe_bool(j, "recovered");
+    e.count = std::max(1, safe_int(j, "count", 1));
+    if (e.count > 1) {
+        e.last_time = safe_double(j, "last_time", e.time);
+    }
     if (const nlohmann::json* job = find_member(j, "job"); job != nullptr && job->is_object()) {
         if (const nlohmann::json* id = find_member(*job, "job_id")) {
             e.job_id = as_string(*id, "", /*accept_number=*/true);
@@ -193,6 +237,10 @@ nlohmann::json journal_entry_to_json(const JournalEntry& e) {
                         {"job", nullptr}, {"recovered", e.recovered}};
     if (!e.job_id.empty() || !e.filename.empty()) {
         j["job"] = {{"job_id", e.job_id}, {"filename", e.filename}};
+    }
+    if (e.count > 1) {
+        j["count"] = e.count;
+        j["last_time"] = latest_occurrence(e);
     }
     return j;
 }
@@ -370,6 +418,11 @@ void LocalEventJournal::prune_locked(double now) {
 
 bool LocalEventJournal::append(JournalEntry entry, double now) {
     std::lock_guard<std::mutex> lock(mutex_);
+    // A live line is seen once, so a match is a repeat before it is a duplicate.
+    if (count_repeat(entries_, entry)) {
+        ++version_;
+        return true;
+    }
     if (contains_duplicate_locked(entry)) {
         return false;
     }
@@ -387,7 +440,9 @@ std::size_t LocalEventJournal::merge_backfill(std::vector<JournalEntry> entries,
         if (contains_duplicate_locked(e)) {
             continue;
         }
-        insert_sorted_locked(std::move(e));
+        if (!count_repeat(entries_, e)) {
+            insert_sorted_locked(std::move(e));
+        }
         ++added;
     }
     if (added > 0) {
@@ -515,6 +570,7 @@ JournalRow describe_journal_entry(const JournalEntry& e) {
     } else {
         row = {JournalSeverity::Info, TR_NOOP("Printer event"), e.text};
     }
+    row.repeat_count = std::max(1, e.count);
     return row;
 }
 

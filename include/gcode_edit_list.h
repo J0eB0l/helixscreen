@@ -12,7 +12,9 @@
 
 #include "gcode_file_modifier.h"
 #include "helix_plugin_features.h"
+#include "moonraker_error.h"
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <vector>
@@ -53,5 +55,28 @@ enum class EditTransport {
 /// the screen: the plate has to be extracted from the archive first.
 EditTransport choose_edit_transport(PluginFeatureState server_edits, bool archive_plate,
                                     bool expressible);
+
+/// How long the app waits for print_edited to answer, for a file of @p file_size bytes
+/// (0 when unknown, which is sized as kPrintEditedAssumedBytes). The plugin rewrites in a
+/// niced worker that takes minutes for a large file on a slow host, and answers only once
+/// the print has started, so this is generous: an answer that arrives after it is lost.
+uint32_t print_edited_timeout_ms(uint64_t file_size);
+
+inline constexpr uint32_t kPrintEditedBaseTimeoutMs = 10 * 60 * 1000;
+inline constexpr uint32_t kPrintEditedTimeoutMsPerMiB = 30 * 1000;
+inline constexpr uint64_t kPrintEditedAssumedBytes = 256ull * 1024 * 1024;
+
+/// What a failed print_edited means for the start.
+enum class EditedPrintFailure {
+    Unanswered,  ///< timeout or lost connection: the plugin may still start the print
+    Unsupported, ///< the plugin cannot do it (no such method, an edit it does not take,
+                 ///< the feature off): nothing ran, so the screen may rewrite instead
+    Refused,     ///< a definite answer (a changed file, a failed write): report it
+};
+
+/// Classifies @p error from server.helix.print_edited. Only Unsupported may fall back to
+/// the screen's own rewrite: after Unanswered the plugin may still start the print, and a
+/// second start would print the job twice.
+EditedPrintFailure classify_print_edited_failure(const MoonrakerError& error);
 
 } // namespace helix::gcode

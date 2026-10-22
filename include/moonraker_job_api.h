@@ -121,12 +121,14 @@ class MoonrakerJobAPI : public helix::IJobAPI {
      * starts that copy as start_modified_print() would. Nothing is uploaded.
      * Gate on the plugin's `server_edits` feature (gcode::choose_edit_transport).
      *
-     * A refusal is final: there is no uploaded copy to fall back to, and a
-     * stale line refuses the same edits wherever they run.
+     * @p file_size (0 when unknown) sizes the wait (gcode::print_edited_timeout_ms):
+     * the plugin answers only once the print has started. What an error means for
+     * the start is gcode::classify_print_edited_failure's to say.
      */
     void start_edited_print(const std::string& original_filename, const std::string& temp_file_path,
                             const json& edits, const std::vector<std::string>& modifications,
-                            ModifiedPrintCallback on_success, ErrorCallback on_error) override;
+                            uint64_t file_size, ModifiedPrintCallback on_success,
+                            ErrorCallback on_error) override;
 
     /**
      * @brief Check if helix_print plugin is available

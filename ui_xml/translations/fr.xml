@@ -54,6 +54,7 @@
   <translation tag="(multi-tool)" fr="(multi-outils)"/>
   <translation tag="(none detected)" fr="(aucun détecté)"/>
   <translation tag="(recovered)" fr="(récupéré)"/>
+  <translation tag="(repeated {} times)" fr="(répété {} fois)"/>
   <translation tag="(unnamed)" fr="(sans nom)"/>
   <translation tag="+ Add" fr="+ Ajouter"/>
   <translation tag="+ Add Preset" fr="+ Ajouter un préréglage"/>
@@ -3597,6 +3598,7 @@
   <translation tag="The printer could not work out where to resume." fr="L&apos;imprimante n&apos;a pas pu déterminer où reprendre."/>
   <translation tag="The printer did not change its bed check" fr="L&apos;imprimante n&apos;a pas modifié sa vérification du plateau"/>
   <translation tag="The printer did not change its bed check: {}" fr="L&apos;imprimante n&apos;a pas modifié sa vérification du plateau: {}"/>
+  <translation tag="The printer did not confirm the print started ({}). It may still start: check the printer before starting it again." fr="L&apos;imprimante n&apos;a pas confirmé le démarrage de l&apos;impression ({}). Elle peut encore démarrer : vérifiez l&apos;imprimante avant de la relancer."/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." fr="L&apos;imprimante extrude dans un coin et répète jusqu&apos;à ce que les mesures concordent. Vous ne jugez rien à l&apos;œil."/>
   <translation tag="The printer finishes this measurement on its own." fr="L&apos;imprimante termine cette mesure d&apos;elle-même."/>
   <translation tag="The printer halted this print and cannot resume it. Restart from the beginning?" fr="L&apos;imprimante a arrêté cette impression et ne peut pas la reprendre. Redémarrer depuis le début ?"/>

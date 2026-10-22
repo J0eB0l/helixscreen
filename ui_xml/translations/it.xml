@@ -54,6 +54,7 @@
   <translation tag="(multi-tool)" it="(multi-utensile)"/>
   <translation tag="(none detected)" it="(nessuno rilevato)"/>
   <translation tag="(recovered)" it="(recuperato)"/>
+  <translation tag="(repeated {} times)" it="(ripetuto {} volte)"/>
   <translation tag="(unnamed)" it="(senza nome)"/>
   <translation tag="+ Add" it="+ Aggiungi"/>
   <translation tag="+ Add Preset" it="+ Aggiungi preset"/>
@@ -3597,6 +3598,7 @@
   <translation tag="The printer could not work out where to resume." it="La stampante non è riuscita a capire da dove riprendere."/>
   <translation tag="The printer did not change its bed check" it="La stampante non ha modificato il controllo del piano"/>
   <translation tag="The printer did not change its bed check: {}" it="La stampante non ha modificato il controllo del piano: {}"/>
+  <translation tag="The printer did not confirm the print started ({}). It may still start: check the printer before starting it again." it="La stampante non ha confermato l&apos;avvio della stampa ({}). Potrebbe comunque avviarsi: controlla la stampante prima di avviarla di nuovo."/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." it="La stampante estrude in un angolo e ripete finché le letture concordano. Non giudichi nulla a occhio."/>
   <translation tag="The printer finishes this measurement on its own." it="La stampante completa questa misurazione da sola."/>
   <translation tag="The printer halted this print and cannot resume it. Restart from the beginning?" it="La stampante ha interrotto questa stampa e non può riprenderla. Riavviare dall&apos;inizio?"/>

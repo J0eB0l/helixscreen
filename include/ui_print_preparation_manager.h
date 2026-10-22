@@ -932,6 +932,8 @@ class PrintPreparationManager {
         /// The rewrite as the plugin's print_edited edit list, when it can
         /// travel (gcode::to_server_edits).
         std::optional<nlohmann::json> server_edits;
+        /// The original's size in bytes, 0 when unknown: sizes the wait for print_edited.
+        uint64_t file_size = 0;
     };
 
     /**

@@ -584,11 +584,13 @@ class MoonrakerJobAPIMock : public MoonrakerJobAPI {
         std::string temp_file_path;
         json edits;
         std::vector<std::string> modifications;
+        uint64_t file_size = 0;
     };
 
     void start_edited_print(const std::string& original_filename, const std::string& temp_file_path,
                             const json& edits, const std::vector<std::string>& modifications,
-                            ModifiedPrintCallback on_success, ErrorCallback on_error) override;
+                            uint64_t file_size, ModifiedPrintCallback on_success,
+                            ErrorCallback on_error) override;
 
     /// Recorded start_edited_print() calls, in call order
     [[nodiscard]] const std::vector<EditedPrintRecord>& edited_prints() const {
@@ -611,11 +613,18 @@ class MoonrakerJobAPIMock : public MoonrakerJobAPI {
         fail_modified_prints_ = fail;
     }
 
+    /// Make every later start_edited_print() call on_error with @p error (nullopt: answer
+    /// as fail_modified_prints says). The call is still recorded.
+    void mock_edited_print_error(std::optional<MoonrakerError> error) {
+        edited_print_error_ = std::move(error);
+    }
+
   private:
     std::vector<std::string> started_prints_;
     std::vector<ModifiedPrintRecord> modified_prints_;
     std::vector<EditedPrintRecord> edited_prints_;
     bool fail_modified_prints_ = false;
+    std::optional<MoonrakerError> edited_print_error_;
 };
 
 } // namespace helix

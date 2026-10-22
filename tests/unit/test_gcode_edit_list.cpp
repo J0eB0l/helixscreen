@@ -255,3 +255,47 @@ TEST_CASE("gcode edit list: the plugin rewrites only when its feature is ready",
         CHECK(choose_edit_transport(c.feature, false, false) == EditTransport::DownloadRewrite);
     }
 }
+
+TEST_CASE("gcode edit list: the wait for print_edited grows with the file",
+          "[plugin_server_edits][gcode]") {
+    constexpr uint64_t kMiB = 1024 * 1024;
+    CHECK(print_edited_timeout_ms(1) == kPrintEditedBaseTimeoutMs + kPrintEditedTimeoutMsPerMiB);
+    CHECK(print_edited_timeout_ms(100 * kMiB) ==
+          kPrintEditedBaseTimeoutMs + 100 * kPrintEditedTimeoutMsPerMiB);
+    // Longer than the plugin's own worker limit (600 s + 60 s/MiB) is not the goal; minutes
+    // per hundred MiB on a slow host is.
+    CHECK(print_edited_timeout_ms(100 * kMiB) >= 60u * 60 * 1000);
+    CHECK(print_edited_timeout_ms(0) == print_edited_timeout_ms(kPrintEditedAssumedBytes));
+    CHECK(print_edited_timeout_ms(UINT64_MAX / 2) == UINT32_MAX);
+}
+
+TEST_CASE("gcode edit list: only a refusal before anything ran falls back",
+          "[plugin_server_edits][gcode]") {
+    auto rpc = [](int code, const char* message) {
+        return MoonrakerError::from_json_rpc({{"code", code}, {"message", message}},
+                                             "server.helix.print_edited");
+    };
+    MoonrakerError lost;
+    lost.type = MoonrakerErrorType::CONNECTION_LOST;
+
+    CHECK(classify_print_edited_failure(MoonrakerError::timeout(
+              "server.helix.print_edited", 1000)) == EditedPrintFailure::Unanswered);
+    CHECK(classify_print_edited_failure(lost) == EditedPrintFailure::Unanswered);
+
+    CHECK(classify_print_edited_failure(rpc(-32601, "Method not found")) ==
+          EditedPrintFailure::Unsupported);
+    CHECK(classify_print_edited_failure(rpc(400, "Invalid edit list: edit 0: unknown action")) ==
+          EditedPrintFailure::Unsupported);
+    CHECK(classify_print_edited_failure(rpc(503, "Server-side edits are unavailable")) ==
+          EditedPrintFailure::Unsupported);
+
+    CHECK(classify_print_edited_failure(
+              rpc(409, "Refusing to edit a.gcode: line 3 is not the line the scan found")) ==
+          EditedPrintFailure::Refused);
+    CHECK(classify_print_edited_failure(rpc(400, "Original file not found: a.gcode")) ==
+          EditedPrintFailure::Refused);
+    CHECK(classify_print_edited_failure(rpc(500, "Failed to write the edited copy")) ==
+          EditedPrintFailure::Refused);
+    CHECK(classify_print_edited_failure(rpc(-32601, "Namespace x not found")) ==
+          EditedPrintFailure::Refused);
+}

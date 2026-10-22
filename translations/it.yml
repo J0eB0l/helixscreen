@@ -54,6 +54,7 @@ translations:
   (multi-tool): (multi-utensile)
   (none detected): (nessuno rilevato)
   (recovered): '(recuperato)'
+  (repeated {} times): '(ripetuto {} volte)'
   (unnamed): (senza nome)
   + Add: + Aggiungi
   + Add Preset: + Aggiungi preset
@@ -3953,6 +3954,7 @@ translations:
   The printer could not work out where to resume.: La stampante non è riuscita a capire da dove riprendere.
   The printer did not change its bed check: 'La stampante non ha modificato il controllo del piano'
   'The printer did not change its bed check: {}': 'La stampante non ha modificato il controllo del piano: {}'
+  'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.': 'La stampante non ha confermato l''avvio della stampa ({}). Potrebbe comunque avviarsi: controlla la stampante prima di avviarla di nuovo.'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'La stampante estrude in un angolo e ripete finché le letture concordano. Non giudichi nulla a occhio.'
   The printer finishes this measurement on its own.: 'La stampante completa questa misurazione da sola.'
   The printer halted this print and cannot resume it. Restart from the beginning?: La

@@ -54,6 +54,7 @@ translations:
   (multi-tool): (multi-tool)
   (none detected): (none detected)
   (recovered): (recovered)
+  (repeated {} times): (repeated {} times)
   (unnamed): (unnamed)
   + Add: + Add
   + Add Preset: + Add Preset
@@ -3863,6 +3864,7 @@ translations:
   The printer could not work out where to resume.: The printer could not work out where to resume.
   The printer did not change its bed check: The printer did not change its bed check
   'The printer did not change its bed check: {}': 'The printer did not change its bed check: {}'
+  'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.': 'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.
   The printer finishes this measurement on its own.: 'The printer finishes this measurement on its own.'
   The printer halted this print and cannot resume it. Restart from the beginning?: The

@@ -3,6 +3,7 @@
 
 #include "moonraker_job_api.h"
 
+#include "gcode_edit_list.h"
 #include "i_moonraker_client.h"
 #include "json_utils.h"
 #include "moonraker_api_internal.h"
@@ -258,7 +259,8 @@ void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
 void MoonrakerJobAPI::start_edited_print(const std::string& original_filename,
                                          const std::string& temp_file_path, const json& edits,
                                          const std::vector<std::string>& modifications,
-                                         ModifiedPrintCallback on_success, ErrorCallback on_error) {
+                                         uint64_t file_size, ModifiedPrintCallback on_success,
+                                         ErrorCallback on_error) {
     if (reject_invalid_path(original_filename, "start_edited_print", on_error))
         return;
     if (reject_invalid_path(temp_file_path, "start_edited_print", on_error))
@@ -287,12 +289,14 @@ void MoonrakerJobAPI::start_edited_print(const std::string& original_filename,
                 on_success(result);
             }
         },
+        // No fallback here: after a timeout or a lost connection the plugin may still
+        // start the print (gcode::classify_print_edited_failure).
         [on_error](const MoonrakerError& err) {
-            spdlog::error("[Moonraker API] helix_print plugin print_edited failed: {}",
-                          err.message);
+            spdlog::error("[Moonraker API] helix_print plugin print_edited failed: {} ({})",
+                          err.message, err.get_type_string());
             if (on_error) {
                 on_error(err);
             }
         },
-        kPrintModifiedTimeoutMs);
+        helix::gcode::print_edited_timeout_ms(file_size));
 }

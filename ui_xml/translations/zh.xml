@@ -54,6 +54,7 @@
   <translation tag="(multi-tool)" zh="(多工具)"/>
   <translation tag="(none detected)" zh="(未检测到)"/>
   <translation tag="(recovered)" zh="(已恢复)"/>
+  <translation tag="(repeated {} times)" zh="(重复 {} 次)"/>
   <translation tag="(unnamed)" zh="(未命名)"/>
   <translation tag="+ Add" zh="+ 添加"/>
   <translation tag="+ Add Preset" zh="+ 添加预设"/>
@@ -3597,6 +3598,7 @@
   <translation tag="The printer could not work out where to resume." zh="打印机无法确定从哪里恢复。"/>
   <translation tag="The printer did not change its bed check" zh="打印机未更改热床检查"/>
   <translation tag="The printer did not change its bed check: {}" zh="打印机未更改热床检查：{}"/>
+  <translation tag="The printer did not confirm the print started ({}). It may still start: check the printer before starting it again." zh="打印机未确认打印已开始 ({})。它仍可能开始：再次开始前请检查打印机。"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." zh="打印机在角落挤出并重复，直到读数一致为止。你无需用肉眼判断任何东西。"/>
   <translation tag="The printer finishes this measurement on its own." zh="打印机会自行完成这次测量。"/>
   <translation tag="The printer halted this print and cannot resume it. Restart from the beginning?" zh="打印机已停止此打印且无法恢复。从头重新开始？"/>

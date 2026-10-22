@@ -568,7 +568,8 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
     };
 
     // server.helix.journal - the plugin's printer event journal, present with
-    // the plugin (HELIX_MOCK_HELIX_PLUGIN): a few events of the last hour.
+    // the plugin (HELIX_MOCK_HELIX_PLUGIN): a few events of the last hour, one a
+    // `!!` line counted twelve times.
     registry["server.helix.journal"] =
         [](MoonrakerClientMock* /*self*/, const json& /*params*/,
            std::function<void(const json&)> success_cb,
@@ -596,12 +597,20 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
              {"detail", "runout"},
              {"job", job}},
             {{"id", 4},
+             {"time", now - 900},
+             {"kind", "gcode_error"},
+             {"text", "Unknown command:\"PURGE_LINE\""},
+             {"class", "command"},
+             {"count", 12},
+             {"last_time", now - 860},
+             {"job", job}},
+            {{"id", 6},
              {"time", now - 600},
              {"kind", "klippy_shutdown"},
              {"text", "MCU 'mcu' shutdown: Timer too close"},
              {"class", "mcu"},
              {"job", job}},
-            {{"id", 5},
+            {{"id", 7},
              {"time", now - 599},
              {"kind", "job_end"},
              {"detail", "klippy_shutdown"},
@@ -610,7 +619,7 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
         if (success_cb) {
             success_cb(
                 json{{"jsonrpc", "2.0"},
-                     {"result", {{"entries", entries}, {"truncated", false}, {"latest_id", 5}}}});
+                     {"result", {{"entries", entries}, {"truncated", false}, {"latest_id", 7}}}});
         }
         return true;
     };

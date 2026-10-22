@@ -114,25 +114,107 @@ TEST_CASE("backfill de-duplicates by time and text and marks what it adds",
           "[plugin_event_journal]") {
     LocalEventJournal journal;
     REQUIRE(journal.append(entry(journal_kind::kGcodeError, kT0, "Move out of range"), kT0));
-    CHECK_FALSE(
+    // Live, the same line again is a repeat: it counts on the entry.
+    REQUIRE(
         journal.append(entry(journal_kind::kGcodeError, kT0 + 1, "Move out of range"), kT0 + 1));
 
     std::vector<JournalEntry> backfill = {
-        entry(journal_kind::kGcodeError, kT0 + 2, "Move out of range"),  // seen live
-        entry(journal_kind::kGcodeError, kT0 + 60, "Move out of range"), // a second time
+        entry(journal_kind::kGcodeError, kT0 + 2, "Move out of range"),   // seen live
+        entry(journal_kind::kGcodeError, kT0 + 120, "Move out of range"), // a later time
         entry(journal_kind::kGcodeError, kT0 - 30, "Must home axis first"),
         entry(journal_kind::kGcodeError, kT0 - 30, "Must home axis first"), // twice in one read
     };
-    CHECK(journal.merge_backfill(backfill, kT0 + 60) == 2);
+    CHECK(journal.merge_backfill(backfill, kT0 + 120) == 2);
 
     const auto held = journal.snapshot();
     REQUIRE(held.size() == 3);
     CHECK(held[0].text == "Must home axis first");
     CHECK(held[0].recovered);
     CHECK_FALSE(held[1].recovered);
-    CHECK(held[2].time == kT0 + 60);
+    CHECK(held[1].count == 2);
+    CHECK(held[1].last_time == kT0 + 1);
+    CHECK(held[2].time == kT0 + 120);
     CHECK(held[2].recovered);
-    CHECK(journal.latest_time() == kT0 + 60);
+    CHECK(journal.latest_time() == kT0 + 120);
+}
+
+TEST_CASE("repeated !! lines collapse as the plugin's journal collapses them",
+          "[plugin_event_journal]") {
+    std::ifstream f(fixture_path("repeats.json"));
+    REQUIRE(f.good());
+    json fixture;
+    f >> fixture;
+    const json& cases = fixture["cases"];
+    REQUIRE(cases.size() >= 5);
+
+    for (const auto& c : cases) {
+        const std::string name = c["name"].get<std::string>();
+        CAPTURE(name);
+        LocalEventJournal journal;
+        for (const auto& a : c["appends"]) {
+            JournalEntry e = entry(a["kind"].get<std::string>().c_str(),
+                                   kT0 + a["time"].get<double>(), a["text"].get<std::string>());
+            if (a["class"].is_string()) {
+                e.cls = a["class"].get<std::string>();
+            }
+            if (a.contains("detail")) {
+                e.detail = a["detail"].get<std::string>();
+            }
+            if (a["job"].is_object()) {
+                e.job_id = a["job"]["job_id"].get<std::string>();
+                e.filename = a["job"]["filename"].get<std::string>();
+            }
+            const double now = e.time;
+            journal.append(std::move(e), now);
+        }
+        const auto held = journal.snapshot();
+        const json& expected = c["expected"];
+        REQUIRE(held.size() == expected.size());
+        for (std::size_t i = 0; i < held.size(); ++i) {
+            CAPTURE(i);
+            CHECK(held[i].time == kT0 + expected[i]["time"].get<double>());
+            CHECK(held[i].text == expected[i]["text"].get<std::string>());
+            CHECK(held[i].count == expected[i]["count"].get<int>());
+            if (expected[i].contains("last_time")) {
+                CHECK(held[i].last_time == kT0 + expected[i]["last_time"].get<double>());
+            }
+        }
+    }
+}
+
+TEST_CASE("a counted entry survives the wire and reads as repeated", "[plugin_event_journal]") {
+    const json plugin_entry = {{"id", 4},
+                               {"time", kT0},
+                               {"kind", "gcode_error"},
+                               {"text", "Unknown command"},
+                               {"class", "command"},
+                               {"count", 12},
+                               {"last_time", kT0 + 40},
+                               {"job", nullptr}};
+    const auto e = journal_entry_from_json(plugin_entry);
+    REQUIRE(e.has_value());
+    CHECK(e->count == 12);
+    CHECK(e->last_time == kT0 + 40);
+    CHECK(describe_journal_entry(*e).repeat_count == 12);
+    CHECK(journal_entry_to_json(*e)["count"] == 12);
+    CHECK(journal_entry_to_json(*e)["last_time"] == kT0 + 40);
+
+    const auto once = journal_entry_from_json(json{{"time", kT0}, {"kind", "gcode_error"}});
+    REQUIRE(once.has_value());
+    CHECK(describe_journal_entry(*once).repeat_count == 1);
+    CHECK_FALSE(journal_entry_to_json(*once).contains("count"));
+
+    // A gcode_store backfill re-reading the twelve lines adds none of them.
+    LocalEventJournal journal;
+    REQUIRE(journal.load_json(json{{"entries", json::array({plugin_entry})}}, kT0 + 50));
+    std::vector<JournalEntry> again;
+    for (int i = 0; i < 12; ++i) {
+        again.push_back(entry(journal_kind::kGcodeError, kT0 + i * 3.5, "Unknown command"));
+        again.back().cls = "command";
+    }
+    CHECK(journal.merge_backfill(again, kT0 + 50) == 0);
+    REQUIRE(journal.snapshot().size() == 1);
+    CHECK(journal.snapshot()[0].count == 12);
 }
 
 TEST_CASE("a backfilled error with no job matches the live one stamped with its job",

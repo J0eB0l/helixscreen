@@ -251,6 +251,31 @@ std::optional<EditList> from_server_edits(const json& edits) {
     return list;
 }
 
+uint32_t print_edited_timeout_ms(uint64_t file_size) {
+    const uint64_t bytes = file_size > 0 ? file_size : kPrintEditedAssumedBytes;
+    const uint64_t mib = (bytes + (1024 * 1024 - 1)) / (1024 * 1024);
+    const uint64_t ms = kPrintEditedBaseTimeoutMs + mib * kPrintEditedTimeoutMsPerMiB;
+    return ms > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(ms);
+}
+
+EditedPrintFailure classify_print_edited_failure(const MoonrakerError& error) {
+    if (error.type == MoonrakerErrorType::TIMEOUT ||
+        error.type == MoonrakerErrorType::CONNECTION_LOST) {
+        return EditedPrintFailure::Unanswered;
+    }
+    // Moonraker answers an unregistered method with -32601 "Method not found"; the
+    // plugin answers an edit list it cannot take with 400 "Invalid edit list" and a
+    // switched-off or unavailable feature with 503. Each refuses before anything runs.
+    const auto starts_with = [&error](std::string_view prefix) {
+        return error.message.compare(0, prefix.size(), prefix) == 0;
+    };
+    if ((error.code == -32601 && starts_with("Method not found")) ||
+        (error.code == 400 && starts_with("Invalid edit list")) || error.code == 503) {
+        return EditedPrintFailure::Unsupported;
+    }
+    return EditedPrintFailure::Refused;
+}
+
 EditTransport choose_edit_transport(PluginFeatureState server_edits, bool archive_plate,
                                     bool expressible) {
     if (server_edits == PluginFeatureState::Ready && !archive_plate && expressible) {

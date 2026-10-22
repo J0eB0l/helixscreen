@@ -12,6 +12,7 @@
 #include "moonraker_error.h"
 #include "printer_state.h"
 
+#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
 #include <ctime>
@@ -28,8 +29,12 @@ std::string row_message(const JournalEntry& e, const JournalRow& row) {
     return message.empty() ? e.filename : message + " (" + e.filename + ")";
 }
 
-std::string row_time(const JournalEntry& e) {
+std::string row_time(const JournalEntry& e, const JournalRow& row) {
     std::string text = format_modified_date(static_cast<time_t>(e.time));
+    if (row.repeat_count > 1) {
+        text += " ";
+        text += fmt::format(fmt::runtime(lv_tr("(repeated {} times)")), row.repeat_count);
+    }
     if (e.recovered) {
         text += " ";
         text += lv_tr("(recovered)");
@@ -121,7 +126,7 @@ void PrinterEventsOverlay::show_entries(JournalSource source, std::vector<Journa
         title_pool_.set_string(i, lv_tr(row.title_tag));
         message_pool_.set_string(i, message);
         has_message_pool_.set_int(i, message.empty() ? 0 : 1);
-        time_pool_.set_string(i, row_time(e));
+        time_pool_.set_string(i, row_time(e, row));
     }
 
     const char* source_text =

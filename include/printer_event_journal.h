@@ -45,6 +45,11 @@ inline constexpr int kJournalFeatureMinVersion = 1;
 inline constexpr double kJournalDedupWindowS = 5.0;
 /// A pause is put down to a runout or error this recent before it.
 inline constexpr double kPauseCauseWindowS = 10.0;
+/// A `!!` line repeating one recorded within this long of its last occurrence
+/// counts on that entry instead of adding one; matched against the newest
+/// kJournalRepeatLookback entries. The plugin's REPEAT_WINDOW_S / REPEAT_LOOKBACK.
+inline constexpr double kJournalRepeatWindowS = 60.0;
+inline constexpr std::size_t kJournalRepeatLookback = 16;
 inline constexpr std::size_t kLocalJournalMaxEntries = 200;
 inline constexpr double kJournalMaxAgeS = 30.0 * 86400.0;
 
@@ -58,7 +63,17 @@ struct JournalEntry {
     std::string job_id;  ///< the job history had open, if any
     std::string filename;
     bool recovered = false; ///< backfilled after a reconnect, not seen live
+    int count = 1;          ///< occurrences this entry stands for (repeated `!!` lines)
+    double last_time = 0.0; ///< the latest occurrence when count > 1, else 0
 };
+
+/// The index in @p entries (oldest first) of the entry @p e repeats, if any: a
+/// `!!` error of the same text, class, detail and job among the
+/// kJournalRepeatLookback newest, whose latest occurrence is within
+/// kJournalRepeatWindowS of @p e. The same rule as the plugin's
+/// JournalStore._repeat_of, pinned by tests/fixtures/journal/repeats.json.
+std::optional<std::size_t> journal_repeat_of(const std::vector<JournalEntry>& entries,
+                                             const JournalEntry& e);
 
 // ---------------------------------------------------------------------------
 // Classification, pinned to the plugin's by tests/fixtures/journal/
@@ -194,6 +209,7 @@ struct JournalRow {
     /// What the message line says beyond the title, untranslated where a tag.
     std::string message;
     const char* message_tag = nullptr; ///< when set, translate this instead of message
+    int repeat_count = 1;              ///< > 1: the view says how many times it happened
 };
 
 /// How one entry reads in a list: severity and title from its kind (job_end

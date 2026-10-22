@@ -254,7 +254,7 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
 
     SECTION("a server-edited start claims the next job, whatever its link name") {
         api.job().start_edited_print(
-            "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {},
+            "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, 0,
             [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
         CHECK(screen_start_ledger().claim(".helix_print/abcd_benchy.gcode"));
     }
