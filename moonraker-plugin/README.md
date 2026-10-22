@@ -288,6 +288,72 @@ With no `source`, every known conversion is listed. A `source` with no entry
 returns an empty list. When the plugin is absent the endpoint is too (HTTP 404,
 JSON-RPC -32601): treat that as "no device-side converter".
 
+### Read and Edit the Klipper Config
+
+Feature `config_edit` (`helix_config.py`). It writes only when the user saves a change on
+the screen, so it has no switch: it is on whenever the module loads. Neither endpoint
+needs Klipper running, and neither restarts it; the screen sends `FIRMWARE_RESTART`.
+
+```http
+GET /server/helix/config?section=probe
+```
+
+JSON-RPC: `server.helix.config`, optional `section`. The config as Klipper reads it from
+`printer.cfg` in Moonraker's config root: includes where their line stands, relative to the
+including file, globs sorted (a glob matching nothing is fine, a missing plain include is
+listed in `errors`), and the `SAVE_CONFIG` block last, supplying only options the regular
+config leaves undefined. Every section is listed, used by Klipper or not.
+
+```json
+{
+  "root": "printer.cfg",
+  "files": ["printer.cfg", "hardware.cfg", "conf.d/20-overrides.cfg"],
+  "sections": {
+    "probe": {
+      "options": {
+        "z_offset": {"value": "1.5", "file": "conf.d/20-overrides.cfg", "line": 2,
+                     "end_line": 2, "autosave": false}
+      },
+      "defined_in": [{"file": "hw/probe.cfg", "line": 1, "autosave": false}]
+    }
+  },
+  "errors": []
+}
+```
+
+`value` is what Klipper reads (comments stripped, a multi-line value joined with `\n`);
+`line` and `end_line` are 1-based. A file outside the config root is named by its absolute
+path.
+
+```http
+POST /server/helix/config_edit
+{"edits": [{"section": "probe", "option": "z_offset", "action": "set",
+            "value": "1.75", "expect": "1.5"}],
+ "dry_run": false}
+```
+
+JSON-RPC: `server.helix.config_edit`. Each edit names a `section` and `option`, an
+`action` (`set`, the default, or `remove`, which comments the definition out), a `value`
+for `set`, and `expect`: the option's current value, or `null` when it should not exist
+yet. Edits apply in order. `set` rewrites the line that defines the option, keeping its
+inline comment; a new option goes at the end of the section's last block, and a new section
+at the end of `printer.cfg` above the `SAVE_CONFIG` block.
+
+Each changed file is first copied to `<file>.helixbak-<YYYYmmdd-HHMMSS>` beside it (the
+newest five are kept), then written through a temp file, `fsync` and rename.
+`dry_run` writes nothing and returns the same diff.
+
+```json
+{"dry_run": false, "files": ["conf.d/20-overrides.cfg"],
+ "backups": [{"file": "conf.d/20-overrides.cfg",
+              "backup": "conf.d/20-overrides.cfg.helixbak-20261022-101500"}],
+ "diff": "--- a/conf.d/20-overrides.cfg\n+++ b/conf.d/20-overrides.cfg\n..."}
+```
+
+A refused list writes nothing and answers 409 with the rule first: `autosave` (the option
+is in the `SAVE_CONFIG` block, which Klipper owns), `moved` (`expect` no longer matches, or
+the file changed while the edit was prepared), `outside_root`, `invalid`.
+
 ## Visible symlink directory
 
 A print started through `print_modified` runs `SDCARD_PRINT_FILE` on the link
