@@ -154,7 +154,8 @@ SlotKey FilamentMapper::find_closest_color_slot(uint32_t target_color,
 }
 
 std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<GcodeToolInfo>& tools,
-                                                          const std::vector<AvailableSlot>& slots) {
+                                                          const std::vector<AvailableSlot>& slots,
+                                                          const FirmwareRouting& routing) {
     std::vector<ToolMapping> mappings;
     mappings.reserve(tools.size());
 
@@ -227,13 +228,15 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
             continue;
         }
 
-        // Priority 3: Positional fallback — assign to the slot matching the tool index
+        // Priority 3: the lane the firmware routes this tool to. Any other lane
+        // goes out at print start as a remap over the printer's own table.
         {
-            int tool_idx = tool.tool_index;
+            const int head = routing.head(tool.tool_index);
             for (const auto& slot : slots) {
                 // Only a LOADED lane can serve as a substitute — an empty lane has
                 // no filament to route the tool to.
-                if (slot.slot_index == tool_idx && slot.backend_index == 0 && !slot.is_empty) {
+                if (head >= 0 && slot.slot_index == head && slot.backend_index == 0 &&
+                    !slot.is_empty) {
                     auto key = slot.key();
                     if (std::find(used_slots.begin(), used_slots.end(), key) == used_slots.end()) {
                         mapping.mapped_slot = slot.slot_index;
@@ -329,7 +332,7 @@ std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<Gc
         for (auto& s : slots_for_matching) {
             s.current_tool_mapping = -1;
         }
-        return compute_defaults(tools, slots_for_matching);
+        return compute_defaults(tools, slots_for_matching, routing);
     }
     return use_current_assignments(tools, slots, routing);
 }

@@ -1625,6 +1625,41 @@ TEST_CASE("effective_mappings auto ON ignores firmware mapping and color-matches
     CHECK(off[0].mapped_slot == 0);
 }
 
+TEST_CASE("effective_mappings auto ON: a tool of unstated colour keeps the firmware's lane",
+          "[filament_mapper][effective][routing]") {
+    // The printer routes T1 to lane 3. A file that states no colour gives the
+    // matcher nothing to go on, so the tool stays where the firmware sends it;
+    // any other lane would go out as a remap over the printer's own table.
+    GcodeToolInfo t1{1, 0x808080, "PLA"};
+    t1.color_known = false;
+    const std::vector<GcodeToolInfo> tools{t1};
+    const std::vector<AvailableSlot> slots = {
+        {0, 0, 0xFF0000, "PLA", false, 0},
+        {1, 0, 0x00FF00, "PLA", false, 3},
+        {2, 0, 0x0000FF, "PLA", false, 2},
+        {3, 0, 0xFFFF00, "PLA", false, 1},
+    };
+    FirmwareRouting routing;
+    routing.head_for_tool = {0, 3, 2, 1};
+
+    auto routed = FilamentMapper::effective_mappings(tools, slots, true, routing);
+    REQUIRE(routed.size() == 1);
+    CHECK(routed[0].mapped_slot == 3);
+
+    SECTION("a tool the routing gives no lane falls back to a free loaded lane") {
+        routing.head_for_tool = {0, -1, 2, 3};
+        auto unrouted = FilamentMapper::effective_mappings(tools, slots, true, routing);
+        REQUIRE(unrouted.size() == 1);
+        CHECK(unrouted[0].mapped_slot == 0);
+    }
+
+    SECTION("identity routing still takes the tool's own lane") {
+        auto identity = FilamentMapper::effective_mappings(tools, slots, true);
+        REQUIRE(identity.size() == 1);
+        CHECK(identity[0].mapped_slot == 1);
+    }
+}
+
 TEST_CASE("effective_tool_colors scatters a sparse used-set to tool-number indices",
           "[filament_mapper][effective]") {
     // A print using only T0 and T2 must land each color at its tool number, with

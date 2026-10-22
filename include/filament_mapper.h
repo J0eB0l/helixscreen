@@ -150,9 +150,11 @@ struct ToolMapping {
 class FilamentMapper {
   public:
     /// Compute default mappings for all tools.
-    /// Priority: firmware mapping -> color match -> auto
+    /// Priority: firmware mapping -> color match -> the lane @p routing sends the
+    /// tool to -> any free loaded lane -> auto
     static std::vector<ToolMapping> compute_defaults(const std::vector<GcodeToolInfo>& tools,
-                                                     const std::vector<AvailableSlot>& slots);
+                                                     const std::vector<AvailableSlot>& slots,
+                                                     const FirmwareRouting& routing = {});
 
     /// Check if two colors are within matching tolerance.
     /// Uses weighted RGB distance (luminance-weighted) with tolerance of
