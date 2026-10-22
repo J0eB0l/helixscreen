@@ -18,9 +18,6 @@
         <setting_action_row name="row_debug_bundle"
                             label="Upload Debug Bundle" icon="bug"
                             description="Collect logs and system info for support" callback="on_debug_bundle_clicked"/>
-        <setting_action_row name="row_printer_events"
-                            label="Printer Events" icon="script_text"
-                            description="Shutdowns, errors and how prints ended" callback="on_printer_events_clicked"/>
         <setting_action_row name="row_discord"
                             label="Discord Community" icon="message" description="Get help and share feedback"
                             callback="on_discord_clicked"/>

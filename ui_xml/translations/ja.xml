@@ -3227,7 +3227,6 @@
   <translation tag="Shutdown failed" ja="シャットダウンに失敗しました"/>
   <translation tag="Shutdown failed — host is still reachable" ja="シャットダウンに失敗しました — ホストに依然として到達可能です"/>
   <translation tag="Shutdown/Reboot" ja="シャットダウン/再起動"/>
-  <translation tag="Shutdowns, errors and how prints ended" ja="停止、エラー、印刷の終了状況"/>
   <translation tag="Shutting down printer..." ja="プリンターをシャットダウン中..."/>
   <translation tag="Shutting down screen..." ja="画面をシャットダウン中..."/>
   <translation tag="Shutting down..." ja="シャットダウン中..."/>

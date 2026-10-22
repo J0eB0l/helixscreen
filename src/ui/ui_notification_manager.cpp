@@ -6,6 +6,7 @@
 #include "ui_notification_history.h"
 #include "ui_panel_common.h"
 #include "ui_panel_notification_history.h"
+#include "ui_printer_events_overlay.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
 #include "ui_utils.h"
@@ -100,6 +101,11 @@ void NotificationManager::register_callbacks() {
     // Register notification history callback (must be called BEFORE app_layout XML is created)
     lv_xml_register_event_cb(nullptr, "status_notification_history_clicked",
                              notification_history_clicked);
+    // The notification history's link to the printer event journal: alerts and
+    // printer events live in one place.
+    lv_xml_register_event_cb(nullptr, "on_open_printer_events", [](lv_event_t*) {
+        helix::ui::get_printer_events_overlay().show(lv_screen_active());
+    });
     callbacks_registered_ = true;
     spdlog::debug("[NotificationManager] Event callbacks registered");
 }

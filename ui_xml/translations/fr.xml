@@ -3227,7 +3227,6 @@
   <translation tag="Shutdown failed" fr="Échec de l&apos;extinction"/>
   <translation tag="Shutdown failed — host is still reachable" fr="Échec de l&apos;extinction — l&apos;hôte est toujours joignable"/>
   <translation tag="Shutdown/Reboot" fr="Arrêt/Redémarrage"/>
-  <translation tag="Shutdowns, errors and how prints ended" fr="Arrêts, erreurs et fin des impressions"/>
   <translation tag="Shutting down printer..." fr="Extinction de l&apos;imprimante..."/>
   <translation tag="Shutting down screen..." fr="Extinction de l&apos;écran..."/>
   <translation tag="Shutting down..." fr="Arrêt en cours..."/>

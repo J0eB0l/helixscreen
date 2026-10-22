@@ -466,6 +466,11 @@ class HelixJournal:
         return result
 
 
+async def always_on() -> bool:
+    """The journal's switch: always on, as the journal has no user setting."""
+    return True
+
+
 def _int_arg(web_request: Any, key: str, default: int) -> int:
     getter = getattr(web_request, "get_int", None)
     try:

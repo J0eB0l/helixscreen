@@ -821,8 +821,8 @@ class HelixPrint:
         )
 
     async def _start_journal(self) -> None:
-        """Printer event journal (helix_journal.py), observe-only so on unless
-        the user opts out."""
+        """Printer event journal (helix_journal.py). It has no switch: it owns
+        one that is always on, so no plugin_features key turns it off."""
         if helix_journal is None:
             self.register_feature(
                 "event_journal", 1, acts=False, available=False,
@@ -833,6 +833,7 @@ class HelixPrint:
         self.journal.start()
         self.register_feature(
             helix_journal.JOURNAL_FEATURE, helix_journal.JOURNAL_FEATURE_VERSION, acts=False,
+            switch=helix_journal.always_on,
         )
         await self.journal.load()
 

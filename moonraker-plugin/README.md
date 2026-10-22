@@ -339,8 +339,8 @@ history had open, or null.
 `other`. The screen classifies the same way; `tests/fixtures/journal/error_line_classes.json`
 pins both. The store keeps 500 entries for at most 30 days, one key per entry in the
 `helix_journal` namespace, and each append is broadcast as `notify_helix_journal_appended`
-with the entry as its only parameter. The feature is `event_journal`, on unless the user
-opts out.
+with the entry as its only parameter. The feature is `event_journal`, which has no
+switch: it is always on, and a `plugin_features` key for it is ignored.
 
 ## Visible symlink directory
 

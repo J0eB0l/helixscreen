@@ -91,7 +91,7 @@ struct JournalPlan {
 };
 
 /// The plugin's journal when its feature is ready; otherwise the screen keeps
-/// its own, including when the user switched the plugin's off.
+/// its own.
 JournalPlan decide_journal_source(PluginFeatureState state);
 
 // ---------------------------------------------------------------------------

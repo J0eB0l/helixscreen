@@ -295,14 +295,16 @@ class TestRecording:
         assert journal.sent == [(JOURNAL_EVENT, (entry,))]
 
     @pytest.mark.asyncio
-    async def test_opting_out_records_nothing(self, journal):
+    async def test_has_no_off_switch(self, journal, mock_server):
         await journal.helix.database.insert_item(
             HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, {JOURNAL_FEATURE: False})
 
         await journal.on_klippy_ready()
 
-        assert journal.store.entries == []
-        assert journal.sent == []
+        assert _kinds(journal) == ["klippy_ready"]
+        from test_helix_print import MockWebRequest
+        status = await mock_server.endpoints["/server/helix/status"](MockWebRequest({}))
+        assert status["features"][JOURNAL_FEATURE]["enabled"] is True
 
 
 # ============================================================================

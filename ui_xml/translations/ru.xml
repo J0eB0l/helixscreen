@@ -3281,7 +3281,6 @@
   <translation tag="Shutdown failed" ru="Ошибка выключения"/>
   <translation tag="Shutdown failed — host is still reachable" ru="Ошибка выключения — хост всё ещё доступен"/>
   <translation tag="Shutdown/Reboot" ru="Выключение/Перезагрузка"/>
-  <translation tag="Shutdowns, errors and how prints ended" ru="Остановки, ошибки и итоги печати"/>
   <translation tag="Shutting down printer..." ru="Выключение принтера..."/>
   <translation tag="Shutting down screen..." ru="Выключение экрана..."/>
   <translation tag="Shutting down..." ru="Выключение..."/>

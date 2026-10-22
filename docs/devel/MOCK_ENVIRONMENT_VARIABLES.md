@@ -411,8 +411,8 @@ with two entries. `convert_3mf` owns its switch; with `1` it is `Ready` to
 `plugin_feature("convert_3mf", 1)`, and with `disabled` it reports `available: false`
 (`reason: "plugin_disabled"`) and reads `Absent`. `event_journal` follows the same
 pattern, and `server.helix.journal` answers with five events of the last hour (a runout,
-the pause it caused, a shutdown and the job it ended), so Settings > Help & About >
-Printer Events shows the plugin's journal. `HELIX_MOCK_PLR` adds the `plr` entry (below);
+the pause it caused, a shutdown and the job it ended), so the notification history's
+Printer Events button shows the plugin's journal. `HELIX_MOCK_PLR` adds the `plr` entry (below);
 no other feature is reported.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker

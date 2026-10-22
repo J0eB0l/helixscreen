@@ -3227,7 +3227,6 @@
   <translation tag="Shutdown failed" zh="关机失败"/>
   <translation tag="Shutdown failed — host is still reachable" zh="关机失败 — 主机仍可访问"/>
   <translation tag="Shutdown/Reboot" zh="关机/重启"/>
-  <translation tag="Shutdowns, errors and how prints ended" zh="关机、错误以及打印结束情况"/>
   <translation tag="Shutting down printer..." zh="正在关闭打印机..."/>
   <translation tag="Shutting down screen..." zh="正在关闭屏幕..."/>
   <translation tag="Shutting down..." zh="正在关机..."/>
