@@ -253,6 +253,23 @@ TEST_CASE("known panel mounts match the platform manifest", "[display_metrics][p
     }
 }
 
+TEST_CASE("K1 presets leave the panel mount to the board table", "[display_metrics][panel]") {
+    // A preset applies after Moonraker connects, and on any box that detects as a
+    // K1. The mount belongs to the geometry-checked board table alone.
+    for (const char* name : {"k1", "k1c"}) {
+        INFO("preset: " << name);
+        const auto path = std::filesystem::current_path() / "assets" / "config" / "presets" /
+                          (std::string(name) + ".json");
+        std::ifstream f(path);
+        REQUIRE(f.good());
+        nlohmann::json preset;
+        f >> preset;
+        const auto display = preset.value("display", nlohmann::json::object());
+        CHECK_FALSE(display.contains("rotate"));
+        CHECK_FALSE(display.contains("rotation_probed"));
+    }
+}
+
 // ============================================================================
 // Source precedence
 // ============================================================================

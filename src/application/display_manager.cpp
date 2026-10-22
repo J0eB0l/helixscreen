@@ -331,81 +331,7 @@ bool DisplayManager::init(const Config& config) {
     // rather than `/display/rotate` precisely because the block below draws
     // on three inputs the key does not see. Move input creation above this
     // block and both gates go blind again.
-    {
-        // CLI/config rotation (passed via Config struct)
-        int rotation_degrees = config.rotation;
-
-        // Environment variable override (highest priority)
-        const char* env_rotate = std::getenv("HELIX_DISPLAY_ROTATION");
-        if (env_rotate) {
-            rotation_degrees = std::atoi(env_rotate);
-            spdlog::info("[DisplayManager] HELIX_DISPLAY_ROTATION={} override", rotation_degrees);
-        }
-
-        // Fall back to config file if not set via Config struct or env
-        if (rotation_degrees == 0) {
-            rotation_degrees = helix::Config::get_instance()->get<int>("/display/rotate", 0);
-        }
-
-        // A first-boot kernel panel_orientation arrives as config.rotation
-        // (Application::init_display()). The board's mount is decided here, where
-        // the framebuffer geometry that confirms it is known. The interactive
-        // probe runs later, from Application::run_rotation_probe_and_layout().
-        bool from_board_mount = false;
-        if (rotation_degrees == 0 && config.first_boot_probe) {
-            const int mount =
-                helix::first_boot_board_mount(config.kernel_orientation, m_width, m_height);
-            if (mount > 0) {
-                spdlog::info("[DisplayManager] First boot: board panel mount {}° for {}x{}", mount,
-                             m_width, m_height);
-                rotation_degrees = mount;
-                from_board_mount = true;
-            }
-        }
-
-        // Apply rotation from config, env, or CLI
-        if (rotation_degrees != 0) {
-#ifdef HELIX_DISPLAY_SDL
-            // LVGL's SDL driver only supports software rotation in PARTIAL render mode,
-            // but we use DIRECT mode for performance. Skip rotation on SDL — it's only
-            // for desktop dev. On embedded (fbdev/DRM) rotation works correctly.
-            spdlog::warn("[DisplayManager] Rotation {}° requested but SDL backend does not "
-                         "support software rotation (DIRECT render mode). Ignoring on desktop.",
-                         rotation_degrees);
-#else
-            int phys_w = m_width;
-            int phys_h = m_height;
-
-            lv_display_rotation_t lv_rot = degrees_to_lv_rotation(rotation_degrees);
-
-            // If DRM backend can't do hardware rotation, fall back to fbdev
-            // which handles software rotation flicker-free via LVGL's native path.
-            if (!try_drm_to_fbdev_fallback(lv_rot, config.splash_active)) {
-                // Fallback failed (a DSI display on a non-EGL build, with no fbdev).
-                // Continue without rotation rather than aborting — a
-                // working unrotated display is better than no display.
-                // lv_display_set_rotation() is deliberately NOT called, which
-                // is what makes the display the honest source: `/display/rotate`
-                // still says 90/180/270 here while nothing is rotated, and a
-                // gate believing the key would throw away a perfectly good
-                // stored touch range on every boot of such a unit.
-                spdlog::warn("[DisplayManager] Continuing without rotation. "
-                             "On a non-EGL build, use panel_orientation in "
-                             "/boot/firmware/cmdline.txt instead.");
-                rotation_degrees = 0;
-            } else {
-                // After the fallback, which may have swapped m_backend.
-                settle_display_rotation(lv_rot, phys_w, phys_h);
-            }
-
-            spdlog::info("[DisplayManager] Display rotated {}° — effective resolution: {}x{}",
-                         rotation_degrees, width(), height());
-#endif
-        }
-        if (from_board_mount) {
-            m_board_mount_rotation = rotation_degrees;
-        }
-    }
+    apply_startup_rotation(config);
 
     // Initialize UI update queue for thread-safe async updates
     // Creates the queue's drain timer, which needs lv_init() but not a display
@@ -1180,6 +1106,84 @@ void DisplayManager::run_rotation_probe() {
         },
         [this](bool suspended) { set_resize_fanout_suspended(suspended); }};
     helix::RotationProbe(std::move(host)).run();
+}
+
+void DisplayManager::apply_startup_rotation(const Config& config) {
+    // CLI/config rotation (passed via Config struct)
+    int rotation_degrees = config.rotation;
+
+    // Environment variable override (highest priority)
+    const char* env_rotate = std::getenv("HELIX_DISPLAY_ROTATION");
+    if (env_rotate) {
+        rotation_degrees = std::atoi(env_rotate);
+        spdlog::info("[DisplayManager] HELIX_DISPLAY_ROTATION={} override", rotation_degrees);
+    }
+
+    // Fall back to config file if not set via Config struct or env
+    if (rotation_degrees == 0) {
+        rotation_degrees = helix::Config::get_instance()->get<int>("/display/rotate", 0);
+    }
+
+    // A first-boot kernel panel_orientation arrives as config.rotation
+    // (Application::init_display()). The board's mount is decided here, where
+    // the framebuffer geometry that confirms it is known. The interactive
+    // probe runs later, from Application::run_rotation_probe_and_layout().
+    bool from_board_mount = false;
+    if (rotation_degrees == 0 && config.first_boot_probe) {
+        const int mount =
+            helix::first_boot_board_mount(config.kernel_orientation, m_width, m_height);
+        if (mount > 0) {
+            spdlog::info("[DisplayManager] First boot: board panel mount {}° for {}x{}", mount,
+                         m_width, m_height);
+            rotation_degrees = mount;
+            from_board_mount = true;
+        }
+    }
+
+    // Apply rotation from config, env, or CLI
+    if (rotation_degrees != 0) {
+#ifdef HELIX_DISPLAY_SDL
+        // LVGL's SDL driver only supports software rotation in PARTIAL render mode,
+        // but we use DIRECT mode for performance. Skip rotation on SDL — it's only
+        // for desktop dev. On embedded (fbdev/DRM) rotation works correctly.
+        spdlog::warn("[DisplayManager] Rotation {}° requested but SDL backend does not "
+                     "support software rotation (DIRECT render mode). Ignoring on desktop.",
+                     rotation_degrees);
+#else
+        int phys_w = m_width;
+        int phys_h = m_height;
+
+        lv_display_rotation_t lv_rot = degrees_to_lv_rotation(rotation_degrees);
+
+        // If DRM backend can't do hardware rotation, fall back to fbdev
+        // which handles software rotation flicker-free via LVGL's native path.
+        if (!try_drm_to_fbdev_fallback(lv_rot, config.splash_active)) {
+            // Fallback failed (a DSI display on a non-EGL build, with no fbdev).
+            // Continue without rotation rather than aborting — a
+            // working unrotated display is better than no display.
+            // lv_display_set_rotation() is deliberately NOT called, which
+            // is what makes the display the honest source: `/display/rotate`
+            // still says 90/180/270 here while nothing is rotated, and a
+            // gate believing the key would throw away a perfectly good
+            // stored touch range on every boot of such a unit.
+            spdlog::warn("[DisplayManager] Continuing without rotation. "
+                         "On a non-EGL build, use panel_orientation in "
+                         "/boot/firmware/cmdline.txt instead.");
+            rotation_degrees = 0;
+        } else {
+            // After the fallback, which may have swapped m_backend.
+            settle_display_rotation(lv_rot, phys_w, phys_h);
+        }
+
+        spdlog::info("[DisplayManager] Display rotated {}° — effective resolution: {}x{}",
+                     rotation_degrees, width(), height());
+#endif
+    }
+    if (config.first_boot_probe) {
+        m_first_boot_orientation = config.kernel_orientation >= 0 ? config.kernel_orientation
+                                   : from_board_mount && rotation_degrees > 0 ? rotation_degrees
+                                                                              : -1;
+    }
 }
 
 void DisplayManager::settle_display_rotation(lv_display_rotation_t rot, int phys_w, int phys_h) {

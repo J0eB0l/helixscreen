@@ -1352,12 +1352,12 @@ bool Application::init_display() {
     // and gate the stored touch range on it (#1428): the kernel's
     // panel_orientation here, the board's mount once init knows the framebuffer.
     m_rotation_probe_wanted = rotation_probe_wanted();
-    m_first_boot_orientation =
+    const int kernel_orientation =
         m_rotation_probe_wanted ? DisplayBackend::detect_panel_orientation() : -1;
     config.rotation =
-        helix::startup_rotation(m_args.rotation, m_rotation_probe_wanted, m_first_boot_orientation);
+        helix::startup_rotation(m_args.rotation, m_rotation_probe_wanted, kernel_orientation);
     config.first_boot_probe = m_rotation_probe_wanted;
-    config.kernel_orientation = m_first_boot_orientation;
+    config.kernel_orientation = kernel_orientation;
     config.size_was_explicit = m_args.size_was_explicit;
 
     // Get scroll config from settings.json
@@ -1380,9 +1380,6 @@ bool Application::init_display() {
     if (!m_display->init(config)) {
         spdlog::error("[Application] Display initialization failed");
         return false;
-    }
-    if (m_display->board_mount_rotation() > 0) {
-        m_first_boot_orientation = m_display->board_mount_rotation();
     }
 
     // Update screen dimensions from what the display actually resolved to.
@@ -1671,7 +1668,7 @@ void Application::run_rotation_probe_and_layout() {
             // is informational, the kernel does NOT rotate the framebuffer) or
             // the board's mount. init_display() has already applied it, so only
             // the config write remains.
-            const int known_orientation = m_first_boot_orientation;
+            const int known_orientation = m_display->first_boot_orientation();
             if (known_orientation >= 0) {
                 // Orientation detected (0=Normal, 90, 180, 270).
                 if (known_orientation > 0) {
