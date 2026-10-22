@@ -79,10 +79,13 @@ struct CachedFile {
     std::shared_ptr<const XmlTokens> tokens;
 };
 
-#if !defined(HELIX_PLATFORM_ESP32)
 // How old a file's last change must be, when it is parsed, before its stamp is
-// trusted to detect the next change. Far above any filesystem's timestamp tick.
-constexpr int64_t kRacyWindowNs = 2'000'000'000;
+// trusted to detect the next change. Above the coarsest common timestamp tick:
+// FAT and exFAT record mtime in 2s steps.
+constexpr int64_t kRacyWindowNs = 3'000'000'000;
+std::atomic<int64_t> g_racy_window_ns{kRacyWindowNs};
+
+#if !defined(HELIX_PLATFORM_ESP32)
 
 int64_t to_ns(const struct timespec& ts) {
     return static_cast<int64_t>(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
@@ -205,12 +208,17 @@ std::shared_ptr<const XmlTokens> file_tokens(const char* filepath) {
         return nullptr;
     }
     const int64_t last_change_ns = std::max(stamp->mtime_ns, stamp->ctime_ns);
-    cache[filepath] = CachedFile{*stamp, now_ns - last_change_ns > kRacyWindowNs, tokens};
+    cache[filepath] = CachedFile{
+        *stamp, now_ns - last_change_ns > g_racy_window_ns.load(std::memory_order_relaxed), tokens};
     return tokens;
 #endif
 }
 
 } // namespace
+
+int64_t helix::theme_detail::set_token_racy_window_ns(int64_t ns) {
+    return g_racy_window_ns.exchange(ns, std::memory_order_relaxed);
+}
 
 int theme_manager_token_file_parse_count() {
     return g_token_file_parses.load(std::memory_order_relaxed);
