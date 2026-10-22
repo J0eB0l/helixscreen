@@ -149,6 +149,7 @@ helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
+helix_analysis = _load_sibling("helix_analysis")
 
 
 # ============================================================================
@@ -433,6 +434,7 @@ class HelixPrint:
         self.start_3mf_on_upload = config.getboolean("start_3mf_on_upload", False)
         self.converter: Optional[Any] = None
         self.plr: Optional[Any] = None
+        self.analysis: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -732,6 +734,7 @@ class HelixPrint:
         await self._start_3mf_converter()
         self._register_3mf_feature()
         self._start_plr()
+        self._start_analysis()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -817,7 +820,27 @@ class HelixPrint:
             extra=self.plr.feature_extra,
         )
 
+    def _start_analysis(self) -> None:
+        """File analysis (helix_analysis.py). It only observes, so it is on
+        unless the user opts out in plugin_features."""
+        if helix_analysis is None:
+            self.register_feature(
+                "file_analysis", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_analysis", "module_missing"),
+            )
+            return
+        self.analysis = helix_analysis.HelixAnalysis(self)
+        self.analysis.register()
+        self.register_feature(
+            helix_analysis.ANALYSIS_FEATURE, helix_analysis.ANALYSIS_FEATURE_VERSION,
+            acts=False, probe=self.analysis.availability,
+        )
+        if self.enabled:
+            self.eventloop.register_callback(self.analysis.start)
+
     async def close(self) -> None:
+        if self.analysis is not None:
+            await self.analysis.close()
         if self.plr is not None:
             self.plr.close()
         if self.converter is not None:

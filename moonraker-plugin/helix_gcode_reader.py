@@ -15,7 +15,10 @@ both read files through this module; neither carries its own parser. It holds:
 - the window: per-line motion records for the last WINDOW_BYTES before the
   end offset, and the layer starts inside it; memory stays constant in the
   file size;
-- the throttle policy every background reader follows.
+- a ScanObserver hook, through which a whole-file reader (file analysis) sees
+  every move, command and comment after the reducer applied it;
+- the throttle policy every background reader follows;
+- the layer index sidecar and the file identity it is valid for.
 
 Offsets are byte offsets. A line counts as executed when its newline is at or
 before the end offset, which is how Klipper's virtual_sdcard advances
@@ -238,6 +241,27 @@ LayerCallback = Callable[[int, int, ModalState], None]
 ThrottleHook = Callable[[int], None]
 
 
+class ScanObserver:
+    """Sees every line scan_to_offset applies, after the reducer applied it.
+
+    Override what you need; each hook gets the live state (do not mutate it)
+    and the line's byte offset. `start` is the toolhead position [x, y, z, e]
+    before a move; state.last_position is where it ended.
+    """
+
+    def move(self, state: ModalState, start: List[float], words: List[bytes],
+             offset: int) -> None:
+        pass
+
+    def command(self, state: ModalState, cmd: bytes, words: List[bytes],
+                body: bytes, offset: int) -> None:
+        """Any non-motion command, EXCLUDE_OBJECT_DEFINE and G10/G11 included.
+        `cmd` is upper-cased; `body` is the line up to its comment."""
+
+    def comment(self, state: ModalState, line: bytes, offset: int) -> None:
+        """A whole-line comment, leading whitespace stripped."""
+
+
 def scan_to_offset(
     stream: BinaryIO,
     end_offset: int,
@@ -246,6 +270,7 @@ def scan_to_offset(
     cancel: Optional[threading.Event] = None,
     throttle: Optional[ThrottleHook] = None,
     on_layer_start: Optional[LayerCallback] = None,
+    observer: Optional[ScanObserver] = None,
 ) -> ScanResult:
     """Reduce `stream` from start_offset to end_offset.
 
@@ -297,6 +322,8 @@ def scan_to_offset(
             marker = _layer_marker(raw)
             if marker is not None:
                 layers.marker(marker[0], marker[1], line_start, state)
+            if observer is not None:
+                observer.comment(state, raw, line_start)
             continue
         cut = raw.find(b";")
         body = raw[:cut] if cut >= 0 else raw
@@ -315,42 +342,55 @@ def scan_to_offset(
             sx = lp[0]
             sy = lp[1]
             se = lp[3]
+            if observer is not None:
+                start = list(lp)
             _apply_move(state, lp, words)
             if line_start >= window_begin:
                 window.append(LineRecord(
                     line_start, pos, (sx, sy), (lp[0], lp[1]), lp[2], lp[3] - se,
                     state.layer, False, None, False, state.speed, 0,
                 ))
+            if observer is not None:
+                observer.move(state, start, words, line_start)
             continue
         if cmd == b"G2" or cmd == b"G3":
             sx = lp[0]
             sy = lp[1]
             se = lp[3]
+            if observer is not None:
+                start = list(lp)
             center = _apply_arc(state, lp, words, sx, sy)
             if line_start >= window_begin:
                 window.append(LineRecord(
                     line_start, pos, (sx, sy), (lp[0], lp[1]), lp[2], lp[3] - se,
                     state.layer, True, center, cmd == b"G2", state.speed, 0,
                 ))
+            if observer is not None:
+                observer.move(state, start, words, line_start)
             continue
         if cmd == b"G10" or cmd == b"G11":
             retracting = cmd == b"G10"
-            if state.retracted == retracting:
-                continue
-            state.retracted = retracting
-            if line_start >= window_begin:
-                xy = (lp[0], lp[1])
-                window.append(LineRecord(
-                    line_start, pos, xy, xy, lp[2], 0.0, state.layer, False, None,
-                    False, state.speed, -1 if retracting else 1,
-                ))
+            if state.retracted != retracting:
+                state.retracted = retracting
+                if line_start >= window_begin:
+                    xy = (lp[0], lp[1])
+                    window.append(LineRecord(
+                        line_start, pos, xy, xy, lp[2], 0.0, state.layer, False, None,
+                        False, state.speed, -1 if retracting else 1,
+                    ))
+            if observer is not None:
+                observer.command(state, cmd, words, body, line_start)
             continue
         if cmd == b"EXCLUDE_OBJECT_DEFINE":
             object_defines.append(body.strip().decode("utf-8", "replace"))
+            if observer is not None:
+                observer.command(state, cmd, words, body, line_start)
             continue
         layer = _apply_other(state, cmd, words)
         if layer is not None:
             layers.print_stats(layer, line_start, state)
+        if observer is not None:
+            observer.command(state, cmd, words, body, line_start)
 
     return ScanResult(state, list(window), object_defines, layers.result(), pos)
 
@@ -802,16 +842,55 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
 # --------------------------------------------------------------------------
 
 # A file's layer starts with the modal state at each, so a scan can begin at a
-# layer instead of byte 0. JSON lines: a header naming the file it indexes,
-# one line per layer start, and a closing line once the whole file is
-# indexed. Append-only, so a reader that stops anywhere leaves a valid prefix;
-# an unreadable line (a write cut short) is skipped.
+# layer instead of byte 0. JSON lines, one record each:
+#
+#   {"format": 1, "file_size": .., "file_mtime": .., "file_hash": ..}  header
+#   {"layer": n, "offset": o, "z": z, "state": {ModalState.to_dict()}} a layer start
+#   {"progress_lines": [[offset, "M73 P12 R30"], ...]}                 optional
+#   {"complete": true, "end_offset": o}                                whole file read
+#
+# `z` is the toolhead Z at the offset. A layer start written by a reader that
+# saw the whole layer (file analysis) also carries:
+#
+#   "tools": [n, ...]  the tools that extrude in the layer (0 before any T<n>)
+#   "print_z": z       the toolhead Z of its first extruding move, or null
+#   "feature": "..."   the slicer `;TYPE:` section in effect at the offset, or null
+#
+# `progress_lines` are the lines a progress bar places markers from (pause
+# commands, M73, SET_PRINT_STATS_INFO), verbatim up to their comment, so the
+# screen classifies them with its own rules.
+#
+# Append-only, so a reader that stops anywhere leaves a valid prefix; an
+# unreadable line (a write cut short) is skipped, and so is a record of a kind
+# the reader does not know.
 LAYER_INDEX_FORMAT = 1
 LAYER_INDEX_DIR = ".helix_index"
 LAYER_INDEX_SUFFIX = ".layers.jsonl"
 
 # The file identity a layer index is valid for.
 IDENTITY_KEYS = ("file_size", "file_mtime", "file_hash")
+
+# file_hash reads this much from each end of the file.
+HASH_SPAN_BYTES = 64 * 1024
+
+
+def file_hash(path: "os.PathLike") -> str:
+    """sha1 of the first and last HASH_SPAN_BYTES (the whole file when shorter)."""
+    import hashlib
+    h = hashlib.sha1()
+    with open(str(path), "rb") as f:
+        h.update(f.read(HASH_SPAN_BYTES))
+        size = os.fstat(f.fileno()).st_size
+        if size > HASH_SPAN_BYTES:
+            f.seek(max(HASH_SPAN_BYTES, size - HASH_SPAN_BYTES))
+            h.update(f.read(HASH_SPAN_BYTES))
+    return h.hexdigest()
+
+
+def file_identity(path: "os.PathLike") -> dict:
+    """The identity a layer index for `path` is written against."""
+    st = os.stat(str(path))
+    return {"file_size": st.st_size, "file_mtime": st.st_mtime, "file_hash": file_hash(path)}
 
 
 class LayerCheckpoint(NamedTuple):
@@ -858,11 +937,22 @@ class LayerIndexWriter:
         self._f.write(json.dumps(record, separators=(",", ":")) + "\n")
         self._f.flush()
 
-    def append(self, layer: int, offset: int, state: ModalState) -> None:
+    def append(self, layer: int, offset: int, state: ModalState,
+               extra: Optional[dict] = None) -> None:
+        """One layer start; `extra` adds the whole-layer fields (tools,
+        print_z, feature) a reader that saw the layer knows."""
         if self._f is None:
             self._open()
-        self._write({"layer": layer, "offset": offset, "z": state.last_position[2],
-                     "state": state.to_dict()})
+        record = {"layer": layer, "offset": offset, "z": state.last_position[2],
+                  "state": state.to_dict()}
+        if extra:
+            record.update((k, v) for k, v in extra.items() if k not in record)
+        self._write(record)
+
+    def progress_lines(self, lines: List[Tuple[int, str]]) -> None:
+        if self._f is None:
+            self._open()
+        self._write({"progress_lines": [[o, t] for o, t in lines]})
 
     def finish(self, end_offset: int) -> None:
         if self._f is None:
@@ -873,6 +963,27 @@ class LayerIndexWriter:
         if self._f is not None:
             self._f.close()
             self._f = None
+
+
+def write_layer_index(path: str, identity: dict,
+                      starts: List[Tuple[int, int, ModalState, Optional[dict]]],
+                      progress_lines: List[Tuple[int, str]], end_offset: int) -> None:
+    """Write a whole file's index in one go: (layer, offset, state, extra)
+    per start. It replaces the file atomically, so a follower appending to
+    the one it found keeps writing to an unlinked file, and readers never see
+    a half-written index."""
+    tmp = path + ".tmp"
+    writer = LayerIndexWriter(tmp, identity)
+    try:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        for layer, offset, state, extra in starts:
+            writer.append(layer, offset, state, extra)
+        writer.progress_lines(progress_lines)
+        writer.finish(end_offset)
+    finally:
+        writer.close()
+    os.replace(tmp, path)
 
 
 class LayerIndexSummary(NamedTuple):

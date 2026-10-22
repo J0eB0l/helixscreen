@@ -8,6 +8,7 @@ Run with: pytest tests/test_helix_gcode_reader.py -v
 """
 
 import io
+import json
 import sys
 import threading
 import tracemalloc
@@ -611,3 +612,101 @@ def test_layer_index_appends_and_survives_a_cut_line(tmp_path):
 
 def test_missing_layer_index_is_none(tmp_path):
     assert read_layer_index(str(tmp_path / "nope.jsonl"), IDENT) is None
+
+
+def test_whole_index_carries_extras_and_progress_lines_and_stays_readable(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    st = ModalState()
+    reader.write_layer_index(
+        path, IDENT,
+        [(1, 10, st, {"tools": [0, 1], "print_z": 0.2, "feature": "Outer wall"}),
+         (2, 90, st, None)],
+        [(40, "M600"), (60, "M73 P50")], 120)
+    lines = [json.loads(l) for l in open(path).read().splitlines()]
+    assert lines[1]["tools"] == [0, 1] and lines[1]["print_z"] == 0.2
+    assert lines[1]["feature"] == "Outer wall"
+    assert "tools" not in lines[2]
+    assert lines[3] == {"progress_lines": [[40, "M600"], [60, "M73 P50"]]}
+    assert lines[4] == {"complete": True, "end_offset": 120}
+    summary = read_layer_index(path, IDENT)
+    assert summary.complete and (summary.last.layer, summary.last.offset) == (2, 90)
+    assert not (tmp_path / ".helix_index" / "a.gcode.layers.jsonl.tmp").exists()
+
+
+def test_extra_never_overrides_the_checkpoint_fields(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    w = LayerIndexWriter(path, IDENT)
+    w.append(1, 10, ModalState(), {"offset": 999, "tools": [2]})
+    w.close()
+    summary = read_layer_index(path, IDENT)
+    assert summary.last.offset == 10
+
+
+def test_file_identity_is_the_one_power_loss_recovery_records(tmp_path):
+    import helix_plr
+    f = tmp_path / "big.gcode"
+    f.write_bytes(b"G1 X1\n" * 40000)
+    assert reader.file_identity(f) == helix_plr.file_identity(f)
+
+
+# --------------------------------------------------------------------------
+# ScanObserver
+# --------------------------------------------------------------------------
+
+
+class Recorder(reader.ScanObserver):
+    def __init__(self):
+        self.seen = []
+
+    def move(self, state, start, words, offset):
+        self.seen.append(("move", offset, list(start), list(state.last_position),
+                          [w.decode() for w in words]))
+
+    def command(self, state, cmd, words, body, offset):
+        self.seen.append(("command", offset, cmd.decode(), state.active_tool))
+
+    def comment(self, state, line, offset):
+        self.seen.append(("comment", offset, line.decode().rstrip()))
+
+
+def test_observer_sees_every_line_after_the_reducer_applied_it():
+    data = gcode("""
+;LAYER_CHANGE
+T1
+G1 X10 E1
+G2 X20 I5 J0 E1
+EXCLUDE_OBJECT_DEFINE NAME=a
+G10
+G10
+""")
+    rec = Recorder()
+    scan(data, observer=rec)
+    kinds = [(s[0], s[1]) for s in rec.seen]
+    assert kinds == [
+        ("comment", 0), ("command", offset_of(data, "T1")), ("move", offset_of(data, "G1")),
+        ("move", offset_of(data, "G2")), ("command", offset_of(data, "EXCLUDE")),
+        ("command", offset_of(data, "G10")), ("command", offset_of(data, "G10", 1)),
+    ]
+    assert rec.seen[1][3] == 1                       # the T1 already applied
+    assert rec.seen[2][2] == [0.0, 0.0, 0.0, 0.0]    # start
+    assert rec.seen[2][3] == [10.0, 0.0, 0.0, 1.0]   # end
+    assert rec.seen[2][4] == ["G1", "X10", "E1"]
+    assert rec.seen[3][2] == [10.0, 0.0, 0.0, 1.0]
+
+
+def test_observer_does_not_change_the_scan():
+    data = gcode("""
+G90
+M83
+;LAYER_CHANGE
+G1 Z0.2
+G1 X5 Y5 E0.5
+;LAYER_CHANGE
+G1 Z0.4
+G1 X1 Y1 E0.5
+""")
+    plain = scan(data)
+    watched = scan(data, observer=Recorder())
+    assert plain.state_at_head == watched.state_at_head
+    assert plain.window == watched.window
+    assert sorted(plain.layer_starts) == sorted(watched.layer_starts)
