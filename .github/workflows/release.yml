@@ -428,7 +428,7 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2.22
       with:
         key: release-android
-        max-size: 500M
+        max-size: 3G
         save: false
 
     - name: Cache Gradle

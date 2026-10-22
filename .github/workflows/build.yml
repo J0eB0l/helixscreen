@@ -564,7 +564,7 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2.22
       with:
         key: android-debug-ubuntu-22.04
-        max-size: 2G
+        max-size: 3G
         evict-old-files: job
         save: ${{ github.ref == 'refs/heads/main' }}
 
