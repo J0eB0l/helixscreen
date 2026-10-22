@@ -834,6 +834,26 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR offer: a pushed status never prompts ove
     CHECK(PlrOfferControllerTestAccess::prompted(controller));
 }
 
+TEST_CASE_METHOD(PlrWizardFixture,
+                 "PLR offer: a wizard torn down without a dismiss no longer holds the offer",
+                 "[plr][prompt][generic]") {
+    OfferControllerScope scope{api};
+    open();
+    REQUIRE(wizard_step() == PlrWizardStep::Checks);
+    REQUIRE(helix::ui::plr_wizard_open());
+
+    // Shutdown's teardown frees the wizard without running its dismiss path.
+    StaticPanelRegistry::instance().destroy_all();
+    settle();
+    CHECK_FALSE(helix::ui::plr_wizard_open());
+
+    helix::ui::PlrOfferController controller;
+    settle();
+    client.dispatch_method_callback(helix::kPlrStatusNotify, offering_status_push());
+    settle();
+    CHECK(PlrOfferControllerTestAccess::prompted(controller));
+}
+
 TEST_CASE("PLR wizard: every plugin progress step has words", "[plr][wizard_overlay]") {
     using helix::ui::plr_progress_step_text;
     for (const char* step : {"bed_wait", "chamber_wait", "nozzle_in_place", "nozzle_standby",
