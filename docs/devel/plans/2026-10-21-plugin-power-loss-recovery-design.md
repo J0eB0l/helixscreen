@@ -53,6 +53,8 @@ Accepted as recommended in the first draft, or decided on review:
 | O6 | Cold-bed threshold `kPlrColdBedDiffC` = 10 °C until the adhesion test (§ 11.4) says otherwise. |
 | O7 | No Fluidd/Mainsail resume macro in v1; every resume goes through the screen's confirmations. Later phase. |
 | O9 | The mesh include line is added opt-in from both an installer prompt and a settings button. |
+| R26 | When the executed line cannot be found, resume at the start of the NEXT layer, not the current one: printing a layer again over itself at the same Z risks a collision, a skipped partial layer is a cosmetic gap. The warning keeps its name, `layer_start`, now meaning "resumes at the next layer start", and keeps its confirmation in the app. (2026-10-21) |
+| R27 | `no_purge_location` stays a warning; no new Confirmation value. (2026-10-21) |
 
 Still open: O4 and O8 (§ 14).
 
@@ -288,8 +290,10 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    resume re-traces up to one interval (a ridge, never a gap); at 1 it skips the whole interval
    (no ridge, possibly a gap). Initial default 0.5, settled by task T2. Reported as
    `retrace_estimate_mm` and `skip_estimate_mm`.
-6. **Fallback.** If the walk does not converge or the check fails: the start of the current
-   layer, `method: "layer_start"`, with a warning in the plan. Never a byte rewind.
+6. **Fallback.** If the walk does not converge or the check fails: the start of the next
+   layer (ruling R26), `method: "layer_start"`, with the `layer_start` warning. The scan reads on
+   past the head when it has not reached that layer; no next layer (the last one) or no layer
+   markers means no plan. Never a byte rewind.
 
 Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `ScanResult` and
 `scan_to_offset` are built and live in `helix_gcode_reader.py` (the plugin's constants are
@@ -689,7 +693,8 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   `.cache` has the snapshot's file size and hash, and a plan refuses
   (`plr_scan_failed: qidi_landing_below_part`) when offset + mesh at the cut is below -0.05 mm.
 - `commit` takes `z_reference: "part_top"` at tier 1 and `"trusted"` at tier 2 and refuses the other.
-- `warnings` values: `layer_start`, `mesh_unavailable`, `cold_bed` (bed more than
+- `warnings` values: `layer_start` (resumes at the next layer's start, R26), `mesh_unavailable`,
+  `cold_bed` (bed more than
   `COLD_BED_DIFF_C` under target at plan time, which also adds `accept_cold_bed` to `requires`),
   `no_purge_location` (no objects known, so the nozzle heats and primes at the XY home position).
 - `restores` values: `bed_mesh`, `gcode_offset`, `pressure_advance`, `velocity_limits`,

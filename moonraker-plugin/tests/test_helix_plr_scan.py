@@ -25,7 +25,7 @@ from helix_gcode_reader import LayerIndexWriter, layer_index_path, scan_to_offse
 from helix_plr_scan import (
     ExecutedLine,
     advance_by_time,
-    layer_start_fallback,
+    next_layer_start,
     locate_executed_line,
     path_length,
     resume_point,
@@ -189,16 +189,32 @@ def test_runtime_gcode_offset_is_taken_off_the_nozzle():
     assert found.index == 40
 
 
-def test_no_convergence_falls_back_to_the_layer_start():
-    data = gcode(["M83", ";LAYER_CHANGE", "G1 Z.2"] + wall(30, z=0.2) +
-                 [";LAYER_CHANGE", "G1 Z.4"] + wall(30))
-    r = scan(data)
+def three_layers():
+    return gcode(["M83", ";LAYER_CHANGE", "G1 Z.2"] + wall(30, z=0.2) +
+                 [";LAYER_CHANGE", "G1 Z.4"] + wall(30) +
+                 [";LAYER_CHANGE", "G1 Z.6"] + wall(30, z=0.6))
+
+
+def test_no_convergence_falls_back_to_the_next_layer_start():
+    """Ruling (2026-10-21): skip the rest of the layer (a gap), never print it
+    again over itself at the same Z (a collision)."""
+    data = three_layers()
+    head = data.index(b";LAYER_CHANGE\nG1 Z.6")             # Klipper is still in layer 2
+    r = scan_to_offset(io.BytesIO(data), head - 40)
     snapshot = {"toolhead_pos": [0, 0, 0.4, HEAD_E], "live_pos": [150, 150, 0.4, HEAD_E - 0.1],
                 "layer": 2, "extrude_factor": 1.0}
     point = resume_point(io.BytesIO(data), r, snapshot, 0.5, 1.0)
     assert point.method == "layer_start" and point.warnings == ["layer_start"]
-    assert point.offset == data.index(b";LAYER_CHANGE\nG1 Z.4")
-    assert point.state.layer == 1
+    assert point.offset == head
+    assert point.state.layer == 2 and point.state.last_position[2] == pytest.approx(0.4)
+
+
+def test_next_layer_start_already_inside_the_scan():
+    data = three_layers()
+    r = scan(data)
+    point = next_layer_start(io.BytesIO(data), r, 2)
+    assert point.offset == data.index(b";LAYER_CHANGE\nG1 Z.6")
+    assert next_layer_start(io.BytesIO(data), r, 1).offset == data.index(b";LAYER_CHANGE\nG1 Z.4")
 
 
 def test_head_near_the_file_start_has_a_short_window():
@@ -208,12 +224,14 @@ def test_head_near_the_file_start_has_a_short_window():
     assert walk(r, 3).index == 3
 
 
-def test_unknown_layer_falls_back_to_the_last_start_and_none_without_any():
-    data = gcode(["M83", ";LAYER_CHANGE", "G1 Z.2", "G1 X1 E1", ";LAYER_CHANGE", "G1 Z.4"])
-    r = scan(data)
-    assert layer_start_fallback(r, None).offset == data.rindex(b";LAYER_CHANGE")
-    assert layer_start_fallback(r, 7) is None
-    assert layer_start_fallback(scan(gcode(["G1 X1"])), None) is None
+def test_next_layer_start_without_a_layer_or_a_next_layer():
+    data = three_layers()
+    mid = scan_to_offset(io.BytesIO(data), data.index(b"G1 Z.4") + 20)
+    assert next_layer_start(io.BytesIO(data), mid, None).offset == \
+        data.index(b";LAYER_CHANGE\nG1 Z.6")                    # unknown: after the head's layer
+    assert next_layer_start(io.BytesIO(data), scan(data), 3) is None   # the last layer
+    no_markers = gcode(["G1 X1", "G1 X2"])
+    assert next_layer_start(io.BytesIO(no_markers), scan(no_markers), None) is None
 
 
 # --------------------------------------------------------------------------

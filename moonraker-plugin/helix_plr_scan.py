@@ -10,7 +10,7 @@ the nearest layer checkpoint, walks the window of lines back from the head by
 the measured extruder lead to the line that was executing, checks it against
 the nozzle's XY, then moves forward by resume_skip_fraction of a save interval,
 because the nozzle kept going for up to one interval after the snapshot. When
-the walk finds nothing it falls back to the start of the current layer.
+the walk finds nothing it falls back to the start of the next layer.
 
 Pure: no Moonraker imports. Python 3.8, stdlib only.
 """
@@ -251,24 +251,53 @@ def advance_by_time(scan: ScanResult, executed: ExecutedLine, seconds: float,
     return last, path_length(window[last]), skipped
 
 
-def layer_start_fallback(scan: ScanResult, layer: Optional[int]) -> Optional[ResumePoint]:
-    """The start of `layer`, or of the last layer the scan saw when the layer
-    is unknown."""
-    starts = scan.layer_starts
-    if not starts:
+class _NextLayerFound(Exception):
+    pass
+
+
+def next_layer_start(stream: BinaryIO, scan: ScanResult, layer: Optional[int],
+                     cancel: Optional[threading.Event] = None) -> Optional[ResumePoint]:
+    """The start of the layer after `layer` (the snapshot's, else the one at
+    the head), read on past the head when the scan has not reached it.
+
+    The fallback when the executed line cannot be found: the rest of the
+    current layer is skipped, a cosmetic gap, rather than the layer printed
+    again over its own plastic at the same Z, a collision. None on the last
+    layer or when the file has no layer markers.
+    """
+    current = layer if layer is not None else scan.state_at_head.layer
+    if current is None:
         return None
-    if layer is None or layer not in starts:
-        if layer is not None:
-            return None
-        layer = max(starts, key=lambda k: starts[k][0])
-    offset, state = starts[layer]
+    later = sorted((offset, n, state) for n, (offset, state) in scan.layer_starts.items()
+                   if n > current)
+    if later:
+        offset, _, state = later[0]
+        return ResumePoint(offset, state, "layer_start", 0.0, 0.0, ["layer_start"])
+    found = []
+
+    # The scan has seen no later layer, so the first start past the head is
+    # the next one.
+    def on_layer(n: int, offset: int, state: ModalState) -> None:
+        found.append((offset, state))
+        raise _NextLayerFound()
+
+    stream.seek(0, 2)
+    end = stream.tell()
+    try:
+        scan_to_offset(stream, end, scan.offset, scan.state_at_head, cancel=cancel,
+                       on_layer_start=on_layer)
+    except _NextLayerFound:
+        pass
+    if not found:
+        return None
+    offset, state = found[0]
     return ResumePoint(offset, state, "layer_start", 0.0, 0.0, ["layer_start"])
 
 
 def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict,
                  skip_fraction: float, save_interval_s: float) -> Optional[ResumePoint]:
     """The resume point for a snapshot: measured when the walk converges,
-    else the current layer's start. None when neither is found."""
+    else the next layer's start. None when neither is found."""
     toolhead = snapshot.get("toolhead_pos")
     live = snapshot.get("live_pos")
     limits = snapshot.get("limits") or {}
@@ -289,4 +318,4 @@ def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict,
         offset = scan.window[index].offset
         return ResumePoint(offset, state_before(stream, scan, offset), "measured",
                            retrace, skip, [])
-    return layer_start_fallback(scan, snapshot.get("layer"))
+    return next_layer_start(stream, scan, snapshot.get("layer"))
