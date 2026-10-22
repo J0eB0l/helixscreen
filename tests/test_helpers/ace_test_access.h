@@ -139,5 +139,20 @@ class AceTestAccess {
     static void start_load(AmsBackendAce& b) {
         b.on_started();
     }
+
+    // --- HelixPrint plugin vendor push ---
+    /// Take the REST bridge path without starting its polling thread.
+    static void set_rest_fallback(AmsBackendAce& b, bool on) {
+        b.use_rest_fallback_ = on;
+    }
+    static void on_vendor_state(AmsBackendAce& b, const nlohmann::json& payload) {
+        b.on_vendor_state(payload);
+    }
+    static void handle_status(AmsBackendAce& b, const nlohmann::json& status) {
+        b.handle_status(status);
+    }
+    static bool vendor_pushing(const AmsBackendAce& b) {
+        return b.vendor_push_.pushing();
+    }
 };
 } // namespace helix

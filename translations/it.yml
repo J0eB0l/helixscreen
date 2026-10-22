@@ -179,6 +179,7 @@ translations:
   'ACCEPT failed: {}': 'ACCEPT fallito: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: Bridge
     ACE Moonraker non trovato. Installa ace_status.py per il supporto completo.
+  ACE updates without polling: 'Aggiornamenti ACE senza polling'
   ACTIONS: AZIONI
   ADD-ONS: 'EXTRA'
   ADXL: ADXL
@@ -1839,6 +1840,7 @@ translations:
   I understand: Ho capito
 
   ID (optional): ID (opzionale)
+  IFS updates without polling: 'Aggiornamenti IFS senza polling'
   IMPORT FROM USB: IMPORTA DA USB
   INDX dock positions are not calibrated: "Le posizioni dei dock INDX non sono calibrate"
   INDX macros not recognized: "Macro INDX non riconosciute"

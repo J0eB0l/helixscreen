@@ -530,11 +530,12 @@ TEST_CASE("the plugin overview lists every reported feature with its status", "[
 TEST_CASE("the overview names every batch feature and gives the switchless ones no home",
           "[plugin_feature]") {
     PluginFeatureMap features;
-    for (const char* name : {"file_analysis", "event_journal", "server_edits", "config_edit"}) {
+    for (const char* name : {"file_analysis", "event_journal", "server_edits", "config_edit",
+                             "vendor_ad5x", "vendor_ace"}) {
         features[name] = entry(1, true, true);
     }
     const auto lines = plugin_feature_lines(features);
-    REQUIRE(lines.size() == 4);
+    REQUIRE(lines.size() == 6);
     for (const PluginFeatureLine& line : lines) {
         INFO(line.name);
         CHECK(line.label != line.name);

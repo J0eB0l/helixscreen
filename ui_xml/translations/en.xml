@@ -169,6 +169,7 @@
   <translation tag="ACCELEROMETERS" en="ACCELEROMETERS"/>
   <translation tag="ACCEPT failed: {}" en="ACCEPT failed: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." en="ACE Moonraker bridge not found. Install ace_status.py for full support."/>
+  <translation tag="ACE updates without polling" en="ACE updates without polling"/>
   <translation tag="ACTIONS" en="ACTIONS"/>
   <translation tag="ADD-ONS" en="ADD-ONS"/>
   <translation tag="ADXL" en="ADXL"/>
@@ -1677,6 +1678,7 @@
   <translation tag="Hyperspace" en="Hyperspace"/>
   <translation tag="I understand" en="I understand"/>
   <translation tag="ID (optional)" en="ID (optional)"/>
+  <translation tag="IFS updates without polling" en="IFS updates without polling"/>
   <translation tag="IMPORT FROM USB" en="IMPORT FROM USB"/>
   <translation tag="INDX dock positions are not calibrated" en="INDX dock positions are not calibrated"/>
   <translation tag="INDX macros not recognized" en="INDX macros not recognized"/>

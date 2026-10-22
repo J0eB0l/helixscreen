@@ -451,6 +451,9 @@ void AmsBackendAd5xIfs::on_started() {
                             // printers is silent and falls back to 1000/1200.
                             fetch_filament_json();
                             register_zcolor_listener();
+                            helix::subscribe_vendor_state(
+                                *client_, "ifs_vendor_state", kVendorPushVendor, lifetime_.token(),
+                                [this](const json& payload) { on_vendor_state(payload); });
                             // notify_klippy_ready catches startup and
                             // FIRMWARE_RESTART; it's the point at which zmod
                             // is initialised and GET_ZCOLOR returns populated
@@ -888,12 +891,37 @@ void AmsBackendAd5xIfs::handle_status(const json& status_obj) {
                        helix::PrintJobState::PRINTING;
     }
 
+    // While the HelixPrint plugin pushes the file, the poll stands down.
+    refresh_vendor_push();
     auto now = std::chrono::steady_clock::now();
-    if (should_poll_json(printing_now, json_poll_was_printing_, now - last_json_poll_kick_)) {
+    if (!vendor_push_.pushing() &&
+        should_poll_json(printing_now, json_poll_was_printing_, now - last_json_poll_kick_)) {
         last_json_poll_kick_ = now;
         poll_adventurer_json();
     }
     json_poll_was_printing_ = printing_now;
+}
+
+void AmsBackendAd5xIfs::refresh_vendor_push() {
+    const helix::PluginFeatureProbe probe =
+        helix::current_plugin_feature(kVendorPushFeature, kVendorPushMinVersion);
+    if (vendor_push_.update(probe.state, probe.seq)) {
+        spdlog::debug("{} Adventurer5M.json pushed by the HelixPrint plugin; reading it once",
+                      backend_log_tag());
+        poll_adventurer_json();
+    }
+}
+
+void AmsBackendAd5xIfs::on_vendor_state(const json& payload) {
+    // The poll's own stand-down holds for a push too.
+    if (!vendor_push_.pushing() || ifs_module_live_.load()) {
+        return;
+    }
+    auto content = payload.find("content");
+    if (content == payload.end() || !content->is_string()) {
+        return;
+    }
+    apply_json_content(content->get_ref<const std::string&>(), "json_push");
 }
 
 bool AmsBackendAd5xIfs::should_poll_json(bool printing_now, bool was_printing,
@@ -4307,6 +4335,19 @@ bool AmsBackendAd5xIfs::note_json_content(const std::string& content) {
     return true;
 }
 
+bool AmsBackendAd5xIfs::apply_json_content(const std::string& content, const char* reason) {
+    if (!note_json_content(content)) {
+        spdlog::trace("{} Adventurer5M.json unchanged ({} bytes, {}), skipping GET_ZCOLOR",
+                      backend_log_tag(), content.size(), reason);
+        return false;
+    }
+    spdlog::debug("{} Adventurer5M.json changed ({} bytes, {}), parsing + scheduling GET_ZCOLOR",
+                  backend_log_tag(), content.size(), reason);
+    parse_adventurer_json(content);
+    schedule_zcolor_query(reason);
+    return true;
+}
+
 void AmsBackendAd5xIfs::poll_adventurer_json() {
     // Standalone module: ifs_materials re-reads Adventurer5M.json when its
     // mtime changes and pushes the diff by subscription, so the loopback HTTP
@@ -4329,19 +4370,7 @@ void AmsBackendAd5xIfs::poll_adventurer_json() {
         // stay "true" for one extra UpdateQueue tick — harmless coalescing.
         token.defer("Ad5xIfsBackend::poll_json_apply", [this, content]() mutable {
             json_poll_in_flight_.store(false);
-
-            if (!note_json_content(content)) {
-                spdlog::trace("{} Adventurer5M.json unchanged ({} bytes), "
-                              "skipping GET_ZCOLOR",
-                              backend_log_tag(), content.size());
-                return;
-            }
-
-            spdlog::debug("{} Adventurer5M.json changed ({} bytes), parsing + "
-                          "scheduling GET_ZCOLOR",
-                          backend_log_tag(), content.size());
-            parse_adventurer_json(content);
-            schedule_zcolor_query("json_poll");
+            apply_json_content(content, "json_poll");
         });
     };
     auto on_error = [this, token](const MoonrakerError& err) {
@@ -4997,6 +5026,7 @@ void AmsBackendAd5xIfs::unregister_moonraker_listeners() {
         return;
     client_->unregister_method_callback("notify_gcode_response", "ifs_zcolor_watcher");
     client_->unregister_method_callback("notify_klippy_ready", "ifs_klippy_ready_watcher");
+    helix::unsubscribe_vendor_state(*client_, "ifs_vendor_state");
 }
 
 void AmsBackendAd5xIfs::schedule_json_reread() {

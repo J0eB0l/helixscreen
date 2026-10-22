@@ -221,6 +221,7 @@ translations:
   ACCELEROMETERS: АКСЕЛЕРОМЕТРЫ
   'ACCEPT failed: {}': 'Ошибка ACCEPT: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: Мост ACE Moonraker не найден. Установите ace_status.py для полной поддержки.
+  ACE updates without polling: 'Обновления ACE без опроса'
   ACTIONS: ДЕЙСТВИЯ
   ADD-ONS: 'ДОПОЛНЕНИЯ'
   ADXL: ADXL
@@ -1882,6 +1883,7 @@ translations:
   I understand: Я понимаю
 
   ID (optional): ID (необязательно)
+  IFS updates without polling: 'Обновления IFS без опроса'
   IMPORT FROM USB: ИМПОРТ С USB
   INDX dock positions are not calibrated: "Позиции доков INDX не откалиброваны"
   INDX macros not recognized: "Макросы INDX не распознаны"

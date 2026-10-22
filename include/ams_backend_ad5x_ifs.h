@@ -24,6 +24,7 @@ inline constexpr std::array<const char*, 2> kAd5xIfsSensorObjectPrefixes = {
 #include "filament_slot_override_store.h"
 #include "lane_echo.h"
 #include "slot_registry.h"
+#include "vendor_state_push.h"
 
 #include <array>
 #include <atomic>
@@ -1027,6 +1028,16 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // to the gcode console, so polling here costs nothing user-visible while
     // still catching native-dialog edits zmod makes outside our gcode path.
     void poll_adventurer_json();
+    // What a poll does with a body it downloaded, and what a pushed body gets:
+    // when it differs from the last one seen, parse it and schedule the
+    // GET_ZCOLOR / IFS_STATUS follow-up tagged @p reason. True when it
+    // differed. Main thread.
+    bool apply_json_content(const std::string& content, const char* reason);
+    // Adventurer5M.json pushed by the HelixPrint plugin. Main thread.
+    void on_vendor_state(const nlohmann::json& payload);
+    // Fold the plugin's current answer into vendor_push_, reading the file
+    // once when that owes a read. Main thread.
+    void refresh_vendor_push();
     /// Read one IFS_STATUS-shaped JSON object (the dict cmd_IFS_STATUS dumps,
     /// and the dict zmod_ifs.get_status() returns - same keys by construction)
     /// into @p result. Pure: no logging, no locking, no member access.
@@ -1657,6 +1668,12 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     std::atomic<bool> json_poll_in_flight_{false};
     std::atomic<bool> json_poll_supported_{true};
     std::string last_json_content_; // protected by mutex_
+    // The HelixPrint plugin pushes Adventurer5M.json while its feature is
+    // ready; the periodic poll stands down for as long as it does.
+    helix::VendorStateTracker vendor_push_;
+    static constexpr const char* kVendorPushFeature = "vendor_ad5x";
+    static constexpr const char* kVendorPushVendor = "ad5x";
+    static constexpr int kVendorPushMinVersion = 1;
 
     // Action timeout tracking. action_start_time_ is reset on every phase
     // transition (apply_phase_action_locked) so each phase gets its own window.

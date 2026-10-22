@@ -148,6 +148,8 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},
     {"server_edits", TR_NOOP("Server-side edits"), "pencil", PluginFeatureHome::None},
     {"config_edit", TR_NOOP("Config editing"), "wrench", PluginFeatureHome::None},
+    {"vendor_ad5x", TR_NOOP("IFS updates without polling"), "sync", PluginFeatureHome::None},
+    {"vendor_ace", TR_NOOP("ACE updates without polling"), "sync", PluginFeatureHome::None},
 };
 
 /// The icon of a feature this app does not know.

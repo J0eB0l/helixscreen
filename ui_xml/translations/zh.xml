@@ -169,6 +169,7 @@
   <translation tag="ACCELEROMETERS" zh="加速度计"/>
   <translation tag="ACCEPT failed: {}" zh="ACCEPT 失败: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." zh="未找到 ACE Moonraker 桥接。请安装 ace_status.py 以获得完整支持。"/>
+  <translation tag="ACE updates without polling" zh="无需轮询的 ACE 更新"/>
   <translation tag="ACTIONS" zh="操作"/>
   <translation tag="ADD-ONS" zh="附加功能"/>
   <translation tag="ADXL" zh="ADXL"/>
@@ -1677,6 +1678,7 @@
   <translation tag="Hyperspace" zh="超空间"/>
   <translation tag="I understand" zh="我已了解"/>
   <translation tag="ID (optional)" zh="ID（可选）"/>
+  <translation tag="IFS updates without polling" zh="无需轮询的 IFS 更新"/>
   <translation tag="IMPORT FROM USB" zh="从 USB 导入"/>
   <translation tag="INDX dock positions are not calibrated" zh="INDX 停靠位置未校准"/>
   <translation tag="INDX macros not recognized" zh="无法识别 INDX 宏"/>

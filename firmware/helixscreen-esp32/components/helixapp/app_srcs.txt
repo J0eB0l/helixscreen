@@ -239,6 +239,7 @@ src/printer/printer_network_state.cpp
 src/printer/printer_plugin_status_state.cpp
 src/printer/file_analysis.cpp
 src/printer/helix_plugin_features.cpp
+src/printer/vendor_state_push.cpp
 src/printer/printer_event_journal.cpp
 src/printer/printer_print_state.cpp
 src/printer/printer_profile_state.cpp

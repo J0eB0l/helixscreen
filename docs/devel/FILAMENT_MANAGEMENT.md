@@ -3510,7 +3510,7 @@ The original spool-wizard visual test plan (2026-02-15) is no longer in-tree; tr
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | ACE Pro not detected | Object not in list + REST probe failed | Verify a ValgACE/BunnyACE/DuckACE driver is installed; check `ace` in `printer.objects.list` and `/server/ace/info` endpoint |
-| Stale state | Polling interval | ACE polls at 500ms; state may lag slightly |
+| Stale state | Polling interval | The REST bridge is polled at 500ms, so state may lag slightly; with the HelixPrint plugin's `vendor_ace` feature ready it is pushed on change instead (`FILAMENT_BACKEND_ACE.md`) |
 | Dryer not controllable | Missing REST bridge | BunnyACE/DuckACE users must install ValgACE's `ace_status.py` Moonraker component |
 
 #### Tool Changer

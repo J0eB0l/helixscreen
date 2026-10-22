@@ -12,6 +12,7 @@
 #include "filament_slot_override_store.h"
 #include "lane_binding.h"
 #include "moonraker_types.h"
+#include "vendor_state_push.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -332,6 +333,20 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     void poll_status();
     void poll_slots();
 
+    /// What a poll does with an answered /status or /slots result, and what
+    /// the plugin's pushed result gets: parse it and announce a change.
+    /// Main thread.
+    void apply_rest_status(const nlohmann::json& result);
+    void apply_rest_slots(const nlohmann::json& result);
+
+    /// The bridge's /status and /slots answers pushed by the HelixPrint
+    /// plugin. Main thread.
+    void on_vendor_state(const nlohmann::json& payload);
+
+    /// Fold the plugin's current answer into vendor_push_, polling the bridge
+    /// once when that owes a read. Main thread.
+    void refresh_vendor_push();
+
     /**
      * @brief Pick the ace/filament_hub/ace_instance_N object to parse from a
      *        status frame, by one preference order.
@@ -581,6 +596,12 @@ class AmsBackendAce : public AmsSubscriptionBackend {
 
     // REST fallback state
     bool use_rest_fallback_{false};
+    // The HelixPrint plugin pushes the bridge's answers while its feature is
+    // ready; the REST loop skips its data polls for as long as it does.
+    helix::VendorStateTracker vendor_push_;
+    static constexpr const char* kVendorPushFeature = "vendor_ace";
+    static constexpr const char* kVendorPushVendor = "ace";
+    static constexpr int kVendorPushMinVersion = 1;
     std::thread rest_polling_thread_;
     std::atomic<bool> rest_stop_requested_{false};
     std::condition_variable rest_stop_cv_;
