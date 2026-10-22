@@ -3393,6 +3393,11 @@ bool AmsBackendAfc::parse_oams_environment(const nlohmann::json& params) {
     return any;
 }
 
+bool AmsBackendAfc::has_toolchanger_unit_locked() const {
+    return std::any_of(unit_infos_.begin(), unit_infos_.end(),
+                       [](const AfcUnitInfo& u) { return u.type == "Toolchanger"; });
+}
+
 void AmsBackendAfc::apply_unit_environment() {
     if (oams_env_.empty()) {
         return;
@@ -5262,8 +5267,7 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
         if (tool_number < 0 || tool_number >= slots_.slot_count()) {
             return AmsErrorHelper::tool_out_of_range(tool_number);
         }
-        toolchanger = std::any_of(unit_infos_.begin(), unit_infos_.end(),
-                                  [](const AfcUnitInfo& u) { return u.type == "Toolchanger"; });
+        toolchanger = has_toolchanger_unit_locked();
         for (int i = 0; i < slots_.slot_count(); ++i) {
             const auto* entry = slots_.get(i);
             if (entry && entry->info.mapped_tool == tool_number) {

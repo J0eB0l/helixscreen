@@ -1072,6 +1072,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// @pre mutex_ held.
     void apply_unit_environment();
 
+    /// True when AFC publishes a `Toolchanger` unit: its heads are mounted by
+    /// AFC_SELECT_TOOL, not by T{n}. @pre mutex_ held.
+    [[nodiscard]] bool has_toolchanger_unit_locked() const;
+
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
     void apply_configfile_topology(ConfigfileTopology topo);
 
