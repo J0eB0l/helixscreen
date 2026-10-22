@@ -3927,6 +3927,46 @@ TEST_CASE("ACE Feed Assist is disabled and refused with nothing loaded",
     CHECK(b.captured_gcodes.empty());
 }
 
+// The backend refuses on its own, not only behind the offered action's
+// enabled flag: a caller that read the list while a slot was loaded can still
+// reach execute after the unload.
+TEST_CASE("ACE Feed Assist execute refuses with nothing loaded",
+          "[ams][ace][device_actions][1853]") {
+    const std::string surface =
+        GENERATE(as<std::string>{}, "filament_hub", "ace", "rest", "ace_instance_0");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    REQUIRE(b.get_current_slot() == -1);
+
+    b.captured_gcodes.clear();
+    for (const bool on : {true, false}) {
+        CAPTURE(on);
+        const auto err = b.do_execute_device_action("ace_feed_assist_toggle", std::any(on));
+        CHECK(err.result == helix::AmsResult::WRONG_STATE);
+        CHECK(err.technical_msg == "No filament loaded for feed assist");
+    }
+    CHECK(b.captured_gcodes.empty());
+}
+
+// A restart re-reads every unit from the bootstrap answer, so a
+// feed_assist_slot from the old session says nothing about the new one.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE Feed Assist forgets the driver's report on a restart",
+                 "[ams][ace][device_actions][kobra][1853]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+    answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()},
+                                                              {"feed_assist_slot", 2}}}});
+    AceTestAccess::set_seat(b, 2, true);
+    REQUIRE(feed_assist_shown(b) == true);
+
+    b.test_on_started();
+    answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()}}}});
+    AceTestAccess::set_seat(b, 2, true);
+    CHECK_FALSE(feed_assist_shown(b).has_value());
+}
+
 // A slotless ace_instance_N delta (a notify frame that beat the bootstrap
 // answer onto a REST rig) says nothing about slots, so it must not move the
 // backend onto the object path, where a slot with no published tool refuses a
