@@ -5,15 +5,17 @@
 # the branch reaches main, so a red CI run is found here instead of on main.
 #
 #   app-build         make (the app; tests/ui drives the real binary)
-#   sweep             make unit-sweep, the local gate's shard layout
-#   ci-shards         the sweep again as CI_SHARDS shards (default 8: build.yml's
-#                     layout, split across its two test legs). Which tests share a process
-#                     decides what a use-after-free corrupts, so a layout nobody
-#                     ran locally can crash where the local one passed.
+#   ci-shards         make unit-sweep as CI_SHARDS shards (default 8: build.yml's
+#                     layout, split across its two test legs), the gate's one
+#                     C++ run. Which tests share a process decides what a
+#                     use-after-free corrupts, so the layout is CI's. The
+#                     local sweep's 96 shards are a grouping CI never runs,
+#                     so the gate does not run them either.
 #                     Each shard gets CI_SHARD_TIMEOUT seconds (default 600,
 #                     build.yml's 10-minute test step): an eighth of the suite
 #                     runs past the sweep's 300s SHARD_TIMEOUT on a slower host
-#                     without hanging.
+#                     without hanging. SHARD_CRASH_FAILS=1 fails a shard that
+#                     crashes after its assertions passed, as CI's step does.
 #   bats              make test-shell BATS_REQUIRED=1 (a missing bats fails the row)
 #   ui                make test-ui-ci: CI's exact tests/ui pytest slice, headless
 #   plugin            make test-plugin: the moonraker plugin pytest, also in CI's job
@@ -26,10 +28,9 @@
 #                     after app-build, since its clang gate reads the build's
 #                     compile commands
 #
-# The two C++ steps run on the test host when full-test-run's would
-# (scripts/lib/sweep_location.sh: TEST_HOST=1, 0 or unset for the probe), one
-# after the other, since both use one mirror. Everything else runs here, in
-# parallel lanes beside them. Each step logs to $LAND_GATE_LOGDIR/<step>.log
+# The C++ step runs on the test host when full-test-run's sweep would
+# (scripts/lib/sweep_location.sh: TEST_HOST=1, 0 or unset for the probe).
+# Everything else runs here, in parallel lanes beside it. Each step logs to $LAND_GATE_LOGDIR/<step>.log
 # (default build/land-gate) and is killed after LAND_GATE_STEP_TIMEOUT seconds
 # (default 3600, far above any healthy step), which its row reports as TIMEOUT.
 # The table at the end names every step with its duration and the commit it
@@ -60,7 +61,7 @@ LAND_GATE_STEP_TIMEOUT=${LAND_GATE_STEP_TIMEOUT:-3600}
 LAND_GATE_HISTORY=${LAND_GATE_HISTORY:-${XDG_STATE_HOME:-$HOME/.local/state}/helixscreen/land-gate-history.tsv}
 ROWS_DIR="$LAND_GATE_LOGDIR/rows"
 
-STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes quality"
+STEPS="app-build ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes quality"
 
 TIMEOUT_BIN=$(command -v timeout || command -v gtimeout || true)
 
@@ -94,11 +95,9 @@ lane() {
     case "$1" in
         unit)
             if [ "$SWEEP_WHERE" = remote ]; then
-                step sweep "$TEST_HOST_RUN" sweep
-                step ci-shards "$TEST_HOST_RUN" sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT"
+                step ci-shards "$TEST_HOST_RUN" sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT" SHARD_CRASH_FAILS=1
             else
-                step sweep "${mk[@]}" unit-sweep
-                step ci-shards "${mk[@]}" unit-sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT"
+                step ci-shards "${mk[@]}" unit-sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT" SHARD_CRASH_FAILS=1
             fi ;;
         app)
             if step app-build "${mk[@]}"; then
@@ -212,7 +211,7 @@ stop_lanes() {
 trap stop_lanes INT TERM HUP
 
 if [ "$SWEEP_WHERE" = remote ]; then
-    echo "→ C++ sweeps on $HELIX_TEST_HOST, everything else here (logs: $LAND_GATE_LOGDIR)"
+    echo "→ C++ suite on $HELIX_TEST_HOST, everything else here (logs: $LAND_GATE_LOGDIR)"
     start_lane unit
 else
     echo "→ every step runs here (logs: $LAND_GATE_LOGDIR)"
@@ -222,7 +221,7 @@ start_lane fresh
 start_lane app
 app_pid=${PIDS[-1]}
 
-# A local sweep waits for the app build: two makes compiling one tree's objects
+# A local C++ run waits for the app build: two makes compiling one tree's objects
 # at once race on the same files.
 if [ "$SWEEP_WHERE" = local ]; then
     while [ ! -f "$ROWS_DIR/app-build" ] && kill -0 "$app_pid" 2>/dev/null; do sleep 1; done

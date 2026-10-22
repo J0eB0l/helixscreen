@@ -72,13 +72,14 @@ make land-gate                       # THE pre-landing gate: ONCE per batch, bef
 #   It prints its ETA from past gates (LAND_GATE_HISTORY); quote that, never a guess.
 #   Running it in the background: watch its log for ": FAIL in|: TIMEOUT in" and
 #   report a failed stage the moment it lands, not when the whole gate ends.
-#   full-test-run, plus the sweep in CI's 8-shard layout, CI's tests/ui pytest
-#   slice (headless), the moonraker plugin tests, and the generated-artefact
-#   checks (theme token table, xml schema + lint-xml, lvgl event codes), and
-#   quality-checks.sh: pushing the exact commit it passed skips that sweep. C++ on
-#   the test host as full-test-run's sweep goes; the rest here in parallel; a
-#   PASS/FAIL table with durations at the end. full-test-run alone is NOT a
-#   landing gate: it skips tests/ui and CI's shard layout, both of which red CI.
+#   The C++ suite once, in CI's 8-shard layout (not the local sweep's 96: CI
+#   never runs that grouping), bats, CI's tests/ui pytest slice (headless), the
+#   moonraker plugin tests, the generated-artefact checks (theme token table,
+#   xml schema + lint-xml, lvgl event codes), and quality-checks.sh: pushing the
+#   exact commit it passed skips that sweep. C++ on the test host as
+#   full-test-run's sweep goes; the rest here in parallel; a PASS/FAIL table
+#   with durations at the end. full-test-run alone is NOT a landing gate: it
+#   skips tests/ui and CI's shard layout, both of which red CI.
 
 make dev-timing                      # What the dev loop costs, measured (ledger from transcripts)
 #   Medians for every build, suite and test run, so "is this worth running" is
