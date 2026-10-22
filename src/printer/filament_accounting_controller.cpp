@@ -6,7 +6,7 @@
 #include "ams_state.h"
 #include "app_globals.h"
 #include "connection_state.h"
-#include "fallback_sender_role_resolver.h"
+#include "fallback_sender.h"
 #include "filament_database.h"
 #include "i_moonraker_api.h"
 #include "macro_param_cache.h"

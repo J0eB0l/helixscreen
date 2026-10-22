@@ -5,7 +5,7 @@
 #include "ams_backend.h"
 #include "ams_state.h"
 #include "app_globals.h"
-#include "fallback_sender_role_resolver.h"
+#include "fallback_sender.h"
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
 #include "json_utils.h"
