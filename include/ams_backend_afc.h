@@ -1086,6 +1086,12 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// until its timeout. @pre mutex_ held.
     [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
 
+    /// The lane whose map carries T@p tool_number, or -1. A T number is a
+    /// lane's, not a position: AFC registers T<n> for whichever lane maps it,
+    /// so lane4 may run T7 on a four-lane unit, and SET_MAP and T<n> both
+    /// refuse a T number no lane carries. @pre mutex_ held.
+    [[nodiscard]] int lane_carrying_tool_locked(int tool_number) const;
+
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
     void apply_configfile_topology(ConfigfileTopology topo);
 

@@ -5286,20 +5286,12 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        // A T number is legal when a lane carries it, whatever the lane count:
-        // a four-lane unit may run lane4 as T7.
-        bool lane_found = false;
-        for (int i = 0; tool_number >= 0 && i < slots_.slot_count(); ++i) {
-            const auto* entry = slots_.get(i);
-            if (entry && entry->info.mapped_tool == tool_number) {
-                lane_extruder = entry->info.extruder_name;
-                lane_found = true;
-                break;
-            }
-        }
-        if (!lane_found) {
+        const int lane = lane_carrying_tool_locked(tool_number);
+        const auto* entry = lane >= 0 ? slots_.get(lane) : nullptr;
+        if (!entry) {
             return AmsErrorHelper::tool_out_of_range(tool_number);
         }
+        lane_extruder = entry->info.extruder_name;
         toolchanger = has_toolchanger_unit_locked();
         if (toolchanger && !lane_extruder.empty() && !head_is_mountable_locked(lane_extruder)) {
             warn_unmountable = unmountable_head_warned_.insert(lane_extruder).second;
@@ -6121,8 +6113,18 @@ AmsError AmsBackendAfc::can_set_tool_mapping(int tool_number, int slot_index) co
     return can_set_tool_mapping_locked(tool_number, slot_index);
 }
 
+int AmsBackendAfc::lane_carrying_tool_locked(int tool_number) const {
+    for (int i = 0; tool_number >= 0 && i < slots_.slot_count(); ++i) {
+        const auto* entry = slots_.get(i);
+        if (entry && entry->info.mapped_tool == tool_number) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 AmsError AmsBackendAfc::can_set_tool_mapping_locked(int tool_number, int slot_index) const {
-    if (tool_number < 0 || tool_number >= slots_.slot_count()) {
+    if (lane_carrying_tool_locked(tool_number) < 0) {
         return AmsErrorHelper::tool_out_of_range(tool_number);
     }
     return validate_slot_index_locked(slot_index);

@@ -5474,6 +5474,28 @@ TEST_CASE("AFC change_tool takes a T number above the lane count when a lane car
     }
 }
 
+TEST_CASE("AFC SET_MAP takes a T number above the lane count when a lane carries it",
+          "[ams][afc][tool_mapping][remap]") {
+    // AFC's SET_MAP accepts MAP=T<n> when some lane's map registers T<n>, and
+    // refuses any other. lane4 runs T7 on a four-lane unit, so moving T7 onto
+    // lane2 (a user remap, or the restore of one) is a legal command.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane4", {{"map", "T7"}});
+    helper.captured_gcodes.clear();
+
+    CHECK(helper.can_set_tool_mapping(7, 1).success());
+    REQUIRE(helper.set_tool_mapping(7, 1).success());
+    CHECK(helper.captured_gcodes == std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T7"});
+
+    SECTION("a T number no lane carries is refused, as AFC refuses it") {
+        helper.captured_gcodes.clear();
+        CHECK_FALSE(helper.can_set_tool_mapping(5, 1).success());
+        CHECK_FALSE(helper.set_tool_mapping(5, 1).success());
+        CHECK(helper.captured_gcodes.empty());
+    }
+}
+
 TEST_CASE("AFC toolchanger: Load on a seated machine plans load_filament, not change_tool",
           "[ams][afc][toolchanger][dispatch][1824]") {
     // change_tool() on a toolchanger only mounts a head. A swap Load must reach
