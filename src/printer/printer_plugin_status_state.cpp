@@ -94,7 +94,7 @@ void PrinterPluginStatusState::publish_features() {
             helix_plugin_state() < 0
                 ? PluginSwitchMode::Hidden
                 : plugin_switch_mode(service_has_helix_plugin(), features_, f.name, f.min_version,
-                                     f.has_fallback, screen_local_);
+                                     f.has_fallback, screen_local());
         lv_subject_set_int(&switch_mode_[i], static_cast<int>(mode));
         const auto it = features_.find(f.name);
         if (mode == PluginSwitchMode::Hidden && it != features_.end()) {

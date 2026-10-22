@@ -2500,7 +2500,8 @@ void PrintSelectDetailView::load_gcode_for_preview() {
             printer_state_ ? printer_state_->plugin_status_state().plugin_feature(
                                  helix::kFileAnalysisFeature, helix::kFileAnalysisMinVersion)
                            : helix::PluginFeatureState::Absent,
-            helix::gcode::join_gcode_path(current_path_, current_filename_), tok,
+            helix::gcode::join_gcode_path(current_path_, current_filename_),
+            helix::ui_gcode_viewer_would_stream(gcode_viewer_, path), tok,
             [this, key, path](std::string sidecar) {
                 if (key == current_file_key()) {
                     begin_viewer_load(path, std::move(sidecar));

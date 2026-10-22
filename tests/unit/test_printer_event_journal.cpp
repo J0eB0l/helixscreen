@@ -76,9 +76,15 @@ TEST_CASE("journal source decision over every plugin state", "[plugin_event_jour
         INFO(row.what);
         const auto state = plugin_feature_state(row.plugin_available, row.features,
                                                 kJournalFeatureName, kJournalFeatureMinVersion);
-        const JournalPlan plan = decide_journal_source(state);
+        const JournalPlan plan = decide_journal_source(state, /*recorder_built=*/true);
         CHECK(plan.source == row.source);
         CHECK(plan.record_locally == (row.source == JournalSource::Screen));
+
+        INFO("a build without the recorder has only the plugin's journal");
+        const JournalPlan bare = decide_journal_source(state, /*recorder_built=*/false);
+        CHECK(bare.source ==
+              (row.source == JournalSource::Plugin ? JournalSource::Plugin : JournalSource::None));
+        CHECK_FALSE(bare.record_locally);
     }
 }
 
@@ -127,6 +133,23 @@ TEST_CASE("backfill de-duplicates by time and text and marks what it adds",
     CHECK(held[2].time == kT0 + 60);
     CHECK(held[2].recovered);
     CHECK(journal.latest_time() == kT0 + 60);
+}
+
+TEST_CASE("a backfilled error with no job matches the live one stamped with its job",
+          "[plugin_event_journal]") {
+    LocalEventJournal journal;
+    JournalEntry live = entry(journal_kind::kGcodeError, kT0, "Move out of range");
+    live.job_id = "00002A";
+    REQUIRE(journal.append(live, kT0));
+
+    // gcode_store carries no job, and a remote screen's clock is a little off.
+    CHECK(journal.merge_backfill({entry(journal_kind::kGcodeError, kT0 + 3, "Move out of range")},
+                                 kT0 + 60) == 0);
+
+    INFO("two different jobs' errors are still two events");
+    JournalEntry other = entry(journal_kind::kGcodeError, kT0 + 1, "Move out of range");
+    other.job_id = "00002B";
+    CHECK(journal.append(other, kT0 + 1));
 }
 
 TEST_CASE("local journal survives a save and load", "[plugin_event_journal]") {
@@ -262,6 +285,7 @@ TEST_CASE("view and bundle read the plugin's journal and the screen's alike",
     CHECK(section["source"] == "plugin");
     CHECK(section["entries"][0]["job"]["filename"] == "benchy.gcode");
     CHECK(build_event_journal_section(JournalSource::Screen, from_screen)["source"] == "screen");
+    CHECK(build_event_journal_section(JournalSource::None, {})["source"] == "none");
 }
 
 TEST_CASE("each journal kind describes itself", "[plugin_event_journal]") {

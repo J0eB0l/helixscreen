@@ -6,6 +6,7 @@
 // feature and the minimum contract version it needs, never on the plugin's
 // version string, so an older plugin loses only the features it lacks.
 
+#include "moonraker_error.h"
 #include "translation_loader.h" // TR_NOOP
 
 #include <cstdint>
@@ -79,8 +80,9 @@ enum class PluginSwitchMode {
 /// @p has_fallback: the app does the feature itself when the plugin cannot,
 /// so its switch keeps working without one. @p is_local: this screen runs on
 /// the printer's own host, where the app is up whenever the printer is, so a
-/// fallback needs no hint there. A feature the plugin reports
-/// `available: false` cannot run on this printer at all and shows no row.
+/// fallback needs no hint there. A plugin-only feature the plugin reports
+/// `available: false` cannot run on this printer at all and shows no row; one
+/// with a fallback keeps its switch, which is what the fallback acts on.
 PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMap& features,
                                     const std::string& name, int min_version, bool has_fallback,
                                     bool is_local);
@@ -97,6 +99,12 @@ enum class FallbackSenderRole {
 /// @p local_screen_present is nullopt when that cannot be told, and a remote
 /// instance then stands by rather than risk a second send.
 FallbackSenderRole fallback_sender_role(bool is_local, std::optional<bool> local_screen_present);
+
+/// The plugin_features record to use after reading it failed with @p err:
+/// an empty one (every feature at its default) when Moonraker says there is
+/// none, else nullopt, meaning keep the last record read. A transient error
+/// must not switch a fallback off.
+std::optional<nlohmann::json> opt_ins_after_failed_read(const MoonrakerError& err);
 
 /// Where a HelixScreen on the printer's host announces itself, in the
 /// kPluginFeaturesNamespace: {"seen_at": <unix seconds>}, rewritten every

@@ -60,6 +60,12 @@ StandingOptionsSender standing_options_sender(PluginFeatureState hooks, bool opt
                                               bool screen_started, bool has_gcode,
                                               FallbackSenderRole role);
 
+/// Whether this screen writes the shared record. It is one per printer but
+/// rendered from this screen's settings, so only the fallback's Sender writes
+/// it, and never an empty one: before the filament backend reports, nothing
+/// is known, and no record beats a wrong one.
+bool writes_standing_record(FallbackSenderRole role, const std::string& gcode);
+
 /// Whether a direct start from this screen is announced to the plugin, so
 /// the plugin does not send the options its pre-print step already carried.
 bool announce_screen_start(PluginFeatureState hooks);

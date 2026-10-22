@@ -2940,6 +2940,7 @@ translations:
   Printer error: 'Erreur d''imprimante'
   Printer event: 'Événement d''imprimante'
   Printer events: 'Événements de l''imprimante'
+  Printer events need the HelixPrint plugin on this screen: 'Les événements de l''imprimante nécessitent le plugin HelixPrint sur cet écran'
   Printer hardware detected: Matériel d'imprimante détecté
   Printer image set to auto-detect: Image de l'imprimante en auto-détection
   Printer is busy - {} stays in the queue: 'L''imprimante est occupée – {} reste dans la file'

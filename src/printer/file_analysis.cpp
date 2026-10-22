@@ -174,14 +174,15 @@ void apply_file_analysis(FileStartFacts& facts, const FileAnalysisRecord& record
 }
 
 void with_layer_index_sidecar(IMoonrakerAPI* api, PluginFeatureState feature,
-                              const std::string& filename, const LifetimeToken& tok,
+                              const std::string& filename, bool wanted, const LifetimeToken& tok,
                               std::function<void(std::string sidecar)> load) {
     // Callable from any thread: `load` runs only through the token's defer.
     auto answer = [tok, load](std::string sidecar) {
         tok.defer("FileAnalysis::layer_index_sidecar",
                   [load, sidecar = std::move(sidecar)]() mutable { load(std::move(sidecar)); });
     };
-    if (api == nullptr || file_analysis_source(feature, filename) != FileAnalysisSource::Plugin) {
+    if (!wanted || api == nullptr ||
+        file_analysis_source(feature, filename) != FileAnalysisSource::Plugin) {
         load({});
         return;
     }

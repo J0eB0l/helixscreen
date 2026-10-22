@@ -50,6 +50,7 @@ void PrinterEventsOverlay::init_subjects() {
         UI_MANAGED_SUBJECT_INT(count_subject_, 0, "printer_events_count", subjects_);
         UI_MANAGED_SUBJECT_STRING(source_subject_, source_buf_, "", "printer_events_source",
                                   subjects_);
+        UI_MANAGED_SUBJECT_INT(unavailable_subject_, 0, "printer_events_unavailable", subjects_);
     });
 }
 
@@ -67,6 +68,10 @@ void PrinterEventsOverlay::refresh() {
         decide_journal_source(get_printer_state().plugin_status_state().plugin_feature(
             kJournalFeatureName, kJournalFeatureMinVersion));
     IMoonrakerClient* client = get_moonraker_client();
+    if (plan.source == JournalSource::None) {
+        show_entries(JournalSource::None, {});
+        return;
+    }
     if (plan.source == JournalSource::Screen || client == nullptr) {
         show_entries(JournalSource::Screen, LocalEventJournal::instance().snapshot());
         return;
@@ -119,10 +124,12 @@ void PrinterEventsOverlay::show_entries(JournalSource source, std::vector<Journa
         time_pool_.set_string(i, row_time(e));
     }
 
-    const char* source_text = source == JournalSource::Plugin
-                                  ? lv_tr("Recorded by the HelixPrint plugin")
-                                  : lv_tr("Recorded by this screen while connected");
+    const char* source_text =
+        source == JournalSource::Plugin   ? lv_tr("Recorded by the HelixPrint plugin")
+        : source == JournalSource::Screen ? lv_tr("Recorded by this screen while connected")
+                                          : "";
     lv_subject_copy_string(&source_subject_, source_text);
+    lv_subject_set_int(&unavailable_subject_, source == JournalSource::None ? 1 : 0);
     lv_subject_set_int(&count_subject_, static_cast<int>(n));
     spdlog::debug("[{}] Showing {} event(s)", get_name(), n);
 }

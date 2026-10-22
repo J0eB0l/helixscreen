@@ -83,7 +83,19 @@ std::string journal_pause_cause(const std::vector<JournalEntry>& entries, double
 // Source decision
 // ---------------------------------------------------------------------------
 
-enum class JournalSource { Plugin, Screen };
+enum class JournalSource {
+    Plugin, ///< the plugin's journal
+    Screen, ///< the screen's own, recorded while connected
+    None,   ///< neither: no plugin journal, and this build records none
+};
+
+/// Whether this build records the screen's own journal. The ESP32 firmware
+/// leaves the recorder out.
+#if defined(HELIX_PLATFORM_ESP32)
+inline constexpr bool kLocalJournalRecorderBuilt = false;
+#else
+inline constexpr bool kLocalJournalRecorderBuilt = true;
+#endif
 
 struct JournalPlan {
     JournalSource source = JournalSource::Screen; ///< where views and the bundle read
@@ -91,8 +103,9 @@ struct JournalPlan {
 };
 
 /// The plugin's journal when its feature is ready; otherwise the screen keeps
-/// its own.
-JournalPlan decide_journal_source(PluginFeatureState state);
+/// its own, in a build that has the recorder.
+JournalPlan decide_journal_source(PluginFeatureState state,
+                                  bool recorder_built = kLocalJournalRecorderBuilt);
 
 // ---------------------------------------------------------------------------
 // Wire format (server.helix.journal, the screen's file, the debug bundle)

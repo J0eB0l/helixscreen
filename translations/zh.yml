@@ -2767,6 +2767,7 @@ translations:
   Printer error: 打印机错误
   Printer event: 打印机事件
   Printer events: '打印机事件'
+  Printer events need the HelixPrint plugin on this screen: '在此屏幕上查看打印机事件需要 HelixPrint 插件'
   Printer hardware detected: 检测到打印机硬件
   Printer image set to auto-detect: 打印机图片已设为自动检测
   Printer is busy - {} stays in the queue: '打印机忙碌中 – {} 保留在队列中'

@@ -7,6 +7,7 @@
 #include "subject_managed_panel.h"
 
 #include <array>
+#include <functional>
 #include <lvgl.h>
 
 namespace helix {
@@ -204,14 +205,22 @@ class PrinterPluginStatusState {
         return &plr_feature_state_;
     }
 
-    /// This screen runs on the printer's own host (false while not known).
-    /// Decides whether a fallback switch carries a hint. Main thread.
-    void set_screen_local(bool local) {
-        screen_local_ = local;
+    /// Where screen_local() reads whether this screen runs on the printer's
+    /// own host. PrinterState points it at its connection's locality verdict,
+    /// the one place that fact is kept.
+    void set_locality_source(std::function<bool()> is_local) {
+        is_local_ = std::move(is_local);
+    }
+
+    /// The locality verdict changed: republish what depends on it. Main thread.
+    void on_locality_changed() {
         publish_features();
     }
+
+    /// This screen runs on the printer's own host (false while not known).
+    /// Decides whether a fallback switch carries a hint.
     bool screen_local() const {
-        return screen_local_;
+        return is_local_ && is_local_();
     }
 
     /// The helix-screen/plugin_features record as last read: the opt-ins a
@@ -284,7 +293,7 @@ class PrinterPluginStatusState {
     lv_subject_t plr_feature_state_{};
     lv_subject_t helix_plugin_probe_seq_{};
     lv_subject_t plr_saving_enabled_{};
-    bool screen_local_ = false;
+    std::function<bool()> is_local_;
     nlohmann::json stored_opt_ins_ = nlohmann::json::object();
     std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_mode_{};
     std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_on_{};

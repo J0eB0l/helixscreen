@@ -2924,6 +2924,7 @@ translations:
   Printer error: Error de la impresora
   Printer event: Evento de la impresora
   Printer events: 'Eventos de la impresora'
+  Printer events need the HelixPrint plugin on this screen: 'Los eventos de la impresora necesitan el plugin HelixPrint en esta pantalla'
   Printer hardware detected: Hardware de impresora detectado
   Printer image set to auto-detect: Imagen de impresora configurada en auto-detectar
   Printer is busy - {} stays in the queue: 'La impresora está ocupada: {} permanece en la cola'

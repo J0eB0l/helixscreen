@@ -2725,6 +2725,7 @@
   <translation tag="Printer error" ru="Ошибка принтера"/>
   <translation tag="Printer event" ru="Событие принтера"/>
   <translation tag="Printer events" ru="События принтера"/>
+  <translation tag="Printer events need the HelixPrint plugin on this screen" ru="Для событий принтера на этом экране нужен плагин HelixPrint"/>
   <translation tag="Printer hardware detected" ru="Обнаружено оборудование принтера"/>
   <translation tag="Printer image set to auto-detect" ru="Изображение принтера — автоопределение"/>
   <translation tag="Printer is busy - {} stays in the queue" ru="Принтер занят – {} остаётся в очереди"/>

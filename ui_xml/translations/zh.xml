@@ -2674,6 +2674,7 @@
   <translation tag="Printer error" zh="打印机错误"/>
   <translation tag="Printer event" zh="打印机事件"/>
   <translation tag="Printer events" zh="打印机事件"/>
+  <translation tag="Printer events need the HelixPrint plugin on this screen" zh="在此屏幕上查看打印机事件需要 HelixPrint 插件"/>
   <translation tag="Printer hardware detected" zh="检测到打印机硬件"/>
   <translation tag="Printer image set to auto-detect" zh="打印机图片已设为自动检测"/>
   <translation tag="Printer is busy - {} stays in the queue" zh="打印机忙碌中 – {} 保留在队列中"/>

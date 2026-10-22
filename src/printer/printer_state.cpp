@@ -106,6 +106,8 @@ using namespace helix;
 PrinterState::PrinterState() {
     // Load user-configured capability overrides from settings.json
     capability_overrides_.load_from_config();
+    plugin_status_state_.set_locality_source(
+        [this] { return moonraker_locality() == helix::MoonrakerLocality::Local; });
 }
 
 PrinterState::~PrinterState() {
@@ -422,7 +424,7 @@ void PrinterState::set_moonraker_is_remote(bool remote) {
     async_lifetime_.defer("PrinterState::set_moonraker_is_remote", [this, remote, locality]() {
         network_state_.set_moonraker_is_remote_internal(remote);
         network_state_.set_moonraker_locality_internal(locality);
-        plugin_status_state_.set_screen_local(!remote);
+        plugin_status_state_.on_locality_changed();
     });
 }
 
@@ -430,7 +432,7 @@ void PrinterState::clear_moonraker_locality() {
     moonraker_locality_.store(static_cast<int>(helix::MoonrakerLocality::Unknown));
     async_lifetime_.defer("PrinterState::clear_moonraker_locality", [this]() {
         network_state_.set_moonraker_locality_internal(helix::MoonrakerLocality::Unknown);
-        plugin_status_state_.set_screen_local(false);
+        plugin_status_state_.on_locality_changed();
     });
 }
 

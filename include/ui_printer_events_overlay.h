@@ -56,6 +56,8 @@ class PrinterEventsOverlay : public OverlayBase {
     lv_subject_t count_subject_{};
     lv_subject_t source_subject_{};
     char source_buf_[96] = {};
+    /// 1 when there is no source at all (JournalSource::None)
+    lv_subject_t unavailable_subject_{};
 
     helix::xml::IndexedSubjectPool severity_pool_{"printer_event_severity",
                                                   helix::xml::IndexedSubjectPool::Type::Int};

@@ -527,12 +527,21 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
         if (!disabled) {
             // print_hooks acts on prints, so it is off until opted into, as
             // the plugin reads it: helix-screen/plugin_features.print_hooks.
+            // HELIX_MOCK_PRINT_HOOKS=unavailable reports it unable to run, as a
+            // plugin whose hooks module failed to load does.
+            const char* hooks_mode = std::getenv("HELIX_MOCK_PRINT_HOOKS");
+            const bool hooks_unavailable = hooks_mode && std::string(hooks_mode) == "unavailable";
             const json opt_in = self->mock_db_get("helix-screen", "plugin_features.print_hooks");
             response["result"]["features"]["print_hooks"] = {
                 {"version", 1},
-                {"available", true},
-                {"enabled", opt_in.is_boolean() && opt_in.get<bool>()},
-                {"reason", nullptr}};
+                {"available", !hooks_unavailable},
+                {"enabled", !hooks_unavailable && opt_in.is_boolean() && opt_in.get<bool>()},
+                {"reason", hooks_unavailable ? json("load_failed") : json(nullptr)}};
+            // The rest of what the plugin ships, each on and running.
+            for (const char* name : {"file_analysis", "server_edits", "config_edit"}) {
+                response["result"]["features"][name] = {
+                    {"version", 1}, {"available", true}, {"enabled", true}, {"reason", nullptr}};
+            }
         }
         if (success_cb) {
             success_cb(response);
@@ -602,6 +611,19 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
             success_cb(
                 json{{"jsonrpc", "2.0"},
                      {"result", {{"entries", entries}, {"truncated", false}, {"latest_id", 5}}}});
+        }
+        return true;
+    };
+
+    // server.helix.config - the plugin's parsed config read. The mock has no
+    // config files to parse; Moonraker's answer for a method it lacks sends
+    // the config editor down its file-API route, which the mock serves.
+    registry["server.helix.config"] =
+        [](MoonrakerClientMock* /*self*/, const json& /*params*/,
+           std::function<void(const json&)> /*success_cb*/,
+           std::function<void(const MoonrakerError&)> error_cb) -> bool {
+        if (error_cb) {
+            error_cb(MoonrakerError::unknown("Method not found", "server.helix.config"));
         }
         return true;
     };

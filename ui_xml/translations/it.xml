@@ -2674,6 +2674,7 @@
   <translation tag="Printer error" it="Errore della stampante"/>
   <translation tag="Printer event" it="Evento della stampante"/>
   <translation tag="Printer events" it="Eventi della stampante"/>
+  <translation tag="Printer events need the HelixPrint plugin on this screen" it="Gli eventi della stampante richiedono il plugin HelixPrint su questo schermo"/>
   <translation tag="Printer hardware detected" it="Hardware stampante rilevato"/>
   <translation tag="Printer image set to auto-detect" it="Immagine stampante impostata su rilevamento auto"/>
   <translation tag="Printer is busy - {} stays in the queue" it="La stampante è occupata – {} resta in coda"/>

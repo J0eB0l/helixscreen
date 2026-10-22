@@ -2856,6 +2856,7 @@ translations:
   Printer error: Printer error
   Printer event: Printer event
   Printer events: Printer events
+  Printer events need the HelixPrint plugin on this screen: Printer events need the HelixPrint plugin on this screen
   Printer hardware detected: Printer hardware detected
   Printer image set to auto-detect: Printer image set to auto-detect
   Printer is busy - {} stays in the queue: Printer is busy - {} stays in the queue

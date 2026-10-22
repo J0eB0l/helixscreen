@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 
 #include <ctime>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -77,6 +78,7 @@ void StandingPrintOptionsController::on_plugin_probed() {
     subscribe_history(*api);
     load_opt_ins(*api);
     written_.reset();
+    considered_.reset();
     refresh_record();
     // A screen on the printer's host announces itself, so a remote one leaves
     // the fallback to it.
@@ -100,7 +102,29 @@ void StandingPrintOptionsController::refresh_record() {
     if (api == nullptr || !api->is_connected()) {
         return;
     }
+    // A rendering already weighed (written, or left to another screen) is not
+    // weighed again: the inputs tick on every backend report.
+    if (considered_ && *considered_ == render_now()) {
+        return;
+    }
+    // The record is per printer but rendered from this screen's settings, so
+    // only the screen that would send the fallback writes it.
+    resolve_sender_role([this](FallbackSenderRole role) { write_record(role); });
+}
+
+void StandingPrintOptionsController::write_record(FallbackSenderRole role) {
+    IMoonrakerAPI* api = get_moonraker_api();
+    if (api == nullptr || !api->is_connected()) {
+        return;
+    }
     std::string gcode = render_now();
+    considered_ = gcode;
+    if (!writes_standing_record(role, gcode)) {
+        spdlog::debug("[StandingPrintOptions] Not writing the record ({})",
+                      role == FallbackSenderRole::Standby ? "another screen owns it"
+                                                          : "nothing rendered yet");
+        return;
+    }
     if (written_ && *written_ == gcode) {
         return;
     }
@@ -112,7 +136,10 @@ void StandingPrintOptionsController::refresh_record() {
         [this, token = lifetime_.token()](const MoonrakerError& err) {
             spdlog::warn("[StandingPrintOptions] Writing the record failed: {}", err.message);
             // The next refresh writes it again.
-            token.defer("StandingPrintOptions::write_failed", [this] { written_.reset(); });
+            token.defer("StandingPrintOptions::write_failed", [this] {
+                written_.reset();
+                considered_.reset();
+            });
         });
 }
 
@@ -124,11 +151,14 @@ void StandingPrintOptionsController::load_opt_ins(IMoonrakerAPI& api) {
                 get_printer_state().plugin_status_state().set_stored_opt_ins(record);
             });
         },
-        [token = lifetime_.token()](const MoonrakerError&) {
-            // No record: every feature at its default.
-            token.defer("StandingPrintOptions::opt_ins_absent", [] {
-                get_printer_state().plugin_status_state().set_stored_opt_ins(
-                    nlohmann::json::object());
+        [token = lifetime_.token()](const MoonrakerError& err) {
+            std::optional<nlohmann::json> record = opt_ins_after_failed_read(err);
+            if (!record) {
+                spdlog::debug("[StandingPrintOptions] Keeping the last opt-ins: {}", err.message);
+                return;
+            }
+            token.defer("StandingPrintOptions::opt_ins_absent", [record = std::move(*record)] {
+                get_printer_state().plugin_status_state().set_stored_opt_ins(record);
             });
         });
 }
@@ -179,31 +209,40 @@ void StandingPrintOptionsController::on_job_added(const std::string& filename) {
                                                               : "no options to send");
     };
     // Only a send this instance would make needs to know who else is here.
-    if (status.screen_local() ||
-        standing_options_sender(hooks, opted_in, screen_started, !gcode.empty(),
+    if (standing_options_sender(hooks, opted_in, screen_started, !gcode.empty(),
                                 FallbackSenderRole::Sender) != StandingOptionsSender::App) {
         decide(FallbackSenderRole::Sender);
         return;
     }
+    resolve_sender_role(decide);
+}
+
+void StandingPrintOptionsController::resolve_sender_role(
+    std::function<void(FallbackSenderRole)> then) {
+    if (get_printer_state().plugin_status_state().screen_local()) {
+        then(fallback_sender_role(true, std::nullopt));
+        return;
+    }
     IMoonrakerAPI* api = get_moonraker_api();
     if (api == nullptr) {
+        then(fallback_sender_role(false, std::nullopt));
         return;
     }
     api->database_get_item(
         kPluginFeaturesNamespace, kLocalScreenPresenceKey,
-        [decide, token = lifetime_.token()](const nlohmann::json& record) {
+        [then, token = lifetime_.token()](const nlohmann::json& record) {
             const std::optional<bool> present =
                 local_screen_present(record, static_cast<int64_t>(std::time(nullptr)));
             token.defer("StandingPrintOptions::presence",
-                        [decide, present] { decide(fallback_sender_role(false, present)); });
+                        [then, present] { then(fallback_sender_role(false, present)); });
         },
-        [decide, token = lifetime_.token()](const MoonrakerError& err) {
+        [then, token = lifetime_.token()](const MoonrakerError& err) {
             // No record: no screen on the printer's host has ever announced
             // itself. Any other failure cannot rule one out.
             const std::optional<bool> present =
                 err.is_not_found() ? std::optional<bool>(false) : std::nullopt;
             token.defer("StandingPrintOptions::presence_absent",
-                        [decide, present] { decide(fallback_sender_role(false, present)); });
+                        [then, present] { then(fallback_sender_role(false, present)); });
         });
 }
 

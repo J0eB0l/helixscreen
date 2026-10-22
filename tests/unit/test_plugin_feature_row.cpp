@@ -50,7 +50,7 @@ struct PrintHooksRowFixture : LVGLUITestFixture {
         auto& plugin = get_printer_state().plugin_status_state();
         plugin.set_features({});
         plugin.set_installed(false);
-        plugin.set_screen_local(false);
+        get_printer_state().clear_moonraker_locality();
         plugin.set_stored_opt_ins(nlohmann::json::object());
         if (root_ && lv_obj_is_valid(root_)) {
             lv_obj_delete(root_);
@@ -73,6 +73,12 @@ struct PrintHooksRowFixture : LVGLUITestFixture {
     lv_obj_t* in_row(const char* name) const {
         lv_obj_t* row = lv_obj_find_by_name(root_, "row_print_hooks");
         return row ? lv_obj_find_by_name(row, name) : nullptr;
+    }
+
+    /// The connection's locality verdict, the one source the row reads.
+    static void set_local(bool local) {
+        get_printer_state().set_moonraker_is_remote(!local);
+        helix::ui::UpdateQueue::instance().drain();
     }
 
     static bool visible(lv_obj_t* obj) {
@@ -134,7 +140,7 @@ TEST_CASE_METHOD(PrintHooksRowFixture,
     REQUIRE(toggle() != nullptr);
 
     SECTION("on the printer's own host: no hint") {
-        plugin.set_screen_local(true);
+        set_local(true);
         plugin.set_installed(false);
         process_lvgl(5);
         CHECK(visible(toggle()));
@@ -142,7 +148,7 @@ TEST_CASE_METHOD(PrintHooksRowFixture,
         CHECK_FALSE(visible(in_row("greyed_row")));
     }
     SECTION("on a remote screen: the hint and Install") {
-        plugin.set_screen_local(false);
+        set_local(false);
         plugin.set_installed(false);
         process_lvgl(5);
         CHECK(visible(toggle()));
@@ -152,7 +158,7 @@ TEST_CASE_METHOD(PrintHooksRowFixture,
         CHECK_FALSE(visible(in_row("needs_install_text")));
     }
     SECTION("a remote screen with a plugin too old for it: the hint asks for an update") {
-        plugin.set_screen_local(false);
+        set_local(false);
         plugin.set_installed(true);
         plugin.set_features({});
         process_lvgl(5);

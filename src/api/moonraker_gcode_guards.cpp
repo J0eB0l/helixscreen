@@ -120,7 +120,10 @@ bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
         return moonraker_internal::reject_invalid_path(str("filename"), method.c_str(), on_error) ||
                reject_job_while_spools_on_bed(&state, method.c_str(), on_error);
     }
-    // Both start a print from a linked copy of a file the screen already validated.
+    // Both start a print from a linked copy of a file, checked here only for its
+    // paths and the spool latch. A plugin's print_edited `edits` can inject any
+    // gcode into that copy, past the printer.gcode.script motion guards: the
+    // same power as printer.print.start of a file the plugin uploaded itself.
     if (method == "server.helix.print_modified" || method == "server.helix.print_edited") {
         return moonraker_internal::reject_invalid_path(str("original_filename"), method.c_str(),
                                                        on_error) ||

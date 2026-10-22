@@ -397,6 +397,10 @@ void ui_gcode_viewer_register(void);
  */
 namespace helix {
 void ui_gcode_viewer_set_layer_index_sidecar(lv_obj_t* obj, std::string sidecar);
+
+/// Whether loading @p file_path into this viewer would stream, the only load
+/// that uses a layer index sidecar. False for an object that is not a viewer.
+bool ui_gcode_viewer_would_stream(lv_obj_t* obj, const std::string& file_path);
 } // namespace helix
 
 /**

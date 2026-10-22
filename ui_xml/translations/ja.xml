@@ -2674,6 +2674,7 @@
   <translation tag="Printer error" ja="プリンターエラー"/>
   <translation tag="Printer event" ja="プリンターイベント"/>
   <translation tag="Printer events" ja="プリンターのイベント"/>
+  <translation tag="Printer events need the HelixPrint plugin on this screen" ja="この画面でプリンターのイベントを表示するにはHelixPrintプラグインが必要です"/>
   <translation tag="Printer hardware detected" ja="プリンターのハードウェアを検出"/>
   <translation tag="Printer image set to auto-detect" ja="プリンター画像を自動検出に設定しました"/>
   <translation tag="Printer is busy - {} stays in the queue" ja="プリンターは使用中です – {} はキューに残ります"/>

@@ -90,12 +90,13 @@ void apply_file_analysis(FileStartFacts& facts, const FileAnalysisRecord& record
 
 /// Hand @p load the text of @p filename's layer index sidecar
 /// (GCodeLayerIndex::build_from_sidecar) when the plugin's current record
-/// names one, else an empty string. Call it on the main thread. When
-/// file_analysis_source() says not to ask the plugin, @p load runs at once;
-/// otherwise it runs on the main thread once the plugin answered, unless
-/// @p tok has expired by then.
+/// names one, else an empty string. Call it on the main thread. When the
+/// load will not use a sidecar (@p wanted false: only a streaming load does)
+/// or file_analysis_source() says not to ask the plugin, @p load runs at once,
+/// so the preview never waits on the plugin for nothing; otherwise it runs on
+/// the main thread once the plugin answered, unless @p tok has expired by then.
 void with_layer_index_sidecar(IMoonrakerAPI* api, PluginFeatureState feature,
-                              const std::string& filename, const LifetimeToken& tok,
+                              const std::string& filename, bool wanted, const LifetimeToken& tok,
                               std::function<void(std::string sidecar)> load);
 
 } // namespace helix

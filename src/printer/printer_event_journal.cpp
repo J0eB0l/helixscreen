@@ -69,7 +69,10 @@ const ClassMarkers kClassMarkers[] = {
 };
 
 bool same_event(const JournalEntry& a, const JournalEntry& b) {
-    return a.kind == b.kind && a.text == b.text && a.detail == b.detail && a.job_id == b.job_id &&
+    // gcode_store backfill knows no job, so an entry without one matches a
+    // live entry of any job.
+    const bool same_job = a.job_id == b.job_id || a.job_id.empty() || b.job_id.empty();
+    return a.kind == b.kind && a.text == b.text && a.detail == b.detail && same_job &&
            std::fabs(a.time - b.time) <= kJournalDedupWindowS;
 }
 
@@ -144,9 +147,12 @@ std::string journal_pause_cause(const std::vector<JournalEntry>& entries, double
 // Source decision
 // ---------------------------------------------------------------------------
 
-JournalPlan decide_journal_source(PluginFeatureState state) {
+JournalPlan decide_journal_source(PluginFeatureState state, bool recorder_built) {
     if (state == PluginFeatureState::Ready) {
         return {JournalSource::Plugin, false};
+    }
+    if (!recorder_built) {
+        return {JournalSource::None, false};
     }
     return {JournalSource::Screen, true};
 }
@@ -211,7 +217,9 @@ nlohmann::json build_event_journal_section(JournalSource source,
     for (const auto& e : entries) {
         list.push_back(journal_entry_to_json(e));
     }
-    return {{"source", source == JournalSource::Plugin ? "plugin" : "screen"},
+    return {{"source", source == JournalSource::Plugin   ? "plugin"
+                       : source == JournalSource::Screen ? "screen"
+                                                         : "none"},
             {"entries", std::move(list)}};
 }
 

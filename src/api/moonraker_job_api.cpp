@@ -274,6 +274,8 @@ void MoonrakerJobAPI::start_edited_print(const std::string& original_filename,
     spdlog::info("[Moonraker API] Starting edited print via helix_print plugin: {} ({} edits, "
                  "copy: {})",
                  original_filename, edits.size(), temp_file_path);
+    // The plugin starts it through a link and marks it as its own start.
+    helix::screen_start_ledger().note_any();
 
     client_.send_jsonrpc(
         "server.helix.print_edited", params,

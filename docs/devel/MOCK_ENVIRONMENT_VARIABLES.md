@@ -415,7 +415,10 @@ the pause it caused, a shutdown and the job it ended), so the notification histo
 Printer Events button shows the plugin's journal. Installed and not `disabled`, it
 also reports `print_hooks`, `enabled` from the mock database's
 `helix-screen`/`plugin_features.print_hooks` (off until the Printing page's switch
-writes it). `HELIX_MOCK_PLR` adds the `plr` entry (below); no other feature is reported.
+writes it; `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false` with
+`reason: "load_failed"`), and `file_analysis`, `server_edits` and `config_edit`, each
+`Ready`. The mock has no `server.helix.config`, so a config edit falls back to the file API.
+`HELIX_MOCK_PLR` adds the `plr` entry (below); no other feature is reported.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker
 does for an endpoint it has no component for. That distinction is the point: a

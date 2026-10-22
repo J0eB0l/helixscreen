@@ -351,7 +351,8 @@ TEST_CASE_METHOD(AnalysisLoaderFixture, "the sidecar the record names reaches th
 
     std::optional<std::string> got;
     helix::with_layer_index_sidecar(api.get(), PluginFeatureState::Ready, file.name(),
-                                    guard.token(), [&got](std::string s) { got = std::move(s); });
+                                    /*wanted=*/true, guard.token(),
+                                    [&got](std::string s) { got = std::move(s); });
     for (int i = 0; i < 50 && !got; ++i) {
         drain();
         process_lvgl(10);
@@ -368,14 +369,21 @@ TEST_CASE_METHOD(AnalysisLoaderFixture, "no record, no sidecar",
 
     SECTION("feature not ready: answered at once, plugin not asked") {
         helix::with_layer_index_sidecar(api.get(), PluginFeatureState::Disabled, file.name(),
-                                        guard.token(),
+                                        /*wanted=*/true, guard.token(),
+                                        [&got](std::string s) { got = std::move(s); });
+        REQUIRE(got.has_value());
+        CHECK(client.call_count(helix::kFileAnalysisRpc) == 0);
+    }
+    SECTION("a load that will not stream: answered at once, plugin not asked") {
+        helix::with_layer_index_sidecar(api.get(), PluginFeatureState::Ready, file.name(),
+                                        /*wanted=*/false, guard.token(),
                                         [&got](std::string s) { got = std::move(s); });
         REQUIRE(got.has_value());
         CHECK(client.call_count(helix::kFileAnalysisRpc) == 0);
     }
     SECTION("pending") {
         helix::with_layer_index_sidecar(api.get(), PluginFeatureState::Ready, file.name(),
-                                        guard.token(),
+                                        /*wanted=*/true, guard.token(),
                                         [&got](std::string s) { got = std::move(s); });
         drain();
         REQUIRE(got.has_value());

@@ -70,13 +70,16 @@ PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMa
     }
     const auto it = features.find(name);
     const bool current_entry = it != features.end() && it->second.version >= min_version;
-    if (plugin_available && current_entry) {
-        // Absent with a current entry: the plugin says it cannot run here.
+    if (plugin_available && current_entry && !has_fallback) {
+        // Absent with a current entry: the plugin says it cannot run here,
+        // and nothing else can.
         return PluginSwitchMode::Hidden;
     }
-    // A plugin that answers but lacks the feature is fixed by updating it.
+    // A plugin that answers but lacks the feature, or cannot run it, is the
+    // plugin's to fix by an update; installing it again cannot help.
     const bool outdated = plugin_available;
     if (has_fallback) {
+        // While the app's fallback can act, its switch shows.
         if (is_local) {
             return PluginSwitchMode::Switch;
         }
@@ -91,6 +94,13 @@ FallbackSenderRole fallback_sender_role(bool is_local, std::optional<bool> local
         return FallbackSenderRole::Sender;
     }
     return local_screen_present == false ? FallbackSenderRole::Sender : FallbackSenderRole::Standby;
+}
+
+std::optional<nlohmann::json> opt_ins_after_failed_read(const MoonrakerError& err) {
+    if (err.is_not_found()) {
+        return nlohmann::json::object();
+    }
+    return std::nullopt;
 }
 
 nlohmann::json local_screen_presence_record(int64_t now) {

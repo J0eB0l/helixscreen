@@ -382,7 +382,8 @@ void PrintPreviewController::load_for_viewing(const std::string& filename) {
                 api_,
                 printer_state_.plugin_status_state().plugin_feature(helix::kFileAnalysisFeature,
                                                                     helix::kFileAnalysisMinVersion),
-                source, lifetime_.token(), [this, filename, path](std::string sidecar) {
+                source, helix::ui_gcode_viewer_would_stream(gcode_viewer_, path), lifetime_.token(),
+                [this, filename, path](std::string sidecar) {
                     load_file(path.c_str(), filename, std::move(sidecar));
                 });
         },

@@ -2776,6 +2776,7 @@ translations:
   Printer error: プリンターエラー
   Printer event: プリンターイベント
   Printer events: 'プリンターのイベント'
+  Printer events need the HelixPrint plugin on this screen: 'この画面でプリンターのイベントを表示するにはHelixPrintプラグインが必要です'
   Printer hardware detected: プリンターのハードウェアを検出
   Printer image set to auto-detect: プリンター画像を自動検出に設定しました
   Printer is busy - {} stays in the queue: 'プリンターは使用中です – {} はキューに残ります'

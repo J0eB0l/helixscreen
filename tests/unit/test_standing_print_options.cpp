@@ -252,6 +252,13 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
               json{{"filename", "benchy.gcode"}});
     }
 
+    SECTION("a server-edited start claims the next job, whatever its link name") {
+        api.job().start_edited_print(
+            "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {},
+            [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
+        CHECK(screen_start_ledger().claim(".helix_print/abcd_benchy.gcode"));
+    }
+
     SECTION("otherwise the plugin is not told") {
         api.job().start_print("benchy.gcode", [] {}, [](const MoonrakerError&) {});
         const auto sent = methods();
@@ -285,8 +292,9 @@ TEST_CASE("a plugin switch row's mode over every plugin state", "[plugin_feature
          M::FallbackUpdateHint},
         {"below the minimum and unavailable", true, hooks_map(0, false, false), M::NeedsUpdate,
          M::Switch, M::FallbackUpdateHint},
-        {"unavailable on this printer", true, hooks_map(1, false, false), M::Hidden, M::Hidden,
-         M::Hidden},
+        // The fallback still acts, so its switch must stay where the user can see it.
+        {"unavailable on this printer", true, hooks_map(1, false, false), M::Hidden, M::Switch,
+         M::FallbackUpdateHint},
         {"switched off", true, hooks_map(1, true, false), M::Switch, M::Switch, M::Switch},
         {"ready", true, hooks_map(1, true, true), M::Switch, M::Switch, M::Switch},
     };
@@ -306,6 +314,29 @@ TEST_CASE("a plugin switch row's mode over every plugin state", "[plugin_feature
     other["plr"] = entry(1, true, true);
     CHECK(plugin_switch_mode(true, other, kPrintHooksFeature, kPrintHooksMinVersion, false,
                              false) == M::NeedsUpdate);
+}
+
+TEST_CASE("only the fallback's sender writes the shared record, never an empty one",
+          "[plugin_print_hooks]") {
+    CHECK(writes_standing_record(FallbackSenderRole::Sender, "M117 one"));
+    CHECK_FALSE(writes_standing_record(FallbackSenderRole::Standby, "M117 one"));
+    INFO("before the filament backend reports, nothing is written");
+    CHECK_FALSE(writes_standing_record(FallbackSenderRole::Sender, ""));
+}
+
+TEST_CASE("a failed opt-in read keeps the last record unless there is none", "[plugin_feature]") {
+    const auto missing = MoonrakerError::from_json_rpc(
+        {{"code", -32601},
+         {"message", "Key 'plugin_features' in namespace 'helix-screen' not found"}},
+        "server.database.get_item");
+    REQUIRE(missing.is_not_found());
+    CHECK(opt_ins_after_failed_read(missing) == json::object());
+
+    MoonrakerError timeout;
+    timeout.type = MoonrakerErrorType::TIMEOUT;
+    timeout.message = "timed out";
+    REQUIRE_FALSE(timeout.is_not_found());
+    CHECK(opt_ins_after_failed_read(timeout) == std::nullopt);
 }
 
 TEST_CASE("one HelixScreen per printer sends a fallback", "[plugin_feature]") {

@@ -2967,6 +2967,7 @@ translations:
   Printer error: Ошибка принтера
   Printer event: Событие принтера
   Printer events: 'События принтера'
+  Printer events need the HelixPrint plugin on this screen: 'Для событий принтера на этом экране нужен плагин HelixPrint'
   Printer hardware detected: Обнаружено оборудование принтера
   Printer image set to auto-detect: Изображение принтера — автоопределение
   Printer is busy - {} stays in the queue: 'Принтер занят – {} остаётся в очереди'

@@ -46,6 +46,10 @@ StandingOptionsSender standing_options_sender(PluginFeatureState hooks, bool opt
     return StandingOptionsSender::None;
 }
 
+bool writes_standing_record(FallbackSenderRole role, const std::string& gcode) {
+    return role == FallbackSenderRole::Sender && !gcode.empty();
+}
+
 bool announce_screen_start(PluginFeatureState hooks) {
     return hooks == PluginFeatureState::Ready;
 }

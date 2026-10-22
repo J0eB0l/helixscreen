@@ -15,6 +15,7 @@
 #include "moonraker_error.h"
 #include "moonraker_types.h"
 #include "spdlog/spdlog.h"
+#include "utf8_validation.h"
 
 #include <algorithm>
 #include <cctype>
@@ -151,38 +152,12 @@ inline bool is_safe_object_name(const std::string& str) {
             }
         }
 
-        size_t length = 0;
-        uint32_t cp = 0;
-        if ((c & 0xE0) == 0xC0) {
-            length = 2;
-            cp = c & 0x1F;
-        } else if ((c & 0xF0) == 0xE0) {
-            length = 3;
-            cp = c & 0x0F;
-        } else if ((c & 0xF8) == 0xF0) {
-            length = 4;
-            cp = c & 0x07;
-        } else {
-            return false;
-        }
-        if (i + length > str.size()) {
-            return false;
-        }
-        for (size_t k = 1; k < length; ++k) {
-            const auto cont = static_cast<unsigned char>(str[i + k]);
-            if ((cont & 0xC0) != 0x80) {
-                return false;
-            }
-            cp = (cp << 6) | (cont & 0x3F);
-        }
-        static constexpr uint32_t kMinForLength[] = {0, 0, 0x80, 0x800, 0x10000};
-        const bool overlong = cp < kMinForLength[length];
-        const bool surrogate = cp >= 0xD800 && cp <= 0xDFFF;
+        const std::optional<helix::text_io::Utf8Sequence> seq = helix::text_io::decode_utf8(str, i);
         // U+0080..U+009F are C1 controls; U+00A0 opens the printable range.
-        if (overlong || surrogate || cp > 0x10FFFF || cp < 0xA0 || helix::is_unicode_space(cp)) {
+        if (!seq || seq->codepoint < 0xA0 || helix::is_unicode_space(seq->codepoint)) {
             return false;
         }
-        i += length;
+        i += seq->length;
     }
     return true;
 }
