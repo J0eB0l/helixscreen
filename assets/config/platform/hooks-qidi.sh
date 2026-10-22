@@ -12,7 +12,7 @@
 # ever disagree.
 QIDI_STOCK_UI_BINS="/home/mks/QD_Q2/bin/client /home/qidi/QD_Q2/bin/client"
 # The same directory also contains tuning.sh, which must remain enabled.
-QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([[:space:]]|$)|qidiclient|qidi-client|makerbase-client'
+QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([^[:alnum:]_.-]|$)|qidiclient|qidi-client|makerbase-client'
 
 platform_stop_competing_uis() {
     _qidi_path=""

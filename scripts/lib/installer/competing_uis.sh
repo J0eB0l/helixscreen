@@ -55,7 +55,7 @@ COMPETING_UIS="guppyscreen GuppyScreen grumpyscreen Grumpyscreen KlipperScreen k
 # hostname gate. Both arms are reversible and recorded, so uninstall's
 # reenable_disabled_services() puts the stock screen back.
 QIDI_STOCK_UI_BINS="/home/mks/QD_Q2/bin/client /home/qidi/QD_Q2/bin/client"
-QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([[:space:]]|$)|qidiclient|qidi-client|makerbase-client'
+QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([^[:alnum:]_.-]|$)|qidiclient|qidi-client|makerbase-client'
 
 # Wayland compositors that hold the DRM/KMS master. On Armbian/Pi-class boards
 # (e.g. BTT CB1) KlipperScreen commonly runs *inside* one of these; the

@@ -225,6 +225,7 @@ EOF
     local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log" unit
     write_unit "qd-screen.service" "/home/mks/QD_Q2/bin/client --fullscreen" >/dev/null
     write_unit "qd-start.service" "bash /home/qidi/QD_Q2/bin/start.sh" >/dev/null
+    write_unit "qd-quoted.service" "/bin/sh -c \"/home/mks/QD_Q2/bin/client;sleep 1\"" >/dev/null
     write_unit "makerbase-tuning.service" "bash /home/mks/QD_Q2/bin/tuning.sh" >/dev/null
     write_unit "client-helper.service" "/home/mks/QD_Q2/bin/client-helper" >/dev/null
     write_unit "start-backup.service" "bash /home/mks/QD_Q2/bin/start.sh.bak" >/dev/null
@@ -236,6 +237,7 @@ EOF
 
     grep -qx "disable qd-screen.service" "$systemctl_log"
     grep -qx "disable qd-start.service" "$systemctl_log"
+    grep -qx "disable qd-quoted.service" "$systemctl_log"
     for unit in makerbase-tuning client-helper start-backup; do
         refute_grep "$unit" "$systemctl_log"
         refute_grep "$unit" "$DISABLED_SERVICES_FILE"
@@ -246,6 +248,7 @@ EOF
     local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log" unit
     write_unit "qd-screen.service" "/home/mks/QD_Q2/bin/client --fullscreen" >/dev/null
     write_unit "qd-start.service" "bash /home/qidi/QD_Q2/bin/start.sh" >/dev/null
+    write_unit "qd-quoted.service" "/bin/sh -c \"/home/mks/QD_Q2/bin/client;sleep 1\"" >/dev/null
     write_unit "makerbase-tuning.service" "bash /home/mks/QD_Q2/bin/tuning.sh" >/dev/null
     write_unit "client-helper.service" "/home/mks/QD_Q2/bin/client-helper" >/dev/null
     write_unit "start-backup.service" "bash /home/mks/QD_Q2/bin/start.sh.bak" >/dev/null
@@ -260,7 +263,7 @@ EOF
     run sh -c '. "$1"; platform_stop_competing_uis' sh "$hook"
     [ "$status" -eq 0 ]
 
-    for unit in qd-screen qd-start; do
+    for unit in qd-screen qd-start qd-quoted; do
         grep -qx "stop $unit.service" "$systemctl_log"
         grep -qx "disable $unit.service" "$systemctl_log"
     done
