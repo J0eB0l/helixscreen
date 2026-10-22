@@ -161,6 +161,7 @@ helix_journal = _load_sibling("helix_journal")
 helix_config = _load_sibling("helix_config")
 helix_edits = _load_sibling("helix_edits")
 helix_print_hooks = _load_sibling("helix_print_hooks")
+helix_filament = _load_sibling("helix_filament")
 
 
 # ============================================================================
@@ -471,6 +472,7 @@ class HelixPrint:
         self.analysis: Optional[Any] = None
         self.journal: Optional[Any] = None
         self.print_hooks: Optional[Any] = None
+        self.filament: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -775,6 +777,7 @@ class HelixPrint:
         await self._start_isolated("config_edit", True, self._start_config)
         await self._start_isolated("server_edits", False, self._start_edits)
         await self._start_isolated("print_hooks", True, self._start_print_hooks)
+        await self._start_isolated("filament_accounting", True, self._start_filament)
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -966,6 +969,22 @@ class HelixPrint:
             helix_print_hooks.PRINT_HOOKS_FEATURE,
             helix_print_hooks.PRINT_HOOKS_FEATURE_VERSION,
             acts=True,
+        )
+
+    async def _start_filament(self) -> None:
+        """Filament accounting per lane and tool (helix_filament.py), opted
+        into through plugin_features."""
+        if helix_filament is None:
+            self.register_feature(
+                "filament_accounting", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_filament", "module_missing"),
+            )
+            return
+        self.filament = helix_filament.FilamentAccounting(self, HELIX_SCREEN_NAMESPACE)
+        self.filament.start()
+        await self.filament.load()
+        self.register_feature(
+            helix_filament.FILAMENT_FEATURE, helix_filament.FILAMENT_FEATURE_VERSION, acts=True,
         )
 
     async def close(self) -> None:
@@ -1470,8 +1489,8 @@ class HelixPrint:
             original = self._history_name(print_info.original_filename)
 
             # auxiliary_data is a list of provider entries. Keep every other
-            # provider's, and drop any earlier entry of ours so re-patching the
-            # same job does not stack duplicates.
+            # entry, and drop any earlier modifications entry so re-patching
+            # the same job does not stack duplicates.
             # auxiliary_data is a list of provider entries. Iterating anything
             # else would walk it by element anyway - a dict yields its KEYS -
             # and quietly write that back over the real thing, so a shape we do
@@ -1489,6 +1508,7 @@ class HelixPrint:
                 if not (
                     isinstance(entry, dict)
                     and entry.get("provider") == HELIX_AUX_PROVIDER
+                    and entry.get("name") == "modifications"
                 )
             ]
             aux_data.append(
