@@ -1005,7 +1005,6 @@
   <translation tag="Dock sensors disagree" es="Sensores de acoplamiento discrepantes"/>
   <translation tag="Dock tool" es="Acoplar herramienta"/>
   <translation tag="Docking tool" es="Acoplando herramienta"/>
-  <translation tag="Documentation" es="Documentación"/>
   <translation tag="Don&apos;t Save" es="No Guardar"/>
   <translation tag="Don&apos;t ask again" es="No volver a preguntar"/>
   <translation tag="Done" es="Listo"/>
@@ -1155,6 +1154,7 @@
   <translation tag="Every browser that can control this screen will need the new pairing code." es="Cada navegador que pueda controlar esta pantalla necesitará el nuevo código de emparejamiento."/>
   <translation tag="Every extruder&apos;s temperature at once" es="La temperatura de todos los extrusores"/>
   <translation tag="Every object is set to skip, so there is nothing to print" es="Todos los objetos están marcados para omitir, no hay nada que imprimir"/>
+  <translation tag="Every screen and setting explained" es="Cada pantalla y ajuste explicados"/>
   <translation tag="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes." es="Cada herramienta se toma y se aparca por turno. El cabezal queda vacío al final. Esto tarda unos minutos."/>
   <translation tag="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result." es="Los offsets de todas las herramientas se miden de nuevo y reemplazan a los actuales. Guarda después para conservar el resultado."/>
   <translation tag="Every unit keeps its filament gripped" es="Cada unidad mantiene sujeto su filamento"/>
@@ -1493,6 +1493,7 @@
   <translation tag="Gear sync" es="Sincronización de engranaje"/>
   <translation tag="Generic" es="Genérico"/>
   <translation tag="Get help and share feedback" es="Obtén ayuda y comparte comentarios"/>
+  <translation tag="Getting Started" es="Primeros pasos"/>
   <translation tag="Global" es="Global"/>
   <translation tag="Global Z offset" es="Desfase Z global"/>
   <translation tag="Good" es="Bueno"/>
@@ -1505,7 +1506,6 @@
   <translation tag="Grip the filament" es="Agarrar el filamento"/>
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" es="Guíe el cabezal hasta la posición de extrusión del conducto"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" es="Calibración guiada: sensor a boquilla, descarga y retracción del cortador"/>
-  <translation tag="Guides and reference" es="Guías y referencia"/>
   <translation tag="H" es="H"/>
   <translation tag="HELIXSCREEN" es="HELIXSCREEN"/>
   <translation tag="HEPA" es="HEPA"/>
@@ -1854,6 +1854,7 @@
   <translation tag="Layout" es="Distribución"/>
   <translation tag="Layout changes are off in safe mode. Restart to edit." es="Los cambios de diseño están desactivados en modo seguro. Reinicie para editar."/>
   <translation tag="Learn More" es="Más información"/>
+  <translation tag="Learn the basics: the setup wizard, moving around the screens, and touch gestures." es="Lo básico: el asistente de configuración, cómo moverse entre pantallas y los gestos táctiles."/>
   <translation tag="Leave it" es="Dejarla"/>
   <translation tag="LedSelect" es="Seleccionar LED"/>
   <translation tag="Left" es="Izquierda"/>
@@ -3181,6 +3182,7 @@
   <translation tag="Settling belts" es="Asentando correas"/>
   <translation tag="Setup" es="Configuración inicial"/>
   <translation tag="Setup Timelapse" es="Configurar Timelapse"/>
+  <translation tag="Setup, navigation and gestures" es="Configuración, navegación y gestos"/>
   <translation tag="Several printers match - choose yours" es="Varias impresoras coinciden - elija la suya"/>
   <translation tag="Shadow Intensity" es="Intensidad de Sombra"/>
   <translation tag="Shake&amp;Tune" es="Shake&amp;Tune"/>
@@ -3908,6 +3910,7 @@
   <translation tag="Use first HID scanner found" es="Usar el primer escáner HID encontrado"/>
   <translation tag="Use printer type to select image" es="Usar tipo de impresora para seleccionar imagen"/>
   <translation tag="Use the home layout set on the printer&apos;s own screen" es="Usar el diseño de inicio definido en la pantalla de la impresora"/>
+  <translation tag="User Guide" es="Guía del usuario"/>
   <translation tag="User intervention required" es="Se requiere intervención manual"/>
   <translation tag="VM Peak" es="Pico de VM"/>
   <translation tag="VM Size" es="Tamaño de VM"/>

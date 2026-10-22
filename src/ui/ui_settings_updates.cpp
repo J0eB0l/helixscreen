@@ -113,6 +113,7 @@ void UpdatesSettingsOverlay::register_callbacks() {
              // apply one itself. The command is the whole payload; without it the row
              // states a problem and offers nothing. The QR points at the docs for the
              // longer story.
+             const std::string url = helix::docs_url("upgrading/");
              helix::ui::InfoQrModal::show_owned({
                  .icon = "console",
                  .title = lv_tr("Update from a Terminal"),
@@ -124,8 +125,8 @@ void UpdatesSettingsOverlay::register_callbacks() {
                  .message = lv_tr("Run the HelixScreen installer with --update from a "
                                   "terminal on this printer. Scan for the command for "
                                   "your platform."),
-                 .url = "https://helixscreen.org/docs/guide/getting-started/",
-                 .url_text = "helixscreen.org/docs",
+                 .url = url,
+                 .url_text = helix::docs_url_text(url),
              });
          }},
         {"on_update_download_start",

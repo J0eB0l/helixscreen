@@ -1005,7 +1005,6 @@
   <translation tag="Dock sensors disagree" zh="归位传感器不一致"/>
   <translation tag="Dock tool" zh="归位工具"/>
   <translation tag="Docking tool" zh="正在归位工具"/>
-  <translation tag="Documentation" zh="文档"/>
   <translation tag="Don&apos;t Save" zh="不保存"/>
   <translation tag="Don&apos;t ask again" zh="不再询问"/>
   <translation tag="Done" zh="完成"/>
@@ -1155,6 +1154,7 @@
   <translation tag="Every browser that can control this screen will need the new pairing code." zh="所有可以控制此屏幕的浏览器都需要新的配对码。"/>
   <translation tag="Every extruder&apos;s temperature at once" zh="同时查看所有挤出机温度"/>
   <translation tag="Every object is set to skip, so there is nothing to print" zh="所有对象都已设为跳过，没有可打印的内容"/>
+  <translation tag="Every screen and setting explained" zh="每个界面和设置的说明"/>
   <translation tag="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes." zh="每个工具依次被装上并停放。结束时打印头为空。这需要几分钟。"/>
   <translation tag="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result." zh="所有工具的偏移将重新测量并替换当前值。之后请保存以保留结果。"/>
   <translation tag="Every unit keeps its filament gripped" zh="每个单元都保持夹紧耗材"/>
@@ -1493,6 +1493,7 @@
   <translation tag="Gear sync" zh="齿轮同步"/>
   <translation tag="Generic" zh="通用"/>
   <translation tag="Get help and share feedback" zh="获取帮助和反馈"/>
+  <translation tag="Getting Started" zh="入门"/>
   <translation tag="Global" zh="全局"/>
   <translation tag="Global Z offset" zh="全局Z偏移"/>
   <translation tag="Good" zh="良好"/>
@@ -1505,7 +1506,6 @@
   <translation tag="Grip the filament" zh="夹持耗材"/>
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" zh="引导工具头到排料口的挤出位置"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" zh="引导式校准：传感器至喷嘴、卸载和切刀回抽"/>
-  <translation tag="Guides and reference" zh="指南与参考"/>
   <translation tag="H" zh="头"/>
   <translation tag="HELIXSCREEN" zh="HELIXSCREEN"/>
   <translation tag="HEPA" zh="HEPA"/>
@@ -1854,6 +1854,7 @@
   <translation tag="Layout" zh="布局"/>
   <translation tag="Layout changes are off in safe mode. Restart to edit." zh="安全模式下无法更改布局。请重启后再编辑。"/>
   <translation tag="Learn More" zh="了解更多"/>
+  <translation tag="Learn the basics: the setup wizard, moving around the screens, and touch gestures." zh="了解基本操作：设置向导、在界面间切换以及触摸手势。"/>
   <translation tag="Leave it" zh="保持不变"/>
   <translation tag="LedSelect" zh="选择 LED"/>
   <translation tag="Left" zh="左"/>
@@ -3181,6 +3182,7 @@
   <translation tag="Settling belts" zh="正在稳定皮带"/>
   <translation tag="Setup" zh="设置向导"/>
   <translation tag="Setup Timelapse" zh="设置延时摄影"/>
+  <translation tag="Setup, navigation and gestures" zh="设置、导航和手势"/>
   <translation tag="Several printers match - choose yours" zh="多台打印机匹配 - 请选择您的打印机"/>
   <translation tag="Shadow Intensity" zh="阴影强度"/>
   <translation tag="Shake&amp;Tune" zh="Shake&amp;Tune"/>
@@ -3908,6 +3910,7 @@
   <translation tag="Use first HID scanner found" zh="使用找到的第一个 HID 扫描器"/>
   <translation tag="Use printer type to select image" zh="使用打印机类型选择图片"/>
   <translation tag="Use the home layout set on the printer&apos;s own screen" zh="使用打印机自身屏幕上设置的主屏幕布局"/>
+  <translation tag="User Guide" zh="用户指南"/>
   <translation tag="User intervention required" zh="需要手动干预"/>
   <translation tag="VM Peak" zh="虚拟内存峰值"/>
   <translation tag="VM Size" zh="虚拟内存大小"/>

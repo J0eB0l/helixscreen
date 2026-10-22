@@ -919,6 +919,9 @@ translations:
     estar disponibles.
   Could not answer the connection request: 'No se pudo responder a la solicitud de conexión'
   'Could not check {} - it stays in the queue': 'No se pudo comprobar {}: permanece en la cola'
+  "Every screen and setting explained": "Cada pantalla y ajuste explicados"
+  "Getting Started": "Primeros pasos"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Lo básico: el asistente de configuración, cómo moverse entre pantallas y los gestos táctiles."
   Load all stopped: Carga de todo detenida
   Load stopped: Carga detenida
   No filament was inserted in time. The heater is off and the carriage is restored: 'No se introdujo filamento a tiempo. El calentador está apagado y el carro está restaurado'
@@ -926,7 +929,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: 'Horas de impresión entre cambios de boquilla. Desactivado oculta este contador.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Horas de impresión entre limpieza y lubricación de los rieles. Desactivado oculta este contador.'
   Print hours this week and lifetime totals: 'Horas de impresión de esta semana y totales históricos'
+  "Setup, navigation and gestures": "Configuración, navegación y gestos"
   Unload stopped: Descarga detenida
+  "User Guide": "Guía del usuario"
   '{} could not be checked from Home - review it and tap Print': 'No se pudo comprobar {} desde Inicio: revísalo y toca Imprimir'
   ? "Could not check webcam status.\nCheck printer connection."
   : "No se pudo verificar la webcam.\nCompruebe la conexión."
@@ -1108,7 +1113,6 @@ translations:
   Dock sensors disagree: Sensores de acoplamiento discrepantes
   Dock tool: Acoplar herramienta
   Docking tool: Acoplando herramienta
-  Documentation: Documentación
   Don't Save: No Guardar
   Don't ask again: No volver a preguntar
   Done: Listo
@@ -1646,7 +1650,6 @@ translations:
   Grip the filament: Agarrar el filamento
   Guide the toolhead to the chute's extrude position: Guíe el cabezal hasta la posición de extrusión del conducto
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Calibración guiada: sensor a boquilla, descarga y retracción del cortador'
-  Guides and reference: Guías y referencia
   H: H
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'

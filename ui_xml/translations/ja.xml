@@ -1005,7 +1005,6 @@
   <translation tag="Dock sensors disagree" ja="ドックセンサーが不一致"/>
   <translation tag="Dock tool" ja="ツールを格納"/>
   <translation tag="Docking tool" ja="ツールを格納中"/>
-  <translation tag="Documentation" ja="ドキュメント"/>
   <translation tag="Don&apos;t Save" ja="保存しない"/>
   <translation tag="Don&apos;t ask again" ja="今後表示しない"/>
   <translation tag="Done" ja="完了"/>
@@ -1155,6 +1154,7 @@
   <translation tag="Every browser that can control this screen will need the new pairing code." ja="この画面を操作できるすべてのブラウザで、新しいペアリングコードが必要になります。"/>
   <translation tag="Every extruder&apos;s temperature at once" ja="全エクストルーダーの温度を一覧表示"/>
   <translation tag="Every object is set to skip, so there is nothing to print" ja="すべてのオブジェクトがスキップ対象のため、印刷するものがありません"/>
+  <translation tag="Every screen and setting explained" ja="すべての画面と設定の説明"/>
   <translation tag="Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes." ja="各ツールを順に取り付けて戻します。最後はヘッドが空になります。数分かかります。"/>
   <translation tag="Every tool&apos;s offsets are measured again and replace the current ones. Save afterwards to keep the result." ja="すべてのツールのオフセットを再測定し、現在の値を置き換えます。結果を保持するには、その後保存してください。"/>
   <translation tag="Every unit keeps its filament gripped" ja="すべてのユニットがフィラメントを保持したままです"/>
@@ -1493,6 +1493,7 @@
   <translation tag="Gear sync" ja="ギア同期"/>
   <translation tag="Generic" ja="汎用"/>
   <translation tag="Get help and share feedback" ja="ヘルプとフィードバック"/>
+  <translation tag="Getting Started" ja="はじめに"/>
   <translation tag="Global" ja="グローバル"/>
   <translation tag="Global Z offset" ja="グローバルZオフセット"/>
   <translation tag="Good" ja="良好"/>
@@ -1505,7 +1506,6 @@
   <translation tag="Grip the filament" ja="フィラメントを把持"/>
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" ja="ツールヘッドをシュートの押出し位置へ誘導します"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" ja="ガイド付きキャリブレーション：センサーからノズルまで、アンロード、カッターの引き戻し"/>
-  <translation tag="Guides and reference" ja="ガイドとリファレンス"/>
   <translation tag="H" ja="H"/>
   <translation tag="HELIXSCREEN" ja="HELIXSCREEN"/>
   <translation tag="HEPA" ja="HEPA"/>
@@ -1854,6 +1854,7 @@
   <translation tag="Layout" ja="レイアウト"/>
   <translation tag="Layout changes are off in safe mode. Restart to edit." ja="セーフモードではレイアウトを変更できません。編集するには再起動してください。"/>
   <translation tag="Learn More" ja="詳細を見る"/>
+  <translation tag="Learn the basics: the setup wizard, moving around the screens, and touch gestures." ja="基本：セットアップウィザード、画面の移動、タッチ操作。"/>
   <translation tag="Leave it" ja="そのままにする"/>
   <translation tag="LedSelect" ja="LEDを選択"/>
   <translation tag="Left" ja="左"/>
@@ -3181,6 +3182,7 @@
   <translation tag="Settling belts" ja="ベルトをなじませ中"/>
   <translation tag="Setup" ja="セットアップ"/>
   <translation tag="Setup Timelapse" ja="タイムラプスを設定"/>
+  <translation tag="Setup, navigation and gestures" ja="セットアップ、操作、ジェスチャー"/>
   <translation tag="Several printers match - choose yours" ja="複数のプリンターが一致します - 選択してください"/>
   <translation tag="Shadow Intensity" ja="影の強度"/>
   <translation tag="Shake&amp;Tune" ja="Shake&amp;Tune"/>
@@ -3908,6 +3910,7 @@
   <translation tag="Use first HID scanner found" ja="最初に見つかった HID スキャナーを使用"/>
   <translation tag="Use printer type to select image" ja="プリンタータイプで画像を選択"/>
   <translation tag="Use the home layout set on the printer&apos;s own screen" ja="プリンター本体の画面で設定したホームレイアウトを使用"/>
+  <translation tag="User Guide" ja="ユーザーガイド"/>
   <translation tag="User intervention required" ja="手動での対応が必要です"/>
   <translation tag="VM Peak" ja="VM ピーク"/>
   <translation tag="VM Size" ja="VM サイズ"/>

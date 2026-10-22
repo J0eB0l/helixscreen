@@ -852,6 +852,9 @@ translations:
     マクロを分析できませんでした。一部の印刷オプションが利用できない場合があります。
   Could not answer the connection request: '接続リクエストに応答できませんでした'
   'Could not check {} - it stays in the queue': '{} を確認できませんでした – キューに残ります'
+  "Every screen and setting explained": "すべての画面と設定の説明"
+  "Getting Started": "はじめに"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "基本：セットアップウィザード、画面の移動、タッチ操作。"
   Load all stopped: 'すべてのロードを停止しました'
   Load stopped: 'ロードを停止しました'
   No filament was inserted in time. The heater is off and the carriage is restored: '時間内にフィラメントが挿入されませんでした。ヒーターを切り、キャリッジを元に戻しました'
@@ -859,7 +862,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: 'ノズル交換までの印刷時間。オフにするとこのメーターを非表示にします。'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'レールの清掃と給油までの印刷時間。オフにするとこのメーターを非表示にします。'
   Print hours this week and lifetime totals: '今週の印刷時間と累計'
+  "Setup, navigation and gestures": "セットアップ、操作、ジェスチャー"
   Unload stopped: 'アンロードを停止しました'
+  "User Guide": "ユーザーガイド"
   '{} could not be checked from Home - review it and tap Print': '{} をホームから確認できませんでした – 内容を確認して印刷をタップしてください'
   ? "Could not check webcam status.\nCheck printer connection."
   : "ウェブカメラの状態を確認できませんでした。\nプリンター接続を確認してください。"
@@ -1040,7 +1045,6 @@ translations:
   Dock sensors disagree: ドックセンサーが不一致
   Dock tool: ツールを格納
   Docking tool: ツールを格納中
-  Documentation: ドキュメント
   Don't Save: 保存しない
   Don't ask again: 今後表示しない
   Done: 完了
@@ -1558,7 +1562,6 @@ translations:
   Grip the filament: フィラメントを把持
   Guide the toolhead to the chute's extrude position: ツールヘッドをシュートの押出し位置へ誘導します
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'ガイド付きキャリブレーション：センサーからノズルまで、アンロード、カッターの引き戻し'
-  Guides and reference: ガイドとリファレンス
   H: H
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'

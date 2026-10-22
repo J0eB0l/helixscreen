@@ -892,6 +892,9 @@ translations:
     not analyze PRINT_START macro. Some print options may be unavailable.
   Could not answer the connection request: Could not answer the connection request
   'Could not check {} - it stays in the queue': 'Could not check {} - it stays in the queue'
+  "Every screen and setting explained": "Every screen and setting explained"
+  "Getting Started": "Getting Started"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Learn the basics: the setup wizard, moving around the screens, and touch gestures."
   Load all stopped: Load all stopped
   Load stopped: Load stopped
   No filament was inserted in time. The heater is off and the carriage is restored: No filament was inserted in time. The heater is off and the carriage is restored
@@ -899,7 +902,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: Print hours between nozzle changes. Off hides this meter.
   Print hours between rail cleaning and lubrication. Off hides this meter.: Print hours between rail cleaning and lubrication. Off hides this meter.
   Print hours this week and lifetime totals: Print hours this week and lifetime totals
+  "Setup, navigation and gestures": "Setup, navigation and gestures"
   Unload stopped: Unload stopped
+  "User Guide": "User Guide"
   '{} could not be checked from Home - review it and tap Print': '{} could not be checked from Home - review it and tap Print'
   ? "Could not check webcam status.\nCheck printer connection."
   : "Could not check webcam status.\nCheck printer connection."
@@ -1077,7 +1082,6 @@ translations:
   Dock sensors disagree: Dock sensors disagree
   Dock tool: Dock tool
   Docking tool: Docking tool
-  Documentation: Documentation
   Don't Save: Don't Save
   Don't ask again: Don't ask again
   Done: Done
@@ -1599,7 +1603,6 @@ translations:
   Grip the filament: Grip the filament
   Guide the toolhead to the chute's extrude position: Guide the toolhead to the chute's extrude position
   Guided sensor-to-nozzle, unload and cutter retract calibration: Guided sensor-to-nozzle, unload and cutter retract calibration
-  Guides and reference: Guides and reference
   H: H
   HELIXSCREEN: HELIXSCREEN
   HEPA: HEPA
