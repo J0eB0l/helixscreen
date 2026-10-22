@@ -657,6 +657,7 @@ src/ui/ui_snake_game.cpp
 src/ui/ui_sound_preview_overlay.cpp
 src/ui/ui_spinner.cpp
 src/ui/ui_split_button.cpp
+src/ui/spool_vents.cpp
 src/ui/ui_spool_canvas.cpp
 src/ui/ui_spool_drawing.cpp
 src/ui/ui_spool_wizard.cpp

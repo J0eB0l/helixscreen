@@ -1177,9 +1177,9 @@
     <str name="icon_eye_off" value="󰈉"/>
     <str name="icon_fan" value="󰈐"/>
     <str name="icon_fan_off" value="󰠝"/>
-    <str name="icon_filament" value="󰹛"/>
-    <str name="icon_filament_alert" value="󱇀"/>
-    <str name="icon_filament_outline" value="󰹜"/>
+    <str name="icon_filament" value="󾀁"/>
+    <str name="icon_filament_alert" value="󾀃"/>
+    <str name="icon_filament_outline" value="󾀂"/>
     <str name="icon_filter" value="󰈲"/>
     <str name="icon_fine_tune" value="󰘮"/>
     <str name="icon_fire" value="󰈸"/>

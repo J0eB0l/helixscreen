@@ -1285,7 +1285,9 @@ TEST_CASE_METHOD(LVGLUITestFixture, "ams_slot: flat style glows too", "[ui][ams_
     lv_obj_t* slot = make_present_slot(test_screen());
     lv_subject_set_int(AmsState::instance().get_slot_active_loaded_subject(0), 1);
     process_lvgl(20);
-    REQUIRE(find_spool_canvas(UITest::find_by_name(slot, "spool_container")) == nullptr);
+    lv_obj_t* spool = find_spool_canvas(UITest::find_by_name(slot, "spool_container"));
+    REQUIRE(spool != nullptr);
+    REQUIRE(helix::ui::spool_canvas_get_view(spool) == helix::ui::SpoolView::Front);
 
     lv_obj_t* glow = glow_of(slot);
     CHECK(shown(glow));

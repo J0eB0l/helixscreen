@@ -204,13 +204,6 @@ TEST_CASE_METHOD(LVGLUITestFixture, "spool_canvas: glow follows the shape, not t
         helix::ui::spool_glow_paint(g, c, SPOOL, simple);
         CHECK(same(full, snapshot(g)));
 
-        // No spool canvas: a disc (flat style), its own shape.
-        helix::ui::spool_glow_paint(g, nullptr, SPOOL, simple);
-        const Pixels disc = snapshot(g);
-        CHECK_FALSE(same(full, disc));
-        int32_t opaque_centre = disc.at(disc.w / 2, disc.h / 2).alpha;
-        CHECK(opaque_centre > 200);
-
         lv_obj_delete(g);
         lv_obj_delete(c);
     }

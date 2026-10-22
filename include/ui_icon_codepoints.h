@@ -129,9 +129,9 @@ static const IconMapping kIconMap[] = {
     // Fan icons
     {"fan",                "\xF3\xB0\x88\x90"},  // F0210 fan
     {"fan_off",            "\xF3\xB0\xA0\x9D"},  // F081D fan-off
-    {"filament",           "\xF3\xB0\xB9\x9B"},  // F0E5B printer-3d-nozzle
-    {"filament_alert",     "\xF3\xB1\x87\x80"},  // F11C0 printer-3d-nozzle-alert
-    {"filament_outline",   "\xF3\xB0\xB9\x9C"},  // F0E5C printer-3d-nozzle-outline
+    {"filament",           "\xF3\xBE\x80\x81"},  // FE001 spool (custom glyph)
+    {"filament_alert",     "\xF3\xBE\x80\x83"},  // FE003 spool-alert (custom glyph)
+    {"filament_outline",   "\xF3\xBE\x80\x82"},  // FE002 spool-outline (custom glyph)
     {"filter",             "\xF3\xB0\x88\xB2"},  // F0232 filter (funnel)
     {"fine_tune",          "\xF3\xB0\x98\xAE"},  // F062E tune
     {"fire",               "\xF3\xB0\x88\xB8"},  // F0238 fire
@@ -207,6 +207,9 @@ static const IconMapping kIconMap[] = {
     {"move",               "\xF3\xB0\x81\x8C"},  // F004C arrow-expand-all
     {"network",            "\xF3\xB0\x88\x80"},  // F0200 ethernet (network)
     {"notifications",      "\xF3\xB0\x82\x9A"},  // F009A bell
+    {"nozzle",             "\xF3\xB0\xB9\x9B"},  // F0E5B printer-3d-nozzle
+    {"nozzle_alert",       "\xF3\xB1\x87\x80"},  // F11C0 printer-3d-nozzle-alert
+    {"nozzle_outline",     "\xF3\xB0\xB9\x9C"},  // F0E5C printer-3d-nozzle-outline
 
     {"palette",            "\xF3\xB0\x8F\x98"},  // F03D8 palette (color sensors)
 
