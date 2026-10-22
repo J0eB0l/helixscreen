@@ -1086,10 +1086,15 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// until its timeout. @pre mutex_ held.
     [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
 
-    /// The lane whose map carries T@p tool_number, or -1. A T number is a
-    /// lane's, not a position: AFC registers T<n> for whichever lane maps it,
-    /// so lane4 may run T7 on a four-lane unit, and SET_MAP and T<n> both
-    /// refuse a T number no lane carries. @pre mutex_ held.
+    /// Has AFC registered T@p tool_number? A T number is a lane's, not a
+    /// position: AFC registers T<n> for every tool in every lane's map (the
+    /// extras of a multi-tool lane included), so lane4 may run T7 on a
+    /// four-lane unit, and SET_MAP and T<n> both refuse an unregistered one.
+    /// True for any tool >= 0 until AFC has published its registered set.
+    /// @pre mutex_ held.
+    [[nodiscard]] bool tool_registered_locked(int tool_number) const;
+
+    /// The lane whose map lists T@p tool_number, or -1. @pre mutex_ held.
     [[nodiscard]] int lane_carrying_tool_locked(int tool_number) const;
 
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
@@ -1268,6 +1273,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     // Cleared when the lane is unmapped, and ignored whenever the tool is no longer
     // a member of a present "map".
     std::unordered_map<std::string, int> lane_current_tool_;
+
+    /// Every tool each lane's present "map" lists. SlotRegistry keeps one tool
+    /// per lane, so the extras of a multi-tool lane live only here.
+    std::unordered_map<std::string, std::vector<int>> lane_map_tools_;
 
     // A lane_data payload keyed by T(n) (virtual-tools firmware, #832) that
     // arrived while no tool mapping could resolve its records. Kept whole and

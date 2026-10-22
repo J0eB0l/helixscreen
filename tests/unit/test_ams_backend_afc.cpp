@@ -2157,7 +2157,8 @@ TEST_CASE("AFC current_map picks the active tool over the lowest", "[ams][afc][t
     REQUIRE(helper.get_slot_mapped_tool(0) == 11);
     // Forward map too — this is what change_tool() resolves through
     REQUIRE(helper.get_tool_mapping()[11] == 0);
-    REQUIRE(helper.get_tool_mapping()[10] == -1);
+    // The inactive tool still runs this lane: AFC registered T10 for it.
+    REQUIRE(helper.get_tool_mapping()[10] == 0);
 }
 
 TEST_CASE("AFC current_map alone retargets the lane", "[ams][afc][tool_mapping]") {
@@ -2175,7 +2176,8 @@ TEST_CASE("AFC current_map alone retargets the lane", "[ams][afc][tool_mapping]"
     helper.feed_afc_stepper("lane1", {{"current_map", "T10"}});
     REQUIRE(helper.get_slot_mapped_tool(0) == 10);
     REQUIRE(helper.get_tool_mapping()[10] == 0);
-    REQUIRE(helper.get_tool_mapping()[11] == -1);
+    // The tool the lane stepped off still runs it.
+    REQUIRE(helper.get_tool_mapping()[11] == 0);
 }
 
 TEST_CASE("AFC current_map survives a later map-only delta", "[ams][afc][tool_mapping]") {
@@ -5464,10 +5466,11 @@ TEST_CASE("AFC change_tool takes a T number above the lane count when a lane car
         CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e3"});
     }
 
-    SECTION("a T number no lane carries is still refused") {
+    SECTION("a T number AFC has not registered is still refused") {
         AmsBackendAfcTestHelper helper;
         helper.initialize_test_lanes_with_slots(4);
         helper.set_running(true);
+        helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3"}}});
         helper.captured_gcodes.clear();
         CHECK_FALSE(helper.change_tool(5));
         CHECK(helper.captured_gcodes.empty());
@@ -5488,12 +5491,56 @@ TEST_CASE("AFC SET_MAP takes a T number above the lane count when a lane carries
     REQUIRE(helper.set_tool_mapping(7, 1).success());
     CHECK(helper.captured_gcodes == std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T7"});
 
-    SECTION("a T number no lane carries is refused, as AFC refuses it") {
+    SECTION("a T number AFC has not registered is refused, as AFC refuses it") {
+        helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3", "T7"}}});
         helper.captured_gcodes.clear();
         CHECK_FALSE(helper.can_set_tool_mapping(5, 1).success());
         CHECK_FALSE(helper.set_tool_mapping(5, 1).success());
         CHECK(helper.captured_gcodes.empty());
     }
+}
+
+TEST_CASE("AFC: a two-step swap applies both halves", "[ams][afc][tool_mapping][remap]") {
+    // A remap or restore loop exchanging two lanes sends SET_MAP for one tool
+    // and then the other. AFC's SET_MAP swaps the two lanes' maps, so after the
+    // first command the displaced tool sits on the other lane and is still a
+    // registered T number: the second half must not be refused.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane1", {{"map", "T0"}});
+    helper.feed_afc_stepper("lane2", {{"map", "T1"}});
+    helper.feed_afc_stepper("lane3", {{"map", "T2"}});
+    helper.feed_afc_stepper("lane4", {{"map", "T3"}});
+    helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3"}}});
+    helper.captured_gcodes.clear();
+
+    REQUIRE(helper.set_tool_mapping(0, 1).success());
+    CHECK(helper.get_tool_mapping() == std::vector<int>{1, 0, 2, 3});
+    REQUIRE(helper.set_tool_mapping(1, 0).success());
+    CHECK(helper.captured_gcodes ==
+          std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T0", "SET_MAP LANE=lane1 MAP=T1"});
+}
+
+TEST_CASE("AFC: an extra tool on a multi-tool lane routes to that lane",
+          "[ams][afc][tool_mapping][routing]") {
+    // AFC virtual tools: lane1 carries T0 and T4. T4 is a registered command
+    // that runs lane1, so it is a tool change, a legal SET_MAP target, and a
+    // tool the printer routes to lane1, not one with no lane assigned.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.set_running(true);
+    helper.feed_afc_stepper("lane1", {{"map", {"T0", "T4"}}, {"current_map", "T0"}});
+    helper.feed_afc_stepper("lane2", {{"map", {"T1"}}});
+    helper.feed_afc_stepper("lane3", {{"map", {"T2"}}});
+    helper.feed_afc_stepper("lane4", {{"map", {"T3"}}});
+    helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3", "T4"}}});
+    helper.captured_gcodes.clear();
+
+    CHECK(helper.firmware_default_routing().head(4) == 0);
+    CHECK(helper.firmware_default_routing().head(0) == 0);
+    CHECK(helper.can_set_tool_mapping(4, 2).success());
+    REQUIRE(helper.change_tool(4));
+    CHECK(helper.captured_gcodes == std::vector<std::string>{"T4"});
 }
 
 TEST_CASE("AFC toolchanger: Load on a seated machine plans load_filament, not change_tool",
