@@ -132,6 +132,8 @@
   <translation tag="60 seconds" en="60 seconds"/>
   <translation tag="90°" en="90°"/>
   <translation tag="90° Clockwise" en="90° Clockwise"/>
+  <translation tag="= Clockwise" en="= Clockwise"/>
+  <translation tag="= Counterclockwise" en="= Counterclockwise"/>
   <translation tag="= Loosen" en="= Loosen"/>
   <translation tag="= Tighten" en="= Tighten"/>
   <translation tag="A" en="A"/>

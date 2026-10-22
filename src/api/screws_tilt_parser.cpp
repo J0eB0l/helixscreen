@@ -83,15 +83,10 @@ bool parse_screws_tilt_line(const std::string& line, ScrewTiltResult& out) {
                 result.adjustment.pop_back();
             }
 
-            // The printer database may declare the correct physical
-            // tightening direction via `"screws_tilt_direction": "cw"` or
-            // `"ccw"`. When set to "ccw", it disagrees with Klipper's
-            // default CW-M* semantics, so flip CW↔CCW here to match
-            // the printer's physical reality. Used for vendors whose
-            // shipped screw_thread config disagrees with the actual
-            // screw response (e.g. FlashForge Adventurer 5M family).
-            // Raw Klipper output still appears in the klippy log; only
-            // the stored/display string is corrected.
+            // The printer database may declare `"screws_tilt_direction": "ccw"`
+            // for a vendor whose shipped screw_thread makes Klipper name the
+            // wrong rotation; flip CW↔CCW so the arrows match the screw. Raw
+            // Klipper output still appears in the klippy log.
             if (PrinterDetector::screws_tilt_direction_override() == "ccw") {
                 flip_screws_tilt_direction(result.adjustment);
             }

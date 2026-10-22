@@ -132,6 +132,8 @@
   <translation tag="60 seconds" zh="60 秒"/>
   <translation tag="90°" zh="90°"/>
   <translation tag="90° Clockwise" zh="顺时针 90°"/>
+  <translation tag="= Clockwise" zh="= 顺时针"/>
+  <translation tag="= Counterclockwise" zh="= 逆时针"/>
   <translation tag="= Loosen" zh="= 松开"/>
   <translation tag="= Tighten" zh="= 拧紧"/>
   <translation tag="A" zh="辅"/>

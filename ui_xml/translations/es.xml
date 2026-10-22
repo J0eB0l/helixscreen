@@ -132,6 +132,8 @@
   <translation tag="60 seconds" es="60 segundos"/>
   <translation tag="90°" es="90°"/>
   <translation tag="90° Clockwise" es="90° en sentido horario"/>
+  <translation tag="= Clockwise" es="= Sentido horario"/>
+  <translation tag="= Counterclockwise" es="= Sentido antihorario"/>
   <translation tag="= Loosen" es="= Aflojar"/>
   <translation tag="= Tighten" es="= Apretar"/>
   <translation tag="A" es="A"/>

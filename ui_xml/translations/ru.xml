@@ -165,6 +165,8 @@
   <translation tag="60 seconds" ru="60 секунд"/>
   <translation tag="90°" ru="90°"/>
   <translation tag="90° Clockwise" ru="90° по часовой стрелке"/>
+  <translation tag="= Clockwise" ru="= По часовой стрелке"/>
+  <translation tag="= Counterclockwise" ru="= Против часовой стрелки"/>
   <translation tag="= Loosen" ru="= Ослабить"/>
   <translation tag="= Tighten" ru="= Затянуть"/>
   <translation tag="A" ru="A"/>

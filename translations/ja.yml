@@ -135,6 +135,8 @@ translations:
   60 seconds: 60秒
   90°: 90°
   90° Clockwise: 90° 時計回り
+  = Clockwise: = 時計回り
+  = Counterclockwise: = 反時計回り
   = Loosen: = 緩める
   = Tighten: = 締める
   A: A

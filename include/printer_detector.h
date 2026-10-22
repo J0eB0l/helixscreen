@@ -671,23 +671,14 @@ class PrinterDetector {
     static bool is_creality_hi();
 
     /**
-     * @brief Declared physical tightening direction for bed screws
+     * @brief Declared correction for Klipper's bed-screw turn direction
      *
-     * Printer database entries may set `"screws_tilt_direction": "cw"` or
-     * `"ccw"` to declare which rotation, from the user's physical viewpoint,
-     * tightens a bed screw on that printer. This is an explicit override —
-     * independent of whatever Klipper's `screw_thread` is set to — that
-     * describes the printer's own geometry.
-     *
-     * Klipper's own output direction (CW/CCW) is computed using its
-     * configured `screw_thread`. When the DB override disagrees with
-     * Klipper's default CW-M* semantics (value "ccw"), HelixScreen flips
-     * CW↔CCW in the displayed direction so the UI matches the printer's
-     * physical reality.
-     *
-     * Used to override vendors whose shipped `screw_thread` config disagrees
-     * with the physical screw response (e.g. FlashForge Adventurer 5M family:
-     * ships CW-M4 but the physical response requires CCW-M4 semantics).
+     * Printer database entries may set `"screws_tilt_direction": "ccw"` when
+     * the printer's shipped `screw_thread` makes SCREWS_TILT_CALCULATE name the
+     * wrong turn direction. HelixScreen then flips CW↔CCW in the displayed
+     * direction (the rotation arrows). The Tighten/Loosen wording comes from
+     * the probed heights and is unaffected; "cw" or no field means Klipper's
+     * direction is shown as is.
      *
      * @return "cw", "ccw", or empty string if not declared (treat as "cw")
      */

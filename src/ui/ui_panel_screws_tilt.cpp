@@ -407,7 +407,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
         snprintf(recenter_hint_buf_, kRecenterHintBufSize, "%s: %s %s",
                  lv_tr("Or instead of turning the others"),
                  results[hint.screw_index].display_name().c_str(),
-                 describe_screw_turn(hint.signed_minutes).c_str());
+                 describe_screw_turn(hint.signed_minutes, hint.tighten).c_str());
         lv_subject_copy_string(&recenter_hint_subject_, recenter_hint_buf_);
         spdlog::info("[ScrewsTilt] Re-centring hint: {} instead of {} screws", recenter_hint_buf_,
                      hint.replaces);
@@ -415,6 +415,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
     lv_subject_set_int(&recenter_hint_available_, hint.available ? 1 : 0);
 
     // Update subjects for reactive list rows (XML handles the UI)
+    const std::optional<float> reference_z = reference_screw_z(results);
     for (size_t i = 0; i < kMaxScrews; i++) {
         if (i < results.size()) {
             const auto& screw = results[i];
@@ -425,7 +426,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
             snprintf(screw_name_bufs_[i], kScrewNameBufSize, "%s", screw.display_name().c_str());
             // Use friendly adjustment text (e.g., "Tighten 1/4 turn" instead of "CW 00:18")
             snprintf(screw_adj_bufs_[i], kScrewAdjBufSize, "%s",
-                     screw.friendly_adjustment(in_spec).c_str());
+                     screw.friendly_adjustment(in_spec, reference_z).c_str());
 
             // Update subjects - this triggers XML binding updates
             lv_subject_set_int(&screw_visible_subjects_[i], 1); // Show row
@@ -522,7 +523,8 @@ void ScrewsTiltPanel::create_screw_indicator(size_t index, const ScrewTiltResult
         bool is_clockwise = screw.adjustment.find("CW") == 0 && screw.adjustment.find("CCW") != 0;
 
         lv_obj_set_style_text_font(label, &mdi_icons_32, 0);
-        // rotate-right (F0467) = clockwise/tighten, rotate-left (F0465) = CCW/loosen
+        // rotate-right (F0467) = clockwise, rotate-left (F0465) = counterclockwise,
+        // straight from Klipper's CW/CCW, which does not say tighten or loosen
         const char* dir_icon = is_clockwise ? "\xF3\xB0\x91\xA7" : "\xF3\xB0\x91\xA5";
         lv_label_set_text(label, dir_icon);
 

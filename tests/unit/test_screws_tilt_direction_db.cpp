@@ -74,7 +74,7 @@ TEST_CASE_METHOD(ConfiguredPrinterFixture,
 
     const ScrewTiltResult r = parse(kCwLine);
     REQUIRE(r.adjustment == "CCW 01:24");
-    REQUIRE(r.friendly_adjustment(false) == "Loosen 1 turn");
+    REQUIRE(r.friendly_adjustment(false, -3.8975f) == "Loosen 1 turn");
     REQUIRE(r.signed_adjustment_minutes().value() == -84);
 }
 
