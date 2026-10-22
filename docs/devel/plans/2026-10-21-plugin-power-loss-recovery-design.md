@@ -273,13 +273,13 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    commands, `SET_PRESSURE_ADVANCE`, `SET_VELOCITY_LIMIT`, `M220`/`M221`, `G10`/`G11` retract state,
    `EXCLUDE_OBJECT_DEFINE`, `SET_PRINT_STATS_INFO`, layer markers (`;LAYER_CHANGE`, `;LAYER:`,
    `SET_PRINT_STATS_INFO CURRENT_LAYER=`). Keep a ring of per-line records for the last
-   `kWindowBytes` (256 KiB) behind the head: offset, start and end position in the kinematic XY
+   `WINDOW_BYTES` (256 KiB) behind the head: offset, start and end position in the kinematic XY
    frame, toolhead-E delta, Z, layer.
 3. **Walk back by the measured lead.** `dE = toolhead_pos.e - live_pos.e`. Walk the ring
    backwards subtracting each line's toolhead-E delta (negative for retracts, including firmware
    retract) until `dE` is consumed. Inside a travel run (zero E), consume XY path length toward
    `live_pos.xy` instead.
-4. **Check.** The chosen line's XY segment passes within `kMatchTolMm` (0.5 mm) of `live_pos.xy`,
+4. **Check.** The chosen line's XY segment passes within `MATCH_TOL_MM` (0.5 mm) of `live_pos.xy`,
    and its gcode Z is consistent with the layer. Arcs (`G2`/`G3`) are checked with arc geometry.
 5. **Snapshot age (O2).** The nozzle kept going for an unknown time of up to one save interval
    after the snapshot. The resume point is the executing point advanced by
@@ -291,27 +291,33 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the current
    layer, `method: "layer_start"`, with a warning in the plan. Never a byte rewind.
 
-Signatures (Python, `helix_plr_scan.py` over `helix_gcode_reader.py`, pure, no Moonraker
-imports; `ModalState` and the tokenizer live in the reader, the window walk in the scan):
+Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `ScanResult` and
+`scan_to_offset` are built and live in `helix_gcode_reader.py` (the plugin's constants are
+`UPPER_SNAKE`, as in the rest of the plugin); the window walk lives in `helix_plr_scan.py`:
 
 ```python
-kWindowBytes = 256 * 1024
-kMatchTolMm = 0.5
-kResumeSkipFractionDefault = 0.5    # tunable: plr_profile.resume_skip_fraction overrides
+WINDOW_BYTES = 256 * 1024                  # helix_gcode_reader.py
+MATCH_TOL_MM = 0.5                         # helix_plr_scan.py from here down
+RESUME_SKIP_FRACTION_DEFAULT = 0.5         # tunable: plr_profile.resume_skip_fraction overrides
 
-class ModalState:            # dataclass-like; fields named for the gcode_move state above
-    ...
+class ModalState:            # __slots__ class; gcode_move fields plus tool, heaters, fans, PA,
+    ...                      # limits, retract, layer; copy(), to_dict()/from_dict() for layer_index
 
-class LineRecord(NamedTuple):
+class LineRecord(NamedTuple):              # positions in the toolhead (kinematic) frame
     offset: int; end_offset: int
     start_xy: Tuple[float, float]; end_xy: Tuple[float, float]
     z: float; toolhead_de: float; layer: Optional[int]; is_arc: bool
+    arc_center: Optional[Tuple[float, float]]; arc_cw: bool   # I/J arcs
+    speed: float                           # F in mm/s before speed_factor (for advance_by_time)
+    retract: int                           # -1 G10, +1 G11 (length is Klipper config), else 0
 
 class ScanResult(NamedTuple):
     state_at_head: ModalState
     window: List[LineRecord]           # oldest first, ends at the head
     object_defines: List[str]          # verbatim EXCLUDE_OBJECT_DEFINE lines
-    layer_starts: Dict[int, Tuple[int, ModalState]]   # layer -> (offset, state at that offset)
+    layer_starts: Dict[int, Tuple[int, ModalState]]   # layers starting in the window, plus the one
+                                                      # it begins in: (offset, state before that line)
+    offset: int                        # line-aligned offset reached
 
 class ResumePoint(NamedTuple):
     offset: int                        # byte offset of the first line to print, at a line boundary
@@ -323,7 +329,10 @@ class ResumePoint(NamedTuple):
 
 def scan_to_offset(stream: BinaryIO, end_offset: int, start_offset: int = 0,
                    start_state: Optional[ModalState] = None,
-                   cancel: Optional[threading.Event] = None) -> ScanResult: ...
+                   cancel: Optional[threading.Event] = None,
+                   throttle: Optional[Callable[[int], None]] = None,     # RateLimiter.pace
+                   on_layer_start: Optional[Callable[[int, int, ModalState], None]] = None,
+                   ) -> ScanResult: ...      # on_layer_start feeds the layer_index sidecar
 def locate_executed_line(scan: ScanResult, toolhead_pos: Sequence[float],
                          live_pos: Sequence[float], extrude_factor: float,
                          retract_length: float) -> Optional[ResumePoint]: ...
@@ -334,7 +343,8 @@ def layer_start_fallback(scan: ScanResult, layer: Optional[int]) -> Optional[Res
 
 The scan runs in a worker thread, cancellable, when the plan is requested (O3). Task T1 measures it
 first: a 100 MB Orca file on a K1C-class host (the slowest listed) must finish in **30 s or
-less**. If it does not, v1 adds background per-layer checkpoints: during the print, a low-priority
+less**. **T1 failed (2026-10-21): 394 s median on the K1C** (§ 11.5), so v1 adds background
+per-layer checkpoints: during the print, a low-priority
 follower reads the file up to `file_position` and, at each layer start, records the byte offset
 and modal state. Those checkpoints ARE umbrella Phase 1's `layer_index` sidecar, written in its
 format through `helix_gcode_reader.py`; when Phase 1 has already indexed the file, the follower
@@ -794,11 +804,37 @@ does on the host side.
 | Q2, K1C, Voron V0 | Lead logging, 5 min of walls and infill | M3 | § 6.1 lead; walk line choice offline |
 | K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` on real `/sys` | M3 | § 7.4 |
 | eMMC host and SD host | 3 reboots each mid-print, slot file read back | M2 | Slot durability on real filesystems |
-| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | Pass: median <= 30 s, scan at resume ships. Fail: background per-layer checkpoints join v1 (O3) |
+| K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | **Done 2026-10-21: FAIL, 394 s median (§ 11.5).** Background per-layer checkpoints join v1 (O3) |
 | One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out |
 | One tier-2 model (dedicated Z `enable_pin`s) | Z hold: kill, wait 10 / 30 / 60 min, measure Z drift with a dial indicator before resume; adhesion: same waits, PLA and PETG | M1 + wait | Z holds unpowered; adhesion; cold-bed threshold (O6) |
 | Any eMMC host | `/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | M3 | § 5.2 numbers |
 | `--test` mock | Offer, wizard steps, tier 1 and 2, every `HELIX_MOCK_PLR_WARNINGS` and `_FAIL` value | M3 | App flow before any hardware run |
+
+### 11.5 T1 result (2026-10-21)
+
+**Verdict: fail.** Median 394 s against the 30 s bar, so background per-layer checkpoints join v1
+(O3). Scan at resume time stays, but only from the current layer's checkpoint.
+
+| Host | Interpreter | Runs (wall s) | Median wall | Median CPU | Peak RSS |
+|---|---|---|---|---|---|
+| K1C (Ingenic XBurst2 MIPS, 2 cores, 214 MB RAM, Buildroot 2020.02, eMMC `/usr/data`), printer idle in `standby` | Moonraker's own `/usr/data/moonraker-env/bin/python3`, CPython 3.8.2 | 395.0, 393.6, 394.1 | **394.1 s** | 388.1 s | 8.7 MiB (7.0-7.7 before the scan) |
+| K1C, page cache dropped first (as after a reboot) | same | 403.1 | 403.1 s | 394.8 s | 8.7 MiB |
+| thelio (Ryzen 9 9950X) | CPython 3.8.20 | 4.12, 4.31, 4.33 | 4.31 s | 4.31 s | 18.6 MiB |
+| thelio | CPython 3.12.3 | 4.92, 4.83, 4.80 | 4.83 s | 4.82 s | 16.9 MiB |
+
+The K1C is ~90x slower than thelio and CPU-bound (wall within 2 % of CPU; cold cache adds ~2 %).
+No reducer change closes that gap: on the K1C, merely iterating the file's lines in Python takes
+13.4 s, splitting every line 20.4 s, and testing every line for a layer marker 28.8 s. A follower
+that runs the full reducer over a print costs the same ~390 s of CPU, spread over the print's hours.
+
+File: `t1_eiffel_100mb.gcode`, 104,815,389 bytes, 5,162,780 lines, 6048 layers, sha1
+`23014ecdacee3b915a7e9479f61b323bc8e7a4a0`. Built by `moonraker-plugin/tools/make_t1_gcode.py
+assets/test_gcodes/eiffel_final_PLA_2h42m.gcode OUT --size-mb 100` (OrcaSlicer 2.4.2, M83,
+`SET_PRINT_STATS_INFO`, no arcs): the start and config blocks once, the print body stacked 8 times
+with Z raised and layer numbers continued, so the line mix is Orca's own (94 % `G1`, plus
+`SET_VELOCITY_LIMIT`, `M106`, `;TYPE`/`;WIDTH`/`;WIPE` comments). Timed with
+`moonraker-plugin/tools/plr_t1_scan_timing.py FILE --runs 3`, each run a fresh child process,
+scanning to 1 KiB before the end.
 
 ---
 
@@ -873,8 +909,11 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
 
 - First: implement umbrella Phase 0 (features map, `plugin_feature()`, own-switch rule, the
   helix-initiated job marker, the Python 3.8 CI job).
-- T1 (§ 11.4): the K1C scan measurement decides whether background checkpoints are in v1.
-- `helix_gcode_reader.py`: the shared reader (§ 3.3), built here and reused by umbrella Phase 1.
+- T1 (§ 11.4): measured 2026-10-21, failed (§ 11.5), so background per-layer checkpoints are in
+  v1: the follower writes the layer_index sidecar through `helix_gcode_reader.py`
+  (`scan_to_offset(..., throttle=RateLimiter(...).pace, on_layer_start=...)`).
+- `helix_gcode_reader.py`: the shared reader (§ 3.3), built here and reused by umbrella Phase 1
+  (built 2026-10-21; `moonraker-plugin/tests/test_helix_gcode_reader.py`).
 - `helix_plr.py`, `helix_plr_scan.py`: snapshot loop and slot store, storage verdict, offer,
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
@@ -915,4 +954,4 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
   with `scripts/syntax_check.py`; the Python blocks parsed with `ast.parse(feature_version=(3, 8))`
   and `py_compile`. That checks 3.8 grammar only; no 3.8 interpreter was available, so stdlib
   API use is left to the 3.8 CI job.
-- T1 measured.
+- T1 measured: done 2026-10-21, K1C median 394 s, fail; checkpoints join v1 (§ 11.5).
