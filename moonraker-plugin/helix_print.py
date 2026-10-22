@@ -145,6 +145,7 @@ helix_capabilities = _load_sibling("helix_capabilities")
 helix_3mf = _load_sibling("helix_3mf")
 # Dependencies first: helix_plr imports the reader by name.
 helix_gcode_reader = _load_sibling("helix_gcode_reader")
+helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr = _load_sibling("helix_plr")
 
 
