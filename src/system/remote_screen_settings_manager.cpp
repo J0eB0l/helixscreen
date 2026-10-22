@@ -120,12 +120,14 @@ std::string RemoteScreenSettingsManager::get_webcam_uid() const {
     return config->get<std::string>(config->df() + "remote_screen_webcam_uid", "");
 }
 
-void RemoteScreenSettingsManager::set_webcam_uid(const std::string& uid) {
-    if (uid == get_webcam_uid()) {
+void RemoteScreenSettingsManager::set_webcam_uid(const std::string& printer,
+                                                 const std::string& uid) {
+    Config* config = Config::get_instance();
+    const std::string key = printer + "remote_screen_webcam_uid";
+    if (config->get<std::string>(key, "") == uid) {
         return;
     }
-    Config* config = Config::get_instance();
-    config->set<std::string>(config->df() + "remote_screen_webcam_uid", uid);
+    config->set<std::string>(key, uid);
     config->save();
 }
 

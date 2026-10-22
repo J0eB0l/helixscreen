@@ -408,12 +408,13 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
         return std::find_if(items.begin(), items.end(),
                             [&](const json& e) { return webcam_str(e, key) == want; });
     };
+    // Moonraker's JSON-RPC layer reports its 404 as -32601 with the message kept.
     auto not_found = [](const std::function<void(const MoonrakerError&)>& error_cb,
                         const char* method) {
         if (error_cb) {
             MoonrakerError err;
             err.type = MoonrakerErrorType::JSON_RPC_ERROR;
-            err.code = 404;
+            err.code = -32601;
             err.message = "Webcam not found";
             err.method = method;
             error_cb(err);

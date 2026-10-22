@@ -59,10 +59,11 @@ class RemoteScreenSettingsManager {
     std::vector<std::string> get_paired_tokens() const;
     void set_paired_tokens(const std::vector<std::string>& tokens);
 
-    /// The uid Moonraker gave the screen's webcam entry, per printer; "" when the screen
-    /// has no entry it knows of. Main thread.
+    /// The uid Moonraker gave the screen's webcam entry on the active printer; "" when the
+    /// screen has no entry it knows of. Main thread.
     std::string get_webcam_uid() const;
-    void set_webcam_uid(const std::string& uid);
+    /// Store @p uid for the printer whose config prefix (Config::df()) is @p printer.
+    void set_webcam_uid(const std::string& printer, const std::string& uid);
 
     /// Whether the server faces the LAN (pairing rows shown). Set by the server's owner.
     void set_lan_mode(bool lan_mode);

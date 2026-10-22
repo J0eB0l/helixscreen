@@ -214,10 +214,10 @@ struct WebcamReconcileHarness {
         return out;
     }
 
-    /// What the user does in Fluidd's webcam settings.
+    /// What the user does in Fluidd's webcam settings: a new name and frame rate.
     void rename(const std::string& to) {
         api->timelapse().post_webcam(
-            json{{"uid", uid}, {"name", to}}, [](const WebcamInfo&) {},
+            json{{"uid", uid}, {"name", to}, {"target_fps", 5}}, [](const WebcamInfo&) {},
             [](const MoonrakerError&) {});
     }
     void remove_in_moonraker() {
@@ -244,6 +244,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "screen webcam: a renamed entry is refreshed, 
     const auto screens = h.screens();
     REQUIRE(screens.size() == 1);
     CHECK(screens[0].name == "Printer screen");
+    CHECK(screens[0].target_fps == 5);
     CHECK(screens[0].snapshot_url == "http://192.168.1.77:7130/snapshot.jpg");
     CHECK(screens[0].uid == h.uid);
 }
@@ -283,7 +284,7 @@ TEST_CASE_METHOD(LVGLTestFixture,
                  "screen webcam: with no uid remembered, an entry showing our snapshot is adopted",
                  "[remote_screen][webcam]") {
     WebcamReconcileHarness h;
-    // Registered before the screen remembered uids, then renamed.
+    // An entry the user renamed, with no uid stored for it.
     json legacy = *h.item();
     legacy["name"] = "Printer screen";
     std::string legacy_uid;
