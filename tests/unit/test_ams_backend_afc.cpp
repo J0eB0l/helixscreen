@@ -10,6 +10,7 @@
 #include "ams_types.h"
 #include "config.h"
 #include "error_event.h"
+#include "filament_op_execute.h"
 #include "filament_op_router.h"
 #include "filament_slot_override_store.h"
 #include "lane_translation.h"
@@ -21,6 +22,7 @@
 #include "settings_manager.h"
 #include "test_helpers/afc_test_access.h"
 #include "test_helpers/backend_user_edit.h"
+#include "test_helpers/log_capture.h"
 #include "test_helpers/mock_printer.h"
 #include "test_helpers/registered_backend.h"
 #include "test_helpers/seeded_override.h"
@@ -5174,21 +5176,77 @@ TEST_CASE("AFC toolchanger load and tool change follow AFC's map, not extruder o
         REQUIRE(helper.captured_gcodes == std::vector<std::string>{"CHANGE_TOOL LANE=e1"});
     }
 
-    SECTION("change_tool(0) sends T0, which AFC resolves to lane1 on e3") {
+    // A tool change on a toolchanger mounts the head the T number's lane feeds
+    // and moves no filament; T{n} would run CHANGE_TOOL and swap lanes.
+    SECTION("change_tool(0) mounts e3, the head lane1 (T0) feeds") {
         REQUIRE(helper.change_tool(0));
-        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T0"});
+        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e3"});
     }
 
-    SECTION("change_tool(3) sends T3, which AFC resolves to e1") {
+    SECTION("change_tool(3) mounts e1") {
         REQUIRE(helper.change_tool(3));
-        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T3"});
+        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
     }
 
-    SECTION("past-the-end guard: change_tool(5) sends T5, which AFC resolves to e2") {
-        // T5 is past the end of the 4-entry extruder list, so this one never
-        // reached the head-index lookup; it guards the T{n} form, not the bug.
+    SECTION("change_tool(5) mounts e2, past the end of the extruder list") {
         REQUIRE(helper.change_tool(5));
-        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T5"});
+        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2"});
+    }
+}
+
+TEST_CASE("AFC toolchanger: a T number with no lane refuses instead of guessing a head",
+          "[ams][afc][toolchanger][1824]") {
+    AmsBackendAfcTestHelper helper;
+    setup_interleaved_toolchanger(helper);
+    // Move lane4 off T6, so no lane carries T6.
+    helper.feed_afc_stepper("lane4", {{"map", "T0"}, {"extruder", "e3"}});
+    CHECK_FALSE(helper.change_tool(6));
+    CHECK(helper.captured_gcodes.empty());
+}
+
+TEST_CASE("AFC toolchanger: a head with no toolchanger_unit warns and still sends",
+          "[ams][afc][toolchanger][1850]") {
+    // AFC gives a head a tool lane only when its AFC_extruder sets
+    // toolchanger_unit. AFC_SELECT_TOOL on any other head logs an error and
+    // returns ok without moving, so the screen waits on Selecting. That is
+    // warned, not refused: configfile is the only evidence.
+    AmsBackendAfcTestHelper helper;
+    setup_interleaved_toolchanger(helper);
+
+    auto section = [](const char* klipper_name, bool on_toolchanger) {
+        nlohmann::json s = {{"extruder_name", klipper_name}};
+        if (on_toolchanger) {
+            s["toolchanger_unit"] = "AFC_Toolchanger Tools";
+        }
+        return s;
+    };
+    const nlohmann::json settings = {{"afc_extruder e0", section("extruder", true)},
+                                     {"afc_extruder e1", section("extruder1", true)},
+                                     {"afc_extruder e2", section("extruder2", false)},
+                                     {"afc_extruder e3", section("extruder3", true)}};
+    AfcTestAccess::apply_configfile_topology(
+        helper, AmsBackendAfc::parse_configfile_topology(
+                    {{"result", {{"status", {{"configfile", {{"settings", settings}}}}}}}}));
+
+    LogCapture log;
+
+    SECTION("T5 feeds e2, which is not on the toolchanger") {
+        REQUIRE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2"});
+        CHECK(log.has_line_with({"T5 feeds e2", "sets no toolchanger_unit"}));
+    }
+
+    SECTION("a lane parsed before configfile answered still names its head by section") {
+        REQUIRE(helper.change_tool(3));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 0);
+    }
+
+    SECTION("a lane parsed after it names the Klipper extruder") {
+        helper.feed_afc_stepper("e1", {{"map", "T3"}, {"extruder", "e1"}});
+        REQUIRE(helper.change_tool(3));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=extruder1"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 0);
     }
 }
 
@@ -5201,6 +5259,30 @@ TEST_CASE("AFC change_tool sends T{n} in single-extruder mode", "[ams][afc][tool
 
     REQUIRE(result);
     REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T1"});
+}
+
+TEST_CASE("AFC toolchanger: Load on a seated machine plans load_filament, not change_tool",
+          "[ams][afc][toolchanger][dispatch][1824]") {
+    // change_tool() on a toolchanger only mounts a head. A swap Load must reach
+    // load_filament() (`CHANGE_TOOL LANE=`), which unloads the seated lane itself.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.set_running(true);
+    helper.setup_toolchanger(2);
+    helper.set_filament_loaded(true);
+    helper.set_current_slot(0);
+
+    // Read the caps the way the Load button does, so the trait has to cross
+    // read_backend_caps() to reach the planner.
+    AmsSystemInfo info;
+    const helix::ui::BackendCaps caps = helix::ui::read_backend_caps(&helper, info, 1);
+    REQUIRE(caps.needs_unload_before_load); // the swap arm would otherwise fire
+    REQUIRE(caps.load_swaps_seated_lane);
+
+    auto plan = helix::ui::plan_load(info, caps, /*target_slot=*/1, /*macro_available=*/false,
+                                     /*macro_user_configured=*/false);
+    CHECK(plan.ams_call == helix::ui::AmsCall::Load);
+    CHECK(plan.ams_arg == 1);
 }
 
 TEST_CASE("AFC load_filament sends CHANGE_TOOL in single-extruder mode",

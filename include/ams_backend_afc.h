@@ -208,6 +208,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         /// Lowercased AFC_extruder suffix -> whether that section wires a
         /// physical tool_start/tool_end pin.
         std::unordered_map<std::string, bool> extruder_sensor_fitted;
+        /// Lowercased AFC_extruder suffixes that set `toolchanger_unit`. Only
+        /// those get a tool lane, so only those can be mounted by
+        /// AFC_SELECT_TOOL.
+        std::set<std::string> toolchanger_extruders;
     };
 
     /// Whether a unit's toolhead has a sensor. @p unit_extruders are the
@@ -253,6 +257,9 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         // per-lane answer from the aggregate current_slot pointer, which we resolve
         // from several sources and which goes null mid-toolchange (#1194).
         t.has_per_slot_loaded_authority = true;
+        // load_filament() sends `CHANGE_TOOL LANE={n}`, which unloads the seated
+        // lane and swaps heads itself; change_tool() on a toolchanger only mounts.
+        t.load_swaps_seated_lane = true;
         // AFC refuses LANE_UNLOAD outright while printing, so the affordance must
         // grey out with the rest — see AmsBackend for why this is not the default.
         t.cold_lane_ops_refused_during_print = true;
@@ -1069,6 +1076,16 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// @pre mutex_ held.
     void apply_unit_environment();
 
+    /// True when AFC publishes a `Toolchanger` unit: its heads are mounted by
+    /// AFC_SELECT_TOOL, not by T{n}. @pre mutex_ held.
+    [[nodiscard]] bool has_toolchanger_unit_locked() const;
+
+    /// False only when configfile has answered and no AFC_extruder section
+    /// named, or resolving to, @p klipper_name sets `toolchanger_unit`. AFC_SELECT_TOOL on such a
+    /// head logs an error and returns ok without moving, so the operation sits in SELECTING
+    /// until its timeout. @pre mutex_ held.
+    [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
+
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
     void apply_configfile_topology(ConfigfileTopology topo);
 
@@ -1494,6 +1511,8 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// suffix; empty until it answers, and units report a toolhead sensor
     /// meanwhile.
     std::unordered_map<std::string, bool> extruder_sensor_fitted_;
+    /// ConfigfileTopology::toolchanger_extruders; empty until configfile answers.
+    std::set<std::string> toolchanger_extruder_sections_;
 
     /// Section names already reported as unresolvable — dedupes the warning so
     /// it fires once per extruder, not once per status frame.

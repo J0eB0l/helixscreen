@@ -305,6 +305,23 @@ TEST_CASE("plan_load: a seated machine swaps via change_tool on the MAPPED tool"
     CHECK(plan.ams_arg == 3); // slot 1's mapped_tool, NOT slot 1
 }
 
+TEST_CASE("plan_load: a backend whose load swaps lanes itself gets Load, not change_tool",
+          "[filament][dispatch][swap][1824]") {
+    // AFC's load_filament() is `CHANGE_TOOL LANE={n}`: it unloads the seated
+    // lane and swaps heads itself. Its change_tool() on a toolchanger only
+    // mounts a head, so routing the swap there would move no filament.
+    AmsSystemInfo sys = make_sys(4, /*current_slot=*/0, /*mapped_tools=*/{0, 3, 2, 1});
+    BackendCaps seated = fresh_ams();
+    seated.needs_unload_before_load = true;
+    seated.load_swaps_seated_lane = true;
+
+    auto plan = plan_load(sys, seated, /*target_slot=*/1, /*macro_available=*/true,
+                          /*macro_user_configured=*/false);
+    CHECK(plan.tier == FilamentTier::AmsBackend);
+    CHECK(plan.ams_call == AmsCall::Load);
+    CHECK(plan.ams_arg == 1); // the SLOT, not slot 1's mapped tool
+}
+
 TEST_CASE("plan_load: a seated machine with no tool mapping loads the slot anyway",
           "[filament][dispatch][swap]") {
     // There is no tool number to change to, so the swap arm cannot fire. This

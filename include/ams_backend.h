@@ -74,6 +74,7 @@ namespace helix {
  */
 struct BackendTraits {
     bool load_feeds_filament = false;
+    bool load_swaps_seated_lane = false;
     bool tracks_consumption_natively = false;
     bool hub_on_toolhead = false;
     bool has_per_slot_loaded_authority = false;
@@ -751,6 +752,19 @@ class AmsBackend {
      */
     [[nodiscard]] bool load_feeds_filament() const {
         return traits().load_feeds_filament;
+    }
+
+    /**
+     * @brief True when load_filament() itself clears whatever lane is seated in
+     *        the target's path before feeding the target.
+     *
+     * The planner then sends Load even when needs_unload_before_load() answers
+     * true, instead of routing the swap through change_tool(). A tool change on
+     * a machine whose heads dock only mounts a head, so it cannot stand in for a
+     * lane swap there.
+     */
+    [[nodiscard]] bool load_swaps_seated_lane() const {
+        return traits().load_swaps_seated_lane;
     }
 
     /**
