@@ -244,8 +244,8 @@ bool RemoteScreenService::apply_touch(const TouchEvent& e) {
             baseline->set_value(kNoPointer);
             return;
         }
-        // A remote tap wakes a sleeping display the way a finger does.
-        lv_display_trigger_activity(nullptr);
+        // RemotePointer's read callback owns waking and swallowing the wake
+        // gesture. Activity here could wake the display before it samples the press.
         auto& ptr = remote::RemotePointer::instance();
         if (!ptr.ensure_created()) {
             baseline->set_value(kNoPointer);
