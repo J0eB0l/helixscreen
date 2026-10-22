@@ -1977,11 +1977,14 @@ class HelixPlr:
         """Klipper builds older than SET_KINEMATIC_POSITION's SET_HOMED mark
         X and Y homed too; an XY homing that homes only unhomed axes (a
         conditional macro, an override) would then skip them. Refuse before
-        homing in that case unless the profile names its own XY homing."""
+        homing in that case unless the XY homing is a plain `G28 X Y` with no
+        [homing_override], which homes whatever Klipper believes."""
         homed_now, _ = await self._check_ready()
         faked = any(a in homed_now and a not in homed_before for a in "xy")
-        if faked and self.homing.has_override \
-                and profile.xy_home_gcode == DEFAULT_XY_HOME_GCODE:
+        lines = [" ".join(l.split(";", 1)[0].upper().split())
+                 for l in profile.xy_home_gcode.splitlines()]
+        plain = [l for l in lines if l] == ["G28 X Y"] and not self.homing.has_override
+        if faked and not plain:
             raise self._error("plr_klippy_error", "set_homed_unsupported: this Klipper marks X and "
                               "Y homed with Z, and the homing override may skip them", 409)
 

@@ -2247,3 +2247,21 @@ def test_a_restart_after_a_tier1_jog_refuses_rather_than_declaring_the_lift(plr,
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     with pytest.raises(Exception, match="plr_stale_plan: position_unknown"):
         run(plr.handle_prepare(Req(plan_id=plan_id)))
+
+
+def test_old_klipper_refuses_a_custom_xy_homing_command(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {
+        "tier": 2, "z_holds_unpowered": True, "xy_home_gcode": "_CG28 X Y"}))
+    plr.printer.old_klipper = True
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    with pytest.raises(Exception, match="set_homed_unsupported"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert not any(s.startswith("_CG28") for s in sent(helix))
+
+
+def test_a_custom_xy_homing_command_runs_where_set_homed_works(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {
+        "tier": 2, "z_holds_unpowered": True, "xy_home_gcode": "_CG28 X Y"}))
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert "_CG28 X Y" in sent(helix)
