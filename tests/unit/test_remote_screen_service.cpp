@@ -106,13 +106,9 @@ TEST_CASE("route: missing, blank and present route files", "[remote_screen][sett
     const std::string path = "/tmp/helix_remote_screen_route_test";
     std::remove(path.c_str());
     CHECK(remote_screen_route(path).empty());
-    {
-        std::ofstream(path) << "  \n";
-    }
+    { std::ofstream(path) << "  \n"; }
     CHECK(remote_screen_route(path).empty());
-    {
-        std::ofstream(path) << "/helixscreen/screen/\n";
-    }
+    { std::ofstream(path) << "/helixscreen/screen/\n"; }
     CHECK(remote_screen_route(path) == "/helixscreen/screen/");
     std::remove(path.c_str());
 }
@@ -290,7 +286,7 @@ struct WakeTouchFixture : TouchFixture {
         DisplayManagerTestAccess::set_display_sleeping(display, !dimmed);
         DisplayManagerTestAccess::set_display_dimmed(display, dimmed);
         display.check_display_sleep();
-        REQUIRE(display.is_display_sleeping() || display.is_display_dimmed());
+        REQUIRE((display.is_display_sleeping() || display.is_display_dimmed()));
     }
 
     void settle_release() {
