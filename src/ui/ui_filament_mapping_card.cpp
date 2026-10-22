@@ -200,6 +200,10 @@ void FilamentMappingCard::seed_from_palette(const std::vector<std::string>& gcod
     tool_info_ = std::move(m.tool_info);
 
     if (!recompute_visibility()) {
+        // A hidden card has no mappings of its own; the previous file's must not
+        // reach print start as this one's.
+        available_slots_.clear();
+        mappings_.clear();
         return;
     }
 

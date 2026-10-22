@@ -560,6 +560,23 @@ TEST_CASE_METHOD(MappingCardRenderFixture,
     process_lvgl(100);
 }
 
+TEST_CASE_METHOD(MappingCardRenderFixture, "A hidden card keeps nothing from the previous file",
+                 "[filament_mapping][routing]") {
+    // File A gets a pick. File B's card is hidden (no palette), so B has no
+    // mappings of its own, and A's pick must not survive to be sent as B's.
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto picked = card.get_mappings();
+    REQUIRE(picked.size() == 2);
+    picked[1].mapped_slot = 3;
+    picked[1].user_picked = true;
+    card.set_mappings(picked);
+
+    card.update({}, {});
+    REQUIRE_FALSE(card.should_show());
+    CHECK(card.get_mappings().empty());
+    process_lvgl(100);
+}
+
 TEST_CASE_METHOD(MappingCardRenderFixture,
                  "A palette arriving late for the same file keeps the user's picks",
                  "[filament_mapping][routing]") {
