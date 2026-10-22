@@ -44,6 +44,9 @@
                         width="100%" bind_text="plr_wizard_outage" long_mode="wrap" style_text_color="#text_muted"/>
             <text_small name="plr_bed"
                         width="100%" bind_text="plr_wizard_bed" long_mode="wrap" style_text_color="#text_muted"/>
+            <text_small name="plr_heat_in_place_note"
+                        width="100%" long_mode="wrap" style_text_color="#text_muted"
+                        text="The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it."/>
             <text_small name="plr_layer_start_note"
                         width="100%" long_mode="wrap" style_text_color="#warning"
                         text="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.">
@@ -77,7 +80,7 @@
           <ui_button name="btn_plr_cancel_checks" flex_grow="1" text="Cancel" variant="secondary">
             <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
           </ui_button>
-          <ui_button name="btn_plr_continue" flex_grow="2" text="Heat and Home" moves_machine="true">
+          <ui_button name="btn_plr_continue" flex_grow="2" bind_text="plr_wizard_continue_text" moves_machine="true">
             <bind_state_if cond="plr_need_part gt plr_ack_part or plr_need_nozzle gt plr_ack_nozzle or plr_need_no_mesh gt plr_ack_no_mesh or plr_need_next_layer gt plr_ack_next_layer or plr_need_cold_bed gt plr_ack_cold_bed"
                            state="disabled"/>
             <event_cb trigger="clicked" callback="on_plr_wizard_continue"/>
@@ -97,7 +100,8 @@
                    width="90%" bind_text="plr_wizard_progress" style_text_align="center" long_mode="wrap"/>
         <text_small name="plr_bed_live"
                     width="90%" bind_text="plr_wizard_bed_live" style_text_align="center" style_text_color="#text_muted"/>
-        <ui_button name="btn_plr_cancel_preparing" width="40%" text="Cancel" variant="danger">
+        <ui_button name="btn_plr_cancel_preparing"
+                   width="100%" height="#button_height_lg" icon="alert_octagon" text="Cancel" variant="danger">
           <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
         </ui_button>
       </lv_obj>
@@ -111,15 +115,21 @@
         <lv_obj name="plr_z_body"
                 width="100%" flex_grow="1" style_pad_all="0" flex_flow="column" style_flex_cross_place="center"
                 style_pad_gap="#space_sm" scroll_dir="ver">
-          <text_body name="plr_z_trusted_text"
+          <!-- plr_wizard_z_kind: 0 jog, 1 lifted and homed by prepare, 2 not moved -->
+          <text_body name="plr_z_lifted_text"
                      width="100%" long_mode="wrap"
-                     text="The nozzle is back above the print at the height it stopped at. Check that it sits just above the top of the print, then resume.">
-            <bind_flag_if_not_eq subject="plr_wizard_tier" flag="hidden" ref_value="2"/>
+                     text="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.">
+            <bind_flag_if_not_eq subject="plr_wizard_z_kind" flag="hidden" ref_value="1"/>
+          </text_body>
+          <text_body name="plr_z_in_place_text"
+                     width="100%" long_mode="wrap"
+                     text="The nozzle hasn't moved since the power went out. Check that it sits just above the top of the print, then resume.">
+            <bind_flag_if_not_eq subject="plr_wizard_z_kind" flag="hidden" ref_value="2"/>
           </text_body>
           <text_body name="plr_z_jog_text"
                      width="100%" long_mode="wrap"
                      text="Lower the nozzle until it just touches the top of the print, then resume.">
-            <bind_flag_if_not_eq subject="plr_wizard_tier" flag="hidden" ref_value="1"/>
+            <bind_flag_if_not_eq subject="plr_wizard_z_kind" flag="hidden" ref_value="0"/>
           </text_body>
           <lv_obj name="plr_jog_controls"
                   width="100%" height="content" style_pad_all="0" flex_flow="column" style_flex_cross_place="center"
@@ -177,7 +187,9 @@
         <text_heading width="100%" text="Resuming the print" style_text_align="center" long_mode="wrap"/>
         <text_body name="plr_commit_progress"
                    width="90%" bind_text="plr_wizard_progress" style_text_align="center" long_mode="wrap"/>
-        <ui_button name="btn_plr_cancel_committing" width="40%" text="Cancel" variant="danger">
+        <ui_button name="btn_plr_cancel_committing"
+                   width="100%" height="#button_height_lg" icon="alert_octagon" text="Cancel" variant="danger">
+          <bind_flag_if_eq subject="plr_print_starting" flag="hidden" ref_value="1"/>
           <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
         </ui_button>
       </lv_obj>

@@ -816,6 +816,7 @@
   <translation tag="Cooling Tube Length" it="Lunghezza del tubo di raffreddamento"/>
   <translation tag="Cooling Tube Retraction" it="Retrazione del tubo di raffreddamento"/>
   <translation tag="Cooling for probing..." it="Raffreddamento per il sondaggio..."/>
+  <translation tag="Cooling the nozzle to standby while you check the print" it="Raffreddamento dell&apos;ugello in standby mentre controlli la stampa"/>
   <translation tag="Cooling {}..." it="Raffreddamento {}..."/>
   <translation tag="Copied to clipboard!" it="Copiato negli appunti!"/>
   <translation tag="Copy" it="Copia"/>
@@ -1569,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." it="Riscaldamento ugello a $1°C..."/>
   <translation tag="Heating nozzle..." it="Riscaldamento ugello..."/>
   <translation tag="Heating the bed" it="Riscaldamento del piano"/>
+  <translation tag="Heating the bed and nozzle so the print re-grips and the nozzle lets go of it" it="Riscaldamento di piano e ugello: la stampa torna ad aderire e l&apos;ugello si stacca"/>
   <translation tag="Heating the nozzle" it="Riscaldamento dell&apos;ugello"/>
   <translation tag="Heating to %d°C... %.0f°C" it="Riscaldamento a %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." it="Riscaldamento a {}°C prima di {}..."/>
@@ -3322,6 +3324,7 @@
   <translation tag="Start Calibration" it="Avvia calibrazione"/>
   <translation tag="Start Check" it="Avvia controllo"/>
   <translation tag="Start Drying" it="Avvia essiccazione"/>
+  <translation tag="Start Heating" it="Avvia riscaldamento"/>
   <translation tag="Start K" it="K iniziale"/>
   <translation tag="Start Print" it="Avvia stampa"/>
   <translation tag="Start Probing" it="Avvia sondaggio"/>
@@ -3505,6 +3508,7 @@
   <translation tag="The PEI sheet is still on the bed. Take it off, then tap Next." it="Il foglio PEI è ancora sul piatto. Rimuovilo, poi tocca Avanti."/>
   <translation tag="The Spoolman spool currently loaded" it="La bobina Spoolman caricata"/>
   <translation tag="The animated screensaver has been turned off on this device to prevent it from interfering with prints. You can re-enable it in Settings &gt; Display." it="Il salvaschermo animato è stato disattivato su questo dispositivo per evitare che interferisca con le stampe. Puoi riattivarlo in Impostazioni &gt; Schermo."/>
+  <translation tag="The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it." it="Piano e ugello si riscaldano insieme prima di qualsiasi movimento, così la stampa torna ad aderire e l&apos;ugello si stacca."/>
   <translation tag="The bed has cooled. Take the spools off the plate, then confirm." it="Il piano si è raffreddato. Togli le bobine dal piano, poi conferma."/>
   <translation tag="The bed heater. Set its temperature and watch its graph on the bed temperature screen." it="Il riscaldatore del piano. Imposta la temperatura e guarda il grafico nella schermata della temperatura del piano."/>
   <translation tag="The bed is too small for settling laps." it="Il piano è troppo piccolo per i giri di assestamento."/>
@@ -3548,10 +3552,11 @@
   <translation tag="The message your printer&apos;s macros show (M117)" it="Il messaggio mostrato dalle macro della stampante (M117)"/>
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." it="L&apos;ugello montato si scalda a 200°C e si raffredda di nuovo mentre viene adattato il modello di sicurezza del riscaldatore. Tieni spenta la ventola pezzo e il materiale infiammabile lontano dalla testina. Richiede diversi minuti."/>
   <translation tag="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself." it="L&apos;ugello fa alcuni brevi movimenti di prova in un angolo, lontano dall&apos;area di stampa, e ripete finché i valori convergono."/>
+  <translation tag="The nozzle hasn&apos;t moved since the power went out. Check that it sits just above the top of the print, then resume." it="L&apos;ugello non si è mosso dall&apos;interruzione di corrente. Controlla che sia appena sopra la sommità della stampa, poi riprendi."/>
   <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." it="L&apos;ugello si scalda a 200°C mentre la ventola pezzo passa per le sue velocità. Per una misura precisa, monta il condotto come quando stampi. Richiede diversi minuti."/>
-  <translation tag="The nozzle is back above the print at the height it stopped at. Check that it sits just above the top of the print, then resume." it="L&apos;ugello è di nuovo sopra la stampa all&apos;altezza in cui si è fermato. Controlla che sia appena sopra la sommità della stampa, poi riprendi."/>
   <translation tag="The nozzle is clear of the print" it="L&apos;ugello non tocca la stampa"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." it="L&apos;ugello è caldo. Puliscilo con la spazzola metallica in dotazione, mantieni pulita la posizione di aggancio, poi tocca Avanti."/>
+  <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." it="L&apos;ugello è sollevato dalla stampa e X e Y sono azzerati. Riprendendo, scende di nuovo all&apos;altezza in cui si è fermato."/>
   <translation tag="The plate and the spools are still hot. Use gloves." it="Il piano e le bobine sono ancora caldi. Usa i guanti."/>
   <translation tag="The plate finishes its current move, but drying will not start." it="Il piano termina lo spostamento in corso, ma l&apos;essiccazione non partirà."/>
   <translation tag="The print ended before any layer was printed. Nothing was changed." it="La stampa è terminata prima di stampare uno strato. Non è stato cambiato nulla."/>

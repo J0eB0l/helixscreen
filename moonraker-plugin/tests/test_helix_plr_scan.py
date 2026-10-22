@@ -331,6 +331,36 @@ def test_scan_for_resume_starts_at_a_checkpoint(tmp_path, monkeypatch):
     assert full.window[-1].offset == head
 
 
+Q2_LAYER_CHANGE = Path(__file__).parent / "fixtures" / "plr_q2_layer_change.gcode"
+
+
+def test_a_layer_change_save_finds_the_line_still_printing_the_layer_below(tmp_path):
+    """The save a layer change triggers: print_stats already reports layer 17,
+    file_position is past SET_PRINT_STATS_INFO, and the nozzle is still on
+    layer 16's last lines. The followed index holds a layer-17 checkpoint
+    behind the head; the scan must still reach the lines before it."""
+    data = Q2_LAYER_CHANGE.read_bytes()
+    ident = {"file_size": len(data), "file_mtime": 1.0, "file_hash": "h"}
+    index = layer_index_path(tmp_path, "q2.gcode")
+    w = LayerIndexWriter(index, ident)
+    scan_to_offset(io.BytesIO(data), len(data), on_layer_start=w.append)
+    w.close()
+    layer17 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=17")
+    marker17 = data.rindex(b";LAYER_CHANGE", 0, layer17)
+    head = data.index(b"\n", layer17) + 1
+    full = scan_to_offset(io.BytesIO(data), head)
+    executing = data.rindex(b"G1 X116.357 Y153.643 E1.74912", 0, marker17)
+    toolhead, live = nozzle_on(full, head_index(full, executing))
+    snapshot = {"toolhead_pos": toolhead, "live_pos": live, "file_position": head,
+                "layer": 17, "extrude_factor": 1.0, "speed_factor": 1.0,
+                "limits": {"velocity": 300.0}}
+    stream = io.BytesIO(data)
+    r = scan_for_resume(stream, head, index, ident)
+    point = resume_point(stream, r, snapshot, 0.5, 1.0)
+    assert point.method == "measured"
+    assert executing <= point.offset < layer17
+
+
 def test_scan_for_resume_ignores_an_index_of_another_file(tmp_path):
     data = layered(10, 20)
     index = layer_index_path(tmp_path, "f.gcode")

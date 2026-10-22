@@ -24,11 +24,12 @@ using ErrorCallback = std::function<void(const MoonrakerError&)>;
 /// A plan scan runs in the plugin's worker; a long one answers `pending` well
 /// inside this and follows with notify_plr_plan_ready.
 inline constexpr uint32_t kPlanTimeoutMs = 120000;
-/// prepare answers once the bed (and chamber) reached temperature, the head
-/// lifted and X/Y homed: a cold bed on a large printer takes many minutes.
-inline constexpr uint32_t kPrepareTimeoutMs = 45U * 60U * 1000U;
-/// commit answers after the nozzle heated, purged and the print started.
-inline constexpr uint32_t kCommitTimeoutMs = 30U * 60U * 1000U;
+/// prepare answers once the bed, chamber and nozzle reached temperature, the
+/// head lifted and X/Y homed. The plugin's own waits allow bed 20 + chamber
+/// 45 + nozzle 10 minutes, so this covers their sum plus the motion.
+inline constexpr uint32_t kPrepareTimeoutMs = 90U * 60U * 1000U;
+/// commit runs the same heat waits again, then purges and starts the print.
+inline constexpr uint32_t kCommitTimeoutMs = 90U * 60U * 1000U;
 
 void request_status(IMoonrakerAPI& api, std::function<void(const PlrPluginStatus&)> on_ok,
                     ErrorCallback on_error);
