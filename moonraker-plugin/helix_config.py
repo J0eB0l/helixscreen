@@ -332,7 +332,8 @@ def read_config(root_dir: Path, read_text: Optional[Callable[[str], str]] = None
 
     def include_files(source: str, spec: str, lineno: int) -> None:
         pattern = os.path.join(os.path.dirname(source), spec)
-        matches = sorted(p for p in glob.glob(pattern, recursive=True) if os.path.isfile(p))
+        # Klipper's own glob: no recursive=True, so ** is one path segment.
+        matches = sorted(p for p in glob.glob(pattern) if os.path.isfile(p))
         if not matches and not glob.has_magic(pattern):
             tree.errors.append(
                 f"{_display_path(source, root_abs)}:{lineno}: include file "
@@ -371,6 +372,16 @@ def read_config(root_dir: Path, read_text: Optional[Callable[[str], str]] = None
 # Planning edits
 # ============================================================================
 
+# Characters that would end a section header or an option name early, or start
+# a comment or another line, when written into a config file
+_SECTION_FORBIDDEN = frozenset("\r\n[]#;")
+_OPTION_FORBIDDEN = _SECTION_FORBIDDEN | frozenset("=: \t")
+
+
+def _valid_name(name: str, forbidden: frozenset) -> bool:
+    return not any(c in forbidden or ord(c) < 32 for c in name)
+
+
 def _parse_edit(raw: Any) -> Dict[str, Any]:
     if not isinstance(raw, dict):
         raise ConfigEditRefused("invalid", "each edit must be an object")
@@ -381,6 +392,11 @@ def _parse_edit(raw: Any) -> Dict[str, Any]:
         raise ConfigEditRefused("invalid", "edit has no section")
     if not isinstance(option, str) or not option.strip():
         raise ConfigEditRefused("invalid", f"[{section}] edit has no option")
+    if not _valid_name(section, _SECTION_FORBIDDEN) or section != section.strip():
+        raise ConfigEditRefused("invalid", f"section name {section!r} is not one Klipper reads")
+    if not _valid_name(option.strip(), _OPTION_FORBIDDEN):
+        raise ConfigEditRefused(
+            "invalid", f"[{section}] option name {option!r} is not one Klipper reads")
     if action not in ("set", "remove"):
         raise ConfigEditRefused("invalid", f"[{section}] {option}: unknown action '{action}'")
     if "expect" not in raw:

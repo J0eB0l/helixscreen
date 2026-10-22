@@ -559,8 +559,9 @@ GET /server/helix/config?section=probe
 
 JSON-RPC: `server.helix.config`, optional `section`. The config as Klipper reads it from
 `printer.cfg` in Moonraker's config root: includes where their line stands, relative to the
-including file, globs sorted (a glob matching nothing is fine, a missing plain include is
-listed in `errors`), and the `SAVE_CONFIG` block last, supplying only options the regular
+including file, globs sorted and expanded as Klipper expands them (`**` is one directory,
+not any depth; a glob matching nothing is fine, a missing plain include is listed in
+`errors`), and the `SAVE_CONFIG` block last, supplying only options the regular
 config leaves undefined. Every section is listed, used by Klipper or not.
 
 ```json
@@ -613,7 +614,9 @@ file, `fsync` and rename. Klipper's include globs never match a dot directory, s
 
 A refused list writes nothing and answers 409 with the rule first: `autosave` (the option
 is in the `SAVE_CONFIG` block, which Klipper owns), `moved` (`expect` no longer matches, or
-the file changed while the edit was prepared), `outside_root`, `invalid`.
+the file changed while the edit was prepared), `outside_root`, `invalid` (a malformed
+edit, or a section or option name Klipper could not read back: a newline, `[`, `]`, `#` or
+`;` in either, and `=`, `:` or whitespace in an option).
 
 ## Visible symlink directory
 

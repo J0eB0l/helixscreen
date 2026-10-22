@@ -87,7 +87,7 @@ def _klipper_parse(data, filename, fileconfig, visited):
         if header and header.startswith("include "):
             flush()
             include_glob = os.path.join(os.path.dirname(filename), header[8:].strip())
-            for name in sorted(glob.glob(include_glob, recursive=True)):
+            for name in sorted(glob.glob(include_glob)):
                 with open(name) as f:
                     _klipper_parse(f.read().replace("\r\n", "\n"), name, fileconfig, visited)
         else:
@@ -210,6 +210,19 @@ class TestReading:
         tree = read_config(tmp_path)
         assert tree.files == ["printer.cfg", "sub/main.cfg", "sub/parts/a.cfg", "sub/parts/b.cfg"]
         assert tree.option("s", "k").file == "sub/parts/b.cfg"
+
+    def test_a_double_star_matches_one_directory_as_klipper_reads_it(self, tmp_path):
+        """Klipper globs without recursive=True, where ** is one path segment."""
+        self.write(tmp_path, {
+            "printer.cfg": "[include conf.d/**/*.cfg]\n",
+            "conf.d/top.cfg": "[s]\nk: top\n",
+            "conf.d/a/one.cfg": "[s]\nk: one\n",
+            "conf.d/a/b/two.cfg": "[s]\nk: two\n",
+        })
+        tree = read_config(tmp_path)
+        assert tree.files == ["printer.cfg", "conf.d/a/one.cfg"]
+        assert tree.option("s", "k").value == "one"
+        assert klipper_effective(tmp_path)["s"]["k"] == "one"
 
     def test_corrupted_autosave_block_reads_as_comments(self, tmp_path):
         text = (TREE / "printer.cfg").read_text() + "stray: line\n"
@@ -334,6 +347,10 @@ class TestRefusals:
             plan_edits(tree_copy, [_set("probe", "z_offset", "1.75", None)])
         assert e.value.code == "moved"
 
+    def test_a_section_name_with_spaces_is_fine(self, tree_copy):
+        plan = plan_edits(tree_copy, [_set("gcode_macro MY_START", "description", "x", None)])
+        assert plan.changed
+
     def test_one_refusal_refuses_the_whole_list(self, tree_copy):
         before = (tree_copy / "conf.d/20-overrides.cfg").read_text()
         with pytest.raises(ConfigEditRefused):
@@ -349,6 +366,16 @@ class TestRefusals:
         {"section": "", "option": "z_offset", "action": "set", "value": "1", "expect": None},
         {"section": "probe", "option": "z_offset", "action": "drop", "expect": "1.5"},
         "not an object",
+        _set("probe]\n[extruder", "z_offset", "1", None),
+        _set("probe\nz_offset: 9", "x", "1", None),
+        _set("pro[be", "z_offset", "1", None),
+        _set("probe # c", "z_offset", "1", None),
+        _set("probe", "z_offset: 9\nx", "1", None),
+        _set("probe", "z_offset = 9", "1", None),
+        _set("probe", "z_offset:9", "1", None),
+        _set("probe", "z_[offset", "1", None),
+        _set("probe", "z offset", "1", None),
+        _set("probe", "z_offset;", "1", None),
     ])
     def test_malformed_edit(self, tree_copy, edit):
         with pytest.raises(ConfigEditRefused) as e:
