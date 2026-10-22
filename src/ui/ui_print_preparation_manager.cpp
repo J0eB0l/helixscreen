@@ -330,9 +330,7 @@ void PrintPreparationManager::recalculate_estimate(const FileMetadata* file_meta
     const int temp_bucket = helix::PreprintPredictor::temp_bucket_for(bed_temp);
     const gcode::ScanResult* scan = scan_result_for(file_key);
     const helix::PreprintWindow window =
-        pre_start_block(collect_macro_skip_params(), file_key,
-                        scan && scan->print_start.found ? &scan->print_start : nullptr)
-                .gcode.empty()
+        pre_start_block(collect_macro_skip_params(), file_key, scan).gcode.empty()
             ? helix::PreprintWindow::PrinterEdge
             : helix::PreprintWindow::HostPreStart;
     if (!predictor_cached_ || cached_temp_bucket_ != temp_bucket || cached_window_ != window) {
@@ -1101,9 +1099,8 @@ void PrintPreparationManager::start_print(const std::string& filename,
     //
     // Lines are concatenated with newlines; Moonraker forwards the whole
     // block to Klipper as a single gcode_script.
-    const PreStartBlock pre_start = pre_start_block(
-        macro_skip_params, filename_to_print,
-        start_scan_ && start_scan_->print_start.found ? &start_scan_->print_start : nullptr);
+    const PreStartBlock pre_start = pre_start_block(macro_skip_params, filename_to_print,
+                                                    start_scan_ ? &*start_scan_ : nullptr);
     const std::string& combined = pre_start.gcode;
 
     // Without this file's scan nothing can say which disabled steps the file
@@ -1623,10 +1620,10 @@ PrintPreparationManager::collect_macro_skip_params() const {
 
 PrintPreparationManager::PreStartBlock PrintPreparationManager::pre_start_block(
     const std::vector<std::pair<std::string, std::string>>& macro_skip_params,
-    const std::string& filename, const gcode::PrintStartCallInfo* job_start) const {
+    const std::string& filename, const gcode::ScanResult* scan) const {
     PreStartBlock block;
     const auto& db_options = get_cached_options();
-    block.lines = collect_pre_start_gcode_lines(filename, true, job_start);
+    block.lines = collect_pre_start_gcode_lines(filename, true, scan);
     // A skip an earlier print left unconsumed must not ride into this one,
     // including for a step whose toggle is hidden now.
     if (printer_state_ && !printer_state_->get_discovery().skip_active().empty()) {
@@ -1655,9 +1652,10 @@ bool PrintPreparationManager::print_waits_on_scan(const std::string& key) const 
 }
 
 std::vector<std::string> PrintPreparationManager::collect_pre_start_gcode_lines(
-    const std::string& filename, bool with_skip_toggles,
-    const gcode::PrintStartCallInfo* job_start) const {
+    const std::string& filename, bool with_skip_toggles, const gcode::ScanResult* scan) const {
     std::vector<std::string> lines;
+    const gcode::PrintStartCallInfo* job_start =
+        scan && scan->print_start.found ? &scan->print_start : nullptr;
 
     const auto& db_options = get_cached_options();
     if (db_options.options.empty()) {
@@ -1699,6 +1697,18 @@ std::vector<std::string> PrintPreparationManager::collect_pre_start_gcode_lines(
                           "— emitting nothing",
                           opt.id);
             continue;
+        }
+
+        // A line with no off form IS the step; a file that runs the step
+        // itself would have the printer run it twice.
+        if (enabled && pre && !pre->emit_when_disabled && scan) {
+            const std::optional<gcode::OperationType> op = file_embeddable_op_for_id(opt.id);
+            if (op && scan->has_operation(*op)) {
+                spdlog::info("[PrintPreparationManager] Not sending pre-start '{}': {} runs it "
+                             "itself",
+                             opt.id, filename);
+                continue;
+            }
         }
 
         PreStartGcodeContext ctx;

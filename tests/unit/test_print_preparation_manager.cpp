@@ -3268,7 +3268,7 @@ TEST_CASE_METHOD(HelixTestFixture,
         manager.set_option_state_provider(
             [](const std::string& id) { return id == "bed_mesh" ? 1 : -1; });
         auto lines = PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(
-            manager, "part.gcode", &scan.print_start);
+            manager, "part.gcode", &scan);
         bool found = false;
         for (const auto& l : lines) {
             if (l.find("BED_MESH_CALIBRATE_START_PRINT") != std::string::npos) {
@@ -3276,6 +3276,36 @@ TEST_CASE_METHOD(HelixTestFixture,
                 REQUIRE(l.find("BED_TEMP=105") != std::string::npos);
                 REQUIRE(l.find("EXTRUDER_TEMP=260") != std::string::npos);
             }
+        }
+        REQUIRE(found);
+    }
+
+    SECTION("enabled sends nothing when the file runs the mesh itself") {
+        // A slicer start sequence that calls BED_MESH_CALIBRATE_START_PRINT
+        // meshes on its own; sending the macro ahead of the job meshes twice.
+        gcode::ScanResult scan;
+        gcode::DetectedOperation op;
+        op.type = gcode::OperationType::BED_MESH;
+        op.embedding = gcode::OperationEmbedding::DIRECT_COMMAND;
+        op.line_number = 397;
+        op.raw_line = "BED_MESH_CALIBRATE_START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80";
+        scan.operations.push_back(op);
+
+        manager.set_option_state_provider(
+            [](const std::string& id) { return id == "bed_mesh" ? 1 : -1; });
+        auto lines = PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(
+            manager, "part.gcode", &scan);
+        for (const auto& l : lines) {
+            REQUIRE(l.find("BED_MESH_CALIBRATE_START_PRINT") == std::string::npos);
+        }
+
+        // The same start with a file that leaves the mesh out still sends it.
+        gcode::ScanResult plain;
+        lines = PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(manager, "part.gcode",
+                                                                             &plain);
+        bool found = false;
+        for (const auto& l : lines) {
+            found = found || l.find("BED_MESH_CALIBRATE_START_PRINT") != std::string::npos;
         }
         REQUIRE(found);
     }
