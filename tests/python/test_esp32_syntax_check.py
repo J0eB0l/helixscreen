@@ -91,3 +91,26 @@ def test_one_per_header_reuses_a_staged_includer_instead_of_adding_one():
     sources = {r: '#include "common.h"\n' for r in units}
     assert esc.select_units(units, ["include/common.h", "src/y.cpp"], sources.get,
                             one_per_header=True) == ["src/y.cpp"]
+
+
+def _entry(component, rel, output=True):
+    obj = f"esp-idf/{component}/CMakeFiles/__idf_{component}.dir/r/{rel}.obj"
+    entry = {"directory": "/b", "file": f"/r/{rel}", "command": f"g++ -o {obj} -c /r/{rel}"}
+    if output:
+        entry["output"] = obj
+    return entry
+
+
+def test_a_source_two_components_compile_keeps_both_entries():
+    shared = "src/printer/discovery.cpp"
+    entries = [_entry("helixnet", shared), _entry("helixapp", shared),
+               _entry("helixapp", "src/ui/a.cpp"), _entry("helixapp", "lib/x/y.h"),
+               {"directory": "/b", "file": "/opt/esp/idf/x.c", "command": "gcc -c x.c"}]
+    units = esc.firmware_units(entries, "/r")
+    assert sorted(units) == [shared, "src/ui/a.cpp"]
+    assert [esc.component_of(e) for e in units[shared]] == ["helixnet", "helixapp"]
+
+
+def test_the_component_comes_from_the_command_when_the_entry_has_no_output():
+    assert esc.component_of(_entry("main", "m.cpp", output=False)) == "main"
+    assert esc.component_of({"command": "g++ -c x.cpp", "file": "x.cpp"}) == "?"
