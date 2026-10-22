@@ -1083,7 +1083,6 @@
   <translation tag="Enable assisted retraction at hub" es="Activar la retracción asistida en el hub"/>
   <translation tag="Enable audio feedback" es="Activar retroalimentación de audio"/>
   <translation tag="Enable brush wipe after purging" es="Activar la limpieza con cepillo tras la purga"/>
-  <translation tag="Enable feed assist for active slot during printing" es="Activar la asistencia de alimentación para la ranura activa durante la impresión"/>
   <translation tag="Enable or disable the hub cutter" es="Activar o desactivar el cortador del hub"/>
   <translation tag="Enable plugin?" es="¿Activar plugin?"/>
   <translation tag="Enable purging during tool changes" es="Activar la purga durante los cambios de herramienta"/>
@@ -3495,6 +3494,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." es="Ese giro aún no se notó. Afloja {0} una vuelta completa más."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." es="Ese giro aún no se notó. Tensa {0} un poco más."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." es="Ese giro aún no se notó. Tensa {0} una vuelta completa más."/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" es="El ACE empuja el filamento cargado junto con el extrusor. El controlador activa la asistencia de alimentación tras una carga"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" es="El hardware del odómetro del CFS está averiado y necesita reparación o sustitución"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." es="El CFS se quedó sin filamento en {}. La impresión continúa con lo que queda en el tubo."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." es="El CFS se quedó sin filamento. La impresión continúa con lo que queda en el tubo."/>
@@ -3541,6 +3541,7 @@
   <translation tag="The helper macros are installed and activate after Klipper restarts." es="Las macros de ayuda están instaladas y se activan tras reiniciar Klipper."/>
   <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." es="El cierre se abre y {} puede caer. Sujétela antes de continuar y luego colóquela en su base."/>
   <translation tag="The left RFID reader in this CFS unit may need service" es="Puede que el lector RFID izquierdo de esta unidad CFS necesite servicio"/>
+  <translation tag="The loaded slot is not known yet" es="La ranura cargada aún no se conoce"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." es="La bobina cargada es {}, pero este archivo se laminó para {}. El filamento con relleno funciona con un caudal menor y necesita una boquilla endurecida."/>
   <translation tag="The message your printer&apos;s macros show (M117)" es="El mensaje que muestran las macros de tu impresora (M117)"/>
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." es="La boquilla montada se calienta a 200°C y vuelve a enfriarse mientras se ajusta el modelo de seguridad del calentador. Mantenga apagado el ventilador de pieza y el material inflamable lejos del cabezal. Esto tarda varios minutos."/>

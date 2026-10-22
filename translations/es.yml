@@ -1200,7 +1200,6 @@ translations:
   Enable assisted retraction at hub: 'Activar la retracción asistida en el hub'
   Enable audio feedback: Activar retroalimentación de audio
   Enable brush wipe after purging: 'Activar la limpieza con cepillo tras la purga'
-  Enable feed assist for active slot during printing: 'Activar la asistencia de alimentación para la ranura activa durante la impresión'
   Enable or disable the hub cutter: 'Activar o desactivar el cortador del hub'
   Enable plugin?: '¿Activar plugin?'
   Enable purging during tool changes: 'Activar la purga durante los cambios de herramienta'
@@ -3832,6 +3831,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Ese giro aún no se notó. Afloja {0} una vuelta completa más."
   That turn didn't register yet. Tighten {0} a little more.: "Ese giro aún no se notó. Tensa {0} un poco más."
   That turn didn't register yet. Tighten {0} one more full turn.: "Ese giro aún no se notó. Tensa {0} una vuelta completa más."
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "El ACE empuja el filamento cargado junto con el extrusor. El controlador activa la asistencia de alimentación tras una carga"
   The CFS odometer hardware is faulty and needs repair or replacement: El hardware del odómetro del CFS está averiado y necesita reparación o sustitución
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'El CFS se quedó sin filamento en {}. La impresión continúa con lo que queda en el tubo.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'El CFS se quedó sin filamento. La impresión continúa con lo que queda en el tubo.'
@@ -3890,6 +3890,7 @@ translations:
   The helper macros are installed and activate after Klipper restarts.: 'Las macros de ayuda están instaladas y se activan tras reiniciar Klipper.'
   The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: El cierre se abre y {} puede caer. Sujétela antes de continuar y luego colóquela en su base.
   The left RFID reader in this CFS unit may need service: Puede que el lector RFID izquierdo de esta unidad CFS necesite servicio
+  The loaded slot is not known yet: "La ranura cargada aún no se conoce"
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : La bobina cargada es {}, pero este archivo se laminó para {}. El filamento con relleno funciona con un caudal menor y necesita una boquilla endurecida.
   The message your printer's macros show (M117): 'El mensaje que muestran las macros de tu impresora (M117)'

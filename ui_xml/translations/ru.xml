@@ -1125,7 +1125,6 @@
   <translation tag="Enable assisted retraction at hub" ru="Включить ретракцию с поддержкой на хабе"/>
   <translation tag="Enable audio feedback" ru="Включить звуковую обратную связь"/>
   <translation tag="Enable brush wipe after purging" ru="Включить очистку щёткой после продувки"/>
-  <translation tag="Enable feed assist for active slot during printing" ru="Включить помощь подачи для активного слота во время печати"/>
   <translation tag="Enable or disable the hub cutter" ru="Включить или выключить резак хаба"/>
   <translation tag="Enable plugin?" ru="Включить плагин?"/>
   <translation tag="Enable purging during tool changes" ru="Включить продувку при смене инструмента"/>
@@ -3555,6 +3554,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." ru="Этот поворот ещё не отразился. Ослабьте {0} ещё на один полный оборот."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." ru="Этот поворот ещё не отразился. Натяните {0} ещё немного."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." ru="Этот поворот ещё не отразился. Натяните {0} ещё на один полный оборот."/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" ru="ACE проталкивает загруженный филамент вместе с экструдером. Драйвер включает помощь подачи после загрузки"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" ru="Оборудование одометра CFS неисправно и требует ремонта или замены"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." ru="В CFS закончился филамент в {}. Печать продолжается остатком в трубке."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." ru="В CFS закончился филамент. Печать продолжается остатком в трубке."/>
@@ -3601,6 +3601,7 @@
   <translation tag="The helper macros are installed and activate after Klipper restarts." ru="Вспомогательные макросы установлены и активируются после перезапуска Klipper."/>
   <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." ru="Защелка откроется, и {} может упасть. Придержите его, прежде чем продолжить, затем поставьте в док."/>
   <translation tag="The left RFID reader in this CFS unit may need service" ru="Левому RFID-считывателю этого блока CFS может требоваться обслуживание"/>
+  <translation tag="The loaded slot is not known yet" ru="Загруженный слот пока неизвестен"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." ru="Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла."/>
   <translation tag="The message your printer&apos;s macros show (M117)" ru="Сообщение, которое показывают макросы принтера (M117)"/>
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." ru="Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут."/>

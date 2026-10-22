@@ -1083,7 +1083,6 @@
   <translation tag="Enable assisted retraction at hub" zh="在集线器启用辅助回抽"/>
   <translation tag="Enable audio feedback" zh="启用声音反馈"/>
   <translation tag="Enable brush wipe after purging" zh="排料后启用刷子擦拭"/>
-  <translation tag="Enable feed assist for active slot during printing" zh="打印时为当前槽位启用送料辅助"/>
   <translation tag="Enable or disable the hub cutter" zh="启用或停用集线器切刀"/>
   <translation tag="Enable plugin?" zh="启用插件？"/>
   <translation tag="Enable purging during tool changes" zh="在换工具时启用排料"/>
@@ -3495,6 +3494,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." zh="这次转动还没有体现出来。请将 {0} 再放松一整圈。"/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." zh="这次转动还没有体现出来。请将 {0} 再拉紧一点。"/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." zh="这次转动还没有体现出来。请将 {0} 再拉紧一整圈。"/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" zh="ACE 与挤出机一起推送已加载的耗材。驱动程序会在加载后开启送料辅助"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" zh="CFS 计量硬件故障，需维修或更换"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." zh="CFS 的 {} 耗材已用完。打印将使用管内剩余的耗材继续。"/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." zh="CFS 耗材已用完。打印将使用管内剩余的耗材继续。"/>
@@ -3541,6 +3541,7 @@
   <translation tag="The helper macros are installed and activate after Klipper restarts." zh="帮助宏已安装，将在 Klipper 重启后启用。"/>
   <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." zh="锁定装置会打开，{}可能掉落。继续前请用手接住它，然后将其放回停靠位。"/>
   <translation tag="The left RFID reader in this CFS unit may need service" zh="此 CFS 单元的左侧 RFID 读取器可能需要维修"/>
+  <translation tag="The loaded slot is not known yet" zh="已加载的槽位尚未报告"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." zh="当前装载的料盘是 {}，但此文件为 {} 切片。填充耗材需要以更低的流量运行，且需要硬化喷嘴。"/>
   <translation tag="The message your printer&apos;s macros show (M117)" zh="打印机宏显示的消息 (M117)"/>
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." zh="测定加热器安全模型时，已安装的喷嘴会加热到200°C再冷却。请保持模型风扇关闭，并让易起火的物品远离打印头。这需要几分钟。"/>
