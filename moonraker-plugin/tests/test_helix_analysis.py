@@ -627,6 +627,49 @@ class TestComponent:
         assert set(helix.database.ns[analysis.DB_NAMESPACE]) == {"no_define.gcode"}
 
 
+class TestRecordFor:
+    """record_for(): what the fit check waits on before an upload may start."""
+
+    @pytest.mark.asyncio
+    async def test_a_current_record_answers_at_once(self, gc):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        record = await comp.record_for("no_define.gcode", 0.01)
+        assert record is comp.records["no_define.gcode"]
+
+    @pytest.mark.asyncio
+    async def test_a_changed_file_is_analyzed_first_and_answered(self, gc):
+        helix, comp = await make(gc, files={"no_define.gcode", "cura_mesh.gcode"})
+        await settle(comp)
+        path = gc / "no_define.gcode"
+        path.write_bytes(path.read_bytes() + b"G1 X71 Y71 E9\n")
+        comp.enqueue("cura_mesh.gcode")
+        record = await comp.record_for("no_define.gcode", 30.0)
+        assert record is not None
+        assert record["bounds"]["print"]["max"][:2] == [71.0, 71.0]
+        assert not comp._waiters
+
+    @pytest.mark.asyncio
+    async def test_a_held_queue_answers_none_at_the_timeout(self, gc):
+        helix, comp = await make(gc, cpu_count=1, state="printing", files={"no_define.gcode"})
+        assert await comp.record_for("no_define.gcode", 0.05) is None
+        assert not comp._waiters
+
+    @pytest.mark.asyncio
+    async def test_a_file_deleted_while_waiting_answers_none(self, gc):
+        helix, comp = await make(gc, cpu_count=1, state="printing", files={"no_define.gcode"})
+        waiting = asyncio.ensure_future(comp.record_for("no_define.gcode", 30.0))
+        await asyncio.sleep(0)
+        await comp.forget("no_define.gcode")
+        assert await waiting is None
+
+    @pytest.mark.asyncio
+    async def test_a_missing_file_answers_none(self, gc):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        assert await comp.record_for("nope.gcode", 30.0) is None
+
+
 def test_checked_in_sidecar_is_what_analysis_writes(gc):
     """tests/unit/test_gcode_layer_index_sidecar.cpp builds the screen's index
     from this file; it must stay what the analyzer writes for the fixture."""

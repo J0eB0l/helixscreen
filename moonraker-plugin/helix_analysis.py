@@ -1083,6 +1083,8 @@ class HelixAnalysis(file_queue.FileTracker):
         self._resume = None  # type: Optional[asyncio.Event]
         self._stale = False
         self.started = False
+        # path -> futures of record_for() callers waiting on its analysis
+        self._waiters = {}  # type: Dict[str, List[asyncio.Future]]
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -1196,6 +1198,41 @@ class HelixAnalysis(file_queue.FileTracker):
         self.enqueue(filename, front=True)
         return {"filename": filename, "status": "pending"}
 
+    async def record_for(self, path: str, timeout: float) -> Optional[Dict[str, Any]]:
+        """The current record of `path`, analyzing it ahead of the queue when
+        it has none. None when no record arrives within `timeout` seconds: the
+        file is gone, its analysis failed, or the queue is held (switched off,
+        or a print running on a one-core host)."""
+        if self.gc_path is None:
+            return None
+        try:
+            st = os.stat(str(self.gc_path / path))
+        except OSError:
+            return None
+        record = self.records.get(path)
+        if record_current(record, st.st_size, st.st_mtime):
+            return record
+        if self._gave_up(path, st.st_size, st.st_mtime):
+            return None
+        waiter = asyncio.get_running_loop().create_future()
+        self._waiters.setdefault(path, []).append(waiter)
+        self.enqueue(path, front=True)
+        try:
+            return await asyncio.wait_for(waiter, timeout)
+        except asyncio.TimeoutError:
+            return None
+        finally:
+            waiting = self._waiters.get(path, [])
+            if waiter in waiting:
+                waiting.remove(waiter)
+            if not waiting:
+                self._waiters.pop(path, None)
+
+    def _answer_waiters(self, path: str, record: Optional[Dict[str, Any]]) -> None:
+        for waiter in self._waiters.pop(path, []):
+            if not waiter.done():
+                waiter.set_result(record)
+
     # -- queue ---------------------------------------------------------------
 
     def enqueue(self, path: str, front: bool = False) -> None:
@@ -1225,6 +1262,7 @@ class HelixAnalysis(file_queue.FileTracker):
                 self.enqueue(path)
             else:
                 logging.warning("HelixPrint: analysis of %s failed again (%s)", path, e)
+                self._answer_waiters(path, None)
 
     async def backfill(self) -> None:
         """Queue every file without a current record, newest first; drop
@@ -1283,8 +1321,10 @@ class HelixAnalysis(file_queue.FileTracker):
             await self.forget(path)
             return None
         if record_current(self.records.get(path), st.st_size, st.st_mtime):
+            self._answer_waiters(path, self.records[path])
             return self.records[path]
         if self._gave_up(path, st.st_size, st.st_mtime):
+            self._answer_waiters(path, None)
             return None
         self._analyzing = path
         try:
@@ -1302,6 +1342,7 @@ class HelixAnalysis(file_queue.FileTracker):
         self.records[path] = record
         await self._save(path)
         self._notify(path)
+        self._answer_waiters(path, record)
         return record
 
     async def _still_the_version(self, path: str, before: os.stat_result) -> bool:
@@ -1406,6 +1447,7 @@ class HelixAnalysis(file_queue.FileTracker):
         """Drop a file's record, its layer index and a thumbnail we generated."""
         record = self.records.pop(path, None)
         self._queue.discard(path)
+        self._answer_waiters(path, None)
         await self._clear_failure(path)
         if self.gc_path is not None:
             await self._run_in_thread(self._remove_files, path, record)

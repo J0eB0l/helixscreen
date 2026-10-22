@@ -12,12 +12,17 @@ Each such feature
     namespace (RecordStore, namespace_items),
   - and finds every file at startup (scan_files).
 
+The features that take over a slicer's "upload and print" (helix_3mf,
+helix_fitcheck) share the upload-hook shape test and the start that stands in
+for Moonraker's own (upload_hook_shape_ok, start_or_queue).
+
 No Moonraker object is imported. Python 3.8, stdlib only.
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import os
 from pathlib import Path
@@ -306,3 +311,50 @@ def scan_files(
                 continue
             found[rel] = (st.st_size, st.st_mtime)
     return found
+
+
+# ============================================================================
+# Upload and print
+# ============================================================================
+
+def upload_hook_shape_ok(method: Any) -> bool:
+    """Whether finalize_upload looks like the `async (form_args) -> dict` we wrap."""
+    if method is None or not inspect.iscoroutinefunction(method):
+        return False
+    try:
+        params = list(inspect.signature(method).parameters.values())
+    except (TypeError, ValueError):
+        return False
+    return len(params) == 1 and params[0].kind in (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    )
+
+
+def print_result(started: bool = False, queued: bool = False) -> Dict[str, bool]:
+    """What a hook did about a requested print, in the shape of Moonraker's
+    upload response."""
+    return {"print_started": started, "print_queued": queued}
+
+
+async def start_or_queue(server: Any, klippy_apis: Any, file_manager: Any,
+                         path: str, user: Any) -> Dict[str, bool]:
+    """Start @p path as Moonraker's own upload path would: start it, and when
+    that is refused (a print running) queue it if the file manager queues
+    uploads. Returns print_result()."""
+    try:
+        await klippy_apis.start_print(path, user=user)
+        return print_result(started=True)
+    except Exception as e:
+        logging.info(f"HelixPrint: not starting {path}: {e}")
+    if not getattr(file_manager, "queue_gcodes", False):
+        return print_result()
+    job_queue = server.lookup_component("job_queue", None)
+    if job_queue is None:
+        return print_result()
+    try:
+        await job_queue.queue_job(path, check_exists=False, user=user)
+    except Exception as e:
+        logging.info(f"HelixPrint: not queueing {path}: {e}")
+        return print_result()
+    return print_result(queued=True)

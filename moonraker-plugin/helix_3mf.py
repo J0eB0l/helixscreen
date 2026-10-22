@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import inspect
 import logging
 import os
 import shutil
@@ -28,7 +27,7 @@ import uuid
 import zipfile
 import zlib
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Tuple
 
 import helix_file_queue as file_queue
 
@@ -269,18 +268,7 @@ def plan_output(
     return "taken", "", False
 
 
-def upload_hook_shape_ok(method: Any) -> bool:
-    """Whether finalize_upload looks like the `async (form_args) -> dict` we wrap."""
-    if method is None or not inspect.iscoroutinefunction(method):
-        return False
-    try:
-        params = list(inspect.signature(method).parameters.values())
-    except (TypeError, ValueError):
-        return False
-    return len(params) == 1 and params[0].kind in (
-        inspect.Parameter.POSITIONAL_ONLY,
-        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-    )
+upload_hook_shape_ok = file_queue.upload_hook_shape_ok
 
 
 # =============================================================================
@@ -295,10 +283,11 @@ class _Request:
         self.waiters: List[asyncio.Future] = []
 
 
-def _print_result(started: bool = False, queued: bool = False) -> Dict[str, bool]:
-    """What a conversion did about a requested print, in the shape of
-    Moonraker's upload response."""
-    return {"print_started": started, "print_queued": queued}
+_print_result = file_queue.print_result
+
+# Asked before every print this converter starts, with the output's
+# gcodes-relative path; False keeps the output uploaded and unstarted.
+StartGate = Callable[[str], Awaitable[bool]]
 
 
 class Helix3mfConverter(file_queue.FileTracker):
@@ -334,6 +323,7 @@ class Helix3mfConverter(file_queue.FileTracker):
         self._store = file_queue.RecordStore(
             lambda: self.database, DB_NAMESPACE, ".3mf conversion")
         self._original_finalize: Optional[Callable] = None
+        self.start_gate: Optional[StartGate] = None
         # Owned outputs whose delete was refused because a print holds them.
         self._deferred_deletes: List[Conversion] = []
 
@@ -555,10 +545,14 @@ class Helix3mfConverter(file_queue.FileTracker):
                     outcome = await self._start_print(output, user)
             else:
                 want_start = start_print and not multi
+                # A gated start publishes the output first, then asks the gate.
+                gated = want_start and self.start_gate is not None
                 wrote = await self._write_output(
-                    conv, full, output, usize, want_start, user, plan_args
+                    conv, full, output, usize, want_start and not gated, user, plan_args
                 )
-                if want_start:
+                if gated and conv.state == STATE_DONE:
+                    outcome = await self._start_print(output, user)
+                elif want_start:
                     outcome = wrote
             results.append(conv)
             if conv.state == STATE_FAILED:
@@ -690,25 +684,12 @@ class Helix3mfConverter(file_queue.FileTracker):
         return await self._start_print(group[0].output, user)
 
     async def _start_print(self, output: str, user: Any) -> Dict[str, bool]:
-        """Start @p output as Moonraker's own upload path would: start it, and
-        when that is refused (a print running) queue it if the file manager
-        queues uploads."""
-        try:
-            await self.klippy_apis.start_print(output, user=user)
-            return _print_result(started=True)
-        except Exception as e:
-            logging.info(f"HelixPrint: not starting {output}: {e}")
-        if not getattr(self.file_manager, "queue_gcodes", False):
+        """Start @p output as Moonraker's own upload path would, once the
+        start gate, when one is set, allows it."""
+        if self.start_gate is not None and not await self.start_gate(output):
             return _print_result()
-        job_queue = self.server.lookup_component("job_queue", None)
-        if job_queue is None:
-            return _print_result()
-        try:
-            await job_queue.queue_job(output, check_exists=False, user=user)
-        except Exception as e:
-            logging.info(f"HelixPrint: not queueing {output}: {e}")
-            return _print_result()
-        return _print_result(queued=True)
+        return await file_queue.start_or_queue(
+            self.server, self.klippy_apis, self.file_manager, output, user)
 
     # -- cleanup -------------------------------------------------------------
 

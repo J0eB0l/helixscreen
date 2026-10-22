@@ -157,6 +157,7 @@ helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
 helix_analysis = _load_sibling("helix_analysis")
+helix_fitcheck = _load_sibling("helix_fitcheck")
 helix_journal = _load_sibling("helix_journal")
 helix_config = _load_sibling("helix_config")
 helix_edits = _load_sibling("helix_edits")
@@ -469,6 +470,7 @@ class HelixPrint:
         self.converter: Optional[Any] = None
         self.plr: Optional[Any] = None
         self.analysis: Optional[Any] = None
+        self.fit_check: Optional[Any] = None
         self.journal: Optional[Any] = None
         self.print_hooks: Optional[Any] = None
 
@@ -775,6 +777,7 @@ class HelixPrint:
         await self._start_isolated("config_edit", True, self._start_config)
         await self._start_isolated("server_edits", False, self._start_edits)
         await self._start_isolated("print_hooks", True, self._start_print_hooks)
+        await self._start_isolated("fit_check_blocks_autostart", True, self._start_fit_check)
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -968,7 +971,28 @@ class HelixPrint:
             acts=True,
         )
 
+    def _start_fit_check(self) -> None:
+        """File-fits-printer check (helix_fitcheck.py): holds a slicer's
+        upload-and-print while the file breaks a printer limit, opted into
+        through plugin_features. It reads file analysis' records, so it starts
+        after that and after the .3mf converter whose starts it gates."""
+        if helix_fitcheck is None:
+            self.register_feature(
+                "fit_check_blocks_autostart", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_fitcheck", "module_missing"),
+            )
+            return
+        self.fit_check = helix_fitcheck.FitCheck(self)
+        self.fit_check.start()
+        self.register_feature(
+            helix_fitcheck.FIT_CHECK_FEATURE, helix_fitcheck.FIT_CHECK_FEATURE_VERSION,
+            acts=True, probe=self.fit_check.availability,
+        )
+
     async def close(self) -> None:
+        if self.fit_check is not None:
+            # Before the converter, whose upload hook this one wraps.
+            self.fit_check.close()
         if self.analysis is not None:
             await self.analysis.close()
         if self.plr is not None:
