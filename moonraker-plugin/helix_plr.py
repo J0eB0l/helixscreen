@@ -1745,8 +1745,10 @@ class HelixPlr:
                 purge = helix_plr_render.generic_purge_xy(objects, bed[0], bed[1])
             if purge is None:
                 warnings.append("no_purge_location")
+        excluded = list(snapshot.get("excluded") or [])
         if qidi:
             self._check_qidi_landing(snapshot, job.get("mesh"))
+            self._check_qidi_open_object(point.state.current_object, excluded)
         if tier == 1 and not qidi and purge is None and self.park_xy is None:
             # Nowhere known to be off the part: the nozzle would heat and ooze
             # over the resume point the jog left it at.
@@ -1770,7 +1772,7 @@ class HelixPlr:
             lift_mm=helix_plr_render.lift_height(
                 profile.z_lift_mm, live[2], self.axis_max[2] if self.axis_max else None),
             snapshot=snapshot, object_defines=list(scan.object_defines),
-            excluded=list(snapshot.get("excluded") or []), mesh=mesh,
+            excluded=excluded, mesh=mesh,
             mesh_loadable=mesh_loadable, purge_xy=purge, nozzle_target=nozzle,
             bed_target=bed_target, chamber=chamber, macro_vars=macro_vars or {},
             method=point.method, retrace_estimate_mm=point.retrace_estimate_mm,
@@ -1820,6 +1822,15 @@ class HelixPlr:
         if landing < -QIDI_LANDING_TOL_MM:
             raise self._error("plr_scan_failed",
                               "qidi_landing_below_part: %.3f mm" % landing, 400)
+
+    def _check_qidi_open_object(self, name: Optional[str], excluded: List[str]) -> None:
+        """QIDI's resume starts the file at the offset with no object entered
+        (it has no row for one, and nothing runs between its restore and the
+        file), so the rest of an object block open there prints regardless of
+        exclusion. Refuse when that object is excluded."""
+        if name and name.upper() in (e.upper() for e in excluded):
+            raise self._error("plr_scan_failed",
+                              "qidi_excluded_object_open: %s" % name, 400)
 
     def _check_printed_file(self) -> None:
         """The generic start selects the job's file; the offset was found in
@@ -2115,6 +2126,9 @@ class HelixPlr:
                 if plan.backend == "qidi_print_state":
                     await self._commit_qidi(plan)
                 else:
+                    # Rendered before anything moves: a name it cannot send
+                    # refuses the commit here, not after the purge.
+                    start = helix_plr_render.render_start(plan)
                     # Back to print temperature where the nozzle stands, before
                     # the tier-1 Z reference or any other move.
                     await self._heat(plan, self._skip_chamber, nozzle_in_place=True)
@@ -2126,7 +2140,7 @@ class HelixPlr:
                                 plan_id, step, "extruder",
                                 plan.nozzle_target - helix_plr_render.HEAT_TOLERANCE_C,
                                 NOZZLE_WAIT_TIMEOUT_S)
-                    await self._start(plan)
+                    await self._start(plan, start)
             except Exception:
                 if self._sequence == "committing":
                     self._sequence = "failed"
@@ -2194,7 +2208,7 @@ class HelixPlr:
                 or (printed and Path(printed).resolve() != Path(name).resolve()):
             raise self._error("plr_scan_failed", "qidi_cache_mismatch: %s" % name, 409)
 
-    async def _start(self, plan: Any) -> None:
+    async def _start(self, plan: Any, start: str) -> None:
         """Mark the job helix-initiated, then the single start command."""
         self._check_abort()
         gc_path = self.helix.gc_path
@@ -2215,7 +2229,7 @@ class HelixPlr:
         self.helix.mark_helix_initiated(plan.start_name, "plr_resume", plan.history_name)
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
-            await self.helix.klippy_apis.run_gcode(helix_plr_render.render_start(plan))
+            await self.helix.klippy_apis.run_gcode(start)
         except Exception as e:
             self.helix.unmark_helix_initiated(plan.start_name)
             if link is not None:

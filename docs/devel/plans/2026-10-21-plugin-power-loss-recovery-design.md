@@ -421,14 +421,25 @@ QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified 
    at that height, then lifts again.
 7. Restore state: mesh (§ 6.4), `SET_GCODE_OFFSET`, `SET_PRESSURE_ADVANCE` per extruder,
    `SET_VELOCITY_LIMIT`, `SET_RETRACTION`, `M220`/`M221`, heater targets other than bed,
-   `EXCLUDE_OBJECT_DEFINE` lines from the scan then `EXCLUDE_OBJECT NAME=` per exclusion,
-   `SET_PRINT_STATS_INFO`, `SET_GCODE_VARIABLE` per saved macro var.
+   `SET_GCODE_VARIABLE` per saved macro var. Object and layer state wait for step 10: `M23`
+   resets them.
 8. Nozzle: move to the purge location, re-assert its target and wait (hot already from step 6),
    purge (`profile.purge_gcode` or the generic purge at
    a part-free bed edge computed from object polygons and bed limits), wipe.
 9. Return: travel at the lifted height to the resume line's start XY, lower to its Z at `F300`,
    restore G90/G91, M82/M83, `G92 E<logical E>`, F, fans, retract state.
-10. Start: `M23 <file>`, `M26 S<offset>`, `M24`. Mainline `M23` does not search subdirectories
+10. Start: `M23 <file>`, `M26 S<offset>`, then the state selecting a file clears, then `M24`.
+    `M23` runs `virtual_sdcard`'s `_reset_file`, whose `virtual_sdcard:reset_file` event clears
+    `exclude_object` (objects, exclusions, the current object) and `print_stats`' layer info
+    [src: `kalico/klippy/extras/virtual_sdcard.py#cmd_M23`, `exclude_object.py#_reset_file`], so
+    between `M26` and `M24` go the `EXCLUDE_OBJECT_DEFINE` lines from the scan, `EXCLUDE_OBJECT
+    NAME=` per exclusion, `SET_PRINT_STATS_INFO`, and, when the resume offset lies inside an
+    object's `EXCLUDE_OBJECT_START`/`END` block (`ModalState.current_object` at the resume line),
+    `EXCLUDE_OBJECT_START NAME=<that object>`. Without it the block's `EXCLUDE_OBJECT_END` reports
+    `does not match the current object NAME=None` and the object cannot be excluded for the rest
+    of the block; after the exclusions, an excluded object's remainder is skipped to its `END`
+    (`exclude_object.py#_test_in_excluded_region`). The start text is rendered before step 6, so a
+    name it cannot send refuses the commit before anything moves. Mainline `M23` does not search subdirectories
     (Kalico has `with_subdirs`) [src], so for a file in a subfolder the plugin points a root-level
     symlink at it and attributes the history entry back to the original name with the existing
     `helix_print.py#_patch_history_entry` path. Immediately before sending the start (`M23`,
@@ -876,6 +887,16 @@ print is off by `(physical Z at the cut) - (row z)`.
 
 - Objects: with more than 64 objects QIDI clears all objects AND exclusions before resuming, so
   excluded objects print again. Object names go into `EXCLUDE_OBJECT_DEFINE NAME=<name>` unquoted.
+- An object open at the resume point (known gap): the offset can fall inside an object's
+  `EXCLUDE_OBJECT_START`/`END` block, and QIDI starts the file there with no object entered. It
+  has no row for one, nothing can run between its action lines and the file, and moving the
+  offset back to the block's `START` would print the moves between it and the offset again. So
+  the rest of that block prints outside any object: its `END` logs `EXCLUDE_OBJECT_END NAME=<obj>
+  does not match the current object NAME=None` (both Q2 resumes on 2026-10-22), and excluding
+  that object from the screen before the block ends does not stop it. Later blocks are tracked
+  normally. When the open object was excluded before the cut, its remainder would print, so the
+  plan is refused (`plr_scan_failed: qidi_excluded_object_open`); the generic path handles both
+  cases (§ 6.3 step 10).
 - The file QIDI prints: every job runs from QIDI's `.cache` copy
   (`klippy_apis.py#KlippyAPI.start_print`), and a `.3mf` from the extracted
   `Metadata/plate_<n>.gcode` (`virtual_sdcard.py#VirtualSD._load_file`). `file_position` counts

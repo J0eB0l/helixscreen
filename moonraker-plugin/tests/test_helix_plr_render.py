@@ -151,9 +151,6 @@ def test_tier2_commit_golden():
         "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45",
         "SET_HEATER_TEMPERATURE HEATER=dryer TARGET=50",
         "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=mcu TARGET=40",
-        "EXCLUDE_OBJECT_DEFINE NAME=part_a CENTER=110,95",
-        "EXCLUDE_OBJECT NAME=part_b",
-        "SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
         "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=count VALUE=3",
     ]
     assert heat == ["G90", "G1 X5 Y5 F6000", "G1 Z0.3 F300", "M104 S220"]
@@ -218,8 +215,34 @@ def test_include_file_mesh_loads_the_plr_profile():
 
 
 def test_start_selects_seeks_and_starts():
-    assert render_start(plan()) == "M23 helix_plr_resume.gcode\nM26 S123456\nM24"
+    assert render_start(plan()).split("\n") == [
+        "M23 helix_plr_resume.gcode",
+        "M26 S123456",
+        "EXCLUDE_OBJECT_DEFINE NAME=part_a CENTER=110,95",
+        "EXCLUDE_OBJECT NAME=part_b",
+        "SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
+        "M24",
+    ]
     assert render_start(plan(start_name="part.gcode")).startswith("M23 part.gcode\n")
+    bare = plan(object_defines=[], excluded=[], layer=None, total_layers=None)
+    assert render_start(bare) == "M23 helix_plr_resume.gcode\nM26 S123456\nM24"
+
+
+def test_selecting_the_file_is_followed_by_the_state_it_clears():
+    """M23 resets exclude_object and print_stats' layer info, so nothing the
+    commit steps send may carry them."""
+    lines = flat(render_commit_script(plan(), PROFILE, "trusted"))
+    assert not any(l.startswith(("EXCLUDE_OBJECT", "SET_PRINT_STATS_INFO")) for l in lines)
+
+
+def test_start_reenters_the_object_the_resume_point_is_in():
+    s = resume_state()
+    s.current_object = "box.stl_id_0_copy_0"
+    lines = render_start(plan(state=s, excluded=["BOX.STL_ID_0_COPY_0"])).split("\n")
+    # After the exclusions, so an excluded object's remainder is skipped to its END.
+    assert lines[-3:] == ["SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
+                          "EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0", "M24"]
+    assert lines.index("EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0") < len(lines) - 2
 
 
 def test_restores_summary():
@@ -258,7 +281,11 @@ def test_gcode_param_refuses_what_klipper_would_cut(value):
 
 def test_unsafe_names_from_status_refuse_the_render():
     with pytest.raises(UnsafeValue):
-        render_commit_script(plan(excluded=["evil\nG28"]), PROFILE, "trusted")
+        render_start(plan(excluded=["evil\nG28"]))
+    s = resume_state()
+    s.current_object = "evil;G28"
+    with pytest.raises(UnsafeValue):
+        render_start(plan(state=s))
 
 
 def test_lift_height():

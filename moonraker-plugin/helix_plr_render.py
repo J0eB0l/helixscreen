@@ -367,16 +367,6 @@ def _restore_lines(plan: ResumePlan) -> List[str]:
         elif name.startswith("heater_generic "):
             out.append("SET_HEATER_TEMPERATURE HEATER=%s TARGET=%s"
                        % (gcode_param(name.split(" ", 1)[1]), _f(target)))
-    out.extend(plan.object_defines)
-    for name in plan.excluded:
-        out.append("EXCLUDE_OBJECT NAME=%s" % gcode_param(name))
-    info = ["SET_PRINT_STATS_INFO"]
-    if plan.total_layers is not None:
-        info.append("TOTAL_LAYER=%d" % plan.total_layers)
-    if plan.layer is not None:
-        info.append("CURRENT_LAYER=%d" % plan.layer)
-    if len(info) > 1:
-        out.append(" ".join(info))
     for macro, values in sorted(plan.macro_vars.items()):
         for var, value in sorted(values.items()):
             out.append("SET_GCODE_VARIABLE MACRO=%s VARIABLE=%s VALUE=%s" % (
@@ -484,9 +474,33 @@ def render_commit_script(plan: ResumePlan, profile: Any,
     return steps
 
 
+def _file_state_lines(plan: ResumePlan) -> List[str]:
+    """What selecting the file clears: M23 resets exclude_object (objects,
+    exclusions, the current object) and print_stats' layer info, so these
+    run between M23 and M24.
+
+    The resume offset can fall inside an object's EXCLUDE_OBJECT_START/END
+    block; the object is entered again, so the block's END matches and an
+    object the user excluded stays skipped to its END."""
+    out = list(plan.object_defines)
+    for name in plan.excluded:
+        out.append("EXCLUDE_OBJECT NAME=%s" % gcode_param(name))
+    info = ["SET_PRINT_STATS_INFO"]
+    if plan.total_layers is not None:
+        info.append("TOTAL_LAYER=%d" % plan.total_layers)
+    if plan.layer is not None:
+        info.append("CURRENT_LAYER=%d" % plan.layer)
+    if len(info) > 1:
+        out.append(" ".join(info))
+    if plan.state.current_object:
+        out.append("EXCLUDE_OBJECT_START NAME=%s" % gcode_param(plan.state.current_object))
+    return out
+
+
 def render_start(plan: ResumePlan) -> str:
-    """The single start command: select, seek, start."""
-    return "\n".join(["M23 %s" % plan.start_name, "M26 S%d" % plan.resume_offset, "M24"])
+    """The single start command: select, seek, the state selecting cleared, start."""
+    return "\n".join(["M23 %s" % plan.start_name, "M26 S%d" % plan.resume_offset]
+                     + _file_state_lines(plan) + ["M24"])
 
 
 def required_confirmations(tier: int, warnings: Sequence[str], bed_cold: bool) -> List[str]:

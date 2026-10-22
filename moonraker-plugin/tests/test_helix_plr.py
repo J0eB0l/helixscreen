@@ -986,19 +986,35 @@ class Req:
         return self.params.get(key, default)
 
 
-def straight_layers():
+def straight_layers(object_name=None):
+    """Five layers of 100 moves; with object_name, each layer's moves are
+    one EXCLUDE_OBJECT_START/END block."""
     out = ["M83", "G1 F600"]
     for n in range(1, 6):
         out += [";LAYER_CHANGE", "SET_PRINT_STATS_INFO CURRENT_LAYER=%d" % n,
                 "G1 Z%.1f" % (n * 0.2)]
+        if object_name:
+            out.append("EXCLUDE_OBJECT_START NAME=%s" % object_name)
         out += ["G1 X%d Y10 E.05" % i for i in range(1, 101)]
+        if object_name:
+            out.append("EXCLUDE_OBJECT_END NAME=%s" % object_name)
     return ("\n".join(out) + "\n").encode()
 
 
 @pytest.fixture
 def resume(plr, helix):
     """A tier-2 printer after a power cut during layer 4 of sub/part.gcode."""
-    data = straight_layers()
+    return power_cut_in_layer_4(plr, helix, straight_layers())
+
+
+@pytest.fixture
+def resume_in_object(plr, helix):
+    """The same cut, in a file whose layers are each one object's block: the
+    resume point falls inside the block."""
+    return power_cut_in_layer_4(plr, helix, straight_layers("box.stl_id_0_copy_0"))
+
+
+def power_cut_in_layer_4(plr, helix, data):
     path = helix.gc_path / "sub" / "part.gcode"
     path.write_bytes(data)
     plr._follow_executor = SyncExecutor()
@@ -1327,6 +1343,40 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     assert commit[0] == "M140 S60"                          # the bed is re-asserted first
 
 
+def test_a_resume_inside_an_object_enters_it_again(plr, helix, resume_in_object):
+    reply = run(plr.handle_plan(Req()))
+    layer4 = resume_in_object.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    assert reply["resume_offset"] == resume_in_object.index(b"G1 X49 Y10", layer4)
+    full_resume(plr, reply["plan_id"])
+    start = sent(helix)[-1].split("\n")
+    assert start[0].startswith("M23 ") and start[1].startswith("M26 S")
+    assert start[-2:] == ["EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0", "M24"]
+
+
+def test_an_excluded_object_open_at_the_resume_point_stays_skipped(plr, helix, resume_in_object):
+    record = plr.store.load()
+    record["excluded"] = ["BOX.STL_ID_0_COPY_0"]
+    plr.store.write(fit_record(record)[0])
+    full_resume(plr, run(plr.handle_plan(Req()))["plan_id"])
+    start = sent(helix)[-1].split("\n")
+    # Klipper skips an excluded object's moves from its START to its END.
+    assert start.index("EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0") \
+        < start.index("EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0") < start.index("M24")
+
+
+def test_a_name_the_start_cannot_send_refuses_before_anything_moves(plr, helix, resume):
+    record = plr.store.load()
+    record["excluded"] = ["evil\nG28"]
+    plr.store.write(fit_record(record)[0])
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    before = len(sent(helix))
+    with pytest.raises(Exception):
+        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                  confirmations={"part_attached": True, "z_confirmed": True})))
+    assert not any(l.startswith(("G1", "M23")) for c in sent(helix)[before:] for l in c.split("\n"))
+
+
 def test_commit_refuses_missing_confirmations_and_the_wrong_z(plr, resume):
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     run(plr.handle_prepare(Req(plan_id=plan_id)))
@@ -1580,6 +1630,33 @@ def qidi_resume(plr, helix, resume, qidi_printer):
     (cache / "part.gcode").write_bytes(resume)
     table.rows["file_position"] = "1"
     return table, cache
+
+
+@pytest.fixture
+def qidi_resume_in_object(plr, helix, resume_in_object, qidi_printer):
+    table, cache = qidi_printer
+    (cache / "part.gcode").write_bytes(resume_in_object)
+    table.rows["file_position"] = "1"
+    return table, cache
+
+
+def test_qidi_resumes_inside_an_object_it_cannot_enter(plr, helix, qidi_resume_in_object):
+    """Known gap: QIDI starts the file inside the block with no object
+    entered; Klipper prints it and reports the END as not matching."""
+    _, cache = qidi_resume_in_object
+    data = (cache / "part.gcode").read_bytes()
+    reply = run(plr.handle_plan(Req()))
+    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    assert data.index(b"EXCLUDE_OBJECT_START", layer4) < reply["resume_offset"] \
+        < data.index(b"EXCLUDE_OBJECT_END", layer4)
+
+
+def test_qidi_refuses_a_resume_inside_an_excluded_object(plr, helix, qidi_resume_in_object):
+    record = plr.store.load()
+    record["excluded"] = ["BOX.STL_ID_0_COPY_0"]
+    plr.store.write(fit_record(record)[0])
+    with pytest.raises(Exception, match="plr_scan_failed: qidi_excluded_object_open"):
+        run(plr.handle_plan(Req()))
 
 
 def test_qidi_status_and_offer(plr, helix, qidi_resume):
