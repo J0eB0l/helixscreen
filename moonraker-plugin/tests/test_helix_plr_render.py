@@ -80,7 +80,7 @@ def flat(steps):
 
 
 def test_tier2_prepare_is_lift_then_home():
-    steps = render_prepare_script(plan(), PROFILE)
+    steps = render_prepare_script(plan(), PROFILE, 12.45, 5.0)
     assert steps == [
         ("lift", ["SET_KINEMATIC_POSITION Z=12.45 SET_HOMED=Z", "G91", "G1 Z5 F300", "G90"]),
         ("home_xy", ["G28 X Y"]),
@@ -88,11 +88,12 @@ def test_tier2_prepare_is_lift_then_home():
     assert not any(l.startswith(("M104", "M109")) for l in flat(steps))
 
 
-def test_a_lifted_nozzle_is_not_declared_at_the_snapshot_z_again():
-    lifted = render_prepare_script(plan(), PROFILE, lifted_z=17.45, z_homed=False)
-    assert lifted[0] == ("lift", ["SET_KINEMATIC_POSITION Z=17.45 SET_HOMED=Z"])
-    still_homed = render_prepare_script(plan(), PROFILE, lifted_z=17.45, z_homed=True)
-    assert [name for name, _ in still_homed] == ["home_xy"]
+def test_prepare_declares_and_lifts_only_as_asked():
+    declared = render_prepare_script(plan(), PROFILE, 17.45, 0.0)
+    assert declared[0] == ("lift", ["SET_KINEMATIC_POSITION Z=17.45 SET_HOMED=Z"])
+    homed = render_prepare_script(plan(), PROFILE, None, 3.0)
+    assert homed[0] == ("lift", ["G91", "G1 Z3 F300", "G90"])
+    assert [name for name, _ in render_prepare_script(plan(), PROFILE, None, 0.0)] == ["home_xy"]
 
 
 def test_heat_wait_sets_then_waits_without_blocking_gcode():
@@ -106,7 +107,7 @@ def test_heat_wait_sets_then_waits_without_blocking_gcode():
 
 
 def test_tier1_prepare_stops_above_the_resume_point():
-    steps = render_prepare_script(plan(tier=1), PROFILE)
+    steps = render_prepare_script(plan(tier=1), PROFILE, 12.45, 5.0)
     assert steps[-1] == ("position", ["G90", "G1 X110.5 Y95.25 F6000"])
 
 
@@ -118,14 +119,15 @@ def test_skipping_the_chamber_wait_still_sets_the_chamber():
 
 def test_prepare_uses_the_profiles_xy_homing():
     steps = dict(render_prepare_script(plan(),
-                                       PlrProfile(tier=2, xy_home_gcode="G28 X\nG28 Y\n")))
+                                       PlrProfile(tier=2, xy_home_gcode="G28 X\nG28 Y\n"),
+                                       12.45, 5.0))
     assert steps["home_xy"] == ["G28 X", "G28 Y"]
 
 
 def test_tier2_commit_golden():
     steps = render_commit_script(plan(), PROFILE, "trusted")
-    assert [name for name, _ in steps] == ["restore", "heat_nozzle", "move_to_resume"]
-    restore, purge, ret = (lines for _, lines in steps)
+    assert [name for name, _ in steps] == ["restore", "heat_nozzle", "purge", "move_to_resume"]
+    restore, heat, purge, ret = (lines for _, lines in steps)
     assert restore == [
         "BED_MESH_PROFILE LOAD=default",
         "SET_GCODE_OFFSET X=0 Y=0 Z=0.05",
@@ -141,9 +143,9 @@ def test_tier2_commit_golden():
         "SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
         "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=count VALUE=3",
     ]
+    assert heat == ["G90", "G1 X5 Y5 F6000", "G1 Z0.3 F300", "M104 S220"]
     assert purge == [
-        "G90", "G1 X5 Y5 F6000", "G1 Z0.3 F300", "M109 S220", "M83",
-        "G1 X65 Y5 E12 F1200", "G1 E-0.8 F2100", "G1 X5 Y5 F6000", "G1 Z17.4 F300",
+        "M83", "G1 X65 Y5 E12 F1200", "G1 E-0.8 F2100", "G1 X5 Y5 F6000", "G1 Z17.4 F300",
     ]
     assert ret == [
         "G90", "G1 Z17.4 F300", "G1 X110.5 Y95.25 F6000", "G1 Z12.4 F300",
@@ -154,7 +156,8 @@ def test_tier2_commit_golden():
 
 def test_commit_never_heats_the_nozzle_over_the_part():
     lines = flat(render_commit_script(plan(), PROFILE, "trusted"))
-    heat = lines.index("M109 S220")
+    assert "M109 S220" not in lines                  # the plugin polls the nozzle instead
+    heat = lines.index("M104 S220")
     assert lines[heat - 1] == "G1 Z0.3 F300" and lines[heat - 2] == "G1 X5 Y5 F6000"
 
 
@@ -176,14 +179,15 @@ def test_commit_restores_the_chamber_once_and_the_retract_state():
 
 
 def test_purge_macro_replaces_the_generic_purge():
-    purge = dict(render_commit_script(plan(), PlrProfile(tier=2, purge_gcode="PURGE_LINE\nWIPE"),
-                                      "trusted"))["heat_nozzle"]
-    assert purge == ["M109 S220", "PURGE_LINE", "WIPE"]
+    steps = dict(render_commit_script(plan(), PlrProfile(tier=2, purge_gcode="PURGE_LINE\nWIPE"),
+                                      "trusted"))
+    assert steps["heat_nozzle"] == ["M104 S220"] and steps["purge"] == ["PURGE_LINE", "WIPE"]
 
 
 def test_no_purge_location_primes_at_the_home_position():
-    purge = dict(render_commit_script(plan(purge_xy=None), PROFILE, "trusted"))["heat_nozzle"]
-    assert purge[0] == "M109 S220" and not any(l.startswith("G1 X") for l in purge)
+    steps = dict(render_commit_script(plan(purge_xy=None), PROFILE, "trusted"))
+    assert steps["heat_nozzle"] == ["M104 S220"]
+    assert not any(l.startswith("G1 X") for l in steps["purge"])
 
 
 def test_restore_without_a_mesh_or_layers():
@@ -336,10 +340,11 @@ def test_without_a_purge_line_the_nozzle_heats_at_the_park_position():
     purge = dict(render_commit_script(plan(tier=1, part_top_z=12.0, purge_xy=None,
                                            park_xy=(220.0, 220.0)), PROFILE,
                                       "part_top"))["heat_nozzle"]
-    assert purge[:4] == ["G90", "G1 Z17.4 F300", "G1 X220 Y220 F6000", "M109 S220"]
+    assert purge == ["G90", "G1 Z17.4 F300", "G1 X220 Y220 F6000", "M104 S220"]
 
 
 def test_a_purge_macro_heats_at_the_park_position_too():
-    purge = dict(render_commit_script(plan(park_xy=(0.0, 0.0)),
-                                      PlrProfile(tier=2, purge_gcode="PURGE"), "trusted"))["heat_nozzle"]
-    assert purge == ["G90", "G1 Z17.4 F300", "G1 X0 Y0 F6000", "M109 S220", "PURGE"]
+    steps = dict(render_commit_script(plan(park_xy=(0.0, 0.0)),
+                                      PlrProfile(tier=2, purge_gcode="PURGE"), "trusted"))
+    assert steps["heat_nozzle"] == ["G90", "G1 Z17.4 F300", "G1 X0 Y0 F6000", "M104 S220"]
+    assert steps["purge"] == ["PURGE"]

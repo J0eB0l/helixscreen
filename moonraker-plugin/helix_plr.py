@@ -215,6 +215,8 @@ class HomingCheck(NamedTuple):
     xy_home_safe: bool
     # "override_homes_z" | "override_sets_z" | "override_unknown" | "delta_kinematics" | None
     reason: Optional[str]
+    # A [homing_override] runs for G28 X Y (it may home only unhomed axes).
+    has_override: bool = False
 
 
 # Commands a homing_override may run without making `G28 X Y` unsafe. Anything
@@ -230,10 +232,13 @@ _OVERRIDE_SAFE_COMMANDS = frozenset((
 def _override_problem(gcode: str) -> Optional[str]:
     """Why a homing_override's gcode makes `G28 X Y` unsafe, or None: a G28
     that homes Z (or a bare G28), or any command not known to be harmless.
-    Template lines ({% ... %}) are skipped; their commands are read."""
+    Template tags ({% ... %}, {{ ... }}) are dropped and the commands
+    around them read, so a one-line `{% if %}_HOME_Z{% endif %}` counts."""
+    import re
     for line in gcode.splitlines():
-        words = line.split(";", 1)[0].upper().split()
-        if not words or words[0].startswith("{"):
+        line = re.sub(r"\{%.*?%\}|\{\{.*?\}\}|\{.*?\}", " ", line.split(";", 1)[0])
+        words = line.upper().split()
+        if not words:
             continue
         if words[0] == "G28":
             axes = [w for w in words[1:] if w[:1] in ("X", "Y", "Z")]
@@ -267,14 +272,14 @@ def check_xy_homing(configfile_settings: Any, kinematics: str) -> HomingCheck:
     if override.get("set_position_z") is not None:
         # Klipper declares Z after the override runs, replacing the frame
         # prepare declared from the snapshot.
-        return HomingCheck(False, "override_sets_z")
+        return HomingCheck(False, "override_sets_z", True)
     gcode = override.get("gcode", "")
     if isinstance(gcode, list):
         gcode = "\n".join(str(g) for g in gcode)
     problem = _override_problem(str(gcode))
     if problem is not None:
-        return HomingCheck(False, problem)
-    return HomingCheck(True, None)
+        return HomingCheck(False, problem, True)
+    return HomingCheck(True, None, True)
 
 
 def effective_tier(profile: PlrProfile, homing: HomingCheck) -> Tuple[int, Optional[str]]:
@@ -869,7 +874,7 @@ class HelixPlr:
         self._pending = None  # type: Optional[Any]
         self._pending_id = None  # type: Optional[str]
         self._sequence = None  # type: Optional[str]
-        self._abort = False
+        self._run = None  # type: Optional[_Run]
         self._bed_now = None  # type: Optional[float]
         self._plan_file_size = None  # type: Optional[int]
         self._klippy_generation = 0
@@ -1558,7 +1563,7 @@ class HelixPlr:
         return self._plan_executor.submit(fn, *args)
 
     async def handle_plan(self, web_request: Any) -> Dict[str, Any]:
-        if self._sequence in ("preparing", "committing"):
+        if self._busy():
             raise self._error("plr_busy", "a resume is running", 409)
         snapshot = self._load_snapshot()
         profile = await self.profile()
@@ -1679,6 +1684,11 @@ class HelixPlr:
                 warnings.append("no_purge_location")
         if qidi:
             self._check_qidi_landing(snapshot, job.get("mesh"))
+        if tier == 1 and not qidi and purge is None and self.park_xy is None:
+            # Nowhere known to be off the part: the nozzle would heat and ooze
+            # over the resume point the jog left it at.
+            raise self._error("plr_scan_failed", "no_purge_location: no purge line and no XY "
+                              "homing position to heat the nozzle at", 400)
         part_top = _part_top_z(scan, point)
         if tier == 1 and part_top is None and not qidi:
             raise self._error("plr_scan_failed", "no_part_top: no extrusion before the resume point",
@@ -1795,8 +1805,13 @@ class HelixPlr:
 
     # -- prepare / commit ----------------------------------------------------
 
+    def _busy(self) -> bool:
+        """A prepare or commit has not exited yet, whatever its label says
+        (an aborted one runs until its current step returns)."""
+        return self._run is not None and not self._run.finished
+
     def _check_abort(self) -> None:
-        if self._abort:
+        if self._run is not None and self._run.aborted:
             raise self._error("plr_klippy_error", "aborted", 409)
 
     async def _send(self, plan_id: str, step: str, lines: List[str], done: bool = True) -> None:
@@ -1813,33 +1828,31 @@ class HelixPlr:
         if done:
             self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "done"})
 
-    async def _run_steps(self, plan_id: str, steps: List[Tuple[str, List[str]]]) -> None:
-        for step, lines in steps:
-            await self._send(plan_id, step, lines)
+    async def _wait_temp(self, plan_id: str, step: str, sensor: str, minimum: float,
+                         timeout: float) -> None:
+        """Poll a heater to `minimum` in slices an abort can interrupt; the
+        heater's set command was sent by the step itself."""
+        started = self.clock()
+        while True:
+            self._check_abort()
+            temp = _num(_obj(await self._query({sensor: ["temperature"]}), sensor)
+                        .get("temperature"))
+            if temp is not None and temp >= minimum:
+                break
+            if self.clock() - started >= timeout:
+                self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "failed"})
+                raise self._error("plr_klippy_error", "%s timed out at %s" % (step, temp), 504)
+            await self._sleep(HEAT_POLL_S)
+        self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "done"})
 
     async def _heat(self, plan: Any, skip_chamber: bool = False) -> None:
-        """§ 6.3 step 2: set each heater, then poll it to temperature in
-        slices an abort can interrupt, with a timeout."""
-        import asyncio
+        """§ 6.3 step 2: set each heater, then poll it to temperature."""
         for heat in helix_plr_render.render_heat_wait(plan, skip_chamber):
             await self._send(plan.plan_id, heat.step, heat.lines, done=not heat.wait)
-            if not heat.wait:
-                continue
-            timeout = CHAMBER_WAIT_TIMEOUT_S if heat.sensor != "heater_bed" else BED_WAIT_TIMEOUT_S
-            started = self.clock()
-            while True:
-                self._check_abort()
-                temp = _num(_obj(await self._query({heat.sensor: ["temperature"]}),
-                                 heat.sensor).get("temperature"))
-                if temp is not None and temp >= heat.minimum:
-                    break
-                if self.clock() - started >= timeout:
-                    self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": heat.step,
-                                                  "state": "failed"})
-                    raise self._error("plr_klippy_error", "%s timed out at %s" % (heat.step, temp), 504)
-                await self._sleep(HEAT_POLL_S)
-            self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": heat.step,
-                                          "state": "done"})
+            if heat.wait:
+                timeout = BED_WAIT_TIMEOUT_S if heat.sensor == "heater_bed" \
+                    else CHAMBER_WAIT_TIMEOUT_S
+                await self._wait_temp(plan.plan_id, heat.step, heat.sensor, heat.minimum, timeout)
 
     async def _heaters_off(self, plan: Any) -> None:
         lines = ["M104 S0", "M140 S0"]
@@ -1853,25 +1866,29 @@ class HelixPlr:
         except Exception as e:
             logging.warning("HelixPrint: PLR could not turn the heaters off: %s", e)
 
-    async def _check_ready(self) -> str:
-        """Klipper ready and idle; returns toolhead.homed_axes."""
+    async def _check_ready(self) -> Tuple[str, Optional[float]]:
+        """Klipper ready and idle; returns (toolhead.homed_axes, toolhead Z)."""
         if not self.klippy_ready:
             raise self._error("plr_klippy_error", "Klipper is not ready", 503)
-        status = await self._query({"print_stats": ["state"], "toolhead": ["homed_axes"]})
+        status = await self._query({"print_stats": ["state"],
+                                    "toolhead": ["homed_axes", "position"]})
         state = _obj(status, "print_stats").get("state")
         if state in ("printing", "paused"):
             raise self._error("plr_busy", "printer is %s" % state, 409)
-        homed = _obj(status, "toolhead").get("homed_axes")
-        return homed.lower() if isinstance(homed, str) else ""
+        th = _obj(status, "toolhead")
+        homed = th.get("homed_axes")
+        position = _vec(th.get("position"), 3)
+        return (homed.lower() if isinstance(homed, str) else ""), \
+            (position[2] if position else None)
 
     def _claim(self, phase: str) -> Any:
-        """Single-flight: the sequence is taken before the first await, so a
-        second screen or a retry is refused rather than run alongside."""
-        if self._sequence in ("preparing", "committing"):
+        """Single flight: a new run only once the previous one has exited, and
+        taken before the first await. Each run has its own abort flag."""
+        if self._busy():
             raise self._error("plr_busy", "a resume is running", 409)
         previous = self._sequence
         self._sequence = phase
-        self._abort = False
+        self._run = _Run()
         return previous
 
     async def handle_prepare(self, web_request: Any) -> Dict[str, Any]:
@@ -1881,44 +1898,92 @@ class HelixPlr:
         if plan.tier < 1:
             raise self._error("plr_no_plan", "not_supported")
         previous = self._claim("preparing")
+        run = self._run
         try:
-            homed = await self._check_ready()
-            profile = await self.profile()
-        except Exception:
-            self._sequence = previous
-            raise
-        self._skip_chamber = skip_chamber
-        try:
-            await self._heat(plan, skip_chamber)
-            if plan.backend == "generic":
-                lifted = self._lifted_z(plan)
-                for step, lines in helix_plr_render.render_prepare_script(
-                        plan, profile, lifted, "z" in homed):
-                    await self._send(plan_id, step, lines)
-                    if step == "lift" and lifted is None:
-                        await self._note_lifted(plan)
-            self._check_abort()
-        except Exception:
-            if self._sequence == "preparing":
-                self._sequence = "failed"
-            await self._heaters_off(plan)
-            raise
-        self._sequence = "prepared"
-        self._prepared_generation = self._klippy_generation
-        return {"ok": True}
+            try:
+                homed, z_now = await self._check_ready()
+                profile = await self.profile()
+                motion = self._prepare_motion(plan, homed, z_now) \
+                    if plan.backend == "generic" else None
+            except Exception:
+                self._sequence = previous
+                raise
+            self._skip_chamber = skip_chamber
+            try:
+                await self._heat(plan, skip_chamber)
+                if motion is not None:
+                    declare, lift = motion
+                    for step, lines in helix_plr_render.render_prepare_script(
+                            plan, profile, declare, lift):
+                        if step == "home_xy":
+                            await self._check_set_homed(homed, profile)
+                        await self._send(plan_id, step, lines)
+                        if step == "lift":
+                            await self._note_lift((declare if declare is not None else z_now)
+                                                  + lift)
+                    if plan.tier == 1:
+                        # The jog moves the nozzle down from here.
+                        await self._forget_lift()
+                self._check_abort()
+            except Exception:
+                if self._sequence == "preparing":
+                    self._sequence = "failed"
+                await self._heaters_off(plan)
+                raise
+            self._sequence = "prepared"
+            self._prepared_generation = self._klippy_generation
+            return {"ok": True}
+        finally:
+            run.finished = True
 
-    def _lifted_z(self, plan: Any) -> Optional[float]:
+    def _prepare_motion(self, plan: Any, homed: str,
+                        z_now: Optional[float]) -> Tuple[Optional[float], float]:
+        """(Z to declare, lift) for the generic prepare, before anything moves.
+
+        Z homed: Klipper knows where the nozzle is, so nothing is declared
+        and the nozzle always lifts first (by what fits under the top of
+        travel). Z unhomed: the snapshot's Z on the first prepare, the
+        recorded lifted Z when nothing has moved the nozzle since that lift,
+        and otherwise nothing is known: refuse.
+        """
+        if "z" in homed:
+            room = plan.lift_mm
+            if self.axis_max and z_now is not None:
+                room = min(room, self.axis_max[2] - z_now - helix_plr_render.SAG_ALLOWANCE_MM)
+            return None, max(0.0, room)
         lifted = (self.job or {}).get("lifted")
-        if isinstance(lifted, dict) and lifted.get("seq") == self._plan_seq:
-            return _num(lifted.get("z"))
-        return None
+        if not isinstance(lifted, dict) or lifted.get("seq") != self._plan_seq:
+            return plan.z_physical, plan.lift_mm
+        if lifted.get("valid") and _num(lifted.get("z")) is not None:
+            return _num(lifted.get("z")), 0.0
+        raise self._error("plr_stale_plan", "position_unknown: the nozzle moved after its lift "
+                          "and Klipper lost Z; home Z away from the part, then resume", 409)
 
-    async def _note_lifted(self, plan: Any) -> None:
-        """Once the lift is sent the snapshot's Z is no longer the nozzle's:
-        any later prepare of this snapshot must not declare it again."""
+    async def _note_lift(self, z: float) -> None:
+        """The nozzle is lifted at kinematic `z`, valid until something moves it down."""
         if self.job is not None:
-            self.job["lifted"] = {"seq": self._plan_seq, "z": plan.z_physical + plan.lift_mm}
+            self.job["lifted"] = {"seq": self._plan_seq, "z": z, "valid": True}
             await self._ns_put(JOB_KEY, self.job)
+
+    async def _forget_lift(self) -> None:
+        """After a tier-1 prepare (the jog follows) and once commit starts, the
+        recorded lift no longer says where the nozzle is."""
+        lifted = (self.job or {}).get("lifted")
+        if isinstance(lifted, dict) and lifted.get("valid"):
+            lifted["valid"] = False
+            await self._ns_put(JOB_KEY, self.job)
+
+    async def _check_set_homed(self, homed_before: str, profile: PlrProfile) -> None:
+        """Klipper builds older than SET_KINEMATIC_POSITION's SET_HOMED mark
+        X and Y homed too; an XY homing that homes only unhomed axes (a
+        conditional macro, an override) would then skip them. Refuse before
+        homing in that case unless the profile names its own XY homing."""
+        homed_now, _ = await self._check_ready()
+        faked = any(a in homed_now and a not in homed_before for a in "xy")
+        if faked and self.homing.has_override \
+                and profile.xy_home_gcode == DEFAULT_XY_HOME_GCODE:
+            raise self._error("plr_klippy_error", "set_homed_unsupported: this Klipper marks X and "
+                              "Y homed with Z, and the homing override may skip them", 409)
 
     async def handle_commit(self, web_request: Any) -> Dict[str, Any]:
         plan_id = _param(web_request, "plan_id", "")
@@ -1935,30 +2000,41 @@ class HelixPlr:
             raise self._error("plr_missing_confirmation",
                               "z_reference must be %s at tier %d" % (expected, plan.tier))
         self._claim("committing")
+        run = self._run
         try:
-            homed = await self._check_ready()
-            profile = await self.profile()
-            self._check_machine_unchanged(plan, homed)
-        except Exception as e:
-            self._sequence = None if getattr(e, "plr_code", None) == "plr_stale_plan" \
-                else "prepared"
-            raise
-        try:
-            if plan.backend == "qidi_print_state":
-                await self._commit_qidi(plan)
-            else:
-                await self._heat(plan, self._skip_chamber)
-                await self._run_steps(plan_id, helix_plr_render.render_commit_script(
-                    plan, profile, z_reference))
-                await self._start(plan)
-        except Exception:
-            if self._sequence == "committing":
-                self._sequence = "failed"
-            await self._heaters_off(plan)
-            raise
-        self._sequence = "done"
-        self._plan = None
-        return {"ok": True, "job_started": True}
+            try:
+                homed, _ = await self._check_ready()
+                profile = await self.profile()
+                self._check_machine_unchanged(plan, homed)
+            except Exception as e:
+                self._sequence = None if getattr(e, "plr_code", None) == "plr_stale_plan" \
+                    else "prepared"
+                raise
+            try:
+                await self._forget_lift()
+                if plan.backend == "qidi_print_state":
+                    await self._commit_qidi(plan)
+                else:
+                    await self._heat(plan, self._skip_chamber)
+                    for step, lines in helix_plr_render.render_commit_script(
+                            plan, profile, z_reference):
+                        await self._send(plan_id, step, lines, done=step != "heat_nozzle")
+                        if step == "heat_nozzle":
+                            await self._wait_temp(
+                                plan_id, step, "extruder",
+                                plan.nozzle_target - helix_plr_render.HEAT_TOLERANCE_C,
+                                NOZZLE_WAIT_TIMEOUT_S)
+                    await self._start(plan)
+            except Exception:
+                if self._sequence == "committing":
+                    self._sequence = "failed"
+                await self._heaters_off(plan)
+                raise
+            self._sequence = "done"
+            self._plan = None
+            return {"ok": True, "job_started": True}
+        finally:
+            run.finished = True
 
     def _check_machine_unchanged(self, plan: Any, homed: str) -> None:
         """Commit trusts the frame prepare set up: refuse it when Klipper
@@ -2052,7 +2128,8 @@ class HelixPlr:
         plan = self._plan
         if plan is None or plan.plan_id != plan_id:
             raise self._error("plr_stale_plan", "plan %s is not the latest" % plan_id, 409)
-        self._abort = True
+        if self._run is not None:
+            self._run.aborted = True
         self._sequence = "aborted"
         self._plan = None
         if plan.backend == "qidi_print_state":
@@ -2061,7 +2138,7 @@ class HelixPlr:
         return {"ok": True}
 
     async def handle_discard(self, web_request: Any) -> Dict[str, Any]:
-        if self._sequence in ("preparing", "committing"):
+        if self._busy():
             raise self._error("plr_busy", "a resume is running", 409)
         self._plan = None
         self._sequence = None
@@ -2084,6 +2161,7 @@ PLAN_SYNC_WAIT_S = 10.0
 # Heat waits poll the heater this often, and give up after these.
 HEAT_POLL_S = 2.0
 BED_WAIT_TIMEOUT_S = 20 * 60.0
+NOZZLE_WAIT_TIMEOUT_S = 10 * 60.0
 CHAMBER_WAIT_TIMEOUT_S = 45 * 60.0
 
 # How far below the plastic QIDI's landing move may end before a QIDI resume
@@ -2099,6 +2177,15 @@ RESUME_LINK = "helix_plr_resume.gcode"
 # Layer indexes of printed files outside the gcodes root (a firmware's cache
 # copy), under <gcodes>/.helix_index/.
 EXTERNAL_INDEX_DIR = ".external"
+
+
+class _Run:
+    """One prepare or commit: its abort flag, and whether it has exited.
+    A new run is refused until the previous one has exited."""
+
+    def __init__(self) -> None:
+        self.aborted = False
+        self.finished = False
 
 
 def _param(web_request: Any, key: str, default: Any) -> Any:

@@ -213,7 +213,7 @@ def test_user_enabled(record, expected):
     ],
 )
 def test_check_xy_homing(settings, kin, expected):
-    assert check_xy_homing(settings, kin) == expected
+    assert check_xy_homing(settings, kin)[:2] == expected[:2]
 
 
 def test_unsafe_homing_drops_tier_unless_the_profile_names_a_command():
@@ -1041,6 +1041,10 @@ class FakePrinter:
     def __init__(self):
         self.bed = 55.0
         self.chamber = 25.0
+        self.nozzle = 25.0
+        self.z = 0.0
+        self.relative = False
+        self.old_klipper = False          # ignores SET_HOMED, marks X, Y and Z homed
         self.heats = True
         self.homed = ""
         self.state = "standby"
@@ -1055,14 +1059,24 @@ class FakePrinter:
                 continue
             if words[0] == "M140" and self.heats:
                 self.bed = float(words[1][1:])
+            elif words[0] == "M104" and self.heats:
+                self.nozzle = float(words[1][1:])
             elif words[0] == "SET_HEATER_TEMPERATURE" and self.heats:
                 self.chamber = float(line.split("TARGET=")[1])
             elif words[0] == "G28":
                 self.homed = "".join(sorted(set(self.homed) | {"x", "y"}))
             elif words[0] == "SET_KINEMATIC_POSITION":
-                homed = line.split("SET_HOMED=")[1].split()[0].lower() if "SET_HOMED=" in line \
-                    else "xyz"
+                homed = line.split("SET_HOMED=")[1].split()[0].lower() \
+                    if "SET_HOMED=" in line and not self.old_klipper else "xyz"
                 self.homed = "".join(sorted(set(self.homed) | set(homed)))
+                if "Z=" in line:
+                    self.z = float(line.split("Z=")[1].split()[0])
+            elif words[0] in ("G90", "G91"):
+                self.relative = words[0] == "G91"
+            elif words[0] in ("G0", "G1"):
+                for w in words[1:]:
+                    if w.startswith("Z"):
+                        self.z = self.z + float(w[1:]) if self.relative else float(w[1:])
         return "ok"
 
     def fail(self, prefix, message):
@@ -1074,13 +1088,15 @@ class FakePrinter:
             out["print_stats"] = {"state": self.state}
         if "heater_bed" in objects:
             out["heater_bed"] = {"temperature": self.bed, "target": 0.0}
+        if "extruder" in objects:
+            out["extruder"] = {"temperature": self.nozzle}
         if "heater_generic chamber" in objects:
             out["heater_generic chamber"] = {"temperature": self.chamber}
         if "bed_mesh" in objects:
             out["bed_mesh"] = {"profiles": {"default": {}}}
         if "toolhead" in objects:
             out["toolhead"] = {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0],
-                               "homed_axes": self.homed}
+                               "homed_axes": self.homed, "position": [0.0, 0.0, self.z, 0.0]}
         if "configfile" in objects:
             out["configfile"] = {"settings": {
                 "printer": {"kinematics": "corexy"},
@@ -1225,7 +1241,7 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     steps = [p["step"] for e, p in plr.events if e == "helix_print:plr_progress"
              and p["state"] == "done"]
     assert steps == ["bed_wait", "lift", "home_xy", "bed_wait", "restore", "heat_nozzle",
-                     "move_to_resume", "start"]
+                     "purge", "move_to_resume", "start"]
     commit = sent(helix)[len(prepare):]
     assert commit[0] == "M140 S60"                          # the bed is re-asserted first
 
@@ -1720,12 +1736,13 @@ def test_a_retried_prepare_never_redeclares_the_snapshot_z(plr, helix, resume):
     run(plr.handle_prepare(Req(plan_id=plan_id)))
     retry = sent(helix)[before:]
     assert not any(s.startswith("SET_KINEMATIC_POSITION") for s in retry)   # Z still homed
-    # Klipper restarted after the lift: the nozzle is at the lifted height, not the snapshot's.
+    assert retry.index("G91\nG1 Z5 F300\nG90") < retry.index("G28 X Y")   # lifts again first
+    # Klipper restarted after that lift: the nozzle is where it was lifted to, 10.8.
     plr.printer.homed = ""
     before = len(sent(helix))
     run(plr.handle_prepare(Req(plan_id=plan_id)))
     retry = sent(helix)[before:]
-    assert "SET_KINEMATIC_POSITION Z=5.8 SET_HOMED=Z" in retry
+    assert "SET_KINEMATIC_POSITION Z=10.8 SET_HOMED=Z" in retry
     assert not any("G1 Z5 F300" in s for s in retry)
 
 
@@ -1894,7 +1911,7 @@ def test_the_purge_line_runs_inside_the_bed_not_the_travel(plr, resume):
 )
 def test_homing_overrides_that_may_move_z(override, reason):
     check = check_xy_homing({"homing_override": override}, "corexy")
-    assert check == HomingCheck(reason is None, reason)
+    assert check == HomingCheck(reason is None, reason, True)
 
 
 def test_qidi_refuses_a_landing_below_the_plastic(plr, helix, qidi_resume):
@@ -2034,6 +2051,7 @@ def test_a_skipped_chamber_wait_is_not_waited_for_in_commit(plr, helix, resume):
     plr.printer.heats = False
     plr.printer.bed = 60.0
     run(plr.handle_prepare(Req(plan_id=plan_id, skip_chamber_wait=True)))
+    plr.printer.nozzle = 220.0
     assert commit(plr, plan_id) == {"ok": True, "job_started": True}
 
 
@@ -2060,3 +2078,172 @@ def test_a_next_layer_resume_needs_accept_next_layer(plr, helix, resume):
     assert run(plr.handle_commit(Req(plan_id=reply["plan_id"], z_reference="trusted",
                                      confirmations=dict(COMMIT_OK, accept_next_layer=True)))) \
         == {"ok": True, "job_started": True}
+
+
+# --------------------------------------------------------------------------
+# Round 2: the lift after the nozzle went down, abort then reopen, nozzle wait
+# --------------------------------------------------------------------------
+
+
+def tier1(plr, helix):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 1}))
+
+
+def test_reprepare_after_a_tier1_jog_lifts_before_homing(plr, helix, resume):
+    tier1(plr, helix)
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.z = 0.8                                  # the user jogged down onto the part
+    run(plr.handle_abort(Req(plan_id=plan_id)))
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    before = len(sent(helix))
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    again = sent(helix)[before:]
+    assert not any(s.startswith("SET_KINEMATIC_POSITION") for s in again)
+    assert again.index("G91\nG1 Z5 F300\nG90") < again.index("G28 X Y")
+
+
+def test_reprepare_after_a_failed_commit_and_a_restart_is_refused(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.nozzle = 220.0
+    plr.printer.fail("M83\nG1 X", "Heater extruder not heating at expected rate")   # the purge
+    with pytest.raises(Exception, match="not heating"):
+        commit(plr, plan_id)
+    plr.printer.fail_on = None
+    plr.printer.homed = ""                               # the heater fault shut Klipper down
+    plr.on_klippy_gone()
+    plr.klippy_ready = True
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    before = len(sent(helix))
+    with pytest.raises(Exception, match="plr_stale_plan: position_unknown"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert sent(helix)[before:] == []
+
+
+def test_a_homed_lift_fits_under_the_top_of_travel(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.homed = "z"
+    plr.printer.z = 246.0
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert "G91\nG1 Z3 F300\nG90" in sent(helix)
+
+
+def test_abort_then_reopen_waits_for_the_old_run(plr, helix, resume):
+    import asyncio
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.nozzle = 220.0
+    real = plr.printer.run_gcode
+
+    async def scenario():
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def gcode(script):
+            if script.startswith("SET_GCODE_OFFSET"):          # a long step
+                entered.set()
+                await release.wait()
+            return await real(script)
+
+        helix.klippy_apis.run_gcode.side_effect = gcode
+        old = asyncio.ensure_future(plr.handle_commit(Req(
+            plan_id=plan_id, z_reference="trusted", confirmations=COMMIT_OK)))
+        await entered.wait()
+        await plr.handle_abort(Req(plan_id=plan_id))
+        aborted_at = len(sent(helix))
+        refused = []
+        for call in (plr.handle_plan(Req()), plr.handle_prepare(Req(plan_id=plan_id))):
+            try:
+                await call
+            except Exception as e:
+                refused.append(str(e))
+        release.set()
+        try:
+            await old
+        except Exception as e:
+            refused.append(str(e))
+        return refused, sent(helix)[aborted_at:]
+
+    refused, after = run(scenario())
+    # No new plan while the old run is inside its step, so no new prepare either.
+    assert "plr_busy" in refused[0] and "aborted" in refused[2]
+    assert "plr_busy" in refused[1] or "plr_no_plan" in refused[1]
+    assert all(s == HEATERS_OFF for s in after)       # the old run sends nothing more
+    assert run(plr.handle_plan(Req()))["method"] == "measured"   # free again once it exited
+
+
+def test_abort_during_the_nozzle_wait_skips_the_purge(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.heats = False
+    plr.printer.bed = 60.0
+
+    async def abort_while_waiting(seconds):
+        await plr.handle_abort(Req(plan_id=plan_id))
+
+    plr._sleep = abort_while_waiting
+    with pytest.raises(Exception, match="aborted"):
+        commit(plr, plan_id)
+    assert not any(s.startswith("M83\nG1 X") for s in sent(helix))
+    assert any(s.endswith("M104 S220") for s in sent(helix))
+
+
+def test_the_nozzle_wait_times_out(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.heats = False
+    plr.printer.bed = 60.0
+    with pytest.raises(Exception, match="heat_nozzle timed out"):
+        commit(plr, plan_id)
+
+
+def test_old_klipper_without_set_homed_refuses_an_override(plr, helix, resume):
+    plr.printer.old_klipper = True
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.homing = HomingCheck(True, None, True)
+    with pytest.raises(Exception, match="set_homed_unsupported"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert "G28 X Y" not in sent(helix)
+
+
+def test_old_klipper_with_plain_g28_still_prepares(plr, helix, resume):
+    plr.printer.old_klipper = True
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert "G28 X Y" in sent(helix)
+
+
+def test_tier1_with_nowhere_to_heat_is_refused(plr, helix, resume):
+    tier1(plr, helix)
+    record = plr.store.load()
+    record["objects"] = []
+    plr.store.write(fit_record(record)[0])
+
+    async def no_park(objects):
+        out = await plr.printer.query(objects)
+        if "configfile" in out:
+            out["configfile"]["settings"].pop("stepper_x")
+        return out
+
+    helix.klippy_apis.query_objects.side_effect = no_park
+    with pytest.raises(Exception, match="plr_scan_failed: no_purge_location"):
+        run(plr.handle_plan(Req()))
+
+
+@pytest.mark.parametrize("gcode", ["{% if 'x' not in params %}_HOME_Z{% endif %}\nG28 X Y",
+                                   "{% if True %}G28 Z{% endif %}"])
+def test_one_line_template_conditionals_are_read(gcode):
+    check = check_xy_homing({"homing_override": {"axes": "xyz", "gcode": gcode}}, "corexy")
+    assert check.xy_home_safe is False
+
+
+def test_a_restart_after_a_tier1_jog_refuses_rather_than_declaring_the_lift(plr, helix, resume):
+    tier1(plr, helix)
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.z = 0.8                                  # jogged down onto the part
+    run(plr.handle_abort(Req(plan_id=plan_id)))
+    plr.printer.homed = ""                               # then Klipper restarted
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    with pytest.raises(Exception, match="plr_stale_plan: position_unknown"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))

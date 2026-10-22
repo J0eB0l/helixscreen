@@ -661,17 +661,37 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed_wait`, `chamber_wait`, `lift`,
   `home_xy`, `position` (tier 1) for prepare; `bed_wait`, `chamber_wait`, `z_reference` (tier 1),
   `restore`, `heat_nozzle`, `move_to_resume`, `start` for commit; states `running`, `done`,
-  `failed`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
+  `failed`; commit also has `purge`, after `heat_nozzle`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
   (`"<code>: <detail>"`), and `plan` answers that error until the snapshot changes.
 - Heat waits are not M190/TEMPERATURE_WAIT (those hold Klipper's G-code lock, so an abort's
   heaters-off could not run): the plugin sets the target, then polls the heater every 2 s,
   checking for an abort between polls, and fails after 20 min (bed) / 45 min (chamber). Commit
   repeats the bed (and chamber) wait first, because the bed may have been turned off
   (`idle_timeout`) while the screen waited on the confirmations.
-- Single flight: `prepare` and `commit` take the sequence before their first await; a second
-  call while one runs is `plr_busy`. An abort is checked before every G-code send and
-  immediately before the start (or QIDI's resume call), clears the plan (later calls get
-  `plr_no_plan`), and turns off the bed, extruder, every `heater_generic` and the part fan.
+- Single flight: each prepare or commit is a run with its own abort flag, taken before its first
+  await. `plan`, `prepare`, `commit` and `discard` answer `plr_busy` until the previous run has
+  exited, whatever its state label (an aborted run finishes its current step first). An abort
+  is checked before every G-code send and immediately before the start (or QIDI's resume
+  call), clears the plan (later calls get `plr_no_plan`), and turns off the bed, extruder, every
+  `heater_generic` and the part fan.
+- The nozzle heats like the bed: `heat_nozzle` moves to where it may heat and sends `M104`, the
+  plugin polls the extruder (abortable, 10 min timeout), then `purge` runs; an abort during the
+  wait never reaches the purge.
+- Prepare's lift, decided from `toolhead.homed_axes` before anything moves: with Z homed, nothing
+  is declared and the nozzle always lifts first (by `z_lift_mm`, clamped under the top of
+  travel); with Z unhomed, the snapshot's Z is declared on the first prepare, the recorded
+  lifted Z when nothing has moved the nozzle since that lift, and otherwise the prepare is
+  refused (`plr_stale_plan: position_unknown`). The lift record is invalidated when a tier-1
+  prepare ends (the jog follows) and when a commit starts.
+- `SET_HOMED` needs a Klipper whose `SET_KINEMATIC_POSITION` has it (Kalico from v2026.08.00,
+  `force_move.py`; the mainline and vendor-fork versions are not pinned here, so the plugin
+  checks the result instead of a version); older builds mark X and Y homed too. Prepare checks `homed_axes` after the
+  lift and refuses (`plr_klippy_error: set_homed_unsupported`) before XY homing when X or Y
+  became homed and a `[homing_override]` runs for G28 X Y with the default `xy_home_gcode`; a
+  plain `G28 X Y` always homes and is unaffected.
+- Tier 1 with no purge line and no XY homing position (`position_endstop`) is refused
+  (`plr_scan_failed: no_purge_location`): nowhere is known to be off the part for the nozzle to
+  heat.
 - `commit` re-checks the machine: if Klipper restarted since prepare, or the axes prepare homed
   are no longer homed (`toolhead.homed_axes`: x, y, z at tier 2; x, y at tier 1; e.g. after
   `idle_timeout`'s motors-off), it refuses with `plr_stale_plan` and the next call is a new

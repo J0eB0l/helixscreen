@@ -264,24 +264,24 @@ def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False) -> List[
     return steps
 
 
-def render_prepare_script(plan: ResumePlan, profile: Any,
-                          lifted_z: Optional[float] = None,
-                          z_homed: bool = False) -> List[Tuple[str, List[str]]]:
-    """The generic prepare's motion after the heat wait: declare the measured
-    Z, lift cold, home XY (tier 1: stop above the resume point).
+def render_prepare_script(plan: ResumePlan, profile: Any, declare_z: Optional[float],
+                          lift_mm: float) -> List[Tuple[str, List[str]]]:
+    """The generic prepare's motion after the heat wait: declare Z when
+    Klipper has none (`declare_z`), lift cold by `lift_mm`, home XY, and at
+    tier 1 stop above the resume point. helix_plr.py decides both inputs
+    from Klipper's homed axes and the lift record.
 
-    `lifted_z` is set when an earlier prepare of this snapshot already lifted
-    the nozzle: the lift is not repeated, and the Z declared is the lifted
-    one, or nothing when Klipper still has Z homed (`z_homed`).
     SET_HOMED=Z leaves X and Y unhomed, so an XY homing macro that homes only
-    unhomed axes still homes them."""
+    unhomed axes still homes them (Klipper builds whose SET_KINEMATIC_POSITION
+    has SET_HOMED; helix_plr.py checks the result)."""
     steps = []  # type: List[Tuple[str, List[str]]]
-    if lifted_z is None:
-        lift = ["SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(plan.z_physical)]
-        lift += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]
+    lift = []  # type: List[str]
+    if declare_z is not None:
+        lift.append("SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(declare_z))
+    if lift_mm > 0:
+        lift += ["G91", "G1 Z%s F%d" % (_f(lift_mm), Z_FEED), "G90"]
+    if lift:
         steps.append(("lift", lift))
-    elif not z_homed:
-        steps.append(("lift", ["SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(lifted_z)]))
     steps.append(("home_xy", [line for line in profile.xy_home_gcode.splitlines() if line.strip()]))
     if plan.tier == 1:
         x, y, _ = _resume_xyz(plan.state)
@@ -379,23 +379,27 @@ def _park_lines(plan: ResumePlan) -> List[str]:
                                 _f(plan.park_xy[1] - offset[1]), TRAVEL_FEED)]
 
 
+def _heat_nozzle_lines(plan: ResumePlan, profile: Any) -> List[str]:
+    """Go where the nozzle may heat, then set its target. The wait is the
+    plugin's poll, not M109, so an abort lands before the purge."""
+    target = "M104 S%s" % _f(plan.nozzle_target)
+    if plan.purge_xy is None or profile.purge_gcode:
+        # Lifted, at the XY homing position: never over the resume point a
+        # tier-1 jog left the nozzle at.
+        return _park_lines(plan) + [target]
+    x0, y0, _, _ = plan.purge_xy
+    return ["G90", "G1 X%s Y%s F%d" % (_f(x0), _f(y0), TRAVEL_FEED),
+            "G1 Z%s F%d" % (_f(PURGE_Z_MM), Z_FEED), target]
+
+
 def _purge_lines(plan: ResumePlan, profile: Any) -> List[str]:
-    target = _f(plan.nozzle_target)
     if profile.purge_gcode:
-        return _park_lines(plan) + ["M109 S%s" % target] + \
-            [l for l in profile.purge_gcode.splitlines() if l.strip()]
+        return [l for l in profile.purge_gcode.splitlines() if l.strip()]
     if plan.purge_xy is None:
-        # No purge line: heat and prime lifted, at the XY homing position,
-        # never over the resume point a tier-1 jog left the nozzle at.
-        return _park_lines(plan) + ["M109 S%s" % target, "M83",
-                "G1 E%s F%d" % (_f(HOME_PRIME_E_MM), PURGE_FEED // 4),
+        return ["M83", "G1 E%s F%d" % (_f(HOME_PRIME_E_MM), PURGE_FEED // 4),
                 "G1 E-%s F%d" % (_f(PURGE_RETRACT_MM), RETRACT_FEED)]
     x0, y0, x1, y1 = plan.purge_xy
     return [
-        "G90",
-        "G1 X%s Y%s F%d" % (_f(x0), _f(y0), TRAVEL_FEED),
-        "G1 Z%s F%d" % (_f(PURGE_Z_MM), Z_FEED),
-        "M109 S%s" % target,
         "M83",
         "G1 X%s Y%s E%s F%d" % (_f(x1), _f(y1), _f(PURGE_E_MM), PURGE_FEED),
         "G1 E-%s F%d" % (_f(PURGE_RETRACT_MM), RETRACT_FEED),
@@ -424,7 +428,9 @@ def render_commit_script(plan: ResumePlan, profile: Any,
         lines += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]
         steps.append(("z_reference", lines))
     steps.append(("restore", _restore_lines(plan)))
-    steps.append(("heat_nozzle", _purge_lines(plan, profile)))
+    # helix_plr.py polls the extruder to temperature after this step.
+    steps.append(("heat_nozzle", _heat_nozzle_lines(plan, profile)))
+    steps.append(("purge", _purge_lines(plan, profile)))
     state = plan.state
     ret = ["G90",
            "G1 Z%s F%d" % (_f(_safe_z(plan)), Z_FEED),
