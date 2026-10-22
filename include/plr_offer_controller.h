@@ -6,7 +6,9 @@
 
 #include "async_lifetime_guard.h"
 #include "plr_backend.h"
+#include "plr_wizard.h"
 
+#include <optional>
 #include <string>
 
 class PlrOfferControllerTestAccess;
@@ -17,7 +19,7 @@ namespace helix::ui {
 /// connect time. Owned by SubjectInitializer (constructed in init_observers,
 /// destroyed with it — the ObserverGuard members auto-reset via RAII).
 ///
-/// Three backends feed ONE normalized "a resumable snapshot exists" signal, which
+/// Four backends feed ONE normalized "a resumable snapshot exists" signal, which
 /// is what keeps the latch / re-arm / wizard logic backend-agnostic. Full
 /// mechanism: docs/devel/POWER_LOSS_RECOVERY.md.
 ///
@@ -31,6 +33,10 @@ namespace helix::ui {
 ///                        side-effectful `check_continue_print_state` probe,
 ///                        ONCE per connection, ONLY while the printer is in
 ///                        STANDBY, and getting both states back true.
+///   Plugin    (ASKED):   with the HelixPrint plugin's `plr` feature Ready,
+///                        server.helix.plr.status names its backend and whether
+///                        it offers a resume. Side-effect free, asked once per
+///                        connection once Klipper is ready.
 ///
 /// Five observers, all on STATIC subjects (singleton lifetime, no
 /// SubjectLifetime token needed). The authoritative account of WHEN the offer
@@ -85,11 +91,18 @@ class PlrOfferController {
     void probe_creality_once();
     void on_creality_detect_result(const helix::PlrDetectResult& result);
 
+    /// Ask the plugin for its recovery status once per connection, when the
+    /// link is up, Klipper is ready and the `plr` feature is Ready.
+    void request_plugin_status();
+    void on_plugin_status(const helix::PlrPluginStatus& status);
+
     ObserverGuard pl_valid_observer_;
     ObserverGuard interrupted_flag_observer_;
     ObserverGuard creality_capable_observer_;
     ObserverGuard conn_observer_;
     ObserverGuard wizard_observer_;
+    ObserverGuard plugin_installed_observer_;
+    ObserverGuard klippy_observer_;
 
     /// Guards the probe response, which arrives on the WebSocket thread.
     helix::AsyncLifetimeGuard lifetime_;
@@ -101,6 +114,12 @@ class PlrOfferController {
     helix::PlrDetectResult creality_detect_{};
     std::string creality_recovery_file_;
     int last_conn_state_ = 0;
+
+    /// The plugin's answer this connection; nullopt until it answers.
+    std::optional<helix::PlrPluginStatus> plugin_status_;
+    bool plugin_status_inflight_ = false;
+    /// Counts connections, so a status reply from a dropped link is ignored.
+    int connection_generation_ = 0;
 };
 
 } // namespace helix::ui

@@ -285,3 +285,166 @@ TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR: a disconnect reset lets a recon
 
     CHECK(PlrOfferControllerTestAccess::prompted(controller));
 }
+
+// ===========================================================================
+// HelixPrint plugin (GENERIC): the plugin's status reply is the availability
+// signal, gated on the `plr` feature.
+// ===========================================================================
+
+namespace {
+
+class PluginPlrOfferFixture : public LVGLTestFixture {
+  public:
+    PluginPlrOfferFixture() {
+        auto& ps = get_printer_state();
+        PrinterStateTestAccess::reset(ps);
+        ps.init_subjects(false);
+        ps.update_from_status(json{{"print_stats", {{"state", "standby"}}}});
+        ps.print_state().set_print_start_state(PrintStartPhase::IDLE, "", 0);
+        set_plr_feature(true, true);
+        settle();
+    }
+
+    ~PluginPlrOfferFixture() override {
+        auto& ps = get_printer_state();
+        ps.plugin_status_state().set_features({});
+        ps.plugin_status_state().set_installed(false);
+        lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                           static_cast<int>(ConnectionState::DISCONNECTED));
+        settle();
+    }
+
+    static void set_plr_feature(bool available, bool enabled) {
+        auto& plugin = get_printer_state().plugin_status_state();
+        helix::PluginFeatureEntry entry;
+        entry.version = helix::kPlrFeatureMinVersion;
+        entry.available = available;
+        entry.enabled = enabled;
+        plugin.set_features({{helix::kPlrFeatureName, entry}});
+        plugin.set_installed(true);
+    }
+
+    static helix::PlrPluginStatus offering(helix::PlrPluginBackend backend) {
+        helix::PlrPluginStatus s;
+        s.backend = backend;
+        s.tier = 2;
+        s.offer_available = true;
+        helix::PlrSnapshotInfo snap;
+        snap.filename = "part.gcode";
+        s.snapshot = snap;
+        return s;
+    }
+
+    static void settle() {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR offers when its status offers a resume",
+                 "[plr][generic]") {
+    PlrOfferController controller;
+    settle();
+    REQUIRE_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+
+    PlrOfferControllerTestAccess::plugin_status_arrived(controller,
+                                                        offering(helix::PlrPluginBackend::Generic));
+    settle();
+    CHECK(PlrOfferControllerTestAccess::prompted(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR does not offer without a resume to offer",
+                 "[plr][generic]") {
+    PlrOfferController controller;
+    settle();
+    auto status = offering(helix::PlrPluginBackend::Generic);
+
+    SECTION("the plugin blocks the offer") {
+        status.offer_available = false;
+        status.blocked_by = {"too_early"};
+    }
+    SECTION("the plugin has no backend for this printer") {
+        status.backend = helix::PlrPluginBackend::None;
+    }
+    SECTION("the feature is switched off") {
+        set_plr_feature(true, false);
+    }
+    SECTION("the feature cannot run") {
+        set_plr_feature(false, false);
+    }
+    SECTION("a print is running") {
+        helix::test::set_wire_state(get_printer_state(), PrintJobState::PRINTING);
+        settle();
+    }
+    PlrOfferControllerTestAccess::plugin_status_arrived(controller, status);
+    settle();
+    CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+    helix::test::set_wire_state(get_printer_state(), PrintJobState::STANDBY);
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR keeps asking while the plugin answered before Klipper was ready",
+                 "[plr][generic]") {
+    PlrOfferController controller;
+    settle();
+    auto status = offering(helix::PlrPluginBackend::Generic);
+    status.offer_available = false;
+    status.blocked_by = {"klippy_not_ready"};
+    PlrOfferControllerTestAccess::plugin_status_arrived(controller, status);
+    settle();
+    CHECK_FALSE(PlrOfferControllerTestAccess::has_plugin_status(controller));
+    CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR: the legacy QIDI macros offer until the plugin answers",
+                 "[plr][generic][qidi]") {
+    auto& ps = get_printer_state();
+    // The firmware layout both serve: the legacy macros and their flag.
+    lv_subject_set_int(ps.print_state().get_plr_resume_macro_subject(), 1);
+    ps.update_from_status(json{{"save_variables", {{"variables", {{"was_interrupted", true}}}}}});
+    settle();
+
+    PlrOfferController controller;
+    settle();
+    // Before the plugin answers, the legacy backend is all there is.
+    REQUIRE(PlrOfferControllerTestAccess::prompted(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR print_state adapter outranks the legacy QIDI macros",
+                 "[plr][generic][qidi]") {
+    auto& ps = get_printer_state();
+    PlrOfferController controller;
+    settle();
+
+    // The plugin answers first, with no resume to offer: the adapter owns this
+    // layout, so the legacy macros' flag arriving afterwards offers nothing.
+    auto status = offering(helix::PlrPluginBackend::QidiPrintState);
+    status.offer_available = false;
+    status.blocked_by = {"too_early"};
+    PlrOfferControllerTestAccess::plugin_status_arrived(controller, status);
+    lv_subject_set_int(ps.print_state().get_plr_resume_macro_subject(), 1);
+    ps.update_from_status(json{{"save_variables", {{"variables", {{"was_interrupted", true}}}}}});
+    settle();
+    CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR: a disconnect drops the plugin's answer",
+                 "[plr][generic]") {
+    auto& ps = get_printer_state();
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    PlrOfferControllerTestAccess::plugin_status_arrived(controller,
+                                                        offering(helix::PlrPluginBackend::Generic));
+    settle();
+    REQUIRE(PlrOfferControllerTestAccess::has_plugin_status(controller));
+
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::DISCONNECTED));
+    settle();
+    CHECK_FALSE(PlrOfferControllerTestAccess::has_plugin_status(controller));
+}

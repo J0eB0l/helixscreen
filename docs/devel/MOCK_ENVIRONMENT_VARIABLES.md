@@ -409,7 +409,8 @@ prompt), and an install switches it back on.
 Installed, the status is in the plugin's current shape: `api: 2` and a `features` map
 with one entry, `convert_3mf`, which owns its switch. With `1` it is `Ready` to
 `plugin_feature("convert_3mf", 1)`; with `disabled` it reports `available: false`
-(`reason: "plugin_disabled"`) and reads `Absent`. No other feature is reported.
+(`reason: "plugin_disabled"`) and reads `Absent`. `HELIX_MOCK_PLR` adds the `plr`
+entry (below); no other feature is reported.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker
 does for an endpoint it has no component for. That distinction is the point: a
@@ -421,6 +422,74 @@ in a mock run, including the pre-print options and the G-code rewrite remap.
 ./build/bin/helix-screen --test -vv                          # Install row
 HELIX_MOCK_HELIX_PLUGIN=1 ./build/bin/helix-screen --test -vv # Uninstall row
 HELIX_MOCK_HELIX_PLUGIN=disabled ./build/bin/helix-screen --test -vv # Install row, as absent
+```
+
+### `HELIX_MOCK_PLR`
+
+Answer the HelixPrint plugin's power-loss endpoints (`server.helix.plr.status`,
+`plan`, `prepare`, `commit`, `abort`, `discard`), so the GENERIC resume offer and
+wizard run under `--test` ([POWER_LOSS_RECOVERY.md](POWER_LOSS_RECOVERY.md)
+§ "Generic (HelixPrint plugin)"). Needs `HELIX_MOCK_HELIX_PLUGIN=1`; with the
+plugin absent or `disabled` the knob does nothing.
+
+| Property | Value |
+|----------|-------|
+| Values | `generic`, `qidi_print_state` (the status `backend`); anything else = off |
+| Default | off |
+| Affects | `server.helix.status` (`features.plr` ready, version 1), `server.helix.plr.*`, the newest `server.history.list` job (`interrupted`) |
+
+The status reports an eMMC host, a snapshot of `3DBenchy.gcode` at layer 42 saved
+12 minutes ago, and `offer.available: true`, so the offer modal comes up at
+connect. Each `plan` issues a new `plan_id`; `prepare` and `commit` refuse any
+other id (`plr_stale_plan`), and `commit` refuses a missing confirmation
+(`plr_missing_confirmation`). `prepare` sets the bed target to 60°C, emits
+`notify_plr_progress` for `bed_wait`, `lift`, `home_xy` (and `move_to_resume` at
+tier 1) 1.5 s apart, then answers. `commit` emits `heat_nozzle`, `purge`, `start`,
+starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
+`discard` clears it too; `abort` keeps it and turns the bed off.
+
+### `HELIX_MOCK_PLR_TIER`
+
+| Property | Value |
+|----------|-------|
+| Values | `1`, `2` |
+| Default | `2` |
+
+The tier in the status and the plan: `1` shows the wizard's Z jog step, `2` its
+confirm step, and the plan's `requires` follows (`nozzle_clear` + `z_jogged`, or
+`z_confirmed`).
+
+### `HELIX_MOCK_PLR_WARNINGS`
+
+| Property | Value |
+|----------|-------|
+| Values | comma list of `mesh_unavailable`, `cold_bed`, `layer_start` |
+| Default | none |
+
+Plan warnings. `mesh_unavailable` adds `accept_no_mesh` to `requires`; `cold_bed`
+reports the bed 30°C under its 60°C target, which the app reads as a cold bed and
+asks `accept_cold_bed` for; `layer_start` reports `method: "layer_start"` and the
+wizard's start-of-layer note.
+
+### `HELIX_MOCK_PLR_FAIL`
+
+| Property | Value |
+|----------|-------|
+| Values | `plan`, `prepare`, `commit` |
+| Default | none |
+
+That request fails with `plr_klippy_error`, which drives the wizard to its Failed
+step. A failed `prepare` or `commit` makes the wizard send `abort`.
+
+```bash
+# Offer at connect; tap Resume for the wizard (tier 2)
+HELIX_MOCK_HELIX_PLUGIN=1 HELIX_MOCK_PLR=generic ./build/bin/helix-screen --test -vv
+# Tier 1 with every confirmation the Checks step can ask
+HELIX_MOCK_HELIX_PLUGIN=1 HELIX_MOCK_PLR=generic HELIX_MOCK_PLR_TIER=1 \
+  HELIX_MOCK_PLR_WARNINGS=mesh_unavailable,cold_bed,layer_start ./build/bin/helix-screen --test -vv
+# The Failed step
+HELIX_MOCK_HELIX_PLUGIN=1 HELIX_MOCK_PLR=generic HELIX_MOCK_PLR_FAIL=prepare \
+  ./build/bin/helix-screen --test -vv
 ```
 
 ### `HELIX_MOCK_SKIP_WRAPPERS`

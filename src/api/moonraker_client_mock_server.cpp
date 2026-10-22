@@ -518,6 +518,9 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                            {"symlink_dir", link_dir && *link_dir ? link_dir : ".helix_print"},
                            {"api", 2},
                            {"features", {{"convert_3mf", convert_3mf}}}}}};
+        if (json plr = MoonrakerClientMock::mock_plr_feature_entry(); !disabled && !plr.is_null()) {
+            response["result"]["features"]["plr"] = std::move(plr);
+        }
         if (success_cb) {
             success_cb(response);
         }

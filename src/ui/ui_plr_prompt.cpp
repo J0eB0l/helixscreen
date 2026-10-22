@@ -6,6 +6,7 @@
 #include "ui_error_reporting.h"
 #include "ui_filename_utils.h"
 #include "ui_modal.h"
+#include "ui_plr_wizard_overlay.h"
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
@@ -14,6 +15,7 @@
 #include "moonraker_api.h"
 #include "moonraker_error.h"
 #include "plr_backend.h"
+#include "plr_plugin_rpc.h"
 #include "printer_state.h"
 
 #include <spdlog/fmt/fmt.h>
@@ -92,6 +94,13 @@ void run_plr_resume(IMoonrakerAPI* api) {
                       static_cast<int>(g_active_plan.backend));
         return;
     }
+    if (!g_active_plan.resume_rpc.empty()) {
+        // The plugin's resume moves the machine only after the wizard's
+        // confirmations; Resume here just opens it.
+        spdlog::info("[PLR] User chose Resume — opening the guided resume");
+        get_plr_wizard_overlay().open(api);
+        return;
+    }
     spdlog::info("[PLR] User chose Resume — running '{}'", g_active_plan.resume_gcode);
     // kMacroTimeoutMs, not the 60s default: resume macros rebuild and replay
     // the interrupted job (Qidi's RESUME_INTERRUPTED rewrites the gcode via a
@@ -114,10 +123,15 @@ void run_plr_discard(IMoonrakerAPI* api) {
     } else if (!g_active_plan.discard_rpc_method.empty()) {
         spdlog::info("[PLR] User chose Discard — calling '{}'", g_active_plan.discard_rpc_method);
         const char* fail_fmt = lv_tr("Failed to discard recovery data: {}");
-        api->cancel_continue_print([]() { spdlog::info("[PLR] Discard accepted by firmware"); },
-                                   [fail_fmt](const MoonrakerError& err) {
-                                       report_action_error(err, fail_fmt, "Discard");
-                                   });
+        auto on_ok = []() { spdlog::info("[PLR] Discard accepted"); };
+        auto on_error = [fail_fmt](const MoonrakerError& err) {
+            report_action_error(err, fail_fmt, "Discard");
+        };
+        if (g_active_plan.discard_rpc_method == kPlrDiscardRpc) {
+            plr_rpc::discard(*api, on_ok, on_error);
+        } else {
+            api->cancel_continue_print(on_ok, on_error);
+        }
     } else {
         spdlog::warn("[PLR] discard: plan carries no discard action");
     }

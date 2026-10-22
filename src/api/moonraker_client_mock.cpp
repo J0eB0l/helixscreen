@@ -215,6 +215,7 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     mock_internal::register_history_handlers(method_handlers_);
     mock_internal::register_server_handlers(method_handlers_);
     mock_internal::register_queue_handlers(method_handlers_);
+    mock_internal::register_plr_handlers(method_handlers_);
     spdlog::debug("[MoonrakerClientMock] Registered {} RPC method handlers",
                   method_handlers_.size());
 

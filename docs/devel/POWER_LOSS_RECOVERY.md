@@ -3,7 +3,10 @@
 HelixScreen offers to resume an interrupted print at connect time. Three printer
 firmware families expose a recovery mechanism, and they work in fundamentally
 different ways: two are **passive** (a status field tells us a snapshot exists),
-one is **active** (we have to ask, and asking has side effects).
+one is **active** (we have to ask, and asking has side effects). A fourth backend,
+**GENERIC**, is the HelixPrint plugin's own recovery for any Klipper printer listed
+for it: the plugin keeps the snapshot and renders the resume, and the app walks
+the user through a guided wizard.
 
 Code map:
 
@@ -15,14 +18,24 @@ Code map:
 | `src/ui/ui_plr_prompt.{h,cpp}` | The modal and its two button actions. Backend-agnostic — it executes a `PlrRecoveryPlan`. |
 | `src/printer/printer_print_state.cpp` | Parses the capability markers out of the status payload. |
 | `src/api/moonraker_api_print.cpp` | `check_continue_print_state()` / `cancel_continue_print()` JSON-RPC calls. |
+| `include/plr_wizard.h`, `src/printer/plr_wizard.cpp` | GENERIC: readers for the plugin's `server.helix.plr.*` replies and the wizard's pure decisions (bed state, confirmations, commit gate, step machine). |
+| `include/plr_plugin_rpc.h`, `src/printer/plr_plugin_rpc.cpp` | GENERIC: the plugin's endpoints as calls. |
+| `include/ui_plr_wizard_overlay.h`, `src/ui/ui_plr_wizard_overlay.cpp`, `ui_xml/plr_wizard_overlay.xml` | GENERIC: the resume wizard. |
+| `src/api/moonraker_client_mock_plr.cpp` | The mock plugin's endpoints (`HELIX_MOCK_PLR*`, `MOCK_ENVIRONMENT_VARIABLES.md`). |
 
 Tests: `tests/unit/test_plr_backend.cpp`, `test_plr_offer.cpp`, `test_plr_state.cpp`,
-`test_plr_prompt.cpp`, `test_firmware_error_envelope.cpp`.
+`test_plr_prompt.cpp`, `test_firmware_error_envelope.cpp`, and for GENERIC
+`test_plr_wizard.cpp`, `test_plr_wizard_overlay.cpp`, `test_mock_plr.cpp` and the
+plugin cases in `test_plr_offer_preparing.cpp` (tag `[plr]`).
 
-Backend precedence in `plr_select_backend()`: SNAPMAKER first, then QIDI, then
-CREALITY. No firmware carries more than one marker set, so the order only makes a
-hypothetical tie deterministic - and it puts both passive signals ahead of the
-probe-based one, so a marker chosen by mistake never costs a side-effectful probe.
+Backend precedence in `plr_select_backend()`: SNAPMAKER first, then GENERIC for
+the plugin's QIDI `print_state` adapter, then QIDI, then CREALITY, then GENERIC
+for the plugin's own recovery. No firmware carries more than one marker set, so
+among the three firmware backends the order only makes a hypothetical tie
+deterministic - and it puts both passive signals ahead of the probe-based one, so
+a marker chosen by mistake never costs a side-effectful probe. Both GENERIC rows
+need the plugin's `plr` feature Ready; see "Generic (HelixPrint plugin)" for why
+they sit where they do.
 
 ---
 
@@ -136,6 +149,57 @@ true**.
 HelixScreen runs on the printer, so the read normally succeeds; it is
 best-effort and **read-only** — never write to that path.
 
+### Generic (HelixPrint plugin) - asked
+
+The HelixPrint plugin (`moonraker-plugin/`, design in
+`docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md`) saves its own
+snapshot during every print on printers listed for it, decides itself whether a
+resume can be offered, and renders and sends the resume. The app gates on the
+plugin's `plr` feature (`plugin_feature("plr", 1)` Ready), asks for the plugin's
+verdict, and owns only the confirmations a screen can ask.
+
+| | |
+|---|---|
+| Capability | `server.helix.status` `features.plr` at version 1 or newer, available and enabled |
+| Availability | `server.helix.plr.status` `offer.available` (the plugin checks the newest history job is `interrupted`, a snapshot exists for it, the file is unchanged, the job got far enough, the tier allows it, Klipper is ready); `backend` says which flavor |
+| Recovery filename | `snapshot.filename` |
+| Resume | the guided wizard (below); nothing is sent at the offer |
+| Discard | JSON-RPC `server.helix.plr.discard` |
+| Errors | Moonraker errors whose message leads with the plugin's code (`plr_stale_plan`, `plr_missing_confirmation`, `plr_klippy_error`, ...); the wizard shows the message |
+
+**Where it sits in the precedence.** The plugin's `qidi_print_state` backend serves
+the QIDI firmware layout the legacy QIDI macros also live on, and its resume
+corrects the firmware's file offset where the legacy one does not, so it outranks
+QIDI. The `generic` backend comes last, so it never displaces a firmware's own
+recovery. Both select `PlrBackendType::GENERIC`; the plan's `backend` field says
+which one is running.
+
+**When the status is asked.** `server.helix.plr.status` is side-effect free. The
+offer controller asks it once per connection, when the link is up, Klipper reports
+`ready` and the feature is Ready; the plugin-installed subject (set after the
+features map), the Klipper state and the connection state each trigger the check,
+so whichever arrives last asks. An answer blocked by `klippy_not_ready` is not
+kept, so the next Klipper-ready edge asks again. The disconnect edge drops the
+answer with the other latches.
+
+**The wizard.** Resume on the offer opens `PlrWizardOverlay`, whose steps are
+`plr_next_wizard_step()` (`include/plr_wizard.h`):
+
+| Step | What happens |
+|------|-------------|
+| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then |
+| Checks | File, layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
+| Preparing | `prepare`: bed (and chamber) wait, cold lift, X/Y home, and at tier 1 the move over the resume point. `helix:plr_progress` (`notify_plr_progress`) names each step; the live bed temperature shows beside it |
+| ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`). Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume waits while a jog is still moving |
+| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): the plugin heats the nozzle, purges and starts the print at the resume offset |
+| Done / Failed / Aborted | Leaving a step after `prepare` started (Cancel, back, a failed RPC) sends `abort`: the plugin stops, turns the heaters off and keeps the snapshot |
+
+Two safety properties are pinned by the tests: the wizard never commits on its
+own (Committing is reached only from ZStep with every required confirmation, and
+a dropped connection fails the flow from every live step), and the only motion
+the app sends itself is the tier-1 Z jog. A plan whose `requires` names a
+confirmation this app does not know fails at the offer rather than at commit.
+
 ---
 
 ## Capability detection: `print_stats.power_loss`
@@ -226,14 +290,15 @@ Therefore the probe is issued:
 
 ## Normalization and reuse
 
-All three backends collapse into one internal signal so the existing latch /
+All four backends collapse into one internal signal so the existing latch /
 re-arm / wizard logic is reused unchanged:
 
 ```
 Snapmaker:  pl_env_valid subject ──────────────────────┐
-Qidi:       DETECT_INTERRUPTION macro + was_interrupted ┤──> recovery_available ──> plr_should_offer()
-Creality:   power_loss key ──> one-shot probe ──> both ─┘
-                               (standby only)    states
+Qidi:       DETECT_INTERRUPTION macro + was_interrupted ┤
+Creality:   power_loss key ──> one-shot probe ──> both ─┤──> recovery_available ──> plr_should_offer()
+                               (standby only)    states │
+Plugin:     plr feature Ready ──> plr.status ──> offer ─┘
 ```
 
 `PlrOfferSignals::recovery_available` is that normalized field.
@@ -261,7 +326,8 @@ are documented at the decision site, `PlrOfferController::evaluate_offer()`.
 its strings, so the button handlers never re-derive the backend or re-check the
 invariant against live state that may have moved on between the offer and the
 tap. The modal itself stays backend-agnostic: primary button runs
-`plan.resume_gcode`, secondary runs `plan.discard_gcode` **or**
+`plan.resume_gcode`, or opens the wizard when the plan carries a
+`plan.resume_rpc` (GENERIC); secondary runs `plan.discard_gcode` **or**
 `plan.discard_rpc_method`.
 
 ### Filename safety
@@ -369,4 +435,10 @@ matching the surrounding code in `printer_print_state.cpp`.
 defers through `UpdateQueue`, so every callback body runs on the main thread.
 The one place that genuinely crosses the boundary is the probe response — a
 JSON-RPC callback that arrives on the WebSocket thread — so it is wrapped in
-`AsyncLifetimeGuard::bg_cb()`.
+`AsyncLifetimeGuard::bg_cb()`. The plugin's status reply takes the same path,
+and carries the connection generation it was asked in, so a reply from a dropped
+link is ignored.
+
+The wizard's replies, progress notifications and jog acks also return through its
+`lifetime_.bg_cb()`, each tagged with the opening it was asked in: a reply that
+lands after the wizard closed, or after it was reopened, is dropped.
