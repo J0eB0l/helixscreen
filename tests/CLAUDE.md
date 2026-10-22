@@ -169,7 +169,8 @@ sweep again in CI's 8-shard layout (a use-after-free can crash only next to the 
 CI's layout gives it), CI's exact `tests/ui` pytest slice, the moonraker plugin tests and
 `tests/python` (`make test-ui-ci`, `make test-plugin`, `make test-python`), and the
 generated-artefact checks
-(`check-theme-tokens`, `check-xml-schema`, `lint-xml`, `check-lvgl-event-codes`). The C++
+(`check-theme-tokens`, `check-xml-schema`, `lint-xml`, `check-lvgl-event-codes`), and the
+`quality-checks.sh` sweep pre-push would otherwise repeat on the same commit. The C++
 sweeps go to the test host when `full-test-run`'s would (`TEST_HOST`); everything else runs
 here in parallel, and it ends with a PASS/FAIL/TIMEOUT table with durations, naming the
 commit it judged (`+dirty` when uncommitted changes were in the tree). It holds

@@ -22,6 +22,9 @@
 #   xml-schema        make check-xml-schema: linter schema snapshot vs a regeneration
 #   lint-xml          make lint-xml: CI's XML Lint job, against the committed snapshot
 #   lvgl-event-codes  make check-lvgl-event-codes: crash worker table vs lv_event_code_t
+#   quality           make quality: the full quality-checks.sh sweep pre-push runs,
+#                     after app-build, since its clang gate reads the build's
+#                     compile commands
 #
 # The two C++ steps run on the test host when full-test-run's would
 # (scripts/lib/sweep_location.sh: TEST_HOST=1, 0 or unset for the probe), one
@@ -34,9 +37,13 @@
 # is non-zero unless every row passed. The run holds build:<tree>, so a second
 # gate or a peer's make in the same tree is refused instead of racing it.
 #
+# A PASS on a clean tree that did not move during the run is recorded against
+# the full HEAD SHA (.githooks/lib/land-gate-stamp.sh), and pre-push skips the
+# quality sweep when it pushes exactly that commit.
+#
 # Outside this gate: [.] (the commit hook), [slow] and the goldens (nightly and
-# local-only), the full quality-checks.sh run (pre-push and CI), and build.yml's
-# telemetry-worker vitest (server/telemetry-worker: `npm install && npm test`).
+# local-only), pre-push's ESP32 syntax check, and build.yml's telemetry-worker
+# vitest (server/telemetry-worker: `npm install && npm test`).
 set -uo pipefail
 
 MAKE=${MAKE:-make}
@@ -53,7 +60,7 @@ LAND_GATE_STEP_TIMEOUT=${LAND_GATE_STEP_TIMEOUT:-3600}
 LAND_GATE_HISTORY=${LAND_GATE_HISTORY:-${XDG_STATE_HOME:-$HOME/.local/state}/helixscreen/land-gate-history.tsv}
 ROWS_DIR="$LAND_GATE_LOGDIR/rows"
 
-STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes"
+STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes quality"
 
 TIMEOUT_BIN=$(command -v timeout || command -v gtimeout || true)
 
@@ -97,9 +104,11 @@ lane() {
             if step app-build "${mk[@]}"; then
                 step ui "${mk[@]}" test-ui-ci
                 step plugin "${mk[@]}" test-plugin
+                step quality "${mk[@]}" quality
             else
                 skip ui "app-build failed"
                 skip plugin "app-build failed"
+                skip quality "app-build failed"
             fi ;;
         bats) step bats "${mk[@]}" test-shell BATS_REQUIRED=1 ;;
         fresh)
@@ -131,6 +140,8 @@ export LAND_GATE_ACTIVE=$$
 . "$(dirname "$SELF")/lib/build_hosts.sh"
 # shellcheck source-path=SCRIPTDIR source=lib/sweep_location.sh
 . "$(dirname "$SELF")/lib/sweep_location.sh"
+# shellcheck source-path=SCRIPTDIR source=../.githooks/lib/land-gate-stamp.sh
+. "$(dirname "$SELF")/../.githooks/lib/land-gate-stamp.sh"
 resolve_sweep_location || exit $?
 export SWEEP_WHERE MAKE TEST_HOST_RUN CI_SHARDS CI_SHARD_TIMEOUT LAND_GATE_LOGDIR LAND_GATE_STEP_TIMEOUT ROWS_DIR
 
@@ -178,6 +189,7 @@ gate_eta() {
 }
 gate_eta
 judged="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
+judged_sha="$(git rev-parse HEAD 2>/dev/null || true)"
 [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] || judged+="+dirty"
 
 # Each lane is its own process group, so one signal reaches everything under
@@ -253,3 +265,13 @@ if [ "$failed" -ne 0 ]; then
     exit 1
 fi
 echo "LAND GATE: PASS ($judged)"
+# The verdict names a commit only if the tree was clean and still is, on the
+# same HEAD: a commit or an edit during the run means something else was judged.
+# The quality row is asked by name so the skip can never outlive the step.
+if [[ "$judged" != *+dirty ]] && [ -n "$judged_sha" ] \
+    && grep -q '^PASS ' "$ROWS_DIR/quality" 2>/dev/null \
+    && [ "$(git rev-parse HEAD 2>/dev/null)" = "$judged_sha" ] \
+    && [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] \
+    && land_gate_stamp_write "$judged_sha"; then
+    echo "  recorded: pushing $judged skips pre-push's quality sweep"
+fi
