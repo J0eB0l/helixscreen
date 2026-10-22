@@ -180,8 +180,10 @@ EOF
 
 @test "qidi handler: never touches the helixscreen unit" {
     local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log"
-    # Our own unit legitimately mentions a QIDI-looking install path.
-    write_unit "helixscreen.service" "/home/mks/QD_Q2/bin/../../helixscreen/bin/helix-launcher.sh" >/dev/null
+    # Our own unit can name the stock client, so only its unit name spares it.
+    local exec_start="/home/mks/helixscreen/bin/helix-launcher.sh --stock-ui=/home/mks/QD_Q2/bin/client"
+    echo "$exec_start" | grep -qiE "$QIDI_STOCK_UI_EXEC_PATTERN"
+    write_unit "helixscreen.service" "$exec_start" >/dev/null
     mock_command_script "systemctl" "echo \"\$@\" >> \"$systemctl_log\"; exit 0"
 
     found_any=false
