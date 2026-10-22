@@ -399,6 +399,8 @@ void DisplaySleepController::tick() {
     in.wake_requested = m_wake_requested;
     in.host_resumed = resumed_from_host_sleep;
     in.remote_viewer = m_host.remote_viewer_active && m_host.remote_viewer_active();
+    in.remote_viewer_arrived = in.remote_viewer && !m_remote_viewer_seen;
+    m_remote_viewer_seen = in.remote_viewer;
 #if HELIX_ENABLE_SCREENSAVER
     in.has_screensaver = ScreensaverManager::configured_type() != ScreensaverType::OFF;
     in.saver_running = m_screensaver_active;
@@ -427,6 +429,9 @@ void DisplaySleepController::tick() {
     case helix::IdleAction::None:
         break;
     case helix::IdleAction::Wake:
+        if (in.remote_viewer_arrived && in.state == helix::IdleState::Sleeping) {
+            spdlog::info("[DisplaySleep] Remote screen viewer opened the screen; waking display");
+        }
         m_wake_requested = false;
         m_wake_from_input = true;
         wake();

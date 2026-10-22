@@ -58,7 +58,7 @@ On a screen that can't change its brightness, such as a phone or tablet running 
 
 How long the screen waits before it turns off completely: **Never**, **1 minute**, **5 minutes**, **10 minutes**, **20 minutes** (the default) or **30 minutes**. Touch the screen to wake it.
 
-While someone is watching the screen in a browser ([Screen Sharing](../screen-sharing.md)), it dims and runs the screensaver as usual but does not go to sleep; it sleeps once they close the page.
+Opening the screen in a browser ([Screen Sharing](../screen-sharing.md)) wakes it. While someone is watching, it dims and runs the screensaver as usual but does not go to sleep; it sleeps once they close the page.
 
 Sleep never comes before the dim or screensaver stage. If a change would put it first, HelixScreen raises the sleep time to match **Screen Dim** (or **Screensaver after**) and says so. **Never** on either row is always allowed.
 

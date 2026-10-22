@@ -298,6 +298,28 @@ TEST_CASE("decide_idle: a remote viewer caps idle at dim", "[display][idle_decis
         CHECK(helix::decide_idle(in).action == IdleAction::Sleep);
     }
 
+    SECTION("a viewer arriving wakes a sleeping display, once") {
+        IdleInputs asleep = viewed(make(IdleState::Sleeping, 999999, 60, 120));
+        asleep.remote_viewer_arrived = true;
+        CHECK(helix::decide_idle(asleep).action == IdleAction::Wake);
+        // Waking is never refused, even while entry is inhibited.
+        asleep.inhibit_entry = true;
+        CHECK(helix::decide_idle(asleep).action == IdleAction::Wake);
+        // A viewer that stays does not keep waking it.
+        asleep.inhibit_entry = false;
+        asleep.remote_viewer_arrived = false;
+        CHECK(helix::decide_idle(asleep).action == IdleAction::None);
+        // Arrival changes nothing on a display that is not asleep.
+        IdleInputs dimmed = viewed(make(D, 90000, 60, 120));
+        dimmed.can_dim = true;
+        dimmed.remote_viewer_arrived = true;
+        CHECK(helix::decide_idle(dimmed).action == IdleAction::None);
+        IdleInputs awake = viewed(make(A, 1000, 60, 120));
+        awake.can_dim = true;
+        awake.remote_viewer_arrived = true;
+        CHECK(helix::decide_idle(awake).action == IdleAction::None);
+    }
+
     SECTION("viewed, wakes are unchanged") {
         IdleInputs dimmed = viewed(make(D, 10, 60, 120));
         CHECK(helix::decide_idle(dimmed).action == IdleAction::Wake);

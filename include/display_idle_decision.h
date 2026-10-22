@@ -36,6 +36,8 @@ struct IdleInputs {
     /// Someone is watching the screen through the remote screen server. Idle may dim and
     /// start the screensaver, never sleep: a sleeping panel serves a black or frozen image.
     bool remote_viewer = false;
+    /// remote_viewer became true this tick. Wakes a sleeping display, as a touch does.
+    bool remote_viewer_arrived = false;
 };
 
 struct IdleDecision {
@@ -58,7 +60,7 @@ inline IdleDecision decide_idle(const IdleInputs& in) {
     const bool activity = in.inactive_ms < kIdleActivityWindowMs;
 
     if (in.state == IdleState::Sleeping) {
-        if (in.wake_requested || activity || in.host_resumed) {
+        if (in.wake_requested || activity || in.host_resumed || in.remote_viewer_arrived) {
             return {IdleAction::Wake};
         }
         return {IdleAction::None};

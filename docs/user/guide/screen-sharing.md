@@ -91,7 +91,7 @@ While a browser is controlling the screen, a small icon appears in the top-right
 
 ![The remote-control icon](../../images/user/screen-sharing-badge.png)
 
-While a browser has the screen open, the printer's screen never goes to sleep, so the picture never goes black. It still dims and runs its screensaver, and sleeps about ten seconds after the last browser closes the page or switches tab, once its sleep time has passed.
+Opening the screen in a browser wakes the printer's screen if it was asleep, just as a touch would. While a browser has it open, it never goes to sleep, so the picture never goes black. It still dims and runs its screensaver, and sleeps about ten seconds after the last browser closes the page or switches tab, once its sleep time has passed.
 
 ---
 

@@ -3,7 +3,8 @@
 
 /**
  * @file test_display_remote_viewer_sleep.cpp
- * @brief A display someone watches through the remote screen server never sleeps.
+ * @brief A display someone watches through the remote screen server never sleeps, and a
+ *        viewer arriving wakes one that is asleep.
  *
  * The rule is decide_idle()'s (test_display_idle_decision.cpp); this pins that
  * DisplayManager feeds it the service's viewer signal.
@@ -106,5 +107,39 @@ TEST_CASE_METHOD(RemoteViewerSleepFixture, "with no remote viewer the display sl
     CHECK(mgr.is_display_sleeping());
 
     // The overlay is parented to lv_layer_top(), which outlives this never-init()'d manager.
+    DisplayManagerTestAccess::restore_display_output(mgr);
+}
+
+TEST_CASE_METHOD(RemoteViewerSleepFixture, "a remote viewer arriving wakes a sleeping display",
+                 "[application][display][sleep][remote_viewer]") {
+    DisplayManager mgr;
+    idle_past_sleep_timeout(mgr);
+    mgr.check_display_sleep();
+    REQUIRE(mgr.is_display_sleeping());
+
+    RemoteScreenService::instance().store()->note_request();
+    mgr.check_display_sleep();
+    CHECK_FALSE(mgr.is_display_sleeping());
+    // The wake restarts the idle clock, as a touch does.
+    CHECK(lv_display_get_inactive_time(nullptr) < 500);
+}
+
+TEST_CASE_METHOD(RemoteViewerSleepFixture,
+                 "a remote viewer that stays does not re-wake the display",
+                 "[application][display][sleep][remote_viewer]") {
+    DisplayManager mgr;
+    idle_past_sleep_timeout(mgr);
+    RemoteScreenService::instance().store()->note_request();
+    mgr.check_display_sleep();
+    REQUIRE_FALSE(mgr.is_display_sleeping());
+
+    // Asleep by some other path while the same viewer is still watching.
+    DisplayManagerTestAccess::enter_sleep(mgr, 1);
+    REQUIRE(mgr.is_display_sleeping());
+    RemoteScreenService::instance().store()->note_request();
+    process_lvgl(1500);
+    mgr.check_display_sleep();
+    CHECK(mgr.is_display_sleeping());
+
     DisplayManagerTestAccess::restore_display_output(mgr);
 }

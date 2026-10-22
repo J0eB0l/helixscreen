@@ -129,9 +129,10 @@ class DisplaySleepController {
 
     bool m_display_sleeping = false;
     bool m_display_dimmed = false;
-    bool m_wake_requested = false;    // set by note_press() while asleep or dimmed
-    bool m_remote_sleep_held = false; // a remote viewer is keeping an overdue sleep at dim
-    bool m_wake_from_input = false;   // wake() is running for the user's touch or activity
+    bool m_wake_requested = false;     // set by note_press() while asleep or dimmed
+    bool m_remote_sleep_held = false;  // a remote viewer is keeping an overdue sleep at dim
+    bool m_remote_viewer_seen = false; // the previous tick saw a remote viewer
+    bool m_wake_from_input = false;    // wake() is running for the user's touch or activity
     int m_dim_timeout_sec = 600;
     int m_dim_brightness_percent = 30;
 
