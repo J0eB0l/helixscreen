@@ -1901,3 +1901,61 @@ def test_qidi_landing_counts_the_mesh(plr, helix, qidi_resume):
     plr.job["mesh"] = {"points": [[-0.2, -0.2], [-0.2, -0.2]], "min": [0, 0], "max": [220, 220]}
     with pytest.raises(Exception, match="qidi_landing_below_part"):
         run(plr.handle_plan(Req()))
+
+
+# --------------------------------------------------------------------------
+# Resumed job's mesh, index pruning, one frame at a time
+# --------------------------------------------------------------------------
+
+
+def test_a_resumed_job_keeps_the_mesh_it_resumed_with(plr, helix, resume, tmp_path):
+    cfg = tmp_path / "printer_data" / "config" / "helix-plr" / "mesh.cfg"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text("[bed_mesh helix_plr]\n")
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    full_resume(plr, plan_id)
+    added(plr, job_id="0000F6", filename=RESUME_LINK)
+    assert cfg.exists()
+    assert plr.job["history_name"] == "sub/part.gcode"
+    added(plr, job_id="0000F7", filename=RESUME_LINK)        # a later print, not a resume
+    assert not cfg.exists()
+
+
+def test_layer_indexes_of_deleted_files_and_old_ones_are_pruned(tmp_path):
+    gcodes = tmp_path / "gcodes"
+    gcodes.mkdir()
+    import os as _os
+    paths = []
+    for i in range(6):
+        (gcodes / ("f%d.gcode" % i)).write_text("G1 X1\n")
+        index = helix_gcode_reader.layer_index_path(gcodes, "f%d.gcode" % i)
+        _os.makedirs(_os.path.dirname(index), exist_ok=True)
+        open(index, "w").write("{}\n")
+        _os.utime(index, (1000 + i, 1000 + i))
+        paths.append(index)
+    (gcodes / "f5.gcode").unlink()                         # the newest index's file is gone
+    removed = helix_gcode_reader.prune_layer_indexes(gcodes, keep=3)
+    assert sorted(removed) == sorted(paths[:2] + [paths[5]])
+    assert all(_os.path.exists(p) for p in paths[2:5])
+
+
+def test_two_status_frames_at_once_save_one_snapshot(plr):
+    import asyncio
+    added(plr)
+    saving = plr._saving
+
+    async def slow_saving():
+        await asyncio.sleep(0)
+        return await saving()
+
+    plr._saving = slow_saving
+    writes = []
+    write = plr.store.write
+    plr.store.write = lambda payload: (writes.append(payload), write(payload))[1]
+
+    async def both():
+        await asyncio.gather(plr.on_status_update(printing_status(100)),
+                             plr.on_status_update(printing_status(200, layer=2)))
+
+    run(both())
+    assert len(writes) == 1           # two at once would also race on the slot seq

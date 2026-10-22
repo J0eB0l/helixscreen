@@ -930,3 +930,35 @@ def read_layer_index(path: str, identity: dict,
         return LayerCheckpoint(entry[0], entry[1], ModalState.from_dict(entry[2]["state"]))
 
     return LayerIndexSummary(checkpoint(last), checkpoint(best), complete)
+
+
+def prune_layer_indexes(gcodes_root: "os.PathLike", keep: int) -> List[str]:
+    """Remove the layer indexes whose G-code file is gone, then all but the
+    `keep` most recently written. Returns the removed paths."""
+    root = os.path.join(str(gcodes_root), LAYER_INDEX_DIR)
+    external = os.path.join(root, ".external") + os.sep
+    found = []  # type: List[Tuple[float, str]]
+    removed = []  # type: List[str]
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            if not name.endswith(LAYER_INDEX_SUFFIX):
+                continue
+            path = os.path.join(dirpath, name)
+            source = os.path.join(str(gcodes_root),
+                                  os.path.relpath(path, root)[:-len(LAYER_INDEX_SUFFIX)])
+            try:
+                if not path.startswith(external) and not os.path.exists(source):
+                    os.remove(path)
+                    removed.append(path)
+                    continue
+                found.append((os.path.getmtime(path), path))
+            except OSError:
+                continue
+    found.sort(reverse=True)
+    for _mtime, path in found[keep:]:
+        try:
+            os.remove(path)
+            removed.append(path)
+        except OSError:
+            pass
+    return removed

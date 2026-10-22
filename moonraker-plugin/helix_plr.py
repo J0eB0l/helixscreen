@@ -806,8 +806,12 @@ HELIX_SCREEN_NAMESPACE = "helix-screen"
 PLR_NAMESPACE = "helix_plr"
 JOB_KEY = "job"
 NEWEST_JOB_KEY = "newest_job"
-# The original name of a job started through RESUME_LINK.
-RESUME_LINK_KEY = "resume_link"
+# The resume about to start: {start_name, history_name} (the original name
+# when it starts through RESUME_LINK), read when history adds its job.
+RESUMING_KEY = "resuming"
+
+# Layer indexes kept under <gcodes>/.helix_index, newest first.
+INDEX_KEEP_FILES = 32
 
 SNAPSHOT_FILE = Path("helix-plr") / "snapshot.bin"
 MESH_CFG_FILE = Path("helix-plr") / "mesh.cfg"
@@ -1040,6 +1044,15 @@ class HelixPlr:
         if state not in ("printing", "paused"):
             self.policy.decide(self.clock(), state, {})
             return
+        # One frame at a time from here: a frame arriving during this one's
+        # awaits must not persist an older record after it.
+        self._writing = True
+        try:
+            await self._save_frame(state)
+        finally:
+            self._writing = False
+
+    async def _save_frame(self, state: str) -> None:
         if not await self._saving():
             return
         now = self.clock()
@@ -1098,6 +1111,16 @@ class HelixPlr:
         return path, helix_gcode_reader.layer_index_path(gc_path, rel), identity
 
     # -- layer checkpoints ---------------------------------------------------
+
+    def _prune_indexes(self) -> None:
+        """Drop layer indexes of deleted files and all but the newest
+        INDEX_KEEP_FILES, on the follower thread."""
+        gc_path = getattr(self.helix, "gc_path", None)
+        if gc_path is None:
+            return
+        future = self._executor().submit(
+            helix_gcode_reader.prune_layer_indexes, gc_path, INDEX_KEEP_FILES)
+        future.add_done_callback(self._follow_done)
 
     def _make_follower(self) -> Optional[LayerFollower]:
         target = self.print_target()
@@ -1167,14 +1190,11 @@ class HelixPlr:
         except ValueError as e:
             logging.warning("HelixPrint: PLR snapshot skipped: %s", e)
             return
-        self._writing = True
         try:
             await self.server.get_event_loop().run_in_thread(self.store.write, payload)
         except OSError as e:
             logging.warning("HelixPrint: PLR snapshot write failed: %s", e)
             return
-        finally:
-            self._writing = False
         self.policy.saved(now, record)
         if moved and self.job is not None and self.job.get("overflow") != moved:
             self.job["overflow"] = moved
@@ -1252,15 +1272,20 @@ class HelixPlr:
                 self.store.clear()
             except OSError as e:
                 logging.warning("HelixPrint: PLR could not clear the snapshot: %s", e)
-        self._remove_mesh_cfg()
-        if self.qidi is not None:
-            self.qidi.on_job_start()
         record = {"schema": SNAPSHOT_SCHEMA, "job_id": job_id, "filename": filename,
                   "started_at": self.clock()}
-        if filename == RESUME_LINK:
-            pending = await self._ns_get(RESUME_LINK_KEY)
-            if isinstance(pending, dict) and pending.get("history_name"):
-                record["history_name"] = pending["history_name"]
+        resuming = await self._ns_get(RESUMING_KEY)
+        if isinstance(resuming, dict) and resuming.get("start_name") == filename:
+            # A resumed job keeps the include-file mesh it was resumed with,
+            # so another outage during it can load the same mesh.
+            if resuming.get("history_name"):
+                record["history_name"] = resuming["history_name"]
+            await self._ns_delete(RESUMING_KEY)
+        else:
+            self._remove_mesh_cfg()
+        if self.qidi is not None:
+            self.qidi.on_job_start()
+        self._prune_indexes()
         gc_path = getattr(self.helix, "gc_path", None)
         if gc_path is not None and filename:
             try:
@@ -1304,7 +1329,6 @@ class HelixPlr:
                     (gc_path / RESUME_LINK).unlink()
                 except OSError:
                     pass
-            await self._ns_delete(RESUME_LINK_KEY)
 
     async def discard(self) -> None:
         """Delete the snapshot, the job record and the mesh file. The layer
@@ -1951,8 +1975,9 @@ class HelixPlr:
                 link.symlink_to(target)
             except OSError as e:
                 raise self._error("plr_klippy_error", "cannot link %s: %s" % (RESUME_LINK, e), 500)
-            # Read back by the resumed job's history event, also after a restart.
-            await self._ns_put(RESUME_LINK_KEY, {"history_name": plan.history_name})
+        # Read back by the resumed job's history event, also after a restart.
+        await self._ns_put(RESUMING_KEY, {"start_name": plan.start_name,
+                                          "history_name": plan.history_name})
         self._check_abort()
         self.helix.mark_helix_initiated(plan.start_name, "plr_resume", plan.history_name)
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
