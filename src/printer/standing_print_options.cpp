@@ -28,7 +28,8 @@ nlohmann::json standing_options_record(const std::string& gcode) {
 }
 
 StandingOptionsSender standing_options_sender(PluginFeatureState hooks, bool opted_in,
-                                              bool screen_started, bool has_gcode) {
+                                              bool screen_started, bool has_gcode,
+                                              FallbackSenderRole role) {
     if (screen_started || !has_gcode) {
         return StandingOptionsSender::None;
     }
@@ -39,7 +40,8 @@ StandingOptionsSender standing_options_sender(PluginFeatureState hooks, bool opt
         // The plugin can run it and the user switched it off.
         return StandingOptionsSender::None;
     case PluginFeatureState::Absent:
-        return opted_in ? StandingOptionsSender::App : StandingOptionsSender::None;
+        return opted_in && role == FallbackSenderRole::Sender ? StandingOptionsSender::App
+                                                              : StandingOptionsSender::None;
     }
     return StandingOptionsSender::None;
 }

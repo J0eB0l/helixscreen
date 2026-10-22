@@ -22,6 +22,7 @@
 #endif
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -90,13 +91,19 @@ TEST_CASE("standing options go to exactly one sender per plugin state", "[plugin
         const PluginFeatureState state = plugin_feature_state(
             row.plugin_available, row.features, kPrintHooksFeature, kPrintHooksMinVersion);
         CHECK(standing_options_sender(state, row.opted_in, /*screen_started=*/false,
-                                      /*has_gcode=*/true) == row.expected);
+                                      /*has_gcode=*/true,
+                                      FallbackSenderRole::Sender) == row.expected);
+        INFO("another HelixScreen on the printer sends the fallback");
+        CHECK(standing_options_sender(state, row.opted_in, false, true,
+                                      FallbackSenderRole::Standby) ==
+              (row.expected == StandingOptionsSender::App ? StandingOptionsSender::None
+                                                          : row.expected));
         INFO("the screen's own start already sent its options");
-        CHECK(standing_options_sender(state, row.opted_in, /*screen_started=*/true, true) ==
-              StandingOptionsSender::None);
+        CHECK(standing_options_sender(state, row.opted_in, /*screen_started=*/true, true,
+                                      FallbackSenderRole::Sender) == StandingOptionsSender::None);
         INFO("nothing rendered");
-        CHECK(standing_options_sender(state, row.opted_in, false, /*has_gcode=*/false) ==
-              StandingOptionsSender::None);
+        CHECK(standing_options_sender(state, row.opted_in, false, /*has_gcode=*/false,
+                                      FallbackSenderRole::Sender) == StandingOptionsSender::None);
     }
 }
 
@@ -253,34 +260,79 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
 }
 
 TEST_CASE("a plugin switch row's mode over every plugin state", "[plugin_feature]") {
+    using M = PluginSwitchMode;
     struct Row {
         const char* what;
         bool plugin_available;
         PluginFeatureMap features;
-        PluginSwitchMode expected;
+        // Expected mode for: plugin-only, fallback on the printer's host,
+        // fallback on a remote screen
+        M plugin_only;
+        M fallback_local;
+        M fallback_remote;
     };
     const Row rows[] = {
-        {"no plugin", false, hooks_map(1, true, true), PluginSwitchMode::NeedsPlugin},
-        {"no plugin, nothing reported", false, {}, PluginSwitchMode::NeedsPlugin},
-        {"old plugin without a features map", true, {}, PluginSwitchMode::NeedsUpdate},
-        {"contract below the minimum", true, hooks_map(0, true, true),
-         PluginSwitchMode::NeedsUpdate},
-        {"unavailable on this printer", true, hooks_map(1, false, false), PluginSwitchMode::Hidden},
-        {"unavailable, below the minimum too", true, hooks_map(0, false, false),
-         PluginSwitchMode::NeedsUpdate},
-        {"switched off", true, hooks_map(1, true, false), PluginSwitchMode::Switch},
-        {"ready", true, hooks_map(1, true, true), PluginSwitchMode::Switch},
+        {"no plugin", false, {}, M::NeedsPlugin, M::Switch, M::FallbackInstallHint},
+        {"no plugin, a stale map", false, hooks_map(1, true, true), M::NeedsPlugin, M::Switch,
+         M::FallbackInstallHint},
+        {"old plugin without a features map",
+         true,
+         {},
+         M::NeedsUpdate,
+         M::Switch,
+         M::FallbackUpdateHint},
+        {"contract below the minimum", true, hooks_map(0, true, true), M::NeedsUpdate, M::Switch,
+         M::FallbackUpdateHint},
+        {"below the minimum and unavailable", true, hooks_map(0, false, false), M::NeedsUpdate,
+         M::Switch, M::FallbackUpdateHint},
+        {"unavailable on this printer", true, hooks_map(1, false, false), M::Hidden, M::Hidden,
+         M::Hidden},
+        {"switched off", true, hooks_map(1, true, false), M::Switch, M::Switch, M::Switch},
+        {"ready", true, hooks_map(1, true, true), M::Switch, M::Switch, M::Switch},
     };
     for (const Row& row : rows) {
         INFO(row.what);
-        CHECK(plugin_switch_mode(row.plugin_available, row.features, kPrintHooksFeature,
-                                 kPrintHooksMinVersion) == row.expected);
+        auto mode = [&row](bool has_fallback, bool is_local) {
+            return plugin_switch_mode(row.plugin_available, row.features, kPrintHooksFeature,
+                                      kPrintHooksMinVersion, has_fallback, is_local);
+        };
+        CHECK(mode(false, true) == row.plugin_only);
+        CHECK(mode(false, false) == row.plugin_only);
+        CHECK(mode(true, true) == row.fallback_local);
+        CHECK(mode(true, false) == row.fallback_remote);
     }
     INFO("another feature's entry does not stand in");
     PluginFeatureMap other;
     other["plr"] = entry(1, true, true);
-    CHECK(plugin_switch_mode(true, other, kPrintHooksFeature, kPrintHooksMinVersion) ==
-          PluginSwitchMode::NeedsUpdate);
+    CHECK(plugin_switch_mode(true, other, kPrintHooksFeature, kPrintHooksMinVersion, false,
+                             false) == M::NeedsUpdate);
+}
+
+TEST_CASE("one HelixScreen per printer sends a fallback", "[plugin_feature]") {
+    INFO("the screen on the printer's host always sends");
+    CHECK(fallback_sender_role(true, std::nullopt) == FallbackSenderRole::Sender);
+    CHECK(fallback_sender_role(true, true) == FallbackSenderRole::Sender);
+    CHECK(fallback_sender_role(true, false) == FallbackSenderRole::Sender);
+    INFO("a remote screen sends only when no local one is connected");
+    CHECK(fallback_sender_role(false, false) == FallbackSenderRole::Sender);
+    CHECK(fallback_sender_role(false, true) == FallbackSenderRole::Standby);
+    INFO("and stands by when that cannot be told");
+    CHECK(fallback_sender_role(false, std::nullopt) == FallbackSenderRole::Standby);
+}
+
+TEST_CASE("a local screen's presence record says whether it is connected", "[plugin_feature]") {
+    constexpr int64_t t0 = 1700000000;
+    const json record = local_screen_presence_record(t0);
+    CHECK(record == json{{"seen_at", t0}});
+    CHECK(local_screen_present(record, t0) == true);
+    CHECK(local_screen_present(record, t0 + 2 * kLocalScreenPresenceIntervalS) == true);
+    CHECK(local_screen_present(record, t0 + 2 * kLocalScreenPresenceIntervalS + 1) == false);
+    INFO("a writer whose clock runs ahead still reads as present");
+    CHECK(local_screen_present(record, t0 - 300) == true);
+    INFO("a record that is not one cannot be judged");
+    CHECK(local_screen_present(json::object(), t0) == std::nullopt);
+    CHECK(local_screen_present(json{{"seen_at", "soon"}}, t0) == std::nullopt);
+    CHECK(local_screen_present(json(), t0) == std::nullopt);
 }
 
 TEST_CASE("the plugin overview lists every reported feature with its status", "[plugin_feature]") {

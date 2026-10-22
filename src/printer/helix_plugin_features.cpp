@@ -59,7 +59,8 @@ bool plugin_feature_opted_in(const nlohmann::json& record, const std::string& na
 }
 
 PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMap& features,
-                                    const std::string& name, int min_version) {
+                                    const std::string& name, int min_version, bool has_fallback,
+                                    bool is_local) {
     switch (plugin_feature_state(plugin_available, features, name, min_version)) {
     case PluginFeatureState::Ready:
     case PluginFeatureState::Disabled:
@@ -67,14 +68,41 @@ PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMa
     case PluginFeatureState::Absent:
         break;
     }
-    if (!plugin_available) {
-        return PluginSwitchMode::NeedsPlugin;
-    }
     const auto it = features.find(name);
-    if (it == features.end() || it->second.version < min_version) {
-        return PluginSwitchMode::NeedsUpdate;
+    const bool current_entry = it != features.end() && it->second.version >= min_version;
+    if (plugin_available && current_entry) {
+        // Absent with a current entry: the plugin says it cannot run here.
+        return PluginSwitchMode::Hidden;
     }
-    return PluginSwitchMode::Hidden;
+    // A plugin that answers but lacks the feature is fixed by updating it.
+    const bool outdated = plugin_available;
+    if (has_fallback) {
+        if (is_local) {
+            return PluginSwitchMode::Switch;
+        }
+        return outdated ? PluginSwitchMode::FallbackUpdateHint
+                        : PluginSwitchMode::FallbackInstallHint;
+    }
+    return outdated ? PluginSwitchMode::NeedsUpdate : PluginSwitchMode::NeedsPlugin;
+}
+
+FallbackSenderRole fallback_sender_role(bool is_local, std::optional<bool> local_screen_present) {
+    if (is_local) {
+        return FallbackSenderRole::Sender;
+    }
+    return local_screen_present == false ? FallbackSenderRole::Sender : FallbackSenderRole::Standby;
+}
+
+nlohmann::json local_screen_presence_record(int64_t now) {
+    return nlohmann::json{{"seen_at", now}};
+}
+
+std::optional<bool> local_screen_present(const nlohmann::json& record, int64_t now) {
+    const nlohmann::json* seen = json_util::find_member(record, "seen_at");
+    if (seen == nullptr || !seen->is_number_integer()) {
+        return std::nullopt;
+    }
+    return now - seen->get<int64_t>() <= 2 * kLocalScreenPresenceIntervalS;
 }
 
 std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& features) {

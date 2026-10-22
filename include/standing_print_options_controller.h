@@ -6,6 +6,7 @@
 // when the HelixPrint plugin's print_hooks feature cannot.
 
 #include "ui_observer_guard.h"
+#include "ui_timer_guard.h"
 
 #include "async_lifetime_guard.h"
 
@@ -38,7 +39,12 @@ class StandingPrintOptionsController {
     /// Re-render and write the record when it changed. Main thread.
     void refresh_record();
     void subscribe_history(IMoonrakerAPI& api);
-    void load_opt_in(IMoonrakerAPI& api);
+    /// Read helix-screen/plugin_features into the plugin status, for the
+    /// fallback switches and the fallback decision.
+    void load_opt_ins(IMoonrakerAPI& api);
+    /// A screen on the printer's host rewrites its presence record.
+    void announce_presence();
+    static void send_options(const std::string& filename, const std::string& gcode);
 
     ObserverGuard probe_observer_;
     ObserverGuard backend_count_observer_;
@@ -51,9 +57,8 @@ class StandingPrintOptionsController {
 
     /// The record as last written this connection; nullopt until then.
     std::optional<std::string> written_;
-    /// The user's print_hooks opt-in as stored, for when the plugin reports
-    /// no such feature.
-    bool opted_in_ = false;
+    /// Rewrites the presence record while this screen is on the printer's host.
+    ui::LvglTimerGuard presence_timer_;
     /// The client the history notification is registered on.
     const IMoonrakerClient* subscribed_client_ = nullptr;
 };

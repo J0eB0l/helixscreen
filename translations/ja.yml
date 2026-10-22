@@ -2457,6 +2457,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'ワンタップでこのマクロを実行します。危険なマクロは確認を求めます。'
   'Only on A: {} Hz': "Aのみ: {} Hz"
   'Only on B: {} Hz': "Bのみ: {} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインをインストールしてください。'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインを更新してください。'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "空きメモリは{} MBしかなく、Klipperの解析には約{} MB必要です。テストを実行すると、電源を入れ直すまでプリンターが停止したままになります。"
   Ooze Reduction: 'にじみ低減'

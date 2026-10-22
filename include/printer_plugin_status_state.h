@@ -14,18 +14,22 @@ namespace helix {
 /// A plugin feature with a switch in the settings. Each gets two XML subjects:
 /// `mode_subject` (PluginSwitchMode, which a plugin_feature_toggle_row binds
 /// through its `feature` name) and, unless the feature owns its switch,
-/// `on_subject` (its `enabled`, the switch's state).
+/// `on_subject` (the switch's state).
 struct PluginSwitchFeature {
     const char* name;
     int min_version;
+    /// The app does the feature itself when the plugin cannot
+    bool has_fallback;
+    /// Acts on a print or a spool, so it is off until opted into
+    bool acts;
     const char* mode_subject;
     /// nullptr for a feature that owns its switch and publishes its own state
     const char* on_subject;
 };
 
 inline constexpr std::array<PluginSwitchFeature, 2> kPluginSwitchFeatures = {{
-    {kPlrFeatureName, kPlrFeatureMinVersion, "plugin_feature_mode_plr", nullptr},
-    {kPrintHooksFeature, kPrintHooksMinVersion, "plugin_feature_mode_print_hooks",
+    {kPlrFeatureName, kPlrFeatureMinVersion, false, true, "plugin_feature_mode_plr", nullptr},
+    {kPrintHooksFeature, kPrintHooksMinVersion, true, true, "plugin_feature_mode_print_hooks",
      "plugin_feature_on_print_hooks"},
 }};
 
@@ -200,6 +204,26 @@ class PrinterPluginStatusState {
         return &plr_feature_state_;
     }
 
+    /// This screen runs on the printer's own host (false while not known).
+    /// Decides whether a fallback switch carries a hint. Main thread.
+    void set_screen_local(bool local) {
+        screen_local_ = local;
+        publish_features();
+    }
+    bool screen_local() const {
+        return screen_local_;
+    }
+
+    /// The helix-screen/plugin_features record as last read: the opt-ins a
+    /// fallback switch shows while no plugin reports the feature. Main thread.
+    void set_stored_opt_ins(nlohmann::json record) {
+        stored_opt_ins_ = std::move(record);
+        publish_features();
+    }
+    const nlohmann::json& stored_opt_ins() const {
+        return stored_opt_ins_;
+    }
+
     /// PluginSwitchMode of kPluginSwitchFeatures[@p index], as an int.
     lv_subject_t* get_switch_mode_subject(size_t index) {
         return &switch_mode_[index];
@@ -260,6 +284,8 @@ class PrinterPluginStatusState {
     lv_subject_t plr_feature_state_{};
     lv_subject_t helix_plugin_probe_seq_{};
     lv_subject_t plr_saving_enabled_{};
+    bool screen_local_ = false;
+    nlohmann::json stored_opt_ins_ = nlohmann::json::object();
     std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_mode_{};
     std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_on_{};
     /// Republish the feature subjects from the plugin state and features map.

@@ -79,24 +79,46 @@ depends on more than a boolean (power-loss recovery: `helix-screen` / `plr_user.
 storage-dependent default). Its `plugin_features` key is then unused, and the `features` map
 reports that feature's own `enabled`. Never two switches for one feature.
 
-**Settings placement (ruled 2026-10-22).** A feature's switch lives on the settings page
-for what it does, not on a plugin page. Every such switch is a `plugin_feature_toggle_row`
-(`ui_xml/plugin_feature_toggle_row.xml`), whose look one pure function decides
-(`plugin_switch_mode`): a working switch while the feature is Ready or Disabled; greyed with
-"Requires the HelixPrint plugin" and Install when there is no plugin; greyed asking for a
-newer plugin when the plugin lacks the feature or its contract is too old; hidden when the
-plugin reports it `available: false` (Install cannot help, and the reason shows on the
-overview). A feature that owns its switch (power-loss recovery) passes its own subject and
-callback and gets the same modes. Adding a switch is one row in `kPluginSwitchFeatures`, one
-XML line on its page and its strings. The Advanced panel keeps a read-only "HelixPrint
-plugin" overview where Install/Uninstall live: the plugin's version, then each feature in the
-status map as active, off or unavailable (reason), leading to the page that holds its switch.
-Features that only observe (file analysis, event journal) and transports (server edits,
-config, vendor push) get no switch anywhere. Homes: Phase 2 fit-check blocking -> Safety &
-Alerts; Phase 3 -> Printing; Phase 5 -> Devices > Spoolman, Weight Sync group; Phase 7 photos
--> Devices > Camera; Phase 8 auto cleanup -> System > Storage (a new page); Phase 6 events
-view -> notification history; Phases 1, 4, 10 and 11 have no switch. Defaults as above:
-observers on, actors off.
+**Settings placement (ruled 2026-10-22).** No switch lives on a plugin page. The Advanced
+panel keeps a read-only "HelixPrint plugin" page where Install/Uninstall live: the plugin's
+version, then each feature in the status map as active, off or unavailable (the plugin's
+reason), each leading to the page that holds its switch (a static feature -> page map; a
+feature with no setting shows its status only). Every switch sits on the settings page for
+what it affects, as a `plugin_feature_toggle_row` (`ui_xml/plugin_feature_toggle_row.xml`)
+whose look one pure function decides (`plugin_switch_mode(plugin, features, name,
+min_version, has_fallback, is_local)`, tested over every combination):
+
+- Ready or Disabled: a normal switch.
+- Plugin fine, entry present, `available: false`: hidden; Install cannot help on an
+  unsupported printer. The reason shows only on the overview.
+- No plugin, no features map, entry missing or below `min_version`:
+  - a feature with an app fallback (Phase 3 now; Phases 5 and 7 later) keeps a working switch,
+    which writes `plugin_features` (Moonraker's database, no plugin needed). On the printer's
+    own host it carries no hint; on a remote screen one line under it, "Only while this app is
+    connected. Install the HelixPrint plugin to cover every print.", with Install (or a request
+    to update an outdated plugin);
+  - a plugin-only feature (power-loss recovery) is greyed with "Requires the HelixPrint
+    plugin" and Install (or "Requires a newer HelixPrint plugin" for an outdated one, since
+    the install flow refuses a plugin that is already installed).
+
+A feature that owns its switch (power-loss recovery, `plr_user.enabled`) passes its own
+subject and callback and gets the same modes. Adding a switch is one row in
+`kPluginSwitchFeatures` (name, minimum contract, `has_fallback`, `acts`), one XML line on its
+page and its strings. Features that only observe (file analysis, event journal) and transports
+(server edits, config, vendor push) get no switch anywhere. Homes: Phase 2 fit-check blocking
+-> Safety & Alerts; Phase 3 -> Printing; Phase 5 -> Devices > Spoolman, Weight Sync group;
+Phase 7 photos -> Devices > Camera; Phase 8 auto cleanup -> System > Storage (a new page);
+Phase 6 events view -> notification history; Phases 1, 4, 10 and 11 have no switch.
+
+**One fallback sender per printer (ruled 2026-10-22).** An attached screen and a tablet must
+never both send a fallback's gcode. `fallback_sender_role(is_local, local_screen_present)`:
+the instance on the printer's host sends; a remote instance sends only when no local
+HelixScreen is connected, and stands by when that cannot be told. Moonraker exposes no list of
+connected clients (`server.connection.identify` only registers one; `server.extensions.list`
+lists agents only), so a local HelixScreen announces itself in `helix-screen` /
+`local_screen` = `{"seen_at": <unix time>}`, rewritten every 10 minutes while connected; a
+record younger than two intervals means present, a missing key means absent, and any other
+read failure means unknown. Phases 5 and 7 reuse the same function.
 
 **Helix-initiated job marker (2026-10-21).** A plugin path that starts a job itself records it
 immediately before the single command that starts the print (`SDCARD_PRINT_FILE`, or `M24`),
@@ -317,6 +339,21 @@ the reasoning: `docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md
 
 Skips and file rewrites are excluded: once a foreign client has started the file, it is too late
 to rewrite it. Moonraker's own queue transitions are in scope.
+
+**As built (2026-10-22).**
+
+- The record is rendered for a print that is already running, since history adds the job
+  once the print has started: the capability is `AmsBackend::standing_print_gcode()`. On the
+  U1 that is the screen's own end-unload line plus `FORCE=1`, which the firmware requires for
+  `END_UNLOAD_FILAMENT` mid-print (not yet checked on hardware).
+- No AMS routing in the record: `SET_PRINT_EXTRUDER_MAP` / `SET_PRINT_USED_EXTRUDERS` are
+  refused mid-print, and no other backend has a pre-print send.
+- No timelapse in the record: the screen's timelapse default is moonraker-timelapse's own
+  global `enabled`, which every start already honors; the per-print toggle is an HTTP
+  setting, not gcode.
+- The screen announces its own direct starts (`POST /server/helix/print_hooks/screen_start`,
+  just before `printer.print.start`) so the plugin does not resend options its pre-print step
+  carried. The marker is private to the hooks module; `helix_initiated()` never answers it.
 
 ### Fallback
 

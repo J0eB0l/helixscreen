@@ -8,6 +8,7 @@
 
 #include "translation_loader.h" // TR_NOOP
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -63,17 +64,55 @@ bool plugin_feature_opted_in(const nlohmann::json& record, const std::string& na
 /// state. Values are what the row's mode subject carries.
 enum class PluginSwitchMode {
     Hidden = 0,      ///< the plugin runs, but the feature cannot on this printer
-    Switch = 1,      ///< a working switch (Ready or Disabled)
-    NeedsPlugin = 2, ///< no plugin: greyed, with an Install action
-    NeedsUpdate = 3, ///< a plugin too old for the feature: greyed, update it
+    Switch = 1,      ///< a working switch, no hint
+    NeedsPlugin = 2, ///< greyed, "Requires the HelixPrint plugin", Install
+    NeedsUpdate = 3, ///< greyed, the installed plugin is too old for it
+    /// A working switch the app's fallback serves on a remote screen while no
+    /// plugin is installed: a hint that it only covers prints while this app
+    /// is connected, and Install.
+    FallbackInstallHint = 4,
+    /// The same with a plugin too old for the feature: the hint asks for an update.
+    FallbackUpdateHint = 5,
 };
 
-/// The row mode for feature @p name at contract @p min_version. Absent folds
-/// together cases the row treats apart: no plugin and an outdated plugin are
-/// fixed by installing or updating it, while a feature the plugin reports
-/// `available: false` cannot run here at all and shows no row.
+/// The row mode for feature @p name at contract @p min_version.
+/// @p has_fallback: the app does the feature itself when the plugin cannot,
+/// so its switch keeps working without one. @p is_local: this screen runs on
+/// the printer's own host, where the app is up whenever the printer is, so a
+/// fallback needs no hint there. A feature the plugin reports
+/// `available: false` cannot run on this printer at all and shows no row.
 PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMap& features,
-                                    const std::string& name, int min_version);
+                                    const std::string& name, int min_version, bool has_fallback,
+                                    bool is_local);
+
+/// Which HelixScreen on a printer sends a fallback's gcode, so a screen on the
+/// printer and a tablet never both send it.
+enum class FallbackSenderRole {
+    Sender,  ///< this instance sends
+    Standby, ///< another instance does, or it cannot be ruled out
+};
+
+/// The one rule: the instance on the printer's host sends; a remote one sends
+/// only when no HelixScreen on the printer's host is connected.
+/// @p local_screen_present is nullopt when that cannot be told, and a remote
+/// instance then stands by rather than risk a second send.
+FallbackSenderRole fallback_sender_role(bool is_local, std::optional<bool> local_screen_present);
+
+/// Where a HelixScreen on the printer's host announces itself, in the
+/// kPluginFeaturesNamespace: {"seen_at": <unix seconds>}, rewritten every
+/// kLocalScreenPresenceIntervalS while it is connected. Moonraker lists no
+/// connected clients, so this record is how a remote instance knows.
+inline constexpr const char* kLocalScreenPresenceKey = "local_screen";
+inline constexpr int64_t kLocalScreenPresenceIntervalS = 600;
+
+/// The presence record for @p now.
+nlohmann::json local_screen_presence_record(int64_t now);
+
+/// Whether a local screen is connected, from its presence record as read at
+/// @p now: present when it announced itself within two intervals (one missed
+/// beat, plus clock drift between the two hosts). A record that is not one
+/// cannot be judged.
+std::optional<bool> local_screen_present(const nlohmann::json& record, int64_t now);
 
 /// Where a feature's setting lives, for the plugin overview to lead to it.
 enum class PluginFeatureHome {

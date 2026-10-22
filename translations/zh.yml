@@ -2450,6 +2450,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: '单击即可运行此宏。危险宏仍会询问。'
   'Only on A: {} Hz': "仅 A：{} Hz"
   'Only on B: {} Hz': "仅 B：{} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: '仅在此应用连接时生效。安装 HelixPrint 插件以覆盖所有打印。'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: '仅在此应用连接时生效。更新 HelixPrint 插件以覆盖所有打印。'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "可用内存仅 {} MB，而 Klipper 的分析需要约 {} MB。运行测试会使打印机卡住，直到断电重启。"
   Ooze Reduction: '减少渗漏'

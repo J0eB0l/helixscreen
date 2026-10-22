@@ -93,15 +93,20 @@ void PrinterPluginStatusState::publish_features() {
         const PluginSwitchMode mode =
             helix_plugin_state() < 0
                 ? PluginSwitchMode::Hidden
-                : plugin_switch_mode(service_has_helix_plugin(), features_, f.name, f.min_version);
+                : plugin_switch_mode(service_has_helix_plugin(), features_, f.name, f.min_version,
+                                     f.has_fallback, screen_local_);
         lv_subject_set_int(&switch_mode_[i], static_cast<int>(mode));
         const auto it = features_.find(f.name);
         if (mode == PluginSwitchMode::Hidden && it != features_.end()) {
             spdlog::debug("[PrinterPluginStatusState] {} unavailable here: {}", f.name,
                           it->second.reason);
         }
-        lv_subject_set_int(&switch_on_[i],
-                           mode == PluginSwitchMode::Switch && it->second.enabled ? 1 : 0);
+        // The plugin's own `enabled` while it reports the feature, else the
+        // stored opt-in the app's fallback acts on.
+        const bool on = it != features_.end() && (it->second.available || !f.has_fallback)
+                            ? it->second.enabled
+                            : plugin_feature_opted_in(stored_opt_ins_, f.name, f.acts);
+        lv_subject_set_int(&switch_on_[i], on ? 1 : 0);
     }
 
     const PluginFeatureState state = plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);

@@ -2368,6 +2368,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." it="Un tocco esegue questa macro. Le macro pericolose chiedono comunque conferma."/>
   <translation tag="Only on A: {} Hz" it="Solo su A: {} Hz"/>
   <translation tag="Only on B: {} Hz" it="Solo su B: {} Hz"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." it="Solo mentre questa app è connessa. Installa il plugin HelixPrint per coprire ogni stampa."/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." it="Solo mentre questa app è connessa. Aggiorna il plugin HelixPrint per coprire ogni stampa."/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." it="Sono liberi solo {} MB di memoria e l&apos;analisi di Klipper ne richiede circa {} MB. Il test bloccherebbe la stampante finché non viene spenta e riaccesa."/>
   <translation tag="Ooze Reduction" it="Riduzione della fuoriuscita"/>
   <translation tag="Open" it="Apri"/>

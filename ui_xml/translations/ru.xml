@@ -2413,6 +2413,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." ru="Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение."/>
   <translation tag="Only on A: {} Hz" ru="Только на A: {} Гц"/>
   <translation tag="Only on B: {} Hz" ru="Только на B: {} Гц"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." ru="Только пока это приложение подключено. Установите плагин HelixPrint, чтобы охватить всю печать."/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." ru="Только пока это приложение подключено. Обновите плагин HelixPrint, чтобы охватить всю печать."/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." ru="Свободно всего {} МБ памяти, а анализу Klipper нужно около {} МБ. Тест оставит принтер зависшим, пока его не выключат и снова не включат."/>
   <translation tag="Ooze Reduction" ru="Снижение подтекания"/>
   <translation tag="Open" ru="Открыть"/>

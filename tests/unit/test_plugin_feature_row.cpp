@@ -50,6 +50,8 @@ struct PrintHooksRowFixture : LVGLUITestFixture {
         auto& plugin = get_printer_state().plugin_status_state();
         plugin.set_features({});
         plugin.set_installed(false);
+        plugin.set_screen_local(false);
+        plugin.set_stored_opt_ins(nlohmann::json::object());
         if (root_ && lv_obj_is_valid(root_)) {
             lv_obj_delete(root_);
         }
@@ -66,6 +68,20 @@ struct PrintHooksRowFixture : LVGLUITestFixture {
         entry.enabled = enabled;
         plugin.set_installed(true);
         plugin.set_features({{helix::kPrintHooksFeature, entry}});
+    }
+
+    lv_obj_t* in_row(const char* name) const {
+        lv_obj_t* row = lv_obj_find_by_name(root_, "row_print_hooks");
+        return row ? lv_obj_find_by_name(row, name) : nullptr;
+    }
+
+    static bool visible(lv_obj_t* obj) {
+        for (; obj != nullptr; obj = lv_obj_get_parent(obj)) {
+            if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     lv_obj_t* toggle() const {
@@ -109,6 +125,53 @@ TEST_CASE_METHOD(PrintHooksRowFixture, "the print_hooks switch writes plugin_fea
     helix::ui::UpdateQueue::instance().drain();
     CHECK(client.mock_db_get(helix::kPluginFeaturesNamespace, "plugin_features.print_hooks") ==
           false);
+}
+
+TEST_CASE_METHOD(PrintHooksRowFixture,
+                 "without the plugin the print_hooks switch still works through the app",
+                 "[plugin_feature][settings]") {
+    auto& plugin = get_printer_state().plugin_status_state();
+    REQUIRE(toggle() != nullptr);
+
+    SECTION("on the printer's own host: no hint") {
+        plugin.set_screen_local(true);
+        plugin.set_installed(false);
+        process_lvgl(5);
+        CHECK(visible(toggle()));
+        CHECK_FALSE(visible(in_row("plugin_hint")));
+        CHECK_FALSE(visible(in_row("greyed_row")));
+    }
+    SECTION("on a remote screen: the hint and Install") {
+        plugin.set_screen_local(false);
+        plugin.set_installed(false);
+        process_lvgl(5);
+        CHECK(visible(toggle()));
+        CHECK(visible(in_row("plugin_hint")));
+        CHECK(visible(in_row("fallback_install_text")));
+        CHECK(visible(in_row("install_button")));
+        CHECK_FALSE(visible(in_row("needs_install_text")));
+    }
+    SECTION("a remote screen with a plugin too old for it: the hint asks for an update") {
+        plugin.set_screen_local(false);
+        plugin.set_installed(true);
+        plugin.set_features({});
+        process_lvgl(5);
+        CHECK(visible(toggle()));
+        CHECK(visible(in_row("fallback_update_text")));
+        CHECK_FALSE(visible(in_row("install_button")));
+    }
+    SECTION("the switch shows the stored opt-in and writes it") {
+        plugin.set_installed(false);
+        plugin.set_stored_opt_ins({{"print_hooks", true}});
+        process_lvgl(5);
+        CHECK(lv_obj_has_state(toggle(), LV_STATE_CHECKED));
+
+        lv_obj_remove_state(toggle(), LV_STATE_CHECKED);
+        lv_obj_send_event(toggle(), LV_EVENT_VALUE_CHANGED, nullptr);
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(client.mock_db_get(helix::kPluginFeaturesNamespace, "plugin_features.print_hooks") ==
+              false);
+    }
 }
 
 TEST_CASE("a control outside a plugin feature row names no feature", "[plugin_feature][settings]") {

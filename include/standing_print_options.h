@@ -53,9 +53,12 @@ enum class StandingOptionsSender {
 /// @p opted_in the user's print_hooks opt-in as stored, which is all the
 /// screen has to go on when the plugin reports no such feature;
 /// @p screen_started that this screen made the start (it sent its options
-/// then); @p has_gcode that the rendered options are not empty.
+/// then); @p has_gcode that the rendered options are not empty; @p role this
+/// instance's fallback_sender_role(), so only one HelixScreen on a printer
+/// sends.
 StandingOptionsSender standing_options_sender(PluginFeatureState hooks, bool opted_in,
-                                              bool screen_started, bool has_gcode);
+                                              bool screen_started, bool has_gcode,
+                                              FallbackSenderRole role);
 
 /// Whether a direct start from this screen is announced to the plugin, so
 /// the plugin does not send the options its pre-print step already carried.

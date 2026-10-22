@@ -16,6 +16,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <ctime>
+#include <optional>
 #include <vector>
 
 namespace helix {
@@ -73,9 +75,20 @@ void StandingPrintOptionsController::on_plugin_probed() {
         return;
     }
     subscribe_history(*api);
-    load_opt_in(*api);
+    load_opt_ins(*api);
     written_.reset();
     refresh_record();
+    // A screen on the printer's host announces itself, so a remote one leaves
+    // the fallback to it.
+    if (status.screen_local() && !presence_timer_) {
+        presence_timer_.reset(lv_timer_create(
+            [](lv_timer_t* t) {
+                static_cast<StandingPrintOptionsController*>(lv_timer_get_user_data(t))
+                    ->announce_presence();
+            },
+            static_cast<uint32_t>(kLocalScreenPresenceIntervalS * 1000), this));
+    }
+    announce_presence();
 }
 
 void StandingPrintOptionsController::refresh_record() {
@@ -103,16 +116,20 @@ void StandingPrintOptionsController::refresh_record() {
         });
 }
 
-void StandingPrintOptionsController::load_opt_in(IMoonrakerAPI& api) {
+void StandingPrintOptionsController::load_opt_ins(IMoonrakerAPI& api) {
     api.database_get_item(
         kPluginFeaturesNamespace, kPluginFeaturesKey,
-        [this, token = lifetime_.token()](const nlohmann::json& record) {
-            const bool opted_in = plugin_feature_opted_in(record, kPrintHooksFeature, true);
-            token.defer("StandingPrintOptions::opt_in", [this, opted_in] { opted_in_ = opted_in; });
+        [token = lifetime_.token()](const nlohmann::json& record) {
+            token.defer("StandingPrintOptions::opt_ins", [record] {
+                get_printer_state().plugin_status_state().set_stored_opt_ins(record);
+            });
         },
-        [this, token = lifetime_.token()](const MoonrakerError&) {
-            // No record: the default, off.
-            token.defer("StandingPrintOptions::opt_in_absent", [this] { opted_in_ = false; });
+        [token = lifetime_.token()](const MoonrakerError&) {
+            // No record: every feature at its default.
+            token.defer("StandingPrintOptions::opt_ins_absent", [] {
+                get_printer_state().plugin_status_state().set_stored_opt_ins(
+                    nlohmann::json::object());
+            });
         });
 }
 
@@ -141,18 +158,57 @@ void StandingPrintOptionsController::subscribe_history(IMoonrakerAPI& api) {
 }
 
 void StandingPrintOptionsController::on_job_added(const std::string& filename) {
+    // Claimed now: the ledger entry is this job's whatever the decision.
     const bool screen_started = screen_start_ledger().claim(filename);
-    const PluginFeatureState hooks = get_printer_state().plugin_status_state().plugin_feature(
-        kPrintHooksFeature, kPrintHooksMinVersion);
-    const std::string gcode = render_now();
-    const StandingOptionsSender sender =
-        standing_options_sender(hooks, opted_in_, screen_started, !gcode.empty());
-    if (sender != StandingOptionsSender::App) {
+    auto& status = get_printer_state().plugin_status_state();
+    const PluginFeatureState hooks =
+        status.plugin_feature(kPrintHooksFeature, kPrintHooksMinVersion);
+    const bool opted_in =
+        plugin_feature_opted_in(status.stored_opt_ins(), kPrintHooksFeature, /*acts=*/true);
+    std::string gcode = render_now();
+    auto decide = [hooks, opted_in, screen_started, filename, gcode](FallbackSenderRole role) {
+        const StandingOptionsSender sender =
+            standing_options_sender(hooks, opted_in, screen_started, !gcode.empty(), role);
+        if (sender == StandingOptionsSender::App) {
+            send_options(filename, gcode);
+            return;
+        }
         spdlog::debug("[StandingPrintOptions] Job '{}' started: {}", filename,
                       sender == StandingOptionsSender::Plugin ? "the plugin sends the options"
+                      : role == FallbackSenderRole::Standby   ? "a local screen sends them"
                                                               : "no options to send");
+    };
+    // Only a send this instance would make needs to know who else is here.
+    if (status.screen_local() ||
+        standing_options_sender(hooks, opted_in, screen_started, !gcode.empty(),
+                                FallbackSenderRole::Sender) != StandingOptionsSender::App) {
+        decide(FallbackSenderRole::Sender);
         return;
     }
+    IMoonrakerAPI* api = get_moonraker_api();
+    if (api == nullptr) {
+        return;
+    }
+    api->database_get_item(
+        kPluginFeaturesNamespace, kLocalScreenPresenceKey,
+        [decide, token = lifetime_.token()](const nlohmann::json& record) {
+            const std::optional<bool> present =
+                local_screen_present(record, static_cast<int64_t>(std::time(nullptr)));
+            token.defer("StandingPrintOptions::presence",
+                        [decide, present] { decide(fallback_sender_role(false, present)); });
+        },
+        [decide, token = lifetime_.token()](const MoonrakerError& err) {
+            // No record: no screen on the printer's host has ever announced
+            // itself. Any other failure cannot rule one out.
+            const std::optional<bool> present =
+                err.is_not_found() ? std::optional<bool>(false) : std::nullopt;
+            token.defer("StandingPrintOptions::presence_absent",
+                        [decide, present] { decide(fallback_sender_role(false, present)); });
+        });
+}
+
+void StandingPrintOptionsController::send_options(const std::string& filename,
+                                                  const std::string& gcode) {
     IMoonrakerAPI* api = get_moonraker_api();
     if (api == nullptr) {
         return;
@@ -165,6 +221,20 @@ void StandingPrintOptionsController::on_job_added(const std::string& filename) {
             spdlog::warn("[StandingPrintOptions] Sending the options failed: {}", err.message);
         },
         0, /*silent=*/true, nullptr, /*caller_surfaces_errors=*/false);
+}
+
+void StandingPrintOptionsController::announce_presence() {
+    IMoonrakerAPI* api = get_moonraker_api();
+    if (api == nullptr || !api->is_connected() ||
+        !get_printer_state().plugin_status_state().screen_local()) {
+        return;
+    }
+    api->database_post_item(kPluginFeaturesNamespace, kLocalScreenPresenceKey,
+                            local_screen_presence_record(static_cast<int64_t>(std::time(nullptr))),
+                            nullptr, [](const MoonrakerError& err) {
+                                spdlog::debug("[StandingPrintOptions] Presence not written: {}",
+                                              err.message);
+                            });
 }
 
 } // namespace helix

@@ -95,7 +95,7 @@ TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings row follows the plugin's p
     lv_obj_t* row = find("row_power_loss_recovery");
     REQUIRE(row != nullptr);
     lv_obj_t* switch_row = lv_obj_find_by_name(row, "plugin_feature_row_plr");
-    lv_obj_t* needs_plugin = lv_obj_find_by_name(row, "needs_plugin");
+    lv_obj_t* needs_plugin = lv_obj_find_by_name(row, "greyed_row");
     lv_obj_t* install = lv_obj_find_by_name(row, "install_button");
     lv_obj_t* needs_update = lv_obj_find_by_name(row, "needs_update_text");
     REQUIRE(switch_row != nullptr);

@@ -2593,6 +2593,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'Um toque executa esta macro. Macros perigosas ainda pedem confirmação.'
   'Only on A: {} Hz': "Somente em A: {} Hz"
   'Only on B: {} Hz': "Somente em B: {} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Somente enquanto este app estiver conectado. Instale o plugin HelixPrint para cobrir todas as impressões.'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Somente enquanto este app estiver conectado. Atualize o plugin HelixPrint para cobrir todas as impressões.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "Apenas {} MB de memória estão livres, e a análise do Klipper precisa de cerca de {} MB. O teste deixaria a impressora travada até ser desligada e ligada."
   Ooze Reduction: 'Redução de escorrimento'

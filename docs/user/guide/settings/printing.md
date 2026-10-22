@@ -229,9 +229,12 @@ These two switches come from the **HelixPrint plugin** on your printer.
 | **Power-loss recovery** | Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear |
 | **Apply start options to prints from other apps** | When a print starts from Mainsail, Fluidd, your slicer or the job queue, sends your standing print options too, such as which toolheads unload at the end. Off until you turn it on |
 
-When the printer does not have the plugin, each switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button. When the plugin is too old for the switch, it asks for a newer plugin instead. A switch your printer cannot use at all is not shown.
+Without the plugin on the printer:
 
-If you turn on start options for other apps on a printer without the plugin, HelixScreen sends them itself when it sees the print start, as long as the screen is on and connected. With the plugin, the printer sends them even when the screen is off.
+- **Power-loss recovery** is greyed out with **Requires the HelixPrint plugin** and an **Install** button (or asks for a newer plugin when yours is too old). If your printer cannot use it at all, the switch is not shown.
+- **Apply start options to prints from other apps** still works: HelixScreen sends the options itself when it sees the print start. That only happens while HelixScreen is running and connected. On a screen attached to the printer that is all the time, so there is no note. On a phone, tablet or other remote screen the switch says **Only while this app is connected** and offers **Install**, because with the plugin the printer sends them even when no screen is on.
+
+If several HelixScreens are connected to one printer, only one of them sends the options: the one attached to the printer, or a remote one when none is attached.
 
 ---
 
