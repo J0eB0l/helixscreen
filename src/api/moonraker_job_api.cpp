@@ -44,14 +44,9 @@ void MoonrakerJobAPI::start_print(const std::string& filename, SuccessCallback o
     // This start sends its own options; the job history adds next is ours.
     auto& ledger = helix::screen_start_ledger();
     ledger.note(filename);
-    if (ledger.announce()) {
-        client_.send_jsonrpc(
-            helix::kScreenStartRpc, params, [](json) {},
-            [](const MoonrakerError& err) {
-                spdlog::debug("[Moonraker API] print_hooks screen_start not taken: {}",
-                              err.message);
-            },
-            0, /*silent=*/true);
+    const bool announced = ledger.announce();
+    if (announced) {
+        send_screen_start(filename, /*withdraw=*/false);
     }
 
     client_.send_jsonrpc(
@@ -60,7 +55,35 @@ void MoonrakerJobAPI::start_print(const std::string& filename, SuccessCallback o
             spdlog::debug("[Moonraker API] Print started successfully");
             on_success();
         },
-        on_error, kPrintStartTimeoutMs);
+        [this, filename, announced, on_error](const MoonrakerError& err) {
+            // A refused start takes its notes back, or the next start of the
+            // same file elsewhere would read as this screen's. A lost answer
+            // says nothing: the print may be running.
+            if (!err.is_transport_loss()) {
+                helix::screen_start_ledger().withdraw(filename);
+                if (announced) {
+                    send_screen_start(filename, /*withdraw=*/true);
+                }
+            }
+            if (on_error) {
+                on_error(err);
+            }
+        },
+        kPrintStartTimeoutMs);
+}
+
+void MoonrakerJobAPI::send_screen_start(const std::string& filename, bool withdraw) {
+    json params = {{"filename", filename}};
+    if (withdraw) {
+        params["withdraw"] = true;
+    }
+    client_.send_jsonrpc(
+        helix::kScreenStartRpc, params, [](json) {},
+        [withdraw](const MoonrakerError& err) {
+            spdlog::debug("[Moonraker API] print_hooks screen_start{} not taken: {}",
+                          withdraw ? " withdraw" : "", err.message);
+        },
+        0, /*silent=*/true);
 }
 
 void MoonrakerJobAPI::pause_print(SuccessCallback on_success, ErrorCallback on_error) {

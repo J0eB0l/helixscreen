@@ -5,6 +5,7 @@
 #include "ams_backend.h"
 
 #include <algorithm>
+#include <iterator>
 
 namespace helix {
 
@@ -83,6 +84,17 @@ bool ScreenStartLedger::claim(const std::string& filename, Clock::time_point now
     }
     entries_.erase(it);
     return true;
+}
+
+bool ScreenStartLedger::withdraw(const std::string& filename) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = entries_.rbegin(); it != entries_.rend(); ++it) {
+        if (it->filename && *it->filename == filename) {
+            entries_.erase(std::next(it).base());
+            return true;
+        }
+    }
+    return false;
 }
 
 void ScreenStartLedger::set_announce(bool announce) {

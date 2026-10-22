@@ -167,6 +167,10 @@ class MoonrakerJobAPI : public helix::IJobAPI {
 
   protected:
     /// True, with @p on_error called, while spools lie on the bed.
+    /// Announce a start of @p filename to the plugin's print_hooks, or take
+    /// back the announcement of one that failed.
+    void send_screen_start(const std::string& filename, bool withdraw);
+
     bool refused_by_spool_latch(const char* method, const ErrorCallback& on_error) const;
 
     helix::IMoonrakerClient& client_;

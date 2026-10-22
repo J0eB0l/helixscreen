@@ -90,6 +90,10 @@ class ScreenStartLedger {
     /// that heats and purges before its job begins waits @p window for it.
     void note_any(Clock::time_point now = Clock::now(), Clock::duration window = kWindow);
 
+    /// Take back the newest note for @p filename, for a start that failed.
+    /// False when there was none.
+    bool withdraw(const std::string& filename);
+
     /// Whether the job history added for @p filename is one this screen
     /// started; a match is used up.
     bool claim(const std::string& filename, Clock::time_point now = Clock::now());

@@ -124,6 +124,15 @@ TEST_CASE("the ledger tells the screen's starts from foreign ones", "[plugin_pri
         CHECK_FALSE(ledger.claim("benchy.gcode", t0 + 2s));
     }
 
+    SECTION("a withdrawn note claims nothing; another file's note stays") {
+        ledger.note("benchy.gcode", t0);
+        ledger.note("cube.gcode", t0);
+        CHECK(ledger.withdraw("benchy.gcode"));
+        CHECK_FALSE(ledger.withdraw("benchy.gcode"));
+        CHECK_FALSE(ledger.claim("benchy.gcode", t0 + 1s));
+        CHECK(ledger.claim("cube.gcode", t0 + 1s));
+    }
+
     SECTION("nothing noted is a foreign start") {
         CHECK_FALSE(ledger.claim("benchy.gcode", t0));
     }
@@ -195,9 +204,18 @@ struct MethodRecordingClient : public MoonrakerClientMock {
                  bool silent = false,
                  std::optional<rpc_error_policy::CallerIntent> intent = std::nullopt) override {
         sent.emplace_back(method, params);
+        if (method == "printer.print.start" && fail_print_start) {
+            if (error_cb) {
+                error_cb(*fail_print_start);
+            }
+            return 0;
+        }
         return MoonrakerClientMock::send_jsonrpc(method, params, std::move(success_cb),
                                                  std::move(error_cb), timeout_ms, silent, intent);
     }
+
+    /// When set, printer.print.start answers with this error.
+    std::optional<MoonrakerError> fail_print_start;
 };
 
 struct JobStartFx : LVGLTestFixture {
@@ -208,13 +226,19 @@ struct JobStartFx : LVGLTestFixture {
         ps.init_subjects(false);
         ps.set_klippy_state_sync(KlippyState::READY);
         client.connect("ws://mock/websocket", []() {}, []() {});
+        forget_notes();
+    }
+
+    /// The ledger is process-wide: drop what earlier cases noted.
+    static void forget_notes() {
+        while (screen_start_ledger().withdraw("benchy.gcode")) {
+        }
         while (screen_start_ledger().claim("")) {
         }
     }
     ~JobStartFx() override {
         screen_start_ledger().set_announce(false);
-        while (screen_start_ledger().claim("")) {
-        }
+        forget_notes();
         client.stop_temperature_simulation();
         client.disconnect();
     }
@@ -257,6 +281,54 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
             "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, 0,
             [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
         CHECK(screen_start_ledger().claim(".helix_print/abcd_benchy.gcode"));
+    }
+
+    SECTION("a refused start takes back its note and its announcement") {
+        screen_start_ledger().set_announce(true);
+        MoonrakerError refused;
+        refused.type = MoonrakerErrorType::JSON_RPC_ERROR;
+        refused.message = "File not found";
+        client.fail_print_start = refused;
+        bool failed = false;
+        api.job().start_print(
+            "benchy.gcode", [] {}, [&failed](const MoonrakerError&) { failed = true; });
+        CHECK(failed);
+        CHECK_FALSE(screen_start_ledger().claim("benchy.gcode"));
+        const json* last = nullptr;
+        for (const auto& [method, params] : client.sent) {
+            if (method == kScreenStartRpc) {
+                last = &params;
+            }
+        }
+        REQUIRE(last != nullptr);
+        CHECK(*last == json{{"filename", "benchy.gcode"}, {"withdraw", true}});
+    }
+
+    SECTION("a lost answer keeps them: the print may be running") {
+        screen_start_ledger().set_announce(true);
+        MoonrakerError lost;
+        lost.type = MoonrakerErrorType::TIMEOUT;
+        client.fail_print_start = lost;
+        api.job().start_print("benchy.gcode", [] {}, [](const MoonrakerError&) {});
+        CHECK(screen_start_ledger().claim("benchy.gcode"));
+        int announcements = 0;
+        for (const auto& [method, params] : client.sent) {
+            if (method == kScreenStartRpc) {
+                ++announcements;
+                CHECK_FALSE(params.contains("withdraw"));
+            }
+        }
+        CHECK(announcements == 1);
+    }
+
+    SECTION("a refused start without the plugin sends no withdraw") {
+        MoonrakerError refused;
+        refused.type = MoonrakerErrorType::JSON_RPC_ERROR;
+        client.fail_print_start = refused;
+        api.job().start_print("benchy.gcode", [] {}, [](const MoonrakerError&) {});
+        CHECK_FALSE(screen_start_ledger().claim("benchy.gcode"));
+        const auto sent = methods();
+        CHECK(std::find(sent.begin(), sent.end(), kScreenStartRpc) == sent.end());
     }
 
     SECTION("otherwise the plugin is not told") {
