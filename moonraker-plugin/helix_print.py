@@ -149,6 +149,7 @@ helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
+helix_journal = _load_sibling("helix_journal")
 
 
 # ============================================================================
@@ -433,6 +434,7 @@ class HelixPrint:
         self.start_3mf_on_upload = config.getboolean("start_3mf_on_upload", False)
         self.converter: Optional[Any] = None
         self.plr: Optional[Any] = None
+        self.journal: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -732,6 +734,7 @@ class HelixPrint:
         await self._start_3mf_converter()
         self._register_3mf_feature()
         self._start_plr()
+        await self._start_journal()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -816,6 +819,22 @@ class HelixPrint:
             switch=self.plr.feature_enabled, probe=self.plr.availability,
             extra=self.plr.feature_extra,
         )
+
+    async def _start_journal(self) -> None:
+        """Printer event journal (helix_journal.py), observe-only so on unless
+        the user opts out."""
+        if helix_journal is None:
+            self.register_feature(
+                "event_journal", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_journal", "module_missing"),
+            )
+            return
+        self.journal = helix_journal.HelixJournal(self)
+        self.journal.start()
+        self.register_feature(
+            helix_journal.JOURNAL_FEATURE, helix_journal.JOURNAL_FEATURE_VERSION, acts=False,
+        )
+        await self.journal.load()
 
     async def close(self) -> None:
         if self.plr is not None:

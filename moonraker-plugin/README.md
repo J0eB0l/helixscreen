@@ -55,7 +55,8 @@ The installer creates a symlink from Moonraker's components directory to `helix_
 `helix_3mf.py` and `helix_capabilities.py` must stay beside `helix_print.py`: the plugin
 loads them from the link's target directory, and runs without .3mf conversion when either
 is missing. `helix_plr_qidi.py`, power-loss recovery through newer QIDI firmware's own
-`print_state` resume, sits beside them the same way.
+`print_state` resume, sits beside them the same way, as does `helix_journal.py`, the
+printer event journal.
 
 Vendor knowledge sits behind capability probes. The plugin asks "does this Moonraker print
 .3mf natively?" through `helix_capabilities.prints_3mf_natively`, which combines a generic
@@ -287,6 +288,59 @@ has its output.
 With no `source`, every known conversion is listed. A `source` with no entry
 returns an empty list. When the plugin is absent the endpoint is too (HTTP 404,
 JSON-RPC -32601): treat that as "no device-side converter".
+
+### Printer Event Journal
+
+```http
+GET /server/helix/journal?since=0&limit=100
+```
+
+JSON-RPC: `server.helix.journal`, optional `since` (an entry id; only newer entries are
+returned) and `limit` (default 100, at most the store's 500).
+
+Response:
+```json
+{
+  "result": {
+    "entries": [
+      {
+        "id": 42,
+        "time": 1761040800.5,
+        "kind": "klippy_shutdown",
+        "text": "MCU 'mcu' shutdown: Timer too close",
+        "class": "mcu",
+        "detail": null,
+        "job": {"job_id": "00002A", "filename": "benchy.gcode"}
+      }
+    ],
+    "truncated": false,
+    "latest_id": 42,
+    "enabled": true
+  }
+}
+```
+
+The newest `limit` entries above `since`, oldest first; `truncated` says older ones were
+left out. Ids only grow, so `latest_id` is the `since` of the next read. `job` is the job
+history had open, or null.
+
+| `kind` | Recorded when | `text` / `class` / `detail` |
+|--------|---------------|-----------------------------|
+| `klippy_shutdown` | Klipper shuts down | its `state_message` and that message's class |
+| `mcu_disconnect` | a shutdown or failed start reports a lost MCU | the message and its class |
+| `klippy_disconnect` / `klippy_ready` | Klippy leaves or reaches ready | |
+| `firmware_restart` | a client sends `FIRMWARE_RESTART` | |
+| `pause` | a print pauses | `detail`: `runout`, `error`, `command` or `unknown` |
+| `runout` | a filament sensor loses filament during a job | `detail`: the sensor's name |
+| `gcode_error` | Klipper prints a `!!` line | the line and its class |
+| `job_end` | history finishes a job | `detail`: history's status |
+
+`class` is one of `firmware`, `mcu`, `heater`, `homing`, `move`, `filament`, `command`,
+`other`. The screen classifies the same way; `tests/fixtures/journal/error_line_classes.json`
+pins both. The store keeps 500 entries for at most 30 days, one key per entry in the
+`helix_journal` namespace, and each append is broadcast as `notify_helix_journal_appended`
+with the entry as its only parameter. The feature is `event_journal`, on unless the user
+opts out.
 
 ## Visible symlink directory
 
