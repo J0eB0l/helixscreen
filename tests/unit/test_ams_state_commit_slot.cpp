@@ -1783,3 +1783,33 @@ TEST_CASE("a linked lane shows the user's colour after a restart and a fetch",
     CHECK(sources.local_user->color_rgb == 0xBCBCBCu);
     CHECK(helix::ams::resolve(sources).color_rgb == 0xBCBCBCu);
 }
+
+TEST_CASE("a fresh load re-sends its spool after the server's active spool was cleared",
+          "[ams][commit][spoolman_sync]") {
+    CommitFixture f;
+    f.setup(9);
+    f.backend->set_operation_delay(0);
+    REQUIRE(f.backend->start().success());
+    auto& ams = AmsState::instance();
+
+    f.client.spoolman_mock().set_active_spool_id(0);
+    ams.sync_current_loaded_from_backend();
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(f.backend->get_current_slot() == 0);
+    REQUIRE(f.client.spoolman_mock().get_mock_active_spool_id() == 9);
+
+    // The print ends and something else clears the active spool, then the
+    // same lane loads again for the next print.
+    REQUIRE(f.backend->unload_filament(0).success());
+    f.backend->wait_for_operation_thread();
+    ams.sync_current_loaded_from_backend();
+    f.client.spoolman_mock().set_active_spool_id(0);
+
+    REQUIRE(f.backend->load_filament(0).success());
+    f.backend->wait_for_operation_thread();
+    ams.sync_current_loaded_from_backend();
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(f.backend->get_current_slot() == 0);
+    REQUIRE(f.backend->is_filament_loaded());
+    CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 9);
+}

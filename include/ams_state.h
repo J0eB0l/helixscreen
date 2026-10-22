@@ -2281,7 +2281,7 @@ class AmsState {
 
     // Moonraker API for Spoolman integration
     IMoonrakerAPI* api_ = nullptr;
-    int last_synced_spoolman_id_ = 0; ///< Track to avoid duplicate set_active_spool calls
+    int last_synced_spoolman_id_ = 0; ///< Spool sent for the current load; reset on each load
 
     /// Resolved (slot, loaded) identity behind the "Currently Loaded" card.
     /// Backend status frames arrive several times a second and each one re-runs

@@ -2160,6 +2160,11 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
         slot_index != last_synced_loaded_slot_ || filament_loaded != last_synced_filament_loaded_;
     last_synced_loaded_slot_ = slot_index;
     last_synced_filament_loaded_ = filament_loaded;
+    // Each load re-asserts its spool: the server's active spool may have been
+    // cleared since this lane last loaded (a print's end, another client).
+    if (loaded_identity_changed) {
+        last_synced_spoolman_id_ = 0;
+    }
 
     // Check for bypass mode (slot_index == -2)
     if (slot_index == -2 && loaded_backend->is_bypass_active()) {
