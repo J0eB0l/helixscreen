@@ -612,8 +612,8 @@ EOF
 #
 # Forge-X saves a mod setting only when it differs from the default, so a
 # fresh install's variables.cfg is a bare `[Variables]` header with no
-# trailing newline. printer.cfg's include is then the only evidence of the
-# mode the printer runs.
+# trailing newline, and the printer runs the version's default. printer.cfg's
+# include is then the only evidence of that mode; HEADLESS is never a default.
 
 write_fresh_variables_cfg() {
     printf '[Variables]' > "$VAR_CFG"
@@ -669,6 +669,94 @@ write_fresh_variables_cfg() {
     [ "$(current_display_mode)" = "STOCK" ] \
         || fail "restored $(current_display_mode), not STOCK"
     grep -qx "display = 'STOCK'" "$VAR_CFG"
+}
+
+@test "no display key with a HEADLESS include refuses and leaves variables.cfg byte-identical" {
+    write_fresh_variables_cfg
+    write_printer_cfg headless
+    cp "$VAR_CFG" "$BATS_TEST_TMPDIR/before.cfg"
+    log_error() { echo "[ERROR] $1"; }
+
+    run configure_forgex_display
+
+    [ "$status" -ne 0 ] || fail "took over a pending SET_MOD back to the default: $output"
+    cmp -s "$VAR_CFG" "$BATS_TEST_TMPDIR/before.cfg" \
+        || fail "the refused takeover rewrote variables.cfg: $(cat "$VAR_CFG")"
+    [ ! -e "$PREV_DISPLAY_F" ]
+    contains "Reboot" "$output"
+}
+
+@test "a commented-out display line does not answer for the mode" {
+    printf "[Variables]\n#display = 'STOCK'\nsound = 1\n" > "$VAR_CFG"
+    write_printer_cfg feather
+
+    run configure_forgex_display
+
+    [ "$status" -eq 0 ] || fail "a commented display line refused the takeover: $output"
+    [ "$(cat "$PREV_DISPLAY_F")" = "FEATHER" ]
+    [ "$(current_display_mode)" = "HEADLESS" ]
+    grep -qx "#display = 'STOCK'" "$VAR_CFG" \
+        || fail "the comment was rewritten: $(cat "$VAR_CFG")"
+}
+
+@test "a failed record on a fresh variables.cfg leaves it byte-identical" {
+    write_fresh_variables_cfg
+    write_printer_cfg stock
+    cp "$VAR_CFG" "$BATS_TEST_TMPDIR/before.cfg"
+    local shim="$BATS_TEST_TMPDIR/sudo-fail-record"
+    cat > "$shim" <<EOF
+#!/bin/sh
+if [ "\$1" = "tee" ] && [ "\$2" = "$PREV_DISPLAY_F" ]; then
+    exit 1
+fi
+exec "\$@"
+EOF
+    chmod +x "$shim"
+    SUDO="$shim"
+    export SUDO
+
+    run configure_forgex_display
+
+    [ "$status" -ne 0 ] || fail "takeover reported success without a record"
+    cmp -s "$VAR_CFG" "$BATS_TEST_TMPDIR/before.cfg" \
+        || fail "variables.cfg changed under a failed record: $(cat "$VAR_CFG")"
+}
+
+# The four shapes a header-less or hand-edited variables.cfg arrives in. Each
+# must end with one `display = 'HEADLESS'` line under one `[Variables]` header.
+fresh_takeover_of() {
+    printf '%b' "$1" > "$VAR_CFG"
+    write_printer_cfg stock
+    run configure_forgex_display
+    [ "$status" -eq 0 ] || fail "takeover refused: $output"
+    [ "$(grep -c '^\[Variables\]' "$VAR_CFG")" -eq 1 ] \
+        || fail "header count wrong: $(cat -A "$VAR_CFG")"
+    [ "$(grep -cx "display = 'HEADLESS'" "$VAR_CFG")" -eq 1 ] \
+        || fail "HEADLESS line wrong: $(cat -A "$VAR_CFG")"
+}
+
+@test "an empty variables.cfg gets the header and the display line" {
+    fresh_takeover_of ""
+    [ "$(cat "$VAR_CFG")" = "$(printf "[Variables]\ndisplay = 'HEADLESS'")" ] \
+        || fail "got: $(cat -A "$VAR_CFG")"
+}
+
+@test "a header-less variables.cfg gets the header first, above its keys" {
+    fresh_takeover_of "sound = 1\n"
+    [ "$(head -n 1 "$VAR_CFG")" = "[Variables]" ] \
+        || fail "header is not first: $(cat -A "$VAR_CFG")"
+    grep -qx "sound = 1" "$VAR_CFG"
+}
+
+@test "a variables.cfg already ending in a newline gains exactly one line" {
+    fresh_takeover_of "[Variables]\n"
+    [ "$(wc -l < "$VAR_CFG")" -eq 2 ] || fail "got: $(cat -A "$VAR_CFG")"
+}
+
+@test "a CRLF variables.cfg keeps its header and gains one display line" {
+    fresh_takeover_of "[Variables]\r\nsound = 1\r\n"
+    [ "$(head -n 1 "$VAR_CFG")" = "$(printf '[Variables]\r')" ] \
+        || fail "header changed: $(cat -A "$VAR_CFG")"
 }
 
 # --- configure_platform: a failed takeover fails the install ---
