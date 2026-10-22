@@ -173,9 +173,16 @@ jobs:
         max_attempts: 3
         command: npm install
 
+    # The app and test objects of one commit fill about 1.8G compressed. When a
+    # run's misses push the cache past its ceiling, ccache evicts the entries
+    # oldest by mtime, and mid-build those are the restored test objects the
+    # app build has not reached yet. 4G holds the restored generation plus a
+    # run's misses; "Trim ccache" below cuts the saved cache back to what this
+    # run used, so the saved generation does not grow.
     - name: Configure ccache
       run: |
-        ccache --set-config=max_size=2G
+        echo "CCACHE_RUN_START=$(date +%s)" >> "$GITHUB_ENV"
+        ccache --set-config=max_size=4G
         ccache --set-config=compression=true
         # Depend mode: resolve cache entries from the compiler's own -MMD
         # dependency output instead of preprocessing each TU first. Worth
@@ -219,6 +226,14 @@ jobs:
     # crowds out the entries every push restores from. A work branch still gets a
     # warm start: the `ccache-ubuntu-22.04-` prefix above resolves to the default
     # branch's generation, which is readable from every ref.
+    # A hit refreshes an entry's mtime, so everything older than this job is
+    # an entry no compile of this commit used.
+    - name: Trim ccache
+      if: always()
+      run: |
+        ccache --evict-older-than "$(( $(date +%s) - CCACHE_RUN_START + 60 ))s"
+        ccache -s | grep -i 'cache size'
+
     - name: Save ccache
       if: always() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
       uses: actions/cache/save@v5
@@ -570,9 +585,22 @@ jobs:
     - name: Apply submodule patches
       run: make apply-patches
 
+    # The two ABIs compile one after the other, 17-20 minutes each with no
+    # cache. Restored from main's newest generation on every ref, saved from
+    # main only (see the ccache note in compile-ubuntu), and trimmed to the
+    # entries this job used. The key is not release.yml's: that cache holds
+    # release objects, which share nothing with a debug build.
+    - name: Set up ccache
+      uses: hendrikmuhs/ccache-action@v1.2.22
+      with:
+        key: android-debug-ubuntu-22.04
+        max-size: 2G
+        evict-old-files: job
+        save: ${{ github.ref == 'refs/heads/main' }}
+
     - name: Build Android APK (debug)
       working-directory: android
-      run: ./gradlew assembleDebug -PhelixAbis=arm64-v8a,x86_64
+      run: ./gradlew assembleDebug -PhelixAbis=arm64-v8a,x86_64 -PuseCcache
 
     - name: Upload APK
       uses: actions/upload-artifact@v7
