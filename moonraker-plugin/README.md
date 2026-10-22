@@ -316,7 +316,7 @@ JSON-RPC: `server.helix.analysis {"filename": ...}`.
 | `ready` | `analysis` holds the record for the file as it is now |
 | `pending` | No current record; the file went to the front of the queue. Wait for `notify_analysis_ready` |
 | `failed` | Analysis of this version of the file failed twice; a change to the file retries it |
-| `disabled` | The user switched the feature off |
+| `disabled` | Analysis is not running here; the `file_analysis` entry in the status says why |
 
 A missing file answers 404; a path that is not an analyzable G-code file, 400.
 Each record written is announced with the `helix:analysis_ready` notification
@@ -458,6 +458,74 @@ pins both. The store keeps 500 entries for at most 30 days, one key per entry in
 `helix_journal` namespace, and each append is broadcast as `notify_helix_journal_appended`
 with the entry as its only parameter. The feature is `event_journal`, which has no
 switch: it is always on, and a `plugin_features` key for it is ignored.
+
+### Read and Edit the Klipper Config
+
+Feature `config_edit` (`helix_config.py`). It writes only when the user saves a change on
+the screen, so it has no switch: it is on whenever the module loads. Neither endpoint
+needs Klipper running, and neither restarts it; the screen sends `FIRMWARE_RESTART`.
+
+```http
+GET /server/helix/config?section=probe
+```
+
+JSON-RPC: `server.helix.config`, optional `section`. The config as Klipper reads it from
+`printer.cfg` in Moonraker's config root: includes where their line stands, relative to the
+including file, globs sorted (a glob matching nothing is fine, a missing plain include is
+listed in `errors`), and the `SAVE_CONFIG` block last, supplying only options the regular
+config leaves undefined. Every section is listed, used by Klipper or not.
+
+```json
+{
+  "root": "printer.cfg",
+  "files": ["printer.cfg", "hardware.cfg", "conf.d/20-overrides.cfg"],
+  "sections": {
+    "probe": {
+      "options": {
+        "z_offset": {"value": "1.5", "file": "conf.d/20-overrides.cfg", "line": 2,
+                     "end_line": 2, "autosave": false}
+      },
+      "defined_in": [{"file": "hw/probe.cfg", "line": 1, "autosave": false}]
+    }
+  },
+  "errors": []
+}
+```
+
+`value` is what Klipper reads (comments stripped, a multi-line value joined with `\n`);
+`line` and `end_line` are 1-based. A file outside the config root is named by its absolute
+path.
+
+```http
+POST /server/helix/config_edit
+{"edits": [{"section": "probe", "option": "z_offset", "action": "set",
+            "value": "1.75", "expect": "1.5"}],
+ "dry_run": false}
+```
+
+JSON-RPC: `server.helix.config_edit`. Each edit names a `section` and `option`, an
+`action` (`set`, the default, or `remove`, which comments the definition out), a `value`
+for `set`, and `expect`: the option's current value, or `null` when it should not exist
+yet. Edits apply in order. `set` rewrites the line that defines the option, keeping its
+inline comment; a new option goes at the end of the section's last block, and a new section
+at the end of `printer.cfg` above the `SAVE_CONFIG` block.
+
+Each changed file is first copied to `.helix_backups/<file>.helixbak-<YYYYmmdd-HHMMSS>`
+under the config root (the newest five per file are kept), then written through a temp
+file, `fsync` and rename. Klipper's include globs never match a dot directory, so no
+`[include dir/*]` reads a backup as config.
+`dry_run` writes nothing and returns the same diff.
+
+```json
+{"dry_run": false, "files": ["conf.d/20-overrides.cfg"],
+ "backups": [{"file": "conf.d/20-overrides.cfg",
+              "backup": ".helix_backups/conf.d/20-overrides.cfg.helixbak-20261022-101500"}],
+ "diff": "--- a/conf.d/20-overrides.cfg\n+++ b/conf.d/20-overrides.cfg\n..."}
+```
+
+A refused list writes nothing and answers 409 with the rule first: `autosave` (the option
+is in the `SAVE_CONFIG` block, which Klipper owns), `moved` (`expect` no longer matches, or
+the file changed while the edit was prepared), `outside_root`, `invalid`.
 
 ## Visible symlink directory
 

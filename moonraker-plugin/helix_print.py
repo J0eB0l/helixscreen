@@ -151,6 +151,7 @@ helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
 helix_analysis = _load_sibling("helix_analysis")
 helix_journal = _load_sibling("helix_journal")
+helix_config = _load_sibling("helix_config")
 
 
 # ============================================================================
@@ -164,6 +165,13 @@ PLUGIN_FEATURES_KEY = "plugin_features"
 
 # A feature's own switch: answers its `enabled` instead of plugin_features.
 FeatureSwitch = Callable[[], Awaitable[bool]]
+
+
+async def always_on() -> bool:
+    """The switch of a feature with no user setting: one that only observes, or
+    a transport the user drives from the screen. No plugin_features key turns
+    it off."""
+    return True
 
 # A feature's live availability: (available, reason when not).
 FeatureProbe = Callable[[], Tuple[bool, Optional[str]]]
@@ -738,6 +746,7 @@ class HelixPrint:
         self._start_plr()
         self._start_analysis()
         await self._start_journal()
+        self._start_config()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -824,8 +833,8 @@ class HelixPrint:
         )
 
     def _start_analysis(self) -> None:
-        """File analysis (helix_analysis.py). It only observes, so it is on
-        unless the user opts out in plugin_features."""
+        """File analysis (helix_analysis.py). It only observes, so it has no
+        switch."""
         if helix_analysis is None:
             self.register_feature(
                 "file_analysis", 1, acts=False, available=False,
@@ -836,7 +845,7 @@ class HelixPrint:
         self.analysis.register()
         self.register_feature(
             helix_analysis.ANALYSIS_FEATURE, helix_analysis.ANALYSIS_FEATURE_VERSION,
-            acts=False, probe=self.analysis.availability,
+            acts=False, switch=always_on, probe=self.analysis.availability,
         )
         if self.enabled:
             self.eventloop.register_callback(self.analysis.start)
@@ -854,9 +863,24 @@ class HelixPrint:
         self.journal.start()
         self.register_feature(
             helix_journal.JOURNAL_FEATURE, helix_journal.JOURNAL_FEATURE_VERSION, acts=False,
-            switch=helix_journal.always_on,
+            switch=always_on,
         )
         await self.journal.load()
+    def _start_config(self) -> None:
+        """Config read and edit (helix_config.py). It acts only when the user
+        saves a change on the screen, which is its own consent, so it has no
+        switch: always on while the module loads."""
+        if helix_config is None:
+            self.register_feature(
+                "config_edit", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_config", "module_missing"),
+            )
+            return
+        helix_config.HelixConfig(self).start()
+        self.register_feature(
+            helix_config.CONFIG_EDIT_FEATURE, helix_config.CONFIG_EDIT_FEATURE_VERSION,
+            acts=True, switch=always_on,
+        )
 
     async def close(self) -> None:
         if self.analysis is not None:
