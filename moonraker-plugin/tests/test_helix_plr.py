@@ -1036,7 +1036,10 @@ def resume(plr, helix):
 
 class FakePrinter:
     """Klipper as PLR sees it: heaters that reach a target once set (when
-    `heats`), and homed axes that follow G28 X Y and SET_KINEMATIC_POSITION."""
+    `heats`), and homed axes that follow G28 X Y and SET_KINEMATIC_POSITION.
+    With `nozzle_rate` set, the nozzle climbs that many degrees per query
+    toward its M104 target instead. `log` holds each script with the nozzle
+    temperature it was sent at."""
 
     def __init__(self):
         self.bed = 55.0
@@ -1049,8 +1052,12 @@ class FakePrinter:
         self.homed = ""
         self.state = "standby"
         self.fail_on = None
+        self.nozzle_rate = None
+        self.nozzle_target = 0.0
+        self.log = []
 
     async def run_gcode(self, script):
+        self.log.append((script, self.nozzle))
         if self.fail_on and script.startswith(self.fail_on):
             raise RuntimeError(self.fail_message)
         for line in script.splitlines():
@@ -1059,6 +1066,8 @@ class FakePrinter:
                 continue
             if words[0] == "M140" and self.heats:
                 self.bed = float(words[1][1:])
+            elif words[0] == "M104" and self.nozzle_rate is not None:
+                self.nozzle_target = float(words[1][1:])
             elif words[0] == "M104" and self.heats:
                 self.nozzle = float(words[1][1:])
             elif words[0] == "SET_HEATER_TEMPERATURE" and self.heats:
@@ -1089,6 +1098,8 @@ class FakePrinter:
         if "heater_bed" in objects:
             out["heater_bed"] = {"temperature": self.bed, "target": 0.0}
         if "extruder" in objects:
+            if self.nozzle_rate is not None and self.nozzle < self.nozzle_target:
+                self.nozzle = min(self.nozzle_target, self.nozzle + self.nozzle_rate)
             out["extruder"] = {"temperature": self.nozzle}
         if "heater_generic chamber" in objects:
             out["heater_generic chamber"] = {"temperature": self.chamber}
@@ -1227,9 +1238,10 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     assert run(plr.handle_prepare(Req(plan_id=plan_id))) == {"ok": True}
     prepare = sent(helix)
     assert prepare[0] == "M140 S60"
-    assert prepare[1].startswith("SET_KINEMATIC_POSITION Z=0.8 SET_HOMED=Z\nG91\nG1 Z5 F300")
-    assert prepare[2] == "G28 X Y"
-    assert not any("M104" in s or "M109" in s for s in prepare)
+    assert prepare[1] == "M104 S220"                        # in place, before anything moves
+    assert prepare[2].startswith("SET_KINEMATIC_POSITION Z=0.8 SET_HOMED=Z\nG91\nG1 Z5 F300")
+    assert prepare[3] == "G28 X Y"
+    assert not any("M109" in s for s in prepare)
     reply = run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
                                       confirmations={"part_attached": True, "z_confirmed": True})))
     assert reply == {"ok": True, "job_started": True}
@@ -1240,8 +1252,8 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     assert link.is_symlink() and link.resolve() == (helix.gc_path / "sub" / "part.gcode").resolve()
     steps = [p["step"] for e, p in plr.events if e == "helix_print:plr_progress"
              and p["state"] == "done"]
-    assert steps == ["bed_wait", "lift", "home_xy", "bed_wait", "restore", "heat_nozzle",
-                     "purge", "move_to_resume", "start"]
+    assert steps == ["bed_wait", "nozzle_in_place", "lift", "home_xy", "bed_wait", "restore",
+                     "heat_nozzle", "purge", "move_to_resume", "start"]
     commit = sent(helix)[len(prepare):]
     assert commit[0] == "M140 S60"                          # the bed is re-asserted first
 
@@ -1525,14 +1537,14 @@ def test_qidi_plan_prepare_commit(plr, helix, qidi_resume, monkeypatch):
     assert "mesh_unavailable" not in reply["warnings"] and "no_purge_location" not in reply["warnings"]
     assert plr._plan.purge_xy is None and plr._plan.mesh_loadable is None   # QIDI's sequence purges
     run(plr.handle_prepare(Req(plan_id=reply["plan_id"])))
-    assert sent(helix) == ["M140 S60"]                    # the heat wait only
+    assert sent(helix) == ["M140 S60", "M104 S220"]       # the heat wait only
     done = run(plr.handle_commit(Req(plan_id=reply["plan_id"], z_reference="trusted",
                                      confirmations={"part_attached": True, "z_confirmed": True})))
     assert done == {"ok": True, "job_started": True}
     assert helix.klippy_apis.power_off_print.await_count == 1
     assert table.rows["file_position"] == str(reply["resume_offset"] + 4096)
     assert marks == [(str(cache / "part.gcode"), "plr_resume")]
-    assert sent(helix)[-1] == "M140 S60"                  # waited again inside commit
+    assert sent(helix)[-2:] == ["M140 S60", "M104 S220"]  # waited again inside commit
     assert not any(s.startswith("M23") for s in sent(helix))
 
 
@@ -1685,6 +1697,79 @@ def test_abort_during_a_heat_wait_stops_before_any_motion(plr, helix, resume):
     assert not any(s.startswith(("SET_KINEMATIC", "G28")) for s in sent(helix))
 
 
+MOTION = ("SET_KINEMATIC_POSITION", "G91", "G1 ", "G0 ", "G28")
+
+
+def moved_before_hot(printer, target=220.0):
+    """Scripts that moved the toolhead while the nozzle was under target."""
+    return [script for script, nozzle in printer.log
+            if any(line.startswith(MOTION) for line in script.splitlines())
+            and nozzle < target - 1.0]
+
+
+def test_prepare_heats_the_nozzle_in_place_before_anything_moves(plr, helix, resume):
+    """After a cut the nozzle is frozen into the part: a cold lift or XY
+    homing tears it off the bed (R28)."""
+    plr.printer.nozzle_rate = 40.0
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert any(s.startswith("G28") for s in sent(helix))
+    assert moved_before_hot(plr.printer) == []
+    steps = [p["step"] for e, p in plr.events if e == "helix_print:plr_progress"
+             and p["state"] == "done"]
+    assert steps[:2] == ["bed_wait", "nozzle_in_place"]
+
+
+def test_qidi_heats_the_nozzle_in_place_in_prepare_and_again_before_qidis_resume(
+        plr, helix, qidi_resume):
+    """QIDI's sequence lifts and homes XY before its M109."""
+    plr.printer.nozzle_rate = 40.0
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert plr.printer.nozzle >= 219.0
+    plr.printer.nozzle = 25.0                       # cooled while the screen asked
+    at_resume = []
+
+    async def resume_call(*a):
+        at_resume.append(plr.printer.nozzle)
+        return "ok"
+
+    helix.klippy_apis.power_off_print.side_effect = resume_call
+    commit(plr, plan_id)
+    assert at_resume and at_resume[0] >= 219.0
+
+
+def test_abort_during_the_in_place_nozzle_wait_stops_before_any_motion(plr, helix, resume):
+    plr.printer.nozzle_rate = 0.0                   # the bed heats, the nozzle never does
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+
+    async def abort_while_waiting(seconds):
+        await plr.handle_abort(Req(plan_id=plan_id))
+
+    plr._sleep = abort_while_waiting
+    with pytest.raises(Exception, match="aborted"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert "M104 S220" in sent(helix)
+    assert not any(line.startswith(MOTION) for s in sent(helix) for line in s.splitlines())
+    assert sent(helix)[-1] == HEATERS_OFF
+    assert plr._sequence == "aborted"
+
+
+def test_no_nozzle_temperature_is_refused_rather_than_moved_cold(plr, helix, resume):
+    record = plr.store.load()
+    record["heaters"]["extruder"]["target"] = 0.0   # and the file sets none
+    plr.store.write(fit_record(record)[0])
+    with pytest.raises(Exception, match="plr_scan_failed: no_nozzle_target"):
+        run(plr.handle_plan(Req()))
+    record["heaters"]["extruder"]["target"] = 220.0
+    plr.store.write(fit_record(record)[0])
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr._plan = plr._plan._replace(nozzle_target=0.0)
+    with pytest.raises(Exception, match="plr_scan_failed: no_nozzle_target"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert sent(helix) == []
+
+
 def test_a_heat_wait_times_out(plr, helix, resume):
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     plr.printer.heats = False
@@ -1703,6 +1788,7 @@ def test_the_chamber_wait_is_polled_and_skippable(plr, helix, resume):
     with pytest.raises(Exception, match="chamber_wait timed out"):
         run(plr.handle_prepare(Req(plan_id=plan_id)))
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.nozzle = 220.0
     run(plr.handle_prepare(Req(plan_id=plan_id, skip_chamber_wait=True)))
     assert "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45" in sent(helix)
 
@@ -2050,8 +2136,8 @@ def test_a_skipped_chamber_wait_is_not_waited_for_in_commit(plr, helix, resume):
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     plr.printer.heats = False
     plr.printer.bed = 60.0
-    run(plr.handle_prepare(Req(plan_id=plan_id, skip_chamber_wait=True)))
     plr.printer.nozzle = 220.0
+    run(plr.handle_prepare(Req(plan_id=plan_id, skip_chamber_wait=True)))
     assert commit(plr, plan_id) == {"ok": True, "job_started": True}
 
 
@@ -2177,6 +2263,7 @@ def test_abort_during_the_nozzle_wait_skips_the_purge(plr, helix, resume):
     run(plr.handle_prepare(Req(plan_id=plan_id)))
     plr.printer.heats = False
     plr.printer.bed = 60.0
+    plr.printer.nozzle = 25.0                       # cooled while the screen asked
 
     async def abort_while_waiting(seconds):
         await plr.handle_abort(Req(plan_id=plan_id))
@@ -2193,6 +2280,7 @@ def test_the_nozzle_wait_times_out(plr, helix, resume):
     run(plr.handle_prepare(Req(plan_id=plan_id)))
     plr.printer.heats = False
     plr.printer.bed = 60.0
+    plr.printer.nozzle = 25.0                       # cooled while the screen asked
     with pytest.raises(Exception, match="heat_nozzle timed out"):
         commit(plr, plan_id)
 

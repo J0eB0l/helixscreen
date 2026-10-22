@@ -1662,7 +1662,7 @@ class HelixPlr:
         nozzle = (heaters.get("extruder") or {}).get("target") or 0.0
         nozzle = max(nozzle, point.state.heater_targets.get("extruder", 0.0))
         if nozzle <= 0.0:
-            raise self._error("plr_scan_failed", "no nozzle temperature to resume at", 400)
+            raise self._error("plr_scan_failed", NO_NOZZLE_TARGET, 400)
         chamber = None
         for name, heater in sorted(heaters.items()):
             if name.startswith("heater_generic ") and "chamber" in name \
@@ -1845,13 +1845,14 @@ class HelixPlr:
             await self._sleep(HEAT_POLL_S)
         self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "done"})
 
-    async def _heat(self, plan: Any, skip_chamber: bool = False) -> None:
+    async def _heat(self, plan: Any, skip_chamber: bool = False,
+                    nozzle_in_place: bool = False) -> None:
         """§ 6.3 step 2: set each heater, then poll it to temperature."""
-        for heat in helix_plr_render.render_heat_wait(plan, skip_chamber):
+        for heat in helix_plr_render.render_heat_wait(plan, skip_chamber, nozzle_in_place):
             await self._send(plan.plan_id, heat.step, heat.lines, done=not heat.wait)
             if heat.wait:
-                timeout = BED_WAIT_TIMEOUT_S if heat.sensor == "heater_bed" \
-                    else CHAMBER_WAIT_TIMEOUT_S
+                timeout = {"heater_bed": BED_WAIT_TIMEOUT_S, "extruder": NOZZLE_WAIT_TIMEOUT_S} \
+                    .get(heat.sensor, CHAMBER_WAIT_TIMEOUT_S)
                 await self._wait_temp(plan.plan_id, heat.step, heat.sensor, heat.minimum, timeout)
 
     async def _heaters_off(self, plan: Any) -> None:
@@ -1897,6 +1898,10 @@ class HelixPlr:
         plan = self._current_plan(plan_id)
         if plan.tier < 1:
             raise self._error("plr_no_plan", "not_supported")
+        if not plan.nozzle_target or plan.nozzle_target <= 0.0:
+            # The nozzle is heated in place before anything moves; without a
+            # target it would be dragged out of the plastic cold.
+            raise self._error("plr_scan_failed", NO_NOZZLE_TARGET, 400)
         previous = self._claim("preparing")
         run = self._run
         try:
@@ -1910,7 +1915,10 @@ class HelixPlr:
                 raise
             self._skip_chamber = skip_chamber
             try:
-                await self._heat(plan, skip_chamber)
+                if plan.backend == "qidi_print_state":
+                    await self.qidi.prepare(self._heat_wait(plan, skip_chamber, nozzle_in_place=True))
+                else:
+                    await self._heat(plan, skip_chamber, nozzle_in_place=True)
                 if motion is not None:
                     declare, lift = motion
                     for step, lines in helix_plr_render.render_prepare_script(
@@ -2051,10 +2059,11 @@ class HelixPlr:
             raise self._error("plr_stale_plan",
                               "Klipper lost its position since prepare; prepare again", 409)
 
-    def _heat_wait(self, plan: Any, skip_chamber: bool = False) -> Callable[[], Any]:
+    def _heat_wait(self, plan: Any, skip_chamber: bool = False,
+                   nozzle_in_place: bool = False) -> Callable[[], Any]:
         """§ 6.3 step 2 as the coroutine the QIDI adapter awaits."""
         async def wait() -> None:
-            await self._heat(plan, skip_chamber)
+            await self._heat(plan, skip_chamber, nozzle_in_place)
         return wait
 
     def _mark_qidi(self, name: str, kind: str) -> None:
@@ -2068,7 +2077,8 @@ class HelixPlr:
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
             await self.qidi.commit(plan.snapshot, plan.resume_offset, self._plan_file_size,
-                                   self._heat_wait(plan, self._skip_chamber), plan.state,
+                                   self._heat_wait(plan, self._skip_chamber, nozzle_in_place=True),
+                                   plan.state,
                                    self._qidi_status())
         except Exception as e:
             self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "failed"})
@@ -2160,6 +2170,9 @@ PLAN_READY_EVENT = "helix_print:plr_plan_ready"
 
 # A plan whose scan takes longer replies {"pending": true} and announces itself.
 PLAN_SYNC_WAIT_S = 10.0
+
+# Neither the snapshot nor the file names a nozzle temperature to heat it to.
+NO_NOZZLE_TARGET = "no_nozzle_target: no nozzle temperature to resume at"
 
 # Heat waits poll the heater this often, and give up after these.
 HEAT_POLL_S = 2.0

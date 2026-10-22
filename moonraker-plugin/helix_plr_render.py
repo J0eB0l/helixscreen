@@ -248,9 +248,14 @@ class HeatStep(NamedTuple):
 HEAT_TOLERANCE_C = 1.0
 
 
-def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False) -> List[HeatStep]:
-    """Bed, then chamber, to temperature; the nozzle stays cold. Every
-    backend's prepare starts with it, and every commit repeats it."""
+def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False,
+                     nozzle_in_place: bool = False) -> List[HeatStep]:
+    """Bed, then chamber, to temperature, then with `nozzle_in_place` the
+    nozzle where it stands. After a cut the nozzle is frozen into the
+    plastic: lifting or homing it cold tears the part off the bed, so every
+    prepare heats it in place before anything moves. A generic commit
+    repeats the bed and chamber; a QIDI commit repeats all three, since
+    QIDI's sequence lifts and homes before it heats."""
     steps = []  # type: List[HeatStep]
     if plan.bed_target > 0:
         steps.append(HeatStep("bed_wait", ["M140 S%s" % _f(plan.bed_target)], "heater_bed",
@@ -261,6 +266,9 @@ def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False) -> List[
             "chamber_wait",
             ["SET_HEATER_TEMPERATURE HEATER=%s TARGET=%s" % (gcode_param(name), _f(target))],
             "heater_generic " + name, target - HEAT_TOLERANCE_C, not skip_chamber_wait))
+    if nozzle_in_place:
+        steps.append(HeatStep("nozzle_in_place", ["M104 S%s" % _f(plan.nozzle_target)],
+                              "extruder", plan.nozzle_target - HEAT_TOLERANCE_C, True))
     return steps
 
 
