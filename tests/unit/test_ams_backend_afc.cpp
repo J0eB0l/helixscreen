@@ -1,6 +1,7 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_ams_lane_settings.h"
 #include "ui_callback_helpers.h"
 #include "ui_print_select_detail_view.h"
 #include "ui_print_start_controller.h"
@@ -5673,6 +5674,21 @@ TEST_CASE("AFC SET_MAP takes a T number above the lane count when a lane carries
         CHECK_FALSE(helper.set_tool_mapping(5, 1).success());
         CHECK(helper.captured_gcodes.empty());
     }
+}
+
+TEST_CASE("AFC lane settings show the tool a multi-tool lane is running",
+          "[ams][afc][tool_mapping][lane_settings]") {
+    // lane1 carries T1 and T5 and is running T5. Both route to it, so the first
+    // match in the tool table is T1, which is not what the lane is doing.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane1", {{"map", {"T1", "T5"}}, {"current_map", "T5"}});
+    helper.feed_afc_stepper("lane2", {{"map", {"T0"}}});
+    REQUIRE(helper.get_tool_mapping()[1] == 0);
+    REQUIRE(helper.get_tool_mapping()[5] == 0);
+
+    CHECK(helix::ui::lane_settings::assigned_tool(helper, 0) == 5);
+    CHECK(helix::ui::lane_settings::assigned_tool(helper, 1) == 0);
 }
 
 TEST_CASE("AFC: a two-step swap applies both halves", "[ams][afc][tool_mapping][remap]") {

@@ -68,7 +68,8 @@ using BackupEligibleFn = std::function<helix::printer::BackupEligibility(int slo
 /// The Assigned Tool dropdown's options: "None", then one tool per slot.
 [[nodiscard]] std::string tool_options(int tool_count);
 
-/// The tool that maps to @p slot, or -1.
+/// The tool that maps to @p slot, or -1. On a lane several tools route to, the
+/// one it is running.
 [[nodiscard]] int assigned_tool(const AmsBackend& backend, int slot);
 
 /// @p slot's Endless Spool backup, or -1.
