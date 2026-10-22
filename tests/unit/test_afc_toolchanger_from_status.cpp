@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <any>
+#include <array>
 #include <functional>
 #include <string>
 #include <vector>
@@ -177,6 +178,11 @@ class AfcStatusDispatchHelper : public AmsBackendAfc {
     void feed_afc(const nlohmann::json& afc) {
         nlohmann::json params;
         params["AFC"] = afc;
+        feed(params);
+    }
+
+    /// Feed a whole status frame: the AFC object plus any per-lane objects.
+    void feed(const nlohmann::json& params) {
         nlohmann::json notification;
         notification["params"] = nlohmann::json::array({params, 0.0});
         handle_status_update(notification);
@@ -234,6 +240,23 @@ nlohmann::json toolchanger_status() {
     return j;
 }
 
+/// The toolchanger frame with each lane's own object, as the subscription
+/// delivers it: AFC_stepper publishes the lane's T number (`map`) and the
+/// head it feeds (`extruder`). The T numbers are interleaved across the heads
+/// so a tool change has to read them rather than count extruders.
+nlohmann::json toolchanger_frame() {
+    nlohmann::json params;
+    params["AFC"] = toolchanger_status();
+    const std::vector<std::array<const char*, 3>> lanes{{"lane1", "T1", "extruder1"},
+                                                        {"lane2", "T0", "extruder"},
+                                                        {"lane3", "T2", "extruder"},
+                                                        {"lane4", "T3", "extruder1"}};
+    for (const auto& [lane, map, extruder] : lanes) {
+        params[std::string("AFC_stepper ") + lane] = {{"map", map}, {"extruder", extruder}};
+    }
+    return params;
+}
+
 /// A plain single-extruder BoxTurtle. One extruder, no toolchanger.
 nlohmann::json single_extruder_status() {
     nlohmann::json j = base_status({"extruder"});
@@ -252,34 +275,42 @@ nlohmann::json multi_extruder_no_toolchanger_status() {
 } // namespace
 
 TEST_CASE("AFC load and tool change name the lane or T number on every topology",
-          "[ams][afc][toolchanger][status][1200][1824]") {
+          "[ams][afc][toolchanger][status][1200][1824][1850]") {
     // AFC owns lane -> extruder and T -> lane, so a load names the lane on
     // every topology. A tool change sends T{n} except on a toolchanger, where
-    // it only mounts a head and needs the lane's extruder, which these frames
-    // never publish: there it refuses and sends nothing.
+    // it only mounts the head that T number's lane feeds.
     const std::vector<std::pair<const char*, nlohmann::json>> frames{
-        {"toolchanger", toolchanger_status()},
-        {"single extruder", single_extruder_status()},
-        {"multi-extruder, no toolchanger", multi_extruder_no_toolchanger_status()}};
+        {"toolchanger", toolchanger_frame()},
+        {"single extruder", {{"AFC", single_extruder_status()}}},
+        {"multi-extruder, no toolchanger", {{"AFC", multi_extruder_no_toolchanger_status()}}}};
 
     for (const auto& [label, frame] : frames) {
         CAPTURE(label);
 
         AfcStatusDispatchHelper load;
-        load.feed_afc(frame);
+        load.feed(frame);
         REQUIRE(load.load_filament(1));
         CHECK(load.captured == std::vector<std::string>{"CHANGE_TOOL LANE=lane2"});
 
         AfcStatusDispatchHelper change;
-        change.feed_afc(frame);
+        change.feed(frame);
+        REQUIRE(change.change_tool(1));
         if (std::string(label) == "toolchanger") {
-            CHECK_FALSE(change.change_tool(1));
-            CHECK(change.captured.empty());
+            CHECK(change.captured == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=extruder1"});
         } else {
-            REQUIRE(change.change_tool(1));
             CHECK(change.captured == std::vector<std::string>{"T1"});
         }
     }
+}
+
+TEST_CASE("AFC toolchanger refuses a tool change while lanes have named no head",
+          "[ams][afc][toolchanger][status][1850]") {
+    // Before the per-lane objects arrive, every lane's head is unknown. Picking
+    // one would be a guess, so nothing is sent.
+    AfcStatusDispatchHelper afc;
+    afc.feed_afc(toolchanger_status());
+    CHECK_FALSE(afc.change_tool(1));
+    CHECK(afc.captured.empty());
 }
 
 TEST_CASE("Per-extruder actions follow the frame's extruder order, not name order",
