@@ -687,8 +687,8 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   `force_move.py`; the mainline and vendor-fork versions are not pinned here, so the plugin
   checks the result instead of a version); older builds mark X and Y homed too. Prepare checks `homed_axes` after the
   lift and refuses (`plr_klippy_error: set_homed_unsupported`) before XY homing when X or Y
-  became homed and a `[homing_override]` runs for G28 X Y with the default `xy_home_gcode`; a
-  plain `G28 X Y` always homes and is unaffected.
+  became homed, unless the XY homing is a plain `G28 X Y` with no `[homing_override]` (which
+  homes whatever Klipper believes); a custom `xy_home_gcode` is refused there too.
 - Tier 1 with no purge line and no XY homing position (`position_endstop`) is refused
   (`plr_scan_failed: no_purge_location`): nowhere is known to be off the part for the nozzle to
   heat.
