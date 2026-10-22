@@ -21,6 +21,7 @@
 #include "config.h"
 #include "filament_catalog.h"
 #include "filament_database.h"
+#include "filament_mapper.h"
 #include "filament_op_dispatch.h"
 #include "filament_slot_override.h"
 #include "filament_slot_override_store.h"
@@ -29,6 +30,7 @@
 #include "macro_param_cache.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#include "preflight_validator.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "settings_manager.h"
@@ -7971,4 +7973,33 @@ TEST_CASE("CFS clear_slot_override clears the Box profile on Fork only", "[ams][
     base.clear_slot_override(2);
 
     REQUIRE(backend.captured == std::vector<std::string>{"_BOX_SLOT_CLEAR SLOT=2"});
+}
+
+TEST_CASE("CFS tool-table remap is the routing an unremapped print runs with",
+          "[ams][cfs][remap][routing]") {
+    // The box routes T1B to bay T1D (and T1D to T1B). A print using tool 1 must
+    // seed bay 3, so print start sends no BOX_MODIFY_TN undoing it.
+    helix::test::RegisteredBackend<CfsRemapHelper> reg;
+    CfsRemapHelper& helper = *reg;
+    auto status = make_cfs_status_json();
+    status["box"]["map"] = {{"T1A", "T1A"}, {"T1B", "T1D"}, {"T1C", "T1C"}, {"T1D", "T1B"}};
+    json notification = {{"method", "notify_status_update"}, {"params", json::array({status, 0})}};
+    CfsTestAccess::handle_status(helper, notification);
+    helix::ui::UpdateQueue::instance().drain();
+
+    REQUIRE(helper.get_remap_strategy() == AmsBackend::RemapStrategy::Native);
+    const auto live = helper.get_tool_mapping();
+    REQUIRE(live.size() == 4);
+    REQUIRE(live[1] == 3);
+    CHECK(helper.firmware_default_routing().head(1) == 3);
+    CHECK(helper.firmware_default_routing().head(3) == 1);
+
+    GcodeToolInfo t1{};
+    t1.tool_index = 1;
+    t1.color_rgb = 0x808080;
+    t1.color_known = false;
+    auto& ams = AmsState::instance();
+    const auto seed = ams.seed_tool_mappings({t1}, ams.collect_available_slots(), false);
+    REQUIRE(seed.size() == 1);
+    CHECK(seed[0].mapped_slot == live[1]);
 }

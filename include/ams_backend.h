@@ -470,22 +470,27 @@ class AmsBackend {
     /**
      * @brief The firmware's DEFAULT tool -> physical head map.
      *
-     * What the printer would do with a file if nobody remapped anything. NOT the
-     * live map (AmsSystemInfo::tool_to_slot_map carries that, and it is not even
-     * uniformly available - an AFC tracks it, a U1 freezes it at 1:1 while its
-     * real map lives in print_task_config.extruder_map_table).
+     * What the printer would do with a file if nobody remapped anything at print
+     * time. A firmware that routes by a standing table the user edits on the
+     * printer (an AFC lane map, a Happy Hare TTG map, a CFS tool table) routes an
+     * unremapped print by that table, so the default answers it: a backend with
+     * a Native remap route that echoes its table back
+     * (reports_firmware_tool_mapping()) reports get_tool_mapping(). Every other
+     * backend is lane-per-tool: tool N owns lane N, with no upper bound.
      *
-     * The default is lane-per-tool, which is every backend except two: tool N
-     * owns lane N, with no upper bound. Override only when the hardware genuinely
-     * disagrees - a bounded-head machine (Snapmaker U1) or one that publishes an
-     * arbitrary table (FlashForge AD5X IFS).
+     * Not every live map is a default: a U1 freezes get_tool_mapping() at 1:1
+     * while its real map lives in print_task_config.extruder_map_table, and a
+     * per-print map sent before the job is gone once it ends. Override when the
+     * hardware disagrees - a bounded-head machine (Snapmaker U1) or one that
+     * publishes a table through another surface (FlashForge AD5X IFS).
      *
      * Adding a third shape must touch only the new backend. A constant in shared
      * code instead of this question is what sent every AFC tool above 3 to lane 0.
+     *
+     * @note Calls get_tool_mapping(), which takes the backend's mutex_ on most
+     *       backends: never call this with mutex_ held.
      */
-    [[nodiscard]] virtual helix::FirmwareRouting firmware_default_routing() const {
-        return helix::FirmwareRouting::identity();
-    }
+    [[nodiscard]] virtual helix::FirmwareRouting firmware_default_routing() const;
 
     /**
      * @brief Channel A: backend-specific classification of one gcode-response
