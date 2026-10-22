@@ -73,9 +73,7 @@ import json
 import logging
 import math
 import os
-import shutil
 import struct
-import subprocess
 import sys
 import threading
 import time
@@ -972,19 +970,12 @@ def thumbnail_relpath(relpath: str, width: int, height: int) -> str:
 # ============================================================================
 
 
-class WorkerFailed(Exception):
-    """The worker exited without a record: crashed, killed or timed out."""
+WorkerFailed = reader.WorkerFailed
 
 
 def worker_command(gc_path: Path, relpath: str) -> List[str]:
-    """The worker's argv: this file as a script under Moonraker's own Python,
-    at idle I/O priority where `ionice` exists. The worker nices itself."""
-    python = sys.executable or "python3"
-    argv = [python, os.path.abspath(__file__), str(gc_path), relpath]
-    ionice = shutil.which("ionice")
-    if ionice is not None:
-        argv = [ionice, "-c", "3"] + argv
-    return argv
+    """The worker's argv: this file as a script (main())."""
+    return reader.worker_argv(__file__, [str(gc_path), relpath])
 
 
 def worker_timeout(size: int) -> float:
@@ -1020,10 +1011,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if len(args) != 2:
         sys.stderr.write("usage: helix_analysis.py GCODES_ROOT RELPATH < metadata.json\n")
         return 2
-    try:
-        os.nice(19)
-    except (AttributeError, OSError):
-        pass
+    reader.worker_nice()
     raw = sys.stdin.read()
     metadata = json.loads(raw) if raw.strip() else {}
     out = analyze_file(Path(args[0]), args[1], metadata if isinstance(metadata, dict) else {})
@@ -1045,8 +1033,7 @@ class HelixAnalysis:
         self._queue = {}  # type: Dict[str, None]
         self._worker = None  # type: Optional[asyncio.Future]
         self._executor = None  # type: Optional[Any]
-        self._proc = None  # type: Optional[Any]
-        self._killed_for_print = False
+        self._runner = reader.WorkerProcess()
         # path -> (size, mtime, failed attempts) of the version last tried
         self._failures = {}  # type: Dict[str, Tuple[int, float, int]]
         self._resume = None  # type: Optional[asyncio.Event]
@@ -1087,19 +1074,9 @@ class HelixAnalysis:
     async def close(self) -> None:
         if self._worker is not None:
             self._worker.cancel()
-        await self._kill_worker()
+        await self._runner.stop()
         if self._executor is not None:
             self._executor.shutdown(wait=False)
-
-    async def _kill_worker(self) -> None:
-        proc = self._proc
-        if proc is None or proc.returncode is not None:
-            return
-        try:
-            proc.kill()
-        except ProcessLookupError:
-            return
-        await proc.wait()
 
     # -- print state ---------------------------------------------------------
 
@@ -1123,9 +1100,7 @@ class HelixAnalysis:
             self._resume.set()
         else:
             self._resume.clear()
-            if self._proc is not None and self._proc.returncode is None:
-                self._killed_for_print = True
-                self._proc.kill()
+            self._runner.kill()
 
     async def on_job_state_changed(self, job_event: Any, prev_stats: Dict[str, Any],
                                    new_stats: Dict[str, Any]) -> None:
@@ -1235,6 +1210,8 @@ class HelixAnalysis:
         records of files that are gone."""
         if self.gc_path is None:
             return
+        await self._run_in_thread(reader.prune_layer_indexes, self.gc_path,
+                                  self._protected_indexes())
         found = await self._run_in_thread(self._scan_files)
         for name in [n for n in self.records if n not in found]:
             await self.forget(name)
@@ -1242,6 +1219,12 @@ class HelixAnalysis:
             if not record_current(self.records.get(name), size, mtime) \
                     and not self._gave_up(name, size, mtime):
                 self.enqueue(name)
+
+    def _protected_indexes(self) -> List[str]:
+        """Indexes power-loss recovery is using, which no prune may remove."""
+        plr = getattr(self.helix, "plr", None)
+        protected = getattr(plr, "protected_index_paths", None)
+        return list(protected()) if protected is not None else []
 
     def _scan_files(self) -> Dict[str, Tuple[int, float]]:
         found = {}
@@ -1309,32 +1292,13 @@ class HelixAnalysis:
     async def _run_worker(self, path: str, metadata: Dict[str, Any],
                           size: int) -> AnalysisOutput:
         """One file's pass in the worker process. Raises ScanCancelled when a
-        print starting on a one-core host killed it, else WorkerFailed."""
-        self._killed_for_print = False
+        print starting on a one-core host stopped it, else WorkerFailed."""
         try:
-            proc = await asyncio.create_subprocess_exec(
-                *worker_command(self.gc_path, path),
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except OSError as e:
-            raise WorkerFailed("could not start the worker: %s" % e)
-        self._proc = proc
-        try:
-            stdin = json.dumps(metadata, default=str).encode("utf-8")
-            try:
-                out, err = await asyncio.wait_for(proc.communicate(stdin),
-                                                  worker_timeout(size))
-            except asyncio.TimeoutError:
-                await self._kill_worker()
-                raise WorkerFailed("timed out")
-        finally:
-            if proc.returncode is None:
-                await self._kill_worker()
-            self._proc = None
-        if self._killed_for_print:
+            out = await self._runner.run(
+                worker_command(self.gc_path, path),
+                json.dumps(metadata, default=str).encode("utf-8"), worker_timeout(size))
+        except reader.WorkerStopped:
             raise reader.ScanCancelled()
-        if proc.returncode != 0:
-            tail = err.decode("utf-8", "replace").strip().splitlines()[-1:] if err else []
-            raise WorkerFailed("exit %s%s" % (proc.returncode, ": " + tail[0] if tail else ""))
         return decode_output(out)
 
     def _note_failure(self, path: str) -> bool:

@@ -17,8 +17,11 @@ both read files through this module; neither carries its own parser. It holds:
   file size;
 - a ScanObserver hook, through which a whole-file reader (file analysis) sees
   every move, command and comment after the reducer applied it;
-- the throttle policy every background reader follows;
-- the layer index sidecar and the file identity it is valid for.
+- the throttle policy every background reader follows, and WorkerProcess, the
+  niced child process a whole-file reader runs in so its pass never holds the
+  GIL Moonraker's event loop needs;
+- the layer index sidecar, the file identity it is valid for, and the one
+  prune rule for the sidecar directory.
 
 Offsets are byte offsets. A line counts as executed when its newline is at or
 before the end offset, which is how Klipper's virtual_sdcard advances
@@ -32,16 +35,22 @@ Pure: no Moonraker imports, Python 3.8 stdlib only.
 
 from __future__ import annotations
 
+import asyncio
 import collections
 import math
 import os
+import shutil
+import subprocess
+import sys
 import threading
 import time
 from typing import (
+    Any,
     BinaryIO,
     Callable,
     Deque,
     Dict,
+    Iterable,
     List,
     NamedTuple,
     Optional,
@@ -837,6 +846,90 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     return True
 
 
+class WorkerFailed(Exception):
+    """A worker process exited without its answer: crashed, killed or timed out."""
+
+
+class WorkerStopped(Exception):
+    """A worker process was stopped on purpose (WorkerProcess.kill / stop)."""
+
+
+def worker_argv(script: str, args: Iterable[str]) -> List[str]:
+    """argv running @p script under this interpreter (Moonraker's own, venv
+    included), at idle I/O priority where `ionice` exists. The script nices
+    its CPU priority itself (worker_nice)."""
+    argv = [sys.executable or "python3", os.path.abspath(script)] + list(args)
+    ionice = shutil.which("ionice")
+    if ionice is not None:
+        argv = [ionice, "-c", "3"] + argv
+    return argv
+
+
+def worker_nice() -> None:
+    """Called first thing in a worker process: the lowest CPU priority."""
+    try:
+        os.nice(19)
+    except (AttributeError, OSError):
+        pass
+
+
+class WorkerProcess:
+    """Runs one child process at a time and answers its stdout.
+
+    run() raises WorkerFailed for a non-zero exit, a timeout (the child is
+    killed) or a start that fails, and WorkerStopped when kill() or stop()
+    ended it. kill() is synchronous for event handlers; stop() also reaps.
+    """
+
+    def __init__(self) -> None:
+        self.proc = None  # type: Optional[Any]
+        self._stopped = False
+
+    @property
+    def running(self) -> bool:
+        return self.proc is not None and self.proc.returncode is None
+
+    async def run(self, argv: List[str], stdin: bytes, timeout: float) -> bytes:
+        self._stopped = False
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        except OSError as e:
+            raise WorkerFailed("could not start: %s" % e)
+        self.proc = proc
+        try:
+            try:
+                out, err = await asyncio.wait_for(proc.communicate(stdin), timeout)
+            except asyncio.TimeoutError:
+                raise WorkerFailed("timed out after %.0f s" % timeout)
+        finally:
+            if proc.returncode is None:
+                await self.stop()
+            self.proc = None
+        if self._stopped:
+            raise WorkerStopped()
+        if proc.returncode != 0:
+            tail = err.decode("utf-8", "replace").strip().splitlines()[-1:] if err else []
+            raise WorkerFailed("exit %s%s" % (proc.returncode, ": " + tail[0] if tail else ""))
+        return out
+
+    def kill(self) -> None:
+        if self.running:
+            self._stopped = True
+            try:
+                self.proc.kill()
+            except ProcessLookupError:
+                pass
+
+    async def stop(self) -> None:
+        proc = self.proc
+        if proc is None or proc.returncode is not None:
+            return
+        self.kill()
+        await proc.wait()
+
+
 # --------------------------------------------------------------------------
 # Layer index sidecar
 # --------------------------------------------------------------------------
@@ -917,15 +1010,25 @@ def _identity(record: dict) -> dict:
 
 class LayerIndexWriter:
     """Appends checkpoints to a file's layer index, starting it over when the
-    one on disk indexes another version of the file."""
+    one on disk indexes another version of the file.
+
+    One writer per index: a complete index of this version (file analysis
+    writes them whole, with write_layer_index) is never appended to; the
+    writer then writes nothing. An index replaced while this writer has it
+    open stays intact, since the replacement is a rename and the writer's
+    appends go to the file it opened."""
 
     def __init__(self, path: str, identity: dict) -> None:
         self.path = path
         self.identity = _identity(identity)
         self._f = None
+        self.inert = False
 
     def _open(self) -> None:
         state = read_layer_index(self.path, self.identity)
+        if state is not None and state.complete:
+            self.inert = True
+            return
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         if state is None:
             self._f = open(self.path, "w")
@@ -942,6 +1045,8 @@ class LayerIndexWriter:
 
     def _write(self, record: dict) -> None:
         import json
+        if self.inert:
+            return
         self._f.write(json.dumps(record, separators=(",", ":")) + "\n")
         self._f.flush()
 
@@ -1059,33 +1164,60 @@ def read_layer_index(path: str, identity: dict,
     return LayerIndexSummary(checkpoint(last), checkpoint(best), complete)
 
 
-def prune_layer_indexes(gcodes_root: "os.PathLike", keep: int) -> List[str]:
-    """Remove the layer indexes whose G-code file is gone, then all but the
-    `keep` most recently written. Returns the removed paths."""
+def _header_identity(path: str) -> Optional[dict]:
+    import json
+    try:
+        with open(path, "r") as f:
+            header = json.loads(f.readline())
+    except (OSError, ValueError):
+        return None
+    return header if isinstance(header, dict) else None
+
+
+def layer_index_stale(index_path: str, source_path: Optional[str]) -> bool:
+    """The prune rule for one index: stale when its G-code is gone, unknown
+    (an index under .external, of a file outside gcodes), or a different
+    version than the index's header names (size or mtime). The content hash
+    is not read: a prune walks every index, and a file rewritten to the same
+    size within one mtime tick is not worth reading every file for."""
+    if source_path is None:
+        return True
+    try:
+        st = os.stat(source_path)
+    except OSError:
+        return True
+    header = _header_identity(index_path)
+    if header is None:
+        return True
+    return header.get("file_size") != st.st_size or header.get("file_mtime") != st.st_mtime
+
+
+def prune_layer_indexes(gcodes_root: "os.PathLike",
+                        protected: Iterable[str] = ()) -> List[str]:
+    """Remove every stale layer index (layer_index_stale) except the
+    @p protected paths: the index power-loss recovery is following during a
+    print and the one its waiting snapshot resumes from. Writes in progress
+    (`.tmp`) are left to their writer. Returns the removed paths."""
     root = os.path.join(str(gcodes_root), LAYER_INDEX_DIR)
     external = os.path.join(root, ".external") + os.sep
-    found = []  # type: List[Tuple[float, str]]
+    keep = {os.path.abspath(p) for p in protected if p}
     removed = []  # type: List[str]
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
             if not name.endswith(LAYER_INDEX_SUFFIX):
                 continue
             path = os.path.join(dirpath, name)
-            source = os.path.join(str(gcodes_root),
-                                  os.path.relpath(path, root)[:-len(LAYER_INDEX_SUFFIX)])
-            try:
-                if not path.startswith(external) and not os.path.exists(source):
-                    os.remove(path)
-                    removed.append(path)
-                    continue
-                found.append((os.path.getmtime(path), path))
-            except OSError:
+            if os.path.abspath(path) in keep:
                 continue
-    found.sort(reverse=True)
-    for _mtime, path in found[keep:]:
-        try:
-            os.remove(path)
-            removed.append(path)
-        except OSError:
-            pass
+            source = None
+            if not path.startswith(external):
+                source = os.path.join(
+                    str(gcodes_root), os.path.relpath(path, root)[:-len(LAYER_INDEX_SUFFIX)])
+            if not layer_index_stale(path, source):
+                continue
+            try:
+                os.remove(path)
+                removed.append(path)
+            except OSError:
+                pass
     return removed

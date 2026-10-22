@@ -299,9 +299,6 @@ SNAPSHOT_SCHEMA = 1
 # Persist at most this often while file_position moves (ruling 2).
 SAVE_INTERVAL_S = 1.0
 
-# file_hash reads this much from each end of the file.
-HASH_SPAN_BYTES = 64 * 1024
-
 # Klipper objects a snapshot reads, besides the per-name families below.
 SNAPSHOT_OBJECTS = (
     "print_stats", "virtual_sdcard", "toolhead", "motion_report", "gcode_move",
@@ -335,22 +332,10 @@ def snapshot_objects(object_list: Any) -> Dict[str, Any]:
     return {n: None for n in sorted(names) if n in available or not available}
 
 
-def file_hash(path: Path) -> str:
-    """sha1 of the first and last HASH_SPAN_BYTES (the whole file when shorter)."""
-    import hashlib
-    h = hashlib.sha1()
-    with open(str(path), "rb") as f:
-        h.update(f.read(HASH_SPAN_BYTES))
-        size = os.fstat(f.fileno()).st_size
-        if size > HASH_SPAN_BYTES:
-            f.seek(max(HASH_SPAN_BYTES, size - HASH_SPAN_BYTES))
-            h.update(f.read(HASH_SPAN_BYTES))
-    return h.hexdigest()
-
-
-def file_identity(path: Path) -> Dict[str, Any]:
-    st = os.stat(str(path))
-    return {"file_size": st.st_size, "file_mtime": st.st_mtime, "file_hash": file_hash(path)}
+# The identity a snapshot and a layer index are checked against; one rule for
+# the whole plugin.
+file_hash = helix_gcode_reader.file_hash
+file_identity = helix_gcode_reader.file_identity
 
 
 def _vec(value: Any, n: int = 4) -> Optional[list]:
@@ -815,9 +800,6 @@ NEWEST_JOB_KEY = "newest_job"
 # when it starts through RESUME_LINK), read when history adds its job.
 RESUMING_KEY = "resuming"
 
-# Layer indexes kept under <gcodes>/.helix_index, newest first.
-INDEX_KEEP_FILES = 32
-
 SNAPSHOT_FILE = Path("helix-plr") / "snapshot.bin"
 MESH_CFG_FILE = Path("helix-plr") / "mesh.cfg"
 
@@ -1138,14 +1120,25 @@ class HelixPlr:
 
     # -- layer checkpoints ---------------------------------------------------
 
+    def protected_index_paths(self) -> List[str]:
+        """The layer indexes no prune may remove: the one the follower is
+        writing during a print, and the one the job's snapshot resumes from."""
+        paths = []
+        if self.follower is not None:
+            paths.append(self.follower.index_path)
+        target = self.print_target()
+        if target is not None and target[1]:
+            paths.append(target[1])
+        return paths
+
     def _prune_indexes(self) -> None:
-        """Drop layer indexes of deleted files and all but the newest
-        INDEX_KEEP_FILES, on the follower thread."""
+        """Drop stale layer indexes (helix_gcode_reader.prune_layer_indexes)
+        except the ones in use, on the follower thread."""
         gc_path = getattr(self.helix, "gc_path", None)
         if gc_path is None:
             return
         future = self._executor().submit(
-            helix_gcode_reader.prune_layer_indexes, gc_path, INDEX_KEEP_FILES)
+            helix_gcode_reader.prune_layer_indexes, gc_path, self.protected_index_paths())
         future.add_done_callback(self._follow_done)
 
     def _make_follower(self) -> Optional[LayerFollower]:

@@ -281,10 +281,9 @@ class TestLayerIndex:
                  open(str(reader.layer_index_path(gc, name))).read().splitlines()]
         return lines[0], [l for l in lines if "layer" in l], lines
 
-    def test_identity_is_the_one_power_loss_recovery_checks(self, gc):
-        import helix_plr
+    def test_the_index_is_complete_for_the_files_identity(self, gc):
         run(gc, "orca_two_tool.gcode")
-        identity = helix_plr.file_identity(gc / "orca_two_tool.gcode")
+        identity = reader.file_identity(gc / "orca_two_tool.gcode")
         summary = reader.read_layer_index(
             reader.layer_index_path(gc, "orca_two_tool.gcode"), identity)
         assert summary is not None and summary.complete
@@ -703,7 +702,7 @@ class TestWorker:
         helix, comp = await make(gc, files={"no_define.gcode"})
         await asyncio.wait_for(settle(comp), 10)
         assert calls(log) == 2
-        assert comp._proc is None
+        assert not comp._runner.running
 
     @pytest.mark.asyncio
     async def test_shutdown_kills_the_worker(self, gc, tmp_path, monkeypatch):
@@ -711,10 +710,10 @@ class TestWorker:
         monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
         helix, comp = await make(gc, files={"no_define.gcode"})
         for _ in range(100):
-            if comp._proc is not None and calls(log):
+            if comp._runner.running and calls(log):
                 break
             await asyncio.sleep(0.02)
-        proc = comp._proc
+        proc = comp._runner.proc
         assert proc is not None and proc.returncode is None
         await asyncio.wait_for(comp.close(), 5)
         assert proc.returncode is not None
@@ -726,10 +725,10 @@ class TestWorker:
         monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
         helix, comp = await make(gc, cpu_count=1, files={"no_define.gcode"})
         for _ in range(100):
-            if comp._proc is not None and calls(log):
+            if comp._runner.running and calls(log):
                 break
             await asyncio.sleep(0.02)
-        proc = comp._proc
+        proc = comp._runner.proc
         monkeypatch.undo()
         await comp.on_job_state_changed(None, {}, {"state": "printing"})
         await asyncio.wait_for(proc.wait(), 5)
@@ -739,3 +738,21 @@ class TestWorker:
         await comp.on_job_state_changed(None, {}, {"state": "complete"})
         await settle(comp)
         assert "no_define.gcode" in comp.records
+
+
+@pytest.mark.asyncio
+async def test_startup_prunes_stale_indexes_but_not_the_ones_recovery_uses(gc):
+    import os
+    stale = reader.layer_index_path(gc, "gone.gcode")
+    used = reader.layer_index_path(gc, "printing_copy.gcode")
+    for path in (stale, used):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, "w").write('{"format": 1}\n')
+    helix = FakeHelix(gc)
+    helix.plr = types.SimpleNamespace(protected_index_paths=lambda: [used])
+    comp = HelixAnalysis(helix, cpu_count=4)
+    comp.register()
+    await comp.start()
+    await settle(comp)
+    assert not os.path.exists(stale)
+    assert os.path.exists(used)

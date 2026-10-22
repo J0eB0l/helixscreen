@@ -642,11 +642,78 @@ def test_extra_never_overrides_the_checkpoint_fields(tmp_path):
     assert summary.last.offset == 10
 
 
-def test_file_identity_is_the_one_power_loss_recovery_records(tmp_path):
-    import helix_plr
-    f = tmp_path / "big.gcode"
-    f.write_bytes(b"G1 X1\n" * 40000)
-    assert reader.file_identity(f) == helix_plr.file_identity(f)
+def test_a_complete_index_is_never_clobbered_by_a_partial_writer(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    complete_starts = [(1, 10, ModalState(), {"tools": [0]}), (2, 90, ModalState(), None)]
+
+    # A writer opening after the complete index exists writes nothing.
+    reader.write_layer_index(path, IDENT, complete_starts, [], 120)
+    whole = open(path, "rb").read()
+    late = LayerIndexWriter(path, IDENT)
+    late.append(1, 10, ModalState())
+    late.finish(50)
+    late.close()
+    assert late.inert
+    assert open(path, "rb").read() == whole
+
+    # A writer already appending when the complete index lands keeps writing
+    # to the file it opened; the complete index stays whole.
+    other = layer_index_path(tmp_path, "b.gcode")
+    early = LayerIndexWriter(other, IDENT)
+    early.append(1, 10, ModalState())
+    reader.write_layer_index(other, IDENT, complete_starts, [], 120)
+    whole = open(other, "rb").read()
+    early.append(2, 90, ModalState())
+    early.finish(120)
+    early.close()
+    assert open(other, "rb").read() == whole
+    assert read_layer_index(other, IDENT).complete
+
+
+def index_for(root, rel, identity):
+    path = layer_index_path(root, rel)
+    w = LayerIndexWriter(path, identity)
+    w.append(1, 0, ModalState())
+    w.close()
+    return path
+
+
+def test_prune_removes_stale_indexes_and_keeps_current_ones(tmp_path):
+    import os
+    kept, removed = [], []
+    for i in range(40):                      # no count cap
+        f = tmp_path / ("f%d.gcode" % i)
+        f.write_text("G1 X1\n")
+        kept.append(index_for(tmp_path, f.name, reader.file_identity(f)))
+    gone = tmp_path / "gone.gcode"
+    gone.write_text("G1 X1\n")
+    removed.append(index_for(tmp_path, gone.name, reader.file_identity(gone)))
+    gone.unlink()
+    changed = tmp_path / "changed.gcode"
+    changed.write_text("G1 X1\n")
+    removed.append(index_for(tmp_path, changed.name, reader.file_identity(changed)))
+    changed.write_text("G1 X2 Y2\n")
+    garbage = layer_index_path(tmp_path, "f0.gcode").replace("f0.gcode", "junk.gcode")
+    open(garbage, "w").write("not json\n")
+    removed.append(garbage)
+    external = index_for(tmp_path, ".external/x.gcode", IDENT)
+    removed.append(external)
+    tmp = kept[0] + ".tmp"
+    open(tmp, "w").write("{}\n")
+    assert sorted(reader.prune_layer_indexes(tmp_path)) == sorted(removed)
+    assert all(os.path.exists(p) for p in kept + [tmp])
+    assert not any(os.path.exists(p) for p in removed)
+
+
+def test_prune_spares_protected_indexes_even_when_stale(tmp_path):
+    import os
+    f = tmp_path / "a.gcode"
+    f.write_text("G1 X1\n")
+    path = index_for(tmp_path, "a.gcode", reader.file_identity(f))
+    external = index_for(tmp_path, ".external/x.gcode", IDENT)
+    f.unlink()
+    assert reader.prune_layer_indexes(tmp_path, [path, external]) == []
+    assert os.path.exists(path) and os.path.exists(external)
 
 
 # --------------------------------------------------------------------------

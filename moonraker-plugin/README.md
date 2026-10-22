@@ -399,6 +399,12 @@ bounds without purge and wipe tower, palette, tools), and a closing
 screen builds its streaming preview's layer index from this file instead of
 reading the whole G-code first, once its size and `file_hash` match its copy.
 
+An index is removed when its G-code is gone or has changed size or mtime since
+the index was written, at plugin startup and whenever a print starts, except the
+index power-loss recovery is writing during a print or resuming from. An index is
+written by one writer: analysis replaces it whole (write then rename), and
+recovery never appends to a complete one.
+
 ## Visible symlink directory
 
 A print started through `print_modified` runs `SDCARD_PRINT_FILE` on the link
