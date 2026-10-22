@@ -1645,6 +1645,9 @@ TEST_CASE("effective_mappings auto ON: a tool of unstated colour keeps the firmw
     auto routed = FilamentMapper::effective_mappings(tools, slots, true, routing);
     REQUIRE(routed.size() == 1);
     CHECK(routed[0].mapped_slot == 3);
+    // Following the printer is not a match the matcher made, so print start
+    // must not send it.
+    CHECK(routed[0].reason == ToolMapping::MatchReason::FIRMWARE_MAPPING);
 
     SECTION("a tool the routing gives no lane falls back to a free loaded lane") {
         routing.head_for_tool = {0, -1, 2, 3};

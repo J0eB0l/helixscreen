@@ -226,7 +226,8 @@ class FilamentMapper {
     /// Toggle-aware mapping: the single place that turns the auto-color-map
     /// preference into a mapping. When @p auto_color_map is true, firmware
     /// mappings are cleared so they don't pre-empt color/type matches and
-    /// compute_defaults runs; otherwise use_current_assignments (positional).
+    /// compute_defaults runs; otherwise use_current_assignments (each tool on the
+    /// lane @p routing sends it to).
     /// This is the hoisted equivalent of FilamentMappingCard's seeding logic,
     /// so the card, the print-file swatch/preflight, and the live render all
     /// resolve the same way. Pure; no LVGL/AMS/Settings dependency (caller
