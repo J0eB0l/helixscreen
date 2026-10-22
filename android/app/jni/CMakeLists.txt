@@ -377,6 +377,11 @@ target_compile_options(main PRIVATE
 target_precompile_headers(main PRIVATE
     "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_ROOT}/include/lvgl_pch.h>"
 )
+# A PCH that records its inputs' mtimes differs on every checkout, so ccache
+# could never reuse an object compiled against it.
+target_compile_options(main PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-Xclang -fno-pch-timestamp>"
+)
 
 # Large-file support on 32-bit ABIs (armeabi-v7a), mirroring the per-object
 # -D_FILE_OFFSET_BITS=64 in mk/rules.mk: bionic's LP32 off_t is 32-bit, so the
