@@ -301,14 +301,16 @@ def test_scan_for_resume_starts_at_a_checkpoint(tmp_path, monkeypatch):
     w = LayerIndexWriter(index, ident)
     scan_to_offset(io.BytesIO(data), len(data), on_layer_start=w.append)
     w.close()
-    head = len(data) - 100
-    full = scan_to_offset(io.BytesIO(data), head)
+    head = data.index(b"\n", len(data) - 100) + 1
+    through = data.index(b"\n", head) + 1      # the in-flight line is scanned too
+    full = scan_to_offset(io.BytesIO(data), through)
     stream = CountingStream(data)
     fast = scan_for_resume(stream, head, index, ident)
     assert fast.state_at_head == full.state_at_head
     assert fast.window == full.window
     assert stream.read_bytes < 3 * 8 * 1024
     assert scan_for_resume(io.BytesIO(data), head, None, None).state_at_head == full.state_at_head
+    assert full.window[-1].offset == head
 
 
 def test_scan_for_resume_ignores_an_index_of_another_file(tmp_path):
@@ -363,3 +365,39 @@ def test_state_before_rescans_from_the_nearest_layer_start():
     assert state == scan_to_offset(io.BytesIO(data), offset).state_at_head
     nearest = max(o for o, _ in r.layer_starts.values() if o <= offset)
     assert stream.read_bytes <= offset - nearest + 64
+
+
+def long_infill(n=30):
+    """M82 infill: 100 mm lines, 1.5 mm of E each."""
+    lines = ["M82", "G1 Z.4", "G92 E0", "G1 X0 Y0 F6000"]
+    e = 0.0
+    for i in range(1, n + 1):
+        e += 1.5
+        lines.append("G1 X%d Y%d E%.4f" % (100 if i % 2 else 0, i * 2, e))
+    return gcode(lines)
+
+
+@pytest.mark.parametrize("blocked", [True, False])
+def test_the_in_flight_line_is_aligned_with_toolhead_position(blocked):
+    """With the lookahead queue full, toolhead.position is the END of the line
+    at file_position although file_position has not passed it."""
+    data = long_infill()
+    # Klipper has read up to line 20 (0-based in the window below) and is blocked in it.
+    full = scan(data)
+    in_flight = full.window[3 + 20]
+    file_position = in_flight.offset
+    head_rec = in_flight if blocked else full.window[3 + 19]
+    target = 3 + 17
+    e_head = HEAD_E
+    live_e = e_head - sum(r.toolhead_de for r in full.window[target + 1:full.window.index(head_rec) + 1]) \
+        - full.window[target].toolhead_de * 0.5
+    rec = full.window[target]
+    live = [(rec.start_xy[0] + rec.end_xy[0]) / 2, (rec.start_xy[1] + rec.end_xy[1]) / 2, 0.4, live_e]
+    toolhead = [head_rec.end_xy[0], head_rec.end_xy[1], 0.4, e_head]
+    snapshot = {"toolhead_pos": toolhead, "live_pos": live, "file_position": file_position,
+                "extrude_factor": 1.0, "speed_factor": 1.0, "limits": {"velocity": 300.0}}
+    stream = io.BytesIO(data)
+    r = scan_for_resume(stream, file_position, None, None)
+    point = resume_point(stream, r, snapshot, 0.0, 1.0)
+    assert point.method == "measured"
+    assert point.offset == rec.offset

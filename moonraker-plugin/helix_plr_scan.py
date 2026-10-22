@@ -51,8 +51,17 @@ class ResumePoint(NamedTuple):
 def scan_for_resume(stream: BinaryIO, file_position: int, index_path: Optional[str],
                     identity: Optional[dict],
                     cancel: Optional[threading.Event] = None) -> ScanResult:
-    """Scan to file_position from the last layer checkpoint that leaves a full
-    window behind the head, else the last one before the head, else byte 0."""
+    """Scan to file_position, and through the one line starting there, from
+    the last layer checkpoint that leaves a full window behind the head, else
+    the last one before the head, else byte 0.
+
+    Klipper's toolhead.position includes a move that is still blocked in the
+    full lookahead queue while virtual_sdcard.file_position has not passed
+    its line yet; align_head() decides whether that line belongs to the head.
+    """
+    stream.seek(file_position)
+    in_flight = stream.readline()
+    end = file_position + len(in_flight) if in_flight.endswith(b"\n") else file_position
     start = None
     if index_path is not None and identity is not None:
         begin = file_position - helix_gcode_reader.WINDOW_BYTES
@@ -64,8 +73,27 @@ def scan_for_resume(stream: BinaryIO, file_position: int, index_path: Optional[s
                     index_path, identity, max_offset=file_position)
                 start = again.at_or_before if again is not None else None
     if start is None:
-        return scan_to_offset(stream, file_position, cancel=cancel)
-    return scan_to_offset(stream, file_position, start.offset, start.state, cancel=cancel)
+        return scan_to_offset(stream, end, cancel=cancel)
+    return scan_to_offset(stream, end, start.offset, start.state, cancel=cancel)
+
+
+def align_head(scan: ScanResult, file_position: int, toolhead_pos: Sequence[float],
+               gcode_offset: Sequence[float] = (0.0, 0.0, 0.0, 0.0)) -> ScanResult:
+    """Keep the in-flight line (the one at file_position) in the window when
+    toolhead.position is its end, drop it when toolhead.position is still its
+    start. Decided by XY; a line with no XY change stays."""
+    window = scan.window
+    if not window or window[-1].offset < file_position:
+        return scan
+    last = window[-1]
+    head = scan.state_at_head
+    nozzle = (toolhead_pos[0] - (gcode_offset[0] - head.homing_position[0]),
+              toolhead_pos[1] - (gcode_offset[1] - head.homing_position[1]))
+    to_end = math.hypot(nozzle[0] - last.end_xy[0], nozzle[1] - last.end_xy[1])
+    to_start = math.hypot(nozzle[0] - last.start_xy[0], nozzle[1] - last.start_xy[1])
+    if to_end <= to_start:
+        return scan
+    return scan._replace(window=window[:-1])
 
 
 def state_before(stream: BinaryIO, scan: ScanResult, offset: int) -> ModalState:
@@ -246,6 +274,9 @@ def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict,
     limits = snapshot.get("limits") or {}
     retraction = snapshot.get("retraction") or {}
     executed = None
+    if toolhead and isinstance(snapshot.get("file_position"), int):
+        scan = align_head(scan, snapshot["file_position"], toolhead,
+                          snapshot.get("gcode_offset") or (0.0, 0.0, 0.0, 0.0))
     if toolhead and live:
         executed = locate_executed_line(
             scan, toolhead, live, snapshot.get("extrude_factor") or 1.0,
