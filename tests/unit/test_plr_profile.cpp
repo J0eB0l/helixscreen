@@ -75,7 +75,7 @@ TEST_CASE("plr_parse_db_block: absent, full and bad-typed blocks", "[plr][profil
     CHECK(bad->xy_home_gcode == "G28 X Y");
     CHECK(bad->z_lift_mm == Catch::Approx(defaults.z_lift_mm));
     CHECK_FALSE(bad->purge_gcode.has_value());
-    CHECK(bad->resume_skip_fraction == Catch::Approx(0.5f));
+    CHECK(bad->resume_skip_fraction == Catch::Approx(0.0f));
     CHECK(helix::plr_parse_db_block(json{{"plr", {{"tier", 4}}}})->tier == 0);
 }
 
@@ -165,7 +165,7 @@ TEST_CASE("plr_profile_json and plr_user_json: the contract's shapes", "[plr][pr
                     {"xy_home_gcode", "G28 X Y"},
                     {"z_lift_mm", 5.0},
                     {"purge_gcode", nullptr},
-                    {"resume_skip_fraction", 0.5},
+                    {"resume_skip_fraction", 0.0},
                     {"macro_vars", {{"PRINT_START", {"bed"}}}}});
 
     json unlisted = helix::plr_profile_json(
