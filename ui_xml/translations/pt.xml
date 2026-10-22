@@ -1083,7 +1083,6 @@
   <translation tag="Enable assisted retraction at hub" pt="Habilitar a retração assistida no hub"/>
   <translation tag="Enable audio feedback" pt="Habilitar feedback de áudio"/>
   <translation tag="Enable brush wipe after purging" pt="Habilitar limpeza com escova após a purga"/>
-  <translation tag="Enable feed assist for active slot during printing" pt="Habilitar a assistência de alimentação para o slot ativo durante a impressão"/>
   <translation tag="Enable or disable the hub cutter" pt="Habilitar ou desabilitar o cortador do hub"/>
   <translation tag="Enable plugin?" pt="Habilitar plugin?"/>
   <translation tag="Enable purging during tool changes" pt="Habilitar a purga durante trocas de ferramenta"/>
@@ -3495,6 +3494,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." pt="Esse giro ainda não apareceu. Afrouxe {0} mais uma volta completa."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." pt="Esse giro ainda não apareceu. Aperte {0} um pouco mais."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." pt="Esse giro ainda não apareceu. Aperte {0} mais uma volta completa."/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load" pt="O ACE empurra o filamento carregado junto com o extrusor. O driver a ativa após um carregamento"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" pt="O hardware do odômetro do CFS está com defeito e precisa de reparo ou substituição"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." pt="O CFS ficou sem filamento em {}. A impressão continua com o que resta no tubo."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." pt="O CFS ficou sem filamento. A impressão continua com o que resta no tubo."/>

@@ -1207,7 +1207,6 @@ translations:
   Enable assisted retraction at hub: 'Activer la rétraction assistée au hub'
   Enable audio feedback: Activer le retour audio
   Enable brush wipe after purging: 'Activer l''essuyage par brosse après la purge'
-  Enable feed assist for active slot during printing: 'Activer l''assistance d''alimentation pour le slot actif pendant l''impression'
   Enable or disable the hub cutter: 'Activer ou désactiver le coupeur du hub'
   Enable plugin?: 'Activer le plugin ?'
   Enable purging during tool changes: 'Activer la purge lors des changements d''outil'
@@ -3856,6 +3855,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Ce tour ne s'est pas encore vu. Détendez {0} d'un tour complet de plus."
   That turn didn't register yet. Tighten {0} a little more.: "Ce tour ne s'est pas encore vu. Tendez {0} un peu plus."
   That turn didn't register yet. Tighten {0} one more full turn.: "Ce tour ne s'est pas encore vu. Tendez {0} d'un tour complet de plus."
+  The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load: "L'ACE pousse le filament chargé en même temps que l'extrudeur. Le pilote l'active après un chargement"
   The CFS odometer hardware is faulty and needs repair or replacement: Le matériel d'odométrie du CFS est défectueux et doit être réparé ou remplacé
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'Le CFS est à court de filament dans {}. L''impression continue avec ce qui reste dans le tube.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'Le CFS est à court de filament. L''impression continue avec ce qui reste dans le tube.'

@@ -300,6 +300,41 @@ TEST_CASE_METHOD(GuidedFlowFixture,
     CHECK_FALSE(*sent);
 }
 
+// A toggle whose value the printer changes on its own (a driver turning feed
+// assist on after a load) follows the backend while the section is open.
+TEST_CASE_METHOD(GuidedFlowFixture, "an open section follows the backend's action values",
+                 "[ams][device-section][1853]") {
+    lv_obj_t* root = open_prefs({DeviceAction::toggle("assist", "Feed Assist", "prefs", false)});
+    lv_obj_t* sw = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+    REQUIRE(sw != nullptr);
+    REQUIRE_FALSE(lv_obj_has_state(sw, LV_STATE_CHECKED));
+
+    SECTION("a tick with nothing changed keeps the controls") {
+        AmsState::instance().bump_data_revision();
+        settle();
+        CHECK(helix::test::find_device_action_control(root, "assist", &lv_switch_class) == sw);
+    }
+    SECTION("a new value is shown") {
+        backend->set_device_actions({DeviceAction::toggle("assist", "Feed Assist", "prefs", true)});
+        AmsState::instance().bump_data_revision();
+        settle();
+        lv_obj_t* now = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+        REQUIRE(now != nullptr);
+        CHECK(lv_obj_has_state(now, LV_STATE_CHECKED));
+    }
+    SECTION("an action becoming unavailable is locked") {
+        DeviceAction off = DeviceAction::toggle("assist", "Feed Assist", "prefs", false);
+        off.enabled = false;
+        off.disable_reason = "Load filament first";
+        backend->set_device_actions({off});
+        AmsState::instance().bump_data_revision();
+        settle();
+        lv_obj_t* now = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+        REQUIRE(now != nullptr);
+        CHECK(lv_obj_has_state(now, LV_STATE_DISABLED));
+    }
+}
+
 TEST_CASE_METHOD(GuidedFlowFixture,
                  "a fractional slider moves in its step and sends the real value",
                  "[ams][device-section]") {

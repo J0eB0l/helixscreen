@@ -1129,7 +1129,6 @@ translations:
   Enable assisted retraction at hub: 'ハブでのアシスト付き引き戻しを有効化'
   Enable audio feedback: 音声フィードバックを有効化
   Enable brush wipe after purging: 'パージ後のブラシワイプを有効化'
-  Enable feed assist for active slot during printing: '印刷中、アクティブなスロットの送りアシストを有効化'
   Enable or disable the hub cutter: 'ハブカッターの有効／無効'
   Enable plugin?: 'プラグインを有効化しますか？'
   Enable purging during tool changes: 'ツール交換時のパージを有効化'
@@ -3626,6 +3625,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "その回転はまだ反映されていません。{0}をもう1回転緩めてください。"
   That turn didn't register yet. Tighten {0} a little more.: "その回転はまだ反映されていません。{0}をもう少し締めてください。"
   That turn didn't register yet. Tighten {0} one more full turn.: "その回転はまだ反映されていません。{0}をもう1回転締めてください。"
+  The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load: "ACEがエクストルーダーとともに装填済みのフィラメントを送り出します。ドライバーは装填後にオンにします"
   The CFS odometer hardware is faulty and needs repair or replacement: CFS の走行距離計ハードウェアが故障しています。修理または交換が必要です
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'CFSの{}でフィラメントが切れました。チューブに残っている分で印刷を続けます。'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'CFSでフィラメントが切れました。チューブに残っている分で印刷を続けます。'

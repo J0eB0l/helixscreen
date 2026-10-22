@@ -46,6 +46,25 @@ namespace helix::printer {
     return out;
 }
 
+/// Whether two action values say the same thing: both empty, the same bool, the
+/// same string, or the same number whatever type carries it.
+[[nodiscard]] inline bool device_action_values_equal(const std::any& a, const std::any& b) {
+    if (!a.has_value() || !b.has_value()) {
+        return a.has_value() == b.has_value();
+    }
+    if (const auto* x = std::any_cast<bool>(&a)) {
+        const auto* y = std::any_cast<bool>(&b);
+        return y != nullptr && *x == *y;
+    }
+    if (const auto* x = std::any_cast<std::string>(&a)) {
+        const auto* y = std::any_cast<std::string>(&b);
+        return y != nullptr && *x == *y;
+    }
+    const auto x = device_action_number(a);
+    const auto y = device_action_number(b);
+    return x && y && *x == *y;
+}
+
 /**
  * @brief The value of a toggle (bool), slider (float/double/int) or dropdown
  *        (std::string) action, or the refusal to return instead.

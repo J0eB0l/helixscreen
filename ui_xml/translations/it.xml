@@ -1083,7 +1083,6 @@
   <translation tag="Enable assisted retraction at hub" it="Abilita la retrazione assistita all&apos;hub"/>
   <translation tag="Enable audio feedback" it="Abilita feedback audio"/>
   <translation tag="Enable brush wipe after purging" it="Abilita la pulizia con spazzola dopo lo spurgo"/>
-  <translation tag="Enable feed assist for active slot during printing" it="Abilita l&apos;assistenza all&apos;alimentazione per lo slot attivo durante la stampa"/>
   <translation tag="Enable or disable the hub cutter" it="Abilita o disabilita la taglierina dell&apos;hub"/>
   <translation tag="Enable plugin?" it="Abilitare il plugin?"/>
   <translation tag="Enable purging during tool changes" it="Abilita lo spurgo durante i cambi utensile"/>
@@ -3495,6 +3494,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." it="Quel giro non si è ancora visto. Allenta {0} di un altro giro completo."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." it="Quel giro non si è ancora visto. Tendi {0} ancora un po&apos;."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." it="Quel giro non si è ancora visto. Tendi {0} di un altro giro completo."/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load" it="L&apos;ACE spinge il filamento caricato insieme all&apos;estrusore. Il driver la attiva dopo un caricamento"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" it="L&apos;hardware dell&apos;odometro del CFS è guasto e va riparato o sostituito"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." it="Il CFS ha esaurito il filamento in {}. La stampa continua con quello rimasto nel tubo."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." it="Il CFS ha esaurito il filamento. La stampa continua con quello rimasto nel tubo."/>

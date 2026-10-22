@@ -1125,7 +1125,6 @@ translations:
   Enable assisted retraction at hub: '在集线器启用辅助回抽'
   Enable audio feedback: 启用声音反馈
   Enable brush wipe after purging: '排料后启用刷子擦拭'
-  Enable feed assist for active slot during printing: '打印时为当前槽位启用送料辅助'
   Enable or disable the hub cutter: '启用或停用集线器切刀'
   Enable plugin?: '启用插件？'
   Enable purging during tool changes: '在换工具时启用排料'
@@ -3617,6 +3616,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "这次转动还没有体现出来。请将 {0} 再放松一整圈。"
   That turn didn't register yet. Tighten {0} a little more.: "这次转动还没有体现出来。请将 {0} 再拉紧一点。"
   That turn didn't register yet. Tighten {0} one more full turn.: "这次转动还没有体现出来。请将 {0} 再拉紧一整圈。"
+  The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load: "ACE 与挤出机一起推送已加载的耗材。驱动程序会在加载后将其开启"
   The CFS odometer hardware is faulty and needs repair or replacement: CFS 计量硬件故障，需维修或更换
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'CFS 的 {} 耗材已用完。打印将使用管内剩余的耗材继续。'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'CFS 耗材已用完。打印将使用管内剩余的耗材继续。'

@@ -1083,7 +1083,6 @@
   <translation tag="Enable assisted retraction at hub" ja="ハブでのアシスト付き引き戻しを有効化"/>
   <translation tag="Enable audio feedback" ja="音声フィードバックを有効化"/>
   <translation tag="Enable brush wipe after purging" ja="パージ後のブラシワイプを有効化"/>
-  <translation tag="Enable feed assist for active slot during printing" ja="印刷中、アクティブなスロットの送りアシストを有効化"/>
   <translation tag="Enable or disable the hub cutter" ja="ハブカッターの有効／無効"/>
   <translation tag="Enable plugin?" ja="プラグインを有効化しますか？"/>
   <translation tag="Enable purging during tool changes" ja="ツール交換時のパージを有効化"/>
@@ -3495,6 +3494,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." ja="その回転はまだ反映されていません。{0}をもう1回転緩めてください。"/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." ja="その回転はまだ反映されていません。{0}をもう少し締めてください。"/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." ja="その回転はまだ反映されていません。{0}をもう1回転締めてください。"/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns it on after a load" ja="ACEがエクストルーダーとともに装填済みのフィラメントを送り出します。ドライバーは装填後にオンにします"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" ja="CFS の走行距離計ハードウェアが故障しています。修理または交換が必要です"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." ja="CFSの{}でフィラメントが切れました。チューブに残っている分で印刷を続けます。"/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." ja="CFSでフィラメントが切れました。チューブに残っている分で印刷を続けます。"/>
