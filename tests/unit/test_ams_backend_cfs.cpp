@@ -179,7 +179,7 @@ class CfsLifecycleHelper : public CfsRemapHelper {
 // The calibration flows ack through the on_complete overloads (a macro's
 // completion is their terminal signal), so the capture helper must intercept
 // those too, firing on_complete inline where the real path defers it to the
-// main thread. CfsLiveCalibBackend below covers that queue hop.
+// main thread. CfsLiveAckBackend below covers that queue hop.
 class CfsCalibHelper : public CfsLifecycleHelper {
   public:
     CfsCalibHelper() {
@@ -700,18 +700,19 @@ TEST_CASE("CFS chute save failure re-parks and reports the firmware message (#12
     CHECK_FALSE(failed_msg.empty());
 }
 
-// The calibration flows against a real MoonrakerAPI over the mock client, with
+// A K1 CFS against a real MoonrakerAPI over the mock client, with
 // no execute_gcode override: each answer reaches the flow through the base
 // class's own single defer. A step that adds a second hop costs a queue pass.
-class CfsLiveCalibBackend : public AmsBackendCfs {
+class CfsLiveAckBackend : public AmsBackendCfs {
   public:
     MockPrinter printer;
 
-    CfsLiveCalibBackend() : AmsBackendCfs(nullptr, nullptr) {
+    CfsLiveAckBackend() : AmsBackendCfs(nullptr, nullptr) {
         api_ = &printer.api;
         CfsTestAccess::set_macro_variant_k1(*this);
+        running_ = true;
     }
-    ~CfsLiveCalibBackend() override {
+    ~CfsLiveAckBackend() override {
         drain_calib_queue();
     }
 };
@@ -719,7 +720,7 @@ class CfsLiveCalibBackend : public AmsBackendCfs {
 TEST_CASE("CFS calibration steps complete in the queue pass after each answer",
           "[ams][cfs][calib][threading][1761]") {
     using helix::ui::UpdateQueueTestAccess;
-    CfsLiveCalibBackend backend;
+    CfsLiveAckBackend backend;
 
     SECTION("cutter calibration: one answer, one pass") {
         bool got_result = false;
@@ -737,6 +738,24 @@ TEST_CASE("CFS calibration steps complete in the queue pass after each answer",
         REQUIRE(backend.save_chute_position([&] { saved = true; }).success());
         CHECK(UpdateQueueTestAccess::passes_until([&] { return saved; }) == 2);
     }
+}
+
+TEST_CASE("CFS Endless Spool switch records the box's answer in the queue pass after it",
+          "[ams][cfs][threading][1847]") {
+    CfsLiveAckBackend backend;
+    CfsTestAccess::handle_status(backend,
+                                 make_cfs_notification(json::parse(
+                                     R"({"state":"connect","filament":0,"auto_refill":0,"enable":1,
+            "map":{"T1A":"T1A"},
+            "T1":{"state":"connect","filament":"None","vender":["none"],
+                  "remain_len":["-1"],"color_value":["-1"],
+                  "material_type":["-1"]}})")));
+    drain_calib_queue();
+    REQUIRE_FALSE(backend.get_system_info().endless_spool_enabled);
+
+    REQUIRE(backend.set_endless_spool_enabled(true).success());
+    CHECK(helix::ui::UpdateQueueTestAccess::passes_until(
+              [&] { return backend.get_system_info().endless_spool_enabled; }) == 1);
 }
 
 TEST_CASE("CFS refuses a second calibration while one is in flight (#1282)", "[ams][cfs][calib]") {

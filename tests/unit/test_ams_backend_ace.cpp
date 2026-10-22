@@ -7,6 +7,7 @@
 
 #include "../test_helpers/filament_slot_override_store_test_access.h"
 #include "../test_helpers/mock_printer.h"
+#include "../test_helpers/update_queue_test_access.h"
 #include "ams_backend_ace.h"
 #include "ams_bypass_policy.h"
 #include "ams_types.h"
@@ -1180,6 +1181,56 @@ TEST_CASE("ACE send refused with no on_error leaves the action alone", "[ams][ac
 // unchanged at -1 — Klipper notifies on field changes, so no frame follows and
 // nothing arrives to contradict a stamp taken from the ack.
 // ============================================================================
+
+namespace {
+/// ACE against a real MoonrakerAPI over the mock client: the ack reaches the
+/// op through the base class's own single defer.
+class AceLiveAckHelper : public AmsBackendAceTestHelper {
+  public:
+    MockPrinter printer;
+
+    AceLiveAckHelper() {
+        api_ = &printer.api;
+        dispatch_via_base = true;
+        set_running(true);
+        AceTestAccess::parse_ace(*this, make_kobra_instance_object());
+    }
+    ~AceLiveAckHelper() override {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+};
+} // namespace
+
+TEST_CASE("ACE load and unload resolve in the queue pass after the ack",
+          "[ams][ace][threading][1761][1847]") {
+    using helix::ui::UpdateQueueTestAccess;
+    AceLiveAckHelper helper;
+    auto idle = [&] { return helper.get_test_system_info().action == AmsAction::IDLE; };
+
+    SECTION("load") {
+        REQUIRE(helper.load_filament(2).success());
+        REQUIRE(helper.get_test_system_info().action == AmsAction::LOADING);
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+        CHECK(helper.get_test_system_info().current_slot == 2);
+    }
+    SECTION("unload") {
+        REQUIRE(helper.unload_filament(0).success());
+        REQUIRE(helper.get_test_system_info().action == AmsAction::UNLOADING);
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
+}
+
+TEST_CASE("ACE load answered after a cancel leaves the cancelled state alone",
+          "[ams][ace][threading][1847]") {
+    AceLiveAckHelper helper;
+
+    REQUIRE(helper.load_filament(2).success());
+    // The ack is queued; the user cancels before it runs.
+    REQUIRE(helper.cancel().success());
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    CHECK(helper.get_test_system_info().current_slot != 2);
+}
 
 TEST_CASE("ACE load does not seat a slot the driver never moved to", "[ams][ace][1676]") {
     AmsBackendAceTestHelper helper;

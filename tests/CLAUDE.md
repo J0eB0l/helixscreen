@@ -151,7 +151,7 @@ Key the choice on the question you actually have, not on a phase of work:
 | Did I break something elsewhere in C++? | `make unit-sweep` | ~50s idle, minutes loaded |
 | Will CI's unit job pass? | `make unit-sweep NPROCS=8`: CI runs 8 shards, split four apiece across two 4-core runners, so tests share a process with different neighbours than the local 96 | ~100s |
 | Am I finished - did I break anything, anywhere? | `make full-test-run` | ~2m, **once, at the end** |
-| **May this land on main?** - will CI go green on it | `make land-gate`: THE pre-landing gate (below) | ~10m, **once per landing** |
+| **May this land on main?** - will CI go green on it | `make land-gate`: THE pre-landing gate (below) | prints its measured ETA at start (17-36m on 2026-10-21), **once per landing** |
 | What does any of this actually cost? | `make dev-timing` | 5s, measured medians |
 
 The rule the table encodes: **a full run cannot tell you your feature works.** It can only

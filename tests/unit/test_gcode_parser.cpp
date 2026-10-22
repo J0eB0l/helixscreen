@@ -1417,6 +1417,50 @@ TEST_CASE("GCodeParser - a T with parameters is not a tool change", "[gcode][par
     CHECK(file.tools_used_indices == std::set<int>{0});
 }
 
+TEST_CASE("tool_index_for_line - a tool change may carry Klipper macro parameters",
+          "[gcode][parser][1848]") {
+    // AFC's Orca Change Filament G-code: the T macro takes KEY=VALUE words.
+    CHECK(tool_index_for_line("T3") == 3);
+    CHECK(tool_index_for_line("T0 PURGE_LENGTH=121.4 NEW_EXTRUDER_TEMP=222") == 0);
+    CHECK(tool_index_for_line("T3 PURGE_LENGTH=0 ; change") == 3);
+    CHECK(tool_index_for_line("  T12\tpurge_length=5\r") == 12);
+
+    // A G-code word, an empty key or value, or one bare word among parameters
+    // makes it something other than a tool change.
+    CHECK(tool_index_for_line("T0 X1") == -1);
+    CHECK(tool_index_for_line("T0X1") == -1);
+    CHECK(tool_index_for_line("T0 =5") == -1);
+    CHECK(tool_index_for_line("T0 PURGE_LENGTH=") == -1);
+    CHECK(tool_index_for_line("T0 PURGE-LENGTH=1") == -1);
+    CHECK(tool_index_for_line("T0 PURGE_LENGTH=1 X1") == -1);
+    CHECK(tool_index_for_line("TURN_OFF_HEATERS") == -1);
+    CHECK(tool_index_for_line("t0 PURGE_LENGTH=1") == -1);
+    CHECK(tool_index_for_line("; T0 PURGE_LENGTH=1") == -1);
+
+    // The digit span covers the tool number alone.
+    std::pair<size_t, size_t> digits;
+    const std::string line = "  T10 PURGE_LENGTH=121.399 NEW_EXTRUDER_TEMP=222";
+    REQUIRE(tool_index_for_line(line, &digits) == 10);
+    CHECK(digits == std::pair<size_t, size_t>{3, 5});
+}
+
+TEST_CASE("Tools-used scan counts parameterised tool changes", "[gcode][parser][1848]") {
+    const std::string content = "T0 PURGE_LENGTH=121.399 NEW_EXTRUDER_TEMP=222\n"
+                                "G1 X10 Y10 E1\n"
+                                "T1 PURGE_LENGTH=98.2 NEW_EXTRUDER_TEMP=230\n"
+                                "G1 X20 Y20 E1\n"
+                                "T2 PURGE_LENGTH=0 ; change";
+    CHECK(scan_tools_used_from_content(content) == std::set<int>{0, 1, 2});
+
+    GCodeParser parser;
+    std::istringstream in(content);
+    std::string line;
+    while (std::getline(in, line)) {
+        parser.parse_line(line);
+    }
+    CHECK(parser.finalize().tools_used_indices == std::set<int>{0, 1, 2});
+}
+
 TEST_CASE("get_best_thumbnail - real file picks the largest block", "[gcode][thumbnail]") {
     // 3DBenchy embeds a 48x48 and a 300x300 thumbnail, in that order
     const std::string test_file = "assets/test_gcodes/3DBenchy.gcode";

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "ace_vocabulary.h"
 #include "ams_error.h"
 #include "ams_types.h"
 
@@ -24,10 +25,6 @@
  * the backends from drifting apart. Pure: no I/O, no locks.
  */
 namespace helix::ace {
-
-/// What the ACEPRO driver names each unit's Klipper object, before its
-/// instance number (`ace_instance_0`, `ace_instance_1`, ...).
-inline constexpr std::string_view kInstanceObjectPrefix = "ace_instance_";
 
 /// The ACE Pro dryer's hardware range.
 inline constexpr float kDryerMinTempC = 35.0f;

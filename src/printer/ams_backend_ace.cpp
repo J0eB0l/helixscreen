@@ -551,29 +551,32 @@ AmsError AmsBackendAce::do_load_filament(int slot_index) {
     return execute_gcode(
         gcode,
         [this, token, slot_index]() {
-            // L081 Mechanism C: marshal member writes (system_info_) to main.
-            token.defer("AmsBackendAce::load_done", [this, slot_index]() {
-                spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    end_own_op_locked();
-                    own_load_ = false;
+            // The base class already runs this on main. A cancel or stop
+            // since the send invalidated op_lifetime_, and then the answer
+            // must not overwrite the state the cancel left.
+            if (token.expired()) {
+                return;
+            }
+            spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                end_own_op_locked();
+                own_load_ = false;
 
-                    // Where firmware states the seat itself, the ack is only
-                    // "the command was accepted" and the seat waits for the
-                    // driver to confirm it moved.
-                    if (!manager_states_seat_) {
-                        seat_from_local_index_locked(slot_index);
+                // Where firmware states the seat itself, the ack is only
+                // "the command was accepted" and the seat waits for the
+                // driver to confirm it moved.
+                if (!manager_states_seat_) {
+                    seat_from_local_index_locked(slot_index);
 
-                        // Same derivation the parse paths use, so the next
-                        // status frame re-applies this stamp instead of
-                        // erasing it.
-                        apply_seated_slot_stamp_locked();
-                    }
+                    // Same derivation the parse paths use, so the next
+                    // status frame re-applies this stamp instead of
+                    // erasing it.
+                    apply_seated_slot_stamp_locked();
                 }
-                PostOpCooldownManager::instance().schedule();
-                emit_event(EVENT_STATE_CHANGED);
-            });
+            }
+            PostOpCooldownManager::instance().schedule();
+            emit_event(EVENT_STATE_CHANGED);
         },
         [this, token](const MoonrakerError&) {
             // The send failed, so the optimistic LOADING has to be unwound or
@@ -605,28 +608,31 @@ AmsError AmsBackendAce::do_unload_filament(int /*slot_index*/) {
     return execute_gcode(
         gcode,
         [this, token]() {
-            // L081 Mechanism C: marshal member writes (system_info_) to main.
-            token.defer("AmsBackendAce::unload_done", [this]() {
-                spdlog::info("[ACE] Unload gcode completed");
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    end_own_op_locked();
+            // The base class already runs this on main. A cancel or stop
+            // since the send invalidated op_lifetime_, and then the answer
+            // must not overwrite the state the cancel left.
+            if (token.expired()) {
+                return;
+            }
+            spdlog::info("[ACE] Unload gcode completed");
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                end_own_op_locked();
 
-                    // Symmetric with the load path: a driver that states the
-                    // seat also clears it, and an unload it declined would
-                    // otherwise read as an empty toolhead.
-                    if (!manager_states_seat_) {
-                        seat_from_local_index_locked(-1);
+                // Symmetric with the load path: a driver that states the
+                // seat also clears it, and an unload it declined would
+                // otherwise read as an empty toolhead.
+                if (!manager_states_seat_) {
+                    seat_from_local_index_locked(-1);
 
-                        // Releases the stamp back to the status the parse
-                        // wrote, rather than assuming AVAILABLE for a slot
-                        // firmware may have called EMPTY.
-                        apply_seated_slot_stamp_locked();
-                    }
+                    // Releases the stamp back to the status the parse
+                    // wrote, rather than assuming AVAILABLE for a slot
+                    // firmware may have called EMPTY.
+                    apply_seated_slot_stamp_locked();
                 }
-                PostOpCooldownManager::instance().schedule();
-                emit_event(EVENT_STATE_CHANGED);
-            });
+            }
+            PostOpCooldownManager::instance().schedule();
+            emit_event(EVENT_STATE_CHANGED);
         },
         [this, token](const MoonrakerError&) {
             // The send failed, so the optimistic UNLOADING has to be unwound or

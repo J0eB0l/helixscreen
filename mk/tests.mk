@@ -101,6 +101,7 @@ SHARD_CONCURRENCY ?= $(eval SHARD_CONCURRENCY := $(shell echo $$(($(JOBS_CLAIMED
 # Output is prefixed with [shard N] for clarity
 define run_tests_parallel
 	echo "$(CYAN)Running $(or $(2),$(NPROCS)) test shards, at most $(SHARD_CONCURRENCY) at once (timeout=$(SHARD_TIMEOUT)s)...$(RESET)"; \
+	mkdir -p "$(SHARD_ARTIFACT_ROOT)"; \
 	shard_dir=$$(mktemp -d "$(SHARD_ARTIFACT_ROOT)/helix-shards-XXXXXX"); \
 	export shard_dir; \
 	run_shard() { \

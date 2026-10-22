@@ -72,7 +72,14 @@ case "$1" in
                     exec bash -c "$3"
                 fi
                 exit 1 ;;
-            *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG" ;;
+            *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG"
+               # MOCK_SWEEP_FAILS=<mirror>: the sweep fails and leaves a
+               # failing shard log in that mirror, as the real one does.
+               if [ -n "${MOCK_SWEEP_FAILS:-}" ]; then
+                   mkdir -p "$MOCK_SWEEP_FAILS/build/shard-artifacts/helix-shards-T1"
+                   echo "hung in: a teardown case" > "$MOCK_SWEEP_FAILS/build/shard-artifacts/helix-shards-T1/92.log"
+                   exit 2
+               fi ;;
         esac ;;
     *) echo "unhandled docker call: $*" >&2; exit 1 ;;
 esac
@@ -888,4 +895,26 @@ shared_checkout() {
     [ "$status" -eq 0 ]
     [ -d "$HELIX_TEST_TREES_HOST/new+seeding" ]
     [ ! -e "$HELIX_TEST_TREES_HOST/dead+seeding" ]
+}
+
+@test "a failed sweep brings its failing shards' logs back to the local tree" {
+    local t m
+    t=$(make_tree tree-s)
+    m=$(mirror_of tree-s)
+    cd "$t"
+    MOCK_SWEEP_FAILS="$m" run "$TEST_HOST_RUN" sweep
+    [ "$status" -ne 0 ]
+    [ "$(cat "$t/build/shard-artifacts/helix-shards-T1/92.log")" = "hung in: a teardown case" ]
+    contains "failing shards' logs copied here: build/shard-artifacts/helix-shards-T1" "$output"
+    # The sweep keeps them inside the mirror, where they outlive the container.
+    grep -qF "SHARD_ARTIFACT_ROOT=build/shard-artifacts" "$MOCK_DOCKER_LOG"
+}
+
+@test "a passing sweep copies nothing back" {
+    local t
+    t=$(make_tree tree-p)
+    cd "$t"
+    run "$TEST_HOST_RUN" sweep
+    [ "$status" -eq 0 ]
+    [ ! -e "$t/build/shard-artifacts" ]
 }

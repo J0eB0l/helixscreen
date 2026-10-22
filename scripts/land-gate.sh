@@ -47,6 +47,10 @@ CI_SHARDS=${CI_SHARDS:-8}
 CI_SHARD_TIMEOUT=${CI_SHARD_TIMEOUT:-600}
 LAND_GATE_LOGDIR=${LAND_GATE_LOGDIR:-build/land-gate}
 LAND_GATE_STEP_TIMEOUT=${LAND_GATE_STEP_TIMEOUT:-3600}
+# Every finished gate appends "<epoch> <seconds> <PASS|FAIL> <sweeps where>",
+# machine-wide, so the next one can say how long it will take from what gates
+# here actually took instead of anyone's guess.
+LAND_GATE_HISTORY=${LAND_GATE_HISTORY:-${XDG_STATE_HOME:-$HOME/.local/state}/helixscreen/land-gate-history.tsv}
 ROWS_DIR="$LAND_GATE_LOGDIR/rows"
 
 STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes"
@@ -157,6 +161,22 @@ trap '"$HELIX_CLAIM" release-if-owned-by "$claim_pid" "build:$tree" >/dev/null 2
 mkdir -p "$ROWS_DIR" || exit 2
 rm -f "$ROWS_DIR"/*
 gate_t0=$SECONDS
+# The expected wall time: the median and the longest of the last ten gates
+# whose C++ sweeps ran in the same place.
+gate_eta() {
+    local secs
+    secs=$(awk -v w="$SWEEP_WHERE" '$4 == w { print $2 }' "$LAND_GATE_HISTORY" 2>/dev/null | tail -n 10 | sort -n)
+    if [ -z "$secs" ]; then
+        echo "→ no measured land-gate time yet for $SWEEP_WHERE sweeps; this run will record one"
+        return
+    fi
+    local n median longest
+    n=$(printf '%s\n' "$secs" | wc -l)
+    median=$(printf '%s\n' "$secs" | sed -n "$(((n + 1) / 2))p")
+    longest=$(printf '%s\n' "$secs" | tail -n 1)
+    echo "→ expect ~$(((median + 59) / 60))m (median of the last $n), up to $(((longest + 59) / 60))m; finishes around $(date -d "+${median} seconds" +%H:%M 2>/dev/null || echo '?')"
+}
+gate_eta
 judged="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
 [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] || judged+="+dirty"
 
@@ -224,6 +244,10 @@ for s in $STEPS; do
 done
 echo
 echo "  total $((SECONDS - gate_t0))s"
+if [ "$failed" -ne 0 ]; then verdict=FAIL; else verdict=PASS; fi
+if mkdir -p "$(dirname "$LAND_GATE_HISTORY")" 2>/dev/null; then
+    echo "$(date +%s) $((SECONDS - gate_t0)) $verdict $SWEEP_WHERE" >>"$LAND_GATE_HISTORY"
+fi
 if [ "$failed" -ne 0 ]; then
     echo "LAND GATE: FAIL ($judged)"
     exit 1
