@@ -191,21 +191,29 @@ in the `helix-screen` namespace, so it has them with the screen off:
   "purge_gcode", "resume_skip_fraction", "macro_vars"}`. `plr_resolve_profile()`
   folds the user's overrides into the printer database's `plr` block
   (`PrinterDetector::get_plr_block()`). A printer with no block is tier 0, which
-  offers nothing (ruling 7); a database tier 2 without `z_holds_unpowered` resolves
-  to 1; a user may lower the tier, or raise it to 1 or 2 only where X/Y homing is
-  safe or overridden. `PlrOfferController::publish_profile()` writes it once per
-  connection and printer type while the `plr` feature is available at all
-  (Disabled counts: a missing profile is what keeps saving off), then re-reads the
-  plugin's features map, since the plugin's saving verdict follows the profile.
+  offers nothing (ruling 7). Tier 2 needs the database's `z_holds_unpowered`
+  whoever asks for it, so without it the tier is at most 1, a user override
+  included. A user may lower the tier, or raise it only where X/Y homing is known
+  safe or overridden; the app does not read `homing_override`, so it passes the
+  homing check as unknown and no raise passes it (the plugin checks the database
+  tier against configfile itself). `PlrOfferController::publish_profile()` writes
+  the record once per connection and printer type while the `plr` feature is
+  available at all (Disabled counts: a missing profile is what keeps saving off),
+  and only after this connection's plugin probe has answered: discovery resolves
+  the printer type before that probe, so the type is this printer's, never the
+  previous one's. It reads the stored record first and writes only when it
+  differs, so several screens on one printer do not rewrite it in turn. After a
+  write it re-reads the plugin's features map, since the plugin's saving verdict
+  follows the profile.
 - `plr_user` = `{"enabled": bool}`, the only record the plugin reads for its
   saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it;
   the row shows while the feature is available (`plr_feature_state` subject, 0
   Absent / 1 Disabled / 2 Ready) and its switch follows `plr_saving_enabled`, the
   plugin's own report re-read after each write.
 
-Listed printers: the Qidi Q2 (`backend: qidi_print_state`, eMMC, tier 2: QIDI's
-own resume already trusts the Z the steppers held, which the Q2 Z-hold test in
-the design's § 11.4 still has to measure). The K1 line stays unlisted: Creality's
+Listed printers: the Qidi Q2 (`backend: qidi_print_state`, eMMC, tier 2). Tier 2
+replicates QIDI's own stock resume, which already trusts the Z the steppers held;
+it is unverified until the Q2 power-cut test in the design's § 11.4. The K1 line stays unlisted: Creality's
 own recovery serves it and outranks the generic backend (ruling 8).
 
 **The wizard.** Resume on the offer opens `PlrWizardOverlay`, whose steps are

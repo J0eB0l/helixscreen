@@ -39,6 +39,7 @@ void PrinterPluginStatusState::init_subjects(bool register_xml) {
     INIT_SUBJECT_INT(plr_feature_state, static_cast<int>(PluginFeatureState::Absent), subjects_,
                      register_xml);
     INIT_SUBJECT_INT(plr_saving_enabled, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(helix_plugin_probe_seq, 0, subjects_, register_xml);
 
     // Fresh subjects mean a fresh session: re-initialization (test fixtures
     // re-init the shared PrinterState between cases) must not read a base
