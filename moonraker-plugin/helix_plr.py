@@ -861,6 +861,9 @@ class HelixPlr:
         self._active_backend = "none"
         self._skip_chamber = False
         self.klippy_ready = False
+        # on_klippy_ready has finished for the current Klippy connection.
+        self._ready_settled = False
+        self._ready_token = None  # type: Optional[object]
         self.homing = HomingCheck(True, None)
         self.axis_min = None  # type: Optional[list]
         self.axis_max = None  # type: Optional[list]
@@ -986,6 +989,23 @@ class HelixPlr:
     # -- Klipper -------------------------------------------------------------
 
     async def on_klippy_ready(self) -> None:
+        """Read Klipper's objects, homing config and backend for this
+        connection, then announce the status they decide (PLR_STATUS_EVENT)."""
+        token = object()
+        self._ready_token = token
+        try:
+            await self._klippy_ready()
+        finally:
+            # Unless Klippy went away meanwhile and this is another connection.
+            if self._ready_token is token:
+                self._ready_settled = True
+        if self._ready_token is token:
+            try:
+                self._notify(PLR_STATUS_EVENT, await self.status_reply())
+            except Exception as e:
+                logging.warning("HelixPrint: PLR could not announce its status: %s", e)
+
+    async def _klippy_ready(self) -> None:
         apis = self.helix.klippy_apis
         if apis is None:
             return
@@ -1388,6 +1408,7 @@ class HelixPlr:
         if register is not None:
             register(PROGRESS_EVENT)
             register(PLAN_READY_EVENT)
+            register(PLR_STATUS_EVENT)
 
     def _error(self, code: str, message: str, status: int = 400) -> Exception:
         error = self.server.error("%s: %s" % (code, message), status)
@@ -1401,7 +1422,26 @@ class HelixPlr:
 
     def on_klippy_gone(self, *args: Any) -> None:
         self.klippy_ready = False
+        self._ready_settled = False
+        self._ready_token = None
         self._klippy_generation += 1
+
+    def _klippy_connection_ready(self) -> bool:
+        conn = self.server.lookup_component("klippy_connection", None)
+        is_ready = getattr(conn, "is_ready", None)
+        try:
+            return bool(is_ready()) if callable(is_ready) else False
+        except Exception:
+            return False
+
+    async def _wait_ready_settled(self) -> None:
+        """Klippy is ready but on_klippy_ready (objects, homing, the QIDI
+        check) has not finished for it: an answer now would carry the
+        backend and the offer of no connection at all. Wait for it, bounded."""
+        started = self.clock()
+        while not self._ready_settled and self._klippy_connection_ready() \
+                and self.clock() - started < READY_WAIT_S:
+            await self._sleep(READY_POLL_S)
 
     async def _query(self, objects: Dict[str, Any]) -> Dict[str, Any]:
         apis = self.helix.klippy_apis
@@ -1528,6 +1568,11 @@ class HelixPlr:
             return None
 
     async def handle_status(self, web_request: Any) -> Dict[str, Any]:
+        await self._wait_ready_settled()
+        return await self.status_reply()
+
+    async def status_reply(self) -> Dict[str, Any]:
+        """The plr.status reply, also sent as PLR_STATUS_EVENT."""
         profile = await self.profile()
         snapshot = self._load_snapshot()
         verdict, tier = await self._offer(profile, snapshot)
@@ -2164,9 +2209,16 @@ class HelixPlr:
         return {"ok": True}
 
 
-# Notifications to clients: notify_plr_progress, notify_plr_plan_ready.
+# Notifications to clients: notify_plr_progress, notify_plr_plan_ready,
+# notify_plr_status (the plr.status reply, once Klippy's connection is read).
 PROGRESS_EVENT = "helix_print:plr_progress"
 PLAN_READY_EVENT = "helix_print:plr_plan_ready"
+PLR_STATUS_EVENT = "helix_print:plr_status"
+
+# plr.status waits at most this long for on_klippy_ready to finish when Klippy
+# is already ready (the QIDI check alone has taken 5-10 s on a Q2).
+READY_WAIT_S = 15.0
+READY_POLL_S = 0.25
 
 # A plan whose scan takes longer replies {"pending": true} and announces itself.
 PLAN_SYNC_WAIT_S = 10.0

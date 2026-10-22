@@ -1522,6 +1522,65 @@ def test_qidi_status_and_offer(plr, helix, qidi_resume):
     assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["no_snapshot"]
 
 
+class ReadyKlippy:
+    """Moonraker's klippy_connection once Klippy reports ready."""
+
+    def is_ready(self):
+        return True
+
+
+def reconnect_with_a_slow_qidi_check(plr, helix):
+    """Klippy restarts; on the new connection gcode/help takes a while."""
+    plr.on_klippy_gone()
+    helix.server.components["klippy_connection"] = ReadyKlippy()
+
+    async def slow_help(*args):
+        for _ in range(20):
+            await asyncio.sleep(0)
+        return {"SDCARD_POWER_OFF_CONTINUES_PINT_FILE": "resume"}
+
+    helix.klippy_apis._send_klippy_request = slow_help
+
+    async def yielding_sleep(seconds):
+        plr.clock.t += seconds
+        await asyncio.sleep(0)
+
+    plr._sleep = yielding_sleep
+
+
+def test_status_asked_at_klippy_ready_waits_for_the_qidi_check(plr, helix, qidi_resume):
+    reconnect_with_a_slow_qidi_check(plr, helix)
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        await asyncio.sleep(0)
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert (reply["backend"], reply["tier"]) == ("qidi_print_state", 2)
+    assert reply["offer"] == {"available": True, "blocked_by": []}
+
+
+def test_the_wait_for_klippy_ready_is_bounded(plr, helix, qidi_resume):
+    reconnect_with_a_slow_qidi_check(plr, helix)
+    started = plr.clock.t
+    reply = run(plr.handle_status(Req()))           # on_klippy_ready never runs
+    assert "klippy_not_ready" in reply["offer"]["blocked_by"]
+    assert plr.clock.t - started == pytest.approx(helix_plr.READY_WAIT_S, abs=1.0)
+
+
+def test_klippy_ready_announces_the_status_it_decided(plr, helix, qidi_resume):
+    reconnect_with_a_slow_qidi_check(plr, helix)
+    plr.events.clear()
+    run(plr.on_klippy_ready())
+    announced = [p for e, p in plr.events if e == "helix_print:plr_status"]
+    assert len(announced) == 1
+    assert announced[0]["backend"] == "qidi_print_state"
+    assert announced[0]["offer"] == {"available": True, "blocked_by": []}
+    assert announced[0] == run(plr.handle_status(Req()))
+
+
 def test_qidi_unlisted_printer_stays_off(plr, helix, qidi_resume):
     run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 0}))
     reply = run(plr.handle_status(Req()))
