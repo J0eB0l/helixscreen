@@ -63,9 +63,10 @@ namespace helix::ui {
 ///     so an offer that was suppressed only because the wizard owned the
 ///     screen now fires. This is what makes wizard suppression temporary
 ///     instead of permanent.
-///   - print lifecycle: a job that drops straight to Idle (Klipper restarted
-///     under it) re-evaluates the offer and retries the Creality probe, both
-///     of which the dead job's lifecycle held back.
+///   - print lifecycle: a job that drops straight to Idle retries the Creality
+///     probe and, for the plugin backend only, re-evaluates the offer the dead
+///     job's lifecycle held back. Qidi and Snapmaker flags can lag a normal
+///     end's standby frame, so they never offer from this edge.
 ///
 /// Observer callbacks all run on the main thread — observe<int> defers via
 /// the update queue and plr_should_offer/plr_should_rearm are pure. The one
@@ -88,13 +89,15 @@ class PlrOfferController {
     // resume can be built. Every observer routes here so the decision lives in
     // exactly one place.
     void evaluate_offer();
+    /// The backend the current capability and plugin signals select.
+    helix::PlrBackendType select_backend() const;
     void on_pl_env_valid_changed(int pl_env_valid);
     void on_plr_interrupted_flag_changed(int was_interrupted);
     void on_creality_capable_changed(int capable);
     void on_connection_state_changed(int new_conn_state);
     void on_wizard_active_changed(int wizard_active);
-    /// A held -> Idle edge with no terminal state between re-evaluates the
-    /// offer (and the Creality probe) the dead job's lifecycle held back.
+    /// A held -> Idle edge retries the Creality probe and, for the plugin
+    /// backend only, re-evaluates the offer the dead job's lifecycle held back.
     void on_print_lifecycle_changed(PrintState next);
 
     /// Fire the Creality probe at most once per connection, and only from

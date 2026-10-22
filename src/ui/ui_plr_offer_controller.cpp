@@ -109,7 +109,7 @@ PlrOfferController::PlrOfferController() {
         ps.get_subjects_lifetime());
 }
 
-void PlrOfferController::evaluate_offer() {
+PlrBackendType PlrOfferController::select_backend() const {
     auto& ps = get_printer_state();
 
     // Normalize the firmware mechanisms into ONE availability signal so the
@@ -130,7 +130,12 @@ void PlrOfferController::evaluate_offer() {
         caps.plugin_backend = plugin_status_->backend;
         caps.plugin_offer_available = plugin_status_->offer_available;
     }
-    PlrBackendType backend = plr_select_backend(caps);
+    return plr_select_backend(caps);
+}
+
+void PlrOfferController::evaluate_offer() {
+    auto& ps = get_printer_state();
+    PlrBackendType backend = select_backend();
 
     bool recovery_available = false;
     std::string recovery_file;
@@ -189,10 +194,10 @@ void PlrOfferController::evaluate_offer() {
     //   - Wizard active: prompted_this_connect_ stays unset, and the
     //     wizard-active subject's 1->0 edge routes back here the moment the
     //     wizard closes (on_wizard_active_changed), so the deferred offer fires.
-    //   - Not idle: a host-stack restart can hand over the snapshot before
-    //     print_stats reports standby, while the lifecycle still reads the dead
-    //     job. Its held -> Idle edge routes back here
-    //     (on_print_lifecycle_changed).
+    //   - Not idle (plugin backend): a host-stack restart can hand over the
+    //     plugin's offer before print_stats reports standby, while the
+    //     lifecycle still reads the dead job. Its held -> Idle edge routes back
+    //     here (on_print_lifecycle_changed).
     //   - Reconnect: on_connection_state_changed re-arms the latch AND forces
     //     the capability subjects to 0, so the reconnect's status re-dispatch
     //     drives real 0->1 edges back into the observers -> here. (Without the
@@ -500,21 +505,25 @@ void PlrOfferController::on_wizard_active_changed(int wizard_active) {
 void PlrOfferController::on_print_lifecycle_changed(PrintState next) {
     const PrintState prev = last_lifecycle_;
     last_lifecycle_ = next;
-    // Only a job that drops straight to Idle, with no Complete, Cancelled or
-    // Error between, counts: that is Klipper restarting under it. A normal end
-    // passes through Complete, and Qidi's was_interrupted stays true through
-    // every normal print, so re-evaluating there would offer to resume a print
-    // that finished.
+    // A job dropping straight to Idle is either Klipper restarting under it or
+    // a normal end: Qidi's PRINT_END and the U1's restart-from-beginning reset
+    // print_stats to standby without reporting Complete. Only the backends
+    // whose availability a normal end cannot fake re-evaluate here.
     if (!job_holds_machine(prev) || next != PrintState::Idle) {
         return;
     }
-    // The Creality probe is refused outside STANDBY just as the offer is
-    // refused outside idle, and its capability edge may have come first.
+    // Creality: the probe is refused outside STANDBY and only runs while the
+    // firmware reports power_loss; its response does the evaluating.
     if (lv_subject_get_int(get_printer_state().print_state().get_plr_power_loss_signal_subject()) !=
         0) {
         probe_creality_once();
     }
-    evaluate_offer();
+    // The plugin offers only when Moonraker's history calls the newest job
+    // interrupted. Qidi's was_interrupted and Snapmaker's pl_env_valid can lag
+    // the standby frame of a print that finished, so they never offer from here.
+    if (select_backend() == PlrBackendType::GENERIC) {
+        evaluate_offer();
+    }
 }
 
 } // namespace helix::ui

@@ -794,8 +794,8 @@ TEST_CASE_METHOD(PluginPlrOfferFixture,
 
 TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR does not offer when a normal print ends",
                  "[plr][qidi][print_state]") {
-    // was_interrupted stays true through the print, so an end that passes
-    // through Complete must not read as a job that vanished.
+    // PRINT_END runs CLEAR_LAST_FILE then SDCARD_RESET_FILE, so a finished
+    // print drops straight from printing to standby with no Complete between.
     auto& ps = get_printer_state();
     helix::test::set_wire_state(ps, PrintJobState::PRINTING);
     settle();
@@ -803,17 +803,29 @@ TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR does not offer when a normal pri
     settle();
     REQUIRE(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
 
-    helix::test::set_wire_state(ps, PrintJobState::COMPLETE);
+    bool flag_after_end = false;
+    SECTION("the flag clears in the standby frame") {
+        flag_after_end = false;
+    }
+    SECTION("the flag lags the standby frame") {
+        flag_after_end = true;
+    }
+    ps.update_from_status(
+        json{{"print_stats", {{"state", "standby"}}},
+             {"save_variables", {{"variables", {{"was_interrupted", flag_after_end}}}}}});
     settle();
-    helix::test::set_wire_state(ps, PrintJobState::STANDBY);
-    settle();
+    REQUIRE(ps.print_state().get_print_lifecycle() == PrintState::Idle);
     CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
 }
 
-TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR offers when Klipper restarts under a print",
-                 "[plr][qidi][print_state]") {
+TEST_CASE_METHOD(PlrOfferPreparingFixture,
+                 "Snapmaker PLR does not offer when a paused print is reset to idle",
+                 "[plr][print_state]") {
+    // The U1's restart-from-beginning sends SDCARD_RESET_FILE and
+    // CANCEL_PRINT_BASE: Paused drops straight to standby while pl_env_valid
+    // may still read true.
     auto& ps = get_printer_state();
-    helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+    helix::test::set_wire_state(ps, PrintJobState::PAUSED);
     settle();
     PlrOfferController controller;
     settle();
@@ -821,7 +833,8 @@ TEST_CASE_METHOD(QidiPlrOfferFixture, "Qidi PLR offers when Klipper restarts und
 
     helix::test::set_wire_state(ps, PrintJobState::STANDBY);
     settle();
-    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 1);
+    REQUIRE(ps.print_state().get_print_lifecycle() == PrintState::Idle);
+    CHECK(PlrOfferControllerTestAccess::offers_shown(controller) == 0);
 }
 
 TEST_CASE_METHOD(PluginPlrOfferFixture,
