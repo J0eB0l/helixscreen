@@ -335,9 +335,13 @@ def scan_to_offset(stream: BinaryIO, end_offset: int, start_offset: int = 0,
                    ) -> ScanResult: ...      # on_layer_start feeds the layer_index sidecar
 def locate_executed_line(scan: ScanResult, toolhead_pos: Sequence[float],
                          live_pos: Sequence[float], extrude_factor: float,
-                         retract_length: float) -> Optional[ResumePoint]: ...
-def advance_by_time(scan: ScanResult, point: ResumePoint, seconds: float,
-                    speed_factor: float, max_velocity: float) -> ResumePoint: ...
+                         retract_length: float,
+                         gcode_offset: Sequence[float] = (0, 0, 0, 0)) -> Optional[ExecutedLine]: ...
+def advance_by_time(scan: ScanResult, executed: ExecutedLine, seconds: float,
+                    speed_factor: float, max_velocity: float
+                    ) -> Tuple[int, float, float]: ...   # (window index, retrace_mm, skip_mm)
+def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict, skip_fraction: float,
+                 save_interval_s: float) -> Optional[ResumePoint]: ...   # measured, else layer start
 def layer_start_fallback(scan: ScanResult, layer: Optional[int]) -> Optional[ResumePoint]: ...
 ```
 
@@ -555,6 +559,7 @@ class OfferInputs(NamedTuple):
     layer: Optional[int]
     tier: int
     klippy_ready: bool
+    print_duration: Optional[float] = None   # O5
 
 class OfferVerdict(NamedTuple):
     available: bool
@@ -608,6 +613,36 @@ QIDI's endpoint (§ 10); the reply shapes are the same.
 
 Errors: Moonraker errors with codes `plr_no_plan`, `plr_stale_plan`, `plr_missing_confirmation`,
 `plr_busy`, `plr_scan_failed`, `plr_klippy_error` (message carries Klipper's text).
+
+As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged:
+
+- An error's message is `"<code>: <detail>"`, e.g. `plr_no_plan: not_interrupted,too_early` (the
+  detail of `plr_no_plan` is the offer's `blocked_by`), `plr_missing_confirmation: z_confirmed`.
+  A multi-extruder snapshot or a `T<n>` other than 0 at the resume point is refused with
+  `plr_scan_failed: multi_material: ...` (D3, single extruder in v1).
+- `helix:plr_progress` and `helix:plr_plan_ready` are the Moonraker events
+  `helix_print:plr_progress` / `helix_print:plr_plan_ready`, which clients receive as
+  `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed`, `chamber`, `lift`, `home_xy`,
+  `position` (tier 1) for prepare; `z_reference` (tier 1), `restore`, `purge`, `return`, `start` for
+  commit; states `running`, `done`, `failed`.
+- `commit` takes `z_reference: "part_top"` at tier 1 and `"trusted"` at tier 2 and refuses the other.
+- `warnings` values: `layer_start`, `mesh_unavailable`, `cold_bed` (bed more than
+  `COLD_BED_DIFF_C` under target at plan time, which also adds `accept_cold_bed` to `requires`),
+  `no_purge_location` (no objects known, so the nozzle heats and primes at the XY home position).
+- `restores` values: `bed_mesh`, `gcode_offset`, `pressure_advance`, `velocity_limits`,
+  `retraction`, `speed_factor`, `extrude_factor`, `objects`, `excluded_objects`, `fans`, `macro_vars`.
+- A file outside the gcodes root starts through the root-level link `helix_plr_resume.gcode`; the
+  finished history entry is renamed back by `_patch_history_entry`, and the link is removed when
+  the resumed job completes or is cancelled.
+- `backend` reads `generic` or `qidi_print_state` from `plr_profile`; this module resumes only
+  `generic` (a `qidi_print_state` profile reports tier 0 here until `helix_plr_qidi.py` takes it).
+- `plr_profile` is read as the C++ `PlrProfile` fields in snake_case JSON: `tier`, `backend`,
+  `storage_hint`, `z_holds_unpowered`, `xy_home_gcode`, `z_lift_mm`, `purge_gcode`,
+  `resume_skip_fraction`, plus `macro_vars` ({macro: [variable, ...]}); the switch is
+  `plr_user.enabled` alone.
+- Layer checkpoints (O3) are `<gcodes>/.helix_index/<path>.layers.jsonl` (format in
+  `helix_gcode_reader.py`), written by a follower held to `FOLLOWER_CPU_FRACTION` (15 %) of one
+  core.
 
 ---
 

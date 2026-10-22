@@ -934,3 +934,410 @@ def test_a_cancelled_print_leaves_the_index_open(plr, helix):
     index = helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")
     summary = helix_gcode_reader.read_layer_index(index, ident(path))
     assert summary.last is not None and summary.complete is False
+
+
+# --------------------------------------------------------------------------
+# Offer rules
+# --------------------------------------------------------------------------
+
+from helix_plr import OfferInputs, offer_verdict  # noqa: E402
+
+OK_INPUTS = OfferInputs("interrupted", "A1", "A1", True, 5, 2, True, 300.0)
+
+
+@pytest.mark.parametrize(
+    "change, blocked",
+    [
+        ({}, []),
+        ({"newest_job_status": "klippy_shutdown"}, ["not_interrupted"]),
+        ({"newest_job_status": "completed"}, ["not_interrupted"]),
+        ({"snapshot_job_id": None}, ["no_snapshot"]),
+        ({"snapshot_job_id": "A0"}, ["no_snapshot"]),
+        ({"identity_ok": False}, ["file_changed"]),
+        ({"layer": 1}, ["too_early"]),
+        ({"layer": None, "print_duration": 119.0}, ["too_early"]),
+        ({"layer": None, "print_duration": 120.0}, []),
+        ({"tier": 0}, ["not_supported"]),
+        ({"klippy_ready": False}, ["klippy_not_ready"]),
+        ({"tier": 0, "klippy_ready": False}, ["not_supported", "klippy_not_ready"]),
+    ],
+)
+def test_offer_verdict(change, blocked):
+    verdict = offer_verdict(OK_INPUTS._replace(**change))
+    assert verdict.blocked_by == blocked and verdict.available is (not blocked)
+
+
+# --------------------------------------------------------------------------
+# Endpoints: status, plan, prepare, commit, abort, discard
+# --------------------------------------------------------------------------
+
+from helix_plr import RESUME_LINK  # noqa: E402
+
+
+class Req:
+    def __init__(self, **params):
+        self.params = params
+
+    def get(self, key, default=None):
+        return self.params.get(key, default)
+
+
+def straight_layers():
+    out = ["M83", "G1 F600"]
+    for n in range(1, 6):
+        out += [";LAYER_CHANGE", "SET_PRINT_STATS_INFO CURRENT_LAYER=%d" % n,
+                "G1 Z%.1f" % (n * 0.2)]
+        out += ["G1 X%d Y10 E.05" % i for i in range(1, 101)]
+    return ("\n".join(out) + "\n").encode()
+
+
+@pytest.fixture
+def resume(plr, helix):
+    """A tier-2 printer after a power cut during layer 4 of sub/part.gcode."""
+    data = straight_layers()
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(data)
+    plr._follow_executor = SyncExecutor()
+    plr._plan_executor = SyncExecutor()
+    events = []
+    helix.server.send_event = lambda name, payload: events.append((name, payload))
+    plr.events = events
+    added(plr, job_id="0000B2")
+    helix.history.add_job("0000B2", filename="sub/part.gcode", status="interrupted")
+    # The nozzle on X=50 of layer 4, the head 20 lines (1 mm of E) further on.
+    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    head = data.index(b"G1 X70 Y10", layer4)
+    record = build_record(printing_status(head, layer=4), 1000.0)
+    record.update({
+        "toolhead_pos": [69.0, 10.0, 0.8, 1000.0],
+        "live_pos": [49.5, 10.0, 0.8, 1000.0 - 20 * 0.05 - 0.025],
+        "gcode_offset": [0.0, 0.0, 0.0, 0.0], "extrude_factor": 1.0, "speed_factor": 1.0,
+        "active_extruder": "extruder", "retraction": None, "objects": [
+            {"name": "A", "polygon": [[40, 0], [120, 0], [120, 40], [40, 40]]}],
+        "excluded": [], "macro_vars": {}})
+    record["heaters"]["heater_generic chamber"] = {"target": 0.0, "temp": 25.0}
+    plr.store.write(fit_record(record)[0])
+    plr.klippy_ready = True
+    plr.policy.reset()
+
+    async def query(objects):
+        out = {}
+        if "print_stats" in objects:
+            out["print_stats"] = {"state": "standby"}
+        if "heater_bed" in objects:
+            out["heater_bed"] = {"temperature": 55.0, "target": 0.0}
+        if "bed_mesh" in objects:
+            out["bed_mesh"] = {"profiles": {"default": {}}}
+        if "toolhead" in objects:
+            out["toolhead"] = {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0]}
+        if "configfile" in objects:
+            out["configfile"] = {"settings": {"printer": {"kinematics": "corexy"}}}
+        return out
+
+    helix.klippy_apis.query_objects.side_effect = query
+    return data
+
+
+def sent(helix):
+    return [c.args[0] for c in helix.klippy_apis.run_gcode.call_args_list]
+
+
+def test_status_offers_the_interrupted_job(plr, resume):
+    reply = run(plr.handle_status(Req()))
+    assert reply["offer"] == {"available": True, "blocked_by": []}
+    assert (reply["tier"], reply["backend"], reply["saving"]) == (2, "generic", True)
+    assert reply["snapshot"]["job_id"] == "0000B2" and reply["snapshot"]["layer"] == 4
+    assert reply["snapshot"]["z"] == 0.8 and reply["snapshot"]["age_s"] == 0.0
+    assert reply["storage"]["storage_class"] in ("emmc", "sd", "ssd", "nand", "unknown")
+
+
+def test_status_blocks_a_job_that_finished_normally(plr, helix, resume):
+    helix.history.jobs.clear()
+    helix.history.add_job("0000B2", status="completed")
+    assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["not_interrupted"]
+
+
+def test_status_blocks_an_edited_file(plr, helix, resume):
+    (helix.gc_path / "sub" / "part.gcode").write_bytes(resume + b"G1 X1\n")
+    assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["file_changed"]
+
+
+def test_a_qidi_backend_is_not_resumed_here(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile",
+                                   {"tier": 2, "backend": "qidi_print_state"}))
+    reply = run(plr.handle_status(Req()))
+    assert reply["backend"] == "qidi_print_state" and reply["tier"] == 0
+    assert reply["offer"]["blocked_by"] == ["not_supported"]
+
+
+def test_status_for_an_unlisted_printer(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 0}))
+    reply = run(plr.handle_status(Req()))
+    assert reply["backend"] == "none" and reply["offer"]["blocked_by"] == ["not_supported"]
+
+
+def test_plan_finds_the_measured_point(plr, resume):
+    reply = run(plr.handle_plan(Req()))
+    assert reply["method"] == "measured"
+    layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    # Skip half a second at 10 mm/s past X=49.5: the line ending at X=55.
+    assert reply["resume_offset"] == resume.index(b"G1 X55 Y10", layer4)
+    assert reply["filename"] == "sub/part.gcode" and reply["layer"] == 4
+    assert reply["z_gcode"] == pytest.approx(0.8) and reply["z_physical"] == 0.8
+    assert reply["requires"] == ["part_attached", "z_confirmed"]
+    assert reply["warnings"] == [] and reply["bed"] == {"target": 60.0, "current": 55.0}
+    assert "gcode_offset" in reply["restores"] and reply["plan_id"].startswith("0000B2-")
+    plr.clock.t += 5.0
+    assert run(plr.handle_plan(Req()))["plan_id"] == reply["plan_id"]   # same snapshot
+
+
+def test_plan_refused_without_an_offer(plr, helix, resume):
+    helix.history.jobs.clear()
+    helix.history.add_job("0000B2", status="completed")
+    with pytest.raises(Exception, match="plr_no_plan: not_interrupted"):
+        run(plr.handle_plan(Req()))
+
+
+def test_plan_refuses_multi_material(plr, resume):
+    record = plr.store.load()
+    record["active_extruder"] = "extruder1"
+    plr.store.write(fit_record(record)[0])
+    with pytest.raises(Exception, match="plr_scan_failed: multi_material"):
+        run(plr.handle_plan(Req()))
+
+
+def test_plan_warns_about_a_lost_mesh_and_a_cold_bed(plr, helix, resume):
+    plr.job["mesh"] = {"profile": "adaptive", "saved": False, "min": [0, 0], "max": [1, 1],
+                       "points": [[0.0]]}
+
+    async def query(objects):
+        out = {"print_stats": {"state": "standby"},
+               "heater_bed": {"temperature": 30.0}, "bed_mesh": {"profiles": {}},
+               "toolhead": {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0]}}
+        return {k: v for k, v in out.items() if k in objects}
+
+    helix.klippy_apis.query_objects.side_effect = query
+    reply = run(plr.handle_plan(Req()))
+    assert reply["warnings"] == ["mesh_unavailable", "cold_bed"]
+    assert reply["requires"] == ["part_attached", "z_confirmed", "accept_no_mesh",
+                                 "accept_cold_bed"]
+
+
+def test_include_file_mesh_needs_no_extra_confirmation(plr, helix, resume):
+    plr.job["mesh"] = {"profile": "adaptive", "saved": False, "min": [0, 0], "max": [1, 1],
+                       "points": [[0.0]]}
+    original = helix.klippy_apis.query_objects.side_effect
+
+    async def query(objects):
+        out = await original(objects)
+        if "bed_mesh" in out:
+            out["bed_mesh"] = {"profiles": {"helix_plr": {}}}
+        return out
+
+    helix.klippy_apis.query_objects.side_effect = query
+    reply = run(plr.handle_plan(Req()))
+    assert "mesh_unavailable" not in reply["warnings"] and "bed_mesh" in reply["restores"]
+
+
+def full_resume(plr, plan_id, **commit):
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    params = {"plan_id": plan_id, "confirmations": {"part_attached": True, "z_confirmed": True},
+              "z_reference": "trusted"}
+    params.update(commit)
+    return run(plr.handle_commit(Req(**params)))
+
+
+def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
+    marks = []
+    monkeypatch.setattr(helix, "mark_helix_initiated", lambda *a: marks.append(a))
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    assert run(plr.handle_prepare(Req(plan_id=plan_id))) == {"ok": True}
+    prepare = sent(helix)
+    assert prepare[0] == "M140 S60\nM190 S60"
+    assert prepare[1].startswith("SET_KINEMATIC_POSITION Z=0.8\nG91\nG1 Z5 F300")
+    assert prepare[2] == "G28 X Y"
+    assert not any("M104" in s or "M109" in s for s in prepare)
+    reply = run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                      confirmations={"part_attached": True, "z_confirmed": True})))
+    assert reply == {"ok": True, "job_started": True}
+    start = sent(helix)[-1]
+    assert start.startswith("M23 %s\nM26 S" % RESUME_LINK) and start.endswith("\nM24")
+    assert marks == [(RESUME_LINK, "plr_resume", "sub/part.gcode")]
+    link = helix.gc_path / RESUME_LINK
+    assert link.is_symlink() and link.resolve() == (helix.gc_path / "sub" / "part.gcode").resolve()
+    steps = [p["step"] for e, p in plr.events if e == "helix_print:plr_progress"
+             and p["state"] == "done"]
+    assert steps == ["bed", "lift", "home_xy", "restore", "purge", "return", "start"]
+
+
+def test_commit_refuses_missing_confirmations_and_the_wrong_z(plr, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    with pytest.raises(Exception, match="plr_missing_confirmation: z_confirmed"):
+        run(plr.handle_commit(Req(plan_id=plan_id, confirmations={"part_attached": True},
+                                  z_reference="trusted")))
+    with pytest.raises(Exception, match="plr_missing_confirmation"):
+        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="part_top",
+                                  confirmations={"part_attached": True, "z_confirmed": True})))
+
+
+def test_commit_before_prepare_is_refused(plr, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    with pytest.raises(Exception, match="plr_busy"):
+        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                  confirmations={"part_attached": True, "z_confirmed": True})))
+
+
+def test_a_stale_plan_is_refused(plr, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    with pytest.raises(Exception, match="plr_stale_plan"):
+        run(plr.handle_prepare(Req(plan_id="other")))
+    plr.store.write(fit_record(plr.store.load())[0])          # a newer snapshot
+    with pytest.raises(Exception, match="plr_stale_plan"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+
+
+def test_a_printing_printer_is_busy(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+
+    async def printing(objects):
+        return {"print_stats": {"state": "printing"}}
+
+    helix.klippy_apis.query_objects.side_effect = printing
+    with pytest.raises(Exception, match="plr_busy"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+
+
+def test_a_failed_start_unmarks_and_turns_heaters_off(plr, helix, resume, monkeypatch):
+    unmarked = []
+    monkeypatch.setattr(helix, "unmark_helix_initiated", lambda name: unmarked.append(name))
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+
+    async def gcode(script):
+        if script.startswith("M23"):
+            raise RuntimeError("SD busy")
+        return "ok"
+
+    helix.klippy_apis.run_gcode.side_effect = gcode
+    with pytest.raises(Exception, match="plr_klippy_error: SD busy"):
+        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                  confirmations={"part_attached": True, "z_confirmed": True})))
+    assert unmarked == [RESUME_LINK]
+    assert not (helix.gc_path / RESUME_LINK).exists()
+    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+
+
+def test_a_klipper_error_in_prepare_fails_safe(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+
+    async def gcode(script):
+        if script.startswith("G28"):
+            raise RuntimeError("Endstop x still triggered")
+        return "ok"
+
+    helix.klippy_apis.run_gcode.side_effect = gcode
+    with pytest.raises(Exception, match="plr_klippy_error: Endstop"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert plr.store.load() is not None
+
+
+def test_abort_turns_heaters_off_and_keeps_the_snapshot(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    assert run(plr.handle_abort(Req(plan_id=plan_id))) == {"ok": True}
+    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert plr.store.load() is not None
+    with pytest.raises(Exception, match="plr_busy"):
+        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                  confirmations={"part_attached": True, "z_confirmed": True})))
+
+
+def test_discard_deletes_the_snapshot(plr, helix, resume):
+    run(plr.handle_plan(Req()))
+    assert run(plr.handle_discard(Req())) == {"ok": True}
+    assert plr.store.load() is None
+    assert run(plr.handle_status(Req()))["snapshot"] is None
+    with pytest.raises(Exception, match="plr_no_plan"):
+        run(plr.handle_prepare(Req(plan_id="x")))
+
+
+def test_a_long_scan_replies_pending_and_announces_the_plan(plr, resume, monkeypatch):
+    import threading
+    gate = threading.Event()
+
+    class SlowExecutor:
+        def __init__(self):
+            from concurrent.futures import ThreadPoolExecutor
+            self.pool = ThreadPoolExecutor(1)
+
+        def submit(self, fn, *args):
+            def slow():
+                gate.wait(5)
+                return fn(*args)
+            return self.pool.submit(slow)
+
+        def shutdown(self, wait=True):
+            self.pool.shutdown(wait)
+
+    plr._plan_executor = SlowExecutor()
+    monkeypatch.setattr(helix_plr, "PLAN_SYNC_WAIT_S", 0.05)
+
+    async def scenario():
+        first = await plr.handle_plan(Req())
+        plr.clock.t += 1.0
+        again = await plr.handle_plan(Req())
+        gate.set()
+        import asyncio
+        for _ in range(100):
+            if any(e == "helix_print:plr_plan_ready" for e, _ in plr.events):
+                break
+            await asyncio.sleep(0.02)
+        return first, again, await plr.handle_plan(Req())
+
+    first, again, ready = run(scenario())
+    assert first["pending"] is True and again == first
+    assert ("helix_print:plr_plan_ready", {"plan_id": first["plan_id"]}) in plr.events
+    assert ready["plan_id"] == first["plan_id"] and ready["method"] == "measured"
+
+
+def test_a_root_level_file_starts_without_a_link(plr, helix, resume, monkeypatch):
+    (helix.gc_path / "part.gcode").write_bytes(resume)
+    added(plr, job_id="0000C3", filename="part.gcode")
+    helix.history.add_job("0000C3", filename="part.gcode", status="interrupted")
+    layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    rec = build_record(printing_status(resume.index(b"G1 X70 Y10", layer4), layer=4), 1000.0)
+    rec.update({"toolhead_pos": [69.0, 10.0, 0.8, 1000.0],
+                "live_pos": [49.5, 10.0, 0.8, 1000.0 - 20 * 0.05 - 0.025],
+                "gcode_offset": [0, 0, 0, 0], "extrude_factor": 1.0, "objects": [],
+                "excluded": [], "macro_vars": {}})
+    plr.store.write(fit_record(rec)[0])
+    marks = []
+    monkeypatch.setattr(helix, "mark_helix_initiated", lambda *a: marks.append(a))
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    full_resume(plr, plan_id)
+    assert sent(helix)[-1].startswith("M23 part.gcode\n")
+    assert marks == [("part.gcode", "plr_resume", None)]
+    assert not (helix.gc_path / RESUME_LINK).exists()
+
+
+def test_the_resumed_job_is_named_after_the_file_and_the_link_removed(plr, helix, resume):
+    patched = []
+
+    async def patch(info, state):
+        patched.append((info.job_id, info.original_filename, state))
+
+    helix._patch_history_entry = patch
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    full_resume(plr, plan_id)
+    added(plr, job_id="0000D4", filename=RESUME_LINK)
+    assert plr.job["history_name"] == "sub/part.gcode"
+    finished(plr, "completed", job_id="0000D4")
+    assert patched == [("0000D4", "sub/part.gcode", "completed")]
+    assert not (helix.gc_path / RESUME_LINK).exists()
+
+
+def test_the_plr_endpoints_are_registered(helix):
+    paths = helix.server.endpoints
+    for name in ("status", "plan", "prepare", "commit", "abort", "discard"):
+        assert "/server/helix/plr/" + name in paths

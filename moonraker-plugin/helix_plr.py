@@ -21,10 +21,12 @@ import struct
 import time
 import zlib
 from pathlib import Path
-from typing import Any, Callable, Dict, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 # helix_print.py loads its siblings into sys.modules in dependency order.
 import helix_gcode_reader
+import helix_plr_render
+import helix_plr_scan
 
 # ============================================================================
 # Storage safety (§ 7.4)
@@ -706,6 +708,58 @@ class LayerFollower:
 
 
 # ============================================================================
+# Offer rules (§ 8)
+# ============================================================================
+
+# With no layer count, the offer waits for this much print time instead of layer 2 (O5).
+OFFER_MIN_PRINT_S = 120.0
+
+# A bed this far under its target when the plan is made has cooled long enough
+# that adhesion is in doubt: the plan asks for accept_cold_bed (O6).
+COLD_BED_DIFF_C = 10.0
+
+
+class OfferInputs(NamedTuple):
+    newest_job_status: Optional[str]  # Moonraker history
+    snapshot_job_id: Optional[str]
+    newest_job_id: Optional[str]
+    identity_ok: bool
+    layer: Optional[int]
+    tier: int
+    klippy_ready: bool
+    print_duration: Optional[float] = None
+
+
+class OfferVerdict(NamedTuple):
+    available: bool
+    blocked_by: List[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"available": self.available, "blocked_by": list(self.blocked_by)}
+
+
+def offer_verdict(i: OfferInputs) -> OfferVerdict:
+    """Every rule of § 8; blocked_by lists each one that fails."""
+    blocked = []
+    if i.newest_job_status != "interrupted":
+        blocked.append("not_interrupted")
+    if i.snapshot_job_id is None or i.snapshot_job_id != i.newest_job_id:
+        blocked.append("no_snapshot")
+    if not i.identity_ok:
+        blocked.append("file_changed")
+    if i.layer is not None:
+        if i.layer < 2:
+            blocked.append("too_early")
+    elif (i.print_duration or 0.0) < OFFER_MIN_PRINT_S:
+        blocked.append("too_early")
+    if i.tier < 1:
+        blocked.append("not_supported")
+    if not i.klippy_ready:
+        blocked.append("klippy_not_ready")
+    return OfferVerdict(not blocked, blocked)
+
+
+# ============================================================================
 # The Moonraker-facing component
 # ============================================================================
 
@@ -760,6 +814,20 @@ class HelixPlr:
         self._follow_future = None  # type: Optional[Any]
         self._follow_at = float("-inf")
         self._follow_executor = None  # type: Optional[Any]
+        self.klippy_ready = False
+        self.homing = HomingCheck(True, None)
+        self.axis_min = None  # type: Optional[list]
+        self.axis_max = None  # type: Optional[list]
+        self._plan = None  # type: Optional[Any]
+        self._plan_seq = None  # type: Optional[int]
+        self._plan_executor = None  # type: Optional[Any]
+        self._pending = None  # type: Optional[Any]
+        self._pending_id = None  # type: Optional[str]
+        self._sequence = None  # type: Optional[str]
+        self._abort = False
+        self._bed_now = None  # type: Optional[float]
+        self._resume_history_name = None  # type: Optional[str]
+        self._resume_job_id = None  # type: Optional[str]
 
     def detect_storage(self) -> Tuple[str, Optional[str]]:
         try:
@@ -813,6 +881,9 @@ class HelixPlr:
         self.server.register_event_handler("server:status_update", self.on_status_update)
         self.server.register_event_handler("server:klippy_ready", self.on_klippy_ready)
         self.server.register_event_handler("history:history_changed", self.on_history_changed)
+        self.server.register_event_handler("server:klippy_shutdown", self.on_klippy_gone)
+        self.server.register_event_handler("server:klippy_disconnect", self.on_klippy_gone)
+        self.register_endpoints()
 
     async def load_job(self) -> None:
         """Read the job record back after a restart."""
@@ -857,6 +928,11 @@ class HelixPlr:
             logging.warning("HelixPrint: PLR could not list Klipper objects: %s", e)
             return
         self.has_virtual_sdcard = "virtual_sdcard" in objects
+        self.klippy_ready = True
+        try:
+            await self._refresh_homing()
+        except Exception as e:
+            logging.warning("HelixPrint: PLR could not read the homing config: %s", e)
         try:
             status = await apis.subscribe_objects(snapshot_objects(objects))
         except Exception as e:
@@ -907,8 +983,11 @@ class HelixPlr:
         if gc_path is None or job is None or not job.get("file_hash"):
             return None
         filename = job.get("filename", "")
+        relpath = _resolve_link(gc_path, filename)
+        if relpath is None:
+            return None
         return LayerFollower(
-            gc_path / filename, helix_gcode_reader.layer_index_path(gc_path, filename), job)
+            gc_path / relpath, helix_gcode_reader.layer_index_path(gc_path, relpath), job)
 
     def _executor(self) -> Any:
         if self._follow_executor is None:
@@ -960,8 +1039,9 @@ class HelixPlr:
             logging.warning("HelixPrint: PLR could not close the layer index: %s", e)
 
     def close(self) -> None:
-        if self._follow_executor is not None:
-            self._follow_executor.shutdown(wait=False)
+        for executor in (self._follow_executor, self._plan_executor):
+            if executor is not None:
+                executor.shutdown(wait=False)
         self.store.close()
 
     async def _persist(self, now: float, record: Dict[str, Any]) -> None:
@@ -991,8 +1071,7 @@ class HelixPlr:
         if not isinstance(layer, int) or layer < 2:
             return
         mesh = mesh_record(self.status)
-        self.job["mesh"] = None if mesh is None else {
-            k: v for k, v in mesh.items() if k != "points"}
+        self.job["mesh"] = mesh
         if mesh is not None and not mesh["saved"]:
             text = mesh_cfg(mesh)
             if text is not None:
@@ -1059,6 +1138,9 @@ class HelixPlr:
         self._remove_mesh_cfg()
         record = {"schema": SNAPSHOT_SCHEMA, "job_id": job_id, "filename": filename,
                   "started_at": self.clock()}
+        if filename == RESUME_LINK and self._resume_history_name:
+            record["history_name"] = self._resume_history_name
+            self._resume_job_id = job_id
         gc_path = getattr(self.helix, "gc_path", None)
         if gc_path is not None and filename:
             try:
@@ -1069,6 +1151,8 @@ class HelixPlr:
         await self._ns_put(JOB_KEY, record)
 
     async def _job_finished(self, job: Dict[str, Any]) -> None:
+        if self._resume_job_id is not None and str(job["job_id"]) == self._resume_job_id:
+            await self._finish_resume_link(job)
         if self.job is None or str(job["job_id"]) != self.job.get("job_id"):
             return
         status = job.get("status")
@@ -1079,6 +1163,26 @@ class HelixPlr:
             return
         self.job["finished_status"] = status
         await self._ns_put(JOB_KEY, self.job)
+
+    async def _finish_resume_link(self, job: Dict[str, Any]) -> None:
+        """History names a resumed job after RESUME_LINK; name it after the
+        file instead, and remove the link once the job is over."""
+        import types
+        info = types.SimpleNamespace(
+            job_id=self._resume_job_id, original_filename=self._resume_history_name,
+            temp_filename=RESUME_LINK, symlink_filename=RESUME_LINK,
+            modifications=["plr_resume"])
+        self._resume_job_id = None
+        patch = getattr(self.helix, "_patch_history_entry", None)
+        if patch is not None and info.original_filename:
+            await patch(info, job.get("status", ""))
+        if job.get("status") in _CLEARED_STATUSES:
+            gc_path = getattr(self.helix, "gc_path", None)
+            if gc_path is not None and (gc_path / RESUME_LINK).is_symlink():
+                try:
+                    (gc_path / RESUME_LINK).unlink()
+                except OSError:
+                    pass
 
     async def discard(self) -> None:
         """Delete the snapshot, the job record and the mesh file. The layer
@@ -1093,3 +1197,490 @@ class HelixPlr:
                 logging.warning("HelixPrint: PLR could not clear the snapshot: %s", e)
         self._remove_mesh_cfg()
         await self._ns_delete(JOB_KEY)
+
+    # =========================================================================
+    # Resume: offer, plan, prepare, commit (§ 6.3, § 8, § 9)
+    # =========================================================================
+
+    def register_endpoints(self) -> None:
+        for path, methods, handler in (
+            ("/server/helix/plr/status", ["GET"], self.handle_status),
+            ("/server/helix/plr/plan", ["POST"], self.handle_plan),
+            ("/server/helix/plr/prepare", ["POST"], self.handle_prepare),
+            ("/server/helix/plr/commit", ["POST"], self.handle_commit),
+            ("/server/helix/plr/abort", ["POST"], self.handle_abort),
+            ("/server/helix/plr/discard", ["POST"], self.handle_discard),
+        ):
+            self.server.register_endpoint(path, methods, handler)
+        register = getattr(self.server, "register_notification", None)
+        if register is not None:
+            register(PROGRESS_EVENT)
+            register(PLAN_READY_EVENT)
+
+    def _error(self, code: str, message: str, status: int = 400) -> Exception:
+        return self.server.error("%s: %s" % (code, message), status)
+
+    def _notify(self, event: str, data: Dict[str, Any]) -> None:
+        send = getattr(self.server, "send_event", None)
+        if send is not None:
+            send(event, data)
+
+    def on_klippy_gone(self, *args: Any) -> None:
+        self.klippy_ready = False
+
+    async def _query(self, objects: Dict[str, Any]) -> Dict[str, Any]:
+        apis = self.helix.klippy_apis
+        if apis is None:
+            return {}
+        try:
+            result = await apis.query_objects(objects)
+        except Exception as e:
+            raise self._error("plr_klippy_error", str(e), 503)
+        return result if isinstance(result, dict) else {}
+
+    async def _refresh_homing(self) -> None:
+        status = await self._query({"configfile": ["settings"],
+                                    "toolhead": ["axis_minimum", "axis_maximum"]})
+        settings = _obj(status, "configfile").get("settings")
+        kinematics = ""
+        if isinstance(settings, dict) and isinstance(settings.get("printer"), dict):
+            kinematics = str(settings["printer"].get("kinematics", ""))
+        self.homing = check_xy_homing(settings, kinematics)
+        th = _obj(status, "toolhead")
+        self.axis_min = _vec(th.get("axis_minimum"), 3)
+        self.axis_max = _vec(th.get("axis_maximum"), 3)
+
+    async def _newest_job_status(self, newest: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not newest:
+            return None
+        job_id = newest.get("job_id")
+        history = getattr(self.helix, "history", None)
+        if history is not None and hasattr(history, "get_job"):
+            try:
+                job = await history.get_job(job_id)
+            except Exception:
+                job = None
+            if isinstance(job, dict) and job.get("status"):
+                return job["status"]
+        if self.job is not None and self.job.get("job_id") == job_id \
+                and self.job.get("finished_status"):
+            return self.job["finished_status"]
+        state = _obj(self.status, "print_stats").get("state")
+        return "in_progress" if state in ("printing", "paused") else "interrupted"
+
+    def _identity_ok(self) -> bool:
+        job = self.job
+        gc_path = getattr(self.helix, "gc_path", None)
+        if job is None or gc_path is None or not job.get("file_hash"):
+            return False
+        try:
+            now = file_identity(gc_path / job.get("filename", ""))
+        except OSError:
+            return False
+        return all(now[k] == job.get(k) for k in ("file_size", "file_mtime", "file_hash"))
+
+    async def _offer(self, profile: PlrProfile,
+                     snapshot: Optional[Dict[str, Any]]) -> Tuple[OfferVerdict, int]:
+        tier, _ = effective_tier(profile, self.homing)
+        if profile.backend != "generic":
+            tier = 0
+        newest = await self._ns_get(NEWEST_JOB_KEY)
+        inputs = OfferInputs(
+            newest_job_status=await self._newest_job_status(newest),
+            snapshot_job_id=self.job.get("job_id") if (self.job and snapshot) else None,
+            newest_job_id=newest.get("job_id") if isinstance(newest, dict) else None,
+            identity_ok=self._identity_ok(),
+            layer=snapshot.get("layer") if snapshot else None,
+            tier=tier,
+            klippy_ready=self.klippy_ready,
+            print_duration=snapshot.get("print_duration") if snapshot else None,
+        )
+        return offer_verdict(inputs), tier
+
+    def _load_snapshot(self) -> Optional[Dict[str, Any]]:
+        if self.store_error is not None:
+            return None
+        try:
+            return self.store.load()
+        except OSError:
+            return None
+
+    async def handle_status(self, web_request: Any) -> Dict[str, Any]:
+        profile = await self.profile()
+        snapshot = self._load_snapshot()
+        verdict, tier = await self._offer(profile, snapshot)
+        snap = None
+        if snapshot is not None and self.job is not None:
+            live = snapshot.get("live_pos") or [None, None, None]
+            saved_at = snapshot.get("saved_at")
+            snap = {
+                "job_id": self.job.get("job_id"),
+                "filename": self.job.get("history_name") or self.job.get("filename"),
+                "layer": snapshot.get("layer"),
+                "z": live[2],
+                "saved_at": saved_at,
+                "age_s": (self.clock() - saved_at) if isinstance(saved_at, (int, float)) else None,
+            }
+        backend = "none"
+        if tier >= 1 or profile.backend == "qidi_print_state":
+            backend = profile.backend if profile.backend in ("generic", "qidi_print_state") else "none"
+        return {
+            "saving": await self.saving_enabled() and self.availability()[0],
+            "storage": (await self.verdict(profile)).to_dict(),
+            "tier": tier,
+            "backend": backend,
+            "snapshot": snap,
+            "offer": verdict.to_dict(),
+        }
+
+    # -- plan ----------------------------------------------------------------
+
+    def _plan_submit(self, fn: Callable[..., Any], *args: Any) -> Any:
+        if self._plan_executor is None:
+            from concurrent.futures import ThreadPoolExecutor
+            self._plan_executor = ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="helix-plr-plan")
+        return self._plan_executor.submit(fn, *args)
+
+    async def handle_plan(self, web_request: Any) -> Dict[str, Any]:
+        if self._sequence in ("preparing", "committing"):
+            raise self._error("plr_busy", "a resume is running", 409)
+        snapshot = self._load_snapshot()
+        profile = await self.profile()
+        if self._plan is not None and snapshot is not None \
+                and self._plan_seq == snapshot.get("seq") and self._sequence is None:
+            return self._plan_reply(self._plan)
+        if self._pending is not None and not self._pending.done():
+            return {"pending": True, "plan_id": self._pending_id}
+        await self._refresh_homing()
+        verdict, tier = await self._offer(profile, snapshot)
+        if not verdict.available:
+            raise self._error("plr_no_plan", ",".join(verdict.blocked_by))
+        state = _obj(await self._query({"print_stats": ["state"]}), "print_stats").get("state")
+        if state in ("printing", "paused"):
+            raise self._error("plr_busy", "printer is %s" % state, 409)
+        self._plan = None
+        self._sequence = None
+        plan_id = "%s-%d-%d" % (self.job["job_id"], snapshot["seq"], int(self.clock() * 1000))
+        gc_path = self.helix.gc_path
+        filename = self.job["filename"]
+        index_path, identity = self._index_for(filename)
+        import asyncio
+        future = self._plan_submit(
+            _scan_and_locate, gc_path / filename, snapshot["file_position"], index_path,
+            identity, snapshot, profile.resume_skip_fraction)
+        self._pending = future
+        self._pending_id = plan_id
+        try:
+            scan, point = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(future)),
+                                                 PLAN_SYNC_WAIT_S)
+        except asyncio.TimeoutError:
+            async def finish() -> None:
+                try:
+                    found = await asyncio.wrap_future(future)
+                    await self._finish_plan(plan_id, snapshot, profile, tier, *found)
+                except Exception as e:
+                    logging.warning("HelixPrint: PLR plan %s failed: %s", plan_id, e)
+                self._notify(PLAN_READY_EVENT, {"plan_id": plan_id})
+            asyncio.ensure_future(finish())
+            return {"pending": True, "plan_id": plan_id}
+        except Exception as e:
+            self._pending = None
+            raise self._error("plr_scan_failed", str(e), 500)
+        self._pending = None
+        return self._plan_reply(await self._finish_plan(plan_id, snapshot, profile, tier, scan, point))
+
+    def _index_for(self, filename: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        gc_path = self.helix.gc_path
+        relpath = _resolve_link(gc_path, filename)
+        if relpath is None or self.job is None:
+            return None, None
+        return helix_gcode_reader.layer_index_path(gc_path, relpath), self.job
+
+    async def _finish_plan(self, plan_id: str, snapshot: Dict[str, Any], profile: PlrProfile,
+                           tier: int, scan: Any, point: Any) -> Any:
+        if point is None:
+            raise self._error("plr_scan_failed", "no resume point and no layer start", 500)
+        snap_tool = snapshot.get("active_extruder")
+        if (snap_tool not in (None, "extruder")) or (point.state.active_tool not in (None, 0)):
+            raise self._error("plr_scan_failed", "multi_material: active tool %s / %s"
+                              % (snap_tool, point.state.active_tool), 400)
+        status = await self._query({"heater_bed": ["temperature", "target"],
+                                    "bed_mesh": ["profiles"]})
+        job = self.job or {}
+        warnings = list(point.warnings)
+        mesh = job.get("mesh")
+        profiles = _obj(status, "bed_mesh").get("profiles")
+        profiles = profiles if isinstance(profiles, dict) else {}
+        mesh_loadable = None
+        if isinstance(mesh, dict):
+            if mesh.get("saved") and mesh.get("profile") in profiles:
+                mesh_loadable = mesh["profile"]
+            elif MESH_SECTION in profiles:
+                mesh_loadable = MESH_SECTION
+            else:
+                warnings.append("mesh_unavailable")
+        heaters = snapshot.get("heaters") or {}
+        bed_target = (heaters.get("heater_bed") or {}).get("target") or 0.0
+        nozzle = (heaters.get("extruder") or {}).get("target") or 0.0
+        nozzle = max(nozzle, point.state.heater_targets.get("extruder", 0.0))
+        if nozzle <= 0.0:
+            raise self._error("plr_scan_failed", "no nozzle temperature to resume at", 400)
+        chamber = None
+        for name, heater in sorted(heaters.items()):
+            if name.startswith("heater_generic ") and "chamber" in name \
+                    and (heater or {}).get("target"):
+                chamber = (name.split(" ", 1)[1], heater["target"])
+                break
+        objects = snapshot.get("objects")
+        if objects is None or "objects" in (snapshot.get("overflow") or []):
+            objects = (job.get("overflow") or {}).get("objects") or []
+        macro_vars = snapshot.get("macro_vars")
+        if "macro_vars" in (snapshot.get("overflow") or []):
+            macro_vars = (job.get("overflow") or {}).get("macro_vars")
+        purge = None
+        if not profile.purge_gcode:
+            if self.axis_min and self.axis_max:
+                purge = helix_plr_render.generic_purge_xy(
+                    objects, tuple(self.axis_min[:2]), tuple(self.axis_max[:2]))
+            if purge is None:
+                warnings.append("no_purge_location")
+        live = snapshot.get("live_pos") or [0.0, 0.0, 0.0, 0.0]
+        bed_now = _num(_obj(status, "heater_bed").get("temperature"))
+        bed_cold = bool(bed_target and bed_now is not None and bed_now < bed_target - COLD_BED_DIFF_C)
+        if bed_cold:
+            warnings.append("cold_bed")
+        filename = job.get("filename", "")
+        start_name, history_name = self._start_name(filename)
+        plan = helix_plr_render.ResumePlan(
+            plan_id=plan_id, filename=job.get("history_name") or filename,
+            start_name=start_name, history_name=history_name,
+            resume_offset=point.offset, state=point.state,
+            layer=snapshot.get("layer"), total_layers=snapshot.get("total_layers"),
+            tier=tier, z_physical=live[2],
+            lift_mm=helix_plr_render.lift_height(
+                profile.z_lift_mm, live[2], self.axis_max[2] if self.axis_max else None),
+            snapshot=snapshot, object_defines=list(scan.object_defines),
+            excluded=list(snapshot.get("excluded") or []), mesh=mesh,
+            mesh_loadable=mesh_loadable, purge_xy=purge, nozzle_target=nozzle,
+            bed_target=bed_target, chamber=chamber, macro_vars=macro_vars or {},
+            method=point.method, retrace_estimate_mm=point.retrace_estimate_mm,
+            skip_estimate_mm=point.skip_estimate_mm, warnings=warnings,
+            requires=helix_plr_render.required_confirmations(tier, warnings, bed_cold),
+        )
+        self._plan = plan
+        self._plan_seq = snapshot.get("seq")
+        self._bed_now = bed_now
+        return plan
+
+    def _start_name(self, filename: str) -> Tuple[str, Optional[str]]:
+        """M23 finds files at the gcodes root only; a file elsewhere, or one
+        whose name M23 would cut, starts through RESUME_LINK."""
+        if "/" not in filename and _m23_safe(filename):
+            return filename, (self.job or {}).get("history_name")
+        return RESUME_LINK, (self.job or {}).get("history_name") or filename
+
+    def _plan_reply(self, plan: Any) -> Dict[str, Any]:
+        _, _, z_gcode, _ = plan.state.gcode_position()
+        return {
+            "plan_id": plan.plan_id,
+            "filename": plan.filename,
+            "method": plan.method,
+            "resume_offset": plan.resume_offset,
+            "layer": plan.layer,
+            "z_gcode": z_gcode,
+            "z_physical": plan.z_physical,
+            "retrace_estimate_mm": plan.retrace_estimate_mm,
+            "bed": {"target": plan.bed_target, "current": self._bed_now},
+            "restores": helix_plr_render.restores_summary(plan),
+            "warnings": list(plan.warnings),
+            "requires": list(plan.requires),
+        }
+
+    def _current_plan(self, plan_id: str) -> Any:
+        plan = self._plan
+        if plan is None:
+            raise self._error("plr_no_plan", "no plan; request one first")
+        snapshot = self._load_snapshot()
+        if plan_id != plan.plan_id or snapshot is None or snapshot.get("seq") != self._plan_seq:
+            raise self._error("plr_stale_plan", "plan %s is not the latest" % plan_id, 409)
+        return plan
+
+    # -- prepare / commit ----------------------------------------------------
+
+    async def _run_steps(self, plan_id: str, steps: List[Tuple[str, List[str]]]) -> None:
+        apis = self.helix.klippy_apis
+        for step, lines in steps:
+            if self._abort:
+                raise self._error("plr_klippy_error", "aborted", 409)
+            self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "running"})
+            try:
+                if lines:
+                    await apis.run_gcode("\n".join(lines))
+            except Exception as e:
+                self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "failed"})
+                raise self._error("plr_klippy_error", str(e), 500)
+            self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "done"})
+
+    async def _heaters_off(self, plan: Any) -> None:
+        lines = ["M104 S0", "M140 S0"]
+        if plan is not None and plan.chamber is not None:
+            lines.append("SET_HEATER_TEMPERATURE HEATER=%s TARGET=0" % plan.chamber[0])
+        try:
+            await self.helix.klippy_apis.run_gcode("\n".join(lines))
+        except Exception as e:
+            logging.warning("HelixPrint: PLR could not turn the heaters off: %s", e)
+
+    async def _check_ready(self) -> None:
+        if not self.klippy_ready:
+            raise self._error("plr_klippy_error", "Klipper is not ready", 503)
+        state = _obj(await self._query({"print_stats": ["state"]}), "print_stats").get("state")
+        if state in ("printing", "paused"):
+            raise self._error("plr_busy", "printer is %s" % state, 409)
+
+    async def handle_prepare(self, web_request: Any) -> Dict[str, Any]:
+        plan_id = _param(web_request, "plan_id", "")
+        skip_chamber = bool(_param(web_request, "skip_chamber_wait", False))
+        if self._sequence in ("preparing", "committing"):
+            raise self._error("plr_busy", "a resume is running", 409)
+        plan = self._current_plan(plan_id)
+        if plan.tier < 1:
+            raise self._error("plr_no_plan", "not_supported")
+        await self._check_ready()
+        profile = await self.profile()
+        self._sequence = "preparing"
+        self._abort = False
+        try:
+            await self._run_steps(plan_id, helix_plr_render.render_prepare_script(
+                plan, profile, skip_chamber))
+        except Exception:
+            self._sequence = "failed"
+            await self._heaters_off(plan)
+            raise
+        self._sequence = "prepared"
+        return {"ok": True}
+
+    async def handle_commit(self, web_request: Any) -> Dict[str, Any]:
+        plan_id = _param(web_request, "plan_id", "")
+        given = _param(web_request, "confirmations", {})
+        z_reference = _param(web_request, "z_reference", "")
+        plan = self._current_plan(plan_id)
+        if self._sequence != "prepared":
+            raise self._error("plr_busy", "prepare has not finished", 409)
+        missing = [c for c in plan.requires if not (isinstance(given, dict) and given.get(c) is True)]
+        if missing:
+            raise self._error("plr_missing_confirmation", ",".join(missing))
+        expected = "part_top" if plan.tier == 1 else "trusted"
+        if z_reference != expected:
+            raise self._error("plr_missing_confirmation",
+                              "z_reference must be %s at tier %d" % (expected, plan.tier))
+        await self._check_ready()
+        profile = await self.profile()
+        self._sequence = "committing"
+        self._abort = False
+        try:
+            await self._run_steps(plan_id, helix_plr_render.render_commit_script(
+                plan, profile, z_reference))
+            await self._start(plan)
+        except Exception:
+            self._sequence = "failed"
+            await self._heaters_off(plan)
+            raise
+        self._sequence = "done"
+        self._plan = None
+        return {"ok": True, "job_started": True}
+
+    async def _start(self, plan: Any) -> None:
+        """Mark the job helix-initiated, then the single start command."""
+        gc_path = self.helix.gc_path
+        link = None
+        if plan.start_name == RESUME_LINK:
+            link = gc_path / RESUME_LINK
+            target = (gc_path / (self.job or {}).get("filename", plan.filename)).resolve()
+            try:
+                if link.is_symlink() or link.exists():
+                    link.unlink()
+                link.symlink_to(target)
+            except OSError as e:
+                raise self._error("plr_klippy_error", "cannot link %s: %s" % (RESUME_LINK, e), 500)
+            self._resume_history_name = plan.history_name
+        self.helix.mark_helix_initiated(plan.start_name, "plr_resume", plan.history_name)
+        self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
+        try:
+            await self.helix.klippy_apis.run_gcode(helix_plr_render.render_start(plan))
+        except Exception as e:
+            self.helix.unmark_helix_initiated(plan.start_name)
+            if link is not None:
+                try:
+                    link.unlink()
+                except OSError:
+                    pass
+            self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "failed"})
+            raise self._error("plr_klippy_error", str(e), 500)
+        self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "done"})
+
+    async def handle_abort(self, web_request: Any) -> Dict[str, Any]:
+        plan_id = _param(web_request, "plan_id", "")
+        plan = self._plan
+        if plan is None or plan.plan_id != plan_id:
+            raise self._error("plr_stale_plan", "plan %s is not the latest" % plan_id, 409)
+        self._abort = True
+        self._sequence = "aborted"
+        await self._heaters_off(plan)
+        return {"ok": True}
+
+    async def handle_discard(self, web_request: Any) -> Dict[str, Any]:
+        if self._sequence in ("preparing", "committing"):
+            raise self._error("plr_busy", "a resume is running", 409)
+        self._plan = None
+        self._sequence = None
+        await self.discard()
+        return {"ok": True}
+
+
+# Notifications to clients: notify_plr_progress, notify_plr_plan_ready.
+PROGRESS_EVENT = "helix_print:plr_progress"
+PLAN_READY_EVENT = "helix_print:plr_plan_ready"
+
+# A plan whose scan takes longer replies {"pending": true} and announces itself.
+PLAN_SYNC_WAIT_S = 10.0
+
+# The include-file mesh section (§ 6.4).
+MESH_SECTION = "helix_plr"
+
+# A root-level link M23 can select when the file is in a subfolder.
+RESUME_LINK = "helix_plr_resume.gcode"
+
+
+def _param(web_request: Any, key: str, default: Any) -> Any:
+    getter = getattr(web_request, "get", None)
+    if getter is not None:
+        try:
+            return getter(key, default)
+        except Exception:
+            return default
+    return default
+
+
+def _m23_safe(name: str) -> bool:
+    return bool(name) and name == name.strip() and not name.startswith(".") \
+        and not any(c in name for c in "#*;\n\r")
+
+
+def _resolve_link(gc_path: Path, filename: str) -> Optional[str]:
+    """The gcodes-relative path a (possibly linked) file really is."""
+    try:
+        real = (gc_path / filename).resolve()
+        return str(real.relative_to(gc_path.resolve()))
+    except (OSError, ValueError):
+        return None
+
+
+def _scan_and_locate(path: Path, file_position: int, index_path: Optional[str],
+                     identity: Optional[Dict[str, Any]], snapshot: Dict[str, Any],
+                     skip_fraction: float) -> Tuple[Any, Any]:
+    """The resume scan, on the plan thread."""
+    with open(str(path), "rb") as f:
+        scan = helix_plr_scan.scan_for_resume(f, file_position, index_path, identity)
+        point = helix_plr_scan.resume_point(f, scan, snapshot, skip_fraction, SAVE_INTERVAL_S)
+    return scan, point
