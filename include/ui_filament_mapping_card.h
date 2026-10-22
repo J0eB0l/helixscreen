@@ -70,14 +70,18 @@ class FilamentMappingCard {
     void update(const std::vector<std::string>& gcode_colors,
                 const std::vector<std::string>& gcode_materials);
 
+    /// update() for a palette re-read of the file already shown. Same seeding,
+    /// but the user's picks survive it.
+    void refresh_palette(const std::vector<std::string>& gcode_colors,
+                         const std::vector<std::string>& gcode_materials);
+
     /**
      * @brief Re-pull loaded slot colors/presence from AmsState and re-render.
      * Used by the detail view's live AMS-change handler.
      *
      * A mapping the user picked is kept; every other one is re-seeded from the
-     * current lanes and routing, since print start sends whatever differs from
-     * the printer's table as a remap, and a seed taken before the table or a
-     * spool changed would overwrite the printer.
+     * current lanes and routing, so the card shows what the printer will run and
+     * an auto color match is never one made against lanes that have moved.
      *
      * Visibility IS re-decided first, since the slots feed the rule (the slot
      * count, availability, bypass), so the caller publishes afterwards. A card
@@ -98,8 +102,8 @@ class FilamentMappingCard {
      * Recompacts the card's `tool_info_` / `mappings_` in lockstep to the
      * entries whose `.tool_index` is in `used` (preserving order and the real
      * `.tool_index` used for the "T%d" label), then rebuilds the compact view.
-     * The tool→slot MAPPINGS are preserved — no re-seed (mirrors
-     * refresh_slot_data), so a user's manual remap survives.
+     * The tool→slot MAPPINGS are filtered, never re-seeded, so a user's
+     * manual remap survives.
      *
      * **VISIBILITY IS RE-DECIDED, and the caller must publish it.** `used` is an
      * input to both lane-count rules in `recompute_visibility()`, so the precise
@@ -367,6 +371,12 @@ class FilamentMappingCard {
      * @return the new value of should_show_, so update() can early-out on false.
      */
     bool recompute_visibility();
+
+    /// update()'s body. @p keep_picks: the user's picks laid over the fresh seed
+    /// (empty for a new file).
+    void seed_from_palette(const std::vector<std::string>& gcode_colors,
+                           const std::vector<std::string>& gcode_materials,
+                           const std::vector<helix::ToolMapping>& keep_picks);
 
     std::vector<helix::ToolMapping> mappings_;
     std::vector<helix::GcodeToolInfo> tool_info_;

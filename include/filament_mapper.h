@@ -124,7 +124,7 @@ struct ToolMapping {
     /// NOTHING READS THIS TODAY. The chip's surround derives the same answer at
     /// render time from the lane it just resolved, deliberately: a verdict stored
     /// here outlives the lane it judged, because refresh_slot_data() replaces the
-    /// slot vector and rebuilds with the mappings untouched. So this field is
+    /// slot vector while a user's pick stays where it is. So this field is
     /// written for symmetry with material_mismatch and nothing else - the pair is
     /// adopted or not as a unit, which is what makes "take material, forget
     /// colour" unexpressible at a call site (see set_mismatches()).
@@ -165,6 +165,11 @@ class FilamentMapper {
     /// entry for the same tool. True when anything changed.
     static bool follow_seed(std::vector<ToolMapping>& current,
                             const std::vector<ToolMapping>& seed);
+
+    /// Lay every entry of @p picks the user picked over @p current's entry for
+    /// the same tool, leaving the rest of @p current as it is.
+    static void apply_picks(std::vector<ToolMapping>& current,
+                            const std::vector<ToolMapping>& picks);
 
     /// Check if two colors are within matching tolerance.
     /// Uses weighted RGB distance (luminance-weighted) with tolerance of
@@ -221,7 +226,8 @@ class FilamentMapper {
     /// Toggle-aware mapping: the single place that turns the auto-color-map
     /// preference into a mapping. When @p auto_color_map is true, firmware
     /// mappings are cleared so they don't pre-empt color/type matches and
-    /// compute_defaults runs; otherwise use_current_assignments (positional).
+    /// compute_defaults runs; otherwise use_current_assignments (each tool on the
+    /// lane @p routing sends it to).
     /// This is the hoisted equivalent of FilamentMappingCard's seeding logic,
     /// so the card, the print-file swatch/preflight, and the live render all
     /// resolve the same way. Pure; no LVGL/AMS/Settings dependency (caller

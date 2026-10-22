@@ -116,9 +116,10 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         std::string text = lv_label_get_text(explain);
         CHECK(text.find("T2") != std::string::npos);
         CHECK(text.find("Tool 2") == std::string::npos);
-        // No lane feeds the tool at all: saying it has no filament loaded
-        // points the user at a spool when the missing piece is the assignment.
-        CHECK(text.find("has no spool assigned") != std::string::npos);
+        // No lane feeds the tool at all, whether the printer assigns it none or
+        // auto-matching found no compatible loaded lane: the missing piece is
+        // the assignment, not a spool.
+        CHECK(text.find("has no lane assigned") != std::string::npos);
         CHECK(text.find("no filament loaded") == std::string::npos);
 
         modal->hide();

@@ -174,6 +174,19 @@ FilamentMappingCard::compute_mapping(const std::vector<std::string>& colors,
 
 void FilamentMappingCard::update(const std::vector<std::string>& gcode_colors,
                                  const std::vector<std::string>& gcode_materials) {
+    seed_from_palette(gcode_colors, gcode_materials, {});
+}
+
+void FilamentMappingCard::refresh_palette(const std::vector<std::string>& gcode_colors,
+                                          const std::vector<std::string>& gcode_materials) {
+    // A copy: seeding replaces mappings_ before the picks are laid back over it.
+    const std::vector<helix::ToolMapping> picks = mappings_;
+    seed_from_palette(gcode_colors, gcode_materials, picks);
+}
+
+void FilamentMappingCard::seed_from_palette(const std::vector<std::string>& gcode_colors,
+                                            const std::vector<std::string>& gcode_materials,
+                                            const std::vector<helix::ToolMapping>& keep_picks) {
     Mapping m = compute_mapping(gcode_colors, gcode_materials, used_tools_);
     // Kept, because set_used_tools() re-runs the visibility rule without a
     // palette to hand.
@@ -187,11 +200,16 @@ void FilamentMappingCard::update(const std::vector<std::string>& gcode_colors,
     tool_info_ = std::move(m.tool_info);
 
     if (!recompute_visibility()) {
+        // A hidden card has no mappings of its own; the previous file's must not
+        // reach print start as this one's.
+        available_slots_.clear();
+        mappings_.clear();
         return;
     }
 
     available_slots_ = std::move(m.slots);
     mappings_ = std::move(m.mappings);
+    helix::FilamentMapper::apply_picks(mappings_, keep_picks);
 
     // Build the compact UI
     rebuild_compact_view();
@@ -239,11 +257,10 @@ void FilamentMappingCard::set_used_tools(std::optional<std::set<int>> used) {
     // itself - the card has never owned one.
     recompute_visibility();
 
-    // Then compact the card's current tool_info_/mappings_ in lockstep.
-    // Mappings-preserving (no recompute) — mirrors refresh_slot_data.
-    // nullopt/empty is a no-op (show all). Does NOT touch the detail view's
-    // full-palette copies (current_filament_colors_/materials) — only the card's
-    // own vectors.
+    // Then compact the card's current tool_info_/mappings_ in lockstep. This
+    // only filters; it never re-seeds. nullopt/empty is a no-op (show all). Does NOT touch the
+    // detail view's full-palette copies (current_filament_colors_/materials) — only the card's own
+    // vectors.
     apply_used_tools_filter(tool_info_, mappings_, used_tools_);
     rebuild_compact_view();
 }
@@ -398,10 +415,9 @@ void FilamentMappingCard::rebuild_compact_view() {
         //
         // Classified HERE, against the lane just resolved, rather than read from
         // mapping.color_mismatch. refresh_slot_data() replaces available_slots_
-        // and rebuilds with mappings_ deliberately untouched, so a cached verdict
-        // outlives the lane it judged: swap a spool for one holding the file's
-        // colour and the bottom band repaints while the surround stays on. That
-        // is the same shape as the stale lane number this chip was built to fix.
+        // while a user's pick stays on its lane, so a cached verdict would outlive
+        // the lane it judged: swap a spool for one holding the file's colour and
+        // the bottom band would repaint while the surround stayed on.
         // DECLARATIVE_OK: per-item payload on a C++-generated collection.
         if (resolved &&
             helix::FilamentMapper::classify_mismatches(tool, *resolved).color_mismatch) {

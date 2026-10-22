@@ -159,8 +159,8 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
     std::vector<ToolMapping> mappings;
     mappings.reserve(tools.size());
 
-    // Track which slots have been claimed for positional fallback deduplication.
-    // Color matching allows slot re-use, but positional fallback avoids it.
+    // Track which slots have been claimed by the routed and free-lane fallbacks.
+    // Color matching allows slot re-use, but those fallbacks avoid it.
     std::vector<SlotKey> used_slots;
 
     for (const auto& tool : tools) {
@@ -197,7 +197,7 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
         // Searching for the nearest lane to a stand-in picks one on the strength
         // of a value the file never expressed, and the material gate is no
         // protection: with four ASA lanes loaded it just picks whichever ASA
-        // happens to sit closest to grey. The positional fallback below is the
+        // happens to sit closest to grey. The routed-lane fallback below is the
         // honest answer, and it is already what runs when nothing lands within
         // kColorMatchTolerance. Firmware mappings (Priority 1, above) are
         // unaffected — those are the printer's own statement, not a guess.
@@ -241,18 +241,19 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
                     if (std::find(used_slots.begin(), used_slots.end(), key) == used_slots.end()) {
                         mapping.mapped_slot = slot.slot_index;
                         mapping.mapped_backend = slot.backend_index;
-                        mapping.reason = ToolMapping::MatchReason::COLOR_MATCH;
-                        // The tool's own positional lane is a deliberate default:
-                        // assign it but flag what is wrong with it so
-                        // PrintStartController can warn. (Only the fallback below
-                        // refuses incompatible lanes outright.)
+                        // The printer's own routing, not a match: print start
+                        // leaves it to the printer and sends nothing for it.
+                        mapping.reason = ToolMapping::MatchReason::FIRMWARE_MAPPING;
+                        // A deliberate default: assign it but flag what is wrong
+                        // with it so PrintStartController can warn. (Only the
+                        // fallback below refuses incompatible lanes outright.)
                         mapping.set_mismatches(classify_mismatches(tool, slot));
                         used_slots.push_back(key);
                     }
                     break;
                 }
             }
-            // No positional lane: rather than grab an arbitrary unclaimed lane (the
+            // No routed lane: rather than grab an arbitrary unclaimed lane (the
             // old material-blind behavior that misrouted prints — a PLA tool into a
             // PETG/TPU lane), take the first unclaimed lane that is not known to be
             // incompatible. Unknown/empty materials can't be proven incompatible, so
@@ -335,6 +336,21 @@ std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<Gc
         return compute_defaults(tools, slots_for_matching, routing);
     }
     return use_current_assignments(tools, slots, routing);
+}
+
+void FilamentMapper::apply_picks(std::vector<ToolMapping>& current,
+                                 const std::vector<ToolMapping>& picks) {
+    for (const auto& pick : picks) {
+        if (!pick.user_picked) {
+            continue;
+        }
+        const auto target =
+            std::find_if(current.begin(), current.end(),
+                         [&pick](const ToolMapping& m) { return m.tool_index == pick.tool_index; });
+        if (target != current.end()) {
+            *target = pick;
+        }
+    }
 }
 
 bool FilamentMapper::follow_seed(std::vector<ToolMapping>& current,

@@ -1645,6 +1645,9 @@ TEST_CASE("effective_mappings auto ON: a tool of unstated colour keeps the firmw
     auto routed = FilamentMapper::effective_mappings(tools, slots, true, routing);
     REQUIRE(routed.size() == 1);
     CHECK(routed[0].mapped_slot == 3);
+    // Following the printer is not a match the matcher made, so print start
+    // must not send it.
+    CHECK(routed[0].reason == ToolMapping::MatchReason::FIRMWARE_MAPPING);
 
     SECTION("a tool the routing gives no lane falls back to a free loaded lane") {
         routing.head_for_tool = {0, -1, 2, 3};
@@ -1658,6 +1661,31 @@ TEST_CASE("effective_mappings auto ON: a tool of unstated colour keeps the firmw
         REQUIRE(identity.size() == 1);
         CHECK(identity[0].mapped_slot == 1);
     }
+}
+
+TEST_CASE("apply_picks lays only the user's picks over the current mappings",
+          "[filament_mapper][routing]") {
+    // The remap modal returns the mappings as they stood when it opened. Only
+    // the rows the user changed are news; the rest may have followed the
+    // printer since, and the snapshot must not drag them back.
+    std::vector<ToolMapping> current(2);
+    current[0].tool_index = 0;
+    current[0].mapped_slot = 3; // followed the printer while the modal was open
+    current[1].tool_index = 1;
+    current[1].mapped_slot = 1;
+
+    std::vector<ToolMapping> from_modal(2);
+    from_modal[0].tool_index = 0;
+    from_modal[0].mapped_slot = 0; // the stale snapshot
+    from_modal[1].tool_index = 1;
+    from_modal[1].mapped_slot = 2;
+    from_modal[1].user_picked = true;
+
+    FilamentMapper::apply_picks(current, from_modal);
+    CHECK(current[0].mapped_slot == 3);
+    CHECK_FALSE(current[0].user_picked);
+    CHECK(current[1].mapped_slot == 2);
+    CHECK(current[1].user_picked);
 }
 
 TEST_CASE("effective_tool_colors scatters a sparse used-set to tool-number indices",

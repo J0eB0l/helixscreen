@@ -327,6 +327,7 @@ TEST_CASE("remap restore: a new print's snapshot disarms the retained retry",
     remap.tool_index = 0;
     remap.mapped_slot = 3;
     remap.mapped_backend = 0;
+    remap.user_picked = true;
     view.set_filament_mappings({remap});
     REQUIRE(PrintStartControllerTestAccess::apply_remaps(h.controller));
     REQUIRE(be.backend->calls.size() == 3);
