@@ -34,7 +34,9 @@ constexpr PanelEntry kKnownPanels[] = {
     {board::Board::Cc1, {480, 272, 107.0}},
     // Creality K1/K1C/K1 Max - 218.2 DPI. Reports 0x0 over the ioctl, so this table
     // is the only source it has. Panel is physically identical to the K2 Plus. All
-    // three mount it the same way and report no kernel panel_orientation.
+    // three mount it the same way and report no kernel panel_orientation. Every
+    // other mips box that resolves to K1 is told apart by its framebuffer geometry
+    // (board_mount_rotation). Geometry and mount must match platforms.json "k1".
     {board::Board::K1, {480, 800, 108.6, 270}},
     // Creality K2 Plus - 218.2 DPI. One of only two devices that measured honestly.
     {board::Board::K2, {480, 800, 108.6}},
@@ -122,12 +124,12 @@ std::optional<PanelSpec> DisplayMetrics::known_panel(board::Board board) {
     return std::nullopt;
 }
 
-int DisplayMetrics::first_boot_orientation(int kernel_orientation, board::Board board) {
-    if (kernel_orientation >= 0) {
-        return kernel_orientation;
-    }
+int DisplayMetrics::board_mount_rotation(board::Board board, int native_w, int native_h) {
     const auto panel = known_panel(board);
-    return panel ? panel->upright_rotation : -1;
+    if (!panel || panel->width_px != native_w || panel->height_px != native_h) {
+        return -1;
+    }
+    return panel->upright_rotation;
 }
 
 double DisplayMetrics::dpi_of(const PanelSpec& panel) {

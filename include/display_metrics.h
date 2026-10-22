@@ -146,10 +146,11 @@ class DisplayMetrics {
     /// arbitrary user-chosen display or its panel is unmeasured.
     static std::optional<PanelSpec> known_panel(board::Board board);
 
-    /// The orientation a first boot can apply without asking the user: the
-    /// kernel's panel_orientation (@p kernel_orientation, -1 if absent), else
-    /// the known panel's upright_rotation, else -1 (run the interactive probe).
-    static int first_boot_orientation(int kernel_orientation, board::Board board);
+    /// The board's known panel mount (upright_rotation), or -1 when the board has
+    /// none or the live framebuffer (@p native_w x @p native_h, before rotation)
+    /// is not the panel the mount was measured on. Board::K1 is also the mips
+    /// fall-through for unrecognised boxes, so the geometry is what confirms it.
+    static int board_mount_rotation(board::Board board, int native_w, int native_h);
 
     /// DPI implied by a panel's pixel dimensions and physical diagonal.
     static double dpi_of(const PanelSpec& panel);

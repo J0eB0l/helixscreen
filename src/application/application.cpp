@@ -1347,18 +1347,17 @@ bool Application::init_display() {
     DisplayManager::Config config;
     config.width = m_screen_width;
     config.height = m_screen_height;
-    // The first-boot orientation (the kernel's panel_orientation, else the
-    // board's known mount) is applied here, as the configured rotation, so it is
-    // in place before the backends create their input devices and gate the
-    // stored touch range on it (#1428).
+    // The first-boot orientation is applied by display init, as the configured
+    // rotation, so it is in place before the backends create their input devices
+    // and gate the stored touch range on it (#1428): the kernel's
+    // panel_orientation here, the board's mount once init knows the framebuffer.
     m_rotation_probe_wanted = rotation_probe_wanted();
     m_first_boot_orientation =
-        m_rotation_probe_wanted
-            ? helix::DisplayMetrics::first_boot_orientation(
-                  DisplayBackend::detect_panel_orientation(), helix::board::current())
-            : -1;
+        m_rotation_probe_wanted ? DisplayBackend::detect_panel_orientation() : -1;
     config.rotation =
         helix::startup_rotation(m_args.rotation, m_rotation_probe_wanted, m_first_boot_orientation);
+    config.first_boot_probe = m_rotation_probe_wanted;
+    config.kernel_orientation = m_first_boot_orientation;
     config.size_was_explicit = m_args.size_was_explicit;
 
     // Get scroll config from settings.json
@@ -1381,6 +1380,9 @@ bool Application::init_display() {
     if (!m_display->init(config)) {
         spdlog::error("[Application] Display initialization failed");
         return false;
+    }
+    if (m_display->board_mount_rotation() > 0) {
+        m_first_boot_orientation = m_display->board_mount_rotation();
     }
 
     // Update screen dimensions from what the display actually resolved to.
@@ -1632,7 +1634,7 @@ bool Application::rotation_probe_wanted() const {
     // Skip if: CLI rotation set, env var set, already probed, or config already
     // has a /display/rotate key (even if 0 — means user already configured it).
     // HELIX_FORCE_ROTATION_PROBE=1 bypasses all guards (for testing on SDL).
-    if (std::getenv("HELIX_FORCE_ROTATION_PROBE") != nullptr) {
+    if (helix::rotation_probe_forced()) {
         spdlog::info("[Application] Rotation probe forced via HELIX_FORCE_ROTATION_PROBE");
         return true;
     }

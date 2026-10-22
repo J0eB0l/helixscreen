@@ -19,6 +19,7 @@
 #include "text_io.h"
 #include "touch_calibration.h"
 
+#include <cstdlib>
 #include <lvgl.h>
 #include <memory>
 #include <optional>
@@ -285,15 +286,39 @@ inline int read_config_rotation(int default_value = 0) {
 
 namespace helix {
 
+/// HELIX_FORCE_ROTATION_PROBE: run the interactive probe even where the
+/// orientation is configured or known from the board.
+inline bool rotation_probe_forced() {
+    return std::getenv("HELIX_FORCE_ROTATION_PROBE") != nullptr;
+}
+
+/**
+ * @brief The board's panel mount as a first boot applies it, or -1
+ *
+ * Only where the kernel reports no panel_orientation and the probe is not
+ * forced, and only on the framebuffer geometry the mount was measured on.
+ *
+ * @param kernel_orientation The kernel's panel_orientation, -1 if absent
+ * @param native_w, native_h Framebuffer size before rotation
+ */
+inline int first_boot_board_mount(int kernel_orientation, int native_w, int native_h) {
+    if (rotation_probe_forced() || kernel_orientation >= 0) {
+        return -1;
+    }
+    return DisplayMetrics::board_mount_rotation(board::current(), native_w, native_h);
+}
+
 /**
  * @brief Rotation for the splash and the watchdog's crash dialog
  *
  * The CLI value, else the configured one (a saved 0 included, as the app honors
  * it), else the orientation the app's first boot applies without asking: the
  * kernel's panel_orientation (informational only: the kernel does not rotate the
- * framebuffer itself), else the board's known mount.
+ * framebuffer itself), else the board's known mount (first_boot_board_mount).
+ *
+ * @param native_w, native_h Framebuffer size before rotation
  */
-inline int standalone_rotation(int cli_rotation) {
+inline int standalone_rotation(int cli_rotation, int native_w, int native_h) {
     if (cli_rotation != 0) {
         return cli_rotation;
     }
@@ -301,16 +326,21 @@ inline int standalone_rotation(int cli_rotation) {
     if (saved >= 0) {
         return saved;
     }
-    const int known = DisplayMetrics::first_boot_orientation(
-        detect_panel_orientation_from_cmdline(), board::current());
-    return known > 0 ? known : 0;
+    const int kernel = detect_panel_orientation_from_cmdline();
+    if (kernel > 0) {
+        return kernel;
+    }
+    const int mount = first_boot_board_mount(kernel, native_w, native_h);
+    return mount > 0 ? mount : 0;
 }
 
 /**
  * @brief Rotation DisplayManager::init() applies at startup
  *
  * The requested rotation, else the kernel's panel_orientation when the
- * first-boot rotation probe owns this boot. It must be applied in init(),
+ * first-boot rotation probe owns this boot. The board's mount needs the
+ * framebuffer geometry, so DisplayManager::init() adds it after detecting the
+ * resolution (DisplayManager::Config::first_boot_probe). It must be applied in init(),
  * before the input devices exist: the backends gate the stored touch range and
  * calibration on the display's rotation from create_input_pointer()
  * (prestonbrown/helixscreen#1428).

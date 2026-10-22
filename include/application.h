@@ -155,8 +155,9 @@ class Application {
     std::optional<std::string> m_screen_size_env;
     bool m_screen_size_env_valid = false;
 
-    // First-boot rotation probe decision and the kernel panel_orientation it
-    // read (-1 = none), both taken in init_display() before the display exists
+    // First-boot rotation probe decision and the orientation that boot can apply
+    // without asking (kernel panel_orientation, else the board's mount; -1 =
+    // none, run the probe), both settled in init_display()
     bool m_rotation_probe_wanted = false;
     int m_first_boot_orientation = -1;
 

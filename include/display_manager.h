@@ -76,6 +76,8 @@ class DisplayManager : public helix::ICalibrationSink {
         bool require_pointer = true;    ///< Fail init if no pointer device (embedded only)
         bool splash_active = false;     ///< External splash owns framebuffer — skip unblank/pan
         bool size_was_explicit = false; ///< True if width/height came from user's -s flag
+        bool first_boot_probe = false;  ///< The first-boot rotation probe owns this boot
+        int kernel_orientation = -1;    ///< Kernel panel_orientation, -1 if absent
     };
 
     DisplayManager();
@@ -195,6 +197,11 @@ class DisplayManager : public helix::ICalibrationSink {
      */
     int height() const {
         return m_display ? lv_display_get_vertical_resolution(m_display) : m_height;
+    }
+
+    /// The board's panel mount init() applied on a first boot, or 0 when it applied none.
+    int board_mount_rotation() const {
+        return m_board_mount_rotation;
     }
 
     // ========================================================================
@@ -594,6 +601,7 @@ class DisplayManager : public helix::ICalibrationSink {
     /// width()/height() report the display's actual size.
     int m_width = 0;
     int m_height = 0;
+    int m_board_mount_rotation = 0;
     bool m_size_was_explicit = false;
 
     std::unique_ptr<DisplayBackend> m_backend;

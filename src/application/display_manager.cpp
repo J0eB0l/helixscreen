@@ -348,8 +348,20 @@ bool DisplayManager::init(const Config& config) {
         }
 
         // A first-boot kernel panel_orientation arrives as config.rotation
-        // (Application::init_display()). The interactive probe runs later, from
-        // Application::run_rotation_probe_and_layout().
+        // (Application::init_display()). The board's mount is decided here, where
+        // the framebuffer geometry that confirms it is known. The interactive
+        // probe runs later, from Application::run_rotation_probe_and_layout().
+        bool from_board_mount = false;
+        if (rotation_degrees == 0 && config.first_boot_probe) {
+            const int mount =
+                helix::first_boot_board_mount(config.kernel_orientation, m_width, m_height);
+            if (mount > 0) {
+                spdlog::info("[DisplayManager] First boot: board panel mount {}° for {}x{}", mount,
+                             m_width, m_height);
+                rotation_degrees = mount;
+                from_board_mount = true;
+            }
+        }
 
         // Apply rotation from config, env, or CLI
         if (rotation_degrees != 0) {
@@ -389,6 +401,9 @@ bool DisplayManager::init(const Config& config) {
             spdlog::info("[DisplayManager] Display rotated {}° — effective resolution: {}x{}",
                          rotation_degrees, width(), height());
 #endif
+        }
+        if (from_board_mount) {
+            m_board_mount_rotation = rotation_degrees;
         }
     }
 

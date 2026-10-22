@@ -12,9 +12,12 @@
 #include "display_metrics.h"
 
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "../catch_amalgamated.hpp"
+#include "hv/json.hpp"
 
 using helix::DisplayMetrics;
 using helix::DpiSource;
@@ -200,16 +203,21 @@ TEST_CASE("known panel DPI values all sit inside the deadband", "[display_metric
     }
 }
 
-TEST_CASE("a K1 comes up upright without the rotation probe", "[display_metrics][panel]") {
+TEST_CASE("a K1 panel comes up in its mount without the rotation probe",
+          "[display_metrics][panel]") {
     // K1, K1C and K1 Max share one portrait panel in one mount and report no
     // kernel panel_orientation, so the board is the only source of the answer.
-    CHECK(DisplayMetrics::first_boot_orientation(-1, Board::K1) == 270);
+    CHECK(DisplayMetrics::board_mount_rotation(Board::K1, 480, 800) == 270);
 }
 
-TEST_CASE("a kernel panel_orientation beats the board's mount", "[display_metrics][panel]") {
-    CHECK(DisplayMetrics::first_boot_orientation(90, Board::K1) == 90);
-    CHECK(DisplayMetrics::first_boot_orientation(0, Board::K1) == 0);
-    CHECK(DisplayMetrics::first_boot_orientation(180, Board::Generic) == 180);
+TEST_CASE("a K1-resolved board with another framebuffer still runs the probe",
+          "[display_metrics][panel]") {
+    // Board::K1 is the mips fall-through: an AD5X whose mod probe missed is 800x480,
+    // a Creator 5 Pro is 480x800 portrait at rotate 90, a K2 SE or KE is unmeasured.
+    CHECK(DisplayMetrics::board_mount_rotation(Board::K1, 800, 480) == -1);
+    CHECK(DisplayMetrics::board_mount_rotation(Board::K1, 480, 272) == -1);
+    CHECK(DisplayMetrics::board_mount_rotation(Board::K1, 1024, 600) == -1);
+    CHECK(DisplayMetrics::board_mount_rotation(Board::K1, 0, 0) == -1);
 }
 
 TEST_CASE("a board with no known mount leaves orientation to the probe",
@@ -217,7 +225,31 @@ TEST_CASE("a board with no known mount leaves orientation to the probe",
     for (Board board : {Board::Generic, Board::Ad5m, Board::Ad5x, Board::Creator5,
                         Board::Creator5Pro, Board::Cc1, Board::K2, Board::SnapmakerU1}) {
         INFO("board: " << helix::board::info(board).key);
-        CHECK(DisplayMetrics::first_boot_orientation(-1, board) == -1);
+        const auto panel = DisplayMetrics::known_panel(board);
+        const int w = panel ? panel->width_px : 480;
+        const int h = panel ? panel->height_px : 800;
+        CHECK(DisplayMetrics::board_mount_rotation(board, w, h) == -1);
+    }
+}
+
+TEST_CASE("known panel mounts match the platform manifest", "[display_metrics][panel]") {
+    // assets/config/platforms.json is the record of each measured panel; the table
+    // here is its compiled copy for the boards that use it at runtime.
+    const auto path = std::filesystem::current_path() / "assets" / "config" / "platforms.json";
+    INFO("manifest path: " << path.string());
+    std::ifstream f(path);
+    REQUIRE(f.good());
+    nlohmann::json manifest;
+    f >> manifest;
+    const auto& platforms = manifest.contains("platforms") ? manifest["platforms"] : manifest;
+    for (const char* key : {"k1"}) {
+        INFO("platform: " << key);
+        const auto& panel = platforms.at(key).at("panel");
+        const auto spec = DisplayMetrics::known_panel(helix::board::resolve(key));
+        REQUIRE(spec.has_value());
+        CHECK(spec->width_px == panel.at("width").get<int>());
+        CHECK(spec->height_px == panel.at("height").get<int>());
+        CHECK(spec->upright_rotation == panel.at("rotate").get<int>());
     }
 }
 
