@@ -249,6 +249,12 @@ void PrintSelectDetailView::init_subjects() {
         AmsState::instance().get_slots_version_subject(), this,
         [](PrintSelectDetailView* self, int /*version*/) { self->on_ams_state_changed(); },
         AmsState::instance().get_subjects_lifetime());
+    // The printer's tool table moving changes no slot, so it has its own
+    // version. Un-picked mappings follow it.
+    tool_map_version_observer_ = observe<int>(
+        AmsState::instance().get_tool_map_version_subject(), this,
+        [](PrintSelectDetailView* self, int /*version*/) { self->on_ams_state_changed(); },
+        AmsState::instance().get_subjects_lifetime());
 
     // Both land after the card has already published: the plugin probe completes
     // after first paint, and the Moonraker version arrives with discovery.
@@ -899,6 +905,9 @@ void PrintSelectDetailView::on_activate() {
     if (prep_manager_ && current_file_version_.size_bytes > 0) {
         prep_manager_->set_cached_file_size(static_cast<size_t>(current_file_version_.size_bytes));
     }
+
+    // The table or the lanes may have moved while the view was away.
+    on_ams_state_changed();
 
     // Ask the active AMS backend to refresh its slot/state view. Lets users
     // self-recover from any drift between cached UI state and printer truth

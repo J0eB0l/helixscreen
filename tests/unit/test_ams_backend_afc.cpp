@@ -1,6 +1,7 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_callback_helpers.h"
 #include "ui_print_select_detail_view.h"
 #include "ui_print_start_controller.h"
 #include "ui_test_utils.h"
@@ -31,8 +32,10 @@
 #include "test_helpers/mock_printer.h"
 #include "test_helpers/print_start_controller_test_access.h"
 #include "test_helpers/registered_backend.h"
+#include "test_helpers/scoped_cache_dir.h"
 #include "test_helpers/seeded_override.h"
 #include "test_helpers/update_queue_test_access.h"
+#include "tools_used_cache.h"
 
 #include <algorithm>
 #include <chrono>
@@ -2032,6 +2035,65 @@ TEST_CASE("AFC print start leaves a printer-side lane remap alone",
         CHECK(set_map_commands(h.reg->captured_gcodes) ==
               std::vector<std::string>{"SET_MAP LANE=lane3 MAP=T1"});
     }
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "An open print detail follows a printer-side map change it did not pick",
+                 "[ams][afc][tool_mapping][routing][print_select]") {
+    // The map moving is not a slot change: no colour or presence differs, so
+    // only the tool-map version announces it. An open detail view must re-seed
+    // the card's un-picked entries on it.
+    helix::test::ScopedCacheDir cache_dir;
+    const auto noop = [](lv_event_t*) {};
+    register_xml_callbacks({
+        {"on_print_select_detail_backdrop", noop},
+        {"on_print_select_print_button", noop},
+        {"on_print_select_delete_button", noop},
+        {"on_print_select_more_button", noop},
+        {"on_print_detail_back_clicked", noop},
+        {"on_toggle_sliced_colors", noop},
+        {"on_print_select_detail_objects", noop},
+    });
+    AmsState::instance().init_subjects(true);
+    helix::test::RegisteredBackend<AmsBackendAfcTestHelper> reg;
+    reg->initialize_test_lanes_with_slots(4);
+    for (int i = 0; i < 4; ++i) {
+        reg->feed_afc_stepper("lane" + std::to_string(i + 1),
+                              {{"map", "T" + std::to_string(i)}, {"prep", true}});
+    }
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    helix::ui::PrintSelectDetailView view;
+    view.init_subjects();
+    REQUIRE(view.create(test_screen()) != nullptr);
+    constexpr size_t kSize = 4242;
+    constexpr time_t kMtime = 4242;
+    helix::tools_used_cache().store("remap/follow.gcode", {kSize, kMtime}, {0, 1});
+    struct CloseOnExit {
+        helix::ui::PrintSelectDetailView& v;
+        ~CloseOnExit() {
+            v.hide();
+            helix::ui::UpdateQueue::instance().drain();
+            lv_timer_handler();
+        }
+    } closer{view};
+    view.show("follow.gcode", "remap", "PLA", {"#FF0000", "#00FF00"}, {"PLA", "PLA"}, kSize,
+              kMtime);
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    auto before = view.get_filament_mappings();
+    REQUIRE(before.size() == 2);
+    REQUIRE(before[1].mapped_slot == 1);
+
+    // On the printer, lane4 takes over T1 and lane2 takes T3.
+    reg->feed_afc_stepper("lane2", {{"map", "T3"}});
+    reg->feed_afc_stepper("lane4", {{"map", "T1"}});
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    const auto after = view.get_filament_mappings();
+    REQUIRE(after.size() == 2);
+    CHECK(after[0].mapped_slot == 0);
+    CHECK(after[1].mapped_slot == 3);
 }
 
 TEST_CASE("AFC print using a tool no lane is mapped to is blocked, not rerouted",
