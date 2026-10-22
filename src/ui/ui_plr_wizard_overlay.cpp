@@ -56,12 +56,16 @@ static lv_subject_t s_plr_error;
 static char s_plr_error_buf[256];
 static lv_subject_t s_plr_warn_layer_start;
 static lv_subject_t s_plr_jog_step;
+/// 1 once a downward jog has landed on the tier-1 Z step.
+static lv_subject_t s_plr_z_jogged;
 static lv_subject_t s_plr_need_part;
 static lv_subject_t s_plr_ack_part;
 static lv_subject_t s_plr_need_nozzle;
 static lv_subject_t s_plr_ack_nozzle;
 static lv_subject_t s_plr_need_no_mesh;
 static lv_subject_t s_plr_ack_no_mesh;
+static lv_subject_t s_plr_need_next_layer;
+static lv_subject_t s_plr_ack_next_layer;
 static lv_subject_t s_plr_need_cold_bed;
 static lv_subject_t s_plr_ack_cold_bed;
 
@@ -80,36 +84,6 @@ template <typename... Args> std::string tr_format(const char* fmt_tr, Args&&... 
         out = fmt::format(fmt::runtime(fmt_tr), std::forward<Args>(args)...);
     });
     return out;
-}
-
-/// What the plugin is doing, for a helix:plr_progress step name; nullptr for a
-/// step this app has no words for, which leaves the previous line up.
-const char* progress_step_text(const std::string& step) {
-    if (step == "bed_wait") {
-        return lv_tr("Heating the bed");
-    }
-    if (step == "chamber_wait") {
-        return lv_tr("Waiting for the chamber to heat");
-    }
-    if (step == "lift") {
-        return lv_tr("Lifting the nozzle clear of the print");
-    }
-    if (step == "home_xy") {
-        return lv_tr("Homing X and Y");
-    }
-    if (step == "move_to_resume") {
-        return lv_tr("Moving over the resume point");
-    }
-    if (step == "heat_nozzle") {
-        return lv_tr("Heating the nozzle");
-    }
-    if (step == "purge") {
-        return lv_tr("Purging the nozzle");
-    }
-    if (step == "start") {
-        return lv_tr("Starting the print");
-    }
-    return nullptr;
 }
 
 std::string outage_text(double age_s) {
@@ -137,6 +111,45 @@ bool live_step(PlrWizardStep step) {
 }
 
 } // namespace
+
+const char* plr_progress_step_text(const std::string& step) {
+    // prepare; bed_wait and chamber_wait come again in commit when it re-heats
+    if (step == "bed_wait") {
+        return lv_tr("Heating the bed");
+    }
+    if (step == "chamber_wait") {
+        return lv_tr("Waiting for the chamber to heat");
+    }
+    if (step == "lift") {
+        return lv_tr("Lifting the nozzle clear of the print");
+    }
+    if (step == "home_xy") {
+        return lv_tr("Homing X and Y");
+    }
+    if (step == "position") {
+        return lv_tr("Moving over the resume point");
+    }
+    // commit
+    if (step == "z_reference") {
+        return lv_tr("Setting the nozzle height");
+    }
+    if (step == "restore") {
+        return lv_tr("Restoring the print settings");
+    }
+    if (step == "heat_nozzle") {
+        return lv_tr("Heating the nozzle");
+    }
+    if (step == "purge") {
+        return lv_tr("Purging nozzle");
+    }
+    if (step == "move_to_resume") {
+        return lv_tr("Moving back to the print");
+    }
+    if (step == "start") {
+        return lv_tr("Starting the print");
+    }
+    return nullptr;
+}
 
 PlrWizardOverlay::~PlrWizardOverlay() {
     stop_listening();
@@ -167,12 +180,15 @@ void PlrWizardOverlay::init_subjects() {
         UI_MANAGED_SUBJECT_STRING(s_plr_error, s_plr_error_buf, "", "plr_wizard_error", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_warn_layer_start, 0, "plr_warn_layer_start", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_jog_step, kDefaultJogStep, "plr_jog_step", subjects_);
+        UI_MANAGED_SUBJECT_INT(s_plr_z_jogged, 0, "plr_z_jogged", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_need_part, 0, "plr_need_part", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_ack_part, 0, "plr_ack_part", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_need_nozzle, 0, "plr_need_nozzle", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_ack_nozzle, 0, "plr_ack_nozzle", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_need_no_mesh, 0, "plr_need_no_mesh", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_ack_no_mesh, 0, "plr_ack_no_mesh", subjects_);
+        UI_MANAGED_SUBJECT_INT(s_plr_need_next_layer, 0, "plr_need_next_layer", subjects_);
+        UI_MANAGED_SUBJECT_INT(s_plr_ack_next_layer, 0, "plr_ack_next_layer", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_need_cold_bed, 0, "plr_need_cold_bed", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_ack_cold_bed, 0, "plr_ack_cold_bed", subjects_);
     });
@@ -240,6 +256,8 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
     ++session_;
     plan_.reset();
     plan_reply_.reset();
+    plan_ready_seen_ = false;
+    print_starting_ = false;
     z_given_.reset();
     status_ = PlrPluginStatus{};
     connected_ = true;
@@ -248,9 +266,10 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
     if (!show(lv_screen_active())) {
         return;
     }
-    for (lv_subject_t* s : {&s_plr_ack_part, &s_plr_ack_nozzle, &s_plr_ack_no_mesh,
-                            &s_plr_ack_cold_bed, &s_plr_need_part, &s_plr_need_nozzle,
-                            &s_plr_need_no_mesh, &s_plr_need_cold_bed, &s_plr_warn_layer_start}) {
+    for (lv_subject_t* s :
+         {&s_plr_ack_part, &s_plr_ack_nozzle, &s_plr_ack_no_mesh, &s_plr_ack_next_layer,
+          &s_plr_ack_cold_bed, &s_plr_need_part, &s_plr_need_nozzle, &s_plr_need_no_mesh,
+          &s_plr_need_next_layer, &s_plr_need_cold_bed, &s_plr_warn_layer_start}) {
         lv_subject_set_int(s, 0);
     }
     lv_subject_set_int(&s_plr_jog_step, kDefaultJogStep);
@@ -261,10 +280,17 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
 }
 
 void PlrWizardOverlay::on_deactivating(DeactivateReason reason) {
+    // Nothing here is cancelled: a screensaver or a view pushed on top (Print
+    // Status opens as the resumed print starts) must not abort a bed wait the
+    // user is waiting out. Leaving the wizard is on_dismissed().
+    (void)reason;
+}
+
+void PlrWizardOverlay::on_dismissed() {
     // Leaving mid-sequence is an abort: the plugin stops, turns the heaters
     // off and keeps the snapshot for another try.
-    if (reason != DeactivateReason::Shutdown && step_ != PlrWizardStep::Done &&
-        step_ != PlrWizardStep::Failed && step_ != PlrWizardStep::Aborted) {
+    if (step_ != PlrWizardStep::Done && step_ != PlrWizardStep::Failed &&
+        step_ != PlrWizardStep::Aborted && !print_starting_) {
         advance(Event{false, false, true});
     }
     stop_listening();
@@ -288,6 +314,7 @@ std::vector<PlrConfirmation> PlrWizardOverlay::given() const {
         {&s_plr_ack_part, PlrConfirmation::PartAttached},
         {&s_plr_ack_nozzle, PlrConfirmation::NozzleClear},
         {&s_plr_ack_no_mesh, PlrConfirmation::AcceptNoMesh},
+        {&s_plr_ack_next_layer, PlrConfirmation::AcceptNextLayer},
         {&s_plr_ack_cold_bed, PlrConfirmation::AcceptColdBed},
     };
     for (const auto& [subject, c] : acks) {
@@ -333,6 +360,8 @@ void PlrWizardOverlay::advance(const Event& event) {
 }
 
 void PlrWizardOverlay::enter_step(PlrWizardStep step) {
+    // A jog still queued would land after the step it belonged to.
+    jog_.reset();
     const int session = session_;
     auto on_ok = lifetime_.bg_cb("PlrWizardOverlay::rpc_ok", [this, session]() {
         if (session == session_) {
@@ -356,8 +385,8 @@ void PlrWizardOverlay::enter_step(PlrWizardStep step) {
         plr_rpc::prepare(*api_, plan_->plan_id, false, std::move(on_ok), std::move(on_error));
         break;
     case PlrWizardStep::ZStep:
-        jog_.reset();
         lv_subject_set_int(&s_plr_jog_step, kDefaultJogStep);
+        lv_subject_set_int(&s_plr_z_jogged, 0);
         break;
     case PlrWizardStep::Committing:
         lv_subject_copy_string(&s_plr_progress, lv_tr("Waiting for the printer"));
@@ -421,7 +450,14 @@ void PlrWizardOverlay::on_status(const PlrPluginStatus& status) {
 
 void PlrWizardOverlay::on_plan(const PlrPlanReply& plan) {
     if (plan.pending) {
-        // A long scan: the plan follows with helix:plr_plan_ready.
+        // A long scan: the plan follows with helix:plr_plan_ready. Pending
+        // again after that event means the scan finished without a plan, and
+        // asking again would only start it over.
+        if (plan_ready_seen_) {
+            error_text_ = lv_tr("The printer could not work out where to resume.");
+            advance(Event{false, true, false});
+            return;
+        }
         spdlog::info("[PLR wizard] plan pending, waiting for the scan");
         return;
     }
@@ -449,16 +485,31 @@ void PlrWizardOverlay::on_progress(const PlrProgressEvent& event) {
     if (step_ != PlrWizardStep::Preparing && step_ != PlrWizardStep::Committing) {
         return;
     }
-    if (const char* text = progress_step_text(event.step)) {
+    // done and failed say nothing new: the next step's running line, or the
+    // RPC's own reply, follows.
+    if (event.state != "running") {
+        return;
+    }
+    if (step_ == PlrWizardStep::Committing && event.step == "start") {
+        print_starting_ = true;
+    }
+    if (const char* text = plr_progress_step_text(event.step)) {
         lv_subject_copy_string(&s_plr_progress, text);
     }
 }
 
-void PlrWizardOverlay::on_plan_ready(const std::string& plan_id) {
+void PlrWizardOverlay::on_plan_ready(const PlrPlanReady& ready) {
     if (step_ != PlrWizardStep::Offer || plan_reply_) {
         return;
     }
-    spdlog::info("[PLR wizard] plan {} ready", plan_id);
+    if (!ready.error.empty()) {
+        spdlog::warn("[PLR wizard] plan failed in the background: {}", ready.error);
+        error_text_ = ready.error;
+        advance(Event{false, true, false});
+        return;
+    }
+    spdlog::info("[PLR wizard] plan {} ready", ready.plan_id);
+    plan_ready_seen_ = true;
     request_plan();
 }
 
@@ -494,6 +545,11 @@ void PlrWizardOverlay::handle_resume() {
     // top, so the resume waits for the head to stop.
     if (jog_.in_flight()) {
         NOTIFY_INFO(lv_tr("Wait for the nozzle to stop moving"));
+        return;
+    }
+    // The part top is wherever the user lowered the nozzle to; with no jog
+    // down the lifted height would be declared as the part top.
+    if (plan_->tier == 1 && lv_subject_get_int(&s_plr_z_jogged) == 0) {
         return;
     }
     z_given_ = plan_->tier == 1 ? PlrConfirmation::ZJogged : PlrConfirmation::ZConfirmed;
@@ -541,9 +597,12 @@ void PlrWizardOverlay::send_jog(const AxisMove& move) {
     api_->motion().move_relative(
         move.dx, move.dy, move.dz, xy_feedrate, z_feedrate,
         lifetime_.bg_cb("PlrWizardOverlay::jog_ack",
-                        [this, session]() {
-                            if (session != session_) {
+                        [this, session, down = move.dz < 0.0]() {
+                            if (session != session_ || step_ != PlrWizardStep::ZStep) {
                                 return;
+                            }
+                            if (down) {
+                                lv_subject_set_int(&s_plr_z_jogged, 1);
                             }
                             if (auto flush = jog_.on_ack()) {
                                 if (const auto* delta = std::get_if<AxisMove>(&*flush)) {
@@ -552,7 +611,7 @@ void PlrWizardOverlay::send_jog(const AxisMove& move) {
                             }
                         }),
         lifetime_.bg_cb("PlrWizardOverlay::jog_error", [this, session](const MoonrakerError& err) {
-            if (session != session_) {
+            if (session != session_ || step_ != PlrWizardStep::ZStep) {
                 return;
             }
             jog_.on_error();
@@ -597,6 +656,8 @@ void PlrWizardOverlay::publish_plan() {
     lv_subject_set_int(&s_plr_need_part, needs(need, PlrConfirmation::PartAttached) ? 1 : 0);
     lv_subject_set_int(&s_plr_need_nozzle, needs(need, PlrConfirmation::NozzleClear) ? 1 : 0);
     lv_subject_set_int(&s_plr_need_no_mesh, needs(need, PlrConfirmation::AcceptNoMesh) ? 1 : 0);
+    lv_subject_set_int(&s_plr_need_next_layer,
+                       needs(need, PlrConfirmation::AcceptNextLayer) ? 1 : 0);
     lv_subject_set_int(&s_plr_need_cold_bed, needs(need, PlrConfirmation::AcceptColdBed) ? 1 : 0);
 }
 

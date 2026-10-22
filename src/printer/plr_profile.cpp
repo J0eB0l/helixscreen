@@ -171,12 +171,15 @@ PlrProfile plr_resolve_profile(const std::optional<PlrDbBlock>& db, const PlrUse
     }
     if (user.tier) {
         const int wanted = *user.tier;
-        const bool homing_ok = homing.xy_home_safe || homing.has_xy_home_override ||
+        const bool homing_ok = (homing.known && homing.xy_home_safe) ||
+                               homing.has_xy_home_override ||
                                (user.xy_home_gcode && !user.xy_home_gcode->empty());
+        // Trusting the held Z is a fact about the printer, not a preference.
+        const int ceiling = (db && db->z_holds_unpowered) ? 2 : 1;
         if (wanted <= p.tier && wanted >= 0) {
             p.tier = wanted;
         } else if (wanted == 1 || wanted == 2) {
-            p.tier = homing_ok ? wanted : 0;
+            p.tier = homing_ok ? std::min(wanted, ceiling) : 0;
         }
     }
     p.user_enabled = user.enabled;

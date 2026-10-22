@@ -110,6 +110,7 @@ class PlrOfferController {
     ObserverGuard wizard_observer_;
     ObserverGuard plr_feature_observer_;
     ObserverGuard printer_type_observer_;
+    ObserverGuard plugin_probe_observer_;
     ObserverGuard klippy_observer_;
 
     /// Guards the probe response, which arrives on the WebSocket thread.
@@ -127,6 +128,9 @@ class PlrOfferController {
     std::optional<helix::PlrPluginStatus> plugin_status_;
     bool plugin_status_inflight_ = false;
     int last_plr_feature_state_ = 0;
+    /// The plugin probe of this connection has answered, so the printer type
+    /// discovery resolved for this connection is in place.
+    bool probe_answered_this_connect_ = false;
     /// The printer type whose profile this connection wrote; empty when none.
     std::optional<std::string> published_profile_type_;
     /// Counts connections, so a status reply from a dropped link is ignored.

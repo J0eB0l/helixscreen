@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" zh="移动速度倍率"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." zh="移动打印头、归位轴、调平热床，并微调温度、风扇及其他运动设置。"/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." zh="移动打印头以测量每个轴上的振动频率。需要 2-3 分钟。打印机会发出噪音——这是正常的。"/>
+  <translation tag="Moving back to the print" zh="正在移回打印件"/>
   <translation tag="Moving lane" zh="正在移动耗材通道"/>
   <translation tag="Moving over the resume point" zh="正在移动到恢复点上方"/>
   <translation tag="Moving the plate..." zh="正在移动热床..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" zh="排料塔与刷子设置"/>
   <translation tag="Purging" zh="正在清料"/>
   <translation tag="Purging nozzle" zh="正在清洗喷嘴"/>
-  <translation tag="Purging the nozzle" zh="正在为喷嘴排料"/>
   <translation tag="Purging..." zh="正在清料..."/>
   <translation tag="QGL" zh="QGL"/>
   <translation tag="QGL failed: {}" zh="QGL 失败: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" zh="恢复默认设置"/>
   <translation tag="Restore tool" zh="恢复工具"/>
   <translation tag="Restoring position" zh="正在恢复位置"/>
+  <translation tag="Restoring the print settings" zh="正在恢复打印设置"/>
   <translation tag="Resume" zh="恢复"/>
   <translation tag="Resume Print" zh="恢复打印"/>
   <translation tag="Resume Requires Restart" zh="恢复打印需要重新开始"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" zh="设置"/>
   <translation tag="Set up your label printer in Settings" zh="在设置中配置标签打印机"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." zh="设置实际选择和加载的状态。不会移动任何部件。"/>
+  <translation tag="Setting the nozzle height" zh="正在设置喷嘴高度"/>
   <translation tag="Settings" zh="设置"/>
   <translation tag="Settings Snapshot" zh="设置快照"/>
   <translation tag="Settings reset to defaults. Restarting..." zh="设置已重置为默认值。正在重启..."/>
@@ -3219,6 +3221,7 @@
   <translation tag="Size" zh="大小"/>
   <translation tag="Skip" zh="跳过"/>
   <translation tag="Skip Objects..." zh="跳过对象..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" zh="跳过本层剩余部分并从下一层恢复"/>
   <translation tag="Skipped" zh="已跳过"/>
   <translation tag="Sleep While Printing" zh="打印时休眠"/>
   <translation tag="Sleep adjusted to match dim timeout" zh="休眠超时已调整"/>
@@ -3512,7 +3515,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." zh="运行 Klipper 的控制板。在系统设置中查看其负载。"/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" zh="切刀未复位。请检查切刀机构上是否缠绕耗材"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" zh="切刀未对准。请使用 CALIBRATE_CUT_POS 重新校准"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." zh="未找到确切的停止点。打印将从本层开头恢复。"/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." zh="未找到确切的停止点。打印将从下一层开头恢复，并跳过本层剩余部分。"/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" zh="挤出机无法顺畅拉动。请检查料盘是否缠绕或打结，以及 PTFE 管是否严重弯折"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." zh="耗材未到达喷嘴。CFS 未报告错误，但工具头传感器仍未检测到耗材。请检查料盘是否放置到位、路径是否畅通，然后重试。"/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" zh="耗材可能未完全回抽。请重试或手动抽出"/>
@@ -3559,6 +3562,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." zh="打印机可自动测量每个工具的偏移。可在工具偏移校准页面运行。"/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." zh="打印机可以自行测量压力提前量(pressure advance)。在 PA 校准界面运行。"/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." zh="打印机可在选定的层暂停,用于换料或嵌入零件。在打印预览中设置层。"/>
+  <translation tag="The printer could not work out where to resume." zh="打印机无法确定从哪里恢复。"/>
   <translation tag="The printer did not change its bed check" zh="打印机未更改热床检查"/>
   <translation tag="The printer did not change its bed check: {}" zh="打印机未更改热床检查：{}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." zh="打印机在角落挤出并重复，直到读数一致为止。你无需用肉眼判断任何东西。"/>

@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" es="Multiplicadores de velocidad de movimiento"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." es="Mueve el cabezal, haz origen de los ejes, nivela la cama y ajusta temperaturas, ventiladores y otros parámetros de movimiento."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." es="Mueve el cabezal para medir frecuencias de vibración en cada eje. Tarda 2-3 minutos. La impresora hará ruido — esto es normal."/>
+  <translation tag="Moving back to the print" es="Volviendo a la impresión"/>
   <translation tag="Moving lane" es="Moviendo carril"/>
   <translation tag="Moving over the resume point" es="Moviendo sobre el punto de reanudación"/>
   <translation tag="Moving the plate..." es="Moviendo la cama..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" es="Ajustes de torre de purga y cepillo"/>
   <translation tag="Purging" es="Purgando"/>
   <translation tag="Purging nozzle" es="Purgando boquilla"/>
-  <translation tag="Purging the nozzle" es="Purgando la boquilla"/>
   <translation tag="Purging..." es="Purgando..."/>
   <translation tag="QGL" es="QGL"/>
   <translation tag="QGL failed: {}" es="Error en QGL: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" es="Restaurar valores predeterminados"/>
   <translation tag="Restore tool" es="Restaurar herramienta"/>
   <translation tag="Restoring position" es="Restaurando posición"/>
+  <translation tag="Restoring the print settings" es="Restaurando los ajustes de impresión"/>
   <translation tag="Resume" es="Reanudar"/>
   <translation tag="Resume Print" es="Reanudar Impresión"/>
   <translation tag="Resume Requires Restart" es="Reanudar requiere reiniciar"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" es="Configurar"/>
   <translation tag="Set up your label printer in Settings" es="Configure su impresora de etiquetas en Ajustes"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." es="Indica qué está realmente seleccionado y cargado. Nada se mueve."/>
+  <translation tag="Setting the nozzle height" es="Ajustando la altura de la boquilla"/>
   <translation tag="Settings" es="Ajustes"/>
   <translation tag="Settings Snapshot" es="Instantánea de ajustes"/>
   <translation tag="Settings reset to defaults. Restarting..." es="Ajustes restablecidos a valores predeterminados. Reiniciando..."/>
@@ -3219,6 +3221,7 @@
   <translation tag="Size" es="Tamaño"/>
   <translation tag="Skip" es="Omitir"/>
   <translation tag="Skip Objects..." es="Omitir objetos..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" es="Omitir el resto de esta capa y reanudar en la siguiente"/>
   <translation tag="Skipped" es="Omitido"/>
   <translation tag="Sleep While Printing" es="Apagar pantalla al imprimir"/>
   <translation tag="Sleep adjusted to match dim timeout" es="Tiempo de suspensión ajustado"/>
@@ -3512,7 +3515,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." es="Las placas controladoras en las que se ejecuta Klipper. Consulta su carga en los ajustes del sistema."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" es="La cuchilla no regresó. Compruebe si hay filamento enrollado en el mecanismo de corte"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" es="El cortador está desalineado. Recalíbrelo con CALIBRATE_CUT_POS"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." es="No se encontró el punto exacto de parada. La impresión se reanuda desde el inicio de esta capa."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." es="No se encontró el punto exacto de parada. La impresión se reanuda al inicio de la siguiente capa y omite el resto de esta."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" es="El extrusor no puede tirar con suavidad. Revise la bobina por si hay enredos o nudos, y el tubo PTFE por si tiene una curva pronunciada"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." es="El filamento no llegó a la boquilla. El CFS no informó ningún error, pero el sensor del cabezal sigue sin detectar filamento. Compruebe que la bobina esté bien colocada y que el recorrido esté despejado, y vuelva a intentarlo."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" es="Puede que el filamento no se haya retraído por completo. Reintente o tire a mano"/>
@@ -3559,6 +3562,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." es="La impresora puede medir el desfase de cada herramienta automáticamente. Ejecútalo en la pantalla de calibración de desfases."/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." es="La impresora puede medir el pressure advance por sí sola. Ejecútalo en la pantalla Calibración PA."/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." es="La impresora puede pausar en una capa elegida, para cambiar de filamento o colocar un inserto. Define la capa desde la vista previa de impresión."/>
+  <translation tag="The printer could not work out where to resume." es="La impresora no pudo determinar dónde reanudar."/>
   <translation tag="The printer did not change its bed check" es="La impresora no cambió su comprobación de cama"/>
   <translation tag="The printer did not change its bed check: {}" es="La impresora no cambió su comprobación de cama: {}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." es="La impresora extruye en una esquina y repite hasta que las lecturas coinciden. Tú no juzgas nada a ojo."/>

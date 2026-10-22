@@ -2184,6 +2184,7 @@ translations:
   ? Moves the print head to measure vibration frequencies on each axis. Takes 2-3
     minutes. The printer will make noise — this is normal.
   : プリントヘッドを移動させて各軸の振動周波数を測定します。2〜3分かかります。プリンターから音がしますが、これは正常です。
+  Moving back to the print: 印刷物の上へ戻っています
   Moving lane: レーンを移動中
   Moving over the resume point: 再開位置の上へ移動中
   Moving the plate...: ベッドを移動中...
@@ -2828,7 +2829,6 @@ translations:
   Purge tower and brush settings: 'パージタワーとブラシの設定'
   Purging: パージ中
   Purging nozzle: ノズルをパージ中
-  Purging the nozzle: ノズルをパージ中
   Purging...: パージ中...
   QGL: QGL
   'QGL failed: {}': 'QGL に失敗しました: {}'
@@ -3028,6 +3028,7 @@ translations:
   Restore Defaults: デフォルトに戻す
   Restore tool: 'ツールを元に戻す'
   Restoring position: 位置を復元中
+  Restoring the print settings: 印刷設定を復元中
   Resume: 再開
   Resume Print: 印刷を再開
   Resume Requires Restart: '再開には再起動が必要です'
@@ -3288,6 +3289,7 @@ translations:
   Set up: セットアップ
   Set up your label printer in Settings: 設定でラベルプリンターをセットアップしてください
   Set what is really selected and loaded. Nothing moves.: '実際に選択・装填されている状態を設定します。何も動きません。'
+  Setting the nozzle height: ノズルの高さを設定中
   Settings: 設定
   Settings Snapshot: 設定スナップショット
   Settings reset to defaults. Restarting...: 設定をデフォルトにリセットしました。再起動中...
@@ -3335,6 +3337,7 @@ translations:
   Size: サイズ
   Skip: スキップ
   Skip Objects...: 'オブジェクトをスキップ...'
+  Skip the rest of this layer and resume at the next one: このレイヤーの残りをスキップして次のレイヤーから再開する
   Skipped: 'スキップ'
   Sleep While Printing: 印刷中のスリープ
   Sleep adjusted to match dim timeout: スリープタイムアウトを調整しました
@@ -3649,7 +3652,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: 'Klipperが動作するコントローラーボード。負荷はシステム設定で確認できます。'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: カッターの刃が戻りませんでした。切断機構にフィラメントが巻き付いていないか確認してください
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: カッターの位置がずれています。CALIBRATE_CUT_POS で再校正してください
-  The exact stopping point could not be found. The print resumes from the start of this layer.: 正確な停止位置が見つかりませんでした。このレイヤーの最初から再開します。
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : 正確な停止位置が見つかりませんでした。次のレイヤーの最初から再開し、このレイヤーの残りはスキップします。
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: エクストルーダーがスムーズに引き込めません。スプールの絡まりや結び目、PTFE チューブの急な曲がりを確認してください
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : フィラメントがノズルに到達しませんでした。CFSはエラーを報告していませんが、ツールヘッドセンサーはまだフィラメントを検出していません。スプールが正しく取り付けられ、フィラメント経路が塞がれていないことを確認して、再試行してください。
@@ -3704,6 +3708,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'プリンターは各ツールのオフセットを自動で測定できます。ツールオフセット校正画面で実行します。'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'プリンターはプレッシャーアドバンスを自分で測定できます。PAキャリブレーション画面で実行できます。'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'プリンターは、フィラメント交換やインサート挿入のために、選んだレイヤーで一時停止できます。レイヤーは印刷プレビューで設定します。'
+  The printer could not work out where to resume.: プリンターは再開位置を特定できませんでした。
   The printer did not change its bed check: 'プリンターはベッドチェックを変更しませんでした'
   'The printer did not change its bed check: {}': 'プリンターはベッドチェックを変更しませんでした：{}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'プリンターは隅で押出しを行い、測定値が一致するまで繰り返します。目視での判断は不要です。'

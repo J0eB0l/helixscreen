@@ -33,7 +33,8 @@ enum class PlrConfirmation {
     ZConfirmed,
     ZJogged,
     AcceptNoMesh,
-    AcceptColdBed
+    AcceptColdBed,
+    AcceptNextLayer
 };
 
 enum class PlrBedState { Ok, NeedsWait, ColdWarn };
@@ -72,7 +73,8 @@ PlrBedState plr_bed_decision(float target_c, float current_c, float max_diff_c);
 
 /// Everything commit needs: tier 1 part_attached, nozzle_clear, z_jogged; tier 2
 /// part_attached, z_confirmed; plus accept_no_mesh for a `mesh_unavailable`
-/// warning, accept_cold_bed for ColdWarn, and the plugin's own `requires`.
+/// warning, accept_next_layer for a `layer_start` warning, accept_cold_bed for
+/// ColdWarn, and the plugin's own `requires`.
 /// Any other tier needs nothing because it can never commit.
 std::vector<PlrConfirmation> plr_required_confirmations(const PlrPlanView& plan, PlrBedState bed);
 
@@ -121,6 +123,10 @@ struct PlrPluginStatus {
 /// Never throws; a malformed field reads as its default, which offers nothing.
 PlrPluginStatus plr_parse_plugin_status(const nlohmann::json& result);
 
+/// Why the plugin withholds the offer, for the log, for one `offer.blocked_by`
+/// code; a code this app does not know comes back as itself.
+std::string plr_blocked_reason(const std::string& code);
+
 /// server.helix.plr.plan, as read from its `result`.
 struct PlrPlanReply {
     /// The scan is still running; the plan follows with notify_plr_plan_ready.
@@ -159,8 +165,14 @@ struct PlrProgressEvent {
 /// Reads the whole notification message; nullopt when it carries no payload.
 std::optional<PlrProgressEvent> plr_parse_progress_event(const nlohmann::json& msg);
 
-/// The plan_id of a helix:plr_plan_ready notification, empty when absent.
-std::string plr_parse_plan_ready(const nlohmann::json& msg);
+/// helix:plr_plan_ready: the plan it finished, or why the scan failed.
+struct PlrPlanReady {
+    std::string plan_id;
+    /// Non-empty when the background scan failed; no plan follows.
+    std::string error;
+};
+
+PlrPlanReady plr_parse_plan_ready(const nlohmann::json& msg);
 
 /// The commit request: every given confirmation, and the Z reference the tier
 /// resumes from (tier 1 the part top the user jogged to, else the trusted frame).

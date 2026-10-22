@@ -13,6 +13,7 @@ namespace helix {
 namespace {
 
 constexpr const char* kMeshUnavailableWarning = "mesh_unavailable";
+constexpr const char* kLayerStartWarning = "layer_start";
 
 struct ConfirmationName {
     PlrConfirmation value;
@@ -26,6 +27,7 @@ constexpr ConfirmationName kConfirmationNames[] = {
     {PlrConfirmation::ZJogged, "z_jogged"},
     {PlrConfirmation::AcceptNoMesh, "accept_no_mesh"},
     {PlrConfirmation::AcceptColdBed, "accept_cold_bed"},
+    {PlrConfirmation::AcceptNextLayer, "accept_next_layer"},
 };
 
 bool contains(const std::vector<PlrConfirmation>& set, PlrConfirmation c) {
@@ -106,6 +108,10 @@ std::vector<PlrConfirmation> plr_required_confirmations(const PlrPlanView& plan,
     if (std::find(plan.warnings.begin(), plan.warnings.end(), kMeshUnavailableWarning) !=
         plan.warnings.end()) {
         add_unique(need, PlrConfirmation::AcceptNoMesh);
+    }
+    if (std::find(plan.warnings.begin(), plan.warnings.end(), kLayerStartWarning) !=
+        plan.warnings.end()) {
+        add_unique(need, PlrConfirmation::AcceptNextLayer);
     }
     if (bed == PlrBedState::ColdWarn) {
         add_unique(need, PlrConfirmation::AcceptColdBed);
@@ -212,6 +218,24 @@ PlrPluginBackend plr_parse_plugin_backend(const std::string& name) {
     return PlrPluginBackend::None;
 }
 
+std::string plr_blocked_reason(const std::string& code) {
+    static constexpr std::pair<const char*, const char*> kReasons[] = {
+        {"not_interrupted", "the last print was not interrupted"},
+        {"no_snapshot", "no snapshot of the interrupted print"},
+        {"file_changed", "the print file changed since the snapshot"},
+        {"too_early", "the print had barely started"},
+        {"not_supported", "this printer cannot resume"},
+        {"klippy_not_ready", "Klipper is not ready"},
+        {"no_lift_room", "not enough Z headroom to lift the nozzle clear of the print"},
+    };
+    for (const auto& [name, reason] : kReasons) {
+        if (code == name) {
+            return reason;
+        }
+    }
+    return code;
+}
+
 PlrPluginStatus plr_parse_plugin_status(const nlohmann::json& result) {
     PlrPluginStatus status;
     if (!result.is_object()) {
@@ -306,9 +330,14 @@ std::optional<PlrProgressEvent> plr_parse_progress_event(const nlohmann::json& m
     return event;
 }
 
-std::string plr_parse_plan_ready(const nlohmann::json& msg) {
+PlrPlanReady plr_parse_plan_ready(const nlohmann::json& msg) {
+    PlrPlanReady ready;
     const nlohmann::json* payload = json_util::notification_payload(msg);
-    return payload ? json_util::safe_string(*payload, "plan_id", "") : std::string();
+    if (payload != nullptr) {
+        ready.plan_id = json_util::safe_string(*payload, "plan_id", "");
+        ready.error = json_util::safe_string(*payload, "error", "");
+    }
+    return ready;
 }
 
 nlohmann::json plr_commit_params(const std::string& plan_id,

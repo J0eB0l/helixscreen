@@ -26,10 +26,12 @@ enum class PlrBackendKind { Generic, QidiPrintState, Vendor };
 enum class StorageHint { Emmc, Sd, Nand, Ssd, Unknown };
 
 /// Whether `G28 X Y` is safe on this printer (§ 7.3). The plugin re-checks it
-/// against configfile; the app's answer only gates a user tier raise.
+/// against configfile; the app's answer only gates a user tier raise, and an
+/// answer the app does not have (`known` false) counts as unsafe for that.
 struct PlrHomingCheck {
     bool xy_home_safe = false;
     bool has_xy_home_override = false;
+    bool known = false;
 };
 
 /// The printer database's `plr` block. Absent block = tier 0.
@@ -72,10 +74,11 @@ struct PlrProfile {
 /// object). A bad-typed or out-of-range key keeps its default.
 std::optional<PlrDbBlock> plr_parse_db_block(const nlohmann::json& printer_entry);
 
-/// DB block plus user overrides. No block is tier 0. Tier 2 from the database
-/// needs `z_holds_unpowered`, else it resolves to 1. The user may lower the
-/// tier, or set 1 or 2 on a printer whose X/Y homing is safe or overridden; a
-/// raise on unsafe homing with no override resolves to 0.
+/// DB block plus user overrides. No block is tier 0. Tier 2 always needs the
+/// database's `z_holds_unpowered`, whoever asks for it; without it the tier is
+/// at most 1. The user may lower the tier, or raise it on a printer whose X/Y
+/// homing is known safe or overridden; a raise on unsafe or unknown homing with
+/// no override resolves to 0.
 PlrProfile plr_resolve_profile(const std::optional<PlrDbBlock>& db, const PlrUserOverride& user,
                                const PlrHomingCheck& homing);
 

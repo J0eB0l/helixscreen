@@ -2352,6 +2352,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Перемещает печатающую головку для измерения частот вибрации по каждой оси. Занимает
     2-3 минуты. Принтер будет шуметь — это нормально.
+  Moving back to the print: Возврат к печати
   Moving lane: Перемещение канала
   Moving over the resume point: Перемещение к точке продолжения
   Moving the plate...: Перемещение стола...
@@ -3027,7 +3028,6 @@ translations:
   Purge tower and brush settings: 'Настройки башни продувки и щётки'
   Purging: Продувка
   Purging nozzle: Продувка сопла
-  Purging the nozzle: Продувка сопла
   Purging...: Продувка...
   QGL: QGL
   'QGL failed: {}': 'Ошибка QGL: {}'
@@ -3234,6 +3234,7 @@ translations:
   Restore Defaults: Восстановить по умолчанию
   Restore tool: 'Вернуть инструмент'
   Restoring position: Восстановление позиции
+  Restoring the print settings: Восстановление настроек печати
   Resume: Продолжить
   Resume Print: Продолжить печать
   Resume Requires Restart: 'Для возобновления нужен перезапуск'
@@ -3515,6 +3516,7 @@ translations:
   Set up: Настроить
   Set up your label printer in Settings: Настройте принтер этикеток в Настройках
   Set what is really selected and loaded. Nothing moves.: 'Укажите, что на самом деле выбрано и загружено. Ничего не двигается.'
+  Setting the nozzle height: Установка высоты сопла
   Settings: Настройки
   Settings Snapshot: Снимок настроек
   Settings reset to defaults. Restarting...: Настройки сброшены к значениям по умолчанию.
@@ -3569,6 +3571,7 @@ translations:
   Size: Размер
   Skip: Пропустить
   Skip Objects...: 'Пропустить объекты...'
+  Skip the rest of this layer and resume at the next one: Пропустить остаток этого слоя и продолжить со следующего
   Skipped: 'Пропущено'
   Sleep While Printing: Спящий режим при печати
   Sleep adjusted to match dim timeout: Таймаут сна изменён
@@ -3906,7 +3909,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: 'Платы контроллеров, на которых работает Klipper. Их загрузку можно посмотреть в системных настройках.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: Лезвие не вернулось. Проверьте, не намотался ли филамент на режущий механизм
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: Резак смещён. Выполните повторную калибровку командой CALIBRATE_CUT_POS
-  The exact stopping point could not be found. The print resumes from the start of this layer.: Точное место остановки не найдено. Печать продолжится с начала этого слоя.
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : Точное место остановки не найдено. Печать продолжится с начала следующего слоя, остаток этого слоя будет пропущен.
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: Экструдер не может тянуть равномерно. Проверьте катушку на запутывание или узел, а трубку PTFE на резкий изгиб
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : Филамент не дошёл до сопла. CFS не сообщила об ошибке, но датчик печатающей головки по-прежнему не видит филамент. Проверьте, что катушка установлена правильно и путь свободен, затем повторите попытку.
@@ -3962,6 +3966,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'Принтер может автоматически измерить смещение каждого инструмента. Запустите это на экране калибровки смещений инструментов.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'Принтер может сам измерить pressure advance. Запускается на экране «Калибровка PA».'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'Принтер может встать на паузу на выбранном слое, для смены филамента или вставки детали. Слой задается в предпросмотре печати.'
+  The printer could not work out where to resume.: Принтер не смог определить, откуда продолжить.
   The printer did not change its bed check: 'Принтер не изменил проверку стола'
   'The printer did not change its bed check: {}': 'Принтер не изменил проверку стола: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'Принтер выдавливает пластик в углу и повторяет, пока показания не сойдутся. Ничего не нужно оценивать на глаз.'

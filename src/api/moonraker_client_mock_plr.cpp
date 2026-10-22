@@ -123,7 +123,8 @@ json MoonrakerClientMock::mock_plr_feature_entry() {
     }
     return json{{"version", helix::kPlrFeatureMinVersion},
                 {"available", true},
-                {"enabled", mock_plr_saving()},
+                {"enabled", mock_plr_saving() || mock_plr_interrupted()},
+                {"saving", mock_plr_saving()},
                 {"reason", nullptr}};
 }
 
@@ -171,6 +172,13 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                     {"saved_at", now - kMockPlrOutageS},
                     {"age_s", kMockPlrOutageS}};
         }
+        json blocked_by = json::array();
+        if (!snapshot) {
+            blocked_by.push_back("no_snapshot");
+        }
+        if (cfg.fail == "no_lift_room") {
+            blocked_by.push_back("no_lift_room");
+        }
         reply({{"saving", mock_plr_saving()},
                {"storage",
                 {{"storage_class", "emmc"},
@@ -180,9 +188,7 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                {"tier", cfg.tier},
                {"backend", cfg.backend},
                {"snapshot", snap},
-               {"offer",
-                {{"available", snapshot},
-                 {"blocked_by", snapshot ? json::array() : json::array({"no_snapshot"})}}}});
+               {"offer", {{"available", blocked_by.empty()}, {"blocked_by", blocked_by}}}});
         return;
     }
 
@@ -200,6 +206,25 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
         }
         if (!snapshot) {
             fail(plr_error(method, "plr_no_plan", "No power-loss snapshot"));
+            return;
+        }
+        if (cfg.fail == "plan_background" || cfg.fail == "plan_loop") {
+            // A long scan answers pending, then reports through plan_ready:
+            // with an error, or (plan_loop) with nothing a re-request can use.
+            const bool with_error = cfg.fail == "plan_background";
+            play_console_steps(
+                {[this, with_error]() {
+                    json ready = {{"plan_id", with_error ? "" : "mock-plan-pending"}};
+                    if (with_error) {
+                        ready["error"] = "multi_material: the file uses 2 tools";
+                    }
+                    dispatch_method_callback(helix::kPlrPlanReadyNotify,
+                                             json{{"jsonrpc", "2.0"},
+                                                  {"method", helix::kPlrPlanReadyNotify},
+                                                  {"params", {ready}}});
+                }},
+                kMockPlrStepIntervalMs, []() {});
+            reply({{"pending", true}});
             return;
         }
         plr_plan_id_ = fmt::format("mock-plan-{}", ++plr_plan_seq_);
@@ -261,7 +286,7 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
         std::vector<std::function<void()>> steps = {progress("bed_wait"), progress("lift"),
                                                     progress("home_xy")};
         if (cfg.tier == 1) {
-            steps.push_back(progress("move_to_resume"));
+            steps.push_back(progress("position"));
         }
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs,
                            [reply]() { reply({{"ok", true}}); });
@@ -281,8 +306,11 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                 return;
             }
         }
-        std::vector<std::function<void()>> steps = {progress("heat_nozzle"), progress("purge"),
-                                                    progress("start")};
+        // The plugin re-heats the bed after restoring the print state.
+        std::vector<std::function<void()>> steps = {
+            progress("z_reference"), progress("restore"), progress("bed_wait"),
+            progress("heat_nozzle"), progress("purge"),   progress("move_to_resume"),
+            progress("start")};
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs, [this, reply]() {
             plr_snapshot_cleared_ = true;
             plr_plan_id_.clear();

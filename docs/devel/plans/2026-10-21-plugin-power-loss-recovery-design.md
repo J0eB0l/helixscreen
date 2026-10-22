@@ -291,9 +291,9 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    (no ridge, possibly a gap). Initial default 0.5, settled by task T2. Reported as
    `retrace_estimate_mm` and `skip_estimate_mm`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the next
-   layer (ruling R26), `method: "layer_start"`, with the `layer_start` warning. The scan reads on
-   past the head when it has not reached that layer; no next layer (the last one) or no layer
-   markers means no plan. Never a byte rewind.
+   layer (ruling R26; the partial layer is skipped), `method: "layer_start"`, with the
+   `layer_start` warning. The scan reads on past the head when it has not reached that layer;
+   no next layer (the last one) or no layer markers means no plan. Never a byte rewind.
 
 Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `ScanResult` and
 `scan_to_offset` are built and live in `helix_gcode_reader.py` (the plugin's constants are
@@ -613,6 +613,7 @@ Available when all hold, else `blocked_by` lists each failing rule:
 | `layer >= 2` (unknown layer: `print_duration >= 120` s) | `too_early` |
 | tier >= 1 | `not_supported` |
 | Klipper ready | `klippy_not_ready` |
+| Z headroom to lift clear of the print | `no_lift_room` |
 
 The app adds its existing idle, latch and wizard rules (`plr_should_offer()`).
 

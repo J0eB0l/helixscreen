@@ -11,6 +11,7 @@
 #include "plr_offer_controller.h"
 #include "plr_plugin_rpc.h"
 #include "plr_profile.h"
+#include "plr_wizard.h"
 #include "print_lifecycle_state.h" // PrintState, job_holds_machine
 #include "printer_detector.h"
 #include "printer_state.h"
@@ -77,6 +78,15 @@ PlrOfferController::PlrOfferController() {
     plr_feature_observer_ = observe<int>(
         ps.plugin_status_state().get_plr_feature_state_subject(), this,
         [](PlrOfferController* self, int value) { self->on_plr_feature_changed(value); },
+        ps.get_subjects_lifetime());
+    plugin_probe_observer_ = observe<int>(
+        ps.plugin_status_state().get_helix_plugin_probe_seq_subject(), this,
+        [](PlrOfferController* self, int seq) {
+            if (seq > 0) {
+                self->probe_answered_this_connect_ = true;
+                self->publish_profile();
+            }
+        },
         ps.get_subjects_lifetime());
     printer_type_observer_ = observe<const char*>(
         ps.profile_state().get_printer_type_subject(), this,
@@ -345,6 +355,11 @@ void PlrOfferController::publish_profile() {
         PluginFeatureState::Absent) {
         return;
     }
+    // Until this connection's discovery has run, printer_type() can still be
+    // the previous printer's, and its block must not land in this Moonraker.
+    if (!probe_answered_this_connect_) {
+        return;
+    }
     const std::string type = ps.profile_state().printer_type();
     if (published_profile_type_ && *published_profile_type_ == type) {
         return;
@@ -354,10 +369,10 @@ void PlrOfferController::publish_profile() {
         return;
     }
     published_profile_type_ = type;
-    // The plugin checks X/Y homing safety against configfile itself (§ 7.3);
-    // with no user tier override here, the app's answer gates nothing.
+    // The app does not read homing_override, so homing is unknown here: no
+    // user raise passes it. The plugin checks the database tier itself (§ 7.3).
     const PlrProfile profile = plr_resolve_profile(PrinterDetector::get_plr_block(type),
-                                                   PlrUserOverride{}, PlrHomingCheck{true, false});
+                                                   PlrUserOverride{}, PlrHomingCheck{});
     spdlog::info("[PLR] Writing plr_profile for '{}' (tier {})", type, profile.tier);
     plr_rpc::write_profile(
         *api, plr_profile_json(profile),
@@ -378,6 +393,9 @@ void PlrOfferController::on_plugin_status(const PlrPluginStatus& status) {
     spdlog::info("[PLR] Plugin recovery status: backend={} tier={} offer={} snapshot='{}'",
                  static_cast<int>(status.backend), status.tier, status.offer_available,
                  status.snapshot ? status.snapshot->filename : std::string());
+    for (const std::string& code : status.blocked_by) {
+        spdlog::info("[PLR] Plugin withholds the offer: {}", plr_blocked_reason(code));
+    }
     if (klippy_not_ready) {
         return;
     }
@@ -397,6 +415,7 @@ void PlrOfferController::on_connection_state_changed(int new_conn_state) {
         plugin_status_.reset();
         plugin_status_inflight_ = false;
         published_profile_type_.reset();
+        probe_answered_this_connect_ = false;
         ++connection_generation_;
 
         // Force the PLR capability and availability subjects back to 0 (and
@@ -414,7 +433,6 @@ void PlrOfferController::on_connection_state_changed(int new_conn_state) {
         ps.print_state().clear_pl_recovery_file();
     }
     last_conn_state_ = new_conn_state;
-    publish_profile();
     request_plugin_status();
 }
 

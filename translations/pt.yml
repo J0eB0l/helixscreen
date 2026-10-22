@@ -2314,6 +2314,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Move o cabeçote para medir frequências de vibração em cada eixo. Leva 2-3 minutos.
     A impressora fará barulho — isso é normal.
+  Moving back to the print: Voltando para a impressão
   Moving lane: Movendo lane
   Moving over the resume point: Movendo sobre o ponto de retomada
   Moving the plate...: Movendo a mesa...
@@ -2981,7 +2982,6 @@ translations:
   Purge tower and brush settings: 'Configurações da torre de purga e da escova'
   Purging: Purgando
   Purging nozzle: Purgando bico
-  Purging the nozzle: Purgando o bico
   Purging...: Purgando...
   QGL: QGL
   'QGL failed: {}': 'Falha no QGL: {}'
@@ -3190,6 +3190,7 @@ translations:
   Restore Defaults: Restaurar Padrões
   Restore tool: 'Restaurar ferramenta'
   Restoring position: Restaurando posição
+  Restoring the print settings: Restaurando as configurações de impressão
   Resume: Retomar
   Resume Print: Retomar Impressão
   Resume Requires Restart: 'Retomar exige reiniciar'
@@ -3475,6 +3476,7 @@ translations:
   Set up your label printer in Settings: Configure sua impressora de etiquetas em
     Configurações
   Set what is really selected and loaded. Nothing moves.: 'Defina o que está realmente selecionado e carregado. Nada se move.'
+  Setting the nozzle height: Definindo a altura do bico
   Settings: Configurações
   Settings Snapshot: Captura de Configurações
   Settings reset to defaults. Restarting...: Configurações restauradas para os padrões.
@@ -3530,6 +3532,7 @@ translations:
   Size: Tamanho
   Skip: Pular
   Skip Objects...: 'Pular objetos...'
+  Skip the rest of this layer and resume at the next one: Pular o restante desta camada e retomar na próxima
   Skipped: 'Ignorado'
   Sleep While Printing: Suspender Durante Impressão
   Sleep adjusted to match dim timeout: Tempo de suspensão ajustado
@@ -3862,7 +3865,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: 'As placas controladoras em que o Klipper roda. Veja a carga delas nas configurações do sistema.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: A lâmina não retornou. Verifique se há filamento enrolado no mecanismo de corte
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: O cortador está desalinhado. Recalibre com CALIBRATE_CUT_POS
-  The exact stopping point could not be found. The print resumes from the start of this layer.: O ponto exato de parada não foi encontrado. A impressão é retomada no início desta camada.
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : O ponto exato de parada não foi encontrado. A impressão é retomada no início da próxima camada e pula o restante desta.
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: O extrusor não consegue puxar com suavidade. Verifique se o carretel está embaraçado ou com nós, e se o tubo PTFE tem uma curva acentuada
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : O filamento não chegou ao bico. O CFS não reportou nenhum erro, mas o sensor do cabeçote ainda não detecta filamento. Verifique se o carretel está bem encaixado e se o caminho está livre, e tente novamente.
@@ -3919,6 +3923,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'A impressora pode medir o deslocamento de cada ferramenta automaticamente. Execute na tela de calibração de deslocamento.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'A impressora pode medir o pressure advance por conta própria. Execute na tela Calibração de PA.'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'A impressora pode pausar em uma camada escolhida, para trocar o filamento ou colocar um inserto. Defina a camada na pré-visualização da impressão.'
+  The printer could not work out where to resume.: A impressora não conseguiu determinar onde retomar.
   The printer did not change its bed check: 'A impressora não alterou a verificação da mesa'
   'The printer did not change its bed check: {}': 'A impressora não alterou a verificação da mesa: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'A impressora extruda num canto e repete até as leituras coincidirem. Você não julga nada a olho.'

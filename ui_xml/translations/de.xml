@@ -2103,6 +2103,7 @@
   <translation tag="Move speed multipliers" de="Multiplikatoren der Verfahrgeschwindigkeit"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." de="Verfahren Sie den Druckkopf, referenzieren Sie Achsen, nivellieren Sie das Bett und justieren Sie Temperaturen, Lüfter und weitere Bewegungseinstellungen."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." de="Bewegt den Druckkopf, um Vibrationsfrequenzen auf jeder Achse zu messen. Dauert 2-3 Minuten. Der Drucker wird Geräusche machen — das ist normal."/>
+  <translation tag="Moving back to the print" de="Fahrt zurück zum Druck"/>
   <translation tag="Moving lane" de="Spur bewegen"/>
   <translation tag="Moving over the resume point" de="Fahrt über den Fortsetzungspunkt"/>
   <translation tag="Moving the plate..." de="Heizbett wird bewegt..."/>
@@ -2726,7 +2727,6 @@
   <translation tag="Purge tower and brush settings" de="Einstellungen für Reinigungsturm und Bürste"/>
   <translation tag="Purging" de="Spülen"/>
   <translation tag="Purging nozzle" de="Düse wird gespült"/>
-  <translation tag="Purging the nozzle" de="Düse wird entlüftet"/>
   <translation tag="Purging..." de="Entlüften..."/>
   <translation tag="QGL" de="QGL"/>
   <translation tag="QGL failed: {}" de="QGL fehlgeschlagen: {}"/>
@@ -2924,6 +2924,7 @@
   <translation tag="Restore Defaults" de="Standardeinstellungen wiederherstellen"/>
   <translation tag="Restore tool" de="Werkzeug wiederherstellen"/>
   <translation tag="Restoring position" de="Position wiederherstellen"/>
+  <translation tag="Restoring the print settings" de="Druckeinstellungen werden wiederhergestellt"/>
   <translation tag="Resume" de="Fortsetzen"/>
   <translation tag="Resume Print" de="Druck fortsetzen"/>
   <translation tag="Resume Requires Restart" de="Fortsetzen erfordert Neustart"/>
@@ -3173,6 +3174,7 @@
   <translation tag="Set up" de="Einrichten"/>
   <translation tag="Set up your label printer in Settings" de="Etikettendrucker in Einstellungen einrichten"/>
   <translation tag="Set what is really selected and loaded. Nothing moves." de="Festlegen, was wirklich ausgewählt und geladen ist. Nichts bewegt sich."/>
+  <translation tag="Setting the nozzle height" de="Düsenhöhe wird festgelegt"/>
   <translation tag="Settings" de="Einstellungen"/>
   <translation tag="Settings Snapshot" de="Einstellungen-Momentaufnahme"/>
   <translation tag="Settings reset to defaults. Restarting..." de="Einstellungen auf Standardwerte zurückgesetzt. Neustart..."/>
@@ -3219,6 +3221,7 @@
   <translation tag="Size" de="Größe"/>
   <translation tag="Skip" de="Überspringen"/>
   <translation tag="Skip Objects..." de="Objekte überspringen..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" de="Rest dieser Schicht überspringen und bei der nächsten fortsetzen"/>
   <translation tag="Skipped" de="Übersprungen"/>
   <translation tag="Sleep While Printing" de="Ruhemodus beim Drucken"/>
   <translation tag="Sleep adjusted to match dim timeout" de="Ruhemodus-Zeitlimit angepasst"/>
@@ -3512,7 +3515,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." de="Die Steuerplatinen, auf denen Klipper läuft. Ihre Auslastung siehst du in den Systemeinstellungen."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" de="Die Schneidklinge ist nicht zurückgefahren. Prüfen, ob Filament um den Schneidmechanismus gewickelt ist"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" de="Der Schneider ist verstellt. Mit CALIBRATE_CUT_POS neu kalibrieren"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." de="Die genaue Stoppstelle wurde nicht gefunden. Der Druck wird am Anfang dieser Schicht fortgesetzt."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." de="Die genaue Stoppstelle wurde nicht gefunden. Der Druck wird am Anfang der nächsten Schicht fortgesetzt und überspringt den Rest dieser Schicht."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" de="Der Extruder kann es nicht gleichmäßig fördern. Spule auf Verheddern oder Knoten prüfen und den PTFE-Schlauch auf starke Biegungen"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." de="Das Filament hat die Düse nicht erreicht. Das CFS hat keinen Fehler gemeldet, aber der Werkzeugkopfsensor erkennt weiterhin kein Filament. Stellen Sie sicher, dass die Spule richtig sitzt und der Pfad frei ist, und versuchen Sie es erneut."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" de="Das Filament wurde möglicherweise nicht vollständig eingezogen. Erneut versuchen oder von Hand ziehen"/>
@@ -3559,6 +3562,7 @@
   <translation tag="The printer can measure each tool&apos;s offset automatically. Run it on the tool offset calibration screen." de="Der Drucker kann den Versatz jedes Werkzeugs automatisch messen. Starten Sie dies im Bildschirm Werkzeugversatz-Kalibrierung."/>
   <translation tag="The printer can measure pressure advance on its own. Run it on the PA calibration screen." de="Der Drucker kann Pressure Advance selbst messen. Starte es im PA-Kalibrierung-Bildschirm."/>
   <translation tag="The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview." de="Der Drucker kann bei einer gewählten Schicht pausieren, etwa für einen Filamentwechsel oder ein Einlegeteil. Lege die Schicht in der Druckvorschau fest."/>
+  <translation tag="The printer could not work out where to resume." de="Der Drucker konnte nicht ermitteln, wo fortgesetzt werden soll."/>
   <translation tag="The printer did not change its bed check" de="Der Drucker hat seine Bettprüfung nicht geändert"/>
   <translation tag="The printer did not change its bed check: {}" de="Der Drucker hat seine Bettprüfung nicht geändert: {}"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." de="Der Drucker extrudiert in einer Ecke und wiederholt, bis die Messwerte übereinstimmen. Du beurteilst nichts mit dem Auge."/>

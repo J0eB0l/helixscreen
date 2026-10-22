@@ -1718,7 +1718,7 @@ translations:
   Heating nozzle to $1°C...: Riscaldamento ugello a $1°C...
   Heating nozzle...: Riscaldamento ugello...
   Heating the bed: Riscaldamento del piano
-  Heating the nozzle: Riscaldamento dell'ugello
+  Heating the nozzle: 'Riscaldamento dell''ugello'
   Heating to %d°C... %.0f°C: Riscaldamento a %d°C... %.0f°C
   Heating to {}°C before {}...: Riscaldamento a {}°C prima di {}...
   Heating to {}°C for {}...: Riscaldamento a {}°C per {}...
@@ -2312,6 +2312,7 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Muove la testina per misurare le frequenze di vibrazione su ogni asse. Richiede
     2-3 minuti. La stampante farà rumore — è normale.
+  Moving back to the print: Ritorno sulla stampa
   Moving lane: Spostamento corsia
   Moving over the resume point: Spostamento sopra il punto di ripresa
   Moving the plate...: Spostamento del piano...
@@ -2978,7 +2979,6 @@ translations:
   Purge tower and brush settings: 'Impostazioni della torre di spurgo e della spazzola'
   Purging: Spurgo
   Purging nozzle: Spurgo ugello
-  Purging the nozzle: Spurgo dell'ugello
   Purging...: Spurgo...
   QGL: QGL
   'QGL failed: {}': 'QGL fallito: {}'
@@ -3186,6 +3186,7 @@ translations:
   Restore Defaults: Ripristina predefiniti
   Restore tool: 'Ripristina strumento'
   Restoring position: Ripristino posizione
+  Restoring the print settings: Ripristino delle impostazioni di stampa
   Resume: Riprendi
   Resume Print: Riprendi stampa
   Resume Requires Restart: 'La ripresa richiede un riavvio'
@@ -3470,6 +3471,7 @@ translations:
   Set up: Configura
   Set up your label printer in Settings: Configura la stampante etichette nelle Impostazioni
   Set what is really selected and loaded. Nothing moves.: 'Imposta cosa è davvero selezionato e caricato. Nulla si muove.'
+  Setting the nozzle height: Impostazione dell'altezza dell'ugello
   Settings: Impostazioni
   Settings Snapshot: Istantanea delle impostazioni
   Settings reset to defaults. Restarting...: Impostazioni ripristinate ai valori predefiniti.
@@ -3525,6 +3527,7 @@ translations:
   Size: Dimensione
   Skip: Salta
   Skip Objects...: 'Salta oggetti...'
+  Skip the rest of this layer and resume at the next one: Saltare il resto di questo strato e riprendere dal successivo
   Skipped: 'Saltato'
   Sleep While Printing: Sospensione Durante Stampa
   Sleep adjusted to match dim timeout: Timeout standby regolato
@@ -3856,7 +3859,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: 'Le schede controller su cui gira Klipper. Vedi il loro carico nelle impostazioni di sistema.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: La lama non è rientrata. Verificare che non ci sia filamento avvolto attorno al meccanismo di taglio
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: La taglierina è disallineata. Ricalibrare con CALIBRATE_CUT_POS
-  The exact stopping point could not be found. The print resumes from the start of this layer.: Il punto di arresto esatto non è stato trovato. La stampa riprende dall'inizio di questo strato.
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : 'Il punto di arresto esatto non è stato trovato. La stampa riprende dall''inizio dello strato successivo e salta il resto di questo.'
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: L'estrusore non riesce a tirare in modo uniforme. Controllare la bobina per aggrovigliamenti o nodi e il tubo PTFE per curve troppo strette
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : Il filamento non ha raggiunto l'ugello. Il CFS non ha segnalato errori, ma il sensore della testina ancora non rileva filamento. Verifica che la bobina sia ben inserita e che il percorso sia libero, poi riprova.
@@ -3913,6 +3917,7 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'La stampante può misurare automaticamente l''offset di ogni utensile. Avvialo nella schermata di calibrazione offset utensili.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'La stampante può misurare il pressure advance da sola. Eseguilo nella schermata Calibrazione PA.'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'La stampante può mettersi in pausa a un layer scelto, per cambiare filamento o inserire un componente. Imposta il layer dall''anteprima di stampa.'
+  The printer could not work out where to resume.: La stampante non è riuscita a capire da dove riprendere.
   The printer did not change its bed check: 'La stampante non ha modificato il controllo del piano'
   'The printer did not change its bed check: {}': 'La stampante non ha modificato il controllo del piano: {}'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'La stampante estrude in un angolo e ripete finché le letture concordano. Non giudichi nulla a occhio.'

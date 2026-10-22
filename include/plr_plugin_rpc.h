@@ -49,9 +49,11 @@ void abort(IMoonrakerAPI& api, const std::string& plan_id, std::function<void()>
 
 void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_error);
 
-/// Write `helix-screen` / `plr_profile`.
-void write_profile(IMoonrakerAPI& api, const nlohmann::json& profile, std::function<void()> on_ok,
-                   ErrorCallback on_error);
+/// Write `helix-screen` / `plr_profile` unless the stored record already equals
+/// @p profile, so several screens on one printer do not rewrite it in turn.
+/// @p on_written runs only after an actual write.
+void write_profile(IMoonrakerAPI& api, const nlohmann::json& profile,
+                   std::function<void()> on_written, ErrorCallback on_error);
 
 /// Write `helix-screen` / `plr_user`, the plugin's saving switch.
 void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,

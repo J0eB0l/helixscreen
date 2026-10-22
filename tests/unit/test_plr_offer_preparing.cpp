@@ -28,14 +28,17 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/plr_offer_controller_test_access.h"
 #include "../test_helpers/print_state_test_drivers.h"
+#include "../test_helpers/scoped_env.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
 #include "connection_state.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
 #include "plr_offer_controller.h"
+#include "plr_plugin_rpc.h"
 #include "plr_profile.h"
 #include "print_lifecycle_state.h"
+#include "printer_detector.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "test_helpers/printer_state_test_access.h"
@@ -469,6 +472,194 @@ TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR feature state reaches its su
           static_cast<int>(helix::PluginFeatureState::Absent));
 }
 
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR feature state follows a features update",
+                 "[plr][generic][profile]") {
+    // The plugin stays installed; only its features map changes.
+    auto& plugin = get_printer_state().plugin_status_state();
+    REQUIRE(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+            static_cast<int>(helix::PluginFeatureState::Ready));
+    helix::PluginFeatureEntry entry;
+    entry.version = helix::kPlrFeatureMinVersion;
+    entry.available = true;
+    entry.enabled = false;
+    plugin.set_features({{helix::kPlrFeatureName, entry}});
+    CHECK(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+          static_cast<int>(helix::PluginFeatureState::Disabled));
+    CHECK(lv_subject_get_int(plugin.get_plr_saving_enabled_subject()) == 0);
+    plugin.set_features({});
+    CHECK(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+          static_cast<int>(helix::PluginFeatureState::Absent));
+}
+
+namespace {
+
+/// The connection and Klipper state the plugin status request waits for.
+void set_link(helix::PrinterState& ps, ConnectionState conn, helix::KlippyState klippy) {
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(conn));
+    lv_subject_set_int(ps.network_state().get_klippy_state_subject(), static_cast<int>(klippy));
+}
+
+} // namespace
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR asks the plugin once Klipper is ready",
+                 "[plr][generic]") {
+    // The profile write re-reads the plugin's features; the mock answers with
+    // the plr feature, as a real plugin does.
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    set_link(ps, ConnectionState::CONNECTED, helix::KlippyState::STARTUP);
+    PlrOfferController controller;
+    settle();
+    const int before = client.call_count(helix::kPlrStatusRpc);
+
+    lv_subject_set_int(ps.network_state().get_klippy_state_subject(),
+                       static_cast<int>(helix::KlippyState::READY));
+    settle();
+    const int after = client.call_count(helix::kPlrStatusRpc);
+    set_moonraker_api(nullptr);
+    CHECK(before == 0);
+    CHECK(after == 1);
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR asks the plugin when the printer connects",
+                 "[plr][generic]") {
+    // The profile write re-reads the plugin's features; the mock answers with
+    // the plr feature, as a real plugin does.
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    set_link(ps, ConnectionState::DISCONNECTED, helix::KlippyState::READY);
+    PlrOfferController controller;
+    settle();
+    const int before = client.call_count(helix::kPlrStatusRpc);
+
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    settle();
+    const int after = client.call_count(helix::kPlrStatusRpc);
+    set_moonraker_api(nullptr);
+    CHECK(before == 0);
+    CHECK(after == 1);
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR asks the plugin once its plr feature is ready",
+                 "[plr][generic]") {
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    // Saving off and no snapshot waiting, on the plugin's side too, so its
+    // features answer agrees.
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));
+    client.send_jsonrpc(
+        helix::kPlrDiscardRpc, json::object(), [](const json&) {}, [](const MoonrakerError&) {});
+    REQUIRE_FALSE(client.mock_plr_interrupted());
+    set_plr_feature(true, false);
+    set_link(ps, ConnectionState::CONNECTED, helix::KlippyState::READY);
+    PlrOfferController controller;
+    settle();
+    const int before = client.call_count(helix::kPlrStatusRpc);
+
+    set_plr_feature(true, true);
+    settle();
+    const int after = client.call_count(helix::kPlrStatusRpc);
+    set_moonraker_api(nullptr);
+    CHECK(before == 0);
+    CHECK(after == 1);
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR rewrites the profile when discovery changes the printer type",
+                 "[plr][generic][profile]") {
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    ps.set_printer_type_sync("Qidi Q2");
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    REQUIRE(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey)["tier"] == 2);
+
+    ps.set_printer_type_sync("Voron 2.4");
+    settle();
+    const json profile = client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey);
+    set_moonraker_api(nullptr);
+    CHECK(profile["tier"] == 0);
+    CHECK(profile["backend"] == "generic");
+    ps.set_printer_type_sync("");
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR does not offer without room to lift",
+                 "[plr][generic]") {
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    helix::ScopedEnv fail_env{"HELIX_MOCK_PLR_FAIL", "no_lift_room"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    set_link(ps, ConnectionState::DISCONNECTED, helix::KlippyState::READY);
+    PlrOfferController controller;
+    settle();
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    settle();
+    const int asks = client.call_count(helix::kPlrStatusRpc);
+    // A Klipper edge after the answer: the answer stands, nothing asks again.
+    lv_subject_set_int(ps.network_state().get_klippy_state_subject(),
+                       static_cast<int>(helix::KlippyState::STARTUP));
+    lv_subject_set_int(ps.network_state().get_klippy_state_subject(),
+                       static_cast<int>(helix::KlippyState::READY));
+    settle();
+    const int asks_after = client.call_count(helix::kPlrStatusRpc);
+    set_moonraker_api(nullptr);
+    CHECK(asks == 1);
+    CHECK(asks_after == 1);
+    CHECK(PlrOfferControllerTestAccess::has_plugin_status(controller));
+    CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR offers a waiting snapshot with saving switched off",
+                 "[plr][generic]") {
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));
+    REQUIRE(client.mock_plr_interrupted());
+    // The features answer the plugin gives in that state.
+    helix::plr_rpc::refresh_features(api);
+    settle();
+    auto& plugin = ps.plugin_status_state();
+    CHECK(lv_subject_get_int(plugin.get_plr_saving_enabled_subject()) == 0);
+    REQUIRE(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+            static_cast<int>(helix::PluginFeatureState::Ready));
+
+    set_link(ps, ConnectionState::CONNECTED, helix::KlippyState::READY);
+    PlrOfferController controller;
+    settle();
+    const bool prompted = PlrOfferControllerTestAccess::prompted(controller);
+    set_moonraker_api(nullptr);
+    CHECK(prompted);
+}
+
 TEST_CASE_METHOD(PluginPlrOfferFixture,
                  "Plugin PLR writes the resolved profile while saving is still off",
                  "[plr][generic][profile]") {
@@ -493,5 +684,77 @@ TEST_CASE_METHOD(PluginPlrOfferFixture,
     CHECK(profile["tier"] == 2);
     CHECK(profile["backend"] == "qidi_print_state");
     CHECK(profile["storage_hint"] == "emmc");
+    ps.set_printer_type_sync("");
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR never writes the previous printer's profile after a switch",
+                 "[plr][generic][profile]") {
+    // The profile write re-reads the plugin's features; the mock must answer
+    // with the plr feature for the map to survive that, as a real plugin does.
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    ps.set_printer_type_sync("Qidi Q2");
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    REQUIRE(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey)["tier"] == 2);
+
+    // A different printer connects. Until its discovery has run, the type
+    // still names the Q2.
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrProfileKey, nullptr);
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::DISCONNECTED));
+    settle();
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    settle();
+    // The last connection's features map is still in place: the feature reads
+    // available while the type still names the Q2.
+    REQUIRE(ps.plugin_status_state().plugin_feature(helix::kPlrFeatureName,
+                                                    helix::kPlrFeatureMinVersion) !=
+            helix::PluginFeatureState::Absent);
+    CHECK(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey).is_null());
+
+    // Discovery resolves the new type, then the plugin probe answers.
+    ps.set_printer_type_sync("Voron 2.4");
+    settle();
+    CHECK(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey).is_null());
+    set_plr_feature(true, false);
+    settle();
+    const json profile = client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey);
+    set_moonraker_api(nullptr);
+    REQUIRE(profile.is_object());
+    CHECK(profile["tier"] == 0);
+    CHECK(profile["backend"] == "generic");
+    ps.set_printer_type_sync("");
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR leaves an identical stored profile alone",
+                 "[plr][generic][profile]") {
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    ps.set_printer_type_sync("Qidi Q2");
+    // Another screen on this printer already wrote the same profile.
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrProfileKey,
+                       helix::plr_profile_json(helix::plr_resolve_profile(
+                           PrinterDetector::get_plr_block("Qidi Q2"), helix::PlrUserOverride{},
+                           helix::PlrHomingCheck{})));
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    const int gets = client.call_count("server.database.get_item");
+    const int posts = client.call_count("server.database.post_item");
+    set_moonraker_api(nullptr);
+    CHECK(gets >= 1);
+    CHECK(posts == 0);
     ps.set_printer_type_sync("");
 }

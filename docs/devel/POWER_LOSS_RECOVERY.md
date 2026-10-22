@@ -191,21 +191,32 @@ in the `helix-screen` namespace, so it has them with the screen off:
   "purge_gcode", "resume_skip_fraction", "macro_vars"}`. `plr_resolve_profile()`
   folds the user's overrides into the printer database's `plr` block
   (`PrinterDetector::get_plr_block()`). A printer with no block is tier 0, which
-  offers nothing (ruling 7); a database tier 2 without `z_holds_unpowered` resolves
-  to 1; a user may lower the tier, or raise it to 1 or 2 only where X/Y homing is
-  safe or overridden. `PlrOfferController::publish_profile()` writes it once per
-  connection and printer type while the `plr` feature is available at all
-  (Disabled counts: a missing profile is what keeps saving off), then re-reads the
-  plugin's features map, since the plugin's saving verdict follows the profile.
+  offers nothing (ruling 7). Tier 2 needs the database's `z_holds_unpowered`
+  whoever asks for it, so without it the tier is at most 1, a user override
+  included. A user may lower the tier, or raise it only where X/Y homing is known
+  safe or overridden; the app does not read `homing_override`, so it passes the
+  homing check as unknown and no raise passes it (the plugin checks the database
+  tier against configfile itself). `PlrOfferController::publish_profile()` writes
+  the record once per connection and printer type while the `plr` feature is
+  available at all (Disabled counts: a missing profile is what keeps saving off),
+  and only after this connection's plugin probe has answered: discovery resolves
+  the printer type before that probe, so the type is this printer's, never the
+  previous one's. It reads the stored record first and writes only when it
+  differs, so several screens on one printer do not rewrite it in turn. After a
+  write it re-reads the plugin's features map, since the plugin's saving verdict
+  follows the profile.
 - `plr_user` = `{"enabled": bool}`, the only record the plugin reads for its
   saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it;
   the row shows while the feature is available (`plr_feature_state` subject, 0
   Absent / 1 Disabled / 2 Ready) and its switch follows `plr_saving_enabled`, the
-  plugin's own report re-read after each write.
+  plugin's own report re-read after each write: the `plr` entry's `saving`, or
+  its `enabled` from a plugin that reports no `saving`. The entry's `enabled`
+  also holds while a saved snapshot waits, so the offer (gated on Ready) survives
+  saving being switched off.
 
-Listed printers: the Qidi Q2 (`backend: qidi_print_state`, eMMC, tier 2: QIDI's
-own resume already trusts the Z the steppers held, which the Q2 Z-hold test in
-the design's § 11.4 still has to measure). The K1 line stays unlisted: Creality's
+Listed printers: the Qidi Q2 (`backend: qidi_print_state`, eMMC, tier 2). Tier 2
+replicates QIDI's own stock resume, which already trusts the Z the steppers held;
+it is unverified until the Q2 power-cut test in the design's § 11.4. The K1 line stays unlisted: Creality's
 own recovery serves it and outranks the generic backend (ruling 8).
 
 **The wizard.** Resume on the offer opens `PlrWizardOverlay`, whose steps are
@@ -213,12 +224,12 @@ own recovery serves it and outranks the generic backend (ruling 8).
 
 | Step | What happens |
 |------|-------------|
-| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then |
-| Checks | File, layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
-| Preparing | `prepare`: bed (and chamber) wait, cold lift, X/Y home, and at tier 1 the move over the resume point. `helix:plr_progress` (`notify_plr_progress`) names each step; the live bed temperature shows beside it |
-| ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`). Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume waits while a jog is still moving |
-| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): the plugin heats the nozzle, purges and starts the print at the resume offset |
-| Done / Failed / Aborted | Leaving a step after `prepare` started (Cancel, back, a failed RPC) sends `abort`: the plugin stops, turns the heaters off and keeps the snapshot |
+| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then. A `plan_ready` carrying `error`, or a plan still `pending` after `plan_ready`, fails the wizard with that message instead of starting the scan over |
+| Checks | File, layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_next_layer` for a `layer_start` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
+| Preparing | `prepare`: steps `bed_wait`, `chamber_wait`, `lift`, `home_xy`, and at tier 1 `position` (over the resume point). `helix:plr_progress` (`notify_plr_progress`, `{plan_id, step, state}` with state `running` / `done` / `failed`) names each; the wizard shows the `running` step and the live bed temperature |
+| ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`). Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume stays disabled until a downward jog has landed (the part top is where the user lowered the nozzle to), and waits while a jog is still moving |
+| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): steps `z_reference`, `restore`, `heat_nozzle`, `move_to_resume`, `start`, with `bed_wait` / `chamber_wait` again when it re-heats; the print starts at the resume offset |
+| Done / Failed / Aborted | Leaving the wizard after `prepare` started (Cancel, back, closing it, a failed RPC) sends `abort`: the plugin stops, turns the heaters off and keeps the snapshot. A screensaver, display sleep or a view pushed on top (Print Status opens as the print starts) is not leaving: the sequence keeps running. Entering any step drops queued jogs, and a jog ack after the Z step sends nothing more |
 
 Two safety properties are pinned by the tests: the wizard never commits on its
 own (Committing is reached only from ZStep with every required confirmation, and

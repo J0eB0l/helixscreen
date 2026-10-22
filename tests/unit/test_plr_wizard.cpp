@@ -75,13 +75,15 @@ TEST_CASE("plr_required_confirmations: per tier and per warning", "[plr][wizard]
     SECTION("tier 2 trusts the held Z") {
         CHECK(helix::plr_required_confirmations(plan_with_tier(2), PlrBedState::Ok) == kTier2All);
     }
-    SECTION("mesh_unavailable adds accept_no_mesh") {
+    SECTION("mesh_unavailable adds accept_no_mesh, layer_start adds accept_next_layer") {
         PlrPlanView plan = plan_with_tier(2);
         plan.warnings = {"layer_start", "mesh_unavailable"};
         auto need = helix::plr_required_confirmations(plan, PlrBedState::Ok);
-        CHECK(need == std::vector<PlrConfirmation>{PlrConfirmation::PartAttached,
-                                                   PlrConfirmation::ZConfirmed,
-                                                   PlrConfirmation::AcceptNoMesh});
+        CHECK(need == std::vector<PlrConfirmation>{
+                          PlrConfirmation::PartAttached, PlrConfirmation::ZConfirmed,
+                          PlrConfirmation::AcceptNoMesh, PlrConfirmation::AcceptNextLayer});
+        CHECK(std::string(helix::plr_confirmation_name(PlrConfirmation::AcceptNextLayer)) ==
+              "accept_next_layer");
     }
     SECTION("ColdWarn adds accept_cold_bed, NeedsWait does not") {
         auto cold = helix::plr_required_confirmations(plan_with_tier(1), PlrBedState::ColdWarn);
@@ -398,8 +400,11 @@ TEST_CASE("plr_parse_progress_event and plan_ready read the notification payload
     CHECK(ev->state == "running");
     CHECK_FALSE(helix::plr_parse_progress_event(json{{"params", json::array()}}).has_value());
 
-    CHECK(helix::plr_parse_plan_ready(json{{"params", {{{"plan_id", "p9"}}}}}) == "p9");
-    CHECK(helix::plr_parse_plan_ready(json::object()).empty());
+    CHECK(helix::plr_parse_plan_ready(json{{"params", {{{"plan_id", "p9"}}}}}).plan_id == "p9");
+    auto failed = helix::plr_parse_plan_ready(
+        json{{"params", {{{"plan_id", "p9"}, {"error", "multi_material"}}}}});
+    CHECK(failed.error == "multi_material");
+    CHECK(helix::plr_parse_plan_ready(json::object()).plan_id.empty());
 }
 
 TEST_CASE("plr_commit_params: confirmations and the tier's Z reference", "[plr][wizard]") {
@@ -412,4 +417,24 @@ TEST_CASE("plr_commit_params: confirmations and the tier's Z reference", "[plr][
     json t2 = helix::plr_commit_params("p2", kTier2All, 2);
     CHECK(t2["z_reference"] == "trusted");
     CHECK(t2["confirmations"].size() == 2);
+}
+
+TEST_CASE("plr_blocked_reason: every plugin code has words, an unknown one is itself",
+          "[plr][wizard]") {
+    for (const char* code : {"not_interrupted", "no_snapshot", "file_changed", "too_early",
+                             "not_supported", "klippy_not_ready", "no_lift_room"}) {
+        INFO(code);
+        CHECK(helix::plr_blocked_reason(code) != code);
+    }
+    CHECK(helix::plr_blocked_reason("no_lift_room").find("headroom") != std::string::npos);
+    CHECK(helix::plr_blocked_reason("some_new_rule") == "some_new_rule");
+}
+
+TEST_CASE("plr_commit_allowed: a layer_start plan waits for accept_next_layer", "[plr][wizard]") {
+    PlrPlanView plan = plan_with_tier(2);
+    plan.warnings = {"layer_start"};
+    std::vector<PlrConfirmation> given = kTier2All;
+    CHECK_FALSE(helix::plr_commit_allowed(plan, given, PlrBedState::Ok));
+    given.push_back(PlrConfirmation::AcceptNextLayer);
+    CHECK(helix::plr_commit_allowed(plan, given, PlrBedState::Ok));
 }

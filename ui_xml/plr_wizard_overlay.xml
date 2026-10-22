@@ -46,7 +46,7 @@
                         width="100%" bind_text="plr_wizard_bed" long_mode="wrap" style_text_color="#text_muted"/>
             <text_small name="plr_layer_start_note"
                         width="100%" long_mode="wrap" style_text_color="#warning"
-                        text="The exact stopping point could not be found. The print resumes from the start of this layer.">
+                        text="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.">
               <bind_flag_if_eq subject="plr_warn_layer_start" flag="hidden" ref_value="0"/>
             </text_small>
           </lv_obj>
@@ -62,6 +62,11 @@
                        width="100%" text="Resume without the bed mesh this print used" bind_checked="plr_ack_no_mesh">
             <bind_flag_if_eq subject="plr_need_no_mesh" flag="hidden" ref_value="0"/>
           </lv_checkbox>
+          <lv_checkbox name="plr_ack_next_layer"
+                       width="100%" text="Skip the rest of this layer and resume at the next one"
+                       bind_checked="plr_ack_next_layer">
+            <bind_flag_if_eq subject="plr_need_next_layer" flag="hidden" ref_value="0"/>
+          </lv_checkbox>
           <lv_checkbox name="plr_ack_cold_bed"
                        width="100%" text="Resume even though the bed cooled down" bind_checked="plr_ack_cold_bed">
             <bind_flag_if_eq subject="plr_need_cold_bed" flag="hidden" ref_value="0"/>
@@ -73,7 +78,7 @@
             <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
           </ui_button>
           <ui_button name="btn_plr_continue" flex_grow="2" text="Heat and Home" moves_machine="true">
-            <bind_state_if cond="plr_need_part gt plr_ack_part or plr_need_nozzle gt plr_ack_nozzle or plr_need_no_mesh gt plr_ack_no_mesh or plr_need_cold_bed gt plr_ack_cold_bed"
+            <bind_state_if cond="plr_need_part gt plr_ack_part or plr_need_nozzle gt plr_ack_nozzle or plr_need_no_mesh gt plr_ack_no_mesh or plr_need_next_layer gt plr_ack_next_layer or plr_need_cold_bed gt plr_ack_cold_bed"
                            state="disabled"/>
             <event_cb trigger="clicked" callback="on_plr_wizard_continue"/>
           </ui_button>
@@ -156,6 +161,7 @@
             <event_cb trigger="clicked" callback="on_plr_wizard_abort"/>
           </ui_button>
           <ui_button name="btn_plr_resume" flex_grow="2" text="Resume Print" variant="success" moves_machine="true">
+            <bind_state_if cond="plr_wizard_tier eq 1 and plr_z_jogged eq 0" state="disabled"/>
             <event_cb trigger="clicked" callback="on_plr_wizard_resume"/>
           </ui_button>
         </lv_obj>

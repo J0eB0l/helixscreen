@@ -97,10 +97,22 @@ void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_e
     send_action(api, kPlrDiscardRpc, json::object(), 0, std::move(on_ok), std::move(on_error));
 }
 
-void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_ok,
+void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_written,
                    ErrorCallback on_error) {
-    api.database_post_item(kPlrDbNamespace, kPlrProfileKey, profile, std::move(on_ok),
-                           std::move(on_error));
+    auto post = [&api, profile, on_written, on_error]() {
+        api.database_post_item(kPlrDbNamespace, kPlrProfileKey, profile, on_written, on_error);
+    };
+    api.database_get_item(
+        kPlrDbNamespace, kPlrProfileKey,
+        [post, profile](const json& stored) {
+            if (stored == profile) {
+                spdlog::debug("[PLR] plr_profile already current");
+                return;
+            }
+            post();
+        },
+        // No record yet (Moonraker answers a missing key with an error).
+        [post](const MoonrakerError&) { post(); });
 }
 
 void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,

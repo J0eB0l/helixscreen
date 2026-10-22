@@ -443,12 +443,14 @@ The status reports an eMMC host, a snapshot of `3DBenchy.gcode` at layer 42 save
 connect. Each `plan` issues a new `plan_id`; `prepare` and `commit` refuse any
 other id (`plr_stale_plan`), and `commit` refuses a missing confirmation
 (`plr_missing_confirmation`). `prepare` sets the bed target to 60°C, emits
-`notify_plr_progress` for `bed_wait`, `lift`, `home_xy` (and `move_to_resume` at
-tier 1) 1.5 s apart, then answers. `commit` emits `heat_nozzle`, `purge`, `start`,
+`notify_plr_progress` for `bed_wait`, `lift`, `home_xy` (and `position` at tier 1)
+1.5 s apart, then answers. `commit` emits `z_reference`, `restore`, `bed_wait`,
+`heat_nozzle`, `move_to_resume`, `start` (the plugin's step names),
 starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
 `discard` clears it too; `abort` keeps it and turns the bed off. The feature's
-`enabled` (and the status `saving`) follow a `helix-screen` / `plr_user` record
-written to the mock database, on when none is, so the Settings switch round-trips.
+`saving` (and the status `saving`) follow a `helix-screen` / `plr_user` record
+written to the mock database, on when none is, so the Settings switch round-trips;
+its `enabled` is `saving` or a snapshot waiting, as the plugin reports it.
 
 ### `HELIX_MOCK_PLR_TIER`
 
@@ -470,18 +472,25 @@ confirm step, and the plan's `requires` follows (`nozzle_clear` + `z_jogged`, or
 
 Plan warnings. `mesh_unavailable` adds `accept_no_mesh` to `requires`; `cold_bed`
 reports the bed 30°C under its 60°C target, which the app reads as a cold bed and
-asks `accept_cold_bed` for; `layer_start` reports `method: "layer_start"` and the
-wizard's start-of-layer note.
+asks `accept_cold_bed` for; `layer_start` reports `method: "layer_start"`, the
+wizard's note that the print resumes at the start of the next layer, and adds
+`accept_next_layer` to `requires`.
 
 ### `HELIX_MOCK_PLR_FAIL`
 
 | Property | Value |
 |----------|-------|
-| Values | `plan`, `prepare`, `commit` |
+| Values | `plan`, `prepare`, `commit`, `plan_background`, `plan_loop`, `no_lift_room` |
 | Default | none |
 
-That request fails with `plr_klippy_error`, which drives the wizard to its Failed
-step. A failed `prepare` or `commit` makes the wizard send `abort`.
+`plan`, `prepare`, `commit`: that request fails with `plr_klippy_error`, which
+drives the wizard to its Failed step. A failed `prepare` or `commit` makes the
+wizard send `abort`. `plan_background`: `plan` answers `pending`, then
+`notify_plr_plan_ready` carries an `error` (a background scan that failed).
+`plan_loop`: `plan` answers `pending` every time and `plan_ready` carries no error,
+so the wizard's re-request comes back pending again; both end on the Failed step.
+`no_lift_room`: the status withholds the offer with `blocked_by: ["no_lift_room"]`
+(not enough Z headroom to lift clear of the print), so no offer appears.
 
 ```bash
 # Offer at connect; tap Resume for the wizard (tier 2)

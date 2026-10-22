@@ -18,6 +18,7 @@
 #include "plr_profile.h"
 #include "plr_wizard.h"
 
+#include <algorithm>
 #include <optional>
 #include <string>
 
@@ -108,6 +109,27 @@ TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the plan follows the tier and warnin
                                        PlrConfirmation::AcceptColdBed});
 }
 
+TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: layer_start requires accept_next_layer",
+                 "[plr][mock]") {
+    helix::ScopedEnv w{"HELIX_MOCK_PLR_WARNINGS", "layer_start"};
+    Reply plan = call(client, helix::kPlrPlanRpc);
+    REQUIRE(plan.result);
+    CHECK(plan.result->at("method") == "layer_start");
+    const json& req = plan.result->at("requires");
+    CHECK(std::find(req.begin(), req.end(), json("accept_next_layer")) != req.end());
+}
+
+TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the plr entry reports saving apart from enabled",
+                 "[plr][mock]") {
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));
+    Reply status = call(client, "server.helix.status");
+    REQUIRE(status.result);
+    const json& plr = status.result->at("features").at("plr");
+    CHECK(plr.at("saving") == false);
+    // A snapshot waits, so the feature stays enabled for the offer.
+    CHECK(plr.at("enabled") == true);
+}
+
 TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the fail knob refuses that RPC", "[plr][mock]") {
     SECTION("plan") {
         helix::ScopedEnv f{"HELIX_MOCK_PLR_FAIL", "plan"};
@@ -124,6 +146,17 @@ TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the fail knob refuses that RPC", "[p
         REQUIRE(prepare.error);
         CHECK(prepare.error->message.find("plr_klippy_error") != std::string::npos);
     }
+}
+
+TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the no_lift_room knob withholds the offer",
+                 "[plr][mock]") {
+    helix::ScopedEnv f{"HELIX_MOCK_PLR_FAIL", "no_lift_room"};
+    Reply status = call(client, helix::kPlrStatusRpc);
+    REQUIRE(status.result);
+    const auto parsed = helix::plr_parse_plugin_status(*status.result);
+    REQUIRE(parsed.snapshot);
+    CHECK_FALSE(parsed.offer_available);
+    CHECK(parsed.blocked_by == std::vector<std::string>{"no_lift_room"});
 }
 
 TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: stale plans, missing confirmations, discard",
@@ -165,7 +198,7 @@ TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the newest history job reads interru
 
 TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the saving switch follows plr_user", "[plr][mock]") {
     auto enabled = [this]() {
-        return call(client, "server.helix.status").result->at("features").at("plr").at("enabled");
+        return call(client, "server.helix.status").result->at("features").at("plr").at("saving");
     };
     CHECK(enabled() == true);
     client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));

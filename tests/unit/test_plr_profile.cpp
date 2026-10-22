@@ -19,8 +19,9 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr PlrHomingCheck kSafeHoming{true, false};
-constexpr PlrHomingCheck kUnsafeHoming{false, false};
+constexpr PlrHomingCheck kSafeHoming{true, false, true};
+constexpr PlrHomingCheck kUnsafeHoming{false, false, true};
+constexpr PlrHomingCheck kUnknownHoming{};
 
 PlrDbBlock block(int tier, bool z_holds) {
     PlrDbBlock db;
@@ -93,14 +94,23 @@ TEST_CASE("plr_resolve_profile: tier from the database and the user", "[plr][pro
         {block(2, true), std::nullopt, std::nullopt, kSafeHoming, 2},
         // tier 2 needs Z that holds unpowered
         {block(2, false), std::nullopt, std::nullopt, kSafeHoming, 1},
-        // the user raises an unlisted printer with safe homing
+        // the user raises an unlisted printer with safe homing; tier 2 needs the
+        // database to say Z holds unpowered, so a request for 2 stops at 1
         {std::nullopt, 1, std::nullopt, kSafeHoming, 1},
-        {std::nullopt, 2, std::nullopt, kSafeHoming, 2},
+        {std::nullopt, 2, std::nullopt, kSafeHoming, 1},
+        {block(1, false), 2, std::nullopt, kSafeHoming, 1},
+        {block(2, false), 2, std::nullopt, kSafeHoming, 1},
+        {block(1, true), 2, std::nullopt, kSafeHoming, 2},
+        // homing the app cannot judge is unsafe for a raise
+        {std::nullopt, 1, std::nullopt, kUnknownHoming, 0},
+        {block(1, true), 2, std::nullopt, kUnknownHoming, 0},
+        // ... but never for the database's own tier, which the plugin checks
+        {block(2, true), std::nullopt, std::nullopt, kUnknownHoming, 2},
         // ... with unsafe homing and no override: off
         {std::nullopt, 1, std::nullopt, kUnsafeHoming, 0},
         // ... with unsafe homing and the user's own X/Y home command
         {std::nullopt, 1, std::string("G28 X Y Z0"), kUnsafeHoming, 1},
-        {std::nullopt, 1, std::nullopt, PlrHomingCheck{false, true}, 1},
+        {std::nullopt, 1, std::nullopt, PlrHomingCheck{false, true, false}, 1},
         // lowering is always allowed
         {block(2, true), 1, std::nullopt, kUnsafeHoming, 1},
         {block(2, true), 0, std::nullopt, kSafeHoming, 0},
