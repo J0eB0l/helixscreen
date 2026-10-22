@@ -2045,3 +2045,18 @@ def test_turning_saving_off_keeps_an_existing_offer(plr, helix, resume):
     assert run(plr.handle_status(Req()))["offer"]["available"] is True
     run(plr.handle_discard(Req()))
     assert run(helix._handle_status(None))["features"]["plr"]["enabled"] is False
+
+
+def test_a_next_layer_resume_needs_accept_next_layer(plr, helix, resume):
+    record = plr.store.load()
+    record["live_pos"] = [150.0, 150.0, 0.8, 0.0]          # nowhere near any line
+    plr.store.write(fit_record(record)[0])
+    reply = run(plr.handle_plan(Req()))
+    assert reply["method"] == "layer_start" and "layer_start" in reply["warnings"]
+    assert reply["requires"][-1] == "accept_next_layer"
+    run(plr.handle_prepare(Req(plan_id=reply["plan_id"])))
+    with pytest.raises(Exception, match="plr_missing_confirmation: accept_next_layer"):
+        commit(plr, reply["plan_id"])
+    assert run(plr.handle_commit(Req(plan_id=reply["plan_id"], z_reference="trusted",
+                                     confirmations=dict(COMMIT_OK, accept_next_layer=True)))) \
+        == {"ok": True, "job_started": True}

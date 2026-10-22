@@ -47,7 +47,7 @@ PRIME_E_MM = PURGE_RETRACT_MM
 HOME_PRIME_E_MM = 5.0
 
 CONFIRMATIONS = ("part_attached", "nozzle_clear", "z_confirmed", "z_jogged",
-                 "accept_no_mesh", "accept_cold_bed")
+                 "accept_no_mesh", "accept_cold_bed", "accept_next_layer")
 
 # Klipper ends an extended command's arguments at any of these.
 _UNSAFE_PARAM_CHARS = set("#*;\n\r\"")
@@ -461,6 +461,9 @@ def required_confirmations(tier: int, warnings: Sequence[str], bed_cold: bool) -
         out.append("accept_no_mesh")
     if bed_cold:
         out.append("accept_cold_bed")
+    if "layer_start" in warnings:
+        # The rest of the current layer is skipped (ruling R26).
+        out.append("accept_next_layer")
     return out
 
 

@@ -218,6 +218,7 @@ def test_restores_summary():
         (2, [], False, ["part_attached", "z_confirmed"]),
         (2, ["mesh_unavailable"], True,
          ["part_attached", "z_confirmed", "accept_no_mesh", "accept_cold_bed"]),
+        (2, ["layer_start"], False, ["part_attached", "z_confirmed", "accept_next_layer"]),
     ],
 )
 def test_required_confirmations(tier, warnings, cold, expected):

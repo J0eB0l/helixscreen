@@ -640,7 +640,8 @@ Feature entry in `server.helix.status` `features` (umbrella Phase 0):
 | `server.helix.plr.discard` / `POST .../discard` | none | `{"ok": true}`; deletes snapshot and mesh file |
 
 `Confirmation` values: `part_attached`, `nozzle_clear`, `z_confirmed` (tier 2), `z_jogged`
-(tier 1), `accept_no_mesh`, `accept_cold_bed`. `commit` refuses unless every entry of the plan's
+(tier 1), `accept_no_mesh`, `accept_cold_bed`, `accept_next_layer` (with the `layer_start`
+warning, R26). `commit` refuses unless every entry of the plan's
 `requires` is present, and refuses a `plan_id` that is not the latest or whose snapshot changed.
 
 For `backend: "qidi_print_state"`, `prepare` runs only the bed/chamber wait and `commit` calls
@@ -693,7 +694,8 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   `.cache` has the snapshot's file size and hash, and a plan refuses
   (`plr_scan_failed: qidi_landing_below_part`) when offset + mesh at the cut is below -0.05 mm.
 - `commit` takes `z_reference: "part_top"` at tier 1 and `"trusted"` at tier 2 and refuses the other.
-- `warnings` values: `layer_start` (resumes at the next layer's start, R26), `mesh_unavailable`,
+- `warnings` values: `layer_start` (resumes at the next layer's start, R26; adds the
+  Confirmation `accept_next_layer` to `requires`, so commit refuses without it), `mesh_unavailable`,
   `cold_bed` (bed more than
   `COLD_BED_DIFF_C` under target at plan time, which also adds `accept_cold_bed` to `requires`),
   `no_purge_location` (no objects known, so the nozzle heats and primes at the XY home position).
