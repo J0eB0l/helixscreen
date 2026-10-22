@@ -112,7 +112,7 @@ Webcam viewing via the home widget and standalone fullscreen viewer, rotation an
 History dashboard with time-range statistics and trend charts, searchable/filterable/sortable job list, per-job details, and reprinting a previous job.
 
 ### [Advanced Features](guide/advanced.md)
-Console, macro execution, power device control (with home panel quick-toggle and device selection), print history, notification history, and timelapse settings.
+Console, macro execution, power device control (with home panel quick-toggle and device selection), print history, notification history with the Printer Events log, and timelapse settings.
 
 ### [Beta Features](guide/beta-features.md)
 How to enable beta features, the full beta feature list, and update channel selection.

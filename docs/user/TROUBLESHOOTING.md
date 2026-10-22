@@ -28,6 +28,8 @@ Solutions to common problems with HelixScreen.
 
 ## Quick Debugging Guide
 
+**First, look at what the printer reported.** Tap the **Notifications** widget on the Home screen, then **Printer Events**. It lists Klipper shutdowns with their reason, lost MCU connections, pauses and what caused them, printer error messages and how each print ended, with times. A shutdown reason such as "Timer too close" or "Lost communication with MCU" often answers the question on its own. See [Printer Events](guide/advanced.md#printer-events).
+
 **Before troubleshooting anything, increase log verbosity. Three taps, no SSH:**
 
 1. **Settings → System → Log Level → Debug** (or Trace for the deepest detail)
