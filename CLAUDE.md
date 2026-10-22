@@ -68,7 +68,10 @@ make full-test-run                   # unit-sweep + the bats suite (~2m) - the c
 #   quality-checks.sh runs [.] on any staged code change, nightly CI runs [slow].
 #   `make test-run` runs nothing: it prints which of these fits the question
 #   you have and exits non-zero. Cadence table: tests/CLAUDE.md.
-make land-gate                       # THE pre-landing gate (~10m): ONCE per batch, before anything reaches main
+make land-gate                       # THE pre-landing gate: ONCE per batch, before anything reaches main
+#   It prints its ETA from past gates (LAND_GATE_HISTORY); quote that, never a guess.
+#   Running it in the background: watch its log for ": FAIL in|: TIMEOUT in" and
+#   report a failed stage the moment it lands, not when the whole gate ends.
 #   full-test-run, plus the sweep in CI's 8-shard layout, CI's tests/ui pytest
 #   slice (headless), the moonraker plugin tests, and the generated-artefact
 #   checks (theme token table, xml schema + lint-xml, lvgl event codes). C++ on

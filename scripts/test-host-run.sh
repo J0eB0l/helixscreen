@@ -118,6 +118,7 @@ WORK=$(dirname "$TREES")
 MUTATE_HOST=$WORK_HOST/mutate
 MUTATE=$WORK/mutate
 RSYNC_PATH="sudo -n rsync"                               # the container writes mirrors as root
+SHARD_ARTIFACTS=build/shard-artifacts                    # failing shard logs, mirror-relative
 # BatchMode: never a password prompt. The keepalives bound a link that dies
 # mid-run; ConnectTimeout bounds one that never answers.
 SSH_OPTS=(-o ConnectTimeout=3 -o BatchMode=yes -o ServerAliveInterval=5 -o ServerAliveCountMax=2)
@@ -673,7 +674,9 @@ case "$WHAT" in
     test)   CMD='make test $HELIX_JFLAG && ./build/bin/helix-tests "'"${1:-}"'"' ;;
     # Trailing args become make overrides, e.g. SHARD_CONCURRENCY=24.
     # NPROCS pins the shard count (SWEEP_NPROCS); a trailing NPROCS= overrides it.
-    sweep)  CMD="make unit-sweep NPROCS=$SWEEP_NPROCS"' $HELIX_JFLAG '"$*" ;;
+    # Failing shards' logs land in the mirror's build/, which outlives the
+    # container's /tmp, so fetch_shard_artifacts can bring them back.
+    sweep)  CMD="rm -rf $SHARD_ARTIFACTS && make unit-sweep NPROCS=$SWEEP_NPROCS SHARD_ARTIFACT_ROOT=$SHARD_ARTIFACTS"' $HELIX_JFLAG '"$*" ;;
     asan-app|tsan-app)
         # RECIPE is the positional argument; --repeat N (default 25 in the
         # make target) widens the drive. Both map onto the make target's
@@ -709,6 +712,21 @@ case "$WHAT" in
 esac
 
 LOG="${TMPDIR:-/tmp}/test-host-$WHAT-$LABEL.log"
+
+# A failed mirror sweep keeps each failing shard's log (its last test case,
+# its timeout output) on the test host; copy them here, where whoever reads
+# the failure is. A hung shard otherwise names no test.
+fetch_shard_artifacts() {
+    [ "$WHAT" = sweep ] && [ "$MODE" = mirror ] || return 0
+    mkdir -p "$SHARD_ARTIFACTS" || return 0
+    rsync -a -e "ssh ${SSH_OPTS[*]}" --rsync-path="$RSYNC_PATH" \
+        "$HOST:$TREES_HOST/$TREE/$SHARD_ARTIFACTS/" "$SHARD_ARTIFACTS/" 2>/dev/null || return 0
+    local d
+    for d in "$SHARD_ARTIFACTS"/helix-shards-*; do
+        [ -d "$d" ] && echo "→ failing shards' logs copied here: $d" >&2
+    done
+    return 0
+}
 echo "→ $HOST:$CONTAINER $RUNDIR @ $PROVENANCE, log $LOG"
 
 # One job per tree at a time: a second run would sync or reset files under the
@@ -717,7 +735,8 @@ take_lock "$LOCK_FILE" "$RUNDIR" "$WHAT $LABEL"
 
 if [ "$MODE" = mirror ]; then
     LIST="${TMPDIR:-/tmp}/test-host-mirror-$TREE.$$"
-    trap 'rm -f "$LIST"' EXIT
+    # shellcheck disable=SC2154  # _rc is assigned inside the trap string
+    trap '_rc=$?; rm -f "$LIST"; [ "$_rc" -eq 0 ] || fetch_shard_artifacts' EXIT
     mirror_file_list > "$LIST"
     seed_mirror
     _t0=$(date +%s)

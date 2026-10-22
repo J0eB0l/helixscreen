@@ -23,6 +23,7 @@ setup() {
     export TMPDIR="$BATS_TEST_TMPDIR"
     export CALLS="$BATS_TEST_TMPDIR/calls"
     export LAND_GATE_LOGDIR="$BATS_TEST_TMPDIR/logs"
+    export LAND_GATE_HISTORY="$BATS_TEST_TMPDIR/history.tsv"
     : >"$CALLS"
     # A target exits with $RC_<target, - as _>, default 0; no target is "app".
     mock_command_script fake-make '
@@ -310,4 +311,28 @@ teardown() {
     contains "is held by another session" "$output"
     contains "outside a session" "$output"
     refute_grep "^make" "$CALLS"
+}
+
+@test "with no history the gate says it has no measured time, and records one" {
+    run "$GATE"
+    [ "$status" -eq 0 ]
+    contains "no measured land-gate time yet for local sweeps" "$output"
+    read -r _ secs verdict where <"$LAND_GATE_HISTORY"
+    [[ "$secs" =~ ^[0-9]+$ ]] || fail "seconds not recorded: $secs"
+    [ "$verdict" = PASS ]
+    [ "$where" = local ]
+}
+
+@test "the ETA is the median and longest of past gates that swept in the same place" {
+    printf '%s\n' "1 600 PASS local" "2 1200 FAIL local" "3 900 PASS local" \
+        "4 5000 PASS remote" >"$LAND_GATE_HISTORY"
+    run "$GATE"
+    [ "$status" -eq 0 ]
+    contains "expect ~15m (median of the last 3), up to 20m" "$output"
+}
+
+@test "a failing gate is recorded as FAIL" {
+    RC_lint_xml=1 run "$GATE"
+    [ "$status" -ne 0 ]
+    [ "$(awk '{print $3}' "$LAND_GATE_HISTORY")" = FAIL ]
 }
