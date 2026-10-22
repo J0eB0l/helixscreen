@@ -173,9 +173,10 @@ JOBPOOL_BIN="${HELIX_TEST_JOBPOOL:-\$HOME/.local/bin/jobpool}"   # the host's $H
 # out of the jobpool too: a starved process holding a pool token would keep
 # that token from the gate it is yielding to. docker exec starts its process
 # from the container runtime, not as a child of the host's shell, so a nice or
-# chrt on the host side never reaches it; this runs inside. No single quote:
-# it is spliced into a single-quoted remote command.
-YIELD_PRIORITY='{ chrt -i -p 0 $$ && renice -n 19 -p $$ && ionice -c 3 -p $$; } >/dev/null 2>&1 || echo "→ could not lower the priority of this background job; it competes with gates as an equal"; '
+# chrt on the host side never reaches it; this runs inside. Each of the three
+# is tried on its own, so one that is missing or refused leaves the others in
+# force. No single quote: it is spliced into a single-quoted remote command.
+YIELD_PRIORITY='_unlowered=""; chrt -i -p 0 $$ >/dev/null 2>&1 || _unlowered="$_unlowered chrt"; renice -n 19 -p $$ >/dev/null 2>&1 || _unlowered="$_unlowered renice"; ionice -c 3 -p $$ >/dev/null 2>&1 || _unlowered="$_unlowered ionice"; [ -z "$_unlowered" ] || echo "→ could not lower this background job with:$_unlowered; it competes with gates more than it should"; '
 YIELD=0
 
 usage() { awk 'NR > 1 && /^set -euo/ { exit } NR > 1' "$0" | sed 's/^# \?//'; exit 2; }
@@ -876,6 +877,14 @@ fi
 HELIX_J=\$(awk -v per=$GB_PER_JOB -v cpus="\$(nproc)" '
     /^MemAvailable/ { j = int((\$2/1048576) / per); if (j > cpus) j = cpus; if (j < 4) j = 4; print j }
 ' /proc/meminfo)
+# A background job outside the pool and the lock sized its -j from the same
+# free memory a gate or a second background job may be sizing from now, so it
+# takes half.
+if [ "\$YIELD_UNPOOLED" = 1 ]; then
+    _full_j=\$HELIX_J
+    HELIX_J=\$(( _full_j / 2 > 1 ? _full_j / 2 : 1 ))
+    echo "→ background job: half of the -j\$_full_j free memory allows"
+fi
 if [ -n "\$POOL_ENV" ]; then
     HELIX_JFLAG=""
     echo "→ MemAvailable \$(awk '/^MemAvailable/{printf "%.0fGB", \$2/1048576}' /proc/meminfo), joining jobpool: \$("\$JP" status --json 2>/dev/null | sed -n 's/.*"target":\([0-9]*\).*/target \1/p')"

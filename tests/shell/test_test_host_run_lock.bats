@@ -420,8 +420,30 @@ exit 0'
     contains "SCHED_IDLE" "$output"
     contains "NICE: 19" "$output"
     printf '%s\n' "$output" | grep -qx 'MAKEFLAGS='
-    lacks "could not lower the priority" "$output"
+    lacks "could not lower" "$output"
     [ ! -e "$MOCK_JOBPOOL_LOG" ]
+}
+
+@test "mutate beside a jobpool takes half the -j free memory allows" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run_mutate_for_real
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    full=$(printf '%s\n' "$output" | sed -n 's/.*half of the -j\([0-9]*\) free memory allows.*/\1/p')
+    used=$(printf '%s\n' "$output" | sed -n 's/.*using -j\([0-9]*\)$/\1/p')
+    [ -n "$full" ]
+    [ -n "$used" ]
+    [ "$used" -eq $((full / 2)) ]
+}
+
+@test "a refused chrt still leaves mutate at nice 19, and is named" {
+    run_mutate_for_real
+    mock_command_script chrt 'exit 1'
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    contains "NICE: 19" "$output"
+    contains "could not lower this background job with: chrt;" "$output"
 }
 
 @test "mutate beside a jobpool skips the global lock that sizes unpooled runs" {
