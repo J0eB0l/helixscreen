@@ -43,7 +43,7 @@ Accepted as recommended in the first draft, or decided on review:
 | ID | Ruling |
 |---|---|
 | O1 | The fast and slow blocks live in the plugin's two-slot file (§ 4.2). Job identity and mesh stay in the Moonraker namespace. Why SQLite was avoided is recorded in § 4.2. |
-| O2 | Closed by test (T2, § 11.4, 2026-10-22): re-trace is the default, `resume_skip_fraction = 0.0` (§ 6.2), kept as one named tunable. On the Q2 (QIDI path, a 40x40x6 mm PLA box, one cut per setting, killed at layer 10), skip-half (0.5) left the resumed layers separated from the part at the seam; re-trace (0.0) left the seam solid with only a faint line. |
+| O2 | Ruled (Preston, 2026-10-22): re-trace is the default, `resume_skip_fraction = 0.0` (§ 6.2), kept as one named tunable: a resume reprints a little rather than skipping. Not settled by test: two Q2 runs (QIDI path, 40x40x6 mm PLA box, killed at layer 10) both resumed with 0.5, because the app wrote 0.5 into plr_profile; one seam separated and one bonded with a faint line. The T2 comparison (§ 11.4) is still to run. |
 | O3 | Scan at resume time. Measured first (task T1, § 11.4): a 100 MB file on a K1C-class host must scan in 30 s or less. Over 30 s, v1 switches to background per-layer checkpoints during the print (§ 6.2). |
 | D1 | No offer after `klippy_shutdown` / `error` in v1 (power loss only). |
 | D2 | Adaptive-mesh carry-over needs an opt-in `[include helix-plr/*.cfg]` line in printer.cfg (§ 6.4). |
@@ -1080,7 +1080,7 @@ does on the host side.
 | K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` on real `/sys` | M3 | § 7.4 |
 | eMMC host and SD host | 3 reboots each mid-print, slot file read back | M2 | Slot durability on real filesystems |
 | K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | **Done 2026-10-21: FAIL, 394 s median (§ 11.5).** Background per-layer checkpoints join v1 (O3) |
-| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out. **Run 2026-10-22 on the Q2 (QIDI path), one cut per setting, killed at layer 10 of a 40x40x6 mm PLA box: 0.5 separated at the seam, 0.0 solid with a faint line. Default 0.0 (O2 closed)** |
+| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out. Not yet run: the two 2026-10-22 Q2 cuts both used 0.5 (one seam separated, one bonded), so they compare nothing. Default 0.0 by ruling (O2) |
 | One tier-2 model (dedicated Z `enable_pin`s) | Z hold: kill, wait 10 / 30 / 60 min, measure Z drift with a dial indicator before resume; adhesion: same waits, PLA and PETG | M1 + wait | Z holds unpowered; adhesion; cold-bed threshold (O6) |
 | Any eMMC host | `/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | M3 | § 5.2 numbers |
 | `--test` mock | Offer, wizard steps, tier 1 and 2, every `HELIX_MOCK_PLR_WARNINGS` and `_FAIL` value | M3 | App flow before any hardware run |
@@ -1193,7 +1193,7 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
 - QIDI-new adapter, `helix_plr_qidi.py`.
-- T2 before the `resume_skip_fraction` default is final: run 2026-10-22, default 0.0 (O2).
+- T2 (§ 11.4) still to run; the default 0.0 is a ruling (O2), not a test result.
 - App: GENERIC backend, wizard, settings, profile resolution, DB `plr` blocks for the models
   tested in § 11.4.
 
