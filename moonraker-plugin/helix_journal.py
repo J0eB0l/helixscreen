@@ -37,6 +37,16 @@ MAX_ENTRIES = 500
 MAX_AGE_S = 30 * 86400
 DEFAULT_LIMIT = 100
 
+# A `!!` line repeating one already recorded within this long of its last
+# occurrence counts on that entry ("count", "last_time") instead of adding one,
+# so a macro erroring in a loop cannot push real events out of the store.
+REPEAT_WINDOW_S = 60.0
+# How many of the newest entries a repeat is matched against
+REPEAT_LOOKBACK = 16
+# A counting entry is written back to the database at most this often; the
+# next new entry writes its final count.
+REPEAT_PERSIST_S = 10.0
+
 KIND_SHUTDOWN = "klippy_shutdown"
 KIND_DISCONNECT = "klippy_disconnect"
 KIND_READY = "klippy_ready"
@@ -230,6 +240,13 @@ class JournalStore:
         cls: Optional[str] = None,
         detail: Optional[str] = None,
     ) -> Tuple[Dict[str, Any], List[int]]:
+        """Add an entry; (it, evicted ids). A repeated `!!` line returns the
+        entry it counts on, with nothing evicted."""
+        repeated = self._repeat_of(kind, now, text, job, cls, detail)
+        if repeated is not None:
+            repeated["count"] = repeated.get("count", 1) + 1
+            repeated["last_time"] = now
+            return repeated, []
         entry = {
             "id": self.next_id,
             "time": now,
@@ -242,6 +259,18 @@ class JournalStore:
         self.next_id += 1
         self.entries.append(entry)
         return entry, self.prune(now)
+
+    def _repeat_of(self, kind: str, now: float, text: str, job: Optional[Dict[str, Any]],
+                   cls: Optional[str], detail: Optional[str]) -> Optional[Dict[str, Any]]:
+        if kind != KIND_GCODE_ERROR:
+            return None
+        job = dict(job) if job else None
+        for entry in reversed(self.entries[-REPEAT_LOOKBACK:]):
+            if (entry["kind"] == kind and entry["text"] == text and entry["job"] == job
+                    and entry["class"] == cls and entry["detail"] == detail
+                    and now - entry.get("last_time", entry["time"]) <= REPEAT_WINDOW_S):
+                return entry
+        return None
 
     def query(self, since: int = 0, limit: int = DEFAULT_LIMIT) -> Dict[str, Any]:
         """The newest `limit` entries with an id above `since`, oldest first.
@@ -272,6 +301,9 @@ class HelixJournal:
         self.sensors: Dict[str, Dict[str, bool]] = {}
         self.commands: Deque[Tuple[float, str]] = deque(maxlen=20)
         self.clock = time.time
+        # A counting entry whose latest count is not in the database yet
+        self._unsaved: Optional[Dict[str, Any]] = None
+        self._saved_at: Dict[int, float] = {}
 
     def start(self) -> None:
         handlers = (
@@ -315,6 +347,18 @@ class HelixJournal:
         if job_id and filename and getattr(job, "status", "") == "in_progress":
             self.job = {"job_id": job_id, "filename": filename}
 
+    async def _store(self, entry: Dict[str, Any], now: float) -> None:
+        self._saved_at[entry["id"]] = now
+        if len(self._saved_at) > 2 * MAX_ENTRIES:
+            live = {e["id"] for e in self.store.entries}
+            self._saved_at = {k: v for k, v in self._saved_at.items() if k in live}
+        if self.database is None:
+            return
+        try:
+            await self.database.insert_item(JOURNAL_NAMESPACE, [entry_key(entry["id"])], entry)
+        except Exception as e:
+            logging.warning("HelixPrint: journal could not store entry: %s", e)
+
     async def _delete(self, keys: List[str]) -> None:
         if self.database is None:
             return
@@ -339,14 +383,20 @@ class HelixJournal:
             job = self.job
         if not await self.helix.feature_enabled(JOURNAL_FEATURE):
             return None
-        entry, evicted = self.store.append(kind, self.clock(), text, job, cls, detail)
-        if self.database is not None:
-            try:
-                await self.database.insert_item(
-                    JOURNAL_NAMESPACE, [entry_key(entry["id"])], entry
-                )
-            except Exception as e:
-                logging.warning("HelixPrint: journal could not store entry: %s", e)
+        now = self.clock()
+        entry, evicted = self.store.append(kind, now, text, job, cls, detail)
+        if entry.get("count", 1) > 1:
+            # A repeat: written back now and then, never broadcast again.
+            if now - self._saved_at.get(entry["id"], now) >= REPEAT_PERSIST_S:
+                await self._store(entry, now)
+            else:
+                self._unsaved = entry
+            return entry
+        if self._unsaved is not None:
+            unsaved, self._unsaved = self._unsaved, None
+            if unsaved in self.store.entries:
+                await self._store(unsaved, now)
+        await self._store(entry, now)
         await self._delete([entry_key(i) for i in evicted])
         send = getattr(self.server, "send_event", None)
         if send is not None:

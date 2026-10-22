@@ -538,7 +538,13 @@ history had open, or null.
 `other`. The screen classifies the same way; `tests/fixtures/journal/error_line_classes.json`
 pins both. The store keeps 500 entries for at most 30 days, one key per entry in the
 `helix_journal` namespace, and each append is broadcast as `notify_helix_journal_appended`
-with the entry as its only parameter. The feature is `event_journal`, which has no
+with the entry as its only parameter.
+
+A `gcode_error` repeating one of the 16 newest entries (same text, class and job) within 60 s
+of that entry's last occurrence is counted on it instead of added: the entry gains `count`
+(occurrences, absent means 1) and `last_time`. A macro erroring in a loop is then one entry,
+written back at most every 10 s and broadcast only when first recorded, so it cannot evict
+the events around it. The feature is `event_journal`, which has no
 switch: it is always on, and a `plugin_features` key for it is ignored.
 
 ### Read and Edit the Klipper Config

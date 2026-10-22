@@ -311,6 +311,68 @@ class TestRecording:
 # Bounds against the database, endpoint, restart
 # ============================================================================
 
+class TestErrorFloods:
+
+    def test_repeats_within_the_window_collapse_into_one_entry(self):
+        store = JournalStore(max_entries=5)
+        store.append("klippy_shutdown", T0, "Lost communication with MCU")
+        for i in range(1000):
+            store.append("gcode_error", T0 + 1 + i * 0.01, "Move out of range", cls="move")
+        assert [e["kind"] for e in store.entries] == ["klippy_shutdown", "gcode_error"]
+        flood = store.entries[1]
+        assert flood["count"] == 1000
+        assert flood["time"] == T0 + 1
+        assert flood["last_time"] == pytest.approx(T0 + 1 + 999 * 0.01)
+
+    def test_alternating_errors_each_keep_one_entry(self):
+        store = JournalStore()
+        for i in range(50):
+            store.append("gcode_error", T0 + i, "A")
+            store.append("gcode_error", T0 + i, "B")
+        assert [(e["text"], e["count"]) for e in store.entries] == [("A", 50), ("B", 50)]
+
+    def test_a_repeat_after_the_window_is_a_new_entry(self):
+        store = JournalStore()
+        store.append("gcode_error", T0, "A")
+        store.append("gcode_error", T0 + helix_journal.REPEAT_WINDOW_S - 1, "A")
+        store.append("gcode_error", T0 + 2 * helix_journal.REPEAT_WINDOW_S, "A")
+        assert [e.get("count", 1) for e in store.entries] == [2, 1]
+
+    def test_another_job_or_kind_is_a_new_entry(self):
+        store = JournalStore()
+        store.append("gcode_error", T0, "A", job={"job_id": "1"})
+        store.append("gcode_error", T0, "A", job={"job_id": "2"})
+        store.append("pause", T0, "A")
+        store.append("pause", T0, "A")
+        assert len(store.entries) == 4
+
+    @pytest.mark.asyncio
+    async def test_a_flood_is_stored_and_broadcast_once_and_its_count_reaches_the_db(
+            self, journal):
+        db = journal.helix.database
+        writes = []
+        real_insert = db.insert_item
+
+        async def counting_insert(namespace, key, value):
+            if namespace == JOURNAL_NAMESPACE:
+                writes.append(dict(value))
+            await real_insert(namespace, key, value)
+
+        db.insert_item = counting_insert
+        for i in range(200):
+            journal.clock.now = T0 + i * 0.01
+            await journal.on_gcode_response("!! Move out of range: 1 2 3")
+        assert len(journal.store.entries) == 1
+        assert journal.store.entries[0]["count"] == 200
+        assert len(writes) <= 2
+        assert len(journal.sent) == 1
+
+        journal.clock.now = T0 + 5
+        await journal.on_klippy_ready()
+        flood_id = journal.store.entries[0]["id"]
+        assert [w.get("count") for w in writes if w["id"] == flood_id][-1] == 200
+
+
 class TestPersistence:
 
     @pytest.mark.asyncio
