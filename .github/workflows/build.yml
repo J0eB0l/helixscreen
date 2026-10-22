@@ -158,21 +158,6 @@ jobs:
         git submodule status
         echo "Submodules initialized"
 
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
-
     # The app and test objects of one commit fill about 1.8G compressed. When a
     # run's misses push the cache past its ceiling, ccache evicts the entries
     # oldest by mtime, and mid-build those are the restored test objects the
@@ -480,21 +465,6 @@ jobs:
         git submodule status
         echo "Submodules initialized"
 
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
-
     - name: Configure ccache
       run: |
         ccache --set-config=max_size=2G
@@ -683,21 +653,6 @@ jobs:
         key: ccache-x86-fbdev-${{ github.sha }}
         restore-keys: |
           ccache-x86-fbdev-
-
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
 
     - name: Configure ccache
       run: |
