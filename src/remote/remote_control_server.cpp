@@ -2349,9 +2349,11 @@ nlohmann::json RemoteControlServer::handle_scroll(const nlohmann::json& params) 
             return {{"scrolled", target_label(params)}, {"dx", dx}, {"dy", dy}};
         }
         if (lv_obj_t* clipper = helix::scroll_into_view(obj)) {
+            const char* why = helix::hidden_ancestor(obj) == clipper  ? "hidden by "
+                              : lv_obj_get_parent(clipper) == nullptr ? "on inactive screen "
+                                                                      : "clipped by ";
             throw std::runtime_error("Widget '" + target_label(params) +
-                                     "' is still out of view: clipped by " +
-                                     helix::path_of(clipper));
+                                     "' is still out of view: " + why + helix::path_of(clipper));
         }
         return {{"scrolled_into_view", target_label(params)}};
     });

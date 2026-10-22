@@ -176,13 +176,17 @@ lv_obj_t* resolve_actionable(lv_obj_t* target, lv_obj_t** descended_to,
  */
 const char* click_blocker(lv_obj_t* obj);
 
+/// The first of @p obj and its ancestors carrying LV_OBJ_FLAG_HIDDEN, or nullptr.
+lv_obj_t* hidden_ancestor(lv_obj_t* obj);
+
 /**
  * @brief The nearest ancestor that clips @p obj out of sight, or nullptr when it shows.
  *
  * Every ancestor without LV_OBJ_FLAG_OVERFLOW_VISIBLE clips its children to its
  * own box, so what shows is the intersection of those boxes. Per axis, a widget
  * that fits in that area must lie wholly inside it; one larger than it must at
- * least overlap it.
+ * least overlap it. A hidden ancestor (@p obj included) or a screen that is
+ * not loaded is returned as the clipper too.
  */
 lv_obj_t* view_clipper(lv_obj_t* obj);
 

@@ -417,16 +417,23 @@ lv_obj_t* topmost_visible(const std::vector<lv_obj_t*>& matches) {
     return best;
 }
 
-const char* click_blocker(lv_obj_t* obj) {
-    if (obj == nullptr) {
-        return "not found";
-    }
+lv_obj_t* hidden_ancestor(lv_obj_t* obj) {
     // Hidden is inherited: an object inside a hidden parent is not drawn and
     // never hit-tested, however unhidden it is itself.
     for (lv_obj_t* o = obj; o != nullptr; o = lv_obj_get_parent(o)) {
         if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) {
-            return "hidden";
+            return o;
         }
+    }
+    return nullptr;
+}
+
+const char* click_blocker(lv_obj_t* obj) {
+    if (obj == nullptr) {
+        return "not found";
+    }
+    if (hidden_ancestor(obj) != nullptr) {
+        return "hidden";
     }
     if (!lv_obj_has_flag(obj, LV_OBJ_FLAG_CLICKABLE)) {
         return "not clickable";
@@ -454,6 +461,14 @@ lv_obj_t* view_clipper(lv_obj_t* obj) {
     if (obj == nullptr) {
         return nullptr;
     }
+    if (lv_obj_t* hidden = hidden_ancestor(obj)) {
+        return hidden;
+    }
+    // Only the loaded screen and the layers drawn over it are on the display.
+    lv_obj_t* screen = lv_obj_get_screen(obj);
+    if (screen != lv_screen_active() && screen != lv_layer_top() && screen != lv_layer_sys()) {
+        return screen;
+    }
     lv_obj_update_layout(obj);
     lv_area_t box;
     lv_obj_get_coords(obj, &box);
@@ -470,6 +485,9 @@ lv_obj_t* view_clipper(lv_obj_t* obj) {
             view = own;
             clipped = true;
         } else if (!lv_area_intersect(&view, &view, &own)) {
+            return a;
+        }
+        if (lv_area_get_width(&view) <= 0 || lv_area_get_height(&view) <= 0) {
             return a;
         }
         if (!axis_shows(box.x1, box.x2, view.x1, view.x2) ||

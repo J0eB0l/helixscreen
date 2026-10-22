@@ -922,3 +922,36 @@ TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: overflow-visible ancestors do not
     lv_obj_add_flag(host, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
     CHECK(helix::view_clipper(child) == nullptr);
 }
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: a widget inside a hidden ancestor is not in view",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    lv_obj_add_flag(t.column, LV_OBJ_FLAG_HIDDEN);
+
+    CHECK(helix::scroll_into_view(t.row) == t.column);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ctl scroll: a widget on a screen that is not loaded is not in view",
+                 "[remote][ctl][scroll]") {
+    lv_obj_t* other = lv_obj_create(nullptr);
+    ScrollTree t = build_scroll_tree(other);
+
+    CHECK(helix::scroll_into_view(t.row) == other);
+    lv_obj_delete(other);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: an empty clipping ancestor shows nothing",
+                 "[remote][ctl][scroll]") {
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_size(host, 0, 100);
+    lv_obj_set_pos(host, 50, 0);
+    lv_obj_set_style_pad_all(host, 0, 0);
+    lv_obj_t* child = lv_obj_create(host);
+    lv_obj_set_size(child, 50, 50);
+    // Straddling the empty box's edge, so an overlap test alone would pass it.
+    lv_obj_set_pos(child, -10, 0);
+    lv_obj_update_layout(test_screen());
+
+    CHECK(helix::view_clipper(child) == host);
+}
