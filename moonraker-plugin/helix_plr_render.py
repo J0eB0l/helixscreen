@@ -107,6 +107,7 @@ class ResumePlan(NamedTuple):
     # A part-free XY (the XY homing position) to heat the nozzle over when
     # there is no purge line.
     park_xy: Optional[Tuple[float, float]] = None
+    backend: str = "generic"  # "generic" | "qidi_print_state"
 
 
 # --------------------------------------------------------------------------

@@ -586,7 +586,7 @@ def plr(helix, tmp_path):
     fm = helix.file_manager
     fm.get_directory = lambda name: str(config) if name == "config" else fm._gcodes_path
     db = helix.database
-    run(db.insert_item("helix-screen", "plr_profile", {"tier": 2}))
+    run(db.insert_item("helix-screen", "plr_profile", {"tier": 2, "z_holds_unpowered": True}))
     run(db.insert_item("helix-screen", "plr_user", {"enabled": True}))
     (helix.gc_path / "sub").mkdir()
     (helix.gc_path / "sub" / "part.gcode").write_bytes(b"G1 X1\n" * 50000)
@@ -1429,6 +1429,9 @@ class ConfigTable:
 
 @pytest.fixture
 def qidi_printer(plr, helix, tmp_path):
+    run(helix.database.insert_item("helix-screen", "plr_profile",
+                                   {"tier": 2, "backend": "qidi_print_state",
+                                    "z_holds_unpowered": True}))
     table = ConfigTable(helix.database)
     apis = helix.klippy_apis
     apis.power_off_print = AsyncMock(return_value="ok")
@@ -1555,9 +1558,14 @@ def test_scan_follows_the_file_klipper_reads(plr, helix, resume):
     shift = len(b";plate header\n" * 10)
     record["file_position"] += shift
     plr.store.write(fit_record(record)[0])
-    reply = run(plr.handle_plan(Req()))
+    # The generic start would select the job's file, not the copy the offset is in.
+    with pytest.raises(Exception, match="plr_scan_failed: printed_copy"):
+        run(plr.handle_plan(Req()))
+    scan, point = plr._plan_submit(
+        helix_plr._scan_and_locate, path, record["file_position"], index, ident, record,
+        0.5).result()
     layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
-    assert reply["resume_offset"] == resume.index(b"G1 X55 Y10", layer4) + shift
+    assert point.offset == resume.index(b"G1 X55 Y10", layer4) + shift
 
 
 # --------------------------------------------------------------------------
@@ -1738,7 +1746,8 @@ def test_a_snapshot_without_a_live_position_is_not_planned(plr, resume):
 
 
 def test_a_tier_three_profile_acts_at_tier_two(plr, helix, resume):
-    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 3}))
+    run(helix.database.insert_item("helix-screen", "plr_profile",
+                                   {"tier": 3, "z_holds_unpowered": True}))
     assert run(plr.handle_status(Req()))["tier"] == 2
 
 
@@ -1959,3 +1968,77 @@ def test_two_status_frames_at_once_save_one_snapshot(plr):
 
     run(both())
     assert len(writes) == 1           # two at once would also race on the slot seq
+
+
+# --------------------------------------------------------------------------
+# Backend selection, QIDI routing details, the offer outliving the switch
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "profile, qidi, safe, expected",
+    [
+        ({"tier": 0}, False, True, ("none", 0)),
+        ({"tier": 0, "backend": "qidi_print_state"}, True, True, ("none", 0)),
+        ({"tier": 1}, False, True, ("generic", 1)),
+        ({"tier": 2}, False, True, ("generic", 1)),                      # Z may sag: jog
+        ({"tier": 2, "z_holds_unpowered": True}, False, True, ("generic", 2)),
+        ({"tier": 3, "z_holds_unpowered": True}, False, True, ("generic", 2)),
+        ({"tier": 2, "z_holds_unpowered": True}, False, False, ("none", 0)),  # unsafe G28 X Y
+        ({"tier": 2, "z_holds_unpowered": True}, True, True, ("generic", 2)),  # QIDI fw, generic
+        ({"tier": 2, "z_holds_unpowered": True, "backend": "qidi_print_state"}, True, False,
+         ("qidi_print_state", 2)),
+        ({"tier": 2, "z_holds_unpowered": True, "backend": "qidi_print_state"}, False, True,
+         ("none", 0)),                                                   # no QIDI endpoint
+        ({"tier": 1, "backend": "qidi_print_state"}, True, True, ("none", 0)),   # no jog on QIDI
+        ({"tier": 2, "backend": "qidi_print_state"}, True, True, ("none", 0)),   # Z unproven
+        ({"tier": 2, "z_holds_unpowered": True, "backend": "vendor"}, True, True, ("none", 0)),
+    ],
+)
+def test_backend_selection(plr, profile, qidi, safe, expected):
+    plr.qidi = object() if qidi else None
+    plr.homing = HomingCheck(True, None) if safe else HomingCheck(False, "override_homes_z")
+    assert plr.backend(parse_profile(profile)) == expected
+
+
+def test_qidi_refuses_a_cache_file_other_than_the_one_printed(plr, helix, qidi_resume):
+    _, cache = qidi_resume
+    other = cache.parent / "elsewhere.gcode"
+    other.write_bytes((cache / "part.gcode").read_bytes())
+    plr.job["print_path"] = str(other)
+    plr.job["print_identity"] = helix_plr.file_identity(other)
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    with pytest.raises(Exception, match="qidi_cache_mismatch"):
+        commit(plr, plan_id)
+
+
+def test_a_failing_qidi_row_write_does_not_stop_the_snapshot_loop(plr, helix, qidi_printer):
+    async def boom(*a, **k):
+        raise RuntimeError("bad row")
+
+    plr.qidi.on_snapshot = boom
+    added(plr, job_id="0000G1")
+    tick(plr, 3.0, **printing_status(100))
+    tick(plr, 1.0, **printing_status(200))
+    assert plr.store.load()["file_position"] == 200
+
+
+def test_a_skipped_chamber_wait_is_not_waited_for_in_commit(plr, helix, resume):
+    record = plr.store.load()
+    record["heaters"]["heater_generic chamber"] = {"target": 45.0, "temp": 25.0}
+    plr.store.write(fit_record(record)[0])
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.heats = False
+    plr.printer.bed = 60.0
+    run(plr.handle_prepare(Req(plan_id=plan_id, skip_chamber_wait=True)))
+    assert commit(plr, plan_id) == {"ok": True, "job_started": True}
+
+
+def test_turning_saving_off_keeps_an_existing_offer(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_user", {"enabled": False}))
+    entry = run(helix._handle_status(None))["features"]["plr"]
+    assert entry["enabled"] is True                  # a snapshot is waiting
+    assert run(plr.handle_status(Req()))["offer"]["available"] is True
+    run(plr.handle_discard(Req()))
+    assert run(helix._handle_status(None))["features"]["plr"]["enabled"] is False

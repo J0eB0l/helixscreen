@@ -853,6 +853,8 @@ class HelixPlr:
         self._follow_at = float("-inf")
         self._follow_executor = None  # type: Optional[Any]
         self.qidi = None  # type: Optional[Any]
+        self._active_backend = "none"
+        self._skip_chamber = False
         self.klippy_ready = False
         self.homing = HomingCheck(True, None)
         self.axis_min = None  # type: Optional[list]
@@ -899,6 +901,14 @@ class HelixPlr:
             profile = await self.profile()
         cls, dev = self.runtime_storage
         return storage_verdict(cls, dev, profile.storage_hint)
+
+    async def feature_enabled(self) -> bool:
+        """The `plr` entry's `enabled`: saving is on, or a saved snapshot is
+        still waiting to be resumed or discarded. Turning saving off stops new
+        snapshots; it does not withdraw the offer for one already saved."""
+        if await self.saving_enabled():
+            return True
+        return self.job is not None and self._load_snapshot() is not None
 
     async def saving_enabled(self) -> bool:
         """The `plr` feature's switch: saving_enabled() over the storage
@@ -1032,7 +1042,9 @@ class HelixPlr:
         now = self.clock()
         if now - read_at >= SWITCH_CACHE_S:
             value = await self.saving_enabled() and self.availability()[0]
-            self._macro_vars = (await self.profile()).macro_vars
+            profile = await self.profile()
+            self._macro_vars = profile.macro_vars
+            self._active_backend = self.backend(profile)[0]
             self._switch = (value, now)
         return value
 
@@ -1064,9 +1076,13 @@ class HelixPlr:
             return
         await self._persist(now, record)
         await self._maybe_save_mesh(record)
-        if self.qidi is not None:
-            await self.qidi.on_snapshot(record, self._qidi_status(),
-                                        force=reason in ("event", "pause"))
+        if self.qidi is not None and self._active_backend == "qidi_print_state":
+            try:
+                await self.qidi.on_snapshot(record, self._qidi_status(),
+                                            force=reason in ("event", "pause"))
+            except Exception:
+                # The generic snapshot and the follower carry on regardless.
+                logging.exception("HelixPrint: PLR could not write QIDI's print_state")
         self._maybe_follow(now, record.get("file_position"))
 
     async def _note_print_path(self) -> None:
@@ -1439,38 +1455,45 @@ class HelixPlr:
         return all(now[k] == job.get(k) for k in ("file_size", "file_mtime", "file_hash"))
 
     def backend(self, profile: PlrProfile) -> Tuple[str, int]:
-        """(backend, tier) PLR acts with. On QIDI's fork with QIDI's resume
-        endpoint the adapter resumes, at tier 2: QIDI's sequence declares the
-        snapshot's Z itself. A printer the profile does not list stays at 0."""
-        if profile.backend == "vendor":
-            return "none", 0
-        if self.qidi is not None:
-            listed = profile.backend == "qidi_print_state" or profile.tier >= 1
-            return ("qidi_print_state", 2) if listed else ("none", 0)
+        """(backend, tier) PLR acts with; ("none", 0) when it does not act.
+
+        - tier 0 (an unlisted printer) never acts;
+        - tier 2 (trusted Z) needs z_holds_unpowered, else it acts at tier 1;
+        - qidi_print_state needs QIDI's firmware and endpoint (self.qidi), and
+          tier 2: QIDI's sequence declares the snapshot's Z itself, so there
+          is no tier-1 jog on that path;
+        - generic needs safe XY homing (effective_tier); tier 3 is not in v1
+          and acts at tier 2.
+        """
+        tier = min(profile.tier, 2)
+        if tier >= 2 and not profile.z_holds_unpowered:
+            tier = 1
+        if profile.backend == "qidi_print_state":
+            if self.qidi is None or tier < 2:
+                return "none", 0
+            return "qidi_print_state", 2
         if profile.backend != "generic":
             return "none", 0
-        tier, _ = effective_tier(profile, self.homing)
-        # Tier 3 (re-referenced Z) is not in v1; act at tier 2.
-        tier = min(tier, 2)
-        return ("generic" if tier >= 1 else "none"), tier
+        homed_tier, _ = effective_tier(profile._replace(tier=tier), self.homing)
+        return ("generic" if homed_tier >= 1 else "none"), homed_tier
 
     def _lift_room(self, profile: PlrProfile, snapshot: Optional[Dict[str, Any]]) -> bool:
         live = (snapshot or {}).get("live_pos")
-        if self.qidi is not None or not live or not self.axis_max:
+        if self.backend(profile)[0] != "generic" or not live or not self.axis_max:
             return True
         return helix_plr_render.lift_height(profile.z_lift_mm, live[2], self.axis_max[2]) \
             >= helix_plr_render.MIN_LIFT_MM
 
     async def _offer(self, profile: PlrProfile,
                      snapshot: Optional[Dict[str, Any]]) -> Tuple[OfferVerdict, int]:
-        _, tier = self.backend(profile)
+        backend, tier = self.backend(profile)
         newest = await self._ns_get(NEWEST_JOB_KEY)
         snapshot_job = None
         if self.job and snapshot and snapshot.get("job_id", self.job.get("job_id")) \
                 == self.job.get("job_id"):
             snapshot_job = self.job.get("job_id")
         rows = True
-        if self.qidi is not None and tier >= 1:
+        if backend == "qidi_print_state":
             rows = await self.qidi.has_resume_rows()
         inputs = OfferInputs(
             newest_job_status=await self._newest_job_status(newest),
@@ -1552,7 +1575,7 @@ class HelixPlr:
         if state in ("printing", "paused"):
             raise self._error("plr_busy", "printer is %s" % state, 409)
         live = snapshot.get("live_pos")
-        if self.qidi is None and (not isinstance(live, list) or len(live) < 4
+        if self.backend(profile)[0] == "generic" and (not isinstance(live, list) or len(live) < 4
                                   or any(v is None for v in live[:4])):
             # The measured nozzle position is the Z prepare declares; never guess it.
             raise self._error("plr_scan_failed", "no_live_position", 400)
@@ -1608,7 +1631,10 @@ class HelixPlr:
                                     "bed_mesh": ["profiles"]})
         job = self.job or {}
         warnings = list(point.warnings)
-        qidi = self.qidi is not None
+        backend = self.backend(profile)[0]
+        qidi = backend == "qidi_print_state"
+        if not qidi:
+            self._check_printed_file()
         mesh = job.get("mesh")
         profiles = _obj(status, "bed_mesh").get("profiles")
         profiles = profiles if isinstance(profiles, dict) else {}
@@ -1675,6 +1701,7 @@ class HelixPlr:
             skip_estimate_mm=point.skip_estimate_mm, warnings=warnings,
             requires=helix_plr_render.required_confirmations(tier, warnings, bed_cold),
             part_top_z=part_top, mesh_fade=self.mesh_fade, park_xy=self.park_xy,
+            backend=backend,
         )
         self._plan = plan
         self._plan_seq = snapshot.get("seq")
@@ -1695,6 +1722,23 @@ class HelixPlr:
         if landing < -QIDI_LANDING_TOL_MM:
             raise self._error("plr_scan_failed",
                               "qidi_landing_below_part: %.3f mm" % landing, 400)
+
+    def _check_printed_file(self) -> None:
+        """The generic start selects the job's file; the offset was found in
+        the file Klipper read. Refuse when that was a different file (a copy
+        or a .3mf plate)."""
+        job = self.job or {}
+        printed = job.get("print_path")
+        gc_path = getattr(self.helix, "gc_path", None)
+        if not printed or gc_path is None:
+            return
+        try:
+            same = Path(printed).resolve() == (gc_path / job.get("filename", "")).resolve()
+        except OSError:
+            same = False
+        if not same:
+            raise self._error("plr_scan_failed",
+                              "printed_copy: Klipper read %s, not the job's file" % printed, 400)
 
     def _bed_limits(self, mesh: Any) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:
         """The bed, not the travel: [bed_mesh] mesh_min/mesh_max, else the
@@ -1838,9 +1882,10 @@ class HelixPlr:
         except Exception:
             self._sequence = previous
             raise
+        self._skip_chamber = skip_chamber
         try:
             await self._heat(plan, skip_chamber)
-            if self.qidi is None:
+            if plan.backend == "generic":
                 lifted = self._lifted_z(plan)
                 for step, lines in helix_plr_render.render_prepare_script(
                         plan, profile, lifted, "z" in homed):
@@ -1894,10 +1939,10 @@ class HelixPlr:
                 else "prepared"
             raise
         try:
-            if self.qidi is not None:
+            if plan.backend == "qidi_print_state":
                 await self._commit_qidi(plan)
             else:
-                await self._heat(plan)
+                await self._heat(plan, self._skip_chamber)
                 await self._run_steps(plan_id, helix_plr_render.render_commit_script(
                     plan, profile, z_reference))
                 await self._start(plan)
@@ -1914,7 +1959,7 @@ class HelixPlr:
         """Commit trusts the frame prepare set up: refuse it when Klipper
         restarted since, or the axes prepare homed are no longer homed (an
         idle timeout's motors-off, a restart). The answer is a new prepare."""
-        if self.qidi is not None:
+        if plan.backend != "generic":
             return
         needed = "xyz" if plan.tier >= 2 else "xy"
         if self._klippy_generation != self._prepared_generation \
@@ -1939,7 +1984,8 @@ class HelixPlr:
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
             await self.qidi.commit(plan.snapshot, plan.resume_offset, self._plan_file_size,
-                                   self._heat_wait(plan), plan.state, self._qidi_status())
+                                   self._heat_wait(plan, self._skip_chamber), plan.state,
+                                   self._qidi_status())
         except Exception as e:
             self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "failed"})
             if getattr(e, "plr_code", None):
@@ -1952,13 +1998,15 @@ class HelixPlr:
         file the snapshot and the resume offset are for."""
         name = helix_plr_qidi.qidi_resume_filename(self.qidi._cache_dir)
         job = self.job or {}
+        printed = job.get("print_path")
         expected = job.get("print_identity") or job
         try:
             found = file_identity(Path(name)) if name else None
         except OSError:
             found = None
         if found is None or found["file_size"] != expected.get("file_size") \
-                or found["file_hash"] != expected.get("file_hash"):
+                or found["file_hash"] != expected.get("file_hash") \
+                or (printed and Path(printed).resolve() != Path(name).resolve()):
             raise self._error("plr_scan_failed", "qidi_cache_mismatch: %s" % name, 409)
 
     async def _start(self, plan: Any) -> None:
@@ -2002,7 +2050,7 @@ class HelixPlr:
         self._abort = True
         self._sequence = "aborted"
         self._plan = None
-        if self.qidi is not None:
+        if plan.backend == "qidi_print_state":
             self.qidi.abort()
         await self._heaters_off(plan)
         return {"ok": True}
@@ -2012,7 +2060,7 @@ class HelixPlr:
             raise self._error("plr_busy", "a resume is running", 409)
         self._plan = None
         self._sequence = None
-        if self.qidi is not None:
+        if self.qidi is not None and self.backend(await self.profile())[0] == "qidi_print_state":
             try:
                 await self.qidi.discard()
             except Exception as e:

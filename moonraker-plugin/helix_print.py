@@ -800,7 +800,7 @@ class HelixPrint:
         self.plr.start()
         self.register_feature(
             helix_plr.PLR_FEATURE, helix_plr.PLR_FEATURE_VERSION, acts=True,
-            switch=self.plr.saving_enabled, probe=self.plr.availability,
+            switch=self.plr.feature_enabled, probe=self.plr.availability,
         )
 
     async def close(self) -> None:

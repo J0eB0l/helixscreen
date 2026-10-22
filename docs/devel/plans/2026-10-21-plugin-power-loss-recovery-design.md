@@ -700,14 +700,25 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
 - The plan reply carries `tier` (as status does), so the app need not read status again.
 - Events are sent as `helix_print:plr_progress` / `helix_print:plr_plan_ready`; Moonraker delivers
   them to clients as `notify_plr_progress` / `notify_plr_plan_ready`.
-- `backend`: `qidi_print_state` when QIDI's fork is detected (`qidi_print_state_present` AND
-  `moonraker_resumes_print_state`) and the profile lists the printer (`backend:
-  "qidi_print_state"` or tier >= 1), at tier 2 since QIDI's sequence declares the snapshot's Z;
-  otherwise `generic` at the effective tier, or `none` at tier 0. For `qidi_print_state` the
-  offer also needs QIDI's `file_position` row (else `no_snapshot`), the plan skips purge and mesh
-  (QIDI's sequence does both), `prepare` runs only the heat wait, `commit` hands the heat wait to
-  the adapter's `commit`, `abort` keeps the rows (the plugin turns the heaters off), and `discard`
-  deletes the rows as well as the snapshot and mesh file.
+- `backend` and `tier` (`helix_plr.py#HelixPlr.backend`): the profile's tier, capped at 2, and
+  lowered to 1 unless `z_holds_unpowered`; tier 0 never acts (`none`). `qidi_print_state` only
+  for a profile with `backend: "qidi_print_state"` on QIDI's fork with QIDI's endpoint
+  (`qidi_print_state_present` AND `moonraker_resumes_print_state`) at tier 2, since QIDI's
+  sequence declares the snapshot's Z itself and has no jog step (tier 1 there is `none`). A
+  `generic` profile is generic on any firmware, at the effective tier (§ 7.3). For
+  `qidi_print_state` the offer also needs QIDI's `file_position` row (else `no_snapshot`), the
+  plan skips purge and mesh (QIDI's sequence does both), `prepare` runs only the heat wait,
+  `commit` checks QIDI's `.cache` file is the one printed (`print_path`, its size and hash) and
+  hands the heat wait to the adapter's `commit` (an abort stops it at the marker, immediately
+  before `power_off_print`; a skipped chamber wait stays skipped), `abort` keeps the rows (the
+  plugin turns the heaters off), and `discard` deletes the rows as well as the snapshot and mesh
+  file. A failing print_state write is logged and the snapshot loop carries on.
+- The generic path refuses (`plr_scan_failed: printed_copy`) when Klipper read a different file
+  than the job's (a cache copy, a `.3mf` plate): the offset was found in that file, and the
+  start selects the job's.
+- The `plr` feature's `enabled` is "saving is on, or a saved snapshot is waiting": turning saving
+  off stops new snapshots without withdrawing the offer for one already saved, until it is
+  resumed or discarded.
 - `plr_profile` and the switch: § 7.2. The checkpoint sidecar: § 6.2.
 
 ---
