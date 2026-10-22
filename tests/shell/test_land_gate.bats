@@ -11,7 +11,7 @@ load helpers
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 GATE="$REPO_ROOT/scripts/land-gate.sh"
 
-ALL_STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes"
+ALL_STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes quality"
 
 # Every make here is a stub, and a stub must never reach the real make or the
 # jobpool shim: JOBPOOL=0 keeps the shim out of any make that does run, and the
@@ -24,6 +24,9 @@ setup() {
     export CALLS="$BATS_TEST_TMPDIR/calls"
     export LAND_GATE_LOGDIR="$BATS_TEST_TMPDIR/logs"
     export LAND_GATE_HISTORY="$BATS_TEST_TMPDIR/history.tsv"
+    # A passing gate run in the real tree must never vouch for its HEAD to the
+    # real pre-push hook.
+    export HELIX_LAND_GATE_STAMP_DIR="$BATS_TEST_TMPDIR/stamps"
     : >"$CALLS"
     # A target exits with $RC_<target, - as _>, default 0; no target is "app".
     mock_command_script fake-make '
@@ -32,6 +35,7 @@ export FAKE_MAKE_DEPTH=$((${FAKE_MAKE_DEPTH:-0} + 1))
 t=app; vars=""
 for a in "$@"; do case "$a" in -*) ;; *=*) vars="$vars $a" ;; *) t=$a ;; esac; done
 echo "make $t$vars" >> "$CALLS"
+[ "$t" != quality ] || [ -z "${MAKE_QUALITY_HOOK:-}" ] || eval "$MAKE_QUALITY_HOOK"
 echo "output of $t"
 eval "rc=\${RC_$(echo "$t" | tr - _):-0}"
 exit "$rc"'
@@ -76,6 +80,7 @@ row() { # <status> <step>: the table row for step has that status
     grep -qx "make check-xml-schema" "$CALLS"
     grep -qx "make lint-xml" "$CALLS"
     grep -qx "make check-lvgl-event-codes" "$CALLS"
+    grep -qx "make quality" "$CALLS"
 }
 
 @test "the second sweep runs in CI's 8-shard layout, and CI_SHARDS changes it" {
@@ -126,6 +131,7 @@ row() { # <status> <step>: the table row for step has that status
     row FAIL app-build
     row SKIP ui
     row SKIP plugin
+    row SKIP quality
     refute_grep "make test-ui-ci" "$CALLS"
     row PASS bats
 }
@@ -233,6 +239,68 @@ case "$1" in take) [ "$5" = "$CLAIM_OWNER" ] ;; esac'
     run bash -c "cd '$T' && '$GATE'"
     contains "Land gate on $sha+dirty" "$output"
     contains "LAND GATE: PASS ($sha+dirty)" "$output"
+}
+
+# A one-commit repo the gate runs in, so its HEAD and cleanliness are the test's.
+stamp_tree() {
+    T="$BATS_TEST_TMPDIR/tree"
+    git init -q "$T"
+    echo a >"$T/f"; git -C "$T" add f
+    git -C "$T" -c user.email=t@t -c user.name=t commit -q -m init
+    SHA=$(git -C "$T" rev-parse HEAD)
+}
+
+@test "a clean PASS records the full HEAD SHA for pre-push" {
+    stamp_tree
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    [ -f "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    [ "$(ls "$HELIX_LAND_GATE_STAMP_DIR")" = "$SHA" ]
+    contains "recorded: pushing ${SHA:0:7}" "$output"
+}
+
+@test "a failed step or a dirty tree records nothing" {
+    stamp_tree
+    RC_quality=1 run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 1 ]
+    row FAIL quality
+    RC_lint_xml=1 run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 1 ]
+    echo b >"$T/f"
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    contains "+dirty" "$output"
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    lacks "recorded:" "$output"
+}
+
+@test "a gate whose tree is edited during the run records nothing" {
+    stamp_tree
+    MAKE_QUALITY_HOOK="echo edited >f" run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    lacks "+dirty" "$output"
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+}
+
+@test "a tree dirty at the start records nothing, even if clean at the end" {
+    stamp_tree
+    echo b >"$T/f"
+    MAKE_QUALITY_HOOK="echo a >f" run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    contains "+dirty" "$output"
+    [ -z "$(git -C "$T" status --porcelain --untracked-files=no)" ]
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+}
+
+@test "a gate whose HEAD moves during the run records nothing" {
+    stamp_tree
+    # The quality step commits, as a peer committing in the tree mid-gate would.
+    RC_quality=0 MAKE_QUALITY_HOOK="git -c user.email=t@t -c user.name=t commit -q --allow-empty -m moved" \
+        run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$T" rev-parse HEAD)" != "$SHA" ]
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$(git -C "$T" rev-parse HEAD)" ]
 }
 
 @test "test-shell with BATS_REQUIRED=1 fails when bats is missing; without it, skips" {
