@@ -8,6 +8,7 @@
 
 #include "app_globals.h"
 #include "display/lv_display_private.h" // flush_cb access
+#include "display_awake_hold.h"
 #include "display_manager.h"
 #include "display_settings_manager.h"
 #include "lock_manager.h"
@@ -338,6 +339,11 @@ void DisplaySleepController::tick() {
             lv_display_trigger_activity(nullptr);
             inhibit_sleep_entry = true;
         }
+    }
+    // A view waiting on the user mid-operation holds the screen up regardless.
+    if (helix::display_awake_hold().is_held()) {
+        lv_display_trigger_activity(nullptr);
+        inhibit_sleep_entry = true;
     }
 
     // Get configured sleep timeout from settings (0 = disabled)
