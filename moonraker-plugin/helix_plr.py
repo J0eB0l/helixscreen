@@ -139,6 +139,7 @@ BACKENDS = ("generic", "qidi_print_state", "vendor")
 
 DEFAULT_XY_HOME_GCODE = "G28 X Y"
 DEFAULT_Z_LIFT_MM = 5.0
+DEFAULT_NOZZLE_STANDBY_DROP_C = 70.0
 RESUME_SKIP_FRACTION_DEFAULT = 0.5
 
 
@@ -152,6 +153,9 @@ class PlrProfile(NamedTuple):
     purge_gcode: Optional[str] = None
     resume_skip_fraction: float = RESUME_SKIP_FRACTION_DEFAULT
     macro_vars: Dict[str, Tuple[str, ...]] = {}
+    # Once the nozzle has let go of the part, prepare drops it this far under
+    # the print temperature until commit (R30).
+    nozzle_standby_drop_c: float = DEFAULT_NOZZLE_STANDBY_DROP_C
 
 
 def _num(value: Any) -> Optional[float]:
@@ -175,6 +179,7 @@ def parse_profile(record: Any) -> PlrProfile:
     holds = record.get("z_holds_unpowered")
     xy_home = record.get("xy_home_gcode")
     lift = _num(record.get("z_lift_mm"))
+    drop = _num(record.get("nozzle_standby_drop_c"))
     purge = record.get("purge_gcode")
     skip = _num(record.get("resume_skip_fraction"))
     macro_vars = {}  # type: Dict[str, Tuple[str, ...]]
@@ -191,6 +196,8 @@ def parse_profile(record: Any) -> PlrProfile:
         xy_home_gcode=xy_home if isinstance(xy_home, str) and xy_home.strip() else d.xy_home_gcode,
         z_lift_mm=(max(lift, helix_plr_render.MIN_LIFT_MM) if lift is not None and lift > 0.0
                    else d.z_lift_mm),
+        nozzle_standby_drop_c=drop if drop is not None and drop >= 0.0
+        else d.nozzle_standby_drop_c,
         purge_gcode=purge if isinstance(purge, str) and purge.strip() else None,
         resume_skip_fraction=(
             skip if skip is not None and 0.0 <= skip <= 1.0 else d.resume_skip_fraction
@@ -1912,9 +1919,12 @@ class HelixPlr:
 
     async def _heat(self, plan: Any, skip_chamber: bool = False,
                     nozzle_in_place: bool = False) -> None:
-        """§ 6.3 step 2: set each heater, then poll it to temperature."""
-        for heat in helix_plr_render.render_heat_wait(plan, skip_chamber, nozzle_in_place):
+        """§ 6.3 step 2: set every heater at once, then poll each to
+        temperature (R29): nothing waits for the bed before the nozzle starts."""
+        heats = helix_plr_render.render_heat_wait(plan, skip_chamber, nozzle_in_place)
+        for heat in heats:
             await self._send(plan.plan_id, heat.step, heat.lines, done=not heat.wait)
+        for heat in heats:
             if heat.wait:
                 timeout = {"heater_bed": BED_WAIT_TIMEOUT_S, "extruder": NOZZLE_WAIT_TIMEOUT_S} \
                     .get(heat.sensor, CHAMBER_WAIT_TIMEOUT_S)
@@ -1982,6 +1992,9 @@ class HelixPlr:
             try:
                 if plan.backend == "qidi_print_state":
                     await self.qidi.prepare(self._heat_wait(plan, skip_chamber, nozzle_in_place=True))
+                    # No lift: QIDI declares Z from its row and lands on it.
+                    await self._send(plan_id, "nozzle_standby",
+                                     helix_plr_render.nozzle_standby_lines(plan, profile))
                 else:
                     await self._heat(plan, skip_chamber, nozzle_in_place=True)
                 if motion is not None:
@@ -2091,7 +2104,9 @@ class HelixPlr:
                 if plan.backend == "qidi_print_state":
                     await self._commit_qidi(plan)
                 else:
-                    await self._heat(plan, self._skip_chamber)
+                    # Back to print temperature where the nozzle stands, before
+                    # the tier-1 Z reference or any other move.
+                    await self._heat(plan, self._skip_chamber, nozzle_in_place=True)
                     for step, lines in helix_plr_render.render_commit_script(
                             plan, profile, z_reference):
                         await self._send(plan_id, step, lines, done=step != "heat_nozzle")

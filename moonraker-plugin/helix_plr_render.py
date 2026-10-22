@@ -45,6 +45,11 @@ PURGE_RETRACT_MM = 0.8
 PRIME_E_MM = PURGE_RETRACT_MM
 # Heat-up prime when no purge location is known: at the XY home position.
 HOME_PRIME_E_MM = 5.0
+# Pulled back when the nozzle drops to standby, still at print temperature,
+# so it oozes less while it waits; the purge or prime gives it back.
+STANDBY_RETRACT_MM = 1.0
+# The standby temperature never goes below this.
+NOZZLE_STANDBY_MIN_C = 140.0
 
 CONFIRMATIONS = ("part_attached", "nozzle_clear", "z_confirmed", "z_jogged",
                  "accept_no_mesh", "accept_cold_bed", "accept_next_layer")
@@ -250,12 +255,13 @@ HEAT_TOLERANCE_C = 1.0
 
 def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False,
                      nozzle_in_place: bool = False) -> List[HeatStep]:
-    """Bed, then chamber, to temperature, then with `nozzle_in_place` the
-    nozzle where it stands. After a cut the nozzle is frozen into the
-    plastic: lifting or homing it cold tears the part off the bed, so every
-    prepare heats it in place before anything moves. A generic commit
-    repeats the bed and chamber; a QIDI commit repeats all three, since
-    QIDI's sequence lifts and homes before it heats."""
+    """Bed, chamber and, with `nozzle_in_place`, the nozzle where it stands.
+    helix_plr.py sets them all at once, then waits for each (R29). After a
+    cut the nozzle is frozen into the plastic: lifting or homing it cold
+    tears the part off the bed, and a reheated bed is the part's best chance
+    to grip again, so no Z move happens before both are hot. Every prepare
+    and every commit heats all three: prepare leaves the nozzle at standby
+    (R30), and commit brings it back before anything moves."""
     steps = []  # type: List[HeatStep]
     if plan.bed_target > 0:
         steps.append(HeatStep("bed_wait", ["M140 S%s" % _f(plan.bed_target)], "heater_bed",
@@ -272,11 +278,25 @@ def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False,
     return steps
 
 
+def nozzle_standby_c(target: float, drop_c: float) -> float:
+    """The standby temperature: `drop_c` under the print temperature, no
+    lower than NOZZLE_STANDBY_MIN_C and never above the print temperature."""
+    return min(target, max(NOZZLE_STANDBY_MIN_C, target - drop_c))
+
+
+def nozzle_standby_lines(plan: ResumePlan, profile: Any) -> List[str]:
+    """R30: the nozzle has let go of the part; retract a little while it is
+    still at print temperature, then drop it to standby until commit."""
+    return ["M83", "G1 E-%s F%d" % (_f(STANDBY_RETRACT_MM), RETRACT_FEED),
+            "M104 S%s" % _f(nozzle_standby_c(plan.nozzle_target, profile.nozzle_standby_drop_c))]
+
+
 def render_prepare_script(plan: ResumePlan, profile: Any, declare_z: Optional[float],
                           lift_mm: float) -> List[Tuple[str, List[str]]]:
-    """The generic prepare's motion after the heat wait: declare Z when
-    Klipper has none (`declare_z`), lift cold by `lift_mm`, home XY, and at
-    tier 1 stop above the resume point. helix_plr.py decides both inputs
+    """The generic prepare's motion after the heat wait (bed and nozzle hot):
+    declare Z when Klipper has none (`declare_z`), lift by `lift_mm`, drop
+    the nozzle to standby, home XY, and at tier 1 stop above the resume
+    point. helix_plr.py decides both inputs
     from Klipper's homed axes and the lift record.
 
     SET_HOMED=Z leaves X and Y unhomed, so an XY homing macro that homes only
@@ -290,6 +310,7 @@ def render_prepare_script(plan: ResumePlan, profile: Any, declare_z: Optional[fl
         lift += ["G91", "G1 Z%s F%d" % (_f(lift_mm), Z_FEED), "G90"]
     if lift:
         steps.append(("lift", lift))
+    steps.append(("nozzle_standby", nozzle_standby_lines(plan, profile)))
     steps.append(("home_xy", [line for line in profile.xy_home_gcode.splitlines() if line.strip()]))
     if plan.tier == 1:
         x, y, _ = _resume_xyz(plan.state)
