@@ -834,6 +834,7 @@ translations:
   Cooling Tube Length: '冷却管长度'
   Cooling Tube Retraction: '冷却管回抽'
   Cooling for probing...: 正在降温以便探测...
+  "Cooling the nozzle to standby while you check the print": "检查打印件期间，喷嘴正降温至待机温度"
   Cooling {}...: 正在冷却{}...
   Copied to clipboard!: 已复制到剪贴板！
   Copy: "复制"
@@ -1629,6 +1630,7 @@ translations:
   Heating nozzle to $1°C...: 正在加热喷嘴至 $1°C...
   Heating nozzle...: 正在加热喷嘴...
   Heating the bed: 正在加热热床
+  "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it": "正在加热热床和喷嘴，使打印件重新附着，喷嘴脱离打印件"
   Heating the nozzle: 正在加热喷嘴
   Heating to %d°C... %.0f°C: 加热至 %d°C... %.0f°C
   Heating to {}°C before {}...: 正在加热至{}°C，然后{}...
@@ -3438,6 +3440,7 @@ translations:
   Start Anyway: 仍然开始
   Start Calibration: 开始校准
   Start Drying: 开始烘干
+  Start Heating: "开始加热"
   Start K: 起始K值
   Start Print: 开始打印
   Start Probing: 开始探测
@@ -3635,6 +3638,7 @@ translations:
   ? The animated screensaver has been turned off on this device to prevent it from
     interfering with prints. You can re-enable it in Settings > Display.
   : 为防止动画屏保干扰打印，已在此设备上将其关闭。您可以在设置 > 显示中重新启用。
+  "The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it.": "在任何移动之前，热床和喷嘴同时加热，使打印件重新附着，喷嘴脱离打印件。"
   The bed has cooled. Take the spools off the plate, then confirm.: 热床已冷却。请从热床上取下料盘,然后确认。
 
   The bed is too small for settling laps.: '打印床太小，无法进行稳定绕圈。'
@@ -3685,13 +3689,13 @@ translations:
   ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
   : 测定加热器安全模型时，已安装的喷嘴会加热到200°C再冷却。请保持模型风扇关闭，并让易起火的物品远离打印头。这需要几分钟。
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: '喷嘴在远离打印区域的角落进行几次短促的测试挤出，并重复直到读数一致。'
+  "The nozzle hasn't moved since the power went out. Check that it sits just above the top of the print, then resume.": "断电后喷嘴没有移动过。确认它刚好位于打印件顶部上方，然后恢复。"
   ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
   : 模型风扇依次切换各档转速时，喷嘴会加热到200°C。为了测定准确，请按打印时的方式装好风道。这需要几分钟。
-  ? The nozzle is back above the print at the height it stopped at. Check that it sits just above the top of the print, then resume.
-  : 喷嘴已回到打印件上方停止时的高度。确认它刚好位于打印件顶部上方，然后恢复。
   The nozzle is clear of the print: 喷嘴未接触打印件
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : 喷嘴很烫。请用随机附带的金属刷清洁，并保持停靠位置干净，然后点击下一步。
+  The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "喷嘴已抬离打印件，X 和 Y 已归零。恢复时会降回停止时的高度。"
   The plate and the spools are still hot. Use gloves.: 热床和料盘仍然很烫。请戴手套。
 
   The plate finishes its current move, but drying will not start.: '热床会完成当前移动,但烘干不会开始。'

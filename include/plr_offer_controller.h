@@ -5,6 +5,7 @@
 #include "ui_observer_guard.h"
 
 #include "async_lifetime_guard.h"
+#include "json_fwd.h"
 #include "plr_backend.h"
 #include "plr_wizard.h"
 
@@ -12,6 +13,10 @@
 #include <string>
 
 class PlrOfferControllerTestAccess;
+
+namespace helix {
+class IMoonrakerAPI;
+}
 
 namespace helix::ui {
 
@@ -95,6 +100,11 @@ class PlrOfferController {
     /// link is up, Klipper is ready and the `plr` feature is Ready.
     void request_plugin_status();
     void on_plugin_status(const helix::PlrPluginStatus& status);
+    /// Listen for helix:plr_status on the current API, once per API. The plugin
+    /// sends it each time its Klippy-ready handling finishes, so an offer that
+    /// becomes available after the first ask still reaches the screen.
+    void listen_for_plugin_status();
+    void on_plugin_status_notify(const nlohmann::json& msg);
     /// The `plr` feature changed state (Absent / Disabled / Ready): the
     /// plugin's earlier answer is stale, and its profile may need writing.
     void on_plr_feature_changed(int state);
@@ -133,8 +143,12 @@ class PlrOfferController {
     bool probe_answered_this_connect_ = false;
     /// The printer type whose profile this connection wrote; empty when none.
     std::optional<std::string> published_profile_type_;
-    /// Counts connections, so a status reply from a dropped link is ignored.
+    /// Counts connections and pushed statuses, so a status reply from a
+    /// dropped link, or older than a pushed status, is ignored.
     int connection_generation_ = 0;
+    /// The API the status notification is registered on.
+    helix::IMoonrakerAPI* status_notify_api_ = nullptr;
+    static constexpr const char* kStatusNotifyHandler = "plr_offer";
 };
 
 } // namespace helix::ui

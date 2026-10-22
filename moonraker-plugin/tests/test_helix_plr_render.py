@@ -25,6 +25,7 @@ from helix_plr_render import (
     mesh_z_at,
     render_commit_script,
     render_heat_wait,
+    nozzle_standby_c,
     render_prepare_script,
     render_start,
     required_confirmations,
@@ -83,9 +84,10 @@ def test_tier2_prepare_is_lift_then_home():
     steps = render_prepare_script(plan(), PROFILE, 12.45, 5.0)
     assert steps == [
         ("lift", ["SET_KINEMATIC_POSITION Z=12.45 SET_HOMED=Z", "G91", "G1 Z5 F300", "G90"]),
+        ("nozzle_standby", ["M83", "G1 E-1 F2100", "M104 S150"]),
         ("home_xy", ["G28 X Y"]),
     ]
-    assert not any(l.startswith(("M104", "M109")) for l in flat(steps))
+    assert not any(l.startswith("M109") for l in flat(steps))
 
 
 def test_prepare_declares_and_lifts_only_as_asked():
@@ -93,7 +95,18 @@ def test_prepare_declares_and_lifts_only_as_asked():
     assert declared[0] == ("lift", ["SET_KINEMATIC_POSITION Z=17.45 SET_HOMED=Z"])
     homed = render_prepare_script(plan(), PROFILE, None, 3.0)
     assert homed[0] == ("lift", ["G91", "G1 Z3 F300", "G90"])
-    assert [name for name, _ in render_prepare_script(plan(), PROFILE, None, 0.0)] == ["home_xy"]
+    assert [name for name, _ in render_prepare_script(plan(), PROFILE, None, 0.0)] \
+        == ["nozzle_standby", "home_xy"]
+
+
+@pytest.mark.parametrize("target, drop, expected", [
+    (220.0, 70.0, 150.0),        # the print temperature less the drop
+    (200.0, 70.0, 140.0),        # floored
+    (130.0, 70.0, 130.0),        # never above the print temperature
+    (260.0, 0.0, 260.0),         # no drop: stays at print temperature
+])
+def test_nozzle_standby_temperature(target, drop, expected):
+    assert nozzle_standby_c(target, drop) == expected
 
 
 def test_heat_wait_sets_then_waits_without_blocking_gcode():
