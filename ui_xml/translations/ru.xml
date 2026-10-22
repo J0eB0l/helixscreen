@@ -1615,8 +1615,8 @@
   <translation tag="Heating nozzle to $1°C..." ru="Нагрев сопла до $1°C..."/>
   <translation tag="Heating nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating the bed" ru="Нагрев стола"/>
+  <translation tag="Heating the bed and nozzle so the print re-grips and the nozzle lets go of it" ru="Нагрев стола и сопла, чтобы печать снова прилипла, а сопло отделилось от неё"/>
   <translation tag="Heating the nozzle" ru="Нагрев сопла"/>
-  <translation tag="Heating the nozzle where it stopped so it lets go of the print" ru="Нагрев сопла на месте остановки, чтобы оно отделилось от печати"/>
   <translation tag="Heating to %d°C... %.0f°C" ru="Нагрев до %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ru="Нагрев до {}°C перед «{}»..."/>
   <translation tag="Heating to {}°C for {}..." ru="Нагрев до {}°C в течение {}..."/>

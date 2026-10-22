@@ -1570,8 +1570,8 @@
   <translation tag="Heating nozzle to $1°C..." zh="正在加热喷嘴至 $1°C..."/>
   <translation tag="Heating nozzle..." zh="正在加热喷嘴..."/>
   <translation tag="Heating the bed" zh="正在加热热床"/>
+  <translation tag="Heating the bed and nozzle so the print re-grips and the nozzle lets go of it" zh="正在加热热床和喷嘴，使打印件重新附着，喷嘴脱离打印件"/>
   <translation tag="Heating the nozzle" zh="正在加热喷嘴"/>
-  <translation tag="Heating the nozzle where it stopped so it lets go of the print" zh="正在原位加热喷嘴，使其脱离打印件"/>
   <translation tag="Heating to %d°C... %.0f°C" zh="加热至 %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." zh="正在加热至{}°C，然后{}..."/>
   <translation tag="Heating to {}°C for {}..." zh="正在加热至{}°C，持续{}..."/>

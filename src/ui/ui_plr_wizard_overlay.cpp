@@ -136,7 +136,8 @@ const char* plr_progress_step_text(const std::string& step) {
         return lv_tr("Waiting for the chamber to heat");
     }
     if (step == "nozzle_in_place") {
-        return lv_tr("Heating the nozzle where it stopped so it lets go of the print");
+        return lv_tr(
+            "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it");
     }
     if (step == "nozzle_standby") {
         return lv_tr("Cooling the nozzle to standby while you check the print");

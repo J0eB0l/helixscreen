@@ -1570,8 +1570,8 @@
   <translation tag="Heating nozzle to $1°C..." pt="Aquecendo bico a $1°C..."/>
   <translation tag="Heating nozzle..." pt="Aquecendo bico..."/>
   <translation tag="Heating the bed" pt="Aquecendo a mesa"/>
+  <translation tag="Heating the bed and nozzle so the print re-grips and the nozzle lets go of it" pt="Aquecendo a mesa e o bico para que a impressão volte a aderir e o bico se solte dela"/>
   <translation tag="Heating the nozzle" pt="Aquecendo o bico"/>
-  <translation tag="Heating the nozzle where it stopped so it lets go of the print" pt="Aquecendo o bico onde parou para que se solte da impressão"/>
   <translation tag="Heating to %d°C... %.0f°C" pt="Aquecendo a %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." pt="Aquecendo a {}°C antes de {}..."/>
   <translation tag="Heating to {}°C for {}..." pt="Aquecendo a {}°C por {}..."/>

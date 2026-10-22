@@ -1570,8 +1570,8 @@
   <translation tag="Heating nozzle to $1°C..." it="Riscaldamento ugello a $1°C..."/>
   <translation tag="Heating nozzle..." it="Riscaldamento ugello..."/>
   <translation tag="Heating the bed" it="Riscaldamento del piano"/>
+  <translation tag="Heating the bed and nozzle so the print re-grips and the nozzle lets go of it" it="Riscaldamento di piano e ugello: la stampa torna ad aderire e l&apos;ugello si stacca"/>
   <translation tag="Heating the nozzle" it="Riscaldamento dell&apos;ugello"/>
-  <translation tag="Heating the nozzle where it stopped so it lets go of the print" it="Riscaldamento dell&apos;ugello dove si è fermato per staccarlo dalla stampa"/>
   <translation tag="Heating to %d°C... %.0f°C" it="Riscaldamento a %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." it="Riscaldamento a {}°C prima di {}..."/>
   <translation tag="Heating to {}°C for {}..." it="Riscaldamento a {}°C per {}..."/>

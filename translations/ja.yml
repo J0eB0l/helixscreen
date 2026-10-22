@@ -1631,8 +1631,8 @@ translations:
   Heating nozzle to $1°C...: ノズルを$1°Cに加熱中...
   Heating nozzle...: ノズル加熱中...
   Heating the bed: ベッドを加熱中
+  "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it": "ベッドとノズルを加熱し、印刷物を再び密着させてノズルを印刷物から離しています"
   Heating the nozzle: ノズルを加熱中
-  Heating the nozzle where it stopped so it lets go of the print: "ノズルを停止位置で加熱して印刷物から離しています"
   Heating to %d°C... %.0f°C: '%d°Cに加熱中... %.0f°C'
   Heating to {}°C before {}...: '{}°Cに加熱中（{}の前）...'
   Heating to {}°C for {}...: '{}°Cに加熱中（{}）...'

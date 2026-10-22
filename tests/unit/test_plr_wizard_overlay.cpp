@@ -426,7 +426,8 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the words follow what prepare mo
             const std::string text = subject_text("plr_wizard_progress");
             saw_heat_in_place =
                 saw_heat_in_place ||
-                text == "Heating the nozzle where it stopped so it lets go of the print";
+                text ==
+                    "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it";
             saw_standby =
                 saw_standby || text == "Cooling the nozzle to standby while you check the print";
             saw_motion = saw_motion || text == "Lifting the nozzle clear of the print" ||
@@ -846,7 +847,7 @@ TEST_CASE("PLR wizard: every plugin progress step has words", "[plr][wizard_over
     CHECK(std::string(plr_progress_step_text("nozzle_standby")) ==
           "Cooling the nozzle to standby while you check the print");
     CHECK(std::string(plr_progress_step_text("nozzle_in_place")) ==
-          "Heating the nozzle where it stopped so it lets go of the print");
+          "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it");
     CHECK(std::string(plr_progress_step_text("purge")) == "Purging nozzle");
     CHECK(std::string(plr_progress_step_text("move_to_resume")) == "Moving back to the print");
     CHECK(plr_progress_step_text("not_a_step") == nullptr);
