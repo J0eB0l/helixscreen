@@ -292,7 +292,7 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    at each line's feedrate (F times the speed factor, capped by the velocity limit). At 0 the
    resume re-traces up to one interval (a ridge, never a gap); at 1 it skips the whole interval
    (no ridge, possibly a gap). Default 0 (re-trace): the resume starts at the executing line's
-   start (O2, T2). Reported as `retrace_estimate_mm` and `skip_estimate_mm`.
+   start (O2: a ruling; T2 has not compared the settings yet). Reported as `retrace_estimate_mm` and `skip_estimate_mm`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the next
    layer (ruling R26; the partial layer is skipped), `method: "layer_start"`, with the
    `layer_start` warning. The scan reads on past the head when it has not reached that layer;
