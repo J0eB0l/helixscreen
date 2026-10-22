@@ -219,6 +219,56 @@ EOF
     [ ! -f "$DISABLED_SERVICES_FILE" ] || refute_grep "makerbase-wlan0" "$DISABLED_SERVICES_FILE"
 }
 
+# --- preserve non-display services in the stock bin directory ---
+
+@test "qidi handler: disables screen entry points but preserves tuning and similarly named helpers" {
+    local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log" unit
+    write_unit "qd-screen.service" "/home/mks/QD_Q2/bin/client --fullscreen" >/dev/null
+    write_unit "qd-start.service" "bash /home/qidi/QD_Q2/bin/start.sh" >/dev/null
+    write_unit "makerbase-tuning.service" "bash /home/mks/QD_Q2/bin/tuning.sh" >/dev/null
+    write_unit "client-helper.service" "/home/mks/QD_Q2/bin/client-helper" >/dev/null
+    write_unit "start-backup.service" "bash /home/mks/QD_Q2/bin/start.sh.bak" >/dev/null
+    mock_command_script "systemctl" "echo \"\$@\" >> \"$systemctl_log\"; exit 0"
+
+    found_any=false
+    run stop_qidi_competing_uis
+    [ "$status" -eq 0 ]
+
+    grep -qx "disable qd-screen.service" "$systemctl_log"
+    grep -qx "disable qd-start.service" "$systemctl_log"
+    for unit in makerbase-tuning client-helper start-backup; do
+        refute_grep "$unit" "$systemctl_log"
+        refute_grep "$unit" "$DISABLED_SERVICES_FILE"
+    done
+}
+
+@test "qidi boot hook: stops screen entry points but preserves tuning and similarly named helpers" {
+    local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log" unit
+    write_unit "qd-screen.service" "/home/mks/QD_Q2/bin/client --fullscreen" >/dev/null
+    write_unit "qd-start.service" "bash /home/qidi/QD_Q2/bin/start.sh" >/dev/null
+    write_unit "makerbase-tuning.service" "bash /home/mks/QD_Q2/bin/tuning.sh" >/dev/null
+    write_unit "client-helper.service" "/home/mks/QD_Q2/bin/client-helper" >/dev/null
+    write_unit "start-backup.service" "bash /home/mks/QD_Q2/bin/start.sh.bak" >/dev/null
+    mock_command_script "systemctl" "echo \"\$@\" >> \"$systemctl_log\"; exit 0"
+
+    # Run the shipped boot hook against the same fake units as the installer.
+    local hook="$BATS_TEST_TMPDIR/hooks-qidi.sh"
+    sed -e "s|/etc/systemd/system|$MOCK_ROOT/etc/systemd/system|g" \
+        -e "s|/lib/systemd/system|$MOCK_ROOT/lib/systemd/system|g" \
+        -e "s|/home/|$MOCK_ROOT/home/|g" \
+        "$WORKTREE_ROOT/assets/config/platform/hooks-qidi.sh" > "$hook"
+    run sh -c '. "$1"; platform_stop_competing_uis' sh "$hook"
+    [ "$status" -eq 0 ]
+
+    for unit in qd-screen qd-start; do
+        grep -qx "stop $unit.service" "$systemctl_log"
+        grep -qx "disable $unit.service" "$systemctl_log"
+    done
+    for unit in makerbase-tuning client-helper start-backup; do
+        refute_grep "$unit" "$systemctl_log"
+    done
+}
+
 # --- ordering: the unit goes down before the binary ---
 
 @test "qidi handler: disables the unit before it touches the client binary" {

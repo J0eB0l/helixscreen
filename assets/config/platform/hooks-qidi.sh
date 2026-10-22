@@ -11,7 +11,8 @@
 # competing_uis module. tests/shell/test_platform_hooks.bats fails if the two
 # ever disagree.
 QIDI_STOCK_UI_BINS="/home/mks/QD_Q2/bin/client /home/qidi/QD_Q2/bin/client"
-QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/|qidiclient|qidi-client|makerbase-client'
+# The same directory also contains tuning.sh, which must remain enabled.
+QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([[:space:]]|$)|qidiclient|qidi-client|makerbase-client'
 
 platform_stop_competing_uis() {
     _qidi_path=""
