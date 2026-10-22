@@ -1443,6 +1443,8 @@ TEST_CASE("CFS brand fallback reads the tag record's supplier, never the record"
 }
 
 TEST_CASE("CFS tag record names a Spoolman spool through its serial", "[ams][cfs][tag_link]") {
+    // The two known stock reads, a white and an orange Hyper PLA from two
+    // printers (CREALITY_CFS_K2_INTERNALS.md § "RFID tags").
     SECTION("stock Creality records carry the factory serial and name no spool") {
         CHECK_FALSE(
             AmsBackendCfs::tag_record_spoolman_id("BB5250276A21010010FFFFFF0165000001000000"));

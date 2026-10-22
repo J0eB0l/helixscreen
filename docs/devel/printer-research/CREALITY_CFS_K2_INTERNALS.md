@@ -156,18 +156,20 @@ Colors are 7-character hex strings with a leading `0`: `"0RRGGBB"`. Examples:
 
 #### RFID tags
 
-A tagged bay's `vender` entry is the tag's whole 40-character record, not just a vendor code. One read from a stock Creality spool on a K2 Pro (debug bundle, 2026-10-22), split by field:
+A tagged bay's `vender` entry is the tag's whole 40-character record, not just a vendor code. Two reads from two independent stock Creality Hyper PLA spools, split by field: a white one on a K2 Pro (debug bundle, 2026-10-22) and an orange one on our K2 Plus:
 
-| Chars | Value | Field |
-|-------|-------|-------|
-| 1-5 | `BB525` | Production date |
-| 6-9 | `0276` | Supplier (Creality) |
-| 10-11 | `A2` | Batch |
-| 12-17 | `101001` | Material code, the same value as the bay's `material_type` |
-| 18-24 | `0FFFFFF` | Color, the same value as the bay's `color_value` |
-| 25-28 | `0165` | Length |
-| 29-34 | `000001` | Serial number |
-| 35-40 | `000000` | Reserved |
+| Chars | White (K2 Pro) | Orange (K2 Plus) | Field |
+|-------|----------------|------------------|-------|
+| 1-5 | `BB525` | `3C525` | Production date |
+| 6-9 | `0276` | `0276` | Supplier (Creality) |
+| 10-11 | `A2` | `A2` | Batch |
+| 12-17 | `101001` | `101001` | Material code, the same value as the bay's `material_type` |
+| 18-24 | `0FFFFFF` | `0C12E1F` | Color, the same value as the bay's `color_value` |
+| 25-28 | `0165` | `0165` | Length |
+| 29-34 | `000001` | `000001` | Serial number |
+| 35-40 | `000000` | `000000` | Reserved |
+
+Whole records: `BB5250276A21010010FFFFFF0165000001000000` and `3C5250276A21010010C12E1F0165000001000000`. Both stock spools carry serial `000001`, the same value CFTag uses as its default.
 
 The material and color fields lining up with the bay's own `material_type` and `color_value` is what pins the offsets; the other field names follow Creality's tag layout and are not otherwise verified. `"unknown"` means a spool with no tag, `"none"` an empty bay.
 
