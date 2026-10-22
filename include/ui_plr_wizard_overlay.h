@@ -126,6 +126,9 @@ class PlrWizardOverlay : public OverlayBase {
     bool listening_ = false;
     /// helix:plr_plan_ready arrived this opening.
     bool plan_ready_seen_ = false;
+    // Once the plugin reports the print starting, closing the wizard must not
+    // abort: the abort's heaters-off would land in the running print.
+    bool print_starting_ = false;
 
     JogCoalescer jog_;
 

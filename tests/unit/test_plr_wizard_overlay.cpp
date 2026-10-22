@@ -412,6 +412,30 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: leaving the wizard mid-prepare a
     CHECK(wizard_step() == PlrWizardStep::Aborted);
 }
 
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: leaving after the print starts does not abort",
+                 "[plr][wizard_overlay]") {
+    open();
+    set_subject("plr_ack_part", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(run_past(PlrWizardStep::Preparing));
+    PlrWizardOverlayTestAccess::tap_resume(get_plr_wizard_overlay());
+    settle();
+    REQUIRE(wizard_step() == PlrWizardStep::Committing);
+    bool saw_start = false;
+    for (int i = 0; i < 40 && !saw_start && wizard_step() == PlrWizardStep::Committing; ++i) {
+        helix::ui::UpdateQueue::instance().drain();
+        process_lvgl(500);
+        saw_start = subject_text("plr_wizard_progress") == "Starting the print";
+    }
+    REQUIRE(saw_start);
+    REQUIRE(wizard_step() == PlrWizardStep::Committing);
+
+    NavigationManager::instance().go_back();
+    settle();
+    CHECK(client.count(helix::kPlrAbortRpc) == 0);
+}
+
 TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: tier 1 resumes only after jogging down",
                  "[plr][wizard_overlay]") {
     helix::ScopedEnv tier{"HELIX_MOCK_PLR_TIER", "1"};

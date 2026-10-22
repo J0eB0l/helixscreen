@@ -257,6 +257,7 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
     plan_.reset();
     plan_reply_.reset();
     plan_ready_seen_ = false;
+    print_starting_ = false;
     z_given_.reset();
     status_ = PlrPluginStatus{};
     connected_ = true;
@@ -289,7 +290,7 @@ void PlrWizardOverlay::on_dismissed() {
     // Leaving mid-sequence is an abort: the plugin stops, turns the heaters
     // off and keeps the snapshot for another try.
     if (step_ != PlrWizardStep::Done && step_ != PlrWizardStep::Failed &&
-        step_ != PlrWizardStep::Aborted) {
+        step_ != PlrWizardStep::Aborted && !print_starting_) {
         advance(Event{false, false, true});
     }
     stop_listening();
@@ -488,6 +489,9 @@ void PlrWizardOverlay::on_progress(const PlrProgressEvent& event) {
     // RPC's own reply, follows.
     if (event.state != "running") {
         return;
+    }
+    if (step_ == PlrWizardStep::Committing && event.step == "start") {
+        print_starting_ = true;
     }
     if (const char* text = plr_progress_step_text(event.step)) {
         lv_subject_copy_string(&s_plr_progress, text);
