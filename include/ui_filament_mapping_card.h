@@ -71,10 +71,13 @@ class FilamentMappingCard {
                 const std::vector<std::string>& gcode_materials);
 
     /**
-     * @brief Re-pull loaded slot colors/presence from AmsState and re-render,
-     * WITHOUT recomputing tool->slot mappings — preserves the user's manual
-     * remap and the auto assignment. Used by the detail view's live AMS-change
-     * handler.
+     * @brief Re-pull loaded slot colors/presence from AmsState and re-render.
+     * Used by the detail view's live AMS-change handler.
+     *
+     * A mapping the user picked is kept; every other one is re-seeded from the
+     * current lanes and routing, since print start sends whatever differs from
+     * the printer's table as a remap, and a seed taken before the table or a
+     * spool changed would overwrite the printer.
      *
      * Visibility IS re-decided first, since the slots feed the rule (the slot
      * count, availability, bypass), so the caller publishes afterwards. A card
@@ -348,6 +351,10 @@ class FilamentMappingCard {
     /// and the two gates ask different questions, so both are kept.
     size_t palette_colour_count_ = 0; ///< gcode_colors.size()
     size_t palette_tool_count_ = 0;   ///< max(colors, materials) = build_tool_info()'s count
+    /// The palette from the last update(), so refresh_slot_data() can re-seed
+    /// exactly as update() seeded.
+    std::vector<std::string> palette_colors_;
+    std::vector<std::string> palette_materials_;
 
     /**
      * @brief Recompute `should_show_` from used_tools_ + the stored palette counts.

@@ -142,6 +142,11 @@ struct ToolMapping {
     /// late field in this header is: the tests positionally aggregate-initialise
     /// this struct, and a bool inserted mid-struct silently rebinds them.
     bool color_mismatch = false;
+
+    /// True once the user chose this tool's lane (or Auto) by hand. An entry
+    /// left false is the seed's, and follows the printer when its lanes or
+    /// tool table change; one set true is kept as chosen.
+    bool user_picked = false;
 };
 
 /// Pure logic class for computing filament-to-tool mappings.
@@ -155,6 +160,11 @@ class FilamentMapper {
     static std::vector<ToolMapping> compute_defaults(const std::vector<GcodeToolInfo>& tools,
                                                      const std::vector<AvailableSlot>& slots,
                                                      const FirmwareRouting& routing = {});
+
+    /// Replace every entry of @p current the user did not pick with @p seed's
+    /// entry for the same tool. True when anything changed.
+    static bool follow_seed(std::vector<ToolMapping>& current,
+                            const std::vector<ToolMapping>& seed);
 
     /// Check if two colors are within matching tolerance.
     /// Uses weighted RGB distance (luminance-weighted) with tolerance of

@@ -337,6 +337,27 @@ std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<Gc
     return use_current_assignments(tools, slots, routing);
 }
 
+bool FilamentMapper::follow_seed(std::vector<ToolMapping>& current,
+                                 const std::vector<ToolMapping>& seed) {
+    bool changed = false;
+    for (auto& m : current) {
+        if (m.user_picked) {
+            continue;
+        }
+        const auto fresh = std::find_if(seed.begin(), seed.end(), [&m](const ToolMapping& s) {
+            return s.tool_index == m.tool_index;
+        });
+        if (fresh == seed.end()) {
+            continue;
+        }
+        changed = changed || fresh->mapped_slot != m.mapped_slot ||
+                  fresh->mapped_backend != m.mapped_backend || fresh->is_auto != m.is_auto ||
+                  fresh->reason != m.reason;
+        m = *fresh;
+    }
+    return changed;
+}
+
 std::vector<uint32_t> FilamentMapper::effective_tool_colors(const std::vector<GcodeToolInfo>& tools,
                                                             const std::vector<AvailableSlot>& slots,
                                                             bool auto_color_map) {

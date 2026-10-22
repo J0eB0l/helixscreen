@@ -34,6 +34,7 @@
 #include "ui_update_queue.h"
 
 #include "../mapping_card_render_fixture.h"
+#include "settings_manager.h"
 #include "theme_manager.h"
 
 #include <optional>
@@ -505,6 +506,56 @@ TEST_CASE_METHOD(MappingCardRenderFixture,
     card.refresh_slot_data();
     CHECK(chip_surrounded(rows, 0));
     CHECK_FALSE(chip_surrounded(rows, 1));
+
+    process_lvgl(100);
+}
+
+TEST_CASE_METHOD(MappingCardRenderFixture,
+                 "A mapping the user never picked follows the printer; a picked one stays",
+                 "[filament_mapping][routing]") {
+    // The card seeds once, when the file opens. Lanes that change while it is
+    // open (a table that arrives late, a spool moved on the printer) must move
+    // every tool the user left alone, or print start sends the stale seed as
+    // remaps. A lane the user chose is theirs and stays put.
+    struct AutoColorOn {
+        bool prev;
+        AutoColorOn() {
+            helix::SettingsManager::instance().init_subjects();
+            prev = helix::SettingsManager::instance().get_auto_color_map();
+            helix::SettingsManager::instance().set_auto_color_map(true);
+        }
+        ~AutoColorOn() {
+            helix::SettingsManager::instance().set_auto_color_map(prev);
+        }
+    } auto_color_on;
+
+    load_lane(mock, 0, 0x0000FF, "PLA");
+    load_lane(mock, 1, 0x00FF00, "PLA");
+    load_lane(mock, 2, 0xFF0000, "PLA");
+    helix::ui::UpdateQueue::instance().drain();
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto seeded = card.get_mappings();
+    REQUIRE(seeded.size() == 2);
+    REQUIRE(seeded[0].mapped_slot == 2); // red
+    REQUIRE(seeded[1].mapped_slot == 1); // green
+
+    // The user puts T1 on lane 0; T0 is left to the seed.
+    seeded[1].mapped_slot = 0;
+    seeded[1].user_picked = true;
+    card.set_mappings(seeded);
+
+    // Red moves from lane 2 to lane 1, where green was.
+    load_lane(mock, 2, 0xFFFFFF, "PLA");
+    load_lane(mock, 1, 0xFF0000, "PLA");
+    helix::ui::UpdateQueue::instance().drain();
+    card.refresh_slot_data();
+
+    const auto after = card.get_mappings();
+    REQUIRE(after.size() == 2);
+    CHECK(after[0].mapped_slot == 1);
+    CHECK_FALSE(after[0].user_picked);
+    CHECK(after[1].mapped_slot == 0);
+    CHECK(after[1].user_picked);
 
     process_lvgl(100);
 }
