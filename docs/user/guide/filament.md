@@ -358,7 +358,7 @@ Tap **Done** to keep your mapping, or **Cancel** to discard it.
 
 Most filament systems carry out your mapping themselves: HelixScreen tells the printer "tool 0 comes from slot 2" and the printer does the rest. A few can't, because their firmware has no mapping table. On those, HelixScreen rewrites a copy of the G-code with the new tool numbers and prints that copy. Today that means a tool changer running without klipper-toolchanger, such as the [MedusaHC fork](#medusahc-hotend-changer) that drops `[toolchanger]`.
 
-This needs the **HelixPrint plugin** on your printer. Without it the mapping card offers to install it instead. With it, the finished job is listed in print history under its original name ([details](print-history.md)).
+This needs the **HelixPrint plugin** on your printer. Without it the mapping card offers to install it instead. A current plugin makes the rewritten copy on the printer itself; with an older one, the screen downloads the file, rewrites it and uploads the copy. With it, the finished job is listed in print history under its original name ([details](print-history.md)).
 
 **What the rewrite changes:**
 

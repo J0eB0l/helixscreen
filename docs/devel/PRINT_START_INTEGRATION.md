@@ -243,6 +243,39 @@ What keeps it safe to install:
 | The user later removes `[bed_mesh]`, `[quad_gantry_level]` or `[z_tilt]` while its wrapper is loaded | Klipper refuses to start: `Existing command '...' not found in gcode_macro rename`. Only the restart HelixScreen itself requests is watched, so this one is not rolled back. Remove the `[include helix_skips.cfg]` line, or reinstall the helper macros after restarting |
 | A Klipper error after HelixScreen's restart has another cause (a CAN board that did not come up) | The rollback still removes the file, since it cannot tell the causes apart; Update stages it again once Klipper is healthy |
 
+### How a choice reaches the sliced file
+
+A toggle that turns off a step the sliced file runs itself, or a skip parameter added to
+the file's `PRINT_START` line, means printing a rewritten copy.
+`PrintPreparationManager::modify_and_print` builds the edits once from the file's own
+ops scan (`GCodeFileModifier::disable_operations`, `add_print_start_skip_params`): a
+comment-out for a detected command, a replace for a `PRINT_START` line or a macro
+parameter. Every edit carries the line the scan saw, and a file whose line differs is
+refused rather than rewritten, wherever the rewrite runs. Filament Mapping's tool remap
+([FILAMENT_MANAGEMENT.md](FILAMENT_MANAGEMENT.md)) takes the same route.
+
+Where the rewrite runs is one pure decision, `gcode::choose_edit_transport`
+(`include/gcode_edit_list.h`):
+
+| HelixPrint `server_edits` feature | Route |
+|---|---|
+| Ready (`plugin_feature("server_edits", 1)`), the list can travel, not a `.3mf` plate | `server.helix.print_edited`: the app sends the edit list (`gcode::to_server_edits`) and the plugin rewrites beside the original, then starts the copy as `print_modified` does. Nothing is downloaded or uploaded |
+| Anything else | `rewrite_and_print`: download, `GCodeFileModifier::apply_streaming` (or `GcodeToolRemapper::apply_to_file`) file to file, upload, then `print_modified` (or a plain start without the plugin) |
+
+A list cannot travel when it holds text that is not UTF-8, both edits and a tool remap,
+or a range on an edit kind that has none; it then rewrites on the screen. A `.3mf` plate
+always does, since the plate has to be extracted first. The plugin refusing a stale line
+ends the start with an error, as the screen's own rewrite would.
+
+The two rewriters are one grammar in two languages. `tests/fixtures/gcode_edits/` holds
+input, edit list and expected bytes for each case; `tests/unit/test_gcode_edit_list.cpp`
+and `moonraker-plugin/tests/test_helix_edits.py` both apply every case, and a new edit
+kind or line rule lands in both with a fixture.
+
+The copy ends with a newline exactly when the original does. Klipper's `virtual_sdcard`
+never runs an unterminated final line, so a copy that dropped the newline would skip
+the file's last command.
+
 ### Parameter Semantics
 
 HelixScreen recognizes two styles of parameter control:
