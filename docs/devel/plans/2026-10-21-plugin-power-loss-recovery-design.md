@@ -55,6 +55,7 @@ Accepted as recommended in the first draft, or decided on review:
 | O9 | The mesh include line is added opt-in from both an installer prompt and a settings button. |
 | R26 | When the executed line cannot be found, resume at the start of the NEXT layer, not the current one: printing a layer again over itself at the same Z risks a collision, a skipped partial layer is a cosmetic gap. The warning keeps its name, `layer_start`, now meaning "resumes at the next layer start", and keeps its confirmation in the app. (2026-10-21) |
 | R27 | `no_purge_location` stays a warning; no new Confirmation value. (2026-10-21) |
+| R28 | After a cut, prepare heats the nozzle IN PLACE to the print's own nozzle temperature (the snapshot's extruder target) and waits for it before ANY lift or XY move, on every backend. A nozzle frozen into the part tears the part off the bed when it is lifted or homed cold, which is what QIDI's own sequence did on the Q2 test. (2026-10-22) |
 
 Still open: O4 and O8 (§ 14).
 
@@ -359,7 +360,12 @@ format through `helix_gcode_reader.py`; when Phase 1 has already indexed the fil
 does nothing. One throttle policy, in the reader, governs both (umbrella Phase 1 "Cost guard"):
 the follower runs on any host while printing, reads no further than `file_position` and is
 rate-capped; whole-file analysis runs while printing only on multi-core hosts. The resume scan
-then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`start_state`.
+then starts via `scan_to_offset`'s `start_offset`/`start_state` at the last checkpoint at least a
+scan window (`WINDOW_BYTES`, 256 KiB) behind `file_position`, else at byte 0. Never the head's own
+layer start: the line executing at the snapshot can lie in the layer before the head's, because a
+layer-change save is taken as `SET_PRINT_STATS_INFO` is read, seconds of queued moves ahead of the
+nozzle. Without a checkpoint a window back, the head is within a window of the first layer, so
+byte 0 costs at most that much more.
 
 **Checkpoint sidecar (contract).** One file per printed file at
 `<gcodes>/.helix_index/<relpath>.layers.jsonl`; a printed file outside the gcodes root (a
@@ -392,13 +398,15 @@ QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified 
 **prepare**
 
 1. Pre-checks: Klipper ready, printer idle, plan valid, profile tier >= 1.
-2. Bed and chamber first, nozzle cold: `M140 S<bed>`, `M190 S<bed>`; chamber `M141 S<t>` plus
-   `TEMPERATURE_WAIT` with `chamber_wait_timeout_s`, skippable.
-3. Declare and lift cold: `SET_KINEMATIC_POSITION Z=<Zs>`, then `G91`, `G1 Z<lift> F300`, `G90`,
+2. Bed and chamber first: `M140 S<bed>`, `M190 S<bed>`; chamber `M141 S<t>` plus
+   `TEMPERATURE_WAIT` with `chamber_wait_timeout_s`, skippable. Then the nozzle in place (R28):
+   `M104 S<print temp>` where it stands, and wait for it. Nothing moves before it is hot: the
+   nozzle froze into the part at the cut, and a cold lift or XY homing tears the part off the bed.
+3. Declare and lift: `SET_KINEMATIC_POSITION Z=<Zs>`, then `G91`, `G1 Z<lift> F300`, `G90`,
    with `lift = min(profile.z_lift_mm, position_max_z - Zs - kSagAllowanceMm)`.
 4. XY home: `profile.xy_home_gcode` (default `G28 X Y`; § 7.3 decides when the default is safe).
 5. Tier 1 only: move to the resume line's start XY at the lifted height and stop; the app runs
-   the jog step.
+   the jog step (with the nozzle hot from step 2).
 
 **commit** (after the app's confirmations)
 
@@ -409,7 +417,8 @@ QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified 
    `SET_VELOCITY_LIMIT`, `SET_RETRACTION`, `M220`/`M221`, heater targets other than bed,
    `EXCLUDE_OBJECT_DEFINE` lines from the scan then `EXCLUDE_OBJECT NAME=` per exclusion,
    `SET_PRINT_STATS_INFO`, `SET_GCODE_VARIABLE` per saved macro var.
-8. Nozzle: move to the purge location, `M109`, purge (`profile.purge_gcode` or the generic purge at
+8. Nozzle: move to the purge location, re-assert its target and wait (it is hot from step 2 unless
+   it cooled during the confirmations), purge (`profile.purge_gcode` or the generic purge at
    a part-free bed edge computed from object polygons and bed limits), wipe.
 9. Return: travel at the lifted height to the resume line's start XY, lower to its Z at `F300`,
    restore G90/G91, M82/M83, `G92 E<logical E>`, F, fans, retract state.
@@ -645,8 +654,8 @@ Feature entry in `server.helix.status` `features` (umbrella Phase 0):
 warning, R26). `commit` refuses unless every entry of the plan's
 `requires` is present, and refuses a `plan_id` that is not the latest or whose snapshot changed.
 
-For `backend: "qidi_print_state"`, `prepare` runs only the bed/chamber wait and `commit` calls
-QIDI's endpoint (§ 10); the reply shapes are the same.
+For `backend: "qidi_print_state"`, `prepare` runs only the heat wait (bed, chamber, nozzle in
+place) and `commit` calls QIDI's endpoint (§ 10); the reply shapes are the same.
 
 Errors: Moonraker errors with codes `plr_no_plan`, `plr_stale_plan`, `plr_missing_confirmation`,
 `plr_busy`, `plr_scan_failed`, `plr_klippy_error` (message carries Klipper's text).
@@ -659,16 +668,26 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   `plr_scan_failed: multi_material: ...` (D3, single extruder in v1).
 - `helix:plr_progress` and `helix:plr_plan_ready` are the Moonraker events
   `helix_print:plr_progress` / `helix_print:plr_plan_ready`, which clients receive as
-  `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed_wait`, `chamber_wait`, `lift`,
-  `home_xy`, `position` (tier 1) for prepare; `bed_wait`, `chamber_wait`, `z_reference` (tier 1),
-  `restore`, `heat_nozzle`, `move_to_resume`, `start` for commit; states `running`, `done`,
-  `failed`; commit also has `purge`, after `heat_nozzle`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
+  `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed_wait`, `chamber_wait`,
+  `nozzle_in_place`, `lift`, `home_xy`, `position` (tier 1) for prepare; `bed_wait`,
+  `chamber_wait`, `z_reference` (tier 1), `restore`, `heat_nozzle`, `move_to_resume`, `start` for
+  commit; states `running`, `done`, `failed`; commit also has `purge`, after `heat_nozzle`. A QIDI
+  prepare sends `bed_wait`, `chamber_wait`, `nozzle_in_place`; a QIDI commit the same three, then
+  `start`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
   (`"<code>: <detail>"`), and `plan` answers that error until the snapshot changes.
 - Heat waits are not M190/TEMPERATURE_WAIT (those hold Klipper's G-code lock, so an abort's
   heaters-off could not run): the plugin sets the target, then polls the heater every 2 s,
-  checking for an abort between polls, and fails after 20 min (bed) / 45 min (chamber). Commit
-  repeats the bed (and chamber) wait first, because the bed may have been turned off
-  (`idle_timeout`) while the screen waited on the confirmations.
+  checking for an abort between polls, and fails after 20 min (bed) / 10 min (nozzle) / 45 min
+  (chamber). Commit repeats the bed (and chamber) wait first, because the bed may have been turned
+  off (`idle_timeout`) while the screen waited on the confirmations.
+- Prepare heats the nozzle in place (`nozzle_in_place`, R28) after the bed and chamber and before
+  any motion, to the plan's nozzle temperature: the snapshot's extruder target, raised to the
+  file's own target at the resume point. A plan, or a prepare, with no nozzle temperature is
+  refused with `plr_scan_failed: no_nozzle_target` rather than moving a cold nozzle.
+- `status` answers from the backend and offer that `server:klippy_ready` decides (objects, homing,
+  the QIDI check). Asked while Klippy is ready but that check has not finished, it waits for it,
+  at most 15 s (`READY_WAIT_S`). The check ends by sending its result as
+  `helix_print:plr_status` (clients: `notify_plr_status`), whose payload is the `status` reply.
 - Single flight: each prepare or commit is a run with its own abort flag, taken before its first
   await. `plan`, `prepare`, `commit` and `discard` answer `plr_busy` until the previous run has
   exited, whatever its state label (an aborted run finishes its current step first). An abort
@@ -718,7 +737,8 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
 - `warnings` values: `layer_start` (resumes at the next layer's start, R26; adds the
   Confirmation `accept_next_layer` to `requires`, so commit refuses without it), `mesh_unavailable`,
   `cold_bed` (bed more than
-  `COLD_BED_DIFF_C` under target at plan time, which also adds `accept_cold_bed` to `requires`),
+  `COLD_BED_DIFF_C` under target when the plan is answered, which also adds `accept_cold_bed` to
+  `requires`; a kept plan answered again re-reads `heater_bed`, for `bed.current` too),
   `no_purge_location` (no objects known, so the nozzle heats and primes at the XY home position).
 - `restores` values: `bed_mesh`, `gcode_offset`, `pressure_advance`, `velocity_limits`,
   `retraction`, `speed_factor`, `extrude_factor`, `objects`, `excluded_objects`, `fans`, `macro_vars`.
@@ -735,9 +755,9 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   sequence declares the snapshot's Z itself and has no jog step (tier 1 there is `none`). A
   `generic` profile is generic on any firmware, at the effective tier (§ 7.3). For
   `qidi_print_state` the offer also needs QIDI's `file_position` row (else `no_snapshot`), the
-  plan skips purge and mesh (QIDI's sequence does both), `prepare` runs only the heat wait,
-  `commit` checks QIDI's `.cache` file is the one printed (`print_path`, its size and hash) and
-  hands the heat wait to the adapter's `commit` (an abort stops it at the marker, immediately
+  plan skips purge and mesh (QIDI's sequence does both), `prepare` runs only the heat wait (nozzle
+  in place included), `commit` checks QIDI's `.cache` file is the one printed (`print_path`, its
+  size and hash) and hands the heat wait, nozzle included, to the adapter's `commit` (an abort stops it at the marker, immediately
   before `power_off_print`; a skipped chamber wait stays skipped), `abort` keeps the rows (the
   plugin turns the heaters off), and `discard` deletes the rows as well as the snapshot and mesh
   file. A failing print_state write is logged and the snapshot loop carries on.
@@ -803,9 +823,11 @@ not fixed, so the job's first full write waits 2 s after the start (`FIRST_WRITE
 
 **Resume side** (§ 9 steps for `backend: "qidi_print_state"`).
 
-1. `prepare`: the bed and chamber wait of § 6.3 step 2; nozzle untouched.
-2. `commit`: the bed and chamber wait again (QIDI sends `M140` without `M190`, and the bed may have
-   cooled during the confirmations; at temperature it returns at once), then rewrite every row in
+1. `prepare`: the heat wait of § 6.3 step 2: bed, chamber, then the nozzle in place (R28).
+2. `commit`: the same heat wait again, nozzle included, immediately before QIDI's resume. QIDI's
+   sequence sends `M140` and `M104` without waiting, then `SET_KINEMATIC_POSITION`, `G1 Z+5` and
+   `G28 X Y`, and only then `M109`: a nozzle that cooled during the confirmations would be lifted
+   and homed cold. At temperature the wait returns at once. Then rewrite every row in
    one transaction for the measured resume point (§ 6.2), then the helix-initiated marker, then
    `printer.print.power_off_print` (in-process `klippy_apis.power_off_print`); the marker is
    withdrawn if the call fails. Rows from the resume point's modal state: `gcode_position` X, Y and
@@ -941,7 +963,9 @@ what only a real cut adds. Every run of M1 or M2 heats and moves a printer, so e
 Preston's OK, even when scripted over SSH.
 
 **M1: host-stack kill.** SIGKILL Moonraker, then klippy, mid-print, in one SSH command
-(`kill -9 <moonraker>; kill -9 <klippy>`), then restart both.
+(`kill -9 <moonraker>; kill -9 <klippy>`), then restart both. Name the processes by explicit PID
+or an anchored `pgrep -x`: a `pgrep -f klippy` inside `sh -c '...'` also matches that shell's
+own command line, so the kill can take the shell down and leave klippy printing.
 
 - *The MCU shuts down on host loss.* Heaters are PWM outputs with
   `setup_max_duration(MAX_HEAT_TIME)` (3 s) (`kalico/klippy/extras/heaters.py#Heater.__init__`).
@@ -1027,7 +1051,7 @@ does on the host side.
 ### 11.5 T1 result (2026-10-21)
 
 **Verdict: fail.** Median 394 s against the 30 s bar, so background per-layer checkpoints join v1
-(O3). Scan at resume time stays, but only from the current layer's checkpoint.
+(O3). Scan at resume time stays, but only from a layer checkpoint (§ 6.2).
 
 | Host | Interpreter | Runs (wall s) | Median wall | Median CPU | Peak RSS |
 |---|---|---|---|---|---|
