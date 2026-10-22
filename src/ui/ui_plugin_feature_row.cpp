@@ -23,7 +23,7 @@ namespace {
 constexpr const char* kRowNamePrefix = "plugin_feature_row_";
 
 /// Constant 1: the greyed copy of a row names it as its `disabled` subject.
-lv_subject_t s_greyed_subject;
+lv_subject_t s_greyed_subject{};
 bool s_greyed_initialized = false;
 
 void on_switch_changed(lv_event_t* e) {

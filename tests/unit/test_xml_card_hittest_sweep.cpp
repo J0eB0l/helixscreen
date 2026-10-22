@@ -140,7 +140,7 @@ TEST_CASE_METHOD(XMLTestFixture, "ams_current_tool: colour swatch routes clicks 
 TEST_CASE_METHOD(XMLTestFixture, "notification_history_item: body routes clicks to item root",
                  "[xml][hittest][sweep]") {
     REQUIRE(register_component("notification_history_item"));
-    lv_subject_t severity, has_message, has_action, title_subj, message_subj, time_subj;
+    lv_subject_t severity{}, has_message{}, has_action{}, title_subj{}, message_subj{}, time_subj{};
     char title_buf[32], message_buf[32], time_buf[16];
     lv_subject_init_int(&severity, 0);
     lv_subject_init_int(&has_message, 1);
