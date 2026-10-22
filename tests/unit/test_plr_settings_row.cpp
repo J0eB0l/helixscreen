@@ -7,8 +7,10 @@
  *
  * Run with: ./build/bin/helix-tests "[plr][settings]"
  *
- * The row shows only while the HelixPrint plugin's `plr` feature can run, and
- * flipping it writes the user's choice where the plugin reads it.
+ * The row is a plugin_feature_toggle_row: a working switch while the plugin's
+ * `plr` feature can run, greyed with an Install or update prompt when the
+ * plugin is missing or too old, and hidden on a printer the plugin cannot
+ * recover. Flipping it writes the user's choice where the plugin reads it.
  */
 
 #include "ui_panel_settings.h"
@@ -72,6 +74,15 @@ struct PlrSettingsRowFixture : LVGLUITestFixture {
         plugin.set_features({{helix::kPlrFeatureName, entry}});
     }
 
+    static bool visible(lv_obj_t* obj) {
+        for (; obj != nullptr; obj = lv_obj_get_parent(obj)) {
+            if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     lv_obj_t* find(const char* name) const {
         return lv_obj_find_by_name(root_, name);
     }
@@ -79,17 +90,52 @@ struct PlrSettingsRowFixture : LVGLUITestFixture {
 
 } // namespace
 
-TEST_CASE_METHOD(PlrSettingsRowFixture,
-                 "PLR settings row shows only while the plugin's plr feature can run",
+TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings row follows the plugin's plr feature",
                  "[plr][settings]") {
-    lv_obj_t* container = find("container_power_loss_recovery");
-    REQUIRE(container != nullptr);
-    REQUIRE(find("row_power_loss_recovery") != nullptr);
-    CHECK(lv_obj_has_flag(container, LV_OBJ_FLAG_HIDDEN));
+    lv_obj_t* row = find("row_power_loss_recovery");
+    REQUIRE(row != nullptr);
+    lv_obj_t* switch_row = lv_obj_find_by_name(row, "plugin_feature_row_plr");
+    lv_obj_t* needs_plugin = lv_obj_find_by_name(row, "needs_plugin");
+    lv_obj_t* install = lv_obj_find_by_name(row, "install_button");
+    lv_obj_t* needs_update = lv_obj_find_by_name(row, "needs_update_text");
+    REQUIRE(switch_row != nullptr);
+    REQUIRE(needs_plugin != nullptr);
+    REQUIRE(install != nullptr);
+    REQUIRE(needs_update != nullptr);
 
-    set_plr_feature(true, false);
-    process_lvgl(5);
-    CHECK_FALSE(lv_obj_has_flag(container, LV_OBJ_FLAG_HIDDEN));
+    SECTION("hidden until the plugin probe answers") {
+        CHECK_FALSE(visible(row));
+    }
+    SECTION("no plugin: greyed, with Install") {
+        get_printer_state().plugin_status_state().set_installed(false);
+        process_lvgl(5);
+        CHECK(visible(row));
+        CHECK_FALSE(visible(switch_row));
+        CHECK(visible(needs_plugin));
+        CHECK(visible(install));
+        CHECK_FALSE(visible(needs_update));
+    }
+    SECTION("a plugin that reports no plr feature: greyed, asking for an update") {
+        auto& plugin = get_printer_state().plugin_status_state();
+        plugin.set_installed(true);
+        plugin.set_features({});
+        process_lvgl(5);
+        CHECK(visible(needs_plugin));
+        CHECK(visible(needs_update));
+        CHECK_FALSE(visible(install));
+        CHECK_FALSE(visible(switch_row));
+    }
+    SECTION("a printer the plugin cannot recover: hidden") {
+        set_plr_feature(false, false);
+        process_lvgl(5);
+        CHECK_FALSE(visible(row));
+    }
+    SECTION("the feature can run: a working switch") {
+        set_plr_feature(true, false);
+        process_lvgl(5);
+        CHECK(visible(switch_row));
+        CHECK_FALSE(visible(needs_plugin));
+    }
 }
 
 TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch writes the user's choice",
@@ -98,7 +144,8 @@ TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch writes the user's c
     process_lvgl(5);
     lv_obj_t* row = find("row_power_loss_recovery");
     REQUIRE(row != nullptr);
-    lv_obj_t* toggle = lv_obj_find_by_name(row, "toggle");
+    lv_obj_t* toggle =
+        lv_obj_find_by_name(lv_obj_find_by_name(row, "plugin_feature_row_plr"), "toggle");
     REQUIRE(toggle != nullptr);
     CHECK_FALSE(lv_obj_has_state(toggle, LV_STATE_CHECKED));
 
@@ -117,15 +164,16 @@ TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch writes the user's c
 
 TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch follows saving, not enabled",
                  "[plr][settings]") {
-    lv_obj_t* container = find("container_power_loss_recovery");
-    REQUIRE(container != nullptr);
-    lv_obj_t* toggle = lv_obj_find_by_name(find("row_power_loss_recovery"), "toggle");
+    lv_obj_t* row = find("row_power_loss_recovery");
+    REQUIRE(row != nullptr);
+    lv_obj_t* toggle =
+        lv_obj_find_by_name(lv_obj_find_by_name(row, "plugin_feature_row_plr"), "toggle");
     REQUIRE(toggle != nullptr);
 
     SECTION("saving off while a snapshot keeps the feature enabled") {
         set_plr_feature(true, true, false);
         process_lvgl(5);
-        CHECK_FALSE(lv_obj_has_flag(container, LV_OBJ_FLAG_HIDDEN));
+        CHECK(visible(toggle));
         CHECK_FALSE(lv_obj_has_state(toggle, LV_STATE_CHECKED));
     }
     SECTION("saving on") {

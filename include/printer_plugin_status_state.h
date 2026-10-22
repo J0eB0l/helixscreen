@@ -2,11 +2,32 @@
 #pragma once
 
 #include "helix_plugin_features.h"
+#include "plr_backend.h"
+#include "standing_print_options.h"
 #include "subject_managed_panel.h"
 
+#include <array>
 #include <lvgl.h>
 
 namespace helix {
+
+/// A plugin feature with a switch in the settings. Each gets two XML subjects:
+/// `mode_subject` (PluginSwitchMode, which a plugin_feature_toggle_row binds
+/// through its `feature` name) and, unless the feature owns its switch,
+/// `on_subject` (its `enabled`, the switch's state).
+struct PluginSwitchFeature {
+    const char* name;
+    int min_version;
+    const char* mode_subject;
+    /// nullptr for a feature that owns its switch and publishes its own state
+    const char* on_subject;
+};
+
+inline constexpr std::array<PluginSwitchFeature, 2> kPluginSwitchFeatures = {{
+    {kPlrFeatureName, kPlrFeatureMinVersion, "plugin_feature_mode_plr", nullptr},
+    {kPrintHooksFeature, kPrintHooksMinVersion, "plugin_feature_mode_print_hooks",
+     "plugin_feature_on_print_hooks"},
+}};
 
 /// helix_plugin_installed values once the probe has answered (-1 before). A
 /// plugin set to `enabled: False` serves nothing, so it reads as absent.
@@ -179,10 +200,14 @@ class PrinterPluginStatusState {
         return &plr_feature_state_;
     }
 
-    /// How many rows the plugin features settings screen lists
-    /// (plugin_feature_rows()); 0 without a plugin. The Settings entry binds it.
-    lv_subject_t* get_plugin_feature_row_count_subject() {
-        return &plugin_feature_row_count_;
+    /// PluginSwitchMode of kPluginSwitchFeatures[@p index], as an int.
+    lv_subject_t* get_switch_mode_subject(size_t index) {
+        return &switch_mode_[index];
+    }
+
+    /// The switch state of kPluginSwitchFeatures[@p index]: its `enabled`.
+    lv_subject_t* get_switch_on_subject(size_t index) {
+        return &switch_on_[index];
     }
 
     /// Counts the plugin's status answers applied this session (0 before the
@@ -235,7 +260,8 @@ class PrinterPluginStatusState {
     lv_subject_t plr_feature_state_{};
     lv_subject_t helix_plugin_probe_seq_{};
     lv_subject_t plr_saving_enabled_{};
-    lv_subject_t plugin_feature_row_count_{};
+    std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_mode_{};
+    std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_on_{};
     /// Republish the feature subjects from the plugin state and features map.
     void publish_features();
 

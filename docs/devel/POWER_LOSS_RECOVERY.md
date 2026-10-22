@@ -206,9 +206,13 @@ in the `helix-screen` namespace, so it has them with the screen off:
   write it re-reads the plugin's features map, since the plugin's saving verdict
   follows the profile.
 - `plr_user` = `{"enabled": bool}`, the only record the plugin reads for its
-  saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it;
-  the row shows while the feature is available (`plr_feature_state` subject, 0
-  Absent / 1 Disabled / 2 Ready) and its switch follows `plr_saving_enabled`, the
+  saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it.
+  The row is a `plugin_feature_toggle_row` in its own-switch form: its mode
+  (`plugin_feature_mode_plr`, from `plugin_switch_mode()`) makes it a switch while
+  the feature is Ready or Disabled, greyed with Install without a plugin, greyed
+  asking for an update when the plugin reports no `plr`, and hidden when the
+  plugin reports it `available: false` (a printer with no `plr_profile`). Its
+  switch follows `plr_saving_enabled`, the
   plugin's own report re-read after each write: the `plr` entry's `saving`, or
   its `enabled` from a plugin that reports no `saving`. The entry's `enabled`
   also holds while a saved snapshot waits, so the offer (gated on Ready) survives

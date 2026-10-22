@@ -143,7 +143,6 @@ translations:
   = Loosen: = Aflojar
   = Tighten: = Apretar
   A: A
-  A HelixPrint plugin feature.: 'Una función del plugin HelixPrint.'
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: 'Un zumbador o altavoz para alertas y sonidos. Elige qué se reproduce en los ajustes de sonido.'
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Una cámara que transmite Moonraker. Añade el widget de cámara a la pantalla de inicio para verla, también durante una impresión.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Un ventilador que hace pasar el aire de la cámara por un filtro. Contrólalo en la pantalla de temperatura de la cámara.'
@@ -311,8 +310,8 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : 'Aplicado a {}. Klipper lo olvida al reiniciar: introduce {} como Pressure Advance en el perfil de filamento de tu laminador o guárdalo en la bobina.'
   Applies to: Se aplica a
-  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: 'Aplica tus opciones de impresión fijas, como descargar al final, a las impresiones iniciadas desde otra app o desde la cola de trabajos.'
   Apply: Aplicar
+  Apply start options to prints from other apps: 'Aplicar opciones de inicio a impresiones de otras apps'
   Aqua Surface: 'Superficie acuática'
   Archive: Archivar
   Archive Spool?: ¿Archivar bobina?
@@ -732,7 +731,6 @@ translations:
   Choose sound style: Elegir estilo de sonido
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : Elija el modelo que coincida con su impresora. Esto establece las macros de impresión, los roles de los ventiladores y el comportamiento de calibración que usa HelixScreen.
-  Choose what the plugin does for your prints: 'Elige qué hace el plugin con tus impresiones'
   Choose what to power off or restart.: Elija qué apagar o reiniciar.
   'Chute position: X {:.1f}, Y {:.1f}': 'Posición del conducto de purga: X {:.1f}, Y {:.1f}'
 
@@ -2506,8 +2504,6 @@ translations:
   Not available here. Update from a terminal.: No disponible aquí. Actualiza desde un terminal.
   Not available now: No disponible ahora
   Not available on Android: No disponible en Android
-  Not available on this printer ({}).: 'No disponible en esta impresora ({}).'
-  Not available on this printer.: 'No disponible en esta impresora.'
   Not calibrated: No calibrado
   Not configured: No configurado
   Not connected: No conectado
@@ -2620,7 +2616,6 @@ translations:
     - selecciona tu fuente de iluminación principal, u omite si tu impresora no tiene
     una
   Options: Opciones
-  Options for prints started elsewhere: 'Opciones para impresiones iniciadas en otro lugar'
   Or Enter Manually: O Ingrese Manualmente
   Or instead of turning the others: O en lugar de girar los demás
   Original file location unknown: Ubicación del archivo original desconocida
@@ -3140,6 +3135,8 @@ translations:
   Requires a filament system with bypass: Requiere un sistema de filamento con bypass
   Requires a filament pressure sensor or sync feedback: 'Requiere un sensor de presión de filamento o retroalimentación de sincronización'
   Requires a clog detector or filament motion sensor: 'Requiere un detector de atascos o un sensor de movimiento de filamento'
+  Requires a newer HelixPrint plugin: 'Requiere un plugin HelixPrint más reciente'
+  Requires the HelixPrint plugin: 'Requiere el plugin HelixPrint'
   Resend write failed at chunk {}: Error al reenviar la escritura en el fragmento
     {}
   Reset: Restablecer
@@ -3444,6 +3441,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Envíe este reporte de fallo
     para ayudar a mejorar HelixScreen.
   Sending...: Enviando...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Envía tus opciones de impresión fijas, como descargar al final, cuando una impresión se inicia desde otra app o la cola de trabajos.'
   Sensor: Sensor
   Sensor Error: 'Error del sensor'
   Sensor Response: Respuesta del sensor
@@ -3654,6 +3652,7 @@ translations:
   Start failed: Inicio fallido
   Start next: 'Iniciar siguiente'
   'Start next: {}': 'Iniciar siguiente: {}'
+  Start options for prints from other apps: 'Opciones de inicio para impresiones de otras apps'
   Start print anyway?: ¿Iniciar la impresión de todos modos?
   Started: Iniciado
   Starting Print...: Iniciando impresión...
@@ -4246,6 +4245,7 @@ translations:
   Unable to reach printer. Check power and network connection.: No se puede conectar con la impresora. Comprueba la alimentación y la conexión de red.
   Unavailable: No disponible
   Unavailable on this printer: No disponible en esta impresora
+  'Unavailable: {}': 'No disponible: {}'
   Undo: Deshacer
   Uninstall: Desinstalar
   Uninstall HelixPrint Plugin: Desinstalar Plugin HelixPrint
@@ -4349,6 +4349,7 @@ translations:
   Verifying...: Verificando...
   Version: Versión
   Version and printer info: Versión e información de la impresora
+  Version and what the plugin runs: 'Versión y lo que ejecuta el plugin'
   Version {}: Versión {}
   Vertical: Vertical
   Vibration: Vibración

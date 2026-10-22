@@ -40,7 +40,20 @@ void PrinterPluginStatusState::init_subjects(bool register_xml) {
                      register_xml);
     INIT_SUBJECT_INT(plr_saving_enabled, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(helix_plugin_probe_seq, 0, subjects_, register_xml);
-    INIT_SUBJECT_INT(plugin_feature_row_count, 0, subjects_, register_xml);
+    for (size_t i = 0; i < kPluginSwitchFeatures.size(); ++i) {
+        const PluginSwitchFeature& f = kPluginSwitchFeatures[i];
+        lv_subject_init_int(&switch_mode_[i], static_cast<int>(PluginSwitchMode::Hidden));
+        subjects_.register_subject(&switch_mode_[i], register_xml ? f.mode_subject : nullptr);
+        if (register_xml) {
+            helix::xml::register_subject_in_current_scope(f.mode_subject, &switch_mode_[i]);
+        }
+        lv_subject_init_int(&switch_on_[i], 0);
+        const char* on_name = register_xml ? f.on_subject : nullptr;
+        subjects_.register_subject(&switch_on_[i], on_name);
+        if (on_name != nullptr) {
+            helix::xml::register_subject_in_current_scope(on_name, &switch_on_[i]);
+        }
+    }
 
     // Fresh subjects mean a fresh session: re-initialization (test fixtures
     // re-init the shared PrinterState between cases) must not read a base
@@ -74,8 +87,22 @@ void PrinterPluginStatusState::publish_features() {
     if (!subjects_initialized_) {
         return;
     }
-    const size_t rows = service_has_helix_plugin() ? plugin_feature_rows(features_).size() : 0;
-    lv_subject_set_int(&plugin_feature_row_count_, static_cast<int>(rows));
+    for (size_t i = 0; i < kPluginSwitchFeatures.size(); ++i) {
+        const PluginSwitchFeature& f = kPluginSwitchFeatures[i];
+        // Until the probe answers, nothing is known to offer or switch.
+        const PluginSwitchMode mode =
+            helix_plugin_state() < 0
+                ? PluginSwitchMode::Hidden
+                : plugin_switch_mode(service_has_helix_plugin(), features_, f.name, f.min_version);
+        lv_subject_set_int(&switch_mode_[i], static_cast<int>(mode));
+        const auto it = features_.find(f.name);
+        if (mode == PluginSwitchMode::Hidden && it != features_.end()) {
+            spdlog::debug("[PrinterPluginStatusState] {} unavailable here: {}", f.name,
+                          it->second.reason);
+        }
+        lv_subject_set_int(&switch_on_[i],
+                           mode == PluginSwitchMode::Switch && it->second.enabled ? 1 : 0);
+    }
 
     const PluginFeatureState state = plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);
     lv_subject_set_int(&plr_feature_state_, static_cast<int>(state));

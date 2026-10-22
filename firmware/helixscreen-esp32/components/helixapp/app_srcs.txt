@@ -577,7 +577,8 @@ src/ui/ui_overlay_printer_type.cpp
 src/ui/ui_overlay_retraction_settings.cpp
 src/ui/ui_overlay_temp_graph.cpp
 src/ui/ui_panel_advanced.cpp
-src/ui/ui_plugin_features_overlay.cpp
+src/ui/ui_plugin_overview_overlay.cpp
+src/ui/ui_plugin_feature_row.cpp
 src/ui/ui_panel_ams.cpp
 src/ui/ui_panel_ams_overview.cpp
 src/ui/ui_panel_base.cpp

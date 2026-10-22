@@ -252,34 +252,69 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
     }
 }
 
-TEST_CASE("plugin feature rows list every feature without a switch of its own",
-          "[plugin_feature][plugin_print_hooks]") {
+TEST_CASE("a plugin switch row's mode over every plugin state", "[plugin_feature]") {
+    struct Row {
+        const char* what;
+        bool plugin_available;
+        PluginFeatureMap features;
+        PluginSwitchMode expected;
+    };
+    const Row rows[] = {
+        {"no plugin", false, hooks_map(1, true, true), PluginSwitchMode::NeedsPlugin},
+        {"no plugin, nothing reported", false, {}, PluginSwitchMode::NeedsPlugin},
+        {"old plugin without a features map", true, {}, PluginSwitchMode::NeedsUpdate},
+        {"contract below the minimum", true, hooks_map(0, true, true),
+         PluginSwitchMode::NeedsUpdate},
+        {"unavailable on this printer", true, hooks_map(1, false, false), PluginSwitchMode::Hidden},
+        {"unavailable, below the minimum too", true, hooks_map(0, false, false),
+         PluginSwitchMode::NeedsUpdate},
+        {"switched off", true, hooks_map(1, true, false), PluginSwitchMode::Switch},
+        {"ready", true, hooks_map(1, true, true), PluginSwitchMode::Switch},
+    };
+    for (const Row& row : rows) {
+        INFO(row.what);
+        CHECK(plugin_switch_mode(row.plugin_available, row.features, kPrintHooksFeature,
+                                 kPrintHooksMinVersion) == row.expected);
+    }
+    INFO("another feature's entry does not stand in");
+    PluginFeatureMap other;
+    other["plr"] = entry(1, true, true);
+    CHECK(plugin_switch_mode(true, other, kPrintHooksFeature, kPrintHooksMinVersion) ==
+          PluginSwitchMode::NeedsUpdate);
+}
+
+TEST_CASE("the plugin overview lists every reported feature with its status", "[plugin_feature]") {
     PluginFeatureMap features;
-    features["plr"] = entry(1, true, true);
+    features["plr"] = entry(1, true, false);
     features["convert_3mf"] = entry(1, true, true);
-    features["print_hooks"] = entry(1, true, false);
+    features["print_hooks"] = entry(1, true, true);
     features["zz_future"] = entry(2, true, true);
     features["aa_broken"] = entry(1, false, false, "load_failed");
 
-    const auto rows = plugin_feature_rows(features);
+    const auto lines = plugin_feature_lines(features);
 
-    REQUIRE(rows.size() == 3);
-    CHECK(rows[0].name == "print_hooks");
-    CHECK(rows[0].label == "Options for prints started elsewhere");
-    CHECK_FALSE(rows[0].description.empty());
-    CHECK_FALSE(rows[0].enabled);
-    CHECK(rows[0].available);
+    REQUIRE(lines.size() == 5);
+    INFO("known features in table order, with their settings home");
+    CHECK(lines[0].name == "print_hooks");
+    CHECK(lines[0].label == "Start options for prints from other apps");
+    CHECK(lines[0].status == PluginFeatureStatus::Active);
+    CHECK(lines[0].home == PluginFeatureHome::Printing);
+    CHECK(lines[1].name == "plr");
+    CHECK(lines[1].status == PluginFeatureStatus::Off);
+    CHECK(lines[1].home == PluginFeatureHome::Printing);
+    CHECK(lines[2].name == "convert_3mf");
+    CHECK(lines[2].home == PluginFeatureHome::None);
 
-    INFO("unknown features follow the known ones, by name, with a generic row");
-    CHECK(rows[1].name == "aa_broken");
-    CHECK(rows[1].label == "aa_broken");
-    CHECK(rows[1].description == kUnknownPluginFeatureDescription);
-    CHECK_FALSE(rows[1].available);
-    CHECK(rows[1].reason == "load_failed");
-    CHECK(rows[2].name == "zz_future");
-    CHECK(rows[2].enabled);
+    INFO("unknown features follow by name, with no setting to lead to");
+    CHECK(lines[3].name == "aa_broken");
+    CHECK(lines[3].label == "aa_broken");
+    CHECK(lines[3].status == PluginFeatureStatus::Unavailable);
+    CHECK(lines[3].reason == "load_failed");
+    CHECK(lines[3].home == PluginFeatureHome::None);
+    CHECK(lines[3].icon == kUnknownPluginFeatureIcon);
+    CHECK(lines[4].name == "zz_future");
 
-    CHECK(plugin_feature_rows({}).empty());
+    CHECK(plugin_feature_lines({}).empty());
 }
 
 #if HELIX_HAS_SNAPMAKER

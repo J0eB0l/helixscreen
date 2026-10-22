@@ -101,6 +101,10 @@ class AdvancedPanel : public PanelBase {
      */
     void on_activate() override;
 
+    /// Offer to install the HelixPrint plugin (the install modal). Also the
+    /// Install action of a plugin_feature_toggle_row.
+    void handle_helix_plugin_install_clicked();
+
   private:
     // Test-only access to the plugin uninstall flow.
     friend struct helix::ui::AdvancedPanelTestAccess;
@@ -116,7 +120,6 @@ class AdvancedPanel : public PanelBase {
     void handle_pid_tuning_clicked();
     void handle_pa_tuning_clicked();
     void handle_timelapse_setup_clicked();
-    void handle_helix_plugin_install_clicked();
     void handle_helix_plugin_uninstall_clicked();
 
     void handle_helix_macros_install_clicked();

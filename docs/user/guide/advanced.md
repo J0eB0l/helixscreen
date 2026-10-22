@@ -220,6 +220,12 @@ When no job is running, the device unlocks and toggles normally again — that i
 
 ---
 
+## HelixPrint Plugin
+
+When the HelixPrint plugin is installed, **Advanced > HelixPrint Plugin** shows its version and every feature it runs on your printer, each marked **Active**, **Off** or **Unavailable** with the reason. Tap a feature that has a setting to open the page where its switch lives, for example **Settings > Printing** for power-loss recovery. This page only shows status: the switches themselves are on those settings pages. **Install HelixPrint Plugin** and **Uninstall HelixPrint Plugin** are on the Advanced screen too.
+
+---
+
 ## Print History
 
 ![Print History](../../images/user/advanced-history.png)

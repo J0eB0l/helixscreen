@@ -186,7 +186,6 @@ translations:
   = Loosen: = Ослабить
   = Tighten: = Затянуть
   A: A
-  A HelixPrint plugin feature.: 'Функция плагина HelixPrint.'
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: 'Зуммер или динамик для оповещений и звуков. Что воспроизводится, настраивается в настройках звука.'
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Камера, которую транслирует Moonraker. Добавьте виджет камеры на главный экран, чтобы смотреть ее, в том числе во время печати.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Вентилятор, который прогоняет воздух камеры через фильтр. Управляйте им на экране температуры камеры.'
@@ -351,8 +350,8 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : 'Применено к {}. Klipper забудет значение после перезапуска: укажите {} как Pressure Advance в профиле филамента в слайсере или сохраните его на катушку.'
   Applies to: Применяется к
-  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: 'Применяет ваши постоянные параметры печати, например выгрузку в конце, к печати, запущенной из другого приложения или из очереди заданий.'
   Apply: Применить
+  Apply start options to prints from other apps: 'Применять параметры запуска к печати из других приложений'
   Aqua Surface: 'Водная гладь'
   Archive: Архивировать
   Archive Spool?: Архивировать катушку?
@@ -776,7 +775,6 @@ translations:
   Choose sound style: Выберите стиль звука
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : Выберите модель, соответствующую вашему принтеру. Это задаёт используемые HelixScreen макросы печати, роли вентиляторов и поведение калибровки.
-  Choose what the plugin does for your prints: 'Выберите, что плагин делает для вашей печати'
   Choose what to power off or restart.: Выберите, что выключить или перезагрузить.
   'Chute position: X {:.1f}, Y {:.1f}': 'Позиция жёлоба продувки: X {:.1f}, Y {:.1f}'
 
@@ -2545,8 +2543,6 @@ translations:
   Not available here. Update from a terminal.: Здесь недоступно. Обновите через терминал.
   Not available now: Сейчас недоступно
   Not available on Android: Недоступно на Android
-  Not available on this printer ({}).: 'Недоступно на этом принтере ({}).'
-  Not available on this printer.: 'Недоступно на этом принтере.'
   Not calibrated: Не откалиброван
   Not configured: Не настроено
   Not connected: Не подключен
@@ -2657,7 +2653,6 @@ translations:
   Optional - select your main lighting source, or skip if your printer doesn't have one: Необязательно
     — выберите основной источник освещения или пропустите, если его нет
   Options: Параметры
-  Options for prints started elsewhere: 'Параметры для печати, запущенной не отсюда'
   Or Enter Manually: Или введите вручную
   Or instead of turning the others: Или вместо вращения остальных винтов
   Original file location unknown: Расположение исходного файла неизвестно
@@ -3187,6 +3182,8 @@ translations:
   Requires a filament system with bypass: Требуется система филамента с байпасом
   Requires a filament pressure sensor or sync feedback: 'Требуется датчик давления филамента или обратная связь синхронизации'
   Requires a clog detector or filament motion sensor: 'Требуется датчик засора или датчик движения филамента'
+  Requires a newer HelixPrint plugin: 'Требуется более новый плагин HelixPrint'
+  Requires the HelixPrint plugin: 'Требуется плагин HelixPrint'
   Resend write failed at chunk {}: Не удалось повторно отправить запись в блоке {}
   Reset: Сброс
   Reset Blade Counter: 'Сбросить счётчик лезвия'
@@ -3487,6 +3484,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Отправьте этот отчёт об ошибке,
     чтобы помочь улучшить HelixScreen.
   Sending...: Отправка...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Отправляет ваши постоянные параметры печати, например выгрузку в конце, когда печать запускается из другого приложения или из очереди заданий.'
   Sensor: Датчик
   Sensor Error: 'Ошибка датчика'
   Sensor Response: Отклик датчика
@@ -3705,6 +3703,7 @@ translations:
   Start failed: Ошибка запуска
   Start next: 'Запустить следующую'
   'Start next: {}': 'Запустить следующую: {}'
+  Start options for prints from other apps: 'Параметры запуска для печати из других приложений'
   Start print anyway?: Всё равно начать печать?
   Started: Начато
   Starting Print...: Запуск печати...
@@ -4286,6 +4285,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Не удаётся связаться с принтером. Проверьте питание и сетевое подключение.
   Unavailable: Недоступно
   Unavailable on this printer: Недоступно на этом принтере
+  'Unavailable: {}': 'Недоступно: {}'
   Undo: Шаг назад
   Uninstall: Удалить
   Uninstall HelixPrint Plugin: Удалить плагин HelixPrint
@@ -4388,6 +4388,7 @@ translations:
   Verifying...: Проверка...
   Version: Версия
   Version and printer info: Версия и сведения о принтере
+  Version and what the plugin runs: 'Версия и что выполняет плагин'
   Version {}: Версия {}
   Vertical: Вертикально
   Vibration: Вибрация

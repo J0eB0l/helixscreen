@@ -79,6 +79,25 @@ depends on more than a boolean (power-loss recovery: `helix-screen` / `plr_user.
 storage-dependent default). Its `plugin_features` key is then unused, and the `features` map
 reports that feature's own `enabled`. Never two switches for one feature.
 
+**Settings placement (ruled 2026-10-22).** A feature's switch lives on the settings page
+for what it does, not on a plugin page. Every such switch is a `plugin_feature_toggle_row`
+(`ui_xml/plugin_feature_toggle_row.xml`), whose look one pure function decides
+(`plugin_switch_mode`): a working switch while the feature is Ready or Disabled; greyed with
+"Requires the HelixPrint plugin" and Install when there is no plugin; greyed asking for a
+newer plugin when the plugin lacks the feature or its contract is too old; hidden when the
+plugin reports it `available: false` (Install cannot help, and the reason shows on the
+overview). A feature that owns its switch (power-loss recovery) passes its own subject and
+callback and gets the same modes. Adding a switch is one row in `kPluginSwitchFeatures`, one
+XML line on its page and its strings. The Advanced panel keeps a read-only "HelixPrint
+plugin" overview where Install/Uninstall live: the plugin's version, then each feature in the
+status map as active, off or unavailable (reason), leading to the page that holds its switch.
+Features that only observe (file analysis, event journal) and transports (server edits,
+config, vendor push) get no switch anywhere. Homes: Phase 2 fit-check blocking -> Safety &
+Alerts; Phase 3 -> Printing; Phase 5 -> Devices > Spoolman, Weight Sync group; Phase 7 photos
+-> Devices > Camera; Phase 8 auto cleanup -> System > Storage (a new page); Phase 6 events
+view -> notification history; Phases 1, 4, 10 and 11 have no switch. Defaults as above:
+observers on, actors off.
+
 **Helix-initiated job marker (2026-10-21).** A plugin path that starts a job itself records it
 immediately before the single command that starts the print (`SDCARD_PRINT_FILE`, or `M24`),
 never before a script that homes, heats or purges first: `mark_helix_initiated(filename, kind)`,

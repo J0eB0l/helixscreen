@@ -169,7 +169,6 @@
   <translation tag="= Loosen" ru="= Ослабить"/>
   <translation tag="= Tighten" ru="= Затянуть"/>
   <translation tag="A" ru="A"/>
-  <translation tag="A HelixPrint plugin feature." ru="Функция плагина HelixPrint."/>
   <translation tag="A buzzer or speaker for alerts and sounds. Set what plays in the sound settings." ru="Зуммер или динамик для оповещений и звуков. Что воспроизводится, настраивается в настройках звука."/>
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." ru="Камера, которую транслирует Moonraker. Добавьте виджет камеры на главный экран, чтобы смотреть ее, в том числе во время печати."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." ru="Вентилятор, который прогоняет воздух камеры через фильтр. Управляйте им на экране температуры камеры."/>
@@ -321,8 +320,8 @@
   <translation tag="Appearance" ru="Внешний вид"/>
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." ru="Применено к {}. Klipper забудет значение после перезапуска: укажите {} как Pressure Advance в профиле филамента в слайсере или сохраните его на катушку."/>
   <translation tag="Applies to" ru="Применяется к"/>
-  <translation tag="Applies your standing print options, such as unload at end, to prints started from another app or the job queue." ru="Применяет ваши постоянные параметры печати, например выгрузку в конце, к печати, запущенной из другого приложения или из очереди заданий."/>
   <translation tag="Apply" ru="Применить"/>
+  <translation tag="Apply start options to prints from other apps" ru="Применять параметры запуска к печати из других приложений"/>
   <translation tag="Aqua Surface" ru="Водная гладь"/>
   <translation tag="Archive" ru="Архивировать"/>
   <translation tag="Archive Spool?" ru="Архивировать катушку?"/>
@@ -706,7 +705,6 @@
   <translation tag="Choose rendering mode for bed mesh visualization" ru="Выберите режим рендеринга для визуализации сетки стола"/>
   <translation tag="Choose sound style" ru="Выберите стиль звука"/>
   <translation tag="Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses." ru="Выберите модель, соответствующую вашему принтеру. Это задаёт используемые HelixScreen макросы печати, роли вентиляторов и поведение калибровки."/>
-  <translation tag="Choose what the plugin does for your prints" ru="Выберите, что плагин делает для вашей печати"/>
   <translation tag="Choose what to power off or restart." ru="Выберите, что выключить или перезагрузить."/>
   <translation tag="Choose which lane is in the toolhead to unload it" ru="Выберите, какая дорожка в печатающей головке, чтобы выгрузить её"/>
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" ru="Позиция жёлоба продувки: X {:.1f}, Y {:.1f}"/>
@@ -2330,8 +2328,6 @@
   <translation tag="Not available here. Update from a terminal." ru="Здесь недоступно. Обновите через терминал."/>
   <translation tag="Not available now" ru="Сейчас недоступно"/>
   <translation tag="Not available on Android" ru="Недоступно на Android"/>
-  <translation tag="Not available on this printer ({})." ru="Недоступно на этом принтере ({})."/>
-  <translation tag="Not available on this printer." ru="Недоступно на этом принтере."/>
   <translation tag="Not calibrated" ru="Не откалиброван"/>
   <translation tag="Not configured" ru="Не настроено"/>
   <translation tag="Not connected" ru="Не подключен"/>
@@ -2436,7 +2432,6 @@
   <translation tag="Optimizes temperature control for stable, consistent heating." ru="Оптимизирует контроль температуры для стабильного и равномерного нагрева."/>
   <translation tag="Optional - select your main lighting source, or skip if your printer doesn&apos;t have one" ru="Необязательно — выберите основной источник освещения или пропустите, если его нет"/>
   <translation tag="Options" ru="Параметры"/>
-  <translation tag="Options for prints started elsewhere" ru="Параметры для печати, запущенной не отсюда"/>
   <translation tag="Or Enter Manually" ru="Или введите вручную"/>
   <translation tag="Or instead of turning the others" ru="Или вместо вращения остальных винтов"/>
   <translation tag="Original file location unknown" ru="Расположение исходного файла неизвестно"/>
@@ -2930,6 +2925,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" ru="Требуется датчик засора или датчик движения филамента"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" ru="Требуется датчик давления филамента или обратная связь синхронизации"/>
   <translation tag="Requires a filament system with bypass" ru="Требуется система филамента с байпасом"/>
+  <translation tag="Requires a newer HelixPrint plugin" ru="Требуется более новый плагин HelixPrint"/>
+  <translation tag="Requires the HelixPrint plugin" ru="Требуется плагин HelixPrint"/>
   <translation tag="Resend write failed at chunk {}" ru="Не удалось повторно отправить запись в блоке {}"/>
   <translation tag="Reset" ru="Сброс"/>
   <translation tag="Reset Blade Counter" ru="Сбросить счётчик лезвия"/>
@@ -3202,6 +3199,7 @@
   <translation tag="Send commands directly to printer" ru="Отправлять команды напрямую принтеру"/>
   <translation tag="Send this crash report to help improve HelixScreen." ru="Отправьте этот отчёт об ошибке, чтобы помочь улучшить HelixScreen."/>
   <translation tag="Sending..." ru="Отправка..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." ru="Отправляет ваши постоянные параметры печати, например выгрузку в конце, когда печать запускается из другого приложения или из очереди заданий."/>
   <translation tag="Sensor" ru="Датчик"/>
   <translation tag="Sensor Error" ru="Ошибка датчика"/>
   <translation tag="Sensor Response" ru="Отклик датчика"/>
@@ -3396,6 +3394,7 @@
   <translation tag="Start failed" ru="Ошибка запуска"/>
   <translation tag="Start next" ru="Запустить следующую"/>
   <translation tag="Start next: {}" ru="Запустить следующую: {}"/>
+  <translation tag="Start options for prints from other apps" ru="Параметры запуска для печати из других приложений"/>
   <translation tag="Start print anyway?" ru="Всё равно начать печать?"/>
   <translation tag="Started" ru="Начато"/>
   <translation tag="Starting Print..." ru="Запуск печати..."/>
@@ -3890,6 +3889,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." ru="Не удаётся связаться с принтером. Проверьте питание и сетевое подключение."/>
   <translation tag="Unavailable" ru="Недоступно"/>
   <translation tag="Unavailable on this printer" ru="Недоступно на этом принтере"/>
+  <translation tag="Unavailable: {}" ru="Недоступно: {}"/>
   <translation tag="Undo" ru="Шаг назад"/>
   <translation tag="Uninstall" ru="Удалить"/>
   <translation tag="Uninstall HelixPrint Plugin" ru="Удалить плагин HelixPrint"/>
@@ -3995,6 +3995,7 @@
   <translation tag="Verifying..." ru="Проверка..."/>
   <translation tag="Version" ru="Версия"/>
   <translation tag="Version and printer info" ru="Версия и сведения о принтере"/>
+  <translation tag="Version and what the plugin runs" ru="Версия и что выполняет плагин"/>
   <translation tag="Version {}" ru="Версия {}"/>
   <translation tag="Vertical" ru="Вертикально"/>
   <translation tag="Vibration" ru="Вибрация"/>

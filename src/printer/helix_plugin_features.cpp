@@ -58,39 +58,58 @@ bool plugin_feature_opted_in(const nlohmann::json& record, const std::string& na
     return !acts;
 }
 
-std::vector<PluginFeatureRow> plugin_feature_rows(const PluginFeatureMap& features) {
-    std::vector<PluginFeatureRow> rows;
-    auto row_for = [](const std::string& name, const PluginFeatureEntry& entry) {
-        PluginFeatureRow row;
-        row.name = name;
-        row.label = name;
-        row.description = kUnknownPluginFeatureDescription;
-        row.icon = kUnknownPluginFeatureIcon;
-        row.enabled = entry.enabled;
-        row.available = entry.available;
-        row.reason = entry.available ? "" : entry.reason;
-        return row;
+PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMap& features,
+                                    const std::string& name, int min_version) {
+    switch (plugin_feature_state(plugin_available, features, name, min_version)) {
+    case PluginFeatureState::Ready:
+    case PluginFeatureState::Disabled:
+        return PluginSwitchMode::Switch;
+    case PluginFeatureState::Absent:
+        break;
+    }
+    if (!plugin_available) {
+        return PluginSwitchMode::NeedsPlugin;
+    }
+    const auto it = features.find(name);
+    if (it == features.end() || it->second.version < min_version) {
+        return PluginSwitchMode::NeedsUpdate;
+    }
+    return PluginSwitchMode::Hidden;
+}
+
+std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& features) {
+    std::vector<PluginFeatureLine> lines;
+    auto line_for = [](const std::string& name, const PluginFeatureEntry& entry) {
+        PluginFeatureLine line;
+        line.name = name;
+        line.label = name;
+        line.icon = kUnknownPluginFeatureIcon;
+        line.status = !entry.available ? PluginFeatureStatus::Unavailable
+                      : entry.enabled  ? PluginFeatureStatus::Active
+                                       : PluginFeatureStatus::Off;
+        line.reason = entry.available ? "" : entry.reason;
+        return line;
     };
     for (const KnownPluginFeature& known : kKnownPluginFeatures) {
         const auto it = features.find(known.name);
-        if (it == features.end() || known.own_switch) {
+        if (it == features.end()) {
             continue;
         }
-        PluginFeatureRow row = row_for(it->first, it->second);
-        row.label = known.label;
-        row.description = known.description;
-        row.icon = known.icon;
-        rows.push_back(std::move(row));
+        PluginFeatureLine line = line_for(it->first, it->second);
+        line.label = known.label;
+        line.icon = known.icon;
+        line.home = known.home;
+        lines.push_back(std::move(line));
     }
     for (const auto& [name, entry] : features) {
         const bool known =
             std::any_of(std::begin(kKnownPluginFeatures), std::end(kKnownPluginFeatures),
                         [&name](const KnownPluginFeature& k) { return name == k.name; });
         if (!known) {
-            rows.push_back(row_for(name, entry));
+            lines.push_back(line_for(name, entry));
         }
     }
-    return rows;
+    return lines;
 }
 
 } // namespace helix

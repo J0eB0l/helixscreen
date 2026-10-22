@@ -136,7 +136,6 @@
   <translation tag="= Loosen" pt="= Afrouxar"/>
   <translation tag="= Tighten" pt="= Apertar"/>
   <translation tag="A" pt="A"/>
-  <translation tag="A HelixPrint plugin feature." pt="Um recurso do plugin HelixPrint."/>
   <translation tag="A buzzer or speaker for alerts and sounds. Set what plays in the sound settings." pt="Um buzzer ou alto-falante para alertas e sons. Defina o que toca nas configurações de som."/>
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." pt="Uma câmera transmitida pelo Moonraker. Adicione o widget de câmera à tela inicial para assisti-la, inclusive durante uma impressão."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." pt="Uma ventoinha que puxa o ar da câmara por um filtro. Controle-a na tela de temperatura da câmara."/>
@@ -288,8 +287,8 @@
   <translation tag="Appearance" pt="Aparência"/>
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." pt="Aplicado a {}. O Klipper esquece ao reiniciar: insira {} como Pressure Advance no perfil de filamento do seu fatiador, ou salve no carretel."/>
   <translation tag="Applies to" pt="Aplica-se a"/>
-  <translation tag="Applies your standing print options, such as unload at end, to prints started from another app or the job queue." pt="Aplica suas opções de impressão fixas, como descarregar ao final, às impressões iniciadas por outro app ou pela fila de trabalhos."/>
   <translation tag="Apply" pt="Aplicar"/>
+  <translation tag="Apply start options to prints from other apps" pt="Aplicar opções de início a impressões de outros apps"/>
   <translation tag="Aqua Surface" pt="Superfície da água"/>
   <translation tag="Archive" pt="Arquivar"/>
   <translation tag="Archive Spool?" pt="Arquivar Carretel?"/>
@@ -667,7 +666,6 @@
   <translation tag="Choose rendering mode for bed mesh visualization" pt="Escolha o modo de renderização para visualização da malha da mesa"/>
   <translation tag="Choose sound style" pt="Escolher estilo de som"/>
   <translation tag="Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses." pt="Escolha o modelo que corresponde à sua impressora. Isso define as macros de impressão, as funções das ventoinhas e o comportamento de calibração que o HelixScreen usa."/>
-  <translation tag="Choose what the plugin does for your prints" pt="Escolha o que o plugin faz pelas suas impressões"/>
   <translation tag="Choose what to power off or restart." pt="Escolha o que desligar ou reiniciar."/>
   <translation tag="Choose which lane is in the toolhead to unload it" pt="Escolha qual via está na cabeça para descarregá-la"/>
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" pt="Posição da calha de purga: X {:.1f}, Y {:.1f}"/>
@@ -2285,8 +2283,6 @@
   <translation tag="Not available here. Update from a terminal." pt="Não disponível aqui. Atualize a partir de um terminal."/>
   <translation tag="Not available now" pt="Indisponível no momento"/>
   <translation tag="Not available on Android" pt="Não disponível no Android"/>
-  <translation tag="Not available on this printer ({})." pt="Indisponível nesta impressora ({})."/>
-  <translation tag="Not available on this printer." pt="Indisponível nesta impressora."/>
   <translation tag="Not calibrated" pt="Não calibrado"/>
   <translation tag="Not configured" pt="Não configurado"/>
   <translation tag="Not connected" pt="Não conectado"/>
@@ -2391,7 +2387,6 @@
   <translation tag="Optimizes temperature control for stable, consistent heating." pt="Otimiza o controle de temperatura para aquecimento estável e consistente."/>
   <translation tag="Optional - select your main lighting source, or skip if your printer doesn&apos;t have one" pt="Opcional - selecione sua fonte de iluminação principal, ou pule se sua impressora não tiver uma"/>
   <translation tag="Options" pt="Opções"/>
-  <translation tag="Options for prints started elsewhere" pt="Opções para impressões iniciadas em outro lugar"/>
   <translation tag="Or Enter Manually" pt="Ou Digite Manualmente"/>
   <translation tag="Or instead of turning the others" pt="Ou, em vez de girar os outros"/>
   <translation tag="Original file location unknown" pt="Local do arquivo original desconhecido"/>
@@ -2876,6 +2871,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" pt="Requer um detector de entupimento ou um sensor de movimento de filamento"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" pt="Requer um sensor de pressão de filamento ou feedback de sincronização"/>
   <translation tag="Requires a filament system with bypass" pt="Requer um sistema de filamento com bypass"/>
+  <translation tag="Requires a newer HelixPrint plugin" pt="Requer um plugin HelixPrint mais recente"/>
+  <translation tag="Requires the HelixPrint plugin" pt="Requer o plugin HelixPrint"/>
   <translation tag="Resend write failed at chunk {}" pt="Falha ao reenviar a escrita no fragmento {}"/>
   <translation tag="Reset" pt="Resetar"/>
   <translation tag="Reset Blade Counter" pt="Resetar o contador de lâmina"/>
@@ -3148,6 +3145,7 @@
   <translation tag="Send commands directly to printer" pt="Enviar comandos diretamente para a impressora"/>
   <translation tag="Send this crash report to help improve HelixScreen." pt="Envie este relatório de erro para ajudar a melhorar o HelixScreen."/>
   <translation tag="Sending..." pt="Enviando..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." pt="Envia suas opções de impressão fixas, como descarregar ao final, quando uma impressão começa por outro app ou pela fila de trabalhos."/>
   <translation tag="Sensor" pt="Sensor"/>
   <translation tag="Sensor Error" pt="Erro do sensor"/>
   <translation tag="Sensor Response" pt="Resposta do Sensor"/>
@@ -3336,6 +3334,7 @@
   <translation tag="Start failed" pt="Falha ao iniciar"/>
   <translation tag="Start next" pt="Iniciar próximo"/>
   <translation tag="Start next: {}" pt="Iniciar próximo: {}"/>
+  <translation tag="Start options for prints from other apps" pt="Opções de início para impressões de outros apps"/>
   <translation tag="Start print anyway?" pt="Iniciar impressão mesmo assim?"/>
   <translation tag="Started" pt="Iniciado"/>
   <translation tag="Starting Print..." pt="Iniciando impressão..."/>
@@ -3830,6 +3829,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." pt="Não foi possível alcançar a impressora. Verifique a energia e a conexão de rede."/>
   <translation tag="Unavailable" pt="Indisponível"/>
   <translation tag="Unavailable on this printer" pt="Não disponível nesta impressora"/>
+  <translation tag="Unavailable: {}" pt="Indisponível: {}"/>
   <translation tag="Undo" pt="Desfazer"/>
   <translation tag="Uninstall" pt="Desinstalar"/>
   <translation tag="Uninstall HelixPrint Plugin" pt="Desinstalar Plugin HelixPrint"/>
@@ -3935,6 +3935,7 @@
   <translation tag="Verifying..." pt="Verificando..."/>
   <translation tag="Version" pt="Versão"/>
   <translation tag="Version and printer info" pt="Versão e informações da impressora"/>
+  <translation tag="Version and what the plugin runs" pt="Versão e o que o plugin executa"/>
   <translation tag="Version {}" pt="Versão {}"/>
   <translation tag="Vertical" pt="Vertical"/>
   <translation tag="Vibration" pt="Vibração"/>

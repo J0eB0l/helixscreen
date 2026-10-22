@@ -137,7 +137,6 @@ translations:
   = Loosen: = Loosen
   = Tighten: = Tighten
   A: A
-  A HelixPrint plugin feature.: A HelixPrint plugin feature.
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.
@@ -304,8 +303,8 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   Applies to: Applies to
-  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: Applies your standing print options, such as unload at end, to prints started from another app or the job queue.
   Apply: Apply
+  Apply start options to prints from other apps: Apply start options to prints from other apps
   Aqua Surface: Aqua Surface
   Archive: Archive
   Archive Spool?: Archive Spool?
@@ -714,7 +713,6 @@ translations:
   Choose sound style: Choose sound style
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
-  Choose what the plugin does for your prints: Choose what the plugin does for your prints
   Choose what to power off or restart.: Choose what to power off or restart.
   'Chute position: X {:.1f}, Y {:.1f}': 'Chute position: X {:.1f}, Y {:.1f}'
   Clean Brush: Clean Brush
@@ -2444,8 +2442,6 @@ translations:
   Not available here. Update from a terminal.: Not available here. Update from a terminal.
   Not available now: Not available now
   Not available on Android: Not available on Android
-  Not available on this printer ({}).: Not available on this printer ({}).
-  Not available on this printer.: Not available on this printer.
   Not calibrated: Not calibrated
   Not configured: Not configured
   Not connected: Not connected
@@ -2555,7 +2551,6 @@ translations:
   Optional - select your main lighting source, or skip if your printer doesn't have one: Optional
     - select your main lighting source, or skip if your printer doesn't have one
   Options: Options
-  Options for prints started elsewhere: Options for prints started elsewhere
   Or Enter Manually: Or Enter Manually
   Or instead of turning the others: Or instead of turning the others
   Original file location unknown: Original file location unknown
@@ -3068,6 +3063,8 @@ translations:
   Requires a filament system with bypass: Requires a filament system with bypass
   Requires a filament pressure sensor or sync feedback: 'Requires a filament pressure sensor or sync feedback'
   Requires a clog detector or filament motion sensor: Requires a clog detector or filament motion sensor
+  Requires a newer HelixPrint plugin: Requires a newer HelixPrint plugin
+  Requires the HelixPrint plugin: Requires the HelixPrint plugin
   Resend write failed at chunk {}: Resend write failed at chunk {}
   Reset: Reset
   Reset Blade Counter: Reset Blade Counter
@@ -3367,6 +3364,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Send this crash report to help
     improve HelixScreen.
   Sending...: Sending...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.
   Sensor: Sensor
   Sensor Error: Sensor Error
   Sensor Response: Sensor Response
@@ -3570,6 +3568,7 @@ translations:
   Start failed: Start failed
   Start next: Start next
   'Start next: {}': 'Start next: {}'
+  Start options for prints from other apps: Start options for prints from other apps
   Start print anyway?: Start print anyway?
   Started: Started
   Starting Print...: Starting Print...
@@ -4146,6 +4145,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Unable to reach printer. Check power and network connection.
   Unavailable: Unavailable
   Unavailable on this printer: Unavailable on this printer
+  'Unavailable: {}': 'Unavailable: {}'
   Undo: Undo
   Uninstall: Uninstall
   Uninstall HelixPrint Plugin: Uninstall HelixPrint Plugin
@@ -4252,6 +4252,7 @@ translations:
   Verifying...: Verifying...
   Version: Version
   Version and printer info: Version and printer info
+  Version and what the plugin runs: Version and what the plugin runs
   Version {}: Version {}
   Vertical: Vertical
   Vibration: Vibration

@@ -4,7 +4,7 @@
 
 - **MACHINE**: Machine Limits, Motion, Retraction Settings and Enclosure
 - **FILAMENT**: Multi-Filament System Management, Material Temperatures, Allow cold load/unload, Cool nozzle after filament ops, Edit filament on insert and Confirm tool changes
-- **EXTRAS**: Timelapse and Macro Buttons
+- **EXTRAS**: Timelapse, Power-loss recovery, Apply start options to prints from other apps, and Macro Buttons
 
 Looking for how the printer is *drawn* (toolhead picture, G-code preview, Z button labels, bed mesh view)? That's in [Appearance](appearance.md#printer-visuals).
 
@@ -217,6 +217,21 @@ Sets up how HelixScreen records timelapse videos of your prints.
 Changes are saved straight away and sent to Moonraker. The print status screen also has a timelapse switch, so you can turn recording on or off without leaving the print.
 
 If the plugin isn't installed yet, HelixScreen shows an **Install Wizard** that walks you through the commands. See [Advanced > Timelapse](../advanced.md#timelapse). To watch recorded videos, use **Advanced > Timelapse Videos**.
+
+---
+
+## Power-loss recovery and start options for other apps
+
+These two switches come from the **HelixPrint plugin** on your printer.
+
+| Setting | What it does |
+|---------|--------------|
+| **Power-loss recovery** | Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear |
+| **Apply start options to prints from other apps** | When a print starts from Mainsail, Fluidd, your slicer or the job queue, sends your standing print options too, such as which toolheads unload at the end. Off until you turn it on |
+
+When the printer does not have the plugin, each switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button. When the plugin is too old for the switch, it asks for a newer plugin instead. A switch your printer cannot use at all is not shown.
+
+If you turn on start options for other apps on a printer without the plugin, HelixScreen sends them itself when it sees the print start, as long as the screen is on and connected. With the plugin, the printer sends them even when the screen is off.
 
 ---
 
