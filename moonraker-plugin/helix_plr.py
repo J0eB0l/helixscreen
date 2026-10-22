@@ -1632,8 +1632,7 @@ class HelixPlr:
         profile = await self.profile()
         if self._plan is not None and snapshot is not None \
                 and self._plan_seq == snapshot.get("seq") and self._sequence is None:
-            self._plan = await self._with_live_bed(self._plan)
-            return self._plan_reply(self._plan)
+            return self._plan_reply(await self._with_live_bed(self._plan))
         if self._pending is not None and not self._pending.done():
             return {"pending": True, "plan_id": self._pending_id}
         if self._plan_error is not None and snapshot is not None \
@@ -1723,6 +1722,9 @@ class HelixPlr:
                 warnings.append("mesh_unavailable")
         heaters = snapshot.get("heaters") or {}
         bed_target = (heaters.get("heater_bed") or {}).get("target") or 0.0
+        # The snapshot's target, or the file's at the resume point when higher
+        # (R28): a snapshot taken with the heater down still resumes at the
+        # temperature the resume line prints at.
         nozzle = (heaters.get("extruder") or {}).get("target") or 0.0
         nozzle = max(nozzle, point.state.heater_targets.get("extruder", 0.0))
         if nozzle <= 0.0:
@@ -1788,14 +1790,26 @@ class HelixPlr:
         return plan
 
     async def _with_live_bed(self, plan: Any) -> Any:
-        """A kept plan with the bed as it is now: the plan can be hours old,
-        and the bed has cooled since."""
-        bed_now = _num(_obj(await self._query({"heater_bed": ["temperature"]}), "heater_bed")
-                       .get("temperature"))
+        """The kept plan, made current with the bed as it is now: the plan
+        can be hours old, and the bed has cooled since. A prepare that took
+        the plan during the read keeps it unchanged, so commit never asks for
+        a confirmation the app was not shown; a failed read keeps the last
+        reading."""
+        try:
+            status = await self._query({"heater_bed": ["temperature"]})
+        except Exception as e:
+            logging.warning("HelixPrint: PLR kept the last bed reading: %s", e)
+            status = {}
+        if self._plan is not plan or self._sequence is not None:
+            return self._plan if self._plan is not None else plan
+        bed_now = _num(_obj(status, "heater_bed").get("temperature"))
+        if bed_now is None:
+            return plan
         warnings, cold = bed_warnings(plan.warnings, plan.bed_target, bed_now)
         self._bed_now = bed_now
-        return plan._replace(warnings=warnings, requires=helix_plr_render.required_confirmations(
-            plan.tier, warnings, cold))
+        self._plan = plan._replace(warnings=warnings, requires=helix_plr_render
+                                   .required_confirmations(plan.tier, warnings, cold))
+        return self._plan
 
     def _check_qidi_landing(self, snapshot: Dict[str, Any], mesh: Any) -> None:
         """QIDI's landing move is off by the gcode offset plus the mesh at the

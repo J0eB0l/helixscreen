@@ -1234,6 +1234,43 @@ def test_a_kept_plan_reports_the_bed_as_it_is_now(plr, helix, resume):
         commit(plr, again["plan_id"])
 
 
+def test_a_prepare_during_the_bed_read_keeps_the_plan_the_app_was_shown(plr, helix, resume):
+    """plan re-reads the bed (an await) while a prepare takes the plan: the
+    prepare's plan, and so commit's confirmations, must not change under it."""
+    shown = run(plr.handle_plan(Req()))
+    plr.printer.bed = 27.0
+    query = plr.printer.query
+
+    async def yielding(objects):
+        await asyncio.sleep(0)
+        return await query(objects)
+
+    helix.klippy_apis.query_objects.side_effect = yielding
+
+    async def both():
+        return await asyncio.gather(plr.handle_plan(Req()),
+                                    plr.handle_prepare(Req(plan_id=shown["plan_id"])))
+
+    again, prepared = run(both())
+    assert prepared == {"ok": True}
+    assert again["requires"] == shown["requires"] == plr._plan.requires
+    assert "accept_cold_bed" not in plr._plan.requires
+    assert commit(plr, shown["plan_id"]) == {"ok": True, "job_started": True}
+
+
+def test_a_failed_bed_read_answers_with_the_kept_plan(plr, helix, resume):
+    shown = run(plr.handle_plan(Req()))
+    query = plr.printer.query
+
+    async def bed_read_fails(objects):
+        if list(objects) == ["heater_bed"]:
+            raise RuntimeError("Klippy Disconnected")
+        return await query(objects)
+
+    helix.klippy_apis.query_objects.side_effect = bed_read_fails
+    assert run(plr.handle_plan(Req())) == shown
+
+
 def test_include_file_mesh_needs_no_extra_confirmation(plr, helix, resume):
     plr.job["mesh"] = {"profile": "adaptive", "saved": False, "min": [0, 0], "max": [1, 1],
                        "points": [[0.0]]}
