@@ -194,9 +194,10 @@ def _resume_xyz(state: ModalState) -> Tuple[float, float, float]:
     return gx, gy, gz
 
 
-def render_prepare_script(plan: ResumePlan, profile: Any,
-                          skip_chamber_wait: bool = False) -> List[Tuple[str, List[str]]]:
-    """Steps of the prepare phase as (step name, lines). The nozzle stays cold."""
+def render_heat_wait(plan: ResumePlan,
+                     skip_chamber_wait: bool = False) -> List[Tuple[str, List[str]]]:
+    """§ 6.3 step 2: bed, then chamber, to temperature; the nozzle stays cold.
+    Every backend's prepare starts with it."""
     steps = []  # type: List[Tuple[str, List[str]]]
     if plan.bed_target > 0:
         steps.append(("bed", ["M140 S%s" % _f(plan.bed_target), "M190 S%s" % _f(plan.bed_target)]))
@@ -207,6 +208,14 @@ def render_prepare_script(plan: ResumePlan, profile: Any,
             lines.append('TEMPERATURE_WAIT SENSOR="heater_generic %s" MINIMUM=%s'
                          % (name, _f(target - 1.0)))
         steps.append(("chamber", lines))
+    return steps
+
+
+def render_prepare_script(plan: ResumePlan, profile: Any,
+                          skip_chamber_wait: bool = False) -> List[Tuple[str, List[str]]]:
+    """Steps of the generic prepare phase as (step name, lines): the heat
+    wait, then declare the measured Z, lift cold, home XY."""
+    steps = render_heat_wait(plan, skip_chamber_wait)
     lift = ["SET_KINEMATIC_POSITION Z=%s" % _f(plan.z_physical)]
     if plan.lift_mm > 0:
         lift += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]

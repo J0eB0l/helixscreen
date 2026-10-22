@@ -357,6 +357,29 @@ the follower runs on any host while printing, reads no further than `file_positi
 rate-capped; whole-file analysis runs while printing only on multi-core hosts. The resume scan
 then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`start_state`.
 
+**Checkpoint sidecar (contract).** One file per printed file at
+`<gcodes>/.helix_index/<relpath>.layers.jsonl`; a printed file outside the gcodes root (a
+firmware's cache copy) indexes under `<gcodes>/.helix_index/.external/<name>.layers.jsonl`. JSON
+lines, append-only: a header `{"format": 1, "file_size", "file_mtime", "file_hash"}` naming the
+file version it indexes (a mismatch starts the index over), one line per layer start
+`{"layer", "offset", "z", "state": ModalState.to_dict()}`, and `{"complete": true, "end_offset"}`
+once a completed print was followed to the end (a complete index is not followed again). The
+reader and writer are `helix_gcode_reader.read_layer_index` / `LayerIndexWriter`; a line cut short
+by a crash is skipped. The follower runs only while PLR saving is enabled (it is started from the
+save path) and is held to `FOLLOWER_CPU_FRACTION` (15 %) of one core plus the byte cap.
+Visibility: Moonraker's gcodes file list only lists G-code extensions
+(`file_manager.py#FileManager.get_file_list`, `VALID_GCODE_EXTS`), so the `.jsonl` files never
+appear as files; the `.helix_index` directory appears in a directory listing the way
+`.helix_temp`, `.helix_print` and `.thumbs` already do, and the app and Mainsail/Fluidd hide
+dot-directories (`ui_print_select_file_provider.cpp`). Checked in mainline Moonraker's source; the
+QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified there.
+
+**The file that is scanned.** `file_position` counts bytes of the file Klipper is reading,
+`virtual_sdcard.file_path`, which on QIDI is a `.cache` copy, or for a `.3mf` the extracted
+`plate_<n>.gcode`. The snapshot loop records that path and its identity in the job record
+(`print_path`, `print_identity`) on the first save, and the follower, the resume scan and QIDI's
+`file_size` all use it; the gcodes file is the fallback before it is known.
+
 ### 6.3 Resume sequence (generic backend)
 
 `Zs` = `live_pos.z` (physical, kinematic frame, includes mesh and gcode offset). Rendered by
@@ -464,6 +487,14 @@ In `assets/config/printer_database.json`, per printer. Absent block = tier 0.
 
 User overrides (settings, `helix-screen` / `plr_user`): `enabled` (bool), `tier` (int, may lower or
 raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
+
+**Contract with the plugin.** The app folds the user overrides into `helix-screen` / `plr_profile`,
+a JSON object of the `PlrProfile` fields in snake_case: `tier` (int 0-3), `backend`
+(`"generic"`|`"qidi_print_state"`|`"vendor"`), `storage_hint` (`"emmc"`|`"sd"`|`"nand"`|`"ssd"`|
+`"unknown"`), `z_holds_unpowered` (bool), `xy_home_gcode` (str), `z_lift_mm` (float), `purge_gcode`
+(str|null), `resume_skip_fraction` (float 0-1), `macro_vars` ({macro: [variable, ...]}). A missing
+record is tier 0; a missing or wrongly typed key takes the default above. The plugin reads only
+`enabled` from `plr_user`; it is PLR's single switch.
 
 The app resolves DB + user into `plr_profile` and writes it whenever an input changes:
 
@@ -598,7 +629,7 @@ Feature entry in `server.helix.status` `features` (umbrella Phase 0):
 | Method (JSON-RPC / HTTP) | Params | Reply |
 |---|---|---|
 | `server.helix.plr.status` / `GET /server/helix/plr/status` | none | `{"saving": bool, "storage": StorageVerdict, "tier": int, "backend": "generic"\|"qidi_print_state"\|"none", "snapshot": {"job_id", "filename", "layer", "z", "saved_at", "age_s"} \| null, "offer": OfferVerdict}` |
-| `server.helix.plr.plan` / `POST /server/helix/plr/plan` | none | `{"plan_id": str, "filename", "method": "measured"\|"layer_start", "resume_offset": int, "layer": int, "z_gcode": float, "z_physical": float, "retrace_estimate_mm": float, "bed": {"target", "current"}, "restores": [str], "warnings": [str], "requires": [Confirmation]}`; long scan replies `{"pending": true}` and emits `helix:plr_plan_ready {plan_id}` |
+| `server.helix.plr.plan` / `POST /server/helix/plr/plan` | none | `{"plan_id": str, "tier": int, "filename", "method": "measured"\|"layer_start", "resume_offset": int, "layer": int, "z_gcode": float, "z_physical": float, "retrace_estimate_mm": float, "bed": {"target", "current"}, "restores": [str], "warnings": [str], "requires": [Confirmation]}`; long scan replies `{"pending": true}` and emits `helix:plr_plan_ready {plan_id}` |
 | `server.helix.plr.prepare` / `POST .../prepare` | `{"plan_id": str, "skip_chamber_wait": bool}` | `{"ok": true}` when steps 1-5 are done; progress via `helix:plr_progress {plan_id, step, state}` |
 | `server.helix.plr.commit` / `POST .../commit` | `{"plan_id": str, "confirmations": {Confirmation: true}, "z_reference": "trusted"\|"part_top"}` | `{"ok": true, "job_started": true}` after `M24` |
 | `server.helix.plr.abort` / `POST .../abort` | `{"plan_id": str}` | `{"ok": true}`; stops the sequence, heaters off, keeps the snapshot |
@@ -634,15 +665,18 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
 - A file outside the gcodes root starts through the root-level link `helix_plr_resume.gcode`; the
   finished history entry is renamed back by `_patch_history_entry`, and the link is removed when
   the resumed job completes or is cancelled.
-- `backend` reads `generic` or `qidi_print_state` from `plr_profile`; this module resumes only
-  `generic` (a `qidi_print_state` profile reports tier 0 here until `helix_plr_qidi.py` takes it).
-- `plr_profile` is read as the C++ `PlrProfile` fields in snake_case JSON: `tier`, `backend`,
-  `storage_hint`, `z_holds_unpowered`, `xy_home_gcode`, `z_lift_mm`, `purge_gcode`,
-  `resume_skip_fraction`, plus `macro_vars` ({macro: [variable, ...]}); the switch is
-  `plr_user.enabled` alone.
-- Layer checkpoints (O3) are `<gcodes>/.helix_index/<path>.layers.jsonl` (format in
-  `helix_gcode_reader.py`), written by a follower held to `FOLLOWER_CPU_FRACTION` (15 %) of one
-  core.
+- The plan reply carries `tier` (as status does), so the app need not read status again.
+- Events are sent as `helix_print:plr_progress` / `helix_print:plr_plan_ready`; Moonraker delivers
+  them to clients as `notify_plr_progress` / `notify_plr_plan_ready`.
+- `backend`: `qidi_print_state` when QIDI's fork is detected (`qidi_print_state_present` AND
+  `moonraker_resumes_print_state`) and the profile lists the printer (`backend:
+  "qidi_print_state"` or tier >= 1), at tier 2 since QIDI's sequence declares the snapshot's Z;
+  otherwise `generic` at the effective tier, or `none` at tier 0. For `qidi_print_state` the
+  offer also needs QIDI's `file_position` row (else `no_snapshot`), the plan skips purge and mesh
+  (QIDI's sequence does both), `prepare` runs only the heat wait, `commit` hands the heat wait to
+  the adapter's `commit`, `abort` keeps the rows (the plugin turns the heaters off), and `discard`
+  deletes the rows as well as the snapshot and mesh file.
+- `plr_profile` and the switch: § 7.2. The checkpoint sidecar: § 6.2.
 
 ---
 
@@ -794,8 +828,8 @@ Other pytest:
 - `render_prepare_script` / `render_commit_script`: golden files for tier 1, tier 2, saved mesh,
   include-file mesh, no mesh, purge macro vs generic purge, subfolder file (symlink path).
 - `generic_purge_xy`: objects covering the front edge pick another edge; full-bed objects -> None.
-- QIDI adapter: row formats against the #1716 table (`speed_factor` 0.016667 at 100 %), +4096 with
-  clamp at file end, offset < 4096.
+- QIDI adapter: row formats against the #1716 table (`speed_factor` 0.016667 at 100 %), the +4096
+  rule (clamp the offset into the file, then add 4096), offset < 4096.
 - Lifecycle: cleared on complete/cancel, kept on error and restart, no writes while paused.
 - `commit` refuses missing confirmations, stale `plan_id`.
 - Python 3.8 job runs these (umbrella Phase 0 adds it).

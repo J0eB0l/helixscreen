@@ -1062,11 +1062,11 @@ def test_status_blocks_an_edited_file(plr, helix, resume):
     assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["file_changed"]
 
 
-def test_a_qidi_backend_is_not_resumed_here(plr, helix, resume):
+def test_a_qidi_profile_without_qidis_firmware_is_not_resumed(plr, helix, resume):
     run(helix.database.insert_item("helix-screen", "plr_profile",
                                    {"tier": 2, "backend": "qidi_print_state"}))
     reply = run(plr.handle_status(Req()))
-    assert reply["backend"] == "qidi_print_state" and reply["tier"] == 0
+    assert reply["backend"] == "none" and reply["tier"] == 0
     assert reply["offer"]["blocked_by"] == ["not_supported"]
 
 
@@ -1341,3 +1341,172 @@ def test_the_plr_endpoints_are_registered(helix):
     paths = helix.server.endpoints
     for name in ("status", "plan", "prepare", "commit", "abort", "discard"):
         assert "/server/helix/plr/" + name in paths
+
+
+# --------------------------------------------------------------------------
+# QIDI print_state backend through the core
+# --------------------------------------------------------------------------
+
+from unittest.mock import AsyncMock  # noqa: E402
+
+import helix_plr_qidi  # noqa: E402
+
+
+class ConfigTable:
+    """QIDI's config-table methods on its Moonraker database."""
+
+    def __init__(self, db):
+        self.rows = {}
+        db.update_value_from_config = self.update
+        db.delete_value_from_config = self.delete
+        db.get_value_from_config = self.get
+
+    async def update(self, section, key, value):
+        assert section == "print_state"
+        self.rows[key] = value
+
+    async def delete(self, section, key):
+        if key is None:
+            self.rows = {}
+
+    async def get(self, section, key):
+        value = self.rows.get(key)
+
+        class Cursor:
+            async def fetchone(self_inner):
+                return {"value": value} if value is not None else None
+
+        return Cursor()
+
+
+@pytest.fixture
+def qidi_printer(plr, helix, tmp_path):
+    table = ConfigTable(helix.database)
+    apis = helix.klippy_apis
+    apis.power_off_print = AsyncMock(return_value="ok")
+    apis._send_klippy_request = AsyncMock(
+        return_value={"SDCARD_POWER_OFF_CONTINUES_PINT_FILE": "resume"})
+    apis.get_object_list.return_value = ["print_stats", "virtual_sdcard", "gcode_move",
+                                         "toolhead", "extruder", "heater_bed"]
+    apis.subscribe_objects.return_value = {
+        "gcode_move": {"speed_factor_2": 1.5 / 60.0, "speed_2": 2.0, "base_position": [0, 0, 0, 0]},
+        "virtual_sdcard": {"plate_index": 1}}
+    run(plr.on_klippy_ready())
+    cache = tmp_path / ".cache"
+    cache.mkdir()
+    plr.qidi._cache_dir = str(cache)
+    plr.qidi._clock = plr.clock
+    return table, cache
+
+
+def test_qidi_is_selected_only_with_both_checks(plr, helix, qidi_printer):
+    assert isinstance(plr.qidi, helix_plr_qidi.QidiPrintStateAdapter)
+    del helix.klippy_apis.power_off_print
+    run(plr._detect_qidi(helix.klippy_apis))
+    assert plr.qidi is None
+
+
+def test_qidi_on_mainline_klipper_is_not_selected(plr, helix):
+    helix.klippy_apis.power_off_print = AsyncMock()
+    ConfigTable(helix.database)
+    helix.klippy_apis._send_klippy_request = AsyncMock(return_value={"G28": "home"})
+    run(plr._detect_qidi(helix.klippy_apis))
+    assert plr.qidi is None
+
+
+def test_qidi_loop_writes_print_state_rows(plr, qidi_printer):
+    table, cache = qidi_printer
+    added(plr, job_id="0000E5")
+    tick(plr, 0.5, **printing_status(100))
+    assert table.rows == {}                      # QIDI deletes the section at start; wait
+    tick(plr, 3.0, **printing_status(200))
+    assert table.rows["file_position"] == "200"
+    assert table.rows["speed_factor"].startswith("0.025")       # QIDI's own speed_factor_2
+
+
+@pytest.fixture
+def qidi_resume(plr, helix, resume, qidi_printer):
+    table, cache = qidi_printer
+    (cache / "part.gcode").write_bytes(resume)
+    table.rows["file_position"] = "1"
+    return table, cache
+
+
+def test_qidi_status_and_offer(plr, helix, qidi_resume):
+    table, _ = qidi_resume
+    reply = run(plr.handle_status(Req()))
+    assert (reply["backend"], reply["tier"]) == ("qidi_print_state", 2)
+    assert reply["offer"] == {"available": True, "blocked_by": []}
+    table.rows.clear()
+    assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["no_snapshot"]
+
+
+def test_qidi_unlisted_printer_stays_off(plr, helix, qidi_resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 0}))
+    reply = run(plr.handle_status(Req()))
+    assert (reply["backend"], reply["tier"]) == ("none", 0)
+
+
+def test_qidi_plan_prepare_commit(plr, helix, qidi_resume, monkeypatch):
+    table, cache = qidi_resume
+    marks = []
+    plr.qidi._mark = lambda *a: marks.append(a)
+    reply = run(plr.handle_plan(Req()))
+    assert reply["tier"] == 2 and reply["method"] == "measured"
+    assert "mesh_unavailable" not in reply["warnings"] and "no_purge_location" not in reply["warnings"]
+    assert plr._plan.purge_xy is None and plr._plan.mesh_loadable is None   # QIDI's sequence purges
+    run(plr.handle_prepare(Req(plan_id=reply["plan_id"])))
+    assert sent(helix) == ["M140 S60\nM190 S60"]          # the heat wait only
+    done = run(plr.handle_commit(Req(plan_id=reply["plan_id"], z_reference="trusted",
+                                     confirmations={"part_attached": True, "z_confirmed": True})))
+    assert done == {"ok": True, "job_started": True}
+    assert helix.klippy_apis.power_off_print.await_count == 1
+    assert table.rows["file_position"] == str(reply["resume_offset"] + 4096)
+    assert marks == [(str(cache / "part.gcode"), "plr_resume")]
+    assert sent(helix)[-1] == "M140 S60\nM190 S60"          # waited again inside commit
+    assert not any(s.startswith("M23") for s in sent(helix))
+
+
+def test_qidi_commit_failure_is_a_klippy_error_with_heaters_off(plr, helix, qidi_resume):
+    helix.klippy_apis.power_off_print.side_effect = RuntimeError("no file")
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    with pytest.raises(Exception, match="plr_klippy_error: no file"):
+        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                  confirmations={"part_attached": True, "z_confirmed": True})))
+    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+
+
+def test_qidi_abort_keeps_the_rows_and_turns_heaters_off(plr, helix, qidi_resume):
+    table, _ = qidi_resume
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_abort(Req(plan_id=plan_id)))
+    assert table.rows == {"file_position": "1"}
+    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+
+
+def test_qidi_discard_deletes_rows_and_snapshot(plr, helix, qidi_resume):
+    table, _ = qidi_resume
+    run(plr.handle_discard(Req()))
+    assert table.rows == {} and plr.store.load() is None
+
+
+def test_scan_follows_the_file_klipper_reads(plr, helix, resume):
+    """A firmware that prints from a copy (QIDI's .cache, a .3mf's plate file)
+    counts file_position in that copy; the scan and index key on it."""
+    copy = helix.gc_path.parent / "copy.gcode"
+    copy.write_bytes(b";plate header\n" * 10 + resume)
+    record = plr.store.load()
+    s = printing_status(100, layer=4)
+    s["virtual_sdcard"]["file_path"] = str(copy)
+    tick(plr, 0.1, **s)
+    assert plr.job["print_path"] == str(copy)
+    assert plr.job["print_identity"]["file_size"] == copy.stat().st_size
+    path, index, ident = plr.print_target()
+    assert path == copy.resolve() and ".helix_index/.external/copy.gcode" in index
+    shift = len(b";plate header\n" * 10)
+    record["file_position"] += shift
+    plr.store.write(fit_record(record)[0])
+    reply = run(plr.handle_plan(Req()))
+    layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    assert reply["resume_offset"] == resume.index(b"G1 X55 Y10", layer4) + shift

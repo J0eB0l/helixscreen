@@ -64,7 +64,7 @@ HELIX_TEMP_TABLE = "helix_temp_files"
 DB_RECORD_MAX_AGE = 30 * 86400
 
 # Plugin version - used for API version detection by clients
-PLUGIN_VERSION = "1.3.0"
+PLUGIN_VERSION = "1.4.0"
 
 # Shape of the status reply; 2 added the `features` map
 STATUS_API = 2
@@ -147,6 +147,7 @@ helix_3mf = _load_sibling("helix_3mf")
 helix_gcode_reader = _load_sibling("helix_gcode_reader")
 helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr_render = _load_sibling("helix_plr_render")
+helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
 
 

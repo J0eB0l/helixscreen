@@ -28,6 +28,11 @@ import helix_gcode_reader
 import helix_plr_render
 import helix_plr_scan
 
+try:
+    import helix_plr_qidi
+except ImportError:  # the QIDI adapter is optional; generic PLR runs without it
+    helix_plr_qidi = None
+
 # ============================================================================
 # Storage safety (§ 7.4)
 # ============================================================================
@@ -814,6 +819,7 @@ class HelixPlr:
         self._follow_future = None  # type: Optional[Any]
         self._follow_at = float("-inf")
         self._follow_executor = None  # type: Optional[Any]
+        self.qidi = None  # type: Optional[Any]
         self.klippy_ready = False
         self.homing = HomingCheck(True, None)
         self.axis_min = None  # type: Optional[list]
@@ -826,6 +832,7 @@ class HelixPlr:
         self._sequence = None  # type: Optional[str]
         self._abort = False
         self._bed_now = None  # type: Optional[float]
+        self._plan_file_size = None  # type: Optional[int]
         self._resume_history_name = None  # type: Optional[str]
         self._resume_job_id = None  # type: Optional[str]
 
@@ -940,6 +947,37 @@ class HelixPlr:
             return
         self.status = {}
         self._merge(status)
+        await self._detect_qidi(apis)
+
+    async def _detect_qidi(self, apis: Any) -> None:
+        """Select the QIDI print_state adapter when Klipper is QIDI's fork AND
+        this Moonraker carries QIDI's resume endpoint. snapshot_objects
+        subscribes gcode_move and virtual_sdcard whole, so the adapter's
+        EXTRA_STATUS_FIELDS arrive with every update."""
+        self.qidi = None
+        if helix_plr_qidi is None:
+            return
+        gcode_help = {}  # type: Any
+        send = getattr(apis, "_send_klippy_request", None)
+        if send is not None:
+            try:
+                gcode_help = await send("gcode/help", {}, {})
+            except Exception:
+                gcode_help = {}
+        if helix_plr_qidi.qidi_print_state_present(gcode_help, self.status.get("gcode_move")) \
+                and helix_plr_qidi.moonraker_resumes_print_state(apis, self.database):
+            self.qidi = helix_plr_qidi.QidiPrintStateAdapter(
+                self.database, apis, mark=self.helix.mark_helix_initiated,
+                unmark=self.helix.unmark_helix_initiated)
+            logging.info("HelixPrint: PLR resumes through QIDI's print_state")
+
+    def _qidi_status(self) -> Dict[str, Any]:
+        fields = helix_plr_qidi.EXTRA_STATUS_FIELDS if helix_plr_qidi is not None else {}
+        out = {}
+        for obj, names in fields.items():
+            have = _obj(self.status, obj)
+            out[obj] = {n: have[n] for n in names if n in have}
+        return out
 
     def _merge(self, status: Any) -> None:
         if not isinstance(status, dict):
@@ -968,26 +1006,67 @@ class HelixPlr:
         if not await self._saving():
             return
         now = self.clock()
+        await self._note_print_path()
         record = build_record(self.status, now, self._macro_vars)
-        if self.policy.decide(now, state, record) is None:
+        reason = self.policy.decide(now, state, record)
+        if reason is None:
             return
         await self._persist(now, record)
         await self._maybe_save_mesh(record)
+        if self.qidi is not None:
+            await self.qidi.on_snapshot(record, self._qidi_status(),
+                                        force=reason in ("event", "pause"))
         self._maybe_follow(now, record.get("file_position"))
+
+    async def _note_print_path(self) -> None:
+        """Record the file Klipper is reading (virtual_sdcard.file_path).
+        file_position counts its bytes, and on some firmware it is a copy (a
+        cache file, or a plate extracted from a .3mf), not the gcodes file."""
+        job = self.job
+        path = _obj(self.status, "virtual_sdcard").get("file_path")
+        if job is None or "print_path" in job or not isinstance(path, str) or not path:
+            return
+        try:
+            identity = file_identity(Path(path))
+        except OSError:
+            return
+        job["print_path"] = path
+        job["print_identity"] = identity
+        await self._ns_put(JOB_KEY, job)
+
+    def print_target(self) -> Optional[Tuple[Path, Optional[str], Dict[str, Any]]]:
+        """(file to scan, its layer index, the identity that index is for):
+        the file Klipper read when known, else the job's file under gcodes."""
+        gc_path = getattr(self.helix, "gc_path", None)
+        job = self.job
+        if gc_path is None or job is None:
+            return None
+        printed = job.get("print_path")
+        if printed and job.get("print_identity") and Path(printed).exists():
+            path = Path(printed).resolve()
+            identity = job["print_identity"]
+        elif job.get("file_hash"):
+            relpath = _resolve_link(gc_path, job.get("filename", ""))
+            if relpath is None:
+                return None
+            path = gc_path / relpath
+            identity = job
+        else:
+            return None
+        try:
+            rel = str(path.relative_to(gc_path.resolve()))
+        except ValueError:
+            rel = str(Path(EXTERNAL_INDEX_DIR) / path.name)
+        return path, helix_gcode_reader.layer_index_path(gc_path, rel), identity
 
     # -- layer checkpoints ---------------------------------------------------
 
     def _make_follower(self) -> Optional[LayerFollower]:
-        gc_path = getattr(self.helix, "gc_path", None)
-        job = self.job
-        if gc_path is None or job is None or not job.get("file_hash"):
+        target = self.print_target()
+        if target is None:
             return None
-        filename = job.get("filename", "")
-        relpath = _resolve_link(gc_path, filename)
-        if relpath is None:
-            return None
-        return LayerFollower(
-            gc_path / relpath, helix_gcode_reader.layer_index_path(gc_path, relpath), job)
+        path, index_path, identity = target
+        return LayerFollower(path, index_path, identity)
 
     def _executor(self) -> Any:
         if self._follow_executor is None:
@@ -1136,6 +1215,8 @@ class HelixPlr:
             except OSError as e:
                 logging.warning("HelixPrint: PLR could not clear the snapshot: %s", e)
         self._remove_mesh_cfg()
+        if self.qidi is not None:
+            self.qidi.on_job_start()
         record = {"schema": SNAPSHOT_SCHEMA, "job_id": job_id, "filename": filename,
                   "started_at": self.clock()}
         if filename == RESUME_LINK and self._resume_history_name:
@@ -1159,6 +1240,8 @@ class HelixPlr:
         await self._stop_follower(
             self.job.get("file_size") if status == "completed" else None)
         if status in _CLEARED_STATUSES:
+            if self.qidi is not None:
+                self.qidi.on_job_end()
             await self.discard()
             return
         self.job["finished_status"] = status
@@ -1218,7 +1301,9 @@ class HelixPlr:
             register(PLAN_READY_EVENT)
 
     def _error(self, code: str, message: str, status: int = 400) -> Exception:
-        return self.server.error("%s: %s" % (code, message), status)
+        error = self.server.error("%s: %s" % (code, message), status)
+        error.plr_code = code
+        return error
 
     def _notify(self, event: str, data: Dict[str, Any]) -> None:
         send = getattr(self.server, "send_event", None)
@@ -1279,11 +1364,23 @@ class HelixPlr:
             return False
         return all(now[k] == job.get(k) for k in ("file_size", "file_mtime", "file_hash"))
 
+    def backend(self, profile: PlrProfile) -> Tuple[str, int]:
+        """(backend, tier) PLR acts with. On QIDI's fork with QIDI's resume
+        endpoint the adapter resumes, at tier 2: QIDI's sequence declares the
+        snapshot's Z itself. A printer the profile does not list stays at 0."""
+        if profile.backend == "vendor":
+            return "none", 0
+        if self.qidi is not None:
+            listed = profile.backend == "qidi_print_state" or profile.tier >= 1
+            return ("qidi_print_state", 2) if listed else ("none", 0)
+        if profile.backend != "generic":
+            return "none", 0
+        tier, _ = effective_tier(profile, self.homing)
+        return ("generic" if tier >= 1 else "none"), tier
+
     async def _offer(self, profile: PlrProfile,
                      snapshot: Optional[Dict[str, Any]]) -> Tuple[OfferVerdict, int]:
-        tier, _ = effective_tier(profile, self.homing)
-        if profile.backend != "generic":
-            tier = 0
+        _, tier = self.backend(profile)
         newest = await self._ns_get(NEWEST_JOB_KEY)
         inputs = OfferInputs(
             newest_job_status=await self._newest_job_status(newest),
@@ -1295,7 +1392,15 @@ class HelixPlr:
             klippy_ready=self.klippy_ready,
             print_duration=snapshot.get("print_duration") if snapshot else None,
         )
-        return offer_verdict(inputs), tier
+        verdict = offer_verdict(inputs)
+        if self.qidi is not None and tier >= 1 and "no_snapshot" not in verdict.blocked_by \
+                and not await self.qidi.has_resume_rows():
+            # § 10: QIDI resumes from its print_state rows, so they must exist too.
+            blocked = [b for b in verdict.blocked_by] + ["no_snapshot"]
+            order = ["not_interrupted", "no_snapshot", "file_changed", "too_early",
+                     "not_supported", "klippy_not_ready"]
+            verdict = OfferVerdict(False, sorted(blocked, key=order.index))
+        return verdict, tier
 
     def _load_snapshot(self) -> Optional[Dict[str, Any]]:
         if self.store_error is not None:
@@ -1321,9 +1426,7 @@ class HelixPlr:
                 "saved_at": saved_at,
                 "age_s": (self.clock() - saved_at) if isinstance(saved_at, (int, float)) else None,
             }
-        backend = "none"
-        if tier >= 1 or profile.backend == "qidi_print_state":
-            backend = profile.backend if profile.backend in ("generic", "qidi_print_state") else "none"
+        backend, _ = self.backend(profile)
         return {
             "saving": await self.saving_enabled() and self.availability()[0],
             "storage": (await self.verdict(profile)).to_dict(),
@@ -1362,12 +1465,13 @@ class HelixPlr:
         self._plan = None
         self._sequence = None
         plan_id = "%s-%d-%d" % (self.job["job_id"], snapshot["seq"], int(self.clock() * 1000))
-        gc_path = self.helix.gc_path
-        filename = self.job["filename"]
-        index_path, identity = self._index_for(filename)
+        target = self.print_target()
+        if target is None:
+            raise self._error("plr_scan_failed", "the printed file is gone", 400)
+        path, index_path, identity = target
         import asyncio
         future = self._plan_submit(
-            _scan_and_locate, gc_path / filename, snapshot["file_position"], index_path,
+            _scan_and_locate, path, snapshot["file_position"], index_path,
             identity, snapshot, profile.resume_skip_fraction)
         self._pending = future
         self._pending_id = plan_id
@@ -1390,13 +1494,6 @@ class HelixPlr:
         self._pending = None
         return self._plan_reply(await self._finish_plan(plan_id, snapshot, profile, tier, scan, point))
 
-    def _index_for(self, filename: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-        gc_path = self.helix.gc_path
-        relpath = _resolve_link(gc_path, filename)
-        if relpath is None or self.job is None:
-            return None, None
-        return helix_gcode_reader.layer_index_path(gc_path, relpath), self.job
-
     async def _finish_plan(self, plan_id: str, snapshot: Dict[str, Any], profile: PlrProfile,
                            tier: int, scan: Any, point: Any) -> Any:
         if point is None:
@@ -1409,11 +1506,13 @@ class HelixPlr:
                                     "bed_mesh": ["profiles"]})
         job = self.job or {}
         warnings = list(point.warnings)
+        qidi = self.qidi is not None
         mesh = job.get("mesh")
         profiles = _obj(status, "bed_mesh").get("profiles")
         profiles = profiles if isinstance(profiles, dict) else {}
         mesh_loadable = None
-        if isinstance(mesh, dict):
+        # QIDI's own sequence loads the mesh and purges; only the generic one does here.
+        if isinstance(mesh, dict) and not qidi:
             if mesh.get("saved") and mesh.get("profile") in profiles:
                 mesh_loadable = mesh["profile"]
             elif MESH_SECTION in profiles:
@@ -1439,7 +1538,7 @@ class HelixPlr:
         if "macro_vars" in (snapshot.get("overflow") or []):
             macro_vars = (job.get("overflow") or {}).get("macro_vars")
         purge = None
-        if not profile.purge_gcode:
+        if not profile.purge_gcode and not qidi:
             if self.axis_min and self.axis_max:
                 purge = helix_plr_render.generic_purge_xy(
                     objects, tuple(self.axis_min[:2]), tuple(self.axis_max[:2]))
@@ -1470,6 +1569,8 @@ class HelixPlr:
         )
         self._plan = plan
         self._plan_seq = snapshot.get("seq")
+        target = self.print_target()
+        self._plan_file_size = os.stat(str(target[0])).st_size if target else None
         self._bed_now = bed_now
         return plan
 
@@ -1484,6 +1585,7 @@ class HelixPlr:
         _, _, z_gcode, _ = plan.state.gcode_position()
         return {
             "plan_id": plan.plan_id,
+            "tier": plan.tier,
             "filename": plan.filename,
             "method": plan.method,
             "resume_offset": plan.resume_offset,
@@ -1551,8 +1653,11 @@ class HelixPlr:
         self._sequence = "preparing"
         self._abort = False
         try:
-            await self._run_steps(plan_id, helix_plr_render.render_prepare_script(
-                plan, profile, skip_chamber))
+            if self.qidi is not None:
+                await self.qidi.prepare(self._heat_wait(plan, skip_chamber))
+            else:
+                await self._run_steps(plan_id, helix_plr_render.render_prepare_script(
+                    plan, profile, skip_chamber))
         except Exception:
             self._sequence = "failed"
             await self._heaters_off(plan)
@@ -1579,9 +1684,12 @@ class HelixPlr:
         self._sequence = "committing"
         self._abort = False
         try:
-            await self._run_steps(plan_id, helix_plr_render.render_commit_script(
-                plan, profile, z_reference))
-            await self._start(plan)
+            if self.qidi is not None:
+                await self._commit_qidi(plan)
+            else:
+                await self._run_steps(plan_id, helix_plr_render.render_commit_script(
+                    plan, profile, z_reference))
+                await self._start(plan)
         except Exception:
             self._sequence = "failed"
             await self._heaters_off(plan)
@@ -1589,6 +1697,24 @@ class HelixPlr:
         self._sequence = "done"
         self._plan = None
         return {"ok": True, "job_started": True}
+
+    def _heat_wait(self, plan: Any, skip_chamber: bool = False) -> Callable[[], Any]:
+        """§ 6.3 step 2 as the coroutine the QIDI adapter awaits."""
+        async def wait() -> None:
+            await self._run_steps(plan.plan_id, helix_plr_render.render_heat_wait(plan, skip_chamber))
+        return wait
+
+    async def _commit_qidi(self, plan: Any) -> None:
+        self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
+        try:
+            await self.qidi.commit(plan.snapshot, plan.resume_offset, self._plan_file_size,
+                                   self._heat_wait(plan), plan.state, self._qidi_status())
+        except Exception as e:
+            self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "failed"})
+            if getattr(e, "plr_code", None):
+                raise
+            raise self._error("plr_klippy_error", str(e), 500)
+        self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "done"})
 
     async def _start(self, plan: Any) -> None:
         """Mark the job helix-initiated, then the single start command."""
@@ -1626,6 +1752,8 @@ class HelixPlr:
             raise self._error("plr_stale_plan", "plan %s is not the latest" % plan_id, 409)
         self._abort = True
         self._sequence = "aborted"
+        if self.qidi is not None:
+            self.qidi.abort()
         await self._heaters_off(plan)
         return {"ok": True}
 
@@ -1634,6 +1762,11 @@ class HelixPlr:
             raise self._error("plr_busy", "a resume is running", 409)
         self._plan = None
         self._sequence = None
+        if self.qidi is not None:
+            try:
+                await self.qidi.discard()
+            except Exception as e:
+                raise self._error("plr_klippy_error", "print_state not deleted: %s" % e, 500)
         await self.discard()
         return {"ok": True}
 
@@ -1650,6 +1783,10 @@ MESH_SECTION = "helix_plr"
 
 # A root-level link M23 can select when the file is in a subfolder.
 RESUME_LINK = "helix_plr_resume.gcode"
+
+# Layer indexes of printed files outside the gcodes root (a firmware's cache
+# copy), under <gcodes>/.helix_index/.
+EXTERNAL_INDEX_DIR = ".external"
 
 
 def _param(web_request: Any, key: str, default: Any) -> Any:
