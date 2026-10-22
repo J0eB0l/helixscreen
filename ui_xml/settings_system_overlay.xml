@@ -28,6 +28,12 @@
                               callback="on_system_performance_clicked"/>
         </lv_obj>
         <!-- ================================================================== -->
+        <!-- STORAGE -->
+        <!-- ================================================================== -->
+        <setting_action_row name="row_storage"
+                            label="Storage" icon="sd" description="What fills the printer's disk, and cleanup"
+                            callback="on_storage_clicked"/>
+        <!-- ================================================================== -->
         <!-- TELEMETRY -->
         <!-- ================================================================== -->
         <setting_toggle_row name="row_telemetry"

@@ -1,6 +1,6 @@
 # Settings: System
 
-**Settings > System** looks after HelixScreen itself: the screen lock, anonymous usage data, how much it logs, and restarting or resetting it. Network and printer connections are in [Connection](connection.md), and touch settings are in [Touch & Input](touch-input.md).
+**Settings > System** looks after HelixScreen itself: the screen lock, the printer's storage, anonymous usage data, how much it logs, and restarting or resetting it. Network and printer connections are in [Connection](connection.md), and touch settings are in [Touch & Input](touch-input.md).
 
 ![System settings, top of the page](../../../images/user/settings-system.png)
 
@@ -25,6 +25,34 @@ Locks the screen with a PIN, so nobody can use your printer's controls without i
 When the screen is locked, a keypad covers it. Enter your PIN and tap the check mark. A wrong PIN shows a short error. While a print is running, an **Emergency Stop** button stays in the top-right corner of the lock screen, so you can always stop the printer without unlocking.
 
 HelixScreen never saves your PIN itself, only a scrambled version of it that can't be turned back into the digits. A factory reset removes the PIN. See [Security](../security.md) for more.
+
+---
+
+## Storage
+
+Shows what fills your printer's storage, and lets you clear out what is safe to delete. Tap **Storage** to open it.
+
+The top of the page shows how much space is free, with a bar for how full the storage is. Below it, one line per kind of file, with how much space it takes:
+
+| Line | What it is | Clean up |
+|------|------------|----------|
+| **Print copies** | Changed copies of your files, made when a print starts with options that change the file | Yes, except copies made in the last 10 minutes and the one printing now. Without the HelixPrint plugin, none while a print runs |
+| **3MF conversions** | G-code unpacked from `.3mf` uploads, so they can print | No |
+| **File analysis** | Indexes that make print previews faster | Yes. Previews then read each file in full until it is analyzed again |
+| **Print photos** | Camera photos kept with your print history | Yes |
+| **Timelapse videos** | Finished timelapse videos | Yes |
+| **Old logs** | Older Klipper and Moonraker logs. The logs in use are kept | Yes |
+| **Thumbnails** | The preview pictures of your files | No |
+| **Your files** | Everything you uploaded | No, delete them from the file list |
+| **Power-loss recovery** | The saved print position and bed mesh for resuming after a power cut | No |
+
+**Clean up** appears on lines that can be cleaned and hold something. HelixScreen asks you to confirm, then deletes those files and says how much space it freed. Nothing you uploaded is ever deleted from here.
+
+**Automatic cleanup**: once a day, while nothing is printing, deletes print copies older than a week and old logs older than a month. Photos, timelapse videos and your files are never deleted automatically. **Off** until you turn it on.
+
+**With the [HelixPrint plugin](../helixprint-plugin.md)** the printer measures its own storage, so every line is shown, and Automatic cleanup is available. **Without it**, HelixScreen measures by listing the printer's folders, which takes longer on a printer with many files. 3MF conversions and Power-loss recovery are not shown then, conversions count under Your files, and Automatic cleanup shows "Requires the HelixPrint plugin" with an **Install** button. This works the same whether HelixScreen runs on the printer's own screen or on a tablet or another computer.
+
+HelixScreen also checks for space before it uploads a file to the printer, a print copy or a file from a USB stick: if the upload would leave less than 100 MB free, it does not start and says so.
 
 ---
 

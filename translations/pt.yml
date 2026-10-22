@@ -55,6 +55,7 @@ translations:
   (none detected): (nenhum detectado)
   (recovered): '(recuperado)'
   (repeated {} times): '(repetido {} vezes)'
+  (too many folders to list them all): '(pastas demais para listar todas)'
   (unnamed): (sem nome)
   + Add: + Adicionar
   + Add Preset: + Adicionar Predefinição
@@ -133,6 +134,7 @@ translations:
   3D Pipes: Canos 3D
   3D View: Vista 3D
   3MF conversion: 'Conversão 3MF'
+  3MF conversions: 'Conversões 3MF'
   4. Paper should move but with resistance: 4. O papel deve se mover, mas com resistência
   4. Repeat until bed is level: 4. Repita até a mesa estar nivelada
   5 min: '5 min'
@@ -362,6 +364,8 @@ translations:
   Automatic Heater Control Calibration: Calibração Automática de Controle de Aquecedor
   Automatic LED Control: Controle Automático de LED
   Automatic calibration: 'Calibração automática'
+  Automatic cleanup: 'Limpeza automática'
+  Automatic storage cleanup: 'Limpeza automática do armazenamento'
   Aux: Aux
   Available: Disponível
   Available Networks: Redes Disponíveis
@@ -740,9 +744,12 @@ translations:
 
   Clean Brush: 'Limpar escova'
   Clean Nozzle: Limpar Bico
+  Clean Up Storage: 'Limpar armazenamento'
+  Clean up: 'Limpar'
   Clean {}: Limpar {}
   Cleaning Nozzle...: Limpando bocal...
   Cleaning nozzle...: Limpando o bico...
+  Cleanup failed: 'Falha na limpeza'
   Clear: Limpar
   Clear All: Limpar Tudo
   Clear All Events: Limpar Todos os Eventos
@@ -958,6 +965,7 @@ translations:
   Could not open a browser for the update: Não foi possível abrir um navegador para a atualização
   Could not parse tips database: Não foi possível analisar o banco de dados de dicas
   Could not reach Spoolman at: Não foi possível alcançar o Spoolman em
+  Could not read the printer's storage: 'Não foi possível ler o armazenamento da impressora'
   Could not read the screw adjustments from the printer: Não foi possível ler os ajustes dos parafusos da impressora
   Could not remove the job from the queue: Não foi possível remover o trabalho da fila
   Could not reset the printer image tags: Falha ao resetar as marcações da imagem
@@ -1059,7 +1067,12 @@ translations:
   Delete Profile?: Excluir Perfil?
   Delete Spool?: Excluir Carretel?
   Delete Video: Excluir Vídeo
+  Delete every modified print copy that is not in use? Files you uploaded are not touched.: 'Excluir todas as cópias de impressão modificadas que não estão em uso? Os arquivos que você enviou não são alterados.'
+  Delete every print photo? Print history keeps its entries.: 'Excluir todas as fotos de impressão? O histórico de impressão mantém suas entradas.'
+  Delete every timelapse video?: 'Excluir todos os vídeos de timelapse?'
   Delete the history record for {}?: 'Excluir o registro do histórico de {}?'
+  Delete the layer indexes? Previews read each file again until it is analyzed again.: 'Excluir os índices de camadas? As pré-visualizações leem cada arquivo de novo até ele ser analisado novamente.'
+  Delete the rotated logs? The logs in use are kept, and debug bundles still work.: 'Excluir os registros antigos? Os registros em uso são mantidos e os bundles de debug continuam funcionando.'
   Delete {}?: Excluir {}?
   'Delta:': 'Delta:'
   Density: Densidade
@@ -1625,6 +1638,8 @@ translations:
   Found 1 printer: 1 impressora encontrada
   Found {} at {}.: '{} encontrada em {}.'
   Framerate: Taxa de Quadros
+  Free space unknown: 'Espaço livre desconhecido'
+  Freed {}: '{} liberados'
   From Buffer: Do buffer
   From Printer: 'Da impressora'
   From SpoolmanDB: 'Do SpoolmanDB'
@@ -2269,7 +2284,9 @@ translations:
   ? Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   : Meça a partir da mesa. Cantos nítidos, sem bojo e sem falhas, indicam o K certo. Cada linha é uma faixa de altura e o K que a impressora informou enquanto a imprimia.
   Measured (shaper off): Medido (shaper desligado)
+  Measured by the HelixPrint plugin: 'Medido pelo plugin HelixPrint'
   Measured filament diameter: Diâmetro medido do filamento
+  Measured from the printer's file list: 'Medido pela lista de arquivos da impressora'
   Measured offsets, read-only: Deslocamentos medidos, somente leitura
   Measured pressure advance: 'Pressure Advance medido'
   Measurement incomplete. Try again.: Medição incompleta. Tente novamente.
@@ -2282,6 +2299,7 @@ translations:
   Measuring vibrations... {}%: 'Medindo vibrações... {}%'
   Measuring wheel error: Erro da roda de medição
   Measuring {}...: Medindo {}...
+  Measuring...: 'Medindo...'
   Memory: Memória
   Memory (MB): Memória (MB)
   Memory Snapshot: Captura de Memória
@@ -2536,6 +2554,7 @@ translations:
   Not connected to the printer: Não conectado à impressora
   Not detected: Não detectado
   Not drying: Sem secagem
+  Not enough free space on the printer for this file. Free some in Settings > System > Storage.: 'Não há espaço livre suficiente na impressora para este arquivo. Libere espaço em Configurações > Sistema > Armazenamento.'
   Not enough frequency data from the sweeps. Try again.: 'Dados de frequência insuficientes nas medições. Tente novamente.'
   Not enough room for this widget. Rearrange or remove widgets to make space.: Não há espaço suficiente para este widget. Reorganize ou remova widgets para criar espaço.
   Not in your spools? Set it up: Não está nos seus carretéis? Configure aqui
@@ -2605,6 +2624,7 @@ translations:
   Offset: Deslocamento
   Offsets Saved: Offsets salvos
   Offsets saved: Offsets salvos
+  Old logs: 'Registros antigos'
   "Old setting on today's data: {} residual - now: {}": 'Configuração antiga nos dados de hoje: {} residual - atual: {}'
   'On': Ligado
   On and Off macros must be different: Macros de Ligar e Desligar devem ser diferentes
@@ -2612,6 +2632,8 @@ translations:
   On/Off: Liga/Desliga
   On/Off (state-aware): Ligar/Desligar (com estado)
   'On:': 'Ligado:'
+  ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
+  : 'Uma vez por dia, exclui cópias de impressão com mais de uma semana e registros com mais de um mês. Seus arquivos, fotos e vídeos de timelapse são mantidos.'
   One tap runs this macro. Dangerous macros still ask.: 'Um toque executa esta macro. Macros perigosas ainda pedem confirmação.'
   'Only on A: {} Hz': "Somente em A: {} Hz"
   'Only on B: {} Hz': "Somente em B: {} Hz"
@@ -2869,6 +2891,7 @@ translations:
   Print Was Terminated: A impressão foi terminada
   Print a test tower and tune K by eye: Imprima uma torre de teste e ajuste K a olho
   Print completed: Impressão concluída
+  Print copies: 'Cópias de impressão'
   Print details: 'Detalhes da impressão'
   Print did not start: A impressão não iniciou
   Print canceled: Impressão cancelada
@@ -2883,6 +2906,7 @@ translations:
   Print issue detected: Problema de impressão detectado
   Print jobs waiting to run: Trabalhos aguardando impressão
   Print paused: Impressão pausada
+  Print photos: 'Fotos de impressão'
   'Print preparation failed: {}': 'Falha na preparação da impressão: {}'
   Print resumed: Impressão retomada
   Print server rejected the job — check printer status: O servidor de impressão rejeitou
@@ -3739,6 +3763,8 @@ translations:
   Stopped drying %s: 'Secagem parada: %s'
   Stops all motion. Requires firmware restart.: Para todo movimento. Requer reinício
     do firmware.
+  Storage: 'Armazenamento'
+  Storage report: 'Relatório de armazenamento'
   Stow: Guardar
   Subtle: Sutil
   Success: Sucesso
@@ -4155,6 +4181,7 @@ translations:
   Thorough: Completo
   Thumbnail Only: Apenas miniatura
   'Thumbnail: ': 'Miniatura: '
+  Thumbnails: 'Miniaturas'
   Tighten {0} noticeably: "Apertar {0} visivelmente"
   Tighten {0} one full turn: "Apertar {0} uma volta completa"
   Tighten {0} {1}: 'Apertar {0} {1}'
@@ -4175,6 +4202,7 @@ translations:
   Timelapse render failed: A renderização do timelapse falhou
   'Timelapse render failed: {}': 'A renderização do timelapse falhou: {}'
   Timelapse rendered successfully: Timelapse renderizado com sucesso
+  Timelapse videos: 'Vídeos de timelapse'
   Timeout: 'Tempo limite esgotado'
   Timezone: Fuso horário
   Tip Forming: 'Formação da ponta'
@@ -4456,6 +4484,7 @@ translations:
   Welcome to HelixScreen: Bem-vindo ao HelixScreen
   Went past {} by {:.1f} Hz. Back it off a little.: "Passou de {} por {:.1f} Hz. Volte um pouco."
   What We Collect: O Que Coletamos
+  What fills the printer's disk, and cleanup: 'O que ocupa o disco da impressora, e limpeza'
   What happens when a print ends: 'O que acontece ao terminar uma impressão'
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Quando
     habilitado, apenas a macro é executada. Quando desabilitado, as temperaturas são
@@ -4531,6 +4560,7 @@ translations:
     depois nas Configurações.
   You have unsaved changes. Discard them?: Você tem alterações não salvas. Descartar?
   Your completed prints will appear here: Suas impressões concluídas aparecerão aqui
+  Your files: 'Seus arquivos'
   Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other.: 'Sua macro de início ou fim de impressão também controla os LEDs. Ela e o controle automático de LED podem se sobrepor.'
   Your printer at a glance: Sua impressora num relance
   Your printer has an automatic filament changer: Sua impressora possui um trocador
@@ -4712,6 +4742,7 @@ translations:
   '{} filament sensors available': '{} sensores de filamento disponíveis'
   '{} filament • {}': '{} de filamento • {}'
   '{} firmware': 'Firmware de {}'
+  '{} free of {}': '{} livres de {}'
   '{} h': '{} h'
   '{} h of {} h': '{} h de {} h'
   '{} has no hotend': "{} não tem hotend"

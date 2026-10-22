@@ -55,6 +55,7 @@
   <translation tag="(none detected)" zh="(未检测到)"/>
   <translation tag="(recovered)" zh="(已恢复)"/>
   <translation tag="(repeated {} times)" zh="(重复 {} 次)"/>
+  <translation tag="(too many folders to list them all)" zh="(文件夹太多，无法全部列出)"/>
   <translation tag="(unnamed)" zh="(未命名)"/>
   <translation tag="+ Add" zh="+ 添加"/>
   <translation tag="+ Add Preset" zh="+ 添加预设"/>
@@ -126,6 +127,7 @@
   <translation tag="3D Pipes" zh="3D 管道"/>
   <translation tag="3D View" zh="3D 视图"/>
   <translation tag="3MF conversion" zh="3MF 转换"/>
+  <translation tag="3MF conversions" zh="3MF转换"/>
   <translation tag="4. Paper should move but with resistance" zh="4. 纸张应能移动但有阻力"/>
   <translation tag="4. Repeat until bed is level" zh="4. 重复直到热床水平"/>
   <translation tag="5 min" zh="5分钟"/>
@@ -332,6 +334,8 @@
   <translation tag="Automatic Heater Control Calibration" zh="自动加热控制校准"/>
   <translation tag="Automatic LED Control" zh="自动 LED 控制"/>
   <translation tag="Automatic calibration" zh="自动校准"/>
+  <translation tag="Automatic cleanup" zh="自动清理"/>
+  <translation tag="Automatic storage cleanup" zh="存储自动清理"/>
   <translation tag="Aux" zh="辅助"/>
   <translation tag="Available" zh="可用"/>
   <translation tag="Available Networks" zh="可用网络"/>
@@ -676,9 +680,12 @@
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" zh="排料口位置: X {:.1f}, Y {:.1f}"/>
   <translation tag="Clean Brush" zh="清洁刷子"/>
   <translation tag="Clean Nozzle" zh="清洁喷嘴"/>
+  <translation tag="Clean Up Storage" zh="清理存储"/>
+  <translation tag="Clean up" zh="清理"/>
   <translation tag="Clean {}" zh="清洁{}"/>
   <translation tag="Cleaning Nozzle..." zh="正在清洁喷嘴..."/>
   <translation tag="Cleaning nozzle..." zh="正在清洁喷嘴..."/>
+  <translation tag="Cleanup failed" zh="清理失败"/>
   <translation tag="Clear" zh="清除"/>
   <translation tag="Clear All" zh="全部清除"/>
   <translation tag="Clear All Events" zh="清除所有事件"/>
@@ -856,6 +863,7 @@
   <translation tag="Could not open a browser for the update" zh="无法打开浏览器进行更新"/>
   <translation tag="Could not parse tips database" zh="无法解析提示数据库"/>
   <translation tag="Could not reach Spoolman at" zh="无法连接 Spoolman："/>
+  <translation tag="Could not read the printer&apos;s storage" zh="无法读取打印机存储"/>
   <translation tag="Could not read the screw adjustments from the printer" zh="无法从打印机读取螺丝调整数据"/>
   <translation tag="Could not remove the job from the queue" zh="无法从队列中移除任务"/>
   <translation tag="Could not reset the printer image tags" zh="重置打印机图片标记失败"/>
@@ -954,7 +962,12 @@
   <translation tag="Delete Profile?" zh="删除配置？"/>
   <translation tag="Delete Spool?" zh="删除料盘？"/>
   <translation tag="Delete Video" zh="删除视频"/>
+  <translation tag="Delete every modified print copy that is not in use? Files you uploaded are not touched." zh="删除所有未使用的已修改打印副本？您上传的文件不受影响。"/>
+  <translation tag="Delete every print photo? Print history keeps its entries." zh="删除所有打印照片？打印历史记录会保留。"/>
+  <translation tag="Delete every timelapse video?" zh="删除所有延时摄影视频？"/>
   <translation tag="Delete the history record for {}?" zh="删除 {} 的历史记录？"/>
+  <translation tag="Delete the layer indexes? Previews read each file again until it is analyzed again." zh="删除图层索引？在文件重新分析之前，预览会重新读取每个文件。"/>
+  <translation tag="Delete the rotated logs? The logs in use are kept, and debug bundles still work." zh="删除已轮转的旧日志？正在使用的日志会保留，调试捆绑包仍可使用。"/>
   <translation tag="Delete {}?" zh="删除 {}?"/>
   <translation tag="Delta:" zh="差值："/>
   <translation tag="Density" zh="密度"/>
@@ -1482,6 +1495,8 @@
   <translation tag="Found 1 printer" zh="找到 1 台打印机"/>
   <translation tag="Found {} at {}." zh="已发现 {}，地址为 {}。"/>
   <translation tag="Framerate" zh="帧率"/>
+  <translation tag="Free space unknown" zh="可用空间未知"/>
+  <translation tag="Freed {}" zh="已释放 {}"/>
   <translation tag="From Buffer" zh="来自缓冲区"/>
   <translation tag="From Printer" zh="从打印机"/>
   <translation tag="From SpoolmanDB" zh="来自 SpoolmanDB"/>
@@ -2060,7 +2075,9 @@
   <translation tag="Measure this zone first" zh="请先测量此区间"/>
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." zh="从热床开始测量高度。边角干净、没有多余也没有缺口的位置对应正确的K值。每一行是一个高度范围,以及打印时打印机报告的K值。"/>
   <translation tag="Measured (shaper off)" zh="实测（关闭整形）"/>
+  <translation tag="Measured by the HelixPrint plugin" zh="由 HelixPrint 插件测量"/>
   <translation tag="Measured filament diameter" zh="测量的耗材直径"/>
+  <translation tag="Measured from the printer&apos;s file list" zh="根据打印机文件列表测量"/>
   <translation tag="Measured offsets, read-only" zh="已测量的偏移，只读"/>
   <translation tag="Measured pressure advance" zh="测得的压力提前"/>
   <translation tag="Measurement incomplete. Try again." zh="测量未完成。请重试。"/>
@@ -2073,6 +2090,7 @@
   <translation tag="Measuring vibrations... {}%" zh="正在测量振动... {}%"/>
   <translation tag="Measuring wheel error" zh="计量轮错误"/>
   <translation tag="Measuring {}..." zh="正在测量{}..."/>
+  <translation tag="Measuring..." zh="测量中..."/>
   <translation tag="Memory" zh="内存"/>
   <translation tag="Memory (MB)" zh="内存 (MB)"/>
   <translation tag="Memory Snapshot" zh="内存快照"/>
@@ -2311,6 +2329,7 @@
   <translation tag="Not connected to the printer" zh="未连接到打印机"/>
   <translation tag="Not detected" zh="未检测到"/>
   <translation tag="Not drying" zh="未在烘干"/>
+  <translation tag="Not enough free space on the printer for this file. Free some in Settings &gt; System &gt; Storage." zh="打印机上的可用空间不足以存放此文件。请在设置 &gt; 系统 &gt; 存储中释放空间。"/>
   <translation tag="Not enough frequency data from the sweeps. Try again." zh="扫频得到的频率数据不足，请重试。"/>
   <translation tag="Not enough room for this widget. Rearrange or remove widgets to make space." zh="没有足够的空间放置此小组件。请重新排列或移除小组件以腾出空间。"/>
   <translation tag="Not in your spools? Set it up" zh="不在您的料盘中？立即设置"/>
@@ -2378,6 +2397,7 @@
   <translation tag="Offset" zh="偏移"/>
   <translation tag="Offsets Saved" zh="偏移已保存"/>
   <translation tag="Offsets saved" zh="偏移已保存"/>
+  <translation tag="Old logs" zh="旧日志"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" zh="旧设置（今日数据）：残余 {} — 当前：{}"/>
   <translation tag="On" zh="开"/>
   <translation tag="On and Off macros must be different" zh="开和关的宏必须不同"/>
@@ -2385,6 +2405,7 @@
   <translation tag="On/Off" zh="开/关"/>
   <translation tag="On/Off (state-aware)" zh="开/关（状态跟踪）"/>
   <translation tag="On:" zh="开:"/>
+  <translation tag="Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept." zh="每天一次，删除超过一周的打印副本和超过一个月的日志。您的文件、照片和延时摄影视频会保留。"/>
   <translation tag="One tap runs this macro. Dangerous macros still ask." zh="单击即可运行此宏。危险宏仍会询问。"/>
   <translation tag="Only on A: {} Hz" zh="仅 A：{} Hz"/>
   <translation tag="Only on B: {} Hz" zh="仅 B：{} Hz"/>
@@ -2625,6 +2646,7 @@
   <translation tag="Print canceled" zh="打印已取消"/>
   <translation tag="Print complete" zh="打印完成"/>
   <translation tag="Print completed" zh="打印完成"/>
+  <translation tag="Print copies" zh="打印副本"/>
   <translation tag="Print details" zh="打印详情"/>
   <translation tag="Print did not start" zh="打印未启动"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" zh="打印未开始 — 打印机可能繁忙或离线 (B3 polls={}, status=0x{:02X}, error=0x{:02X})"/>
@@ -2639,6 +2661,7 @@
   <translation tag="Print issue detected" zh="检测到打印问题"/>
   <translation tag="Print jobs waiting to run" zh="等待执行的打印任务"/>
   <translation tag="Print paused" zh="打印已暂停"/>
+  <translation tag="Print photos" zh="打印照片"/>
   <translation tag="Print preparation failed: {}" zh="打印准备失败: {}"/>
   <translation tag="Print resumed" zh="打印已恢复"/>
   <translation tag="Print server rejected the job — check printer status" zh="打印服务器拒绝了任务 — 请检查打印机状态"/>
@@ -3410,6 +3433,8 @@
   <translation tag="Stopped between Spool and Lane" zh="停在料盘与耗材通道之间"/>
   <translation tag="Stopped drying %s" zh="已停止烘干：%s"/>
   <translation tag="Stops all motion. Requires firmware restart." zh="停止所有运动。需要固件重启。"/>
+  <translation tag="Storage" zh="存储"/>
+  <translation tag="Storage report" zh="存储报告"/>
   <translation tag="Stow" zh="收回"/>
   <translation tag="Subtle" zh="微妙"/>
   <translation tag="Success" zh="成功"/>
@@ -3742,6 +3767,7 @@
   <translation tag="Thorough" zh="全面"/>
   <translation tag="Thumbnail Only" zh="仅缩略图"/>
   <translation tag="Thumbnail: " zh="缩略图: "/>
+  <translation tag="Thumbnails" zh="缩略图"/>
   <translation tag="Tighten {0} noticeably" zh="明显拉紧 {0}"/>
   <translation tag="Tighten {0} one full turn" zh="将 {0} 拉紧一整圈"/>
   <translation tag="Tighten {0} {1}" zh="拉紧 {0} {1}"/>
@@ -3761,6 +3787,7 @@
   <translation tag="Timelapse render failed" zh="延时摄影渲染失败"/>
   <translation tag="Timelapse render failed: {}" zh="延时摄影渲染失败: {}"/>
   <translation tag="Timelapse rendered successfully" zh="延时视频渲染成功"/>
+  <translation tag="Timelapse videos" zh="延时摄影视频"/>
   <translation tag="Timeout" zh="超时"/>
   <translation tag="Timezone" zh="时区"/>
   <translation tag="Tip Forming" zh="尖端成型"/>
@@ -4034,6 +4061,7 @@
   <translation tag="Welcome to HelixScreen" zh="欢迎使用 HelixScreen"/>
   <translation tag="Went past {} by {:.1f} Hz. Back it off a little." zh="超过 {} {:.1f} Hz。请稍微回调。"/>
   <translation tag="What We Collect" zh="我们收集的内容"/>
+  <translation tag="What fills the printer&apos;s disk, and cleanup" zh="打印机磁盘占用情况与清理"/>
   <translation tag="What happens when a print ends" zh="打印结束时的操作"/>
   <translation tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." zh="启用时仅运行宏。禁用时先设置温度，然后运行宏。"/>
   <translation tag="Where UI sounds play" zh="界面声音的播放位置"/>
@@ -4104,6 +4132,7 @@
   <translation tag="You can skip this and calibrate later in Settings." zh="您可以跳过此步骤，稍后在设置中进行校准。"/>
   <translation tag="You have unsaved changes. Discard them?" zh="您有未保存的更改。是否丢弃？"/>
   <translation tag="Your completed prints will appear here" zh="您完成的打印将显示在此处"/>
+  <translation tag="Your files" zh="您的文件"/>
   <translation tag="Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other." zh="您的打印开始或结束宏也会设置 LED。它与自动 LED 控制可能会互相覆盖。"/>
   <translation tag="Your printer at a glance" zh="一览您的打印机"/>
   <translation tag="Your printer has an automatic filament changer" zh="您的打印机配有自动换色系统"/>
@@ -4275,6 +4304,7 @@
   <translation tag="{} filament sensors available" zh="{} 个耗材传感器可用"/>
   <translation tag="{} filament • {}" zh="耗材 {} • {}"/>
   <translation tag="{} firmware" zh="{} 固件"/>
+  <translation tag="{} free of {}" zh="可用 {} / 共 {}"/>
   <translation tag="{} h" zh="{} 小时"/>
   <translation tag="{} h of {} h" zh="{} / {} 小时"/>
   <translation tag="{} has no hotend" zh="{} 没有热端"/>

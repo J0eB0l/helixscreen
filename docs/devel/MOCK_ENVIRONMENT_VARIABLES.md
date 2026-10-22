@@ -416,8 +416,13 @@ Printer Events button shows the plugin's journal. Installed and not `disabled`, 
 also reports `print_hooks`, `enabled` from the mock database's
 `helix-screen`/`plugin_features.print_hooks` (off until the Printing page's switch
 writes it; `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false` with
-`reason: "load_failed"`), and `file_analysis`, `server_edits` and `config_edit`, each
+`reason: "load_failed"`), `storage_auto_cleanup`, `enabled` from
+`helix-screen`/`plugin_features.storage_auto_cleanup` (off until System > Storage's switch
+writes it), and `file_analysis`, `server_edits`, `config_edit` and `storage`, each
 `Ready`. The mock has no `server.helix.config`, so a config edit falls back to the file API.
+`server.helix.storage` answers a fixed breakdown on the mock's gcodes disk, and
+`server.helix.storage_cleanup` of `helix_temp` frees its 412 MB of print copies for the
+rest of the run; any other consumer frees nothing.
 `HELIX_MOCK_PLR` adds the `plr` entry (below); no other feature is reported.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker

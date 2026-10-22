@@ -55,6 +55,7 @@
   <translation tag="(none detected)" ja="(検出なし)"/>
   <translation tag="(recovered)" ja="(復元)"/>
   <translation tag="(repeated {} times)" ja="({} 回繰り返し)"/>
+  <translation tag="(too many folders to list them all)" ja="(フォルダーが多すぎてすべては一覧できません)"/>
   <translation tag="(unnamed)" ja="(名称なし)"/>
   <translation tag="+ Add" ja="+ 追加"/>
   <translation tag="+ Add Preset" ja="+ プリセットを追加"/>
@@ -126,6 +127,7 @@
   <translation tag="3D Pipes" ja="3Dパイプ"/>
   <translation tag="3D View" ja="3Dビュー"/>
   <translation tag="3MF conversion" ja="3MF変換"/>
+  <translation tag="3MF conversions" ja="3MF変換"/>
   <translation tag="4. Paper should move but with resistance" ja="4. 紙が抵抗を感じながら動く状態が適切です"/>
   <translation tag="4. Repeat until bed is level" ja="4. ベッドが水平になるまで繰り返してください"/>
   <translation tag="5 min" ja="5分"/>
@@ -332,6 +334,8 @@
   <translation tag="Automatic Heater Control Calibration" ja="自動ヒーター制御キャリブレーション"/>
   <translation tag="Automatic LED Control" ja="自動LED制御"/>
   <translation tag="Automatic calibration" ja="自動キャリブレーション"/>
+  <translation tag="Automatic cleanup" ja="自動クリーンアップ"/>
+  <translation tag="Automatic storage cleanup" ja="ストレージの自動クリーンアップ"/>
   <translation tag="Aux" ja="補助"/>
   <translation tag="Available" ja="利用可能"/>
   <translation tag="Available Networks" ja="利用可能なネットワーク"/>
@@ -676,9 +680,12 @@
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" ja="パージシュート位置: X {:.1f}, Y {:.1f}"/>
   <translation tag="Clean Brush" ja="ブラシを清掃"/>
   <translation tag="Clean Nozzle" ja="ノズル清掃"/>
+  <translation tag="Clean Up Storage" ja="ストレージのクリーンアップ"/>
+  <translation tag="Clean up" ja="クリーンアップ"/>
   <translation tag="Clean {}" ja="{}を清掃"/>
   <translation tag="Cleaning Nozzle..." ja="ノズル清掃中..."/>
   <translation tag="Cleaning nozzle..." ja="ノズル清掃中..."/>
+  <translation tag="Cleanup failed" ja="クリーンアップに失敗しました"/>
   <translation tag="Clear" ja="クリア"/>
   <translation tag="Clear All" ja="すべてクリア"/>
   <translation tag="Clear All Events" ja="すべてのイベントをクリア"/>
@@ -856,6 +863,7 @@
   <translation tag="Could not open a browser for the update" ja="更新用のブラウザを開けませんでした"/>
   <translation tag="Could not parse tips database" ja="ヒントデータベースを解析できませんでした"/>
   <translation tag="Could not reach Spoolman at" ja="Spoolman に接続できません:"/>
+  <translation tag="Could not read the printer&apos;s storage" ja="プリンターのストレージを読み取れませんでした"/>
   <translation tag="Could not read the screw adjustments from the printer" ja="プリンターからネジ調整を読み取れませんでした"/>
   <translation tag="Could not remove the job from the queue" ja="キューからジョブを削除できませんでした"/>
   <translation tag="Could not reset the printer image tags" ja="プリンター画像のタグのリセットに失敗しました"/>
@@ -954,7 +962,12 @@
   <translation tag="Delete Profile?" ja="プロファイルを削除しますか？"/>
   <translation tag="Delete Spool?" ja="スプールを削除しますか？"/>
   <translation tag="Delete Video" ja="動画を削除"/>
+  <translation tag="Delete every modified print copy that is not in use? Files you uploaded are not touched." ja="使用中でない変更済みの印刷コピーをすべて削除しますか？アップロードしたファイルには影響しません。"/>
+  <translation tag="Delete every print photo? Print history keeps its entries." ja="印刷写真をすべて削除しますか？印刷履歴の項目は残ります。"/>
+  <translation tag="Delete every timelapse video?" ja="タイムラプス動画をすべて削除しますか？"/>
   <translation tag="Delete the history record for {}?" ja="{} の履歴記録を削除しますか？"/>
+  <translation tag="Delete the layer indexes? Previews read each file again until it is analyzed again." ja="レイヤーインデックスを削除しますか？再解析されるまで、プレビューは各ファイルを読み直します。"/>
+  <translation tag="Delete the rotated logs? The logs in use are kept, and debug bundles still work." ja="古いログを削除しますか？使用中のログは残り、デバッグバンドルは引き続き使えます。"/>
   <translation tag="Delete {}?" ja="{} を削除しますか?"/>
   <translation tag="Delta:" ja="差分:"/>
   <translation tag="Density" ja="密度"/>
@@ -1482,6 +1495,8 @@
   <translation tag="Found 1 printer" ja="プリンター1台を検出"/>
   <translation tag="Found {} at {}." ja="{} を {} で検出しました。"/>
   <translation tag="Framerate" ja="フレームレート"/>
+  <translation tag="Free space unknown" ja="空き容量不明"/>
+  <translation tag="Freed {}" ja="{}を解放しました"/>
   <translation tag="From Buffer" ja="バッファから"/>
   <translation tag="From Printer" ja="プリンターから"/>
   <translation tag="From SpoolmanDB" ja="SpoolmanDB から"/>
@@ -2060,7 +2075,9 @@
   <translation tag="Measure this zone first" ja="まずこのゾーンを測定"/>
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." ja="ベッドから高さを測ってください。膨らみもすき間もないきれいな角が正しいKです。各行は高さの範囲と、その印刷中にプリンターが報告したKです。"/>
   <translation tag="Measured (shaper off)" ja="測定値（シェーパーオフ時）"/>
+  <translation tag="Measured by the HelixPrint plugin" ja="HelixPrintプラグインによる測定"/>
   <translation tag="Measured filament diameter" ja="測定したフィラメント直径"/>
+  <translation tag="Measured from the printer&apos;s file list" ja="プリンターのファイル一覧から測定"/>
   <translation tag="Measured offsets, read-only" ja="測定済みオフセット（読み取り専用）"/>
   <translation tag="Measured pressure advance" ja="測定された Pressure Advance"/>
   <translation tag="Measurement incomplete. Try again." ja="測定が不完全です。再試行してください。"/>
@@ -2073,6 +2090,7 @@
   <translation tag="Measuring vibrations... {}%" ja="振動を測定中... {}%"/>
   <translation tag="Measuring wheel error" ja="計測ホイールのエラー"/>
   <translation tag="Measuring {}..." ja="{}を計測中..."/>
+  <translation tag="Measuring..." ja="測定中..."/>
   <translation tag="Memory" ja="メモリ"/>
   <translation tag="Memory (MB)" ja="メモリ (MB)"/>
   <translation tag="Memory Snapshot" ja="メモリースナップショット"/>
@@ -2311,6 +2329,7 @@
   <translation tag="Not connected to the printer" ja="プリンターに未接続"/>
   <translation tag="Not detected" ja="検出されません"/>
   <translation tag="Not drying" ja="乾燥していません"/>
+  <translation tag="Not enough free space on the printer for this file. Free some in Settings &gt; System &gt; Storage." ja="このファイルを置く空き容量がプリンターにありません。設定 &gt; システム &gt; ストレージで空き容量を確保してください。"/>
   <translation tag="Not enough frequency data from the sweeps. Try again." ja="測定から十分な周波数データが得られませんでした。再試行してください。"/>
   <translation tag="Not enough room for this widget. Rearrange or remove widgets to make space." ja="このウィジェットを配置するスペースが足りません。スペースを確保するためにウィジェットを整理または削除してください。"/>
   <translation tag="Not in your spools? Set it up" ja="スプールにない？登録する"/>
@@ -2378,6 +2397,7 @@
   <translation tag="Offset" ja="オフセット"/>
   <translation tag="Offsets Saved" ja="オフセットを保存しました"/>
   <translation tag="Offsets saved" ja="オフセットを保存しました"/>
+  <translation tag="Old logs" ja="古いログ"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" ja="旧設定を今日のデータに適用: 残留 {} - 現在: {}"/>
   <translation tag="On" ja="オン"/>
   <translation tag="On and Off macros must be different" ja="オンとオフのマクロは異なるものにしてください"/>
@@ -2385,6 +2405,7 @@
   <translation tag="On/Off" ja="オン/オフ"/>
   <translation tag="On/Off (state-aware)" ja="オン/オフ（状態追跡）"/>
   <translation tag="On:" ja="オン:"/>
+  <translation tag="Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept." ja="1日1回、1週間より古い印刷コピーと1か月より古いログを削除します。ファイル、写真、タイムラプス動画は残ります。"/>
   <translation tag="One tap runs this macro. Dangerous macros still ask." ja="ワンタップでこのマクロを実行します。危険なマクロは確認を求めます。"/>
   <translation tag="Only on A: {} Hz" ja="Aのみ: {} Hz"/>
   <translation tag="Only on B: {} Hz" ja="Bのみ: {} Hz"/>
@@ -2625,6 +2646,7 @@
   <translation tag="Print canceled" ja="印刷がキャンセルされました"/>
   <translation tag="Print complete" ja="印刷完了"/>
   <translation tag="Print completed" ja="印刷完了"/>
+  <translation tag="Print copies" ja="印刷コピー"/>
   <translation tag="Print details" ja="印刷の詳細"/>
   <translation tag="Print did not start" ja="印刷は開始されませんでした"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" ja="印刷が開始されませんでした — プリンターがビジー状態またはオフラインの可能性があります (B3 polls={}, status=0x{:02X}, error=0x{:02X})"/>
@@ -2639,6 +2661,7 @@
   <translation tag="Print issue detected" ja="印刷の問題を検出しました"/>
   <translation tag="Print jobs waiting to run" ja="実行待ちの印刷ジョブ"/>
   <translation tag="Print paused" ja="印刷一時停止"/>
+  <translation tag="Print photos" ja="印刷写真"/>
   <translation tag="Print preparation failed: {}" ja="印刷準備に失敗しました: {}"/>
   <translation tag="Print resumed" ja="印刷を再開しました"/>
   <translation tag="Print server rejected the job — check printer status" ja="印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください"/>
@@ -3410,6 +3433,8 @@
   <translation tag="Stopped between Spool and Lane" ja="スプールとレーンの間で停止"/>
   <translation tag="Stopped drying %s" ja="乾燥を停止しました: %s"/>
   <translation tag="Stops all motion. Requires firmware restart." ja="すべての動作を停止します。ファームウェアの再起動が必要です。"/>
+  <translation tag="Storage" ja="ストレージ"/>
+  <translation tag="Storage report" ja="ストレージレポート"/>
   <translation tag="Stow" ja="格納"/>
   <translation tag="Subtle" ja="サトル"/>
   <translation tag="Success" ja="成功"/>
@@ -3742,6 +3767,7 @@
   <translation tag="Thorough" ja="徹底的"/>
   <translation tag="Thumbnail Only" ja="サムネイルのみ"/>
   <translation tag="Thumbnail: " ja="サムネイル: "/>
+  <translation tag="Thumbnails" ja="サムネイル"/>
   <translation tag="Tighten {0} noticeably" ja="{0}をはっきり締める"/>
   <translation tag="Tighten {0} one full turn" ja="{0}を1回転締める"/>
   <translation tag="Tighten {0} {1}" ja="{0}を{1}締める"/>
@@ -3761,6 +3787,7 @@
   <translation tag="Timelapse render failed" ja="タイムラプスのレンダリングに失敗しました"/>
   <translation tag="Timelapse render failed: {}" ja="タイムラプスのレンダリングに失敗しました: {}"/>
   <translation tag="Timelapse rendered successfully" ja="タイムラプスのレンダリングが完了しました"/>
+  <translation tag="Timelapse videos" ja="タイムラプス動画"/>
   <translation tag="Timeout" ja="タイムアウト"/>
   <translation tag="Timezone" ja="タイムゾーン"/>
   <translation tag="Tip Forming" ja="チップ形成"/>
@@ -4034,6 +4061,7 @@
   <translation tag="Welcome to HelixScreen" ja="HelixScreen へようこそ"/>
   <translation tag="Went past {} by {:.1f} Hz. Back it off a little." ja="{}を{:.1f} Hz超えました。少し戻してください。"/>
   <translation tag="What We Collect" ja="収集する情報"/>
+  <translation tag="What fills the printer&apos;s disk, and cleanup" ja="プリンターのディスクの使用状況とクリーンアップ"/>
   <translation tag="What happens when a print ends" ja="印刷終了時の動作"/>
   <translation tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." ja="有効時はマクロのみ実行されます。無効時は先に温度を設定してからマクロが実行されます。"/>
   <translation tag="Where UI sounds play" ja="UIサウンドの再生先"/>
@@ -4104,6 +4132,7 @@
   <translation tag="You can skip this and calibrate later in Settings." ja="スキップして後で設定でキャリブレーションできます。"/>
   <translation tag="You have unsaved changes. Discard them?" ja="保存されていない変更があります。破棄しますか？"/>
   <translation tag="Your completed prints will appear here" ja="完了した印刷がここに表示されます"/>
+  <translation tag="Your files" ja="あなたのファイル"/>
   <translation tag="Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other." ja="印刷開始または終了マクロもLEDを設定しています。マクロと自動LED制御が互いに上書きする可能性があります。"/>
   <translation tag="Your printer at a glance" ja="プリンターを一目で確認"/>
   <translation tag="Your printer has an automatic filament changer" ja="プリンターに自動フィラメントチェンジャーが搭載されています"/>
@@ -4275,6 +4304,7 @@
   <translation tag="{} filament sensors available" ja="{} 個のフィラメントセンサーが利用可能です"/>
   <translation tag="{} filament • {}" ja="フィラメント {} • {}"/>
   <translation tag="{} firmware" ja="{} ファームウェア"/>
+  <translation tag="{} free of {}" ja="空き {} / {}"/>
   <translation tag="{} h" ja="{} 時間"/>
   <translation tag="{} h of {} h" ja="{} / {} 時間"/>
   <translation tag="{} has no hotend" ja="{}にはホットエンドがありません"/>

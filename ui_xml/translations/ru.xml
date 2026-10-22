@@ -88,6 +88,7 @@
   <translation tag="(none detected)" ru="(не обнаружено)"/>
   <translation tag="(recovered)" ru="(восстановлено)"/>
   <translation tag="(repeated {} times)" ru="(повторено {} раз)"/>
+  <translation tag="(too many folders to list them all)" ru="(слишком много папок, чтобы перечислить все)"/>
   <translation tag="(unnamed)" ru="(без имени)"/>
   <translation tag="+ Add" ru="+ Добавить"/>
   <translation tag="+ Add Preset" ru="+ Добавить пресет"/>
@@ -159,6 +160,7 @@
   <translation tag="3D Pipes" ru="3D трубы"/>
   <translation tag="3D View" ru="3D вид"/>
   <translation tag="3MF conversion" ru="Преобразование 3MF"/>
+  <translation tag="3MF conversions" ru="Преобразования 3MF"/>
   <translation tag="4. Paper should move but with resistance" ru="4. Бумага должна двигаться, но с сопротивлением"/>
   <translation tag="4. Repeat until bed is level" ru="4. Повторяйте, пока стол не выровняется"/>
   <translation tag="5 min" ru="5 мин"/>
@@ -368,6 +370,8 @@
   <translation tag="Automatic Heater Control Calibration" ru="Автоматическая калибровка нагревателя"/>
   <translation tag="Automatic LED Control" ru="Автоматическое управление LED"/>
   <translation tag="Automatic calibration" ru="Автоматическая калибровка"/>
+  <translation tag="Automatic cleanup" ru="Автоматическая очистка"/>
+  <translation tag="Automatic storage cleanup" ru="Автоматическая очистка хранилища"/>
   <translation tag="Aux" ru="Доп"/>
   <translation tag="Available" ru="Доступен"/>
   <translation tag="Available Networks" ru="Доступные сети"/>
@@ -715,9 +719,12 @@
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" ru="Позиция жёлоба продувки: X {:.1f}, Y {:.1f}"/>
   <translation tag="Clean Brush" ru="Очистить щётку"/>
   <translation tag="Clean Nozzle" ru="Очистить сопло"/>
+  <translation tag="Clean Up Storage" ru="Очистка хранилища"/>
+  <translation tag="Clean up" ru="Очистить"/>
   <translation tag="Clean {}" ru="Очистите {}"/>
   <translation tag="Cleaning Nozzle..." ru="Очистка сопла..."/>
   <translation tag="Cleaning nozzle..." ru="Очистка сопла..."/>
+  <translation tag="Cleanup failed" ru="Не удалось выполнить очистку"/>
   <translation tag="Clear" ru="Очистить"/>
   <translation tag="Clear All" ru="Очистить всё"/>
   <translation tag="Clear All Events" ru="Очистить все события"/>
@@ -898,6 +905,7 @@
   <translation tag="Could not open a browser for the update" ru="Не удалось открыть браузер для обновления"/>
   <translation tag="Could not parse tips database" ru="Не удалось разобрать базу данных советов"/>
   <translation tag="Could not reach Spoolman at" ru="Не удалось связаться со Spoolman по адресу"/>
+  <translation tag="Could not read the printer&apos;s storage" ru="Не удалось прочитать хранилище принтера"/>
   <translation tag="Could not read the screw adjustments from the printer" ru="Не удалось получить данные регулировки винтов от принтера"/>
   <translation tag="Could not remove the job from the queue" ru="Не удалось удалить задание из очереди"/>
   <translation tag="Could not reset the printer image tags" ru="Не удалось сбросить отметки изображения"/>
@@ -996,7 +1004,12 @@
   <translation tag="Delete Profile?" ru="Удалить профиль?"/>
   <translation tag="Delete Spool?" ru="Удалить катушку?"/>
   <translation tag="Delete Video" ru="Удалить видео"/>
+  <translation tag="Delete every modified print copy that is not in use? Files you uploaded are not touched." ru="Удалить все неиспользуемые изменённые копии для печати? Загруженные вами файлы не затрагиваются."/>
+  <translation tag="Delete every print photo? Print history keeps its entries." ru="Удалить все фото печати? Записи истории печати сохранятся."/>
+  <translation tag="Delete every timelapse video?" ru="Удалить все видео таймлапса?"/>
   <translation tag="Delete the history record for {}?" ru="Удалить запись истории для {}?"/>
+  <translation tag="Delete the layer indexes? Previews read each file again until it is analyzed again." ru="Удалить индексы слоёв? Предпросмотр будет заново читать каждый файл, пока он не будет проанализирован снова."/>
+  <translation tag="Delete the rotated logs? The logs in use are kept, and debug bundles still work." ru="Удалить старые журналы? Используемые журналы сохранятся, пакеты диагностики продолжат работать."/>
   <translation tag="Delete {}?" ru="Удалить {}?"/>
   <translation tag="Delta:" ru="Дельта:"/>
   <translation tag="Density" ru="Плотность"/>
@@ -1527,6 +1540,8 @@
   <translation tag="Found 1 printer" ru="Найден 1 принтер"/>
   <translation tag="Found {} at {}." ru="{} найден по адресу {}."/>
   <translation tag="Framerate" ru="Частота кадров"/>
+  <translation tag="Free space unknown" ru="Свободное место неизвестно"/>
+  <translation tag="Freed {}" ru="Освобождено {}"/>
   <translation tag="From Buffer" ru="Из буфера"/>
   <translation tag="From Printer" ru="С принтера"/>
   <translation tag="From SpoolmanDB" ru="Из SpoolmanDB"/>
@@ -2105,7 +2120,9 @@
   <translation tag="Measure this zone first" ru="Сначала измерьте эту зону"/>
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." ru="Отсчитывайте высоту от стола. Острые углы без наплывов и пропусков означают верный K. Каждая строка - диапазон высот и K, который принтер сообщал во время его печати."/>
   <translation tag="Measured (shaper off)" ru="Измерено (шейпер выключен)"/>
+  <translation tag="Measured by the HelixPrint plugin" ru="Измерено плагином HelixPrint"/>
   <translation tag="Measured filament diameter" ru="Измеренный диаметр филамента"/>
+  <translation tag="Measured from the printer&apos;s file list" ru="Измерено по списку файлов принтера"/>
   <translation tag="Measured offsets, read-only" ru="Измеренные смещения, только чтение"/>
   <translation tag="Measured pressure advance" ru="Измеренный Pressure Advance"/>
   <translation tag="Measurement incomplete. Try again." ru="Измерение не завершено. Повторите попытку."/>
@@ -2118,6 +2135,7 @@
   <translation tag="Measuring vibrations... {}%" ru="Измерение вибраций... {}%"/>
   <translation tag="Measuring wheel error" ru="Ошибка измерительного колеса"/>
   <translation tag="Measuring {}..." ru="Измерение: {}..."/>
+  <translation tag="Measuring..." ru="Измерение..."/>
   <translation tag="Memory" ru="Память"/>
   <translation tag="Memory (MB)" ru="Память (МБ)"/>
   <translation tag="Memory Snapshot" ru="Снимок памяти"/>
@@ -2356,6 +2374,7 @@
   <translation tag="Not connected to the printer" ru="Нет подключения к принтеру"/>
   <translation tag="Not detected" ru="Не обнаружено"/>
   <translation tag="Not drying" ru="Не сушится"/>
+  <translation tag="Not enough free space on the printer for this file. Free some in Settings &gt; System &gt; Storage." ru="На принтере недостаточно свободного места для этого файла. Освободите место в разделе Настройки &gt; Система &gt; Хранилище."/>
   <translation tag="Not enough frequency data from the sweeps. Try again." ru="Недостаточно данных о частоте по результатам измерений. Попробуйте снова."/>
   <translation tag="Not enough room for this widget. Rearrange or remove widgets to make space." ru="Недостаточно места для этого виджета. Измените раскладку или удалите виджеты, чтобы освободить место."/>
   <translation tag="Not in your spools? Set it up" ru="Нет в ваших катушках? Настроить"/>
@@ -2423,6 +2442,7 @@
   <translation tag="Offset" ru="Смещение"/>
   <translation tag="Offsets Saved" ru="Смещения сохранены"/>
   <translation tag="Offsets saved" ru="Смещения сохранены"/>
+  <translation tag="Old logs" ru="Старые журналы"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" ru="Прежняя настройка на сегодняшних данных: остаточная вибрация {} — сейчас: {}"/>
   <translation tag="On" ru="Вкл"/>
   <translation tag="On and Off macros must be different" ru="Макросы включения и выключения должны отличаться"/>
@@ -2430,6 +2450,7 @@
   <translation tag="On/Off" ru="Вкл/Выкл"/>
   <translation tag="On/Off (state-aware)" ru="Вкл/Выкл (с отслеживанием)"/>
   <translation tag="On:" ru="Вкл:"/>
+  <translation tag="Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept." ru="Раз в день удаляет копии для печати старше недели и журналы старше месяца. Ваши файлы, фото и видео таймлапса сохраняются."/>
   <translation tag="One tap runs this macro. Dangerous macros still ask." ru="Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение."/>
   <translation tag="Only on A: {} Hz" ru="Только на A: {} Гц"/>
   <translation tag="Only on B: {} Hz" ru="Только на B: {} Гц"/>
@@ -2673,6 +2694,7 @@
   <translation tag="Print canceled" ru="Печать отменена"/>
   <translation tag="Print complete" ru="Печать завершена"/>
   <translation tag="Print completed" ru="Печать завершена"/>
+  <translation tag="Print copies" ru="Копии для печати"/>
   <translation tag="Print details" ru="Сведения о печати"/>
   <translation tag="Print did not start" ru="Печать не началась"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" ru="Печать не началась — принтер может быть занят или не в сети (опросы B3={}, статус=0x{:02X}, ошибка=0x{:02X})"/>
@@ -2687,6 +2709,7 @@
   <translation tag="Print issue detected" ru="Обнаружена проблема печати"/>
   <translation tag="Print jobs waiting to run" ru="Задания печати в очереди"/>
   <translation tag="Print paused" ru="Печать приостановлена"/>
+  <translation tag="Print photos" ru="Фото печати"/>
   <translation tag="Print preparation failed: {}" ru="Ошибка подготовки печати: {}"/>
   <translation tag="Print resumed" ru="Печать продолжена"/>
   <translation tag="Print server rejected the job — check printer status" ru="Сервер печати отклонил задание — проверьте статус принтера"/>
@@ -3470,6 +3493,8 @@
   <translation tag="Stopped between Spool and Lane" ru="Остановка между катушкой и каналом"/>
   <translation tag="Stopped drying %s" ru="Сушка остановлена: %s"/>
   <translation tag="Stops all motion. Requires firmware restart." ru="Останавливает всё движение. Требуется перезапуск прошивки."/>
+  <translation tag="Storage" ru="Хранилище"/>
+  <translation tag="Storage report" ru="Отчёт о хранилище"/>
   <translation tag="Stow" ru="Убрать"/>
   <translation tag="Subtle" ru="Сдержанный"/>
   <translation tag="Success" ru="Успех"/>
@@ -3802,6 +3827,7 @@
   <translation tag="Thorough" ru="Тщательно"/>
   <translation tag="Thumbnail Only" ru="Только миниатюра"/>
   <translation tag="Thumbnail: " ru="Миниатюра: "/>
+  <translation tag="Thumbnails" ru="Миниатюры"/>
   <translation tag="Tighten {0} noticeably" ru="Заметно натянуть {0}"/>
   <translation tag="Tighten {0} one full turn" ru="Натянуть {0} на полный оборот"/>
   <translation tag="Tighten {0} {1}" ru="Натянуть {0} на {1}"/>
@@ -3821,6 +3847,7 @@
   <translation tag="Timelapse render failed" ru="Не удалось отрендерить таймлапс"/>
   <translation tag="Timelapse render failed: {}" ru="Не удалось отрендерить таймлапс: {}"/>
   <translation tag="Timelapse rendered successfully" ru="Таймлапс успешно отрендерен"/>
+  <translation tag="Timelapse videos" ru="Видео таймлапса"/>
   <translation tag="Timeout" ru="Время ожидания истекло"/>
   <translation tag="Timezone" ru="Часовой пояс"/>
   <translation tag="Tip Forming" ru="Формирование кончика"/>
@@ -4094,6 +4121,7 @@
   <translation tag="Welcome to HelixScreen" ru="Добро пожаловать в HelixScreen"/>
   <translation tag="Went past {} by {:.1f} Hz. Back it off a little." ru="Перешли {} на {:.1f} Гц. Немного верните назад."/>
   <translation tag="What We Collect" ru="Что мы собираем"/>
+  <translation tag="What fills the printer&apos;s disk, and cleanup" ru="Что занимает диск принтера, и очистка"/>
   <translation tag="What happens when a print ends" ru="Что происходит по окончании печати"/>
   <translation tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." ru="Когда включено, запускается только макрос. Когда выключено, сначала задаются температуры, затем запускается макрос."/>
   <translation tag="Where UI sounds play" ru="Где воспроизводятся звуки интерфейса"/>
@@ -4164,6 +4192,7 @@
   <translation tag="You can skip this and calibrate later in Settings." ru="Вы можете пропустить это и откалибровать позже в настройках."/>
   <translation tag="You have unsaved changes. Discard them?" ru="У вас есть несохранённые изменения. Отменить их?"/>
   <translation tag="Your completed prints will appear here" ru="Ваши завершённые печати появятся здесь"/>
+  <translation tag="Your files" ru="Ваши файлы"/>
   <translation tag="Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other." ru="Ваш макрос начала или окончания печати тоже управляет светодиодами. Он и автоматическое управление светодиодами могут перезаписывать друг друга."/>
   <translation tag="Your printer at a glance" ru="Ваш принтер одним взглядом"/>
   <translation tag="Your printer has an automatic filament changer" ru="Ваш принтер оснащён автоматическим сменщиком филамента"/>
@@ -4344,6 +4373,7 @@
   <translation tag="{} filament sensors available" ru="Доступно датчиков филамента: {}"/>
   <translation tag="{} filament • {}" ru="{} филамента • {}"/>
   <translation tag="{} firmware" ru="Прошивка {}"/>
+  <translation tag="{} free of {}" ru="{} свободно из {}"/>
   <translation tag="{} h" ru="{} ч"/>
   <translation tag="{} h of {} h" ru="{} ч из {} ч"/>
   <translation tag="{} has no hotend" ru="У {} нет хотэнда"/>

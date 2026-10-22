@@ -837,13 +837,13 @@ Read-only methods callable through `helix.moonraker.call` without any permission
 `server.files.metadata`, `server.temperature_store`, `machine.system_info`, and the
 HelixPrint plugin's reads: `server.helix.status`, `server.helix.3mf_conversions`,
 `server.helix.analysis`, `server.helix.journal`, `server.helix.config`,
-`server.helix.plr.status`.
+`server.helix.storage`, `server.helix.plr.status`.
 
 The HelixPrint plugin's other methods are refused whatever the plugin's permissions,
 with `nil, err` naming the method (`<method> is not available to plugins`), because
 they heat, move, delete or rewrite on the screen user's confirmation:
 `server.helix.plr.plan`, `plr.prepare`, `plr.commit`, `plr.abort`, `plr.discard`,
-`config_edit`, `print_hooks.screen_start`, and any `server.helix.*` method not named
+`config_edit`, `print_hooks.screen_start`, `storage_cleanup`, and any `server.helix.*` method not named
 here, including ones added later. The exceptions are `server.helix.print_modified` and
 `server.helix.print_edited` (with `moonraker_write`), which start a print the way
 `printer.print.start` does and carry its checks (below). A new read-only HelixPrint

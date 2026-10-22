@@ -4,6 +4,7 @@
 #include "env_knobs.h"
 #include "http_executor.h"
 #include "json_utils.h"
+#include "mock_disk_usage.h"
 #include "moonraker_client_mock_internal.h"
 
 #include <spdlog/spdlog.h>
@@ -537,8 +538,16 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                 {"available", !hooks_unavailable},
                 {"enabled", !hooks_unavailable && opt_in.is_boolean() && opt_in.get<bool>()},
                 {"reason", hooks_unavailable ? json("load_failed") : json(nullptr)}};
+            // Automatic storage cleanup acts on files, so it is off until opted into.
+            const json auto_cleanup =
+                self->mock_db_get("helix-screen", "plugin_features.storage_auto_cleanup");
+            response["result"]["features"]["storage_auto_cleanup"] = {
+                {"version", 1},
+                {"available", true},
+                {"enabled", auto_cleanup.is_boolean() && auto_cleanup.get<bool>()},
+                {"reason", nullptr}};
             // The rest of what the plugin ships, each on and running.
-            for (const char* name : {"file_analysis", "server_edits", "config_edit"}) {
+            for (const char* name : {"file_analysis", "server_edits", "config_edit", "storage"}) {
                 response["result"]["features"][name] = {
                     {"version", 1}, {"available", true}, {"enabled", true}, {"reason", nullptr}};
             }
@@ -620,6 +629,78 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
             success_cb(
                 json{{"jsonrpc", "2.0"},
                      {"result", {{"entries", entries}, {"truncated", false}, {"latest_id", 7}}}});
+        }
+        return true;
+    };
+
+    // server.helix.storage - the plugin's storage report, present with the
+    // plugin (HELIX_MOCK_HELIX_PLUGIN): a fixed breakdown on the mock's gcodes
+    // disk, its print copies shrinking to nothing once cleaned up.
+    registry["server.helix.storage"] =
+        [](MoonrakerClientMock* self, const json& /*params*/,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> error_cb) -> bool {
+        if (!helix::env_flag("HELIX_MOCK_HELIX_PLUGIN")) {
+            if (error_cb) {
+                error_cb(MoonrakerError::unknown("Method not found", "server.helix.storage"));
+            }
+            return true;
+        }
+        constexpr uint64_t kMb = 1024ULL * 1024ULL;
+        const helix::mock::DiskMb disk = helix::mock::gcodes_disk_mb();
+        const bool cleaned = self->mock_db_get("helix-mock", "storage_cleaned").is_boolean();
+        auto consumer = [](const char* name, const char* root, uint64_t bytes, uint64_t files,
+                           bool cleanable) {
+            return json{{"name", name},   {"root", root},      {"bytes", bytes},
+                        {"files", files}, {"available", true}, {"cleanable", cleanable}};
+        };
+        json consumers = json::array({
+            consumer("helix_temp", "gcodes", cleaned ? 0 : 412 * kMb, cleaned ? 0 : 6, true),
+            consumer("3mf_outputs", "gcodes", 96 * kMb, 3, false),
+            consumer("analysis_sidecars", "gcodes", 18 * kMb, 41, true),
+            consumer("photos", "gcodes", 230 * kMb, 88, true),
+            consumer("timelapse", "timelapse", 1450 * kMb, 12, true),
+            consumer("logs", "logs", 64 * kMb, 9, true),
+            consumer("thumbnails", "gcodes", 31 * kMb, 164, false),
+            consumer("user_gcode", "gcodes", 3820 * kMb, 41, false),
+            consumer("plr", "data", 2 * kMb, 2, false),
+        });
+        const json opt_in =
+            self->mock_db_get("helix-screen", "plugin_features.storage_auto_cleanup");
+        json result = {
+            {"volume",
+             {{"total", disk.total * kMb},
+              {"used", (disk.total - disk.free) * kMb},
+              {"free", disk.free * kMb}}},
+            {"floor", 100 * kMb},
+            {"consumers", std::move(consumers)},
+            {"auto_cleanup",
+             {{"enabled", opt_in.is_boolean() && opt_in.get<bool>()}, {"last_run", nullptr}}}};
+        if (success_cb) {
+            success_cb(json{{"jsonrpc", "2.0"}, {"result", std::move(result)}});
+        }
+        return true;
+    };
+
+    // server.helix.storage_cleanup - frees the mock's print copies; any other
+    // consumer reports nothing removed.
+    registry["server.helix.storage_cleanup"] =
+        [](MoonrakerClientMock* self, const json& params,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
+        const std::string consumer = helix::json_util::safe_string(params, "consumer");
+        uint64_t freed = 0;
+        if (consumer == "helix_temp") {
+            self->mock_db_set("helix-mock", "storage_cleaned", true);
+            freed = 412ULL * 1024ULL * 1024ULL;
+        }
+        if (success_cb) {
+            success_cb(json{{"jsonrpc", "2.0"},
+                            {"result",
+                             {{"consumer", consumer},
+                              {"removed", freed > 0 ? 6 : 0},
+                              {"freed", freed},
+                              {"errors", 0}}}});
         }
         return true;
     };

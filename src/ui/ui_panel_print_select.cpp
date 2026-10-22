@@ -63,6 +63,7 @@
 #include "queued_job_start.h"
 #include "runtime_config.h"
 #include "static_panel_registry.h"
+#include "storage_report_service.h"
 #include "text_io.h"
 #include "theme_manager.h"
 #include "thumbnail_cache.h"
@@ -3218,6 +3219,23 @@ void PrintSelectPanel::upload_usb_copy(UsbCopyRequest req,
         return;
     }
 
+    const uint64_t size = req.size;
+    storage::check_upload_space(
+        &api_->get_client(), size, object_lifetime_.token(),
+        [this, req = std::move(req), dest](storage::UploadSpace space) mutable {
+            if (!usb_copy_current(req.generation)) {
+                return;
+            }
+            if (space == storage::UploadSpace::TooFull) {
+                end_usb_copy();
+                helix::ui::notify_error_tr(storage::kNoUploadSpaceMessage);
+                return;
+            }
+            start_usb_upload(std::move(req), dest);
+        });
+}
+
+void PrintSelectPanel::start_usb_upload(UsbCopyRequest req, const std::string& dest) {
     spdlog::info("[{}] Copying USB file {} to gcodes/{}", get_name(), req.local_path, dest);
     const std::string filename = req.filename;
     const uint64_t generation = req.generation;
