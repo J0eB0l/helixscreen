@@ -6,6 +6,7 @@ own-switch rules, and the helix-initiated job marker.
 Run with: pytest tests/test_helix_features.py -v
 """
 
+import logging
 import time
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from helix_print import (
     PLUGIN_FEATURES_KEY,
     SIBLING_LOAD_ERRORS,
     HelixJobMarkers,
+    JobBinding,
     load_component,
 )
 from test_helix_print import (  # noqa: F401  (fixtures are used by name)
@@ -49,6 +51,14 @@ async def _opt_in(component, record):
     await component.database.insert_item(
         HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, record
     )
+
+
+# A history job's start_time
+T0 = 1700000000.25
+
+
+def _kind(binding):
+    return None if binding is None else binding.kind
 
 
 class FakeClock:
@@ -261,8 +271,8 @@ class TestJobMarkers:
         markers = HelixJobMarkers(FakeClock())
         markers.mark("benchy.gcode", kind)
 
-        assert markers.bind("benchy.gcode", "00001A") == kind
-        assert markers.kind_of("00001A", "benchy.gcode") == kind
+        assert _kind(markers.bind("benchy.gcode", "00001A", T0)) == kind
+        assert markers.kind_of("00001A", "benchy.gcode", T0) == kind
         assert markers.pending_count() == 0
 
     def test_the_three_kinds_are_the_spec_set(self):
@@ -277,10 +287,10 @@ class TestJobMarkers:
         markers = HelixJobMarkers(FakeClock())
         markers.mark("benchy.gcode", "plr_resume")
 
-        assert markers.bind("somebody_else.gcode", "00001B") is None
-        assert markers.kind_of("00001B", "somebody_else.gcode") is None
+        assert _kind(markers.bind("somebody_else.gcode", "00001B", T0)) is None
+        assert markers.kind_of("00001B", "somebody_else.gcode", T0) is None
         # The marker still waits for its own file
-        assert markers.bind("benchy.gcode", "00001C") == "plr_resume"
+        assert _kind(markers.bind("benchy.gcode", "00001C", T0)) == "plr_resume"
 
     def test_an_unmatched_marker_expires(self):
         clock = FakeClock()
@@ -289,8 +299,8 @@ class TestJobMarkers:
 
         clock.now += HELIX_MARKER_TTL_S + 0.1
 
-        assert markers.bind("benchy.gcode", "00001A") is None
-        assert markers.kind_of("00001A", "benchy.gcode") is None
+        assert _kind(markers.bind("benchy.gcode", "00001A", T0)) is None
+        assert markers.kind_of("00001A", "benchy.gcode", T0) is None
 
     def test_a_marker_is_live_up_to_its_ttl(self):
         clock = FakeClock()
@@ -299,14 +309,14 @@ class TestJobMarkers:
 
         clock.now += HELIX_MARKER_TTL_S
 
-        assert markers.bind("benchy.gcode", "00001A") == "print_modified"
+        assert _kind(markers.bind("benchy.gcode", "00001A", T0)) == "print_modified"
 
     def test_a_marker_binds_once(self):
         markers = HelixJobMarkers(FakeClock())
         markers.mark("benchy.gcode", "print_modified")
-        markers.bind("benchy.gcode", "00001A")
+        _kind(markers.bind("benchy.gcode", "00001A", T0))
 
-        assert markers.bind("benchy.gcode", "00001B") is None
+        assert _kind(markers.bind("benchy.gcode", "00001B", T0)) is None
 
     def test_the_oldest_marker_for_a_file_binds_first(self):
         clock = FakeClock()
@@ -315,15 +325,15 @@ class TestJobMarkers:
         clock.now += 1
         markers.mark("benchy.gcode", "plr_resume")
 
-        assert markers.bind("benchy.gcode", "00001A") == "print_modified"
-        assert markers.bind("benchy.gcode", "00001B") == "plr_resume"
+        assert _kind(markers.bind("benchy.gcode", "00001A", T0)) == "print_modified"
+        assert _kind(markers.bind("benchy.gcode", "00001B", T0)) == "plr_resume"
 
     def test_an_int_job_id_names_the_same_job(self):
         markers = HelixJobMarkers(FakeClock())
         markers.mark("benchy.gcode", "plr_resume")
-        markers.bind("benchy.gcode", 0x1A)
+        _kind(markers.bind("benchy.gcode", 0x1A, T0))
 
-        assert markers.kind_of("00001A", "benchy.gcode") == "plr_resume"
+        assert markers.kind_of("00001A", "benchy.gcode", T0) == "plr_resume"
 
 
 def _stage_modified(gcodes: Path) -> MockWebRequest:
@@ -337,8 +347,15 @@ def _stage_modified(gcodes: Path) -> MockWebRequest:
     })
 
 
-def _added(filename, job_id):
-    return {"action": "added", "job": {"filename": filename, "job_id": job_id}}
+def _added(filename, job_id, start_time=None):
+    return {
+        "action": "added",
+        "job": {
+            "filename": filename,
+            "job_id": job_id,
+            "start_time": T0 if start_time is None else start_time,
+        },
+    }
 
 
 class TestJobMarkerWiring:
@@ -356,7 +373,7 @@ class TestJobMarkerWiring:
         )
 
         assert helix_print_component.helix_initiated(
-            "00002A", result["print_filename"]
+            "00002A", result["print_filename"], T0
         ) == "print_modified"
         stored = helix_print_component.database.namespaces[HELIX_JOBS_NAMESPACE]
         assert stored["00002A"]["kind"] == "print_modified"
@@ -370,7 +387,7 @@ class TestJobMarkerWiring:
 
         await helix_print_component._on_history_changed(_added("other.gcode", "00002B"))
 
-        assert helix_print_component.helix_initiated("00002B", "other.gcode") is None
+        assert helix_print_component.helix_initiated("00002B", "other.gcode", T0) is None
         assert HELIX_JOBS_NAMESPACE not in helix_print_component.database.namespaces
 
     @pytest.mark.asyncio
@@ -390,19 +407,28 @@ class TestJobMarkerWiring:
         await first._on_history_changed(_added("benchy.gcode", "00003A"))
         await db.insert_item(
             HELIX_JOBS_NAMESPACE, ["000001"],
-            {"kind": "print_modified", "filename": "old.gcode",
+            {"kind": "print_modified", "filenames": ["old.gcode"], "start_time": T0,
              "bound_at": time.time() - HELIX_BINDING_MAX_AGE_S - 10},
         )
-        await db.insert_item(HELIX_JOBS_NAMESPACE, ["000002"],
-                             {"kind": "plr_resume", "filename": "a.gcode"})
-        await db.insert_item(HELIX_JOBS_NAMESPACE, ["000003"],
-                             {"kind": "plr_resume", "bound_at": time.time()})
+        now = time.time()
+        malformed = {
+            "000002": {"kind": "plr_resume", "filenames": ["a.gcode"], "start_time": T0},
+            "000003": {"kind": "plr_resume", "start_time": T0, "bound_at": now},
+            "000004": {"kind": "plr_resume", "filenames": ["a.gcode"], "bound_at": now},
+            "000005": {"kind": "plr_resume", "filenames": [], "start_time": T0,
+                       "bound_at": now},
+            "000006": {"kind": "plr_resume", "filenames": ["a.gcode"], "start_time": "x",
+                       "bound_at": now},
+            "000007": {"kind": "plr_resume", "filename": "a.gcode", "bound_at": now},
+        }
+        for key, record in malformed.items():
+            await db.insert_item(HELIX_JOBS_NAMESPACE, [key], record)
 
         second = load_component(config)
         await second.component_init()
 
-        assert second.helix_initiated("00003A", "benchy.gcode") == "plr_resume"
-        assert second.helix_initiated("000001", "old.gcode") is None
+        assert second.helix_initiated("00003A", "benchy.gcode", T0) == "plr_resume"
+        assert second.helix_initiated("000001", "old.gcode", T0) is None
         assert set(db.ns[HELIX_JOBS_NAMESPACE]) == {"00003A"}
 
 
@@ -427,12 +453,12 @@ class TestJobIdReuse:
         await component.component_init()
         component.mark_helix_initiated("benchy.gcode", "plr_resume")
         await component._on_history_changed(_added("benchy.gcode", "00002A"))
-        assert component.helix_initiated("00002A", "benchy.gcode") == "plr_resume"
+        assert component.helix_initiated("00002A", "benchy.gcode", T0) == "plr_resume"
 
         # History cleared; the next print, from another client, gets the same id
         await component._on_history_changed(_added("benchy.gcode", "00002A"))
 
-        assert component.helix_initiated("00002A", "benchy.gcode") is None
+        assert component.helix_initiated("00002A", "benchy.gcode", T0) is None
         assert "00002A" not in db.ns.get(HELIX_JOBS_NAMESPACE, {})
 
     @pytest.mark.asyncio
@@ -442,7 +468,7 @@ class TestJobIdReuse:
         component.mark_helix_initiated("benchy.gcode", "print_modified")
         await component._on_history_changed(_added("benchy.gcode", "00002A"))
 
-        assert component.helix_initiated("00002A", "cube.gcode") is None
+        assert component.helix_initiated("00002A", "cube.gcode", T0) is None
 
     @pytest.mark.asyncio
     async def test_an_id_reused_while_the_plugin_was_down_names_another_file(
@@ -450,26 +476,62 @@ class TestJobIdReuse:
     ):
         await db.insert_item(
             HELIX_JOBS_NAMESPACE, ["00002A"],
-            {"kind": "plr_resume", "filename": "benchy.gcode", "bound_at": time.time()},
+            {"kind": "plr_resume", "filenames": ["benchy.gcode"], "start_time": T0,
+             "bound_at": time.time()},
         )
         component = load_component(config)
         await component.component_init()
 
-        assert component.helix_initiated("00002A", "cube.gcode") is None
-        assert component.helix_initiated("00002A", "benchy.gcode") == "plr_resume"
+        assert component.helix_initiated("00002A", "cube.gcode", T0) is None
+        assert component.helix_initiated("00002A", "benchy.gcode", T0) == "plr_resume"
+
+    @pytest.mark.asyncio
+    async def test_same_id_and_file_with_another_start_time_is_another_job(
+        self, config, db
+    ):
+        # The plugin missed the reused id's added event (down, or the drop
+        # failed): the stored binding names the same file, but not this job.
+        await db.insert_item(
+            HELIX_JOBS_NAMESPACE, ["00002A"],
+            {"kind": "plr_resume", "filenames": ["benchy.gcode"], "start_time": T0,
+             "bound_at": time.time()},
+        )
+        component = load_component(config)
+        await component.component_init()
+
+        assert component.helix_initiated("00002A", "benchy.gcode", T0 + 3600) is None
+
+    @pytest.mark.asyncio
+    async def test_a_failed_drop_of_a_reused_ids_binding_warns(self, config, db, caplog):
+        component = load_component(config)
+        await component.component_init()
+        component.mark_helix_initiated("benchy.gcode", "plr_resume")
+        await component._on_history_changed(_added("benchy.gcode", "00002A"))
+
+        async def broken_delete(*args, **kwargs):
+            raise RuntimeError("database locked")
+
+        db.delete_item = broken_delete
+        with caplog.at_level(logging.DEBUG):
+            await component._on_history_changed(_added("benchy.gcode", "00002A", T0 + 1))
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("00002A" in r.getMessage() for r in warnings)
 
     @pytest.mark.asyncio
     async def test_old_bindings_are_pruned_on_each_bind(self, config, db):
         component = load_component(config)
         await component.component_init()
         component.job_markers.restore(
-            "000001", "plr_resume", "old.gcode", time.time() - HELIX_BINDING_MAX_AGE_S - 1
+            "000001",
+            JobBinding("plr_resume", ["old.gcode"], T0,
+                       time.time() - HELIX_BINDING_MAX_AGE_S - 1),
         )
         await db.insert_item(HELIX_JOBS_NAMESPACE, ["000001"], {"kind": "plr_resume"})
 
         await component._on_history_changed(_added("other.gcode", "00002B"))
 
-        assert component.helix_initiated("000001", "old.gcode") is None
+        assert component.helix_initiated("000001", "old.gcode", T0) is None
         assert "000001" not in db.ns[HELIX_JOBS_NAMESPACE]
 
 
@@ -483,7 +545,7 @@ class TestUnmark:
         markers.mark("benchy.gcode", "plr_resume")
 
         assert markers.unmark("benchy.gcode") is True
-        assert markers.bind("benchy.gcode", "00001A") == "print_modified"
+        assert _kind(markers.bind("benchy.gcode", "00001A", T0)) == "print_modified"
         assert markers.unmark("benchy.gcode") is False
 
     @pytest.mark.asyncio
@@ -567,3 +629,42 @@ class TestFeatureProbe:
         live["ok"] = False
 
         assert await helix_print_component.feature_enabled("journal") is False
+
+
+class TestFinishRename:
+    """_patch_history_entry renames a finished print_modified job to the
+    original file; the job still answers to that name."""
+
+    @pytest.mark.asyncio
+    async def test_a_print_modified_job_reads_helix_initiated_after_the_rename(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        history = mock_server.components["history"]
+        await helix_print_component.component_init()
+        result = await mock_server.endpoints["/server/helix/print_modified"](
+            _stage_modified(Path(temp_gcodes_dir))
+        )
+        link = result["print_filename"]
+        history.add_job("00002A", filename=link, start_time=T0)
+        await helix_print_component._on_history_changed(_added(link, "00002A"))
+
+        await helix_print_component._on_job_state_changed(
+            None, {"state": "printing", "filename": link},
+            {"state": "complete", "filename": link},
+        )
+
+        job, _job_id = history.save_job_calls[-1]
+        assert job.filename == "benchy.gcode"
+        assert helix_print_component.helix_initiated(
+            "00002A", job.filename, job.start_time
+        ) == "print_modified"
+        assert helix_print_component.helix_initiated("00002A", link, T0) == "print_modified"
+
+    def test_both_names_bind_from_one_marker(self):
+        markers = HelixJobMarkers(FakeClock())
+        markers.mark(".helix_print/full/benchy.gcode", "plr_resume", "benchy.gcode")
+        markers.bind(".helix_print/full/benchy.gcode", "00001A", T0)
+
+        assert markers.kind_of("00001A", "benchy.gcode", T0) == "plr_resume"
+        assert markers.kind_of("00001A", ".helix_print/full/benchy.gcode", T0) == "plr_resume"
+        assert markers.kind_of("00001A", "cube.gcode", T0) is None

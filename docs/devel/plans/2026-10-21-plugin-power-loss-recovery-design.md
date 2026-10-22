@@ -377,8 +377,9 @@ then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`
     symlink at it and attributes the history entry back to the original name with the existing
     `helix_print.py#_patch_history_entry` path. Immediately before sending the start (`M23`,
     `M26`, `M24` as one command, after steps 6-9 have finished, never ahead of the heating and
-    purge), the plugin records the helix-initiated marker with kind `plr_resume` (umbrella
-    Phase 0; it waits only 60 s for history to add the job) and withdraws it with
+    purge), the plugin records the helix-initiated marker with kind `plr_resume` and, for the
+    root-level symlink, the original name as `history_name` (umbrella Phase 0; it waits only
+    60 s for history to add the job) and withdraws it with
     `unmark_helix_initiated` if the start fails, so start hooks (Phase 3: U1
     end-unload, AMS pre-print gcode, timelapse setup), per-job spool records (Phase 5) and the
     layer-2 photo (Phase 7) do not run again for the resumed job. The marker is keyed by filename
