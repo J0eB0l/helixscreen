@@ -963,3 +963,42 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE drops a tool number no frame names any mo
         CHECK(helper.get_test_system_info().current_slot == -1);
     }
 }
+
+// A restart that lands on the REST bridge, whether the startup answer has no
+// slot-bearing object or the query fails, leaves the one unit the bridge
+// serves: the old chain's other units are gone, and the bridge's slots load by
+// their own numbers.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE restart onto the REST bridge keeps one unit",
+                 "[ams][ace][multiunit]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_units(helper, client, 2, -1);
+    REQUIRE(helper.get_test_system_info().units.size() == 2);
+
+    helper.test_on_started();
+    REQUIRE_FALSE(client.rpc_calls.empty());
+    const auto& call = client.rpc_calls.back();
+    SECTION("no instance carries slots") {
+        REQUIRE(call.success_cb);
+        json status = json::object();
+        status["ace"] = make_kobra_manager_object(-1);
+        status["ace_instance_0"] = json{{"status", "ready"}};
+        call.success_cb(json{{"result", json{{"status", status}}}});
+    }
+    SECTION("the query fails") {
+        REQUIRE(call.error_cb);
+        call.error_cb(MoonrakerError{});
+    }
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(helper.get_test_system_info().units.size() == 1);
+
+    json slots = make_kobra_slots_array();
+    for (auto& slot : slots) {
+        slot.erase("tool");
+    }
+    helper.test_parse_slots_response(json{{"slots", slots}});
+    helper.set_running(true);
+    helper.captured_gcodes.clear();
+    REQUIRE(helper.load_filament(1).success());
+    CHECK(helper.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=1");
+}

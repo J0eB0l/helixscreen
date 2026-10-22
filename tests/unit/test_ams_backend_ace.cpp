@@ -2891,12 +2891,27 @@ TEST_CASE("ACE REST slots take the tool each slot names", "[ams][ace][rest_fallb
     for (int i = 0; i < 4; ++i) {
         slots[i]["tool"] = tools[i];
     }
-    b.test_parse_slots_response(json{{"slots", slots}});
+    // The seat arrives before the slots name their tools: T5 is no slot yet.
+    b.test_parse_slots_response(json{{"slots", make_kobra_slots_array()}});
+    for (int i = 0; i < 4; ++i) {
+        REQUIRE(b.get_slot_info(i).mapped_tool == i);
+    }
+    json untooled = make_kobra_slots_array();
+    for (auto& slot : untooled) {
+        slot.erase("tool");
+    }
+    b.test_parse_slots_response(json{{"slots", untooled}});
     b.test_parse_status_response(
         json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
-    b.test_parse_slots_response(json{{"slots", slots}});
+    REQUIRE(b.get_test_system_info().current_slot == -1);
 
-    CHECK(b.get_test_system_info().current_slot == 1);
+    // The slots naming them re-seat T5 and publish the map.
+    REQUIRE(b.test_parse_slots_response(json{{"slots", slots}}));
+    const auto info = b.get_test_system_info();
+    CHECK(info.current_slot == 1);
+    REQUIRE(info.tool_to_slot_map.size() > 7);
+    CHECK(info.tool_to_slot_map[6] == 0);
+    CHECK(info.tool_to_slot_map[7] == 3);
     b.test_parse_status_response(
         json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
     b.set_running(true);
