@@ -160,6 +160,17 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
 void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& registry);
 
 /**
+ * @brief Register the HelixPrint plugin's power-loss handlers
+ *
+ * server.helix.plr.status / plan / prepare / commit / abort / discard, answered
+ * by MoonrakerClientMock::mock_plr_request() while HELIX_MOCK_PLR is set.
+ *
+ * @param registry Map to register handlers into
+ */
+// NAMESPACE_OK: mock_internal handler registry, alongside its sibling registrars
+void register_plr_handlers(std::unordered_map<std::string, MethodHandler>& registry);
+
+/**
  * @brief Get mock gcode_macro configfile entries
  *
  * Returns a JSON object with gcode_macro entries (lowercase keys) for the

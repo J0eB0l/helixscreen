@@ -63,6 +63,13 @@ PlrBackendType plr_select_backend(const PlrCapabilitySignals& caps) {
     if (caps.snapmaker_pl_env_valid) {
         return PlrBackendType::SNAPMAKER;
     }
+    const bool plugin_ready = caps.plr_feature == PluginFeatureState::Ready;
+    // The plugin's print_state adapter serves the firmware layout the legacy
+    // QIDI macros also live on, and it must win there: its resume corrects the
+    // firmware's file offset, the legacy one does not.
+    if (plugin_ready && caps.plugin_backend == PlrPluginBackend::QidiPrintState) {
+        return PlrBackendType::GENERIC;
+    }
     // Both halves required: the macro says Qidi stock firmware, the variable
     // says an interrupted print is on record.
     if (caps.qidi_resume_macro && caps.qidi_was_interrupted) {
@@ -70,6 +77,9 @@ PlrBackendType plr_select_backend(const PlrCapabilitySignals& caps) {
     }
     if (caps.creality_power_loss_field) {
         return PlrBackendType::CREALITY;
+    }
+    if (plugin_ready && caps.plugin_backend == PlrPluginBackend::Generic) {
+        return PlrBackendType::GENERIC;
     }
     return PlrBackendType::NONE;
 }
@@ -207,6 +217,14 @@ PlrRecoveryPlan plr_build_plan(PlrBackendType backend, const std::string& recove
         // filename is display-only and may be empty.
         plan.resume_gcode = kQidiResumeGcode;
         plan.discard_gcode = kQidiDiscardGcode;
+        break;
+
+    case PlrBackendType::GENERIC:
+        // The plugin renders and sends the resume itself, step by step, after
+        // the wizard's confirmations; the app only opens that flow. Discard
+        // deletes the plugin's snapshot and touches no motion.
+        plan.resume_rpc = kPlrPlanRpc;
+        plan.discard_rpc_method = kPlrDiscardRpc;
         break;
 
     case PlrBackendType::NONE:

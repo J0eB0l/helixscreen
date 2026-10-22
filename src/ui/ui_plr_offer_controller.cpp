@@ -9,10 +9,15 @@
 #include "plr_backend.h"
 #include "plr_offer.h"
 #include "plr_offer_controller.h"
+#include "plr_plugin_rpc.h"
+#include "plr_profile.h"
 #include "print_lifecycle_state.h" // PrintState, job_holds_machine
+#include "printer_detector.h"
 #include "printer_state.h"
 
 #include <spdlog/spdlog.h>
+
+#include <algorithm>
 
 namespace helix::ui {
 
@@ -66,6 +71,21 @@ PlrOfferController::PlrOfferController() {
         &get_wizard_active_subject(), this,
         [](PlrOfferController* self, int value) { self->on_wizard_active_changed(value); },
         get_app_globals_subjects_lifetime());
+
+    // The plugin's status is asked once the `plr` feature is Ready and Klipper
+    // is ready; whichever arrives last asks.
+    plr_feature_observer_ = observe<int>(
+        ps.plugin_status_state().get_plr_feature_state_subject(), this,
+        [](PlrOfferController* self, int value) { self->on_plr_feature_changed(value); },
+        ps.get_subjects_lifetime());
+    printer_type_observer_ = observe<const char*>(
+        ps.profile_state().get_printer_type_subject(), this,
+        [](PlrOfferController* self, const char* /*type*/) { self->publish_profile(); },
+        ps.get_subjects_lifetime());
+    klippy_observer_ = observe<int>(
+        ps.network_state().get_klippy_state_subject(), this,
+        [](PlrOfferController* self, int /*value*/) { self->request_plugin_status(); },
+        ps.get_subjects_lifetime());
 }
 
 void PlrOfferController::evaluate_offer() {
@@ -83,6 +103,12 @@ void PlrOfferController::evaluate_offer() {
         lv_subject_get_int(ps.print_state().get_plr_interrupted_flag_subject()) != 0;
     caps.creality_power_loss_field =
         lv_subject_get_int(ps.print_state().get_plr_power_loss_signal_subject()) != 0;
+    caps.plr_feature =
+        ps.plugin_status_state().plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);
+    if (plugin_status_) {
+        caps.plugin_backend = plugin_status_->backend;
+        caps.plugin_offer_available = plugin_status_->offer_available;
+    }
     PlrBackendType backend = plr_select_backend(caps);
 
     bool recovery_available = false;
@@ -106,6 +132,14 @@ void PlrOfferController::evaluate_offer() {
         // Active: only a completed probe reporting both states counts.
         recovery_available = plr_creality_recovery_available(creality_detect_);
         recovery_file = creality_recovery_file_;
+        break;
+    case PlrBackendType::GENERIC:
+        // The plugin decided availability itself: an interrupted newest job,
+        // a snapshot for it, an unchanged file, Klipper ready.
+        recovery_available = plugin_status_ && plugin_status_->offer_available;
+        if (recovery_available && plugin_status_->snapshot) {
+            recovery_file = plugin_status_->snapshot->filename;
+        }
         break;
     case PlrBackendType::NONE:
         break;
@@ -247,6 +281,110 @@ void PlrOfferController::on_creality_detect_result(const PlrDetectResult& result
     evaluate_offer();
 }
 
+void PlrOfferController::request_plugin_status() {
+    if (plugin_status_ || plugin_status_inflight_) {
+        return;
+    }
+    auto& ps = get_printer_state();
+    if (lv_subject_get_int(ps.network_state().get_printer_connection_state_subject()) !=
+        static_cast<int>(ConnectionState::CONNECTED)) {
+        return;
+    }
+    if (lv_subject_get_int(ps.network_state().get_klippy_state_subject()) !=
+        static_cast<int>(KlippyState::READY)) {
+        return;
+    }
+    if (ps.plugin_status_state().plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion) !=
+        PluginFeatureState::Ready) {
+        return;
+    }
+    auto* api = get_moonraker_api();
+    if (!api) {
+        return;
+    }
+    plugin_status_inflight_ = true;
+    const int generation = connection_generation_;
+    plr_rpc::request_status(
+        *api,
+        lifetime_.bg_cb("PlrOfferController::plugin_status",
+                        [this, generation](const PlrPluginStatus& status) {
+                            if (generation != connection_generation_) {
+                                return;
+                            }
+                            plugin_status_inflight_ = false;
+                            on_plugin_status(status);
+                        }),
+        lifetime_.bg_cb("PlrOfferController::plugin_status_error",
+                        [this, generation](const MoonrakerError& err) {
+                            if (generation != connection_generation_) {
+                                return;
+                            }
+                            // Silent: the next Klipper-ready or plugin edge asks again.
+                            plugin_status_inflight_ = false;
+                            spdlog::warn("[PLR] Plugin recovery status failed: {}", err.message);
+                        }));
+}
+
+void PlrOfferController::on_plr_feature_changed(int state) {
+    if (state != last_plr_feature_state_) {
+        last_plr_feature_state_ = state;
+        // Saving switched on or off changes the plugin's answer.
+        plugin_status_.reset();
+    }
+    publish_profile();
+    request_plugin_status();
+}
+
+void PlrOfferController::publish_profile() {
+    auto& ps = get_printer_state();
+    if (lv_subject_get_int(ps.network_state().get_printer_connection_state_subject()) !=
+        static_cast<int>(ConnectionState::CONNECTED)) {
+        return;
+    }
+    if (ps.plugin_status_state().plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion) ==
+        PluginFeatureState::Absent) {
+        return;
+    }
+    const std::string type = ps.profile_state().printer_type();
+    if (published_profile_type_ && *published_profile_type_ == type) {
+        return;
+    }
+    auto* api = get_moonraker_api();
+    if (!api) {
+        return;
+    }
+    published_profile_type_ = type;
+    // The plugin checks X/Y homing safety against configfile itself (§ 7.3);
+    // with no user tier override here, the app's answer gates nothing.
+    const PlrProfile profile = plr_resolve_profile(PrinterDetector::get_plr_block(type),
+                                                   PlrUserOverride{}, PlrHomingCheck{true, false});
+    spdlog::info("[PLR] Writing plr_profile for '{}' (tier {})", type, profile.tier);
+    plr_rpc::write_profile(
+        *api, plr_profile_json(profile),
+        [api]() {
+            // The plugin's verdict on saving follows the profile.
+            plr_rpc::refresh_features(*api);
+        },
+        [](const MoonrakerError& err) {
+            spdlog::warn("[PLR] Writing plr_profile failed: {}", err.message);
+        });
+}
+
+void PlrOfferController::on_plugin_status(const PlrPluginStatus& status) {
+    // An answer given while Klipper was still starting says nothing about the
+    // snapshot; keep asking until one is given with Klipper ready.
+    const bool klippy_not_ready = std::find(status.blocked_by.begin(), status.blocked_by.end(),
+                                            "klippy_not_ready") != status.blocked_by.end();
+    spdlog::info("[PLR] Plugin recovery status: backend={} tier={} offer={} snapshot='{}'",
+                 static_cast<int>(status.backend), status.tier, status.offer_available,
+                 status.snapshot ? status.snapshot->filename : std::string());
+    if (klippy_not_ready) {
+        return;
+    }
+    plugin_status_ = status;
+    evaluate_offer();
+}
+
 void PlrOfferController::on_connection_state_changed(int new_conn_state) {
     if (helix::plr_should_rearm(last_conn_state_, new_conn_state)) {
         spdlog::debug("[PLR] Connection dropped — re-arming recovery offer + probe latches");
@@ -256,6 +394,10 @@ void PlrOfferController::on_connection_state_changed(int new_conn_state) {
         // never survive into a session whose probe has not run.
         creality_detect_ = PlrDetectResult{};
         creality_recovery_file_.clear();
+        plugin_status_.reset();
+        plugin_status_inflight_ = false;
+        published_profile_type_.reset();
+        ++connection_generation_;
 
         // Force the PLR capability and availability subjects back to 0 (and
         // drop the stale recovery file) so the reconnect's full status
@@ -272,6 +414,8 @@ void PlrOfferController::on_connection_state_changed(int new_conn_state) {
         ps.print_state().clear_pl_recovery_file();
     }
     last_conn_state_ = new_conn_state;
+    publish_profile();
+    request_plugin_status();
 }
 
 void PlrOfferController::on_wizard_active_changed(int wizard_active) {

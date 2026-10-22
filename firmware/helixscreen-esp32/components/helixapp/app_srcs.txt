@@ -258,6 +258,9 @@ src/printer/layer_pause.cpp
 src/printer/fixed_tool_topology.cpp
 src/printer/plr_backend.cpp
 src/printer/plr_offer.cpp
+src/printer/plr_plugin_rpc.cpp
+src/printer/plr_profile.cpp
+src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp
 src/printer/toolchanger_addon.cpp
 src/printer/zmod_color_status.cpp
@@ -598,6 +601,7 @@ src/ui/print_select_button_view.cpp
 src/ui/ui_plr_offer_controller.cpp
 src/ui/ui_chamber_stall_prompt.cpp
 src/ui/ui_plr_prompt.cpp
+src/ui/ui_plr_wizard_overlay.cpp
 src/ui/ui_pin_entry_modal.cpp
 src/ui/ui_pin_utils.cpp
 src/ui/ui_plugin_install_modal.cpp
@@ -853,6 +857,7 @@ src/calibration/shaper_csv_parser.cpp
 # MOCK: src/api/moonraker_client_mock_server.cpp
 # MOCK: src/api/moonraker_client_mock_skips.cpp
 # MOCK: src/api/moonraker_client_mock_layer_pause.cpp
+# MOCK: src/api/moonraker_client_mock_plr.cpp
 # MOCK: src/printer/ams_backend_mock.cpp
 src/system/host_identity.cpp
 src/system/env_refusal_notice.cpp

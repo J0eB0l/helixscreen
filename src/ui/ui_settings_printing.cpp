@@ -18,6 +18,8 @@
 #include "ui_settings_motion.h"
 
 #include "app_globals.h"
+#include "i_moonraker_api.h"
+#include "plr_plugin_rpc.h"
 #include "post_op_cooldown_manager.h"
 #include "safety_settings_manager.h"
 #include "settings_manager.h"
@@ -79,6 +81,21 @@ void PrintingSettingsOverlay::register_callbacks() {
              get_global_retraction_settings().show(get_printing_settings_overlay().parent_screen_);
          }},
         {"on_timelapse_settings_clicked", [](lv_event_t*) { open_timelapse_settings(); }},
+        {"on_power_loss_recovery_changed",
+         [](lv_event_t* e) {
+             IMoonrakerAPI* api = get_moonraker_api();
+             if (!api) {
+                 return;
+             }
+             // The plugin's own verdict comes back through the features map,
+             // which is also what puts the switch right again after a failure.
+             plr_rpc::write_user(
+                 *api, event_checked(e), [api]() { plr_rpc::refresh_features(*api); },
+                 [api](const MoonrakerError& err) {
+                     spdlog::warn("[Settings] Writing plr_user failed: {}", err.message);
+                     plr_rpc::refresh_features(*api);
+                 });
+         }},
         {"on_macro_buttons_clicked",
          [](lv_event_t*) {
              get_macro_buttons_overlay().show(get_printing_settings_overlay().parent_screen_);
