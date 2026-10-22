@@ -53,7 +53,21 @@ class TaggedMock : public AmsBackendMock {
         return true;
     }
 
+    /// The unit as a box off the bus reports it: absent, its bays placeholders
+    /// that read empty.
+    [[nodiscard]] AmsSystemInfo get_system_info() const override {
+        AmsSystemInfo info = AmsBackendMock::get_system_info();
+        if (unit_absent && !info.units.empty()) {
+            info.units[0].absent = true;
+            for (auto& slot : info.units[0].slots) {
+                slot.status = SlotStatus::EMPTY;
+            }
+        }
+        return info;
+    }
+
     std::map<int, int> tag_ids;
+    bool unit_absent = false;
 };
 
 SpoolInfo make_spool(int id, std::string vendor) {
@@ -235,4 +249,35 @@ TEST_CASE_METHOD(TagLinkFixture, "a tag naming no spool leaves the lane alone", 
     CHECK(linked() == 0);
     CHECK(infos.empty());
     CHECK(warnings.empty());
+}
+
+TEST_CASE_METHOD(TagLinkFixture, "a box dropping off the bus and back is not a new insert",
+                 "[ams][tag_link]") {
+    SECTION("a pick made while the tag was seated survives") {
+        insert(kTaggedSpool);
+        REQUIRE(linked() == kTaggedSpool);
+        REQUIRE(AmsState::instance()
+                    .link_spool_to_slot(0, make_spool(kOtherSpool, "Sunlu"))
+                    .error.success());
+        frame();
+        REQUIRE(linked() == kOtherSpool);
+
+        backend->unit_absent = true;
+        frame();
+        backend->unit_absent = false;
+        frame();
+        CHECK(linked() == kOtherSpool);
+        CHECK(count_containing(infos, "#" + std::to_string(kTaggedSpool)) == 1);
+    }
+
+    SECTION("a tag naming no spool warns only once") {
+        insert(kMissingSpool);
+        REQUIRE(count_containing(warnings, "#" + std::to_string(kMissingSpool)) == 1);
+
+        backend->unit_absent = true;
+        frame();
+        backend->unit_absent = false;
+        frame();
+        CHECK(count_containing(warnings, "#" + std::to_string(kMissingSpool)) == 1);
+    }
 }

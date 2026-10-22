@@ -655,7 +655,9 @@ void AmsState::sync_from_backend() {
         }
     }
     for (int i = 0; i < info.total_slots; ++i) {
-        if (const SlotInfo* slot = info.get_slot_global(i)) {
+        // An absent box's bays are placeholders that read empty, which is not
+        // a removal: the spool in them never left.
+        if (const SlotInfo* slot = info.get_slot_global(i); slot && !info.slot_absent(i)) {
             sync_tag_spool_link(*backend, i, *slot);
         }
     }
@@ -1546,7 +1548,9 @@ void AmsState::update_slot(int slot_index) {
             }
         }
 
-        sync_tag_spool_link(*backend, slot_index, slot);
+        if (const auto info = read_system_info(0); info && !info->slot_absent(slot_index)) {
+            sync_tag_spool_link(*backend, slot_index, slot);
+        }
 
         spdlog::trace("[AMS State] Updated slot {} - color=0x{:06X}, status={}", slot_index,
                       slot.color_rgb, slot_status_to_string(slot.status));
