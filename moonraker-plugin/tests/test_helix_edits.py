@@ -184,6 +184,7 @@ class TestParse:
         [_edit(0, "tool_remap", map={"0": -1})],
         [_edit(0, "tool_remap", map={"0": "1"})],
         [_edit(1, "tool_remap", map={"0": 1})],
+        [_edit(False, "tool_remap", map={"0": 1})],
         [_edit(0, "tool_remap", "T0", map={"0": 1})],
         [_edit(0, "tool_remap", map={"0": 1}), _edit(1, "delete")],
     ])

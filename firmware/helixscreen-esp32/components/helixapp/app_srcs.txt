@@ -781,6 +781,7 @@ src/rendering/nozzle_renderer_stealthburner.cpp
 src/rendering/gcode_parser.cpp
 src/rendering/gcode_ops_detector.cpp
 src/rendering/gcode_footer_summary.cpp
+src/rendering/gcode_edit_list.cpp
 src/rendering/gcode_file_modifier.cpp
 src/rendering/gcode_tool_remapper.cpp
 src/rendering/gcode_color_metadata.cpp

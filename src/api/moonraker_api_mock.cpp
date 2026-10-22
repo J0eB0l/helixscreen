@@ -362,6 +362,39 @@ void helix::MoonrakerJobAPIMock::start_modified_print(const std::string& origina
     }
 }
 
+void helix::MoonrakerJobAPIMock::start_edited_print(const std::string& original_filename,
+                                                    const std::string& temp_file_path,
+                                                    const json& edits,
+                                                    const std::vector<std::string>& modifications,
+                                                    ModifiedPrintCallback on_success,
+                                                    ErrorCallback on_error) {
+    if (refused_by_spool_latch("server.helix.print_edited", on_error)) {
+        return;
+    }
+    edited_prints_.push_back({original_filename, temp_file_path, edits, modifications});
+
+    spdlog::info("[MoonrakerAPIMock] Mock start_edited_print: original='{}', temp='{}', "
+                 "{} edit(s)",
+                 original_filename, temp_file_path, edits.size());
+
+    if (fail_modified_prints_) {
+        if (on_error) {
+            on_error(MoonrakerError::unknown("Mock plugin rejected: " + temp_file_path,
+                                             "start_edited_print"));
+        }
+        return;
+    }
+
+    if (on_success) {
+        ModifiedPrintResult result;
+        result.original_filename = original_filename;
+        result.print_filename = original_filename;
+        result.temp_filename = temp_file_path;
+        result.status = "printing";
+        on_success(result);
+    }
+}
+
 namespace {
 
 /// The toolchanger persona's firmware filament tables: the U1's `filament_parameters`

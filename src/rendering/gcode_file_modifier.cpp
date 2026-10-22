@@ -251,9 +251,11 @@ ModificationResult GCodeFileModifier::apply_buffered(const std::string& filepath
     // Read all lines
     std::vector<std::string> lines;
     std::string line;
+    bool ended_with_newline = false;
     while (infile.next(line)) {
         lines.push_back(line);
         result.original_size += line.size() + 1; // +1 for newline
+        ended_with_newline = infile.last_had_delimiter();
     }
 
     spdlog::info("[GCodeFileModifier] Loaded {} lines ({} bytes) from {}", lines.size(),
@@ -273,7 +275,7 @@ ModificationResult GCodeFileModifier::apply_buffered(const std::string& filepath
 
         for (size_t i = 0; i < lines.size(); ++i) {
             helix::text_io::write_all(outfile.get(), lines[i]);
-            if (i + 1 < lines.size()) {
+            if (i + 1 < lines.size() || ended_with_newline) {
                 std::fputc('\n', outfile.get());
             }
         }
@@ -313,7 +315,7 @@ ModificationResult GCodeFileModifier::apply_buffered(const std::string& filepath
     for (size_t i = 0; i < lines.size(); ++i) {
         helix::text_io::write_all(outfile.get(), lines[i]);
         result.modified_size += lines[i].size();
-        if (i + 1 < lines.size()) {
+        if (i + 1 < lines.size() || ended_with_newline) {
             std::fputc('\n', outfile.get());
             result.modified_size++;
         }
@@ -390,10 +392,12 @@ ModificationResult GCodeFileModifier::apply_streaming(const std::string& filepat
     std::string line;
     size_t line_number = 0;
     bool first_line = true;
+    bool ended_with_newline = false;
 
     while (infile.next(line)) {
         line_number++;
         result.original_size += line.size() + 1;
+        ended_with_newline = infile.last_had_delimiter();
 
         // Check if this line has a modification
         auto it = lookup.find(line_number);
@@ -500,6 +504,12 @@ ModificationResult GCodeFileModifier::apply_streaming(const std::string& filepat
         }
     }
 
+    // Klipper's virtual_sdcard never runs a final line the file does not
+    // terminate, so the copy ends the way its source did.
+    if (!first_line && ended_with_newline) {
+        std::fputc('\n', outfile.get());
+        result.modified_size++;
+    }
     helix::text_io::close(outfile);
 
     result.success = true;

@@ -158,7 +158,7 @@ def parse_edits(edits: Any) -> EditPlan:
         if action == "tool_remap":
             if len(edits) != 1:
                 raise EditError("tool_remap must be the only edit in its list")
-            if line_number != 0 or expect:
+            if not _is_int(line_number) or line_number != 0 or expect:
                 raise EditError("tool_remap applies to the whole file: line_number 0, no expect")
             remap = _parse_map(args["map"], index)
             continue
