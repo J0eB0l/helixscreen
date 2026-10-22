@@ -315,6 +315,12 @@ class DisplayManager : public helix::ICalibrationSink {
         return m_sleep.is_dimmed();
     }
 
+    /// A pointer that does not pass through the sleep-aware wrapper reports a press. True
+    /// means it is the wake touch, which the caller hides from LVGL until it lifts.
+    bool note_wake_press(int x, int y) {
+        return m_sleep.note_press(x, y);
+    }
+
     /**
      * @brief Set backlight brightness directly
      * @param percent Brightness 0-100 (clamped to 10-100 minimum)
