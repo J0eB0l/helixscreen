@@ -33,16 +33,4 @@ inline const char* modal_title_for(const helix::ErrorEvent& e) {
     return lv_tr("Printer Error");
 }
 
-/// Maps RecoveryAction.style to PromptButton.color.
-/// "primary" -> "primary", "danger" -> "error", anything else -> "" (neutral).
-inline std::string color_for_style(const std::string& style) {
-    if (style == "primary") {
-        return "primary";
-    }
-    if (style == "danger") {
-        return "error";
-    }
-    return ""; // neutral / theme default
-}
-
 } // namespace helix::ui

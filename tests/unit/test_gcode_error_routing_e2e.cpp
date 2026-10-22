@@ -175,8 +175,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 //
 // Unlike the generic PresentAs::MODAL arm above (which terminates in the
 // ui_notification_error STUB), present_recovery_modal() drives the recovery
-// case through helix::ui::ActionPromptModal::show_prompt() DIRECTLY — that
-// modal layer (ui_modal.o + action_prompt_modal XML) is NOT stubbed in the
+// case through helix::ui::RecoveryFaultModal::show_fault() DIRECTLY — that
+// modal layer (ui_modal.o + recovery_fault_modal XML) is NOT stubbed in the
 // test binary. So this integration test can assert the modal is genuinely on
 // screen, closing the glue gap that the unit tests (classify_error /
 // decide_presentation / build_recovery_prompt in isolation) leave open.
@@ -184,7 +184,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 // The chain exercised end-to-end:
 //   process_line(jam) → AmsBackendAfc::classify_error → CRITICAL+AFC+actions
 //   → decide_presentation == MODAL_WITH_RECOVER → present_recovery_modal
-//   → ActionPromptModal::show_prompt(lv_screen_active(), prompt)
+//   → RecoveryFaultModal::show_fault(lv_screen_active(), title, detail, actions)
 //
 // Regression value: the two review-caught bugs lived right here — lost
 // severity styling (icon_error hidden) and stuck dedup (modal never reshows).
@@ -236,7 +236,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     // Drive the REAL glue. The presenter now shows the modal regardless of
     // api_; api() is only needed if the user taps a recovery button (the
     // button-tap gcode callback is guarded on api_). It provides a real
-    // MoonrakerAPI here so the show_prompt arm and tap path both exercise.
+    // MoonrakerAPI here so the show_fault arm and tap path both exercise.
     helix::ui::RecoveryModalPresenter presenter2(api());
     helix::GcodeErrorRouter router(api(), client(), presenter2);
     REQUIRE_NOTHROW(GcodeErrorRouterTestAccess::process_line(router, kAfcJam));
@@ -244,8 +244,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     process_lvgl(50);
 
     // ---- Assert the recovery modal is actually on screen ----
-    // present_recovery_modal sets the title from e.title ("Toolhead jam") and
-    // populate_content() writes it into the label named "dialog_title". Walk the live
+    // present_recovery_modal passes e.title ("Toolhead jam") as the dialog's
+    // title, which lands in the label named "dialog_title". Walk the live
     // widget tree from the active screen — recovery_modal_ is private, so we
     // observe via the rendered tree, which is the user-visible proof.
     REQUIRE(Modal::any_visible());
@@ -255,8 +255,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     const char* title = find_text_containing(screen, "Toolhead jam");
     REQUIRE(title != nullptr);
 
-    // Severity affordance regression guard (review bug #1): the error icon must
-    // be VISIBLE because present_recovery_modal forces prompt.severity="error".
+    // Severity affordance: the fault dialog always shows the danger icon.
     lv_obj_t* err_icon = lv_obj_find_by_name(screen, "icon_error");
     REQUIRE(err_icon != nullptr);
     REQUIRE_FALSE(lv_obj_has_flag(err_icon, LV_OBJ_FLAG_HIDDEN));
@@ -279,7 +278,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 // The chain exercised end-to-end:
 //   process_line(jam) → AmsBackendHappyHare::classify_error → CRITICAL+HH+actions
 //   → decide_presentation == MODAL_WITH_RECOVER → present_recovery_modal
-//   → ActionPromptModal::show_prompt(lv_screen_active(), prompt)
+//   → RecoveryFaultModal::show_fault(lv_screen_active(), title, detail, actions)
 //
 // The Happy Hare backend fires classify_error when:
 //   (a) ctx.is_paused is true, AND
@@ -358,7 +357,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "Routing E2E: Happy Hare runout pause routes
     }
 
     // Drive the REAL glue end-to-end. api() is non-null so present_recovery_modal
-    // runs the show_prompt arm (not the ui_notification_error arm).
+    // runs the show_fault arm (not the ui_notification_error arm).
     helix::ui::RecoveryModalPresenter presenter3(api());
     helix::GcodeErrorRouter router(api(), client(), presenter3);
     REQUIRE_NOTHROW(GcodeErrorRouterTestAccess::process_line(router, "!! Runout detected"));

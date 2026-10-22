@@ -6,19 +6,20 @@
  *
  * Run with: ./build/bin/helix-tests "[afc][fault][modal]"
  *
- * Two modals can show an AFC lane fault and both are wired:
- *   - RecoveryModalPresenter -> ActionPromptModal   (the `!!` / GcodeErrorRouter path)
+ * Three modals can show an AFC lane fault and all are wired:
+ *   - RecoveryModalPresenter -> RecoveryFaultModal  (the `!!` / GcodeErrorRouter path)
  *   - AmsPanel -> AmsLoadingErrorModal              (the AmsAction::ERROR path)
+ *   - ActionPromptModal                             (Klipper's own action:prompt)
  *
- * Both hand their text through helix::ui::afc_fault_path_apply(), which publishes
- * the stop point to `afc_fault_segment`, and ActionPromptModal publishes from its
- * own text again before it builds, so any action:prompt shows the strip only for
+ * The first two hand their text through helix::ui::afc_fault_path_apply(), which
+ * publishes the stop point to `afc_fault_segment`; ActionPromptModal publishes
+ * from its own text before it builds, so any action:prompt shows the strip only for
  * the fault its text names. `<afc_fault_path/>` in each modal's XML binds
  * `hidden` to 0, so the safety property (an unrecognised message renders
  * exactly as it would with no diagram at all) is one assertion away.
  *
  * Mutation checks (each must break the listed test):
- *   - drop the afc_fault_path_apply() call from RecoveryModalPresenter::present()
+ *   - drop the afc_fault_path_apply() call from RecoveryFaultModal::show_fault()
  *     -> "the recovery modal shows the graphic for a recognised AFC fault" fails
  *   - make afc_fault_path_apply() leave the subject alone when unrecognised
  *     -> "an unrecognised fault leaves no graphic behind" fails
@@ -94,12 +95,11 @@ helix::ErrorEvent make_event(const std::string& detail) {
     return e;
 }
 
-/// Text of the first label the modal created for PromptData::text_lines.
-std::string prompt_body_text(lv_obj_t* screen) {
-    lv_obj_t* container = lv_obj_find_by_name(screen, "content_container");
-    REQUIRE(container != nullptr);
-    REQUIRE(lv_obj_get_child_count(container) > 0);
-    return lv_label_get_text(lv_obj_get_child(container, 0));
+/// The fault dialog's message text.
+std::string fault_body_text(lv_obj_t* screen) {
+    lv_obj_t* message = lv_obj_find_by_name(screen, "dialog_message");
+    REQUIRE(message != nullptr);
+    return lv_label_get_text(message);
 }
 
 } // namespace
@@ -191,7 +191,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "the fault position is named in words, not o
 }
 
 // ============================================================================
-// RecoveryModalPresenter -> ActionPromptModal (the `!!` path)
+// RecoveryModalPresenter -> RecoveryFaultModal (the `!!` path)
 // ============================================================================
 
 TEST_CASE_METHOD(LVGLUITestFixture,
@@ -207,7 +207,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     CHECK(graphic_visible(screen));
     CHECK(fault_segment() == static_cast<int>(helix::PathSegment::OUTPUT));
     // The art rows are gone; the sentence survives.
-    CHECK(prompt_body_text(screen) == kPreGearSentence);
+    CHECK(fault_body_text(screen) == kPreGearSentence);
 
     presenter.dismiss();
     process_lvgl(20);
@@ -231,7 +231,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "an unrecognised fault leaves no graphic beh
     lv_obj_t* screen = lv_screen_active();
     CHECK_FALSE(graphic_visible(screen));
     // ...and the message is rendered exactly as it always was.
-    CHECK(prompt_body_text(screen) == kUnknownFault);
+    CHECK(fault_body_text(screen) == kUnknownFault);
 
     presenter.dismiss();
     process_lvgl(20);

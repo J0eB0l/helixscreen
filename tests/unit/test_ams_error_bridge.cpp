@@ -666,8 +666,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 // ams_action_detail change, and AmsState::recompute_action_detail() notifies on
 // any strcmp difference — so a latched fault re-reaches present() on every
 // cosmetic wording change the backend makes. Meanwhile a dismiss-only event
-// carries a single {"OK", ""} action, and ActionPromptModal treats an empty
-// gcode as "close, send nothing": the tap never reaches the presenter's gcode
+// carries a single {"OK", ""} action, and RecoveryFaultModal treats an empty
+// gcode as "close, send nothing": the tap never reaches the presenter's action
 // callback. With the presenter's only dedup keyed on the modal still being
 // visible, the dialog the user just closed came straight back.
 // ============================================================================
