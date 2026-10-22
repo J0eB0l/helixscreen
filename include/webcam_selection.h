@@ -42,6 +42,8 @@ namespace helix {
 
 /// The name the built-in screen server registers its webcam under (#1825).
 constexpr const char* kRemoteScreenWebcamName = "HelixScreen Screen";
+/// The `extra_data` key a screen server's entry carries.
+constexpr const char* kRemoteScreenWebcamMarker = "helixscreen_screen";
 
 namespace webcam {
 

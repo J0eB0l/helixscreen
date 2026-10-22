@@ -5,6 +5,7 @@
 
 #include "printer_network_state.h"
 
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -20,7 +21,8 @@ class IMoonrakerAPI;
  * One entry: an iframe of the control page when control is on (tap-to-control
  * inside Mainsail/Fluidd's webcam panel), the MJPEG stream when view only.
  * Behind nginx the URLs are relative to @p route; facing the LAN they are
- * absolute on @p lan_ip:@p port.
+ * absolute on @p lan_ip:@p port. `extra_data` carries kRemoteScreenWebcamMarker so the
+ * entry is recognizable under any name.
  *
  * @return the item for server.webcams.post_item, or nullopt when no entry should
  *         exist: sharing off, or LAN mode with no address a browser could reach.
@@ -37,6 +39,23 @@ std::string remote_screen_webcam_name(bool moonraker_on_this_host, const std::st
 /// this host's nginx guarding this host's Moonraker; a screen pointed at another
 /// printer faces the LAN with pairing.
 std::string remote_screen_effective_route(bool moonraker_remote, const std::string& route);
+
+/**
+ * @brief Make Moonraker's webcam list hold the screen's entry, or not, tracking it by the
+ *        uid Moonraker assigned so the user can rename it freely.
+ *
+ * With @p item (sharing on): a known uid refreshes that entry's URLs and keeps its name;
+ * a 404 means the user deleted it, and it stays deleted until sharing is turned off and
+ * on again. With no uid, an entry named @p name or showing the item's snapshot URL is
+ * adopted, else a new one is added. Without @p item (sharing off): the entry is removed
+ * and its uid forgotten.
+ *
+ * @param store_uid receives the uid to remember ("" to forget), on Moonraker's callback
+ *        thread.
+ */
+void reconcile_remote_screen_webcam(IMoonrakerAPI& api, const std::optional<nlohmann::json>& item,
+                                    const std::string& name, const std::string& known_uid,
+                                    std::function<void(const std::string&)> store_uid);
 
 /// Make Moonraker's webcam list match the screen server: post the entry while it is
 /// serving (refreshing the address on every connect), delete a listed one otherwise.
