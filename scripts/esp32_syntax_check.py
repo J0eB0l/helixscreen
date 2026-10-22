@@ -11,7 +11,9 @@ This compiles, -fsyntax-only, every firmware translation unit whose source
 changed between BASE and HEAD, plus every firmware unit that directly includes
 a changed header, inside the espressif/idf image. Flags come from a
 configure-only firmware build cached under ~/.cache, keyed on the firmware's
-CMake inputs, so a push that does not touch them pays no configure.
+CMake inputs, so a push that does not touch them pays no configure. A source
+that two components compile (helixnet and helixapp share a few) is checked
+once per component, with that component's include path: helixnet has no LVGL.
 
 Advisory, never blocking, when it cannot answer: no docker, no IDF image (it is
 not pulled, ~9GB), or the configure fails. esp32-build CI stays the backstop.
@@ -74,6 +76,25 @@ def compile_args(entry):
     return out + ["-fsyntax-only"]
 
 
+def firmware_units(entries, src_root):
+    """{relpath: [entry, ...]} for the sources under src_root, one entry per component."""
+    units = {}
+    for entry in entries:
+        f = entry["file"]
+        if f.startswith(src_root + "/") and f.endswith(SOURCE_EXTS):
+            units.setdefault(f[len(src_root) + 1:], []).append(entry)
+    return units
+
+
+COMPONENT_RE = re.compile(r"(?:^|[/\s])esp-idf/([^/]+)/")
+
+
+def component_of(entry):
+    """The ESP-IDF component an entry compiles for, from its object path."""
+    m = COMPONENT_RE.search(entry.get("output") or entry["command"])
+    return m.group(1) if m else "?"
+
+
 def rebase_path(tok, src_root, tree, *fallback_roots):
     """Point every path under the configured source root at the tree being checked.
 
@@ -101,7 +122,7 @@ def rebase_path(tok, src_root, tree, *fallback_roots):
 def select_units(units, changed, read_source, one_per_header=False):
     """Relative paths of the units to check.
 
-    units: {relpath: entry}; changed: relpaths; read_source(rel) -> text.
+    units: {relpath: [entry, ...]}; changed: relpaths; read_source(rel) -> text.
     A changed source is checked if the firmware compiles it. A changed header
     is checked through the units that include it directly, or with
     one_per_header through a single one of them, preferring a unit already
@@ -235,11 +256,7 @@ def main():
         if not configure(tree, cache, mounts):
             return 0
     src_root = (cache / "source_root.txt").read_text().strip()
-    units = {}
-    for entry in json.loads((cache / "compile_commands.json").read_text()):
-        f = entry["file"]
-        if f.startswith(src_root + "/") and f.endswith(SOURCE_EXTS):
-            units[f[len(src_root) + 1:]] = entry
+    units = firmware_units(json.loads((cache / "compile_commands.json").read_text()), src_root)
 
     overlay = None
     source_tree, fallbacks = tree, (primary,)
@@ -265,14 +282,17 @@ def check_units(args, units, changed, src_root, source_tree, fallbacks, cache, m
         return 0
     specs = []
     for rel in picked:
-        entry = units[rel]
-        specs.append({"rel": rel, "cwd": entry["directory"],
-                      "args": [rebase_path(t, src_root, source_tree, *fallbacks)
-                               for t in compile_args(entry)]})
+        entries = units[rel]
+        for entry in entries:
+            label = rel if len(entries) == 1 else f"{rel} [{component_of(entry)}]"
+            specs.append({"rel": label, "cwd": entry["directory"],
+                          "args": [rebase_path(t, src_root, source_tree, *fallbacks)
+                                   for t in compile_args(entry)]})
     jobs_file = cache / f"jobs-{os.getpid()}.json"
     jobs_file.write_text(json.dumps(specs))
     jobs = args.jobs or max(2, (os.cpu_count() or 4) // 4)
-    print(f"🔧 esp32 syntax check: {len(specs)} firmware unit(s), -j{jobs}...")
+    print(f"🔧 esp32 syntax check: {len(specs)} firmware compile(s) of {len(picked)} "
+          f"unit(s), -j{jobs}...")
     try:
         res = subprocess.run(docker_base(mounts + [str(cache)]) + [
             "bash", "-c", ". /opt/esp/idf/export.sh >/dev/null 2>&1; python3 " +
@@ -286,7 +306,7 @@ def check_units(args, units, changed, src_root, source_tree, fallbacks, cache, m
         print(f"⚠️  esp32 syntax check could not run, skipping\n{res.stderr[-800:]}")
         return 0
     if not failed:
-        print(f"✅ esp32 syntax check: {len(specs)} firmware unit(s) compile")
+        print(f"✅ esp32 syntax check: {len(picked)} firmware unit(s) compile")
         return 0
     for f in failed:
         errors = [l for l in f["out"].splitlines() if "error" in l][:8]
