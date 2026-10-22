@@ -291,8 +291,8 @@ JSON-RPC -32601): treat that as "no device-side converter".
 
 ### File Analysis
 
-Feature `file_analysis` (version 1). It only observes, so it is on unless
-`plugin_features` sets it `false`.
+Feature `file_analysis` (version 1). It only observes, so it has no switch: it
+runs whenever the plugin is installed and enabled.
 
 Every G-code file under `gcodes` (dot directories and dot files excepted) gets
 one analysis record, written in the background after it is uploaded, changed or

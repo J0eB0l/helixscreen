@@ -193,3 +193,28 @@ TEST_CASE("a streaming open takes its index from a matching sidecar",
         CHECK(controller.get_index_stats().total_lines > 0);
     }
 }
+
+TEST_CASE("layer records after the complete line are not part of the index",
+          "[plugin_file_analysis][layer_index]") {
+    std::string sidecar = slurp(kSidecar);
+    const uint64_t size = size_of(slurp(kGcode));
+    // A follower that appended after analysis renamed its index in repeats layers.
+    std::string layers;
+    size_t pos = sidecar.find('\n') + 1;
+    while (true) {
+        const size_t end = sidecar.find('\n', pos);
+        if (end == std::string::npos) {
+            break;
+        }
+        const std::string line = sidecar.substr(pos, end - pos + 1);
+        if (line.rfind("{\"layer\"", 0) == 0) {
+            layers += line;
+        }
+        pos = end + 1;
+    }
+    REQUIRE_FALSE(layers.empty());
+    sidecar += layers;
+    GCodeLayerIndex index;
+    REQUIRE(index.build_from_sidecar(sidecar, size, hash(), kGcode));
+    CHECK(index.get_layer_count() == 3);
+}

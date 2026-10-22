@@ -860,8 +860,10 @@ bool GCodeLayerIndex::build_from_sidecar(std::string_view sidecar, uint64_t file
             continue;
         }
         if (json_util::safe_bool(record, "complete", false)) {
+            // Anything after the close is a late writer's appends, never part of the index.
             complete = true;
             end_offset = json_util::safe_uint64(record, "end_offset", file_size);
+            break;
         } else if (const json* lines = json_util::find_member(record, "progress_lines")) {
             if (lines->is_array()) {
                 for (const auto& entry : *lines) {
