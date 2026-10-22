@@ -10,13 +10,16 @@
 
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/config_test_access.h"
+#include "../test_helpers/display_manager_test_access.h"
 #include "../test_helpers/raw_http_client.h"
 #include "config.h"
+#include "display_manager.h"
 #include "moonraker_api.h"
 #include "moonraker_client_mock.h"
 #include "printer_state.h"
 #include "remote_pointer.h"
 #include "remote_screen_control.h"
+#include "remote_screen_http_server.h"
 #include "remote_screen_server_sink.h"
 #include "remote_screen_service.h"
 #include "remote_screen_settings_manager.h"
@@ -170,6 +173,35 @@ TEST_CASE_METHOD(RemoteScreenFixture,
     CHECK_FALSE(svc.store()->wants_frames());
 }
 
+TEST_CASE_METHOD(RemoteScreenFixture, "service: only the viewer page's poll makes a viewer active",
+                 "[remote_screen][settings][remote_viewer]") {
+    auto& svc = RemoteScreenService::instance();
+    RemoteScreenSettingsManager::instance().set_enabled(true);
+    svc.init(nullptr);
+    REQUIRE(svc.running());
+    CHECK_FALSE(svc.viewer_active());
+
+    // The page's info poll keeps running in a hidden tab.
+    REQUIRE(helix::test::raw_http(svc.port(), "GET", "/info").status == 200);
+    CHECK_FALSE(svc.viewer_active());
+
+    // A webcam integration polling the snapshot. Nothing captured yet answers 503.
+    int status = helix::test::raw_http(svc.port(), "GET", "/snapshot.jpg").status;
+    REQUIRE((status == 200 || status == 503));
+    REQUIRE(svc.store()->wants_frames());
+    CHECK_FALSE(svc.viewer_active());
+
+    status = helix::test::raw_http(svc.port(), "GET",
+                                   std::string("/snapshot.jpg?") + kViewerPageParam + "=1")
+                 .status;
+    REQUIRE((status == 200 || status == 503));
+    CHECK(svc.viewer_active());
+
+    // A stopped server has no viewer, however recent the last poll.
+    RemoteScreenSettingsManager::instance().set_enabled(false);
+    CHECK_FALSE(svc.viewer_active());
+}
+
 TEST_CASE_METHOD(RemoteScreenFixture, "service: firmware-provided screen never starts",
                  "[remote_screen][settings]") {
     ::setenv("HELIX_REMOTE_SCREEN", "firmware", 1);
@@ -243,8 +275,16 @@ struct TouchFixture : RemoteScreenFixture {
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
         while (status.load() == 0 && std::chrono::steady_clock::now() < deadline) {
             helix::ui::UpdateQueue::instance().drain();
+            // An idle tick can run after the HTTP update but before the next
+            // indev sample. A transport must not wake the display ahead of its gate.
+            if (auto* dm = DisplayManager::instance()) {
+                dm->check_display_sleep();
+            }
             for (lv_indev_t* i = lv_indev_get_next(nullptr); i; i = lv_indev_get_next(i)) {
                 lv_indev_read(i);
+            }
+            if (auto* dm = DisplayManager::instance()) {
+                dm->check_display_sleep();
             }
             lv_tick_inc(5);
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -256,7 +296,82 @@ struct TouchFixture : RemoteScreenFixture {
 
 std::atomic<int> g_clicks{0};
 
+struct WakeTouchFixture : TouchFixture {
+    DisplayManager* previous = DisplayManager::instance();
+    DisplayManager display;
+
+    WakeTouchFixture() {
+        DisplayManagerTestAccess::set_active_instance(&display);
+        display.set_dim_timeout(600);
+    }
+    ~WakeTouchFixture() override {
+        DisplayManagerTestAccess::set_display_sleeping(display, false);
+        DisplayManagerTestAccess::set_display_dimmed(display, false);
+        DisplayManagerTestAccess::set_active_instance(previous);
+    }
+
+    void go_idle(bool dimmed) {
+        lv_display_trigger_activity(nullptr);
+        lv_tick_inc(5000);
+        DisplayManagerTestAccess::set_display_sleeping(display, !dimmed);
+        DisplayManagerTestAccess::set_display_dimmed(display, dimmed);
+        display.check_display_sleep();
+        REQUIRE((display.is_display_sleeping() || display.is_display_dimmed()));
+    }
+
+    void settle_release() {
+        // Let the same debounce window as the physical touchscreen elapse.
+        lv_tick_inc(WakeTouchLatch::kRearmMs + 1);
+        for (lv_indev_t* i = lv_indev_get_next(nullptr); i; i = lv_indev_get_next(i)) {
+            lv_indev_read(i);
+        }
+    }
+};
+
 } // namespace
+
+TEST_CASE_METHOD(WakeTouchFixture, "remote wake gesture never reaches the button underneath",
+                 "[remote_screen][control][wake]") {
+    const bool dimmed = GENERATE(false, true);
+    const bool held = GENERATE(false, true);
+    CAPTURE(dimmed, held);
+    lv_obj_t* btn = lv_button_create(lv_screen_active());
+    lv_obj_set_pos(btn, 100, 100);
+    lv_obj_set_size(btn, 80, 60);
+    lv_obj_update_layout(btn);
+    int pressed = 0, clicked = 0, long_pressed = 0;
+    lv_obj_add_event_cb(
+        btn, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
+        LV_EVENT_PRESSED, &pressed);
+    lv_obj_add_event_cb(
+        btn, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
+        LV_EVENT_CLICKED, &clicked);
+    lv_obj_add_event_cb(
+        btn, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
+        LV_EVENT_LONG_PRESSED, &long_pressed);
+    go_idle(dimmed);
+
+    REQUIRE(touch("down", 140, 130) == 204);
+    CHECK_FALSE(display.is_display_sleeping());
+    CHECK_FALSE(display.is_display_dimmed());
+    CHECK(pressed == 0);
+    if (held) {
+        // Holding past the debounce window cannot turn the same wake into a press.
+        lv_tick_inc(1000);
+        REQUIRE(touch("move", 145, 135) == 204);
+    }
+    REQUIRE(touch("up", 145, 135) == 204);
+    CHECK(pressed == 0);
+    CHECK(clicked == 0);
+    CHECK(long_pressed == 0);
+
+    settle_release();
+    REQUIRE(touch("down", 140, 130) == 204);
+    REQUIRE(touch("up", 140, 130) == 204);
+    CHECK(pressed == 1);
+    CHECK(clicked == 1);
+    lv_obj_delete(btn);
+}
 
 TEST_CASE_METHOD(TouchFixture, "touch through LVGL: down/up at a button center fires CLICKED",
                  "[remote_screen][control]") {

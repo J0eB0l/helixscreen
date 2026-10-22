@@ -398,6 +398,9 @@ void DisplaySleepController::tick() {
     in.can_dim = backlight && backlight->supports_dimming();
     in.wake_requested = m_wake_requested;
     in.host_resumed = resumed_from_host_sleep;
+    in.remote_viewer = m_host.remote_viewer_active && m_host.remote_viewer_active();
+    in.remote_viewer_arrived = in.remote_viewer && !m_remote_viewer_seen;
+    m_remote_viewer_seen = in.remote_viewer;
 #if HELIX_ENABLE_SCREENSAVER
     in.has_screensaver = ScreensaverManager::configured_type() != ScreensaverType::OFF;
     in.saver_running = m_screensaver_active;
@@ -409,10 +412,29 @@ void DisplaySleepController::tick() {
     // the wrapper is not installed because it breaks mouse device identification).
     // Two-stage idle (#1049): Dim lowers the backlight and/or starts the screensaver,
     // Sleep blanks or powers off. Both timeouts run from the same idle clock.
-    switch (helix::decide_idle(in).action) {
+    const helix::IdleDecision decision = helix::decide_idle(in);
+    if (decision.sleep_held != m_remote_sleep_held) {
+        m_remote_sleep_held = decision.sleep_held;
+        if (decision.sleep_held) {
+            // Holding at dim needs something to dim with, or a display already dimmed.
+            const bool can_hold_dim =
+                in.state == helix::IdleState::Dimmed || in.can_dim || in.has_screensaver;
+            spdlog::info("[DisplaySleep] Remote screen viewer present: holding {} instead of "
+                         "sleeping after {}s",
+                         can_hold_dim ? "at dim" : "awake", inactive_ms / 1000);
+        } else {
+            spdlog::info("[DisplaySleep] Remote screen sleep hold released ({})",
+                         in.remote_viewer ? "display active again" : "viewer gone");
+        }
+    }
+
+    switch (decision.action) {
     case helix::IdleAction::None:
         break;
     case helix::IdleAction::Wake:
+        if (in.remote_viewer_arrived && in.state == helix::IdleState::Sleeping) {
+            spdlog::info("[DisplaySleep] Remote screen viewer opened the screen; waking display");
+        }
         m_wake_requested = false;
         m_wake_from_input = true;
         wake();
@@ -435,7 +457,12 @@ void DisplaySleepController::tick() {
             // setting wins.
             backlight->set_brightness(std::max(m_dim_brightness_percent, 50));
         }
-        spdlog::info("[DisplaySleep] Screensaver started after {}s inactivity", m_dim_timeout_sec);
+        if (decision.sleep_held) {
+            spdlog::info("[DisplaySleep] Screensaver started in place of sleep (remote viewer)");
+        } else {
+            spdlog::info("[DisplaySleep] Screensaver started after {}s inactivity",
+                         m_dim_timeout_sec);
+        }
 #endif
         break;
     case helix::IdleAction::Dim:
@@ -443,8 +470,13 @@ void DisplaySleepController::tick() {
         if (backlight) {
             backlight->set_brightness(m_dim_brightness_percent);
         }
-        spdlog::info("[DisplaySleep] Display dimmed to {}% after {}s inactivity",
-                     m_dim_brightness_percent, m_dim_timeout_sec);
+        if (decision.sleep_held) {
+            spdlog::info("[DisplaySleep] Display dimmed to {}% in place of sleep (remote viewer)",
+                         m_dim_brightness_percent);
+        } else {
+            spdlog::info("[DisplaySleep] Display dimmed to {}% after {}s inactivity",
+                         m_dim_brightness_percent, m_dim_timeout_sec);
+        }
         break;
     }
 }

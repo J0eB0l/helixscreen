@@ -356,6 +356,7 @@ void FilamentMappingModal::on_slot_selected(int tool_index,
     mapping.mapped_slot = selection.slot_index;
     mapping.mapped_backend = selection.backend_index;
     mapping.is_auto = selection.is_auto;
+    mapping.user_picked = true;
 
     // A hand-picked lane is a new pairing, so the old warnings are stale. Clear
     // them first: "auto", and a lane that is no longer present, both leave no

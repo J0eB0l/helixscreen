@@ -3,11 +3,10 @@
 
 #pragma once
 
-#include "action_prompt_manager.h" // PromptData / PromptButton
-#include "action_prompt_modal.h"   // helix::ui::ActionPromptModal
 #include "async_lifetime_guard.h"
 #include "error_event.h"
 #include "lvgl.h"
+#include "recovery_fault_modal.h"
 
 #include <memory>
 #include <string>
@@ -119,15 +118,15 @@ class RecoveryModalPresenter {
     static void preheat_timer_cb(lv_timer_t* timer);
 
     IMoonrakerAPI* api_;
-    std::unique_ptr<helix::ui::ActionPromptModal> modal_;
+    std::unique_ptr<helix::ui::RecoveryFaultModal> modal_;
     std::string shown_detail_;
     std::vector<helix::RecoveryAction> active_actions_;
 
     // === The user's answer to the fault currently being shown ===
     //
-    // A dismiss-only event carries one {"OK", ""} action; ActionPromptModal
+    // A dismiss-only event carries one {"OK", ""} action; RecoveryFaultModal
     // treats an empty gcode as "close and send nothing", so the tap never
-    // reaches our gcode callback. Nothing else in this class can see that the
+    // reaches our action callback. Nothing else in this class can see that the
     // user said "I've read it", which is why the modal's dismiss callback
     // reports every close this class did not make, rather than the dedup below
     // inferring it from is_visible(): visibility is false for a hide we

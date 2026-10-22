@@ -41,6 +41,7 @@
 #include "connection_state.h" // For ConnectionState enum
 #include "display_manager.h"
 #include "display_settings_manager.h"
+#include "filament_mapper.h"
 #include "format_utils.h"
 #include "gcode_parser.h"
 #include "helix-xml/src/xml/lv_xml.h"
@@ -3693,6 +3694,18 @@ void PrintSelectPanel::apply_remap(const std::vector<helix::ToolMapping>& update
         return;
     }
 
+    // @p updated is the modal's copy, taken when it opened. Rows the user did
+    // not touch may have followed the printer since, so only the picks are laid
+    // over what the card holds now.
+    auto store_picks = [this, &updated]() {
+        if (!detail_view_) {
+            return;
+        }
+        auto merged = detail_view_->effective_mappings();
+        helix::FilamentMapper::apply_picks(merged, updated);
+        detail_view_->set_filament_mappings(std::move(merged));
+    };
+
     switch (backend->get_remap_strategy()) {
     case AmsBackend::RemapStrategy::GcodeRewrite: {
         // Rewrite the job's tool numbers (the families GcodeToolRemapper lists)
@@ -3757,9 +3770,7 @@ void PrintSelectPanel::apply_remap(const std::vector<helix::ToolMapping>& update
                               m.tool_index, m.mapped_slot);
             }
         }
-        if (detail_view_) {
-            detail_view_->set_filament_mappings(updated);
-        }
+        store_picks();
         break;
     }
 
@@ -3769,9 +3780,7 @@ void PrintSelectPanel::apply_remap(const std::vector<helix::ToolMapping>& update
         // per changed tool) happens at print-start through PrintStartController,
         // which reads get_filament_mappings(). The card's on_mappings_changed
         // path re-runs the pre-flight gate so a subsequent Print clears the block.
-        if (detail_view_) {
-            detail_view_->set_filament_mappings(updated);
-        }
+        store_picks();
         break;
 
     case AmsBackend::RemapStrategy::None:

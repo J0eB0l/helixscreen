@@ -3,7 +3,6 @@
 
 #include "recovery_modal_presenter.h"
 
-#include "ui_afc_fault_path.h"
 #include "ui_error_reporting.h"
 #include "ui_modal.h"
 #include "ui_notification.h"
@@ -155,12 +154,13 @@ void RecoveryModalPresenter::present(const helix::ErrorEvent& e) {
     }
 
     if (!modal_) {
-        modal_ = std::make_unique<helix::ui::ActionPromptModal>();
-        modal_->set_gcode_callback([this](const std::string& gcode) { on_recovery_tapped(gcode); });
+        modal_ = std::make_unique<helix::ui::RecoveryFaultModal>();
+        modal_->set_action_callback(
+            [this](const std::string& gcode) { on_recovery_tapped(gcode); });
         // Every close but this class's own hide(): a button (including the
         // empty-gcode dismiss), backdrop, ESC, or a sweep. The user has
         // answered this fault.
-        modal_->set_dismiss_callback([this](helix::PromptCloseKind) { mark_handled(); });
+        modal_->set_dismiss_callback([this]() { mark_handled(); });
     }
 
     // Anything we are about to put on screen is new to the user, so the previous
@@ -170,36 +170,14 @@ void RecoveryModalPresenter::present(const helix::ErrorEvent& e) {
     active_actions_ = e.recovery_actions;
     shown_detail_ = e.detail;
 
-    // Build the prompt. modal_title_for encodes the CFS "Filament System Error"
-    // rule; build_recovery_prompt only knows e.title, which the classifier
-    // leaves empty for CFS events.
-    helix::PromptData prompt;
-    prompt.title = modal_title_for(e);
-    // AFC welds a monospace position diagram onto its lane faults, which our
-    // proportional font renders as noise (#1184). Publish the stop point to the
-    // modal's <afc_fault_path> graphic and drop the art rows from the text. Every
-    // event goes through here, not just AFC's: an unrecognised detail sets the
-    // subject to 0 (graphic hidden) and comes back unchanged, which is also what
-    // clears a previous fault's marker off a reused modal instance.
-    const std::string detail = afc_fault_path_apply(e.detail);
-    if (!detail.empty())
-        prompt.text_lines.push_back(detail);
-    for (const auto& a : e.recovery_actions) {
-        helix::PromptButton b;
-        b.label = a.label;
-        b.gcode = a.gcode;
-        b.color = color_for_style(a.style);
-        prompt.buttons.push_back(std::move(b));
-    }
-    // MODAL_WITH_RECOVER is always an error severity -- restore the red error affordance.
-    prompt.severity = "error";
-
+    // modal_title_for encodes the CFS "Filament System Error" rule. Replacing
+    // visible content hides the old dialog first, as a programmatic close, which
+    // the dismiss callback does not report.
     lv_obj_t* screen = lv_screen_active();
-    // Replacing visible content makes Modal::show() hide the old dialog first,
-    // as a programmatic close, which the dismiss callback does not report.
-    const bool shown = screen && modal_->show_prompt(screen, prompt);
+    const bool shown =
+        screen && modal_->show_fault(screen, modal_title_for(e), e.detail, e.recovery_actions);
     if (!shown) {
-        spdlog::warn("[RecoveryModal] show_prompt failed; falling back to alert");
+        spdlog::warn("[RecoveryModal] show_fault failed; falling back to alert");
         shown_detail_.clear();
         ui_notification_printer_fault(modal_title_for(e), e.detail.c_str());
         return;

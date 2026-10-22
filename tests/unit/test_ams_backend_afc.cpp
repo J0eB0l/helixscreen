@@ -1,6 +1,10 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_ams_lane_settings.h"
+#include "ui_callback_helpers.h"
+#include "ui_print_select_detail_view.h"
+#include "ui_print_start_controller.h"
 #include "ui_test_utils.h"
 #include "ui_update_queue.h"
 
@@ -10,21 +14,31 @@
 #include "ams_types.h"
 #include "config.h"
 #include "error_event.h"
+#include "filament_mapper.h"
+#include "filament_op_execute.h"
 #include "filament_op_router.h"
 #include "filament_slot_override_store.h"
+#include "gcode_footer_summary.h"
 #include "lane_translation.h"
 #include "lvgl_ui_test_fixture.h"
 #include "moonraker_api.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#include "preflight_validator.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 #include "test_helpers/afc_test_access.h"
 #include "test_helpers/backend_user_edit.h"
+#include "test_helpers/config_dir_guard.h"
+#include "test_helpers/log_capture.h"
 #include "test_helpers/mock_printer.h"
+#include "test_helpers/print_select_detail_view_test_access.h"
+#include "test_helpers/print_start_controller_test_access.h"
 #include "test_helpers/registered_backend.h"
+#include "test_helpers/scoped_cache_dir.h"
 #include "test_helpers/seeded_override.h"
 #include "test_helpers/update_queue_test_access.h"
+#include "tools_used_cache.h"
 
 #include <algorithm>
 #include <chrono>
@@ -1860,6 +1874,419 @@ TEST_CASE("AFC tool mapping from stepper map field", "[ams][afc][tool_mapping][p
     REQUIRE(mapping[3] == 3); // T3 → lane4 (slot 3)
 }
 
+namespace {
+// Lane 2 out of service, lane 4 standing in for it: AFC routes T1 to lane4 and
+// parks T3 on the empty lane2. @p lane4_tool lets a case map lane4 elsewhere.
+void feed_lane4_stands_in_for_lane2(AmsBackendAfcTestHelper& helper,
+                                    const std::string& lane4_tool = "T1") {
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane1", {{"map", "T0"}, {"prep", true}});
+    helper.feed_afc_stepper("lane2", {{"map", "T3"}, {"prep", false}, {"load", false}});
+    helper.feed_afc_stepper("lane3", {{"map", "T2"}, {"prep", true}});
+    helper.feed_afc_stepper("lane4", {{"map", lane4_tool}, {"prep", true}});
+    helix::ui::UpdateQueue::instance().drain();
+}
+
+helix::GcodeToolInfo tool_of_unknown_color(int tool_index) {
+    helix::GcodeToolInfo t{};
+    t.tool_index = tool_index;
+    t.color_rgb = 0x808080;
+    t.color_known = false;
+    return t;
+}
+
+std::vector<std::string> set_map_commands(const std::vector<std::string>& gcodes) {
+    std::vector<std::string> out;
+    std::copy_if(gcodes.begin(), gcodes.end(), std::back_inserter(out),
+                 [](const std::string& g) { return g.rfind("SET_MAP", 0) == 0; });
+    return out;
+}
+
+// A PrintStartController wired to a registered AFC backend, with the detail
+// view holding the mapping the print select panel would seed for @p tools.
+struct AfcPrintStartHarness {
+    LVGLTestFixture lvgl;
+    ConfigDirGuard config_dir{"afc_print_start_remap"};
+    helix::test::RegisteredBackend<AmsBackendAfcTestHelper> reg;
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    PrinterState ps;
+    MoonrakerAPIMock api{client, ps};
+    helix::ui::PrintStartController controller{ps, &api};
+    helix::ui::PrintSelectDetailView view;
+    std::vector<helix::GcodeToolInfo> tools;
+
+    explicit AfcPrintStartHarness(std::vector<helix::GcodeToolInfo> used,
+                                  const std::string& lane4_tool = "T1")
+        : tools(std::move(used)) {
+        ps.init_subjects(false);
+        feed_lane4_stands_in_for_lane2(*reg, lane4_tool);
+        controller.set_detail_view(&view);
+        auto& ams = AmsState::instance();
+        view.set_filament_mappings(
+            ams.seed_tool_mappings(tools, ams.collect_available_slots(), false));
+        reg->captured_gcodes.clear();
+    }
+
+    ~AfcPrintStartHarness() {
+        controller.set_detail_view(nullptr);
+    }
+
+    helix::PreflightResult preflight() const {
+        return helix::PreflightValidator::validate(tools,
+                                                   AmsState::instance().collect_available_slots(),
+                                                   view.get_filament_mappings(), false);
+    }
+};
+} // namespace
+
+TEST_CASE("AFC lane remap is the routing an unremapped print runs with",
+          "[ams][afc][tool_mapping][routing]") {
+    // A print using T1 must find lane4, and must not move T1 back onto lane2 at
+    // print start.
+    AmsBackendAfcTestHelper helper;
+    feed_lane4_stands_in_for_lane2(helper);
+
+    const auto live = helper.get_tool_mapping();
+    REQUIRE(live.size() == 4);
+    REQUIRE(live[1] == 3);
+
+    const helix::FirmwareRouting routing = helper.firmware_default_routing();
+    CHECK(routing.head(0) == 0);
+    CHECK(routing.head(1) == 3);
+    CHECK(routing.head(2) == 2);
+    CHECK(routing.head(3) == 1);
+
+    std::vector<helix::AvailableSlot> slots;
+    for (int i = 0; i < 4; ++i) {
+        const SlotInfo info = helper.get_slot_info(i);
+        helix::AvailableSlot as{};
+        as.slot_index = i;
+        as.backend_index = 0;
+        as.color_rgb = info.color_rgb;
+        as.is_empty = info.status == SlotStatus::EMPTY || info.status == SlotStatus::UNKNOWN;
+        as.current_tool_mapping = info.mapped_tool;
+        slots.push_back(as);
+    }
+    REQUIRE(slots[1].is_empty);
+    REQUIRE_FALSE(slots[3].is_empty);
+
+    const std::vector<helix::GcodeToolInfo> tools{tool_of_unknown_color(1)};
+
+    // The positional seed (auto color map off) is what a print runs with when
+    // the user picks nothing.
+    const auto mappings = helix::FilamentMapper::effective_mappings(tools, slots, false, routing);
+    REQUIRE(mappings.size() == 1);
+    CHECK(mappings[0].mapped_slot == 3);
+
+    const auto preflight = helix::PreflightValidator::validate(tools, slots, mappings, false);
+    CHECK_FALSE(preflight.has_block());
+
+    // PrintStartController sends set_tool_mapping() (SET_MAP) for every mapping
+    // that differs from the live map; the seed must match it so nothing is sent.
+    CHECK(mappings[0].mapped_slot == live[1]);
+    CHECK(helix::FilamentMapper::identity_filtered_remap(mappings, routing).empty());
+}
+
+TEST_CASE("AFC print start leaves a printer-side lane remap alone",
+          "[ams][afc][tool_mapping][routing][print_start]") {
+    AfcPrintStartHarness h{{tool_of_unknown_color(1)}};
+    REQUIRE(h.view.get_filament_mappings().size() == 1);
+    CHECK(h.view.get_filament_mappings()[0].mapped_slot == 3);
+
+    SECTION("an unremapped print sends no SET_MAP") {
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) == std::vector<std::string>{});
+    }
+
+    SECTION("a remap the user picks still sends exactly its SET_MAP") {
+        helix::ToolMapping pick;
+        pick.tool_index = 1;
+        pick.mapped_slot = 2;
+        pick.mapped_backend = 0;
+        pick.user_picked = true;
+        h.view.set_filament_mappings({pick});
+
+        CHECK(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) ==
+              std::vector<std::string>{"SET_MAP LANE=lane3 MAP=T1"});
+    }
+
+    SECTION("a stale seed the user never picked sends nothing") {
+        // The card still holds a seed from before the printer's map moved:
+        // T1 on lane2. It was never the user's choice, so it follows the
+        // printer, which routes T1 to lane4.
+        helix::ToolMapping stale;
+        stale.tool_index = 1;
+        stale.mapped_slot = 1;
+        stale.mapped_backend = 0;
+        stale.reason = helix::ToolMapping::MatchReason::FIRMWARE_MAPPING;
+        h.view.set_filament_mappings({stale});
+
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) == std::vector<std::string>{});
+    }
+
+    SECTION("beside a pick, a stale un-picked row sends nothing") {
+        // The early-out sees a pick and goes on to the send loop, so the loop
+        // itself has to skip the stale row: T0 seeded onto lane2, which the
+        // printer does not route it to.
+        helix::ToolMapping stale;
+        stale.tool_index = 0;
+        stale.mapped_slot = 1;
+        stale.mapped_backend = 0;
+        stale.reason = helix::ToolMapping::MatchReason::FIRMWARE_MAPPING;
+        helix::ToolMapping pick;
+        pick.tool_index = 1;
+        pick.mapped_slot = 2;
+        pick.mapped_backend = 0;
+        pick.user_picked = true;
+        h.view.set_filament_mappings({stale, pick});
+
+        CHECK(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) ==
+              std::vector<std::string>{"SET_MAP LANE=lane3 MAP=T1"});
+    }
+
+    SECTION("an auto color match still sends its SET_MAP") {
+        helix::ToolMapping matched;
+        matched.tool_index = 1;
+        matched.mapped_slot = 2;
+        matched.mapped_backend = 0;
+        matched.reason = helix::ToolMapping::MatchReason::COLOR_MATCH;
+        h.view.set_filament_mappings({matched});
+
+        CHECK(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) ==
+              std::vector<std::string>{"SET_MAP LANE=lane3 MAP=T1"});
+    }
+}
+
+namespace {
+// An open print detail view over a registered four-lane AFC (lane N on T N),
+// with a PrintStartController reading its card. The auto-color-map setting is
+// restored on the way out.
+struct AfcOpenDetailFixture : LVGLUITestFixture {
+    helix::test::ScopedCacheDir cache_dir;
+    ConfigDirGuard config_dir{"afc_open_detail"};
+    bool prev_auto_color = false;
+    std::optional<helix::test::RegisteredBackend<AmsBackendAfcTestHelper>> reg;
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    PrinterState ps;
+    MoonrakerAPIMock api{client, ps};
+    std::optional<helix::ui::PrintStartController> controller;
+    helix::ui::PrintSelectDetailView view;
+
+    AfcOpenDetailFixture() {
+        const auto noop = [](lv_event_t*) {};
+        register_xml_callbacks({
+            {"on_print_select_detail_backdrop", noop},
+            {"on_print_select_print_button", noop},
+            {"on_print_select_delete_button", noop},
+            {"on_print_select_more_button", noop},
+            {"on_print_detail_back_clicked", noop},
+            {"on_toggle_sliced_colors", noop},
+            {"on_print_select_detail_objects", noop},
+        });
+        helix::SettingsManager::instance().init_subjects();
+        prev_auto_color = helix::SettingsManager::instance().get_auto_color_map();
+        AmsState::instance().init_subjects(true);
+        ps.init_subjects(false);
+        reg.emplace();
+        (*reg)->initialize_test_lanes_with_slots(4);
+        controller.emplace(ps, &api);
+    }
+
+    ~AfcOpenDetailFixture() {
+        controller->set_detail_view(nullptr);
+        view.hide();
+        drain();
+        lv_timer_handler();
+        helix::SettingsManager::instance().set_auto_color_map(prev_auto_color);
+        drain();
+    }
+
+    AmsBackendAfcTestHelper& afc() {
+        return **reg;
+    }
+
+    static void drain() {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+
+    /// Lane N runs T N; @p colors, when given, loads lane N with colors[N].
+    void feed_lanes(const std::vector<std::string>& colors = {}) {
+        for (int i = 0; i < 4; ++i) {
+            nlohmann::json lane = {{"map", "T" + std::to_string(i)}, {"prep", true}};
+            if (static_cast<size_t>(i) < colors.size()) {
+                lane["color"] = colors[static_cast<size_t>(i)];
+            }
+            afc().feed_afc_stepper("lane" + std::to_string(i + 1), lane);
+        }
+        drain();
+    }
+
+    /// The user puts T1 on lane4 in the remap modal.
+    void pick_t1_on_lane4() {
+        auto mappings = view.get_filament_mappings();
+        REQUIRE(mappings.size() == 2);
+        mappings[1].mapped_slot = 3;
+        mappings[1].user_picked = true;
+        view.set_filament_mappings(mappings);
+    }
+
+    void check_t1_pick_kept() {
+        const auto mappings = view.get_filament_mappings();
+        REQUIRE(mappings.size() == 2);
+        CHECK(mappings[1].mapped_slot == 3);
+        CHECK(mappings[1].user_picked);
+    }
+
+    /// Open a file using T0 and T1, sliced in @p palette.
+    void open(const std::vector<std::string>& palette) {
+        view.init_subjects();
+        REQUIRE(view.create(test_screen()) != nullptr);
+        constexpr size_t kSize = 4242;
+        constexpr time_t kMtime = 4242;
+        helix::tools_used_cache().store("remap/follow.gcode", {kSize, kMtime}, {0, 1});
+        view.show("follow.gcode", "remap", "PLA", palette, {"PLA", "PLA"}, kSize, kMtime);
+        controller->set_detail_view(&view);
+        drain();
+    }
+
+    void set_auto_color(bool on) {
+        helix::SettingsManager::instance().set_auto_color_map(on);
+        drain();
+    }
+};
+} // namespace
+
+TEST_CASE_METHOD(AfcOpenDetailFixture,
+                 "An open print detail follows a printer-side map change it did not pick",
+                 "[ams][afc][tool_mapping][routing][print_select]") {
+    // The map moving is not a slot change: no colour or presence differs, so
+    // only the tool-map version announces it. An open detail view must re-seed
+    // the card's un-picked entries on it.
+    feed_lanes();
+    open({"#FF0000", "#00FF00"});
+
+    auto before = view.get_filament_mappings();
+    REQUIRE(before.size() == 2);
+    REQUIRE(before[1].mapped_slot == 1);
+
+    // On the printer, lane4 takes over T1 and lane2 takes T3.
+    afc().feed_afc_stepper("lane2", {{"map", "T3"}});
+    afc().feed_afc_stepper("lane4", {{"map", "T1"}});
+    drain();
+
+    const auto after = view.get_filament_mappings();
+    REQUIRE(after.size() == 2);
+    CHECK(after[0].mapped_slot == 0);
+    CHECK(after[1].mapped_slot == 3);
+}
+
+TEST_CASE_METHOD(AfcOpenDetailFixture,
+                 "A print detail coming back re-seeds for a map that moved while it was away",
+                 "[ams][afc][tool_mapping][routing][print_select]") {
+    // While another view holds the screen the detail view ignores AMS changes,
+    // so activation is the only thing that catches it up.
+    feed_lanes();
+    open({"#FF0000", "#00FF00"});
+    REQUIRE(view.get_filament_mappings()[1].mapped_slot == 1);
+
+    view.on_deactivate(DeactivateReason::NavigateAway);
+    afc().feed_afc_stepper("lane2", {{"map", "T3"}});
+    afc().feed_afc_stepper("lane4", {{"map", "T1"}});
+    drain();
+    REQUIRE(view.get_filament_mappings()[1].mapped_slot == 1);
+
+    view.on_activate();
+    drain();
+    CHECK(view.get_filament_mappings()[1].mapped_slot == 3);
+}
+
+TEST_CASE_METHOD(AfcOpenDetailFixture, "A palette re-read for the open file keeps the user's pick",
+                 "[ams][afc][tool_mapping][routing][print_select]") {
+    feed_lanes();
+
+    SECTION("the headless scan's chip render") {
+        open({"#FF0000", "#00FF00"});
+        pick_t1_on_lane4();
+        PrintSelectDetailViewTestAccess::render_authoritative_chips(view, {0, 1}, true);
+        check_t1_pick_kept();
+    }
+
+    SECTION("a footer backfill of a palette the metadata lacked") {
+        // Materials alone are enough to show the card (OrcaSlicer on a K2 Plus
+        // states no colours), so a pick can exist before the colours arrive.
+        open({});
+        pick_t1_on_lane4();
+        helix::gcode::GcodeFooterSummary summary;
+        summary.colours = {"#FF0000", "#00FF00"};
+        PrintSelectDetailViewTestAccess::apply_footer_summary(view, summary, false);
+        check_t1_pick_kept();
+    }
+}
+
+TEST_CASE_METHOD(AfcOpenDetailFixture,
+                 "Flipping auto color mapping re-seeds an open print detail's un-picked rows",
+                 "[ams][afc][tool_mapping][routing][print_select][print_start]") {
+    // The file is red T0, green T1; lane2 holds red and lane1 green, so auto
+    // color mapping crosses the two tools over and the printer's own routing
+    // does not. The rows follow whichever the setting says, the moment it flips.
+    feed_lanes({"#00FF00", "#FF0000", "#0000FF", "#FFFFFF"});
+
+    SECTION("on to off: the color matches are dropped and nothing is sent") {
+        set_auto_color(true);
+        open({"#FF0000", "#00FF00"});
+        auto matched = view.get_filament_mappings();
+        REQUIRE(matched.size() == 2);
+        REQUIRE(matched[0].mapped_slot == 1);
+        REQUIRE(matched[0].reason == helix::ToolMapping::MatchReason::COLOR_MATCH);
+
+        set_auto_color(false);
+        afc().captured_gcodes.clear();
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(*controller));
+        CHECK(set_map_commands(afc().captured_gcodes) == std::vector<std::string>{});
+    }
+
+    SECTION("off to on: the color matches are sent") {
+        set_auto_color(false);
+        open({"#FF0000", "#00FF00"});
+        REQUIRE(view.get_filament_mappings().size() == 2);
+        REQUIRE(view.get_filament_mappings()[0].mapped_slot == 0);
+
+        set_auto_color(true);
+        afc().captured_gcodes.clear();
+        CHECK(PrintStartControllerTestAccess::apply_remaps(*controller));
+        CHECK(set_map_commands(afc().captured_gcodes) ==
+              std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T0", "SET_MAP LANE=lane1 MAP=T1"});
+    }
+}
+
+TEST_CASE("AFC print using a tool no lane is mapped to is blocked, not rerouted",
+          "[ams][afc][tool_mapping][routing][print_start]") {
+    // lane4 answers to T5, so no lane owns T1. AFC registers no T1 command, so
+    // the print cannot run T1 anywhere: the seed leaves it unresolved, preflight
+    // blocks on it, and print start does not invent a lane for it.
+    AfcPrintStartHarness h{{tool_of_unknown_color(1)}, "T5"};
+    REQUIRE(h.reg->get_tool_mapping().size() > 1);
+    REQUIRE(h.reg->get_tool_mapping()[1] == -1);
+    CHECK(h.reg->firmware_default_routing().head(1) == -1);
+
+    const auto& seed = h.view.get_filament_mappings();
+    REQUIRE(seed.size() == 1);
+    CHECK(seed[0].is_auto);
+    CHECK(seed[0].mapped_slot < 0);
+    CHECK(helix::FilamentMapper::find_unresolved_tools(seed) == std::vector<int>{1});
+
+    const auto result = h.preflight();
+    REQUIRE(result.checks.size() == 1);
+    CHECK(result.checks[0].severity == helix::ToolCheck::Severity::EmptySlot);
+
+    CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+    CHECK(set_map_commands(h.reg->captured_gcodes) == std::vector<std::string>{});
+}
+
 TEST_CASE("AFC tool mapping swap updates correctly", "[ams][afc][tool_mapping][phase1]") {
     // When lanes swap tools (e.g., T0 moves from lane1 to lane3), the mapping
     // should update accordingly
@@ -1988,7 +2415,8 @@ TEST_CASE("AFC current_map picks the active tool over the lowest", "[ams][afc][t
     REQUIRE(helper.get_slot_mapped_tool(0) == 11);
     // Forward map too — this is what change_tool() resolves through
     REQUIRE(helper.get_tool_mapping()[11] == 0);
-    REQUIRE(helper.get_tool_mapping()[10] == -1);
+    // The inactive tool still runs this lane: AFC registered T10 for it.
+    REQUIRE(helper.get_tool_mapping()[10] == 0);
 }
 
 TEST_CASE("AFC current_map alone retargets the lane", "[ams][afc][tool_mapping]") {
@@ -2006,7 +2434,8 @@ TEST_CASE("AFC current_map alone retargets the lane", "[ams][afc][tool_mapping]"
     helper.feed_afc_stepper("lane1", {{"current_map", "T10"}});
     REQUIRE(helper.get_slot_mapped_tool(0) == 10);
     REQUIRE(helper.get_tool_mapping()[10] == 0);
-    REQUIRE(helper.get_tool_mapping()[11] == -1);
+    // The tool the lane stepped off still runs it.
+    REQUIRE(helper.get_tool_mapping()[11] == 0);
 }
 
 TEST_CASE("AFC current_map survives a later map-only delta", "[ams][afc][tool_mapping]") {
@@ -5174,21 +5603,90 @@ TEST_CASE("AFC toolchanger load and tool change follow AFC's map, not extruder o
         REQUIRE(helper.captured_gcodes == std::vector<std::string>{"CHANGE_TOOL LANE=e1"});
     }
 
-    SECTION("change_tool(0) sends T0, which AFC resolves to lane1 on e3") {
+    // A tool change on a toolchanger mounts the head the T number's lane feeds
+    // and moves no filament; T{n} would run CHANGE_TOOL and swap lanes.
+    SECTION("change_tool(0) mounts e3, the head lane1 (T0) feeds") {
         REQUIRE(helper.change_tool(0));
-        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T0"});
+        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e3"});
     }
 
-    SECTION("change_tool(3) sends T3, which AFC resolves to e1") {
+    SECTION("change_tool(3) mounts e1") {
         REQUIRE(helper.change_tool(3));
-        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T3"});
+        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
     }
 
-    SECTION("past-the-end guard: change_tool(5) sends T5, which AFC resolves to e2") {
-        // T5 is past the end of the 4-entry extruder list, so this one never
-        // reached the head-index lookup; it guards the T{n} form, not the bug.
+    SECTION("change_tool(5) mounts e2, past the end of the extruder list") {
         REQUIRE(helper.change_tool(5));
-        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T5"});
+        REQUIRE(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2"});
+    }
+}
+
+TEST_CASE("AFC toolchanger: a T number with no lane refuses instead of guessing a head",
+          "[ams][afc][toolchanger][1824]") {
+    AmsBackendAfcTestHelper helper;
+    setup_interleaved_toolchanger(helper);
+    // Move lane4 off T6, so no lane carries T6.
+    helper.feed_afc_stepper("lane4", {{"map", "T0"}, {"extruder", "e3"}});
+    CHECK_FALSE(helper.change_tool(6));
+    CHECK(helper.captured_gcodes.empty());
+}
+
+TEST_CASE("AFC toolchanger: a head with no toolchanger_unit warns and still sends",
+          "[ams][afc][toolchanger][1850]") {
+    // AFC gives a head a tool lane only when its AFC_extruder sets
+    // toolchanger_unit. AFC_SELECT_TOOL on any other head logs an error and
+    // returns ok without moving, so the screen waits on Selecting. That is
+    // warned, not refused: configfile is the only evidence.
+    AmsBackendAfcTestHelper helper;
+    setup_interleaved_toolchanger(helper);
+
+    auto section = [](const char* klipper_name, bool on_toolchanger) {
+        nlohmann::json s = {{"extruder_name", klipper_name}};
+        if (on_toolchanger) {
+            s["toolchanger_unit"] = "AFC_Toolchanger Tools";
+        }
+        return s;
+    };
+    const nlohmann::json settings = {{"afc_extruder e0", section("extruder", true)},
+                                     {"afc_extruder e1", section("extruder1", true)},
+                                     {"afc_extruder e2", section("extruder2", false)},
+                                     {"afc_extruder e3", section("extruder3", true)}};
+    AfcTestAccess::apply_configfile_topology(
+        helper, AmsBackendAfc::parse_configfile_topology(
+                    {{"result", {{"status", {{"configfile", {{"settings", settings}}}}}}}}));
+
+    LogCapture log;
+
+    SECTION("T5 feeds e2, which is not on the toolchanger") {
+        REQUIRE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2"});
+        CHECK(log.has_line_with({"T5 feeds e2", "sets no toolchanger_unit"}));
+    }
+
+    SECTION("the warning is logged once per head, not on every tool change") {
+        REQUIRE(helper.change_tool(5));
+        // Let the first change finish so the second is not refused as busy.
+        REQUIRE(helper.pending_macro_ack);
+        helper.pending_macro_ack();
+        helper.feed_afc_state({{"current_state", "Idle"}});
+        REQUIRE(helper.get_action() == AmsAction::IDLE);
+        REQUIRE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes ==
+              std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2", "AFC_SELECT_TOOL TOOL=e2"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 1);
+    }
+
+    SECTION("a lane parsed before configfile answered still names its head by section") {
+        REQUIRE(helper.change_tool(3));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 0);
+    }
+
+    SECTION("a lane parsed after it names the Klipper extruder") {
+        helper.feed_afc_stepper("e1", {{"map", "T3"}, {"extruder", "e1"}});
+        REQUIRE(helper.change_tool(3));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=extruder1"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 0);
     }
 }
 
@@ -5201,6 +5699,145 @@ TEST_CASE("AFC change_tool sends T{n} in single-extruder mode", "[ams][afc][tool
 
     REQUIRE(result);
     REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T1"});
+}
+
+TEST_CASE("AFC change_tool takes a T number above the lane count when a lane carries it",
+          "[ams][afc][toolchanger][tool_mapping]") {
+    // T numbers belong to lanes, not to lane positions: lane4 mapped to T7 on
+    // a four-lane unit is a legal map, and T7 is the tool that runs it.
+    SECTION("single extruder sends T7") {
+        AmsBackendAfcTestHelper helper;
+        helper.initialize_test_lanes_with_slots(4);
+        helper.set_running(true);
+        helper.feed_afc_stepper("lane4", {{"map", "T7"}});
+        helper.captured_gcodes.clear();
+        REQUIRE(helper.change_tool(7));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"T7"});
+    }
+
+    SECTION("a toolchanger mounts the head T9's lane feeds") {
+        AmsBackendAfcTestHelper helper;
+        setup_interleaved_toolchanger(helper);
+        helper.feed_afc_stepper("lane4", {{"map", "T9"}, {"extruder", "e3"}});
+        helper.captured_gcodes.clear();
+        REQUIRE(helper.change_tool(9));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e3"});
+    }
+
+    SECTION("a T number AFC has not registered is still refused") {
+        AmsBackendAfcTestHelper helper;
+        helper.initialize_test_lanes_with_slots(4);
+        helper.set_running(true);
+        helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3"}}});
+        helper.captured_gcodes.clear();
+        CHECK_FALSE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes.empty());
+    }
+}
+
+TEST_CASE("AFC SET_MAP takes a T number above the lane count when a lane carries it",
+          "[ams][afc][tool_mapping][remap]") {
+    // AFC's SET_MAP accepts MAP=T<n> when some lane's map registers T<n>, and
+    // refuses any other. lane4 runs T7 on a four-lane unit, so moving T7 onto
+    // lane2 (a user remap, or the restore of one) is a legal command.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane4", {{"map", "T7"}});
+    helper.captured_gcodes.clear();
+
+    CHECK(helper.can_set_tool_mapping(7, 1).success());
+    REQUIRE(helper.set_tool_mapping(7, 1).success());
+    CHECK(helper.captured_gcodes == std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T7"});
+
+    SECTION("a T number AFC has not registered is refused, as AFC refuses it") {
+        helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3", "T7"}}});
+        helper.captured_gcodes.clear();
+        CHECK_FALSE(helper.can_set_tool_mapping(5, 1).success());
+        CHECK_FALSE(helper.set_tool_mapping(5, 1).success());
+        CHECK(helper.captured_gcodes.empty());
+    }
+}
+
+TEST_CASE("AFC lane settings show the tool a multi-tool lane is running",
+          "[ams][afc][tool_mapping][lane_settings]") {
+    // lane1 carries T1 and T5 and is running T5. Both route to it, so the first
+    // match in the tool table is T1, which is not what the lane is doing.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane1", {{"map", {"T1", "T5"}}, {"current_map", "T5"}});
+    helper.feed_afc_stepper("lane2", {{"map", {"T0"}}});
+    REQUIRE(helper.get_tool_mapping()[1] == 0);
+    REQUIRE(helper.get_tool_mapping()[5] == 0);
+
+    CHECK(helix::ui::lane_settings::assigned_tool(helper, 0) == 5);
+    CHECK(helix::ui::lane_settings::assigned_tool(helper, 1) == 0);
+}
+
+TEST_CASE("AFC: a two-step swap applies both halves", "[ams][afc][tool_mapping][remap]") {
+    // A remap or restore loop exchanging two lanes sends SET_MAP for one tool
+    // and then the other. AFC's SET_MAP swaps the two lanes' maps, so after the
+    // first command the displaced tool sits on the other lane and is still a
+    // registered T number: the second half must not be refused.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane1", {{"map", "T0"}});
+    helper.feed_afc_stepper("lane2", {{"map", "T1"}});
+    helper.feed_afc_stepper("lane3", {{"map", "T2"}});
+    helper.feed_afc_stepper("lane4", {{"map", "T3"}});
+    helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3"}}});
+    helper.captured_gcodes.clear();
+
+    REQUIRE(helper.set_tool_mapping(0, 1).success());
+    CHECK(helper.get_tool_mapping() == std::vector<int>{1, 0, 2, 3});
+    REQUIRE(helper.set_tool_mapping(1, 0).success());
+    CHECK(helper.captured_gcodes ==
+          std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T0", "SET_MAP LANE=lane1 MAP=T1"});
+}
+
+TEST_CASE("AFC: an extra tool on a multi-tool lane routes to that lane",
+          "[ams][afc][tool_mapping][routing]") {
+    // AFC virtual tools: lane1 carries T0 and T4. T4 is a registered command
+    // that runs lane1, so it is a tool change, a legal SET_MAP target, and a
+    // tool the printer routes to lane1, not one with no lane assigned.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.set_running(true);
+    helper.feed_afc_stepper("lane1", {{"map", {"T0", "T4"}}, {"current_map", "T0"}});
+    helper.feed_afc_stepper("lane2", {{"map", {"T1"}}});
+    helper.feed_afc_stepper("lane3", {{"map", {"T2"}}});
+    helper.feed_afc_stepper("lane4", {{"map", {"T3"}}});
+    helper.feed_afc_state({{"maps", {"T0", "T1", "T2", "T3", "T4"}}});
+    helper.captured_gcodes.clear();
+
+    CHECK(helper.firmware_default_routing().head(4) == 0);
+    CHECK(helper.firmware_default_routing().head(0) == 0);
+    CHECK(helper.can_set_tool_mapping(4, 2).success());
+    REQUIRE(helper.change_tool(4));
+    CHECK(helper.captured_gcodes == std::vector<std::string>{"T4"});
+}
+
+TEST_CASE("AFC toolchanger: Load on a seated machine plans load_filament, not change_tool",
+          "[ams][afc][toolchanger][dispatch][1824]") {
+    // change_tool() on a toolchanger only mounts a head. A swap Load must reach
+    // load_filament() (`CHANGE_TOOL LANE=`), which unloads the seated lane itself.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.set_running(true);
+    helper.setup_toolchanger(2);
+    helper.set_filament_loaded(true);
+    helper.set_current_slot(0);
+
+    // Read the caps the way the Load button does, so the trait has to cross
+    // read_backend_caps() to reach the planner.
+    AmsSystemInfo info;
+    const helix::ui::BackendCaps caps = helix::ui::read_backend_caps(&helper, info, 1);
+    REQUIRE(caps.needs_unload_before_load); // the swap arm would otherwise fire
+    REQUIRE(caps.load_swaps_seated_lane);
+
+    auto plan = helix::ui::plan_load(info, caps, /*target_slot=*/1, /*macro_available=*/false,
+                                     /*macro_user_configured=*/false);
+    CHECK(plan.ams_call == helix::ui::AmsCall::Load);
+    CHECK(plan.ams_arg == 1);
 }
 
 TEST_CASE("AFC load_filament sends CHANGE_TOOL in single-extruder mode",

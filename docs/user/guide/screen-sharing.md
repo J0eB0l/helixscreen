@@ -91,6 +91,8 @@ While a browser is controlling the screen, a small icon appears in the top-right
 
 ![The remote-control icon](../../images/user/screen-sharing-badge.png)
 
+Opening the screen page in a browser (or the HelixScreen Screen webcam in Mainsail or Fluidd with **Allow Remote Control** on) wakes the printer's screen if it was asleep, just as a touch would. While the page is open, the screen never goes to sleep, so the picture never goes black. It still dims and runs its screensaver, and sleeps about ten seconds after the last page is closed or its tab hidden, once its sleep time has passed. Apps that only show the screen as a camera (Obico, OctoEverywhere, Home Assistant, timelapse, the view-only webcam tile) do not keep it awake.
+
 ---
 
 ## How much it costs the printer

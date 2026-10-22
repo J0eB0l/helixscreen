@@ -4,6 +4,7 @@
 #pragma once
 
 #include "lvgl.h"
+#include "wake_touch_latch.h"
 
 #include <atomic>
 #include <chrono>
@@ -137,6 +138,8 @@ class RemotePointer {
     std::atomic<int32_t> logical_y_{0};
     std::atomic<bool> pressed_{false};
     std::atomic<uint64_t> reads_{0};
+    /// UI thread only: swallow the complete gesture that wakes the display.
+    WakeTouchLatch wake_latch_;
 };
 
 } // namespace helix::remote

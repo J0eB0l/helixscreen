@@ -301,7 +301,7 @@ These are the same 5 groups the Widget Catalog uses on the device.
 | **Print Stats** | The hours you have printed this week. Wider and taller sizes add a bar for each of the last seven days (with the weekday's initial under each at the largest size) and a line of lifetime totals: prints, hours and filament in meters. At its smallest size it is one line, the hours and "this week" (shortened to "/wk" on the smallest screens). Tap to open the full print history overlay. | 2x2 | 1x0.5 | 3x2 | Yes | — |
 | **Printer Message** | The message your printer's macros show with `M117` or `SET_DISPLAY_TEXT` ("Heating bed...", "Homing..."), the line a stock printer LCD keeps on screen. It shows whether or not a print is running, and says "No message" when there is none. At half a row tall it is one line that scrolls when the message is too long; taller sizes wrap it. Display only. | 2x1 | 1x0.5 | Full width x3 | Yes | — |
 | **Job Queue** | The next queued job and how many wait behind it, with a one-tap start when the printer is free. Tap anywhere else on the widget to open the Job Queue Manager modal (see [Job Queue widget](#job-queue-widget) and [Job Queue Manager](#job-queue-manager) below). | 2x2 | 1x0.5 | 4x3 | Yes | Moonraker `[job_queue]` |
-| **Speed / Flow** | The speed and flow override percentages, each shown in the warning color whenever it is not 100%. During a print it adds the live toolhead speed (mm/s) and volumetric flow (mm³/s) wherever there is room for them. At its smallest size, 0.5x0.5, it shows speed alone. Below 1x1 there is room for only one number per reading: if you chose mm/s in the Print Tune overlay (see [Percent or mm/s](printing.md#print-tune-overlay)), the live readings take the percentages' place there. At its largest sizes during a print, **-** and **+** buttons change each value by 5%, and a long press on a value sets it back to 100%. Tap anywhere else on the widget to open the Print Tune overlay. | 2x1 | 0.5x0.5 | 4x2 | Yes | — |
+| **Speed / Flow** | The speed and flow override percentages, each shown in the warning color whenever it is not 100%. During a print it adds the live toolhead speed (mm/s) and volumetric flow (mm³/s) wherever there is room for them. At its smallest size, 0.5x0.5, it shows speed alone. Below 1x1 there is room for only one number per reading: if you chose mm/s in the Print Tune overlay (see [Percent or mm/s](printing.md#print-tune-overlay)), the live readings take the percentages' place there. At its largest sizes during a print, **-** and **+** buttons change speed by 5% and flow by 1%, and a long press on a value sets it back to 100%. Tap anywhere else on the widget to open the Print Tune overlay. | 2x1 | 0.5x0.5 | 4x2 | Yes | — |
 | **Exclude Objects** | During a print with two or more objects, how many are still printing and how many you have skipped. From 0.5x1 up it draws a small map of the objects: the one printing now in the accent color, skipped ones faded and hatched. Wider sizes name the object printing now, and 2x2 adds a **Skip objects...** button. The widget never skips anything itself: a tap opens the full objects map on the Print Status screen, where you confirm. See [Exclude Objects Widget](#exclude-objects-widget) below. | 2x2 | 0.5x0.5 | 4x3 | Yes | Klipper `[exclude_object]` |
 
 | **Camera** | Live webcam feed from your MJPEG stream. Tap to go fullscreen. Automatically detects webcams configured in Moonraker. See [Camera Widget](#camera-widget) below for setup tips. | 2x2 | 1x1 | 4x3 | Yes | Webcam configured |
@@ -438,7 +438,7 @@ While **not** in Edit Mode, widgets respond to taps and other gestures:
 | Print Stats | Opens print history overlay |
 | Printer Message | — (display only) |
 | Job Queue | Opens Job Queue Manager modal; the **Start next** button starts the next job instead |
-| Speed / Flow | Opens the Print Tune overlay. At its largest sizes during a print, the **-** and **+** buttons change speed or flow by 5% without opening anything, and a long press on a value sets it back to 100% |
+| Speed / Flow | Opens the Print Tune overlay. At its largest sizes during a print, the **-** and **+** buttons change speed by 5% or flow by 1% without opening anything, and a long press on a value sets it back to 100% |
 | Z-Offset | Opens the Print Tune overlay. At 2x2 and larger, the arrow buttons nudge the offset and the step button cycles the step size. From 2x1 up, **Save** appears while there is an unsaved offset |
 | Exclude Objects | Opens the Print Status screen with its objects map. Does nothing when there is no print or only one object |
 | Digital Clock | — (display only) |
@@ -729,7 +729,7 @@ On printers that can leave the carriage empty (Snapmaker U1 and klipper-toolchan
 
 The Speed / Flow widget shows the speed and flow overrides you set in the [Print Tune overlay](printing.md#print-tune-overlay), so you can see at a glance whether a print is running faster or slower than sliced. A reading turns the warning color whenever it is not 100%.
 
-![Speed / Flow at 2x2 during a print: both overrides, the live readings and the 5% buttons](../../images/user/home-widget-speed-flow.png)
+![Speed / Flow at 2x2 during a print: both overrides, the live readings and the step buttons](../../images/user/home-widget-speed-flow.png)
 
 | Size | What you see |
 |------|--------------|
@@ -737,7 +737,7 @@ The Speed / Flow widget shows the speed and flow overrides you set in the [Print
 | 1x0.5, 0.5x1 | Speed and flow, each a small icon and number |
 | 1x1 | Speed and flow. During a print the live toolhead speed (mm/s) and flow (mm³/s) sit under the percentages |
 | 2x1 | Both readings with labels and, during a print, the live speed and flow beside each |
-| 2x2 and larger, during a print | Large values with **-** and **+** buttons that change each by 5% |
+| 2x2 and larger, during a print | Large values with **-** and **+** buttons that change speed by 5% and flow by 1% |
 
 If you chose mm/s in the Print Tune overlay, the live readings take the percentages' place on the sizes below 1x1, where there is room for only one number.
 

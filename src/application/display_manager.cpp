@@ -38,6 +38,7 @@
 #include "refresh_period_hold.h"
 #include "refresh_timing_env.h"
 #include "remote_screen_fb0_sink.h"
+#include "remote_screen_service.h"
 #include "rotation_probe.h"
 #include "runtime_config.h"
 #include "screen_hide_hold.h"
@@ -104,9 +105,10 @@ static int sdl_event_filter(void* /*userdata*/, SDL_Event* event) {
 #endif
 
 DisplayManager::DisplayManager()
-    : m_sleep(DisplaySleepHost{m_backend, m_backlight, m_display, m_shutting_down,
-                               [] { cancel_pointer_presses(); },
-                               [this](lv_display_flush_cb_t cb) { restore_flush_cb(cb); }}) {}
+    : m_sleep(DisplaySleepHost{
+          m_backend, m_backlight, m_display, m_shutting_down, [] { cancel_pointer_presses(); },
+          [this](lv_display_flush_cb_t cb) { restore_flush_cb(cb); },
+          [] { return helix::RemoteScreenService::instance().viewer_active(); }}) {}
 
 DisplayManager::~DisplayManager() {
     shutdown();

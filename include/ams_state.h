@@ -468,7 +468,8 @@ class AmsState {
 
     /// The primary backend's firmware DEFAULT tool -> head map, for the mapper.
     /// Identity when no backend is present, which is also the majority shape.
-    /// NOT the live map - see AmsBackend::firmware_default_routing().
+    /// The routing an unremapped print runs with - see
+    /// AmsBackend::firmware_default_routing() for when that is a live table.
     [[nodiscard]] helix::FirmwareRouting collect_firmware_routing() const;
 
     /**

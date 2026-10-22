@@ -74,6 +74,7 @@ namespace helix {
  */
 struct BackendTraits {
     bool load_feeds_filament = false;
+    bool load_swaps_seated_lane = false;
     bool tracks_consumption_natively = false;
     bool hub_on_toolhead = false;
     bool has_per_slot_loaded_authority = false;
@@ -469,22 +470,27 @@ class AmsBackend {
     /**
      * @brief The firmware's DEFAULT tool -> physical head map.
      *
-     * What the printer would do with a file if nobody remapped anything. NOT the
-     * live map (AmsSystemInfo::tool_to_slot_map carries that, and it is not even
-     * uniformly available - an AFC tracks it, a U1 freezes it at 1:1 while its
-     * real map lives in print_task_config.extruder_map_table).
+     * What the printer would do with a file if nobody remapped anything at print
+     * time. A firmware that routes by a standing table the user edits on the
+     * printer (an AFC lane map, a Happy Hare TTG map, a CFS tool table) routes an
+     * unremapped print by that table, so the default answers it: a backend with
+     * a Native remap route whose printer has stated its table
+     * (firmware_reported_tool_mapping()) reports get_tool_mapping(). Every other
+     * backend is lane-per-tool: tool N owns lane N, with no upper bound.
      *
-     * The default is lane-per-tool, which is every backend except two: tool N
-     * owns lane N, with no upper bound. Override only when the hardware genuinely
-     * disagrees - a bounded-head machine (Snapmaker U1) or one that publishes an
-     * arbitrary table (FlashForge AD5X IFS).
+     * Not every live map is a default: a U1 freezes get_tool_mapping() at 1:1
+     * while its real map lives in print_task_config.extruder_map_table, and a
+     * per-print map sent before the job is gone once it ends. Override when the
+     * hardware disagrees - a bounded-head machine (Snapmaker U1) or one that
+     * publishes a table through another surface (FlashForge AD5X IFS).
      *
      * Adding a third shape must touch only the new backend. A constant in shared
      * code instead of this question is what sent every AFC tool above 3 to lane 0.
+     *
+     * @note Calls get_tool_mapping(), which takes the backend's mutex_ on most
+     *       backends: never call this with mutex_ held.
      */
-    [[nodiscard]] virtual helix::FirmwareRouting firmware_default_routing() const {
-        return helix::FirmwareRouting::identity();
-    }
+    [[nodiscard]] virtual helix::FirmwareRouting firmware_default_routing() const;
 
     /**
      * @brief Channel A: backend-specific classification of one gcode-response
@@ -751,6 +757,19 @@ class AmsBackend {
      */
     [[nodiscard]] bool load_feeds_filament() const {
         return traits().load_feeds_filament;
+    }
+
+    /**
+     * @brief True when load_filament() itself clears whatever lane is seated in
+     *        the target's path before feeding the target.
+     *
+     * The planner then sends Load even when needs_unload_before_load() answers
+     * true, instead of routing the swap through change_tool(). A tool change on
+     * a machine whose heads dock only mounts a head, so it cannot stand in for a
+     * lane swap there.
+     */
+    [[nodiscard]] bool load_swaps_seated_lane() const {
+        return traits().load_swaps_seated_lane;
     }
 
     /**
@@ -2886,6 +2905,15 @@ class AmsBackend {
     [[nodiscard]] virtual uint64_t firmware_tool_mapping_generation() const {
         return 0;
     }
+
+    /**
+     * @brief Has the printer itself stated this backend's tool table?
+     *
+     * True once an echoing backend has parsed at least one firmware-sourced
+     * table. Before that, get_tool_mapping() holds only defaults and our own
+     * optimistic writes, which say nothing about what the printer routes by.
+     */
+    [[nodiscard]] bool firmware_reported_tool_mapping() const;
 
     // ========================================================================
     // Device-Specific Actions
