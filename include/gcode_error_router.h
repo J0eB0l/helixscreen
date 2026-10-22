@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "action_prompt_manager.h" // PromptData / PromptButton
 #include "async_lifetime_guard.h"
 #include "error_event.h"
 #include "firmware_error_envelope.h"
@@ -45,10 +44,6 @@ enum class PresentAs { MODAL, TOAST, TOAST_WITH_RECOVER, MODAL_WITH_RECOVER, NON
 /// INFO is not surfaced. CRITICAL -> modal (with a recovery button if the
 /// event carries one); WARNING -> toast (with a Recover action if present).
 PresentAs decide_presentation(const ErrorEvent& e);
-
-/// Pure: turn an ErrorEvent's recovery actions into a renderable PromptData.
-/// LVGL-free; style maps to PromptButton.color. Title falls back to a default.
-PromptData build_recovery_prompt(const ErrorEvent& e);
 
 /// How a TOAST_WITH_RECOVER event's single action button should dispatch.
 enum class RecoverDispatch {

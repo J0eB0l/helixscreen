@@ -346,21 +346,6 @@ PresentAs decide_presentation(const ErrorEvent& e) {
     return PresentAs::NONE; // INFO not surfaced in L0
 }
 
-PromptData build_recovery_prompt(const ErrorEvent& e) {
-    PromptData p;
-    p.title = e.title.empty() ? std::string(lv_tr("Printer Error")) : e.title;
-    if (!e.detail.empty())
-        p.text_lines.push_back(e.detail);
-    for (const auto& a : e.recovery_actions) {
-        PromptButton b;
-        b.label = a.label;
-        b.gcode = a.gcode;
-        b.color = helix::ui::color_for_style(a.style);
-        p.buttons.push_back(std::move(b));
-    }
-    return p;
-}
-
 void GcodeErrorRouter::present_recovery_modal(const ErrorEvent& e) {
     if (e.command_refusal) {
         // It answers the command just sent: an identical refusal the user

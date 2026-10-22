@@ -262,6 +262,7 @@ src/ui/gcode_viewer_input.cpp  # G-code viewer touch input, compiled out with th
 src/ui/ipp_print_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/modals/ui_spaghetti_detection_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/pid_progress_tracker.cpp  # not in the v1 Core+AMS cut
+src/ui/recovery_fault_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/recovery_modal_presenter.cpp  # not in the v1 Core+AMS cut
 src/ui/screensaver_aqua.cpp  # not in the v1 Core+AMS cut
 src/ui/screensaver_aqua_sim.cpp  # not in the v1 Core+AMS cut

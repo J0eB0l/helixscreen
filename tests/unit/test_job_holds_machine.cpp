@@ -347,6 +347,8 @@ constexpr GuardedFile kGuardedFiles[] = {
     // Jog keys stay live through a print, as the pad layout's Z column does;
     // the layouts' home keys carry the guards.
     {"ui_xml/components/motion_jog_button.xml", 0},
+    // Recovery actions answer a fault in a paused job, so they stay live.
+    {"ui_xml/recovery_fault_modal.xml", 0},
     {"ui_xml/probe_generic_panel.xml", 2},
     {"ui_xml/probe_eddy_panel.xml", 2},
     {"ui_xml/probe_cartographer_panel.xml", 2},
