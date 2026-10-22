@@ -142,6 +142,11 @@ constexpr std::size_t kTagRecordLength = 40;
 constexpr std::size_t kTagSupplierOffset = 5;
 constexpr std::size_t kTagSupplierLength = 4;
 constexpr std::string_view kCrealitySupplierCode = "0276";
+/// The serial field, chars 29-34 of the record.
+constexpr std::size_t kTagSerialOffset = 28;
+constexpr std::size_t kTagSerialLength = 6;
+/// Creality's factory serial, which every stock spool carries.
+constexpr int kFactoryTagSerial = 1;
 
 bool is_tag_record(std::string_view v) {
     return v.size() == kTagRecordLength &&
@@ -1523,6 +1528,49 @@ std::string AmsBackendCfs::brand_from_vender(const std::string& vender) {
     return record ? std::string{} : vender;
 }
 
+std::optional<int> AmsBackendCfs::tag_record_spoolman_id(std::string_view vender) {
+    if (!is_tag_record(vender)) {
+        return std::nullopt;
+    }
+    const std::string_view serial = vender.substr(kTagSerialOffset, kTagSerialLength);
+    if (!std::all_of(serial.begin(), serial.end(),
+                     [](unsigned char c) { return std::isdigit(c) != 0; })) {
+        return std::nullopt;
+    }
+    int id = 0;
+    for (const char c : serial) {
+        id = id * 10 + (c - '0');
+    }
+    if (id <= kFactoryTagSerial) {
+        return std::nullopt;
+    }
+    return id;
+}
+
+bool AmsBackendCfs::tags_name_spoolman_spools() const {
+    return schema_ != CfsSchema::Flat;
+}
+
+namespace {
+
+/// The spool a stock box's tag record for one bay names. A flat-schema state
+/// has no `T<n>` units and names none.
+std::optional<int> stock_tag_spoolman_id(const nlohmann::json& box_state, int global_index) {
+    const auto unit = box_state.find("T" + std::to_string(global_index / 4 + 1));
+    if (unit == box_state.end() || !unit->is_object()) {
+        return std::nullopt;
+    }
+    const auto vender = unit->find("vender");
+    const auto bay = static_cast<std::size_t>(global_index % 4);
+    if (vender == unit->end() || !vender->is_array() || bay >= vender->size() ||
+        !(*vender)[bay].is_string()) {
+        return std::nullopt;
+    }
+    return AmsBackendCfs::tag_record_spoolman_id((*vender)[bay].get<std::string>());
+}
+
+} // namespace
+
 std::optional<CfsSchema> AmsBackendCfs::fingerprint_schema(const std::string& fingerprint) {
     const auto pipe = fingerprint.find('|');
     if (pipe == std::string::npos || fingerprint.find('|', pipe + 1) != std::string::npos) {
@@ -1841,7 +1889,7 @@ void AmsBackendCfs::handle_box_frame(const nlohmann::json& box, bool print_holds
     }
     auto new_info = parse_box_status(state, &own_labels);
 
-    file_box_readings(new_info);
+    file_box_readings(new_info, state);
 
     BoxFrame frame;
     frame.box = &box;
@@ -1923,7 +1971,8 @@ void AmsBackendCfs::handle_box_frame(const nlohmann::json& box, bool print_holds
     apply_box_frame_locked(frame);
 }
 
-void AmsBackendCfs::file_box_readings(const AmsSystemInfo& new_info) {
+void AmsBackendCfs::file_box_readings(const AmsSystemInfo& new_info,
+                                      const nlohmann::json& box_state) {
     // Firmware's own account of every bay this frame described. What
     // makes this correct is the values, not the position: new_info is
     // what the parse just built out of the payload, where the
@@ -1983,6 +2032,12 @@ void AmsBackendCfs::file_box_readings(const AmsSystemInfo& new_info) {
                                              : std::nullopt,
                     slot.nozzle_temp_max > 0 ? std::optional<int>(slot.nozzle_temp_max)
                                              : std::nullopt);
+                // The spool the tag record names. The fold above rebuilds the
+                // reading from this frame alone, and nothing of ours writes the
+                // record's serial back, so the id is this frame's too.
+                if (const auto tag_spool = stock_tag_spoolman_id(box_state, slot.global_index)) {
+                    tag_readings_[slot.global_index].spoolman_id = tag_spool;
+                }
 
                 // Whether the identity declared on this bay still names
                 // what is in it. The id is new_info's, which is the flat

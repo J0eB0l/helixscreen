@@ -1442,6 +1442,70 @@ TEST_CASE("CFS brand fallback reads the tag record's supplier, never the record"
     }
 }
 
+TEST_CASE("CFS tag record names a Spoolman spool through its serial", "[ams][cfs][tag_link]") {
+    SECTION("stock Creality records carry the factory serial and name no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("BB5250276A21010010FFFFFF0165000001000000"));
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("3C5250276A21010010C12E1F0165000001000000"));
+    }
+    SECTION("a CFTag serial is a zero-padded decimal spool id") {
+        CHECK(AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165000042000000") ==
+              42);
+        CHECK(AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165999999000000") ==
+              999999);
+        CHECK(AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165000002000000") ==
+              2);
+    }
+    SECTION("an all-zero serial names no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165000000000000"));
+    }
+    SECTION("a serial that is not all digits names no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF016500004A000000"));
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165 00042000000"));
+    }
+    SECTION("anything but a 40-character record names no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF016500004200000"));
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF01650000420000000"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id("unknown"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id("none"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id("-1"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id(""));
+    }
+}
+
+TEST_CASE("CFS tag reading carries the Spoolman spool its record names", "[ams][cfs][tag_link]") {
+    CfsRemapHelper backend;
+    backend.mark_running();
+    json box = make_multi_unit_box(1);
+    box["T1"]["vender"] = json::array({"AB1240276A21010010FFFFFF0165000042000000",
+                                       "BB5250276A21010010FFFFFF0165000001000000", "none", "none"});
+    box["T1"]["material_type"] = json::array({"101001", "101001", "-1", "-1"});
+    box["T1"]["color_value"] = json::array({"0FFFFFF", "0FFFFFF", "-1", "-1"});
+    CfsTestAccess::handle_status(backend, make_cfs_notification(box));
+
+    CHECK(backend.tags_name_spoolman_spools());
+    const auto tagged = backend.tag_reading(0);
+    REQUIRE(tagged);
+    CHECK(tagged->spoolman_id == 42);
+    const auto stock = backend.tag_reading(1);
+    REQUIRE(stock);
+    CHECK_FALSE(stock->spoolman_id);
+
+    SECTION("a record naming no spool takes the id away") {
+        box["T1"]["vender"][0] = "BB5250276A21010010FFFFFF0165000001000000";
+        CfsTestAccess::handle_status(backend, make_cfs_notification(box));
+        const auto after = backend.tag_reading(0);
+        REQUIRE(after);
+        CHECK_FALSE(after->spoolman_id);
+    }
+}
+
 TEST_CASE("CFS disconnected unit handling", "[ams][cfs]") {
     auto status = make_cfs_status_json();
     auto info = AmsBackendCfs::parse_box_status(status["box"]);

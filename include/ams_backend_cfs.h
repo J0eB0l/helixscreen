@@ -247,6 +247,9 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     /// The box's record of the bay's tag, kept while our own write-back holds
     /// the box record (helix::ams::fold_tag_frame).
     [[nodiscard]] std::optional<helix::ams::TagReading> tag_reading(int slot_index) const override;
+    /// A stock box publishes each bay's whole tag record; the flat schema
+    /// publishes no record to read a spool id from.
+    [[nodiscard]] bool tags_name_spoolman_spools() const override;
     void persist_slot_weight(int slot_index, float remaining_weight_g,
                              float total_weight_g) override;
     void persist_external_identity_impl(int slot_index,
@@ -528,6 +531,13 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     /// vendor name.
     [[nodiscard]] static std::string brand_from_vender(const std::string& vender);
 
+    /// The Spoolman spool a stock bay's `vender` tag record names, or nullopt.
+    /// Tag writers such as CFTag put the id in the record's serial field
+    /// (chars 29-34) as six zero-padded decimal digits. Creality writes its
+    /// factory serial 000001 there, so 1 names no spool, and neither does 0,
+    /// a serial that is not all digits, or anything but a whole record.
+    [[nodiscard]] static std::optional<int> tag_record_spoolman_id(std::string_view vender);
+
     /// The schema whose feed builds a fingerprint of this shape, or nullopt
     /// when either could have: stock joins the raw material_type code and
     /// "0RRGGBB" colour_value, flat joins a material name and six hex digits.
@@ -788,7 +798,7 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
                           std::map<int, int>& insert_probes);
     /// Files firmware's own account of every bay the frame described as lane
     /// readings; takes mutex_ itself.
-    void file_box_readings(const AmsSystemInfo& new_info);
+    void file_box_readings(const AmsSystemInfo& new_info, const nlohmann::json& box_state);
     void apply_box_frame_locked(BoxFrame& frame);
     /// Applies the endless-spool enable bit, then replaces the unit list, tool
     /// map and grouping with the parse.
