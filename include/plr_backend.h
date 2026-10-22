@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "helix_plugin_features.h"
 #include "json_fwd.h"
 
 #include <string>
@@ -10,11 +11,12 @@ namespace helix {
 
 class PrinterDiscovery;
 
-/// Which firmware-specific Power-Loss-Recovery mechanism the connected printer
-/// exposes. All three backends are SELF-GATING: each is chosen by markers only
-/// that firmware ever carries, so no printer-model or AMS-backend gate is
-/// needed (and none should be added — see tests/unit/test_plr_offer.cpp for
-/// the AFC-modded-U1 regression).
+/// Which Power-Loss-Recovery mechanism the connected printer exposes. The three
+/// firmware backends are SELF-GATING: each is chosen by markers only that
+/// firmware ever carries, so no printer-model or AMS-backend gate is needed
+/// (and none should be added — see tests/unit/test_plr_offer.cpp for the
+/// AFC-modded-U1 regression). GENERIC is the HelixPrint plugin's recovery,
+/// gated on the plugin's `plr` feature.
 ///
 /// Full mechanism writeup: docs/devel/POWER_LOSS_RECOVERY.md
 enum class PlrBackendType {
@@ -22,6 +24,16 @@ enum class PlrBackendType {
     SNAPMAKER, ///< Snapmaker U1 fork — virtual_sdcard.pl_env_valid (passive).
     CREALITY,  ///< Creality K/Ender/Hi fork — print_stats.power_loss (active probe).
     QIDI,      ///< Qidi Q2/Q1 Pro/Plus 4 stock macros, save_variables.was_interrupted (passive).
+    GENERIC,   ///< HelixPrint plugin `plr` feature; its status `backend` says which flavor.
+};
+
+/// The recovery backend the HelixPrint plugin reports (server.helix.plr.status
+/// `backend`). Both plugin flavors select PlrBackendType::GENERIC; this says
+/// which one, and where it sits in the precedence of plr_select_backend().
+enum class PlrPluginBackend {
+    None,           ///< plugin has no recovery for this printer ("none")
+    Generic,        ///< the plugin's own snapshot and resume sequence ("generic")
+    QidiPrintState, ///< the plugin feeds the firmware's print_state rows ("qidi_print_state")
 };
 
 /// Capability markers harvested from the Moonraker status payload and the
@@ -48,12 +60,25 @@ struct PlrCapabilitySignals {
     /// printer_idle input of the offer decision is what scopes it to a boot
     /// after power loss.
     bool qidi_was_interrupted = false;
+    /// server.helix.plr.status `backend`; None until the plugin has answered.
+    PlrPluginBackend plugin_backend = PlrPluginBackend::None;
+    /// server.helix.plr.status `offer.available`: the plugin's own verdict that
+    /// a resumable snapshot exists for the newest, interrupted job.
+    bool plugin_offer_available = false;
+    /// plugin_feature("plr", kPlrFeatureMinVersion). GENERIC is never selected
+    /// unless this is Ready.
+    PluginFeatureState plr_feature = PluginFeatureState::Absent;
 };
 
 /// Pick the backend. Passive markers outrank probe-based ones: SNAPMAKER
 /// first, QIDI before CREALITY. No firmware carries more than one marker set,
 /// so the ordering only makes a tie deterministic, and a passive signal
 /// chosen by mistake costs no side-effectful probe.
+///
+/// The plugin's two flavors slot in around them, both only while the `plr`
+/// feature is Ready: its QIDI print_state adapter right after SNAPMAKER, so it
+/// outranks the legacy QIDI macros on the firmware layout it serves, and its
+/// generic recovery last of all, so it never displaces a firmware's own.
 PlrBackendType plr_select_backend(const PlrCapabilitySignals& caps);
 
 /// Outcome of Creality's one-shot `pause_resume/check_continue_print_state`
@@ -92,11 +117,16 @@ struct PlrRecoveryPlan {
     /// could be resolved (the gcode needs FILENAME=).
     std::string resume_gcode;
     std::string discard_gcode;      ///< gcode-based discard (Snapmaker)
-    std::string discard_rpc_method; ///< JSON-RPC discard (Creality)
+    std::string discard_rpc_method; ///< JSON-RPC discard (Creality, plugin)
     std::string recovery_file;      ///< raw path/name, for the prompt body
+    /// Plugin-driven resume: the RPC that opens the guided resume (the plan
+    /// request). Set for GENERIC instead of resume_gcode: that resume moves the
+    /// machine only through the plugin's prepare/commit steps, after the user's
+    /// confirmations.
+    std::string resume_rpc;
 
     [[nodiscard]] bool resume_allowed() const {
-        return !resume_gcode.empty();
+        return !resume_gcode.empty() || !resume_rpc.empty();
     }
     [[nodiscard]] bool discard_available() const {
         return !discard_gcode.empty() || !discard_rpc_method.empty();
@@ -135,6 +165,20 @@ std::string plr_parse_creality_sidecar(const std::string& json_text);
 std::string plr_read_creality_recovery_filename();
 
 // --- Wire constants -------------------------------------------------------
+
+/// HelixPrint plugin `plr` feature: the feature name in its status `features`
+/// map, the contract version this app speaks, and its endpoints. Moonraker
+/// delivers a component event `helix:<name>` to clients as `notify_<name>`.
+inline constexpr const char* kPlrFeatureName = "plr";
+inline constexpr int kPlrFeatureMinVersion = 1;
+inline constexpr const char* kPlrStatusRpc = "server.helix.plr.status";
+inline constexpr const char* kPlrPlanRpc = "server.helix.plr.plan";
+inline constexpr const char* kPlrPrepareRpc = "server.helix.plr.prepare";
+inline constexpr const char* kPlrCommitRpc = "server.helix.plr.commit";
+inline constexpr const char* kPlrAbortRpc = "server.helix.plr.abort";
+inline constexpr const char* kPlrDiscardRpc = "server.helix.plr.discard";
+inline constexpr const char* kPlrProgressNotify = "notify_plr_progress";
+inline constexpr const char* kPlrPlanReadyNotify = "notify_plr_plan_ready";
 
 /// Snapmaker fork gcode.
 inline constexpr const char* kSnapmakerResumeGcode = "SDCARD_PRINT_PL_RESTORE";
