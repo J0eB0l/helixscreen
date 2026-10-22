@@ -5286,17 +5286,21 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        if (tool_number < 0 || tool_number >= slots_.slot_count()) {
-            return AmsErrorHelper::tool_out_of_range(tool_number);
-        }
-        toolchanger = has_toolchanger_unit_locked();
-        for (int i = 0; i < slots_.slot_count(); ++i) {
+        // A T number is legal when a lane carries it, whatever the lane count:
+        // a four-lane unit may run lane4 as T7.
+        bool lane_found = false;
+        for (int i = 0; tool_number >= 0 && i < slots_.slot_count(); ++i) {
             const auto* entry = slots_.get(i);
             if (entry && entry->info.mapped_tool == tool_number) {
                 lane_extruder = entry->info.extruder_name;
+                lane_found = true;
                 break;
             }
         }
+        if (!lane_found) {
+            return AmsErrorHelper::tool_out_of_range(tool_number);
+        }
+        toolchanger = has_toolchanger_unit_locked();
         if (toolchanger && !lane_extruder.empty()) {
             mountable = head_is_mountable_locked(lane_extruder);
         }
