@@ -72,6 +72,14 @@ case "$1" in
                     exec bash -c "$3"
                 fi
                 exit 1 ;;
+            *"base64 -d"*)
+                # MOCK_CCACHE_DIR: run the ccache settings command here, against
+                # that cache; its last argument is the bash -c script.
+                echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG"
+                if [ -n "${MOCK_CCACHE_DIR:-}" ]; then
+                    for a in "$@"; do last=$a; done
+                    CCACHE_DIR=$MOCK_CCACHE_DIR exec bash -c "$last"
+                fi ;;
             *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG" ;;
         esac ;;
     *) echo "unhandled docker call: $*" >&2; exit 1 ;;
@@ -115,6 +123,29 @@ mirror_of() { echo "$HELIX_TEST_TREES_HOST/$1"; }
     # The job runs in the mirror, not in the shared commit checkout.
     grep -qF -- "-w /work/trees/tree-a " "$MOCK_DOCKER_LOG"
     refute_grep "git reset" "$MOCK_DOCKER_LOG"
+}
+
+@test "every run applies the shared ccache settings in the container and checks they cover the mirror" {
+    command -v ccache >/dev/null || skip "ccache is not installed"
+    local t
+    t=$(make_tree tree-a)
+    export MOCK_CCACHE_DIR="$BATS_TEST_TMPDIR/ccache"
+    mkdir -p "$MOCK_CCACHE_DIR"
+    cd "$t"
+    run "$TEST_HOST_RUN" test '[x]'
+    [ "$status" -eq 0 ] || { echo "$output" >&2; return 1; }
+    contains "→ ccache base_dir: /work (was unset)" "$output"
+    lacks "is not a prefix" "$output"
+    grep -qx 'base_dir = /work' "$MOCK_CCACHE_DIR/ccache.conf"
+    grep -qx 'hash_dir = false' "$MOCK_CCACHE_DIR/ccache.conf"
+    grep -qx 'max_size = 200G' "$MOCK_CCACHE_DIR/ccache.conf"
+    grep -qF -- "check /work/trees/tree-a" "$MOCK_DOCKER_LOG"
+
+    # A cache whose base_dir drifted is put back on the next run.
+    CCACHE_DIR=$MOCK_CCACHE_DIR ccache --set-config base_dir=/elsewhere
+    run "$TEST_HOST_RUN" test '[x]'
+    [ "$status" -eq 0 ]
+    contains "→ ccache base_dir: /work (was /elsewhere)" "$output"
 }
 
 @test "a file deleted locally is gone from the mirror after the next sync" {

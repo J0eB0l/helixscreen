@@ -87,6 +87,8 @@ set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=lib/build_hosts.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/build_hosts.sh"
+# shellcheck source-path=SCRIPTDIR source=lib/ccache_shared.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/ccache_shared.sh"
 
 HOST="${HELIX_TEST_HOST:-}"
 CONTAINER="${HELIX_TEST_CONTAINER:-helix-test}"
@@ -220,6 +222,20 @@ if ! sudo -n docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
         exit 1
     }
 fi
+SNIPPET
+}
+
+# The remote snippet that applies scripts/ccache-shared-config.sh to the
+# container's cache, then checks it covers <dir>, the directory this run builds
+# in. Every mirror, mutate checkout and the --commit checkout share CCACHE, and
+# base_dir=WORK is what lets them reuse each other's compiles. It runs on every
+# run, so a host set up before the settings existed corrects itself and none
+# can drift.
+ccache_shared() { # <container dir>
+    cat <<SNIPPET
+$(ccache_shared_cmd "$CONTAINER" "$CCACHE" apply "$WORK" "$HELIX_TEST_CCACHE_SIZE") | sed -n 's/^ *\(.*(was .*\)/→ ccache \1/p' ||
+    echo "⚠ could not apply the shared ccache settings in $CONTAINER" >&2
+$(ccache_shared_cmd "$CONTAINER" "$CCACHE" check "$1") || true
 SNIPPET
 }
 
@@ -831,6 +847,8 @@ fi
 $(container_up)
 
 D() { sudo -n docker exec -w "$RUNDIR" $GIT_SAFE_ENV -e CCACHE_DIR="$CCACHE" -e HELIX_J="\$HELIX_J" -e HELIX_JFLAG="\$HELIX_JFLAG" "$CONTAINER" bash -lc "\$1"; }
+
+$(ccache_shared "$RUNDIR")
 
 # Before git touches the --commit checkout. A mirror run waited before its sync;
 # this second wait costs one docker exec.

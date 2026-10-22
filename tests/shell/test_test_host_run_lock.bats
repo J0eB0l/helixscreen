@@ -201,7 +201,9 @@ wait_for_line() { # <substring> <file>
     run "$SCRIPT" --commit mutate
     [ "$status" -eq 0 ]
     lacks "git config" "$(cat "$MOCK_DOCKER_LOG")"
-    run grep -vF -- "-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=* " \
+    # The ccache settings exec (ccache-shared-config.sh, carried base64) runs no git.
+    grep -qF "base64 -d" "$MOCK_DOCKER_LOG"
+    run sh -c 'grep -vF "base64 -d" "$1" | grep -vF -- "-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=* "' _ \
         "$MOCK_DOCKER_LOG"
     [ "$status" -eq 1 ]
 }
