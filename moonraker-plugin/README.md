@@ -389,8 +389,11 @@ targets, fans, pressure advance, velocity limits, retract state), so a reader
 can begin at any layer instead of byte 0. Analysis also writes each layer's
 `tools`, `print_z` (Z of its first extruding move) and `feature` (the `;TYPE:`
 section at its start), a `progress_lines` record listing the pause, `M73` and
-`SET_PRINT_STATS_INFO` lines with their offsets, and a closing
-`{"complete": true}`. The format is documented in `helix_gcode_reader.py`.
+`SET_PRINT_STATS_INFO` lines with their offsets, a `summary` record (model
+bounds without purge and wipe tower, palette, tools), and a closing
+`{"complete": true}`. The format is documented in `helix_gcode_reader.py`. The
+screen builds its streaming preview's layer index from this file instead of
+reading the whole G-code first, once its size and `file_hash` match its copy.
 
 ## Visible symlink directory
 

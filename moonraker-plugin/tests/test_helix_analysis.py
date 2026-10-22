@@ -622,3 +622,16 @@ class TestComponent:
         await settle(again)
         assert set(again.records) == {"no_define.gcode"}
         assert set(helix.database.ns[analysis.DB_NAMESPACE]) == {"no_define.gcode"}
+
+
+def test_checked_in_sidecar_is_what_analysis_writes(gc):
+    """tests/unit/test_gcode_layer_index_sidecar.cpp builds the screen's index
+    from this file; it must stay what the analyzer writes for the fixture."""
+    run(gc, "orca_two_tool.gcode")
+    written = open(reader.layer_index_path(gc, "orca_two_tool.gcode")).read().splitlines()
+    pinned = (FIXTURES / "orca_two_tool.layers.jsonl").read_text().splitlines()
+    assert len(written) == len(pinned)
+    header_w, header_p = json.loads(written[0]), json.loads(pinned[0])
+    assert header_w["file_size"] == header_p["file_size"]
+    assert header_w["file_hash"] == header_p["file_hash"]
+    assert [json.loads(l) for l in written[1:]] == [json.loads(l) for l in pinned[1:]]

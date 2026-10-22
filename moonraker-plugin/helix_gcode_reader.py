@@ -847,6 +847,7 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
 #   {"format": 1, "file_size": .., "file_mtime": .., "file_hash": ..}  header
 #   {"layer": n, "offset": o, "z": z, "state": {ModalState.to_dict()}} a layer start
 #   {"progress_lines": [[offset, "M73 P12 R30"], ...]}                 optional
+#   {"summary": {...}}                                                 optional
 #   {"complete": true, "end_offset": o}                                whole file read
 #
 # `z` is the toolhead Z at the offset. A layer start written by a reader that
@@ -858,7 +859,14 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
 #
 # `progress_lines` are the lines a progress bar places markers from (pause
 # commands, M73, SET_PRINT_STATS_INFO), verbatim up to their comment, so the
-# screen classifies them with its own rules.
+# screen classifies them with its own rules. `summary` is what a whole-file
+# reader learned that a preview frames and colors with:
+#
+#   "model_box": {"min": [x, y, z], "max": [x, y, z]} | null  extrusion outside
+#                the start-gcode purge and the wipe tower, G-code frame
+#   "palette": ["#RRGGBB" | "", ...]   per-tool colors the file declares
+#   "initial_tool": n | null           the first T<n>
+#   "tools": [n, ...]                  every T<n> the file selects
 #
 # Append-only, so a reader that stops anywhere leaves a valid prefix; an
 # unreadable line (a write cut short) is skipped, and so is a record of a kind
@@ -954,6 +962,11 @@ class LayerIndexWriter:
             self._open()
         self._write({"progress_lines": [[o, t] for o, t in lines]})
 
+    def summary(self, summary: dict) -> None:
+        if self._f is None:
+            self._open()
+        self._write({"summary": summary})
+
     def finish(self, end_offset: int) -> None:
         if self._f is None:
             self._open()
@@ -967,7 +980,8 @@ class LayerIndexWriter:
 
 def write_layer_index(path: str, identity: dict,
                       starts: List[Tuple[int, int, ModalState, Optional[dict]]],
-                      progress_lines: List[Tuple[int, str]], end_offset: int) -> None:
+                      progress_lines: List[Tuple[int, str]], end_offset: int,
+                      summary: Optional[dict] = None) -> None:
     """Write a whole file's index in one go: (layer, offset, state, extra)
     per start. It replaces the file atomically, so a follower appending to
     the one it found keeps writing to an unlinked file, and readers never see
@@ -980,6 +994,8 @@ def write_layer_index(path: str, identity: dict,
         for layer, offset, state, extra in starts:
             writer.append(layer, offset, state, extra)
         writer.progress_lines(progress_lines)
+        if summary is not None:
+            writer.summary(summary)
         writer.finish(end_offset)
     finally:
         writer.close()

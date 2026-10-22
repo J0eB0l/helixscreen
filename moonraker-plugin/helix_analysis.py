@@ -635,6 +635,9 @@ class AnalysisCollector(ScanObserver):
 
     def __init__(self, want_thumbnail: bool = False) -> None:
         self.print_box = _new_box()
+        # G-code frame, outside AUXILIARY_FEATURES: what a preview frames
+        self.model_box = _new_box()
+        self.initial_tool = None  # type: Optional[int]
         self.travel_box = _new_box()
         self._seen_axes = 0
         self._known_xy = False
@@ -718,6 +721,12 @@ class AnalysisCollector(ScanObserver):
             if was_known:
                 _box_add(self.print_box, start[0], start[1], z)
             _box_add(self.print_box, lp[0], lp[1], z)
+            if self.feature not in AUXILIARY_FEATURES:
+                bp = state.base_position
+                gz = None if z is None else z - bp[2]
+                if was_known:
+                    _box_add(self.model_box, start[0] - bp[0], start[1] - bp[1], gz)
+                _box_add(self.model_box, lp[0] - bp[0], lp[1] - bp[1], gz)
             self._layer_tools.add(tool)
             if self._layer_print_z is None and self._known_z:
                 self._layer_print_z = lp[2]
@@ -737,6 +746,8 @@ class AnalysisCollector(ScanObserver):
                 body: bytes, offset: int) -> None:
         if cmd[:1] == b"T" and cmd[1:].isdigit():
             self.tools_seen.add(int(cmd[1:]))
+            if self.initial_tool is None:
+                self.initial_tool = int(cmd[1:])
             return
         if cmd in (b"M104", b"M109", b"M140", b"M190", b"SET_HEATER_TEMPERATURE"):
             for name, target in state.heater_targets.items():
@@ -875,6 +886,10 @@ def analyze_file(
             index_path, identity,
             [(s[0], s[1], s[2], s[3]) for s in collector.layer_starts],
             collector.progress_lines, result.offset,
+            {"model_box": _box_out(collector.model_box),
+             "palette": [c or "" for c in footer_palette(collector.config)],
+             "initial_tool": collector.initial_tool,
+             "tools": sorted(collector.tools_seen)},
         )
         index_rel = os.path.relpath(index_path, str(gc_path))
 
