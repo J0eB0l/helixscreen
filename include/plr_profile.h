@@ -43,7 +43,7 @@ struct PlrDbBlock {
     std::string xy_home_gcode = "G28 X Y";
     float z_lift_mm = 5.0f;
     std::optional<std::string> purge_gcode;
-    float resume_skip_fraction = 0.5f;
+    float resume_skip_fraction = 0.0f;
     /// Macro variables to restore on resume: macro name -> variable names.
     std::map<std::string, std::vector<std::string>> macro_vars;
 };
@@ -66,7 +66,7 @@ struct PlrProfile {
     float z_lift_mm = 5.0f;
     std::optional<std::string> purge_gcode;
     std::optional<bool> user_enabled;
-    float resume_skip_fraction = 0.5f;
+    float resume_skip_fraction = 0.0f;
     std::map<std::string, std::vector<std::string>> macro_vars;
 };
 

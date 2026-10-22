@@ -180,6 +180,7 @@ def test_profile_bad_types_take_defaults():
     })
     assert profile == PlrProfile()
     assert parse_profile({"tier": 9}).tier == 3
+    assert parse_profile({}).resume_skip_fraction == 0.0      # re-trace (O2)
     assert parse_profile({"tier": True}).tier == 0
 
 
@@ -843,6 +844,24 @@ def test_follower_never_reads_past_file_position(gfile):
     assert summary.last.offset < 3000
 
 
+def test_follower_stops_once_a_complete_index_appears(gfile, monkeypatch):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    f = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    f.step(0)                                       # loaded: no index yet
+    helix_gcode_reader.write_layer_index(index, ident(gfile), [], [], len(data))
+    before = open(index, "rb").read()
+    f.step(len(data) // 4)
+    assert f.complete
+    reads = []
+    scan = helix_gcode_reader.scan_to_offset
+    monkeypatch.setattr(helix_gcode_reader, "scan_to_offset",
+                        lambda *a, **k: (reads.append(a), scan(*a, **k))[1])
+    f.step(len(data) // 2)
+    f.finish(None)
+    assert reads == [] and open(index, "rb").read() == before
+
+
 def test_follower_resumes_from_its_index_after_a_restart(gfile):
     data = gfile.read_bytes()
     index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
@@ -985,19 +1004,39 @@ class Req:
         return self.params.get(key, default)
 
 
-def straight_layers():
+def straight_layers(object_name=None):
+    """Five layers of 100 moves; with object_name, each layer's moves are
+    one EXCLUDE_OBJECT_START/END block, followed by a travel and a short
+    second object, `peg`."""
     out = ["M83", "G1 F600"]
     for n in range(1, 6):
         out += [";LAYER_CHANGE", "SET_PRINT_STATS_INFO CURRENT_LAYER=%d" % n,
                 "G1 Z%.1f" % (n * 0.2)]
+        if object_name:
+            out.append("EXCLUDE_OBJECT_START NAME=%s" % object_name)
         out += ["G1 X%d Y10 E.05" % i for i in range(1, 101)]
+        if object_name:
+            out += ["EXCLUDE_OBJECT_END NAME=%s" % object_name,
+                    "G1 X120 Y30 F6000", "EXCLUDE_OBJECT_START NAME=peg",
+                    "G1 X121 Y30 E.05", "G1 X122 Y30 E.05", "EXCLUDE_OBJECT_END NAME=peg",
+                    "G1 F600"]
     return ("\n".join(out) + "\n").encode()
 
 
 @pytest.fixture
 def resume(plr, helix):
     """A tier-2 printer after a power cut during layer 4 of sub/part.gcode."""
-    data = straight_layers()
+    return power_cut_in_layer_4(plr, helix, straight_layers())
+
+
+@pytest.fixture
+def resume_in_object(plr, helix):
+    """The same cut, in a file whose layers are each one object's block: the
+    resume point falls inside the block."""
+    return power_cut_in_layer_4(plr, helix, straight_layers("box.stl_id_0_copy_0"))
+
+
+def power_cut_in_layer_4(plr, helix, data):
     path = helix.gc_path / "sub" / "part.gcode"
     path.write_bytes(data)
     plr._follow_executor = SyncExecutor()
@@ -1169,8 +1208,9 @@ def test_plan_finds_the_measured_point(plr, resume):
     reply = run(plr.handle_plan(Req()))
     assert reply["method"] == "measured"
     layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
-    # Skip half a second at 10 mm/s past X=49.5: the line ending at X=55.
-    assert reply["resume_offset"] == resume.index(b"G1 X55 Y10", layer4)
+    # Re-trace by default: the executing line (E puts the nozzle on the one
+    # ending at X=49), from its start.
+    assert reply["resume_offset"] == resume.index(b"G1 X49 Y10", layer4)
     assert reply["filename"] == "sub/part.gcode" and reply["layer"] == 4
     assert reply["z_gcode"] == pytest.approx(0.8) and reply["z_physical"] == 0.8
     assert reply["requires"] == ["part_attached", "z_confirmed"]
@@ -1323,6 +1363,80 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
                      "move_to_resume", "start"]
     commit = sent(helix)[len(prepare):]
     assert commit[0] == "M140 S60"                          # the bed is re-asserted first
+
+
+def test_a_resume_inside_an_object_enters_it_again(plr, helix, resume_in_object):
+    reply = run(plr.handle_plan(Req()))
+    layer4 = resume_in_object.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    assert reply["resume_offset"] == resume_in_object.index(b"G1 X49 Y10", layer4)
+    full_resume(plr, reply["plan_id"])
+    start = sent(helix)[-1].split("\n")
+    assert start[0].startswith("M23 ") and start[1].startswith("M26 S")
+    assert start[-2:] == ["EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0", "M24"]
+
+
+def exclude(plr, *names):
+    record = plr.store.load()
+    record["excluded"] = list(names)
+    plr.store.write(fit_record(record)[0])
+
+
+def peg_in_layer4(data):
+    """The first move that prints after layer 4's box block: peg's first."""
+    return data.index(b"G1 X121 Y30", data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4"))
+
+
+def test_an_excluded_object_open_at_the_resume_point_is_skipped(plr, helix, resume_in_object):
+    """The resume starts past the excluded block, at the next object's first
+    printed move, and lands where that move starts, never on the box."""
+    exclude(plr, "BOX.STL_ID_0_COPY_0")
+    reply = run(plr.handle_plan(Req()))
+    assert reply["resume_offset"] == peg_in_layer4(resume_in_object)
+    assert reply["retrace_estimate_mm"] == 0.0
+    full_resume(plr, reply["plan_id"])
+    start = sent(helix)[-1].split("\n")
+    assert "EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0" in start
+    assert start[-2:] == ["EXCLUDE_OBJECT_START NAME=peg", "M24"]
+    assert any("G1 X120 Y30 F6000" in c for c in sent(helix))
+    assert not any("G1 X100 Y10 F6000" in c for c in sent(helix))
+
+
+def test_an_excluded_block_with_no_end_refuses_the_plan(plr, helix):
+    data = straight_layers("box.stl_id_0_copy_0")
+    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    power_cut_in_layer_4(plr, helix, data[:data.index(b"EXCLUDE_OBJECT_END", layer4)])
+    exclude(plr, "BOX.STL_ID_0_COPY_0")
+    with pytest.raises(Exception, match="plr_scan_failed: excluded_object_open"):
+        run(plr.handle_plan(Req()))
+
+
+def test_a_quoted_name_excluded_and_open_at_the_resume_point_is_skipped(plr, helix):
+    data = power_cut_in_layer_4(plr, helix, straight_layers('"my part"'))
+    exclude(plr, "MY PART")
+    assert run(plr.handle_plan(Req()))["resume_offset"] == peg_in_layer4(data)
+
+
+def test_a_quoted_name_open_at_the_resume_point_is_entered_again(plr, helix):
+    power_cut_in_layer_4(plr, helix, straight_layers("'my part'"))
+    full_resume(plr, run(plr.handle_plan(Req()))["plan_id"])
+    assert sent(helix)[-1].split("\n")[-2:] == ['EXCLUDE_OBJECT_START NAME="my part"', "M24"]
+
+
+def test_the_plan_layer_is_the_files_count_at_the_resume_line():
+    state = helix_gcode_reader.ModalState()
+    assert helix_plr._resume_layer(state, 4) == 4
+    state.layer, state.layer_source = 5, "print_stats"
+    assert helix_plr._resume_layer(state, 4) == 5
+    state.layer_source = "count"              # not a number print_stats ever showed
+    assert helix_plr._resume_layer(state, 4) == 4
+
+
+def test_a_name_no_command_can_carry_refuses_the_plan(plr, helix, resume):
+    exclude(plr, "evil\nG28")
+    before = len(sent(helix))
+    with pytest.raises(Exception, match="plr_scan_failed: unsafe_value"):
+        run(plr.handle_plan(Req()))
+    assert sent(helix)[before:] == [] and plr._plan is None
 
 
 def test_commit_refuses_missing_confirmations_and_the_wrong_z(plr, resume):
@@ -1580,6 +1694,32 @@ def qidi_resume(plr, helix, resume, qidi_printer):
     return table, cache
 
 
+@pytest.fixture
+def qidi_resume_in_object(plr, helix, resume_in_object, qidi_printer):
+    table, cache = qidi_printer
+    (cache / "part.gcode").write_bytes(resume_in_object)
+    table.rows["file_position"] = "1"
+    return table, cache
+
+
+def test_qidi_resumes_inside_an_object_it_cannot_enter(plr, helix, qidi_resume_in_object):
+    """Known gap: QIDI starts the file inside the block with no object
+    entered; Klipper prints it and reports the END as not matching."""
+    _, cache = qidi_resume_in_object
+    data = (cache / "part.gcode").read_bytes()
+    reply = run(plr.handle_plan(Req()))
+    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    assert data.index(b"EXCLUDE_OBJECT_START", layer4) < reply["resume_offset"] \
+        < data.index(b"EXCLUDE_OBJECT_END", layer4)
+
+
+def test_qidi_resumes_after_an_excluded_object_open_at_the_cut(plr, helix, qidi_resume_in_object):
+    _, cache = qidi_resume_in_object
+    exclude(plr, "BOX.STL_ID_0_COPY_0")
+    reply = run(plr.handle_plan(Req()))
+    assert reply["resume_offset"] == peg_in_layer4((cache / "part.gcode").read_bytes())
+
+
 def test_qidi_status_and_offer(plr, helix, qidi_resume):
     table, _ = qidi_resume
     reply = run(plr.handle_status(Req()))
@@ -1635,6 +1775,86 @@ def test_the_wait_for_klippy_ready_is_bounded(plr, helix, qidi_resume):
     reply = run(plr.handle_status(Req()))           # on_klippy_ready never runs
     assert "klippy_not_ready" in reply["offer"]["blocked_by"]
     assert plr.clock.t - started == pytest.approx(helix_plr.READY_WAIT_S, abs=1.0)
+
+
+class StartingKlippy:
+    """Moonraker's klippy_connection while Klippy is still starting up."""
+
+    class state:
+        name = "STARTUP"
+
+    def is_ready(self):
+        return False
+
+
+def restart_moonraker(plr, helix):
+    """A fresh Moonraker: no backend detected yet for any connection."""
+    reconnect_with_a_slow_qidi_check(plr, helix)
+    plr.qidi = None
+
+
+def test_a_qidi_check_slower_than_15s_still_answers_its_backend(plr, helix, qidi_resume):
+    restart_moonraker(plr, helix)
+    started = plr.clock.t
+
+    async def slower_help(*args):
+        for _ in range(20):
+            plr.clock.t += 1.0
+            await asyncio.sleep(0)
+        return {"SDCARD_POWER_OFF_CONTINUES_PINT_FILE": "resume"}
+
+    helix.klippy_apis._send_klippy_request = slower_help
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        await asyncio.sleep(0)
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert (reply["backend"], reply["tier"]) == ("qidi_print_state", 2)
+    assert plr.clock.t - started >= 20.0
+
+
+def test_status_asked_while_klippy_starts_waits_for_its_ready(plr, helix, qidi_resume):
+    restart_moonraker(plr, helix)
+    starting = StartingKlippy()
+    helix.server.components["klippy_connection"] = starting
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        for _ in range(40):                 # 10 s of Klippy startup
+            await asyncio.sleep(0)
+        helix.server.components["klippy_connection"] = ReadyKlippy()
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert (reply["backend"], reply["tier"]) == ("qidi_print_state", 2)
+
+
+def test_a_failed_backend_detection_answers_at_once(plr, helix, qidi_resume, monkeypatch):
+    restart_moonraker(plr, helix)
+
+    def broken(*args):
+        raise RuntimeError("no gcode_move")
+
+    monkeypatch.setattr(helix_plr_qidi, "qidi_print_state_present", broken)
+    helix.klippy_apis._send_klippy_request = AsyncMock(return_value={})
+    plr.events.clear()
+    started = plr.clock.t
+
+    async def scenario():
+        status = asyncio.ensure_future(plr.handle_status(Req()))
+        await asyncio.sleep(0)
+        await plr.on_klippy_ready()
+        return await status
+
+    reply = run(scenario())
+    assert reply["backend"] == "none"
+    assert plr.clock.t - started < 1.0
+    announced = [p for e, p in plr.events if e == "helix_print:plr_status"]
+    assert len(announced) == 1 and announced[0]["backend"] == "none"
 
 
 def test_klippy_ready_announces_the_status_it_decided(plr, helix, qidi_resume):
@@ -2207,6 +2427,24 @@ def test_a_resumed_job_keeps_the_mesh_it_resumed_with(plr, helix, resume, tmp_pa
     assert not cfg.exists()
 
 
+def test_a_complete_follower_is_not_stepped_again(plr, helix, monkeypatch):
+    monkeypatch.setattr(helix_plr, "FOLLOW_MIN_BYTES", 1000)
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    steps = []
+    executor = SyncExecutor()
+    submit = executor.submit
+    executor.submit = lambda fn, *a: (steps.append(fn) if getattr(fn, "__name__", "") == "step"
+                                      else None, submit(fn, *a))[1]
+    plr._follow_executor = executor
+    added(plr)
+    tick(plr, **printing_status(2000))
+    assert len(steps) == 1
+    plr.follower.complete = True
+    tick(plr, 30.0, **printing_status(8000))
+    assert len(steps) == 1
+
+
 def test_the_prune_spares_the_indexes_recovery_is_using(plr, helix, monkeypatch):
     monkeypatch.setattr(helix_plr, "FOLLOW_MIN_BYTES", 1000)
     path = helix.gc_path / "sub" / "part.gcode"
@@ -2251,6 +2489,29 @@ def test_a_waiting_snapshots_index_is_protected(plr, helix):
     plr.follower = None
     assert plr.protected_index_paths() == [
         helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")]
+
+
+def test_a_waiting_qidi_snapshots_external_index_is_protected(plr, helix, tmp_path):
+    """QIDI prints from printer_data/.cache, outside gcodes: the index the
+    snapshot resumes from lives under .external and the prune keeps it."""
+    cache = tmp_path / "printer_data" / ".cache"
+    cache.mkdir(parents=True)
+    printed = cache / "part.gcode"
+    printed.write_bytes(layered_gcode())
+    (helix.gc_path / "sub" / "part.gcode").write_bytes(layered_gcode())
+    added(plr)
+    plr.job["print_path"] = str(printed)
+    plr.job["print_identity"] = helix_plr.file_identity(printed)
+    plr.follower = None
+    index = helix_gcode_reader.layer_index_path(helix.gc_path, ".external/part.gcode")
+    assert plr.protected_index_paths() == [index]
+    other = helix_gcode_reader.layer_index_path(helix.gc_path, ".external/old.gcode")
+    for path in (index, other):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, "w").write("{}\n")
+    plr._follow_executor = SyncExecutor()
+    plr._prune_indexes()
+    assert os.path.exists(index) and not os.path.exists(other)
 
 
 def test_a_follower_never_writes_into_a_complete_index(gfile):

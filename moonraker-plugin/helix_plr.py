@@ -140,7 +140,7 @@ BACKENDS = ("generic", "qidi_print_state", "vendor")
 DEFAULT_XY_HOME_GCODE = "G28 X Y"
 DEFAULT_Z_LIFT_MM = 5.0
 DEFAULT_NOZZLE_STANDBY_DROP_C = 70.0
-RESUME_SKIP_FRACTION_DEFAULT = 0.5
+RESUME_SKIP_FRACTION_DEFAULT = 0.0
 
 
 class PlrProfile(NamedTuple):
@@ -710,6 +710,10 @@ class LayerFollower:
             )
         self.offset = result.offset
         self.state = result.state_at_head
+        if self._writer.inert:
+            # A complete index of this file appeared (file analysis wrote it
+            # whole): there is nothing left to follow.
+            self.complete = True
 
     def finish(self, file_size: Optional[int]) -> None:
         """Close the index. A print that completed (file_size given) and was
@@ -985,6 +989,9 @@ class HelixPlr:
         self._ready_token = token
         try:
             await self._klippy_ready()
+        except Exception:
+            # A status still answers, and is announced, with what was read.
+            logging.exception("HelixPrint: PLR could not read Klipper at ready")
         finally:
             # Unless Klippy went away meanwhile and this is another connection.
             if self._ready_token is token:
@@ -1195,6 +1202,8 @@ class HelixPlr:
             self.follower = self._make_follower()
             if self.follower is None:
                 return
+        if self.follower.complete:
+            return
         behind = file_position - self.follower.offset
         if behind <= 0 or (behind < FOLLOW_MIN_BYTES and now - self._follow_at < FOLLOW_INTERVAL_S):
             return
@@ -1435,12 +1444,23 @@ class HelixPlr:
         except Exception:
             return False
 
+    def _klippy_coming_up(self) -> bool:
+        """Klippy is ready, or connected and still starting up: either way
+        on_klippy_ready is about to run or running."""
+        if self._klippy_connection_ready():
+            return True
+        conn = self.server.lookup_component("klippy_connection", None)
+        state = getattr(conn, "state", None)
+        return str(getattr(state, "name", state)).lower() == "startup"
+
     async def _wait_ready_settled(self) -> None:
-        """Klippy is ready but on_klippy_ready (objects, homing, the QIDI
-        check) has not finished for it: an answer now would carry the
-        backend and the offer of no connection at all. Wait for it, bounded."""
+        """on_klippy_ready (objects, homing, the backend detection) has not
+        finished for a Klippy that is up or coming up: an answer now would
+        carry the backend and the offer of no connection at all. Wait for its
+        result, success or failure, bounded under the app's request timeout.
+        A Klippy that is down answers at once; its ready announces the status."""
         started = self.clock()
-        while not self._ready_settled and self._klippy_connection_ready() \
+        while not self._ready_settled and self._klippy_coming_up() \
                 and self.clock() - started < READY_WAIT_S:
             await self._sleep(READY_POLL_S)
 
@@ -1731,6 +1751,8 @@ class HelixPlr:
                 purge = helix_plr_render.generic_purge_xy(objects, bed[0], bed[1])
             if purge is None:
                 warnings.append("no_purge_location")
+        excluded = list(snapshot.get("excluded") or [])
+        self._check_open_object(point.state.current_object, excluded)
         if qidi:
             self._check_qidi_landing(snapshot, job.get("mesh"))
         if tier == 1 and not qidi and purge is None and self.park_xy is None:
@@ -1751,12 +1773,13 @@ class HelixPlr:
             plan_id=plan_id, filename=job.get("history_name") or filename,
             start_name=start_name, history_name=history_name,
             resume_offset=point.offset, state=point.state,
-            layer=snapshot.get("layer"), total_layers=snapshot.get("total_layers"),
+            layer=_resume_layer(point.state, snapshot.get("layer")),
+            total_layers=snapshot.get("total_layers"),
             tier=tier, z_physical=live[2],
             lift_mm=helix_plr_render.lift_height(
                 profile.z_lift_mm, live[2], self.axis_max[2] if self.axis_max else None),
             snapshot=snapshot, object_defines=list(scan.object_defines),
-            excluded=list(snapshot.get("excluded") or []), mesh=mesh,
+            excluded=excluded, mesh=mesh,
             mesh_loadable=mesh_loadable, purge_xy=purge, nozzle_target=nozzle,
             bed_target=bed_target, chamber=chamber, macro_vars=macro_vars or {},
             method=point.method, retrace_estimate_mm=point.retrace_estimate_mm,
@@ -1765,6 +1788,7 @@ class HelixPlr:
             part_top_z=part_top, mesh_fade=self.mesh_fade, park_xy=self.park_xy,
             backend=backend,
         )
+        self._check_renders(plan, profile)
         self._plan = plan
         self._plan_seq = snapshot.get("seq")
         target = self.print_target()
@@ -1806,6 +1830,25 @@ class HelixPlr:
         if landing < -QIDI_LANDING_TOL_MM:
             raise self._error("plr_scan_failed",
                               "qidi_landing_below_part: %.3f mm" % landing, 400)
+
+    def _check_open_object(self, name: Optional[str], excluded: List[str]) -> None:
+        """The resume must not start inside an excluded object's block:
+        neither backend would skip it (helix_plr_scan.leave_excluded_object
+        moves the point past it). Refuse a plan that still does."""
+        keys = {helix_gcode_reader.object_key(e) for e in excluded}
+        if name and helix_gcode_reader.object_key(name) in keys:
+            raise self._error("plr_scan_failed", "excluded_object_open: %s" % name, 400)
+
+    def _check_renders(self, plan: Any, profile: PlrProfile) -> None:
+        """Render what commit would send, so a name or value no command can
+        carry refuses the plan, before prepare heats or moves anything."""
+        try:
+            helix_plr_render.render_start(plan)
+            if plan.backend != "qidi_print_state":
+                helix_plr_render.render_commit_script(
+                    plan, profile, "part_top" if plan.tier == 1 else "trusted")
+        except helix_plr_render.UnsafeValue as e:
+            raise self._error("plr_scan_failed", "unsafe_value: %s" % e, 400)
 
     def _check_printed_file(self) -> None:
         """The generic start selects the job's file; the offset was found in
@@ -2101,6 +2144,9 @@ class HelixPlr:
                 if plan.backend == "qidi_print_state":
                     await self._commit_qidi(plan)
                 else:
+                    # Rendered before anything moves: a name it cannot send
+                    # refuses the commit here, not after the purge.
+                    start = helix_plr_render.render_start(plan)
                     # Back to print temperature where the nozzle stands, before
                     # the tier-1 Z reference or any other move.
                     await self._heat(plan, self._skip_chamber, nozzle_in_place=True)
@@ -2112,7 +2158,7 @@ class HelixPlr:
                                 plan_id, step, "extruder",
                                 plan.nozzle_target - helix_plr_render.HEAT_TOLERANCE_C,
                                 NOZZLE_WAIT_TIMEOUT_S)
-                    await self._start(plan)
+                    await self._start(plan, start)
             except Exception:
                 if self._sequence == "committing":
                     self._sequence = "failed"
@@ -2180,7 +2226,7 @@ class HelixPlr:
                 or (printed and Path(printed).resolve() != Path(name).resolve()):
             raise self._error("plr_scan_failed", "qidi_cache_mismatch: %s" % name, 409)
 
-    async def _start(self, plan: Any) -> None:
+    async def _start(self, plan: Any, start: str) -> None:
         """Mark the job helix-initiated, then the single start command."""
         self._check_abort()
         gc_path = self.helix.gc_path
@@ -2201,7 +2247,7 @@ class HelixPlr:
         self.helix.mark_helix_initiated(plan.start_name, "plr_resume", plan.history_name)
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
-            await self.helix.klippy_apis.run_gcode(helix_plr_render.render_start(plan))
+            await self.helix.klippy_apis.run_gcode(start)
         except Exception as e:
             self.helix.unmark_helix_initiated(plan.start_name)
             if link is not None:
@@ -2247,9 +2293,10 @@ PROGRESS_EVENT = "helix_print:plr_progress"
 PLAN_READY_EVENT = "helix_print:plr_plan_ready"
 PLR_STATUS_EVENT = "helix_print:plr_status"
 
-# plr.status waits at most this long for on_klippy_ready to finish when Klippy
-# is already ready (the QIDI check alone has taken 5-10 s on a Q2).
-READY_WAIT_S = 15.0
+# plr.status waits at most this long for on_klippy_ready to finish while Klippy
+# is up or starting: on a Q2 Klippy's startup plus the QIDI check passes 15 s.
+# The app's default request timeout is 60 s.
+READY_WAIT_S = 45.0
 READY_POLL_S = 0.25
 
 # A plan whose scan takes longer replies {"pending": true} and announces itself.
@@ -2322,6 +2369,15 @@ def _part_top_z(scan: Any, point: Any) -> Optional[float]:
     return None
 
 
+def _resume_layer(state: Any, snapshot_layer: Optional[int]) -> Optional[int]:
+    """The layer print_stats reports at the resume line: the file's own
+    SET_PRINT_STATS_INFO count there, which a point moved past an excluded
+    block can have advanced, else the snapshot's."""
+    if state.layer is not None and state.layer_source == "print_stats":
+        return state.layer
+    return snapshot_layer
+
+
 def _scan_and_locate(path: Path, file_position: int, index_path: Optional[str],
                      identity: Optional[Dict[str, Any]], snapshot: Dict[str, Any],
                      skip_fraction: float) -> Tuple[Any, Any]:
@@ -2329,4 +2385,6 @@ def _scan_and_locate(path: Path, file_position: int, index_path: Optional[str],
     with open(str(path), "rb") as f:
         scan = helix_plr_scan.scan_for_resume(f, file_position, index_path, identity)
         point = helix_plr_scan.resume_point(f, scan, snapshot, skip_fraction, SAVE_INTERVAL_S)
+        if point is not None:
+            point = helix_plr_scan.leave_excluded_object(f, point, snapshot.get("excluded") or [])
     return scan, point

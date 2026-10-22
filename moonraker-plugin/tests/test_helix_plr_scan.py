@@ -449,3 +449,82 @@ def test_the_in_flight_line_is_aligned_with_toolhead_position(blocked):
     point = resume_point(stream, r, snapshot, 0.0, 1.0)
     assert point.method == "measured"
     assert point.offset == rec.offset
+
+
+# --------------------------------------------------------------------------
+# Leaving an excluded object's block
+# --------------------------------------------------------------------------
+
+from helix_plr_scan import ExcludedObjectOpen, ResumePoint, leave_excluded_object  # noqa: E402
+
+
+def point_at(data, marker, method="measured"):
+    """A resume point at the line starting with `marker`."""
+    offset = data.index(marker)
+    state = scan_to_offset(io.BytesIO(data), offset).state_at_head
+    return ResumePoint(offset, state, method, 1.5, 2.5, [])
+
+
+OBJECTS = [
+    "M82", "G1 F600", "M104 S210", "M106 S255",
+    "EXCLUDE_OBJECT_START NAME=box", "G1 Z0.2", "G1 X1 Y1 E1", "G1 X2 Y1 E2",
+    "G1 X3 Y1 E3", "EXCLUDE_OBJECT_END NAME=box",
+    "EXCLUDE_OBJECT_START NAME=peg", "G1 X10 Y10 E4", "G1 X11 Y10 E5",
+    "EXCLUDE_OBJECT_END NAME=peg",
+    "G1 E4.2 F2100", "G1 Z0.6", "G1 X20 Y20 F6000", "EXCLUDE_OBJECT_START NAME=Cube",
+    "G1 E5 F2100", "G1 X21 Y20 E6", "EXCLUDE_OBJECT_END NAME=Cube",
+]
+
+
+def test_a_point_outside_an_excluded_block_stays():
+    data = gcode(OBJECTS)
+    point = point_at(data, b"G1 X2 Y1")
+    assert leave_excluded_object(io.BytesIO(data), point, []) is point
+    assert leave_excluded_object(io.BytesIO(data), point, ["PEG"]) is point
+
+
+def test_an_excluded_object_right_after_the_one_cut_in_is_skipped_too():
+    """box and peg are both excluded: the landing is Cube's unretract, at
+    the end of the travel to Cube, with the retract and the Z move carried."""
+    data = gcode(OBJECTS)
+    moved = leave_excluded_object(io.BytesIO(data), point_at(data, b"G1 X2 Y1"), ["BOX", "PEG"])
+    assert moved.offset == data.index(b"G1 E5 F2100")
+    assert moved.state.last_position[:3] == [20.0, 20.0, 0.6]
+    assert moved.state.last_position[3] == pytest.approx(4.2)
+    assert moved.state.current_object == "Cube"
+    assert (moved.retrace_estimate_mm, moved.skip_estimate_mm) == (0.0, 0.0)
+    assert moved.method == "measured"
+
+
+def test_only_the_cut_object_excluded_lands_at_the_next_printed_move():
+    data = gcode(OBJECTS)
+    moved = leave_excluded_object(io.BytesIO(data), point_at(data, b"G1 X2 Y1"), ["box"])
+    assert moved.offset == data.index(b"G1 X10 Y10 E4")
+    assert moved.state.current_object == "peg"
+    assert moved.state.last_position[:2] == [3.0, 1.0]
+
+
+def test_state_changed_inside_the_skipped_block_is_carried():
+    lines = list(OBJECTS)
+    at = lines.index("G1 X3 Y1 E3")
+    lines[at:at] = ["M83", "G92 E0", "G1 Z0.4", "M104 S230", "M106 S128",
+                    "SET_PRINT_STATS_INFO CURRENT_LAYER=2"]
+    data = gcode(lines)
+    moved = leave_excluded_object(io.BytesIO(data), point_at(data, b"G1 X2 Y1"), ["BOX", "PEG"])
+    state = moved.state
+    assert state.absolute_extrude is False
+    assert state.heater_targets["extruder"] == 230.0
+    assert state.fan_speeds["fan"] == pytest.approx(128 / 255.0)
+    assert state.layer == 2
+    # Relative from G92 E0: box's last line and peg's two. In M83 the
+    # following `G1 E4.2` extrudes outside any object, so it is the landing.
+    assert state.gcode_position()[3] == pytest.approx(3.0 + 4.0 + 5.0)
+    assert moved.offset == data.index(b"G1 E4.2")
+    assert state.last_position[2] == 0.4
+
+
+def test_nothing_printed_after_the_excluded_block_refuses():
+    data = gcode(OBJECTS)
+    with pytest.raises(ExcludedObjectOpen):
+        leave_excluded_object(io.BytesIO(data), point_at(data, b"G1 X2 Y1"),
+                              ["BOX", "PEG", "CUBE"])

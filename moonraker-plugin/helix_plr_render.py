@@ -51,6 +51,14 @@ STANDBY_RETRACT_MM = 1.0
 # The standby temperature never goes below this.
 NOZZLE_STANDBY_MIN_C = 140.0
 
+# exclude_object lets the first initial_extrusion_moves (5) extruding moves
+# through its freshly registered transform before it skips anything
+# (exclude_object.py#_register_transform, _normal_move); the start sends one
+# more than that, alternating so the extruder ends where it began.
+EXCLUDE_COUNTER_MOVES = 6
+EXCLUDE_COUNTER_E_MM = 0.001
+EXCLUDE_COUNTER_STATE = "HELIX_PLR_EXCLUDE"
+
 CONFIRMATIONS = ("part_attached", "nozzle_clear", "z_confirmed", "z_jogged",
                  "accept_no_mesh", "accept_cold_bed", "accept_next_layer")
 
@@ -367,16 +375,6 @@ def _restore_lines(plan: ResumePlan) -> List[str]:
         elif name.startswith("heater_generic "):
             out.append("SET_HEATER_TEMPERATURE HEATER=%s TARGET=%s"
                        % (gcode_param(name.split(" ", 1)[1]), _f(target)))
-    out.extend(plan.object_defines)
-    for name in plan.excluded:
-        out.append("EXCLUDE_OBJECT NAME=%s" % gcode_param(name))
-    info = ["SET_PRINT_STATS_INFO"]
-    if plan.total_layers is not None:
-        info.append("TOTAL_LAYER=%d" % plan.total_layers)
-    if plan.layer is not None:
-        info.append("CURRENT_LAYER=%d" % plan.layer)
-    if len(info) > 1:
-        out.append(" ".join(info))
     for macro, values in sorted(plan.macro_vars.items()):
         for var, value in sorted(values.items()):
             out.append("SET_GCODE_VARIABLE MACRO=%s VARIABLE=%s VALUE=%s" % (
@@ -484,9 +482,45 @@ def render_commit_script(plan: ResumePlan, profile: Any,
     return steps
 
 
+def _file_state_lines(plan: ResumePlan) -> List[str]:
+    """What selecting the file clears: M23 resets exclude_object (objects,
+    exclusions, the current object) and print_stats' layer info, so these
+    run between M23 and M24.
+
+    The first exclusion registers exclude_object's transform, which counts
+    its first extruding moves instead of skipping them: tiny moves that net
+    to zero use them up, so the file's first moves of an excluded object are
+    skipped. SAVE/RESTORE_GCODE_STATE puts the extrude mode back and
+    re-bases E, so the file's E stays where it was.
+
+    The resume offset can fall inside an object's EXCLUDE_OBJECT_START/END
+    block; that object (never an excluded one: the plan resumes past those)
+    is entered again, so the block's END matches."""
+    out = list(plan.object_defines)
+    for name in plan.excluded:
+        out.append("EXCLUDE_OBJECT NAME=%s" % gcode_param(name))
+    if plan.excluded:
+        out += ["SAVE_GCODE_STATE NAME=%s" % EXCLUDE_COUNTER_STATE, "M83"]
+        for i in range(EXCLUDE_COUNTER_MOVES):
+            sign = "" if i % 2 == 0 else "-"
+            out.append("G1 E%s%s F%d" % (sign, _f(EXCLUDE_COUNTER_E_MM), RETRACT_FEED))
+        out.append("RESTORE_GCODE_STATE NAME=%s" % EXCLUDE_COUNTER_STATE)
+    info = ["SET_PRINT_STATS_INFO"]
+    if plan.total_layers is not None:
+        info.append("TOTAL_LAYER=%d" % plan.total_layers)
+    if plan.layer is not None:
+        info.append("CURRENT_LAYER=%d" % plan.layer)
+    if len(info) > 1:
+        out.append(" ".join(info))
+    if plan.state.current_object:
+        out.append("EXCLUDE_OBJECT_START NAME=%s" % gcode_param(plan.state.current_object))
+    return out
+
+
 def render_start(plan: ResumePlan) -> str:
-    """The single start command: select, seek, start."""
-    return "\n".join(["M23 %s" % plan.start_name, "M26 S%d" % plan.resume_offset, "M24"])
+    """The single start command: select, seek, the state selecting cleared, start."""
+    return "\n".join(["M23 %s" % plan.start_name, "M26 S%d" % plan.resume_offset]
+                     + _file_state_lines(plan) + ["M24"])
 
 
 def required_confirmations(tier: int, warnings: Sequence[str], bed_cold: bool) -> List[str]:

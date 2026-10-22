@@ -151,9 +151,6 @@ def test_tier2_commit_golden():
         "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45",
         "SET_HEATER_TEMPERATURE HEATER=dryer TARGET=50",
         "SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=mcu TARGET=40",
-        "EXCLUDE_OBJECT_DEFINE NAME=part_a CENTER=110,95",
-        "EXCLUDE_OBJECT NAME=part_b",
-        "SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
         "SET_GCODE_VARIABLE MACRO=_STATE VARIABLE=count VALUE=3",
     ]
     assert heat == ["G90", "G1 X5 Y5 F6000", "G1 Z0.3 F300", "M104 S220"]
@@ -218,8 +215,57 @@ def test_include_file_mesh_loads_the_plr_profile():
 
 
 def test_start_selects_seeks_and_starts():
-    assert render_start(plan()) == "M23 helix_plr_resume.gcode\nM26 S123456\nM24"
+    assert render_start(plan()).split("\n") == [
+        "M23 helix_plr_resume.gcode",
+        "M26 S123456",
+        "EXCLUDE_OBJECT_DEFINE NAME=part_a CENTER=110,95",
+        "EXCLUDE_OBJECT NAME=part_b",
+        "SAVE_GCODE_STATE NAME=HELIX_PLR_EXCLUDE",
+        "M83",
+        "G1 E0.001 F2100", "G1 E-0.001 F2100", "G1 E0.001 F2100",
+        "G1 E-0.001 F2100", "G1 E0.001 F2100", "G1 E-0.001 F2100",
+        "RESTORE_GCODE_STATE NAME=HELIX_PLR_EXCLUDE",
+        "SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
+        "M24",
+    ]
     assert render_start(plan(start_name="part.gcode")).startswith("M23 part.gcode\n")
+    bare = plan(object_defines=[], excluded=[], layer=None, total_layers=None)
+    assert render_start(bare) == "M23 helix_plr_resume.gcode\nM26 S123456\nM24"
+
+
+# exclude_object.py#_register_transform: initial_extrusion_moves = 5.
+KLIPPER_INITIAL_EXTRUSION_MOVES = 5
+
+
+def test_an_exclusion_is_followed_by_moves_that_use_up_klippers_count():
+    """The first exclusion after M23 registers exclude_object's transform,
+    which prints its first five extruding moves whatever object they are in."""
+    lines = render_start(plan(excluded=["part_b", "part_c"])).split("\n")
+    last = max(i for i, l in enumerate(lines) if l.startswith("EXCLUDE_OBJECT NAME="))
+    between = lines[last + 1:lines.index("M24")]
+    e_moves = [float(l.split()[1][1:]) for l in between if l.startswith("G1 E")]
+    assert len(e_moves) >= KLIPPER_INITIAL_EXTRUSION_MOVES
+    assert sum(e_moves) == pytest.approx(0.0, abs=1e-12)
+    assert between[0].startswith("SAVE_GCODE_STATE") and between[1] == "M83"
+    assert between[2 + len(e_moves)].startswith("RESTORE_GCODE_STATE")
+    assert "MOVE=" not in between[2 + len(e_moves)]
+    unexcluded = render_start(plan(excluded=[])).split("\n")
+    assert not any(l.startswith(("G1", "SAVE_GCODE_STATE", "M83")) for l in unexcluded)
+
+
+def test_selecting_the_file_is_followed_by_the_state_it_clears():
+    """M23 resets exclude_object and print_stats' layer info, so nothing the
+    commit steps send may carry them."""
+    lines = flat(render_commit_script(plan(), PROFILE, "trusted"))
+    assert not any(l.startswith(("EXCLUDE_OBJECT", "SET_PRINT_STATS_INFO")) for l in lines)
+
+
+def test_start_reenters_the_object_the_resume_point_is_in():
+    s = resume_state()
+    s.current_object = "box.stl_id_0_copy_0"
+    lines = render_start(plan(state=s)).split("\n")
+    assert lines[-3:] == ["SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
+                          "EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0", "M24"]
 
 
 def test_restores_summary():
@@ -258,7 +304,11 @@ def test_gcode_param_refuses_what_klipper_would_cut(value):
 
 def test_unsafe_names_from_status_refuse_the_render():
     with pytest.raises(UnsafeValue):
-        render_commit_script(plan(excluded=["evil\nG28"]), PROFILE, "trusted")
+        render_start(plan(excluded=["evil\nG28"]))
+    s = resume_state()
+    s.current_object = "evil;G28"
+    with pytest.raises(UnsafeValue):
+        render_start(plan(state=s))
 
 
 def test_lift_height():

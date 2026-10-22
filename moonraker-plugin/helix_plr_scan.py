@@ -322,3 +322,62 @@ def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict,
         return ResumePoint(offset, state_before(stream, scan, offset), "measured",
                            retrace, skip, [])
     return next_layer_start(stream, scan, snapshot.get("layer"))
+
+
+class ExcludedObjectOpen(Exception):
+    """The resume point lies in an excluded object's block, and nothing that
+    is not excluded prints after it."""
+
+
+class _Landing(Exception):
+    pass
+
+
+class _FirstPrintedExtrusion(helix_gcode_reader.ScanObserver):
+    """Stops the scan at the first move that extrudes outside every excluded
+    object."""
+
+    def __init__(self, keys: set) -> None:
+        self.keys = keys
+        self.offset = None  # type: Optional[int]
+
+    def move(self, state: ModalState, start: List[float], words: List[bytes],
+             offset: int) -> None:
+        name = state.current_object
+        if name and helix_gcode_reader.object_key(name) in self.keys:
+            return
+        if state.last_position[3] > start[3] + E_TOL_MM:
+            self.offset = offset
+            raise _Landing()
+
+
+def leave_excluded_object(stream: BinaryIO, point: ResumePoint,
+                          excluded: Sequence[str]) -> ResumePoint:
+    """`point` moved past the excluded object block it lies in, to the first
+    move after it that extrudes outside every excluded object, with the modal
+    state carried across the skipped lines.
+
+    Those lines printed nothing in the original print. Resuming inside the
+    block would print it: the plan's start re-registers exclude_object's
+    transform, which lets its first extruding moves through (the start
+    consumes them, helix_plr_render.EXCLUDE_COUNTER_MOVES), and re-entering
+    the object would land the nozzle on it. The skipped travel, Z moves,
+    retracts and G92 take the landing to where the next printed path starts.
+    Nothing re-traced, nothing skipped that would have printed: both
+    estimates are 0."""
+    name = point.state.current_object if point.state is not None else None
+    keys = {helix_gcode_reader.object_key(e) for e in excluded}
+    if not name or helix_gcode_reader.object_key(name) not in keys:
+        return point
+    stream.seek(0, 2)
+    end = stream.tell()
+    finder = _FirstPrintedExtrusion(keys)
+    try:
+        scan_to_offset(stream, end, point.offset, point.state.copy(), observer=finder)
+    except _Landing:
+        pass
+    if finder.offset is None:
+        raise ExcludedObjectOpen("excluded_object_open: nothing prints after %s" % name)
+    state = scan_to_offset(stream, finder.offset, point.offset, point.state.copy()).state_at_head
+    return point._replace(offset=finder.offset, state=state, retrace_estimate_mm=0.0,
+                          skip_estimate_mm=0.0)

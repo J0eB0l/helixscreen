@@ -43,7 +43,7 @@ Accepted as recommended in the first draft, or decided on review:
 | ID | Ruling |
 |---|---|
 | O1 | The fast and slow blocks live in the plugin's two-slot file (§ 4.2). Job identity and mesh stay in the Moonraker namespace. Why SQLite was avoided is recorded in § 4.2. |
-| O2 | Decided by test. Initial default: skip ahead half a snapshot interval past the executed point (`resume_skip_fraction = 0.5`, § 6.2), one named tunable. Task T2 (§ 11.4) compares re-trace and skip-half on real prints. |
+| O2 | Ruled (Preston, 2026-10-22): re-trace is the default, `resume_skip_fraction = 0.0` (§ 6.2), kept as one named tunable: a resume reprints a little rather than skipping. Not settled by test: two Q2 runs (QIDI path, 40x40x6 mm PLA box, killed at layer 10) both resumed with 0.5, because the app wrote 0.5 into plr_profile; one seam separated and one bonded with a faint line. The T2 comparison (§ 11.4) is still to run. |
 | O3 | Scan at resume time. Measured first (task T1, § 11.4): a 100 MB file on a K1C-class host must scan in 30 s or less. Over 30 s, v1 switches to background per-layer checkpoints during the print (§ 6.2). |
 | D1 | No offer after `klippy_shutdown` / `error` in v1 (power loss only). |
 | D2 | Adaptive-mesh carry-over needs an opt-in `[include helix-plr/*.cfg]` line in printer.cfg (§ 6.4). |
@@ -291,12 +291,24 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    `resume_skip_fraction x save_interval` seconds of motion, walking forward through the window
    at each line's feedrate (F times the speed factor, capped by the velocity limit). At 0 the
    resume re-traces up to one interval (a ridge, never a gap); at 1 it skips the whole interval
-   (no ridge, possibly a gap). Initial default 0.5, settled by task T2. Reported as
-   `retrace_estimate_mm` and `skip_estimate_mm`.
+   (no ridge, possibly a gap). Default 0 (re-trace): the resume starts at the executing line's
+   start (O2: a ruling; T2 has not compared the settings yet). Reported as `retrace_estimate_mm` and `skip_estimate_mm`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the next
    layer (ruling R26; the partial layer is skipped), `method: "layer_start"`, with the
    `layer_start` warning. The scan reads on past the head when it has not reached that layer;
    no next layer (the last one) or no layer markers means no plan. Never a byte rewind.
+7. **Excluded object.** When the point (measured or fallback) lies inside the
+   `EXCLUDE_OBJECT_START`/`END` block of an object the snapshot lists as excluded, it moves
+   forward to the first move after it that extrudes outside every excluded object, with the
+   modal state carried across the skipped lines: further excluded blocks, travel, Z moves,
+   retracts, `G92`, `M82`/`M83`, temperatures, fans, `SET_PRINT_STATS_INFO`
+   (`helix_plr_scan.py#leave_excluded_object`; names compare upper-cased, as Klipper's). The
+   skipped lines printed nothing in the original print, and the landing (§ 6.3 step 9) falls
+   where the next printed path starts, never on the excluded object, which is often the failed
+   one. Nothing is re-traced: both estimates are 0, and the plan's layer is the file's
+   `SET_PRINT_STATS_INFO` count at the new point. Nothing printed after it refuses the plan
+   (`plr_scan_failed: excluded_object_open`). Object names are read as Klipper reads extended
+   parameters, shell-style with `#` and `;` as comments, so `NAME="my part"` is one name.
 
 Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `ScanResult` and
 `scan_to_offset` are built and live in `helix_gcode_reader.py` (the plugin's constants are
@@ -305,7 +317,7 @@ Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `Sc
 ```python
 WINDOW_BYTES = 256 * 1024                  # helix_gcode_reader.py
 MATCH_TOL_MM = 0.5                         # helix_plr_scan.py from here down
-RESUME_SKIP_FRACTION_DEFAULT = 0.5         # tunable: plr_profile.resume_skip_fraction overrides
+RESUME_SKIP_FRACTION_DEFAULT = 0.0         # tunable: plr_profile.resume_skip_fraction overrides
 
 class ModalState:            # __slots__ class; gcode_move fields plus tool, heaters, fans, PA,
     ...                      # limits, retract, layer; copy(), to_dict()/from_dict() for layer_index
@@ -421,14 +433,33 @@ QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified 
    at that height, then lifts again.
 7. Restore state: mesh (§ 6.4), `SET_GCODE_OFFSET`, `SET_PRESSURE_ADVANCE` per extruder,
    `SET_VELOCITY_LIMIT`, `SET_RETRACTION`, `M220`/`M221`, heater targets other than bed,
-   `EXCLUDE_OBJECT_DEFINE` lines from the scan then `EXCLUDE_OBJECT NAME=` per exclusion,
-   `SET_PRINT_STATS_INFO`, `SET_GCODE_VARIABLE` per saved macro var.
+   `SET_GCODE_VARIABLE` per saved macro var. Object and layer state wait for step 10: `M23`
+   resets them.
 8. Nozzle: move to the purge location, re-assert its target and wait (hot already from step 6),
    purge (`profile.purge_gcode` or the generic purge at
    a part-free bed edge computed from object polygons and bed limits), wipe.
 9. Return: travel at the lifted height to the resume line's start XY, lower to its Z at `F300`,
    restore G90/G91, M82/M83, `G92 E<logical E>`, F, fans, retract state.
-10. Start: `M23 <file>`, `M26 S<offset>`, `M24`. Mainline `M23` does not search subdirectories
+10. Start: `M23 <file>`, `M26 S<offset>`, then the state selecting a file clears, then `M24`.
+    `M23` runs `virtual_sdcard`'s `_reset_file`, whose `virtual_sdcard:reset_file` event clears
+    `exclude_object` (objects, exclusions, the current object) and `print_stats`' layer info
+    [src: `kalico/klippy/extras/virtual_sdcard.py#cmd_M23`, `exclude_object.py#_reset_file`], so
+    between `M26` and `M24` go the `EXCLUDE_OBJECT_DEFINE` lines from the scan, `EXCLUDE_OBJECT
+    NAME=` per exclusion, `SET_PRINT_STATS_INFO`, and, when the resume offset lies inside an
+    object's `EXCLUDE_OBJECT_START`/`END` block (`ModalState.current_object` at the resume line),
+    `EXCLUDE_OBJECT_START NAME=<that object>`. Without it the block's `EXCLUDE_OBJECT_END` reports
+    `does not match the current object NAME=None` and the object cannot be excluded for the rest
+    of the block. The re-entered object is never an excluded one (§ 6.2 step 7). `M23` drops
+    exclude_object's move transform, and the first `EXCLUDE_OBJECT` after it registers a new one
+    whose first five extruding moves go through unskipped, whatever object they belong to
+    (`exclude_object.py#_register_transform`, `initial_extrusion_moves = 5`; `_normal_move`
+    counts a move down when it changes E). So when anything is excluded, the start follows the
+    exclusions with `SAVE_GCODE_STATE`, `M83`, six `G1 E` moves alternating +0.001 and -0.001 mm
+    (net zero), and `RESTORE_GCODE_STATE` without `MOVE`, which restores the extrude mode and
+    re-bases E so the file's E is unchanged (`gcode_move.py#cmd_RESTORE_GCODE_STATE`)
+    (`helix_plr_render.py#EXCLUDE_COUNTER_MOVES`). The plan renders the
+    start text and the commit steps when it is made, so a name or value no command can carry
+    refuses the plan (`plr_scan_failed: unsafe_value`) before prepare heats or moves anything. Mainline `M23` does not search subdirectories
     (Kalico has `with_subdirs`) [src], so for a file in a subfolder the plugin points a root-level
     symlink at it and attributes the history entry back to the original name with the existing
     `helix_print.py#_patch_history_entry` path. Immediately before sending the start (`M23`,
@@ -503,7 +534,7 @@ In `assets/config/printer_database.json`, per printer. Absent block = tier 0.
 | `nozzle_standby_drop_c` | float >= 0 | 70.0 | Standby temperature under the print temperature between prepare and commit (R30; floored at 140 °C) |
 | `purge_gcode` | string \| null | null | Purge/wipe macro; null = generic purge |
 | `z_rehome` | `"none"` \| `"probe_clear_spot"` \| `"z_max"` | `"none"` | Tier 3, reserved |
-| `resume_skip_fraction` | float 0-1 | 0.5 | Fraction of the save interval skipped past the executed point (§ 6.2); the user may override |
+| `resume_skip_fraction` | float 0-1 | 0.0 | Fraction of the save interval skipped past the executed point (§ 6.2); the user may override |
 
 User overrides (settings, `helix-screen` / `plr_user`): `enabled` (bool), `tier` (int, may lower or
 raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
@@ -527,7 +558,7 @@ struct PlrHomingCheck { bool xy_home_safe = false; bool has_xy_home_override = f
 struct PlrDbBlock { int tier = 0; PlrBackendKind backend = PlrBackendKind::Generic;
                     StorageHint storage = StorageHint::Unknown; bool z_holds_unpowered = false;
                     std::string xy_home_gcode = "G28 X Y"; float z_lift_mm = 5.0f;
-                    std::optional<std::string> purge_gcode; float resume_skip_fraction = 0.5f; };
+                    std::optional<std::string> purge_gcode; float resume_skip_fraction = 0.0f; };
 struct PlrUserOverride { std::optional<bool> enabled; std::optional<int> tier;
                          std::optional<std::string> xy_home_gcode, purge_gcode;
                          std::optional<float> resume_skip_fraction; };
@@ -695,9 +726,12 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   retracts 1 mm and drops to standby (`nozzle_standby`, R30). A plan, or a prepare, with no nozzle temperature is
   refused with `plr_scan_failed: no_nozzle_target` rather than moving a cold nozzle.
 - `status` answers from the backend and offer that `server:klippy_ready` decides (objects, homing,
-  the QIDI check). Asked while Klippy is ready but that check has not finished, it waits for it,
-  at most 15 s (`READY_WAIT_S`). The check ends by sending its result as
-  `helix_print:plr_status` (clients: `notify_plr_status`), whose payload is the `status` reply.
+  the QIDI check). Asked while Klippy is ready or still starting up and that check has not
+  finished, it waits for its result, success or failure, at most 45 s (`READY_WAIT_S`, under the
+  app's 60 s request timeout; on the Q2 Klippy's startup plus the check passes 15 s). Asked while
+  Klippy is down, it answers at once. The check ends, also when it fails, by sending its result
+  as `helix_print:plr_status` (clients: `notify_plr_status`), whose payload is the `status`
+  reply, so a client that got an early answer is corrected.
 - Single flight: each prepare or commit is a run with its own abort flag, taken before its first
   await. `plan`, `prepare`, `commit` and `discard` answer `plr_busy` until the previous run has
   exited, whatever its state label (an aborted run finishes its current step first). An abort
@@ -873,6 +907,21 @@ print is off by `(physical Z at the cut) - (row z)`.
 
 - Objects: with more than 64 objects QIDI clears all objects AND exclusions before resuming, so
   excluded objects print again. Object names go into `EXCLUDE_OBJECT_DEFINE NAME=<name>` unquoted.
+- An object open at the resume point (known gap): the offset can fall inside an object's
+  `EXCLUDE_OBJECT_START`/`END` block, and QIDI starts the file there with no object entered. It
+  has no row for one, nothing can run between its action lines and the file, and moving the
+  offset back to the block's `START` would print the moves between it and the offset again. So
+  the rest of that block prints outside any object: its `END` logs `EXCLUDE_OBJECT_END NAME=<obj>
+  does not match the current object NAME=None` (both Q2 resumes on 2026-10-22), and excluding
+  that object from the screen before the block ends does not stop it. Later blocks are tracked
+  normally. An object excluded before the cut is not affected: the resume point moves past its
+  block (§ 6.2 step 7).
+- Excluded objects after the resume (known gap): QIDI's resume sends `EXCLUDE_OBJECT` for its
+  `exclude_objects` row before starting the file, which registers exclude_object's transform
+  with `initial_extrusion_moves = 5`, and nothing can be sent between that and the file. Up to 5
+  extruding moves of an excluded object can print after a QIDI resume: the first five of the
+  print that changes E, when they belong to an excluded object. The generic start consumes the
+  count first (§ 6.3 step 10). QIDI resumes are not refused for it.
 - The file QIDI prints: every job runs from QIDI's `.cache` copy
   (`klippy_apis.py#KlippyAPI.start_print`), and a `.3mf` from the extracted
   `Metadata/plate_<n>.gcode` (`virtual_sdcard.py#VirtualSD._load_file`). `file_position` counts
@@ -1056,7 +1105,7 @@ does on the host side.
 | K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` on real `/sys` | M3 | § 7.4 |
 | eMMC host and SD host | 3 reboots each mid-print, slot file read back | M2 | Slot durability on real filesystems |
 | K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | **Done 2026-10-21: FAIL, 394 s median (§ 11.5).** Background per-layer checkpoints join v1 (O3) |
-| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out |
+| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out. Not yet run: the two 2026-10-22 Q2 cuts both used 0.5 (one seam separated, one bonded), so they compare nothing. Default 0.0 by ruling (O2) |
 | One tier-2 model (dedicated Z `enable_pin`s) | Z hold: kill, wait 10 / 30 / 60 min, measure Z drift with a dial indicator before resume; adhesion: same waits, PLA and PETG | M1 + wait | Z holds unpowered; adhesion; cold-bed threshold (O6) |
 | Any eMMC host | `/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | M3 | § 5.2 numbers |
 | `--test` mock | Offer, wizard steps, tier 1 and 2, every `HELIX_MOCK_PLR_WARNINGS` and `_FAIL` value | M3 | App flow before any hardware run |
@@ -1169,7 +1218,7 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
 - QIDI-new adapter, `helix_plr_qidi.py`.
-- T2 before the `resume_skip_fraction` default is final.
+- T2 (§ 11.4) still to run; the default 0.0 is a ruling (O2), not a test result.
 - App: GENERIC backend, wizard, settings, profile resolution, DB `plr` blocks for the models
   tested in § 11.4.
 
