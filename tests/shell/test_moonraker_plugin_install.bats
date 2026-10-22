@@ -1321,6 +1321,70 @@ setup_moved_install() {
     diff -r "$BATS_TEST_TMPDIR/config.before" "$c" || fail "relink edited the config"
 }
 
+# A plugin installed by the git-clone remote installer: the link names a
+# checkout in ~/helix_print, which an [update_manager helix_print] entry keeps
+# tracking the repository's main branch.
+setup_git_clone_install() {
+    local home="$1"
+    setup_plain_home "$home"
+    local c="$home/printer_data/config"
+    printf '[server]\nhost: 0.0.0.0\n\n[helix_print]\n\n[update_manager helix_print]\ntype: git_repo\norigin: https://github.com/prestonbrown/helixscreen.git\npath: %s/helix_print\nprimary_branch: main\nmanaged_services: moonraker\n\n[octoprint_compat]\n' \
+        "$home" > "$c/moonraker.conf"
+    printf '[server]\nhost: 0.0.0.0\n\n[helix_print]\n\n[octoprint_compat]\n' > "$BATS_TEST_TMPDIR/conf.want"
+    cp "$c/moonraker.conf" "$BATS_TEST_TMPDIR/conf.before"
+    ln -s "$home/helix_print/moonraker-plugin/helix_print.py" \
+        "$home/moonraker/moonraker/components/helix_print.py"
+}
+
+# The updater section is gone, a backup holds the file as it was, and every
+# other byte of the file is unchanged.
+assert_updater_entry_stripped() {
+    local c="$1"
+    cmp -s "$BATS_TEST_TMPDIR/conf.want" "$c/moonraker.conf" ||
+        fail "moonraker.conf: $(diff "$BATS_TEST_TMPDIR/conf.want" "$c/moonraker.conf")"
+    local backups
+    backups=$(find "$c" -name 'moonraker.conf.bak.helix.*')
+    [ "$(printf '%s\n' "$backups" | grep -c .)" -eq 1 ] || fail "backups: $backups"
+    cmp -s "$BATS_TEST_TMPDIR/conf.before" "$backups" || fail "backup differs from the original"
+}
+
+@test "relink re-points a git-clone install and drops its updater entry" {
+    local home="$BATS_TEST_TMPDIR/home"
+    setup_git_clone_install "$home"
+    local c="$home/printer_data/config"
+
+    run env HOME="$home" sh "$SCRIPT" --no-restart --relink
+    [ "$status" -eq 3 ] || fail "want 3 (relinked), got $status: $output"
+
+    [ "$(readlink "$home/moonraker/moonraker/components/helix_print.py")" = "$(dirname "$SCRIPT")/helix_print.py" ] ||
+        fail "link: $(readlink "$home/moonraker/moonraker/components/helix_print.py")"
+    assert_updater_entry_stripped "$c"
+    [[ "$output" == *"$home/helix_print/moonraker-plugin"*"can be removed"* ]] || fail "no note on the old checkout: $output"
+}
+
+@test "relink drops a git checkout's updater entry when the link is already current" {
+    local home="$BATS_TEST_TMPDIR/home"
+    setup_git_clone_install "$home"
+    local c="$home/printer_data/config"
+    ln -sf "$(dirname "$SCRIPT")/helix_print.py" "$home/moonraker/moonraker/components/helix_print.py"
+
+    run env HOME="$home" sh "$SCRIPT" --no-restart --relink
+    [ "$status" -eq 0 ] || fail "want 0 (current), got $status: $output"
+    assert_updater_entry_stripped "$c"
+}
+
+@test "relink keeps the updater entry of a link that is not ours" {
+    local home="$BATS_TEST_TMPDIR/home"
+    setup_git_clone_install "$home"
+    local c="$home/printer_data/config"
+    rm "$home/moonraker/moonraker/components/helix_print.py"
+    printf '# copied by hand\n' > "$home/moonraker/moonraker/components/helix_print.py"
+
+    run env HOME="$home" sh "$SCRIPT" --no-restart --relink
+    [ "$status" -eq 4 ] || fail "want 4 (not ours), got $status: $output"
+    cmp -s "$BATS_TEST_TMPDIR/conf.before" "$c/moonraker.conf" || fail "edited: $(cat "$c/moonraker.conf")"
+}
+
 @test "relink leaves a link that already names this tree alone" {
     local home="$BATS_TEST_TMPDIR/home"
     setup_moved_install "$home"
