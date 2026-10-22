@@ -1006,7 +1006,8 @@ class Req:
 
 def straight_layers(object_name=None):
     """Five layers of 100 moves; with object_name, each layer's moves are
-    one EXCLUDE_OBJECT_START/END block."""
+    one EXCLUDE_OBJECT_START/END block, followed by a travel and a short
+    second object, `peg`."""
     out = ["M83", "G1 F600"]
     for n in range(1, 6):
         out += [";LAYER_CHANGE", "SET_PRINT_STATS_INFO CURRENT_LAYER=%d" % n,
@@ -1015,7 +1016,10 @@ def straight_layers(object_name=None):
             out.append("EXCLUDE_OBJECT_START NAME=%s" % object_name)
         out += ["G1 X%d Y10 E.05" % i for i in range(1, 101)]
         if object_name:
-            out.append("EXCLUDE_OBJECT_END NAME=%s" % object_name)
+            out += ["EXCLUDE_OBJECT_END NAME=%s" % object_name,
+                    "G1 X120 Y30 F6000", "EXCLUDE_OBJECT_START NAME=peg",
+                    "G1 X121 Y30 E.05", "G1 X122 Y30 E.05", "EXCLUDE_OBJECT_END NAME=peg",
+                    "G1 F600"]
     return ("\n".join(out) + "\n").encode()
 
 
@@ -1377,24 +1381,24 @@ def exclude(plr, *names):
     plr.store.write(fit_record(record)[0])
 
 
-def after_layer4_block(data):
-    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
-    end = data.index(b"EXCLUDE_OBJECT_END", layer4)
-    return data.index(b"\n", end) + 1
+def peg_in_layer4(data):
+    """The first move that prints after layer 4's box block: peg's first."""
+    return data.index(b"G1 X121 Y30", data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4"))
 
 
 def test_an_excluded_object_open_at_the_resume_point_is_skipped(plr, helix, resume_in_object):
-    """Klipper lets five extruding moves of an excluded object through after
-    M23, so the resume starts after the block instead of re-entering it."""
+    """The resume starts past the excluded block, at the next object's first
+    printed move, and lands where that move starts, never on the box."""
     exclude(plr, "BOX.STL_ID_0_COPY_0")
     reply = run(plr.handle_plan(Req()))
-    assert reply["resume_offset"] == after_layer4_block(resume_in_object)
+    assert reply["resume_offset"] == peg_in_layer4(resume_in_object)
+    assert reply["retrace_estimate_mm"] == 0.0
     full_resume(plr, reply["plan_id"])
     start = sent(helix)[-1].split("\n")
     assert "EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0" in start
-    assert not any(l.startswith("EXCLUDE_OBJECT_START") for l in start)
-    # Returns to where the block left the nozzle: X100 of layer 4.
-    assert any("G1 X100 Y10 F6000" in c for c in sent(helix))
+    assert start[-2:] == ["EXCLUDE_OBJECT_START NAME=peg", "M24"]
+    assert any("G1 X120 Y30 F6000" in c for c in sent(helix))
+    assert not any("G1 X100 Y10 F6000" in c for c in sent(helix))
 
 
 def test_an_excluded_block_with_no_end_refuses_the_plan(plr, helix):
@@ -1409,13 +1413,22 @@ def test_an_excluded_block_with_no_end_refuses_the_plan(plr, helix):
 def test_a_quoted_name_excluded_and_open_at_the_resume_point_is_skipped(plr, helix):
     data = power_cut_in_layer_4(plr, helix, straight_layers('"my part"'))
     exclude(plr, "MY PART")
-    assert run(plr.handle_plan(Req()))["resume_offset"] == after_layer4_block(data)
+    assert run(plr.handle_plan(Req()))["resume_offset"] == peg_in_layer4(data)
 
 
 def test_a_quoted_name_open_at_the_resume_point_is_entered_again(plr, helix):
     power_cut_in_layer_4(plr, helix, straight_layers("'my part'"))
     full_resume(plr, run(plr.handle_plan(Req()))["plan_id"])
     assert sent(helix)[-1].split("\n")[-2:] == ['EXCLUDE_OBJECT_START NAME="my part"', "M24"]
+
+
+def test_the_plan_layer_is_the_files_count_at_the_resume_line():
+    state = helix_gcode_reader.ModalState()
+    assert helix_plr._resume_layer(state, 4) == 4
+    state.layer, state.layer_source = 5, "print_stats"
+    assert helix_plr._resume_layer(state, 4) == 5
+    state.layer_source = "count"              # not a number print_stats ever showed
+    assert helix_plr._resume_layer(state, 4) == 4
 
 
 def test_a_name_no_command_can_carry_refuses_the_plan(plr, helix, resume):
@@ -1704,7 +1717,7 @@ def test_qidi_resumes_after_an_excluded_object_open_at_the_cut(plr, helix, qidi_
     _, cache = qidi_resume_in_object
     exclude(plr, "BOX.STL_ID_0_COPY_0")
     reply = run(plr.handle_plan(Req()))
-    assert reply["resume_offset"] == after_layer4_block((cache / "part.gcode").read_bytes())
+    assert reply["resume_offset"] == peg_in_layer4((cache / "part.gcode").read_bytes())
 
 
 def test_qidi_status_and_offer(plr, helix, qidi_resume):

@@ -346,7 +346,7 @@ def scan_to_offset(
             cmd = cmd.upper()
             if cmd[1:2].isdigit():
                 words = [w.upper() for w in words]
-        if (b'"' in body or b"'" in body) and not cmd[1:2].isdigit():
+        if (b'"' in body or b"'" in body or b"#" in body) and not cmd[1:2].isdigit():
             words = _extended_words(body, words)
 
         if cmd == b"G1" or cmd == b"G0":
@@ -538,13 +538,20 @@ def _apply_arc(
 
 def _extended_words(body: bytes, words: List[bytes]) -> List[bytes]:
     """An extended command's words as Klipper reads them: its parser splits
-    the parameters shell-style (gcode.py#_get_extended_params, shlex), so
-    NAME="my part" or NAME='my part' is one value, quotes removed. A line
-    with unbalanced quotes, which Klipper refuses, keeps the plain split."""
+    the parameters shell-style with `#` and `;` as comments
+    (gcode.py#_get_extended_params, shlex), so NAME="my part" or
+    NAME='my part' is one value, quotes removed, and an unquoted `#` ends
+    the line. A line with unbalanced quotes, which Klipper refuses, keeps
+    the plain split."""
     import shlex
+    lex = shlex.shlex(body.decode("utf-8", "surrogateescape"), posix=True)
+    lex.whitespace_split = True
+    lex.commenters = "#;"
     try:
-        parts = shlex.split(body.decode("utf-8", "surrogateescape"))
+        parts = list(lex)
     except ValueError:
+        return words
+    if not parts:
         return words
     return [words[0]] + [p.encode("utf-8", "surrogateescape") for p in parts[1:]]
 

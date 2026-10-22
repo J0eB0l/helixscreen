@@ -1773,7 +1773,8 @@ class HelixPlr:
             plan_id=plan_id, filename=job.get("history_name") or filename,
             start_name=start_name, history_name=history_name,
             resume_offset=point.offset, state=point.state,
-            layer=snapshot.get("layer"), total_layers=snapshot.get("total_layers"),
+            layer=_resume_layer(point.state, snapshot.get("layer")),
+            total_layers=snapshot.get("total_layers"),
             tier=tier, z_physical=live[2],
             lift_mm=helix_plr_render.lift_height(
                 profile.z_lift_mm, live[2], self.axis_max[2] if self.axis_max else None),
@@ -2366,6 +2367,15 @@ def _part_top_z(scan: Any, point: Any) -> Optional[float]:
         if rec.offset < point.offset and rec.toolhead_de > 0.0:
             return rec.z - base_z
     return None
+
+
+def _resume_layer(state: Any, snapshot_layer: Optional[int]) -> Optional[int]:
+    """The layer print_stats reports at the resume line: the file's own
+    SET_PRINT_STATS_INFO count there, which a point moved past an excluded
+    block can have advanced, else the snapshot's."""
+    if state.layer is not None and state.layer_source == "print_stats":
+        return state.layer
+    return snapshot_layer
 
 
 def _scan_and_locate(path: Path, file_position: int, index_path: Optional[str],

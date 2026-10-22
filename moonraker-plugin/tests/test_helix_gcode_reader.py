@@ -307,6 +307,16 @@ def test_a_quoted_object_name_is_one_value(quoted):
     assert result.state_at_head.current_object is None
 
 
+def test_a_hash_ends_an_extended_commands_parameters_unless_quoted():
+    """Kalico's parser reads `#` and `;` as comments (shlex commenters)."""
+    state = scan("EXCLUDE_OBJECT_START NAME=box#note\n"
+                 "SET_VELOCITY_LIMIT ACCEL=3000 #ACCEL=9000\nG1 X1").state_at_head
+    assert state.current_object == "box"
+    assert state.velocity_limits["accel"] == 3000.0
+    quoted = scan('EXCLUDE_OBJECT_START NAME="a #b"\nG1 X1').state_at_head
+    assert quoted.current_object == "a #b"
+
+
 def test_offsets_are_bytes_not_characters():
     data = gcode(";Würfel ü ü ü\nG1 X1\nG1 X2")
     window = scan(data).window
