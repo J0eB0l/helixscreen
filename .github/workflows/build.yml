@@ -570,7 +570,7 @@ jobs:
 
     - name: Build Android APK (debug)
       working-directory: android
-      run: ./gradlew assembleDebug -PhelixAbis=arm64-v8a,x86_64 -PuseCcache
+      run: ./gradlew assembleDebug -PhelixAbis=arm64-v8a,x86_64 -PuseCcache -PhelixNoDebugInfo
 
     - name: Upload APK
       uses: actions/upload-artifact@v7

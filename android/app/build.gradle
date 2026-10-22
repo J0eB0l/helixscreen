@@ -61,6 +61,9 @@ android {
                         "-DCMAKE_CXX_COMPILER_LAUNCHER=${launcher}"
                     ]
                 }
+                if (project.hasProperty('helixNoDebugInfo')) {
+                    cmakeArgs += ["-DHELIX_NO_DEBUG_INFO=ON"]
+                }
                 if (System.getenv("ANDROID_KEYSTORE_PATH") || project.hasProperty('helixDiagUploads')) {
                     cmakeArgs += ["-DHELIX_DIAGNOSTIC_UPLOADS=ON"]
                 }

@@ -14,6 +14,12 @@ get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOL
 # every style they share, and nothing at link time notices.
 add_compile_definitions($<$<NOT:$<CONFIG:Debug>>:HELIX_RELEASE_BUILD>)
 
+# CI's debug APK is a compile check that nobody attaches a debugger to, and its
+# DWARF is most of what that job's ccache has to store.
+if(HELIX_NO_DEBUG_INFO)
+    add_compile_options(-g0)
+endif()
+
 # ============================================================================
 # SDL2
 # ============================================================================
