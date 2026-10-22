@@ -520,7 +520,7 @@ CFS units have built-in RFID readers that automatically detect Creality filament
 
 **What HelixScreen gets from a tag.** The CFS reads the tag itself and reports a material code, a color and the remaining length; HelixScreen turns the code into the material, brand and nozzle temperature range from Creality's filament list. You can change any of these in the slot's **Edit Spool** editor, and **Reset to tag** puts the tag's values back. A change you make goes to the CFS's own record of the slot, so Creality's screen shows it too; HelixScreen has no way to write to the tag itself. Only what the CFS reports reaches HelixScreen, so extra data stored on a tag (in its spare bytes, for example) is not shown.
 
-**Tags and Spoolman.** A Creality tag carries no Spoolman spool number, so HelixScreen never picks a Spoolman spool from a tag. A slot is linked to a Spoolman spool only when you choose one for it (see [Editing Filament Properties](#editing-filament-properties)).
+**Tags and Spoolman.** HelixScreen never picks a Spoolman spool from a tag, including a tag whose serial number was rewritten to a Spoolman spool number with a phone app. A slot is linked to a Spoolman spool only when you choose one for it (see [Editing Filament Properties](#editing-filament-properties)).
 
 **Putting a different spool in a slot.** HelixScreen recognizes a new spool by a change in the tag's material code or color. When either changes, it drops what it remembered about the old spool on that slot (your edits, the Spoolman link, the remaining weight), so they don't follow the wrong spool. Two cases are not noticed, and in both the slot keeps the old spool's Spoolman link and details until you change them yourself:
 

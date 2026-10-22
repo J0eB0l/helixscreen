@@ -209,10 +209,11 @@ What a stock tag reading can carry is whatever `box_wrapper` publishes per bay i
 scheme to material, brand and nozzle range), `color_value`, `vender` (read for occupancy
 and as a brand fallback, `"unknown"` reading as Creality) and `remain_len` (shown as
 remaining length). The CFS `TagReading` states no weight and no bed temperature. The
-per-unit `uuid` array is not read at all. Bytes a tag carries beyond what the firmware
-decodes into those fields never reach Klipper's `box` object, so they cannot reach
-HelixScreen; no command that writes a tag is known
-(`printer-research/CREALITY_CFS_K2_INTERNALS.md` § "RFID tags").
+per-unit `uuid` array is not read at all. A tagged bay's `vender` entry is the tag's
+whole record, serial number and reserved field included, but HelixScreen reads only its
+occupancy meaning; the field layout is in
+`printer-research/CREALITY_CFS_K2_INTERNALS.md` § "RFID tags". The printer has no known
+command that writes a tag.
 
 **Swap detection.** `check_hardware_event_clear()`
 (`src/printer/ams_backend_cfs.cpp#check_hardware_event_clear`) feeds each bay's
