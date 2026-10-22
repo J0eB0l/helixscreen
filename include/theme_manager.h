@@ -1103,6 +1103,15 @@ std::vector<std::string> theme_manager_find_xml_files(const char* directory,
                                                       bool recursive = false);
 
 /**
+ * @brief How many times token discovery has parsed an XML file's contents
+ *
+ * Discovery reuses a file's parse while its stat is unchanged, so a pass over
+ * an unchanged directory adds nothing. Exists so tests can pin that reuse
+ * without timing anything.
+ */
+int theme_manager_token_file_parse_count();
+
+/**
  * @brief Parse all XML files in a directory for constants with a specific suffix
  *
  * Aggregates constants from all XML files in the directory. Files are processed
