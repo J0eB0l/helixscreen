@@ -29,6 +29,7 @@
 #include "display_numbering.h"
 #include "display_settings_manager.h"
 #include "filament_favorites.h"
+#include "filament_op_dispatch.h"
 #include "lane_source_store.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -37,6 +38,7 @@
 #include "spoolman_slot_saver.h"
 #include "src/ui/panel_widgets/active_spool_widget.h"
 #include "text_io.h"
+#include "tool_state.h"
 
 #include <algorithm>
 #include <cmath>
@@ -3951,6 +3953,74 @@ TEST_CASE_METHOD(OverlayConsumerCommitFixture,
     // Nothing of the slot's own changed, so no slot edit is committed.
     CHECK(completions == 1);
     CHECK_FALSE(saved);
+}
+
+TEST_CASE_METHOD(OverlayConsumerCommitFixture,
+                 "picker greys spools other lanes hold, never the lane's own, on a remapped lane",
+                 "[ams_edit_overlay][picker][tool-state]") {
+    auto& ts = ToolState::instance();
+    ts.deinit_subjects();
+    ts.init_subjects(false);
+    PrinterDiscovery hw;
+    hw.parse_objects(nlohmann::json::array({"extruder", "extruder1", "extruder2", "heater_bed"}));
+    ts.init_tools(hw);
+    REQUIRE(ts.tool_count() == 3);
+
+    // Lane 2 feeds T0, so its spool sits in ToolState under tool 0.
+    REQUIRE(backend->set_tool_mapping(0, 2).success());
+    UpdateQueue::instance().drain();
+    REQUIRE(backend->get_slot_info(2).mapped_tool == 0);
+    ts.assign_spool(0, 9001, "Lane 2 spool");
+    ts.assign_spool(2, 9002, "T2 spool");
+
+    std::vector<SpoolInfo> spools(2);
+    spools[0].id = 9001;
+    spools[0].material = "PLA";
+    spools[1].id = 9002;
+    spools[1].material = "PETG";
+
+    const auto disabled = [](lv_obj_t* list, int spool_id) {
+        for (uint32_t i = 0; i < lv_obj_get_child_count(list); ++i) {
+            lv_obj_t* row = lv_obj_get_child(list, static_cast<int32_t>(i));
+            if (reinterpret_cast<intptr_t>(lv_obj_get_user_data(row)) == spool_id) {
+                return lv_obj_has_state(row, LV_STATE_DISABLED);
+            }
+        }
+        FAIL("no row for spool " << spool_id);
+        return false;
+    };
+
+    auto& overlay = get_ams_edit_overlay();
+    AmsEditOverlayViewTestAccess access(overlay);
+
+    // The external spool feeds through no lane, so every lane's spool is taken.
+    bool external = false;
+    SECTION("the lane's own editor") {
+        SlotInfo lane = backend->get_slot_info(2);
+        lane.spoolman_id = 9001;
+        REQUIRE(overlay.show_for_slot(test_screen(), 2, lane, nullptr, nullptr));
+    }
+    SECTION("the external spool's editor") {
+        external = true;
+        SlotInfo info;
+        info.slot_index = kExternalSpoolSlot;
+        REQUIRE(overlay.show_for_slot(test_screen(), kExternalSpoolSlot, info, nullptr, nullptr));
+    }
+    UpdateQueue::instance().drain();
+    process_lvgl(10);
+
+    access.set_cached_spools(spools);
+    access.call_render_spool_list("");
+    UpdateQueue::instance().drain();
+    process_lvgl(10);
+
+    lv_obj_t* list = access.widget("picker_spool_list");
+    REQUIRE(list != nullptr);
+    CHECK(disabled(list, 9001) == external);
+    CHECK(disabled(list, 9002));
+
+    close_editor_overlay();
+    ts.deinit_subjects();
 }
 
 TEST_CASE_METHOD(OverlayConsumerCommitFixture,

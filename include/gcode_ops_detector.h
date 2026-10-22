@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace helix {
@@ -110,6 +111,9 @@ struct ScanResult {
     /// Byte offset of the first line that extrudes (G1 with a positive E), when
     /// the scan reached one.
     std::optional<size_t> first_extrusion_offset;
+    /// The upper-case command word of every scanned line that runs an
+    /// operation, with its type. Unlike `operations`, every occurrence counts.
+    std::set<std::pair<OperationType, std::string>> operation_commands;
 
     /**
      * @brief Check if a specific operation type was detected
