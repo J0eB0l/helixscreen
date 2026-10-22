@@ -16,6 +16,7 @@
 #include "ui_plr_wizard_overlay.h"
 #include "ui_update_queue.h"
 
+#include "../../src/ui/ui_plr_prompt.h"
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/plr_wizard_overlay_test_access.h"
 #include "../test_helpers/scoped_env.h"
@@ -480,4 +481,29 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a background plan failure shows 
         CHECK(wizard_step() == PlrWizardStep::Failed);
         CHECK(client.count(helix::kPlrPlanRpc) == 2);
     }
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR prompt: Resume on a plugin plan opens the guided resume",
+                 "[plr][wizard_overlay][prompt]") {
+    const helix::PlrRecoveryPlan plan =
+        helix::plr_build_plan(helix::PlrBackendType::GENERIC, "part.gcode", {});
+    REQUIRE(plan.resume_allowed());
+    helix::ui::run_plr_resume(&api, plan);
+    settle();
+    // Resume only opens the wizard: it asks for a plan and moves nothing.
+    CHECK(client.count(helix::kPlrPlanRpc) == 1);
+    CHECK(client.count("printer.gcode.script") == 0);
+    CHECK(wizard_step() == PlrWizardStep::Checks);
+}
+
+TEST_CASE_METHOD(PlrWizardFixture,
+                 "PLR prompt: Discard on a plugin plan clears the plugin snapshot",
+                 "[plr][wizard_overlay][prompt]") {
+    const helix::PlrRecoveryPlan plan =
+        helix::plr_build_plan(helix::PlrBackendType::GENERIC, "part.gcode", {});
+    REQUIRE(client.mock_plr_interrupted());
+    helix::ui::run_plr_discard(&api, plan);
+    settle();
+    CHECK(client.count(helix::kPlrDiscardRpc) == 1);
+    CHECK_FALSE(client.mock_plr_interrupted());
 }
