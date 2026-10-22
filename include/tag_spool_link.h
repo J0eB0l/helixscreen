@@ -45,6 +45,11 @@ class TagSpoolLinkTracker {
     /// after the tag changed is answering for a spool no longer seated.
     [[nodiscard]] bool wants(int slot_index, int spool_id) const;
 
+    /// Whether the lane's want comes from a spool put in this session, rather
+    /// than from the first id the lane showed, which may be a spool that sat
+    /// there across a restart.
+    [[nodiscard]] bool want_is_insert(int slot_index) const;
+
     /// The want for @p spool_id is done with (linked, found missing, or failed):
     /// nothing more is tried for this insert. A no-op once the lane wants
     /// something else.
@@ -62,6 +67,8 @@ class TagSpoolLinkTracker {
         bool in_flight = false;
         /// The lane's link when the running lookup began.
         int lookup_base = 0;
+        /// The want came from a spool put in this session.
+        bool insert = false;
     };
     /// A lane with no entry has not been seen this session.
     std::unordered_map<int, Lane> lanes_;

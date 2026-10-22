@@ -148,3 +148,22 @@ TEST_CASE("a running lookup holds while the lane's link stands still", "[ams][ta
     CHECK_FALSE(t.observe(0, seated(42, 7)));
     CHECK(t.wants(0, 42));
 }
+
+TEST_CASE("only a spool put in this session is an insert", "[ams][tag_link]") {
+    TagSpoolLinkTracker t;
+
+    SECTION("the first id a lane shows is not") {
+        REQUIRE(t.observe(0, seated(42)) == 42);
+        CHECK_FALSE(t.want_is_insert(0));
+    }
+    SECTION("an id after the lane read empty is") {
+        CHECK_FALSE(t.observe(0, empty_lane()));
+        REQUIRE(t.observe(0, seated(42)) == 42);
+        CHECK(t.want_is_insert(0));
+    }
+    SECTION("a different id on a seated lane is") {
+        CHECK_FALSE(t.observe(0, seated(42, 42)));
+        REQUIRE(t.observe(0, seated(43, 42)) == 43);
+        CHECK(t.want_is_insert(0));
+    }
+}

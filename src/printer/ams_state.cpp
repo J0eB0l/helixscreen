@@ -2436,6 +2436,7 @@ void AmsState::finish_tag_spool_link(int slot_index, int spool_id,
     if (!tag_link_tracker_.wants(slot_index, spool_id)) {
         return;
     }
+    const bool inserted = tag_link_tracker_.want_is_insert(slot_index);
     tag_link_tracker_.settle(slot_index, spool_id);
     AmsBackend* backend = get_backend();
     if (!backend) {
@@ -2443,6 +2444,12 @@ void AmsState::finish_tag_spool_link(int slot_index, int spool_id,
     }
     const std::string lane = helix::ui::lane_label(backend->lane_noun(), slot_index);
     if (!spool) {
+        // A spool seated across a restart warned when it was put in.
+        if (!inserted) {
+            spdlog::info("[AMS State] Slot {} tag names Spoolman spool {}, which doesn't exist",
+                         slot_index, spool_id);
+            return;
+        }
         NOTIFY_WARNING(lv_tr("{}: the tag names Spoolman spool #{}, which doesn't exist"), lane,
                        spool_id);
         return;

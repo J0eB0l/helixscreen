@@ -485,7 +485,7 @@ the id, never on a frame that repeats it:
 |---|---|
 | lane reads empty | forget the lane's tag: whatever is seated next is a new insert |
 | occupied, no id (unread, untagged, a default serial) | nothing |
-| first id this session | link only a lane linked to nothing, so a link made before a restart stands |
+| first id this session | link only a lane linked to nothing, so a link made before a restart stands; a spool Spoolman does not have is logged, not toasted |
 | same id as last seen | nothing, so a spool picked while that tag stays seated is kept |
 | a different id, or an id after empty | link the lane to it |
 
@@ -499,6 +499,21 @@ backend write and persistence all behave as for a pick. A spool Spoolman does no
 gets one warning toast; a failed lookup is logged and not retried for that insert. The
 per-printer setting `ams/tag_links_spoolman` (default on) settles every want without a
 lookup, so turning it on never links a spool already seated.
+
+The tracker lives for the session. The last id a lane showed is not persisted, so a
+restart cannot tell a spool that sat in the lane from one put in while HelixScreen was off,
+and the first frame only links a lane linked to nothing. That has two visible effects: a
+lane a person unlinked by hand while its tag stayed seated is linked again after a restart,
+and turning the setting on and restarting links spools already seated in unlinked lanes.
+Persisting the id would need a new field in the slot override record, which exists only for
+a lane with an edit (an unlinked lane and a lane whose tag names a missing spool usually have
+none), plus its own wire key and load path in every backend that binds the store; the
+session-only rule is the smaller cost. A lane whose tag names a spool Spoolman lacks warns
+only on an insert this session, so a restart does not repeat the toast.
+
+A lane in an absent unit (`AmsSystemInfo::slot_absent()`) is skipped: its bays are
+placeholders that read empty, and a box dropping off the bus is not a removal. A lookup's
+answer is dropped when the lane's link changed while it ran, which is a pick that stands.
 
 This is deliberately not `classify_binding()`'s Rule 1. Rule 1 compares firmware's id
 against the lane's declaration on every frame, so a tag id fed to it would undo a pick made

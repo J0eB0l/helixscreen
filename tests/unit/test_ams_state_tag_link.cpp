@@ -281,3 +281,12 @@ TEST_CASE_METHOD(TagLinkFixture, "a box dropping off the bus and back is not a n
         CHECK(count_containing(warnings, "#" + std::to_string(kMissingSpool)) == 1);
     }
 }
+
+TEST_CASE_METHOD(TagLinkFixture, "a missing spool seated across a restart does not warn again",
+                 "[ams][tag_link]") {
+    backend->tag_ids[0] = kMissingSpool;
+    frame();
+    frame();
+    CHECK(linked() == 0);
+    CHECK(warnings.empty());
+}

@@ -28,7 +28,10 @@ std::optional<int> TagSpoolLinkTracker::observe(int slot_index, const TagSpoolSi
             lane.want = id;
         }
     } else if (lane.seen != id) {
-        lane = Lane{id, id, false};
+        lane = Lane{};
+        lane.seen = id;
+        lane.want = id;
+        lane.insert = true;
     }
     // Linked to something else while the lookup ran: a pick, which stands.
     if (lane.in_flight && sighting.lane_spoolman_id != lane.lookup_base) {
@@ -56,6 +59,11 @@ void TagSpoolLinkTracker::begin_lookup(int slot_index, int spool_id, int lane_sp
 bool TagSpoolLinkTracker::wants(int slot_index, int spool_id) const {
     auto it = lanes_.find(slot_index);
     return it != lanes_.end() && it->second.want == spool_id;
+}
+
+bool TagSpoolLinkTracker::want_is_insert(int slot_index) const {
+    auto it = lanes_.find(slot_index);
+    return it != lanes_.end() && it->second.want && it->second.insert;
 }
 
 void TagSpoolLinkTracker::settle(int slot_index, int spool_id) {
