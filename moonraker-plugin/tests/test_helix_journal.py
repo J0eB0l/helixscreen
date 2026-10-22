@@ -46,6 +46,9 @@ FIXTURE = (
     Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "journal"
     / "error_line_classes.json"
 )
+# Shared with tests/unit/test_printer_event_journal.cpp
+REPEATS = FIXTURE.parent / "repeats.json"
+REPEAT_CASES = json.loads(REPEATS.read_text())["cases"]
 
 T0 = 1700000000.0
 
@@ -312,6 +315,24 @@ class TestRecording:
 # ============================================================================
 
 class TestErrorFloods:
+
+    def test_the_fixture_set_is_there(self):
+        # An empty case list would pass the parametrized test by running none.
+        assert len(REPEAT_CASES) >= 7
+
+    @pytest.mark.parametrize("case", REPEAT_CASES, ids=[c["name"] for c in REPEAT_CASES])
+    def test_the_shared_repeat_cases(self, case):
+        store = JournalStore()
+        for a in case["appends"]:
+            store.append(a["kind"], T0 + a["time"], a["text"], a["job"], a["class"],
+                         a.get("detail"))
+        got = []
+        for e in store.entries:
+            row = {"time": e["time"] - T0, "text": e["text"], "count": e.get("count", 1)}
+            if "last_time" in e:
+                row["last_time"] = e["last_time"] - T0
+            got.append(row)
+        assert got == case["expected"]
 
     def test_repeats_within_the_window_collapse_into_one_entry(self):
         store = JournalStore(max_entries=5)
