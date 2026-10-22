@@ -117,7 +117,7 @@ Each CFS unit (T1=unit 1, T2=unit 2, etc.) has:
 | `remain_len` | array[4] | `["35","57","52","52"]` | Remaining filament length (meters) per slot |
 | `color_value` | array[4] | `["0000000","0FFFFFF","00A2989","0C12E1F"]` | Filament color hex per slot |
 | `material_type` | array[4] | `["101001","101001","101001","101001"]` | Material type code per slot |
-| `uuid` | array | ints | RFID UUID bytes |
+| `uuid` | array \| `"None"` | `[19, 103]` | Per **unit**, not per slot (the example frame these rows come from carries two ints for a four-bay unit; `"None"` on a disconnected unit). Meaning unconfirmed; HelixScreen does not read it |
 | `change_color_num` | array[4] | `["-1","-1","-1","-1"]` | Color change count per slot |
 
 #### Slot Addressing
@@ -153,6 +153,15 @@ Colors are 7-character hex strings with a leading `0`: `"0RRGGBB"`. Examples:
 - `"0FFFFFF"` = white
 - `"00A2989"` = teal
 - `"0C12E1F"` = orange-red
+
+#### RFID tags
+
+What reaches Klipper from a tag is only what `box_wrapper` decodes into the per-unit arrays above: `material_type`, `color_value`, `vender` and `remain_len` per bay (plus the per-unit `uuid`). Nothing else on the tag, including any data written into its spare or reserved bytes, appears in the `box` object, so no Moonraker client can see it.
+
+- **Reading** is `BOX_GET_RFID` / `BOX_INFO_REFRESH` (see [Refresh Spool Info](#refresh-spool-info)); the RS-485 command set names an RFID read and no write.
+- **Writing a tag:** no command is known, in the G-code list above or on the serial link as documented here. `BOX_MODIFY_TN_DATA` edits the box's record of a bay, not the tag.
+- **Open question:** whether the CFS writes consumption (remaining length) back to a stock tag. Not verified either way.
+- The fields carry no Spoolman spool id. HelixScreen uses `material_type|color_value` as each bay's swap fingerprint (`FILAMENT_BACKEND_CFS.md`, "Swap detection").
 
 #### Disconnected Units
 

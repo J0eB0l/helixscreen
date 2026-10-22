@@ -288,6 +288,8 @@ Tap a slot and choose **Edit Spool** to open the spool editor. This tells HelixS
 
 - The two round buttons in the header, left of **Save**, open your **Spoolman spool list** and **Scan QR Code** (scan a spool label to look the spool up). In the list, search for a spool and tap it: the editor comes back with that spool's brand, material, color and temperatures filled in, ready to save. The list ends in **Not in your spools? Set it up**, which goes back to the editor so you can describe the spool by hand.
 - **Select Spool** in the slot's menu opens the same list directly. Tapping a spool there links it to the slot and saves straight away.
+- **Grayed-out spools** in the list are already linked to another slot (or tool) and can't be picked: one physical spool can't sit in two places. Unlink it from the other slot first, or pick a different spool. The External Spool editor grays out every spool that is linked to a slot, so to link a spool to a CFS or AMS slot, edit that slot rather than the external spool.
+- Linking a spool to a slot also decides which spool Spoolman deducts usage from when that slot is loaded. See [Which spool Spoolman charges](filament-tracking.md#which-spool-spoolman-charges-on-a-multi-filament-system).
 - **More** (only on a slot linked to a Spoolman spool) opens the spool's **Price**, **Location**, **Lot/Batch Nr** and **Notes**, plus **Print Label** when a label printer is set up. These are saved to the spool in Spoolman.
 - **Add to Spoolman + label** (only on a slot that isn't linked) creates the spool in Spoolman from what you've entered, links it to the slot, and prints its label when a label printer is set up.
 
@@ -330,7 +332,7 @@ Every piece of information on a lane - color, material, brand, spool name, remai
 - **Your edits are marked as yours in the record the printer shares with other tools**, so Mainsail, OrcaSlicer or a macro refreshing that record does not wipe what you entered.
 - **A reading that leaves a field out leaves it standing.** A status frame that says nothing about, say, brand keeps whatever another source already knew.
 
-**Swapping a spool is noticed, even with the screen off.** Each lane remembers a fingerprint of the spool it held, so a spool swapped while HelixScreen was not running clears the old spool's edits instead of painting them onto the new one. This works on the QIDI Box, on the Creality CFS (including community Kalico-based CFS setups), and - by RFID tag - on the Snapmaker U1.
+**Swapping a spool is noticed, even with the screen off.** Each lane remembers a fingerprint of the spool it held, so a spool swapped while HelixScreen was not running clears the old spool's edits instead of painting them onto the new one. This works on the QIDI Box, on the Creality CFS (including community Kalico-based CFS setups; see [RFID Detection](#rfid-detection) for the swaps it can't see), and - by RFID tag - on the Snapmaker U1.
 
 ### Filament Mapping
 
@@ -515,6 +517,15 @@ CFS units have built-in RFID readers that automatically detect Creality filament
 - Supported materials include Hyper PLA, Hyper PETG, Hyper ABS, CR-PLA, CR-Silk, and more
 - Remaining filament length is tracked automatically
 - If a spool isn't recognized, a generic entry is shown — you can identify it manually
+
+**What HelixScreen gets from a tag.** The CFS reads the tag itself and reports a material code, a color and the remaining length; HelixScreen turns the code into the material, brand and nozzle temperature range from Creality's filament list. You can change any of these in the slot's **Edit Spool** editor, and **Reset to tag** puts the tag's values back. A change you make goes to the CFS's own record of the slot, so Creality's screen shows it too; HelixScreen has no way to write to the tag itself. Only what the CFS reports reaches HelixScreen, so extra data stored on a tag (in its spare bytes, for example) is not shown.
+
+**Tags and Spoolman.** A Creality tag carries no Spoolman spool number, so HelixScreen never picks a Spoolman spool from a tag. A slot is linked to a Spoolman spool only when you choose one for it (see [Editing Filament Properties](#editing-filament-properties)).
+
+**Putting a different spool in a slot.** HelixScreen recognizes a new spool by a change in the tag's material code or color. When either changes, it drops what it remembered about the old spool on that slot (your edits, the Spoolman link, the remaining weight), so they don't follow the wrong spool. Two cases are not noticed, and in both the slot keeps the old spool's Spoolman link and details until you change them yourself:
+
+- **Same material and same color.** Swapping one Creality spool for another of the identical filament and color looks unchanged. Pick the new spool for that slot with **Select Spool**.
+- **Spools without a tag.** There is nothing to compare, so a swap is not noticed. Update the slot by hand.
 
 > **Tip:** If a slot shows incorrect info, remove and re-seat the spool to trigger a fresh RFID read.
 

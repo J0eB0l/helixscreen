@@ -1681,6 +1681,19 @@ Navigate away from and back to the AMS panel to trigger refresh.
 sudo journalctl -u moonraker | grep -i spoolman
 ```
 
+### Spoolman didn't deduct a print (multi-filament systems)
+
+**Symptoms:**
+- A print finished but the spool's remaining weight in Spoolman did not change
+- Mainsail or Fluidd shows no active spool, or a different one
+
+**Check, in order:**
+1. **Was the slot linked before the print started?** Usage is only recorded while a spool is active, and HelixScreen makes a slot's spool active when the slot loads or when you link a spool to the loaded slot. A print that ran before the link is not deducted afterwards.
+2. **Is the right spool linked to that slot?** Open the slot's **Edit Spool** editor: a linked slot shows the Spoolman icon and spool number in its title. Names don't matter; only the link does.
+3. **Does your filament system set the spool itself?** AFC, Happy Hare (with its Spoolman support on) and INDX do, and HelixScreen leaves it to them.
+
+Details: [Which spool Spoolman charges](guide/filament-tracking.md#which-spool-spoolman-charges-on-a-multi-filament-system).
+
 ### Color set on the printer's own screen reverts (AD5X with Spoolman)
 
 **Known limitation.** On an AD5X, once a lane has been assigned a Spoolman spool,

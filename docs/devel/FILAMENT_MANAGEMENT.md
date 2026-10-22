@@ -1560,6 +1560,22 @@ component) on the summary and on every row whose shown value is the tag's
 (`ams::tag_provenance()` over the form's current values), and Reset to tag
 restores every field the tag states through `ams::reset_to_tag()`.
 
+**Spools in use elsewhere.** The picker list disables (state `DISABLED`, not
+clickable) every spool in `ToolState::assigned_spool_ids(slot_index_)`
+(`src/ui/ui_ams_edit_overlay.cpp#render_spool_list`,
+`src/printer/tool_state.cpp#assigned_spool_ids`): the Spoolman ids assigned to
+any tool other than the one numbered like the slot being edited, because one
+physical spool cannot feed two places. ToolState's per-tool assignments are
+mirrored from lanes through each lane's `mapped_tool` (`AmsState` sync), so a
+spool linked to a lane with no mapped tool is not excluded. The exclusion
+compares a slot index against tool indices; on a lane remapped to another tool
+its own spool can read as "elsewhere". The external spool editor runs with
+`slot_index_ == -2`, which excludes no tool, so every lane-linked spool is
+disabled there. The Home Active Spool widget opens that editor whenever no lane
+is loaded (`src/ui/panel_widgets/active_spool_widget.cpp#handle_clicked`), and the
+loaded lane's editor otherwise. Which spool becomes Moonraker's active spool is
+`architecture/07-filament-ams.md` § "Spoolman without AMS".
+
 **Saving.** Save in the header is dirty-gated, a More-field edit included. A
 spool picked in a picker-entry session (`open_on_picker`) commits at once
 (`commit_and_close()`); one picked from the editor's header button returns to
