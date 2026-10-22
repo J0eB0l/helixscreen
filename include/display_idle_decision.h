@@ -33,10 +33,15 @@ struct IdleInputs {
     bool host_resumed = false;   ///< The host powered the panel back on (Android).
     bool is_preview = false;     ///< The running screensaver is a settings preview.
     uint32_t preview_elapsed_ms = 0;
+    /// Someone is watching the screen through the remote screen server. Idle may dim and
+    /// start the screensaver, never sleep: a sleeping panel serves a black or frozen image.
+    bool remote_viewer = false;
 };
 
 struct IdleDecision {
     IdleAction action = IdleAction::None;
+    /// The sleep timeout has passed and only remote_viewer kept the display out of sleep.
+    bool sleep_held = false;
 };
 
 /// Activity means input within this many milliseconds.
@@ -59,6 +64,9 @@ inline IdleDecision decide_idle(const IdleInputs& in) {
         return {IdleAction::None};
     }
 
+    const bool sleep_due = in.sleep_timeout_sec > 0 && in.inactive_ms >= sleep_timeout_ms;
+    const bool sleep_held = !in.inhibit_entry && sleep_due && in.remote_viewer;
+
     if (in.state == IdleState::Dimmed) {
         bool dismiss_on_activity = activity;
         if (in.is_preview && in.preview_elapsed_ms < kPreviewGraceMs) {
@@ -67,24 +75,26 @@ inline IdleDecision decide_idle(const IdleInputs& in) {
         if (in.wake_requested || dismiss_on_activity) {
             return {IdleAction::Wake};
         }
-        if (!in.inhibit_entry && in.sleep_timeout_sec > 0 && in.inactive_ms >= sleep_timeout_ms) {
+        if (!in.inhibit_entry && sleep_due && !in.remote_viewer) {
             return {IdleAction::Sleep};
         }
-        return {IdleAction::None};
+        return {IdleAction::None, sleep_held};
     }
 
     if (in.inhibit_entry) {
         return {IdleAction::None};
     }
-    if (in.sleep_timeout_sec > 0 && in.inactive_ms >= sleep_timeout_ms) {
+    if (sleep_due && !in.remote_viewer) {
         return {IdleAction::Sleep};
     }
-    if (in.dim_timeout_sec > 0 && in.inactive_ms >= dim_timeout_ms &&
-        (in.can_dim || in.has_screensaver)) {
+    // A sleep the viewer holds back dims instead, whatever the dim timeout says.
+    const bool dim_due = (in.dim_timeout_sec > 0 && in.inactive_ms >= dim_timeout_ms) || sleep_held;
+    if (dim_due && (in.can_dim || in.has_screensaver)) {
         return {(!in.saver_running && in.has_screensaver) ? IdleAction::StartSaver
-                                                          : IdleAction::Dim};
+                                                          : IdleAction::Dim,
+                sleep_held};
     }
-    return {IdleAction::None};
+    return {IdleAction::None, sleep_held};
 }
 
 /// Whether a wake shows the lock screen. A screensaver preview is user-initiated from

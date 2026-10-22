@@ -33,6 +33,10 @@ color_transform_hook          generation++                     RGB888 under the 
 - **Rate caps** (`snapshot_rate_cap`): 5 fps idle; while printing 2 fps, or 1 fps on a constrained host (`MemoryInfo::is_constrained_device()` or one core). A static screen costs one encode in total: the cache is keyed on the frame generation.
 - **Memory while watched:** shadow `W×H×bpp` + RGB888 `W×H×3` + one JPEG. About 2.8 MB at 800×480×32.
 
+## Idle: a watched display never sleeps
+
+A sleeping panel serves a black image (software overlay) or a frozen one (panel power-off swaps the flush for a no-op, so the capture hook stops seeing frames; `DisplaySleepController::suppress_flush_for_sleep`). Hardware blank (`FBIOBLANK`) keeps rendering, so the image stays live while the panel is dark. Dim only lowers the backlight and changes nothing served; the screensaver is drawn by LVGL, so a viewer sees it. So while `RemoteScreenService::viewer_active` is true (the server is up and `ScreenFrameStore::viewer_present`: a snapshot, a touch or an open stream within `kViewerIdleMs`), `decide_idle`'s `remote_viewer` input caps idle at the dim stage: a due sleep becomes a dim or screensaver start, and an already dimmed display stays there. The page polls every 200 ms while visible (1 s on errors) and stops when hidden, and a stream notes a request every frame (1 fps at worst), so 10 s covers a slow viewer and releases a closed tab within ten seconds. Its `info` poll keeps running in a hidden tab and does not count. When the viewer goes, an overdue sleep happens on the next tick. A viewer arriving at a display already asleep does not wake it. The controller logs at info when the hold engages and releases.
+
 ## Routes
 
 All relative to the mount (`/helixscreen/screen/` behind nginx, `/` on the LAN port).
@@ -95,4 +99,5 @@ the server faces the LAN with pairing; the Pi's MainsailOS nginx has it.
 | `[remote_screen][settings]` | Settings rules, service start/stop |
 | `[remote_screen][webcam]` | Entry shapes, mock round trip, discovery self-exclusion |
 | `[remote_pointer]` | Rotation round trip at 0/90/180/270 |
+| `[remote_viewer]` | The viewer signal, and the display it keeps out of sleep |
 | `tests/shell/test_remote_screen_installer.bats` | The nginx edit, its idempotence, revert and removal |

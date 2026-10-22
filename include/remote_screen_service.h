@@ -56,6 +56,9 @@ class RemoteScreenService {
 
     bool available() const;
     bool running() const;
+    /// A browser is watching: the server is up and a viewer fetched a frame or held a
+    /// stream within kViewerIdleMs of @p now. Atomics only, safe from any thread.
+    bool viewer_active(std::chrono::steady_clock::time_point now) const;
     /// Bound port while running, else 0.
     int port() const;
     std::shared_ptr<ScreenFrameStore> store() const {

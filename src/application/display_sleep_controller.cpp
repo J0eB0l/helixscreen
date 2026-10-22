@@ -398,6 +398,7 @@ void DisplaySleepController::tick() {
     in.can_dim = backlight && backlight->supports_dimming();
     in.wake_requested = m_wake_requested;
     in.host_resumed = resumed_from_host_sleep;
+    in.remote_viewer = m_host.remote_viewer_active && m_host.remote_viewer_active();
 #if HELIX_ENABLE_SCREENSAVER
     in.has_screensaver = ScreensaverManager::configured_type() != ScreensaverType::OFF;
     in.saver_running = m_screensaver_active;
@@ -409,7 +410,20 @@ void DisplaySleepController::tick() {
     // the wrapper is not installed because it breaks mouse device identification).
     // Two-stage idle (#1049): Dim lowers the backlight and/or starts the screensaver,
     // Sleep blanks or powers off. Both timeouts run from the same idle clock.
-    switch (helix::decide_idle(in).action) {
+    const helix::IdleDecision decision = helix::decide_idle(in);
+    if (decision.sleep_held != m_remote_sleep_held) {
+        m_remote_sleep_held = decision.sleep_held;
+        if (decision.sleep_held) {
+            spdlog::info("[DisplaySleep] Remote screen viewer present: holding at dim instead "
+                         "of sleeping after {}s",
+                         inactive_ms / 1000);
+        } else {
+            spdlog::info("[DisplaySleep] Remote screen sleep hold released ({})",
+                         in.remote_viewer ? "display active again" : "viewer gone");
+        }
+    }
+
+    switch (decision.action) {
     case helix::IdleAction::None:
         break;
     case helix::IdleAction::Wake:

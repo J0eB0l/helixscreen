@@ -293,6 +293,10 @@ void RemoteScreenService::shutdown() {
     store_->release();
 }
 
+bool RemoteScreenService::viewer_active(std::chrono::steady_clock::time_point now) const {
+    return serving_.load() && store_->viewer_present(now);
+}
+
 bool RemoteScreenService::running() const {
     return server_ != nullptr;
 }
