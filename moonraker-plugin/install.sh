@@ -432,6 +432,18 @@ remove_helix_section() {
     return 0
 }
 
+# Remove [update_manager helix_print] from every file Moonraker reads its
+# config from, config directory @1 included, each with a backup. That entry
+# updates a git checkout of the plugin, which Moonraker no longer loads once
+# the link names this tree. Returns 1 when any file could not be edited.
+remove_plugin_updater_entries() {
+    _rpu_status=0
+    for _rpu_file in $(helix_conf_files_matching "$1/moonraker.conf" "$(running_moonraker_root)" "$HELIX_PRINT_UPDATER_RE"); do
+        remove_helix_section "$_rpu_file" "$HELIX_PRINT_UPDATER_RE" "$HELIX_PRINT_UPDATER_STRIP_AWK" || _rpu_status=1
+    done
+    return "$_rpu_status"
+}
+
 # Main installation
 main() {
     info "HelixPrint Moonraker Plugin Installer"
@@ -681,8 +693,11 @@ auto_uninstall() {
 # Re-point an installed plugin's link at this tree (--relink): what the app
 # runs at startup, so a plugin installed from an install directory that has
 # since moved, or been replaced, loads from the tree beside the running app.
-# Touches the link only, never the config, and never creates a link that is
-# not there: an install is the user's choice. Returns an EXIT_RELINK_* code.
+# Never creates a link that is not there: an install is the user's choice.
+# Where the link is ours it also removes [update_manager helix_print], with a
+# backup: that entry updates a git checkout Moonraker no longer loads. Nothing
+# else in the config is touched, and the checkout itself is left on disk.
+# Returns an EXIT_RELINK_* code; a config edit that fails only warns.
 relink() {
     components_dir=$(find_moonraker_components "")
     [ -n "$components_dir" ] || error "Could not auto-detect Moonraker installation."
@@ -719,12 +734,17 @@ relink() {
     # shellcheck disable=SC3013
     if [ -e "$seen" ] && [ "$seen" -ef "$PLUGIN_FILE" ]; then
         info "The plugin link already names $PLUGIN_FILE"
+        remove_plugin_updater_entries "$config_dir" ||
+            warn "Left [update_manager helix_print] in place - see the warnings above"
         return "$EXIT_RELINK_CURRENT"
     fi
 
     check_plugin_link "$components_dir"
     ln -sf "$link_to" "$target" || error "Could not re-point $target"
     info "Re-pointed $target -> $link_to (was $current)"
+    remove_plugin_updater_entries "$config_dir" ||
+        warn "Left [update_manager helix_print] in place - see the warnings above"
+    info "Moonraker no longer loads the plugin from $(dirname "$current"); a copy there that nothing else uses can be removed"
     return "$EXIT_RELINK_DONE"
 }
 
@@ -809,12 +829,8 @@ auto_install() {
             ensure_visible_symlink_dir "$section_holder"
         fi
 
-        # An updater entry for a git checkout of the plugin follows a tree
-        # Moonraker no longer loads once the link points here.
-        for file in $(helix_conf_files_matching "$config_dir/moonraker.conf" "$(running_moonraker_root)" "$HELIX_PRINT_UPDATER_RE"); do
-            remove_helix_section "$file" "$HELIX_PRINT_UPDATER_RE" "$HELIX_PRINT_UPDATER_STRIP_AWK" ||
-                error "Could not remove [update_manager helix_print] from $file"
-        done
+        remove_plugin_updater_entries "$config_dir" ||
+            error "Could not remove [update_manager helix_print] - see the warnings above"
     else
         warn "Could not find moonraker.conf - manual config required"
     fi
@@ -880,7 +896,8 @@ show_help() {
     printf '%s\n' "                          Moonraker"
     printf '%s\n' "  --relink                Re-point an installed plugin's link at this copy;"
     printf '%s\n' "                          exit 0 already current, 3 re-pointed, 4 nothing of"
-    printf '%s\n' "                          ours to repair, 1 failed. Never restarts Moonraker"
+    printf '%s\n' "                          ours to repair, 1 failed. Drops a git checkout's"
+    printf '%s\n' "                          [update_manager helix_print]. Never restarts Moonraker"
     printf '%s\n' "  --restart-moonraker     Restart Moonraker over its API so it loads the plugin"
     printf '%s\n' "                          on disk; exit 0 restarted, 3 needs a manual"
     printf '%s\n' "                          restart, 4 held off by a print, 6 print state unknown,"

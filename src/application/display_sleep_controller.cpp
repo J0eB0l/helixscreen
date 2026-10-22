@@ -8,6 +8,7 @@
 
 #include "app_globals.h"
 #include "display/lv_display_private.h" // flush_cb access
+#include "display_awake_hold.h"
 #include "display_manager.h"
 #include "display_settings_manager.h"
 #include "lock_manager.h"
@@ -339,6 +340,11 @@ void DisplaySleepController::tick() {
             inhibit_sleep_entry = true;
         }
     }
+    // A view waiting on the user mid-operation holds the screen up regardless.
+    if (helix::display_awake_hold().is_held()) {
+        lv_display_trigger_activity(nullptr);
+        inhibit_sleep_entry = true;
+    }
 
     // Get configured sleep timeout from settings (0 = disabled)
     int sleep_timeout_sec = DisplaySettingsManager::instance().get_display_sleep_sec();
@@ -392,6 +398,9 @@ void DisplaySleepController::tick() {
     in.can_dim = backlight && backlight->supports_dimming();
     in.wake_requested = m_wake_requested;
     in.host_resumed = resumed_from_host_sleep;
+    in.remote_viewer = m_host.remote_viewer_active && m_host.remote_viewer_active();
+    in.remote_viewer_arrived = in.remote_viewer && !m_remote_viewer_seen;
+    m_remote_viewer_seen = in.remote_viewer;
 #if HELIX_ENABLE_SCREENSAVER
     in.has_screensaver = ScreensaverManager::configured_type() != ScreensaverType::OFF;
     in.saver_running = m_screensaver_active;
@@ -403,10 +412,26 @@ void DisplaySleepController::tick() {
     // the wrapper is not installed because it breaks mouse device identification).
     // Two-stage idle (#1049): Dim lowers the backlight and/or starts the screensaver,
     // Sleep blanks or powers off. Both timeouts run from the same idle clock.
-    switch (helix::decide_idle(in).action) {
+    const helix::IdleDecision decision = helix::decide_idle(in);
+    if (decision.sleep_held != m_remote_sleep_held) {
+        m_remote_sleep_held = decision.sleep_held;
+        if (decision.sleep_held) {
+            spdlog::info("[DisplaySleep] Remote screen viewer present: holding at dim instead "
+                         "of sleeping after {}s",
+                         inactive_ms / 1000);
+        } else {
+            spdlog::info("[DisplaySleep] Remote screen sleep hold released ({})",
+                         in.remote_viewer ? "display active again" : "viewer gone");
+        }
+    }
+
+    switch (decision.action) {
     case helix::IdleAction::None:
         break;
     case helix::IdleAction::Wake:
+        if (in.remote_viewer_arrived && in.state == helix::IdleState::Sleeping) {
+            spdlog::info("[DisplaySleep] Remote screen viewer opened the screen; waking display");
+        }
         m_wake_requested = false;
         m_wake_from_input = true;
         wake();

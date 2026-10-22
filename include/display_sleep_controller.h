@@ -27,6 +27,8 @@ struct DisplaySleepHost {
     std::function<void()> cancel_pointer_presses;
     /// Re-installs a flush callback on the display and forces a full upload.
     std::function<void(lv_display_flush_cb_t)> restore_flush_cb;
+    /// Someone is watching through the remote screen server; empty means nobody can.
+    std::function<bool()> remote_viewer_active;
 };
 
 /// How the panel is darkened and dimmed, resolved by the owner at init.
@@ -127,8 +129,10 @@ class DisplaySleepController {
 
     bool m_display_sleeping = false;
     bool m_display_dimmed = false;
-    bool m_wake_requested = false;  // set by note_press() while asleep or dimmed
-    bool m_wake_from_input = false; // wake() is running for the user's touch or activity
+    bool m_wake_requested = false;     // set by note_press() while asleep or dimmed
+    bool m_remote_sleep_held = false;  // a remote viewer is keeping an overdue sleep at dim
+    bool m_remote_viewer_seen = false; // the previous tick saw a remote viewer
+    bool m_wake_from_input = false;    // wake() is running for the user's touch or activity
     int m_dim_timeout_sec = 600;
     int m_dim_brightness_percent = 30;
 

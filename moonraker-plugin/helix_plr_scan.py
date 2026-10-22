@@ -53,7 +53,14 @@ def scan_for_resume(stream: BinaryIO, file_position: int, index_path: Optional[s
                     cancel: Optional[threading.Event] = None) -> ScanResult:
     """Scan to file_position, and through the one line starting there, from
     the last layer checkpoint that leaves a full window behind the head, else
-    the last one before the head, else byte 0.
+    byte 0.
+
+    The line executing at the snapshot can lie in the layer before the head's:
+    a layer-change save is taken as SET_PRINT_STATS_INFO is read, seconds of
+    queued moves ahead of the nozzle. A checkpoint closer to the head than a
+    window would cut that line out of the window. Without a checkpoint a full
+    window back, the head is within a window of the file's first layer, so
+    byte 0 costs at most that much more.
 
     Klipper's toolhead.position includes a move that is still blocked in the
     full lookahead queue while virtual_sdcard.file_position has not passed
@@ -68,10 +75,6 @@ def scan_for_resume(stream: BinaryIO, file_position: int, index_path: Optional[s
         summary = helix_gcode_reader.read_layer_index(index_path, identity, max_offset=begin)
         if summary is not None:
             start = summary.at_or_before
-            if start is None:
-                again = helix_gcode_reader.read_layer_index(
-                    index_path, identity, max_offset=file_position)
-                start = again.at_or_before if again is not None else None
     if start is None:
         return scan_to_offset(stream, end, cancel=cancel)
     return scan_to_offset(stream, end, start.offset, start.state, cancel=cancel)

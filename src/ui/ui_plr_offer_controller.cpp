@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "ui_plr_prompt.h"
+#include "ui_plr_wizard_overlay.h"
 
 #include "app_globals.h" // is_wizard_active
+#include "json_utils.h"
 #include "moonraker_api.h"
 #include "observer_factory.h"
 #include "plr_backend.h"
@@ -166,6 +168,7 @@ void PlrOfferController::evaluate_offer() {
     signals.printer_idle = idle;
     signals.already_prompted = prompted_this_connect_;
     signals.wizard_active = is_wizard_active();
+    signals.resume_in_progress = plr_wizard_open();
 
     // AUTHORITATIVE explanation of the offer's one-shot + re-fire behavior
     // (referenced from plr_offer.h, plr_offer_controller.h, and the observers):
@@ -291,7 +294,40 @@ void PlrOfferController::on_creality_detect_result(const PlrDetectResult& result
     evaluate_offer();
 }
 
+void PlrOfferController::listen_for_plugin_status() {
+    auto* api = get_moonraker_api();
+    if (!api || api == status_notify_api_) {
+        return;
+    }
+    status_notify_api_ = api;
+    api->register_method_callback(
+        kPlrStatusNotify, kStatusNotifyHandler,
+        lifetime_.bg_cb("PlrOfferController::plr_status_notify",
+                        [this](const nlohmann::json& msg) { on_plugin_status_notify(msg); }));
+}
+
+void PlrOfferController::on_plugin_status_notify(const nlohmann::json& msg) {
+    const nlohmann::json* payload = json_util::notification_payload(msg);
+    if (payload == nullptr) {
+        return;
+    }
+    auto& ps = get_printer_state();
+    if (lv_subject_get_int(ps.network_state().get_printer_connection_state_subject()) !=
+            static_cast<int>(ConnectionState::CONNECTED) ||
+        ps.plugin_status_state().plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion) !=
+            PluginFeatureState::Ready) {
+        return;
+    }
+    // The payload is the status reply itself: it replaces any answer this
+    // connection holds, and a reply still in flight is older than it.
+    spdlog::info("[PLR] Plugin pushed its recovery status");
+    ++connection_generation_;
+    plugin_status_inflight_ = false;
+    on_plugin_status(plr_parse_plugin_status(*payload));
+}
+
 void PlrOfferController::request_plugin_status() {
+    listen_for_plugin_status();
     if (plugin_status_ || plugin_status_inflight_) {
         return;
     }

@@ -382,8 +382,8 @@ class QidiPrintStateAdapter:
       on_snapshot(snap, status) after each snapshot it persists; force=True
                                 for an event save
       on_job_end()              a job completed or was cancelled
-      prepare(heat_wait)        § 9 prepare: the bed/chamber wait, nothing else
-      commit(..., heat_wait)    § 9 commit: bed wait, rows for the resume
+      prepare(heat_wait)        § 9 prepare: the heat wait, nothing else
+      commit(..., heat_wait)    § 9 commit: heat wait, rows for the resume
                                 point, marker, power_off_print
       abort()                   § 9 abort: rows kept
       discard()                 § 9 discard: delete the section
@@ -476,8 +476,8 @@ class QidiPrintStateAdapter:
         return bool(row)
 
     async def prepare(self, heat_wait: Callable[[], Awaitable[Any]]) -> None:
-        """§ 9 prepare for this backend: the bed and chamber wait only
-        (helix_plr.py's § 6.3 step 2), nozzle untouched."""
+        """§ 9 prepare for this backend: the heat wait only (helix_plr.py's
+        § 6.3 step 2: bed, chamber, then the nozzle where it stands)."""
         await heat_wait()
 
     async def commit(
@@ -489,13 +489,15 @@ class QidiPrintStateAdapter:
         resume_state: Any = None,
         qidi_status: Optional[Mapping[str, Any]] = None,
     ) -> Any:
-        """§ 9 commit for this backend: the bed wait, the rows for the resume
+        """§ 9 commit for this backend: the heat wait, the rows for the resume
         point, the marker, then QIDI's resume.
 
-        The wait runs again here because QIDI's sequence sends M140 without
-        M190 and the bed may have cooled while the screen asked its
-        confirmations; at temperature it returns at once. The marker is set
-        immediately before the endpoint call and withdrawn if the call fails.
+        The wait runs again here because QIDI's sequence sends M140 and M104
+        without waiting, then lifts Z and homes X and Y before its M109: a
+        nozzle that cooled while the screen asked its confirmations would be
+        dragged out of the plastic cold. At temperature it returns at once.
+        The marker is set immediately before the endpoint call and withdrawn
+        if the call fails.
         """
         await heat_wait()
         rows = resume_rows(snapshot, resume_offset, file_size, resume_state, qidi_status)

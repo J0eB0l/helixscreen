@@ -39,13 +39,17 @@ std::chrono::steady_clock::time_point ScreenFrameStore::now() const {
 }
 
 bool ScreenFrameStore::wants_frames() const {
+    return viewer_present(now());
+}
+
+bool ScreenFrameStore::viewer_present(std::chrono::steady_clock::time_point at) const {
     const int64_t last = last_request_.load(std::memory_order_acquire);
     if (last == INT64_MIN) {
         return false;
     }
     const auto idle = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
         std::chrono::milliseconds(kViewerIdleMs));
-    return now().time_since_epoch().count() - last < idle.count();
+    return at.time_since_epoch().count() - last < idle.count();
 }
 
 void ScreenFrameStore::on_frame(const RemoteScreenFrame& f) {

@@ -283,10 +283,20 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
             return;
         }
         set_bed_target(kMockPlrBedTarget);
-        std::vector<std::function<void()>> steps = {progress("bed_wait"), progress("lift"),
-                                                    progress("home_xy")};
-        if (cfg.tier == 1) {
-            steps.push_back(progress("position"));
+        // Bed and nozzle heat where the nozzle stopped before anything moves,
+        // and the nozzle drops to standby once it has let go; only the generic
+        // backend's prepare moves the toolhead.
+        std::vector<std::function<void()>> steps = {progress("bed_wait"),
+                                                    progress("nozzle_in_place")};
+        if (cfg.backend == "generic") {
+            steps.push_back(progress("lift"));
+            steps.push_back(progress("nozzle_standby"));
+            steps.push_back(progress("home_xy"));
+            if (cfg.tier == 1) {
+                steps.push_back(progress("position"));
+            }
+        } else {
+            steps.push_back(progress("nozzle_standby"));
         }
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs,
                            [reply]() { reply({{"ok", true}}); });

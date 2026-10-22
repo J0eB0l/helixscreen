@@ -64,6 +64,8 @@ class ScreenFrameStore {
 
     /// True within kViewerIdleMs of the last request. Cheap: called on every flush.
     bool wants_frames() const;
+    /// wants_frames() as of @p at. Lock-free, safe from any thread.
+    bool viewer_present(std::chrono::steady_clock::time_point at) const;
 
     /// Copy one dirty rect in, (re)allocating the shadow at the frame's display size
     /// and pixel format. The generation advances on the refresh's last rect, so a
