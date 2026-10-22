@@ -1752,9 +1752,9 @@ class HelixPlr:
             if purge is None:
                 warnings.append("no_purge_location")
         excluded = list(snapshot.get("excluded") or [])
+        self._check_open_object(point.state.current_object, excluded)
         if qidi:
             self._check_qidi_landing(snapshot, job.get("mesh"))
-            self._check_qidi_open_object(point.state.current_object, excluded)
         if tier == 1 and not qidi and purge is None and self.park_xy is None:
             # Nowhere known to be off the part: the nozzle would heat and ooze
             # over the resume point the jog left it at.
@@ -1787,6 +1787,7 @@ class HelixPlr:
             part_top_z=part_top, mesh_fade=self.mesh_fade, park_xy=self.park_xy,
             backend=backend,
         )
+        self._check_renders(plan, profile)
         self._plan = plan
         self._plan_seq = snapshot.get("seq")
         target = self.print_target()
@@ -1829,14 +1830,24 @@ class HelixPlr:
             raise self._error("plr_scan_failed",
                               "qidi_landing_below_part: %.3f mm" % landing, 400)
 
-    def _check_qidi_open_object(self, name: Optional[str], excluded: List[str]) -> None:
-        """QIDI's resume starts the file at the offset with no object entered
-        (it has no row for one, and nothing runs between its restore and the
-        file), so the rest of an object block open there prints regardless of
-        exclusion. Refuse when that object is excluded."""
-        if name and name.upper() in (e.upper() for e in excluded):
-            raise self._error("plr_scan_failed",
-                              "qidi_excluded_object_open: %s" % name, 400)
+    def _check_open_object(self, name: Optional[str], excluded: List[str]) -> None:
+        """The resume must not start inside an excluded object's block:
+        neither backend would skip it (helix_plr_scan.leave_excluded_object
+        moves the point past it). Refuse a plan that still does."""
+        keys = {helix_gcode_reader.object_key(e) for e in excluded}
+        if name and helix_gcode_reader.object_key(name) in keys:
+            raise self._error("plr_scan_failed", "excluded_object_open: %s" % name, 400)
+
+    def _check_renders(self, plan: Any, profile: PlrProfile) -> None:
+        """Render what commit would send, so a name or value no command can
+        carry refuses the plan, before prepare heats or moves anything."""
+        try:
+            helix_plr_render.render_start(plan)
+            if plan.backend != "qidi_print_state":
+                helix_plr_render.render_commit_script(
+                    plan, profile, "part_top" if plan.tier == 1 else "trusted")
+        except helix_plr_render.UnsafeValue as e:
+            raise self._error("plr_scan_failed", "unsafe_value: %s" % e, 400)
 
     def _check_printed_file(self) -> None:
         """The generic start selects the job's file; the offset was found in
@@ -2364,4 +2375,6 @@ def _scan_and_locate(path: Path, file_position: int, index_path: Optional[str],
     with open(str(path), "rb") as f:
         scan = helix_plr_scan.scan_for_resume(f, file_position, index_path, identity)
         point = helix_plr_scan.resume_point(f, scan, snapshot, skip_fraction, SAVE_INTERVAL_S)
+        if point is not None:
+            point = helix_plr_scan.leave_excluded_object(f, point, snapshot.get("excluded") or [])
     return scan, point

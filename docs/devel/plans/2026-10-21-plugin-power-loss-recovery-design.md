@@ -297,6 +297,15 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    layer (ruling R26; the partial layer is skipped), `method: "layer_start"`, with the
    `layer_start` warning. The scan reads on past the head when it has not reached that layer;
    no next layer (the last one) or no layer markers means no plan. Never a byte rewind.
+7. **Excluded object.** When the point (measured or fallback) lies inside the
+   `EXCLUDE_OBJECT_START`/`END` block of an object the snapshot lists as excluded, it moves
+   forward to the line after that block's `EXCLUDE_OBJECT_END`, or to the next
+   `EXCLUDE_OBJECT_START`, with the modal state carried across the skipped lines
+   (`helix_plr_scan.py#leave_excluded_object`; names compare upper-cased, as Klipper's). Those
+   lines printed nothing in the original print, and neither backend would skip them on resume
+   (§ 6.3 step 10, § 10). A block with no end refuses the plan
+   (`plr_scan_failed: excluded_object_open`). Object names are read as Klipper reads extended
+   parameters, shell-style, so `NAME="my part"` is one name.
 
 Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `ScanResult` and
 `scan_to_offset` are built and live in `helix_gcode_reader.py` (the plugin's constants are
@@ -437,9 +446,12 @@ QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified 
     object's `EXCLUDE_OBJECT_START`/`END` block (`ModalState.current_object` at the resume line),
     `EXCLUDE_OBJECT_START NAME=<that object>`. Without it the block's `EXCLUDE_OBJECT_END` reports
     `does not match the current object NAME=None` and the object cannot be excluded for the rest
-    of the block; after the exclusions, an excluded object's remainder is skipped to its `END`
-    (`exclude_object.py#_test_in_excluded_region`). The start text is rendered before step 6, so a
-    name it cannot send refuses the commit before anything moves. Mainline `M23` does not search subdirectories
+    of the block. The re-entered object is never an excluded one (§ 6.2 step 7): Klipper would not
+    skip it, because `M23` drops exclude_object's move transform and the first `EXCLUDE_OBJECT`
+    after it registers a new one that lets five extruding moves through
+    (`exclude_object.py#_register_transform`, `initial_extrusion_moves`). The plan renders the
+    start text and the commit steps when it is made, so a name or value no command can carry
+    refuses the plan (`plr_scan_failed: unsafe_value`) before prepare heats or moves anything. Mainline `M23` does not search subdirectories
     (Kalico has `with_subdirs`) [src], so for a file in a subfolder the plugin points a root-level
     symlink at it and attributes the history entry back to the original name with the existing
     `helix_print.py#_patch_history_entry` path. Immediately before sending the start (`M23`,
@@ -894,9 +906,8 @@ print is off by `(physical Z at the cut) - (row z)`.
   the rest of that block prints outside any object: its `END` logs `EXCLUDE_OBJECT_END NAME=<obj>
   does not match the current object NAME=None` (both Q2 resumes on 2026-10-22), and excluding
   that object from the screen before the block ends does not stop it. Later blocks are tracked
-  normally. When the open object was excluded before the cut, its remainder would print, so the
-  plan is refused (`plr_scan_failed: qidi_excluded_object_open`); the generic path handles both
-  cases (§ 6.3 step 10).
+  normally. An object excluded before the cut is not affected: the resume point moves past its
+  block (§ 6.2 step 7).
 - The file QIDI prints: every job runs from QIDI's `.cache` copy
   (`klippy_apis.py#KlippyAPI.start_print`), and a `.3mf` from the extracted
   `Metadata/plate_<n>.gcode` (`virtual_sdcard.py#VirtualSD._load_file`). `file_position` counts

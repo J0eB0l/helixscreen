@@ -1371,28 +1371,59 @@ def test_a_resume_inside_an_object_enters_it_again(plr, helix, resume_in_object)
     assert start[-2:] == ["EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0", "M24"]
 
 
-def test_an_excluded_object_open_at_the_resume_point_stays_skipped(plr, helix, resume_in_object):
+def exclude(plr, *names):
     record = plr.store.load()
-    record["excluded"] = ["BOX.STL_ID_0_COPY_0"]
+    record["excluded"] = list(names)
     plr.store.write(fit_record(record)[0])
-    full_resume(plr, run(plr.handle_plan(Req()))["plan_id"])
+
+
+def after_layer4_block(data):
+    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    end = data.index(b"EXCLUDE_OBJECT_END", layer4)
+    return data.index(b"\n", end) + 1
+
+
+def test_an_excluded_object_open_at_the_resume_point_is_skipped(plr, helix, resume_in_object):
+    """Klipper lets five extruding moves of an excluded object through after
+    M23, so the resume starts after the block instead of re-entering it."""
+    exclude(plr, "BOX.STL_ID_0_COPY_0")
+    reply = run(plr.handle_plan(Req()))
+    assert reply["resume_offset"] == after_layer4_block(resume_in_object)
+    full_resume(plr, reply["plan_id"])
     start = sent(helix)[-1].split("\n")
-    # Klipper skips an excluded object's moves from its START to its END.
-    assert start.index("EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0") \
-        < start.index("EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0") < start.index("M24")
+    assert "EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0" in start
+    assert not any(l.startswith("EXCLUDE_OBJECT_START") for l in start)
+    # Returns to where the block left the nozzle: X100 of layer 4.
+    assert any("G1 X100 Y10 F6000" in c for c in sent(helix))
 
 
-def test_a_name_the_start_cannot_send_refuses_before_anything_moves(plr, helix, resume):
-    record = plr.store.load()
-    record["excluded"] = ["evil\nG28"]
-    plr.store.write(fit_record(record)[0])
-    plan_id = run(plr.handle_plan(Req()))["plan_id"]
-    run(plr.handle_prepare(Req(plan_id=plan_id)))
+def test_an_excluded_block_with_no_end_refuses_the_plan(plr, helix):
+    data = straight_layers("box.stl_id_0_copy_0")
+    layer4 = data.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
+    power_cut_in_layer_4(plr, helix, data[:data.index(b"EXCLUDE_OBJECT_END", layer4)])
+    exclude(plr, "BOX.STL_ID_0_COPY_0")
+    with pytest.raises(Exception, match="plr_scan_failed: excluded_object_open"):
+        run(plr.handle_plan(Req()))
+
+
+def test_a_quoted_name_excluded_and_open_at_the_resume_point_is_skipped(plr, helix):
+    data = power_cut_in_layer_4(plr, helix, straight_layers('"my part"'))
+    exclude(plr, "MY PART")
+    assert run(plr.handle_plan(Req()))["resume_offset"] == after_layer4_block(data)
+
+
+def test_a_quoted_name_open_at_the_resume_point_is_entered_again(plr, helix):
+    power_cut_in_layer_4(plr, helix, straight_layers("'my part'"))
+    full_resume(plr, run(plr.handle_plan(Req()))["plan_id"])
+    assert sent(helix)[-1].split("\n")[-2:] == ['EXCLUDE_OBJECT_START NAME="my part"', "M24"]
+
+
+def test_a_name_no_command_can_carry_refuses_the_plan(plr, helix, resume):
+    exclude(plr, "evil\nG28")
     before = len(sent(helix))
-    with pytest.raises(Exception):
-        run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
-                                  confirmations={"part_attached": True, "z_confirmed": True})))
-    assert not any(l.startswith(("G1", "M23")) for c in sent(helix)[before:] for l in c.split("\n"))
+    with pytest.raises(Exception, match="plr_scan_failed: unsafe_value"):
+        run(plr.handle_plan(Req()))
+    assert sent(helix)[before:] == [] and plr._plan is None
 
 
 def test_commit_refuses_missing_confirmations_and_the_wrong_z(plr, resume):
@@ -1669,12 +1700,11 @@ def test_qidi_resumes_inside_an_object_it_cannot_enter(plr, helix, qidi_resume_i
         < data.index(b"EXCLUDE_OBJECT_END", layer4)
 
 
-def test_qidi_refuses_a_resume_inside_an_excluded_object(plr, helix, qidi_resume_in_object):
-    record = plr.store.load()
-    record["excluded"] = ["BOX.STL_ID_0_COPY_0"]
-    plr.store.write(fit_record(record)[0])
-    with pytest.raises(Exception, match="plr_scan_failed: qidi_excluded_object_open"):
-        run(plr.handle_plan(Req()))
+def test_qidi_resumes_after_an_excluded_object_open_at_the_cut(plr, helix, qidi_resume_in_object):
+    _, cache = qidi_resume_in_object
+    exclude(plr, "BOX.STL_ID_0_COPY_0")
+    reply = run(plr.handle_plan(Req()))
+    assert reply["resume_offset"] == after_layer4_block((cache / "part.gcode").read_bytes())
 
 
 def test_qidi_status_and_offer(plr, helix, qidi_resume):

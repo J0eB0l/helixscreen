@@ -238,11 +238,9 @@ def test_selecting_the_file_is_followed_by_the_state_it_clears():
 def test_start_reenters_the_object_the_resume_point_is_in():
     s = resume_state()
     s.current_object = "box.stl_id_0_copy_0"
-    lines = render_start(plan(state=s, excluded=["BOX.STL_ID_0_COPY_0"])).split("\n")
-    # After the exclusions, so an excluded object's remainder is skipped to its END.
+    lines = render_start(plan(state=s)).split("\n")
     assert lines[-3:] == ["SET_PRINT_STATS_INFO TOTAL_LAYER=200 CURRENT_LAYER=62",
                           "EXCLUDE_OBJECT_START NAME=box.stl_id_0_copy_0", "M24"]
-    assert lines.index("EXCLUDE_OBJECT NAME=BOX.STL_ID_0_COPY_0") < len(lines) - 2
 
 
 def test_restores_summary():

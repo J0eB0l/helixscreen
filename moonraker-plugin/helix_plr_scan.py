@@ -322,3 +322,46 @@ def resume_point(stream: BinaryIO, scan: ScanResult, snapshot: dict,
         return ResumePoint(offset, state_before(stream, scan, offset), "measured",
                            retrace, skip, [])
     return next_layer_start(stream, scan, snapshot.get("layer"))
+
+
+class ExcludedObjectOpen(Exception):
+    """The resume point lies in an excluded object's block, and the block
+    has no end to resume after."""
+
+
+def leave_excluded_object(stream: BinaryIO, point: ResumePoint,
+                          excluded: Sequence[str]) -> ResumePoint:
+    """`point` moved past the rest of the object block it lies in when that
+    object is excluded.
+
+    Klipper would not skip it: selecting the file drops exclude_object's
+    move transform, and the first exclusion after it registers a new one that
+    lets five extruding moves through (exclude_object.py#_register_transform,
+    initial_extrusion_moves). The block's remaining lines print nothing in
+    the original print either, so the resume starts after its
+    EXCLUDE_OBJECT_END, or at the next EXCLUDE_OBJECT_START, with the modal
+    state carried across them."""
+    name = point.state.current_object if point.state is not None else None
+    keys = {helix_gcode_reader.object_key(e) for e in excluded}
+    if not name or helix_gcode_reader.object_key(name) not in keys:
+        return point
+    stream.seek(point.offset)
+    offset = point.offset
+    target = None
+    for raw in iter(stream.readline, b""):
+        body = raw.split(b";", 1)[0].strip()
+        if body:
+            cmd = body.split(None, 1)[0].upper()
+            if cmd == b"EXCLUDE_OBJECT_END":
+                target = offset + len(raw)
+                break
+            if cmd == b"EXCLUDE_OBJECT_START":
+                target = offset
+                break
+        offset += len(raw)
+    if target is None:
+        raise ExcludedObjectOpen("excluded_object_open: %s has no EXCLUDE_OBJECT_END" % name)
+    state = scan_to_offset(stream, target, point.offset, point.state.copy()).state_at_head
+    # At a START the file names its own object; after an END there is none.
+    state.current_object = None
+    return point._replace(offset=target, state=state)

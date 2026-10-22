@@ -297,6 +297,16 @@ def test_object_defines_are_verbatim_and_uncapped():
     assert result.state_at_head.current_object == "Würfel_ü"
 
 
+@pytest.mark.parametrize("quoted", ['"my part"', "'my part'"])
+def test_a_quoted_object_name_is_one_value(quoted):
+    """Klipper splits an extended command's parameters shell-style."""
+    result = scan("EXCLUDE_OBJECT_START NAME=%s\nG1 X1" % quoted)
+    assert result.state_at_head.current_object == "my part"
+    result = scan("EXCLUDE_OBJECT_START NAME=%s\nEXCLUDE_OBJECT_END NAME=%s\nG1 X1"
+                  % (quoted, quoted))
+    assert result.state_at_head.current_object is None
+
+
 def test_offsets_are_bytes_not_characters():
     data = gcode(";Würfel ü ü ü\nG1 X1\nG1 X2")
     window = scan(data).window

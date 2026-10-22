@@ -346,6 +346,8 @@ def scan_to_offset(
             cmd = cmd.upper()
             if cmd[1:2].isdigit():
                 words = [w.upper() for w in words]
+        if (b'"' in body or b"'" in body) and not cmd[1:2].isdigit():
+            words = _extended_words(body, words)
 
         if cmd == b"G1" or cmd == b"G0":
             sx = lp[0]
@@ -532,6 +534,24 @@ def _apply_arc(
     if i is None and j is None:
         return None
     return (sx + (i or 0.0), sy + (j or 0.0))
+
+
+def _extended_words(body: bytes, words: List[bytes]) -> List[bytes]:
+    """An extended command's words as Klipper reads them: its parser splits
+    the parameters shell-style (gcode.py#_get_extended_params, shlex), so
+    NAME="my part" or NAME='my part' is one value, quotes removed. A line
+    with unbalanced quotes, which Klipper refuses, keeps the plain split."""
+    import shlex
+    try:
+        parts = shlex.split(body.decode("utf-8", "surrogateescape"))
+    except ValueError:
+        return words
+    return [words[0]] + [p.encode("utf-8", "surrogateescape") for p in parts[1:]]
+
+
+def object_key(name: str) -> str:
+    """An exclude_object name as Klipper compares it: upper-cased."""
+    return name.upper()
 
 
 def _words_kv(words: List[bytes]) -> Dict[bytes, bytes]:
