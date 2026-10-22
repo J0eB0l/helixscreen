@@ -189,7 +189,8 @@ def parse_profile(record: Any) -> PlrProfile:
         storage_hint=storage if storage in STORAGE_CLASSES else d.storage_hint,
         z_holds_unpowered=holds if isinstance(holds, bool) else d.z_holds_unpowered,
         xy_home_gcode=xy_home if isinstance(xy_home, str) and xy_home.strip() else d.xy_home_gcode,
-        z_lift_mm=lift if lift is not None and lift >= 0.0 else d.z_lift_mm,
+        z_lift_mm=(max(lift, helix_plr_render.MIN_LIFT_MM) if lift is not None and lift > 0.0
+                   else d.z_lift_mm),
         purge_gcode=purge if isinstance(purge, str) and purge.strip() else None,
         resume_skip_fraction=(
             skip if skip is not None and 0.0 <= skip <= 1.0 else d.resume_skip_fraction
@@ -733,6 +734,8 @@ class OfferInputs(NamedTuple):
     tier: int
     klippy_ready: bool
     print_duration: Optional[float] = None
+    resume_rows: bool = True  # QIDI backend: its print_state file_position row exists (§ 10)
+    lift_room: bool = True  # MIN_LIFT_MM fits under the top of Z travel
 
 
 class OfferVerdict(NamedTuple):
@@ -748,7 +751,7 @@ def offer_verdict(i: OfferInputs) -> OfferVerdict:
     blocked = []
     if i.newest_job_status != "interrupted":
         blocked.append("not_interrupted")
-    if i.snapshot_job_id is None or i.snapshot_job_id != i.newest_job_id:
+    if i.snapshot_job_id is None or i.snapshot_job_id != i.newest_job_id or not i.resume_rows:
         blocked.append("no_snapshot")
     if not i.identity_ok:
         blocked.append("file_changed")
@@ -759,6 +762,8 @@ def offer_verdict(i: OfferInputs) -> OfferVerdict:
         blocked.append("too_early")
     if i.tier < 1:
         blocked.append("not_supported")
+    if not i.lift_room:
+        blocked.append("no_lift_room")
     if not i.klippy_ready:
         blocked.append("klippy_not_ready")
     return OfferVerdict(not blocked, blocked)
@@ -779,6 +784,8 @@ HELIX_SCREEN_NAMESPACE = "helix-screen"
 PLR_NAMESPACE = "helix_plr"
 JOB_KEY = "job"
 NEWEST_JOB_KEY = "newest_job"
+# The original name of a job started through RESUME_LINK.
+RESUME_LINK_KEY = "resume_link"
 
 SNAPSHOT_FILE = Path("helix-plr") / "snapshot.bin"
 MESH_CFG_FILE = Path("helix-plr") / "mesh.cfg"
@@ -833,8 +840,11 @@ class HelixPlr:
         self._abort = False
         self._bed_now = None  # type: Optional[float]
         self._plan_file_size = None  # type: Optional[int]
-        self._resume_history_name = None  # type: Optional[str]
-        self._resume_job_id = None  # type: Optional[str]
+        self._klippy_generation = 0
+        self._prepared_generation = -1
+        self._plan_error = None  # type: Optional[Tuple[Any, str, str]]
+        import asyncio
+        self._sleep = asyncio.sleep
 
     def detect_storage(self) -> Tuple[str, Optional[str]]:
         try:
@@ -936,6 +946,7 @@ class HelixPlr:
             return
         self.has_virtual_sdcard = "virtual_sdcard" in objects
         self.klippy_ready = True
+        self._klippy_generation += 1
         try:
             await self._refresh_homing()
         except Exception as e:
@@ -967,7 +978,7 @@ class HelixPlr:
         if helix_plr_qidi.qidi_print_state_present(gcode_help, self.status.get("gcode_move")) \
                 and helix_plr_qidi.moonraker_resumes_print_state(apis, self.database):
             self.qidi = helix_plr_qidi.QidiPrintStateAdapter(
-                self.database, apis, mark=self.helix.mark_helix_initiated,
+                self.database, apis, mark=self._mark_qidi,
                 unmark=self.helix.unmark_helix_initiated)
             logging.info("HelixPrint: PLR resumes through QIDI's print_state")
 
@@ -1008,6 +1019,7 @@ class HelixPlr:
         now = self.clock()
         await self._note_print_path()
         record = build_record(self.status, now, self._macro_vars)
+        record["job_id"] = self.job.get("job_id")
         reason = self.policy.decide(now, state, record)
         if reason is None:
             return
@@ -1219,9 +1231,10 @@ class HelixPlr:
             self.qidi.on_job_start()
         record = {"schema": SNAPSHOT_SCHEMA, "job_id": job_id, "filename": filename,
                   "started_at": self.clock()}
-        if filename == RESUME_LINK and self._resume_history_name:
-            record["history_name"] = self._resume_history_name
-            self._resume_job_id = job_id
+        if filename == RESUME_LINK:
+            pending = await self._ns_get(RESUME_LINK_KEY)
+            if isinstance(pending, dict) and pending.get("history_name"):
+                record["history_name"] = pending["history_name"]
         gc_path = getattr(self.helix, "gc_path", None)
         if gc_path is not None and filename:
             try:
@@ -1232,10 +1245,10 @@ class HelixPlr:
         await self._ns_put(JOB_KEY, record)
 
     async def _job_finished(self, job: Dict[str, Any]) -> None:
-        if self._resume_job_id is not None and str(job["job_id"]) == self._resume_job_id:
-            await self._finish_resume_link(job)
         if self.job is None or str(job["job_id"]) != self.job.get("job_id"):
             return
+        if self.job.get("filename") == RESUME_LINK and self.job.get("history_name"):
+            await self._finish_resume_link(job)
         status = job.get("status")
         await self._stop_follower(
             self.job.get("file_size") if status == "completed" else None)
@@ -1252,10 +1265,9 @@ class HelixPlr:
         file instead, and remove the link once the job is over."""
         import types
         info = types.SimpleNamespace(
-            job_id=self._resume_job_id, original_filename=self._resume_history_name,
+            job_id=self.job["job_id"], original_filename=self.job["history_name"],
             temp_filename=RESUME_LINK, symlink_filename=RESUME_LINK,
             modifications=["plr_resume"])
-        self._resume_job_id = None
         patch = getattr(self.helix, "_patch_history_entry", None)
         if patch is not None and info.original_filename:
             await patch(info, job.get("status", ""))
@@ -1266,6 +1278,7 @@ class HelixPlr:
                     (gc_path / RESUME_LINK).unlink()
                 except OSError:
                     pass
+            await self._ns_delete(RESUME_LINK_KEY)
 
     async def discard(self) -> None:
         """Delete the snapshot, the job record and the mesh file. The layer
@@ -1312,6 +1325,7 @@ class HelixPlr:
 
     def on_klippy_gone(self, *args: Any) -> None:
         self.klippy_ready = False
+        self._klippy_generation += 1
 
     async def _query(self, objects: Dict[str, Any]) -> Dict[str, Any]:
         apis = self.helix.klippy_apis
@@ -1376,31 +1390,41 @@ class HelixPlr:
         if profile.backend != "generic":
             return "none", 0
         tier, _ = effective_tier(profile, self.homing)
+        # Tier 3 (re-referenced Z) is not in v1; act at tier 2.
+        tier = min(tier, 2)
         return ("generic" if tier >= 1 else "none"), tier
+
+    def _lift_room(self, profile: PlrProfile, snapshot: Optional[Dict[str, Any]]) -> bool:
+        live = (snapshot or {}).get("live_pos")
+        if self.qidi is not None or not live or not self.axis_max:
+            return True
+        return helix_plr_render.lift_height(profile.z_lift_mm, live[2], self.axis_max[2]) \
+            >= helix_plr_render.MIN_LIFT_MM
 
     async def _offer(self, profile: PlrProfile,
                      snapshot: Optional[Dict[str, Any]]) -> Tuple[OfferVerdict, int]:
         _, tier = self.backend(profile)
         newest = await self._ns_get(NEWEST_JOB_KEY)
+        snapshot_job = None
+        if self.job and snapshot and snapshot.get("job_id", self.job.get("job_id")) \
+                == self.job.get("job_id"):
+            snapshot_job = self.job.get("job_id")
+        rows = True
+        if self.qidi is not None and tier >= 1:
+            rows = await self.qidi.has_resume_rows()
         inputs = OfferInputs(
             newest_job_status=await self._newest_job_status(newest),
-            snapshot_job_id=self.job.get("job_id") if (self.job and snapshot) else None,
+            snapshot_job_id=snapshot_job,
             newest_job_id=newest.get("job_id") if isinstance(newest, dict) else None,
             identity_ok=self._identity_ok(),
             layer=snapshot.get("layer") if snapshot else None,
             tier=tier,
             klippy_ready=self.klippy_ready,
             print_duration=snapshot.get("print_duration") if snapshot else None,
+            resume_rows=rows,
+            lift_room=self._lift_room(profile, snapshot),
         )
-        verdict = offer_verdict(inputs)
-        if self.qidi is not None and tier >= 1 and "no_snapshot" not in verdict.blocked_by \
-                and not await self.qidi.has_resume_rows():
-            # § 10: QIDI resumes from its print_state rows, so they must exist too.
-            blocked = [b for b in verdict.blocked_by] + ["no_snapshot"]
-            order = ["not_interrupted", "no_snapshot", "file_changed", "too_early",
-                     "not_supported", "klippy_not_ready"]
-            verdict = OfferVerdict(False, sorted(blocked, key=order.index))
-        return verdict, tier
+        return offer_verdict(inputs), tier
 
     def _load_snapshot(self) -> Optional[Dict[str, Any]]:
         if self.store_error is not None:
@@ -1455,6 +1479,11 @@ class HelixPlr:
             return self._plan_reply(self._plan)
         if self._pending is not None and not self._pending.done():
             return {"pending": True, "plan_id": self._pending_id}
+        if self._plan_error is not None and snapshot is not None \
+                and self._plan_error[0] == snapshot.get("seq"):
+            # A scan that failed in the background fails the same way again:
+            # answer with its error until the snapshot changes.
+            raise self._plan_error[1]
         await self._refresh_homing()
         verdict, tier = await self._offer(profile, snapshot)
         if not verdict.available:
@@ -1462,6 +1491,11 @@ class HelixPlr:
         state = _obj(await self._query({"print_stats": ["state"]}), "print_stats").get("state")
         if state in ("printing", "paused"):
             raise self._error("plr_busy", "printer is %s" % state, 409)
+        live = snapshot.get("live_pos")
+        if self.qidi is None and (not isinstance(live, list) or len(live) < 4
+                                  or any(v is None for v in live[:4])):
+            # The measured nozzle position is the Z prepare declares; never guess it.
+            raise self._error("plr_scan_failed", "no_live_position", 400)
         self._plan = None
         self._sequence = None
         plan_id = "%s-%d-%d" % (self.job["job_id"], snapshot["seq"], int(self.clock() * 1000))
@@ -1480,17 +1514,25 @@ class HelixPlr:
                                                  PLAN_SYNC_WAIT_S)
         except asyncio.TimeoutError:
             async def finish() -> None:
+                event = {"plan_id": plan_id}
                 try:
                     found = await asyncio.wrap_future(future)
                     await self._finish_plan(plan_id, snapshot, profile, tier, *found)
                 except Exception as e:
                     logging.warning("HelixPrint: PLR plan %s failed: %s", plan_id, e)
-                self._notify(PLAN_READY_EVENT, {"plan_id": plan_id})
+                    if not getattr(e, "plr_code", None):
+                        e = self._error("plr_scan_failed", str(e), 500)
+                    self._plan_error = (snapshot.get("seq"), e)
+                    event["error"] = str(e)
+                self._notify(PLAN_READY_EVENT, event)
             asyncio.ensure_future(finish())
             return {"pending": True, "plan_id": plan_id}
         except Exception as e:
             self._pending = None
-            raise self._error("plr_scan_failed", str(e), 500)
+            if not getattr(e, "plr_code", None):
+                e = self._error("plr_scan_failed", str(e), 500)
+            self._plan_error = (snapshot.get("seq"), e)
+            raise e
         self._pending = None
         return self._plan_reply(await self._finish_plan(plan_id, snapshot, profile, tier, scan, point))
 
@@ -1610,60 +1652,129 @@ class HelixPlr:
 
     # -- prepare / commit ----------------------------------------------------
 
-    async def _run_steps(self, plan_id: str, steps: List[Tuple[str, List[str]]]) -> None:
-        apis = self.helix.klippy_apis
-        for step, lines in steps:
-            if self._abort:
-                raise self._error("plr_klippy_error", "aborted", 409)
-            self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "running"})
-            try:
-                if lines:
-                    await apis.run_gcode("\n".join(lines))
-            except Exception as e:
-                self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "failed"})
-                raise self._error("plr_klippy_error", str(e), 500)
+    def _check_abort(self) -> None:
+        if self._abort:
+            raise self._error("plr_klippy_error", "aborted", 409)
+
+    async def _send(self, plan_id: str, step: str, lines: List[str], done: bool = True) -> None:
+        """One step's G-code, refused when an abort arrived before it.
+        `done` False leaves the step running for the caller to finish."""
+        self._check_abort()
+        self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "running"})
+        try:
+            if lines:
+                await self.helix.klippy_apis.run_gcode("\n".join(lines))
+        except Exception as e:
+            self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "failed"})
+            raise self._error("plr_klippy_error", str(e), 500)
+        if done:
             self._notify(PROGRESS_EVENT, {"plan_id": plan_id, "step": step, "state": "done"})
+
+    async def _run_steps(self, plan_id: str, steps: List[Tuple[str, List[str]]]) -> None:
+        for step, lines in steps:
+            await self._send(plan_id, step, lines)
+
+    async def _heat(self, plan: Any, skip_chamber: bool = False) -> None:
+        """§ 6.3 step 2: set each heater, then poll it to temperature in
+        slices an abort can interrupt, with a timeout."""
+        import asyncio
+        for heat in helix_plr_render.render_heat_wait(plan, skip_chamber):
+            await self._send(plan.plan_id, heat.step, heat.lines, done=not heat.wait)
+            if not heat.wait:
+                continue
+            timeout = CHAMBER_WAIT_TIMEOUT_S if heat.sensor != "heater_bed" else BED_WAIT_TIMEOUT_S
+            started = self.clock()
+            while True:
+                self._check_abort()
+                temp = _num(_obj(await self._query({heat.sensor: ["temperature"]}),
+                                 heat.sensor).get("temperature"))
+                if temp is not None and temp >= heat.minimum:
+                    break
+                if self.clock() - started >= timeout:
+                    self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": heat.step,
+                                                  "state": "failed"})
+                    raise self._error("plr_klippy_error", "%s timed out at %s" % (heat.step, temp), 504)
+                await self._sleep(HEAT_POLL_S)
+            self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": heat.step,
+                                          "state": "done"})
 
     async def _heaters_off(self, plan: Any) -> None:
         lines = ["M104 S0", "M140 S0"]
-        if plan is not None and plan.chamber is not None:
-            lines.append("SET_HEATER_TEMPERATURE HEATER=%s TARGET=0" % plan.chamber[0])
+        heaters = (plan.snapshot.get("heaters") or {}) if plan is not None else {}
+        for name in sorted(heaters):
+            if name.startswith("heater_generic "):
+                lines.append("SET_HEATER_TEMPERATURE HEATER=%s TARGET=0" % name.split(" ", 1)[1])
+        lines.append("M107")
         try:
             await self.helix.klippy_apis.run_gcode("\n".join(lines))
         except Exception as e:
             logging.warning("HelixPrint: PLR could not turn the heaters off: %s", e)
 
-    async def _check_ready(self) -> None:
+    async def _check_ready(self) -> str:
+        """Klipper ready and idle; returns toolhead.homed_axes."""
         if not self.klippy_ready:
             raise self._error("plr_klippy_error", "Klipper is not ready", 503)
-        state = _obj(await self._query({"print_stats": ["state"]}), "print_stats").get("state")
+        status = await self._query({"print_stats": ["state"], "toolhead": ["homed_axes"]})
+        state = _obj(status, "print_stats").get("state")
         if state in ("printing", "paused"):
             raise self._error("plr_busy", "printer is %s" % state, 409)
+        homed = _obj(status, "toolhead").get("homed_axes")
+        return homed.lower() if isinstance(homed, str) else ""
+
+    def _claim(self, phase: str) -> Any:
+        """Single-flight: the sequence is taken before the first await, so a
+        second screen or a retry is refused rather than run alongside."""
+        if self._sequence in ("preparing", "committing"):
+            raise self._error("plr_busy", "a resume is running", 409)
+        previous = self._sequence
+        self._sequence = phase
+        self._abort = False
+        return previous
 
     async def handle_prepare(self, web_request: Any) -> Dict[str, Any]:
         plan_id = _param(web_request, "plan_id", "")
         skip_chamber = bool(_param(web_request, "skip_chamber_wait", False))
-        if self._sequence in ("preparing", "committing"):
-            raise self._error("plr_busy", "a resume is running", 409)
         plan = self._current_plan(plan_id)
         if plan.tier < 1:
             raise self._error("plr_no_plan", "not_supported")
-        await self._check_ready()
-        profile = await self.profile()
-        self._sequence = "preparing"
-        self._abort = False
+        previous = self._claim("preparing")
         try:
-            if self.qidi is not None:
-                await self.qidi.prepare(self._heat_wait(plan, skip_chamber))
-            else:
-                await self._run_steps(plan_id, helix_plr_render.render_prepare_script(
-                    plan, profile, skip_chamber))
+            homed = await self._check_ready()
+            profile = await self.profile()
         except Exception:
-            self._sequence = "failed"
+            self._sequence = previous
+            raise
+        try:
+            await self._heat(plan, skip_chamber)
+            if self.qidi is None:
+                lifted = self._lifted_z(plan)
+                for step, lines in helix_plr_render.render_prepare_script(
+                        plan, profile, lifted, "z" in homed):
+                    await self._send(plan_id, step, lines)
+                    if step == "lift" and lifted is None:
+                        await self._note_lifted(plan)
+            self._check_abort()
+        except Exception:
+            if self._sequence == "preparing":
+                self._sequence = "failed"
             await self._heaters_off(plan)
             raise
         self._sequence = "prepared"
+        self._prepared_generation = self._klippy_generation
         return {"ok": True}
+
+    def _lifted_z(self, plan: Any) -> Optional[float]:
+        lifted = (self.job or {}).get("lifted")
+        if isinstance(lifted, dict) and lifted.get("seq") == self._plan_seq:
+            return _num(lifted.get("z"))
+        return None
+
+    async def _note_lifted(self, plan: Any) -> None:
+        """Once the lift is sent the snapshot's Z is no longer the nozzle's:
+        any later prepare of this snapshot must not declare it again."""
+        if self.job is not None:
+            self.job["lifted"] = {"seq": self._plan_seq, "z": plan.z_physical + plan.lift_mm}
+            await self._ns_put(JOB_KEY, self.job)
 
     async def handle_commit(self, web_request: Any) -> Dict[str, Any]:
         plan_id = _param(web_request, "plan_id", "")
@@ -1679,32 +1790,58 @@ class HelixPlr:
         if z_reference != expected:
             raise self._error("plr_missing_confirmation",
                               "z_reference must be %s at tier %d" % (expected, plan.tier))
-        await self._check_ready()
-        profile = await self.profile()
-        self._sequence = "committing"
-        self._abort = False
+        self._claim("committing")
+        try:
+            homed = await self._check_ready()
+            profile = await self.profile()
+            self._check_machine_unchanged(plan, homed)
+        except Exception as e:
+            self._sequence = None if getattr(e, "plr_code", None) == "plr_stale_plan" \
+                else "prepared"
+            raise
         try:
             if self.qidi is not None:
                 await self._commit_qidi(plan)
             else:
+                await self._heat(plan)
                 await self._run_steps(plan_id, helix_plr_render.render_commit_script(
                     plan, profile, z_reference))
                 await self._start(plan)
         except Exception:
-            self._sequence = "failed"
+            if self._sequence == "committing":
+                self._sequence = "failed"
             await self._heaters_off(plan)
             raise
         self._sequence = "done"
         self._plan = None
         return {"ok": True, "job_started": True}
 
+    def _check_machine_unchanged(self, plan: Any, homed: str) -> None:
+        """Commit trusts the frame prepare set up: refuse it when Klipper
+        restarted since, or the axes prepare homed are no longer homed (an
+        idle timeout's motors-off, a restart). The answer is a new prepare."""
+        if self.qidi is not None:
+            return
+        needed = "xyz" if plan.tier >= 2 else "xy"
+        if self._klippy_generation != self._prepared_generation \
+                or any(axis not in homed for axis in needed):
+            raise self._error("plr_stale_plan",
+                              "Klipper lost its position since prepare; prepare again", 409)
+
     def _heat_wait(self, plan: Any, skip_chamber: bool = False) -> Callable[[], Any]:
         """§ 6.3 step 2 as the coroutine the QIDI adapter awaits."""
         async def wait() -> None:
-            await self._run_steps(plan.plan_id, helix_plr_render.render_heat_wait(plan, skip_chamber))
+            await self._heat(plan, skip_chamber)
         return wait
 
+    def _mark_qidi(self, name: str, kind: str) -> None:
+        """The QIDI adapter marks the job immediately before QIDI's resume
+        call; an abort that arrived during its wait stops it here."""
+        self._check_abort()
+        self.helix.mark_helix_initiated(name, kind)
+
     async def _commit_qidi(self, plan: Any) -> None:
+        self._check_qidi_cache()
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
             await self.qidi.commit(plan.snapshot, plan.resume_offset, self._plan_file_size,
@@ -1716,8 +1853,23 @@ class HelixPlr:
             raise self._error("plr_klippy_error", str(e), 500)
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "done"})
 
+    def _check_qidi_cache(self) -> None:
+        """QIDI resumes whatever file sits in its .cache; it must be the
+        file the snapshot and the resume offset are for."""
+        name = helix_plr_qidi.qidi_resume_filename(self.qidi._cache_dir)
+        job = self.job or {}
+        expected = job.get("print_identity") or job
+        try:
+            found = file_identity(Path(name)) if name else None
+        except OSError:
+            found = None
+        if found is None or found["file_size"] != expected.get("file_size") \
+                or found["file_hash"] != expected.get("file_hash"):
+            raise self._error("plr_scan_failed", "qidi_cache_mismatch: %s" % name, 409)
+
     async def _start(self, plan: Any) -> None:
         """Mark the job helix-initiated, then the single start command."""
+        self._check_abort()
         gc_path = self.helix.gc_path
         link = None
         if plan.start_name == RESUME_LINK:
@@ -1729,7 +1881,9 @@ class HelixPlr:
                 link.symlink_to(target)
             except OSError as e:
                 raise self._error("plr_klippy_error", "cannot link %s: %s" % (RESUME_LINK, e), 500)
-            self._resume_history_name = plan.history_name
+            # Read back by the resumed job's history event, also after a restart.
+            await self._ns_put(RESUME_LINK_KEY, {"history_name": plan.history_name})
+        self._check_abort()
         self.helix.mark_helix_initiated(plan.start_name, "plr_resume", plan.history_name)
         self._notify(PROGRESS_EVENT, {"plan_id": plan.plan_id, "step": "start", "state": "running"})
         try:
@@ -1752,6 +1906,7 @@ class HelixPlr:
             raise self._error("plr_stale_plan", "plan %s is not the latest" % plan_id, 409)
         self._abort = True
         self._sequence = "aborted"
+        self._plan = None
         if self.qidi is not None:
             self.qidi.abort()
         await self._heaters_off(plan)
@@ -1777,6 +1932,11 @@ PLAN_READY_EVENT = "helix_print:plr_plan_ready"
 
 # A plan whose scan takes longer replies {"pending": true} and announces itself.
 PLAN_SYNC_WAIT_S = 10.0
+
+# Heat waits poll the heater this often, and give up after these.
+HEAT_POLL_S = 2.0
+BED_WAIT_TIMEOUT_S = 20 * 60.0
+CHAMBER_WAIT_TIMEOUT_S = 45 * 60.0
 
 # The include-file mesh section (§ 6.4).
 MESH_SECTION = "helix_plr"

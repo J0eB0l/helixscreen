@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from helix_gcode_reader import ModalState
 from helix_plr import PlrProfile
 from helix_plr_render import (
+    HeatStep,
     ResumePlan,
     UnsafeValue,
     gcode_param,
@@ -23,6 +24,7 @@ from helix_plr_render import (
     lift_height,
     mesh_z_at,
     render_commit_script,
+    render_heat_wait,
     render_prepare_script,
     render_start,
     required_confirmations,
@@ -77,14 +79,30 @@ def flat(steps):
     return [line for _, lines in steps for line in lines]
 
 
-def test_tier2_prepare_is_bed_lift_home():
+def test_tier2_prepare_is_lift_then_home():
     steps = render_prepare_script(plan(), PROFILE)
     assert steps == [
-        ("bed", ["M140 S60", "M190 S60"]),
-        ("lift", ["SET_KINEMATIC_POSITION Z=12.45", "G91", "G1 Z5 F300", "G90"]),
+        ("lift", ["SET_KINEMATIC_POSITION Z=12.45 SET_HOMED=Z", "G91", "G1 Z5 F300", "G90"]),
         ("home_xy", ["G28 X Y"]),
     ]
     assert not any(l.startswith(("M104", "M109")) for l in flat(steps))
+
+
+def test_a_lifted_nozzle_is_not_declared_at_the_snapshot_z_again():
+    lifted = render_prepare_script(plan(), PROFILE, lifted_z=17.45, z_homed=False)
+    assert lifted[0] == ("lift", ["SET_KINEMATIC_POSITION Z=17.45 SET_HOMED=Z"])
+    still_homed = render_prepare_script(plan(), PROFILE, lifted_z=17.45, z_homed=True)
+    assert [name for name, _ in still_homed] == ["home_xy"]
+
+
+def test_heat_wait_sets_then_waits_without_blocking_gcode():
+    steps = render_heat_wait(plan(chamber=("chamber", 45.0)))
+    assert steps == [
+        HeatStep("bed_wait", ["M140 S60"], "heater_bed", 59.0, True),
+        HeatStep("chamber_wait", ["SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45"],
+                 "heater_generic chamber", 44.0, True),
+    ]
+    assert not any(l.startswith(("M190", "TEMPERATURE_WAIT")) for s in steps for l in s.lines)
 
 
 def test_tier1_prepare_stops_above_the_resume_point():
@@ -92,25 +110,21 @@ def test_tier1_prepare_stops_above_the_resume_point():
     assert steps[-1] == ("position", ["G90", "G1 X110.5 Y95.25 F6000"])
 
 
-def test_prepare_chamber_wait_and_its_skip():
-    p = plan(chamber=("chamber", 45.0))
-    assert dict(render_prepare_script(p, PROFILE))["chamber"] == [
-        "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45",
-        'TEMPERATURE_WAIT SENSOR="heater_generic chamber" MINIMUM=44']
-    assert dict(render_prepare_script(p, PROFILE, skip_chamber_wait=True))["chamber"] == [
-        "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45"]
+def test_skipping_the_chamber_wait_still_sets_the_chamber():
+    steps = render_heat_wait(plan(chamber=("chamber", 45.0)), skip_chamber_wait=True)
+    assert steps[1].lines == ["SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45"]
+    assert steps[1].wait is False and steps[0].wait is True
 
 
-def test_prepare_uses_the_profiles_xy_homing_and_skips_a_zero_lift():
-    steps = dict(render_prepare_script(plan(lift_mm=0.0),
+def test_prepare_uses_the_profiles_xy_homing():
+    steps = dict(render_prepare_script(plan(),
                                        PlrProfile(tier=2, xy_home_gcode="G28 X\nG28 Y\n")))
     assert steps["home_xy"] == ["G28 X", "G28 Y"]
-    assert steps["lift"] == ["SET_KINEMATIC_POSITION Z=12.45"]
 
 
 def test_tier2_commit_golden():
     steps = render_commit_script(plan(), PROFILE, "trusted")
-    assert [name for name, _ in steps] == ["restore", "purge", "return"]
+    assert [name for name, _ in steps] == ["restore", "heat_nozzle", "move_to_resume"]
     restore, purge, ret = (lines for _, lines in steps)
     assert restore == [
         "BED_MESH_PROFILE LOAD=default",
@@ -147,7 +161,7 @@ def test_commit_never_heats_the_nozzle_over_the_part():
 def test_tier1_commit_redeclares_z_at_the_part_top():
     mesh = {"points": [[0.1, 0.1], [0.1, 0.1]], "min": [0.0, 0.0], "max": [200.0, 200.0]}
     steps = render_commit_script(plan(tier=1, mesh=mesh), PROFILE, "part_top")
-    assert steps[0] == ("z_reference", ["SET_KINEMATIC_POSITION Z=12.55", "G91",
+    assert steps[0] == ("z_reference", ["SET_KINEMATIC_POSITION Z=12.55 SET_HOMED=Z", "G91",
                                         "G1 Z5 F300", "G90"])
 
 
@@ -163,12 +177,12 @@ def test_commit_restores_the_chamber_once_and_the_retract_state():
 
 def test_purge_macro_replaces_the_generic_purge():
     purge = dict(render_commit_script(plan(), PlrProfile(tier=2, purge_gcode="PURGE_LINE\nWIPE"),
-                                      "trusted"))["purge"]
+                                      "trusted"))["heat_nozzle"]
     assert purge == ["M109 S220", "PURGE_LINE", "WIPE"]
 
 
 def test_no_purge_location_primes_at_the_home_position():
-    purge = dict(render_commit_script(plan(purge_xy=None), PROFILE, "trusted"))["purge"]
+    purge = dict(render_commit_script(plan(purge_xy=None), PROFILE, "trusted"))["heat_nozzle"]
     assert purge[0] == "M109 S220" and not any(l.startswith("G1 X") for l in purge)
 
 

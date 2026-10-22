@@ -1020,22 +1020,71 @@ def resume(plr, helix):
     plr.klippy_ready = True
     plr.policy.reset()
 
-    async def query(objects):
+    printer = FakePrinter()
+    helix.klippy_apis.query_objects.side_effect = printer.query
+    helix.klippy_apis.run_gcode.side_effect = printer.run_gcode
+    plr.printer = printer
+
+    async def no_wait(seconds):
+        plr.clock.t += seconds
+
+    plr._sleep = no_wait
+    return data
+
+
+class FakePrinter:
+    """Klipper as PLR sees it: heaters that reach a target once set (when
+    `heats`), and homed axes that follow G28 X Y and SET_KINEMATIC_POSITION."""
+
+    def __init__(self):
+        self.bed = 55.0
+        self.chamber = 25.0
+        self.heats = True
+        self.homed = ""
+        self.state = "standby"
+        self.fail_on = None
+
+    async def run_gcode(self, script):
+        if self.fail_on and script.startswith(self.fail_on):
+            raise RuntimeError(self.fail_message)
+        for line in script.splitlines():
+            words = line.split()
+            if not words:
+                continue
+            if words[0] == "M140" and self.heats:
+                self.bed = float(words[1][1:])
+            elif words[0] == "SET_HEATER_TEMPERATURE" and self.heats:
+                self.chamber = float(line.split("TARGET=")[1])
+            elif words[0] == "G28":
+                self.homed = "".join(sorted(set(self.homed) | {"x", "y"}))
+            elif words[0] == "SET_KINEMATIC_POSITION":
+                homed = line.split("SET_HOMED=")[1].split()[0].lower() if "SET_HOMED=" in line \
+                    else "xyz"
+                self.homed = "".join(sorted(set(self.homed) | set(homed)))
+        return "ok"
+
+    def fail(self, prefix, message):
+        self.fail_on, self.fail_message = prefix, message
+
+    async def query(self, objects):
         out = {}
         if "print_stats" in objects:
-            out["print_stats"] = {"state": "standby"}
+            out["print_stats"] = {"state": self.state}
         if "heater_bed" in objects:
-            out["heater_bed"] = {"temperature": 55.0, "target": 0.0}
+            out["heater_bed"] = {"temperature": self.bed, "target": 0.0}
+        if "heater_generic chamber" in objects:
+            out["heater_generic chamber"] = {"temperature": self.chamber}
         if "bed_mesh" in objects:
             out["bed_mesh"] = {"profiles": {"default": {}}}
         if "toolhead" in objects:
-            out["toolhead"] = {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0]}
+            out["toolhead"] = {"axis_minimum": [0, 0, 0, 0], "axis_maximum": [220, 220, 250, 0],
+                               "homed_axes": self.homed}
         if "configfile" in objects:
             out["configfile"] = {"settings": {"printer": {"kinematics": "corexy"}}}
         return out
 
-    helix.klippy_apis.query_objects.side_effect = query
-    return data
+
+HEATERS_OFF = "M104 S0\nM140 S0\nSET_HEATER_TEMPERATURE HEATER=chamber TARGET=0\nM107"
 
 
 def sent(helix):
@@ -1153,8 +1202,8 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     assert run(plr.handle_prepare(Req(plan_id=plan_id))) == {"ok": True}
     prepare = sent(helix)
-    assert prepare[0] == "M140 S60\nM190 S60"
-    assert prepare[1].startswith("SET_KINEMATIC_POSITION Z=0.8\nG91\nG1 Z5 F300")
+    assert prepare[0] == "M140 S60"
+    assert prepare[1].startswith("SET_KINEMATIC_POSITION Z=0.8 SET_HOMED=Z\nG91\nG1 Z5 F300")
     assert prepare[2] == "G28 X Y"
     assert not any("M104" in s or "M109" in s for s in prepare)
     reply = run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
@@ -1167,7 +1216,10 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     assert link.is_symlink() and link.resolve() == (helix.gc_path / "sub" / "part.gcode").resolve()
     steps = [p["step"] for e, p in plr.events if e == "helix_print:plr_progress"
              and p["state"] == "done"]
-    assert steps == ["bed", "lift", "home_xy", "restore", "purge", "return", "start"]
+    assert steps == ["bed_wait", "lift", "home_xy", "bed_wait", "restore", "heat_nozzle",
+                     "move_to_resume", "start"]
+    commit = sent(helix)[len(prepare):]
+    assert commit[0] == "M140 S60"                          # the bed is re-asserted first
 
 
 def test_commit_refuses_missing_confirmations_and_the_wrong_z(plr, resume):
@@ -1214,41 +1266,31 @@ def test_a_failed_start_unmarks_and_turns_heaters_off(plr, helix, resume, monkey
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     run(plr.handle_prepare(Req(plan_id=plan_id)))
 
-    async def gcode(script):
-        if script.startswith("M23"):
-            raise RuntimeError("SD busy")
-        return "ok"
-
-    helix.klippy_apis.run_gcode.side_effect = gcode
+    plr.printer.fail("M23", "SD busy")
     with pytest.raises(Exception, match="plr_klippy_error: SD busy"):
         run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
                                   confirmations={"part_attached": True, "z_confirmed": True})))
     assert unmarked == [RESUME_LINK]
     assert not (helix.gc_path / RESUME_LINK).exists()
-    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert sent(helix)[-1] == HEATERS_OFF
 
 
 def test_a_klipper_error_in_prepare_fails_safe(plr, helix, resume):
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
 
-    async def gcode(script):
-        if script.startswith("G28"):
-            raise RuntimeError("Endstop x still triggered")
-        return "ok"
-
-    helix.klippy_apis.run_gcode.side_effect = gcode
+    plr.printer.fail("G28", "Endstop x still triggered")
     with pytest.raises(Exception, match="plr_klippy_error: Endstop"):
         run(plr.handle_prepare(Req(plan_id=plan_id)))
-    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert sent(helix)[-1] == HEATERS_OFF
     assert plr.store.load() is not None
 
 
 def test_abort_turns_heaters_off_and_keeps_the_snapshot(plr, helix, resume):
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     assert run(plr.handle_abort(Req(plan_id=plan_id))) == {"ok": True}
-    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert sent(helix)[-1] == HEATERS_OFF
     assert plr.store.load() is not None
-    with pytest.raises(Exception, match="plr_busy"):
+    with pytest.raises(Exception, match="plr_no_plan"):
         run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
                                   confirmations={"part_attached": True, "z_confirmed": True})))
 
@@ -1456,14 +1498,14 @@ def test_qidi_plan_prepare_commit(plr, helix, qidi_resume, monkeypatch):
     assert "mesh_unavailable" not in reply["warnings"] and "no_purge_location" not in reply["warnings"]
     assert plr._plan.purge_xy is None and plr._plan.mesh_loadable is None   # QIDI's sequence purges
     run(plr.handle_prepare(Req(plan_id=reply["plan_id"])))
-    assert sent(helix) == ["M140 S60\nM190 S60"]          # the heat wait only
+    assert sent(helix) == ["M140 S60"]                    # the heat wait only
     done = run(plr.handle_commit(Req(plan_id=reply["plan_id"], z_reference="trusted",
                                      confirmations={"part_attached": True, "z_confirmed": True})))
     assert done == {"ok": True, "job_started": True}
     assert helix.klippy_apis.power_off_print.await_count == 1
     assert table.rows["file_position"] == str(reply["resume_offset"] + 4096)
     assert marks == [(str(cache / "part.gcode"), "plr_resume")]
-    assert sent(helix)[-1] == "M140 S60\nM190 S60"          # waited again inside commit
+    assert sent(helix)[-1] == "M140 S60"                  # waited again inside commit
     assert not any(s.startswith("M23") for s in sent(helix))
 
 
@@ -1474,7 +1516,7 @@ def test_qidi_commit_failure_is_a_klippy_error_with_heaters_off(plr, helix, qidi
     with pytest.raises(Exception, match="plr_klippy_error: no file"):
         run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
                                   confirmations={"part_attached": True, "z_confirmed": True})))
-    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert sent(helix)[-1] == HEATERS_OFF
 
 
 def test_qidi_abort_keeps_the_rows_and_turns_heaters_off(plr, helix, qidi_resume):
@@ -1482,7 +1524,7 @@ def test_qidi_abort_keeps_the_rows_and_turns_heaters_off(plr, helix, qidi_resume
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     run(plr.handle_abort(Req(plan_id=plan_id)))
     assert table.rows == {"file_position": "1"}
-    assert sent(helix)[-1] == "M104 S0\nM140 S0"
+    assert sent(helix)[-1] == HEATERS_OFF
 
 
 def test_qidi_discard_deletes_rows_and_snapshot(plr, helix, qidi_resume):
@@ -1510,3 +1552,268 @@ def test_scan_follows_the_file_klipper_reads(plr, helix, resume):
     reply = run(plr.handle_plan(Req()))
     layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
     assert reply["resume_offset"] == resume.index(b"G1 X55 Y10", layer4) + shift
+
+
+# --------------------------------------------------------------------------
+# Sequence safety: single flight, abort, a machine that changed since prepare
+# --------------------------------------------------------------------------
+
+COMMIT_OK = {"part_attached": True, "z_confirmed": True}
+
+
+def commit(plr, plan_id):
+    return run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
+                                     confirmations=COMMIT_OK)))
+
+
+def test_two_prepares_at_once_run_one(plr, helix, resume):
+    """Two screens, or a retry, tapping Prepare together: the second is
+    refused before either sends anything."""
+    import asyncio
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    query = plr.printer.query
+
+    async def yielding(objects):
+        await asyncio.sleep(0)
+        return await query(objects)
+
+    helix.klippy_apis.query_objects.side_effect = yielding
+
+    async def both():
+        return await asyncio.gather(plr.handle_prepare(Req(plan_id=plan_id)),
+                                    plr.handle_prepare(Req(plan_id=plan_id)),
+                                    return_exceptions=True)
+
+    results = run(both())
+    assert sum(1 for r in results if r == {"ok": True}) == 1
+    assert sum(1 for r in results if "plr_busy" in str(r)) == 1
+    assert sum(1 for s in sent(helix) if s.startswith("SET_KINEMATIC_POSITION")) == 1
+
+
+def test_abort_between_commit_steps_sends_nothing_more(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    real = plr.printer.run_gcode
+
+    async def gcode(script):
+        if script.startswith("SET_GCODE_OFFSET"):          # the restore step
+            await plr.handle_abort(Req(plan_id=plan_id))
+        return await real(script)
+
+    helix.klippy_apis.run_gcode.side_effect = gcode
+    with pytest.raises(Exception, match="aborted"):
+        commit(plr, plan_id)
+    assert not any("M109" in s for s in sent(helix))
+
+
+def test_abort_during_the_last_prepare_step_stays_aborted(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    real = plr.printer.run_gcode
+
+    async def gcode(script):
+        if script.startswith("G28"):
+            await plr.handle_abort(Req(plan_id=plan_id))
+        return await real(script)
+
+    helix.klippy_apis.run_gcode.side_effect = gcode
+    with pytest.raises(Exception, match="aborted"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert plr._sequence == "aborted"
+    with pytest.raises(Exception, match="plr_no_plan"):
+        commit(plr, plan_id)
+
+
+def test_abort_during_the_last_commit_step_never_starts_the_print(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    real = plr.printer.run_gcode
+
+    async def gcode(script):
+        if "G92 E" in script:                       # move_to_resume, the last step
+            await plr.handle_abort(Req(plan_id=plan_id))
+        return await real(script)
+
+    helix.klippy_apis.run_gcode.side_effect = gcode
+    with pytest.raises(Exception, match="aborted"):
+        commit(plr, plan_id)
+    assert not any(s.startswith("M23") for s in sent(helix))
+    assert not (helix.gc_path / RESUME_LINK).exists()
+
+
+def test_abort_during_a_heat_wait_stops_before_any_motion(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.heats = False
+
+    async def abort_while_waiting(seconds):
+        await plr.handle_abort(Req(plan_id=plan_id))
+
+    plr._sleep = abort_while_waiting
+    with pytest.raises(Exception, match="aborted"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert not any(s.startswith(("SET_KINEMATIC", "G28")) for s in sent(helix))
+
+
+def test_a_heat_wait_times_out(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.heats = False
+    with pytest.raises(Exception, match="plr_klippy_error: bed_wait timed out"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    assert sent(helix)[-1] == HEATERS_OFF
+
+
+def test_the_chamber_wait_is_polled_and_skippable(plr, helix, resume):
+    record = plr.store.load()
+    record["heaters"]["heater_generic chamber"] = {"target": 45.0, "temp": 25.0}
+    plr.store.write(fit_record(record)[0])
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.heats = False
+    plr.printer.bed = 60.0
+    with pytest.raises(Exception, match="chamber_wait timed out"):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id, skip_chamber_wait=True)))
+    assert "SET_HEATER_TEMPERATURE HEATER=chamber TARGET=45" in sent(helix)
+
+
+def test_commit_after_a_klipper_restart_needs_a_new_prepare(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.on_klippy_gone()
+    plr.klippy_ready = True
+    with pytest.raises(Exception, match="plr_stale_plan"):
+        commit(plr, plan_id)
+    assert plr._sequence is None
+    assert not any(s.startswith("M23") for s in sent(helix))
+
+
+def test_commit_after_motors_off_needs_a_new_prepare(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.homed = ""                          # idle_timeout's M84
+    with pytest.raises(Exception, match="plr_stale_plan"):
+        commit(plr, plan_id)
+
+
+def test_a_retried_prepare_never_redeclares_the_snapshot_z(plr, helix, resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    plr.printer.fail("G28", "Endstop x still triggered")
+    with pytest.raises(Exception):
+        run(plr.handle_prepare(Req(plan_id=plan_id)))
+    plr.printer.fail_on = None
+    before = len(sent(helix))
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    retry = sent(helix)[before:]
+    assert not any(s.startswith("SET_KINEMATIC_POSITION") for s in retry)   # Z still homed
+    # Klipper restarted after the lift: the nozzle is at the lifted height, not the snapshot's.
+    plr.printer.homed = ""
+    before = len(sent(helix))
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    retry = sent(helix)[before:]
+    assert "SET_KINEMATIC_POSITION Z=5.8 SET_HOMED=Z" in retry
+    assert not any("G1 Z5 F300" in s for s in retry)
+
+
+def test_no_room_to_lift_means_no_offer(plr, helix, resume):
+    plr.axis_max = [220.0, 220.0, 2.5]
+    assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["no_lift_room"]
+
+
+@pytest.mark.parametrize("lift, expected", [(0, 5.0), (-3, 5.0), (0.5, 2.0), (8, 8.0)])
+def test_profile_lift_is_never_below_the_minimum(lift, expected):
+    assert parse_profile({"z_lift_mm": lift}).z_lift_mm == expected
+
+
+def test_a_snapshot_without_a_live_position_is_not_planned(plr, resume):
+    record = plr.store.load()
+    record["live_pos"] = None
+    plr.store.write(fit_record(record)[0])
+    with pytest.raises(Exception, match="plr_scan_failed: no_live_position"):
+        run(plr.handle_plan(Req()))
+
+
+def test_a_tier_three_profile_acts_at_tier_two(plr, helix, resume):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 3}))
+    assert run(plr.handle_status(Req()))["tier"] == 2
+
+
+def test_a_snapshot_of_another_job_is_not_offered(plr, resume):
+    record = plr.store.load()
+    record["job_id"] = "0000ZZ"
+    plr.store.write(fit_record(record)[0])
+    assert run(plr.handle_status(Req()))["offer"]["blocked_by"] == ["no_snapshot"]
+
+
+def test_a_failed_background_plan_reports_its_error_once(plr, resume, monkeypatch):
+    import threading
+    gate = threading.Event()
+    record = plr.store.load()
+    record["active_extruder"] = "extruder1"
+    plr.store.write(fit_record(record)[0])
+    submits = []
+
+    class SlowExecutor:
+        def __init__(self):
+            from concurrent.futures import ThreadPoolExecutor
+            self.pool = ThreadPoolExecutor(1)
+
+        def submit(self, fn, *args):
+            submits.append(fn)
+
+            def slow():
+                gate.wait(5)
+                return fn(*args)
+            return self.pool.submit(slow)
+
+        def shutdown(self, wait=True):
+            self.pool.shutdown(wait)
+
+    plr._plan_executor = SlowExecutor()
+    monkeypatch.setattr(helix_plr, "PLAN_SYNC_WAIT_S", 0.05)
+
+    async def scenario():
+        import asyncio
+        first = await plr.handle_plan(Req())
+        gate.set()
+        for _ in range(100):
+            if any(e == "helix_print:plr_plan_ready" for e, _ in plr.events):
+                break
+            await asyncio.sleep(0.02)
+        errors = []
+        for _ in range(2):
+            try:
+                await plr.handle_plan(Req())
+            except Exception as e:
+                errors.append(str(e))
+        return first, errors
+
+    first, errors = run(scenario())
+    ready = [p for e, p in plr.events if e == "helix_print:plr_plan_ready"]
+    assert first["pending"] is True and "multi_material" in ready[0]["error"]
+    assert len(errors) == 2 and all("multi_material" in e for e in errors)
+    assert len(submits) == 1
+
+
+def test_qidi_abort_before_quidis_resume_call_stops_it(plr, helix, qidi_resume):
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    write = plr.qidi._write
+
+    async def write_then_abort(rows):
+        ok = await write(rows)
+        await plr.handle_abort(Req(plan_id=plan_id))
+        return ok
+
+    plr.qidi._write = write_then_abort
+    with pytest.raises(Exception, match="aborted"):
+        commit(plr, plan_id)
+    assert helix.klippy_apis.power_off_print.await_count == 0
+
+
+def test_qidi_refuses_a_cache_file_that_is_not_the_snapshots(plr, helix, qidi_resume):
+    _, cache = qidi_resume
+    (cache / "part.gcode").write_bytes(b"G1 X1\n" * 10)
+    plan_id = run(plr.handle_plan(Req()))["plan_id"]
+    run(plr.handle_prepare(Req(plan_id=plan_id)))
+    with pytest.raises(Exception, match="plr_scan_failed: qidi_cache_mismatch"):
+        commit(plr, plan_id)
+    assert helix.klippy_apis.power_off_print.await_count == 0

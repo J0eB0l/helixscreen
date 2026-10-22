@@ -25,6 +25,10 @@ from helix_gcode_reader import ModalState
 # Kept between the lifted nozzle and the top of the Z travel.
 SAG_ALLOWANCE_MM = 1.0
 
+# The least cold lift that clears the part before XY homing drags across it.
+# Less room than this under the top of travel and PLR is not offered.
+MIN_LIFT_MM = 2.0
+
 # mm/min
 Z_FEED = 300
 TRAVEL_FEED = 6000
@@ -194,32 +198,56 @@ def _resume_xyz(state: ModalState) -> Tuple[float, float, float]:
     return gx, gy, gz
 
 
-def render_heat_wait(plan: ResumePlan,
-                     skip_chamber_wait: bool = False) -> List[Tuple[str, List[str]]]:
-    """§ 6.3 step 2: bed, then chamber, to temperature; the nozzle stays cold.
-    Every backend's prepare starts with it."""
-    steps = []  # type: List[Tuple[str, List[str]]]
+class HeatStep(NamedTuple):
+    """§ 6.3 step 2, one heater: the set command, then the plugin waits for
+    `sensor` (a Klipper object) to reach `minimum`. The wait is not a G-code
+    (M190, TEMPERATURE_WAIT): those hold Klipper's G-code lock, so an abort's
+    heaters-off could not run until the target was reached."""
+    step: str
+    lines: List[str]
+    sensor: str
+    minimum: float
+    wait: bool
+
+
+# A heater counts as at temperature this close under its target.
+HEAT_TOLERANCE_C = 1.0
+
+
+def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False) -> List[HeatStep]:
+    """Bed, then chamber, to temperature; the nozzle stays cold. Every
+    backend's prepare starts with it, and every commit repeats it."""
+    steps = []  # type: List[HeatStep]
     if plan.bed_target > 0:
-        steps.append(("bed", ["M140 S%s" % _f(plan.bed_target), "M190 S%s" % _f(plan.bed_target)]))
+        steps.append(HeatStep("bed_wait", ["M140 S%s" % _f(plan.bed_target)], "heater_bed",
+                              plan.bed_target - HEAT_TOLERANCE_C, True))
     if plan.chamber is not None:
         name, target = plan.chamber
-        lines = ["SET_HEATER_TEMPERATURE HEATER=%s TARGET=%s" % (gcode_param(name), _f(target))]
-        if not skip_chamber_wait:
-            lines.append('TEMPERATURE_WAIT SENSOR="heater_generic %s" MINIMUM=%s'
-                         % (name, _f(target - 1.0)))
-        steps.append(("chamber", lines))
+        steps.append(HeatStep(
+            "chamber_wait",
+            ["SET_HEATER_TEMPERATURE HEATER=%s TARGET=%s" % (gcode_param(name), _f(target))],
+            "heater_generic " + name, target - HEAT_TOLERANCE_C, not skip_chamber_wait))
     return steps
 
 
 def render_prepare_script(plan: ResumePlan, profile: Any,
-                          skip_chamber_wait: bool = False) -> List[Tuple[str, List[str]]]:
-    """Steps of the generic prepare phase as (step name, lines): the heat
-    wait, then declare the measured Z, lift cold, home XY."""
-    steps = render_heat_wait(plan, skip_chamber_wait)
-    lift = ["SET_KINEMATIC_POSITION Z=%s" % _f(plan.z_physical)]
-    if plan.lift_mm > 0:
+                          lifted_z: Optional[float] = None,
+                          z_homed: bool = False) -> List[Tuple[str, List[str]]]:
+    """The generic prepare's motion after the heat wait: declare the measured
+    Z, lift cold, home XY (tier 1: stop above the resume point).
+
+    `lifted_z` is set when an earlier prepare of this snapshot already lifted
+    the nozzle: the lift is not repeated, and the Z declared is the lifted
+    one, or nothing when Klipper still has Z homed (`z_homed`).
+    SET_HOMED=Z leaves X and Y unhomed, so an XY homing macro that homes only
+    unhomed axes still homes them."""
+    steps = []  # type: List[Tuple[str, List[str]]]
+    if lifted_z is None:
+        lift = ["SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(plan.z_physical)]
         lift += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]
-    steps.append(("lift", lift))
+        steps.append(("lift", lift))
+    elif not z_homed:
+        steps.append(("lift", ["SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(lifted_z)]))
     steps.append(("home_xy", [line for line in profile.xy_home_gcode.splitlines() if line.strip()]))
     if plan.tier == 1:
         x, y, _ = _resume_xyz(plan.state)
@@ -340,12 +368,11 @@ def render_commit_script(plan: ResumePlan, profile: Any,
         mesh_z = mesh_z_at(plan.mesh, rx + (plan.snapshot.get("gcode_offset") or [0.0])[0],
                            ry + (plan.snapshot.get("gcode_offset") or [0.0, 0.0])[1]) or 0.0
         z = rz + offset_z + mesh_z
-        lines = ["SET_KINEMATIC_POSITION Z=%s" % _f(z)]
-        if plan.lift_mm > 0:
-            lines += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]
+        lines = ["SET_KINEMATIC_POSITION Z=%s SET_HOMED=Z" % _f(z)]
+        lines += ["G91", "G1 Z%s F%d" % (_f(plan.lift_mm), Z_FEED), "G90"]
         steps.append(("z_reference", lines))
     steps.append(("restore", _restore_lines(plan)))
-    steps.append(("purge", _purge_lines(plan, profile)))
+    steps.append(("heat_nozzle", _purge_lines(plan, profile)))
     state = plan.state
     ret = ["G90",
            "G1 Z%s F%d" % (_f(_safe_z(plan)), Z_FEED),
@@ -366,7 +393,7 @@ def render_commit_script(plan: ResumePlan, profile: Any,
             ret.append("SET_FAN_SPEED FAN=%s SPEED=%s" % (gcode_param(name.split(" ", 1)[1]), _f(speed)))
     if state.retracted:
         ret.append("G10")
-    steps.append(("return", ret))
+    steps.append(("move_to_resume", ret))
     return steps
 
 
