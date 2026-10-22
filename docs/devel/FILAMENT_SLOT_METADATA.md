@@ -448,7 +448,7 @@ what a tag reading is lives in each leaf doc:
 | Backend | Reading | How it is kept |
 |---|---|---|
 | Snapmaker U1 | `filament_detect.info` with a real `CARD_UID` | the firmware keeps it (edits go to `print_task_config`) |
-| CFS | the box's latched record plus the catalog temps for its code | `fold_tag_frame` |
+| CFS | the box's latched record plus the catalog temps for its code; a Spoolman id from the stock record's serial | `fold_tag_frame`; the id is re-read each frame |
 | QIDI Box | the saved RFID ids resolved through the Box tables, plus the profile temps | `fold_tag_frame` |
 | ACE | a frame whose `rfid` says identified | per bay, until a read finds no tag or the bay empties |
 | AFC | the lane's `td1_color` scan | `SlotInfo::scanned_color_rgb` |
@@ -465,6 +465,44 @@ A user override survives the tag reader's next poll everywhere through the lane 
 the declaring LocalUser record outranks VendorCache. The multi-colour is the one tag field
 no lane record carries, so a backend lays it onto the slot only while the lane declares no
 colour, and `SlotInfo::assign_filament_fields` carries it through an edit.
+
+### Tag-declared Spoolman links
+
+Some tags name a Spoolman spool. `TagReading::spoolman_id` carries it, and only a backend's
+own decoder fills it: each tag format has its own values that name no spool (a CFS stock
+tag's factory serial `000001`, a blank), and the decoder drops them, so a set id is always
+one to look up. It is a binding, not a property the slot shows, so it is no `TagField`,
+provenance and `reset_to_tag()` ignore it, and `fold_tag_frame()` leaves it to the backend.
+`AmsBackend::tags_name_spoolman_spools()` says whether a backend's tags can carry one; it
+gates the setting's row and nothing else.
+
+The policy is backend-neutral and lives in one place: `helix::ams::TagSpoolLinkTracker`
+(`include/tag_spool_link.h`), a pure per-lane tracker, driven by
+`AmsState::sync_tag_spool_link` on every primary-backend sync. It acts on transitions of
+the id, never on a frame that repeats it:
+
+| Frame | Effect |
+|---|---|
+| lane reads empty | forget the lane's tag: whatever is seated next is a new insert |
+| occupied, no id (unread, untagged, a default serial) | nothing |
+| first id this session | link only a lane linked to nothing, so a link made before a restart stands |
+| same id as last seen | nothing, so a spool picked while that tag stays seated is kept |
+| a different id, or an id after empty | link the lane to it |
+
+A wanted link waits across frames while Spoolman is unreachable and is dropped when the
+tag changes or the lane empties. When Spoolman is available AmsState looks the spool up
+(`get_spoolman_spool`, completion deferred to the main thread through `async_lifetime_`),
+re-checks that the lane still wants it, and links through `AmsState::link_spool_to_slot`,
+the same commit a QR scan uses: `apply_spool_to_slot()` over the slot, then
+`commit_slot_edit()`, so the identity cache, the active spool on a loaded lane, the
+backend write and persistence all behave as for a pick. A spool Spoolman does not have
+gets one warning toast; a failed lookup is logged and not retried for that insert. The
+per-printer setting `ams/tag_links_spoolman` (default on) settles every want without a
+lookup, so turning it on never links a spool already seated.
+
+This is deliberately not `classify_binding()`'s Rule 1. Rule 1 compares firmware's id
+against the lane's declaration on every frame, so a tag id fed to it would undo a pick made
+while the tag stays seated.
 
 ---
 
@@ -682,3 +720,4 @@ re-editing every slot:
   - Record to lane sources: `src/printer/lane_translation.cpp` (`sources_from_record`), `src/printer/lane_legacy_migration.cpp` (`ingest_legacy_records`)
   - Lane sources to `SlotInfo`: `src/printer/lane_resolver.cpp` (`resolve`), `src/printer/lane_apply.cpp` (`apply_resolved`), `src/printer/ams_backend.cpp` (`AmsBackend::apply_resolved_lane`)
   - Binding rules: `src/printer/lane_binding.cpp` (`classify_binding`, `reconcile_binding`)
+  - Tag-declared Spoolman links: `src/printer/tag_spool_link.cpp` (`TagSpoolLinkTracker`), driven by `src/printer/ams_state.cpp#sync_tag_spool_link`

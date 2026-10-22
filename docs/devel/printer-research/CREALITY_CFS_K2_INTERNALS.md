@@ -171,12 +171,12 @@ A tagged bay's `vender` entry is the tag's whole 40-character record, not just a
 
 The material and color fields lining up with the bay's own `material_type` and `color_value` is what pins the offsets; the other field names follow Creality's tag layout and are not otherwise verified. `"unknown"` means a spool with no tag, `"none"` an empty bay.
 
-So the serial and reserved fields do reach Klipper's `box` object, and every Moonraker client can read them. The firmware also stores each bay's tag data in material_box_info.json on the printer (`serialNum` per slot), which tools such as CFSync read over SSH. Third-party tag writers (CFTag) put a Spoolman spool id in the serial field. A stock spool's serial is a small number too (`000001` above), so a serial that parses as a number is not by itself a Spoolman id.
+So the serial and reserved fields do reach Klipper's `box` object, and every Moonraker client can read them. The firmware also stores each bay's tag data in material_box_info.json on the printer (`serialNum` per slot), which tools such as CFSync read over SSH. Third-party tag writers put a Spoolman spool id in the serial field: CFTag ([koen01/cftag](https://github.com/koen01/cftag), `GetSpoolmanSerialNum()` in MainActivity.java) writes `String.format("%06d", id)` for ids 1 to 999999, and its default serial (`def_ser` in strings.xml) is `000001` with reserve `000000`. A stock spool's serial is `000001` too, so a serial that parses as a number is not by itself a Spoolman id, and 1 never is.
 
 - **Reading** is `BOX_GET_RFID` / `BOX_INFO_REFRESH` (see [Refresh Spool Info](#refresh-spool-info)); the RS-485 command set names an RFID read and no write.
 - **Writing a tag:** the printer has no known command for it, in the G-code list above or on the serial link as documented here. Tags are written off the printer, e.g. with a phone. `BOX_MODIFY_TN_DATA` edits the box's record of a bay, not the tag.
 - **Open question:** whether the CFS writes consumption (remaining length) back to a stock tag. Not verified either way.
-- HelixScreen uses `material_type|color_value` as each bay's swap fingerprint (`FILAMENT_BACKEND_CFS.md`, "Swap detection"); it does not read the serial.
+- HelixScreen uses `material_type|color_value` as each bay's swap fingerprint (`FILAMENT_BACKEND_CFS.md`, "Swap detection"); the serial stays out of it. It reads the serial only as a Spoolman spool id (`FILAMENT_BACKEND_CFS.md`, "Spoolman link").
 
 #### Disconnected Units
 
