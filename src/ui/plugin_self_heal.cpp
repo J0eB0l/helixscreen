@@ -111,20 +111,17 @@ void PluginSelfHeal::act(bool local, PluginLinkCheck link) {
         return;
     case PluginSelfHealStep::Nothing:
         if (link == PluginLinkCheck::Failed) {
-            spdlog::info("[PluginSelfHeal] Could not check the plugin link; the next start "
-                         "tries again");
-        } else if (link == PluginLinkCheck::NotOurs && plugin_versions_differ(facts)) {
-            spdlog::info("[PluginSelfHeal] Moonraker runs HelixPrint plugin {} and this app ships "
-                         "{}, but install.sh --relink found no plugin link of ours (no symlink, "
-                         "a copied file, or no [helix_print] section); not updating it. Run the "
-                         "install command from Advanced on the printer to match them",
-                         facts.reported_version, facts.bundled_version);
+            spdlog::warn("[PluginSelfHeal] Could not check the plugin link (install.sh's "
+                         "warnings above name the path); the next start tries again");
         }
         return;
     case PluginSelfHealStep::ReportOnly:
-        spdlog::info("[PluginSelfHeal] Moonraker runs HelixPrint plugin {} and this app ships {}; "
-                     "run the install command from Advanced on the printer to match them",
-                     facts.reported_version, facts.bundled_version);
+        spdlog::info("[PluginSelfHeal] Moonraker runs HelixPrint plugin {} and this app ships {}, "
+                     "and {}; run the install command from Advanced on the printer to match them",
+                     facts.reported_version, facts.bundled_version,
+                     local ? "install.sh --relink found no plugin link of ours (no symlink, a "
+                             "copied file, or no [helix_print] section)"
+                           : "Moonraker runs on another host");
         return;
     case PluginSelfHealStep::WaitForJob:
         spdlog::info("[PluginSelfHeal] The HelixPrint plugin needs a Moonraker restart (link {}, "

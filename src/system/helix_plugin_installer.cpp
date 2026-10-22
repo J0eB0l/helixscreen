@@ -60,11 +60,12 @@ struct WaitResult {
  * @brief Log install.sh's output line by line.
  *
  * The script's own messages are the only record of why it failed, so a
- * failure logs them at warn; a success keeps them at debug.
+ * failure logs them at warn; a success keeps them at debug, except its own
+ * [WARN] lines, such as a config edit it could not make.
  */
 static void log_script_output(const std::string& output, bool succeeded) {
     for (const auto& line : script_output_lines(output)) {
-        if (succeeded) {
+        if (succeeded && line.rfind("[WARN]", 0) != 0) {
             spdlog::debug("[PluginInstaller] install.sh: {}", line);
         } else {
             spdlog::warn("[PluginInstaller] install.sh: {}", line);
@@ -577,7 +578,9 @@ PluginSelfHealStep decide_plugin_self_heal(const PluginSelfHealFacts& facts) {
     const bool needs_restart = facts.link == PluginLinkCheck::Relinked ||
                                (facts.link == PluginLinkCheck::Current && version_differs);
     if (!needs_restart) {
-        return PluginSelfHealStep::Nothing;
+        return facts.link == PluginLinkCheck::NotOurs && version_differs
+                   ? PluginSelfHealStep::ReportOnly
+                   : PluginSelfHealStep::Nothing;
     }
     return facts.job_holds ? PluginSelfHealStep::WaitForJob : PluginSelfHealStep::RestartNow;
 }
