@@ -192,14 +192,48 @@ class TestParse:
         with pytest.raises(EditError):
             parse_edits(edits)
 
-    def test_a_range_fills_one_entry_per_line(self):
+    def test_a_range_stays_one_span(self):
         plan = parse_edits([_edit(2, "comment_out", "X", end_line=4)])
-        assert sorted(plan.by_line) == [2, 3, 4]
-        assert all(edit.expect == b"X" for edit in plan.by_line.values())
+        assert [(s.first, s.last) for s in plan.spans] == [(2, 4)]
+        assert plan.spans[0].edit.expect == b"X"
 
     def test_a_single_line_edit_takes_its_own_line(self):
         plan = parse_edits([_edit(2, "comment_out"), _edit(5, "replace", gcode="Y")])
-        assert sorted(plan.by_line) == [2, 5]
+        assert [(s.first, s.last) for s in plan.spans] == [(2, 2), (5, 5)]
+
+    def test_the_largest_range_costs_no_more_than_a_small_one(self):
+        plan = parse_edits([_edit(1, "delete", end_line=helix_edits.MAX_LINE_NUMBER)])
+        assert [(s.first, s.last) for s in plan.spans] == [(1, helix_edits.MAX_LINE_NUMBER)]
+
+    @pytest.mark.parametrize("edits", [
+        [_edit(helix_edits.MAX_LINE_NUMBER + 1, "delete")],
+        [_edit(1, "delete", end_line=helix_edits.MAX_LINE_NUMBER + 1)],
+        [_edit(1, "delete")] * (helix_edits.MAX_EDITS + 1),
+    ])
+    def test_out_of_bounds_lists_are_refused(self, edits):
+        with pytest.raises(EditError):
+            parse_edits(edits)
+
+    def test_the_edit_cap_itself_is_accepted(self):
+        assert len(parse_edits([_edit(1, "delete")] * helix_edits.MAX_EDITS).spans) == 1
+
+    def test_a_later_edit_inside_a_range_wins_its_line(self):
+        out = _apply_bytes(b"1\n2\n3\n4\n5\n", [
+            _edit(2, "comment_out", end_line=4), _edit(3, "replace", gcode="R"),
+        ])
+        assert out == b"1\n; 2\nR\n; 4\n5\n"
+
+    def test_a_later_range_covers_an_earlier_line_edit(self):
+        out = _apply_bytes(b"1\n2\n3\n4\n5\n", [
+            _edit(3, "replace", gcode="R"), _edit(2, "delete", end_line=4),
+        ])
+        assert out == b"1\n5\n"
+
+    def test_overlapping_ranges_resolve_per_line(self):
+        out = _apply_bytes(b"1\n2\n3\n4\n5\n6\n", [
+            _edit(1, "comment_out", end_line=4), _edit(3, "delete", end_line=5),
+        ])
+        assert out == b"; 1\n; 2\n6\n"
 
 
 # ============================================================================
@@ -321,6 +355,32 @@ class TestPrintEdited:
             await mock_server.endpoints[PRINT_EDITED](_request(temp_file_path="../x.gcode"))
         with pytest.raises(Exception, match="not found"):
             await mock_server.endpoints[PRINT_EDITED](_request(original_filename="nope.gcode"))
+        helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("temp", ["benchy.gcode", "other.gcode", "sub/x.gcode"])
+    async def test_the_copy_never_overwrites_a_user_file(self, helix_print_component,
+                                                         mock_server, gcodes, temp):
+        before = (gcodes / "benchy.gcode").read_bytes()
+        (gcodes / "other.gcode").write_bytes(b"OTHER\n")
+        await helix_print_component.component_init()
+        with pytest.raises(Exception, match="400"):
+            await mock_server.endpoints[PRINT_EDITED](_request(temp_file_path=temp))
+        assert (gcodes / "benchy.gcode").read_bytes() == before
+        assert (gcodes / "other.gcode").read_bytes() == b"OTHER\n"
+        helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_existing_copy_is_never_overwritten(self, helix_print_component,
+                                                         mock_server, gcodes):
+        """A staged copy that exists may be the file a print is running."""
+        staged = gcodes / ".helix_temp" / "modified_1_benchy.gcode"
+        staged.parent.mkdir(exist_ok=True)
+        staged.write_bytes(b"PRINTING\n")
+        await helix_print_component.component_init()
+        with pytest.raises(Exception, match="409"):
+            await mock_server.endpoints[PRINT_EDITED](_request())
+        assert staged.read_bytes() == b"PRINTING\n"
         helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
 
     @pytest.mark.asyncio

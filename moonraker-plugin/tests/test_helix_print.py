@@ -763,6 +763,85 @@ class TestPathValidation:
         result = await handler(request)
         assert result["status"] == "printing"
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("temp", [
+        "benchy.gcode",
+        "other.gcode",
+        "prints/mod_benchy.gcode",
+        ".helix_temp/nested/mod_benchy.gcode",
+        ".helix_print/mod_benchy.gcode",
+    ])
+    async def test_the_copy_must_sit_in_a_staging_dir(
+        self, helix_print_component, mock_server, temp_gcodes_dir, temp
+    ):
+        """A failed start deletes the copy, so a copy path naming the original
+        or another user file would delete that file."""
+        gcodes = Path(temp_gcodes_dir)
+        for name in ("benchy.gcode", "other.gcode", "prints/mod_benchy.gcode",
+                     ".helix_temp/nested/mod_benchy.gcode", ".helix_print/mod_benchy.gcode"):
+            (gcodes / name).parent.mkdir(parents=True, exist_ok=True)
+            (gcodes / name).write_text("G28\n")
+        await helix_print_component.component_init()
+        apis = mock_server.components["klippy_apis"]
+        apis.run_gcode.side_effect = RuntimeError("klippy down")
+
+        with pytest.raises(Exception, match="400"):
+            await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+                "original_filename": "benchy.gcode", "temp_file_path": temp,
+                "modifications": [],
+            }))
+        assert (gcodes / temp).read_text() == "G28\n"
+        apis.run_gcode.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_staged_link_to_the_original_is_refused(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        gcodes = Path(temp_gcodes_dir)
+        (gcodes / "benchy.gcode").write_text("G28\n")
+        (gcodes / ".helix_temp").mkdir()
+        (gcodes / ".helix_temp" / "mod_benchy.gcode").symlink_to(gcodes / "benchy.gcode")
+        await helix_print_component.component_init()
+        with pytest.raises(Exception, match="400"):
+            await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+                "original_filename": "benchy.gcode",
+                "temp_file_path": ".helix_temp/mod_benchy.gcode", "modifications": [],
+            }))
+        assert (gcodes / "benchy.gcode").read_text() == "G28\n"
+
+    @pytest.mark.asyncio
+    async def test_a_staged_original_is_never_its_own_copy(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        gcodes = Path(temp_gcodes_dir)
+        (gcodes / ".helix_temp").mkdir()
+        (gcodes / ".helix_temp" / "mod_benchy.gcode").write_text("G28\n")
+        await helix_print_component.component_init()
+        mock_server.components["klippy_apis"].run_gcode.side_effect = RuntimeError("down")
+        with pytest.raises(Exception, match="400.*original"):
+            await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+                "original_filename": ".helix_temp/mod_benchy.gcode",
+                "temp_file_path": ".helix_temp/mod_benchy.gcode", "modifications": [],
+            }))
+        assert (gcodes / ".helix_temp" / "mod_benchy.gcode").read_text() == "G28\n"
+
+    @pytest.mark.asyncio
+    async def test_the_visible_staging_dir_is_accepted(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        """Where the link dir is visible, the app stages under helix_staging
+        whatever temp_dir says."""
+        gcodes = Path(temp_gcodes_dir)
+        (gcodes / "benchy.gcode").write_text("G28\n")
+        (gcodes / "helix_staging").mkdir()
+        (gcodes / "helix_staging" / "modified_1_benchy.gcode").write_text("G28\n")
+        await helix_print_component.component_init()
+        result = await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+            "original_filename": "benchy.gcode",
+            "temp_file_path": "helix_staging/modified_1_benchy.gcode", "modifications": [],
+        }))
+        assert result["status"] == "printing"
+
     @staticmethod
     def _stage_nested(gcodes_dir):
         subdir = Path(gcodes_dir) / "prints" / "2024"

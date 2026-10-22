@@ -215,7 +215,9 @@ this feature: `helix_initiated()` never answers it.
 ### Start Modified Print
 
 The client uploads the modified file first, through Moonraker's own file upload, into
-`temp_dir`, then names it here.
+`temp_dir`, then names it here. The copy must sit directly in `temp_dir` or in one of the
+app's staging directories (`.helix_temp`, `helix_staging`) and must not be the original: a
+start that fails deletes it, so any other path is refused with 400.
 
 ```http
 POST /server/helix/print_modified
@@ -254,7 +256,7 @@ Response:
 
 | Code | Description |
 |------|-------------|
-| 400 | Original or temp file not found, or a path outside the gcodes root |
+| 400 | Original or temp file not found, a path outside the gcodes root, or a temp path outside the staging directories |
 | 500 | Failed to create the symlink or start the print |
 | 503 | Plugin is disabled |
 
@@ -292,21 +294,23 @@ The response is `print_modified`'s, plus `lines_changed`. Each edit is
 | `tool_remap` | `map`: `{"<logical tool>": <physical tool>}`; `line_number` 0, and the only edit in the list |
 
 A non-empty `expect_raw_line` must match the file's line, surrounding whitespace ignored, or
-the whole list is refused and nothing is written or started. The app applies the same grammar
+the whole list is refused and nothing is written or started. Line numbers are 1 to
+2147483647, `end_line` is at least `line_number`, and a list holds at most 10000 edits; a
+later edit for a line overrides an earlier one, ranges included. The app applies the same grammar
 itself when the feature is off; `tests/fixtures/gcode_edits/` holds the cases both
 implementations must turn into the same bytes.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `original_filename` | string | Yes | - | The file to edit (relative to gcodes root) |
-| `temp_file_path` | string | No | `<temp_dir>/modified_<time>_<name>` | Where the edited copy goes (relative to gcodes root) |
+| `temp_file_path` | string | No | `<temp_dir>/modified_<time>_<name>` | Where the edited copy goes (relative to gcodes root): directly in a staging directory, as for `print_modified`, and not an existing file |
 | `edits` | array | Yes | - | The edit list |
 | `modifications` | array | No | `[]` | List of modification identifiers (for logging/history) |
 
 | Code | Description |
 |------|-------------|
-| 400 | Malformed edit list, original not found, or a path outside the gcodes root |
-| 409 | A line differs from its `expect_raw_line` |
+| 400 | Malformed or out-of-bounds edit list, original not found, or a path outside the gcodes root |
+| 409 | A line differs from its `expect_raw_line`, or `temp_file_path` already exists |
 | 500 | Failed to write the copy, create the symlink or start the print |
 | 503 | Plugin is disabled |
 

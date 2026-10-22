@@ -38,6 +38,7 @@ Everything above HelixEdits is pure and touches no Moonraker object. Python
 
 from __future__ import annotations
 
+import heapq
 import logging
 import os
 import shutil
@@ -67,6 +68,11 @@ _MAX_TOOL_INDEX = 100000
 
 _COPY_CHUNK = 1024 * 1024
 
+# The app's own bounds: a line number past INT32_MAX is no line it sends.
+MAX_LINE_NUMBER = 2147483647
+# Far above any list the app builds; it bounds the plan, never a file.
+MAX_EDITS = 10000
+
 
 class EditError(ValueError):
     """The edit list is malformed."""
@@ -87,15 +93,50 @@ class Edit(NamedTuple):
     gcode: bytes
 
 
-class EditPlan(NamedTuple):
-    """A parsed edit list: positional edits by line number, or a tool remap."""
+class Span(NamedTuple):
+    """Lines `first` to `last`, inclusive, all rewritten by `edit`."""
 
-    by_line: Dict[int, Edit]
+    first: int
+    last: int
+    edit: Edit
+
+
+class EditPlan(NamedTuple):
+    """A parsed edit list: positional edits as sorted, disjoint spans of
+    lines, or a tool remap."""
+
+    spans: List[Span]
     remap: Optional[Dict[int, int]]
 
     @property
     def last_line(self) -> int:
-        return max(self.by_line) if self.by_line else 0
+        return self.spans[-1].last if self.spans else 0
+
+
+def resolve_spans(ranges: List[Tuple[int, int, Edit]]) -> List[Span]:
+    """Disjoint spans, sorted, in which each line takes the last range in
+    list order that covers it. The cost follows the number of ranges, never
+    their length."""
+    bounds = sorted({r[0] for r in ranges} | {r[1] + 1 for r in ranges})
+    by_start = sorted(range(len(ranges)), key=lambda i: ranges[i][0])
+    active: List[Tuple[int, int]] = []  # (-list index, last line)
+    spans: List[Span] = []
+    k = 0
+    for first, after in zip(bounds, bounds[1:]):
+        while k < len(by_start) and ranges[by_start[k]][0] <= first:
+            i = by_start[k]
+            heapq.heappush(active, (-i, ranges[i][1]))
+            k += 1
+        while active and active[0][1] < first:
+            heapq.heappop(active)
+        if not active:
+            continue
+        edit = ranges[-active[0][0]][2]
+        if spans and spans[-1].edit is edit and spans[-1].last + 1 == first:
+            spans[-1] = Span(spans[-1].first, after - 1, edit)
+        else:
+            spans.append(Span(first, after - 1, edit))
+    return spans
 
 
 def _is_int(value: Any) -> bool:
@@ -125,14 +166,16 @@ def _parse_map(value: Any, index: int) -> Dict[int, int]:
 def parse_edits(edits: Any) -> EditPlan:
     """The plan for an edit list, or EditError naming what is wrong with it.
 
-    Positional edits land in a table by line number: a range edit fills one
-    entry per line, each with the edit's own expect_raw_line, and an edit for a
-    line already in the table replaces it, as GCodeFileModifier's streaming
-    lookup does.
+    A range edit checks its own expect_raw_line against every line it
+    covers, and a later edit for a line replaces an earlier one, as
+    GCodeFileModifier's streaming lookup does. Ranges stay ranges, so what a
+    plan costs follows the edit count, which MAX_EDITS bounds.
     """
     if not isinstance(edits, list):
         raise EditError("edits must be a list")
-    by_line: Dict[int, Edit] = {}
+    if len(edits) > MAX_EDITS:
+        raise EditError(f"at most {MAX_EDITS} edits")
+    ranges: List[Tuple[int, int, Edit]] = []
     remap: Optional[Dict[int, int]] = None
     for index, edit in enumerate(edits):
         if not isinstance(edit, dict):
@@ -163,18 +206,17 @@ def parse_edits(edits: Any) -> EditPlan:
             remap = _parse_map(args["map"], index)
             continue
 
-        if not _is_int(line_number) or line_number < 1:
-            raise EditError(f"edit {index}: line_number must be a positive integer")
+        if not _is_int(line_number) or not 1 <= line_number <= MAX_LINE_NUMBER:
+            raise EditError(f"edit {index}: line_number must be in 1..{MAX_LINE_NUMBER}")
         end_line = args.get("end_line", line_number)
-        if not _is_int(end_line) or end_line < line_number:
-            raise EditError(f"edit {index}: end_line must be at least line_number")
+        if not _is_int(end_line) or not line_number <= end_line <= MAX_LINE_NUMBER:
+            raise EditError(f"edit {index}: end_line must be in line_number..{MAX_LINE_NUMBER}")
         if action not in ("comment_out", "delete"):
             end_line = line_number
         parsed = Edit(action, expect.encode("utf-8"), _text(args, "comment", index),
                       _text(args, "gcode", index))
-        for line in range(line_number, end_line + 1):
-            by_line[line] = parsed
-    return EditPlan(by_line, remap)
+        ranges.append((line_number, end_line, parsed))
+    return EditPlan(resolve_spans(ranges), remap)
 
 
 # ============================================================================
@@ -418,6 +460,8 @@ def apply_plan(src: BinaryIO, dst: BinaryIO, plan: EditPlan) -> int:
     writer = _Writer(dst)
     changed = 0
     last_line = plan.last_line
+    spans = plan.spans
+    span = 0
     line_number = 0
     ended_with_newline = False
     for raw in iter(src.readline, b""):
@@ -430,7 +474,11 @@ def apply_plan(src: BinaryIO, dst: BinaryIO, plan: EditPlan) -> int:
                 changed += 1
             writer.emit(out)
             continue
-        edit = plan.by_line.get(line_number)
+        while span < len(spans) and spans[span].last < line_number:
+            span += 1
+        edit = None
+        if span < len(spans) and spans[span].first <= line_number:
+            edit = spans[span].edit
         if edit is None:
             writer.emit(line)
         else:
@@ -512,7 +560,9 @@ class HelixEdits:
         original = helix.resolve_original(original_filename)
         if not temp_file_path:
             temp_file_path = default_output_name(helix.temp_dir, original_filename, time.time())
-        output = helix.resolve_temp(temp_file_path)
+        output = helix.resolve_temp(temp_file_path, original)
+        if output.exists():
+            raise self.server.error(f"{temp_file_path} already exists", 409)
         output.parent.mkdir(parents=True, exist_ok=True)
         partial = output.with_name(output.name + ".part")
 

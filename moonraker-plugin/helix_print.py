@@ -72,6 +72,10 @@ STATUS_API = 2
 # Namespace for the key-value storage fallback (database without execute_db_command)
 HELIX_NAMESPACE = "helix_temp_files"
 
+# Top-level gcodes directories the app stages a linked print's copy in, beside
+# temp_dir: hidden where Klipper prints from dot-directories, else visible.
+APP_STAGING_DIRS = (".helix_temp", "helix_staging")
+
 def _ns_key(temp_filename: str) -> List[str]:
     """A namespace key naming one record. Moonraker's database splits a string
     key on "." into nested keys, and rejects one with an empty segment, which
@@ -1075,11 +1079,23 @@ class HelixPrint:
             )
         return original_resolved
 
-    def resolve_temp(self, temp_file_path: str) -> Path:
-        """Where a linked print's copy lives, resolved inside the gcodes root.
-        The file need not exist yet."""
+    def resolve_temp(self, temp_file_path: str, original: Path) -> Path:
+        """Where a linked print's copy lives, resolved: directly inside temp_dir
+        or one of the app's staging directories, and never the original. A
+        failed start deletes the copy, so any other path would let a request
+        delete a user's file. The file need not exist yet."""
         self._validate_filename(temp_file_path)
-        return self._validate_path_within_gcodes(self.gc_path / temp_file_path)
+        resolved = self._validate_path_within_gcodes(self.gc_path / temp_file_path)
+        staging = {(self.gc_path / d).resolve() for d in (self.temp_dir,) + APP_STAGING_DIRS}
+        if resolved.parent not in staging:
+            raise self.server.error(
+                f"Temp file must sit directly in a staging directory "
+                f"({', '.join(sorted({self.temp_dir} | set(APP_STAGING_DIRS)))}): "
+                f"{temp_file_path}", 400
+            )
+        if resolved == original:
+            raise self.server.error("Temp file cannot be the original file", 400)
+        return resolved
 
     async def start_linked_print(
         self,
@@ -1097,7 +1113,7 @@ class HelixPrint:
         self._validate_filename(temp_file_path)
         original_resolved = self.resolve_original(original_filename)
         temp_path = self.gc_path / temp_file_path
-        temp_resolved = self.resolve_temp(temp_file_path)
+        temp_resolved = self.resolve_temp(temp_file_path, original_resolved)
 
         if not temp_resolved.exists():
             raise self.server.error(
