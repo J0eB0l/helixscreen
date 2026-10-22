@@ -210,20 +210,6 @@ static void spool_visual_set_fill(const SpoolVisual& sv, float fill) {
         ui_spool_canvas_set_fill_level(sv.canvas, LV_CLAMP(0.0f, fill, 1.0f));
 }
 
-/// Toggle the empty-slot placeholder vs. the spool graphic
-static void spool_visual_set_empty(const SpoolVisual& sv, bool empty) {
-    auto show = [&](lv_obj_t* o, bool visible) {
-        if (!o)
-            return;
-        if (visible)
-            lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-    };
-    show(sv.empty_placeholder, empty);
-    show(sv.canvas, !empty);
-}
-
 // ============================================================================
 // Per-widget user data (managed via static registry for safe shutdown)
 // ============================================================================

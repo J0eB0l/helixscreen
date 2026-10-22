@@ -1330,9 +1330,12 @@ static void paint_glow_layer(lv_obj_t* glow, SpoolGlowData& g) {
     const lv_color_t accent = helix::ui::tube_accent();
     // A glow depends only on the silhouette, never the filament color, so the
     // key carries the accent where a spool render carries its color.
+    // Face-on, the flange covers the filament at every fill, so one glow
+    // serves them all.
+    const helix::ui::SpoolView view = spool->last_key.view;
+    const uint8_t shape = view == helix::ui::SpoolView::Front ? 0 : spool->last_key.fill_bucket;
     const SpoolCacheKey key{
-        color_to_rgb24(accent), static_cast<uint16_t>(g.size), spool->last_key.fill_bucket, mode, 0,
-        spool->last_key.view};
+        color_to_rgb24(accent), static_cast<uint16_t>(g.size), shape, mode, 0, view};
     GlowImage image = glow_cache_get(key);
     if (!image) {
         image = make_glow_image(g.size + 2 * margin);

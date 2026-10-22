@@ -867,8 +867,6 @@ const TokenEntry k_token_table[] = {
     {"color", "filament_hub_border_dark", "#4c566a"},
     {"color", "filament_metal", "#808890"},
     {"color", "toolhead_body", "#E53935"},
-    {"color", "ams_hub", "#1A1A1A"},
-    {"color", "ams_hub_border", "#333333"},
     {"color", "ams_badge_bg", "#505050"},
     {"color", "spool_body", "#666666"},
     {"color", "spool_body_shade", "#444444"},
