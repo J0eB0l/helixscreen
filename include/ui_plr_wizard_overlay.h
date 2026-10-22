@@ -4,6 +4,7 @@
 #include "ui_observer_guard.h"
 
 #include "async_lifetime_guard.h"
+#include "display_awake_hold.h"
 #include "jog_coalescer.h"
 #include "lvgl/lvgl.h"
 #include "moonraker_error.h"
@@ -33,7 +34,8 @@ const char* plr_progress_step_text(const std::string& step);
  * feature (PlrBackendType::GENERIC).
  *
  * Steps per plr_next_wizard_step(): fetch the plan, ask the confirmations a
- * resume relies on, let the plugin heat the bed, lift and home X/Y (prepare),
+ * resume relies on, let the plugin heat the bed and the nozzle where it stopped,
+ * then on the generic backend lift and home X/Y (prepare),
  * settle Z (tier 2 confirms the held height, tier 1 jogs down to the part),
  * then let the plugin heat the nozzle, move back and start (commit). The plugin renders and
  * sends every motion of the sequence; the one move this overlay sends is the
@@ -131,6 +133,9 @@ class PlrWizardOverlay : public OverlayBase {
     bool print_starting_ = false;
 
     JogCoalescer jog_;
+    /// Held while the wizard is open: the machine waits mid-recovery on a
+    /// step the user has to see.
+    DisplayAwakeToken awake_;
 
     ObserverGuard conn_observer_;
     ObserverGuard z_observer_;

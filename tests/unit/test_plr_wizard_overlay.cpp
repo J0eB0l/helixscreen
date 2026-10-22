@@ -12,6 +12,7 @@
  * the plugin: which endpoints, with which confirmations.
  */
 
+#include "ui_modal.h"
 #include "ui_nav_manager.h"
 #include "ui_plr_wizard_overlay.h"
 #include "ui_update_queue.h"
@@ -21,7 +22,10 @@
 #include "../test_helpers/plr_wizard_overlay_test_access.h"
 #include "../test_helpers/scoped_env.h"
 #include "app_globals.h"
+#include "config.h"
 #include "connection_state.h"
+#include "display_awake_hold.h"
+#include "first_run_tour.h"
 #include "helix-xml/src/xml/lv_xml.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -354,6 +358,84 @@ std::string subject_text(const char* name) {
 
 } // namespace
 
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the header names the file as the app shows it",
+                 "[plr][wizard_overlay]") {
+    open();
+    REQUIRE(wizard_step() == PlrWizardStep::Checks);
+    // The plan names 3DBenchy.gcode; Print Status shows that file as 3DBenchy.
+    CHECK(subject_text("plr_wizard_file") == "3DBenchy");
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the words follow what prepare moves",
+                 "[plr][wizard_overlay]") {
+    SECTION("generic lifts the nozzle and homes X and Y") {
+        open();
+        REQUIRE(wizard_step() == PlrWizardStep::Checks);
+        CHECK(subject("plr_wizard_z_kind") == static_cast<int>(helix::PlrZStepKind::ConfirmLifted));
+        CHECK(subject_text("plr_wizard_continue_text") == "Heat and Home");
+    }
+    SECTION("QIDI moves nothing, so prepare never reports a lift") {
+        helix::ScopedEnv backend{"HELIX_MOCK_PLR", "qidi_print_state"};
+        open();
+        REQUIRE(wizard_step() == PlrWizardStep::Checks);
+        CHECK(subject("plr_wizard_z_kind") ==
+              static_cast<int>(helix::PlrZStepKind::ConfirmInPlace));
+        CHECK(subject_text("plr_wizard_continue_text") == "Start Heating");
+
+        set_subject("plr_ack_part", 1);
+        PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+        settle();
+        REQUIRE(wizard_step() == PlrWizardStep::Preparing);
+        bool saw_heat_in_place = false;
+        bool saw_motion = false;
+        for (int i = 0; i < 20 && wizard_step() == PlrWizardStep::Preparing; ++i) {
+            const std::string text = subject_text("plr_wizard_progress");
+            saw_heat_in_place =
+                saw_heat_in_place ||
+                text == "Heating the nozzle where it stopped so it lets go of the print";
+            saw_motion = saw_motion || text == "Lifting the nozzle clear of the print" ||
+                         text == "Homing X and Y";
+            helix::ui::UpdateQueue::instance().drain();
+            process_lvgl(500);
+        }
+        CHECK(wizard_step() == PlrWizardStep::ZStep);
+        CHECK(saw_heat_in_place);
+        CHECK_FALSE(saw_motion);
+    }
+    SECTION("tier 1 jogs") {
+        helix::ScopedEnv tier{"HELIX_MOCK_PLR_TIER", "1"};
+        open();
+        REQUIRE(wizard_step() == PlrWizardStep::Checks);
+        CHECK(subject("plr_wizard_z_kind") == static_cast<int>(helix::PlrZStepKind::Jog));
+    }
+}
+
+TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: the display stays awake while it is open",
+                 "[plr][wizard_overlay]") {
+    REQUIRE_FALSE(helix::display_awake_hold().is_held());
+    SECTION("closed mid-prepare") {
+        open();
+        CHECK(helix::display_awake_hold().is_held());
+        set_subject("plr_ack_part", 1);
+        PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+        settle();
+        REQUIRE(wizard_step() == PlrWizardStep::Preparing);
+        CHECK(helix::display_awake_hold().is_held());
+        NavigationManager::instance().go_back();
+        settle();
+        CHECK_FALSE(helix::display_awake_hold().is_held());
+    }
+    SECTION("closed from the Failed step") {
+        helix::ScopedEnv fail{"HELIX_MOCK_PLR_FAIL", "plan"};
+        open();
+        REQUIRE(wizard_step() == PlrWizardStep::Failed);
+        CHECK(helix::display_awake_hold().is_held());
+        NavigationManager::instance().go_back();
+        settle();
+        CHECK_FALSE(helix::display_awake_hold().is_held());
+    }
+}
+
 TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a jog queued before Abort is never sent",
                  "[plr][wizard_overlay]") {
     helix::ScopedEnv tier{"HELIX_MOCK_PLR_TIER", "1"};
@@ -541,16 +623,61 @@ TEST_CASE_METHOD(PlrWizardFixture,
     CHECK_FALSE(client.mock_plr_interrupted());
 }
 
+TEST_CASE_METHOD(PlrWizardFixture, "PLR: the first-run tour waits for the resume offer and wizard",
+                 "[plr][wizard_overlay][prompt][tour]") {
+    auto* cfg = helix::Config::get_instance();
+    cfg->set<bool>("/tour/completed", false);
+    cfg->set<int>("/tour/last_seen_version", 0);
+    cfg->set<bool>("/wizard_completed", true);
+    lv_subject_set_int(&get_home_edit_mode_subject(), 0);
+    auto& tour = helix::tour::FirstRunTour::instance();
+    REQUIRE_FALSE(tour.is_running());
+    // The gate is open with nothing over Home, so a closed gate below is the cover's doing.
+    REQUIRE(helix::tour::FirstRunTour::should_auto_start());
+
+    const helix::PlrRecoveryPlan plan =
+        helix::plr_build_plan(helix::PlrBackendType::GENERIC, "part.gcode", {});
+    helix::ui::show_plr_recovery_prompt(&api, plan);
+    settle();
+    lv_obj_t* offer = ModalStack::instance().top_dialog();
+    REQUIRE(offer != nullptr);
+    CHECK_FALSE(helix::tour::FirstRunTour::should_auto_start());
+    tour.maybe_start();
+    settle();
+    CHECK_FALSE(tour.is_running());
+
+    // Resume: the offer closes and the wizard covers Home instead.
+    Modal::hide(offer);
+    helix::ui::run_plr_resume(&api, plan);
+    settle();
+    REQUIRE(ModalStack::instance().empty());
+    REQUIRE(wizard_step() == PlrWizardStep::Checks);
+    CHECK_FALSE(helix::tour::FirstRunTour::should_auto_start());
+    tour.maybe_start();
+    settle();
+    CHECK_FALSE(tour.is_running());
+
+    NavigationManager::instance().go_back();
+    settle();
+    CHECK(helix::tour::FirstRunTour::should_auto_start());
+    tour.maybe_start();
+    settle();
+    CHECK(tour.is_running());
+    tour.skip();
+}
+
 TEST_CASE("PLR wizard: every plugin progress step has words", "[plr][wizard_overlay]") {
     using helix::ui::plr_progress_step_text;
     for (const char* step :
-         {"bed_wait", "chamber_wait", "lift", "home_xy", "position", "z_reference", "restore",
-          "heat_nozzle", "purge", "move_to_resume", "start"}) {
+         {"bed_wait", "chamber_wait", "nozzle_in_place", "lift", "home_xy", "position",
+          "z_reference", "restore", "heat_nozzle", "purge", "move_to_resume", "start"}) {
         INFO(step);
         CHECK(plr_progress_step_text(step) != nullptr);
     }
     CHECK(std::string(plr_progress_step_text("bed_wait")) == "Heating the bed");
     CHECK(std::string(plr_progress_step_text("heat_nozzle")) == "Heating the nozzle");
+    CHECK(std::string(plr_progress_step_text("nozzle_in_place")) ==
+          "Heating the nozzle where it stopped so it lets go of the print");
     CHECK(std::string(plr_progress_step_text("purge")) == "Purging nozzle");
     CHECK(std::string(plr_progress_step_text("move_to_resume")) == "Moving back to the print");
     CHECK(plr_progress_step_text("not_a_step") == nullptr);

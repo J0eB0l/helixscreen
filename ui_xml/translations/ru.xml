@@ -1615,6 +1615,7 @@
   <translation tag="Heating nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating the bed" ru="Нагрев стола"/>
   <translation tag="Heating the nozzle" ru="Нагрев сопла"/>
+  <translation tag="Heating the nozzle where it stopped so it lets go of the print" ru="Нагрев сопла на месте остановки, чтобы оно отделилось от печати"/>
   <translation tag="Heating to %d°C... %.0f°C" ru="Нагрев до %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ru="Нагрев до {}°C перед «{}»..."/>
   <translation tag="Heating to {}°C for {}..." ru="Нагрев до {}°C в течение {}..."/>
@@ -3382,6 +3383,7 @@
   <translation tag="Start Calibration" ru="Начать калибровку"/>
   <translation tag="Start Check" ru="Начать проверку"/>
   <translation tag="Start Drying" ru="Начать сушку"/>
+  <translation tag="Start Heating" ru="Начать нагрев"/>
   <translation tag="Start K" ru="Начальный K"/>
   <translation tag="Start Print" ru="Начать печать"/>
   <translation tag="Start Probing" ru="Начать зондирование"/>
@@ -3608,10 +3610,12 @@
   <translation tag="The message your printer&apos;s macros show (M117)" ru="Сообщение, которое показывают макросы принтера (M117)"/>
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." ru="Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут."/>
   <translation tag="The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself." ru="Сопло делает несколько коротких тестовых перемещений в углу, в стороне от зоны печати, и повторяет их до сходимости."/>
+  <translation tag="The nozzle hasn&apos;t moved since the power went out. Check that it sits just above the top of the print, then resume." ru="Сопло не двигалось с момента отключения питания. Убедитесь, что оно чуть выше верха печати, затем продолжите."/>
   <translation tag="The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes." ru="Сопло нагреется до 200°C, пока обдув перебирает скорости. Для точного результата установите воздуховод так же, как при печати. Это займёт несколько минут."/>
-  <translation tag="The nozzle is back above the print at the height it stopped at. Check that it sits just above the top of the print, then resume." ru="Сопло снова над печатью на той высоте, где оно остановилось. Убедитесь, что оно чуть выше верха печати, затем продолжите."/>
   <translation tag="The nozzle is clear of the print" ru="Сопло не касается печати"/>
+  <translation tag="The nozzle is heated where it stopped before anything moves, so it lets go of the print." ru="Сопло нагревается на месте остановки до любого движения, чтобы оно отделилось от печати."/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." ru="Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее»."/>
+  <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." ru="Сопло поднято над печатью, X и Y запаркованы. При продолжении оно опустится на высоту, где остановилось."/>
   <translation tag="The plate and the spools are still hot. Use gloves." ru="Стол и катушки ещё горячие. Используйте перчатки."/>
   <translation tag="The plate finishes its current move, but drying will not start." ru="Стол завершит текущее перемещение, но сушка не начнётся."/>
   <translation tag="The print ended before any layer was printed. Nothing was changed." ru="Печать завершилась до первого слоя. Ничего не изменено."/>

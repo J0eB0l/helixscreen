@@ -9,6 +9,7 @@
 
 #include "ui_callback_helpers.h"
 #include "ui_error_reporting.h"
+#include "ui_filename_utils.h"
 #include "ui_nav.h"
 #include "ui_position_utils.h"
 
@@ -38,6 +39,10 @@ namespace helix::ui {
 // disconnected across rebuilds.
 static lv_subject_t s_plr_step;
 static lv_subject_t s_plr_tier;
+/// PlrZStepKind of the plan.
+static lv_subject_t s_plr_z_kind;
+static lv_subject_t s_plr_continue_text;
+static char s_plr_continue_text_buf[48];
 static lv_subject_t s_plr_file;
 static char s_plr_file_buf[128];
 static lv_subject_t s_plr_position;
@@ -113,12 +118,16 @@ bool live_step(PlrWizardStep step) {
 } // namespace
 
 const char* plr_progress_step_text(const std::string& step) {
-    // prepare; bed_wait and chamber_wait come again in commit when it re-heats
+    // prepare; bed_wait and chamber_wait come again in commit when it re-heats.
+    // A nozzle frozen into the part is heated where it stopped before any lift.
     if (step == "bed_wait") {
         return lv_tr("Heating the bed");
     }
     if (step == "chamber_wait") {
         return lv_tr("Waiting for the chamber to heat");
+    }
+    if (step == "nozzle_in_place") {
+        return lv_tr("Heating the nozzle where it stopped so it lets go of the print");
     }
     if (step == "lift") {
         return lv_tr("Lifting the nozzle clear of the print");
@@ -166,6 +175,9 @@ void PlrWizardOverlay::init_subjects() {
     init_subjects_guarded([this]() {
         UI_MANAGED_SUBJECT_INT(s_plr_step, 0, "plr_wizard_step", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_tier, 0, "plr_wizard_tier", subjects_);
+        UI_MANAGED_SUBJECT_INT(s_plr_z_kind, 0, "plr_wizard_z_kind", subjects_);
+        UI_MANAGED_SUBJECT_STRING(s_plr_continue_text, s_plr_continue_text_buf, "",
+                                  "plr_wizard_continue_text", subjects_);
         UI_MANAGED_SUBJECT_STRING(s_plr_file, s_plr_file_buf, "", "plr_wizard_file", subjects_);
         UI_MANAGED_SUBJECT_STRING(s_plr_position, s_plr_position_buf, "", "plr_wizard_position",
                                   subjects_);
@@ -266,6 +278,7 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
     if (!show(lv_screen_active())) {
         return;
     }
+    awake_.acquire();
     for (lv_subject_t* s :
          {&s_plr_ack_part, &s_plr_ack_nozzle, &s_plr_ack_no_mesh, &s_plr_ack_next_layer,
           &s_plr_ack_cold_bed, &s_plr_need_part, &s_plr_need_nozzle, &s_plr_need_no_mesh,
@@ -294,6 +307,7 @@ void PlrWizardOverlay::on_dismissed() {
         advance(Event{false, false, true});
     }
     stop_listening();
+    awake_.reset();
     // Replies still in flight belong to this opening, not the next.
     ++session_;
     jog_.reset();
@@ -629,9 +643,15 @@ void PlrWizardOverlay::publish_plan() {
     }
     const PlrPlanReply& reply = *plan_reply_;
     lv_subject_set_int(&s_plr_tier, plan_->tier);
+    lv_subject_set_int(&s_plr_z_kind, static_cast<int>(plr_z_step_kind(*plan_)));
+    lv_subject_copy_string(&s_plr_continue_text, plr_prepare_moves_head(*plan_)
+                                                     ? lv_tr("Heat and Home")
+                                                     : lv_tr("Start Heating"));
 
-    const std::string file =
+    const std::string& path =
         reply.filename.empty() && status_.snapshot ? status_.snapshot->filename : reply.filename;
+    const std::string file =
+        helix::gcode::get_display_filename(helix::gcode::resolve_gcode_filename(path));
     lv_subject_copy_string(&s_plr_file, file.c_str());
     const std::string position =
         reply.layer ? tr_format(lv_tr("Layer {}, Z {:.2f} mm"), *reply.layer, reply.z_gcode)

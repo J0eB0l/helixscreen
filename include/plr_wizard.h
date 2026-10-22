@@ -93,6 +93,23 @@ PlrWizardStep plr_next_wizard_step(const PlrWizardInputs& in);
 /// The bed state of a plan, from its own bed reading.
 PlrBedState plr_plan_bed_state(const PlrPlanView& plan);
 
+/// What the Z step tells the user about the nozzle. plr_wizard_overlay.xml
+/// binds these values.
+enum class PlrZStepKind {
+    /// Tier 1: the user lowers the nozzle onto the top of the print.
+    Jog = 0,
+    /// Prepare lifted the nozzle and homed X and Y; commit lowers it again.
+    ConfirmLifted = 1,
+    /// Prepare moved nothing: the nozzle is where the power cut left it.
+    ConfirmInPlace = 2,
+};
+
+/// True when the plugin's prepare moves the toolhead: the generic backend
+/// lifts the nozzle and homes X and Y, the QIDI backend only heats.
+bool plr_prepare_moves_head(const PlrPlanView& plan);
+
+PlrZStepKind plr_z_step_kind(const PlrPlanView& plan);
+
 const char* plr_confirmation_name(PlrConfirmation c);
 std::optional<PlrConfirmation> plr_parse_confirmation(const std::string& name);
 

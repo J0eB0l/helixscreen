@@ -95,6 +95,18 @@ PlrBedState plr_plan_bed_state(const PlrPlanView& plan) {
     return plr_bed_decision(plan.bed_target, plan.bed_current, kPlrBedOkDiffC);
 }
 
+bool plr_prepare_moves_head(const PlrPlanView& plan) {
+    return plan.backend == PlrPluginBackend::Generic;
+}
+
+PlrZStepKind plr_z_step_kind(const PlrPlanView& plan) {
+    if (plan.tier == 1) {
+        return PlrZStepKind::Jog;
+    }
+    return plr_prepare_moves_head(plan) ? PlrZStepKind::ConfirmLifted
+                                        : PlrZStepKind::ConfirmInPlace;
+}
+
 std::vector<PlrConfirmation> plr_required_confirmations(const PlrPlanView& plan, PlrBedState bed) {
     std::vector<PlrConfirmation> need;
     if (plan.tier == 1) {
