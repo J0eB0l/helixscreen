@@ -710,6 +710,10 @@ class LayerFollower:
             )
         self.offset = result.offset
         self.state = result.state_at_head
+        if self._writer.inert:
+            # A complete index of this file appeared (file analysis wrote it
+            # whole): there is nothing left to follow.
+            self.complete = True
 
     def finish(self, file_size: Optional[int]) -> None:
         """Close the index. A print that completed (file_size given) and was
@@ -1198,6 +1202,8 @@ class HelixPlr:
             self.follower = self._make_follower()
             if self.follower is None:
                 return
+        if self.follower.complete:
+            return
         behind = file_position - self.follower.offset
         if behind <= 0 or (behind < FOLLOW_MIN_BYTES and now - self._follow_at < FOLLOW_INTERVAL_S):
             return

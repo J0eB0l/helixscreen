@@ -844,6 +844,24 @@ def test_follower_never_reads_past_file_position(gfile):
     assert summary.last.offset < 3000
 
 
+def test_follower_stops_once_a_complete_index_appears(gfile, monkeypatch):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    f = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    f.step(0)                                       # loaded: no index yet
+    helix_gcode_reader.write_layer_index(index, ident(gfile), [], [], len(data))
+    before = open(index, "rb").read()
+    f.step(len(data) // 4)
+    assert f.complete
+    reads = []
+    scan = helix_gcode_reader.scan_to_offset
+    monkeypatch.setattr(helix_gcode_reader, "scan_to_offset",
+                        lambda *a, **k: (reads.append(a), scan(*a, **k))[1])
+    f.step(len(data) // 2)
+    f.finish(None)
+    assert reads == [] and open(index, "rb").read() == before
+
+
 def test_follower_resumes_from_its_index_after_a_restart(gfile):
     data = gfile.read_bytes()
     index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
@@ -2366,6 +2384,24 @@ def test_a_resumed_job_keeps_the_mesh_it_resumed_with(plr, helix, resume, tmp_pa
     assert not cfg.exists()
 
 
+def test_a_complete_follower_is_not_stepped_again(plr, helix, monkeypatch):
+    monkeypatch.setattr(helix_plr, "FOLLOW_MIN_BYTES", 1000)
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    steps = []
+    executor = SyncExecutor()
+    submit = executor.submit
+    executor.submit = lambda fn, *a: (steps.append(fn) if getattr(fn, "__name__", "") == "step"
+                                      else None, submit(fn, *a))[1]
+    plr._follow_executor = executor
+    added(plr)
+    tick(plr, **printing_status(2000))
+    assert len(steps) == 1
+    plr.follower.complete = True
+    tick(plr, 30.0, **printing_status(8000))
+    assert len(steps) == 1
+
+
 def test_the_prune_spares_the_indexes_recovery_is_using(plr, helix, monkeypatch):
     monkeypatch.setattr(helix_plr, "FOLLOW_MIN_BYTES", 1000)
     path = helix.gc_path / "sub" / "part.gcode"
@@ -2410,6 +2446,29 @@ def test_a_waiting_snapshots_index_is_protected(plr, helix):
     plr.follower = None
     assert plr.protected_index_paths() == [
         helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")]
+
+
+def test_a_waiting_qidi_snapshots_external_index_is_protected(plr, helix, tmp_path):
+    """QIDI prints from printer_data/.cache, outside gcodes: the index the
+    snapshot resumes from lives under .external and the prune keeps it."""
+    cache = tmp_path / "printer_data" / ".cache"
+    cache.mkdir(parents=True)
+    printed = cache / "part.gcode"
+    printed.write_bytes(layered_gcode())
+    (helix.gc_path / "sub" / "part.gcode").write_bytes(layered_gcode())
+    added(plr)
+    plr.job["print_path"] = str(printed)
+    plr.job["print_identity"] = helix_plr.file_identity(printed)
+    plr.follower = None
+    index = helix_gcode_reader.layer_index_path(helix.gc_path, ".external/part.gcode")
+    assert plr.protected_index_paths() == [index]
+    other = helix_gcode_reader.layer_index_path(helix.gc_path, ".external/old.gcode")
+    for path in (index, other):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        open(path, "w").write("{}\n")
+    plr._follow_executor = SyncExecutor()
+    plr._prune_indexes()
+    assert os.path.exists(index) and not os.path.exists(other)
 
 
 def test_a_follower_never_writes_into_a_complete_index(gfile):
