@@ -3398,6 +3398,21 @@ bool AmsBackendAfc::has_toolchanger_unit_locked() const {
                        [](const AfcUnitInfo& u) { return u.type == "Toolchanger"; });
 }
 
+bool AmsBackendAfc::head_is_mountable_locked(const std::string& klipper_name) const {
+    if (!configfile_answered_) {
+        return true;
+    }
+    // A lane parsed before configfile answered still holds the section name,
+    // and AFC_SELECT_TOOL accepts either, so either one matches.
+    const std::string wanted = helix::text_io::to_lower(klipper_name);
+    return std::any_of(toolchanger_extruder_sections_.begin(), toolchanger_extruder_sections_.end(),
+                       [&](const std::string& section) {
+                           return section == wanted ||
+                                  helix::text_io::to_lower(
+                                      klipper_extruder_name_unlocked(section)) == wanted;
+                       });
+}
+
 void AmsBackendAfc::apply_unit_environment() {
     if (oams_env_.empty()) {
         return;
@@ -4158,6 +4173,11 @@ AmsBackendAfc::parse_configfile_topology(const nlohmann::json& response) {
         };
         topo.extruder_sensor_fitted[key.substr(std::strlen(kExtruderPrefix))] =
             wired("pin_tool_start") || wired("pin_tool_end");
+        // Klipper tracks an option read with a None default only when it is
+        // set, so presence alone says the section joined a toolchanger unit.
+        if (it.value().contains("toolchanger_unit")) {
+            topo.toolchanger_extruders.insert(key.substr(std::strlen(kExtruderPrefix)));
+        }
         const auto name = it.value().find("extruder_name");
         if (name == it.value().end() || !name->is_string()) {
             continue;
@@ -4178,6 +4198,7 @@ void AmsBackendAfc::apply_configfile_topology(ConfigfileTopology topo) {
         std::lock_guard<std::mutex> lock(mutex_);
         extruder_klipper_names_ = std::move(topo.extruder_names);
         unit_oams_names_ = std::move(topo.oams_names);
+        toolchanger_extruder_sections_ = std::move(topo.toolchanger_extruders);
         if (!topo.extruder_sensor_fitted.empty()) {
             extruder_sensor_fitted_ = std::move(topo.extruder_sensor_fitted);
             sensor_changed = refresh_unit_toolhead_sensors_unlocked();
@@ -5260,6 +5281,7 @@ AmsError AmsBackendAfc::do_select_slot(int slot_index) {
 
 AmsError AmsBackendAfc::do_change_tool(int tool_number) {
     bool toolchanger = false;
+    bool mountable = true;
     std::string lane_extruder;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -5275,6 +5297,9 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
                 break;
             }
         }
+        if (toolchanger && !lane_extruder.empty()) {
+            mountable = head_is_mountable_locked(lane_extruder);
+        }
     }
 
     // tool_number is a T number, never a head index. On a toolchanger a tool
@@ -5288,6 +5313,14 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
             return AmsErrorHelper::invalid_parameter(
                 "T" + std::to_string(tool_number) +
                 " has no lane with a known extruder; cannot choose a toolhead");
+        }
+        if (!mountable) {
+            spdlog::warn("[AMS AFC] T{} feeds {}, whose AFC_extruder sets no toolchanger_unit; "
+                         "AFC_SELECT_TOOL cannot mount it",
+                         tool_number, lane_extruder);
+            return AmsErrorHelper::invalid_parameter(
+                lane_extruder + " is not a toolchanger head; cannot mount it for T" +
+                std::to_string(tool_number));
         }
         cmd = "AFC_SELECT_TOOL TOOL=" + lane_extruder;
     } else {

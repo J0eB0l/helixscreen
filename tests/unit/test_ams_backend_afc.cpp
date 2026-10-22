@@ -5203,6 +5203,46 @@ TEST_CASE("AFC toolchanger: a T number with no lane refuses instead of guessing 
     CHECK(helper.captured_gcodes.empty());
 }
 
+TEST_CASE("AFC toolchanger: a head with no toolchanger_unit is refused, not sent",
+          "[ams][afc][toolchanger][1850]") {
+    // AFC gives a head a tool lane only when its AFC_extruder sets
+    // toolchanger_unit. AFC_SELECT_TOOL on any other head logs an error and
+    // returns ok without moving, which would leave the screen on Selecting.
+    AmsBackendAfcTestHelper helper;
+    setup_interleaved_toolchanger(helper);
+
+    auto section = [](const char* klipper_name, bool on_toolchanger) {
+        nlohmann::json s = {{"extruder_name", klipper_name}};
+        if (on_toolchanger) {
+            s["toolchanger_unit"] = "AFC_Toolchanger Tools";
+        }
+        return s;
+    };
+    const nlohmann::json settings = {{"afc_extruder e0", section("extruder", true)},
+                                     {"afc_extruder e1", section("extruder1", true)},
+                                     {"afc_extruder e2", section("extruder2", false)},
+                                     {"afc_extruder e3", section("extruder3", true)}};
+    AfcTestAccess::apply_configfile_topology(
+        helper, AmsBackendAfc::parse_configfile_topology(
+                    {{"result", {{"status", {{"configfile", {{"settings", settings}}}}}}}}));
+
+    SECTION("T5 feeds e2, which is not on the toolchanger") {
+        CHECK_FALSE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes.empty());
+    }
+
+    SECTION("a lane parsed before configfile answered still names its head by section") {
+        REQUIRE(helper.change_tool(3));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
+    }
+
+    SECTION("a lane parsed after it names the Klipper extruder") {
+        helper.feed_afc_stepper("e1", {{"map", "T3"}, {"extruder", "e1"}});
+        REQUIRE(helper.change_tool(3));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=extruder1"});
+    }
+}
+
 TEST_CASE("AFC change_tool sends T{n} in single-extruder mode", "[ams][afc][toolchanger]") {
     AmsBackendAfcTestHelper helper;
     helper.initialize_test_lanes_with_slots(4);

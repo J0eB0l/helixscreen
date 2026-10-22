@@ -208,6 +208,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         /// Lowercased AFC_extruder suffix -> whether that section wires a
         /// physical tool_start/tool_end pin.
         std::unordered_map<std::string, bool> extruder_sensor_fitted;
+        /// Lowercased AFC_extruder suffixes that set `toolchanger_unit`. Only
+        /// those get a tool lane, so only those can be mounted by
+        /// AFC_SELECT_TOOL.
+        std::set<std::string> toolchanger_extruders;
     };
 
     /// Whether a unit's toolhead has a sensor. @p unit_extruders are the
@@ -1076,6 +1080,12 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// AFC_SELECT_TOOL, not by T{n}. @pre mutex_ held.
     [[nodiscard]] bool has_toolchanger_unit_locked() const;
 
+    /// False only when configfile has answered and no AFC_extruder section
+    /// named, or resolving to, @p klipper_name sets `toolchanger_unit`. AFC_SELECT_TOOL on such a
+    /// head logs an error and returns ok without moving, so the operation would sit in SELECTING
+    /// until its timeout. @pre mutex_ held.
+    [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
+
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
     void apply_configfile_topology(ConfigfileTopology topo);
 
@@ -1501,6 +1511,8 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// suffix; empty until it answers, and units report a toolhead sensor
     /// meanwhile.
     std::unordered_map<std::string, bool> extruder_sensor_fitted_;
+    /// ConfigfileTopology::toolchanger_extruders; empty until configfile answers.
+    std::set<std::string> toolchanger_extruder_sections_;
 
     /// Section names already reported as unresolvable — dedupes the warning so
     /// it fires once per extruder, not once per status frame.
