@@ -1767,6 +1767,8 @@ Should return acceleration values, not an error.
 
 **Solutions:**
 
+**Check the turn direction.** Turn one screw the way its arrow points and re-probe. If that corner moves further from the reference, the `screw_thread` in your `[screws_tilt_adjust]` section names the wrong direction for your knobs: switch it between `CW-M3` and `CCW-M3` (or the M4/M5 equivalents). Tighten/Loosen does not depend on this setting; it always comes from the probed heights.
+
 **Verify screw positions** in `printer.cfg`:
 ```ini
 [screws_tilt_adjust]
