@@ -436,6 +436,12 @@ On Klipper-based platforms (Pi, AD5M, K1, K2, Snapmaker U1, etc.), `setup_config
 - `printer_config` — Klipper's `printer.cfg` and every config it `[include]`s, fetched from
   `/server/files/config/<path>` and sanitized per line (see below)
 - `filament_system.gcode_macros` — bare `gcode_macro` names from `/printer/objects/list`
+- `event_journal` — the printer event journal, `{source, entries}`: the HelixPrint plugin's
+  `server.helix.journal` (up to 500 entries) when its `event_journal` feature is ready, else
+  the screen's own `LocalEventJournal`; a plugin read that fails falls back to the screen's.
+  The choice is `decide_journal_source()`, made on the main thread into
+  `PrinterSnapshot::journal_from_plugin`; the section passes through `sanitize_json()`
+  (`DebugBundleCollector::build_event_journal`)
 
 ### Why `printer_config` is its own field
 

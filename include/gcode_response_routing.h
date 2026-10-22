@@ -9,6 +9,7 @@ namespace helix {
 class IMoonrakerAPI;
 class ActionPromptManager;
 class AmsErrorBridge;
+class EventJournalRecorder;
 class FilamentInsertWatcher;
 class GcodeErrorRouter;
 class GcodeNarrationRouter;
@@ -80,6 +81,9 @@ class GcodeResponseRouting {
 
     // Opens the slot editor when a person newly inserts filament (opt-in setting).
     std::unique_ptr<FilamentInsertWatcher> m_filament_insert_watcher;
+
+    // The screen's own printer event journal, kept while the plugin's is not ready.
+    std::unique_ptr<EventJournalRecorder> m_event_journal_recorder;
 };
 
 } // namespace helix

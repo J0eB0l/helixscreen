@@ -241,8 +241,26 @@ Review past system notifications:
 **Color coding:**
 
 - Blue: Info
+- Green: Success
 - Yellow: Warning
 - Red: Error
+
+Some notifications can be tapped to act on them, such as an update notice that opens the update dialog.
+
+### Printer Events
+
+Notifications are what HelixScreen told you. **Printer Events** is what happened to the printer: Klipper shutting down and why, a lost connection to a controller board (MCU), Klipper disconnecting or coming back ready, a firmware restart, a print pausing and what paused it, a filament runout, error messages from the printer, and how each print ended (completed, canceled, or failed and why).
+
+1. Tap the **Notifications** widget on the Home screen
+2. Tap **Printer Events** at the top
+3. The newest event is at the top. Each shows its time and, when a print was running, the file name
+
+A line under the title says where the list comes from:
+
+- **Recorded by the HelixPrint plugin**: the printer keeps the record itself, so it includes everything that happened while this screen was off or disconnected, and every screen connected to the printer shows the same list.
+- **Recorded by this screen while connected**: without the plugin, the screen keeps its own record. When it reconnects, it fills in what it missed from what the printer still remembers (recent errors, how prints ended, and recent shutdowns). Those entries are marked **(recovered)**. Events from a long outage can be missing.
+
+There is nothing to switch on: Printer Events is always recorded.
 
 ---
 

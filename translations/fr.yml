@@ -53,6 +53,7 @@ translations:
   (incompatible): (incompatible)
   (multi-tool): (multi-outils)
   (none detected): (aucun détecté)
+  (recovered): '(récupéré)'
   (unnamed): (sans nom)
   + Add: + Ajouter
   + Add Preset: + Ajouter un préréglage
@@ -250,6 +251,7 @@ translations:
   Adjusts individual characteristics of your heaters for optimal control: Ajuste les
     caractéristiques individuelles de vos chauffages pour un contrôle optimal
   Advanced: Avancé
+  After an error: Après une erreur
   After running the commands, tap Check Again below.: Après avoir exécuté les commandes,
     appuyez sur Revérifier ci-dessous.
   Alert: Alerte
@@ -1586,6 +1588,7 @@ translations:
   Fireworks: Feux d'artifice
   Firmware Restart: Redémarrage firmware
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: Le firmware ne signale aucun bypass. Activez cette option si vous alimentez l'extrudeur directement en filament
+  Firmware restart: Redémarrage firmware
   'Firmware restart failed: {}': 'Échec du redémarrage firmware : {}'
   Firmware restarting...: Redémarrage du firmware...
   Firmware saved X = Y's value; the measured X result was discarded: Le firmware a enregistré la valeur de Y pour X ; le résultat mesuré de X a été écarté
@@ -1924,6 +1927,7 @@ translations:
   Interface size. Applies after restart.: Taille de l'interface. Effectif après redémarrage.
   'Internal error: API not available': 'Erreur interne : API non disponible'
   'Internal error: no scan result': 'Erreur interne : aucun résultat de scan'
+  Interrupted: Interrompu
   Invalid Slot: 'Slot non valide'
   Invalid Tool: 'Outil non valide'
   Invalid duration: 'Durée non valide'
@@ -1988,6 +1992,7 @@ translations:
   : 'Les macros Klippain Shake&Tune sont installées sur l''imprimante. HelixScreen les détecte mais ne les utilise pas ; lancez-les depuis Mainsail ou Fluidd.'
   Klipper: Klipper
   Klipper Error: Erreur Klipper
+  Klipper disconnected: Klipper déconnecté
   Klipper failed to start with the skip macros, so they were removed: 'Klipper n''a pas démarré avec les macros de saut, elles ont donc été supprimées'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper n''a pas pu démarrer. Retirez l''include de helix_skips.cfg de printer.cfg.'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Le
@@ -2004,8 +2009,10 @@ translations:
     est passé en état d'arrêt. Cela peut être dû à un arrêt d'urgence, à un emballement
     thermique ou à une erreur de configuration.
   Klipper is halted — restart firmware to continue: Klipper est arrêté — redémarrez le firmware pour continuer
+  Klipper ready: Klipper prêt
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper réserve 'default' aux nouvelles calibrations. Choisissez un autre nom."
   Klipper restarting - macros activating: 'Redémarrage de Klipper - activation des macros'
+  Klipper shut down: Klipper arrêté
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipper ne signale plus la progression. Son analyse peut manquer de mémoire sur les petites imprimantes et bloquer Klipper, qu'un redémarrage firmware ne peut alors plus atteindre. Éteignez puis rallumez l'imprimante (ou redémarrez Klipper via SSH), puis réessayez."
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipper ne signale plus la progression. Son analyse peut manquer de mémoire sur les petites imprimantes ; redémarrez Klipper puis réessayez."
@@ -2167,6 +2174,7 @@ translations:
   MB RAM: Mo de RAM
   MCU: MCU
   MCU bridge daemon is shut down: Le démon de pont MCU est arrêté
+  MCU disconnected: MCU déconnecté
   MCU, host, and auxiliary temperature monitoring: Surveillance des températures MCU,
     hôte et auxiliaires
   'MCU: ': 'MCU : '
@@ -2475,6 +2483,7 @@ translations:
   No printer configured — check printer settings: Aucune imprimante configurée — vérifiez
     les paramètres de l'imprimante
   No printer connection: Aucune connexion imprimante
+  No printer events yet: 'Aucun événement d''imprimante pour l''instant'
   No printers found: Aucune imprimante trouvée
   No prints this week: Aucune impression cette semaine
   No prints yet: Aucune impression
@@ -2712,6 +2721,7 @@ translations:
   Pause, resume, or stop the print: Mettre en pause, reprendre ou arrêter
   Paused: En pause
   Paused (attention needed): En pause (attention requise)
+  Paused by a command: Mis en pause par une commande
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : 'Met une impression en pause à une couche choisie, pour changer de filament ou poser un insert. Pendant l''impression, choisissez la couche dans la carte d''aperçu de l''écran d''état.'
   Pausing at layer {}.: 'Pause à la couche {}.'
@@ -2859,6 +2869,7 @@ translations:
   Print Tuning: Réglage de l'impression
   Print Was Terminated: L'impression a été interrompue
   Print a test tower and tune K by eye: Imprimer une tour de test et régler K à l'œil
+  Print completed: Impression terminée
   Print details: 'Détails d''impression'
   Print did not start: L'impression n'a pas démarré
   Print canceled: Impression annulée
@@ -2872,6 +2883,7 @@ translations:
   Print history will show the rewritten name: L'historique d'impression affichera le nom réécrit
   Print issue detected: Problème d'impression détecté
   Print jobs waiting to run: Impressions en attente
+  Print paused: Impression en pause
   'Print preparation failed: {}': 'Échec de la préparation de l''impression : {}'
   Print resumed: Impression reprise
   Print server rejected the job — check printer status: Le serveur d'impression a
@@ -2887,6 +2899,7 @@ translations:
   'Printed %d times': 'Imprimé %d fois'
   Printer: Imprimante
   Printer Error: Erreur imprimante
+  Printer Events: 'Événements de l''imprimante'
   Printer Firmware Disconnected: Firmware imprimante déconnecté
   Printer Image: Image de l'imprimante
   Printer Manager: Gestionnaire d'imprimante
@@ -2918,6 +2931,8 @@ translations:
     — vérifiez qu'elle est allumée et à portée
   Printer doesn't expose the expected service — wrong device?: L'imprimante n'expose
     pas le service attendu — mauvais appareil ?
+  Printer error: 'Erreur d''imprimante'
+  Printer event: 'Événement d''imprimante'
   Printer hardware detected: Matériel d'imprimante détecté
   Printer image set to auto-detect: Image de l'imprimante en auto-détection
   Printer is busy - {} stays in the queue: 'L''imprimante est occupée – {} reste dans la file'
@@ -3080,6 +3095,8 @@ translations:
   Reconnect: Reconnecter
   Record Timelapse: Enregistrer le timelapse
   Record timelapses of your prints: Enregistrer des timelapses de vos impressions
+  Recorded by the HelixPrint plugin: Enregistré par le plugin HelixPrint
+  Recorded by this screen while connected: Enregistré par cet écran pendant la connexion
   Recorded timelapses will appear here: Les timelapses enregistrés apparaîtront ici
   Recording Mode: Mode d'enregistrement
   Recover: Récupérer

@@ -407,10 +407,13 @@ serves nothing, so the app reads it as not installed (Install row, install
 prompt), and an install switches it back on.
 
 Installed, the status is in the plugin's current shape: `api: 2` and a `features` map
-with one entry, `convert_3mf`, which owns its switch. With `1` it is `Ready` to
-`plugin_feature("convert_3mf", 1)`; with `disabled` it reports `available: false`
-(`reason: "plugin_disabled"`) and reads `Absent`. `HELIX_MOCK_PLR` adds the `plr`
-entry (below); no other feature is reported.
+with two entries. `convert_3mf` owns its switch; with `1` it is `Ready` to
+`plugin_feature("convert_3mf", 1)`, and with `disabled` it reports `available: false`
+(`reason: "plugin_disabled"`) and reads `Absent`. `event_journal` follows the same
+pattern, and `server.helix.journal` answers with five events of the last hour (a runout,
+the pause it caused, a shutdown and the job it ended), so the notification history's
+Printer Events button shows the plugin's journal. `HELIX_MOCK_PLR` adds the `plr` entry (below);
+no other feature is reported.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker
 does for an endpoint it has no component for. That distinction is the point: a

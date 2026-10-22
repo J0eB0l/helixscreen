@@ -53,6 +53,7 @@ translations:
   (incompatible): (incompatible)
   (multi-tool): (multi-tool)
   (none detected): (none detected)
+  (recovered): (recovered)
   (unnamed): (unnamed)
   + Add: + Add
   + Add Preset: + Add Preset
@@ -243,6 +244,7 @@ translations:
   Adjusts individual characteristics of your heaters for optimal control: Adjusts
     individual characteristics of your heaters for optimal control
   Advanced: Advanced
+  After an error: After an error
   After running the commands, tap Check Again below.: After running the commands,
     tap Check Again below.
   Alert: Alert
@@ -1527,6 +1529,7 @@ translations:
   Fireworks: Fireworks
   Firmware Restart: Firmware Restart
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: Firmware reports no bypass. Enable if you feed filament straight to the extruder
+  Firmware restart: Firmware restart
   'Firmware restart failed: {}': 'Firmware restart failed: {}'
   Firmware restarting...: Firmware restarting...
   Firmware saved X = Y's value; the measured X result was discarded: Firmware saved X = Y's value; the measured X result was discarded
@@ -1859,6 +1862,7 @@ translations:
   Interface size. Applies after restart.: Interface size. Applies after restart.
   'Internal error: API not available': 'Internal error: API not available'
   'Internal error: no scan result': 'Internal error: no scan result'
+  Interrupted: Interrupted
   Invalid Slot: Invalid Slot
   Invalid Tool: Invalid Tool
   Invalid duration: Invalid duration
@@ -1921,6 +1925,7 @@ translations:
   : Klippain Shake&Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd.
   Klipper: Klipper
   Klipper Error: Klipper Error
+  Klipper disconnected: Klipper disconnected
   Klipper failed to start with the skip macros, so they were removed: Klipper failed to start with the skip macros, so they were removed
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper
@@ -1937,8 +1942,10 @@ translations:
     has entered shutdown state. This may be due to an emergency stop, thermal runaway,
     or configuration error.
   Klipper is halted — restart firmware to continue: Klipper is halted — restart firmware to continue
+  Klipper ready: Klipper ready
   Klipper reserves 'default' for new calibrations. Choose another name.: Klipper reserves 'default' for new calibrations. Choose another name.
   Klipper restarting - macros activating: Klipper restarting - macros activating
+  Klipper shut down: Klipper shut down
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.
@@ -2095,6 +2102,7 @@ translations:
   MB RAM: MB RAM
   MCU: MCU
   MCU bridge daemon is shut down: MCU bridge daemon is shut down
+  MCU disconnected: MCU disconnected
   MCU, host, and auxiliary temperature monitoring: MCU, host, and auxiliary temperature
     monitoring
   'MCU: ': 'MCU: '
@@ -2400,6 +2408,7 @@ translations:
   No printer configured — check printer settings: No printer configured — check printer
     settings
   No printer connection: No printer connection
+  No printer events yet: No printer events yet
   No printers found: No printers found
   No prints this week: No prints this week
   No prints yet: No prints yet
@@ -2633,6 +2642,7 @@ translations:
   Pause, resume, or stop the print: Pause, resume, or stop the print
   Paused: Paused
   Paused (attention needed): Paused (attention needed)
+  Paused by a command: Paused by a command
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   Pausing at layer {}.: Pausing at layer {}.
@@ -2780,6 +2790,7 @@ translations:
   Print a test tower and tune K by eye: Print a test tower and tune K by eye
   Print canceled: Print canceled
   'Print complete': 'Print complete'
+  Print completed: Print completed
   Print details: Print details
   Print did not start: Print did not start
   Print didn't start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X}): Print
@@ -2790,6 +2801,7 @@ translations:
   Print history will show the rewritten name: Print history will show the rewritten name
   Print issue detected: Print issue detected
   Print jobs waiting to run: Print jobs waiting to run
+  Print paused: Print paused
   'Print preparation failed: {}': 'Print preparation failed: {}'
   Print resumed: Print resumed
   Print server rejected the job — check printer status: Print server rejected the
@@ -2803,6 +2815,7 @@ translations:
   Printed %d times: Printed %d times
   Printer: Printer
   Printer Error: Printer Error
+  Printer Events: Printer Events
   Printer Firmware Disconnected: Printer Firmware Disconnected
   Printer Image: Printer Image
   Printer Manager: Printer Manager
@@ -2834,6 +2847,8 @@ translations:
     — make sure it's on and in range
   Printer doesn't expose the expected service — wrong device?: Printer doesn't expose
     the expected service — wrong device?
+  Printer error: Printer error
+  Printer event: Printer event
   Printer hardware detected: Printer hardware detected
   Printer image set to auto-detect: Printer image set to auto-detect
   Printer is busy - {} stays in the queue: Printer is busy - {} stays in the queue
@@ -2992,6 +3007,8 @@ translations:
   Reconnect: Reconnect
   Record Timelapse: Record Timelapse
   Record timelapses of your prints: Record timelapses of your prints
+  Recorded by the HelixPrint plugin: Recorded by the HelixPrint plugin
+  Recorded by this screen while connected: Recorded by this screen while connected
   Recorded timelapses will appear here: Recorded timelapses will appear here
   Recording Mode: Recording Mode
   Recover: Recover

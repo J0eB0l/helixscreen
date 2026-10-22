@@ -238,6 +238,7 @@ src/printer/printer_network_state.cpp
 src/printer/printer_plugin_status_state.cpp
 src/printer/file_analysis.cpp
 src/printer/helix_plugin_features.cpp
+src/printer/printer_event_journal.cpp
 src/printer/printer_print_state.cpp
 src/printer/printer_profile_state.cpp
 src/printer/printer_recovery_service.cpp
@@ -478,6 +479,7 @@ src/ui/ui_ams_edit_overlay.cpp
 src/ui/ui_ams_lane_settings.cpp
 src/ui/ui_ams_environment_overlay.cpp
 src/ui/ui_ams_zone_overview_overlay.cpp
+src/ui/ui_printer_events_overlay.cpp
 src/ui/ui_ams_lane_bar.cpp
 src/ui/ui_ams_lane_spool.cpp
 src/ui/ui_ams_loading_error_modal.cpp

@@ -150,6 +150,7 @@ helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
 helix_analysis = _load_sibling("helix_analysis")
+helix_journal = _load_sibling("helix_journal")
 
 
 # ============================================================================
@@ -435,6 +436,7 @@ class HelixPrint:
         self.converter: Optional[Any] = None
         self.plr: Optional[Any] = None
         self.analysis: Optional[Any] = None
+        self.journal: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -735,6 +737,7 @@ class HelixPrint:
         self._register_3mf_feature()
         self._start_plr()
         self._start_analysis()
+        await self._start_journal()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -837,6 +840,23 @@ class HelixPrint:
         )
         if self.enabled:
             self.eventloop.register_callback(self.analysis.start)
+
+    async def _start_journal(self) -> None:
+        """Printer event journal (helix_journal.py). It has no switch: it owns
+        one that is always on, so no plugin_features key turns it off."""
+        if helix_journal is None:
+            self.register_feature(
+                "event_journal", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_journal", "module_missing"),
+            )
+            return
+        self.journal = helix_journal.HelixJournal(self)
+        self.journal.start()
+        self.register_feature(
+            helix_journal.JOURNAL_FEATURE, helix_journal.JOURNAL_FEATURE_VERSION, acts=False,
+            switch=helix_journal.always_on,
+        )
+        await self.journal.load()
 
     async def close(self) -> None:
         if self.analysis is not None:

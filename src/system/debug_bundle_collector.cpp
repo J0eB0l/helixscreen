@@ -256,6 +256,19 @@ json DebugBundleCollector::collect(const BundleOptions& options) {
         bundle["printer_config"] = json{{"error", e.what()}};
     }
 
+    try {
+        json plugin_response;
+        if (options.printer.journal_from_plugin) {
+            plugin_response = moonraker_get(get_moonraker_url(), "/server/helix/journal?limit=500");
+        }
+        bundle["event_journal"] =
+            build_event_journal(options.printer.journal_from_plugin, plugin_response,
+                                LocalEventJournal::instance().snapshot());
+    } catch (const std::exception& e) {
+        spdlog::warn("[DebugBundle] Failed to collect event journal: {}", e.what());
+        bundle["event_journal"] = json{{"error", e.what()}};
+    }
+
     if (options.include_klipper_logs) {
         try {
             auto klipper_log = collect_klipper_log_tail();
@@ -581,6 +594,10 @@ PrinterSnapshot DebugBundleCollector::snapshot_printer_state() {
         // Discovery is read here with the subjects, on the main thread, so the
         // worker never races a re-discovery reassigning it.
         snap.mains_status_objects = helix::power_loss::required_status_objects(ps.get_discovery());
+        snap.journal_from_plugin =
+            decide_journal_source(ps.plugin_status_state().plugin_feature(
+                                      kJournalFeatureName, kJournalFeatureMinVersion))
+                .source == JournalSource::Plugin;
 
         snap.captured = true;
     } catch (const std::exception& e) {
@@ -2188,6 +2205,28 @@ std::string DebugBundleCollector::collect_klipper_log_tail(int num_lines) {
     static const std::vector<std::string> kStems = {"klippy.log", "printer.log"};
     return prepend_rotated_predecessor(base_url, kStems, body, raw_bytes, kKlipperTailBytes,
                                        num_lines, kKlipperCondenseMaxRepeats);
+}
+
+std::string DebugBundleCollector::fetch_klipper_log_window(int tail_bytes) {
+    const std::string base_url = get_moonraker_url();
+    if (base_url.empty()) {
+        return {};
+    }
+    // The line cap only backstops the byte window: a reader of shutdowns needs
+    // every Stats line in it.
+    constexpr int kWindowMaxLines = 1 << 20;
+    return fetch_log_tail(base_url, "/server/files/klippy.log", kWindowMaxLines, tail_bytes);
+}
+
+json DebugBundleCollector::build_event_journal(bool from_plugin, const json& plugin_response,
+                                               const std::vector<JournalEntry>& screen) {
+    const json* result =
+        from_plugin ? helix::json_util::find_member(plugin_response, "result") : nullptr;
+    const json section =
+        result != nullptr
+            ? build_event_journal_section(JournalSource::Plugin, parse_journal_result(*result))
+            : build_event_journal_section(JournalSource::Screen, screen);
+    return sanitize_json(section);
 }
 
 std::string DebugBundleCollector::collect_moonraker_log_tail(int num_lines) {

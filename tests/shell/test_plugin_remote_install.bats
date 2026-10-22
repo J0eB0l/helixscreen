@@ -35,7 +35,7 @@ setup() {
 publish_release() {
     local dir="$RELEASE_ROOT/$1/moonraker-plugin"
     mkdir -p "$dir"
-    for f in install.sh helix_print_conf.sh helix_print.py helix_3mf.py helix_capabilities.py helix_gcode_reader.py helix_plr.py \
+    for f in install.sh helix_print_conf.sh helix_print.py helix_3mf.py helix_capabilities.py helix_gcode_reader.py helix_journal.py helix_plr.py \
         helix_plr_qidi.py helix_plr_render.py helix_plr_scan.py \
         strip_phase_tracking.py; do
         cp "$REPO_ROOT/moonraker-plugin/$f" "$dir/$f"

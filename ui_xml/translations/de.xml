@@ -53,6 +53,7 @@
   <translation tag="(incompatible)" de="(inkompatibel)"/>
   <translation tag="(multi-tool)" de="(Multi-Werkzeug)"/>
   <translation tag="(none detected)" de="(keine erkannt)"/>
+  <translation tag="(recovered)" de="(nachträglich ermittelt)"/>
   <translation tag="(unnamed)" de="(unbenannt)"/>
   <translation tag="+ Add" de="+ Hinzufügen"/>
   <translation tag="+ Add Preset" de="+ Voreinstellung"/>
@@ -236,6 +237,7 @@
   <translation tag="Adjustments stay active until restart. Save after print completes." de="Anpassungen bleiben bis zum Neustart aktiv. Nach Druckende speichern."/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" de="Passt individuelle Eigenschaften Ihrer Heizungen für optimale Regelung an"/>
   <translation tag="Advanced" de="Erweitert"/>
+  <translation tag="After an error" de="Nach einem Fehler"/>
   <translation tag="After running the commands, tap Check Again below." de="Tippen Sie nach Ausführung der Befehle unten auf Erneut prüfen."/>
   <translation tag="Alert" de="Alarm"/>
   <translation tag="Alerts" de="Alarme"/>
@@ -1430,6 +1432,7 @@
   <translation tag="Fireworks" de="Feuerwerk"/>
   <translation tag="Firmware Restart" de="Firmware-Neustart"/>
   <translation tag="Firmware reports no bypass. Enable if you feed filament straight to the extruder" de="Firmware meldet keinen Bypass. Aktivieren Sie dies, wenn Sie das Filament direkt zum Extruder führen"/>
+  <translation tag="Firmware restart" de="Firmware-Neustart"/>
   <translation tag="Firmware restart failed: {}" de="Firmware-Neustart fehlgeschlagen: {}"/>
   <translation tag="Firmware restarting..." de="Firmware wird neu gestartet..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" de="Die Firmware hat X mit dem Wert von Y gespeichert; das gemessene X-Ergebnis wurde verworfen"/>
@@ -1733,6 +1736,7 @@
   <translation tag="Interface size. Applies after restart." de="Oberflächengröße. Gilt nach Neustart."/>
   <translation tag="Internal error: API not available" de="Interner Fehler: API nicht verfügbar"/>
   <translation tag="Internal error: no scan result" de="Interner Fehler: kein Scan-Ergebnis"/>
+  <translation tag="Interrupted" de="Unterbrochen"/>
   <translation tag="Invalid Slot" de="Ungültiger Slot"/>
   <translation tag="Invalid Tool" de="Ungültiges Werkzeug"/>
   <translation tag="Invalid duration" de="Ungültige Dauer"/>
@@ -1791,6 +1795,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." de="Klippain-Shake&amp;Tune-Makros sind auf dem Drucker installiert. HelixScreen erkennt sie, nutzt sie aber nicht; starte sie über Mainsail oder Fluidd."/>
   <translation tag="Klipper" de="Klipper"/>
   <translation tag="Klipper Error" de="Klipper-Fehler"/>
+  <translation tag="Klipper disconnected" de="Klipper getrennt"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" de="Klipper startete nicht mit den Überspring-Makros, daher wurden sie entfernt"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." de="Klipper konnte nicht starten. Entferne den Include von helix_skips.cfg aus printer.cfg."/>
   <translation tag="Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart." de="Klipper-Firmware hat die Verbindung zum Host getrennt. Versuchen Sie, Klipper neu zu starten oder einen Firmware-Neustart durchzuführen."/>
@@ -1800,8 +1805,10 @@
   <translation tag="Klipper has entered shutdown state." de="Klipper ist in den Shutdown-Zustand gewechselt."/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." de="Klipper ist in den Shutdown-Zustand gewechselt. Dies kann auf einen Notaus, thermisches Durchgehen oder einen Konfigurationsfehler zurückzuführen sein."/>
   <translation tag="Klipper is halted — restart firmware to continue" de="Klipper ist angehalten — Firmware neu starten, um fortzufahren"/>
+  <translation tag="Klipper ready" de="Klipper bereit"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." de="Klipper reserviert &apos;default&apos; für neue Kalibrierungen. Wählen Sie einen anderen Namen."/>
   <translation tag="Klipper restarting - macros activating" de="Klipper startet neu - Makros werden aktiviert"/>
+  <translation tag="Klipper shut down" de="Klipper heruntergefahren"/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again." de="Klipper meldet keinen Fortschritt mehr. Seine Auswertung kann auf kleinen Druckern den Speicher erschöpfen und Klipper blockieren, sodass ein Firmware-Neustart es nicht erreicht. Schalten Sie den Drucker aus und wieder ein (oder starten Sie Klipper per SSH neu) und versuchen Sie es dann erneut."/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again." de="Klipper meldet keinen Fortschritt mehr. Seine Auswertung kann auf kleinen Druckern den Speicher erschöpfen; starten Sie Klipper neu und versuchen Sie es erneut."/>
   <translation tag="Klipper will restart to apply changes." de="Klipper wird neu starten, um Änderungen anzuwenden."/>
@@ -1954,6 +1961,7 @@
   <translation tag="MB RAM" de="MB RAM"/>
   <translation tag="MCU" de="MCU"/>
   <translation tag="MCU bridge daemon is shut down" de="Der MCU-Bridge-Dienst ist beendet"/>
+  <translation tag="MCU disconnected" de="MCU getrennt"/>
   <translation tag="MCU, host, and auxiliary temperature monitoring" de="MCU-, Host- und Zusatztemperaturüberwachung"/>
   <translation tag="MCU: " de="MCU: "/>
   <translation tag="MCUs" de="MCUs"/>
@@ -2240,6 +2248,7 @@
   <translation tag="No print start macro found" de="Kein Druckstart-Makro gefunden"/>
   <translation tag="No printer configured — check printer settings" de="Kein Drucker konfiguriert — Druckereinstellungen prüfen"/>
   <translation tag="No printer connection" de="Keine Druckerverbindung"/>
+  <translation tag="No printer events yet" de="Noch keine Druckerereignisse"/>
   <translation tag="No printers found" de="Keine Drucker gefunden"/>
   <translation tag="No prints this week" de="Keine Drucke diese Woche"/>
   <translation tag="No prints yet" de="Noch keine Drucke"/>
@@ -2462,6 +2471,7 @@
   <translation tag="Pause, resume, or stop the print" de="Druck pausieren, fortsetzen, stoppen"/>
   <translation tag="Paused" de="Pausiert"/>
   <translation tag="Paused (attention needed)" de="Pausiert (Aufmerksamkeit erforderlich)"/>
+  <translation tag="Paused by a command" de="Durch einen Befehl pausiert"/>
   <translation tag="Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen." de="Hält einen Druck bei einer gewählten Schicht an, für einen Filamentwechsel oder ein Einlegeteil. Legen Sie die Schicht während eines Drucks über die Vorschaukarte im Druckstatus fest."/>
   <translation tag="Pausing at layer {}." de="Pause bei Schicht {}."/>
   <translation tag="Pausing..." de="Pausiert..."/>
@@ -2600,6 +2610,7 @@
   <translation tag="Print a test tower and tune K by eye" de="Testturm drucken und K nach Augenmaß einstellen"/>
   <translation tag="Print canceled" de="Druck abgebrochen"/>
   <translation tag="Print complete" de="Druck abgeschlossen"/>
+  <translation tag="Print completed" de="Druck abgeschlossen"/>
   <translation tag="Print details" de="Druckdetails"/>
   <translation tag="Print did not start" de="Druck wurde nicht gestartet"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" de="Druck nicht gestartet – Drucker ist möglicherweise beschäftigt oder offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})"/>
@@ -2613,6 +2624,7 @@
   <translation tag="Print hours this week and lifetime totals" de="Druckstunden dieser Woche und Gesamtwerte"/>
   <translation tag="Print issue detected" de="Druckproblem erkannt"/>
   <translation tag="Print jobs waiting to run" de="Wartende Druckaufträge"/>
+  <translation tag="Print paused" de="Druck pausiert"/>
   <translation tag="Print preparation failed: {}" de="Druckvorbereitung fehlgeschlagen: {}"/>
   <translation tag="Print resumed" de="Druck fortgesetzt"/>
   <translation tag="Print server rejected the job — check printer status" de="Druckserver hat den Auftrag abgelehnt — Druckerstatus prüfen"/>
@@ -2625,6 +2637,7 @@
   <translation tag="Printed %d times" de="%d-mal gedruckt"/>
   <translation tag="Printer" de="Drucker"/>
   <translation tag="Printer Error" de="Druckerfehler"/>
+  <translation tag="Printer Events" de="Druckerereignisse"/>
   <translation tag="Printer Firmware Disconnected" de="Drucker-Firmware getrennt"/>
   <translation tag="Printer Image" de="Druckerbild"/>
   <translation tag="Printer Manager" de="Druckerverwaltung"/>
@@ -2652,6 +2665,8 @@
   <translation tag="Printer default" de="Druckerstandard"/>
   <translation tag="Printer didn&apos;t respond — make sure it&apos;s on and in range" de="Drucker hat nicht reagiert — stellen Sie sicher, dass er eingeschaltet und in Reichweite ist"/>
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" de="Drucker bietet nicht den erwarteten Dienst — falsches Gerät?"/>
+  <translation tag="Printer error" de="Druckerfehler"/>
+  <translation tag="Printer event" de="Druckerereignis"/>
   <translation tag="Printer hardware detected" de="Druckerhardware erkannt"/>
   <translation tag="Printer image set to auto-detect" de="Druckerbild auf Auto-Erkennung gesetzt"/>
   <translation tag="Printer is busy - {} stays in the queue" de="Drucker ist beschäftigt – {} bleibt in der Warteschlange"/>
@@ -2801,6 +2816,8 @@
   <translation tag="Reconnect" de="Erneut verbinden"/>
   <translation tag="Record Timelapse" de="Zeitraffer aufnehmen"/>
   <translation tag="Record timelapses of your prints" de="Zeitraffer Ihrer Drucke aufnehmen"/>
+  <translation tag="Recorded by the HelixPrint plugin" de="Vom HelixPrint-Plugin aufgezeichnet"/>
+  <translation tag="Recorded by this screen while connected" de="Von diesem Bildschirm während der Verbindung aufgezeichnet"/>
   <translation tag="Recorded timelapses will appear here" de="Aufgenommene Zeitraffer werden hier angezeigt"/>
   <translation tag="Recording Mode" de="Aufnahmemodus"/>
   <translation tag="Recover" de="Wiederherstellen"/>
