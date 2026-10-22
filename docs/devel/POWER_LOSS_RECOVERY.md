@@ -219,6 +219,31 @@ replicates QIDI's own stock resume, which already trusts the Z the steppers held
 it is unverified until the Q2 power-cut test in the design's § 11.4. The K1 line stays unlisted: Creality's
 own recovery serves it and outranks the generic backend (ruling 8).
 
+**The layer index.** The plugin's follower (`helix_plr.py#LayerFollower`) builds the
+printing file's layer index while the print runs, so a resume scan starts at a layer
+instead of byte 0. It is the same `.helix_index/<path>.layers.jsonl` file that file
+analysis (`helix_analysis.py`) writes for every G-code file on upload, in the format
+`helix_gcode_reader.py` documents; whichever writes first, the other uses it:
+
+- **One identity.** `helix_plr.file_identity` / `file_hash` are
+  `helix_gcode_reader.file_identity` / `file_hash` (size, mtime, sha1 of the first and
+  last 64 KB): the snapshot, the index header and the screen's preview check one rule.
+- **One writer per index.** Analysis writes a whole index to a `.tmp` file and renames it
+  over the old one. The follower appends, so a power cut leaves a valid prefix; its
+  `LayerIndexWriter` writes nothing once a complete index for the same identity exists,
+  and a follower already appending when analysis's rename lands keeps writing to the file
+  it opened, so a complete index is never touched.
+- **One prune rule.** `helix_gcode_reader.prune_layer_indexes(root, protected)` removes an
+  index whose G-code is gone or no longer matches the header's size or mtime, or that
+  indexes a file outside gcodes (`.external`), with no count cap. `protected` comes from
+  PLR's state, never from file times: `HelixPlr.protected_index_paths()` names the
+  follower's index during a print and the index of the job a waiting snapshot resumes.
+  PLR prunes at each job start; analysis prunes at startup and asks PLR for the same paths.
+- **The worker runner.** `helix_gcode_reader.WorkerProcess` runs a whole-file reader in a
+  niced child process (Moonraker's own interpreter, `ionice -c 3` where present, a
+  timeout, kill on shutdown or when a print starts on a one-core host). Analysis uses it;
+  the follower still runs on its own duty-cycled thread.
+
 **The wizard.** Resume on the offer opens `PlrWizardOverlay`, whose steps are
 `plr_next_wizard_step()` (`include/plr_wizard.h`):
 
