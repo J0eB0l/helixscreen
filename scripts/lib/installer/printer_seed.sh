@@ -332,7 +332,7 @@ seed_update_channel() {
 # Prints the JSON verdict line on success, empty string on failure.
 # Never fails — Moonraker unreachable is a graceful no-op.
 detect_printer_via_moonraker() {
-    local bin="${HELIX_SCREEN_BIN:-${INSTALL_DIR:-/opt/helixscreen}/helix-screen}"
+    local bin="${HELIX_SCREEN_BIN:-${INSTALL_DIR:-/opt/helixscreen}/bin/helix-screen}"
     [ -x "$bin" ] || { echo ""; return 0; }
     local out
     if out=$("$bin" --detect-printer --host 127.0.0.1 --port 7125 2>/dev/null); then
