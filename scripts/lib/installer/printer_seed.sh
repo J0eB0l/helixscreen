@@ -480,13 +480,15 @@ seed_from_moonraker_detection() {
 }
 
 # The install-time settings layer: a confirmed printer fingerprint seeds its
-# device-level defaults, otherwise Moonraker detection does. An update keeps the
-# user's settings as they are: a preset merged into a printer configured by hand
+# device-level defaults, otherwise Moonraker detection does. Only on a fresh
+# install: an update or a re-run over an existing install keeps the user's
+# settings as they are, since a preset merged into a printer configured by hand
 # brings back hardware the user removed and marks it a preset install.
-# Args: $1 = "true" on --update, $2 = detect_printer_model's id (may be empty)
+# Args: $1 = "true" when no install existed before this run,
+#       $2 = detect_printer_model's id (may be empty)
 seed_install_time_settings() {
-    if [ "${1:-false}" = true ]; then
-        log_info "Update: printer settings left as they are"
+    if [ "${1:-false}" != true ]; then
+        log_info "Existing install: printer settings left as they are"
         return 0
     fi
     if [ -n "${2:-}" ]; then

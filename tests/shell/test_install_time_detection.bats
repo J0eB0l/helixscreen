@@ -210,19 +210,27 @@ _link_settings_into_printer_data() {
     python3 -c "import json;d=json.load(open('$SETTINGS_FILE'));assert 'display' not in d,d;assert 'input' not in d,d;assert 'preset' not in d,d"
 }
 
-@test "update: install-time settings seeding writes nothing" {
+@test "existing install, no --update: install-time settings seeding writes nothing" {
     printf '{"printers":{"default":{"wizard_completed":true}}}\n' > "$SETTINGS_FILE"
     cp "$SETTINGS_FILE" "$BATS_TEST_TMPDIR/before.json"
     export FAKE_VERDICT='{"model":"Creality K1C","preset":"k1c","confidence":100,"runner_up_preset":"k1","runner_up_confidence":81}'
-    run seed_install_time_settings true ""
+    run seed_install_time_settings false ""
     [ "$status" -eq 0 ]
     cmp "$SETTINGS_FILE" "$BATS_TEST_TMPDIR/before.json"
+}
+
+@test "main.sh: install-time seeding is gated on no install existing before the run" {
+    # The fresh-install verdict is taken before anything is written, from the
+    # same test that decides an update; settings.json after restore cannot tell.
+    local main="$WORKTREE_ROOT/scripts/lib/installer/main.sh"
+    grep -q 'seed_install_time_settings "\$fresh_install"' "$main"
+    awk '/fresh_install=true/{t=NR} /\[ -d "\$INSTALL_DIR" \]/{d=NR} /fresh_install=false/{f=NR} END{exit !(t && d && f && t<d && d<f)}' "$main"
 }
 
 @test "fresh install: install-time settings seeding applies a confident verdict" {
     rm -f "$SETTINGS_FILE"
     export FAKE_VERDICT='{"model":"Creality K1C","preset":"k1c","confidence":100,"runner_up_preset":"k1","runner_up_confidence":81}'
-    run seed_install_time_settings false ""
+    run seed_install_time_settings true ""
     [ "$status" -eq 0 ]
     python3 -c "import json;d=json.load(open('$SETTINGS_FILE'));assert d['preset']=='k1c',d;assert d['display']['animations_enabled'] is False,d"
 }
