@@ -2037,63 +2037,147 @@ TEST_CASE("AFC print start leaves a printer-side lane remap alone",
     }
 }
 
-TEST_CASE_METHOD(LVGLUITestFixture,
+namespace {
+// An open print detail view over a registered four-lane AFC (lane N on T N),
+// with a PrintStartController reading its card. The auto-color-map setting is
+// restored on the way out.
+struct AfcOpenDetailFixture : LVGLUITestFixture {
+    helix::test::ScopedCacheDir cache_dir;
+    ConfigDirGuard config_dir{"afc_open_detail"};
+    bool prev_auto_color = false;
+    std::optional<helix::test::RegisteredBackend<AmsBackendAfcTestHelper>> reg;
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    PrinterState ps;
+    MoonrakerAPIMock api{client, ps};
+    std::optional<helix::ui::PrintStartController> controller;
+    helix::ui::PrintSelectDetailView view;
+
+    AfcOpenDetailFixture() {
+        const auto noop = [](lv_event_t*) {};
+        register_xml_callbacks({
+            {"on_print_select_detail_backdrop", noop},
+            {"on_print_select_print_button", noop},
+            {"on_print_select_delete_button", noop},
+            {"on_print_select_more_button", noop},
+            {"on_print_detail_back_clicked", noop},
+            {"on_toggle_sliced_colors", noop},
+            {"on_print_select_detail_objects", noop},
+        });
+        helix::SettingsManager::instance().init_subjects();
+        prev_auto_color = helix::SettingsManager::instance().get_auto_color_map();
+        AmsState::instance().init_subjects(true);
+        ps.init_subjects(false);
+        reg.emplace();
+        (*reg)->initialize_test_lanes_with_slots(4);
+        controller.emplace(ps, &api);
+    }
+
+    ~AfcOpenDetailFixture() {
+        controller->set_detail_view(nullptr);
+        view.hide();
+        drain();
+        lv_timer_handler();
+        helix::SettingsManager::instance().set_auto_color_map(prev_auto_color);
+        drain();
+    }
+
+    AmsBackendAfcTestHelper& afc() {
+        return **reg;
+    }
+
+    static void drain() {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+
+    /// Lane N runs T N; @p colors, when given, loads lane N with colors[N].
+    void feed_lanes(const std::vector<std::string>& colors = {}) {
+        for (int i = 0; i < 4; ++i) {
+            nlohmann::json lane = {{"map", "T" + std::to_string(i)}, {"prep", true}};
+            if (static_cast<size_t>(i) < colors.size()) {
+                lane["color"] = colors[static_cast<size_t>(i)];
+            }
+            afc().feed_afc_stepper("lane" + std::to_string(i + 1), lane);
+        }
+        drain();
+    }
+
+    /// Open a file using T0 and T1, sliced in @p palette.
+    void open(const std::vector<std::string>& palette) {
+        view.init_subjects();
+        REQUIRE(view.create(test_screen()) != nullptr);
+        constexpr size_t kSize = 4242;
+        constexpr time_t kMtime = 4242;
+        helix::tools_used_cache().store("remap/follow.gcode", {kSize, kMtime}, {0, 1});
+        view.show("follow.gcode", "remap", "PLA", palette, {"PLA", "PLA"}, kSize, kMtime);
+        controller->set_detail_view(&view);
+        drain();
+    }
+
+    void set_auto_color(bool on) {
+        helix::SettingsManager::instance().set_auto_color_map(on);
+        drain();
+    }
+};
+} // namespace
+
+TEST_CASE_METHOD(AfcOpenDetailFixture,
                  "An open print detail follows a printer-side map change it did not pick",
                  "[ams][afc][tool_mapping][routing][print_select]") {
     // The map moving is not a slot change: no colour or presence differs, so
     // only the tool-map version announces it. An open detail view must re-seed
     // the card's un-picked entries on it.
-    helix::test::ScopedCacheDir cache_dir;
-    const auto noop = [](lv_event_t*) {};
-    register_xml_callbacks({
-        {"on_print_select_detail_backdrop", noop},
-        {"on_print_select_print_button", noop},
-        {"on_print_select_delete_button", noop},
-        {"on_print_select_more_button", noop},
-        {"on_print_detail_back_clicked", noop},
-        {"on_toggle_sliced_colors", noop},
-        {"on_print_select_detail_objects", noop},
-    });
-    AmsState::instance().init_subjects(true);
-    helix::test::RegisteredBackend<AmsBackendAfcTestHelper> reg;
-    reg->initialize_test_lanes_with_slots(4);
-    for (int i = 0; i < 4; ++i) {
-        reg->feed_afc_stepper("lane" + std::to_string(i + 1),
-                              {{"map", "T" + std::to_string(i)}, {"prep", true}});
-    }
-    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
-
-    helix::ui::PrintSelectDetailView view;
-    view.init_subjects();
-    REQUIRE(view.create(test_screen()) != nullptr);
-    constexpr size_t kSize = 4242;
-    constexpr time_t kMtime = 4242;
-    helix::tools_used_cache().store("remap/follow.gcode", {kSize, kMtime}, {0, 1});
-    struct CloseOnExit {
-        helix::ui::PrintSelectDetailView& v;
-        ~CloseOnExit() {
-            v.hide();
-            helix::ui::UpdateQueue::instance().drain();
-            lv_timer_handler();
-        }
-    } closer{view};
-    view.show("follow.gcode", "remap", "PLA", {"#FF0000", "#00FF00"}, {"PLA", "PLA"}, kSize,
-              kMtime);
-    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    feed_lanes();
+    open({"#FF0000", "#00FF00"});
 
     auto before = view.get_filament_mappings();
     REQUIRE(before.size() == 2);
     REQUIRE(before[1].mapped_slot == 1);
 
     // On the printer, lane4 takes over T1 and lane2 takes T3.
-    reg->feed_afc_stepper("lane2", {{"map", "T3"}});
-    reg->feed_afc_stepper("lane4", {{"map", "T1"}});
-    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    afc().feed_afc_stepper("lane2", {{"map", "T3"}});
+    afc().feed_afc_stepper("lane4", {{"map", "T1"}});
+    drain();
 
     const auto after = view.get_filament_mappings();
     REQUIRE(after.size() == 2);
     CHECK(after[0].mapped_slot == 0);
     CHECK(after[1].mapped_slot == 3);
+}
+
+TEST_CASE_METHOD(AfcOpenDetailFixture,
+                 "Flipping auto color mapping re-seeds an open print detail's un-picked rows",
+                 "[ams][afc][tool_mapping][routing][print_select][print_start]") {
+    // The file is red T0, green T1; lane2 holds red and lane1 green, so auto
+    // color mapping crosses the two tools over and the printer's own routing
+    // does not. The rows follow whichever the setting says, the moment it flips.
+    feed_lanes({"#00FF00", "#FF0000", "#0000FF", "#FFFFFF"});
+
+    SECTION("on to off: the color matches are dropped and nothing is sent") {
+        set_auto_color(true);
+        open({"#FF0000", "#00FF00"});
+        auto matched = view.get_filament_mappings();
+        REQUIRE(matched.size() == 2);
+        REQUIRE(matched[0].mapped_slot == 1);
+        REQUIRE(matched[0].reason == helix::ToolMapping::MatchReason::COLOR_MATCH);
+
+        set_auto_color(false);
+        afc().captured_gcodes.clear();
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(*controller));
+        CHECK(set_map_commands(afc().captured_gcodes) == std::vector<std::string>{});
+    }
+
+    SECTION("off to on: the color matches are sent") {
+        set_auto_color(false);
+        open({"#FF0000", "#00FF00"});
+        REQUIRE(view.get_filament_mappings().size() == 2);
+        REQUIRE(view.get_filament_mappings()[0].mapped_slot == 0);
+
+        set_auto_color(true);
+        afc().captured_gcodes.clear();
+        CHECK(PrintStartControllerTestAccess::apply_remaps(*controller));
+        CHECK(set_map_commands(afc().captured_gcodes) ==
+              std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T0", "SET_MAP LANE=lane1 MAP=T1"});
+    }
 }
 
 TEST_CASE("AFC print using a tool no lane is mapped to is blocked, not rerouted",

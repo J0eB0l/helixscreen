@@ -968,6 +968,7 @@ class PrintSelectDetailView : public OverlayBase {
     // token (singleton, not a per-slot dynamic subject).
     ObserverGuard slots_version_observer_;
     ObserverGuard tool_map_version_observer_; ///< printer tool-table moves (same lifetime)
+    ObserverGuard auto_color_map_observer_;   ///< auto-color-map setting flips
     // The plugin probe completes after first paint and the Moonraker version
     // lands with discovery, so both arrive after the card has already published.
     // Without these the card would sit in its Probing look for the session.
