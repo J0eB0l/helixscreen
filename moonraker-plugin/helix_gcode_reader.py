@@ -1052,6 +1052,12 @@ class LayerIndexWriter:
         self._f = None
         self.inert = False
 
+    def _ensure_open(self) -> None:
+        """Open the index on first use. A writer that found it complete stays
+        inert without reading it again."""
+        if self._f is None and not self.inert:
+            self._open()
+
     def _open(self) -> None:
         state = read_layer_index(self.path, self.identity)
         if state is not None and state.complete:
@@ -1082,8 +1088,7 @@ class LayerIndexWriter:
                extra: Optional[dict] = None) -> None:
         """One layer start; `extra` adds the whole-layer fields (tools,
         print_z, feature) a reader that saw the layer knows."""
-        if self._f is None:
-            self._open()
+        self._ensure_open()
         record = {"layer": layer, "offset": offset, "z": state.last_position[2],
                   "state": state.to_dict()}
         if extra:
@@ -1091,18 +1096,15 @@ class LayerIndexWriter:
         self._write(record)
 
     def progress_lines(self, lines: List[Tuple[int, str]]) -> None:
-        if self._f is None:
-            self._open()
+        self._ensure_open()
         self._write({"progress_lines": [[o, t] for o, t in lines]})
 
     def summary(self, summary: dict) -> None:
-        if self._f is None:
-            self._open()
+        self._ensure_open()
         self._write({"summary": summary})
 
     def finish(self, end_offset: int) -> None:
-        if self._f is None:
-            self._open()
+        self._ensure_open()
         self._write({"complete": True, "end_offset": end_offset})
 
     def close(self) -> None:

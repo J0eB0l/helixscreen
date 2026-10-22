@@ -786,3 +786,21 @@ def test_fsync_dir_is_the_one_both_durable_writers_use(tmp_path):
     assert helix_plr._fsync_dir is reader.fsync_dir
     reader.fsync_dir(tmp_path)
     reader.fsync_dir(tmp_path / "missing")
+
+
+def test_a_writer_behind_a_complete_index_reads_it_once(tmp_path, monkeypatch):
+    path = str(tmp_path / "a.layers.jsonl")
+    identity = {"file_size": 10, "file_mtime": 1.0, "file_hash": "x"}
+    reader.write_layer_index(path, identity, [(0, 0, reader.ModalState(), None)], [], 10)
+    reads = []
+    real_read = reader.read_layer_index
+    monkeypatch.setattr(reader, "read_layer_index",
+                        lambda *a, **k: reads.append(1) or real_read(*a, **k))
+    writer = reader.LayerIndexWriter(path, identity)
+    for layer in range(5):
+        writer.append(layer, layer * 10, reader.ModalState())
+    writer.progress_lines([])
+    writer.finish(10)
+    writer.close()
+    assert writer.inert
+    assert len(reads) == 1
