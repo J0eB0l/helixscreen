@@ -1524,9 +1524,10 @@ void PrintSelectDetailView::on_ams_state_changed() {
     }
     // Slots landing can change whether the card shows, not only its chips: the
     // multi-tool test reads the slot count, and the availability and bypass
-    // gates read the backend. A shown card refreshes its slots WITHOUT
-    // recomputing mappings, so a remap survives; a hidden one has none to keep
-    // and is decided afresh from the file's palette.
+    // gates read the backend. A shown card refreshes its slots and re-seeds
+    // every mapping the user did not pick, so a pick survives and the rest
+    // follow the printer; a hidden one has none to keep and is decided afresh
+    // from the file's palette.
     if (filament_mapping_card_.should_show()) {
         filament_mapping_card_.refresh_slot_data();
     } else {

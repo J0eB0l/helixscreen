@@ -124,7 +124,7 @@ struct ToolMapping {
     /// NOTHING READS THIS TODAY. The chip's surround derives the same answer at
     /// render time from the lane it just resolved, deliberately: a verdict stored
     /// here outlives the lane it judged, because refresh_slot_data() replaces the
-    /// slot vector and rebuilds with the mappings untouched. So this field is
+    /// slot vector while a user's pick stays where it is. So this field is
     /// written for symmetry with material_mismatch and nothing else - the pair is
     /// adopted or not as a unit, which is what makes "take material, forget
     /// colour" unexpressible at a call site (see set_mismatches()).
