@@ -608,6 +608,69 @@ EOF
         || fail "re-run rewrote the pre-install record"
 }
 
+# --- configure_forgex_display: a fresh Forge-X has no display key ---
+#
+# Forge-X saves a mod setting only when it differs from the default, so a
+# fresh install's variables.cfg is a bare `[Variables]` header with no
+# trailing newline. printer.cfg's include is then the only evidence of the
+# mode the printer runs.
+
+write_fresh_variables_cfg() {
+    printf '[Variables]' > "$VAR_CFG"
+}
+
+@test "a fresh variables.cfg with no display key takes the STOCK mode printer.cfg runs" {
+    write_fresh_variables_cfg
+    write_printer_cfg stock
+    log_warn() { echo "[WARN] $1"; }
+
+    run configure_forgex_display
+
+    [ "$status" -eq 0 ] || fail "takeover refused a fresh Forge-X: $output"
+    [ "$(cat "$PREV_DISPLAY_F")" = "STOCK" ]
+    [ "$(head -n 1 "$VAR_CFG")" = "[Variables]" ] \
+        || fail "header lost or merged: $(cat "$VAR_CFG")"
+    grep -qx "display = 'HEADLESS'" "$VAR_CFG" \
+        || fail "HEADLESS is not on its own line: $(cat "$VAR_CFG")"
+    [ "$(grep -c 'display' "$VAR_CFG")" -eq 1 ]
+    [[ "$output" != *"[WARN]"* ]] || fail "warned on a fresh Forge-X: $output"
+}
+
+@test "a fresh variables.cfg with no display key takes the FEATHER mode printer.cfg runs" {
+    write_fresh_variables_cfg
+    write_printer_cfg feather
+
+    run configure_forgex_display
+
+    [ "$status" -eq 0 ] || fail "takeover refused a fresh Forge-X: $output"
+    [ "$(cat "$PREV_DISPLAY_F")" = "FEATHER" ]
+    [ "$(current_display_mode)" = "HEADLESS" ]
+}
+
+@test "no display key and no recognizable include still refuses the takeover" {
+    write_fresh_variables_cfg
+    printf '[include ./mod/config/printer_vars.cfg]\n' > "$FORGEX_PRINTER_CFG"
+
+    run configure_forgex_display
+
+    [ "$status" -ne 0 ] || fail "takeover guessed a mode with no evidence"
+    [ "$(cat "$VAR_CFG")" = "[Variables]" ] \
+        || fail "the refused takeover rewrote variables.cfg: $(cat "$VAR_CFG")"
+    [ ! -e "$PREV_DISPLAY_F" ]
+}
+
+@test "uninstall after a fresh-file install restores STOCK" {
+    write_fresh_variables_cfg
+    write_printer_cfg stock
+    configure_forgex_display
+
+    uninstall_forgex
+
+    [ "$(current_display_mode)" = "STOCK" ] \
+        || fail "restored $(current_display_mode), not STOCK"
+    grep -qx "display = 'STOCK'" "$VAR_CFG"
+}
+
 # --- configure_platform: a failed takeover fails the install ---
 
 @test "configure_platform propagates a failed display takeover" {

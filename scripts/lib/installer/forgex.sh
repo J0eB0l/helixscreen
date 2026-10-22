@@ -151,6 +151,29 @@ forgex_record_prev_display() {
     return 0
 }
 
+# Give a variables.cfg with no display key the line for the mode printer.cfg
+# runs. Forge-X saves a mod setting only when it differs from the default, so
+# a fresh install's file is a bare `[Variables]` header (no trailing newline)
+# and the include is the only evidence of the mode. Spelling that mode out
+# changes nothing the printer does, and lets the takeover read the file the
+# same way whether or not the mode was ever changed. Writes nothing when the
+# file already has a display line or the include names no mode: a missing
+# mode is never guessed.
+forgex_materialize_display_key() {
+    mat_file="$1"
+    grep -q "^[[:space:]]*display[[:space:]]*=" "$mat_file" 2>/dev/null && return 0
+    mat_mode="$(forgex_running_display_mode)"
+    [ -n "$mat_mode" ] || return 0
+
+    mat_text=""
+    if [ -s "$mat_file" ] && [ -n "$(tail -c 1 "$mat_file")" ]; then
+        mat_text='\n'
+    fi
+    grep -q '^\[Variables\]' "$mat_file" 2>/dev/null || mat_text="${mat_text}[Variables]\n"
+    # shellcheck disable=SC2059  # mat_text holds only the literal \n escapes above
+    printf "${mat_text}display = '%s'\n" "$mat_mode" | $SUDO tee -a "$mat_file" >/dev/null
+}
+
 # Configure ForgeX display settings for HelixScreen.
 #
 # HEADLESS is the slot DrA1ex asked custom screens to occupy (DrA1ex/ff5m#74).
@@ -177,6 +200,10 @@ configure_forgex_display() {
     drift_refused=false
 
     if [ -f "$var_file" ]; then
+        if ! forgex_materialize_display_key "$var_file"; then
+            log_warn "Could not write the ForgeX display mode to ${var_file}"
+        fi
+
         # HEADLESS closes the list as an arrival state: a printer already on
         # it (a prior HelixScreen install, or DrA1ex's slot for custom
         # screens) must be recorded as such, or uninstall "restores" it to
