@@ -20,6 +20,9 @@
     <prop name="status_subject" type="string" default=""/>
     <prop name="step_callback" type="string" default=""/>
     <prop name="reset_callback" type="string" default=""/>
+    <!-- Percent each stepper sends; two props because XML cannot negate one. -->
+    <prop name="step_down" type="string" default="-5"/>
+    <prop name="step_up" type="string" default="5"/>
   </api>
   <styles>
     <style name="sf_warn" text_color="#warning"/>
@@ -92,7 +95,7 @@
                     style_flex_cross_place="center">
         <ui_button name="speed_flow_minus" width="#button_height_sm" height="#button_height_sm" text="-">
           <bind_flag_if_eq subject="speed_flow_show_steppers" flag="hidden" ref_value="0"/>
-          <event_cb trigger="clicked" callback="$step_callback" user_data="-5"/>
+          <event_cb trigger="clicked" callback="$step_callback" user_data="$step_down"/>
         </ui_button>
         <!-- Long-press resets this axis; the callback ignores it while the steppers are hidden. -->
         <text_heading name="speed_flow_full_value"
@@ -105,7 +108,7 @@
         </text_heading>
         <ui_button name="speed_flow_plus" width="#button_height_sm" height="#button_height_sm" text="+">
           <bind_flag_if_eq subject="speed_flow_show_steppers" flag="hidden" ref_value="0"/>
-          <event_cb trigger="clicked" callback="$step_callback" user_data="5"/>
+          <event_cb trigger="clicked" callback="$step_callback" user_data="$step_up"/>
         </ui_button>
       </pass_through>
     </pass_through>
