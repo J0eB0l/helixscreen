@@ -117,8 +117,11 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
         constexpr int kRequestsPerThread = 25;
         constexpr int kTotalRequests = NUM_THREADS * kRequestsPerThread;
 
-        std::atomic<int> success_count{0};
-        std::atomic<int> error_count{0};
+        // At the 75% bar below, requests can still be pending when the body returns; the
+        // fixture destructor's disconnect() then fails them, so the counters must outlive
+        // this frame.
+        auto success_count = std::make_shared<std::atomic<int>>(0);
+        auto error_count = std::make_shared<std::atomic<int>>(0);
         std::atomic<bool> connected{false};
 
         // Connect to mock server
@@ -135,8 +138,8 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
         auto send_requests = [&](int thread_id) {
             for (int i = 0; i < kRequestsPerThread; i++) {
                 client_->send_jsonrpc(
-                    "printer.info", json(), [&success_count](json) { success_count++; },
-                    [&error_count](const MoonrakerError&) { error_count++; });
+                    "printer.info", json(), [success_count](json) { (*success_count)++; },
+                    [error_count](const MoonrakerError&) { (*error_count)++; });
             }
         };
 
@@ -152,14 +155,14 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
         }
 
         // Wait for all responses to arrive
-        for (int i = 0; i < 200 && (success_count + error_count) < kTotalRequests; i++) {
+        for (int i = 0; i < 200 && (*success_count + *error_count) < kTotalRequests; i++) {
             std::this_thread::sleep_for(milliseconds(100));
         }
 
-        INFO("Success: " << success_count.load() << ", Error: " << error_count.load());
+        INFO("Success: " << success_count->load() << ", Error: " << error_count->load());
 
         // Most requests should succeed with the mock server
-        REQUIRE(success_count >= kTotalRequests * 3 / 4); // At least 75% success
+        REQUIRE(*success_count >= kTotalRequests * 3 / 4); // At least 75% success
     }
 
     SECTION("Concurrent send_jsonrpc with different methods") {
@@ -585,13 +588,21 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
 TEST_CASE_METHOD(MoonrakerRobustnessFixture, "MoonrakerClient state machine transitions correctly",
                  "[connection][edge][state][priority4][eventloop][slow]") {
     SECTION("State transitions during failed connection") {
-        std::vector<ConnectionState> states;
-        std::mutex states_mutex;
+        // The callback stays registered until the fixture destroys the client, and the
+        // fixture destructor's disconnect() and the loop thread's onclose can both change
+        // state after the body returns, so the log lives on the heap with the callback.
+        struct StateLog {
+            std::mutex mutex;
+            std::vector<ConnectionState> states;
+        };
+        auto log = std::make_shared<StateLog>();
+        auto& states = log->states;
+        auto& states_mutex = log->mutex;
 
         client_->set_state_change_callback(
-            [&](ConnectionState old_state, ConnectionState new_state) {
-                std::lock_guard<std::mutex> lock(states_mutex);
-                states.push_back(new_state);
+            [log](ConnectionState old_state, ConnectionState new_state) {
+                std::lock_guard<std::mutex> lock(log->mutex);
+                log->states.push_back(new_state);
             });
 
         client_->connect("ws://192.0.2.1:7125/websocket", []() {}, []() {});
