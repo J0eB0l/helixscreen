@@ -102,7 +102,7 @@ The K-Touch is too small to read whole G-code files itself. With the HelixPrint 
 - a thumbnail for files your slicer saved without one
 - the filament amount and color for each tool, used by the checks before a print starts
 
-To install it, open **Advanced** on the K-Touch and tap the plugin's **Install** row. The K-Touch is not attached to the printer, so it shows a one-line command instead; run that command on the printer over SSH.
+To install it, open **Advanced** on the K-Touch and tap the plugin's **Install** row. The K-Touch is not attached to the printer, so it shows a one-line command instead; run that command on the printer over SSH. [HelixPrint Plugin](helixprint-plugin.md) covers everything else the plugin adds.
 
 Without the plugin those files show no thumbnail and the per-tool filament checks have nothing to go on, exactly as before. Nothing else on the K-Touch needs the plugin.
 

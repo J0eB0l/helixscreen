@@ -106,7 +106,7 @@ Tap **Current Version** seven times in **Settings > Help & About > About**. A me
 With beta features on:
 
 - The **Update Channel** menu in [Updates](updates.md#update-channel) gains a third choice, **Dev**.
-- HelixScreen offers to install the HelixPrint plugin when your printer does not have it.
+- HelixScreen offers to install the [HelixPrint plugin](../helixprint-plugin.md) when your printer does not have it.
 
 Tap seven more times to turn them off again. See [Beta Features](../beta-features.md) for the full list.
 

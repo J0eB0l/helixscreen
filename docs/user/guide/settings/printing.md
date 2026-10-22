@@ -222,7 +222,7 @@ If the plugin isn't installed yet, HelixScreen shows an **Install Wizard** that 
 
 ## Power-loss recovery and start options for other apps
 
-These two switches come from the **HelixPrint plugin** on your printer.
+These two switches come from the **HelixPrint plugin** on your printer. See [HelixPrint Plugin](../helixprint-plugin.md) for installing it and everything else it adds.
 
 | Setting | What it does |
 |---------|--------------|

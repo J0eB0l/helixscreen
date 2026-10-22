@@ -158,6 +158,8 @@ snapshot during every print on printers listed for it, decides itself whether a
 resume can be offered, and renders and sends the resume. The app gates on the
 plugin's `plr` feature (`plugin_feature("plr", 1)` Ready), asks for the plugin's
 verdict, and owns only the confirmations a screen can ask.
+The feature framework it registers with, and the layer index it shares with file
+analysis, are in [HELIXPRINT_PLUGIN.md](HELIXPRINT_PLUGIN.md).
 
 | | |
 |---|---|

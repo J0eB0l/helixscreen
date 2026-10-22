@@ -62,6 +62,7 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/camera.md` | Webcam viewing via the home widget and fullscreen viewer, rotation/flip, stream status, performance throttling |
 | `guide/print-history.md` | History dashboard with time-range statistics and trend charts, searchable job list, per-job details, reprinting |
 | `guide/advanced.md` | Console, macros, power, history, timelapse |
+| `guide/helixprint-plugin.md` | The HelixPrint plugin: what it is, installing it (on the printer's screen or by SSH command from a remote one), each feature with and without it on attached vs remote screens, the Advanced overview, what "Requires the HelixPrint plugin" / "Requires a newer HelixPrint plugin" / "Only while this app is connected" mean |
 | `guide/beta-features.md` | Beta activation, feature list, update channels |
 | `guide/tips.md` | Workflow tips, troubleshooting, panel reference |
 | `INSTALL.md` | Installation guide for all platforms |

@@ -16,7 +16,7 @@ Welcome to the HelixScreen documentation. Choose your path:
 | [**Troubleshooting**](user/TROUBLESHOOTING.md) | Solutions to common problems |
 | [**FAQ**](user/FAQ.md) | Quick answers to common questions |
 | [**Telemetry**](user/TELEMETRY.md) | What telemetry collects, privacy controls, opt-in/out |
-| [**Feature Guides**](user/guide/) | 33 guides: per-feature (printing, calibration, filament, sensors, camera, and more) plus per-platform install guides (K1C, K2, AD5M, AD5X, CC1, Sonic Pad, U1, K-Touch, Linux desktop window) |
+| [**Feature Guides**](user/guide/) | 39 guides: per-feature (printing, calibration, filament, sensors, camera, the HelixPrint plugin, and more) plus per-platform install guides (K1C, K2, AD5M, AD5X, CC1, Sonic Pad, U1, K-Touch, Linux desktop window) |
 
 ---
 
@@ -97,7 +97,8 @@ Welcome to the HelixScreen documentation. Choose your path:
 | [**Printer Manager**](devel/PRINTER_MANAGER.md) | Printer overlay, custom images, inline editing |
 | [**Timelapse**](devel/TIMELAPSE.md) | Moonraker timelapse plugin integration |
 | [**Crash Reporter**](devel/CRASH_REPORTER.md) | Crash detection, delivery pipeline, CF Worker |
-| [**HelixPrint Plugin**](../moonraker-plugin/README.md) | Print attribution Moonraker plugin (server/helix/print_modified, print_edited + server/helix/status) |
+| [**HelixPrint Plugin**](devel/HELIXPRINT_PLUGIN.md) | The Moonraker plugin and the app: feature framework, plugin-vs-fallback decisions, settings placement, the Lua allowlist, file analysis, print hooks, server edits, event journal, config edit |
+| [**HelixPrint Plugin API**](../moonraker-plugin/README.md) | Plugin reference: install, configuration, every server/helix endpoint and record |
 
 ### Platform Support
 
@@ -160,7 +161,7 @@ docs/
 │   ├── CONFIGURATION.md      # Settings reference
 │   ├── TROUBLESHOOTING.md    # Common problems
 │   ├── FAQ.md                # Frequently asked questions
-│   └── guide/                # 33 guides: per-feature + per-platform install (+ guide/settings/)
+│   └── guide/                # 39 guides: per-feature + per-platform install (+ guide/settings/)
 │
 ├── devel/                    # DEVELOPER DOCUMENTATION
 │   ├── CLAUDE.md             # Full developer doc index

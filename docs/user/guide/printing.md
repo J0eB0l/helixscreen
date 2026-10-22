@@ -74,7 +74,7 @@ Tap a file to see the preview panel:
 
 ### With the HelixPrint plugin
 
-When the HelixPrint plugin is installed on your printer (the **Install** row on the **Advanced** screen; on a screen that is not attached to the printer it shows a command to run on the printer instead), it reads every G-code file once, in the background, right after you upload it. You don't need to do anything, and the file prints exactly as it would without it. What you get:
+When the [HelixPrint plugin](helixprint-plugin.md) is installed on your printer (the **Install** row on the **Advanced** screen; on a screen that is not attached to the printer it shows a command to run on the printer instead), it reads every G-code file once, in the background, right after you upload it. You don't need to do anything, and the file prints exactly as it would without it. What you get:
 
 - **A thumbnail for every file.** A file your slicer saved without a picture gets one: a top-down view of the print, colored by filament. It shows in the file list here and in Mainsail and Fluidd too.
 - **Faster previews of large files.** The 2D layer preview of a big file appears as soon as the file has downloaded, instead of after HelixScreen has read through it.
@@ -99,7 +99,7 @@ These options modify the G-code on-the-fly — if you disable "Auto Bed Mesh" bu
 
 > **Note:** This only works for operations in the sliced file itself. If a step like bed mesh or QGL lives *inside* your `PRINT_START` macro, HelixScreen can't comment it out. The toggle can only skip it if your macro accepts a skip parameter for that step (for example `SKIP_BED_MESH=1`).
 
-HelixScreen prints a changed copy of the file and leaves your original untouched. The copy keeps every other line of the file, including its last command. With the HelixPrint plugin installed, the copy is made on the printer itself, so a large file starts without first being copied to the screen and back. Without the plugin, the screen downloads the file, changes it and uploads the copy, which takes longer for big files and needs free space on the screen.
+HelixScreen prints a changed copy of the file and leaves your original untouched. The copy keeps every other line of the file, including its last command. With the [HelixPrint plugin](helixprint-plugin.md) installed, the copy is made on the printer itself, so a large file starts without first being copied to the screen and back. Without the plugin, the screen downloads the file, changes it and uploads the copy, which takes longer for big files and needs free space on the screen.
 
 > **Tip:** Pre-print options remember your preferences per slicer. If you always run bed mesh before PrusaSlicer prints, that preference persists.
 

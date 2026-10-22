@@ -222,7 +222,7 @@ When no job is running, the device unlocks and toggles normally again — that i
 
 ## HelixPrint Plugin
 
-When the HelixPrint plugin is installed, **Advanced > HelixPrint Plugin** shows its version and every feature it runs on your printer, each marked **Active**, **Off** or **Unavailable** with the reason. Tap a feature that has a setting to open the page where its switch lives, for example **Settings > Printing** for power-loss recovery. This page only shows status: the switches themselves are on those settings pages. **Install HelixPrint Plugin** and **Uninstall HelixPrint Plugin** are on the Advanced screen too.
+When the HelixPrint plugin is installed, **Advanced > HelixPrint Plugin** shows its version and every feature it runs on your printer, each marked **Active**, **Off** or **Unavailable** with the reason. Tap a feature that has a setting to open the page where its switch lives, for example **Settings > Printing** for power-loss recovery. This page only shows status: the switches themselves are on those settings pages. **Install HelixPrint Plugin** and **Uninstall HelixPrint Plugin** are on the Advanced screen too. See [HelixPrint Plugin](helixprint-plugin.md) for what each feature does and how to install the plugin.
 
 ---
 
@@ -263,7 +263,7 @@ Notifications are what HelixScreen told you. **Printer Events** is what happened
 
 A line under the title says where the list comes from:
 
-- **Recorded by the HelixPrint plugin**: the printer keeps the record itself, so it includes everything that happened while this screen was off or disconnected, and every screen connected to the printer shows the same list.
+- **Recorded by the [HelixPrint plugin](helixprint-plugin.md)**: the printer keeps the record itself, so it includes everything that happened while no HelixScreen was connected, and every screen connected to the printer shows the same list.
 - **Recorded by this screen while connected**: without the plugin, the screen keeps its own record. When it reconnects, it fills in what it missed from what the printer still remembers (recent errors, how prints ended, and recent shutdowns). Those entries are marked **(recovered)**. Events from a long outage can be missing.
 
 There is nothing to switch on: Printer Events is always recorded.
