@@ -458,12 +458,14 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
 }
 
 void ScrewsTiltPanel::clear_results() {
-    helix::ui::safe_delete(tilt_surface_);
+    // Deferred: results arrive inside a queued UI-update batch, where a
+    // synchronous delete corrupts LVGL's event list.
+    helix::ui::safe_delete_deferred(tilt_surface_);
     lv_subject_copy_string(&tilt_spread_subject_, "");
 
     // Clear bed diagram indicators (dynamically positioned)
     for (auto* indicator : screw_indicators_) {
-        helix::ui::safe_delete(indicator);
+        helix::ui::safe_delete_deferred(indicator);
     }
     screw_indicators_.clear();
 
