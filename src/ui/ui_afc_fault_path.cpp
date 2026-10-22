@@ -50,10 +50,10 @@ void ensure_subject() {
 void afc_fault_path_register() {
     ensure_subject();
 
-    // Registered here rather than alongside the modals that embed it: both
-    // ams_loading_error_modal.xml (lazily registered by AmsPanel) and
-    // action_prompt_modal.xml reference <afc_fault_path/>, so it has to exist
-    // before either of them is parsed.
+    // Registered here rather than alongside the modals that embed it:
+    // ams_loading_error_modal.xml (lazily registered by AmsPanel),
+    // action_prompt_modal.xml and recovery_fault_modal.xml reference
+    // <afc_fault_path/>, so it has to exist before any of them is parsed.
     const std::string path =
         "A:" + LayoutManager::instance().resolve_xml_path("components/afc_fault_path.xml");
     if (lv_xml_register_component_from_file(path.c_str()) != LV_RESULT_OK) {
@@ -88,6 +88,34 @@ std::string afc_fault_path_apply(const std::string& message) {
         return message;
     }
     return helix::afc::afc_strip_position_diagram(message);
+}
+
+void AfcFaultPathHold::hold() {
+    if (!held_) {
+        before_ = afc_fault_path_current();
+        held_ = true;
+    }
+}
+
+std::optional<PathSegment> AfcFaultPathHold::publish(std::string_view message) {
+    hold();
+    const auto segment = afc_fault_path_publish(message);
+    published_ = segment ? static_cast<int>(*segment) : 0;
+    return segment;
+}
+
+std::string AfcFaultPathHold::apply(const std::string& message) {
+    hold();
+    std::string shown = afc_fault_path_apply(message);
+    published_ = afc_fault_path_current();
+    return shown;
+}
+
+void AfcFaultPathHold::release() {
+    if (held_) {
+        afc_fault_path_restore(published_, before_);
+        held_ = false;
+    }
 }
 
 } // namespace helix::ui

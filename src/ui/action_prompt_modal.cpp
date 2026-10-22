@@ -214,7 +214,7 @@ bool ActionPromptModal::show_prompt(lv_obj_t* parent, const PromptData& data) {
     publish_fault_path();
 
     if (!Modal::show(parent)) {
-        restore_fault_path();
+        fault_path_.release();
         return false;
     }
 
@@ -226,13 +226,8 @@ bool ActionPromptModal::show_owned_prompt(lv_obj_t* parent, const PromptData& da
     auto modal = std::make_unique<ActionPromptModal>();
     modal->prompt_data_ = data;
     modal->publish_fault_path();
-    const int published = modal->fault_path_published_;
-    const int before = modal->fault_path_before_;
-    if (!Modal::show_owned(std::move(modal), parent)) {
-        afc_fault_path_restore(published, before);
-        return false;
-    }
-    return true;
+    // A failed show frees the modal, whose hold hands the diagram back.
+    return Modal::show_owned(std::move(modal), parent);
 }
 
 void ActionPromptModal::publish_fault_path() {
@@ -241,20 +236,7 @@ void ActionPromptModal::publish_fault_path() {
         text += line;
         text += '\n';
     }
-    // A prompt re-shown while open keeps the value it found the first time.
-    if (!fault_path_held_) {
-        fault_path_before_ = afc_fault_path_current();
-        fault_path_held_ = true;
-    }
-    const auto segment = afc_fault_path_publish(text);
-    fault_path_published_ = segment ? static_cast<int>(*segment) : 0;
-}
-
-void ActionPromptModal::restore_fault_path() {
-    if (fault_path_held_) {
-        afc_fault_path_restore(fault_path_published_, fault_path_before_);
-        fault_path_held_ = false;
-    }
+    fault_path_.publish(text);
 }
 
 // ============================================================================
@@ -268,7 +250,7 @@ void ActionPromptModal::on_show() {
 
 void ActionPromptModal::on_hide() {
     clear_dynamic_content();
-    restore_fault_path();
+    fault_path_.release();
     spdlog::debug("[ActionPromptModal] on_hide()");
     if (!dismiss_callback_) {
         return;

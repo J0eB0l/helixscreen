@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ui_afc_fault_path.h"
 #include "ui_modal.h"
 
 #include "error_event.h"
@@ -94,15 +95,11 @@ class RecoveryFaultModal : public Modal {
 
   private:
     void run_action(size_t index);
-    void restore_fault_path();
 
     std::vector<helix::RecoveryAction> actions_;
     ActionCallback action_callback_;
     DismissCallback dismiss_callback_;
-
-    int fault_path_before_ = 0;    ///< afc_fault_segment when this dialog published
-    int fault_path_published_ = 0; ///< the value this dialog published
-    bool fault_path_held_ = false; ///< published and not yet handed back
+    AfcFaultPathHold fault_path_;
 };
 
 } // namespace helix::ui

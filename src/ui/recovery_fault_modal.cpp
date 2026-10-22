@@ -3,8 +3,6 @@
 
 #include "recovery_fault_modal.h"
 
-#include "ui_afc_fault_path.h"
-
 #include <spdlog/spdlog.h>
 
 #include <array>
@@ -54,10 +52,7 @@ bool RecoveryFaultModal::show_fault(lv_obj_t* parent, const std::string& title,
     // <afc_fault_path> graphic and drop the art rows from the text. An
     // unrecognised detail sets the subject to 0 (graphic hidden) and comes back
     // unchanged.
-    fault_path_before_ = afc_fault_path_current();
-    const std::string message = afc_fault_path_apply(detail);
-    fault_path_published_ = afc_fault_path_current();
-    fault_path_held_ = true;
+    const std::string message = fault_path_.apply(detail);
 
     // Every string the attr array points into lives until show() returns.
     std::vector<std::string> values;
@@ -88,7 +83,7 @@ bool RecoveryFaultModal::show_fault(lv_obj_t* parent, const std::string& title,
     attrs.push_back(nullptr);
 
     if (!Modal::show(parent, attrs.data())) {
-        restore_fault_path();
+        fault_path_.release();
         return false;
     }
     return true;
@@ -102,7 +97,7 @@ void RecoveryFaultModal::on_show() {
 }
 
 void RecoveryFaultModal::on_hide() {
-    restore_fault_path();
+    fault_path_.release();
     if (close_reason_ != ModalCloseReason::Programmatic && dismiss_callback_) {
         dismiss_callback_();
     }
@@ -114,18 +109,13 @@ void RecoveryFaultModal::run_action(size_t index) {
         return;
     }
     const std::string gcode = actions_[index].gcode;
+    // The dialog closes after the callback, so the callback must not present a
+    // new fault synchronously: it would be hidden here.
     // An empty gcode is the dismiss affordance: close, send nothing.
     if (!gcode.empty() && action_callback_) {
         action_callback_(gcode);
     }
     hide(ModalCloseReason::ButtonPress);
-}
-
-void RecoveryFaultModal::restore_fault_path() {
-    if (fault_path_held_) {
-        afc_fault_path_restore(fault_path_published_, fault_path_before_);
-    }
-    fault_path_held_ = false;
 }
 
 } // namespace helix::ui
