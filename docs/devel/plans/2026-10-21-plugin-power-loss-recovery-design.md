@@ -43,7 +43,7 @@ Accepted as recommended in the first draft, or decided on review:
 | ID | Ruling |
 |---|---|
 | O1 | The fast and slow blocks live in the plugin's two-slot file (§ 4.2). Job identity and mesh stay in the Moonraker namespace. Why SQLite was avoided is recorded in § 4.2. |
-| O2 | Decided by test. Initial default: skip ahead half a snapshot interval past the executed point (`resume_skip_fraction = 0.5`, § 6.2), one named tunable. Task T2 (§ 11.4) compares re-trace and skip-half on real prints. |
+| O2 | Closed by test (T2, § 11.4, 2026-10-22): re-trace is the default, `resume_skip_fraction = 0.0` (§ 6.2), kept as one named tunable. On the Q2 (QIDI path, a 40x40x6 mm PLA box, one cut per setting, killed at layer 10), skip-half (0.5) left the resumed layers separated from the part at the seam; re-trace (0.0) left the seam solid with only a faint line. |
 | O3 | Scan at resume time. Measured first (task T1, § 11.4): a 100 MB file on a K1C-class host must scan in 30 s or less. Over 30 s, v1 switches to background per-layer checkpoints during the print (§ 6.2). |
 | D1 | No offer after `klippy_shutdown` / `error` in v1 (power loss only). |
 | D2 | Adaptive-mesh carry-over needs an opt-in `[include helix-plr/*.cfg]` line in printer.cfg (§ 6.4). |
@@ -291,8 +291,8 @@ Inputs: the snapshot's fast block, the file. Output: `ResumePoint`.
    `resume_skip_fraction x save_interval` seconds of motion, walking forward through the window
    at each line's feedrate (F times the speed factor, capped by the velocity limit). At 0 the
    resume re-traces up to one interval (a ridge, never a gap); at 1 it skips the whole interval
-   (no ridge, possibly a gap). Initial default 0.5, settled by task T2. Reported as
-   `retrace_estimate_mm` and `skip_estimate_mm`.
+   (no ridge, possibly a gap). Default 0 (re-trace): the resume starts at the executing line's
+   start (O2, T2). Reported as `retrace_estimate_mm` and `skip_estimate_mm`.
 6. **Fallback.** If the walk does not converge or the check fails: the start of the next
    layer (ruling R26; the partial layer is skipped), `method: "layer_start"`, with the
    `layer_start` warning. The scan reads on past the head when it has not reached that layer;
@@ -305,7 +305,7 @@ Signatures (Python, pure, no Moonraker imports). `ModalState`, `LineRecord`, `Sc
 ```python
 WINDOW_BYTES = 256 * 1024                  # helix_gcode_reader.py
 MATCH_TOL_MM = 0.5                         # helix_plr_scan.py from here down
-RESUME_SKIP_FRACTION_DEFAULT = 0.5         # tunable: plr_profile.resume_skip_fraction overrides
+RESUME_SKIP_FRACTION_DEFAULT = 0.0         # tunable: plr_profile.resume_skip_fraction overrides
 
 class ModalState:            # __slots__ class; gcode_move fields plus tool, heaters, fans, PA,
     ...                      # limits, retract, layer; copy(), to_dict()/from_dict() for layer_index
@@ -503,7 +503,7 @@ In `assets/config/printer_database.json`, per printer. Absent block = tier 0.
 | `nozzle_standby_drop_c` | float >= 0 | 70.0 | Standby temperature under the print temperature between prepare and commit (R30; floored at 140 °C) |
 | `purge_gcode` | string \| null | null | Purge/wipe macro; null = generic purge |
 | `z_rehome` | `"none"` \| `"probe_clear_spot"` \| `"z_max"` | `"none"` | Tier 3, reserved |
-| `resume_skip_fraction` | float 0-1 | 0.5 | Fraction of the save interval skipped past the executed point (§ 6.2); the user may override |
+| `resume_skip_fraction` | float 0-1 | 0.0 | Fraction of the save interval skipped past the executed point (§ 6.2); the user may override |
 
 User overrides (settings, `helix-screen` / `plr_user`): `enabled` (bool), `tier` (int, may lower or
 raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
@@ -527,7 +527,7 @@ struct PlrHomingCheck { bool xy_home_safe = false; bool has_xy_home_override = f
 struct PlrDbBlock { int tier = 0; PlrBackendKind backend = PlrBackendKind::Generic;
                     StorageHint storage = StorageHint::Unknown; bool z_holds_unpowered = false;
                     std::string xy_home_gcode = "G28 X Y"; float z_lift_mm = 5.0f;
-                    std::optional<std::string> purge_gcode; float resume_skip_fraction = 0.5f; };
+                    std::optional<std::string> purge_gcode; float resume_skip_fraction = 0.0f; };
 struct PlrUserOverride { std::optional<bool> enabled; std::optional<int> tier;
                          std::optional<std::string> xy_home_gcode, purge_gcode;
                          std::optional<float> resume_skip_fraction; };
@@ -1056,7 +1056,7 @@ does on the host side.
 | K1C, CB1 Voron, Pi 4 (SD), CM4 eMMC | `storage_verdict` on real `/sys` | M3 | § 7.4 |
 | eMMC host and SD host | 3 reboots each mid-print, slot file read back | M2 | Slot durability on real filesystems |
 | K1C (slowest listed host) | **T1, first task of v1**: `scan_to_offset` over a 100 MB Orca file to its last byte, 3 runs, idle printer, plugin's real interpreter | M3 | **Done 2026-10-21: FAIL, 394 s median (§ 11.5).** Background per-layer checkpoints join v1 (O3) |
-| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out |
+| One listed printer whose Z steppers all have dedicated `enable_pin`s, PLA, 0.2 mm layers | **T2**: 6 kills per setting, half during an outer wall and half during sparse infill, resumed with `resume_skip_fraction` 0 (re-trace) and 0.5 (skip-half); inspect each seam with a loupe and calipers for a ridge (height over the wall) or a gap (missing length) | M1 | O2 default: the setting with no gaps and the smaller ridge wins; a gap on any wall run rules that setting out. **Run 2026-10-22 on the Q2 (QIDI path), one cut per setting, killed at layer 10 of a 40x40x6 mm PLA box: 0.5 separated at the seam, 0.0 solid with a faint line. Default 0.0 (O2 closed)** |
 | One tier-2 model (dedicated Z `enable_pin`s) | Z hold: kill, wait 10 / 30 / 60 min, measure Z drift with a dial indicator before resume; adhesion: same waits, PLA and PETG | M1 + wait | Z holds unpowered; adhesion; cold-bed threshold (O6) |
 | Any eMMC host | `/sys/block/*/stat` sectors written over 1 h of printing, slot file vs SQLite | M3 | § 5.2 numbers |
 | `--test` mock | Offer, wizard steps, tier 1 and 2, every `HELIX_MOCK_PLR_WARNINGS` and `_FAIL` value | M3 | App flow before any hardware run |
@@ -1169,7 +1169,7 @@ installer prompt (O9), write the include line through the existing `KlipperConfi
   scan and measured resume point with layer-start fallback, generic sequence for tiers 1 and 2,
   single extruder, saved and include-file mesh, all endpoints in § 9, the `plr` feature entry.
 - QIDI-new adapter, `helix_plr_qidi.py`.
-- T2 before the `resume_skip_fraction` default is final.
+- T2 before the `resume_skip_fraction` default is final: run 2026-10-22, default 0.0 (O2).
 - App: GENERIC backend, wizard, settings, profile resolution, DB `plr` blocks for the models
   tested in § 11.4.
 

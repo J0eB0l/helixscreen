@@ -180,6 +180,7 @@ def test_profile_bad_types_take_defaults():
     })
     assert profile == PlrProfile()
     assert parse_profile({"tier": 9}).tier == 3
+    assert parse_profile({}).resume_skip_fraction == 0.0      # re-trace (O2)
     assert parse_profile({"tier": True}).tier == 0
 
 
@@ -1169,8 +1170,9 @@ def test_plan_finds_the_measured_point(plr, resume):
     reply = run(plr.handle_plan(Req()))
     assert reply["method"] == "measured"
     layer4 = resume.index(b"SET_PRINT_STATS_INFO CURRENT_LAYER=4")
-    # Skip half a second at 10 mm/s past X=49.5: the line ending at X=55.
-    assert reply["resume_offset"] == resume.index(b"G1 X55 Y10", layer4)
+    # Re-trace by default: the executing line (E puts the nozzle on the one
+    # ending at X=49), from its start.
+    assert reply["resume_offset"] == resume.index(b"G1 X49 Y10", layer4)
     assert reply["filename"] == "sub/part.gcode" and reply["layer"] == 4
     assert reply["z_gcode"] == pytest.approx(0.8) and reply["z_physical"] == 0.8
     assert reply["requires"] == ["part_attached", "z_confirmed"]
