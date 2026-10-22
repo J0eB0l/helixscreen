@@ -127,10 +127,11 @@ void PreflightCheckModal::on_show() {
             if (check.severity == helix::ToolCheck::Severity::EmptySlot) {
                 char buf[160];
                 if (check.mapped_slot < 0) {
-                    // No lane feeds the tool at all (the printer's table assigns
-                    // it none): the missing piece is the assignment, not a spool.
+                    // No lane feeds the tool at all: the printer's table assigns
+                    // it none, or auto matching found no compatible loaded lane.
+                    // Either way the missing piece is the assignment.
                     snprintf(buf, sizeof(buf),
-                             lv_tr("%s has no spool assigned. Map one to it before printing."),
+                             lv_tr("%s has no lane assigned. Pick one before printing."),
                              helix::ui::tool_label(check.tool_index).c_str());
                 } else {
                     const auto* seated = find_seated_slot(slots, check);
