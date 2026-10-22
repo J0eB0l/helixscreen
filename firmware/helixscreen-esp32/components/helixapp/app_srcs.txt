@@ -264,6 +264,9 @@ src/printer/plr_offer.cpp
 src/printer/plr_plugin_rpc.cpp
 src/printer/standing_print_options.cpp
 src/printer/standing_print_options_controller.cpp
+src/printer/fallback_sender_role_resolver.cpp
+src/printer/filament_accounting.cpp
+src/printer/filament_accounting_controller.cpp
 src/printer/plr_profile.cpp
 src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp

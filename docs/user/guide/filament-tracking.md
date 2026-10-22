@@ -71,6 +71,8 @@ With Spoolman connected, HelixScreen doesn't decrement weight itself — Spoolma
 - Choose a **Refresh Interval** — 30 seconds, 1 minute, 2 minutes, or 5 minutes. Shorter is more up to date but chattier on the network.
 - Weights also refresh automatically whenever a print **starts, pauses, or completes**, so the numbers are fresh at the moments that matter even between polls.
 
+- On a printer with several tools or lanes, turn on **Switch spools at each tool change** (same page) so each tool's filament is charged to that tool's spool. See [Settings → Devices → Spoolman](settings/devices.md#switch-spools-at-each-tool-change).
+
 > **Note:** Because Spoolman owns consumption for any spool you've assigned from it, HelixScreen's own estimator stands down for those spools — you won't get two systems fighting over the same number. HelixScreen only writes to Spoolman when *you* make an explicit change (assigning a spool, editing weight, or creating a spool).
 
 > **Color from the printer's own screen (AD5X):** on a lane with a Spoolman spool

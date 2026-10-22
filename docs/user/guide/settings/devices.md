@@ -107,6 +107,12 @@ Turn this on to keep spool weights up to date. HelixScreen asks Spoolman for new
 
 How often HelixScreen asks Spoolman for new weights: **30 seconds**, **1 minute**, **2 minutes** or **5 minutes**. Shorter is more up to date but uses more network traffic.
 
+### Switch spools at each tool change
+
+Spoolman takes filament off one spool at a time: whichever spool is active. On a printer with several tools or lanes, every tool change has to switch the active spool, or one spool gets charged for filament that came from another. Some filament systems do this themselves (AFC, Happy Hare with its Spoolman support on, and printers whose tool-change macros set the spool); for those this row does nothing.
+
+Turn it on to have the active spool follow the tool or lane that is printing, using the spools you linked to each tool or lane. With the HelixPrint plugin installed, the plugin does it for every print, whichever app started it, and records which spools each print used; the print's details in [Print History](../print-history.md#print-details--reprinting) list them. Without the plugin, HelixScreen switches the spool itself, but only while it is connected and only for tools that print from their own extruder; on a remote screen, the row says so. Off by default.
+
 ### Label Printer
 
 Sets up a printer for spool labels with QR codes. See [Label Printing](../label-printing.md) for setup and supported printers. Not available on the ESP32 screen.

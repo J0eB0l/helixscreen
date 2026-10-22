@@ -225,6 +225,75 @@ POST /server/helix/print_hooks/screen_start
 {"filename": "benchy.gcode", "withdraw": true}
 ```
 
+### Filament accounting (`filament_accounting`)
+
+Moonraker's `[spoolman]` component is the only thing that takes filament off a spool: it
+charges one active spool for every millimetre the extruder position rises. On a printer with
+several tools or lanes that is right only when the active spool is switched at every tool or
+lane change. This feature switches it, for printers whose filament system does not, and
+records per job which spools were charged. It never deducts anything itself. Acts on a spool,
+so it is off until the user opts in (`plugin_features.filament_accounting`).
+
+The screen keeps the map in Moonraker's database, namespace `helix-screen`, key
+`filament_spools`:
+
+```json
+{
+  "version": 1,
+  "manages_active_spool": false,
+  "macros_set_active_spool": false,
+  "signals": [
+    {"object": "toolhead", "path": ["extruder"],
+     "values": {"extruder":  {"tool": 0, "lane": -1, "spool_id": 11, "grams_per_mm": 0.00298},
+                "extruder1": {"tool": 1, "lane": -1, "spool_id": null}}},
+    {"object": "save_variables", "path": ["variables", "active_tool"],
+     "values": {"0": {"tool": 0, "lane": 0, "spool_id": 21}}}
+  ]
+}
+```
+
+- `manages_active_spool`: the filament system switches the spool itself (AFC, Happy Hare with
+  its Spoolman mode on). `macros_set_active_spool`: a `T<n>` macro calls `SET_ACTIVE_SPOOL`.
+  Either one, or no `[spoolman]` component, and the plugin never switches anything.
+- `signals`: status fields that say what feeds now. The plugin subscribes each object's first
+  path field, reads the value at `path`, spells it as a key (an integer as its digits, a
+  string as itself; anything else is no key) and looks it up in `values`. The first signal
+  whose value maps wins. The plugin knows no filament system: the screen names the fields.
+- A feed with a spool makes that spool active. A feed with no spool (`null`) clears the active
+  spool only when it is one the map links to another feed; a spool chosen outside the map is
+  left alone.
+
+The plugin switches when a signal's value changes while a job is printing or paused, and once
+at the job's start (history's `added`, read fresh). The first reading after Klippy connects
+only sets the baseline: a value carried over a reconnect is no change.
+
+**Per-job record.** From the same position deltas Moonraker charges (the rise above the
+high-water mark, re-based without a charge at an extruder change or a spool switch), the
+plugin keeps millimetres per tool, lane and spool for every job that starts while the feature
+is on, whoever switches the spool. Namespace `helix_filament`, key `job_<job id>`:
+
+```json
+{"schema": 1, "job_id": "00002A", "filename": "part.gcode", "status": "completed",
+ "end_time": 1700000600.0, "continues": null,
+ "spools": [{"tool": 0, "lane": null, "spool_id": 11, "mm": 4180.2, "grams": 12.47},
+            {"tool": 1, "lane": null, "spool_id": 12, "mm": 1530.0, "grams": null}]}
+```
+
+`grams` is set where the screen gave the feed's `grams_per_mm`. The open job's ledger is saved
+under `active` every 30 s while filament moves, and a restart mid-print keeps counting. A job
+closed by the next job's start, with no finish seen (a power cut), has `status: null`. A
+power-loss resume (helix-initiated `plr_resume`) continues the interrupted job's spools, with
+`continues` naming that job. The newest 500 records are kept. Where Moonraker's history has
+auxiliary fields (0.9 and later), the `spools` list is also history's `helix_print` /
+`filament_spools` field of the job.
+
+```
+GET /server/helix/filament_usage?job_id=00002A
+```
+
+returns `{"job_id", "enabled", "record"}`: the stored record, the live ledger (status
+`in_progress`) of the job still printing, or `null` for a job the feature did not count.
+
 ### Start Modified Print
 
 The client uploads the modified file first, through Moonraker's own file upload, into

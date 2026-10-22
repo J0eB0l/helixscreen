@@ -16,6 +16,7 @@
 #include "ams_backend_indx.h"
 #include "ams_error_bridge.h"
 #include "ams_state.h"
+#include "filament_accounting.h"
 #include "macro_param_cache.h"
 #include "moonraker_client_mock.h"
 #include "printer_discovery.h"
@@ -238,6 +239,26 @@ TEST_CASE_METHOD(IndxFixture, "INDX backend: own spool macros manage the active 
     IndxHelper stock;
     stock.set_discovery(hw);
     CHECK_FALSE(stock.manages_active_spool());
+}
+
+TEST_CASE_METHOD(IndxFixture, "INDX backend: the mounted tool is the feed signal",
+                 "[ams][indx][spool][plugin_filament]") {
+    IndxHelper b;
+    b.set_discovery(discover(indx_objects(3), 3));
+    const auto signals = b.feed_slot_signals();
+    REQUIRE(signals.size() == 1);
+    CHECK(signals[0].object == "save_variables");
+    CHECK(signals[0].path == std::vector<std::string>{"variables", "active_tool"});
+    REQUIRE(signals[0].value_slots.size() == 3);
+    INFO("each value is spelled as the status reports it, naming its own slot");
+    for (int tool = 0; tool < 3; ++tool) {
+        const json status = active(tool);
+        const std::string key =
+            feed_signal_key(status["save_variables"]["variables"]["active_tool"]);
+        const auto& entry = signals[0].value_slots[static_cast<size_t>(tool)];
+        CHECK(entry.first == key);
+        CHECK(entry.second == tool);
+    }
 }
 
 namespace {

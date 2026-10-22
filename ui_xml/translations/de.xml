@@ -2014,6 +2014,7 @@
   <translation tag="Make sure every nozzle is clean." de="Stelle sicher, dass alle Düsen sauber sind."/>
   <translation tag="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats." de="Stelle sicher, dass kein Filament im Werkzeugkopf geladen ist: Es kann im Extruder weich werden, während das Heizbett heizt."/>
   <translation tag="MakeID (Bluetooth)" de="MakeID (Bluetooth)"/>
+  <translation tag="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used." de="Lässt Spoolman den Verbrauch von der Spule des jeweiligen Werkzeugs oder der Spur abbuchen, für Drucker, die nicht selbst umschalten, und zeichnet pro Druck auf, was jede Spule verbraucht hat."/>
   <translation tag="Manage" de="Verwalten"/>
   <translation tag="Manage Printers" de="Drucker verwalten"/>
   <translation tag="Manage configured printers" de="Konfigurierte Drucker verwalten"/>
@@ -2270,6 +2271,7 @@
   <translation tag="No shared peaks" de="Keine gemeinsamen Spitzen"/>
   <translation tag="No slot currently matches." de="Derzeit passt kein Slot."/>
   <translation tag="No spool assigned" de="Keine Spule zugewiesen"/>
+  <translation tag="No spool linked" de="Keine Spule verknüpft"/>
   <translation tag="No spools found — tap to retry" de="Keine Spulen gefunden — tippen zum Wiederholen"/>
   <translation tag="No spools match your search" de="Keine Spulen entsprechen Ihrer Suche"/>
   <translation tag="No spools placed" de="Keine Spulen eingelegt"/>
@@ -3315,6 +3317,7 @@
   <translation tag="Spool menu" de="Spulenmenü"/>
   <translation tag="Spool motor" de="Spulenmotor"/>
   <translation tag="Spool saved" de="Spule gespeichert"/>
+  <translation tag="Spool switching per tool and lane" de="Spulenwechsel pro Werkzeug und Spur"/>
   <translation tag="Spool wt (g)" de="Spulengewicht (g)"/>
   <translation tag="Spoolman" de="Spoolman"/>
   <translation tag="Spoolman Not Available" de="Spoolman nicht verfügbar"/>
@@ -3339,6 +3342,7 @@
   <translation tag="Spoolman: %zu/%zu Spool" de="Spoolman: %zu/%zu Spule"/>
   <translation tag="Spoolman: %zu/%zu Spools" de="Spoolman: %zu/%zu Spulen"/>
   <translation tag="SpoolmanDB search failed" de="SpoolmanDB-Suche fehlgeschlagen"/>
+  <translation tag="Spools" de="Spulen"/>
   <translation tag="Spools are off" de="Spulen sind entnommen"/>
   <translation tag="Spools are on the bed: remove them and confirm before moving the printer" de="Spulen liegen auf dem Heizbett: entferne sie und bestätige, bevor der Drucker bewegt wird"/>
   <translation tag="Spools are on the bed: tap the drying banner to confirm they are off, then restart." de="Spulen liegen auf dem Heizbett: Tippe auf das Trocknungsbanner, um zu bestätigen, dass sie entnommen sind, und starte dann neu."/>
@@ -3426,6 +3430,7 @@
   <translation tag="Switch Sensors" de="Schalter-Sensoren"/>
   <translation tag="Switch a power device on or off" de="Stromgerät ein- oder ausschalten"/>
   <translation tag="Switch between light and dark themes" de="Zwischen Hell- und Dunkelthemen wechseln"/>
+  <translation tag="Switch spools at each tool change" de="Spulen bei jedem Werkzeugwechsel umschalten"/>
   <translation tag="Switch the active tool or extruder" de="Aktives Werkzeug oder Extruder wechseln"/>
   <translation tag="Switch to a backup slot on runout" de="Bei Filamentende zu einem Ersatz-Slot wechseln"/>
   <translation tag="Switch to a matching slot on runout" de="Bei Filamentende zu einem passenden Slot wechseln"/>

@@ -2226,6 +2226,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 'Stelle sicher, dass kein Filament im Werkzeugkopf geladen ist: Es kann im Extruder weich werden, während das Heizbett heizt.'
 
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : 'Lässt Spoolman den Verbrauch von der Spule des jeweiligen Werkzeugs oder der Spur abbuchen, für Drucker, die nicht selbst umschalten, und zeichnet pro Druck auf, was jede Spule verbraucht hat.'
   Manage: Verwalten
   Manage Printers: Drucker verwalten
   Manage configured printers: Konfigurierte Drucker verwalten
@@ -2498,6 +2500,7 @@ translations:
   No shared peaks: "Keine gemeinsamen Spitzen"
   No slot currently matches.: 'Derzeit passt kein Slot.'
   No spool assigned: Keine Spule zugewiesen
+  No spool linked: 'Keine Spule verknüpft'
   No spools found — tap to retry: Keine Spulen gefunden — tippen zum Wiederholen
   No spools match your search: Keine Spulen entsprechen Ihrer Suche
   No spools placed: Keine Spulen eingelegt
@@ -3637,6 +3640,7 @@ translations:
   Spool menu: 'Spulenmenü'
   Spool motor: Spulenmotor
   Spool saved: Spule gespeichert
+  Spool switching per tool and lane: 'Spulenwechsel pro Werkzeug und Spur'
   Spool wt (g): Spulengewicht (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman nicht verfügbar'
@@ -3663,6 +3667,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu Spule'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu Spulen'
   SpoolmanDB search failed: 'SpoolmanDB-Suche fehlgeschlagen'
+  Spools: 'Spulen'
   Spools are off: "Spulen sind entnommen"
   'Spools are on the bed: remove them and confirm before moving the printer': 'Spulen liegen auf dem Heizbett: entferne sie und bestätige, bevor der Drucker bewegt wird'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 'Spulen liegen auf dem Heizbett: Tippe auf das Trocknungsbanner, um zu bestätigen, dass sie entnommen sind, und starte dann neu.'
@@ -3759,6 +3764,7 @@ translations:
   Switch a power device on or off: Stromgerät ein- oder ausschalten
   Switch Sensors: Schalter-Sensoren
   Switch between light and dark themes: Zwischen Hell- und Dunkelthemen wechseln
+  Switch spools at each tool change: 'Spulen bei jedem Werkzeugwechsel umschalten'
   Switch the active tool or extruder: Aktives Werkzeug oder Extruder wechseln
   Switch to a backup slot on runout: Bei Filamentende zu einem Ersatz-Slot wechseln
   Switch to a matching slot on runout: Bei Filamentende zu einem passenden Slot wechseln

@@ -2088,6 +2088,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 请确认工具头中没有装入耗材:热床加热时它可能在挤出机中变软。
 
   MakeID (Bluetooth): MakeID（蓝牙）
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : '让 Spoolman 按每个工具或耗材通道各自的料盘计算用量（适用于不会自行切换的打印机），并记录每次打印各料盘的用量。'
   Manage: 管理
   Manage Printers: 管理打印机
   Manage configured printers: 管理已配置的打印机
@@ -2349,6 +2351,7 @@ translations:
   No shared peaks: "无共同峰值"
   No slot currently matches.: '当前没有匹配的槽位。'
   No spool assigned: 未分配料盘
+  No spool linked: '未关联料盘'
   No spools found — tap to retry: 未找到料盘 - 点击重试
   No spools match your search: 没有符合搜索条件的料盘
   No spools placed: 未放置料盘
@@ -3425,6 +3428,7 @@ translations:
   Spool menu: '料盘操作'
   Spool motor: 料盘电机
   Spool saved: 料盘已保存
+  Spool switching per tool and lane: '按工具和耗材通道切换料盘'
   Spool wt (g): 料盘重量 (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman 不可用'
@@ -3449,6 +3453,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu 个线轴'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu 个线轴'
   SpoolmanDB search failed: 'SpoolmanDB 搜索失败'
+  Spools: '料盘'
   Spools are off: "料盘已取下"
   'Spools are on the bed: remove them and confirm before moving the printer': 热床上有料盘：请先移除并确认，再移动打印机
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 热床上有料盘:点击烘干横幅确认已取下,然后再重启。
@@ -3542,6 +3547,7 @@ translations:
   Switch a power device on or off: 开启或关闭电源设备
   Switch Sensors: 开关传感器
   Switch between light and dark themes: 切换浅色和深色主题
+  Switch spools at each tool change: '每次换工具时切换料盘'
   Switch the active tool or extruder: 切换当前工具或挤出机
   Switch to a backup slot on runout: 耗材用尽时切换到备用槽位
   Switch to a matching slot on runout: 耗材用尽时切换到匹配的槽位

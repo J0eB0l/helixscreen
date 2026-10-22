@@ -2216,6 +2216,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 'Asegúrate de que no haya filamento cargado en el cabezal: puede ablandarse en el extrusor mientras la cama se calienta.'
 
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : 'Hace que Spoolman descuente de la bobina propia de cada herramienta o carril, en impresoras que no la cambian por sí mismas, y registra por impresión lo que usó cada bobina.'
   Manage: Administrar
   Manage Printers: Administrar Impresoras
   Manage configured printers: Administrar impresoras configuradas
@@ -2490,6 +2492,7 @@ translations:
   No shared peaks: "Sin picos comunes"
   No slot currently matches.: 'Actualmente no coincide ninguna ranura.'
   No spool assigned: Sin bobina asignada
+  No spool linked: 'Sin bobina vinculada'
   No spools found — tap to retry: No se encontraron bobinas — toque para reintentar
   No spools match your search: Ninguna bobina coincide con su búsqueda
   No spools placed: No coloqué bobinas
@@ -3628,6 +3631,7 @@ translations:
   Spool menu: 'Menú de bobina'
   Spool motor: Motor de bobina
   Spool saved: Bobina guardada
+  Spool switching per tool and lane: 'Cambio de bobina por herramienta y carril'
   Spool wt (g): Peso bobina (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman no disponible'
@@ -3654,6 +3658,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu bobina'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu bobinas'
   SpoolmanDB search failed: 'Falló la búsqueda en SpoolmanDB'
+  Spools: 'Bobinas'
   Spools are off: "Bobinas retiradas"
   'Spools are on the bed: remove them and confirm before moving the printer': 'Hay bobinas sobre la cama: retíralas y confirma antes de mover la impresora'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 'Hay bobinas en la cama: toca el aviso de secado para confirmar que las has quitado y luego reinicia.'
@@ -3753,6 +3758,7 @@ translations:
   Switch a power device on or off: Encender o apagar un dispositivo
   Switch Sensors: Sensores de interruptor
   Switch between light and dark themes: Cambiar entre temas claro y oscuro
+  Switch spools at each tool change: 'Cambiar de bobina en cada cambio de herramienta'
   Switch the active tool or extruder: Cambiar la herramienta o extrusor activo
   Switch to a backup slot on runout: Cambiar a una ranura de reserva al agotarse
   Switch to a matching slot on runout: Cambiar a una ranura coincidente al agotarse

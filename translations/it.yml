@@ -2217,6 +2217,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': "Assicurati che nella testina non sia caricato filamento: può ammorbidirsi nell'estrusore mentre il piano si scalda."
 
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : 'Fa scalare a Spoolman la bobina di ogni strumento o corsia, per le stampanti che non la cambiano da sole, e registra per ogni stampa quanto ha usato ciascuna bobina.'
   Manage: Gestisci
   Manage Printers: Gestisci stampanti
   Manage configured printers: Gestisci le stampanti configurate
@@ -2490,6 +2492,7 @@ translations:
   No shared peaks: "Nessun picco comune"
   No slot currently matches.: 'Attualmente nessuno slot corrisponde.'
   No spool assigned: Nessuna bobina assegnata
+  No spool linked: 'Nessuna bobina collegata'
   No spools found — tap to retry: Nessuna bobina trovata — tocca per riprovare
   No spools match your search: Nessuna bobina corrisponde alla tua ricerca
   No spools placed: Nessuna bobina appoggiata
@@ -3628,6 +3631,7 @@ translations:
   Spool menu: 'Menu della bobina'
   Spool motor: Motore bobina
   Spool saved: Bobina salvata
+  Spool switching per tool and lane: 'Cambio bobina per strumento e corsia'
   Spool wt (g): Peso bobina (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman non disponibile'
@@ -3654,6 +3658,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu bobina'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu bobine'
   SpoolmanDB search failed: 'Ricerca in SpoolmanDB non riuscita'
+  Spools: 'Bobine'
   Spools are off: "Bobine tolte"
   'Spools are on the bed: remove them and confirm before moving the printer': 'Ci sono bobine sul piano: rimuovile e conferma prima di muovere la stampante'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': "Ci sono bobine sul piano: tocca il banner dell'essiccazione per confermare di averle tolte, poi riavvia."
@@ -3753,6 +3758,7 @@ translations:
   Switch a power device on or off: Accendi o spegni un dispositivo
   Switch Sensors: Sensori a interruttore
   Switch between light and dark themes: Passa tra tema chiaro e scuro
+  Switch spools at each tool change: 'Cambia bobina a ogni cambio strumento'
   Switch the active tool or extruder: Cambia utensile o estrusore attivo
   Switch to a backup slot on runout: Passa a uno slot di riserva a filamento esaurito
   Switch to a matching slot on runout: Passa a uno slot corrispondente a filamento esaurito

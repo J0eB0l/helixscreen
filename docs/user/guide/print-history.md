@@ -71,6 +71,7 @@ Tap a job to open its detail view, which shows:
 - Layer count and layer height
 - Nozzle and bed temperatures
 - Filament used and filament type
+- **Spools**: which spool each tool or slot used and how much, for prints counted by the HelixPrint plugin's spool switching (see [Settings > Devices > Spoolman](settings/devices.md#switch-spools-at-each-tool-change))
 - A thumbnail, when one is available
 
 From the detail view you can:

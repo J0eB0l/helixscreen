@@ -18,13 +18,17 @@
 
 #include "app_globals.h"
 #include "display_settings_manager.h"
+#include "filament_accounting.h"
+#include "filament_display_name.h"
 #include "format_utils.h"
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
+#include "json_utils.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "print_history_manager.h"
 #include "printer_state.h"
+#include "spoolman_manager.h"
 #include "static_panel_registry.h"
 #include "text_io.h"
 #include "thumbnail_cache.h"
@@ -898,6 +902,9 @@ void HistoryListPanel::init_detail_subjects() {
     UI_MANAGED_SUBJECT_INT(detail_can_reprint_, 1, "history_detail_can_reprint", subjects_);
     UI_MANAGED_SUBJECT_INT(detail_status_code_, 0, "history_detail_status_code", subjects_);
     UI_MANAGED_SUBJECT_INT(detail_has_timelapse_, 0, "history_detail_has_timelapse", subjects_);
+    UI_MANAGED_SUBJECT_STRING(detail_spools_, detail_spools_buf_, "", "history_detail_spools",
+                              subjects_);
+    UI_MANAGED_SUBJECT_INT(detail_has_spools_, 0, "history_detail_has_spools", subjects_);
 
     spdlog::debug("[{}] Detail overlay subjects initialized", get_name());
 }
@@ -909,6 +916,7 @@ void HistoryListPanel::show_detail_overlay(const PrintHistoryJob& job) {
 
     // Update subjects with job data first
     update_detail_subjects(job);
+    fetch_spool_usage(job);
 
     // Create overlay if not exists (lazy init)
     if (!detail_overlay_) {
@@ -1114,6 +1122,46 @@ void HistoryListPanel::update_detail_subjects(const PrintHistoryJob& job) {
 
     spdlog::debug("[{}] Detail subjects updated for: {} (status_code={})", get_name(), job.filename,
                   status_code);
+}
+
+void HistoryListPanel::fetch_spool_usage(const PrintHistoryJob& job) {
+    const uint32_t request = ++detail_spools_request_;
+    lv_subject_copy_string(&detail_spools_, "");
+    lv_subject_set_int(&detail_has_spools_, 0);
+    const PluginFeatureState accounting = get_printer_state().plugin_status_state().plugin_feature(
+        kFilamentAccountingFeature, kFilamentAccountingMinVersion);
+    IMoonrakerClient* client = get_moonraker_client();
+    if (!filament_usage_available(accounting) || client == nullptr || job.job_id.empty()) {
+        return;
+    }
+    client->send_jsonrpc(
+        kFilamentUsageRpc, nlohmann::json{{"job_id", job.job_id}},
+        lifetime_.bg_cb("HistoryListPanel::spool_usage",
+                        [this, request](const nlohmann::json& response) {
+                            if (request != detail_spools_request_) {
+                                return;
+                            }
+                            const nlohmann::json* result =
+                                json_util::find_member(response, "result");
+                            const std::vector<SpoolUsage> usage =
+                                result ? parse_filament_usage(*result) : std::vector<SpoolUsage>{};
+                            if (usage.empty()) {
+                                return;
+                            }
+                            const std::string text = describe_spool_usage(usage, [](int spool_id) {
+                                const auto identity = SpoolmanManager::find_identity(spool_id);
+                                return identity ? compose_filament_label(identity->vendor,
+                                                                         identity->filament_name,
+                                                                         identity->material)
+                                                : std::string();
+                            });
+                            lv_subject_copy_string(&detail_spools_, text.c_str());
+                            lv_subject_set_int(&detail_has_spools_, 1);
+                        }),
+        [](const MoonrakerError& err) {
+            spdlog::debug("[HistoryListPanel] No spool record: {}", err.message);
+        },
+        0, /*silent=*/true);
 }
 
 void HistoryListPanel::handle_reprint() {

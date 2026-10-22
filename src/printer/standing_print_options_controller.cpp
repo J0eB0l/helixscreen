@@ -5,6 +5,7 @@
 #include "ams_backend.h"
 #include "ams_state.h"
 #include "app_globals.h"
+#include "fallback_sender_role_resolver.h"
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
 #include "json_utils.h"
@@ -219,31 +220,7 @@ void StandingPrintOptionsController::on_job_added(const std::string& filename) {
 
 void StandingPrintOptionsController::resolve_sender_role(
     std::function<void(FallbackSenderRole)> then) {
-    if (get_printer_state().plugin_status_state().screen_local()) {
-        then(fallback_sender_role(true, std::nullopt));
-        return;
-    }
-    IMoonrakerAPI* api = get_moonraker_api();
-    if (api == nullptr) {
-        then(fallback_sender_role(false, std::nullopt));
-        return;
-    }
-    api->database_get_item(
-        kPluginFeaturesNamespace, kLocalScreenPresenceKey,
-        [then, token = lifetime_.token()](const nlohmann::json& record) {
-            const std::optional<bool> present =
-                local_screen_present(record, static_cast<int64_t>(std::time(nullptr)));
-            token.defer("StandingPrintOptions::presence",
-                        [then, present] { then(fallback_sender_role(false, present)); });
-        },
-        [then, token = lifetime_.token()](const MoonrakerError& err) {
-            // No record: no screen on the printer's host has ever announced
-            // itself. Any other failure cannot rule one out.
-            const std::optional<bool> present =
-                err.is_not_found() ? std::optional<bool>(false) : std::nullopt;
-            token.defer("StandingPrintOptions::presence_absent",
-                        [then, present] { then(fallback_sender_role(false, present)); });
-        });
+    resolve_fallback_sender_role(lifetime_.token(), std::move(then));
 }
 
 void StandingPrintOptionsController::send_options(const std::string& filename,

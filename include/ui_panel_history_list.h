@@ -313,6 +313,11 @@ class HistoryListPanel : public OverlayBase {
     lv_subject_t detail_can_reprint_{};   ///< 1 if file exists, 0 otherwise
     lv_subject_t detail_status_code_{};   ///< 0=completed, 1=cancelled, 2=error, 3=in_progress
     lv_subject_t detail_has_timelapse_{}; ///< 1 if timelapse available, 0 otherwise
+    lv_subject_t detail_spools_{};        ///< The job's per-spool lines, newline-joined
+    lv_subject_t detail_has_spools_{};    ///< 1 once the plugin reported the job's spools
+    /// Bumped per detail open, so a spool record still in flight for an
+    /// earlier job is dropped.
+    uint32_t detail_spools_request_ = 0;
 
     // Buffers for string subjects (LVGL 9.4 requires pre-allocated buffers)
     static constexpr size_t kDetailBufSize = 128;
@@ -330,6 +335,7 @@ class HistoryListPanel : public OverlayBase {
     char detail_bed_temp_buf_[kSmallBufSize] = {};
     char detail_filament_buf_[kSmallBufSize] = {};
     char detail_filament_type_buf_[kSmallBufSize] = {};
+    char detail_spools_buf_[512] = {};
 
     //
     // === Internal Methods ===
@@ -446,6 +452,9 @@ class HistoryListPanel : public OverlayBase {
      * @param job The job to display
      */
     void update_detail_subjects(const PrintHistoryJob& job);
+
+    /// Ask the HelixPrint plugin which spools @p job used, for the detail view.
+    void fetch_spool_usage(const PrintHistoryJob& job);
 
     /**
      * @brief Handle reprint button click

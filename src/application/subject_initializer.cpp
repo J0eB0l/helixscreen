@@ -46,6 +46,7 @@
 #include "bed_drying_controller.h"
 #include "bed_mesh_state.h"
 #include "chamber_stall_prompt.h"
+#include "filament_accounting_controller.h"
 #include "filament_catalog.h"
 #include "filament_database.h"
 #include "filament_op_heater.h"
@@ -443,6 +444,10 @@ void SubjectInitializer::init_observers() {
     // Standing print options: kept in Moonraker for the plugin's print hooks,
     // and sent by this screen at a foreign job start when the plugin cannot.
     m_standing_print_options = std::make_unique<helix::StandingPrintOptionsController>();
+
+    // Filament accounting: the spool map the plugin switches the active spool
+    // from, and this screen's switch at a tool change when the plugin cannot.
+    m_filament_accounting = std::make_unique<helix::FilamentAccountingController>();
 
     // Print outcome telemetry observer (records anonymous print stats when telemetry enabled)
     m_observers.push_back(TelemetryManager::instance().init_print_outcome_observer());

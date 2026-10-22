@@ -2059,6 +2059,7 @@
   <translation tag="Make sure every nozzle is clean." ru="Убедитесь, что все сопла чистые."/>
   <translation tag="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats." ru="Убедитесь, что в печатающей головке нет филамента: он может размягчиться в экструдере, пока греется стол."/>
   <translation tag="MakeID (Bluetooth)" ru="MakeID (Bluetooth)"/>
+  <translation tag="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used." ru="Spoolman списывает расход с катушки каждого инструмента или канала на принтерах, которые не переключают её сами, и записывает для каждой печати расход каждой катушки."/>
   <translation tag="Manage" ru="Управление"/>
   <translation tag="Manage Printers" ru="Управление принтерами"/>
   <translation tag="Manage configured printers" ru="Управление настроенными принтерами"/>
@@ -2315,6 +2316,7 @@
   <translation tag="No shared peaks" ru="Нет общих пиков"/>
   <translation tag="No slot currently matches." ru="Сейчас нет подходящего слота."/>
   <translation tag="No spool assigned" ru="Катушка не назначена"/>
+  <translation tag="No spool linked" ru="Катушка не привязана"/>
   <translation tag="No spools found — tap to retry" ru="Катушки не найдены — нажмите для повтора"/>
   <translation tag="No spools match your search" ru="По вашему запросу катушки не найдены"/>
   <translation tag="No spools placed" ru="Катушки не положены"/>
@@ -3369,6 +3371,7 @@
   <translation tag="Spool menu" ru="Меню катушки"/>
   <translation tag="Spool motor" ru="Мотор катушки"/>
   <translation tag="Spool saved" ru="Катушка сохранена"/>
+  <translation tag="Spool switching per tool and lane" ru="Переключение катушек по инструменту и каналу"/>
   <translation tag="Spool wt (g)" ru="Вес катушки (г)"/>
   <translation tag="Spoolman" ru="Spoolman"/>
   <translation tag="Spoolman Not Available" ru="Spoolman недоступен"/>
@@ -3399,6 +3402,7 @@
   <translation tag="Spoolman: %zu/%zu Spools_many" ru="Spoolman: %zu/%zu катушек"/>
   <translation tag="Spoolman: %zu/%zu Spools_one" ru="Spoolman: %zu/%zu катушка"/>
   <translation tag="SpoolmanDB search failed" ru="Ошибка поиска в SpoolmanDB"/>
+  <translation tag="Spools" ru="Катушки"/>
   <translation tag="Spools are off" ru="Катушки сняты"/>
   <translation tag="Spools are on the bed: remove them and confirm before moving the printer" ru="На столе лежат катушки: уберите их и подтвердите, прежде чем двигать принтер"/>
   <translation tag="Spools are on the bed: tap the drying banner to confirm they are off, then restart." ru="На столе катушки: нажмите на баннер сушки, чтобы подтвердить, что они сняты, затем перезапустите."/>
@@ -3486,6 +3490,7 @@
   <translation tag="Switch Sensors" ru="Датчики-переключатели"/>
   <translation tag="Switch a power device on or off" ru="Включить или выключить питание"/>
   <translation tag="Switch between light and dark themes" ru="Переключение между светлой и тёмной темами"/>
+  <translation tag="Switch spools at each tool change" ru="Переключать катушку при каждой смене инструмента"/>
   <translation tag="Switch the active tool or extruder" ru="Смена активного инструмента"/>
   <translation tag="Switch to a backup slot on runout" ru="Переключаться на резервный слот при окончании филамента"/>
   <translation tag="Switch to a matching slot on runout" ru="Переключаться на подходящий слот при окончании филамента"/>

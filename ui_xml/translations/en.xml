@@ -2014,6 +2014,7 @@
   <translation tag="Make sure every nozzle is clean." en="Make sure every nozzle is clean."/>
   <translation tag="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats." en="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats."/>
   <translation tag="MakeID (Bluetooth)" en="MakeID (Bluetooth)"/>
+  <translation tag="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used." en="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used."/>
   <translation tag="Manage" en="Manage"/>
   <translation tag="Manage Printers" en="Manage Printers"/>
   <translation tag="Manage configured printers" en="Manage configured printers"/>
@@ -2270,6 +2271,7 @@
   <translation tag="No shared peaks" en="No shared peaks"/>
   <translation tag="No slot currently matches." en="No slot currently matches."/>
   <translation tag="No spool assigned" en="No spool assigned"/>
+  <translation tag="No spool linked" en="No spool linked"/>
   <translation tag="No spools found — tap to retry" en="No spools found — tap to retry"/>
   <translation tag="No spools match your search" en="No spools match your search"/>
   <translation tag="No spools placed" en="No spools placed"/>
@@ -3315,6 +3317,7 @@
   <translation tag="Spool menu" en="Spool menu"/>
   <translation tag="Spool motor" en="Spool motor"/>
   <translation tag="Spool saved" en="Spool saved"/>
+  <translation tag="Spool switching per tool and lane" en="Spool switching per tool and lane"/>
   <translation tag="Spool wt (g)" en="Spool wt (g)"/>
   <translation tag="Spoolman" en="Spoolman"/>
   <translation tag="Spoolman Not Available" en="Spoolman Not Available"/>
@@ -3339,6 +3342,7 @@
   <translation tag="Spoolman: %zu/%zu Spool" en="Spoolman: %zu/%zu Spool"/>
   <translation tag="Spoolman: %zu/%zu Spools" en="Spoolman: %zu/%zu Spools"/>
   <translation tag="SpoolmanDB search failed" en="SpoolmanDB search failed"/>
+  <translation tag="Spools" en="Spools"/>
   <translation tag="Spools are off" en="Spools are off"/>
   <translation tag="Spools are on the bed: remove them and confirm before moving the printer" en="Spools are on the bed: remove them and confirm before moving the printer"/>
   <translation tag="Spools are on the bed: tap the drying banner to confirm they are off, then restart." en="Spools are on the bed: tap the drying banner to confirm they are off, then restart."/>
@@ -3426,6 +3430,7 @@
   <translation tag="Switch Sensors" en="Switch Sensors"/>
   <translation tag="Switch a power device on or off" en="Switch a power device on or off"/>
   <translation tag="Switch between light and dark themes" en="Switch between light and dark themes"/>
+  <translation tag="Switch spools at each tool change" en="Switch spools at each tool change"/>
   <translation tag="Switch the active tool or extruder" en="Switch the active tool or extruder"/>
   <translation tag="Switch to a backup slot on runout" en="Switch to a backup slot on runout"/>
   <translation tag="Switch to a matching slot on runout" en="Switch to a matching slot on runout"/>

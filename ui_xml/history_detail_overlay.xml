@@ -22,6 +22,8 @@
     - history_detail_can_reprint: 1 if file exists, 0 otherwise
     - history_detail_thumbnail: Path to thumbnail image (may be empty)
     - history_detail_has_timelapse: 1 if timelapse available, 0 otherwise
+    - history_detail_spools: The job's per-spool lines, newline-joined
+    - history_detail_has_spools: 1 when the plugin reported the job's spools
   -->
   <view name="history_detail_overlay" extends="overlay_panel" title="Print Details">
     <!-- Content Area - Horizontal split -->
@@ -160,6 +162,15 @@
                      width="100%" height="#button_height_sm" text="View Timelapse" variant="secondary">
             <event_cb trigger="clicked" callback="history_detail_view_timelapse"/>
           </ui_button>
+        </lv_obj>
+        <!-- Spools the job used, from the HelixPrint plugin's record -->
+        <lv_obj name="spools_section"
+                width="100%" height="content" style_pad_all="0" flex_flow="column" style_pad_gap="#space_xs"
+                scrollable="false">
+          <bind_flag_if_eq subject="history_detail_has_spools" flag="hidden" ref_value="0"/>
+          <text_small text="Spools"/>
+          <text_small name="spools_label"
+                      width="100%" bind_text="history_detail_spools" long_mode="wrap" style_text_color="#text"/>
         </lv_obj>
         <!-- Spacer to push buttons to bottom -->
         <lv_obj width="100%" flex_grow="1" scrollable="false"/>

@@ -332,6 +332,18 @@ int AmsBackendIndx::max_heads_per_filament_op() const {
     return std::max(sized_tool_count_, 1);
 }
 
+std::vector<AmsBackend::FeedSlotSignal> AmsBackendIndx::feed_slot_signals() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    FeedSlotSignal signal{"save_variables", {"variables", "active_tool"}, {}};
+    for (int tool = 0; tool < sized_tool_count_; ++tool) {
+        signal.value_slots.emplace_back(std::to_string(tool), tool);
+    }
+    if (signal.value_slots.empty()) {
+        return {};
+    }
+    return {signal};
+}
+
 AmsError AmsBackendIndx::do_change_tool(int tool_number) {
     {
         std::lock_guard<std::mutex> lock(mutex_);

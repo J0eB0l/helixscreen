@@ -2014,6 +2014,7 @@
   <translation tag="Make sure every nozzle is clean." fr="Assurez-vous que toutes les buses sont propres."/>
   <translation tag="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats." fr="Vérifiez qu&apos;aucun filament n&apos;est chargé dans la tête d&apos;outil : il peut ramollir dans l&apos;extrudeur pendant que le plateau chauffe."/>
   <translation tag="MakeID (Bluetooth)" fr="MakeID (Bluetooth)"/>
+  <translation tag="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used." fr="Fait débiter par Spoolman la bobine propre à chaque outil ou voie, pour les imprimantes qui ne la changent pas elles-mêmes, et enregistre par impression ce que chaque bobine a utilisé."/>
   <translation tag="Manage" fr="Gérer"/>
   <translation tag="Manage Printers" fr="Gérer les imprimantes"/>
   <translation tag="Manage configured printers" fr="Gérer les imprimantes configurées"/>
@@ -2270,6 +2271,7 @@
   <translation tag="No shared peaks" fr="Aucun pic commun"/>
   <translation tag="No slot currently matches." fr="Aucun slot ne correspond actuellement."/>
   <translation tag="No spool assigned" fr="Aucune bobine assignée"/>
+  <translation tag="No spool linked" fr="Aucune bobine liée"/>
   <translation tag="No spools found — tap to retry" fr="Aucune bobine trouvée — appuyez pour réessayer"/>
   <translation tag="No spools match your search" fr="Aucune bobine ne correspond à votre recherche"/>
   <translation tag="No spools placed" fr="Aucune bobine posée"/>
@@ -3315,6 +3317,7 @@
   <translation tag="Spool menu" fr="Menu de la bobine"/>
   <translation tag="Spool motor" fr="Moteur de bobine"/>
   <translation tag="Spool saved" fr="Bobine enregistrée"/>
+  <translation tag="Spool switching per tool and lane" fr="Changement de bobine par outil et voie"/>
   <translation tag="Spool wt (g)" fr="Poids bobine (g)"/>
   <translation tag="Spoolman" fr="Spoolman"/>
   <translation tag="Spoolman Not Available" fr="Spoolman indisponible"/>
@@ -3339,6 +3342,7 @@
   <translation tag="Spoolman: %zu/%zu Spool" fr="Spoolman : %zu/%zu bobine"/>
   <translation tag="Spoolman: %zu/%zu Spools" fr="Spoolman : %zu/%zu bobines"/>
   <translation tag="SpoolmanDB search failed" fr="Échec de la recherche SpoolmanDB"/>
+  <translation tag="Spools" fr="Bobines"/>
   <translation tag="Spools are off" fr="Bobines retirées"/>
   <translation tag="Spools are on the bed: remove them and confirm before moving the printer" fr="Des bobines sont sur le plateau : retirez-les et confirmez avant de déplacer l&apos;imprimante"/>
   <translation tag="Spools are on the bed: tap the drying banner to confirm they are off, then restart." fr="Des bobines sont sur le plateau : touchez le bandeau de séchage pour confirmer qu&apos;elles sont retirées, puis redémarrez."/>
@@ -3426,6 +3430,7 @@
   <translation tag="Switch Sensors" fr="Capteurs à interrupteur"/>
   <translation tag="Switch a power device on or off" fr="Allumer ou éteindre un appareil"/>
   <translation tag="Switch between light and dark themes" fr="Basculer entre les thèmes clair et sombre"/>
+  <translation tag="Switch spools at each tool change" fr="Changer de bobine à chaque changement d&apos;outil"/>
   <translation tag="Switch the active tool or extruder" fr="Changer d&apos;outil ou d&apos;extrudeur actif"/>
   <translation tag="Switch to a backup slot on runout" fr="Passer à un slot de secours en fin de filament"/>
   <translation tag="Switch to a matching slot on runout" fr="Passer à un slot correspondant en fin de filament"/>
