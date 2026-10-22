@@ -1518,6 +1518,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// it fires once per extruder, not once per status frame.
     mutable std::set<std::string> extruder_tool_index_warned_;
 
+    /// Heads already reported as off the toolchanger, so a mount warns once
+    /// per head rather than on every tool change.
+    std::set<std::string> unmountable_head_warned_;
+
     // Per-extruder toolhead LED state (for multi-extruder mode)
     std::unordered_map<int, bool> toolhead_led_state_; ///< tool_index → LED on/off
 

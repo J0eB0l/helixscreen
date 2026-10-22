@@ -5281,7 +5281,7 @@ AmsError AmsBackendAfc::do_select_slot(int slot_index) {
 
 AmsError AmsBackendAfc::do_change_tool(int tool_number) {
     bool toolchanger = false;
-    bool mountable = true;
+    bool warn_unmountable = false;
     std::string lane_extruder;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -5301,8 +5301,8 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
             return AmsErrorHelper::tool_out_of_range(tool_number);
         }
         toolchanger = has_toolchanger_unit_locked();
-        if (toolchanger && !lane_extruder.empty()) {
-            mountable = head_is_mountable_locked(lane_extruder);
+        if (toolchanger && !lane_extruder.empty() && !head_is_mountable_locked(lane_extruder)) {
+            warn_unmountable = unmountable_head_warned_.insert(lane_extruder).second;
         }
     }
 
@@ -5321,7 +5321,7 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
         // Sent anyway: configfile is the only evidence, and a wrong refusal
         // would block mounts on a working printer, where a wrong send only
         // waits out the toolchange budget.
-        if (!mountable) {
+        if (warn_unmountable) {
             spdlog::warn("[AMS AFC] T{} feeds {}, whose AFC_extruder sets no toolchanger_unit; "
                          "AFC will not mount it and HelixScreen will wait for the tool change",
                          tool_number, lane_extruder);

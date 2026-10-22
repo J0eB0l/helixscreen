@@ -5403,6 +5403,19 @@ TEST_CASE("AFC toolchanger: a head with no toolchanger_unit warns and still send
         CHECK(log.has_line_with({"T5 feeds e2", "sets no toolchanger_unit"}));
     }
 
+    SECTION("the warning is logged once per head, not on every tool change") {
+        REQUIRE(helper.change_tool(5));
+        // Let the first change finish so the second is not refused as busy.
+        REQUIRE(helper.pending_macro_ack);
+        helper.pending_macro_ack();
+        helper.feed_afc_state({{"current_state", "Idle"}});
+        REQUIRE(helper.get_action() == AmsAction::IDLE);
+        REQUIRE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes ==
+              std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2", "AFC_SELECT_TOOL TOOL=e2"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 1);
+    }
+
     SECTION("a lane parsed before configfile answered still names its head by section") {
         REQUIRE(helper.change_tool(3));
         CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
