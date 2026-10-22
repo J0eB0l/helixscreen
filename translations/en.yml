@@ -136,6 +136,8 @@ translations:
   60 seconds: 60 seconds
   90°: 90°
   90° Clockwise: 90° Clockwise
+  = Clockwise: = Clockwise
+  = Counterclockwise: = Counterclockwise
   = Loosen: = Loosen
   = Tighten: = Tighten
   A: A
@@ -893,6 +895,7 @@ translations:
   Copying from USB stopped responding: Copying from USB stopped responding
   Copying from USB...: Copying from USB...
   Corner roundness: Corner roundness
+  Corners differ by {} mm: Corners differ by {} mm
   Correction (Ki): Correction (Ki)
   Could not add to queue: Could not add to queue
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Could
@@ -1751,6 +1754,7 @@ translations:
   Homing timed out: Homing timed out
   Homing timed out — printer may still be homing: Homing timed out — printer may still
     be homing
+  Homing, then probing...: Homing, then probing...
   Homing...: Homing...
   Horizontal: Horizontal
   Host: Host
@@ -3883,6 +3887,7 @@ translations:
   The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear.: The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear.
   ? The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked.
   : The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked.
+  The printer homes, then probes each screw position.: The printer homes, then probes each screw position.
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.
   The printer is shut down.: The printer is shut down.
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.

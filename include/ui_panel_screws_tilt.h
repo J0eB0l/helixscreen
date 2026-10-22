@@ -174,6 +174,7 @@ class ScrewsTiltPanel : public OverlayBase {
     void populate_results(const std::vector<ScrewTiltResult>& results);
     void clear_results();
     void update_screw_diagram();
+    void create_tilt_surface();
     void create_screw_indicator(size_t index, const ScrewTiltResult& screw, bool in_spec,
                                 bool is_worst);
     [[nodiscard]] lv_color_t get_adjustment_color(const ScrewTiltResult& screw, bool in_spec,
@@ -196,6 +197,9 @@ class ScrewsTiltPanel : public OverlayBase {
     // Results UI elements
     lv_obj_t* bed_diagram_container_ = nullptr;
     lv_obj_t* results_instruction_ = nullptr;
+
+    // Bed surface shaded by height, beneath the indicators
+    lv_obj_t* tilt_surface_ = nullptr;
 
     // Dynamic screw indicators (bed diagram only - positions vary)
     std::vector<lv_obj_t*> screw_indicators_;
@@ -224,6 +228,9 @@ class ScrewsTiltPanel : public OverlayBase {
     lv_subject_t recenter_hint_subject_{};   ///< Alternative that turns fewer screws
     lv_subject_t recenter_hint_available_{}; ///< 1 when the hint is worth showing
     lv_subject_t results_is_leveled_subject_{};
+    lv_subject_t tilt_spread_subject_{}; ///< "Corners differ by 0.23 mm"
+    static constexpr size_t kTiltSpreadBufSize = 64;
+    char tilt_spread_buf_[kTiltSpreadBufSize] = {};
     char probe_count_buf_[kProbeCountBufSize] = {};
     char error_message_buf_[kErrorMsgBufSize] = {};
     static constexpr size_t kRecenterHintBufSize = 160;

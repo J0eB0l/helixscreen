@@ -65,10 +65,17 @@ class AsyncLifetimeGuard;
  * provided) is invoked synchronously with a `CONNECTION_LOST` error instead
  * of crashing on a null dereference.
  *
+ * `HomingPolicy::Always` sends the G28 even when the toolhead reports homed,
+ * for work whose result depends on Z still matching the bed: turning a bed
+ * screw moves the bed under a homed Z without clearing `homed_axes`.
+ *
  * @warning Call from the main thread only — checks `toolhead_is_homed()`,
  * which reads an LVGL subject.
  */
+enum class HomingPolicy { IfNeeded, Always };
+
 void ensure_homed_then(IMoonrakerAPI* api, AsyncLifetimeGuard& guard, std::function<void()> then,
-                       std::function<void(const MoonrakerError&)> on_error);
+                       std::function<void(const MoonrakerError&)> on_error,
+                       HomingPolicy policy = HomingPolicy::IfNeeded);
 
 } // namespace helix

@@ -138,6 +138,8 @@ translations:
   60 seconds: 60秒
   90°: 90°
   90° Clockwise: 90° 時計回り
+  = Clockwise: = 時計回り
+  = Counterclockwise: = 反時計回り
   = Loosen: = 緩める
   = Tighten: = 締める
   A: A
@@ -853,6 +855,7 @@ translations:
   Copying from USB stopped responding: 'USB からのコピーが応答しなくなりました'
   Copying from USB...: 'USB からコピー中...'
   Corner roundness: 角の丸み
+  Corners differ by {} mm: "四隅の差 {} mm"
   Correction (Ki): 補正 (Ki)
   Could not add to queue: キューに追加できませんでした
   Could not analyze PRINT_START macro. Some print options may be unavailable.: PRINT_START
@@ -1704,6 +1707,7 @@ translations:
   Homing selector: 'セレクターをホーミングしています'
   Homing timed out: ホーミングがタイムアウトしました
   Homing timed out — printer may still be homing: ホーミングがタイムアウトしました — プリンターはまだホーミング中の可能性があります
+  Homing, then probing...: "原点復帰してから測定中..."
   Homing...: ホーミング中...
   Horizontal: 水平
   Host: ホスト
@@ -3765,6 +3769,7 @@ translations:
 
   : プリンターはホームに戻ってから、ベッドをノズルからできるだけ離します。耐熱性が足りずに変形するスプールもあります。スプールをベッドから取り出したことを確認するまで、この画面からは何も動きません。Mainsail、マクロ、スライサーから送られた印刷はブロックされません。
 
+  The printer homes, then probes each screw position.: "プリンターは原点復帰してから各ネジ位置を測定します。"
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: プリンターがホーミングされていません。続行すると全軸がホーミングされ、ツールヘッドが移動します。ベッドに物がないことを確認してください。
   The printer is shut down.: 'プリンターはシャットダウンしています。'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.

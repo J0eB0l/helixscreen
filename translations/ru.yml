@@ -185,6 +185,8 @@ translations:
   60 seconds: 60 секунд
   90°: 90°
   90° Clockwise: 90° по часовой стрелке
+  = Clockwise: = По часовой стрелке
+  = Counterclockwise: = Против часовой стрелки
   = Loosen: = Ослабить
   = Tighten: = Затянуть
   A: A
@@ -963,6 +965,7 @@ translations:
   Copying from USB stopped responding: 'Копирование с USB перестало отвечать'
   Copying from USB...: 'Копирование с USB...'
   Corner roundness: Скругление углов
+  Corners differ by {} mm: "Разница углов {} мм"
   Correction (Ki): Коррекция (Ki)
   Could not add to queue: Не удалось добавить в очередь
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Не
@@ -1841,6 +1844,7 @@ translations:
   Homing timed out: Парковка — время ожидания истекло
   Homing timed out — printer may still be homing: Тайм-аут парковки — принтер может
     всё ещё выполнять парковку
+  Homing, then probing...: "Парковка, затем измерение..."
   Homing...: Парковка...
   Horizontal: Горизонтально
   Host: Хост
@@ -4024,6 +4028,7 @@ translations:
 
   : Принтер выполнит парковку, затем отведёт стол как можно дальше от сопла. Некоторые катушки недостаточно термостойкие и могут деформироваться. С этого экрана ничего не будет двигаться, пока вы не подтвердите, что катушки сняты со стола; Mainsail, макросы и печать, отправленная из слайсера, не блокируются.
 
+  The printer homes, then probes each screw position.: "Принтер выполняет парковку, затем измеряет каждую позицию винта."
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: Принтер не запаркован. Продолжение выполнит парковку всех осей, печатающая головка переместится. Убедитесь, что стол свободен.
   The printer is shut down.: 'Принтер выключен.'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.

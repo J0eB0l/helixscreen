@@ -144,6 +144,8 @@ translations:
   60 seconds: 60 Sekunden
   90°: 90°
   90° Clockwise: 90° im Uhrzeigersinn
+  = Clockwise: = Im Uhrzeigersinn
+  = Counterclockwise: = Gegen den Uhrzeigersinn
   = Loosen: = Lösen
   = Tighten: = Anziehen
   A: A
@@ -922,6 +924,7 @@ translations:
   Copying from USB stopped responding: 'Kopieren von USB reagiert nicht mehr'
   Copying from USB...: 'Kopieren von USB...'
   Corner roundness: Eckenrundung
+  Corners differ by {} mm: "Ecken weichen um {} mm ab"
   Correction (Ki): Korrektur (Ki)
   Could not add to queue: Konnte nicht zur Warteschlange hinzufügen
   Could not analyze PRINT_START macro. Some print options may be unavailable.: PRINT_START-Makro
@@ -1809,6 +1812,7 @@ translations:
   Homing timed out: Referenzfahrt Zeitüberschreitung
   Homing timed out — printer may still be homing: Referenzfahrt Zeitüberschreitung
     — Drucker referenziert möglicherweise noch
+  Homing, then probing...: "Referenzfahrt, dann Messung..."
   Homing...: Referenzfahrt...
   Horizontal: Horizontal
   Host: Host
@@ -3984,6 +3988,7 @@ translations:
 
   : Der Drucker referenziert und fährt das Heizbett dann so weit wie möglich von der Düse weg. Manche Spulen sind nicht hitzebeständig genug und können sich verformen. Von diesem Bildschirm aus bewegt sich nichts, bis du bestätigst, dass die Spulen vom Heizbett sind; Mainsail, Makros und von einem Slicer gesendete Drucke werden nicht blockiert.
 
+  The printer homes, then probes each screw position.: "Der Drucker fährt die Referenz an und misst dann jede Schraubenposition."
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: Der Drucker ist nicht referenziert. Wenn Sie fortfahren, werden alle Achsen referenziert und der Werkzeugkopf bewegt sich. Stellen Sie sicher, dass das Heizbett frei ist.
   The printer is shut down.: 'Der Drucker ist heruntergefahren.'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.

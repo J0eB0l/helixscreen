@@ -137,6 +137,8 @@ translations:
   60 seconds: 60 秒
   90°: 90°
   90° Clockwise: 顺时针 90°
+  = Clockwise: = 顺时针
+  = Counterclockwise: = 逆时针
   = Loosen: = 松开
   = Tighten: = 拧紧
   A: 辅
@@ -851,6 +853,7 @@ translations:
   Copying from USB stopped responding: '从 USB 复制已停止响应'
   Copying from USB...: '正在从 USB 复制...'
   Corner roundness: 圆角程度
+  Corners differ by {} mm: "四角相差 {} mm"
   Correction (Ki): 校正 (Ki)
   Could not add to queue: 无法添加到队列
   Could not analyze PRINT_START macro. Some print options may be unavailable.: 无法分析
@@ -1700,6 +1703,7 @@ translations:
   Homing selector: '选择器回零'
   Homing timed out: 归位超时
   Homing timed out — printer may still be homing: 回零超时 — 打印机可能仍在回零
+  Homing, then probing...: "归位后探测中..."
   Homing...: 正在归零...
   Horizontal: 水平
   Host: 主机
@@ -3756,6 +3760,7 @@ translations:
 
   : 打印机会先归位,然后让热床尽量远离喷嘴。有些料盘耐热性不足,可能会变形。在你确认料盘已从热床上取下之前,此屏幕不会移动任何部件;Mainsail、宏以及切片软件发送的打印不会被阻止。
 
+  The printer homes, then probes each screw position.: "打印机先归位，然后探测每个螺丝位置。"
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: 打印机尚未归位。继续将对所有轴执行归位操作，移动工具头。请确保热床上没有障碍物。
   The printer is shut down.: '打印机已关机。'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.

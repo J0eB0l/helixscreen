@@ -142,6 +142,8 @@ translations:
   60 seconds: 60 secondi
   90°: 90°
   90° Clockwise: 90° in senso orario
+  = Clockwise: = Senso orario
+  = Counterclockwise: = Senso antiorario
   = Loosen: = Allentare
   = Tighten: = Stringere
   A: A
@@ -914,6 +916,7 @@ translations:
   Copying from USB stopped responding: 'La copia da USB non risponde più'
   Copying from USB...: 'Copia da USB...'
   Corner roundness: Arrotondamento angoli
+  Corners differ by {} mm: "Gli angoli differiscono di {} mm"
   Correction (Ki): Correzione (Ki)
   Could not add to queue: Impossibile aggiungere alla coda
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Impossibile
@@ -1798,6 +1801,7 @@ translations:
   Homing timed out: Homing — tempo scaduto
   Homing timed out — printer may still be homing: Timeout dell’azzeramento — la stampante
     potrebbe essere ancora in fase di azzeramento
+  Homing, then probing...: "Homing, poi tastatura..."
   Homing...: Azzeramento...
   Horizontal: Orizzontale
   Host: Host
@@ -3975,6 +3979,7 @@ translations:
 
   : La stampante esegue l'homing, poi allontana il piano dall'ugello il più possibile. Alcune bobine non resistono abbastanza al calore e possono deformarsi. Da questa schermata non si muove nulla finché non confermi che le bobine non sono più sul piano; Mainsail, le macro e le stampe inviate da uno slicer non vengono bloccati.
 
+  The printer homes, then probes each screw position.: "La stampante esegue l'homing, poi tasta ogni posizione delle viti."
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: La stampante non ha eseguito l'homing. Continuando verrà eseguito l'homing di tutti gli assi, muovendo la testina. Assicurarsi che il piano sia libero.
   The printer is shut down.: 'La stampante è spenta.'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.
