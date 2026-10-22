@@ -13,6 +13,7 @@
 #include "toolhead_homing.h"
 
 #include <chrono>
+#include <optional>
 #include <thread>
 
 #include "../catch_amalgamated.hpp"
@@ -100,6 +101,26 @@ TEST_CASE("free ensure_homed_then does not run then() synchronously when not hom
     // real G28 completion (which cannot happen without an API) may run it.
     helix::ensure_homed_then(nullptr, guard, [&ran] { ran = true; }, nullptr);
     CHECK_FALSE(ran);
+}
+
+TEST_CASE("ensure_homed_then with HomingPolicy::Always homes an already-homed toolhead",
+          "[homing][toolhead]") {
+    LVGLTestFixture fixture;
+    helix::PrinterState& state = get_printer_state();
+    state.init_subjects(false);
+    lv_subject_copy_string(state.motion_state().get_homed_axes_subject(), "xyz");
+
+    helix::AsyncLifetimeGuard guard;
+    bool ran = false;
+    std::optional<MoonrakerErrorType> error;
+    // With no API the G28 cannot be sent, so the error path proves the policy
+    // asked for one instead of skipping straight to then().
+    helix::ensure_homed_then(
+        nullptr, guard, [&ran] { ran = true; },
+        [&error](const MoonrakerError& err) { error = err.type; }, helix::HomingPolicy::Always);
+    CHECK_FALSE(ran);
+    REQUIRE(error);
+    CHECK(*error == MoonrakerErrorType::CONNECTION_LOST);
 }
 
 TEST_CASE("ensure_homed_then's continuation is not refused as someone else's busy",

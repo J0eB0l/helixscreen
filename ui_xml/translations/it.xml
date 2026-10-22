@@ -1635,6 +1635,7 @@
   <translation tag="Homing selector" it="Homing del selettore"/>
   <translation tag="Homing timed out" it="Homing — tempo scaduto"/>
   <translation tag="Homing timed out — printer may still be homing" it="Timeout dell’azzeramento — la stampante potrebbe essere ancora in fase di azzeramento"/>
+  <translation tag="Homing, then probing..." it="Homing, poi tastatura..."/>
   <translation tag="Homing..." it="Azzeramento..."/>
   <translation tag="Horizontal" it="Orizzontale"/>
   <translation tag="Host" it="Host"/>
@@ -3581,6 +3582,7 @@
   <translation tag="The printer heats the nozzle, extrudes a few short test moves in a corner of the plate, and measures them itself. It repeats until the readings agree, then reports one number." it="La stampante riscalda l&apos;ugello, fa alcuni brevi movimenti di prova in un angolo del piano e li misura da sola. Ripete finché le letture concordano, poi riporta un unico numero."/>
   <translation tag="The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear." it="La stampante si azzera e fa scorrevolare la taglierina (circa 1 minuto). Mantenere libero il percorso del filamento."/>
   <translation tag="The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked." it="La stampante esegue l&apos;homing, poi allontana il piano dall&apos;ugello il più possibile. Alcune bobine non resistono abbastanza al calore e possono deformarsi. Da questa schermata non si muove nulla finché non confermi che le bobine non sono più sul piano; Mainsail, le macro e le stampe inviate da uno slicer non vengono bloccati."/>
+  <translation tag="The printer homes, then probes each screw position." it="La stampante esegue l&apos;homing, poi tasta ogni posizione delle viti."/>
   <translation tag="The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear." it="La stampante non ha eseguito l&apos;homing. Continuando verrà eseguito l&apos;homing di tutti gli assi, muovendo la testina. Assicurarsi che il piano sia libero."/>
   <translation tag="The printer is shut down." it="La stampante è spenta."/>
   <translation tag="The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed." it="La stampante attende che la camera raggiunga una temperatura, e solo un arresto di emergenza con riavvio del firmware termina l&apos;attesa. La stampa si ferma subito e non può essere ripresa."/>

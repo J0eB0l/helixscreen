@@ -298,7 +298,10 @@ void ScrewsTiltPanel::start_probing() {
                                   ? lv_tr("Homing timed out — printer may still be homing")
                                   : std::string(lv_tr("Homing failed: ")) + err.message;
             on_screws_tilt_error(msg);
-        });
+        },
+        // Every probe after the first follows screw turns, which move the bed
+        // under a Z that still reads homed.
+        HomingPolicy::Always);
 }
 
 void ScrewsTiltPanel::start_screws_tilt_command() {
