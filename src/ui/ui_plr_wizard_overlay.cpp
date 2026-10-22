@@ -64,6 +64,8 @@ static lv_subject_t s_plr_need_nozzle;
 static lv_subject_t s_plr_ack_nozzle;
 static lv_subject_t s_plr_need_no_mesh;
 static lv_subject_t s_plr_ack_no_mesh;
+static lv_subject_t s_plr_need_next_layer;
+static lv_subject_t s_plr_ack_next_layer;
 static lv_subject_t s_plr_need_cold_bed;
 static lv_subject_t s_plr_ack_cold_bed;
 
@@ -182,6 +184,8 @@ void PlrWizardOverlay::init_subjects() {
         UI_MANAGED_SUBJECT_INT(s_plr_ack_nozzle, 0, "plr_ack_nozzle", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_need_no_mesh, 0, "plr_need_no_mesh", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_ack_no_mesh, 0, "plr_ack_no_mesh", subjects_);
+        UI_MANAGED_SUBJECT_INT(s_plr_need_next_layer, 0, "plr_need_next_layer", subjects_);
+        UI_MANAGED_SUBJECT_INT(s_plr_ack_next_layer, 0, "plr_ack_next_layer", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_need_cold_bed, 0, "plr_need_cold_bed", subjects_);
         UI_MANAGED_SUBJECT_INT(s_plr_ack_cold_bed, 0, "plr_ack_cold_bed", subjects_);
     });
@@ -258,9 +262,10 @@ void PlrWizardOverlay::open(IMoonrakerAPI* api) {
     if (!show(lv_screen_active())) {
         return;
     }
-    for (lv_subject_t* s : {&s_plr_ack_part, &s_plr_ack_nozzle, &s_plr_ack_no_mesh,
-                            &s_plr_ack_cold_bed, &s_plr_need_part, &s_plr_need_nozzle,
-                            &s_plr_need_no_mesh, &s_plr_need_cold_bed, &s_plr_warn_layer_start}) {
+    for (lv_subject_t* s :
+         {&s_plr_ack_part, &s_plr_ack_nozzle, &s_plr_ack_no_mesh, &s_plr_ack_next_layer,
+          &s_plr_ack_cold_bed, &s_plr_need_part, &s_plr_need_nozzle, &s_plr_need_no_mesh,
+          &s_plr_need_next_layer, &s_plr_need_cold_bed, &s_plr_warn_layer_start}) {
         lv_subject_set_int(s, 0);
     }
     lv_subject_set_int(&s_plr_jog_step, kDefaultJogStep);
@@ -305,6 +310,7 @@ std::vector<PlrConfirmation> PlrWizardOverlay::given() const {
         {&s_plr_ack_part, PlrConfirmation::PartAttached},
         {&s_plr_ack_nozzle, PlrConfirmation::NozzleClear},
         {&s_plr_ack_no_mesh, PlrConfirmation::AcceptNoMesh},
+        {&s_plr_ack_next_layer, PlrConfirmation::AcceptNextLayer},
         {&s_plr_ack_cold_bed, PlrConfirmation::AcceptColdBed},
     };
     for (const auto& [subject, c] : acks) {
@@ -643,6 +649,8 @@ void PlrWizardOverlay::publish_plan() {
     lv_subject_set_int(&s_plr_need_part, needs(need, PlrConfirmation::PartAttached) ? 1 : 0);
     lv_subject_set_int(&s_plr_need_nozzle, needs(need, PlrConfirmation::NozzleClear) ? 1 : 0);
     lv_subject_set_int(&s_plr_need_no_mesh, needs(need, PlrConfirmation::AcceptNoMesh) ? 1 : 0);
+    lv_subject_set_int(&s_plr_need_next_layer,
+                       needs(need, PlrConfirmation::AcceptNextLayer) ? 1 : 0);
     lv_subject_set_int(&s_plr_need_cold_bed, needs(need, PlrConfirmation::AcceptColdBed) ? 1 : 0);
 }
 

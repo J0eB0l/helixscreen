@@ -3221,6 +3221,7 @@
   <translation tag="Size" it="Dimensione"/>
   <translation tag="Skip" it="Salta"/>
   <translation tag="Skip Objects..." it="Salta oggetti..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" it="Saltare il resto di questo strato e riprendere dal successivo"/>
   <translation tag="Skipped" it="Saltato"/>
   <translation tag="Sleep While Printing" it="Sospensione Durante Stampa"/>
   <translation tag="Sleep adjusted to match dim timeout" it="Timeout standby regolato"/>

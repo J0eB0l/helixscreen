@@ -75,7 +75,14 @@ void PrinterPluginStatusState::publish_plr_feature() {
     }
     const PluginFeatureState state = plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);
     lv_subject_set_int(&plr_feature_state_, static_cast<int>(state));
-    lv_subject_set_int(&plr_saving_enabled_, state == PluginFeatureState::Ready ? 1 : 0);
+    bool saving = state == PluginFeatureState::Ready;
+    if (state != PluginFeatureState::Absent) {
+        const auto it = features_.find(kPlrFeatureName);
+        if (it != features_.end() && it->second.saving) {
+            saving = *it->second.saving;
+        }
+    }
+    lv_subject_set_int(&plr_saving_enabled_, saving ? 1 : 0);
 }
 
 void PrinterPluginStatusState::set_link_dir(const std::string& dir) {

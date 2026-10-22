@@ -3221,6 +3221,7 @@
   <translation tag="Size" pt="Tamanho"/>
   <translation tag="Skip" pt="Pular"/>
   <translation tag="Skip Objects..." pt="Pular objetos..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" pt="Pular o restante desta camada e retomar na próxima"/>
   <translation tag="Skipped" pt="Ignorado"/>
   <translation tag="Sleep While Printing" pt="Suspender Durante Impressão"/>
   <translation tag="Sleep adjusted to match dim timeout" pt="Tempo de suspensão ajustado"/>

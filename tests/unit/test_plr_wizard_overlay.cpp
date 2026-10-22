@@ -243,6 +243,7 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: plan warnings ask for their conf
     CHECK(subject("plr_need_no_mesh") == 1);
     CHECK(subject("plr_need_cold_bed") == 1);
     CHECK(subject("plr_warn_layer_start") == 1);
+    CHECK(subject("plr_need_next_layer") == 1);
 
     set_subject("plr_ack_part", 1);
     set_subject("plr_ack_no_mesh", 1);
@@ -250,6 +251,11 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: plan warnings ask for their conf
     settle();
     CHECK(wizard_step() == PlrWizardStep::Checks);
     set_subject("plr_ack_cold_bed", 1);
+    PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
+    settle();
+    CHECK(wizard_step() == PlrWizardStep::Checks);
+    CHECK(client.count(helix::kPlrPrepareRpc) == 0);
+    set_subject("plr_ack_next_layer", 1);
     PlrWizardOverlayTestAccess::tap_continue(get_plr_wizard_overlay());
     settle();
     CHECK(wizard_step() == PlrWizardStep::Preparing);

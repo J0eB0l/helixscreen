@@ -3571,6 +3571,7 @@ translations:
   Size: Размер
   Skip: Пропустить
   Skip Objects...: 'Пропустить объекты...'
+  Skip the rest of this layer and resume at the next one: Пропустить остаток этого слоя и продолжить со следующего
   Skipped: 'Пропущено'
   Sleep While Printing: Спящий режим при печати
   Sleep adjusted to match dim timeout: Таймаут сна изменён

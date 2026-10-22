@@ -35,6 +35,7 @@
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
 #include "plr_offer_controller.h"
+#include "plr_plugin_rpc.h"
 #include "plr_profile.h"
 #include "print_lifecycle_state.h"
 #include "printer_detector.h"
@@ -557,8 +558,12 @@ TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR asks the plugin once its plr
     MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
     MoonrakerAPIMock api{client, ps};
     set_moonraker_api(&api);
-    // Saving off, on the plugin's side too, so its features answer agrees.
+    // Saving off and no snapshot waiting, on the plugin's side too, so its
+    // features answer agrees.
     client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));
+    client.send_jsonrpc(
+        helix::kPlrDiscardRpc, json::object(), [](const json&) {}, [](const MoonrakerError&) {});
+    REQUIRE_FALSE(client.mock_plr_interrupted());
     set_plr_feature(true, false);
     set_link(ps, ConnectionState::CONNECTED, helix::KlippyState::READY);
     PlrOfferController controller;
@@ -626,6 +631,33 @@ TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR does not offer without room 
     CHECK(asks_after == 1);
     CHECK(PlrOfferControllerTestAccess::has_plugin_status(controller));
     CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR offers a waiting snapshot with saving switched off",
+                 "[plr][generic]") {
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));
+    REQUIRE(client.mock_plr_interrupted());
+    // The features answer the plugin gives in that state.
+    helix::plr_rpc::refresh_features(api);
+    settle();
+    auto& plugin = ps.plugin_status_state();
+    CHECK(lv_subject_get_int(plugin.get_plr_saving_enabled_subject()) == 0);
+    REQUIRE(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+            static_cast<int>(helix::PluginFeatureState::Ready));
+
+    set_link(ps, ConnectionState::CONNECTED, helix::KlippyState::READY);
+    PlrOfferController controller;
+    settle();
+    const bool prompted = PlrOfferControllerTestAccess::prompted(controller);
+    set_moonraker_api(nullptr);
+    CHECK(prompted);
 }
 
 TEST_CASE_METHOD(PluginPlrOfferFixture,

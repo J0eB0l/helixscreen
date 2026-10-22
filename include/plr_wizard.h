@@ -33,7 +33,8 @@ enum class PlrConfirmation {
     ZConfirmed,
     ZJogged,
     AcceptNoMesh,
-    AcceptColdBed
+    AcceptColdBed,
+    AcceptNextLayer
 };
 
 enum class PlrBedState { Ok, NeedsWait, ColdWarn };
@@ -72,7 +73,8 @@ PlrBedState plr_bed_decision(float target_c, float current_c, float max_diff_c);
 
 /// Everything commit needs: tier 1 part_attached, nozzle_clear, z_jogged; tier 2
 /// part_attached, z_confirmed; plus accept_no_mesh for a `mesh_unavailable`
-/// warning, accept_cold_bed for ColdWarn, and the plugin's own `requires`.
+/// warning, accept_next_layer for a `layer_start` warning, accept_cold_bed for
+/// ColdWarn, and the plugin's own `requires`.
 /// Any other tier needs nothing because it can never commit.
 std::vector<PlrConfirmation> plr_required_confirmations(const PlrPlanView& plan, PlrBedState bed);
 

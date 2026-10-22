@@ -186,7 +186,8 @@ class PrinterPluginStatusState {
         return &helix_plugin_probe_seq_;
     }
 
-    /// 1 while the plugin reports power-loss saving switched on.
+    /// 1 while the plugin reports power-loss saving switched on: the plr entry's
+    /// `saving`, else its `enabled` from a plugin that reports no `saving`.
     lv_subject_t* get_plr_saving_enabled_subject() {
         return &plr_saving_enabled_;
     }

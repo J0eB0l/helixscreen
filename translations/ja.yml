@@ -3337,6 +3337,7 @@ translations:
   Size: サイズ
   Skip: スキップ
   Skip Objects...: 'オブジェクトをスキップ...'
+  Skip the rest of this layer and resume at the next one: このレイヤーの残りをスキップして次のレイヤーから再開する
   Skipped: 'スキップ'
   Sleep While Printing: 印刷中のスリープ
   Sleep adjusted to match dim timeout: スリープタイムアウトを調整しました

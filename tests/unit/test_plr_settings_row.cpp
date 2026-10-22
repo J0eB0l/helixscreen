@@ -25,6 +25,8 @@
 #include "printer_state.h"
 #include "settings_manager.h"
 
+#include <optional>
+
 #include "../catch_amalgamated.hpp"
 
 namespace {
@@ -58,12 +60,14 @@ struct PlrSettingsRowFixture : LVGLUITestFixture {
         helix::ui::UpdateQueue::instance().drain();
     }
 
-    static void set_plr_feature(bool available, bool enabled) {
+    static void set_plr_feature(bool available, bool enabled,
+                                std::optional<bool> saving = std::nullopt) {
         auto& plugin = get_printer_state().plugin_status_state();
         helix::PluginFeatureEntry entry;
         entry.version = helix::kPlrFeatureMinVersion;
         entry.available = available;
         entry.enabled = enabled;
+        entry.saving = saving;
         plugin.set_installed(true);
         plugin.set_features({{helix::kPlrFeatureName, entry}});
     }
@@ -109,4 +113,29 @@ TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch writes the user's c
     helix::ui::UpdateQueue::instance().drain();
     CHECK(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrUserKey) ==
           helix::plr_user_json(false));
+}
+
+TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch follows saving, not enabled",
+                 "[plr][settings]") {
+    lv_obj_t* container = find("container_power_loss_recovery");
+    REQUIRE(container != nullptr);
+    lv_obj_t* toggle = lv_obj_find_by_name(find("row_power_loss_recovery"), "toggle");
+    REQUIRE(toggle != nullptr);
+
+    SECTION("saving off while a snapshot keeps the feature enabled") {
+        set_plr_feature(true, true, false);
+        process_lvgl(5);
+        CHECK_FALSE(lv_obj_has_flag(container, LV_OBJ_FLAG_HIDDEN));
+        CHECK_FALSE(lv_obj_has_state(toggle, LV_STATE_CHECKED));
+    }
+    SECTION("saving on") {
+        set_plr_feature(true, true, true);
+        process_lvgl(5);
+        CHECK(lv_obj_has_state(toggle, LV_STATE_CHECKED));
+    }
+    SECTION("a plugin without saving: enabled stands in") {
+        set_plr_feature(true, true);
+        process_lvgl(5);
+        CHECK(lv_obj_has_state(toggle, LV_STATE_CHECKED));
+    }
 }

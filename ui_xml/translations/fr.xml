@@ -3221,6 +3221,7 @@
   <translation tag="Size" fr="Taille"/>
   <translation tag="Skip" fr="Passer"/>
   <translation tag="Skip Objects..." fr="Passer des objets..."/>
+  <translation tag="Skip the rest of this layer and resume at the next one" fr="Ignorer le reste de cette couche et reprendre à la suivante"/>
   <translation tag="Skipped" fr="Ignoré"/>
   <translation tag="Sleep While Printing" fr="Veille pendant impression"/>
   <translation tag="Sleep adjusted to match dim timeout" fr="Délai de veille ajusté"/>

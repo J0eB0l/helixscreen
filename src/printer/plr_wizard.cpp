@@ -13,6 +13,7 @@ namespace helix {
 namespace {
 
 constexpr const char* kMeshUnavailableWarning = "mesh_unavailable";
+constexpr const char* kLayerStartWarning = "layer_start";
 
 struct ConfirmationName {
     PlrConfirmation value;
@@ -26,6 +27,7 @@ constexpr ConfirmationName kConfirmationNames[] = {
     {PlrConfirmation::ZJogged, "z_jogged"},
     {PlrConfirmation::AcceptNoMesh, "accept_no_mesh"},
     {PlrConfirmation::AcceptColdBed, "accept_cold_bed"},
+    {PlrConfirmation::AcceptNextLayer, "accept_next_layer"},
 };
 
 bool contains(const std::vector<PlrConfirmation>& set, PlrConfirmation c) {
@@ -106,6 +108,10 @@ std::vector<PlrConfirmation> plr_required_confirmations(const PlrPlanView& plan,
     if (std::find(plan.warnings.begin(), plan.warnings.end(), kMeshUnavailableWarning) !=
         plan.warnings.end()) {
         add_unique(need, PlrConfirmation::AcceptNoMesh);
+    }
+    if (std::find(plan.warnings.begin(), plan.warnings.end(), kLayerStartWarning) !=
+        plan.warnings.end()) {
+        add_unique(need, PlrConfirmation::AcceptNextLayer);
     }
     if (bed == PlrBedState::ColdWarn) {
         add_unique(need, PlrConfirmation::AcceptColdBed);

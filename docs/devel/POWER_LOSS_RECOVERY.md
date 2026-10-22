@@ -209,7 +209,10 @@ in the `helix-screen` namespace, so it has them with the screen off:
   saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it;
   the row shows while the feature is available (`plr_feature_state` subject, 0
   Absent / 1 Disabled / 2 Ready) and its switch follows `plr_saving_enabled`, the
-  plugin's own report re-read after each write.
+  plugin's own report re-read after each write: the `plr` entry's `saving`, or
+  its `enabled` from a plugin that reports no `saving`. The entry's `enabled`
+  also holds while a saved snapshot waits, so the offer (gated on Ready) survives
+  saving being switched off.
 
 Listed printers: the Qidi Q2 (`backend: qidi_print_state`, eMMC, tier 2). Tier 2
 replicates QIDI's own stock resume, which already trusts the Z the steppers held;
@@ -222,7 +225,7 @@ own recovery serves it and outranks the generic backend (ruling 8).
 | Step | What happens |
 |------|-------------|
 | Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then. A `plan_ready` carrying `error`, or a plan still `pending` after `plan_ready`, fails the wizard with that message instead of starting the scan over |
-| Checks | File, layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
+| Checks | File, layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_next_layer` for a `layer_start` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
 | Preparing | `prepare`: steps `bed_wait`, `chamber_wait`, `lift`, `home_xy`, and at tier 1 `position` (over the resume point). `helix:plr_progress` (`notify_plr_progress`, `{plan_id, step, state}` with state `running` / `done` / `failed`) names each; the wizard shows the `running` step and the live bed temperature |
 | ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`). Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume stays disabled until a downward jog has landed (the part top is where the user lowered the nozzle to), and waits while a jog is still moving |
 | Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): steps `z_reference`, `restore`, `heat_nozzle`, `move_to_resume`, `start`, with `bed_wait` / `chamber_wait` again when it re-heats; the print starts at the resume offset |

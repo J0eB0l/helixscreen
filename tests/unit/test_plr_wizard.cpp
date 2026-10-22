@@ -75,13 +75,15 @@ TEST_CASE("plr_required_confirmations: per tier and per warning", "[plr][wizard]
     SECTION("tier 2 trusts the held Z") {
         CHECK(helix::plr_required_confirmations(plan_with_tier(2), PlrBedState::Ok) == kTier2All);
     }
-    SECTION("mesh_unavailable adds accept_no_mesh") {
+    SECTION("mesh_unavailable adds accept_no_mesh, layer_start adds accept_next_layer") {
         PlrPlanView plan = plan_with_tier(2);
         plan.warnings = {"layer_start", "mesh_unavailable"};
         auto need = helix::plr_required_confirmations(plan, PlrBedState::Ok);
-        CHECK(need == std::vector<PlrConfirmation>{PlrConfirmation::PartAttached,
-                                                   PlrConfirmation::ZConfirmed,
-                                                   PlrConfirmation::AcceptNoMesh});
+        CHECK(need == std::vector<PlrConfirmation>{
+                          PlrConfirmation::PartAttached, PlrConfirmation::ZConfirmed,
+                          PlrConfirmation::AcceptNoMesh, PlrConfirmation::AcceptNextLayer});
+        CHECK(std::string(helix::plr_confirmation_name(PlrConfirmation::AcceptNextLayer)) ==
+              "accept_next_layer");
     }
     SECTION("ColdWarn adds accept_cold_bed, NeedsWait does not") {
         auto cold = helix::plr_required_confirmations(plan_with_tier(1), PlrBedState::ColdWarn);
@@ -426,4 +428,13 @@ TEST_CASE("plr_blocked_reason: every plugin code has words, an unknown one is it
     }
     CHECK(helix::plr_blocked_reason("no_lift_room").find("headroom") != std::string::npos);
     CHECK(helix::plr_blocked_reason("some_new_rule") == "some_new_rule");
+}
+
+TEST_CASE("plr_commit_allowed: a layer_start plan waits for accept_next_layer", "[plr][wizard]") {
+    PlrPlanView plan = plan_with_tier(2);
+    plan.warnings = {"layer_start"};
+    std::vector<PlrConfirmation> given = kTier2All;
+    CHECK_FALSE(helix::plr_commit_allowed(plan, given, PlrBedState::Ok));
+    given.push_back(PlrConfirmation::AcceptNextLayer);
+    CHECK(helix::plr_commit_allowed(plan, given, PlrBedState::Ok));
 }

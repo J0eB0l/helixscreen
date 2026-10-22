@@ -448,8 +448,9 @@ other id (`plr_stale_plan`), and `commit` refuses a missing confirmation
 `heat_nozzle`, `move_to_resume`, `start` (the plugin's step names),
 starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
 `discard` clears it too; `abort` keeps it and turns the bed off. The feature's
-`enabled` (and the status `saving`) follow a `helix-screen` / `plr_user` record
-written to the mock database, on when none is, so the Settings switch round-trips.
+`saving` (and the status `saving`) follow a `helix-screen` / `plr_user` record
+written to the mock database, on when none is, so the Settings switch round-trips;
+its `enabled` is `saving` or a snapshot waiting, as the plugin reports it.
 
 ### `HELIX_MOCK_PLR_TIER`
 
@@ -471,8 +472,9 @@ confirm step, and the plan's `requires` follows (`nozzle_clear` + `z_jogged`, or
 
 Plan warnings. `mesh_unavailable` adds `accept_no_mesh` to `requires`; `cold_bed`
 reports the bed 30°C under its 60°C target, which the app reads as a cold bed and
-asks `accept_cold_bed` for; `layer_start` reports `method: "layer_start"` and the
-wizard's note that the print resumes at the start of the next layer.
+asks `accept_cold_bed` for; `layer_start` reports `method: "layer_start"`, the
+wizard's note that the print resumes at the start of the next layer, and adds
+`accept_next_layer` to `requires`.
 
 ### `HELIX_MOCK_PLR_FAIL`
 
