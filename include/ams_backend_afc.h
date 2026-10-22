@@ -1082,7 +1082,7 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
 
     /// False only when configfile has answered and no AFC_extruder section
     /// named, or resolving to, @p klipper_name sets `toolchanger_unit`. AFC_SELECT_TOOL on such a
-    /// head logs an error and returns ok without moving, so the operation would sit in SELECTING
+    /// head logs an error and returns ok without moving, so the operation sits in SELECTING
     /// until its timeout. @pre mutex_ held.
     [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
 

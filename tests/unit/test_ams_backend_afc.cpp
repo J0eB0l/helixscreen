@@ -22,6 +22,7 @@
 #include "settings_manager.h"
 #include "test_helpers/afc_test_access.h"
 #include "test_helpers/backend_user_edit.h"
+#include "test_helpers/log_capture.h"
 #include "test_helpers/mock_printer.h"
 #include "test_helpers/registered_backend.h"
 #include "test_helpers/seeded_override.h"
@@ -5203,11 +5204,12 @@ TEST_CASE("AFC toolchanger: a T number with no lane refuses instead of guessing 
     CHECK(helper.captured_gcodes.empty());
 }
 
-TEST_CASE("AFC toolchanger: a head with no toolchanger_unit is refused, not sent",
+TEST_CASE("AFC toolchanger: a head with no toolchanger_unit warns and still sends",
           "[ams][afc][toolchanger][1850]") {
     // AFC gives a head a tool lane only when its AFC_extruder sets
     // toolchanger_unit. AFC_SELECT_TOOL on any other head logs an error and
-    // returns ok without moving, which would leave the screen on Selecting.
+    // returns ok without moving, so the screen waits on Selecting. That is
+    // warned, not refused: configfile is the only evidence.
     AmsBackendAfcTestHelper helper;
     setup_interleaved_toolchanger(helper);
 
@@ -5226,20 +5228,25 @@ TEST_CASE("AFC toolchanger: a head with no toolchanger_unit is refused, not sent
         helper, AmsBackendAfc::parse_configfile_topology(
                     {{"result", {{"status", {{"configfile", {{"settings", settings}}}}}}}}));
 
+    LogCapture log;
+
     SECTION("T5 feeds e2, which is not on the toolchanger") {
-        CHECK_FALSE(helper.change_tool(5));
-        CHECK(helper.captured_gcodes.empty());
+        REQUIRE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2"});
+        CHECK(log.has_line_with({"T5 feeds e2", "sets no toolchanger_unit"}));
     }
 
     SECTION("a lane parsed before configfile answered still names its head by section") {
         REQUIRE(helper.change_tool(3));
         CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 0);
     }
 
     SECTION("a lane parsed after it names the Klipper extruder") {
         helper.feed_afc_stepper("e1", {{"map", "T3"}, {"extruder", "e1"}});
         REQUIRE(helper.change_tool(3));
         CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=extruder1"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 0);
     }
 }
 

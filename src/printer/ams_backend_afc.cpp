@@ -5314,13 +5314,13 @@ AmsError AmsBackendAfc::do_change_tool(int tool_number) {
                 "T" + std::to_string(tool_number) +
                 " has no lane with a known extruder; cannot choose a toolhead");
         }
+        // Sent anyway: configfile is the only evidence, and a wrong refusal
+        // would block mounts on a working printer, where a wrong send only
+        // waits out the toolchange budget.
         if (!mountable) {
             spdlog::warn("[AMS AFC] T{} feeds {}, whose AFC_extruder sets no toolchanger_unit; "
-                         "AFC_SELECT_TOOL cannot mount it",
+                         "AFC will not mount it and HelixScreen will wait for the tool change",
                          tool_number, lane_extruder);
-            return AmsErrorHelper::invalid_parameter(
-                lane_extruder + " is not a toolchanger head; cannot mount it for T" +
-                std::to_string(tool_number));
         }
         cmd = "AFC_SELECT_TOOL TOOL=" + lane_extruder;
     } else {
