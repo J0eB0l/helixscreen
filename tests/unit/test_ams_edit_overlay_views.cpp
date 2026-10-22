@@ -16,6 +16,7 @@
 #include "ui_update_queue.h"
 
 #include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/ams_state_test_access.h"
 #include "../test_helpers/backend_user_edit.h"
 #include "../test_helpers/log_capture.h"
 #include "../test_helpers/scoped_breakpoint.h"
@@ -4018,6 +4019,80 @@ TEST_CASE_METHOD(OverlayConsumerCommitFixture,
     REQUIRE(list != nullptr);
     CHECK(disabled(list, 9001) == external);
     CHECK(disabled(list, 9002));
+
+    close_editor_overlay();
+    ts.deinit_subjects();
+}
+
+// A box that owns its tool table (CFS, like the mock) feeds every lane through
+// one extruder, yet ToolState takes a tool per entry of that table from the
+// backend's topology, so a loaded lane on T2 holds its spool under tool 2.
+TEST_CASE_METHOD(OverlayConsumerCommitFixture,
+                 "picker on a one-extruder box greys every other lane's spool, never its own",
+                 "[ams_edit_overlay][picker][tool-state]") {
+    auto& ts = ToolState::instance();
+    ts.deinit_subjects();
+    ts.init_subjects(false);
+    PrinterDiscovery hw;
+    hw.parse_objects(nlohmann::json::array({"extruder", "heater_bed"}));
+    ts.init_tools(hw);
+
+    const auto link = [this](int slot, int spool_id) {
+        SlotInfo info = backend->get_slot_info(slot);
+        info.spoolman_id = spool_id;
+        backend->sync_external_identity(slot, info);
+    };
+    link(0, 9001);
+    link(2, 9003);
+    backend->force_slot_status(2, SlotStatus::LOADED);
+    AmsStateTestAccess::backend_frame(AmsState::instance());
+    UpdateQueue::instance().drain();
+    REQUIRE(backend->get_slot_info(2).mapped_tool == 2);
+    REQUIRE(ts.tool_count() == 4);
+    REQUIRE(ts.tools()[0].spoolman_id == 9001);
+    REQUIRE(ts.tools()[2].spoolman_id == 9003);
+
+    std::vector<SpoolInfo> spools(2);
+    spools[0].id = 9001;
+    spools[0].material = "PLA";
+    spools[1].id = 9003;
+    spools[1].material = "PETG";
+
+    const auto disabled = [](lv_obj_t* list, int spool_id) {
+        for (uint32_t i = 0; i < lv_obj_get_child_count(list); ++i) {
+            lv_obj_t* row = lv_obj_get_child(list, static_cast<int32_t>(i));
+            if (reinterpret_cast<intptr_t>(lv_obj_get_user_data(row)) == spool_id) {
+                return lv_obj_has_state(row, LV_STATE_DISABLED);
+            }
+        }
+        FAIL("no row for spool " << spool_id);
+        return false;
+    };
+
+    auto& overlay = get_ams_edit_overlay();
+    AmsEditOverlayViewTestAccess access(overlay);
+
+    int slot = 0;
+    SECTION("the lane on the tool") {
+        slot = 0;
+    }
+    SECTION("a loaded lane numbered past the tools") {
+        slot = 2;
+    }
+    REQUIRE(
+        overlay.show_for_slot(test_screen(), slot, backend->get_slot_info(slot), nullptr, nullptr));
+    UpdateQueue::instance().drain();
+    process_lvgl(10);
+
+    access.set_cached_spools(spools);
+    access.call_render_spool_list("");
+    UpdateQueue::instance().drain();
+    process_lvgl(10);
+
+    lv_obj_t* list = access.widget("picker_spool_list");
+    REQUIRE(list != nullptr);
+    CHECK(disabled(list, 9001) == (slot != 0));
+    CHECK(disabled(list, 9003) == (slot != 2));
 
     close_editor_overlay();
     ts.deinit_subjects();
