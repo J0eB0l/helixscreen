@@ -39,15 +39,25 @@ static constexpr float kHubRadius = 0.10f; // Center hub hole radius
 static constexpr int32_t kDefaultSize = 64;
 static constexpr uint32_t kDefaultColor = 0xE0E0E0; // Default white/light filament
 
+// The key light comes from above and in front, falling kLightDrop for each
+// unit it travels into the spool along its axis.
+static constexpr float kLightDrop = 1.0f;
+// The flanges' plastic under it: lifted toward white at the top, pressed
+// toward black at the foot.
+static constexpr uint8_t kFlangeLift = 60;
+static constexpr uint8_t kFlangeDrop = 40;
+
 // Vents in the front flange (spool_vents.h). Seen through a slot, wound
 // filament is in the flange's shadow, and an empty spool's far flange darker
-// still. The lip is the flange's thickness catching shade along each cut's top.
+// still. The lip is the shadow the flange's thickness casts along each cut's
+// top, under the key light.
 static constexpr uint8_t kVentFilamentShadeTop = 30;
 static constexpr uint8_t kVentFilamentShadeBottom = 110;
 static constexpr uint8_t kVentInsideShadeTop = 20;
 static constexpr uint8_t kVentInsideShadeBottom = 50;
-static constexpr float kVentLipFraction = 3.0f / 240.0f; // 3 px on a 240 px spool
-static constexpr lv_opa_t kVentLipShade = 115;           // 45% toward black
+static constexpr float kFlangeThickness = 3.0f / 240.0f; // 3 px on a 240 px spool
+static constexpr float kVentLipFraction = kFlangeThickness * kLightDrop;
+static constexpr lv_opa_t kVentLipShade = 115; // 45% toward black
 // Face-on, the flange is smoked plastic over the wound filament.
 static constexpr lv_opa_t kFrontSmokeOpa = 140;   // 55% flange over 45% filament
 static constexpr float kFrontMaxFilament = 0.85f; // a full spool stops short of the rim
@@ -533,6 +543,54 @@ static void draw_banded_ellipse(SpoolLayer* layer, int32_t cx, int32_t cy, int32
     }
 }
 
+// Light the center tube's inside, seen through the hub hole at (cx, cy). Each
+// pixel sees the tube's far wall; a wall point is lit when it faces the key
+// light and its ray back toward the light leaves through the hole before
+// meeting the wall above it. So the floor of the tube catches the light,
+// brightest at the bottom, and the hole's top rim shades it at depth.
+static void draw_hub_bore_light(SpoolLayer* layer, int32_t cx, int32_t cy, int32_t rx, int32_t ry,
+                                lv_color_t lit) {
+    if (rx <= 0 || ry <= 0)
+        return;
+    const lv_image_header_t& h = layer->buf->header;
+    const float r = static_cast<float>(ry);
+    const float skew = static_cast<float>(rx) / r;
+    const int32_t y1 = LV_MAX(cy - ry, 0);
+    const int32_t y2 = LV_MIN(cy + ry, static_cast<int32_t>(h.h) - 1);
+    const int32_t x1 = LV_MAX(cx - rx - 1, 0);
+    const int32_t x2 = LV_MIN(cx + rx + 1, static_cast<int32_t>(h.w) - 1);
+    for (int32_t y = y1; y <= y2; y++) {
+        auto* row = reinterpret_cast<lv_color32_t*>(layer->buf->data + y * h.stride);
+        // v: down from the axis; u: across the face, unskewed.
+        const float v = static_cast<float>(y - cy);
+        if (v <= 0.0f)
+            continue;
+        const float half_chord = std::sqrt(std::max(0.0f, r * r - v * v));
+        for (int32_t x = x1; x <= x2; x++) {
+            const float u = static_cast<float>(x - cx) / skew;
+            const float d = std::sqrt(u * u + v * v);
+            const float inside = std::clamp(r - d + 0.5f, 0.0f, 1.0f);
+            if (inside <= 0.0f)
+                continue;
+            // A sight line drifts across the face by 1 / skew for each unit of
+            // depth, so it meets the far wall this deep.
+            const float depth = skew * std::max(0.0f, half_chord - u);
+            // Traced back toward the light, the wall point climbs kLightDrop
+            // per unit of depth and meets the wall again at -v, its mirror
+            // across the axis: deeper than 2v / kLightDrop it is in shadow.
+            const float shadow = std::clamp(2.0f * v - depth * kLightDrop + 0.5f, 0.0f, 1.0f);
+            const float lambert = v / r;
+            const float a = inside * shadow * lambert;
+            if (a <= 0.0f)
+                continue;
+            const lv_color_t seen =
+                lv_color_mix(lit, lv_color_make(row[x].red, row[x].green, row[x].blue),
+                             static_cast<uint8_t>(a * 255.0f + 0.5f));
+            row[x] = lv_color_to_32(seen, row[x].alpha);
+        }
+    }
+}
+
 // Draw a highlight edge along the LEFT side of an ellipse (simulates 3D thickness)
 // width_px: how many pixels wide the highlight band is
 static void draw_ellipse_left_edge(SpoolLayer* layer, int32_t cx, int32_t cy, int32_t rx,
@@ -666,8 +724,8 @@ static void render_front_pixels(SpoolCanvasData* data) {
 
     const lv_color_t front_color = theme_manager_get_color("spool_body");
     const lv_color_t back_color = theme_manager_get_color("spool_body_shade");
-    const lv_color_t flange_top = ams_draw::lighten_color(front_color, 40);
-    const lv_color_t flange_bottom = ams_draw::darken_color(front_color, 25);
+    const lv_color_t flange_top = ams_draw::lighten_color(front_color, kFlangeLift);
+    const lv_color_t flange_bottom = ams_draw::darken_color(front_color, kFlangeDrop);
     const lv_color_t hollow_top = ams_draw::darken_color(back_color, kVentInsideShadeTop);
     const lv_color_t hollow_bottom = ams_draw::darken_color(back_color, kVentInsideShadeBottom);
     const lv_color_t hub_top = theme_manager_get_color("spool_hub_top");
@@ -808,8 +866,8 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     // STEP 1: Draw BACK FLANGE (left side) with gradient + edge highlight
     // ========================================
     {
-        lv_color_t bf_light = ams_draw::lighten_color(back_color, 40);
-        lv_color_t bf_dark = ams_draw::darken_color(back_color, 25);
+        lv_color_t bf_light = ams_draw::lighten_color(back_color, kFlangeLift);
+        lv_color_t bf_dark = ams_draw::darken_color(back_color, kFlangeDrop);
         // Main flange ellipse with gradient
         draw_gradient_ellipse(&layer, left_x, cy, flange_rx, flange_ry, bf_light, bf_dark);
         // Edge highlight on left side (gives 3D thickness illusion)
@@ -879,8 +937,8 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     // STEP 3: Draw FRONT FLANGE (right side) with gradient + edge highlight
     // ========================================
     {
-        lv_color_t ff_light = ams_draw::lighten_color(front_color, 40);
-        lv_color_t ff_dark = ams_draw::darken_color(front_color, 25);
+        lv_color_t ff_light = ams_draw::lighten_color(front_color, kFlangeLift);
+        lv_color_t ff_dark = ams_draw::darken_color(front_color, kFlangeDrop);
         // Main flange ellipse with gradient
         draw_gradient_ellipse(&layer, right_x, cy, flange_rx, flange_ry, ff_light, ff_dark);
         // Edge highlight on left side (gives 3D thickness illusion)
@@ -914,6 +972,9 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     lv_color_t hub_bottom =
         theme_manager_get_color("spool_hub_bottom"); // Noticeably lighter at bottom (light hits it)
     draw_gradient_ellipse(&layer, right_x, cy, hub_rx, hub_ry, hub_top, hub_bottom);
+    // The tube is the flange's plastic, lit as the flange's top is.
+    draw_hub_bore_light(&layer, right_x, cy, hub_rx, hub_ry,
+                        ams_draw::lighten_color(front_color, kFlangeLift));
 
     lv_obj_invalidate(data->canvas);
 
