@@ -255,6 +255,13 @@ void PrintSelectDetailView::init_subjects() {
         AmsState::instance().get_tool_map_version_subject(), this,
         [](PrintSelectDetailView* self, int /*version*/) { self->on_ams_state_changed(); },
         AmsState::instance().get_subjects_lifetime());
+    // The auto-color-map setting picks the seed, so the un-picked rows follow it
+    // as soon as it flips (the remap modal's toggle writes it, and its Cancel
+    // writes it back).
+    auto_color_map_observer_ = observe<int>(
+        helix::SettingsManager::instance().subject_auto_color_map(), this,
+        [](PrintSelectDetailView* self, int /*on*/) { self->on_ams_state_changed(); },
+        helix::SettingsManager::instance().get_subjects_lifetime());
 
     // Both land after the card has already published: the plugin probe completes
     // after first paint, and the Moonraker version arrives with discovery.

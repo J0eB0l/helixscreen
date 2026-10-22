@@ -34,6 +34,7 @@
 #include "ui_update_queue.h"
 
 #include "../mapping_card_render_fixture.h"
+#include "../test_helpers/mock_bypass.h"
 #include "settings_manager.h"
 #include "theme_manager.h"
 
@@ -599,6 +600,45 @@ TEST_CASE_METHOD(MappingCardRenderFixture,
     auto fresh = card.get_mappings();
     REQUIRE(fresh.size() == 2);
     CHECK_FALSE(fresh[1].user_picked);
+    process_lvgl(100);
+}
+
+TEST_CASE_METHOD(MappingCardRenderFixture, "A card hidden after it showed keeps no mappings",
+                 "[filament_mapping][routing][bypass]") {
+    // Hidden means print start must find nothing here to send, whichever path
+    // hid the card.
+    SECTION("bypass engaging hides it on a slot refresh") {
+        card.update({"#FF0000"}, {"PLA"});
+        REQUIRE(card.should_show());
+        auto picked = card.get_mappings();
+        REQUIRE(picked.size() == 1);
+        picked[0].mapped_slot = 2;
+        picked[0].user_picked = true;
+        card.set_mappings(picked);
+
+        REQUIRE(helix::test::unload_for_bypass(*mock));
+        REQUIRE(mock->enable_bypass().success());
+        helix::ui::UpdateQueue::instance().drain();
+        card.refresh_slot_data();
+        REQUIRE_FALSE(card.should_show());
+        CHECK(card.get_mappings().empty());
+    }
+
+    SECTION("the used-tool set narrowing a bypassed print hides it") {
+        REQUIRE(helix::test::unload_for_bypass(*mock));
+        REQUIRE(mock->enable_bypass().success());
+        helix::ui::UpdateQueue::instance().drain();
+        card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+        REQUIRE(card.should_show());
+        auto picked = card.get_mappings();
+        REQUIRE_FALSE(picked.empty());
+        picked[0].user_picked = true;
+        card.set_mappings(picked);
+
+        card.set_used_tools(std::set<int>{0});
+        REQUIRE_FALSE(card.should_show());
+        CHECK(card.get_mappings().empty());
+    }
     process_lvgl(100);
 }
 
