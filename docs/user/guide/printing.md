@@ -72,6 +72,16 @@ Tap a file to see the preview panel:
 - **Pre-print steps**: Shows which calibration steps will run before printing (e.g., bed mesh)
 - **Timelapse toggle**: Enable recording if you have the timelapse plugin installed
 
+### With the HelixPrint plugin
+
+When the HelixPrint plugin is installed on your printer (the **Install** row on the **Advanced** screen; on a screen that is not attached to the printer it shows a command to run on the printer instead), it reads every G-code file once, in the background, right after you upload it. You don't need to do anything, and the file prints exactly as it would without it. What you get:
+
+- **A thumbnail for every file.** A file your slicer saved without a picture gets one: a top-down view of the print, colored by filament. It shows in the file list here and in Mainsail and Fluidd too.
+- **Faster previews of large files.** The 2D layer preview of a big file appears as soon as the file has downloaded, instead of after HelixScreen has read through it.
+- **Filament per tool, sooner.** The filament amounts and colors for each tool come straight from the plugin, so the filament checks before a print have them without HelixScreen reading the file.
+
+A file uploaded a moment ago may not be read yet; HelixScreen then works it out itself, as it does without the plugin. Reading a file never slows a print down: on a printer with a single-core processor it waits until no print is running.
+
 ---
 
 ## Pre-Print Options

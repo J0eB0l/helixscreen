@@ -3,6 +3,7 @@
 
 #include "env_knobs.h"
 #include "http_executor.h"
+#include "json_utils.h"
 #include "moonraker_client_mock_internal.h"
 
 #include <spdlog/spdlog.h>
@@ -523,6 +524,24 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
         }
         if (success_cb) {
             success_cb(response);
+        }
+        return true;
+    };
+
+    // server.helix.analysis - the plugin's file analysis record. A file a test
+    // gave a reply to (set_mock_file_analysis) answers it; any other file is
+    // pending, as one the plugin has not reached yet.
+    registry["server.helix.analysis"] =
+        [](MoonrakerClientMock* self, const json& params,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
+        const std::string filename = helix::json_util::safe_string(params, "filename");
+        json result = self->mock_file_analysis(filename);
+        if (result.is_null()) {
+            result = {{"filename", filename}, {"status", "pending"}};
+        }
+        if (success_cb) {
+            success_cb(json{{"jsonrpc", "2.0"}, {"result", std::move(result)}});
         }
         return true;
     };

@@ -143,7 +143,8 @@ Response:
     "start_3mf_on_upload": false,
     "api": 2,
     "features": {
-      "convert_3mf": {"version": 1, "available": true, "enabled": true, "reason": null}
+      "convert_3mf": {"version": 1, "available": true, "enabled": true, "reason": null},
+      "file_analysis": {"version": 1, "available": true, "enabled": true, "reason": null}
     }
   }
 }
@@ -288,6 +289,122 @@ With no `source`, every known conversion is listed. A `source` with no entry
 returns an empty list. When the plugin is absent the endpoint is too (HTTP 404,
 JSON-RPC -32601): treat that as "no device-side converter".
 
+### File Analysis
+
+Feature `file_analysis` (version 1). It only observes, so it has no switch: it
+runs whenever the plugin is installed and enabled.
+
+Every G-code file under `gcodes` (dot directories and dot files excepted) gets
+one analysis record, written in the background after it is uploaded, changed or
+found at startup. Each file is read by a worker process (`helix_analysis.py`
+run as a script under Moonraker's own Python), one at a time, at nice 19 and
+idle I/O priority where `ionice` exists, so the scan never stalls Moonraker.
+While a print runs, analysis continues only on a multi-core host; on a one-core
+host the worker is stopped and the file waits for the print to end. A worker
+that crashes or runs past its timeout (2 minutes plus 10 s per MB) is retried
+once; after that the file reads `failed` until it changes.
+
+```http
+GET /server/helix/analysis?filename=parts/benchy.gcode
+```
+
+JSON-RPC: `server.helix.analysis {"filename": ...}`.
+
+| `status` | Meaning |
+|----------|---------|
+| `ready` | `analysis` holds the record for the file as it is now |
+| `pending` | No current record; the file went to the front of the queue. Wait for `notify_analysis_ready` |
+| `failed` | Analysis of this version of the file failed twice; a change to the file retries it |
+| `disabled` | The user switched the feature off |
+
+A missing file answers 404; a path that is not an analyzable G-code file, 400.
+Each record written is announced with the `helix:analysis_ready` notification
+(`notify_analysis_ready` on the websocket), `{"filename": "parts/benchy.gcode"}`.
+
+The record, stored in the `helix_analysis` namespace keyed by the
+gcodes-relative path. A field the file does not answer is `null` (or `[]`),
+never a guess:
+
+```json
+{
+  "schema": 1,
+  "filename": "parts/benchy.gcode",
+  "file_size": 2943775,
+  "file_mtime": 1760558186.4,
+  "analyzed_at": 1760558190.1,
+  "slicer": "OrcaSlicer 2.3.1",
+  "tools": [
+    {"tool": 0, "mm": 3680.43, "grams": 10.98, "color": "#00A899", "material": "PLA",
+     "sources": {"mm": "footer", "grams": "footer", "color": "footer", "material": "footer"}}
+  ],
+  "bounds": {
+    "print": {"min": [-29.79, -15.29, 0.2], "max": [29.79, 15.29, 48.0]},
+    "travel": {"min": [-29.79, -15.29, 0.2], "max": [29.79, 15.29, 48.4]},
+    "max_hotend_temp": 220.0,
+    "max_bed_temp": 50.0
+  },
+  "header": {
+    "printer_model": "Flashforge Adventurer 5M Pro",
+    "nozzle_diameters": [0.4],
+    "bed": {"min": [-110.0, -110.0], "max": [110.0, 110.0], "max_height": 220.0},
+    "filament_types": ["PLA"]
+  },
+  "objects": {
+    "source": "define",
+    "list": [{"name": "3DBenchy_id_0_copy_0", "center": [0.0, 0.0], "polygon": [[-29.8, -15.3], ...]}]
+  },
+  "layers": {"count": 241, "index": ".helix_index/parts/benchy.gcode.layers.jsonl"},
+  "pauses": 0,
+  "thumbnail": null
+}
+```
+
+- `file_size` / `file_mtime`: the version analyzed. A record whose values differ
+  from the file's is stale; the endpoint never returns one.
+- `tools`: one entry per tool the file prints with. Each field comes from the
+  slicer's own config comments (`footer`), else Moonraker's metadata
+  (`metadata`), else the scan (`scan`: filament length extruded under each
+  `T<n>`), and `sources` says which. `mm` is filament length, `grams` comes
+  only from a source that states grams.
+- `bounds`: the toolhead frame (gcode offsets applied). `print` covers
+  extruding moves, wipe tower and purge lines included; `travel` covers every
+  move. An axis the file never names (the start position) is not in them.
+  Temperatures are the highest targets the file commands.
+- `header`: what the slicer declared about the printer and filaments.
+- `objects`: from `EXCLUDE_OBJECT_DEFINE` (`define`), else from `; printing
+  object`, `M486` or Cura `;MESH:` labels with the convex hull of each object's
+  extrusion as its polygon (`label`), else `none`.
+- `layers.index`: the layer index sidecar below, gcodes-relative.
+- `thumbnail`: set when the analyzer published one because Moonraker's metadata
+  had none: the largest PNG embedded in the file, else a top-down render of the
+  print. It is written where Moonraker keeps thumbnails
+  (`<dir>/.thumbs/<name>-300x300.png`) and added to the file's metadata, so
+  every client shows it.
+
+#### Layer index sidecar
+
+`<gcodes>/.helix_index/<path>.layers.jsonl`, shared with power-loss recovery,
+which builds the same file for a printing file that has none. JSON lines: a
+header with the file identity (`file_size`, `file_mtime`, `file_hash`: sha1 of
+the first and last 64 KB), then one line per layer start with its byte
+`offset`, toolhead `z` and the full modal `state` there (positioning and
+extrusion modes, position and offsets, E, feed rate, factors, tool, heater
+targets, fans, pressure advance, velocity limits, retract state), so a reader
+can begin at any layer instead of byte 0. Analysis also writes each layer's
+`tools`, `print_z` (Z of its first extruding move) and `feature` (the `;TYPE:`
+section at its start), a `progress_lines` record listing the pause, `M73` and
+`SET_PRINT_STATS_INFO` lines with their offsets, a `summary` record (model
+bounds without purge and wipe tower, palette, tools), and a closing
+`{"complete": true}`. The format is documented in `helix_gcode_reader.py`. The
+screen builds its streaming preview's layer index from this file instead of
+reading the whole G-code first, once its size and `file_hash` match its copy.
+
+An index is removed when its G-code is gone or has changed size or mtime since
+the index was written, at plugin startup and whenever a print starts, except the
+index power-loss recovery is writing during a print or resuming from. An index is
+written by one writer: analysis replaces it whole (write then rename), and
+recovery never appends to a complete one.
+
 ## Visible symlink directory
 
 A print started through `print_modified` runs `SDCARD_PRINT_FILE` on the link
@@ -391,6 +508,8 @@ After installation:
 │   └── mod_1702400000_benchy.gcode  # Modified content
 ├── .helix_print/
 │   └── benchy.gcode          # Symlink → .helix_temp/mod_...
+├── .helix_index/
+│   └── benchy.gcode.layers.jsonl  # Layer index (file analysis, power-loss recovery)
 └── .thumbs/
     ├── benchy-32x32.png      # Original thumbnails
     └── mod_1702400000_benchy-32x32.png  # Symlink → original

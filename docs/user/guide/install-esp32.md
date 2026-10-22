@@ -95,6 +95,17 @@ Erasing removes everything, including your settings and WiFi, so you'll set the 
 
 To go back to BigTreeTech's firmware, write the backup you made: `python3 -m esptool --chip esp32s3 -p PORT -b 460800 write_flash 0x0 ktouch-stock-backup.bin`.
 
+## Install the HelixPrint plugin on your printer
+
+The K-Touch is too small to read whole G-code files itself. With the HelixPrint plugin installed on the printer, the printer reads each file once after upload, and the K-Touch shows:
+
+- a thumbnail for files your slicer saved without one
+- the filament amount and color for each tool, used by the checks before a print starts
+
+To install it, open **Advanced** on the K-Touch and tap the plugin's **Install** row. The K-Touch is not attached to the printer, so it shows a one-line command instead; run that command on the printer over SSH.
+
+Without the plugin those files show no thumbnail and the per-tool filament checks have nothing to go on, exactly as before. Nothing else on the K-Touch needs the plugin.
+
 ## What doesn't work yet on the K-Touch
 
 - The camera feed and QR code features

@@ -317,6 +317,9 @@ static void ui_gcode_viewer_load_file_async(lv_obj_t* obj, const char* file_path
 #endif
     // A screen's opt-out only counts when 3D is actually available to fall back
     // on; see gcode_viewer_should_stream() for the K2 OOM this guards.
+    // A sidecar belongs to this load whichever path it takes.
+    const std::string layer_index_sidecar = std::move(st->layer_index_sidecar_);
+    st->layer_index_sidecar_.clear();
     const bool use_streaming = helix::gcode_viewer_should_stream(
         st->streaming_disabled_, kBuildHas3D, helix::should_use_gcode_streaming(file_size));
     spdlog::info("[GCode Viewer] File size: {}KB, streaming mode: {}", file_size / 1024,
@@ -336,6 +339,7 @@ static void ui_gcode_viewer_load_file_async(lv_obj_t* obj, const char* file_path
 
         // Create streaming controller
         st->streaming_controller_ = std::make_unique<helix::gcode::GCodeStreamingController>();
+        st->streaming_controller_->set_layer_index_sidecar(layer_index_sidecar);
 
         // Launch async index building with completion callback
         // The callback can run on a background thread; queue_update marshals it to the UI thread
@@ -694,6 +698,12 @@ static void ui_gcode_viewer_load_file_async(lv_obj_t* obj, const char* file_path
 void ui_gcode_viewer_load_file(lv_obj_t* obj, const char* file_path) {
     // Use async version by default
     ui_gcode_viewer_load_file_async(obj, file_path);
+}
+
+void helix::ui_gcode_viewer_set_layer_index_sidecar(lv_obj_t* obj, std::string sidecar) {
+    if (gcode_viewer_state_t* st = get_state(obj)) {
+        st->layer_index_sidecar_ = std::move(sidecar);
+    }
 }
 
 #ifdef ENABLE_3D_RENDERER

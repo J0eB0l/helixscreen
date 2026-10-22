@@ -8,6 +8,7 @@ Run with: pytest tests/test_helix_gcode_reader.py -v
 """
 
 import io
+import json
 import sys
 import threading
 import tracemalloc
@@ -611,3 +612,168 @@ def test_layer_index_appends_and_survives_a_cut_line(tmp_path):
 
 def test_missing_layer_index_is_none(tmp_path):
     assert read_layer_index(str(tmp_path / "nope.jsonl"), IDENT) is None
+
+
+def test_whole_index_carries_extras_and_progress_lines_and_stays_readable(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    st = ModalState()
+    reader.write_layer_index(
+        path, IDENT,
+        [(1, 10, st, {"tools": [0, 1], "print_z": 0.2, "feature": "Outer wall"}),
+         (2, 90, st, None)],
+        [(40, "M600"), (60, "M73 P50")], 120)
+    lines = [json.loads(l) for l in open(path).read().splitlines()]
+    assert lines[1]["tools"] == [0, 1] and lines[1]["print_z"] == 0.2
+    assert lines[1]["feature"] == "Outer wall"
+    assert "tools" not in lines[2]
+    assert lines[3] == {"progress_lines": [[40, "M600"], [60, "M73 P50"]]}
+    assert lines[4] == {"complete": True, "end_offset": 120}
+    summary = read_layer_index(path, IDENT)
+    assert summary.complete and (summary.last.layer, summary.last.offset) == (2, 90)
+    assert not (tmp_path / ".helix_index" / "a.gcode.layers.jsonl.tmp").exists()
+
+
+def test_extra_never_overrides_the_checkpoint_fields(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    w = LayerIndexWriter(path, IDENT)
+    w.append(1, 10, ModalState(), {"offset": 999, "tools": [2]})
+    w.close()
+    summary = read_layer_index(path, IDENT)
+    assert summary.last.offset == 10
+
+
+def test_a_complete_index_is_never_clobbered_by_a_partial_writer(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    complete_starts = [(1, 10, ModalState(), {"tools": [0]}), (2, 90, ModalState(), None)]
+
+    # A writer opening after the complete index exists writes nothing.
+    reader.write_layer_index(path, IDENT, complete_starts, [], 120)
+    whole = open(path, "rb").read()
+    late = LayerIndexWriter(path, IDENT)
+    late.append(1, 10, ModalState())
+    late.finish(50)
+    late.close()
+    assert late.inert
+    assert open(path, "rb").read() == whole
+
+    # A writer already appending when the complete index lands keeps writing
+    # to the file it opened; the complete index stays whole.
+    other = layer_index_path(tmp_path, "b.gcode")
+    early = LayerIndexWriter(other, IDENT)
+    early.append(1, 10, ModalState())
+    reader.write_layer_index(other, IDENT, complete_starts, [], 120)
+    whole = open(other, "rb").read()
+    early.append(2, 90, ModalState())
+    early.finish(120)
+    early.close()
+    assert open(other, "rb").read() == whole
+    assert read_layer_index(other, IDENT).complete
+
+
+def index_for(root, rel, identity):
+    path = layer_index_path(root, rel)
+    w = LayerIndexWriter(path, identity)
+    w.append(1, 0, ModalState())
+    w.close()
+    return path
+
+
+def test_prune_removes_stale_indexes_and_keeps_current_ones(tmp_path):
+    import os
+    kept, removed = [], []
+    for i in range(40):                      # no count cap
+        f = tmp_path / ("f%d.gcode" % i)
+        f.write_text("G1 X1\n")
+        kept.append(index_for(tmp_path, f.name, reader.file_identity(f)))
+    gone = tmp_path / "gone.gcode"
+    gone.write_text("G1 X1\n")
+    removed.append(index_for(tmp_path, gone.name, reader.file_identity(gone)))
+    gone.unlink()
+    changed = tmp_path / "changed.gcode"
+    changed.write_text("G1 X1\n")
+    removed.append(index_for(tmp_path, changed.name, reader.file_identity(changed)))
+    changed.write_text("G1 X2 Y2\n")
+    garbage = layer_index_path(tmp_path, "f0.gcode").replace("f0.gcode", "junk.gcode")
+    open(garbage, "w").write("not json\n")
+    removed.append(garbage)
+    external = index_for(tmp_path, ".external/x.gcode", IDENT)
+    removed.append(external)
+    tmp = kept[0] + ".tmp"
+    open(tmp, "w").write("{}\n")
+    assert sorted(reader.prune_layer_indexes(tmp_path)) == sorted(removed)
+    assert all(os.path.exists(p) for p in kept + [tmp])
+    assert not any(os.path.exists(p) for p in removed)
+
+
+def test_prune_spares_protected_indexes_even_when_stale(tmp_path):
+    import os
+    f = tmp_path / "a.gcode"
+    f.write_text("G1 X1\n")
+    path = index_for(tmp_path, "a.gcode", reader.file_identity(f))
+    external = index_for(tmp_path, ".external/x.gcode", IDENT)
+    f.unlink()
+    assert reader.prune_layer_indexes(tmp_path, [path, external]) == []
+    assert os.path.exists(path) and os.path.exists(external)
+
+
+# --------------------------------------------------------------------------
+# ScanObserver
+# --------------------------------------------------------------------------
+
+
+class Recorder(reader.ScanObserver):
+    def __init__(self):
+        self.seen = []
+
+    def move(self, state, start, words, offset):
+        self.seen.append(("move", offset, list(start), list(state.last_position),
+                          [w.decode() for w in words]))
+
+    def command(self, state, cmd, words, body, offset):
+        self.seen.append(("command", offset, cmd.decode(), state.active_tool))
+
+    def comment(self, state, line, offset):
+        self.seen.append(("comment", offset, line.decode().rstrip()))
+
+
+def test_observer_sees_every_line_after_the_reducer_applied_it():
+    data = gcode("""
+;LAYER_CHANGE
+T1
+G1 X10 E1
+G2 X20 I5 J0 E1
+EXCLUDE_OBJECT_DEFINE NAME=a
+G10
+G10
+""")
+    rec = Recorder()
+    scan(data, observer=rec)
+    kinds = [(s[0], s[1]) for s in rec.seen]
+    assert kinds == [
+        ("comment", 0), ("command", offset_of(data, "T1")), ("move", offset_of(data, "G1")),
+        ("move", offset_of(data, "G2")), ("command", offset_of(data, "EXCLUDE")),
+        ("command", offset_of(data, "G10")), ("command", offset_of(data, "G10", 1)),
+    ]
+    assert rec.seen[1][3] == 1                       # the T1 already applied
+    assert rec.seen[2][2] == [0.0, 0.0, 0.0, 0.0]    # start
+    assert rec.seen[2][3] == [10.0, 0.0, 0.0, 1.0]   # end
+    assert rec.seen[2][4] == ["G1", "X10", "E1"]
+    assert rec.seen[3][2] == [10.0, 0.0, 0.0, 1.0]
+
+
+def test_observer_does_not_change_the_scan():
+    data = gcode("""
+G90
+M83
+;LAYER_CHANGE
+G1 Z0.2
+G1 X5 Y5 E0.5
+;LAYER_CHANGE
+G1 Z0.4
+G1 X1 Y1 E0.5
+""")
+    plain = scan(data)
+    watched = scan(data, observer=Recorder())
+    assert plain.state_at_head == watched.state_at_head
+    assert plain.window == watched.window
+    assert sorted(plain.layer_starts) == sorted(watched.layer_starts)

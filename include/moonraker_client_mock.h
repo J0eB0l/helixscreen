@@ -1856,6 +1856,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
         return update_manager_busy_;
     }
 
+    /// Test helper: what server.helix.analysis answers for @p filename (its
+    /// `result`); a null @p result forgets it, and such a file answers pending.
+    void set_mock_file_analysis(const std::string& filename, const json& result) {
+        if (result.is_null()) {
+            mock_file_analysis_.erase(filename);
+        } else {
+            mock_file_analysis_[filename] = result;
+        }
+    }
+    [[nodiscard]] json mock_file_analysis(const std::string& filename) const {
+        const auto it = mock_file_analysis_.find(filename);
+        return it == mock_file_analysis_.end() ? json(nullptr) : it->second;
+    }
+
     /// Test helper: the Moonraker database the server.database.* handlers serve.
     /// Keys are dotted the way Moonraker's are ("a.b" is member b of record a).
     void mock_db_set(const std::string& ns, const std::string& key, const json& value);
@@ -2033,6 +2047,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     // Unlocked: the handlers answer on the calling thread, and every caller of
     // the database and Spoolman routes is on the main thread.
     json mock_db_ = json::object();
+    std::map<std::string, json> mock_file_analysis_;
     MockSpoolmanServer spoolman_;
 
     // One-shot forced error injection for printer.gcode.script (test helper).

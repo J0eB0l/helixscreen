@@ -189,6 +189,18 @@ its queue and backfill) and, per gcode file, writes an analysis record keyed by 
   and extrusion modes, logical E, F, active tool, factors, retract state) as a compact sidecar
   file under a dot directory. The modal state is what lets power-loss recovery's
   `scan_to_offset(start_offset=..., start_state=...)` begin at a layer start instead of byte 0.
+  As built (2026-10-22): `.helix_index/<path>.layers.jsonl`, format in
+  `helix_gcode_reader.py`. A layer starts at its slicer marker line (the state before it is
+  what a resume scan needs), so its range holds the marker's comments before the first Z move.
+  Analysis adds per layer `tools`, `print_z` and `feature`, plus a `progress_lines` record
+  (pause, M73, SET_PRINT_STATS_INFO lines with offsets, replayed by the screen's own PauseScan)
+  and a `summary` record (model box without purge and tower, palette, tools), so the screen
+  builds its streaming index from the sidecar alone. Identity is size, mtime and sha1 of the
+  first and last 64 KB (`helix_gcode_reader.file_identity`, shared with PLR); the screen checks
+  size and hash against its local copy. One writer per sidecar: analysis writes whole via
+  rename, the follower appends and never touches a complete one. One prune rule
+  (`prune_layer_indexes`): gone or changed source, or `.external`, except the paths PLR's state
+  protects (its live follower index, its waiting snapshot's index); no count cap.
 
 **One shared G-code reader (2026-10-21).** Analysis reads files through
 `helix_gcode_reader.py`, the module power-loss recovery builds: tokenizer, layer markers,
@@ -197,10 +209,18 @@ its queue and backfill) and, per gcode file, writes an analysis record keyed by 
   publishes `.thumbs` so existing clients benefit.
 
 Endpoint: `server.helix.analysis {filename}` returns the record or `pending`. A notification
-`helix:analysis_ready {filename}` lets the detail view refresh.
+`helix:analysis_ready {filename}` lets the detail view refresh. As built: `{"status": "ready",
+"analysis": record}`, `pending` (queued at the front), `failed` (this version failed twice; a
+change retries) or `disabled`. Records live in the `helix_analysis` namespace; the shape is the
+`helix_analysis.py` docstring and the plugin README. `thumbnail` is set only when the plugin
+published one (largest embedded PNG, else a generated top-down render) because Moonraker's
+metadata had none; listing it in Moonraker's metadata is best effort across versions.
 
 Cost guard: the throttle policy in `helix_gcode_reader.py`, shared with power-loss recovery.
-One file at a time, niced. While a print runs, whole-file analysis runs only on a multi-core host
+One file at a time, niced. As built: the file pass runs in a child process
+(`helix_gcode_reader.WorkerProcess`: Moonraker's interpreter, nice 19, `ionice -c 3`, a timeout,
+killed on shutdown), because a pure-Python pass in Moonraker's process holds the GIL its event
+loop needs; a print starting on a one-core host kills the worker and requeues the file. While a print runs, whole-file analysis runs only on a multi-core host
 (probe). The one exception is the printing file's own layer index when it does not exist yet:
 power-loss recovery's follower builds it on any host, reading no further than
 `virtual_sdcard.file_position` (bytes Klipper has just read, so already in page cache) at a
@@ -210,7 +230,13 @@ capped rate. It writes the same sidecar, so it is the layer index, not a second 
 
 `FileStartFactsLoader` takes the analysis record as its first source when ready.
 `GCodeLayerIndex` gains a constructor from the sidecar, so streaming preview skips its index pass.
-Thumbnails and objects flow through their existing paths.
+Thumbnails and objects flow through their existing paths. As built: the decision is
+`file_analysis_source(plugin_feature("file_analysis", 1), filename)` (`include/file_analysis.h`);
+the record fills tools, colors, materials, and grams when every printing tool has them, and the
+footer read and scan fill the rest. Both previews fetch the sidecar first
+(`with_layer_index_sidecar`). Objects needed no wiring: DEFINE objects already reach pre-start
+exclude through the head scan, and label-only objects cannot be excluded by Klipper, so they stay
+in the record for Phase 2.
 
 ### Fallback
 
