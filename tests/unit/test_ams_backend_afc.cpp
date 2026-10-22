@@ -1997,7 +1997,36 @@ TEST_CASE("AFC print start leaves a printer-side lane remap alone",
         pick.tool_index = 1;
         pick.mapped_slot = 2;
         pick.mapped_backend = 0;
+        pick.user_picked = true;
         h.view.set_filament_mappings({pick});
+
+        CHECK(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) ==
+              std::vector<std::string>{"SET_MAP LANE=lane3 MAP=T1"});
+    }
+
+    SECTION("a stale seed the user never picked sends nothing") {
+        // The card still holds a seed from before the printer's map moved:
+        // T1 on lane2. It was never the user's choice, so it follows the
+        // printer, which routes T1 to lane4.
+        helix::ToolMapping stale;
+        stale.tool_index = 1;
+        stale.mapped_slot = 1;
+        stale.mapped_backend = 0;
+        stale.reason = helix::ToolMapping::MatchReason::FIRMWARE_MAPPING;
+        h.view.set_filament_mappings({stale});
+
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) == std::vector<std::string>{});
+    }
+
+    SECTION("an auto color match still sends its SET_MAP") {
+        helix::ToolMapping matched;
+        matched.tool_index = 1;
+        matched.mapped_slot = 2;
+        matched.mapped_backend = 0;
+        matched.reason = helix::ToolMapping::MatchReason::COLOR_MATCH;
+        h.view.set_filament_mappings({matched});
 
         CHECK(PrintStartControllerTestAccess::apply_remaps(h.controller));
         CHECK(set_map_commands(h.reg->captured_gcodes) ==
