@@ -290,3 +290,39 @@ TEST_CASE_METHOD(TagLinkFixture, "a missing spool seated across a restart does n
     CHECK(linked() == 0);
     CHECK(warnings.empty());
 }
+
+TEST_CASE_METHOD(TagLinkFixture, "a new backend starts with no tag link left over from the last",
+                 "[ams][tag_link]") {
+    // A want for the old backend's lane 0, waiting on Spoolman.
+    set_spoolman_available(false);
+    insert(kTaggedSpool);
+    REQUIRE(linked() == 0);
+
+    // The new backend's lane 0 holds the same tag but is linked elsewhere: a
+    // first sight there links nothing, where the old want would.
+    auto owned = std::make_unique<TaggedMock>(4);
+    TaggedMock* next = owned.get();
+    next->tag_ids[0] = kTaggedSpool;
+    SlotInfo slot = next->get_slot_info(0);
+    slot.spoolman_id = kOtherSpool;
+    next->sync_external_identity(0, slot);
+    next->force_slot_status(0, SlotStatus::AVAILABLE);
+    AmsState::instance().set_backend(std::move(owned));
+    backend = next;
+
+    set_spoolman_available(true);
+    frame();
+    frame();
+    CHECK(linked() == kOtherSpool);
+}
+
+TEST_CASE_METHOD(TagLinkFixture, "a tag arriving in a single-slot update links its lane",
+                 "[ams][tag_link]") {
+    backend->force_slot_status(0, SlotStatus::EMPTY);
+    frame();
+    backend->tag_ids[0] = kTaggedSpool;
+    backend->force_slot_status(0, SlotStatus::AVAILABLE);
+    AmsState::instance().update_slot_for_backend(0, 0);
+    ui::UpdateQueue::instance().drain();
+    CHECK(linked() == kTaggedSpool);
+}
