@@ -846,6 +846,19 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     return True
 
 
+# How long a worker process gets for a file before it is killed: this much,
+# plus WORKER_SECONDS_PER_MB of the file's size. Sized for a nice-19 worker on
+# the slowest hosts (MIPS and Cortex-A7 boards), which share their CPU with
+# Klipper and run CPython 15 to 30 times slower than a desktop.
+WORKER_BASE_TIMEOUT_S = 600.0
+WORKER_SECONDS_PER_MB = 60.0
+
+
+def worker_timeout(size: int) -> float:
+    """The time a worker gets for a file of `size` bytes."""
+    return WORKER_BASE_TIMEOUT_S + WORKER_SECONDS_PER_MB * size / (1024.0 * 1024.0)
+
+
 class WorkerFailed(Exception):
     """A worker process exited without its answer: crashed, killed or timed out."""
 

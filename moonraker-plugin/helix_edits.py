@@ -32,6 +32,10 @@ the user opts in, but this acts on nothing by itself: it is a transport for a
 print the user started from the screen, with the same edits the screen applies
 without the plugin. Only the place the rewrite runs changes.
 
+The per-line pass runs in a worker process (main(), this file run as a
+script, at the lowest CPU and I/O priority), so its Python work never holds
+the GIL Moonraker's event loop needs.
+
 Everything above HelixEdits is pure and touches no Moonraker object. Python
 3.8, stdlib only.
 """
@@ -39,12 +43,17 @@ Everything above HelixEdits is pure and touches no Moonraker object. Python
 from __future__ import annotations
 
 import heapq
+import json
 import logging
 import os
 import shutil
+import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, List, NamedTuple, Optional, Tuple
+
+import helix_gcode_reader as reader
 
 SERVER_EDITS_FEATURE = "server_edits"
 SERVER_EDITS_FEATURE_VERSION = 1
@@ -516,6 +525,58 @@ def apply_file(src_path: str, dst_path: str, plan: EditPlan) -> int:
         raise
 
 
+# ============================================================================
+# The worker process
+# ============================================================================
+
+WorkerFailed = reader.WorkerFailed
+
+
+def worker_command(src_path: str, dst_path: str) -> List[str]:
+    """The worker's argv: this file as a script (main())."""
+    return reader.worker_argv(__file__, [src_path, dst_path])
+
+
+def encode_worker_output(changed: Optional[int], refused: Optional[int]) -> bytes:
+    if refused is not None:
+        return json.dumps({"refused": refused}).encode("utf-8")
+    return json.dumps({"changed": changed}).encode("utf-8")
+
+
+def decode_worker_output(data: bytes) -> int:
+    """The worker's stdout as the number of lines changed. Raises EditRefused
+    for a refusal, WorkerFailed for anything else."""
+    try:
+        doc = json.loads(data.decode("utf-8"))
+    except ValueError as e:
+        raise WorkerFailed("unreadable worker output: %s" % e)
+    if isinstance(doc, dict) and _is_int(doc.get("refused")):
+        raise EditRefused(doc["refused"])
+    if isinstance(doc, dict) and _is_int(doc.get("changed")):
+        return doc["changed"]
+    raise WorkerFailed("unreadable worker output")
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Worker: apply the edit list on stdin to argv[1], writing argv[2]; the
+    outcome JSON on stdout. A refusal leaves argv[2] removed."""
+    args = sys.argv[1:] if argv is None else argv
+    logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+    if len(args) != 2:
+        sys.stderr.write("usage: helix_edits.py SOURCE DEST < edits.json\n")
+        return 2
+    reader.worker_nice()
+    plan = parse_edits(json.loads(sys.stdin.read()))
+    try:
+        out = encode_worker_output(apply_file(args[0], args[1], plan), None)
+    except EditRefused as e:
+        out = encode_worker_output(None, e.line_number)
+    out_stream = getattr(sys.stdout, "buffer", sys.stdout)
+    out_stream.write(out)
+    out_stream.flush()
+    return 0
+
+
 def default_output_name(temp_dir: str, original_filename: str, now: float) -> str:
     """Where an edited copy goes when the caller names no path: the staging
     shape the app gives a bare filename."""
@@ -553,7 +614,7 @@ class HelixEdits:
         modifications = web_request.get_list("modifications", [])
 
         try:
-            plan = parse_edits(edits)
+            parse_edits(edits)
         except EditError as e:
             raise self.server.error(f"Invalid edit list: {e}", 400)
 
@@ -564,18 +625,9 @@ class HelixEdits:
         if output.exists():
             raise self.server.error(f"{temp_file_path} already exists", 409)
         output.parent.mkdir(parents=True, exist_ok=True)
-        partial = output.with_name(output.name + ".part")
 
         started = time.monotonic()
-        try:
-            changed = await self.server.get_event_loop().run_in_thread(
-                apply_file, str(original), str(partial), plan
-            )
-        except EditRefused as e:
-            raise self.server.error(f"Refusing to edit {original_filename}: {e}", 409)
-        except OSError as e:
-            raise self.server.error(f"Failed to write the edited copy: {e}", 500)
-        os.replace(str(partial), str(output))
+        changed = await self._rewrite(original, output, edits, original_filename)
         logging.info(
             "HelixPrint: Edited %s -> %s (%d edits, %d lines changed, %.1fs)",
             original_filename, temp_file_path, len(edits), changed,
@@ -587,3 +639,35 @@ class HelixEdits:
         )
         result["lines_changed"] = changed
         return result
+
+    async def _rewrite(self, original: Path, output: Path, edits: List[Any],
+                       original_filename: str) -> int:
+        """Writes `original` with `edits` applied to `output` through a worker
+        process; the number of lines changed. Nothing is left at `output` or
+        beside it unless the whole rewrite succeeded."""
+        try:
+            fd, partial = tempfile.mkstemp(dir=str(output.parent), prefix=output.name + ".",
+                                           suffix=".part")
+            os.close(fd)
+        except OSError as e:
+            raise self.server.error(f"Failed to write the edited copy: {e}", 500)
+        try:
+            out = await reader.WorkerProcess().run(
+                worker_command(str(original), partial), json.dumps(edits).encode("utf-8"),
+                reader.worker_timeout(original.stat().st_size))
+            changed = decode_worker_output(out)
+            os.replace(partial, str(output))
+            return changed
+        except EditRefused as e:
+            raise self.server.error(f"Refusing to edit {original_filename}: {e}", 409)
+        except (WorkerFailed, reader.WorkerStopped, OSError) as e:
+            raise self.server.error(f"Failed to write the edited copy: {e}", 500)
+        finally:
+            try:
+                os.unlink(partial)
+            except OSError:
+                pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -9,6 +9,7 @@ Run with: pytest tests/test_helix_edits.py -v
 
 import io
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -237,6 +238,39 @@ class TestParse:
 
 
 # ============================================================================
+# The worker process
+# ============================================================================
+
+class TestWorker:
+
+    def _run(self, tmp_path, data, edits):
+        src, dst = tmp_path / "in.gcode", tmp_path / "out.gcode"
+        src.write_bytes(data)
+        done = subprocess.run(helix_edits.worker_command(str(src), str(dst)),
+                              input=json.dumps(edits).encode(), stdout=subprocess.PIPE,
+                              timeout=60)
+        assert done.returncode == 0
+        return helix_edits.decode_worker_output(done.stdout), dst
+
+    def test_the_worker_writes_what_the_in_process_pass_does(self, tmp_path):
+        edits = [_edit(2, "comment_out", "B", comment="x"), _edit(3, "delete")]
+        changed, dst = self._run(tmp_path, b"A\nB\nC\nD\n", edits)
+        assert changed == 2
+        assert dst.read_bytes() == _apply_bytes(b"A\nB\nC\nD\n", edits)
+
+    def test_a_stale_line_comes_back_refused_with_nothing_written(self, tmp_path):
+        with pytest.raises(EditRefused) as e:
+            self._run(tmp_path, b"A\nB\n", [_edit(2, "delete", "X")])
+        assert e.value.line_number == 2
+        assert not (tmp_path / "out.gcode").exists()
+
+    @pytest.mark.parametrize("data", [b"", b"Traceback", b'{"changed": "x"}', b'{"refused": true}'])
+    def test_unreadable_output_is_a_failure(self, data):
+        with pytest.raises(helix_edits.WorkerFailed):
+            helix_edits.decode_worker_output(data)
+
+
+# ============================================================================
 # print_edited
 # ============================================================================
 
@@ -392,6 +426,34 @@ class TestPrintEdited:
         assert result["temp_filename"].startswith(".helix_temp/modified_")
         assert result["temp_filename"].endswith("_benchy.gcode")
         assert (gcodes / result["temp_filename"]).is_file()
+
+    @pytest.mark.asyncio
+    async def test_the_rewrite_runs_outside_moonrakers_process(
+        self, helix_print_component, mock_server, gcodes, monkeypatch
+    ):
+        def in_process(*args):
+            raise AssertionError("the per-line pass ran inside Moonraker")
+
+        monkeypatch.setattr(helix_edits, "apply_file", in_process)
+        monkeypatch.setattr(helix_edits, "apply_plan", in_process)
+        await helix_print_component.component_init()
+        result = await mock_server.endpoints[PRINT_EDITED](_request())
+        assert result["lines_changed"] == 1
+        assert b"[HelixScreen: Disabled Bed mesh]" in (gcodes / result["temp_filename"]).read_bytes()
+
+    @pytest.mark.asyncio
+    async def test_a_crashing_worker_is_a_500_and_leaves_nothing(
+        self, helix_print_component, mock_server, gcodes, monkeypatch, tmp_path
+    ):
+        script = tmp_path / "crash.py"
+        script.write_text("import sys\nsys.exit(3)\n")
+        monkeypatch.setattr(helix_edits, "worker_command",
+                            lambda src, dst: [sys.executable, str(script)])
+        await helix_print_component.component_init()
+        with pytest.raises(Exception, match="500"):
+            await mock_server.endpoints[PRINT_EDITED](_request())
+        assert list((gcodes / ".helix_temp").iterdir()) == []
+        helix_print_component.klippy_apis.run_gcode.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_a_missing_module_reports_the_feature_unavailable(

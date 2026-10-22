@@ -268,7 +268,9 @@ Response:
 Feature `server_edits` (on by default: it moves where a print the user started from the
 screen is rewritten, and acts on nothing by itself). The client sends the edits instead of an
 edited copy; the plugin applies them beside the original and starts the result as
-`print_modified` does, marked `print_edited`.
+`print_modified` does, marked `print_edited`. The rewrite runs in a worker process at the
+lowest CPU and I/O priority, never inside Moonraker's own, with the same time limit as file
+analysis (10 minutes plus 60 s per MB).
 
 ```http
 POST /server/helix/print_edited
@@ -381,7 +383,7 @@ run as a script under Moonraker's own Python), one at a time, at nice 19 and
 idle I/O priority where `ionice` exists, so the scan never stalls Moonraker.
 While a print runs, analysis continues only on a multi-core host; on a one-core
 host the worker is stopped and the file waits for the print to end. A worker
-that crashes or runs past its timeout (2 minutes plus 10 s per MB) is retried
+that crashes or runs past its timeout (10 minutes plus 60 s per MB) is retried
 once; after that the file reads `failed` until it changes.
 
 ```http

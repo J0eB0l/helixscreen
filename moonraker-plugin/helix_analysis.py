@@ -95,11 +95,6 @@ GCODE_EXTS = (".gcode", ".g", ".gco")
 # Extrusion below this (mm of filament) is noise, not a printing move.
 EXTRUSION_EPSILON = 1e-5
 
-# A worker gets this long per file, plus WORKER_SECONDS_PER_MB of its size,
-# before it is killed and the attempt counts as failed.
-WORKER_BASE_TIMEOUT_S = 120.0
-WORKER_SECONDS_PER_MB = 10.0
-
 # A file version is tried this many times before it reads `failed`.
 MAX_ATTEMPTS = 2
 
@@ -978,8 +973,8 @@ def worker_command(gc_path: Path, relpath: str) -> List[str]:
     return reader.worker_argv(__file__, [str(gc_path), relpath])
 
 
-def worker_timeout(size: int) -> float:
-    return WORKER_BASE_TIMEOUT_S + WORKER_SECONDS_PER_MB * size / (1024.0 * 1024.0)
+# A worker past this is killed, and the attempt counts as failed.
+worker_timeout = reader.worker_timeout
 
 
 def encode_output(out: AnalysisOutput) -> bytes:
