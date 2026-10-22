@@ -14,7 +14,8 @@
 #                     Each shard gets CI_SHARD_TIMEOUT seconds (default 600,
 #                     build.yml's 10-minute test step): an eighth of the suite
 #                     runs past the sweep's 300s SHARD_TIMEOUT on a slower host
-#                     without hanging.
+#                     without hanging. SHARD_CRASH_FAILS=1 fails a shard that
+#                     crashes after its assertions passed, as CI's step does.
 #   bats              make test-shell BATS_REQUIRED=1 (a missing bats fails the row)
 #   ui                make test-ui-ci: CI's exact tests/ui pytest slice, headless
 #   plugin            make test-plugin: the moonraker plugin pytest, also in CI's job
@@ -83,9 +84,9 @@ lane() {
     case "$1" in
         unit)
             if [ "$SWEEP_WHERE" = remote ]; then
-                step ci-shards "$TEST_HOST_RUN" sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT"
+                step ci-shards "$TEST_HOST_RUN" sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT" SHARD_CRASH_FAILS=1
             else
-                step ci-shards "${mk[@]}" unit-sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT"
+                step ci-shards "${mk[@]}" unit-sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT" SHARD_CRASH_FAILS=1
             fi ;;
         app)
             if step app-build "${mk[@]}"; then

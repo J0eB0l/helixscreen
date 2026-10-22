@@ -80,19 +80,19 @@ row() { # <status> <step>: the table row for step has that status
     run "$GATE"
     [ "$status" -eq 0 ]
     [ "$(grep -c "unit-sweep" "$CALLS")" -eq 1 ]
-    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
+    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
     : >"$CALLS"
     CI_SHARDS=12 run "$GATE"
-    grep -qx "make unit-sweep NPROCS=12 SHARD_TIMEOUT=600" "$CALLS"
+    grep -qx "make unit-sweep NPROCS=12 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
 }
 
 @test "a CI-layout shard gets CI's step budget, not the sweep's 300s, and CI_SHARD_TIMEOUT changes it" {
     [ "$(sed -n '/name: Run unit tests/,/run:/s/.*timeout-minutes: *//p' "$REPO_ROOT/.github/workflows/build.yml")" = 10 ]
     TEST_HOST=1 run "$GATE"
-    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
+    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
     : >"$CALLS"
     CI_SHARD_TIMEOUT=900 run "$GATE"
-    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=900" "$CALLS"
+    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=900 SHARD_CRASH_FAILS=1" "$CALLS"
     refute_grep "make unit-sweep SHARD_TIMEOUT" "$CALLS"
 }
 
@@ -132,7 +132,7 @@ row() { # <status> <step>: the table row for step has that status
     TEST_HOST=1 run "$GATE"
     [ "$status" -eq 0 ]
     [ "$(grep -c "^host-run sweep" "$CALLS")" -eq 1 ]
-    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
+    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
     refute_grep "make unit-sweep" "$CALLS"
     grep -qx "make test-shell BATS_REQUIRED=1" "$CALLS"
     grep -qx "make test-ui-ci" "$CALLS"

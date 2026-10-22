@@ -70,6 +70,11 @@ SHARD_RETRIES ?= 3
 # listed, but not re-run.
 TRIAGE_TOTAL_BUDGET ?= 900
 
+# 1 fails a shard that exits on a signal after all its assertions passed (a
+# crash in teardown or at exit). CI fails it, since its step checks only the
+# exit status, so land-gate sets this; the dev-loop sweep warns and triages it.
+SHARD_CRASH_FAILS ?= 0
+
 # Shard count for the [slow] tier in test-all and test-slow. Deliberately far
 # below NPROCS: most [slow] cases wait on wall-clock deadlines, and a busy box
 # stretches those waits into failures. The tier runs after the fast shards
@@ -145,7 +150,12 @@ define run_tests_parallel
 					failed=1; suspect="$$suspect $$i"; \
 				elif [ "$$ec" -gt 128 ] 2>/dev/null; then \
 					sig=$$((ec - 128)); \
-					echo "$(YELLOW)⚠ Shard $$i crashed after its assertions passed (signal $$sig)$(RESET)"; \
+					if [ "$(SHARD_CRASH_FAILS)" = 1 ]; then \
+						echo "$(RED)$(BOLD)✗ Shard $$i crashed after its assertions passed (signal $$sig)$(RESET)"; \
+						failed=1; \
+					else \
+						echo "$(YELLOW)⚠ Shard $$i crashed after its assertions passed (signal $$sig)$(RESET)"; \
+					fi; \
 					suspect="$$suspect $$i"; \
 				else \
 					echo "$(RED)$(BOLD)✗ Shard $$i failed (exit $$ec)$(RESET)"; \

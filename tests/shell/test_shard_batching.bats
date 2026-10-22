@@ -5,11 +5,12 @@
 # jobpool live it launches shards in batches of three, each batch under one
 # `jobpool with-token` held for the batch's whole life, so every sweep on the
 # box together runs at most three shards per pool token. Without a pool it
-# runs each shard on its own, as it always has.
+# runs each shard on its own. A shard that exits on a signal after its
+# assertions passed warns, unless SHARD_CRASH_FAILS=1 (land-gate) fails it.
 #
 # The test binary and the pool are fakes: the binary prints which token it ran
-# under and fails or hangs on request, and the pool logs every token it hands
-# out and takes back.
+# under and fails, hangs or crashes on request, and the pool logs every token
+# it hands out and takes back.
 
 bats_require_minimum_version 1.5.0
 load helpers
@@ -30,6 +31,7 @@ echo "ran under token=${FAKE_TOKEN:-none}"
 [ "$i" = "${FAIL_SHARD:-x}" ] && { echo "test cases: 1 | 1 failed"; exit 1; }
 [ "$i" = "${HANG_SHARD:-x}" ] && sleep 5
 echo "All tests passed"
+[ "$i" = "${CRASH_SHARD:-x}" ] && exit 139
 [ -n "${FAKE_TOKEN:-}" ] && echo "end $FAKE_TOKEN" >> "$POOL_LOG"
 exit 0
 EOF
@@ -116,4 +118,15 @@ token_of() { # <shard> <output>
     [ ! -e "$POOL_LOG" ]
     local i
     for i in 0 1 2 3 4; do [ "$(token_of $i "$output")" = none ]; done
+}
+
+@test "a shard crashing after its assertions passed warns, and fails under SHARD_CRASH_FAILS=1" {
+    JOBPOOL=0 CRASH_SHARD=2 run sweep 4
+    [ "$status" -eq 0 ]
+    contains "Shard 2 crashed after its assertions passed (signal 11)" "$output"
+    lacks "One or more test shards failed" "$output"
+    JOBPOOL=0 CRASH_SHARD=2 run sweep 4 SHARD_CRASH_FAILS=1
+    [ "$status" -ne 0 ]
+    contains "Shard 2 crashed after its assertions passed (signal 11)" "$output"
+    contains "One or more test shards failed" "$output"
 }
