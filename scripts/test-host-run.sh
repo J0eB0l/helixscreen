@@ -676,7 +676,7 @@ case "$WHAT" in
     # NPROCS pins the shard count (SWEEP_NPROCS); a trailing NPROCS= overrides it.
     # Failing shards' logs land in the mirror's build/, which outlives the
     # container's /tmp, so fetch_shard_artifacts can bring them back.
-    sweep)  CMD="rm -rf $SHARD_ARTIFACTS && make unit-sweep NPROCS=$SWEEP_NPROCS SHARD_ARTIFACT_ROOT=$SHARD_ARTIFACTS"' $HELIX_JFLAG '"$*" ;;
+    sweep)  CMD="rm -rf $SHARD_ARTIFACTS && SHARD_ARTIFACT_ROOT=$SHARD_ARTIFACTS make unit-sweep NPROCS=$SWEEP_NPROCS"' $HELIX_JFLAG '"$*" ;;
     asan-app|tsan-app)
         # RECIPE is the positional argument; --repeat N (default 25 in the
         # make target) widens the drive. Both map onto the make target's
