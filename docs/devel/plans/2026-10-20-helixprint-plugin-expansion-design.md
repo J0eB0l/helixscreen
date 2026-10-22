@@ -65,6 +65,9 @@ or start disables only itself and reports why.
   observe (file analysis, storage report, event journal, photos) default on; anything that acts on
   a print or a spool defaults off.
 - `version`: per-feature contract version, bumped when its endpoint shape changes.
+- `api`: the shape of the status reply itself; 2 is the first with `features`. A plugin without
+  `api` predates the map.
+- A feature that is not available always reports `enabled: false`.
 
 **Opt-in lives in the app's settings namespace.** The plugin reads `helix-screen` /
 `plugin_features` (`{"print_hooks": true, ...}`) from Moonraker's database in-process, at the
@@ -77,19 +80,38 @@ storage-dependent default). Its `plugin_features` key is then unused, and the `f
 reports that feature's own `enabled`. Never two switches for one feature.
 
 **Helix-initiated job marker (2026-10-21).** A plugin path that starts a job itself records it
-before sending the start: `mark_helix_initiated(filename, kind)` with `kind` one of
-`"plr_resume"`, `"print_modified"`, `"print_edited"`. On the matching `job_state` start the plugin
-binds the marker to the history job id (namespace `helix_jobs`, key = job id, value
-`{"kind": ...}`); an unmatched marker expires after 60 s. `helix_initiated(job_id) -> Optional[str]`
-answers for every module. Start-of-job features (Phases 3, 5, 7) check it, so a resumed job does
-not re-run start hooks partway through a part.
+immediately before the single command that starts the print (`SDCARD_PRINT_FILE`, or `M24`),
+never before a script that homes, heats or purges first: `mark_helix_initiated(filename, kind)`,
+withdrawn with `unmark_helix_initiated(filename)` when that command fails, with `kind` one of
+`"plr_resume"`, `"print_modified"`, `"print_edited"`. The plugin binds the marker to the history
+job id when history announces the job: the `history:history_changed` event with action `added`,
+which carries filename and job id. `job_state` events carry no job id, so the binding cannot
+happen on the `job_state` start, and history's `added` handler can run after the plugin's own
+`job_state` handlers. Binding stores namespace `helix_jobs`, key = job id, value
+`{"kind": ..., "filenames": [...], "start_time": ..., "bound_at": <unix time>}` (pruned after 30
+days, on each bind and at startup); an unmatched marker expires after 60 s. A start through a link
+passes the original name too (`mark_helix_initiated(link, kind, history_name)`), since
+`_patch_history_entry` renames the finished entry to it; both names answer.
+`helix_initiated(job_id, filename, start_time) -> Optional[str]`, with the job's values as history
+reports them, answers for every module. History reuses job ids (the SQL table has no
+AUTOINCREMENT; the older LMDB history resets its counter on delete-all), and neither mainline nor
+QIDI Moonraker announces a deleted job, so a binding answers only for its job's `start_time` and
+names, and an `added` event with no matching marker drops any binding its id had. The in-memory
+binding is made before the plugin's handler first awaits, and helix_print registers its history
+handler before any feature module, so a module's own handler of the same `added` event sees it. Start-of-job features
+(Phases 3, 5, 7) check it, so a resumed job does not re-run start hooks partway through a part,
+and therefore **act from history's `added` event (or after it), never from the `job_state`
+start**: there, `helix_initiated()` can still be None for a job the plugin started.
 
 **Owner (2026-10-21):** Phase 0 is implemented as the first task of power-loss recovery v1, by the
 session that owns that work.
 
 **App: gate on features, not version equality.** `PrinterPluginStatusState` gains the parsed
 feature map and one query, `plugin_feature(name, min_version) -> {absent, disabled, ready}`.
-Callers ask that, never the version string. Version mismatch keeps driving self-heal, but a
+Callers ask that, never the version string. `ready`: available, `version >= min_version`, switched
+on. `disabled`: available at that version but switched off. `absent`: everything else, i.e. no
+plugin, a plugin without the map, no such entry, a contract below `min_version`, or
+`available: false`. A feature that cannot serve the caller's contract is never `disabled`. Version mismatch keeps driving self-heal, but a
 mismatched plugin still serves whatever features it reports, so an older plugin degrades by
 feature instead of all at once.
 
@@ -261,6 +283,8 @@ routing defaults). The plugin's `helix_print_hooks.py` watches `job_state` and, 
 job not started through `print_modified`, sends the gcode those options require, through the same
 generators the app uses. A job with a helix-initiated marker (Phase 0) of kind `plr_resume` gets no
 hooks: U1 end-unload, AMS pre-print gcode and timelapse setup already ran when the part started.
+The hook decision runs from history's `added` event for the job, not the `job_state` start, since
+only from then does `helix_initiated()` answer for it (Phase 0).
 
 **DRY constraint (ruled 2026-10-20): the app renders the gcode.** The record holds finished gcode
 produced by the same functions the screen's own start uses; the plugin only sends it. It is
@@ -368,7 +392,8 @@ stays the single deductor, so double counting is impossible by construction.
   keyed by job id (computed from the same position deltas), and into `auxiliary_data` where the
   Moonraker supports it. History detail shows it.
 - A job marked `plr_resume` (Phase 0 marker) continues the interrupted job's per-spool record
-  instead of opening a new one.
+  instead of opening a new one. The per-job record opens on history's `added` event, when the
+  marker is bound, not on the `job_state` start.
 
 ### Fallback
 
@@ -429,7 +454,8 @@ no image field; the app does not parse `auxiliary_data`.
 `helix_photos.py` fetches the default webcam's snapshot URL after layer 2 (from `print_stats.info`)
 and at job end, stores JPEGs under a dot directory, links them from the history entry's
 `auxiliary_data`, and prunes them with the history entry. History detail shows them. A job marked
-`plr_resume` (Phase 0 marker) skips the layer-2 photo; the interrupted job already has it.
+`plr_resume` (Phase 0 marker) skips the layer-2 photo; the interrupted job already has it. Layer 2
+comes long after history's `added` event, so the marker is always bound by then.
 
 ### Fallback
 

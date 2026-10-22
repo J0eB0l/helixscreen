@@ -289,6 +289,36 @@ TEST_CASE("the plugin's status carries its link directory", "[print_preparation]
     }
 }
 
+TEST_CASE("the mock plugin's status carries a features map", "[api][mock][plugin_feature]") {
+    MockPrinter printer;
+    std::optional<HelixPluginInfo> info;
+    auto check = [&printer, &info]() {
+        info.reset();
+        printer.api.job().check_helix_plugin([&info](const HelixPluginInfo& i) { info = i; },
+                                             [](const MoonrakerError&) {});
+        REQUIRE(info);
+        return plugin_feature_state(info->available, info->features, "convert_3mf", 1);
+    };
+    SECTION("installed") {
+        ScopedEnv installed("HELIX_MOCK_HELIX_PLUGIN", "1");
+        CHECK(check() == PluginFeatureState::Ready);
+        REQUIRE(info->features.count("convert_3mf") == 1);
+        CHECK(info->features.at("convert_3mf").reason.empty());
+        CHECK(info->features.count("plr") == 0);
+    }
+    SECTION("set to enabled: False") {
+        ScopedEnv disabled("HELIX_MOCK_HELIX_PLUGIN", "disabled");
+        CHECK(check() == PluginFeatureState::Absent);
+        CHECK_FALSE(info->features.at("convert_3mf").available);
+        CHECK(info->features.at("convert_3mf").reason == "plugin_disabled");
+    }
+    SECTION("absent") {
+        ScopedEnv absent("HELIX_MOCK_HELIX_PLUGIN", nullptr);
+        CHECK(check() == PluginFeatureState::Absent);
+        CHECK(info->features.empty());
+    }
+}
+
 TEST_CASE("an extracted plate's archive is gone before the rewrite runs",
           "[print_preparation][three_mf][disk]") {
     const std::string dir = std::filesystem::temp_directory_path().string();

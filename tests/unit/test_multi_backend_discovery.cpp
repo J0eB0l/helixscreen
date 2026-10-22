@@ -112,6 +112,20 @@ TEST_CASE_METHOD(MultiBackendFixture,
     REQUIRE(hw.ace_object_names() == std::vector<std::string>{"ace_instance_0"});
 }
 
+// A unit object is `ace_instance_` and its number: a name that only starts
+// with "ace_instance" is some other module's object.
+TEST_CASE_METHOD(MultiBackendFixture,
+                 "PrinterDiscovery: ace_instance without the separator is not an ACE unit",
+                 "[ams][ace][multi-backend]") {
+    helix::PrinterDiscovery hw;
+    nlohmann::json objects =
+        nlohmann::json::array({"ace_instances", "ace_instance", "extruder", "heater_bed"});
+    hw.parse_objects(objects);
+
+    CHECK(hw.ace_object_names().empty());
+    CHECK(hw.mmu_type() != helix::AmsType::ACE);
+}
+
 TEST_CASE_METHOD(MultiBackendFixture,
                  "PrinterDiscovery: multiple ace_instance_N objects all recorded",
                  "[ams][ace][multi-backend]") {

@@ -263,10 +263,10 @@
             <capability_chip name="pm_chip_tool_offsets" icon="crosshairs_gps" text="pm_chip_text_tool_offsets">
               <bind_flag_if_eq subject="printer_has_tool_offset_cal" flag="hidden" ref_value="0"/>
             </capability_chip>
-            <capability_chip name="pm_chip_nozzle_clean" icon="filament" text="pm_chip_text_nozzle_clean">
+            <capability_chip name="pm_chip_nozzle_clean" icon="nozzle" text="pm_chip_text_nozzle_clean">
               <bind_flag_if_eq subject="printer_has_nozzle_clean" flag="hidden" ref_value="0"/>
             </capability_chip>
-            <capability_chip name="pm_chip_purge_line" icon="filament_outline" text="pm_chip_text_purge_line">
+            <capability_chip name="pm_chip_purge_line" icon="nozzle_outline" text="pm_chip_text_purge_line">
               <bind_flag_if_eq subject="printer_has_purge_line" flag="hidden" ref_value="0"/>
             </capability_chip>
             <capability_chip name="pm_chip_heat_soak" icon="hourglass" text="pm_chip_text_heat_soak">

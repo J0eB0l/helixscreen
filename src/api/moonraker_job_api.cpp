@@ -107,10 +107,11 @@ void MoonrakerJobAPI::check_helix_plugin(PluginInfoCallback on_result, ErrorCall
                 // mismatch to restart Moonraker for.
                 info.version = helix::json_util::safe_string(r, "version", "");
                 info.symlink_dir = helix::json_util::safe_string(r, "symlink_dir", "");
+                info.features = helix::parse_plugin_features(r);
             }
             spdlog::info("[Moonraker API] helix_print plugin '{}' detected (enabled={}, links in "
-                         "'{}')",
-                         info.version, info.available, info.symlink_dir);
+                         "'{}', {} features)",
+                         info.version, info.available, info.symlink_dir, info.features.size());
             on_result(info);
         },
         [on_result, on_error](const MoonrakerError& err) {

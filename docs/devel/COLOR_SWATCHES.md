@@ -96,7 +96,7 @@ it leads a row; the LED colour row passes its own sizes.
 | `clear_swatch_color(obj)` | An empty slot: paint nothing, keep the object's own (warning) border. |
 | `draw_swatch(layer, area, paint)` with `swatch_paint_for(...)` | Draw-task code: the temp-graph legend dot. A finish needs `paint.cache`, a `SwatchCache` the caller keeps. |
 | `swatch_paint_finish_pixels(buf, area, radius, finish)` | An illustration writing the finish over filament it draws into its own ARGB8888 buffer. |
-| `spool_canvas_set_filament(canvas, slot)` | The 3D spool: the body splits into the same bands, matte mutes it, the other finishes texture it. The flat lane spool's filament disc paints through `apply_swatch_color`. |
+| `spool_canvas_set_filament(canvas, slot)` | The spool illustration: the wound filament splits into the same bands, matte mutes it, the other finishes texture it. `spool_canvas_set_view()` picks the side view (the 3D lane style, Active Spool, Spoolman) or face-on (the flat lane style); see "The spool's vented flange" below. |
 
 The painter hangs a `LV_EVENT_DRAW_MAIN_BEGIN` hook on the object, so a style border (a
 warning ring, the selection ring) draws over the fill. It forces the style background
@@ -118,13 +118,29 @@ tested in `tests/unit/test_ui_swatch.cpp` (`[swatch]`), next to pixel tests of
 linear gradient, so the rim is anti-aliased and the bands have no seams; past four colours
 the eight gradient stops blend one stop per colour.
 
+### The spool's vented flange
+
+The spool's front flange is vented like a reusable spool: six radial slots, the first
+straight up, and a lattice of small vent dots between them. Each opening shows what is
+behind the flange there, the wound filament where it reaches that far out and the dark far
+flange where it does not, so the vents double as a fill gauge. The geometry and the
+detail-by-size rule live in `include/spool_vents.h`: slots from a 32 px canvas, dots from
+96 px, a solid flange below 32 px (`spool_vent_detail()`). `spool_vent_coverage()`
+answers per pixel for a face of any skew, so the side view's squashed flange and the
+face-on view share one vent shape. Each view composites it its own way in
+`src/ui/ui_spool_canvas.cpp`: the side view paints the openings over its flange, and the
+face-on view smokes the flange over the filament (55% flange) and leaves the openings
+clear. Tests: `[spool_vents]`.
+
 ## Looking at it
 
 `HELIX_MOCK_AMS_STATE=finishes` gives the mock lanes a silk, a three-colour silk, a marble,
 a sparkle, a matte and a two-colour filament, so every surface that paints a spool shows
 each. `HELIX_SWATCH_GALLERY_DIR=<dir> ./build/bin/helix-tests '[swatch_gallery]'` writes
 `gallery-light.png` and `gallery-dark.png`: a circle, a chip and a 3D spool per finish on
-the theme's own background.
+the theme's own background. `'[swatch_gallery_spools]'` writes `spools-light.png` and `spools-dark.png`: each
+filament as a spool from the side and face-on, at `HELIX_SWATCH_GALLERY_SPOOL` px (240 by
+default).
 
 ## The gate
 

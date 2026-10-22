@@ -1252,8 +1252,8 @@ Located in the `ams` section:
 **Default:** `"3d"`
 **Values:** `"3d"`, `"flat"`
 **Description:** Filament spool visualization style:
-- `3d` - Bambu-style pseudo-3D canvas with gradients
-- `flat` - Simple concentric rings
+- `3d` - Spools drawn from the side, in 3D
+- `flat` - Spools drawn face-on, with the filament showing through the spool's vents
 
 ### Per-printer AMS settings
 

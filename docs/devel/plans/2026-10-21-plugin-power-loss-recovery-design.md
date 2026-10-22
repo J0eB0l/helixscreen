@@ -375,10 +375,17 @@ then starts at the current layer's entry via `scan_to_offset`'s `start_offset`/`
 10. Start: `M23 <file>`, `M26 S<offset>`, `M24`. Mainline `M23` does not search subdirectories
     (Kalico has `with_subdirs`) [src], so for a file in a subfolder the plugin points a root-level
     symlink at it and attributes the history entry back to the original name with the existing
-    `helix_print.py#_patch_history_entry` path. Before sending `M23`, the plugin records the
-    helix-initiated marker with kind `plr_resume` (umbrella Phase 0), so start hooks (Phase 3: U1
+    `helix_print.py#_patch_history_entry` path. Immediately before sending the start (`M23`,
+    `M26`, `M24` as one command, after steps 6-9 have finished, never ahead of the heating and
+    purge), the plugin records the helix-initiated marker with kind `plr_resume` and, for the
+    root-level symlink, the original name as `history_name` (umbrella Phase 0; it waits only
+    60 s for history to add the job) and withdraws it with
+    `unmark_helix_initiated` if the start fails, so start hooks (Phase 3: U1
     end-unload, AMS pre-print gcode, timelapse setup), per-job spool records (Phase 5) and the
-    layer-2 photo (Phase 7) do not run again for the resumed job.
+    layer-2 photo (Phase 7) do not run again for the resumed job. The marker is keyed by filename
+    (the root-level symlink's name when there is one, since that is what history records) and
+    binds to the job id on history's `added` event; those consumers act from that event, not
+    from the `job_state` start, where `helix_initiated()` can still be None.
 
 ### 6.4 Mesh carry-over
 

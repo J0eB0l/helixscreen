@@ -845,6 +845,11 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   tension check now all read "Stop" with the same octagon icon, instead of "Abort", "Cancel" or
   a plain cross. They still do what they did: an emergency stop followed by a firmware restart,
   because none of these can be paused partway through.
+- **Spools look like spools** (#1817) - every drawn spool has a vented flange: six slots, and
+  vent dots on larger spools, that show the filament wound inside, so you can read how full a
+  spool is through them. The flat AMS spool style now draws the spool face-on through a smoked
+  flange instead of plain rings. The Filament tab and filament icons are a spool instead of the
+  nozzle, which stays on the buttons that are about the nozzle, such as Purge.
 
 **Screens and settings**
 

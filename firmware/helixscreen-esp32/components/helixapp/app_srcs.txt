@@ -236,6 +236,7 @@ src/printer/printer_image_variants.cpp
 src/printer/printer_motion_state.cpp
 src/printer/printer_network_state.cpp
 src/printer/printer_plugin_status_state.cpp
+src/printer/helix_plugin_features.cpp
 src/printer/printer_print_state.cpp
 src/printer/printer_profile_state.cpp
 src/printer/printer_recovery_service.cpp
@@ -656,6 +657,7 @@ src/ui/ui_snake_game.cpp
 src/ui/ui_sound_preview_overlay.cpp
 src/ui/ui_spinner.cpp
 src/ui/ui_split_button.cpp
+src/ui/spool_vents.cpp
 src/ui/ui_spool_canvas.cpp
 src/ui/ui_spool_drawing.cpp
 src/ui/ui_spool_wizard.cpp
