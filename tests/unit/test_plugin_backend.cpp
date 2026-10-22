@@ -202,6 +202,68 @@ TEST_CASE_METHOD(PluginCallFixture, "plugin call still sends a normal print star
     CHECK(mock.last_send_method() == "server.info");
 }
 
+namespace {
+
+/// Calls @p method, which must come back refused by name with nothing sent.
+void check_helix_method_refused(PluginCallFixture& f, const char* method) {
+    INFO(method);
+    f.call("server.info", json::object());
+    const RpcResult r = f.call(method, json::object());
+    CHECK_FALSE(r.ok);
+    CHECK(r.error.find(method) != std::string::npos);
+    CHECK(r.error.find("not available to plugins") != std::string::npos);
+    CHECK(f.mock.last_send_method() == "server.info");
+}
+
+} // namespace
+
+TEST_CASE_METHOD(PluginCallFixture, "plugin call refuses server.helix.plr.plan",
+                 "[plugin][backend][plugin_rpc]") {
+    check_helix_method_refused(*this, "server.helix.plr.plan");
+}
+
+TEST_CASE_METHOD(PluginCallFixture, "plugin call refuses the PLR heat-and-move steps",
+                 "[plugin][backend][plugin_rpc]") {
+    check_helix_method_refused(*this, "server.helix.plr.prepare");
+    check_helix_method_refused(*this, "server.helix.plr.commit");
+}
+
+TEST_CASE_METHOD(PluginCallFixture, "plugin call refuses PLR abort and discard",
+                 "[plugin][backend][plugin_rpc]") {
+    check_helix_method_refused(*this, "server.helix.plr.abort");
+    check_helix_method_refused(*this, "server.helix.plr.discard");
+}
+
+TEST_CASE_METHOD(PluginCallFixture, "plugin call refuses an unknown server.helix method",
+                 "[plugin][backend][plugin_rpc]") {
+    check_helix_method_refused(*this, "server.helix.foo");
+    check_helix_method_refused(*this, "server.helix.status.extra");
+}
+
+TEST_CASE_METHOD(PluginCallFixture, "plugin call sends the read-only server.helix methods",
+                 "[plugin][backend][plugin_rpc]") {
+    for (const char* method : {"server.helix.status", "server.helix.plr.status"}) {
+        INFO(method);
+        call("server.info", json::object());
+        const RpcResult r = call(method, json::object());
+        CHECK(r.error.find("not available to plugins") == std::string::npos);
+        CHECK(mock.last_send_method() == method);
+    }
+}
+
+TEST_CASE_METHOD(PluginCallFixture, "plugin call keeps the print_modified path guard",
+                 "[plugin][backend][plugin_rpc]") {
+    const RpcResult bad = call("server.helix.print_modified", {{"original_filename", "../a.gcode"},
+                                                               {"temp_file_path", "b.gcode"}});
+    CHECK_FALSE(bad.ok);
+    CHECK(bad.error.find("Invalid path") != std::string::npos);
+    CHECK(mock.last_send_method() != "server.helix.print_modified");
+
+    call("server.helix.print_modified",
+         {{"original_filename", "a.gcode"}, {"temp_file_path", ".helix_temp/b.gcode"}});
+    CHECK(mock.last_send_method() == "server.helix.print_modified");
+}
+
 #endif // HELIX_HAS_PLUGINS
 
 TEST_CASE("app backend set_plugin_objects reaches the object union", "[plugin][backend]") {

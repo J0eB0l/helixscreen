@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "ui_observer_guard.h"
+
 #include "ams_error.h"
 #include "ams_types.h"
 #include "overlay_base.h"
@@ -105,8 +107,15 @@ class AmsDeviceSectionDetailOverlay : public OverlayBase {
      */
     void refresh();
 
+    /**
+     * @brief Follow the backend while open: rebuild when this section's actions
+     *        change value or availability
+     */
+    void on_activate() override;
+
   protected:
     void before_show() override;
+    void on_deactivating(DeactivateReason reason) override;
 
   private:
     friend class AmsDeviceSectionDetailOverlayTestAccess;
@@ -137,8 +146,9 @@ class AmsDeviceSectionDetailOverlay : public OverlayBase {
     /// The row or button built for @p action_id, or nullptr.
     [[nodiscard]] lv_obj_t* row_for(const std::string& action_id) const;
 
-    /// Run @p action through the backend, reporting a failure. Returns the result.
-    AmsError execute(const helix::printer::DeviceAction& action, std::any value) const;
+    /// Run @p action through the backend, reporting a failure, and on success record
+    /// @p value as the one its row shows. Returns the result.
+    AmsError execute(const helix::printer::DeviceAction& action, std::any value);
 
     /// Show slider @p position as @p action's value in its row's value display.
     void show_slider_value(lv_obj_t* row, const helix::printer::DeviceAction& action,
@@ -182,6 +192,12 @@ class AmsDeviceSectionDetailOverlay : public OverlayBase {
     /// Cached actions from backend
     std::vector<helix::printer::DeviceAction> cached_actions_;
 
+    /// Re-reads the backend on every AMS data tick while the overlay is open.
+    ObserverGuard data_observer_;
+
+    /// refresh(), only when the backend's actions for this section differ from the shown ones.
+    void refresh_if_changed();
+
     /// The slider action the open keypad edits, and the keypad's title
     std::string keypad_action_id_;
     std::string keypad_title_;
@@ -196,6 +212,14 @@ class AmsDeviceSectionDetailOverlay : public OverlayBase {
  *        tool it applies to in the app's one tool-label form ("Tool 1 (T0)").
  */
 [[nodiscard]] std::string device_action_label(const helix::printer::DeviceAction& action);
+
+/**
+ * @brief Whether @p section's actions in @p fresh differ from those in @p shown in
+ *        anything a row displays: which actions, their value, or their availability.
+ */
+[[nodiscard]] bool device_section_changed(const std::vector<helix::printer::DeviceAction>& shown,
+                                          const std::vector<helix::printer::DeviceAction>& fresh,
+                                          const std::string& section);
 
 /**
  * @brief The bind_state_if expression device_action_button greys a button with,

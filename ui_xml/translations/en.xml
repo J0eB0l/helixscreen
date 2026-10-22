@@ -1083,7 +1083,6 @@
   <translation tag="Enable assisted retraction at hub" en="Enable assisted retraction at hub"/>
   <translation tag="Enable audio feedback" en="Enable audio feedback"/>
   <translation tag="Enable brush wipe after purging" en="Enable brush wipe after purging"/>
-  <translation tag="Enable feed assist for active slot during printing" en="Enable feed assist for active slot during printing"/>
   <translation tag="Enable or disable the hub cutter" en="Enable or disable the hub cutter"/>
   <translation tag="Enable plugin?" en="Enable plugin?"/>
   <translation tag="Enable purging during tool changes" en="Enable purging during tool changes"/>
@@ -3497,6 +3496,7 @@
   <translation tag="That turn didn&apos;t register yet. Loosen {0} one more full turn." en="That turn didn&apos;t register yet. Loosen {0} one more full turn."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." en="That turn didn&apos;t register yet. Tighten {0} a little more."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." en="That turn didn&apos;t register yet. Tighten {0} one more full turn."/>
+  <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" en="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load"/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" en="The CFS odometer hardware is faulty and needs repair or replacement"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." en="The CFS ran out of filament in {}. Printing continues on what is left in the tube."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." en="The CFS ran out of filament. Printing continues on what is left in the tube."/>
@@ -3543,6 +3543,7 @@
   <translation tag="The helper macros are installed and activate after Klipper restarts." en="The helper macros are installed and activate after Klipper restarts."/>
   <translation tag="The latch opens and {} can drop. Hold it before you continue, then put it in its dock." en="The latch opens and {} can drop. Hold it before you continue, then put it in its dock."/>
   <translation tag="The left RFID reader in this CFS unit may need service" en="The left RFID reader in this CFS unit may need service"/>
+  <translation tag="The loaded slot is not known yet" en="The loaded slot is not known yet"/>
   <translation tag="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle." en="The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle."/>
   <translation tag="The message your printer&apos;s macros show (M117)" en="The message your printer&apos;s macros show (M117)"/>
   <translation tag="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes." en="The mounted nozzle heats to 200°C and cools again while the heater&apos;s safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes."/>

@@ -1163,7 +1163,6 @@ translations:
   Enable assisted retraction at hub: Enable assisted retraction at hub
   Enable audio feedback: Enable audio feedback
   Enable brush wipe after purging: Enable brush wipe after purging
-  Enable feed assist for active slot during printing: Enable feed assist for active slot during printing
   Enable or disable the hub cutter: Enable or disable the hub cutter
   Enable plugin?: Enable plugin?
   Enable purging during tool changes: Enable purging during tool changes
@@ -3747,6 +3746,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: That turn didn't register yet. Loosen {0} one more full turn.
   That turn didn't register yet. Tighten {0} a little more.: That turn didn't register yet. Tighten {0} a little more.
   That turn didn't register yet. Tighten {0} one more full turn.: That turn didn't register yet. Tighten {0} one more full turn.
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load
   The CFS odometer hardware is faulty and needs repair or replacement: The CFS odometer hardware is faulty and needs repair or replacement
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: The CFS ran out of filament in {}. Printing continues on what is left in the tube.
   The CFS ran out of filament. Printing continues on what is left in the tube.: The CFS ran out of filament. Printing continues on what is left in the tube.
@@ -3803,6 +3803,7 @@ translations:
   The helper macros are installed and activate after Klipper restarts.: The helper macros are installed and activate after Klipper restarts.
   The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: The latch opens and {} can drop. Hold it before you continue, then put it in its dock.
   The left RFID reader in this CFS unit may need service: The left RFID reader in this CFS unit may need service
+  The loaded slot is not known yet: The loaded slot is not known yet
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   The message your printer's macros show (M117): The message your printer's macros show (M117)
