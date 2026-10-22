@@ -532,6 +532,27 @@ TEST_CASE("standalone_rotation prefers the CLI value, then the configured one",
     CHECK(helix::standalone_rotation(0) == 180);
 }
 
+TEST_CASE("standalone_rotation draws a first boot in the board's known mount",
+          "[display][rotation]") {
+    helix::ConfigDirGuard guard("standalone_rotation_mount");
+    helix::board::set_current_override(helix::board::Board::K1);
+    const auto settings = (guard.dir / "settings.json").string();
+
+    SECTION("no saved rotation: the K1 mount") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {}})"));
+        CHECK(helix::standalone_rotation(0) == 270);
+    }
+    SECTION("a saved 0 is the user's and wins") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {"rotate": 0}})"));
+        CHECK(helix::standalone_rotation(0) == 0);
+    }
+    SECTION("the CLI wins over the mount") {
+        REQUIRE(helix::text_io::write_file(settings, R"({"display": {}})"));
+        CHECK(helix::standalone_rotation(90) == 90);
+    }
+    helix::board::set_current_override(std::nullopt);
+}
+
 // The kernel's panel_orientation has to reach DisplayManager::init() as the
 // startup rotation: the backends gate the stored touch range and calibration on
 // the display's rotation inside create_input_pointer(), so a rotation applied

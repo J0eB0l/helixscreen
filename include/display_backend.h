@@ -13,7 +13,9 @@
 
 #pragma once
 
+#include "board_identity.h"
 #include "data_root_resolver.h"
+#include "display_metrics.h"
 #include "text_io.h"
 #include "touch_calibration.h"
 
@@ -286,16 +288,22 @@ namespace helix {
 /**
  * @brief Rotation for the splash and the watchdog's crash dialog
  *
- * The CLI value, else the configured one, else the kernel's panel_orientation
- * (informational only: the kernel does not rotate the framebuffer itself).
+ * The CLI value, else the configured one (a saved 0 included, as the app honors
+ * it), else the orientation the app's first boot applies without asking: the
+ * kernel's panel_orientation (informational only: the kernel does not rotate the
+ * framebuffer itself), else the board's known mount.
  */
 inline int standalone_rotation(int cli_rotation) {
-    const int rotation = cli_rotation != 0 ? cli_rotation : read_config_rotation(0);
-    if (rotation != 0) {
-        return rotation;
+    if (cli_rotation != 0) {
+        return cli_rotation;
     }
-    const int kernel = detect_panel_orientation_from_cmdline();
-    return kernel > 0 ? kernel : 0;
+    const int saved = read_config_rotation(-1);
+    if (saved >= 0) {
+        return saved;
+    }
+    const int known = DisplayMetrics::first_boot_orientation(
+        detect_panel_orientation_from_cmdline(), board::current());
+    return known > 0 ? known : 0;
 }
 
 /**

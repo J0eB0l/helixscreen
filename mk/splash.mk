@@ -91,6 +91,7 @@ SPLASH_EXTRA_OBJS := \
     $(BUILD_DIR)/splash/log_redact.o \
     $(BUILD_DIR)/splash/platform_info.o \
     $(BUILD_DIR)/splash/board_identity.o \
+    $(BUILD_DIR)/splash/display_metrics.o \
     $(BUILD_DIR)/splash/platform_table.o \
     $(BUILD_DIR)/splash/prerender_size_class.o \
     $(BUILD_DIR)/splash/splash_asset_choice.o \
@@ -180,6 +181,11 @@ $(BUILD_DIR)/splash/platform_info.o: src/system/platform_info.cpp $(ABI_STAMP) |
 # platform_info.cpp answers board questions through board_identity, which keys on the
 # platform table, so both are link dependencies of every binary that links it.
 $(BUILD_DIR)/splash/board_identity.o: src/system/board_identity.cpp $(ABI_STAMP) | $(BUILD_DIR)/splash
+	@echo "[CXX] $< (splash)"
+	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# standalone_rotation() falls back to the board's known panel mount.
+$(BUILD_DIR)/splash/display_metrics.o: src/application/display_metrics.cpp $(ABI_STAMP) | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

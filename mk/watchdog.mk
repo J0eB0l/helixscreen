@@ -103,6 +103,7 @@ WATCHDOG_EXTRA_OBJS := $(BUILD_DIR)/watchdog/config.o \
                        $(BUILD_DIR)/watchdog/log_redact.o \
                        $(BUILD_DIR)/watchdog/platform_info.o \
                        $(BUILD_DIR)/watchdog/board_identity.o \
+                       $(BUILD_DIR)/watchdog/display_metrics.o \
                        $(BUILD_DIR)/watchdog/platform_table.o \
                        $(BUILD_DIR)/watchdog/helix_lvgl_anomaly_stub.o
 
@@ -221,6 +222,11 @@ $(BUILD_DIR)/watchdog/platform_info.o: src/system/platform_info.cpp $(ABI_STAMP)
 # platform_info.cpp answers board questions through board_identity, which keys on the
 # platform table, so both are link dependencies of every binary that links it.
 $(BUILD_DIR)/watchdog/board_identity.o: src/system/board_identity.cpp $(ABI_STAMP) | $(BUILD_DIR)/watchdog
+	@echo "[CXX] $< (watchdog)"
+	$(Q)$(CXX) $(WATCHDOG_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# standalone_rotation() falls back to the board's known panel mount.
+$(BUILD_DIR)/watchdog/display_metrics.o: src/application/display_metrics.cpp $(ABI_STAMP) | $(BUILD_DIR)/watchdog
 	@echo "[CXX] $< (watchdog)"
 	$(Q)$(CXX) $(WATCHDOG_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 
