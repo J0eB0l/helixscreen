@@ -167,3 +167,15 @@ TEST_CASE("only a spool put in this session is an insert", "[ams][tag_link]") {
         CHECK(t.want_is_insert(0));
     }
 }
+
+TEST_CASE("a lookup that got no answer is tried again, not on every frame", "[ams][tag_link]") {
+    TagSpoolLinkTracker t;
+    REQUIRE(t.observe(0, seated(42)) == 42);
+    t.begin_lookup(0, 42, 0);
+    t.lookup_failed(0, 42);
+    CHECK(t.wants(0, 42));
+    for (int frame = 0; frame < TagSpoolLinkTracker::kLookupRetryFrames; ++frame) {
+        REQUIRE_FALSE(t.observe(0, seated(42)));
+    }
+    CHECK(t.observe(0, seated(42)) == 42);
+}

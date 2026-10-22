@@ -50,10 +50,18 @@ class TagSpoolLinkTracker {
     /// there across a restart.
     [[nodiscard]] bool want_is_insert(int slot_index) const;
 
-    /// The want for @p spool_id is done with (linked, found missing, or failed):
+    /// The want for @p spool_id is done with (linked, or found missing):
     /// nothing more is tried for this insert. A no-op once the lane wants
     /// something else.
     void settle(int slot_index, int spool_id);
+
+    /// The lookup for @p spool_id got no answer: observe() offers it again
+    /// after kLookupRetryFrames frames, so a Spoolman that is slow or briefly
+    /// down is retried without one lookup per status frame.
+    void lookup_failed(int slot_index, int spool_id);
+
+    /// Frames a failed lookup waits before observe() offers it again.
+    static constexpr int kLookupRetryFrames = 30;
 
     void clear() {
         lanes_.clear();
@@ -69,6 +77,8 @@ class TagSpoolLinkTracker {
         int lookup_base = 0;
         /// The want came from a spool put in this session.
         bool insert = false;
+        /// Frames left before a failed lookup is offered again.
+        int retry_wait = 0;
     };
     /// A lane with no entry has not been seen this session.
     std::unordered_map<int, Lane> lanes_;

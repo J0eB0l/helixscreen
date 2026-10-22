@@ -525,7 +525,7 @@ CFS units have built-in RFID readers that automatically detect Creality filament
 
 - If the number doesn't match a spool in your Spoolman, a notice says so and the slot is left as it was.
 - If you pick a different spool for the slot while the same spool stays in it, your pick is kept. The tag is read again only when a spool is put in.
-- After HelixScreen restarts, a spool already sitting in a slot links only a slot that isn't linked to anything. So if you unlinked such a slot by hand, a restart links it again; pick a different spool or turn the setting off to keep it unlinked.
+- After HelixScreen restarts, a spool already sitting in a slot links only a slot that isn't linked to anything. So if you unlinked such a slot by hand, a restart links it again; turn **Link Spools from Tags** off to keep it unlinked.
 - A stock Creality spool has serial number 000001 on every tag, so it names no Spoolman spool. For the same reason, spool #1 in Spoolman can't be linked from a tag; pick it by hand.
 - To turn this off, use **Link Spools from Tags** in the CFS settings (see [AMS Management](#ams-management-settings-overlay)).
 

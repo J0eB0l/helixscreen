@@ -2423,7 +2423,7 @@ void AmsState::sync_tag_spool_link(AmsBackend& backend, int slot_index, const Sl
                          "failed: {}",
                          slot_index, spool_id, err.message);
             tok.defer("AmsState::tag_spool_link_failed", [slot_index, spool_id]() {
-                AmsState::instance().tag_link_tracker_.settle(slot_index, spool_id);
+                AmsState::instance().tag_link_tracker_.lookup_failed(slot_index, spool_id);
             });
         },
         /*silent=*/true);

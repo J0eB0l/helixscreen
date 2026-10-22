@@ -496,7 +496,9 @@ re-checks that the lane still wants it, and links through `AmsState::link_spool_
 the same commit a QR scan uses: `apply_spool_to_slot()` over the slot, then
 `commit_slot_edit()`, so the identity cache, the active spool on a loaded lane, the
 backend write and persistence all behave as for a pick. A spool Spoolman does not have
-gets one warning toast; a failed lookup is logged and not retried for that insert. The
+gets one warning toast. A lookup that gets no answer is logged and offered again after
+`TagSpoolLinkTracker::kLookupRetryFrames` frames, so a slow Spoolman is retried without a
+lookup per status frame. The
 per-printer setting `ams/tag_links_spoolman` (default on) settles every want without a
 lookup, so turning it on never links a spool already seated.
 

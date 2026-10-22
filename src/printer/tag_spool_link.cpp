@@ -45,6 +45,10 @@ std::optional<int> TagSpoolLinkTracker::observe(int slot_index, const TagSpoolSi
     if (!lane.want || lane.in_flight) {
         return std::nullopt;
     }
+    if (lane.retry_wait > 0) {
+        --lane.retry_wait;
+        return std::nullopt;
+    }
     return lane.want;
 }
 
@@ -64,6 +68,14 @@ bool TagSpoolLinkTracker::wants(int slot_index, int spool_id) const {
 bool TagSpoolLinkTracker::want_is_insert(int slot_index) const {
     auto it = lanes_.find(slot_index);
     return it != lanes_.end() && it->second.want && it->second.insert;
+}
+
+void TagSpoolLinkTracker::lookup_failed(int slot_index, int spool_id) {
+    auto it = lanes_.find(slot_index);
+    if (it != lanes_.end() && it->second.want == spool_id) {
+        it->second.in_flight = false;
+        it->second.retry_wait = kLookupRetryFrames;
+    }
 }
 
 void TagSpoolLinkTracker::settle(int slot_index, int spool_id) {
