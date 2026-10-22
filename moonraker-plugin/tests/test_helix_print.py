@@ -1124,7 +1124,7 @@ class TestHistoryPatching:
 
         await component._patch_history_entry(_print_info(), "complete")
 
-        assert "History filename-rename unavailable" in caplog.text
+        assert "History rewrite unavailable" in caplog.text
 
     @pytest.mark.asyncio
     async def test_missing_printer_job_class_warns(self, helix_print_component,

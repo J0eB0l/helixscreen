@@ -42,6 +42,7 @@ helix_capabilities.py, both beside this file (README.md, ".3mf Conversion").
 
 from __future__ import annotations
 
+import asyncio
 import glob as glob_module
 import importlib.util
 import inspect
@@ -161,6 +162,7 @@ helix_journal = _load_sibling("helix_journal")
 helix_config = _load_sibling("helix_config")
 helix_edits = _load_sibling("helix_edits")
 helix_print_hooks = _load_sibling("helix_print_hooks")
+helix_photos = _load_sibling("helix_photos")
 
 
 # ============================================================================
@@ -471,6 +473,8 @@ class HelixPrint:
         self.analysis: Optional[Any] = None
         self.journal: Optional[Any] = None
         self.print_hooks: Optional[Any] = None
+        self.photos: Optional[Any] = None
+        self._history_rewrite_lock: Optional[asyncio.Lock] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -775,6 +779,7 @@ class HelixPrint:
         await self._start_isolated("config_edit", True, self._start_config)
         await self._start_isolated("server_edits", False, self._start_edits)
         await self._start_isolated("print_hooks", True, self._start_print_hooks)
+        await self._start_isolated("photos", False, self._start_photos)
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -968,6 +973,25 @@ class HelixPrint:
             acts=True,
         )
 
+    async def _start_photos(self) -> None:
+        """Camera photos in history (helix_photos.py). It only observes and
+        writes its own files, so it is on unless opted out in
+        plugin_features."""
+        if helix_photos is None or helix_gcode_reader is None:
+            self.register_feature(
+                "photos", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_photos")
+                or SIBLING_LOAD_ERRORS.get("helix_gcode_reader", "module_missing"),
+            )
+            return
+        self.photos = helix_photos.HelixPhotos(self, helix_gcode_reader.atomic_write_bytes)
+        self.photos.start()
+        self.register_feature(
+            helix_photos.PHOTOS_FEATURE, helix_photos.PHOTOS_FEATURE_VERSION, acts=False,
+        )
+        await self.photos.load()
+        self.eventloop.register_callback(self.photos.prune)
+
     async def close(self) -> None:
         if self.analysis is not None:
             await self.analysis.close()
@@ -975,6 +999,8 @@ class HelixPrint:
             self.plr.close()
         if self.converter is not None:
             await self.converter.close()
+        if self.photos is not None:
+            await self.photos.close()
 
     async def _ensure_directories(self) -> None:
         """Ensure temp and symlink directories exist."""
@@ -1425,6 +1451,65 @@ class HelixPrint:
             # Remove from active tracking
             del self.active_prints[filename]
 
+    def _history_lock(self) -> asyncio.Lock:
+        # Made inside the running loop: Python 3.8 binds a Lock to the loop
+        # current when it is created.
+        if self._history_rewrite_lock is None:
+            self._history_rewrite_lock = asyncio.Lock()
+        return self._history_rewrite_lock
+
+    async def patch_history_job(
+        self, job_id: Any, update: Callable[[Dict[str, Any]], bool]
+    ) -> bool:
+        """Rewrite one history row: `update` changes the row in place and
+        returns whether to save it. Every rewrite of a row goes through here,
+        one at a time, so two features changing the same finished job never
+        save over each other's change. Best effort: needs v0.9.0's
+        get_job/save_job, and any failure is logged and swallowed."""
+        if not self.history or not job_id:
+            return False
+
+        if not hasattr(self.history, "get_job") or not hasattr(
+            self.history, "save_job"
+        ):
+            logging.warning(
+                "HelixPrint: History rewrite unavailable "
+                "(history component has no get_job/save_job; needs Moonraker "
+                "v0.9.0 or newer). The print itself is unaffected."
+            )
+            return False
+
+        # PrinterJob lives in whichever module defined the live history
+        # component, so ask that module rather than guessing an import path.
+        job_class = getattr(
+            sys.modules.get(type(self.history).__module__), "PrinterJob", None
+        )
+        if job_class is None:
+            logging.warning(
+                "HelixPrint: History rewrite unavailable "
+                "(no PrinterJob alongside the history component)"
+            )
+            return False
+
+        try:
+            async with self._history_lock():
+                job = await self.history.get_job(job_id)
+                if not job:
+                    logging.warning(f"HelixPrint: Job {job_id} not in history")
+                    return False
+                if not update(job):
+                    return False
+                # save_job REPLACEs the row addressed by job_id, and wants the
+                # numeric id even though get_job also accepts the hex spelling.
+                numeric_id = (
+                    int(job_id, 16) if isinstance(job_id, str) else int(job_id)
+                )
+                await self.history.save_job(job_class(job), numeric_id)
+            return True
+        except Exception as e:
+            logging.exception(f"HelixPrint: Failed to rewrite history job {job_id}: {e}")
+            return False
+
     async def _patch_history_entry(
         self, print_info: PrintInfo, final_state: str
     ) -> None:
@@ -1434,48 +1519,15 @@ class HelixPrint:
         instead of the symlink we printed through. Any failure is logged and
         swallowed so it can never surface in a print.
         """
-        if not self.history or not print_info.job_id:
-            return
+        original = self._history_name(print_info.original_filename)
 
-        if not hasattr(self.history, "get_job") or not hasattr(
-            self.history, "save_job"
-        ):
-            logging.warning(
-                "HelixPrint: History filename-rename unavailable "
-                "(history component has no get_job/save_job; needs Moonraker "
-                "v0.9.0 or newer). The print itself is unaffected."
-            )
-            return
-
-        # PrinterJob lives in whichever module defined the live history
-        # component, so ask that module rather than guessing an import path.
-        job_class = getattr(
-            sys.modules.get(type(self.history).__module__), "PrinterJob", None
-        )
-        if job_class is None:
-            logging.warning(
-                "HelixPrint: History filename-rename unavailable "
-                "(no PrinterJob alongside the history component)"
-            )
-            return
-
-        try:
-            job = await self.history.get_job(print_info.job_id)
-            if not job:
-                logging.warning(
-                    f"HelixPrint: Job {print_info.job_id} not in history"
-                )
-                return
-
-            original = self._history_name(print_info.original_filename)
-
+        def update(job: Dict[str, Any]) -> bool:
             # auxiliary_data is a list of provider entries. Keep every other
-            # provider's, and drop any earlier entry of ours so re-patching the
-            # same job does not stack duplicates.
-            # auxiliary_data is a list of provider entries. Iterating anything
-            # else would walk it by element anyway - a dict yields its KEYS -
-            # and quietly write that back over the real thing, so a shape we do
-            # not recognise is dropped rather than transformed.
+            # entry, and drop an earlier modifications entry of ours so
+            # re-patching the same job does not stack duplicates. Iterating
+            # anything else would walk it by element anyway - a dict yields
+            # its KEYS - and quietly write that back over the real thing, so a
+            # shape we do not recognise is dropped rather than transformed.
             existing = job.get("auxiliary_data")
             if existing is not None and not isinstance(existing, list):
                 logging.warning(
@@ -1489,6 +1541,7 @@ class HelixPrint:
                 if not (
                     isinstance(entry, dict)
                     and entry.get("provider") == HELIX_AUX_PROVIDER
+                    and entry.get("name") == "modifications"
                 )
             ]
             aux_data.append(
@@ -1505,25 +1558,15 @@ class HelixPrint:
                     "units": None,
                 }
             )
-
             job["filename"] = original
             job["auxiliary_data"] = aux_data
+            return True
 
-            # save_job REPLACEs the row addressed by job_id, and wants the
-            # numeric id even though get_job also accepts the hex spelling.
-            job_id = print_info.job_id
-            numeric_id = (
-                int(job_id, 16) if isinstance(job_id, str) else int(job_id)
-            )
-            await self.history.save_job(job_class(job), numeric_id)
-
+        if await self.patch_history_job(print_info.job_id, update):
             logging.info(
                 f"HelixPrint: Patched history {print_info.job_id} "
                 f"filename to '{original}'"
             )
-
-        except Exception as e:
-            logging.exception(f"HelixPrint: Failed to patch history: {e}")
 
     # =========================================================================
     # Cleanup Operations
