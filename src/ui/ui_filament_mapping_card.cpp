@@ -199,11 +199,7 @@ void FilamentMappingCard::seed_from_palette(const std::vector<std::string>& gcod
     // the card shows, and must never hand it the previous file's tools.
     tool_info_ = std::move(m.tool_info);
 
-    if (!recompute_visibility()) {
-        // A hidden card has no mappings of its own; the previous file's must not
-        // reach print start as this one's.
-        available_slots_.clear();
-        mappings_.clear();
+    if (!recompute_visibility_or_clear()) {
         return;
     }
 
@@ -218,13 +214,24 @@ void FilamentMappingCard::seed_from_palette(const std::vector<std::string>& gcod
                   available_slots_.size(), mappings_.size());
 }
 
+bool FilamentMappingCard::recompute_visibility_or_clear() {
+    if (recompute_visibility()) {
+        return true;
+    }
+    // A hidden card has no mappings of its own: whatever it held (the previous
+    // file's, or picks made before bypass engaged) must not reach print start.
+    available_slots_.clear();
+    mappings_.clear();
+    return false;
+}
+
 void FilamentMappingCard::refresh_slot_data() {
     if (!card_ || !rows_container_) {
         return;
     }
     // The slots can take away what made the card worth showing (the backend
     // going away, bypass engaging), so the rule runs again first.
-    if (!recompute_visibility()) {
+    if (!recompute_visibility_or_clear()) {
         rebuild_compact_view();
         return;
     }
@@ -255,7 +262,13 @@ void FilamentMappingCard::set_used_tools(std::optional<std::set<int>> used) {
     // Callers must re-publish afterwards; PrintSelectDetailView does that from
     // publish_card_visibility(), which is why this does not reach for a subject
     // itself - the card has never owned one.
-    recompute_visibility();
+    if (recompute_visibility_or_clear() && mappings_.empty()) {
+        // Shown again after a narrower set hid it (and cleared it): seed afresh.
+        Mapping m = compute_mapping(palette_colors_, palette_materials_, used_tools_);
+        tool_info_ = std::move(m.tool_info);
+        available_slots_ = std::move(m.slots);
+        mappings_ = std::move(m.mappings);
+    }
 
     // Then compact the card's current tool_info_/mappings_ in lockstep. This
     // only filters; it never re-seeds. nullopt/empty is a no-op (show all). Does NOT touch the

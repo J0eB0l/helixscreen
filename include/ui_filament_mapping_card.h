@@ -372,6 +372,10 @@ class FilamentMappingCard {
      */
     bool recompute_visibility();
 
+    /// recompute_visibility(), clearing mappings_ and available_slots_ when the
+    /// card is hidden. Every path that can hide the card goes through this.
+    bool recompute_visibility_or_clear();
+
     /// update()'s body. @p keep_picks: the user's picks laid over the fresh seed
     /// (empty for a new file).
     void seed_from_palette(const std::vector<std::string>& gcode_colors,
