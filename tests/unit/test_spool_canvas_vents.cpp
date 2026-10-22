@@ -154,3 +154,19 @@ TEST_CASE_METHOD(LVGLUITestFixture, "spool_canvas: the view is part of the rende
     CHECK(grey(px(side, kFrontWebX, kFrontWebY)));
     CHECK_FALSE(grey(px(front, kFrontWebX, kFrontWebY)));
 }
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "spool_canvas: the key light reaches the tube floor short of the rim's shadow",
+                 "[spool_canvas][spool_vents]") {
+    // 240 px: the hub hole is centred at (162, 120), 10 px across and 24 px
+    // tall. Six rows below the axis, the right of the hole sees the tube wall
+    // 2 px deep, in the light; the left sees it 18 px deep, past the 12 px the
+    // 45 degree light reaches before the top rim shades it.
+    lv_obj_t* canvas = ui_spool_canvas_create(test_screen(), 240);
+    REQUIRE(canvas != nullptr);
+    ui_spool_canvas_set_fill_level(canvas, 1.0f);
+
+    const lv_color32_t lit = px(canvas, 170, 126);
+    const lv_color32_t shaded = px(canvas, 154, 126);
+    CHECK(brightness(lit) > brightness(shaded) + 60);
+}
