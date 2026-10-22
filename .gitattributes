@@ -2,3 +2,4 @@
 assets/gcode/** linguist-vendored
 assets/test_gcodes/** linguist-vendored
 *.gcode linguist-vendored
+tests/fixtures/gcode_edits/** -text

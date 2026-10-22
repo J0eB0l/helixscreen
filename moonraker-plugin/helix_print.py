@@ -149,6 +149,7 @@ helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
+helix_edits = _load_sibling("helix_edits")
 
 
 # ============================================================================
@@ -732,6 +733,7 @@ class HelixPrint:
         await self._start_3mf_converter()
         self._register_3mf_feature()
         self._start_plr()
+        self._start_edits()
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -815,6 +817,20 @@ class HelixPrint:
             helix_plr.PLR_FEATURE, helix_plr.PLR_FEATURE_VERSION, acts=True,
             switch=self.plr.feature_enabled, probe=self.plr.availability,
             extra=self.plr.feature_extra,
+        )
+
+    def _start_edits(self) -> None:
+        """Server-side G-code edits (helix_edits.py): print_edited."""
+        if helix_edits is None:
+            self.register_feature(
+                "server_edits", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_edits", "module_missing"),
+            )
+            return
+        helix_edits.HelixEdits(self).start()
+        self.register_feature(
+            helix_edits.SERVER_EDITS_FEATURE, helix_edits.SERVER_EDITS_FEATURE_VERSION,
+            acts=False,
         )
 
     async def close(self) -> None:
@@ -938,17 +954,18 @@ class HelixPrint:
         if self.gc_path is None:
             raise self.server.error("File manager not initialized", 500)
 
-        # Get and validate parameters
         original_filename = web_request.get_str("original_filename")
         temp_file_path = web_request.get_str("temp_file_path")
         modifications = web_request.get_list("modifications", [])
         copy_metadata = web_request.get_boolean("copy_metadata", True)
+        return await self.start_linked_print(
+            original_filename, temp_file_path, modifications, copy_metadata, "print_modified"
+        )
 
-        # Security validations
+    def resolve_original(self, original_filename: str) -> Path:
+        """The original file of a linked print, resolved: a file inside the
+        gcodes root that exists and is not itself a symlink."""
         self._validate_filename(original_filename)
-        self._validate_filename(temp_file_path)
-
-        # Validate original file exists and is within gcodes
         original_path = self.gc_path / original_filename
         original_resolved = self._validate_path_within_gcodes(original_path)
 
@@ -962,10 +979,31 @@ class HelixPrint:
             raise self.server.error(
                 "Original file cannot be a symlink", 400
             )
+        return original_resolved
 
-        # Validate temp file exists and is within gcodes
+    def resolve_temp(self, temp_file_path: str) -> Path:
+        """Where a linked print's copy lives, resolved inside the gcodes root.
+        The file need not exist yet."""
+        self._validate_filename(temp_file_path)
+        return self._validate_path_within_gcodes(self.gc_path / temp_file_path)
+
+    async def start_linked_print(
+        self,
+        original_filename: str,
+        temp_file_path: str,
+        modifications: List[Any],
+        copy_metadata: bool,
+        kind: str,
+    ) -> Dict[str, Any]:
+        """Start the copy at `temp_file_path` through a link named after
+        `original_filename`, so print_stats and history name the original.
+        `kind` is the HELIX_JOB_KINDS entry the job is marked with. A start
+        that fails removes the copy."""
+        self._validate_filename(original_filename)
+        self._validate_filename(temp_file_path)
+        original_resolved = self.resolve_original(original_filename)
         temp_path = self.gc_path / temp_file_path
-        temp_resolved = self._validate_path_within_gcodes(temp_path)
+        temp_resolved = self.resolve_temp(temp_file_path)
 
         if not temp_resolved.exists():
             raise self.server.error(
@@ -1033,7 +1071,7 @@ class HelixPrint:
 
         # Start the print with symlink path (escape filename for G-code)
         self.mark_helix_initiated(
-            symlink_filename, "print_modified", self._history_name(original_filename)
+            symlink_filename, kind, self._history_name(original_filename)
         )
         safe_symlink = self._escape_gcode_string(symlink_filename)
         try:
