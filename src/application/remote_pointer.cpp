@@ -41,15 +41,9 @@ void RemotePointer::read_cb(lv_indev_t* /*indev*/, lv_indev_data_t* data) {
     // wrapper never sees these samples. Keep the wake gesture out of LVGL here too.
     const auto out = self.wake_latch_.filter(
         {data->state == LV_INDEV_STATE_PRESSED, data->point.x, data->point.y}, lv_tick_get(),
-        [](int32_t, int32_t) {
+        [](int32_t x, int32_t y) {
             auto* dm = DisplayManager::instance();
-            if (!dm || (!dm->is_display_sleeping() && !dm->is_display_dimmed())) {
-                return false;
-            }
-            // The swallowed press cannot update LVGL's activity clock itself.
-            // Let the normal idle tick wake the display after this released sample.
-            lv_display_trigger_activity(nullptr);
-            return true;
+            return dm && dm->note_wake_press(x, y);
         });
     data->state = out.pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
     data->point.x = out.x;
