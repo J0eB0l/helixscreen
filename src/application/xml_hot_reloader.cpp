@@ -171,7 +171,7 @@ void XmlHotReloader::initial_scan(const std::vector<std::string>& xml_dirs) {
     file_to_logical_path_.clear();
     file_to_variant_.clear();
 
-    static constexpr const char* kSkipDirs[] = {"translations", ".claude-recall"};
+    static constexpr const char* kSkipDirs[] = {"translations"};
     auto is_skipped = [](const fs::path& p) {
         auto name = p.filename().string();
         for (const auto* skip : kSkipDirs) {
