@@ -55,7 +55,9 @@ Accepted as recommended in the first draft, or decided on review:
 | O9 | The mesh include line is added opt-in from both an installer prompt and a settings button. |
 | R26 | When the executed line cannot be found, resume at the start of the NEXT layer, not the current one: printing a layer again over itself at the same Z risks a collision, a skipped partial layer is a cosmetic gap. The warning keeps its name, `layer_start`, now meaning "resumes at the next layer start", and keeps its confirmation in the app. (2026-10-21) |
 | R27 | `no_purge_location` stays a warning; no new Confirmation value. (2026-10-21) |
-| R28 | After a cut, prepare heats the nozzle IN PLACE to the print's own nozzle temperature (the snapshot's extruder target) and waits for it before ANY lift or XY move, on every backend. A nozzle frozen into the part tears the part off the bed when it is lifted or homed cold, which is what QIDI's own sequence did on the Q2 test. (2026-10-22) |
+| R28 | After a cut, prepare heats the nozzle IN PLACE to the print's own nozzle temperature and waits for it before ANY lift or XY move, on every backend. A nozzle frozen into the part tears the part off the bed when it is lifted or homed cold, which is what QIDI's own sequence did on the Q2 test. The print's temperature is the snapshot's extruder target, or the file's own target at the resume point when that is higher: a snapshot taken with the heater down (a pause whose `idle_timeout` turned it off) still resumes at the temperature the resume line prints at. (2026-10-22) |
+| R29 | Prepare starts the bed (and chamber) and the nozzle together: `M140`, `M141` and `M104` are sent at once, not bed first, and the waits stay non-blocking and abortable. No Z move of any kind until the bed AND the nozzle are both at temperature; then the lift and XY homing follow. The part may have released as the bed cooled, and a reheated bed before the lift is its best chance to grip again; heating both at once also frees the nozzle early. (2026-10-22) |
+| R30 | Once the nozzle has released, it retracts slightly and drops to a standby temperature until commit, which reheats it to print temperature where it stands before anything moves. Generic: lift, then standby and retract, then home XY. QIDI: no lift in prepare (QIDI declares Z from its row and lands on it, so a lift would shift the frame); standby in place once both heaters are hot. Standby is the print temperature less the profile's `nozzle_standby_drop_c` (default 70 °C), floored at 140 °C and never above the print temperature. (2026-10-22) |
 
 Still open: O4 and O8 (§ 14).
 
@@ -398,27 +400,31 @@ QIDI fork's `file_manager.py` is not in the copies we hold, so it is unverified 
 **prepare**
 
 1. Pre-checks: Klipper ready, printer idle, plan valid, profile tier >= 1.
-2. Bed and chamber first: `M140 S<bed>`, `M190 S<bed>`; chamber `M141 S<t>` plus
-   `TEMPERATURE_WAIT` with `chamber_wait_timeout_s`, skippable. Then the nozzle in place (R28):
-   `M104 S<print temp>` where it stands, and wait for it. Nothing moves before it is hot: the
-   nozzle froze into the part at the cut, and a cold lift or XY homing tears the part off the bed.
+2. Heat (R28, R29): `M140 S<bed>`, the chamber's `M141 S<t>` and the nozzle's `M104 S<print
+   temp>` where it stands, all at once; then wait for the bed, the chamber (skippable, up to
+   `chamber_wait_timeout_s`) and the nozzle. Nothing moves before the bed and the nozzle are hot:
+   the nozzle froze into the part at the cut, a cold lift or XY homing tears the part off the bed,
+   and the reheated bed lets a part that released as it cooled grip again.
 3. Declare and lift: `SET_KINEMATIC_POSITION Z=<Zs>`, then `G91`, `G1 Z<lift> F300`, `G90`,
-   with `lift = min(profile.z_lift_mm, position_max_z - Zs - kSagAllowanceMm)`.
+   with `lift = min(profile.z_lift_mm, position_max_z - Zs - kSagAllowanceMm)`. Then standby
+   (R30): retract `STANDBY_RETRACT_MM` (1 mm) while still at print temperature, and `M104` down to
+   the standby temperature.
 4. XY home: `profile.xy_home_gcode` (default `G28 X Y`; § 7.3 decides when the default is safe).
 5. Tier 1 only: move to the resume line's start XY at the lifted height and stop; the app runs
-   the jog step (with the nozzle hot from step 2).
+   the jog step (with the nozzle at standby).
 
 **commit** (after the app's confirmations)
 
-6. Z reference: tier 2 keeps the declared frame; tier 1 reads the current toolhead Z as the part
+6. Heat again where the nozzle stands: the bed, chamber and nozzle waits of step 2, so the
+   nozzle is back at print temperature before anything moves. Then the Z reference: tier 2 keeps the declared frame; tier 1 reads the current toolhead Z as the part
    top and re-declares `SET_KINEMATIC_POSITION Z=<gcode_z_at_resume + gcode_offset_z + mesh(x,y)>`
    at that height, then lifts again.
 7. Restore state: mesh (§ 6.4), `SET_GCODE_OFFSET`, `SET_PRESSURE_ADVANCE` per extruder,
    `SET_VELOCITY_LIMIT`, `SET_RETRACTION`, `M220`/`M221`, heater targets other than bed,
    `EXCLUDE_OBJECT_DEFINE` lines from the scan then `EXCLUDE_OBJECT NAME=` per exclusion,
    `SET_PRINT_STATS_INFO`, `SET_GCODE_VARIABLE` per saved macro var.
-8. Nozzle: move to the purge location, re-assert its target and wait (it is hot from step 2 unless
-   it cooled during the confirmations), purge (`profile.purge_gcode` or the generic purge at
+8. Nozzle: move to the purge location, re-assert its target and wait (hot already from step 6),
+   purge (`profile.purge_gcode` or the generic purge at
    a part-free bed edge computed from object polygons and bed limits), wipe.
 9. Return: travel at the lifted height to the resume line's start XY, lower to its Z at `F300`,
    restore G90/G91, M82/M83, `G92 E<logical E>`, F, fans, retract state.
@@ -494,6 +500,7 @@ In `assets/config/printer_database.json`, per printer. Absent block = tier 0.
 | `z_holds_unpowered` | bool | false | Required for tier 2 |
 | `xy_home_gcode` | string | `"G28 X Y"` | XY-only homing command |
 | `z_lift_mm` | float | 5.0 | Cold lift before XY homing |
+| `nozzle_standby_drop_c` | float >= 0 | 70.0 | Standby temperature under the print temperature between prepare and commit (R30; floored at 140 °C) |
 | `purge_gcode` | string \| null | null | Purge/wipe macro; null = generic purge |
 | `z_rehome` | `"none"` \| `"probe_clear_spot"` \| `"z_max"` | `"none"` | Tier 3, reserved |
 | `resume_skip_fraction` | float 0-1 | 0.5 | Fraction of the save interval skipped past the executed point (§ 6.2); the user may override |
@@ -505,7 +512,8 @@ raise to 1/2 on any printer passing § 7.3), `xy_home_gcode`, `purge_gcode`.
 a JSON object of the `PlrProfile` fields in snake_case: `tier` (int 0-3), `backend`
 (`"generic"`|`"qidi_print_state"`|`"vendor"`), `storage_hint` (`"emmc"`|`"sd"`|`"nand"`|`"ssd"`|
 `"unknown"`), `z_holds_unpowered` (bool), `xy_home_gcode` (str), `z_lift_mm` (float), `purge_gcode`
-(str|null), `resume_skip_fraction` (float 0-1), `macro_vars` ({macro: [variable, ...]}). A missing
+(str|null), `resume_skip_fraction` (float 0-1), `macro_vars` ({macro: [variable, ...]}),
+`nozzle_standby_drop_c` (float >= 0). A missing
 record is tier 0; a missing or wrongly typed key takes the default above. The plugin reads only
 `enabled` from `plr_user`; it is PLR's single switch.
 
@@ -669,20 +677,22 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
 - `helix:plr_progress` and `helix:plr_plan_ready` are the Moonraker events
   `helix_print:plr_progress` / `helix_print:plr_plan_ready`, which clients receive as
   `notify_plr_progress` / `notify_plr_plan_ready`. Steps: `bed_wait`, `chamber_wait`,
-  `nozzle_in_place`, `lift`, `home_xy`, `position` (tier 1) for prepare; `bed_wait`,
-  `chamber_wait`, `z_reference` (tier 1), `restore`, `heat_nozzle`, `move_to_resume`, `start` for
-  commit; states `running`, `done`, `failed`; commit also has `purge`, after `heat_nozzle`. A QIDI
-  prepare sends `bed_wait`, `chamber_wait`, `nozzle_in_place`; a QIDI commit the same three, then
-  `start`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
+  `nozzle_in_place`, `lift`, `nozzle_standby`, `home_xy`, `position` (tier 1) for prepare;
+  `bed_wait`, `chamber_wait`, `nozzle_in_place`, `z_reference` (tier 1), `restore`, `heat_nozzle`,
+  `purge`, `move_to_resume`, `start` for commit; states `running`, `done`, `failed`. The three heat
+  steps go `running` together (every heater is set first) and `done` as each reaches
+  temperature. A QIDI prepare sends `bed_wait`, `chamber_wait`, `nozzle_in_place`,
+  `nozzle_standby`; a QIDI commit `bed_wait`, `chamber_wait`, `nozzle_in_place`, then `start`. A plan that fails after replying `pending` sends `plr_plan_ready` with an `error`
   (`"<code>: <detail>"`), and `plan` answers that error until the snapshot changes.
 - Heat waits are not M190/TEMPERATURE_WAIT (those hold Klipper's G-code lock, so an abort's
   heaters-off could not run): the plugin sets the target, then polls the heater every 2 s,
   checking for an abort between polls, and fails after 20 min (bed) / 10 min (nozzle) / 45 min
-  (chamber). Commit repeats the bed (and chamber) wait first, because the bed may have been turned
-  off (`idle_timeout`) while the screen waited on the confirmations.
-- Prepare heats the nozzle in place (`nozzle_in_place`, R28) after the bed and chamber and before
-  any motion, to the plan's nozzle temperature: the snapshot's extruder target, raised to the
-  file's own target at the resume point. A plan, or a prepare, with no nozzle temperature is
+  (chamber). Commit repeats every heat wait first, nozzle included: the bed may have been turned
+  off (`idle_timeout`) while the screen waited on the confirmations, and the nozzle is at standby.
+- Prepare sets the bed, chamber and nozzle at once and waits for all of them before any motion
+  (`nozzle_in_place`, R28, R29), to the plan's nozzle temperature: the snapshot's extruder target,
+  raised to the file's own target at the resume point. Once lifted (QIDI: in place) the nozzle
+  retracts 1 mm and drops to standby (`nozzle_standby`, R30). A plan, or a prepare, with no nozzle temperature is
   refused with `plr_scan_failed: no_nozzle_target` rather than moving a cold nozzle.
 - `status` answers from the backend and offer that `server:klippy_ready` decides (objects, homing,
   the QIDI check). Asked while Klippy is ready but that check has not finished, it waits for it,
@@ -738,7 +748,8 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   Confirmation `accept_next_layer` to `requires`, so commit refuses without it), `mesh_unavailable`,
   `cold_bed` (bed more than
   `COLD_BED_DIFF_C` under target when the plan is answered, which also adds `accept_cold_bed` to
-  `requires`; a kept plan answered again re-reads `heater_bed`, for `bed.current` too),
+  `requires`; a kept plan answered again re-reads `heater_bed`, for `bed.current` too, unless a
+  prepare took the plan during that read or the read failed, which keep the last reading),
   `no_purge_location` (no objects known, so the nozzle heats and primes at the XY home position).
 - `restores` values: `bed_mesh`, `gcode_offset`, `pressure_advance`, `velocity_limits`,
   `retraction`, `speed_factor`, `extrude_factor`, `objects`, `excluded_objects`, `fans`, `macro_vars`.
@@ -823,8 +834,10 @@ not fixed, so the job's first full write waits 2 s after the start (`FIRST_WRITE
 
 **Resume side** (§ 9 steps for `backend: "qidi_print_state"`).
 
-1. `prepare`: the heat wait of § 6.3 step 2: bed, chamber, then the nozzle in place (R28).
-2. `commit`: the same heat wait again, nozzle included, immediately before QIDI's resume. QIDI's
+1. `prepare`: the heat wait of § 6.3 step 2 (bed, chamber and nozzle in place, set together),
+   then standby in place (R30). No lift: QIDI declares Z from its row and lands on it, so a lift
+   here would shift the frame.
+2. `commit`: the same heat wait again, back to print temperature, immediately before QIDI's resume. QIDI's
    sequence sends `M140` and `M104` without waiting, then `SET_KINEMATIC_POSITION`, `G1 Z+5` and
    `G28 X Y`, and only then `M109`: a nozzle that cooled during the confirmations would be lifted
    and homed cold. At temperature the wait returns at once. Then rewrite every row in
