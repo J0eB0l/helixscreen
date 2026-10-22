@@ -148,6 +148,17 @@ class PrinterPluginStatusState {
         return features_;
     }
 
+    /// Forget what the plugin's status reported, touching no subject. For
+    /// PrinterStateTestAccess::clear_data, so one test's probe does not decide
+    /// the next one's plugin features on the shared singleton.
+    void clear_data() {
+        set_link_dir("");
+        version_.clear();
+        disabled_ = false;
+        features_.clear();
+        stored_opt_ins_ = nlohmann::json::object();
+    }
+
     /// Whether plugin feature @p name, at contract @p min_version or newer, is
     /// usable now. Gate plugin-backed behaviour on this, never on version().
     PluginFeatureState plugin_feature(const std::string& name, int min_version) const {
