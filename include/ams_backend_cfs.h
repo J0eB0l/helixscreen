@@ -519,6 +519,15 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     /// current or a value no build of ours wrote, and is left as found.
     static std::string normalize_legacy_flat_fingerprint(const std::string& stored);
 
+    /// The brand a stock bay's `vender` entry names, for a bay whose material
+    /// code the catalog does not resolve. A tagged bay's entry is the tag's
+    /// whole 40-character record, which names its supplier rather than being
+    /// a brand: Creality's code reads as Creality and any other as no brand.
+    /// `"unknown"` (a seated spool the reader did not resolve) reads as
+    /// Creality, a sentinel as no brand, and anything else is the box's own
+    /// vendor name.
+    [[nodiscard]] static std::string brand_from_vender(const std::string& vender);
+
     /// The schema whose feed builds a fingerprint of this shape, or nullopt
     /// when either could have: stock joins the raw material_type code and
     /// "0RRGGBB" colour_value, flat joins a material name and six hex digits.

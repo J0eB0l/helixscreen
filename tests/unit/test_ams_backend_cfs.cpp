@@ -1413,6 +1413,35 @@ TEST_CASE("CFS presence: vender + remain_len combined signal (#1077)", "[ams][cf
     }
 }
 
+// A tagged bay's `vender` is the tag's whole 40-character record. With a
+// material code the catalog does not know, the record's supplier field is
+// what names the brand, and a record is never a brand itself.
+TEST_CASE("CFS brand fallback reads the tag record's supplier, never the record", "[ams][cfs]") {
+    json box = make_multi_unit_box(1);
+    box["T1"]["vender"] =
+        json::array({"BB5250276A21999990FFFFFF0165000001000000",
+                     "BB5251234A21999990FFFFFF0165000001000000", "Sunlu", "none"});
+    box["T1"]["material_type"] = json::array({"199999", "199999", "199999", "-1"});
+    box["T1"]["color_value"] = json::array({"0FFFFFF", "0FFFFFF", "0FFFFFF", "-1"});
+    auto info = AmsBackendCfs::parse_box_status(box);
+    REQUIRE(info.units.size() == 1);
+    const auto& slots = info.units[0].slots;
+
+    SECTION("Creality supplier code reads as Creality") {
+        REQUIRE(slots[0].status == SlotStatus::AVAILABLE);
+        REQUIRE(slots[0].brand == "Creality");
+    }
+
+    SECTION("another supplier's record names no brand") {
+        REQUIRE(slots[1].status == SlotStatus::AVAILABLE);
+        REQUIRE(slots[1].brand.empty());
+    }
+
+    SECTION("a vendor name the box reports is the brand") {
+        REQUIRE(slots[2].brand == "Sunlu");
+    }
+}
+
 TEST_CASE("CFS disconnected unit handling", "[ams][cfs]") {
     auto status = make_cfs_status_json();
     auto info = AmsBackendCfs::parse_box_status(status["box"]);

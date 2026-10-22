@@ -39,12 +39,14 @@
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "hv/json.hpp"
@@ -133,6 +135,19 @@ bool is_vender_sentinel(const std::string& v) {
 /// so a non-sentinel value still means "either a tag was read or the user
 /// labeled this bay". That second case is carried by `vender`, which reports
 /// occupancy for any seated spool independently of what the RFID fields say.
+/// A tagged bay's `vender` entry: the tag's whole record, 40 alphanumeric
+/// characters (printer-research/CREALITY_CFS_K2_INTERNALS.md § "RFID tags").
+constexpr std::size_t kTagRecordLength = 40;
+/// The supplier field, chars 6-9 of the record.
+constexpr std::size_t kTagSupplierOffset = 5;
+constexpr std::size_t kTagSupplierLength = 4;
+constexpr std::string_view kCrealitySupplierCode = "0276";
+
+bool is_tag_record(std::string_view v) {
+    return v.size() == kTagRecordLength &&
+           std::all_of(v.begin(), v.end(), [](unsigned char c) { return std::isalnum(c) != 0; });
+}
+
 bool is_material_code_sentinel(const std::string& v) {
     return v.empty() || v == "none" || v == "None" || v == "-1" || v == "unknown";
 }
@@ -923,7 +938,7 @@ AmsBackendCfs::parse_stock_box_status(const nlohmann::json& box_json,
             //      ecosystem, so a present-but-unresolved tag is a Creality
             //      spool. A user override still wins over this.
             if (slot.brand.empty() && vender_occupied) {
-                slot.brand = (vender_str == "unknown") ? "Creality" : vender_str;
+                slot.brand = brand_from_vender(vender_str);
             }
 
             // Remaining length
@@ -1491,6 +1506,21 @@ static std::string fingerprint_rgb(const std::string& fingerprint) {
         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
     }
     return color;
+}
+
+std::string AmsBackendCfs::brand_from_vender(const std::string& vender) {
+    if (is_vender_sentinel(vender)) {
+        return {};
+    }
+    const bool record = is_tag_record(vender);
+    const bool creality =
+        vender == "unknown" ||
+        (record && std::string_view(vender).substr(kTagSupplierOffset, kTagSupplierLength) ==
+                       kCrealitySupplierCode);
+    if (creality) {
+        return "Creality"; // i18n: do not translate - brand name
+    }
+    return record ? std::string{} : vender;
 }
 
 std::optional<CfsSchema> AmsBackendCfs::fingerprint_schema(const std::string& fingerprint) {
