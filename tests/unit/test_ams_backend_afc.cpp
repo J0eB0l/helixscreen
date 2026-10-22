@@ -5403,6 +5403,19 @@ TEST_CASE("AFC toolchanger: a head with no toolchanger_unit warns and still send
         CHECK(log.has_line_with({"T5 feeds e2", "sets no toolchanger_unit"}));
     }
 
+    SECTION("the warning is logged once per head, not on every tool change") {
+        REQUIRE(helper.change_tool(5));
+        // Let the first change finish so the second is not refused as busy.
+        REQUIRE(helper.pending_macro_ack);
+        helper.pending_macro_ack();
+        helper.feed_afc_state({{"current_state", "Idle"}});
+        REQUIRE(helper.get_action() == AmsAction::IDLE);
+        REQUIRE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes ==
+              std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e2", "AFC_SELECT_TOOL TOOL=e2"});
+        CHECK(log.count_containing("sets no toolchanger_unit") == 1);
+    }
+
     SECTION("a lane parsed before configfile answered still names its head by section") {
         REQUIRE(helper.change_tool(3));
         CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e1"});
@@ -5426,6 +5439,61 @@ TEST_CASE("AFC change_tool sends T{n} in single-extruder mode", "[ams][afc][tool
 
     REQUIRE(result);
     REQUIRE(helper.captured_gcodes == std::vector<std::string>{"T1"});
+}
+
+TEST_CASE("AFC change_tool takes a T number above the lane count when a lane carries it",
+          "[ams][afc][toolchanger][tool_mapping]") {
+    // T numbers belong to lanes, not to lane positions: lane4 mapped to T7 on
+    // a four-lane unit is a legal map, and T7 is the tool that runs it.
+    SECTION("single extruder sends T7") {
+        AmsBackendAfcTestHelper helper;
+        helper.initialize_test_lanes_with_slots(4);
+        helper.set_running(true);
+        helper.feed_afc_stepper("lane4", {{"map", "T7"}});
+        helper.captured_gcodes.clear();
+        REQUIRE(helper.change_tool(7));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"T7"});
+    }
+
+    SECTION("a toolchanger mounts the head T9's lane feeds") {
+        AmsBackendAfcTestHelper helper;
+        setup_interleaved_toolchanger(helper);
+        helper.feed_afc_stepper("lane4", {{"map", "T9"}, {"extruder", "e3"}});
+        helper.captured_gcodes.clear();
+        REQUIRE(helper.change_tool(9));
+        CHECK(helper.captured_gcodes == std::vector<std::string>{"AFC_SELECT_TOOL TOOL=e3"});
+    }
+
+    SECTION("a T number no lane carries is still refused") {
+        AmsBackendAfcTestHelper helper;
+        helper.initialize_test_lanes_with_slots(4);
+        helper.set_running(true);
+        helper.captured_gcodes.clear();
+        CHECK_FALSE(helper.change_tool(5));
+        CHECK(helper.captured_gcodes.empty());
+    }
+}
+
+TEST_CASE("AFC SET_MAP takes a T number above the lane count when a lane carries it",
+          "[ams][afc][tool_mapping][remap]") {
+    // AFC's SET_MAP accepts MAP=T<n> when some lane's map registers T<n>, and
+    // refuses any other. lane4 runs T7 on a four-lane unit, so moving T7 onto
+    // lane2 (a user remap, or the restore of one) is a legal command.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane4", {{"map", "T7"}});
+    helper.captured_gcodes.clear();
+
+    CHECK(helper.can_set_tool_mapping(7, 1).success());
+    REQUIRE(helper.set_tool_mapping(7, 1).success());
+    CHECK(helper.captured_gcodes == std::vector<std::string>{"SET_MAP LANE=lane2 MAP=T7"});
+
+    SECTION("a T number no lane carries is refused, as AFC refuses it") {
+        helper.captured_gcodes.clear();
+        CHECK_FALSE(helper.can_set_tool_mapping(5, 1).success());
+        CHECK_FALSE(helper.set_tool_mapping(5, 1).success());
+        CHECK(helper.captured_gcodes.empty());
+    }
 }
 
 TEST_CASE("AFC toolchanger: Load on a seated machine plans load_filament, not change_tool",

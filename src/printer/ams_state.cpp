@@ -926,7 +926,7 @@ void AmsState::sync_bypass(AmsBackend* backend, const AmsSystemInfo& info) {
     // filament check keys on bypass (PreflightValidator) and slots_version is its
     // ONLY refresh trigger, so without this the cached result goes stale: engage
     // bypass while a file's detail view is already open and the false
-    // "%s has no filament loaded" block still fires on Print.
+    // empty-slot block still fires on Print.
     //
     // Still tracked off any_bypass_active() rather than the bypass_active_
     // subject above, but for a different reason now that both read

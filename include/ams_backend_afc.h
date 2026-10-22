@@ -1086,6 +1086,12 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// until its timeout. @pre mutex_ held.
     [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
 
+    /// The lane whose map carries T@p tool_number, or -1. A T number is a
+    /// lane's, not a position: AFC registers T<n> for whichever lane maps it,
+    /// so lane4 may run T7 on a four-lane unit, and SET_MAP and T<n> both
+    /// refuse a T number no lane carries. @pre mutex_ held.
+    [[nodiscard]] int lane_carrying_tool_locked(int tool_number) const;
+
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
     void apply_configfile_topology(ConfigfileTopology topo);
 
@@ -1517,6 +1523,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// Section names already reported as unresolvable — dedupes the warning so
     /// it fires once per extruder, not once per status frame.
     mutable std::set<std::string> extruder_tool_index_warned_;
+
+    /// Heads already reported as off the toolchanger, so a mount warns once
+    /// per head rather than on every tool change.
+    std::set<std::string> unmountable_head_warned_;
 
     // Per-extruder toolhead LED state (for multi-extruder mode)
     std::unordered_map<int, bool> toolhead_led_state_; ///< tool_index → LED on/off

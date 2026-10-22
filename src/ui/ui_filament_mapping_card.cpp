@@ -179,6 +179,8 @@ void FilamentMappingCard::update(const std::vector<std::string>& gcode_colors,
     // palette to hand.
     palette_colour_count_ = m.palette_colour_count;
     palette_tool_count_ = m.palette_tool_count;
+    palette_colors_ = gcode_colors;
+    palette_materials_ = gcode_materials;
     // Assigned before the visibility early-out: PrintSelectDetailView's
     // get_filament_tool_info() hands it to the print-start gate whether or not
     // the card shows, and must never hand it the previous file's tools.
@@ -211,9 +213,14 @@ void FilamentMappingCard::refresh_slot_data() {
     if (!AmsState::instance().is_available()) {
         return;
     }
-    // Refresh loaded colors + presence only; mappings_ and tool_info_ untouched.
     available_slots_ = AmsState::instance().collect_available_slots();
+    const Mapping fresh = compute_mapping(palette_colors_, palette_materials_, used_tools_);
+    const bool followed =
+        fresh.shows && helix::FilamentMapper::follow_seed(mappings_, fresh.mappings);
     rebuild_compact_view();
+    if (followed && on_mappings_changed_) {
+        on_mappings_changed_();
+    }
 }
 
 void FilamentMappingCard::set_used_tools(std::optional<std::set<int>> used) {

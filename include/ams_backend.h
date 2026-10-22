@@ -474,8 +474,8 @@ class AmsBackend {
      * time. A firmware that routes by a standing table the user edits on the
      * printer (an AFC lane map, a Happy Hare TTG map, a CFS tool table) routes an
      * unremapped print by that table, so the default answers it: a backend with
-     * a Native remap route that echoes its table back
-     * (reports_firmware_tool_mapping()) reports get_tool_mapping(). Every other
+     * a Native remap route whose printer has stated its table
+     * (firmware_reported_tool_mapping()) reports get_tool_mapping(). Every other
      * backend is lane-per-tool: tool N owns lane N, with no upper bound.
      *
      * Not every live map is a default: a U1 freezes get_tool_mapping() at 1:1
@@ -2905,6 +2905,15 @@ class AmsBackend {
     [[nodiscard]] virtual uint64_t firmware_tool_mapping_generation() const {
         return 0;
     }
+
+    /**
+     * @brief Has the printer itself stated this backend's tool table?
+     *
+     * True once an echoing backend has parsed at least one firmware-sourced
+     * table. Before that, get_tool_mapping() holds only defaults and our own
+     * optimistic writes, which say nothing about what the printer routes by.
+     */
+    [[nodiscard]] bool firmware_reported_tool_mapping() const;
 
     // ========================================================================
     // Device-Specific Actions

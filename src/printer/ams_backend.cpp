@@ -1057,10 +1057,15 @@ AmsError AmsBackend::set_tool_mapping(int tool_number, int slot_index) {
     return result;
 }
 
+bool AmsBackend::firmware_reported_tool_mapping() const {
+    return reports_firmware_tool_mapping() && firmware_tool_mapping_generation() > 0;
+}
+
 helix::FirmwareRouting AmsBackend::firmware_default_routing() const {
-    // Only a table the firmware both keeps and confirms is what it routes by.
-    // An optimistic local write, or a per-print map, is not.
-    if (!reports_firmware_tool_mapping() || get_remap_strategy() != RemapStrategy::Native) {
+    // Only a table the firmware keeps, and has reported at least once, is what
+    // it routes by. A table no frame has stated yet holds nothing but our own
+    // optimistic writes, and a per-print map is not a standing table at all.
+    if (!firmware_reported_tool_mapping() || get_remap_strategy() != RemapStrategy::Native) {
         return helix::FirmwareRouting::identity();
     }
     helix::FirmwareRouting routing;
@@ -1076,7 +1081,7 @@ helix::printer::ToolMappingOrigin AmsBackend::tool_mapping_origin() const {
     // A printer that publishes its own live table has already said what will
     // print. Nothing about the shape of that answer makes it less true, so it
     // needs no second opinion from us.
-    if (reports_firmware_tool_mapping() && firmware_tool_mapping_generation() > 0) {
+    if (firmware_reported_tool_mapping()) {
         return helix::printer::ToolMappingOrigin::Deliberate;
     }
 
