@@ -72,11 +72,13 @@ void PluginOverviewOverlay::refresh() {
     lines_ = plugin_feature_lines(status.features());
 
     const std::string version = status.version().empty() ? "-" : status.version();
-    create_row("setting_info_row",
+    create_row("setting_action_row",
                {{"label", lv_tr("Version")},
                 {"label_tag", "Version"},
                 {"icon", "puzzle_outline"},
-                {"value", version}},
+                {"value", version},
+                {"chevron", "false"},
+                {"clickable", "false"}},
                "plugin_overview_version");
     // DECLARATIVE_OK: the lines are the plugin's feature map, data the XML cannot
     // enumerate; each is a shared settings row component.
@@ -92,22 +94,20 @@ void PluginOverviewOverlay::create_line(const PluginFeatureLine& line) {
     const std::string label = known ? lv_tr(line.label.c_str()) : line.label;
     const std::string status = plugin_feature_status_text(line);
     const std::string name = std::string(kLinePrefix) + line.name;
-    if (line.home == PluginFeatureHome::None) {
-        create_row("setting_info_row",
-                   {{"label", label},
-                    {"label_tag", known ? line.label : ""},
-                    {"icon", line.icon},
-                    {"value", status}},
-                   name);
-        return;
+    // One row shape for every line, status at the right; a line with a
+    // setting leads to it, one without takes no tap.
+    const bool leads = line.home != PluginFeatureHome::None;
+    std::vector<std::pair<std::string, std::string>> attrs = {
+        {"label", label},
+        {"label_tag", known ? line.label : ""},
+        {"icon", line.icon},
+        {"value", status},
+        {"chevron", leads ? "true" : "false"},
+        {"clickable", leads ? "true" : "false"}};
+    if (leads) {
+        attrs.push_back({"callback", "on_plugin_overview_feature_clicked"});
     }
-    create_row("setting_action_row",
-               {{"label", label},
-                {"label_tag", known ? line.label : ""},
-                {"icon", line.icon},
-                {"description", status},
-                {"callback", "on_plugin_overview_feature_clicked"}},
-               name);
+    create_row("setting_action_row", std::move(attrs), name);
 }
 
 void PluginOverviewOverlay::create_row(const char* component,

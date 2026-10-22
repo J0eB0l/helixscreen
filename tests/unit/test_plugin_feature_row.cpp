@@ -12,6 +12,7 @@
 
 #include "ui_panel_settings.h"
 #include "ui_plugin_feature_row.h"
+#include "ui_plugin_overview_overlay.h"
 #include "ui_settings_printing.h"
 #include "ui_update_queue.h"
 
@@ -182,4 +183,72 @@ TEST_CASE_METHOD(PrintHooksRowFixture,
 
 TEST_CASE("a control outside a plugin feature row names no feature", "[plugin_feature][settings]") {
     CHECK(helix::ui::plugin_feature_of(nullptr).empty());
+}
+
+namespace {
+
+struct OverviewFixture : LVGLUITestFixture {
+    ~OverviewFixture() override {
+        auto& plugin = get_printer_state().plugin_status_state();
+        plugin.set_features({});
+        plugin.set_installed(false);
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
+    static lv_obj_t* label_named(lv_obj_t* row, const char* name) {
+        return row ? lv_obj_find_by_name(row, name) : nullptr;
+    }
+
+    static bool shown(lv_obj_t* obj) {
+        return obj != nullptr && !lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+};
+
+helix::PluginFeatureEntry running(bool enabled) {
+    helix::PluginFeatureEntry e;
+    e.version = 1;
+    e.available = true;
+    e.enabled = enabled;
+    return e;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(OverviewFixture, "every overview row shows its status at the right, alike",
+                 "[plugin_feature][settings]") {
+    auto& plugin = get_printer_state().plugin_status_state();
+    plugin.set_installed(true);
+    plugin.set_version("1.5.0");
+    plugin.set_features(
+        {{helix::kPrintHooksFeature, running(false)}, {"file_analysis", running(true)}});
+
+    helix::ui::PluginOverviewOverlay overview;
+    overview.register_callbacks();
+    REQUIRE(overview.create(test_screen()) != nullptr);
+    overview.refresh();
+    lv_obj_update_layout(test_screen());
+
+    lv_obj_t* version = lv_obj_find_by_name(test_screen(), "plugin_overview_version");
+    lv_obj_t* hooks = lv_obj_find_by_name(test_screen(), "plugin_overview_print_hooks");
+    lv_obj_t* analysis = lv_obj_find_by_name(test_screen(), "plugin_overview_file_analysis");
+    REQUIRE(version != nullptr);
+    REQUIRE(hooks != nullptr);
+    REQUIRE(analysis != nullptr);
+
+    INFO("the status sits in the right-hand value slot of every row");
+    CHECK(std::string(lv_label_get_text(label_named(version, "value"))) == "1.5.0");
+    CHECK(std::string(lv_label_get_text(label_named(hooks, "value"))) == "Off");
+    CHECK(std::string(lv_label_get_text(label_named(analysis, "value"))) == "Active");
+    CHECK_FALSE(shown(label_named(hooks, "description_wrap")));
+
+    INFO("only a row that opens a page carries a chevron and takes a tap");
+    CHECK(shown(label_named(hooks, "chevron")));
+    CHECK(lv_obj_has_flag(hooks, LV_OBJ_FLAG_CLICKABLE));
+    CHECK_FALSE(shown(label_named(analysis, "chevron")));
+    CHECK_FALSE(lv_obj_has_flag(analysis, LV_OBJ_FLAG_CLICKABLE));
+    CHECK_FALSE(shown(label_named(version, "chevron")));
+
+    INFO("all rows are one height");
+    CHECK(lv_obj_get_height(hooks) == lv_obj_get_height(analysis));
+    CHECK(lv_obj_get_height(version) == lv_obj_get_height(analysis));
 }
