@@ -308,8 +308,9 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
         }
         // The plugin re-heats the bed after restoring the print state.
         std::vector<std::function<void()>> steps = {
-            progress("z_reference"), progress("restore"),        progress("bed_wait"),
-            progress("heat_nozzle"), progress("move_to_resume"), progress("start")};
+            progress("z_reference"), progress("restore"), progress("bed_wait"),
+            progress("heat_nozzle"), progress("purge"),   progress("move_to_resume"),
+            progress("start")};
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs, [this, reply]() {
             plr_snapshot_cleared_ = true;
             plr_plan_id_.clear();

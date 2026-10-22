@@ -139,6 +139,9 @@ const char* plr_progress_step_text(const std::string& step) {
     if (step == "heat_nozzle") {
         return lv_tr("Heating the nozzle");
     }
+    if (step == "purge") {
+        return lv_tr("Purging nozzle");
+    }
     if (step == "move_to_resume") {
         return lv_tr("Moving back to the print");
     }
