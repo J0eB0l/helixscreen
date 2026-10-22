@@ -97,7 +97,6 @@ jobs:
         # NOT listed, and therefore never touched by this job:
         #   ccache-release-*  the whole point of the exercise
         #   deps-*, gradle-*  keyed by content hash, so they are self-limiting
-        #   ccache-android-*  small, and managed by ccache-action
         # Order does not matter: each cache is assigned to its LONGEST matching
         # prefix, so ccache-nightly-macos-* does not fall into ccache-nightly-*.
         PREFIXES: >-
@@ -107,7 +106,8 @@ jobs:
            "ccache-nightly-macos-",
            "ccache-nightly-",
            "ccache-asan-",
-           "ccache-tsan-"]
+           "ccache-tsan-",
+           "ccache-android-debug-ubuntu-22.04-"]
         # Generations to keep per (ref, family). One is all restore-keys can
         # ever reach; the rest are unreachable ballast.
         KEEP: 1
@@ -181,7 +181,7 @@ jobs:
           # bug in it once did, so refuse outright rather than trust the filter:
           # a wrongly deleted ccache-release-* is a cold, timing-out release.
           case "$key" in
-            deps-*|gradle-*|ccache-android-*)
+            deps-*|gradle-*)
               echo "::error::Refusing to delete protected cache $key - the selection logic is wrong"
               exit 1
               ;;
