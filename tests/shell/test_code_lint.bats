@@ -3545,3 +3545,42 @@ short_clicked_taps() {
     contains "offender.xml" "$output"
     contains "offender.cpp" "$output"
 }
+
+# --- A test that needs the built app skips through require_app ---
+# build.yml's compile job finds the files to run against its fresh binary by
+# their require_app calls (tests/shell/helpers.bash). A file that skips on a
+# missing app with its own `skip` is skipped by the Shell Tests job and never
+# picked up by the compile job, so it runs nowhere in CI.
+app_skip_offenders() { # <bats files...>
+    grep -nE '(^|[|&;[:space:]])skip([[:space:]]|$)' "$@" | grep -E 'helix-screen|build/bin/' || true
+}
+
+@test "a shell test that needs the built app skips through require_app" {
+    local files offenders
+    files=$(ls tests/shell/*.bats | grep -v '/test_code_lint\.bats$')
+    # shellcheck disable=SC2086  # paths have no spaces
+    offenders=$(app_skip_offenders $files)
+    if [ -n "$offenders" ]; then
+        echo "These skip on a missing app without require_app, so CI runs them nowhere:"
+        echo "$offenders"
+        return 1
+    fi
+    # shellcheck disable=SC2086
+    [ -n "$(grep -lE '^[[:space:]]*require_app[[:space:]]' $files)" ]
+}
+
+@test "the app-skip lint catches a hand-rolled skip and passes require_app" {
+    local f="$BATS_TEST_TMPDIR/shapes.bats"
+    cat >"$f" <<'SHAPES'
+    [ -x "$BIN" ] || skip "helix-screen missing"
+    [ -x ./build/bin/helix-screen ] || skip "no app"
+    require_app "$BIN"
+    [ -x "$PY" ] || skip "translations venv not set up"
+    # the skip_count of helix-screen frames
+    ./build/bin/helix-screen --test --skip-wizard
+SHAPES
+    run app_skip_offenders "$f"
+    [ "${#lines[@]}" -eq 2 ]
+    lacks "require_app" "$output"
+    lacks "venv" "$output"
+}
