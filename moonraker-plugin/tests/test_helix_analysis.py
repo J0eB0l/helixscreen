@@ -533,16 +533,6 @@ class TestComponent:
         await settle(comp)
         assert "no_define.gcode" in comp.records
 
-    def test_a_print_starting_on_one_core_cancels_the_scan(self):
-        owner = types.SimpleNamespace(printing=True, cpu_count=1)
-        cancel = threading.Event()
-        analysis._Pacer(owner, cancel).pace(1)
-        assert cancel.is_set()
-        cancel.clear()
-        owner.cpu_count = 2
-        analysis._Pacer(owner, cancel).pace(1)
-        assert not cancel.is_set()
-
     @pytest.mark.asyncio
     async def test_switched_off_answers_disabled_and_drops_the_queue(self, gc):
         helix = FakeHelix(gc)
@@ -635,3 +625,117 @@ def test_checked_in_sidecar_is_what_analysis_writes(gc):
     assert header_w["file_size"] == header_p["file_size"]
     assert header_w["file_hash"] == header_p["file_hash"]
     assert [json.loads(l) for l in written[1:]] == [json.loads(l) for l in pinned[1:]]
+
+
+# ============================================================================
+# The worker process
+# ============================================================================
+
+
+def fake_worker(tmp_path, body):
+    """A worker command running @p body (Python) instead of the analyzer;
+    it appends a line to calls.log each time it starts."""
+    script = tmp_path / "fake_worker.py"
+    log = tmp_path / "calls.log"
+    script.write_text("import sys, time\nopen(%r, 'a').write('x\\n')\n%s\n" % (str(log), body))
+    return [sys.executable, str(script)], log
+
+
+def calls(log):
+    return len(log.read_text().splitlines()) if log.exists() else 0
+
+
+class TestWorker:
+    def test_the_worker_answers_what_the_in_process_pass_does(self, gc):
+        import subprocess
+        argv = analysis.worker_command(gc, "orca_two_tool.gcode")
+        assert argv[-2:] == [str(gc), "orca_two_tool.gcode"]
+        done = subprocess.run(argv, input=b"{}", stdout=subprocess.PIPE, timeout=60)
+        assert done.returncode == 0
+        out = analysis.decode_output(done.stdout)
+        local = run(gc, "orca_two_tool.gcode")
+        for key in ("analyzed_at",):
+            out.record.pop(key)
+            local.record.pop(key)
+        assert out.record == local.record
+        assert out.thumbnail_png == local.thumbnail_png
+
+    def test_unreadable_output_is_a_failure(self):
+        with pytest.raises(analysis.WorkerFailed):
+            analysis.decode_output(b"Traceback ...")
+        with pytest.raises(analysis.WorkerFailed):
+            analysis.decode_output(json.dumps({"record": {"schema": 99}}).encode())
+
+    @pytest.mark.asyncio
+    async def test_a_crashing_worker_leaves_the_file_pending_and_retries_once(
+            self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "sys.exit(3)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        assert calls(log) == 2
+        assert comp.records == {}
+        assert (await ask(comp, "no_define.gcode"))["status"] == "failed"
+        await settle(comp)
+        assert calls(log) == 2
+        # A new version of the file is tried again, with the real worker.
+        monkeypatch.undo()
+        path = gc / "no_define.gcode"
+        path.write_bytes(path.read_bytes() + b"; changed\n")
+        assert (await ask(comp, "no_define.gcode"))["status"] == "pending"
+        await settle(comp)
+        assert (await ask(comp, "no_define.gcode"))["status"] == "ready"
+
+    @pytest.mark.asyncio
+    async def test_a_killed_worker_counts_as_a_failed_attempt(self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        assert calls(log) == 2
+        assert "no_define.gcode" not in comp.records
+
+    @pytest.mark.asyncio
+    async def test_a_worker_past_its_timeout_is_killed(self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "time.sleep(60)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        monkeypatch.setattr(analysis, "worker_timeout", lambda size: 0.3)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await asyncio.wait_for(settle(comp), 10)
+        assert calls(log) == 2
+        assert comp._proc is None
+
+    @pytest.mark.asyncio
+    async def test_shutdown_kills_the_worker(self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "time.sleep(60)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        for _ in range(100):
+            if comp._proc is not None and calls(log):
+                break
+            await asyncio.sleep(0.02)
+        proc = comp._proc
+        assert proc is not None and proc.returncode is None
+        await asyncio.wait_for(comp.close(), 5)
+        assert proc.returncode is not None
+
+    @pytest.mark.asyncio
+    async def test_a_print_starting_on_one_core_kills_the_worker_and_requeues(
+            self, gc, tmp_path, monkeypatch):
+        argv, log = fake_worker(tmp_path, "time.sleep(60)")
+        monkeypatch.setattr(analysis, "worker_command", lambda root, rel: argv)
+        helix, comp = await make(gc, cpu_count=1, files={"no_define.gcode"})
+        for _ in range(100):
+            if comp._proc is not None and calls(log):
+                break
+            await asyncio.sleep(0.02)
+        proc = comp._proc
+        monkeypatch.undo()
+        await comp.on_job_state_changed(None, {}, {"state": "printing"})
+        await asyncio.wait_for(proc.wait(), 5)
+        await asyncio.sleep(0.05)
+        assert comp.records == {}
+        assert "no_define.gcode" in comp._queue
+        await comp.on_job_state_changed(None, {}, {"state": "complete"})
+        await settle(comp)
+        assert "no_define.gcode" in comp.records

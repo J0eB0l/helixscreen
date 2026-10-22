@@ -296,10 +296,13 @@ Feature `file_analysis` (version 1). It only observes, so it is on unless
 
 Every G-code file under `gcodes` (dot directories and dot files excepted) gets
 one analysis record, written in the background after it is uploaded, changed or
-found at startup. Files are analyzed one at a time on a niced, duty-cycled
-thread. While a print runs, analysis continues only on a multi-core host, at
-power-loss recovery's follower rate; on a one-core host it waits for the print
-to end.
+found at startup. Each file is read by a worker process (`helix_analysis.py`
+run as a script under Moonraker's own Python), one at a time, at nice 19 and
+idle I/O priority where `ionice` exists, so the scan never stalls Moonraker.
+While a print runs, analysis continues only on a multi-core host; on a one-core
+host the worker is stopped and the file waits for the print to end. A worker
+that crashes or runs past its timeout (2 minutes plus 10 s per MB) is retried
+once; after that the file reads `failed` until it changes.
 
 ```http
 GET /server/helix/analysis?filename=parts/benchy.gcode
@@ -311,6 +314,7 @@ JSON-RPC: `server.helix.analysis {"filename": ...}`.
 |----------|---------|
 | `ready` | `analysis` holds the record for the file as it is now |
 | `pending` | No current record; the file went to the front of the queue. Wait for `notify_analysis_ready` |
+| `failed` | Analysis of this version of the file failed twice; a change to the file retries it |
 | `disabled` | The user switched the feature off |
 
 A missing file answers 404; a path that is not an analyzable G-code file, 400.

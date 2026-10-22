@@ -53,13 +53,16 @@ analyzer published one (Moonraker's metadata had none).
 
 Endpoint `server.helix.analysis {filename}` answers
 {"status": "ready", "analysis": record}, {"status": "pending"} (queued at the
-front) or {"status": "disabled"}. Notification `helix:analysis_ready
-{filename}` follows each record written.
+front), {"status": "failed"} (this version of the file failed twice; a change
+to the file tries again) or {"status": "disabled"}. Notification
+`helix:analysis_ready {filename}` follows each record written.
 
-Cost: one file at a time on a niced thread, duty-cycled because a pure-Python
-scan holds the GIL Moonraker's event loop needs. While a print runs, analysis
-runs only on a multi-core host (helix_gcode_reader.whole_file_analysis_allowed)
-and at the follower's duty cycle.
+Cost: the file pass runs in a worker process, this module run as a script
+(`main()`), one file at a time, at nice 19 and idle I/O priority where the host
+has them, so it never holds the GIL Moonraker's event loop needs. The queue,
+backfill and print policy stay in Moonraker: while a print runs, analysis runs
+only on a multi-core host (helix_gcode_reader.whole_file_analysis_allowed), and
+a print starting on a one-core host kills the worker and queues its file again.
 """
 
 from __future__ import annotations
@@ -70,7 +73,10 @@ import json
 import logging
 import math
 import os
+import shutil
 import struct
+import subprocess
+import sys
 import threading
 import time
 import zlib
@@ -91,9 +97,13 @@ GCODE_EXTS = (".gcode", ".g", ".gco")
 # Extrusion below this (mm of filament) is noise, not a printing move.
 EXTRUSION_EPSILON = 1e-5
 
-# Duty cycle of the analysis thread with no print running; the follower's
-# (helix_gcode_reader.FOLLOWER_CPU_FRACTION) applies while one runs.
-IDLE_CPU_FRACTION = 0.5
+# A worker gets this long per file, plus WORKER_SECONDS_PER_MB of its size,
+# before it is killed and the attempt counts as failed.
+WORKER_BASE_TIMEOUT_S = 120.0
+WORKER_SECONDS_PER_MB = 10.0
+
+# A file version is tried this many times before it reads `failed`.
+MAX_ATTEMPTS = 2
 
 THUMB_SIZE = 300
 # Embedded thumbnails bigger than this are not kept.
@@ -962,23 +972,65 @@ def thumbnail_relpath(relpath: str, width: int, height: int) -> str:
 # ============================================================================
 
 
-class _Pacer:
-    """The throttle hook: the follower's duty cycle while a print runs, a
-    lighter one otherwise; cancels when a print starts on a one-core host."""
+class WorkerFailed(Exception):
+    """The worker exited without a record: crashed, killed or timed out."""
 
-    def __init__(self, owner: "HelixAnalysis", cancel: threading.Event) -> None:
-        self._owner = owner
-        self._cancel = cancel
-        self._idle = reader.DutyCycleLimiter(cpu_fraction=IDLE_CPU_FRACTION,
-                                             max_bytes_per_s=float("inf"))
-        self._printing = reader.DutyCycleLimiter()
 
-    def pace(self, bytes_read: int) -> None:
-        printing = self._owner.printing
-        if not reader.whole_file_analysis_allowed(printing, self._owner.cpu_count):
-            self._cancel.set()
-            return
-        (self._printing if printing else self._idle).pace(bytes_read)
+def worker_command(gc_path: Path, relpath: str) -> List[str]:
+    """The worker's argv: this file as a script under Moonraker's own Python,
+    at idle I/O priority where `ionice` exists. The worker nices itself."""
+    python = sys.executable or "python3"
+    argv = [python, os.path.abspath(__file__), str(gc_path), relpath]
+    ionice = shutil.which("ionice")
+    if ionice is not None:
+        argv = [ionice, "-c", "3"] + argv
+    return argv
+
+
+def worker_timeout(size: int) -> float:
+    return WORKER_BASE_TIMEOUT_S + WORKER_SECONDS_PER_MB * size / (1024.0 * 1024.0)
+
+
+def encode_output(out: AnalysisOutput) -> bytes:
+    png = out.thumbnail_png
+    return json.dumps({
+        "record": out.record,
+        "thumbnail_png": None if png is None else base64.b64encode(png).decode("ascii"),
+    }).encode("utf-8")
+
+
+def decode_output(data: bytes) -> AnalysisOutput:
+    """The worker's stdout as an AnalysisOutput; WorkerFailed when it is not one."""
+    try:
+        doc = json.loads(data.decode("utf-8"))
+        record = doc["record"]
+        png = doc.get("thumbnail_png")
+        if not isinstance(record, dict) or record.get("schema") != RECORD_SCHEMA:
+            raise ValueError("not a record")
+        return AnalysisOutput(record, None if png is None else base64.b64decode(png))
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        raise WorkerFailed("unreadable worker output: %s" % e)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Worker: analyze argv[1] (gcodes root) / argv[2] (relative path) with
+    the Moonraker metadata JSON on stdin; the result JSON on stdout."""
+    args = sys.argv[1:] if argv is None else argv
+    logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
+    if len(args) != 2:
+        sys.stderr.write("usage: helix_analysis.py GCODES_ROOT RELPATH < metadata.json\n")
+        return 2
+    try:
+        os.nice(19)
+    except (AttributeError, OSError):
+        pass
+    raw = sys.stdin.read()
+    metadata = json.loads(raw) if raw.strip() else {}
+    out = analyze_file(Path(args[0]), args[1], metadata if isinstance(metadata, dict) else {})
+    out_stream = getattr(sys.stdout, "buffer", sys.stdout)
+    out_stream.write(encode_output(out))
+    out_stream.flush()
+    return 0
 
 
 class HelixAnalysis:
@@ -993,7 +1045,10 @@ class HelixAnalysis:
         self._queue = {}  # type: Dict[str, None]
         self._worker = None  # type: Optional[asyncio.Future]
         self._executor = None  # type: Optional[Any]
-        self._cancel = threading.Event()
+        self._proc = None  # type: Optional[Any]
+        self._killed_for_print = False
+        # path -> (size, mtime, failed attempts) of the version last tried
+        self._failures = {}  # type: Dict[str, Tuple[int, float, int]]
         self._resume = None  # type: Optional[asyncio.Event]
         self._stale = False
         self.started = False
@@ -1030,11 +1085,21 @@ class HelixAnalysis:
         await self.backfill()
 
     async def close(self) -> None:
-        self._cancel.set()
         if self._worker is not None:
             self._worker.cancel()
+        await self._kill_worker()
         if self._executor is not None:
             self._executor.shutdown(wait=False)
+
+    async def _kill_worker(self) -> None:
+        proc = self._proc
+        if proc is None or proc.returncode is not None:
+            return
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            return
+        await proc.wait()
 
     # -- print state ---------------------------------------------------------
 
@@ -1058,6 +1123,9 @@ class HelixAnalysis:
             self._resume.set()
         else:
             self._resume.clear()
+            if self._proc is not None and self._proc.returncode is None:
+                self._killed_for_print = True
+                self._proc.kill()
 
     async def on_job_state_changed(self, job_event: Any, prev_stats: Dict[str, Any],
                                    new_stats: Dict[str, Any]) -> None:
@@ -1115,6 +1183,8 @@ class HelixAnalysis:
         record = self.records.get(filename)
         if record_current(record, st.st_size, st.st_mtime):
             return {"filename": filename, "status": "ready", "analysis": record}
+        if self._gave_up(filename, st.st_size, st.st_mtime):
+            return {"filename": filename, "status": "failed"}
         if self._stale:
             self._stale = False
             asyncio.ensure_future(self.backfill())
@@ -1151,6 +1221,12 @@ class HelixAnalysis:
             except reader.ScanCancelled:
                 # A print started on a one-core host: back of the queue, run later.
                 self._queue.setdefault(path, None)
+            except WorkerFailed as e:
+                if self._note_failure(path):
+                    logging.warning("HelixPrint: analysis of %s failed (%s), retrying", path, e)
+                    self._queue.setdefault(path, None)
+                else:
+                    logging.warning("HelixPrint: analysis of %s failed again (%s)", path, e)
             except Exception:
                 logging.exception("HelixPrint: analysis of %s failed", path)
 
@@ -1163,7 +1239,8 @@ class HelixAnalysis:
         for name in [n for n in self.records if n not in found]:
             await self.forget(name)
         for name, (size, mtime) in sorted(found.items(), key=lambda kv: -kv[1][1]):
-            if not record_current(self.records.get(name), size, mtime):
+            if not record_current(self.records.get(name), size, mtime) \
+                    and not self._gave_up(name, size, mtime):
                 self.enqueue(name)
 
     def _scan_files(self) -> Dict[str, Tuple[int, float]]:
@@ -1215,11 +1292,10 @@ class HelixAnalysis:
             return None
         if record_current(self.records.get(path), st.st_size, st.st_mtime):
             return self.records[path]
-        metadata = self._metadata(path)
-        self._cancel.clear()
-        pacer = _Pacer(self, self._cancel)
-        out = await self._run_in_thread(
-            analyze_file, self.gc_path, path, metadata, self._cancel, pacer.pace)
+        if self._gave_up(path, st.st_size, st.st_mtime):
+            return None
+        out = await self._run_worker(path, self._metadata(path), st.st_size)
+        self._failures.pop(path, None)
         record = out.record
         if out.thumbnail_png is not None:
             record["thumbnail"] = await self._run_in_thread(
@@ -1229,6 +1305,55 @@ class HelixAnalysis:
         await self._save(path)
         self._notify(path)
         return record
+
+    async def _run_worker(self, path: str, metadata: Dict[str, Any],
+                          size: int) -> AnalysisOutput:
+        """One file's pass in the worker process. Raises ScanCancelled when a
+        print starting on a one-core host killed it, else WorkerFailed."""
+        self._killed_for_print = False
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *worker_command(self.gc_path, path),
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            raise WorkerFailed("could not start the worker: %s" % e)
+        self._proc = proc
+        try:
+            stdin = json.dumps(metadata, default=str).encode("utf-8")
+            try:
+                out, err = await asyncio.wait_for(proc.communicate(stdin),
+                                                  worker_timeout(size))
+            except asyncio.TimeoutError:
+                await self._kill_worker()
+                raise WorkerFailed("timed out")
+        finally:
+            if proc.returncode is None:
+                await self._kill_worker()
+            self._proc = None
+        if self._killed_for_print:
+            raise reader.ScanCancelled()
+        if proc.returncode != 0:
+            tail = err.decode("utf-8", "replace").strip().splitlines()[-1:] if err else []
+            raise WorkerFailed("exit %s%s" % (proc.returncode, ": " + tail[0] if tail else ""))
+        return decode_output(out)
+
+    def _note_failure(self, path: str) -> bool:
+        """Count a failed attempt at the file's current version; True when it
+        gets another."""
+        try:
+            st = os.stat(str(self.gc_path / path))
+        except (OSError, TypeError):
+            return False
+        size, mtime, count = self._failures.get(path, (st.st_size, st.st_mtime, 0))
+        if (size, mtime) != (st.st_size, st.st_mtime):
+            count = 0
+        count += 1
+        self._failures[path] = (st.st_size, st.st_mtime, count)
+        return count < MAX_ATTEMPTS
+
+    def _gave_up(self, path: str, size: int, mtime: float) -> bool:
+        failed = self._failures.get(path)
+        return failed is not None and failed[:2] == (size, mtime) and failed[2] >= MAX_ATTEMPTS
 
     def _publish_thumbnail(self, path: str, png: bytes) -> Optional[Dict[str, Any]]:
         w, h = png_size(png)
@@ -1283,6 +1408,7 @@ class HelixAnalysis:
         """Drop a file's record, its layer index and a thumbnail we generated."""
         record = self.records.pop(path, None)
         self._queue.pop(path, None)
+        self._failures.pop(path, None)
         if self.gc_path is not None:
             await self._run_in_thread(self._remove_files, path, record)
         await self._delete(path)
@@ -1358,3 +1484,7 @@ class HelixAnalysis:
             await db.delete_item(DB_NAMESPACE, [path])
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    sys.exit(main())
