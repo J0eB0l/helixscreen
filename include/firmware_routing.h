@@ -8,11 +8,13 @@ namespace helix {
 /**
  * @brief The physical head a logical tool routes to with NO remap applied.
  *
- * This is the firmware's own DEFAULT map, and it is not the same thing as the
- * firmware's CURRENT map. Two AMS shapes exist and they disagree:
+ * This is the firmware's own DEFAULT map: what it routes a print by when
+ * nothing remaps it for that print. Three AMS shapes exist and they disagree:
  *
  *   - lane-per-tool (AFC, Happy Hare, klipper-toolchanger, CFS, QIDI, ACE):
- *     tool N owns lane N. An 8-lane AFC maps lanes 0..7 to T0..T7.
+ *     tool N owns lane N unless the user remapped it on the printer. An AFC,
+ *     Happy Hare or CFS remap is a standing table the firmware routes by, so
+ *     that table is the default (AmsBackend::firmware_default_routing()).
  *   - fixed-head (Snapmaker U1): four physical heads and up to 32 logical
  *     tools, so the table is [0,1,2,3,0,0,...] - measured live on a U1.
  *   - table-driven (FlashForge AD5X IFS): an arbitrary 16-entry tool->port map
@@ -26,11 +28,9 @@ namespace helix {
  * Deliberately a plain value with no AMS dependency, so FilamentMapper stays
  * pure and every rule over it is testable without a backend.
  *
- * @note NOT the live map. AmsSystemInfo::tool_to_slot_map carries what the
- *       firmware is doing right now; this carries what it would do unaided.
- *       Conflating the two is the bug this type exists to prevent - and the
- *       live map is not even uniformly available (an AFC tracks it, a U1
- *       freezes it at 1:1 while its real map lives elsewhere).
+ * @note Not always AmsSystemInfo::tool_to_slot_map. That is the default only
+ *       where the firmware publishes and keeps it; a U1 freezes it at 1:1 while
+ *       its real map lives elsewhere, and a per-print map is not a default.
  */
 struct FirmwareRouting {
     /// head_for_tool[tool] = physical head, or -1 for "this tool has no head".

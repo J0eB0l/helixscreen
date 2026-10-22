@@ -1057,6 +1057,21 @@ AmsError AmsBackend::set_tool_mapping(int tool_number, int slot_index) {
     return result;
 }
 
+helix::FirmwareRouting AmsBackend::firmware_default_routing() const {
+    // Only a table the firmware both keeps and confirms is what it routes by.
+    // An optimistic local write, or a per-print map, is not.
+    if (!reports_firmware_tool_mapping() || get_remap_strategy() != RemapStrategy::Native) {
+        return helix::FirmwareRouting::identity();
+    }
+    helix::FirmwareRouting routing;
+    routing.head_for_tool = get_tool_mapping();
+    if (routing.head_for_tool.empty()) {
+        return helix::FirmwareRouting::identity();
+    }
+    routing.fallback_head = -1; // a tool no lane is mapped to has nowhere to run
+    return routing;
+}
+
 helix::printer::ToolMappingOrigin AmsBackend::tool_mapping_origin() const {
     // A printer that publishes its own live table has already said what will
     // print. Nothing about the shape of that answer makes it less true, so it

@@ -10,6 +10,7 @@
 #include "ams_types.h"
 #include "config.h"
 #include "error_event.h"
+#include "filament_mapper.h"
 #include "filament_op_execute.h"
 #include "filament_op_router.h"
 #include "filament_slot_override_store.h"
@@ -18,6 +19,7 @@
 #include "moonraker_api.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#include "preflight_validator.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 #include "test_helpers/afc_test_access.h"
@@ -1859,6 +1861,63 @@ TEST_CASE("AFC tool mapping from stepper map field", "[ams][afc][tool_mapping][p
     REQUIRE(mapping[1] == 1); // T1 → lane2 (slot 1)
     REQUIRE(mapping[2] == 2); // T2 → lane3 (slot 2)
     REQUIRE(mapping[3] == 3); // T3 → lane4 (slot 3)
+}
+
+TEST_CASE("AFC lane remap is the routing an unremapped print runs with",
+          "[ams][afc][tool_mapping][routing]") {
+    // Lane 2 out of service, lane 4 standing in for it: AFC routes T1 to lane4
+    // and parks T3 on the empty lane2. A print using T1 must find lane4, and
+    // must not move T1 back onto lane2 at print start.
+    AmsBackendAfcTestHelper helper;
+    helper.initialize_test_lanes_with_slots(4);
+    helper.feed_afc_stepper("lane1", {{"map", "T0"}, {"prep", true}});
+    helper.feed_afc_stepper("lane2", {{"map", "T3"}, {"prep", false}, {"load", false}});
+    helper.feed_afc_stepper("lane3", {{"map", "T2"}, {"prep", true}});
+    helper.feed_afc_stepper("lane4", {{"map", "T1"}, {"prep", true}});
+
+    const auto live = helper.get_tool_mapping();
+    REQUIRE(live.size() == 4);
+    REQUIRE(live[1] == 3);
+
+    const helix::FirmwareRouting routing = helper.firmware_default_routing();
+    CHECK(routing.head(0) == 0);
+    CHECK(routing.head(1) == 3);
+    CHECK(routing.head(2) == 2);
+    CHECK(routing.head(3) == 1);
+
+    std::vector<helix::AvailableSlot> slots;
+    for (int i = 0; i < 4; ++i) {
+        const SlotInfo info = helper.get_slot_info(i);
+        helix::AvailableSlot as{};
+        as.slot_index = i;
+        as.backend_index = 0;
+        as.color_rgb = info.color_rgb;
+        as.is_empty = info.status == SlotStatus::EMPTY || info.status == SlotStatus::UNKNOWN;
+        as.current_tool_mapping = info.mapped_tool;
+        slots.push_back(as);
+    }
+    REQUIRE(slots[1].is_empty);
+    REQUIRE_FALSE(slots[3].is_empty);
+
+    helix::GcodeToolInfo t1{};
+    t1.tool_index = 1;
+    t1.color_rgb = 0x808080;
+    t1.color_known = false;
+    const std::vector<helix::GcodeToolInfo> tools{t1};
+
+    // The positional seed (auto color map off) is what a print runs with when
+    // the user picks nothing.
+    const auto mappings = helix::FilamentMapper::effective_mappings(tools, slots, false, routing);
+    REQUIRE(mappings.size() == 1);
+    CHECK(mappings[0].mapped_slot == 3);
+
+    const auto preflight = helix::PreflightValidator::validate(tools, slots, mappings, false);
+    CHECK_FALSE(preflight.has_block());
+
+    // PrintStartController sends set_tool_mapping() (SET_MAP) for every mapping
+    // that differs from the live map; the seed must match it so nothing is sent.
+    CHECK(mappings[0].mapped_slot == live[1]);
+    CHECK(helix::FilamentMapper::identity_filtered_remap(mappings, routing).empty());
 }
 
 TEST_CASE("AFC tool mapping swap updates correctly", "[ams][afc][tool_mapping][phase1]") {
