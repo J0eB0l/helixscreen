@@ -1562,7 +1562,6 @@
   <translation tag="Heating Chamber..." ja="チャンバー加熱中..."/>
   <translation tag="Heating Nozzle..." ja="ノズル加熱中..."/>
   <translation tag="Heating and homing" ja="加熱とホーミング中"/>
-  <translation tag="Heating and purging the nozzle" ja="ノズルを加熱してパージ中"/>
   <translation tag="Heating bed to $1°C..." ja="ベッドを$1°Cに加熱中..."/>
   <translation tag="Heating bed..." ja="ベッド加熱中..."/>
   <translation tag="Heating chamber..." ja="チャンバー加熱中..."/>
@@ -1571,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." ja="ノズルを$1°Cに加熱中..."/>
   <translation tag="Heating nozzle..." ja="ノズル加熱中..."/>
   <translation tag="Heating the bed" ja="ベッドを加熱中"/>
+  <translation tag="Heating the nozzle" ja="ノズルを加熱中"/>
   <translation tag="Heating to %d°C... %.0f°C" ja="%d°Cに加熱中... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ja="{}°Cに加熱中（{}の前）..."/>
   <translation tag="Heating to {}°C for {}..." ja="{}°Cに加熱中（{}）..."/>
@@ -3514,7 +3514,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." ja="Klipperが動作するコントローラーボード。負荷はシステム設定で確認できます。"/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" ja="カッターの刃が戻りませんでした。切断機構にフィラメントが巻き付いていないか確認してください"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" ja="カッターの位置がずれています。CALIBRATE_CUT_POS で再校正してください"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." ja="正確な停止位置が見つかりませんでした。このレイヤーの最初から再開します。"/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." ja="正確な停止位置が見つかりませんでした。次のレイヤーの最初から再開し、このレイヤーの残りはスキップします。"/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" ja="エクストルーダーがスムーズに引き込めません。スプールの絡まりや結び目、PTFE チューブの急な曲がりを確認してください"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." ja="フィラメントがノズルに到達しませんでした。CFSはエラーを報告していませんが、ツールヘッドセンサーはまだフィラメントを検出していません。スプールが正しく取り付けられ、フィラメント経路が塞がれていないことを確認して、再試行してください。"/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" ja="フィラメントが完全に戻っていない可能性があります。再試行するか手で引き抜いてください"/>

@@ -11,6 +11,7 @@
 #include "plr_offer_controller.h"
 #include "plr_plugin_rpc.h"
 #include "plr_profile.h"
+#include "plr_wizard.h"
 #include "print_lifecycle_state.h" // PrintState, job_holds_machine
 #include "printer_detector.h"
 #include "printer_state.h"
@@ -392,6 +393,9 @@ void PlrOfferController::on_plugin_status(const PlrPluginStatus& status) {
     spdlog::info("[PLR] Plugin recovery status: backend={} tier={} offer={} snapshot='{}'",
                  static_cast<int>(status.backend), status.tier, status.offer_available,
                  status.snapshot ? status.snapshot->filename : std::string());
+    for (const std::string& code : status.blocked_by) {
+        spdlog::info("[PLR] Plugin withholds the offer: {}", plr_blocked_reason(code));
+    }
     if (klippy_not_ready) {
         return;
     }

@@ -1562,7 +1562,6 @@
   <translation tag="Heating Chamber..." pt="Aquecendo câmara..."/>
   <translation tag="Heating Nozzle..." pt="Aquecendo bocal..."/>
   <translation tag="Heating and homing" pt="Aquecendo e fazendo homing"/>
-  <translation tag="Heating and purging the nozzle" pt="Aquecendo e purgando o bico"/>
   <translation tag="Heating bed to $1°C..." pt="Aquecendo mesa a $1°C..."/>
   <translation tag="Heating bed..." pt="Aquecendo mesa..."/>
   <translation tag="Heating chamber..." pt="Aquecendo câmara..."/>
@@ -1571,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." pt="Aquecendo bico a $1°C..."/>
   <translation tag="Heating nozzle..." pt="Aquecendo bico..."/>
   <translation tag="Heating the bed" pt="Aquecendo a mesa"/>
+  <translation tag="Heating the nozzle" pt="Aquecendo o bico"/>
   <translation tag="Heating to %d°C... %.0f°C" pt="Aquecendo a %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." pt="Aquecendo a {}°C antes de {}..."/>
   <translation tag="Heating to {}°C for {}..." pt="Aquecendo a {}°C por {}..."/>
@@ -3514,7 +3514,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." pt="As placas controladoras em que o Klipper roda. Veja a carga delas nas configurações do sistema."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" pt="A lâmina não retornou. Verifique se há filamento enrolado no mecanismo de corte"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" pt="O cortador está desalinhado. Recalibre com CALIBRATE_CUT_POS"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." pt="O ponto exato de parada não foi encontrado. A impressão é retomada no início desta camada."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." pt="O ponto exato de parada não foi encontrado. A impressão é retomada no início da próxima camada e pula o restante desta."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" pt="O extrusor não consegue puxar com suavidade. Verifique se o carretel está embaraçado ou com nós, e se o tubo PTFE tem uma curva acentuada"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." pt="O filamento não chegou ao bico. O CFS não reportou nenhum erro, mas o sensor do cabeçote ainda não detecta filamento. Verifique se o carretel está bem encaixado e se o caminho está livre, e tente novamente."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" pt="O filamento pode não ter recuado totalmente. Tente novamente ou puxe à mão"/>

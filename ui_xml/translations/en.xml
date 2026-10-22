@@ -1562,7 +1562,6 @@
   <translation tag="Heating Chamber..." en="Heating Chamber..."/>
   <translation tag="Heating Nozzle..." en="Heating Nozzle..."/>
   <translation tag="Heating and homing" en="Heating and homing"/>
-  <translation tag="Heating and purging the nozzle" en="Heating and purging the nozzle"/>
   <translation tag="Heating bed to $1°C..." en="Heating bed to $1°C..."/>
   <translation tag="Heating bed..." en="Heating bed..."/>
   <translation tag="Heating chamber..." en="Heating chamber..."/>
@@ -1571,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." en="Heating nozzle to $1°C..."/>
   <translation tag="Heating nozzle..." en="Heating nozzle..."/>
   <translation tag="Heating the bed" en="Heating the bed"/>
+  <translation tag="Heating the nozzle" en="Heating the nozzle"/>
   <translation tag="Heating to %d°C... %.0f°C" en="Heating to %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." en="Heating to {}°C before {}..."/>
   <translation tag="Heating to {}°C for {}..." en="Heating to {}°C for {}..."/>
@@ -3514,7 +3514,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." en="The controller boards Klipper runs on. See their load in the system settings."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" en="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" en="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." en="The exact stopping point could not be found. The print resumes from the start of this layer."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." en="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" en="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." en="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" en="The filament may not have fully retracted — try again or manually pull"/>

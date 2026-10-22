@@ -126,6 +126,17 @@ TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the fail knob refuses that RPC", "[p
     }
 }
 
+TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the no_lift_room knob withholds the offer",
+                 "[plr][mock]") {
+    helix::ScopedEnv f{"HELIX_MOCK_PLR_FAIL", "no_lift_room"};
+    Reply status = call(client, helix::kPlrStatusRpc);
+    REQUIRE(status.result);
+    const auto parsed = helix::plr_parse_plugin_status(*status.result);
+    REQUIRE(parsed.snapshot);
+    CHECK_FALSE(parsed.offer_available);
+    CHECK(parsed.blocked_by == std::vector<std::string>{"no_lift_room"});
+}
+
 TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: stale plans, missing confirmations, discard",
                  "[plr][mock]") {
     Reply first = call(client, helix::kPlrPlanRpc);

@@ -1562,7 +1562,6 @@
   <translation tag="Heating Chamber..." it="Riscaldamento camera..."/>
   <translation tag="Heating Nozzle..." it="Riscaldamento ugello..."/>
   <translation tag="Heating and homing" it="Riscaldamento e homing"/>
-  <translation tag="Heating and purging the nozzle" it="Riscaldamento e spurgo dell&apos;ugello"/>
   <translation tag="Heating bed to $1°C..." it="Riscaldamento piano a $1°C..."/>
   <translation tag="Heating bed..." it="Riscaldamento piano..."/>
   <translation tag="Heating chamber..." it="Riscaldamento camera..."/>
@@ -1571,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." it="Riscaldamento ugello a $1°C..."/>
   <translation tag="Heating nozzle..." it="Riscaldamento ugello..."/>
   <translation tag="Heating the bed" it="Riscaldamento del piano"/>
+  <translation tag="Heating the nozzle" it="Riscaldamento dell&apos;ugello"/>
   <translation tag="Heating to %d°C... %.0f°C" it="Riscaldamento a %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." it="Riscaldamento a {}°C prima di {}..."/>
   <translation tag="Heating to {}°C for {}..." it="Riscaldamento a {}°C per {}..."/>
@@ -3514,7 +3514,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." it="Le schede controller su cui gira Klipper. Vedi il loro carico nelle impostazioni di sistema."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" it="La lama non è rientrata. Verificare che non ci sia filamento avvolto attorno al meccanismo di taglio"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" it="La taglierina è disallineata. Ricalibrare con CALIBRATE_CUT_POS"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." it="Il punto di arresto esatto non è stato trovato. La stampa riprende dall&apos;inizio di questo strato."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." it="Il punto di arresto esatto non è stato trovato. La stampa riprende dall&apos;inizio dello strato successivo e salta il resto di questo."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" it="L&apos;estrusore non riesce a tirare in modo uniforme. Controllare la bobina per aggrovigliamenti o nodi e il tubo PTFE per curve troppo strette"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." it="Il filamento non ha raggiunto l&apos;ugello. Il CFS non ha segnalato errori, ma il sensore della testina ancora non rileva filamento. Verifica che la bobina sia ben inserita e che il percorso sia libero, poi riprova."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" it="Il filamento potrebbe non essersi ritratto completamente. Riprovare o estrarlo a mano"/>

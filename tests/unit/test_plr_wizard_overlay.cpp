@@ -457,12 +457,15 @@ TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: progress shows the plugin's step
     settle();
     REQUIRE(wizard_step() == PlrWizardStep::Committing);
     bool saw_start = false;
+    bool saw_nozzle = false;
     for (int i = 0; i < 20 && wizard_step() == PlrWizardStep::Committing; ++i) {
         saw_start = saw_start || subject_text("plr_wizard_progress") == "Starting the print";
+        saw_nozzle = saw_nozzle || subject_text("plr_wizard_progress") == "Heating the nozzle";
         helix::ui::UpdateQueue::instance().drain();
         process_lvgl(500);
     }
     CHECK(saw_start);
+    CHECK(saw_nozzle);
 }
 
 TEST_CASE_METHOD(PlrWizardFixture, "PLR wizard: a background plan failure shows an error",
@@ -506,4 +509,17 @@ TEST_CASE_METHOD(PlrWizardFixture,
     settle();
     CHECK(client.count(helix::kPlrDiscardRpc) == 1);
     CHECK_FALSE(client.mock_plr_interrupted());
+}
+
+TEST_CASE("PLR wizard: every plugin progress step has words", "[plr][wizard_overlay]") {
+    using helix::ui::plr_progress_step_text;
+    for (const char* step : {"bed_wait", "chamber_wait", "lift", "home_xy", "position",
+                             "z_reference", "restore", "heat_nozzle", "move_to_resume", "start"}) {
+        INFO(step);
+        CHECK(plr_progress_step_text(step) != nullptr);
+    }
+    CHECK(std::string(plr_progress_step_text("bed_wait")) == "Heating the bed");
+    CHECK(std::string(plr_progress_step_text("heat_nozzle")) == "Heating the nozzle");
+    CHECK(std::string(plr_progress_step_text("move_to_resume")) == "Moving back to the print");
+    CHECK(plr_progress_step_text("not_a_step") == nullptr);
 }

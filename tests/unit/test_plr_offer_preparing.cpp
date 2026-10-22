@@ -598,6 +598,36 @@ TEST_CASE_METHOD(PluginPlrOfferFixture,
     ps.set_printer_type_sync("");
 }
 
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR does not offer without room to lift",
+                 "[plr][generic]") {
+    helix::ScopedEnv plugin_env{"HELIX_MOCK_HELIX_PLUGIN", "1"};
+    helix::ScopedEnv plr_env{"HELIX_MOCK_PLR", "generic"};
+    helix::ScopedEnv fail_env{"HELIX_MOCK_PLR_FAIL", "no_lift_room"};
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    set_link(ps, ConnectionState::DISCONNECTED, helix::KlippyState::READY);
+    PlrOfferController controller;
+    settle();
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    settle();
+    const int asks = client.call_count(helix::kPlrStatusRpc);
+    // A Klipper edge after the answer: the answer stands, nothing asks again.
+    lv_subject_set_int(ps.network_state().get_klippy_state_subject(),
+                       static_cast<int>(helix::KlippyState::STARTUP));
+    lv_subject_set_int(ps.network_state().get_klippy_state_subject(),
+                       static_cast<int>(helix::KlippyState::READY));
+    settle();
+    const int asks_after = client.call_count(helix::kPlrStatusRpc);
+    set_moonraker_api(nullptr);
+    CHECK(asks == 1);
+    CHECK(asks_after == 1);
+    CHECK(PlrOfferControllerTestAccess::has_plugin_status(controller));
+    CHECK_FALSE(PlrOfferControllerTestAccess::prompted(controller));
+}
+
 TEST_CASE_METHOD(PluginPlrOfferFixture,
                  "Plugin PLR writes the resolved profile while saving is still off",
                  "[plr][generic][profile]") {

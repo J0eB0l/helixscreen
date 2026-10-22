@@ -1620,7 +1620,6 @@ translations:
   Heating Chamber...: チャンバー加熱中...
   Heating Nozzle...: ノズル加熱中...
   Heating and homing: 加熱とホーミング中
-  Heating and purging the nozzle: ノズルを加熱してパージ中
   Heating bed to $1°C...: ベッドを$1°Cに加熱中...
   Heating bed...: ベッド加熱中...
   Heating chamber...: チャンバー加熱中...
@@ -1629,6 +1628,7 @@ translations:
   Heating nozzle to $1°C...: ノズルを$1°Cに加熱中...
   Heating nozzle...: ノズル加熱中...
   Heating the bed: ベッドを加熱中
+  Heating the nozzle: ノズルを加熱中
   Heating to %d°C... %.0f°C: '%d°Cに加熱中... %.0f°C'
   Heating to {}°C before {}...: '{}°Cに加熱中（{}の前）...'
   Heating to {}°C for {}...: '{}°Cに加熱中（{}）...'
@@ -3651,7 +3651,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: 'Klipperが動作するコントローラーボード。負荷はシステム設定で確認できます。'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: カッターの刃が戻りませんでした。切断機構にフィラメントが巻き付いていないか確認してください
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: カッターの位置がずれています。CALIBRATE_CUT_POS で再校正してください
-  The exact stopping point could not be found. The print resumes from the start of this layer.: 正確な停止位置が見つかりませんでした。このレイヤーの最初から再開します。
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : 正確な停止位置が見つかりませんでした。次のレイヤーの最初から再開し、このレイヤーの残りはスキップします。
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: エクストルーダーがスムーズに引き込めません。スプールの絡まりや結び目、PTFE チューブの急な曲がりを確認してください
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : フィラメントがノズルに到達しませんでした。CFSはエラーを報告していませんが、ツールヘッドセンサーはまだフィラメントを検出していません。スプールが正しく取り付けられ、フィラメント経路が塞がれていないことを確認して、再試行してください。

@@ -416,3 +416,14 @@ TEST_CASE("plr_commit_params: confirmations and the tier's Z reference", "[plr][
     CHECK(t2["z_reference"] == "trusted");
     CHECK(t2["confirmations"].size() == 2);
 }
+
+TEST_CASE("plr_blocked_reason: every plugin code has words, an unknown one is itself",
+          "[plr][wizard]") {
+    for (const char* code : {"not_interrupted", "no_snapshot", "file_changed", "too_early",
+                             "not_supported", "klippy_not_ready", "no_lift_room"}) {
+        INFO(code);
+        CHECK(helix::plr_blocked_reason(code) != code);
+    }
+    CHECK(helix::plr_blocked_reason("no_lift_room").find("headroom") != std::string::npos);
+    CHECK(helix::plr_blocked_reason("some_new_rule") == "some_new_rule");
+}

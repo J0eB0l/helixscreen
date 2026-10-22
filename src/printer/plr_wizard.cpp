@@ -212,6 +212,24 @@ PlrPluginBackend plr_parse_plugin_backend(const std::string& name) {
     return PlrPluginBackend::None;
 }
 
+std::string plr_blocked_reason(const std::string& code) {
+    static constexpr std::pair<const char*, const char*> kReasons[] = {
+        {"not_interrupted", "the last print was not interrupted"},
+        {"no_snapshot", "no snapshot of the interrupted print"},
+        {"file_changed", "the print file changed since the snapshot"},
+        {"too_early", "the print had barely started"},
+        {"not_supported", "this printer cannot resume"},
+        {"klippy_not_ready", "Klipper is not ready"},
+        {"no_lift_room", "not enough Z headroom to lift the nozzle clear of the print"},
+    };
+    for (const auto& [name, reason] : kReasons) {
+        if (code == name) {
+            return reason;
+        }
+    }
+    return code;
+}
+
 PlrPluginStatus plr_parse_plugin_status(const nlohmann::json& result) {
     PlrPluginStatus status;
     if (!result.is_object()) {

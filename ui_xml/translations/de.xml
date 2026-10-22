@@ -1562,7 +1562,6 @@
   <translation tag="Heating Chamber..." de="Kammer aufheizen..."/>
   <translation tag="Heating Nozzle..." de="Düse aufheizen..."/>
   <translation tag="Heating and homing" de="Aufheizen und Referenzfahrt"/>
-  <translation tag="Heating and purging the nozzle" de="Düse wird aufgeheizt und entlüftet"/>
   <translation tag="Heating bed to $1°C..." de="Bett heizt auf $1°C auf..."/>
   <translation tag="Heating bed..." de="Bett aufheizen..."/>
   <translation tag="Heating chamber..." de="Kammer aufheizen..."/>
@@ -1571,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." de="Düse heizt auf $1°C auf..."/>
   <translation tag="Heating nozzle..." de="Düse aufheizen..."/>
   <translation tag="Heating the bed" de="Heizbett wird aufgeheizt"/>
+  <translation tag="Heating the nozzle" de="Düse wird aufgeheizt"/>
   <translation tag="Heating to %d°C... %.0f°C" de="Aufheizen auf %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." de="Aufheizen auf {}°C vor {}..."/>
   <translation tag="Heating to {}°C for {}..." de="Aufheizen auf {}°C für {}..."/>
@@ -3514,7 +3514,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." de="Die Steuerplatinen, auf denen Klipper läuft. Ihre Auslastung siehst du in den Systemeinstellungen."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" de="Die Schneidklinge ist nicht zurückgefahren. Prüfen, ob Filament um den Schneidmechanismus gewickelt ist"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" de="Der Schneider ist verstellt. Mit CALIBRATE_CUT_POS neu kalibrieren"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." de="Die genaue Stoppstelle wurde nicht gefunden. Der Druck wird am Anfang dieser Schicht fortgesetzt."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." de="Die genaue Stoppstelle wurde nicht gefunden. Der Druck wird am Anfang der nächsten Schicht fortgesetzt und überspringt den Rest dieser Schicht."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" de="Der Extruder kann es nicht gleichmäßig fördern. Spule auf Verheddern oder Knoten prüfen und den PTFE-Schlauch auf starke Biegungen"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." de="Das Filament hat die Düse nicht erreicht. Das CFS hat keinen Fehler gemeldet, aber der Werkzeugkopfsensor erkennt weiterhin kein Filament. Stellen Sie sicher, dass die Spule richtig sitzt und der Pfad frei ist, und versuchen Sie es erneut."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" de="Das Filament wurde möglicherweise nicht vollständig eingezogen. Erneut versuchen oder von Hand ziehen"/>

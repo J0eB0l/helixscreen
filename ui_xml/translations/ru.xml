@@ -1607,7 +1607,6 @@
   <translation tag="Heating Chamber..." ru="Нагрев камеры..."/>
   <translation tag="Heating Nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating and homing" ru="Нагрев и парковка"/>
-  <translation tag="Heating and purging the nozzle" ru="Нагрев и продувка сопла"/>
   <translation tag="Heating bed to $1°C..." ru="Нагрев стола до $1°C..."/>
   <translation tag="Heating bed..." ru="Нагрев стола..."/>
   <translation tag="Heating chamber..." ru="Нагрев камеры..."/>
@@ -1616,6 +1615,7 @@
   <translation tag="Heating nozzle to $1°C..." ru="Нагрев сопла до $1°C..."/>
   <translation tag="Heating nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating the bed" ru="Нагрев стола"/>
+  <translation tag="Heating the nozzle" ru="Нагрев сопла"/>
   <translation tag="Heating to %d°C... %.0f°C" ru="Нагрев до %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." ru="Нагрев до {}°C перед «{}»..."/>
   <translation tag="Heating to {}°C for {}..." ru="Нагрев до {}°C в течение {}..."/>
@@ -3574,7 +3574,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." ru="Платы контроллеров, на которых работает Klipper. Их загрузку можно посмотреть в системных настройках."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" ru="Лезвие не вернулось. Проверьте, не намотался ли филамент на режущий механизм"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" ru="Резак смещён. Выполните повторную калибровку командой CALIBRATE_CUT_POS"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." ru="Точное место остановки не найдено. Печать продолжится с начала этого слоя."/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." ru="Точное место остановки не найдено. Печать продолжится с начала следующего слоя, остаток этого слоя будет пропущен."/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" ru="Экструдер не может тянуть равномерно. Проверьте катушку на запутывание или узел, а трубку PTFE на резкий изгиб"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." ru="Филамент не дошёл до сопла. CFS не сообщила об ошибке, но датчик печатающей головки по-прежнему не видит филамент. Проверьте, что катушка установлена правильно и путь свободен, затем повторите попытку."/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" ru="Возможно, филамент втянут не полностью. Повторите или вытяните вручную"/>

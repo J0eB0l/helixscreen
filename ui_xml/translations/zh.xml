@@ -1562,7 +1562,6 @@
   <translation tag="Heating Chamber..." zh="正在加热腔体..."/>
   <translation tag="Heating Nozzle..." zh="正在加热喷嘴..."/>
   <translation tag="Heating and homing" zh="加热并归零中"/>
-  <translation tag="Heating and purging the nozzle" zh="正在加热喷嘴并排料"/>
   <translation tag="Heating bed to $1°C..." zh="正在加热热床至 $1°C..."/>
   <translation tag="Heating bed..." zh="正在加热热床..."/>
   <translation tag="Heating chamber..." zh="正在加热腔体..."/>
@@ -1571,6 +1570,7 @@
   <translation tag="Heating nozzle to $1°C..." zh="正在加热喷嘴至 $1°C..."/>
   <translation tag="Heating nozzle..." zh="正在加热喷嘴..."/>
   <translation tag="Heating the bed" zh="正在加热热床"/>
+  <translation tag="Heating the nozzle" zh="正在加热喷嘴"/>
   <translation tag="Heating to %d°C... %.0f°C" zh="加热至 %d°C... %.0f°C"/>
   <translation tag="Heating to {}°C before {}..." zh="正在加热至{}°C，然后{}..."/>
   <translation tag="Heating to {}°C for {}..." zh="正在加热至{}°C，持续{}..."/>
@@ -3514,7 +3514,7 @@
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." zh="运行 Klipper 的控制板。在系统设置中查看其负载。"/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" zh="切刀未复位。请检查切刀机构上是否缠绕耗材"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" zh="切刀未对准。请使用 CALIBRATE_CUT_POS 重新校准"/>
-  <translation tag="The exact stopping point could not be found. The print resumes from the start of this layer." zh="未找到确切的停止点。打印将从本层开头恢复。"/>
+  <translation tag="The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one." zh="未找到确切的停止点。打印将从下一层开头恢复，并跳过本层剩余部分。"/>
   <translation tag="The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend" zh="挤出机无法顺畅拉动。请检查料盘是否缠绕或打结，以及 PTFE 管是否严重弯折"/>
   <translation tag="The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again." zh="耗材未到达喷嘴。CFS 未报告错误，但工具头传感器仍未检测到耗材。请检查料盘是否放置到位、路径是否畅通，然后重试。"/>
   <translation tag="The filament may not have fully retracted — try again or manually pull" zh="耗材可能未完全回抽。请重试或手动抽出"/>

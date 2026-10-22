@@ -121,6 +121,10 @@ struct PlrPluginStatus {
 /// Never throws; a malformed field reads as its default, which offers nothing.
 PlrPluginStatus plr_parse_plugin_status(const nlohmann::json& result);
 
+/// Why the plugin withholds the offer, for the log, for one `offer.blocked_by`
+/// code; a code this app does not know comes back as itself.
+std::string plr_blocked_reason(const std::string& code);
+
 /// server.helix.plr.plan, as read from its `result`.
 struct PlrPlanReply {
     /// The scan is still running; the plan follows with notify_plr_plan_ready.

@@ -1664,7 +1664,6 @@ translations:
   'Heating Chamber...': 'Heating Chamber...'
   Heating Nozzle...: Heating Nozzle...
   Heating and homing: Heating and homing
-  Heating and purging the nozzle: Heating and purging the nozzle
   'Heating bed to $1°C...': 'Heating bed to $1°C...'
   'Heating bed...': 'Heating bed...'
   'Heating chamber...': 'Heating chamber...'
@@ -1673,6 +1672,7 @@ translations:
   'Heating nozzle to $1°C...': 'Heating nozzle to $1°C...'
   'Heating nozzle...': 'Heating nozzle...'
   Heating the bed: Heating the bed
+  Heating the nozzle: Heating the nozzle
   Heating to %d°C... %.0f°C: Heating to %d°C... %.0f°C
   Heating to {}°C before {}...: Heating to {}°C before {}...
   Heating to {}°C for {}...: Heating to {}°C for {}...
@@ -3770,7 +3770,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: The controller boards Klipper runs on. See their load in the system settings.
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: The cutter blade didn't return — check for filament wrapped around the cutting mechanism
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS
-  The exact stopping point could not be found. The print resumes from the start of this layer.: The exact stopping point could not be found. The print resumes from the start of this layer.
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.

@@ -84,44 +84,6 @@ template <typename... Args> std::string tr_format(const char* fmt_tr, Args&&... 
     return out;
 }
 
-/// What the plugin is doing, for a helix:plr_progress step name; nullptr for a
-/// step this app has no words for, which leaves the previous line up.
-const char* progress_step_text(const std::string& step) {
-    // prepare
-    if (step == "bed") {
-        return lv_tr("Heating the bed");
-    }
-    if (step == "chamber") {
-        return lv_tr("Waiting for the chamber to heat");
-    }
-    if (step == "lift") {
-        return lv_tr("Lifting the nozzle clear of the print");
-    }
-    if (step == "home_xy") {
-        return lv_tr("Homing X and Y");
-    }
-    if (step == "position") {
-        return lv_tr("Moving over the resume point");
-    }
-    // commit
-    if (step == "z_reference") {
-        return lv_tr("Setting the nozzle height");
-    }
-    if (step == "restore") {
-        return lv_tr("Restoring the print settings");
-    }
-    if (step == "purge") {
-        return lv_tr("Heating and purging the nozzle");
-    }
-    if (step == "return") {
-        return lv_tr("Moving back to the print");
-    }
-    if (step == "start") {
-        return lv_tr("Starting the print");
-    }
-    return nullptr;
-}
-
 std::string outage_text(double age_s) {
     if (age_s < 0.0) {
         return {};
@@ -147,6 +109,42 @@ bool live_step(PlrWizardStep step) {
 }
 
 } // namespace
+
+const char* plr_progress_step_text(const std::string& step) {
+    // prepare; bed_wait and chamber_wait come again in commit when it re-heats
+    if (step == "bed_wait") {
+        return lv_tr("Heating the bed");
+    }
+    if (step == "chamber_wait") {
+        return lv_tr("Waiting for the chamber to heat");
+    }
+    if (step == "lift") {
+        return lv_tr("Lifting the nozzle clear of the print");
+    }
+    if (step == "home_xy") {
+        return lv_tr("Homing X and Y");
+    }
+    if (step == "position") {
+        return lv_tr("Moving over the resume point");
+    }
+    // commit
+    if (step == "z_reference") {
+        return lv_tr("Setting the nozzle height");
+    }
+    if (step == "restore") {
+        return lv_tr("Restoring the print settings");
+    }
+    if (step == "heat_nozzle") {
+        return lv_tr("Heating the nozzle");
+    }
+    if (step == "move_to_resume") {
+        return lv_tr("Moving back to the print");
+    }
+    if (step == "start") {
+        return lv_tr("Starting the print");
+    }
+    return nullptr;
+}
 
 PlrWizardOverlay::~PlrWizardOverlay() {
     stop_listening();
@@ -482,7 +480,7 @@ void PlrWizardOverlay::on_progress(const PlrProgressEvent& event) {
     if (event.state != "running") {
         return;
     }
-    if (const char* text = progress_step_text(event.step)) {
+    if (const char* text = plr_progress_step_text(event.step)) {
         lv_subject_copy_string(&s_plr_progress, text);
     }
 }

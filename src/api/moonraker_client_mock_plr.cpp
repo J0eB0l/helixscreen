@@ -171,6 +171,13 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                     {"saved_at", now - kMockPlrOutageS},
                     {"age_s", kMockPlrOutageS}};
         }
+        json blocked_by = json::array();
+        if (!snapshot) {
+            blocked_by.push_back("no_snapshot");
+        }
+        if (cfg.fail == "no_lift_room") {
+            blocked_by.push_back("no_lift_room");
+        }
         reply({{"saving", mock_plr_saving()},
                {"storage",
                 {{"storage_class", "emmc"},
@@ -180,9 +187,7 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                {"tier", cfg.tier},
                {"backend", cfg.backend},
                {"snapshot", snap},
-               {"offer",
-                {{"available", snapshot},
-                 {"blocked_by", snapshot ? json::array() : json::array({"no_snapshot"})}}}});
+               {"offer", {{"available", blocked_by.empty()}, {"blocked_by", blocked_by}}}});
         return;
     }
 
@@ -277,7 +282,7 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
             return;
         }
         set_bed_target(kMockPlrBedTarget);
-        std::vector<std::function<void()>> steps = {progress("bed"), progress("lift"),
+        std::vector<std::function<void()>> steps = {progress("bed_wait"), progress("lift"),
                                                     progress("home_xy")};
         if (cfg.tier == 1) {
             steps.push_back(progress("position"));
@@ -300,9 +305,10 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                 return;
             }
         }
-        std::vector<std::function<void()>> steps = {progress("z_reference"), progress("restore"),
-                                                    progress("purge"), progress("return"),
-                                                    progress("start")};
+        // The plugin re-heats the bed after restoring the print state.
+        std::vector<std::function<void()>> steps = {
+            progress("z_reference"), progress("restore"),        progress("bed_wait"),
+            progress("heat_nozzle"), progress("move_to_resume"), progress("start")};
         play_console_steps(std::move(steps), kMockPlrStepIntervalMs, [this, reply]() {
             plr_snapshot_cleared_ = true;
             plr_plan_id_.clear();

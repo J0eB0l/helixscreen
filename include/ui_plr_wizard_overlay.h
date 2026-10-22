@@ -24,6 +24,10 @@ namespace helix::ui {
 
 class PlrWizardOverlayTestAccess;
 
+/// What the plugin is doing, for a helix:plr_progress step name; nullptr for a
+/// step this app has no words for, which leaves the previous line up.
+const char* plr_progress_step_text(const std::string& step);
+
 /**
  * @brief Guided resume after a power loss, for the HelixPrint plugin's `plr`
  * feature (PlrBackendType::GENERIC).
@@ -31,7 +35,7 @@ class PlrWizardOverlayTestAccess;
  * Steps per plr_next_wizard_step(): fetch the plan, ask the confirmations a
  * resume relies on, let the plugin heat the bed, lift and home X/Y (prepare),
  * settle Z (tier 2 confirms the held height, tier 1 jogs down to the part),
- * then let the plugin heat, purge and start (commit). The plugin renders and
+ * then let the plugin heat the nozzle, move back and start (commit). The plugin renders and
  * sends every motion of the sequence; the one move this overlay sends is the
  * tier-1 Z jog, through the same coalesced relative move the motion panel uses.
  *
