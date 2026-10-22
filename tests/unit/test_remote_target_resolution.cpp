@@ -1010,6 +1010,22 @@ TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: the reply says why a widget stays
         lv_obj_delete(other);
         CHECK_THAT(error, Catch::Matchers::EndsWith("is still out of view: on inactive screen s"));
     }
+    SECTION("the loaded screen itself, when it does not scroll") {
+        lv_obj_t* const screen = lv_screen_active();
+        const bool screen_scrolls = lv_obj_has_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_t* below = lv_obj_create(screen);
+        lv_obj_set_size(below, 50, 50);
+        lv_obj_set_pos(below, 0, lv_obj_get_height(screen) + 100);
+        lv_obj_update_layout(screen);
+        const std::string error = scroll_error(rig, below);
+        lv_obj_delete(below);
+        if (screen_scrolls) {
+            lv_obj_add_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        }
+        CHECK_THAT(error, Catch::Matchers::EndsWith("is still out of view: clipped by " +
+                                                    helix::path_of(screen)));
+    }
     SECTION("nothing in the way") {
         CHECK(scroll_error(rig, t.row).empty());
     }
