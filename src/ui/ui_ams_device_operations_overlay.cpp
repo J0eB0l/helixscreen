@@ -71,6 +71,11 @@ void AmsDeviceOperationsOverlay::init_subjects() {
         UI_MANAGED_SUBJECT_INT(reports_spool_ids_subject_, 0, "ams_device_ops_reports_spool_ids",
                                subjects_);
 
+        // Link-spools-from-tags row visibility. Gates on
+        // AmsBackend::tags_name_spoolman_spools() in update_from_backend().
+        UI_MANAGED_SUBJECT_INT(tags_name_spools_subject_, 0, "ams_device_ops_tags_name_spools",
+                               subjects_);
+
         // Disables the keep-spool-info toggle when firmware retention owns the
         // behavior. Gates on AmsBackend::printer_retains_spool_info() in
         // update_from_backend().
@@ -178,6 +183,10 @@ void AmsDeviceOperationsOverlay::register_callbacks() {
         {"on_ams_keep_spool_info_toggled",
          [](lv_event_t* e) {
              SettingsManager::instance().set_ams_keep_spool_info_on_eject(event_checked(e));
+         }},
+        {"on_ams_tag_links_spoolman_toggled",
+         [](lv_event_t* e) {
+             SettingsManager::instance().set_ams_tag_links_spoolman(event_checked(e));
          }},
         {"on_ams_force_bypass_controls_toggled",
          [](lv_event_t* e) {
@@ -323,6 +332,7 @@ void AmsDeviceOperationsOverlay::update_from_backend() {
         lv_subject_set_int(&supports_auto_heat_subject_, 0);
         lv_subject_set_int(&bypass_is_virtual_subject_, 0);
         lv_subject_set_int(&reports_spool_ids_subject_, 0);
+        lv_subject_set_int(&tags_name_spools_subject_, 0);
         lv_subject_set_int(&printer_retains_spool_info_subject_, 0);
         lv_subject_set_int(&can_reset_endless_spool_subject_, 0);
         lv_subject_set_int(&can_abort_subject_, 0);
@@ -392,6 +402,10 @@ void AmsDeviceOperationsOverlay::update_from_backend() {
     // spool ids per lane (AFC, Happy Hare); other systems clear on a detected
     // spool swap regardless of the toggle, so the row stays hidden there.
     lv_subject_set_int(&reports_spool_ids_subject_, backend->printer_reports_spool_ids() ? 1 : 0);
+
+    // Linking a lane from its tag means something only where a tag can name a
+    // Spoolman spool.
+    lv_subject_set_int(&tags_name_spools_subject_, backend->tags_name_spoolman_spools() ? 1 : 0);
 
     // Firmware retention (AFC remember_spool = true everywhere) makes the
     // keep-spool-info toggle a no-op: firmware keeps reporting the spool id,

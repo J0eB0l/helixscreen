@@ -1876,6 +1876,8 @@
   <translation tag="Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer." ja="{} 行目で {} を実行します。このプリンターでは緊急停止とみなされます。このプリンター用のプロファイルでファイルを再スライスしてください。"/>
   <translation tag="Linear rails" ja="リニアレール"/>
   <translation tag="Linear rails interval" ja="リニアレールの間隔"/>
+  <translation tag="Link Spools from Tags" ja="タグからスプールをリンク"/>
+  <translation tag="Link a slot to the Spoolman spool its tag names" ja="タグが示す Spoolman スプールにスロットをリンク"/>
   <translation tag="Listen to all theme sounds" ja="すべてのテーマサウンドを試聴"/>
   <translation tag="Live Z-offset, with baby steps and Save" ja="ライブ Z-Offset、微調整と保存つき"/>
   <translation tag="Live view from your webcam" ja="ウェブカメラのライブ表示"/>
@@ -4246,6 +4248,7 @@
   <translation tag="{} kept crashing the panel; switched back to {}" ja="{} で画面のクラッシュが繰り返されたため、{} に戻しました"/>
   <translation tag="{} left" ja="残り {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" ja="helixscreen.env の{}行が無視されました"/>
+  <translation tag="{} linked to Spoolman spool #{} from its tag" ja="{} をタグから Spoolman スプール #{} にリンクしました"/>
   <translation tag="{} looser than {}" ja="{}は{}より緩い"/>
   <translation tag="{} m" ja="{} m"/>
   <translation tag="{} macro not configured" ja="{} マクロが未設定です"/>
@@ -4284,6 +4287,7 @@
   <translation tag="{} → {}: no filament loaded." ja="{} → {}: フィラメントが装填されていません。"/>
   <translation tag="{}% left" ja="残り {}%"/>
   <translation tag="{}&apos;s peak moved out of the zone. Widening it." ja="{}のピークがゾーン外に出ました。ゾーンを広げます。"/>
+  <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" ja="{}: タグが示す Spoolman スプール #{} は存在しません"/>
   <translation tag="{}:{:02} elapsed" ja="経過 {}:{:02}"/>
   <translation tag="~{:.1f} Hz / turn" ja="約{:.1f} Hz / 回転"/>
 </translations>

@@ -1876,6 +1876,8 @@
   <translation tag="Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer." en="Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer."/>
   <translation tag="Linear rails" en="Linear rails"/>
   <translation tag="Linear rails interval" en="Linear rails interval"/>
+  <translation tag="Link Spools from Tags" en="Link Spools from Tags"/>
+  <translation tag="Link a slot to the Spoolman spool its tag names" en="Link a slot to the Spoolman spool its tag names"/>
   <translation tag="Listen to all theme sounds" en="Listen to all theme sounds"/>
   <translation tag="Live Z-offset, with baby steps and Save" en="Live Z-offset, with baby steps and Save"/>
   <translation tag="Live view from your webcam" en="Live view from your webcam"/>
@@ -4246,6 +4248,7 @@
   <translation tag="{} kept crashing the panel; switched back to {}" en="{} kept crashing the panel; switched back to {}"/>
   <translation tag="{} left" en="{} left"/>
   <translation tag="{} lines in helixscreen.env were ignored" en="{} lines in helixscreen.env were ignored"/>
+  <translation tag="{} linked to Spoolman spool #{} from its tag" en="{} linked to Spoolman spool #{} from its tag"/>
   <translation tag="{} looser than {}" en="{} looser than {}"/>
   <translation tag="{} m" en="{} m"/>
   <translation tag="{} macro not configured" en="{} macro not configured"/>
@@ -4284,6 +4287,7 @@
   <translation tag="{} → {}: no filament loaded." en="{} → {}: no filament loaded."/>
   <translation tag="{}% left" en="{}% left"/>
   <translation tag="{}&apos;s peak moved out of the zone. Widening it." en="{}&apos;s peak moved out of the zone. Widening it."/>
+  <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" en="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist"/>
   <translation tag="{}:{:02} elapsed" en="{}:{:02} elapsed"/>
   <translation tag="~{:.1f} Hz / turn" en="~{:.1f} Hz / turn"/>
 </translations>

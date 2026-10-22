@@ -1921,6 +1921,8 @@
   <translation tag="Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer." ru="Строка {} вызывает {}, что этот принтер считает аварийной остановкой. Нарежьте файл заново с профилем для этого принтера."/>
   <translation tag="Linear rails" ru="Линейные направляющие"/>
   <translation tag="Linear rails interval" ru="Интервал линейных направляющих"/>
+  <translation tag="Link Spools from Tags" ru="Привязывать катушки по меткам"/>
+  <translation tag="Link a slot to the Spoolman spool its tag names" ru="Привязывать слот к катушке Spoolman, указанной в его метке"/>
   <translation tag="Listen to all theme sounds" ru="Прослушать все звуки темы"/>
   <translation tag="Live Z-offset, with baby steps and Save" ru="Z-смещение в реальном времени, с подстройкой и сохранением"/>
   <translation tag="Live view from your webcam" ru="Прямая трансляция с веб-камеры"/>
@@ -4315,6 +4317,7 @@
   <translation tag="{} kept crashing the panel; switched back to {}" ru="{} постоянно вызывал сбой экрана; возврат к {}"/>
   <translation tag="{} left" ru="осталось {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" ru="В helixscreen.env проигнорировано строк: {}"/>
+  <translation tag="{} linked to Spoolman spool #{} from its tag" ru="{}: привязано к катушке Spoolman #{} по метке"/>
   <translation tag="{} looser than {}" ru="{} слабее, чем {}"/>
   <translation tag="{} m" ru="{} м"/>
   <translation tag="{} macro not configured" ru="Макрос {} не настроен"/>
@@ -4365,6 +4368,7 @@
   <translation tag="{} → {}: no filament loaded." ru="{} → {}: филамент не загружен."/>
   <translation tag="{}% left" ru="Осталось {}%"/>
   <translation tag="{}&apos;s peak moved out of the zone. Widening it." ru="Пик {} вышел из зоны. Расширяем её."/>
+  <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" ru="{}: метка указывает катушку Spoolman #{}, которой не существует"/>
   <translation tag="{}:{:02} elapsed" ru="прошло {}:{:02}"/>
   <translation tag="~{:.1f} Hz / turn" ru="~{:.1f} Гц / оборот"/>
 </translations>

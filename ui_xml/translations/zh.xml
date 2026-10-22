@@ -1876,6 +1876,8 @@
   <translation tag="Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer." zh="第 {} 行调用 {}，此打印机将其视为紧急停止。请使用为此打印机制作的配置重新切片该文件。"/>
   <translation tag="Linear rails" zh="直线导轨"/>
   <translation tag="Linear rails interval" zh="直线导轨间隔"/>
+  <translation tag="Link Spools from Tags" zh="通过标签关联料盘"/>
+  <translation tag="Link a slot to the Spoolman spool its tag names" zh="将槽位关联到其标签指定的 Spoolman 料盘"/>
   <translation tag="Listen to all theme sounds" zh="试听所有主题声音"/>
   <translation tag="Live Z-offset, with baby steps and Save" zh="实时 Z 偏移，支持微调与保存"/>
   <translation tag="Live view from your webcam" zh="摄像头实时画面"/>
@@ -4246,6 +4248,7 @@
   <translation tag="{} kept crashing the panel; switched back to {}" zh="{} 反复导致屏幕崩溃，已切换回 {}"/>
   <translation tag="{} left" zh="剩余 {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" zh="helixscreen.env 中有 {} 行被忽略"/>
+  <translation tag="{} linked to Spoolman spool #{} from its tag" zh="已通过标签将 {} 关联到 Spoolman 料盘 #{}"/>
   <translation tag="{} looser than {}" zh="{} 比 {} 松"/>
   <translation tag="{} m" zh="{} 米"/>
   <translation tag="{} macro not configured" zh="{} 宏未配置"/>
@@ -4284,6 +4287,7 @@
   <translation tag="{} → {}: no filament loaded." zh="{} → {}: 未加载耗材。"/>
   <translation tag="{}% left" zh="剩余 {}%"/>
   <translation tag="{}&apos;s peak moved out of the zone. Widening it." zh="{} 的峰移出了区间。正在扩大区间。"/>
+  <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" zh="{}：标签指定的 Spoolman 料盘 #{} 不存在"/>
   <translation tag="{}:{:02} elapsed" zh="已用时 {}:{:02}"/>
   <translation tag="~{:.1f} Hz / turn" zh="约 {:.1f} Hz / 圈"/>
 </translations>

@@ -2088,6 +2088,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: 'La ligne {} appelle {}, que cette imprimante traite comme un arrêt d''urgence. Retranchez le fichier avec un profil conçu pour cette imprimante.'
   Linear rails: 'Rails linéaires'
   Linear rails interval: 'Intervalle des rails linéaires'
+  Link Spools from Tags: 'Lier les bobines par étiquette'
+  Link a slot to the Spoolman spool its tag names: 'Lier un slot à la bobine Spoolman indiquée par son étiquette'
   Listen to all theme sounds: Écouter tous les sons du thème
   Live Z-offset, with baby steps and Save: Z-Offset en direct, avec micro-pas et Enregistrer
   Live view from your webcam: Vue en direct de votre webcam
@@ -4715,6 +4717,7 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} a planté l''écran à plusieurs reprises ; retour à {}'
   "{} isn't loaded. The print will pause when it needs it.": '{} n''est pas chargé. L''impression se mettra en pause quand elle en aura besoin.'
   '{} kept crashing the panel; pick a printer to connect': '{} a planté l''écran à plusieurs reprises ; choisissez une imprimante à connecter'
+  '{} linked to Spoolman spool #{} from its tag': '{} : liaison à la bobine Spoolman #{} via son étiquette'
   '{} looser than {}': "{} plus lâche que {}"
   '{} m': '{} m'
   '{} macro not configured': Macro {} non configurée
@@ -4755,6 +4758,7 @@ translations:
   '{} — response timed out': '{} — réponse expirée'
   '{} → {}: no filament loaded.': '{} → {} : aucun filament chargé.'
   "{}'s peak moved out of the zone. Widening it.": "Le pic de {} est sorti de la zone. Élargissement."
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": '{} : l''étiquette indique la bobine Spoolman #{}, qui n''existe pas'
   '{}:{:02} elapsed': '{}:{:02} écoulé'
   '{}% left': '{} % restant'
   'Basic': 'Basique'

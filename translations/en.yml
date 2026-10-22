@@ -2017,6 +2017,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.
   Linear rails: Linear rails
   Linear rails interval: Linear rails interval
+  Link Spools from Tags: Link Spools from Tags
+  Link a slot to the Spoolman spool its tag names: Link a slot to the Spoolman spool its tag names
   Listen to all theme sounds: Listen to all theme sounds
   Live Z-offset, with baby steps and Save: Live Z-offset, with baby steps and Save
   Live view from your webcam: Live view from your webcam
@@ -4576,6 +4578,7 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} kept crashing the panel; switched back to {}'
   "{} isn't loaded. The print will pause when it needs it.": "{} isn't loaded. The print will pause when it needs it."
   '{} kept crashing the panel; pick a printer to connect': '{} kept crashing the panel; pick a printer to connect'
+  '{} linked to Spoolman spool #{} from its tag': '{} linked to Spoolman spool #{} from its tag'
   '{} looser than {}': '{} looser than {}'
   '{} m': '{} m'
   '{} macro not configured': '{} macro not configured'
@@ -4615,6 +4618,7 @@ translations:
   '{} — response timed out': '{} — response timed out'
   '{} → {}: no filament loaded.': '{} → {}: no filament loaded.'
   "{}'s peak moved out of the zone. Widening it.": "{}'s peak moved out of the zone. Widening it."
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": "{}: the tag names Spoolman spool #{}, which doesn't exist"
   '{}:{:02} elapsed': '{}:{:02} elapsed'
   '{}% left': '{}% left'
   'Basic': 'Basic'

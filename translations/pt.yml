@@ -2076,6 +2076,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: 'A linha {} chama {}, que esta impressora trata como uma parada de emergência. Fatie o arquivo novamente com um perfil feito para esta impressora.'
   Linear rails: 'Trilhos lineares'
   Linear rails interval: 'Intervalo dos trilhos lineares'
+  Link Spools from Tags: 'Vincular carretéis pela etiqueta'
+  Link a slot to the Spoolman spool its tag names: 'Vincula um slot ao carretel do Spoolman indicado pela etiqueta'
   Listen to all theme sounds: Ouvir todos os sons do tema
   Live Z-offset, with baby steps and Save: Z-Offset ao vivo, com passos finos e Salvar
   Live view from your webcam: Visão ao vivo da sua webcam
@@ -4684,6 +4686,7 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} travou a tela repetidamente; voltou para {}'
   "{} isn't loaded. The print will pause when it needs it.": '{} não está carregado. A impressão vai pausar quando precisar dele.'
   '{} kept crashing the panel; pick a printer to connect': '{} travou a tela repetidamente; escolha uma impressora para conectar'
+  '{} linked to Spoolman spool #{} from its tag': 'Vinculação de {} ao carretel #{} do Spoolman pela etiqueta'
   '{} looser than {}': "{} mais frouxa que {}"
   '{} m': '{} m'
   '{} macro not configured': Macro {} não configurado
@@ -4723,6 +4726,7 @@ translations:
   '{} — response timed out': '{} — tempo esgotado'
   '{} → {}: no filament loaded.': '{} → {}: nenhum filamento carregado.'
   "{}'s peak moved out of the zone. Widening it.": "O pico de {} saiu da zona. Ampliando."
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: a etiqueta indica o carretel #{} do Spoolman, que não existe'
   '{}:{:02} elapsed': '{}:{:02} decorrido'
   '{}% left': '{}% restante'
   'Basic': 'Básico'

@@ -1950,6 +1950,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: '第 {} 行调用 {}，此打印机将其视为紧急停止。请使用为此打印机制作的配置重新切片该文件。'
   Linear rails: '直线导轨'
   Linear rails interval: '直线导轨间隔'
+  Link Spools from Tags: '通过标签关联料盘'
+  Link a slot to the Spoolman spool its tag names: '将槽位关联到其标签指定的 Spoolman 料盘'
   Listen to all theme sounds: 试听所有主题声音
   Live Z-offset, with baby steps and Save: 实时 Z 偏移，支持微调与保存
   Live view from your webcam: 摄像头实时画面
@@ -4415,6 +4417,7 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} 反复导致屏幕崩溃，已切换回 {}'
   "{} isn't loaded. The print will pause when it needs it.": '{}未装载。打印需要时将暂停。'
   '{} kept crashing the panel; pick a printer to connect': '{} 反复导致屏幕崩溃，请选择要连接的打印机'
+  '{} linked to Spoolman spool #{} from its tag': '已通过标签将 {} 关联到 Spoolman 料盘 #{}'
   '{} looser than {}': "{} 比 {} 松"
   '{} m': '{} 米'
   '{} macro not configured': '{} 宏未配置'
@@ -4453,6 +4456,7 @@ translations:
   '{} — response timed out': '{} — 响应超时'
   '{} → {}: no filament loaded.': '{} → {}: 未加载耗材。'
   "{}'s peak moved out of the zone. Widening it.": "{} 的峰移出了区间。正在扩大区间。"
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}：标签指定的 Spoolman 料盘 #{} 不存在'
   '{}:{:02} elapsed': 已用时 {}:{:02}
   '{}% left': '剩余 {}%'
   'Basic': '标准'

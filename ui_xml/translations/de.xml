@@ -1876,6 +1876,8 @@
   <translation tag="Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer." de="Zeile {} ruft {} auf, das dieser Drucker als Notaus behandelt. Slicen Sie die Datei mit einem Profil für diesen Drucker neu."/>
   <translation tag="Linear rails" de="Linearschienen"/>
   <translation tag="Linear rails interval" de="Intervall Linearschienen"/>
+  <translation tag="Link Spools from Tags" de="Spulen über Tags verknüpfen"/>
+  <translation tag="Link a slot to the Spoolman spool its tag names" de="Einen Slot mit der Spoolman-Spule verknüpfen, die sein Tag nennt"/>
   <translation tag="Listen to all theme sounds" de="Alle Themensounds anhören"/>
   <translation tag="Live Z-offset, with baby steps and Save" de="Live-Z-Offset mit Feinjustierung und Speichern"/>
   <translation tag="Live view from your webcam" de="Livebild Ihrer Webcam"/>
@@ -4246,6 +4248,7 @@
   <translation tag="{} kept crashing the panel; switched back to {}" de="{} hat den Bildschirm wiederholt abstürzen lassen; zurück zu {} gewechselt"/>
   <translation tag="{} left" de="noch {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" de="{} Zeilen in helixscreen.env wurden ignoriert"/>
+  <translation tag="{} linked to Spoolman spool #{} from its tag" de="{} über sein Tag mit Spoolman-Spule #{} verknüpft"/>
   <translation tag="{} looser than {}" de="{} lockerer als {}"/>
   <translation tag="{} m" de="{} m"/>
   <translation tag="{} macro not configured" de="{}-Makro nicht konfiguriert"/>
@@ -4284,6 +4287,7 @@
   <translation tag="{} → {}: no filament loaded." de="{} → {}: kein Filament geladen."/>
   <translation tag="{}% left" de="{}% übrig"/>
   <translation tag="{}&apos;s peak moved out of the zone. Widening it." de="Die Spitze von {} hat die Zone verlassen. Sie wird erweitert."/>
+  <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" de="{}: Das Tag nennt Spoolman-Spule #{}, die nicht existiert"/>
   <translation tag="{}:{:02} elapsed" de="{}:{:02} vergangen"/>
   <translation tag="~{:.1f} Hz / turn" de="~{:.1f} Hz / Umdrehung"/>
 </translations>

@@ -2115,6 +2115,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: 'Строка {} вызывает {}, что этот принтер считает аварийной остановкой. Нарежьте файл заново с профилем для этого принтера.'
   Linear rails: 'Линейные направляющие'
   Linear rails interval: 'Интервал линейных направляющих'
+  Link Spools from Tags: 'Привязывать катушки по меткам'
+  Link a slot to the Spoolman spool its tag names: 'Привязывать слот к катушке Spoolman, указанной в его метке'
   Listen to all theme sounds: Прослушать все звуки темы
   Live Z-offset, with baby steps and Save: Z-смещение в реальном времени, с подстройкой и сохранением
   Live view from your webcam: Прямая трансляция с веб-камеры
@@ -4729,6 +4731,7 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} постоянно вызывал сбой экрана; возврат к {}'
   "{} isn't loaded. The print will pause when it needs it.": '{}: филамент не загружен. Печать приостановится, когда он понадобится.'
   '{} kept crashing the panel; pick a printer to connect': '{} постоянно вызывал сбой экрана; выберите принтер для подключения'
+  '{} linked to Spoolman spool #{} from its tag': '{}: привязано к катушке Spoolman #{} по метке'
   '{} looser than {}': "{} слабее, чем {}"
   '{} m': '{} м'
   '{} macro not configured': Макрос {} не настроен
@@ -4784,6 +4787,7 @@ translations:
   '{} — response timed out': '{} — время ожидания ответа истекло'
   '{} → {}: no filament loaded.': '{} → {}: филамент не загружен.'
   "{}'s peak moved out of the zone. Widening it.": "Пик {} вышел из зоны. Расширяем её."
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: метка указывает катушку Spoolman #{}, которой не существует'
   '{}:{:02} elapsed': прошло {}:{:02}
   '{}% left': 'Осталось {}%'
   'Basic': 'Базовый'
