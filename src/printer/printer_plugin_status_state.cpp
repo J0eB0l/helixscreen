@@ -40,6 +40,7 @@ void PrinterPluginStatusState::init_subjects(bool register_xml) {
                      register_xml);
     INIT_SUBJECT_INT(plr_saving_enabled, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(helix_plugin_probe_seq, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(plugin_feature_row_count, 0, subjects_, register_xml);
 
     // Fresh subjects mean a fresh session: re-initialization (test fixtures
     // re-init the shared PrinterState between cases) must not read a base
@@ -66,13 +67,16 @@ void PrinterPluginStatusState::set_installed(bool installed) {
     lv_subject_set_int(&helix_plugin_installed_,
                        installed ? kHelixPluginInstalled : kHelixPluginAbsent);
     spdlog::info("[PrinterPluginStatusState] HelixPrint plugin installed: {}", installed);
-    publish_plr_feature();
+    publish_features();
 }
 
-void PrinterPluginStatusState::publish_plr_feature() {
+void PrinterPluginStatusState::publish_features() {
     if (!subjects_initialized_) {
         return;
     }
+    const size_t rows = service_has_helix_plugin() ? plugin_feature_rows(features_).size() : 0;
+    lv_subject_set_int(&plugin_feature_row_count_, static_cast<int>(rows));
+
     const PluginFeatureState state = plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);
     lv_subject_set_int(&plr_feature_state_, static_cast<int>(state));
     bool saving = state == PluginFeatureState::Ready;

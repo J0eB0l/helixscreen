@@ -124,6 +124,14 @@
           </setting_action_row>
         </lv_obj>
 
+        <!-- HelixPrint Plugin features: only while an installed plugin
+             reports a feature with a switch of its own here -->
+        <setting_action_row name="row_helix_plugin_features"
+                            label="HelixPrint Plugin" icon="puzzle_outline"
+                            description="Choose what the plugin does for your prints">
+          <bind_flag_if_eq subject="plugin_feature_row_count" flag="hidden" ref_value="0"/>
+          <event_cb trigger="clicked" callback="on_helix_plugin_features_clicked"/>
+        </setting_action_row>
         <!-- HelixPrint Plugin (INSTALLED - show Uninstall row) -->
         <!-- Shows ONLY when value == 1 (installed and enabled), hidden otherwise (-1 or 0) -->
         <lv_obj name="container_helix_plugin_uninstall"

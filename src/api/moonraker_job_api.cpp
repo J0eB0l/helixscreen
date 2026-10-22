@@ -8,6 +8,7 @@
 #include "moonraker_api_internal.h"
 #include "moonraker_gcode_guards.h"
 #include "spdlog/spdlog.h"
+#include "standing_print_options.h"
 
 using namespace moonraker_internal;
 
@@ -38,6 +39,19 @@ void MoonrakerJobAPI::start_print(const std::string& filename, SuccessCallback o
     json params = {{"filename", filename}};
 
     spdlog::debug("[Moonraker API] Starting print: {}", filename);
+
+    // This start sends its own options; the job history adds next is ours.
+    auto& ledger = helix::screen_start_ledger();
+    ledger.note(filename);
+    if (ledger.announce()) {
+        client_.send_jsonrpc(
+            helix::kScreenStartRpc, params, [](json) {},
+            [](const MoonrakerError& err) {
+                spdlog::debug("[Moonraker API] print_hooks screen_start not taken: {}",
+                              err.message);
+            },
+            0, /*silent=*/true);
+    }
 
     client_.send_jsonrpc(
         "printer.print.start", params,
@@ -151,6 +165,8 @@ void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
 
     spdlog::info("[Moonraker API] Starting modified print via helix_print plugin: {} (temp: {})",
                  original_filename, temp_file_path);
+    // The plugin starts it through a link and marks it as its own start.
+    helix::screen_start_ledger().note_any();
 
     client_.send_jsonrpc(
         "server.helix.print_modified", params,

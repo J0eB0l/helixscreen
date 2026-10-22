@@ -130,6 +130,7 @@ translations:
   3D Maze: Labirinto 3D
   3D Pipes: Canos 3D
   3D View: Vista 3D
+  3MF conversion: 'Conversão 3MF'
   4. Paper should move but with resistance: 4. O papel deve se mover, mas com resistência
   4. Repeat until bed is level: 4. Repita até a mesa estar nivelada
   5 min: '5 min'
@@ -142,6 +143,7 @@ translations:
   = Loosen: = Afrouxar
   = Tighten: = Apertar
   A: A
+  A HelixPrint plugin feature.: 'Um recurso do plugin HelixPrint.'
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: 'Um buzzer ou alto-falante para alertas e sons. Defina o que toca nas configurações de som.'
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Uma câmera transmitida pelo Moonraker. Adicione o widget de câmera à tela inicial para assisti-la, inclusive durante uma impressão.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Uma ventoinha que puxa o ar da câmara por um filtro. Controle-a na tela de temperatura da câmara.'
@@ -309,6 +311,7 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : 'Aplicado a {}. O Klipper esquece ao reiniciar: insira {} como Pressure Advance no perfil de filamento do seu fatiador, ou salve no carretel.'
   Applies to: Aplica-se a
+  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: 'Aplica suas opções de impressão fixas, como descarregar ao final, às impressões iniciadas por outro app ou pela fila de trabalhos.'
   Apply: Aplicar
   Aqua Surface: 'Superfície da água'
   Archive: Arquivar
@@ -728,6 +731,7 @@ translations:
   Choose sound style: Escolher estilo de som
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : Escolha o modelo que corresponde à sua impressora. Isso define as macros de impressão, as funções das ventoinhas e o comportamento de calibração que o HelixScreen usa.
+  Choose what the plugin does for your prints: 'Escolha o que o plugin faz pelas suas impressões'
   Choose what to power off or restart.: Escolha o que desligar ou reiniciar.
   'Chute position: X {:.1f}, Y {:.1f}': 'Posição da calha de purga: X {:.1f}, Y {:.1f}'
 
@@ -2504,6 +2508,8 @@ translations:
   Not available here. Update from a terminal.: Não disponível aqui. Atualize a partir de um terminal.
   Not available now: Indisponível no momento
   Not available on Android: Não disponível no Android
+  Not available on this printer ({}).: 'Indisponível nesta impressora ({}).'
+  Not available on this printer.: 'Indisponível nesta impressora.'
   Not calibrated: Não calibrado
   Not configured: Não configurado
   Not connected: Não conectado
@@ -2615,6 +2621,7 @@ translations:
     - selecione sua fonte de iluminação principal, ou pule se sua impressora não tiver
     uma
   Options: Opções
+  Options for prints started elsewhere: 'Opções para impressões iniciadas em outro lugar'
   Or Enter Manually: Ou Digite Manualmente
   Or instead of turning the others: Ou, em vez de girar os outros
   Original file location unknown: Local do arquivo original desconhecido

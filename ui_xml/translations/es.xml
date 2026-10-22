@@ -123,6 +123,7 @@
   <translation tag="3D Maze" es="Laberinto 3D"/>
   <translation tag="3D Pipes" es="3D Pipes"/>
   <translation tag="3D View" es="Vista 3D"/>
+  <translation tag="3MF conversion" es="Conversión 3MF"/>
   <translation tag="4. Paper should move but with resistance" es="4. El papel debe moverse pero con resistencia"/>
   <translation tag="4. Repeat until bed is level" es="4. Repita hasta que la cama esté nivelada"/>
   <translation tag="5 min" es="5 min"/>
@@ -135,6 +136,7 @@
   <translation tag="= Loosen" es="= Aflojar"/>
   <translation tag="= Tighten" es="= Apretar"/>
   <translation tag="A" es="A"/>
+  <translation tag="A HelixPrint plugin feature." es="Una función del plugin HelixPrint."/>
   <translation tag="A buzzer or speaker for alerts and sounds. Set what plays in the sound settings." es="Un zumbador o altavoz para alertas y sonidos. Elige qué se reproduce en los ajustes de sonido."/>
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." es="Una cámara que transmite Moonraker. Añade el widget de cámara a la pantalla de inicio para verla, también durante una impresión."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." es="Un ventilador que hace pasar el aire de la cámara por un filtro. Contrólalo en la pantalla de temperatura de la cámara."/>
@@ -286,6 +288,7 @@
   <translation tag="Appearance" es="Apariencia"/>
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." es="Aplicado a {}. Klipper lo olvida al reiniciar: introduce {} como Pressure Advance en el perfil de filamento de tu laminador o guárdalo en la bobina."/>
   <translation tag="Applies to" es="Se aplica a"/>
+  <translation tag="Applies your standing print options, such as unload at end, to prints started from another app or the job queue." es="Aplica tus opciones de impresión fijas, como descargar al final, a las impresiones iniciadas desde otra app o desde la cola de trabajos."/>
   <translation tag="Apply" es="Aplicar"/>
   <translation tag="Aqua Surface" es="Superficie acuática"/>
   <translation tag="Archive" es="Archivar"/>
@@ -664,6 +667,7 @@
   <translation tag="Choose rendering mode for bed mesh visualization" es="Elija el modo de renderizado para la visualización de malla de cama"/>
   <translation tag="Choose sound style" es="Elegir estilo de sonido"/>
   <translation tag="Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses." es="Elija el modelo que coincida con su impresora. Esto establece las macros de impresión, los roles de los ventiladores y el comportamiento de calibración que usa HelixScreen."/>
+  <translation tag="Choose what the plugin does for your prints" es="Elige qué hace el plugin con tus impresiones"/>
   <translation tag="Choose what to power off or restart." es="Elija qué apagar o reiniciar."/>
   <translation tag="Choose which lane is in the toolhead to unload it" es="Elige qué carril está en el cabezal para descargarlo"/>
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" es="Posición del conducto de purga: X {:.1f}, Y {:.1f}"/>
@@ -2281,6 +2285,8 @@
   <translation tag="Not available here. Update from a terminal." es="No disponible aquí. Actualiza desde un terminal."/>
   <translation tag="Not available now" es="No disponible ahora"/>
   <translation tag="Not available on Android" es="No disponible en Android"/>
+  <translation tag="Not available on this printer ({})." es="No disponible en esta impresora ({})."/>
+  <translation tag="Not available on this printer." es="No disponible en esta impresora."/>
   <translation tag="Not calibrated" es="No calibrado"/>
   <translation tag="Not configured" es="No configurado"/>
   <translation tag="Not connected" es="No conectado"/>
@@ -2385,6 +2391,7 @@
   <translation tag="Optimizes temperature control for stable, consistent heating." es="Optimiza el control de temperatura para un calentamiento estable y consistente."/>
   <translation tag="Optional - select your main lighting source, or skip if your printer doesn&apos;t have one" es="Opcional - selecciona tu fuente de iluminación principal, u omite si tu impresora no tiene una"/>
   <translation tag="Options" es="Opciones"/>
+  <translation tag="Options for prints started elsewhere" es="Opciones para impresiones iniciadas en otro lugar"/>
   <translation tag="Or Enter Manually" es="O Ingrese Manualmente"/>
   <translation tag="Or instead of turning the others" es="O en lugar de girar los demás"/>
   <translation tag="Original file location unknown" es="Ubicación del archivo original desconocida"/>

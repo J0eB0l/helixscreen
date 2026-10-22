@@ -123,6 +123,7 @@
   <translation tag="3D Maze" en="3D Maze"/>
   <translation tag="3D Pipes" en="3D Pipes"/>
   <translation tag="3D View" en="3D View"/>
+  <translation tag="3MF conversion" en="3MF conversion"/>
   <translation tag="4. Paper should move but with resistance" en="4. Paper should move but with resistance"/>
   <translation tag="4. Repeat until bed is level" en="4. Repeat until bed is level"/>
   <translation tag="5 min" en="5 min"/>
@@ -135,6 +136,7 @@
   <translation tag="= Loosen" en="= Loosen"/>
   <translation tag="= Tighten" en="= Tighten"/>
   <translation tag="A" en="A"/>
+  <translation tag="A HelixPrint plugin feature." en="A HelixPrint plugin feature."/>
   <translation tag="A buzzer or speaker for alerts and sounds. Set what plays in the sound settings." en="A buzzer or speaker for alerts and sounds. Set what plays in the sound settings."/>
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." en="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." en="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen."/>
@@ -286,6 +288,7 @@
   <translation tag="Appearance" en="Appearance"/>
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." en="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool."/>
   <translation tag="Applies to" en="Applies to"/>
+  <translation tag="Applies your standing print options, such as unload at end, to prints started from another app or the job queue." en="Applies your standing print options, such as unload at end, to prints started from another app or the job queue."/>
   <translation tag="Apply" en="Apply"/>
   <translation tag="Aqua Surface" en="Aqua Surface"/>
   <translation tag="Archive" en="Archive"/>
@@ -664,6 +667,7 @@
   <translation tag="Choose rendering mode for bed mesh visualization" en="Choose rendering mode for bed mesh visualization"/>
   <translation tag="Choose sound style" en="Choose sound style"/>
   <translation tag="Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses." en="Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses."/>
+  <translation tag="Choose what the plugin does for your prints" en="Choose what the plugin does for your prints"/>
   <translation tag="Choose what to power off or restart." en="Choose what to power off or restart."/>
   <translation tag="Choose which lane is in the toolhead to unload it" en="Choose which lane is in the toolhead to unload it"/>
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" en="Chute position: X {:.1f}, Y {:.1f}"/>
@@ -2281,6 +2285,8 @@
   <translation tag="Not available here. Update from a terminal." en="Not available here. Update from a terminal."/>
   <translation tag="Not available now" en="Not available now"/>
   <translation tag="Not available on Android" en="Not available on Android"/>
+  <translation tag="Not available on this printer ({})." en="Not available on this printer ({})."/>
+  <translation tag="Not available on this printer." en="Not available on this printer."/>
   <translation tag="Not calibrated" en="Not calibrated"/>
   <translation tag="Not configured" en="Not configured"/>
   <translation tag="Not connected" en="Not connected"/>
@@ -2385,6 +2391,7 @@
   <translation tag="Optimizes temperature control for stable, consistent heating." en="Optimizes temperature control for stable, consistent heating."/>
   <translation tag="Optional - select your main lighting source, or skip if your printer doesn&apos;t have one" en="Optional - select your main lighting source, or skip if your printer doesn&apos;t have one"/>
   <translation tag="Options" en="Options"/>
+  <translation tag="Options for prints started elsewhere" en="Options for prints started elsewhere"/>
   <translation tag="Or Enter Manually" en="Or Enter Manually"/>
   <translation tag="Or instead of turning the others" en="Or instead of turning the others"/>
   <translation tag="Original file location unknown" en="Original file location unknown"/>

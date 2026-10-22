@@ -4000,7 +4000,7 @@ AmsError AmsBackendSnapmaker::apply_endless_spool_enabled(bool enabled) {
     return execute_gcode(snapmaker::write_print_preferences_gcode(changes));
 }
 
-std::string AmsBackendSnapmaker::end_unload_gcode() const {
+std::string AmsBackendSnapmaker::end_unload_gcode(bool print_running) const {
     // The firmware resets end_unload_filament when every print ends, so the
     // saved choice is re-sent ahead of each one. Before it has reported its
     // list, the head count and support for the command are both unknown.
@@ -4010,7 +4010,14 @@ std::string AmsBackendSnapmaker::end_unload_gcode() const {
     }
     snapmaker::PrintPreferences changes;
     changes.end_unload_filament = end_unload_list(prefs, soft_heads());
+    changes.force = print_running;
     return snapmaker::write_print_preferences_gcode(changes);
+}
+
+std::string AmsBackendSnapmaker::standing_print_gcode() const {
+    // A running print refuses SET_PRINT_EXTRUDER_MAP and SET_PRINT_USED_EXTRUDERS
+    // outright, so only the unload choice can still be applied.
+    return end_unload_gcode(/*print_running=*/true);
 }
 
 } // namespace helix

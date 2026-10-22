@@ -126,6 +126,7 @@ translations:
   3D Maze: 3D迷路
   3D Pipes: 3Dパイプ
   3D View: 3Dビュー
+  3MF conversion: '3MF変換'
   4. Paper should move but with resistance: 4. 紙が抵抗を感じながら動く状態が適切です
   4. Repeat until bed is level: 4. ベッドが水平になるまで繰り返してください
   5 min: '5分'
@@ -138,6 +139,7 @@ translations:
   = Loosen: = 緩める
   = Tighten: = 締める
   A: A
+  A HelixPrint plugin feature.: 'HelixPrintプラグインの機能です。'
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: 'アラートやサウンド用のブザーまたはスピーカー。再生内容はサウンド設定で選べます。'
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Moonrakerが配信するカメラ。ホーム画面にカメラウィジェットを追加すると、印刷中も映像を確認できます。'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'チャンバー内の空気をフィルターに通すファン。チャンバー温度画面で操作できます。'
@@ -291,6 +293,7 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : '{}に適用しました。Klipperは再起動で忘れます: スライサーのフィラメントプロファイルでPressure Advanceに{}を入力するか、スプールに保存してください。'
   Applies to: 適用対象
+  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: '終了時のアンロードなどの常設の印刷オプションを、別のアプリやジョブキューから開始された印刷にも適用します。'
   Apply: 適用
   Aqua Surface: '水面'
   Archive: アーカイブ
@@ -676,6 +679,7 @@ translations:
   Choose sound style: サウンドスタイルを選択
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : お使いのプリンターに一致するモデルを選択してください。これにより、HelixScreenが使用する印刷マクロ、ファンの役割、キャリブレーション動作が設定されます。
+  Choose what the plugin does for your prints: 'プラグインが印刷に対して行うことを選択します'
   Choose what to power off or restart.: 電源オフまたは再起動する対象を選択してください。
   'Chute position: X {:.1f}, Y {:.1f}': 'パージシュート位置: X {:.1f}, Y {:.1f}'
 
@@ -2368,6 +2372,8 @@ translations:
   Not available here. Update from a terminal.: ここでは利用できません。ターミナルから更新してください。
   Not available now: 現在は利用できません
   Not available on Android: Androidでは利用できません
+  Not available on this printer ({}).: 'このプリンターでは利用できません（{}）。'
+  Not available on this printer.: 'このプリンターでは利用できません。'
   Not calibrated: キャリブレーション未実施
   Not configured: 未設定
   Not connected: 未接続
@@ -2477,6 +2483,7 @@ translations:
   Optional - select your main lighting source, or skip if your printer doesn't have one: 任意
     - メイン照明を選択するか、照明がない場合はスキップしてください
   Options: オプション
+  Options for prints started elsewhere: '他から開始された印刷のオプション'
   Or Enter Manually: または手動で入力
   Or instead of turning the others: 他のネジを回す代わりに
   Original file location unknown: 元のファイルの場所が不明です

@@ -123,6 +123,7 @@
   <translation tag="3D Maze" ja="3D迷路"/>
   <translation tag="3D Pipes" ja="3Dパイプ"/>
   <translation tag="3D View" ja="3Dビュー"/>
+  <translation tag="3MF conversion" ja="3MF変換"/>
   <translation tag="4. Paper should move but with resistance" ja="4. 紙が抵抗を感じながら動く状態が適切です"/>
   <translation tag="4. Repeat until bed is level" ja="4. ベッドが水平になるまで繰り返してください"/>
   <translation tag="5 min" ja="5分"/>
@@ -135,6 +136,7 @@
   <translation tag="= Loosen" ja="= 緩める"/>
   <translation tag="= Tighten" ja="= 締める"/>
   <translation tag="A" ja="A"/>
+  <translation tag="A HelixPrint plugin feature." ja="HelixPrintプラグインの機能です。"/>
   <translation tag="A buzzer or speaker for alerts and sounds. Set what plays in the sound settings." ja="アラートやサウンド用のブザーまたはスピーカー。再生内容はサウンド設定で選べます。"/>
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." ja="Moonrakerが配信するカメラ。ホーム画面にカメラウィジェットを追加すると、印刷中も映像を確認できます。"/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." ja="チャンバー内の空気をフィルターに通すファン。チャンバー温度画面で操作できます。"/>
@@ -286,6 +288,7 @@
   <translation tag="Appearance" ja="外観"/>
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." ja="{}に適用しました。Klipperは再起動で忘れます: スライサーのフィラメントプロファイルでPressure Advanceに{}を入力するか、スプールに保存してください。"/>
   <translation tag="Applies to" ja="適用対象"/>
+  <translation tag="Applies your standing print options, such as unload at end, to prints started from another app or the job queue." ja="終了時のアンロードなどの常設の印刷オプションを、別のアプリやジョブキューから開始された印刷にも適用します。"/>
   <translation tag="Apply" ja="適用"/>
   <translation tag="Aqua Surface" ja="水面"/>
   <translation tag="Archive" ja="アーカイブ"/>
@@ -664,6 +667,7 @@
   <translation tag="Choose rendering mode for bed mesh visualization" ja="ベッドメッシュの視覚化レンダリングモードを選択"/>
   <translation tag="Choose sound style" ja="サウンドスタイルを選択"/>
   <translation tag="Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses." ja="お使いのプリンターに一致するモデルを選択してください。これにより、HelixScreenが使用する印刷マクロ、ファンの役割、キャリブレーション動作が設定されます。"/>
+  <translation tag="Choose what the plugin does for your prints" ja="プラグインが印刷に対して行うことを選択します"/>
   <translation tag="Choose what to power off or restart." ja="電源オフまたは再起動する対象を選択してください。"/>
   <translation tag="Choose which lane is in the toolhead to unload it" ja="取り出すには、ツールヘッドに入っているレーンを選んでください"/>
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" ja="パージシュート位置: X {:.1f}, Y {:.1f}"/>
@@ -2281,6 +2285,8 @@
   <translation tag="Not available here. Update from a terminal." ja="ここでは利用できません。ターミナルから更新してください。"/>
   <translation tag="Not available now" ja="現在は利用できません"/>
   <translation tag="Not available on Android" ja="Androidでは利用できません"/>
+  <translation tag="Not available on this printer ({})." ja="このプリンターでは利用できません（{}）。"/>
+  <translation tag="Not available on this printer." ja="このプリンターでは利用できません。"/>
   <translation tag="Not calibrated" ja="キャリブレーション未実施"/>
   <translation tag="Not configured" ja="未設定"/>
   <translation tag="Not connected" ja="未接続"/>
@@ -2385,6 +2391,7 @@
   <translation tag="Optimizes temperature control for stable, consistent heating." ja="安定した一貫性のある加熱のために温度制御を最適化します。"/>
   <translation tag="Optional - select your main lighting source, or skip if your printer doesn&apos;t have one" ja="任意 - メイン照明を選択するか、照明がない場合はスキップしてください"/>
   <translation tag="Options" ja="オプション"/>
+  <translation tag="Options for prints started elsewhere" ja="他から開始された印刷のオプション"/>
   <translation tag="Or Enter Manually" ja="または手動で入力"/>
   <translation tag="Or instead of turning the others" ja="他のネジを回す代わりに"/>
   <translation tag="Original file location unknown" ja="元のファイルの場所が不明です"/>

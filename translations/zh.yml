@@ -125,6 +125,7 @@ translations:
   3D Maze: 3D 迷宫
   3D Pipes: 3D 管道
   3D View: 3D 视图
+  3MF conversion: '3MF 转换'
   4. Paper should move but with resistance: 4. 纸张应能移动但有阻力
   4. Repeat until bed is level: 4. 重复直到热床水平
   5 min: '5分钟'
@@ -137,6 +138,7 @@ translations:
   = Loosen: = 松开
   = Tighten: = 拧紧
   A: 辅
+  A HelixPrint plugin feature.: 'HelixPrint 插件的一项功能。'
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: '用于提示和声音的蜂鸣器或扬声器。在声音设置中选择播放内容。'
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Moonraker 推流的摄像头。将摄像头小组件添加到主屏幕即可查看,打印时也能看到。'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: '让腔体内空气经过滤网循环的风扇。在腔体温度界面控制。'
@@ -290,6 +292,7 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : '已应用到{}。Klipper重启后会丢失: 请在切片软件的耗材配置中将压力提前设为{},或保存到料盘。'
   Applies to: 适用于
+  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: '将您的常设打印选项（如结束时卸载）应用于从其他应用或任务队列启动的打印。'
   Apply: 应用
   Aqua Surface: '水面'
   Archive: 归档
@@ -675,6 +678,7 @@ translations:
   Choose sound style: 选择声音风格
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : 选择与您的打印机相符的型号。这将决定 HelixScreen 使用的打印宏、风扇角色和校准行为。
+  Choose what the plugin does for your prints: '选择插件为您的打印执行的操作'
   Choose what to power off or restart.: 选择要关闭或重启的对象。
   'Chute position: X {:.1f}, Y {:.1f}': '排料口位置: X {:.1f}, Y {:.1f}'
 
@@ -2361,6 +2365,8 @@ translations:
   Not available here. Update from a terminal.: 此处不可用。请通过终端更新。
   Not available now: 当前不可用
   Not available on Android: Android 上不可用
+  Not available on this printer ({}).: '此打印机不可用（{}）。'
+  Not available on this printer.: '此打印机不可用。'
   Not calibrated: 未校准
   Not configured: 未配置
   Not connected: 未连接
@@ -2470,6 +2476,7 @@ translations:
   Optional - select your main lighting source, or skip if your printer doesn't have one: 可选
     - 选择主照明源，如打印机没有可跳过
   Options: 选项
+  Options for prints started elsewhere: '其他地方启动的打印的选项'
   Or Enter Manually: 或手动输入
   Or instead of turning the others: 或者，无需转动其他螺丝
   Original file location unknown: 原始文件位置未知

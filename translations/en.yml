@@ -124,6 +124,7 @@ translations:
   3D Maze: 3D Maze
   3D Pipes: 3D Pipes
   3D View: 3D View
+  3MF conversion: 3MF conversion
   4. Paper should move but with resistance: 4. Paper should move but with resistance
   4. Repeat until bed is level: 4. Repeat until bed is level
   5 min: 5 min
@@ -136,6 +137,7 @@ translations:
   = Loosen: = Loosen
   = Tighten: = Tighten
   A: A
+  A HelixPrint plugin feature.: A HelixPrint plugin feature.
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.
@@ -302,6 +304,7 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   Applies to: Applies to
+  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: Applies your standing print options, such as unload at end, to prints started from another app or the job queue.
   Apply: Apply
   Aqua Surface: Aqua Surface
   Archive: Archive
@@ -711,6 +714,7 @@ translations:
   Choose sound style: Choose sound style
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
+  Choose what the plugin does for your prints: Choose what the plugin does for your prints
   Choose what to power off or restart.: Choose what to power off or restart.
   'Chute position: X {:.1f}, Y {:.1f}': 'Chute position: X {:.1f}, Y {:.1f}'
   Clean Brush: Clean Brush
@@ -2440,6 +2444,8 @@ translations:
   Not available here. Update from a terminal.: Not available here. Update from a terminal.
   Not available now: Not available now
   Not available on Android: Not available on Android
+  Not available on this printer ({}).: Not available on this printer ({}).
+  Not available on this printer.: Not available on this printer.
   Not calibrated: Not calibrated
   Not configured: Not configured
   Not connected: Not connected
@@ -2549,6 +2555,7 @@ translations:
   Optional - select your main lighting source, or skip if your printer doesn't have one: Optional
     - select your main lighting source, or skip if your printer doesn't have one
   Options: Options
+  Options for prints started elsewhere: Options for prints started elsewhere
   Or Enter Manually: Or Enter Manually
   Or instead of turning the others: Or instead of turning the others
   Original file location unknown: Original file location unknown

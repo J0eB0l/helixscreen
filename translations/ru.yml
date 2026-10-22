@@ -173,6 +173,7 @@ translations:
   3D Maze: 3D лабиринт
   3D Pipes: 3D трубы
   3D View: 3D вид
+  3MF conversion: 'Преобразование 3MF'
   4. Paper should move but with resistance: 4. Бумага должна двигаться, но с сопротивлением
   4. Repeat until bed is level: 4. Повторяйте, пока стол не выровняется
   5 min: '5 мин'
@@ -185,6 +186,7 @@ translations:
   = Loosen: = Ослабить
   = Tighten: = Затянуть
   A: A
+  A HelixPrint plugin feature.: 'Функция плагина HelixPrint.'
   A buzzer or speaker for alerts and sounds. Set what plays in the sound settings.: 'Зуммер или динамик для оповещений и звуков. Что воспроизводится, настраивается в настройках звука.'
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Камера, которую транслирует Moonraker. Добавьте виджет камеры на главный экран, чтобы смотреть ее, в том числе во время печати.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Вентилятор, который прогоняет воздух камеры через фильтр. Управляйте им на экране температуры камеры.'
@@ -349,6 +351,7 @@ translations:
   ? "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   : 'Применено к {}. Klipper забудет значение после перезапуска: укажите {} как Pressure Advance в профиле филамента в слайсере или сохраните его на катушку.'
   Applies to: Применяется к
+  Applies your standing print options, such as unload at end, to prints started from another app or the job queue.: 'Применяет ваши постоянные параметры печати, например выгрузку в конце, к печати, запущенной из другого приложения или из очереди заданий.'
   Apply: Применить
   Aqua Surface: 'Водная гладь'
   Archive: Архивировать
@@ -773,6 +776,7 @@ translations:
   Choose sound style: Выберите стиль звука
   ? Choose the model that matches your printer. This sets the print macros, fan roles and calibration behavior HelixScreen uses.
   : Выберите модель, соответствующую вашему принтеру. Это задаёт используемые HelixScreen макросы печати, роли вентиляторов и поведение калибровки.
+  Choose what the plugin does for your prints: 'Выберите, что плагин делает для вашей печати'
   Choose what to power off or restart.: Выберите, что выключить или перезагрузить.
   'Chute position: X {:.1f}, Y {:.1f}': 'Позиция жёлоба продувки: X {:.1f}, Y {:.1f}'
 
@@ -2541,6 +2545,8 @@ translations:
   Not available here. Update from a terminal.: Здесь недоступно. Обновите через терминал.
   Not available now: Сейчас недоступно
   Not available on Android: Недоступно на Android
+  Not available on this printer ({}).: 'Недоступно на этом принтере ({}).'
+  Not available on this printer.: 'Недоступно на этом принтере.'
   Not calibrated: Не откалиброван
   Not configured: Не настроено
   Not connected: Не подключен
@@ -2651,6 +2657,7 @@ translations:
   Optional - select your main lighting source, or skip if your printer doesn't have one: Необязательно
     — выберите основной источник освещения или пропустите, если его нет
   Options: Параметры
+  Options for prints started elsewhere: 'Параметры для печати, запущенной не отсюда'
   Or Enter Manually: Или введите вручную
   Or instead of turning the others: Или вместо вращения остальных винтов
   Original file location unknown: Расположение исходного файла неизвестно

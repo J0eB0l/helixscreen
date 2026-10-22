@@ -589,8 +589,13 @@ class AmsBackendSnapmaker : public AmsSubscriptionBackend {
     /// tools) as one SET_PRINT_PREFERENCES line, sized to the toolheads the
     /// firmware reports, with every soft_heads() head 0; empty until it has
     /// reported them. The firmware clears its list when every print ends, so
-    /// build_preprint_gcode() carries it on every start.
-    [[nodiscard]] std::string end_unload_gcode() const;
+    /// build_preprint_gcode() carries it on every start. @p print_running
+    /// renders it for a print already under way, which the firmware refuses
+    /// without FORCE.
+    [[nodiscard]] std::string end_unload_gcode(bool print_running = false) const;
+
+    /// The unload-at-end list for a print some other client started.
+    [[nodiscard]] std::string standing_print_gcode() const override;
 
     /// Per head, whether it holds soft filament: the firmware's filament_soft
     /// flag, or a soft material on the slot. Never the flag alone: the

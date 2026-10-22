@@ -3379,6 +3379,23 @@ class AmsBackend {
     }
 
     /**
+     * @brief The user's standing per-print choices, for a print already running.
+     *
+     * A print some other client started (Mainsail, a slicer, Moonraker's job
+     * queue) skips this screen's pre-print step. This is the part of that step
+     * that still applies once the print is running, rendered by the same
+     * functions build_preprint_gcode() uses: no routing (it is refused or too
+     * late mid-print), only choices that act later in the print. It is sent
+     * right after such a start, by the HelixPrint plugin or by this screen.
+     * Default "" (nothing to send).
+     *
+     * @return Newline-joined gcode (no trailing newline), or "" when none
+     */
+    [[nodiscard]] virtual std::string standing_print_gcode() const {
+        return "";
+    }
+
+    /**
      * @brief This screen is about to start a print on a pre-print-send backend.
      *
      * Called by every start that runs the pre-print step, as the start is

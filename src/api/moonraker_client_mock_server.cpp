@@ -521,8 +521,30 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
         if (json plr = self->mock_plr_feature_entry(); !disabled && !plr.is_null()) {
             response["result"]["features"]["plr"] = std::move(plr);
         }
+        if (!disabled) {
+            // print_hooks acts on prints, so it is off until opted into, as
+            // the plugin reads it: helix-screen/plugin_features.print_hooks.
+            const json opt_in = self->mock_db_get("helix-screen", "plugin_features.print_hooks");
+            response["result"]["features"]["print_hooks"] = {
+                {"version", 1},
+                {"available", true},
+                {"enabled", opt_in.is_boolean() && opt_in.get<bool>()},
+                {"reason", nullptr}};
+        }
         if (success_cb) {
             success_cb(response);
+        }
+        return true;
+    };
+
+    // server.helix.print_hooks.screen_start - the screen announcing its own
+    // start to the plugin's print hooks; the mock has no hooks to skip.
+    registry["server.helix.print_hooks.screen_start"] =
+        [](MoonrakerClientMock* /*self*/, const json& params,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
+        if (success_cb) {
+            success_cb(json{{"result", {{"filename", params.value("filename", "")}}}});
         }
         return true;
     };

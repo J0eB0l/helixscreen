@@ -4,6 +4,9 @@
 
 #include "json_utils.h"
 
+#include <algorithm>
+#include <iterator>
+
 namespace helix {
 
 PluginFeatureMap parse_plugin_features(const nlohmann::json& status_result) {
@@ -45,6 +48,49 @@ PluginFeatureState plugin_feature_state(bool plugin_available, const PluginFeatu
         return PluginFeatureState::Absent;
     }
     return entry.enabled ? PluginFeatureState::Ready : PluginFeatureState::Disabled;
+}
+
+bool plugin_feature_opted_in(const nlohmann::json& record, const std::string& name, bool acts) {
+    const nlohmann::json* value = json_util::find_member(record, name.c_str());
+    if (value != nullptr && value->is_boolean()) {
+        return value->get<bool>();
+    }
+    return !acts;
+}
+
+std::vector<PluginFeatureRow> plugin_feature_rows(const PluginFeatureMap& features) {
+    std::vector<PluginFeatureRow> rows;
+    auto row_for = [](const std::string& name, const PluginFeatureEntry& entry) {
+        PluginFeatureRow row;
+        row.name = name;
+        row.label = name;
+        row.description = kUnknownPluginFeatureDescription;
+        row.icon = kUnknownPluginFeatureIcon;
+        row.enabled = entry.enabled;
+        row.available = entry.available;
+        row.reason = entry.available ? "" : entry.reason;
+        return row;
+    };
+    for (const KnownPluginFeature& known : kKnownPluginFeatures) {
+        const auto it = features.find(known.name);
+        if (it == features.end() || known.own_switch) {
+            continue;
+        }
+        PluginFeatureRow row = row_for(it->first, it->second);
+        row.label = known.label;
+        row.description = known.description;
+        row.icon = known.icon;
+        rows.push_back(std::move(row));
+    }
+    for (const auto& [name, entry] : features) {
+        const bool known =
+            std::any_of(std::begin(kKnownPluginFeatures), std::end(kKnownPluginFeatures),
+                        [&name](const KnownPluginFeature& k) { return name == k.name; });
+        if (!known) {
+            rows.push_back(row_for(name, entry));
+        }
+    }
+    return rows;
 }
 
 } // namespace helix

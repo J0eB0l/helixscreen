@@ -112,7 +112,7 @@ class PrinterPluginStatusState {
     /// The features map the plugin's status reported; empty when it reported none.
     void set_features(PluginFeatureMap features) {
         features_ = std::move(features);
-        publish_plr_feature();
+        publish_features();
         if (subjects_initialized_) {
             lv_subject_set_int(&helix_plugin_probe_seq_,
                                lv_subject_get_int(&helix_plugin_probe_seq_) + 1);
@@ -179,6 +179,12 @@ class PrinterPluginStatusState {
         return &plr_feature_state_;
     }
 
+    /// How many rows the plugin features settings screen lists
+    /// (plugin_feature_rows()); 0 without a plugin. The Settings entry binds it.
+    lv_subject_t* get_plugin_feature_row_count_subject() {
+        return &plugin_feature_row_count_;
+    }
+
     /// Counts the plugin's status answers applied this session (0 before the
     /// first). Each discovery pass's probe answers after that pass has resolved
     /// the printer type, so a change here says the type is this connection's.
@@ -229,8 +235,9 @@ class PrinterPluginStatusState {
     lv_subject_t plr_feature_state_{};
     lv_subject_t helix_plugin_probe_seq_{};
     lv_subject_t plr_saving_enabled_{};
-    /// Republish the plr subjects from the plugin state and features map.
-    void publish_plr_feature();
+    lv_subject_t plugin_feature_row_count_{};
+    /// Republish the feature subjects from the plugin state and features map.
+    void publish_features();
 
     /// Composed HelixMacrosStatus; see publish_helix_macros_status()
     lv_subject_t helix_macros_status_{};
