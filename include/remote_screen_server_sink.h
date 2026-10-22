@@ -19,7 +19,8 @@
 
 namespace helix {
 
-/// How long after the last request a viewer counts as present.
+/// How long after the last request a viewer counts as present: frames are captured, and a
+/// page viewer holds the display awake.
 constexpr int64_t kViewerIdleMs = 10000;
 /// How long the first request after idle waits for a full repaint to land.
 constexpr int64_t kFirstFrameWaitMs = 500;
@@ -62,10 +63,15 @@ class ScreenFrameStore {
     /// An empty @p clock means `steady_clock::now`.
     explicit ScreenFrameStore(Clock clock = {});
 
-    /// True within kViewerIdleMs of the last request. Cheap: called on every flush.
+    /// True within kViewerIdleMs of the last request of any kind. Cheap: called on every flush.
     bool wants_frames() const;
-    /// wants_frames() as of @p at. Lock-free, safe from any thread.
-    bool viewer_present(std::chrono::steady_clock::time_point at) const;
+
+    /// The HelixScreen viewer page polled a snapshot: a person is looking at the screen.
+    /// Webcam integrations (Obico, Home Assistant, timelapse, a view-only stream) fetch the
+    /// same routes unmarked and only ever reach note_request().
+    void note_page_view();
+    /// True within kViewerIdleMs of the last note_page_view(). Lock-free, safe from any thread.
+    bool page_viewer_present() const;
 
     /// Copy one dirty rect in, (re)allocating the shadow at the frame's display size
     /// and pixel format. The generation advances on the refresh's last rect, so a
@@ -109,12 +115,16 @@ class ScreenFrameStore {
 
   private:
     std::chrono::steady_clock::time_point now() const;
+    /// @p last (steady_clock ticks, INT64_MIN = never) is within kViewerIdleMs of now().
+    bool within_viewer_idle(int64_t last) const;
     void release_locked();
 
     Clock clock_;
 
     /// steady_clock ticks of the last request; min() = never.
     std::atomic<int64_t> last_request_{INT64_MIN};
+    /// steady_clock ticks of the last viewer page poll; min() = never.
+    std::atomic<int64_t> last_page_view_{INT64_MIN};
 
     mutable std::mutex mutex_;
     std::condition_variable cv_;

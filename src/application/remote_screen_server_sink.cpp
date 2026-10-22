@@ -38,18 +38,25 @@ std::chrono::steady_clock::time_point ScreenFrameStore::now() const {
     return clock_ ? clock_() : std::chrono::steady_clock::now();
 }
 
-bool ScreenFrameStore::wants_frames() const {
-    return viewer_present(now());
-}
-
-bool ScreenFrameStore::viewer_present(std::chrono::steady_clock::time_point at) const {
-    const int64_t last = last_request_.load(std::memory_order_acquire);
+bool ScreenFrameStore::within_viewer_idle(int64_t last) const {
     if (last == INT64_MIN) {
         return false;
     }
     const auto idle = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
         std::chrono::milliseconds(kViewerIdleMs));
-    return at.time_since_epoch().count() - last < idle.count();
+    return now().time_since_epoch().count() - last < idle.count();
+}
+
+bool ScreenFrameStore::wants_frames() const {
+    return within_viewer_idle(last_request_.load(std::memory_order_acquire));
+}
+
+void ScreenFrameStore::note_page_view() {
+    last_page_view_.store(now().time_since_epoch().count(), std::memory_order_release);
+}
+
+bool ScreenFrameStore::page_viewer_present() const {
+    return within_viewer_idle(last_page_view_.load(std::memory_order_acquire));
 }
 
 void ScreenFrameStore::on_frame(const RemoteScreenFrame& f) {
@@ -218,6 +225,7 @@ bool ScreenFrameStore::release_if_idle() {
 
 void ScreenFrameStore::release() {
     last_request_.store(INT64_MIN, std::memory_order_release);
+    last_page_view_.store(INT64_MIN, std::memory_order_release);
     std::lock_guard<std::mutex> encode_lock(encode_mutex_);
     std::lock_guard<std::mutex> lock(mutex_);
     release_locked();

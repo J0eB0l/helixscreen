@@ -484,3 +484,55 @@ TEST_CASE("stream: an open stream keeps wants_frames true past kViewerIdleMs",
     server.stop();
     client.join();
 }
+
+// ---------------------------------------------------------------------------
+// Who counts as a viewer
+// ---------------------------------------------------------------------------
+
+TEST_CASE("viewer: a plain snapshot captures frames but is no page viewer; a marked poll is",
+          "[remote_screen][http][remote_viewer]") {
+    ServerFixture fx;
+    fx.store->note_request();
+    fx.capture();
+    REQUIRE(raw_http(fx.server->port(), "GET", "/snapshot.jpg").status == 200);
+    CHECK(fx.store->wants_frames());
+    CHECK_FALSE(fx.store->page_viewer_present());
+    // Another parameter's value does not count either.
+    REQUIRE(
+        raw_http(fx.server->port(), "GET", std::string("/snapshot.jpg?") + kViewerPageParam + "=0")
+            .status == 200);
+    CHECK_FALSE(fx.store->page_viewer_present());
+
+    REQUIRE(raw_http(fx.server->port(), "GET",
+                     std::string("/snapshot.jpg?") + kViewerPageParam + "=1&t=123")
+                .status == 200);
+    CHECK(fx.store->page_viewer_present());
+}
+
+TEST_CASE("viewer: a touch is no page viewer", "[remote_screen][http][remote_viewer]") {
+    ControlFixture fx(true, false);
+    REQUIRE(fx.touch(kDown, true, "http://" + fx.host()).status == 204);
+    CHECK(fx.store->wants_frames());
+    CHECK_FALSE(fx.store->page_viewer_present());
+}
+
+TEST_CASE("viewer: an open stream is no page viewer", "[remote_screen][http][remote_viewer]") {
+    ServerFixture fx;
+    fx.store->note_request();
+    fx.capture();
+    const std::string got = read_stream(fx.server->port(), 1, 3s);
+    REQUIRE(got.find("image/jpeg") != std::string::npos);
+    CHECK(fx.store->wants_frames());
+    CHECK_FALSE(fx.store->page_viewer_present());
+}
+
+TEST_CASE("viewer: the served page marks its snapshot polls",
+          "[remote_screen][http][remote_viewer]") {
+    ScreenServerConfig cfg;
+    cfg.page_path = "assets/remote_screen/index.html";
+    ServerFixture fx(cfg);
+    auto r = raw_http(fx.server->port(), "GET", "/");
+    REQUIRE(r.status == 200);
+    CHECK(r.body.find(std::string("\"snapshot.jpg?") + kViewerPageParam + "=1") !=
+          std::string::npos);
+}

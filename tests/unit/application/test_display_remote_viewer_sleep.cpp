@@ -89,8 +89,8 @@ TEST_CASE_METHOD(RemoteViewerSleepFixture, "a remote viewer keeps the display ou
     DisplayManager mgr;
     idle_past_sleep_timeout(mgr);
 
-    RemoteScreenService::instance().store()->note_request();
-    REQUIRE(RemoteScreenService::instance().viewer_active(std::chrono::steady_clock::now()));
+    RemoteScreenService::instance().store()->note_page_view();
+    REQUIRE(RemoteScreenService::instance().viewer_active());
 
     mgr.check_display_sleep();
     CHECK_FALSE(mgr.is_display_sleeping());
@@ -101,7 +101,7 @@ TEST_CASE_METHOD(RemoteViewerSleepFixture, "with no remote viewer the display sl
     // Negative control: the server is up, nobody has fetched a frame.
     DisplayManager mgr;
     idle_past_sleep_timeout(mgr);
-    REQUIRE_FALSE(RemoteScreenService::instance().viewer_active(std::chrono::steady_clock::now()));
+    REQUIRE_FALSE(RemoteScreenService::instance().viewer_active());
 
     mgr.check_display_sleep();
     CHECK(mgr.is_display_sleeping());
@@ -117,7 +117,7 @@ TEST_CASE_METHOD(RemoteViewerSleepFixture, "a remote viewer arriving wakes a sle
     mgr.check_display_sleep();
     REQUIRE(mgr.is_display_sleeping());
 
-    RemoteScreenService::instance().store()->note_request();
+    RemoteScreenService::instance().store()->note_page_view();
     mgr.check_display_sleep();
     CHECK_FALSE(mgr.is_display_sleeping());
     // The wake restarts the idle clock, as a touch does.
@@ -129,14 +129,14 @@ TEST_CASE_METHOD(RemoteViewerSleepFixture,
                  "[application][display][sleep][remote_viewer]") {
     DisplayManager mgr;
     idle_past_sleep_timeout(mgr);
-    RemoteScreenService::instance().store()->note_request();
+    RemoteScreenService::instance().store()->note_page_view();
     mgr.check_display_sleep();
     REQUIRE_FALSE(mgr.is_display_sleeping());
 
     // Asleep by some other path while the same viewer is still watching.
     DisplayManagerTestAccess::enter_sleep(mgr, 1);
     REQUIRE(mgr.is_display_sleeping());
-    RemoteScreenService::instance().store()->note_request();
+    RemoteScreenService::instance().store()->note_page_view();
     process_lvgl(1500);
     mgr.check_display_sleep();
     CHECK(mgr.is_display_sleeping());
