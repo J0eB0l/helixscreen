@@ -257,6 +257,8 @@ Sets `HELIX_CACHE_DIR=/usr/data/helixscreen/cache` since `/usr/data/` is the wri
 
 HelixScreen renders directly to `/dev/fb0`. The framebuffer is 480x800 portrait (virtual size 480x1600 for double-buffering). Software rotation to landscape yields an effective resolution of 800x480.
 
+The K1, K1C and K1 Max mount that panel the same way, so a first boot applies 270° from the board's known-panel entry (`src/application/display_metrics.cpp#kKnownPanels`) and saves it, without the interactive rotation probe. An explicit `/display/rotate`, `--rotate` or `HELIX_DISPLAY_ROTATION` still wins.
+
 ## Touch Input
 
 HelixScreen uses evdev and auto-detects the capacitive touch controller. Running as root (default) avoids permission issues on `/dev/input/event*`.

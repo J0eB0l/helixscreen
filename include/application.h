@@ -158,7 +158,7 @@ class Application {
     // First-boot rotation probe decision and the kernel panel_orientation it
     // read (-1 = none), both taken in init_display() before the display exists
     bool m_rotation_probe_wanted = false;
-    int m_kernel_orientation = -1;
+    int m_first_boot_orientation = -1;
 
     // Screen (not owned, managed by LVGL); the session reads it through a reference
     lv_obj_t* m_screen = nullptr;

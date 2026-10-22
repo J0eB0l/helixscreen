@@ -386,6 +386,7 @@ HELIX_FORCE_ROTATION_PROBE=1 ./build/bin/helix-screen
 - Saves the confirmed rotation to `/display/rotate` in `settings.json`
 - Sets `/display/rotation_probed` flag so it doesn't re-run on subsequent boots
 - Skips entirely if: rotation is already configured (config, env var, or CLI), or the probe has already run
+- Never shows on a board whose orientation is already known: the kernel's `panel_orientation`, else the board's mount (`upright_rotation` in `src/application/display_metrics.cpp#kKnownPanels`; 270° on the K1, K1C and K1 Max). That rotation is saved the same way, with no prompt
 - Runs after translations are loaded (Phase 8c) so probe strings are translatable via `lv_tr()`
 
 **The probe cannot be driven by `helix-screen ctl`.** It blocks in startup Phase 8b, and the

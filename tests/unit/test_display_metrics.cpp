@@ -200,6 +200,27 @@ TEST_CASE("known panel DPI values all sit inside the deadband", "[display_metric
     }
 }
 
+TEST_CASE("a K1 comes up upright without the rotation probe", "[display_metrics][panel]") {
+    // K1, K1C and K1 Max share one portrait panel in one mount and report no
+    // kernel panel_orientation, so the board is the only source of the answer.
+    CHECK(DisplayMetrics::first_boot_orientation(-1, Board::K1) == 270);
+}
+
+TEST_CASE("a kernel panel_orientation beats the board's mount", "[display_metrics][panel]") {
+    CHECK(DisplayMetrics::first_boot_orientation(90, Board::K1) == 90);
+    CHECK(DisplayMetrics::first_boot_orientation(0, Board::K1) == 0);
+    CHECK(DisplayMetrics::first_boot_orientation(180, Board::Generic) == 180);
+}
+
+TEST_CASE("a board with no known mount leaves orientation to the probe",
+          "[display_metrics][panel]") {
+    for (Board board : {Board::Generic, Board::Ad5m, Board::Ad5x, Board::Creator5,
+                        Board::Creator5Pro, Board::Cc1, Board::K2, Board::SnapmakerU1}) {
+        INFO("board: " << helix::board::info(board).key);
+        CHECK(DisplayMetrics::first_boot_orientation(-1, board) == -1);
+    }
+}
+
 // ============================================================================
 // Source precedence
 // ============================================================================
