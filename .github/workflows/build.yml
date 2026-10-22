@@ -738,6 +738,20 @@ jobs:
     - name: Setup Python venv for translation and XML gates
       run: make venv-setup
 
+    # test_release_health.bats runs scripts/release-health.sh, which runs
+    # `npx vite-node` in server/telemetry-worker. Without that directory's
+    # node_modules, npx downloads vite-node from npm in the middle of the test,
+    # and a slow registry holds the whole suite's output behind it.
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+        cache-dependency-path: server/telemetry-worker/package-lock.json
+
+    - name: Install telemetry worker dependencies
+      working-directory: server/telemetry-worker
+      run: npm ci --no-audit --no-fund
+
     # make test-shell runs the files in parallel, one per slot of
     # `helix-claim jobs`; bare bats runs them one after another, which on this
     # 4-core runner takes most of the job's timeout. A runner without GNU
@@ -787,16 +801,17 @@ jobs:
       with:
         submodules: false
 
+    # npm ci from the committed lockfile, with setup-node caching the
+    # downloads keyed on it, so a slow registry does not stall the install.
     - uses: actions/setup-node@v4
       with:
         node-version: '20'
+        cache: npm
+        cache-dependency-path: server/telemetry-worker/package-lock.json
 
-    # `npm install`, not `npm ci`: package-lock.json is gitignored repo-wide
-    # (.gitignore "Dependencies" block), so there is no lockfile to install
-    # from and nothing to key a cache on.
     - name: Install dependencies
       working-directory: server/telemetry-worker
-      run: npm install
+      run: npm ci --no-audit --no-fund
 
     - name: Run worker tests
       working-directory: server/telemetry-worker
