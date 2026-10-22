@@ -305,6 +305,9 @@ void GCodeOpsDetector::check_line(const std::string& line, size_t line_number, s
         }
 
         if (found) {
+            result.operation_commands.emplace(pattern.type,
+                                              helix::text_io::to_upper(command_word(trimmed)));
+
             // One operation per type: per file, or per line when every
             // occurrence is kept (two keywords of one type can match one line).
             bool already_detected =

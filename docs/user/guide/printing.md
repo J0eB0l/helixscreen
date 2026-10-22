@@ -91,6 +91,10 @@ These options modify the G-code on-the-fly — if you disable "Auto Bed Mesh" bu
 
 > **Tip:** Pre-print options remember your preferences per slicer. If you always run bed mesh before PrusaSlicer prints, that preference persists.
 
+**Creality K2, K2 Plus and K2 Pro (stock firmware): Auto Bed Mesh.** Creality's start sequence has no setting HelixScreen can switch, so with **Auto Bed Mesh** on, HelixScreen sends the printer's own mesh-before-print command (`BED_MESH_CALIBRATE_START_PRINT`) just before the print starts. Auto Bed Mesh is on by default on these printers. With it off, HelixScreen sends nothing and the printer does whatever its own start sequence does. If the file's own start G-code already calls `BED_MESH_CALIBRATE_START_PRINT` itself, HelixScreen does not send it, so the bed is meshed once, not twice. Only that exact command counts: other bed mesh lines (such as `BED_MESH_PROFILE LOAD` or `BED_MESH_CLEAR`) and `START_PRINT` settings that ask for a mesh do not, and HelixScreen still sends its mesh command then. HelixScreen checks only the start of the file (the first 500 lines or 50 KB, thumbnails included, and nothing past the first extruding move); a call further in is not seen, and the mesh is sent.
+
+This applies to every print started from the screen, including a queued job started from the screen. A print started from your slicer, Mainsail, Fluidd, or by Moonraker's queue on its own never gets HelixScreen's pre-print options.
+
 ---
 
 ## Starting a Print
@@ -226,6 +230,7 @@ During printing, frame captures happen automatically based on your timelapse set
 You don't have to wait for a print to end before picking the next one. While a print is running - or still preparing, before its first layer - open any file and its **Print** button becomes **Add to Queue**, marked with a clock icon. A toast confirms the job's position ("Added to queue (position 2)").
 
 - The pre-print options you set on that screen (bed mesh, nozzle cleaning and so on) are saved with the queued job and come back when the job starts.
+- A job added to the queue from somewhere else (Mainsail, Fluidd, your slicer) has no saved options. Started from the screen, it uses each option's default, so on a Creality K2 **Auto Bed Mesh** is on (see [Pre-Print Options](#pre-print-options)).
 - Filament Mapping is not saved with the job: it is worked out again when the job actually starts, against the filament loaded at that moment.
 
 **Where to see the queue:**

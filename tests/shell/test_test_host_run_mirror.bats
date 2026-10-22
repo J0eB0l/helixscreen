@@ -72,7 +72,22 @@ case "$1" in
                     exec bash -c "$3"
                 fi
                 exit 1 ;;
-            *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG" ;;
+            *"base64 -d"*)
+                # MOCK_CCACHE_DIR: run the ccache settings command here, against
+                # that cache; its last argument is the bash -c script.
+                echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG"
+                if [ -n "${MOCK_CCACHE_DIR:-}" ]; then
+                    for a in "$@"; do last=$a; done
+                    CCACHE_DIR=$MOCK_CCACHE_DIR exec bash -c "$last"
+                fi ;;
+            *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG"
+               # MOCK_SWEEP_FAILS=<mirror>: the sweep fails and leaves a
+               # failing shard log in that mirror, as the real one does.
+               if [ -n "${MOCK_SWEEP_FAILS:-}" ]; then
+                   mkdir -p "$MOCK_SWEEP_FAILS/build/shard-artifacts/helix-shards-T1"
+                   echo "hung in: a teardown case" > "$MOCK_SWEEP_FAILS/build/shard-artifacts/helix-shards-T1/92.log"
+                   exit 2
+               fi ;;
         esac ;;
     *) echo "unhandled docker call: $*" >&2; exit 1 ;;
 esac
@@ -115,6 +130,29 @@ mirror_of() { echo "$HELIX_TEST_TREES_HOST/$1"; }
     # The job runs in the mirror, not in the shared commit checkout.
     grep -qF -- "-w /work/trees/tree-a " "$MOCK_DOCKER_LOG"
     refute_grep "git reset" "$MOCK_DOCKER_LOG"
+}
+
+@test "every run applies the shared ccache settings in the container and checks they cover the mirror" {
+    command -v ccache >/dev/null || skip "ccache is not installed"
+    local t
+    t=$(make_tree tree-a)
+    export MOCK_CCACHE_DIR="$BATS_TEST_TMPDIR/ccache"
+    mkdir -p "$MOCK_CCACHE_DIR"
+    cd "$t"
+    run "$TEST_HOST_RUN" test '[x]'
+    [ "$status" -eq 0 ] || { echo "$output" >&2; return 1; }
+    contains "→ ccache base_dir: /work (was unset)" "$output"
+    lacks "is not a prefix" "$output"
+    grep -qx 'base_dir = /work' "$MOCK_CCACHE_DIR/ccache.conf"
+    grep -qx 'hash_dir = false' "$MOCK_CCACHE_DIR/ccache.conf"
+    grep -qx 'max_size = 200G' "$MOCK_CCACHE_DIR/ccache.conf"
+    grep -qF -- "check /work/trees/tree-a" "$MOCK_DOCKER_LOG"
+
+    # A cache whose base_dir drifted is put back on the next run.
+    CCACHE_DIR=$MOCK_CCACHE_DIR ccache --set-config base_dir=/elsewhere
+    run "$TEST_HOST_RUN" test '[x]'
+    [ "$status" -eq 0 ]
+    contains "→ ccache base_dir: /work (was /elsewhere)" "$output"
 }
 
 @test "a file deleted locally is gone from the mirror after the next sync" {
@@ -888,4 +926,26 @@ shared_checkout() {
     [ "$status" -eq 0 ]
     [ -d "$HELIX_TEST_TREES_HOST/new+seeding" ]
     [ ! -e "$HELIX_TEST_TREES_HOST/dead+seeding" ]
+}
+
+@test "a failed sweep brings its failing shards' logs back to the local tree" {
+    local t m
+    t=$(make_tree tree-s)
+    m=$(mirror_of tree-s)
+    cd "$t"
+    MOCK_SWEEP_FAILS="$m" run "$TEST_HOST_RUN" sweep
+    [ "$status" -ne 0 ]
+    [ "$(cat "$t/build/shard-artifacts/helix-shards-T1/92.log")" = "hung in: a teardown case" ]
+    contains "failing shards' logs copied here: build/shard-artifacts/helix-shards-T1" "$output"
+    # The sweep keeps them inside the mirror, where they outlive the container.
+    grep -qF "SHARD_ARTIFACT_ROOT=build/shard-artifacts" "$MOCK_DOCKER_LOG"
+}
+
+@test "a passing sweep copies nothing back" {
+    local t
+    t=$(make_tree tree-p)
+    cd "$t"
+    run "$TEST_HOST_RUN" sweep
+    [ "$status" -eq 0 ]
+    [ ! -e "$t/build/shard-artifacts" ]
 }

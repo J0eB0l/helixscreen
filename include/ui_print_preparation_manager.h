@@ -1039,15 +1039,17 @@ class PrintPreparationManager {
      * @param with_skip_toggles False leaves out the leveling-skip toggles
      *        (skip_wrappers::option_for()): those set a flag and carry no
      *        START_PRINT skip parameter, so they are no delivery path for one.
-     * @param job_start The START_PRINT call the started file's own scan found,
-     *        whose temps fill {bed_temp}/{extruder_temp} (Moonraker metadata is
-     *        wrong on multi-material files). Null renders them 0, so the
-     *        firmware macro keeps its own default.
+     * @param scan The started file's own scan. Its START_PRINT call's temps
+     *        fill {bed_temp}/{extruder_temp} (Moonraker metadata is wrong on
+     *        multi-material files); without one they render 0, so the firmware
+     *        macro keeps its own default. An enabled option whose line performs
+     *        its step (no off form) is left out when the scan shows the file
+     *        runs that step itself, or the printer would run it twice.
      * @return Vector of rendered gcode lines, e.g. {"LOAD_AI_RUN SWITCH=1"}.
      */
     [[nodiscard]] std::vector<std::string>
     collect_pre_start_gcode_lines(const std::string& filename = {}, bool with_skip_toggles = true,
-                                  const gcode::PrintStartCallInfo* job_start = nullptr) const;
+                                  const gcode::ScanResult* scan = nullptr) const;
 
     /// The block a start sends ahead of START_PRINT: the printer's setup_gcode
     /// (when @p macro_skip_params has any) and every pre-start line, joined.
@@ -1058,7 +1060,7 @@ class PrintPreparationManager {
     };
     [[nodiscard]] PreStartBlock
     pre_start_block(const std::vector<std::pair<std::string, std::string>>& macro_skip_params,
-                    const std::string& filename, const gcode::PrintStartCallInfo* job_start) const;
+                    const std::string& filename, const gcode::ScanResult* scan) const;
 
     /// Whether a start with these choices acts on its file's scan: a step the
     /// user turned off that a file may embed, or a START_PRINT rewrite (skip

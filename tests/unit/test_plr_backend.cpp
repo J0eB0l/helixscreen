@@ -502,3 +502,88 @@ TEST_CASE("plr_parse_power_loss_signal: numeric presence only", "[plr][backend]"
     REQUIRE_FALSE(helix::plr_parse_power_loss_signal(json{{"print_stats", 5}}));
     REQUIRE_FALSE(helix::plr_parse_power_loss_signal(json::object()));
 }
+
+// ===========================================================================
+// GENERIC (HelixPrint plugin) selection: the design's precedence table
+// ===========================================================================
+
+namespace {
+
+struct SelectRow {
+    bool pl_env_valid;
+    helix::PlrPluginBackend plugin_backend;
+    bool legacy_qidi;
+    bool creality_field;
+    bool plugin_offer;
+    helix::PluginFeatureState feature;
+    PlrBackendType expected;
+};
+
+} // namespace
+
+TEST_CASE("plr_select_backend: plugin backends slot into the vendor precedence",
+          "[plr][backend][generic]") {
+    using helix::PlrPluginBackend;
+    using helix::PluginFeatureState;
+    const SelectRow rows[] = {
+        // pl_env_valid outranks everything, the plugin included
+        {true, PlrPluginBackend::QidiPrintState, true, true, true, PluginFeatureState::Ready,
+         PlrBackendType::SNAPMAKER},
+        // the plugin's print_state adapter outranks the legacy QIDI macros
+        {false, PlrPluginBackend::QidiPrintState, true, false, false, PluginFeatureState::Ready,
+         PlrBackendType::GENERIC},
+        {false, PlrPluginBackend::None, true, false, false, PluginFeatureState::Ready,
+         PlrBackendType::QIDI},
+        // a firmware's own recovery outranks the generic plugin
+        {false, PlrPluginBackend::Generic, false, true, true, PluginFeatureState::Ready,
+         PlrBackendType::CREALITY},
+        {false, PlrPluginBackend::Generic, true, false, true, PluginFeatureState::Ready,
+         PlrBackendType::QIDI},
+        {false, PlrPluginBackend::Generic, false, false, true, PluginFeatureState::Ready,
+         PlrBackendType::GENERIC},
+        {false, PlrPluginBackend::None, false, false, false, PluginFeatureState::Ready,
+         PlrBackendType::NONE},
+        // the feature gate: absent or switched off selects nothing from the plugin
+        {false, PlrPluginBackend::Generic, false, false, true, PluginFeatureState::Absent,
+         PlrBackendType::NONE},
+        {false, PlrPluginBackend::Generic, false, false, true, PluginFeatureState::Disabled,
+         PlrBackendType::NONE},
+        {false, PlrPluginBackend::QidiPrintState, true, false, true, PluginFeatureState::Absent,
+         PlrBackendType::QIDI},
+    };
+    for (const auto& row : rows) {
+        PlrCapabilitySignals caps;
+        caps.snapmaker_pl_env_valid = row.pl_env_valid;
+        caps.plugin_backend = row.plugin_backend;
+        caps.qidi_resume_macro = row.legacy_qidi;
+        caps.qidi_was_interrupted = row.legacy_qidi;
+        caps.creality_power_loss_field = row.creality_field;
+        caps.plugin_offer_available = row.plugin_offer;
+        caps.plr_feature = row.feature;
+        CAPTURE(row.pl_env_valid, static_cast<int>(row.plugin_backend), row.legacy_qidi,
+                row.creality_field, row.plugin_offer, static_cast<int>(row.feature));
+        CHECK(helix::plr_select_backend(caps) == row.expected);
+    }
+}
+
+TEST_CASE("plr_build_plan: GENERIC opens the plugin's guided resume, never a gcode",
+          "[plr][backend][generic]") {
+    PlrRecoveryPlan plan =
+        helix::plr_build_plan(PlrBackendType::GENERIC, "part.gcode", PlrDetectResult{});
+    CHECK(plan.backend == PlrBackendType::GENERIC);
+    CHECK(plan.resume_gcode.empty());
+    CHECK(plan.discard_gcode.empty());
+    CHECK(plan.resume_rpc == std::string(helix::kPlrPlanRpc));
+    CHECK(plan.discard_rpc_method == std::string(helix::kPlrDiscardRpc));
+    CHECK(plan.resume_allowed());
+    CHECK(plan.discard_available());
+}
+
+TEST_CASE("plr_build_plan: no firmware backend carries a plugin resume RPC",
+          "[plr][backend][generic]") {
+    for (PlrBackendType b : {PlrBackendType::SNAPMAKER, PlrBackendType::QIDI,
+                             PlrBackendType::CREALITY, PlrBackendType::NONE}) {
+        CAPTURE(static_cast<int>(b));
+        CHECK(helix::plr_build_plan(b, "part.gcode", confirmed_detect()).resume_rpc.empty());
+    }
+}

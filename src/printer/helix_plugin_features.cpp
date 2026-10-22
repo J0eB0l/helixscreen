@@ -22,6 +22,10 @@ PluginFeatureMap parse_plugin_features(const nlohmann::json& status_result) {
         entry.available = json_util::safe_bool(value, "available", false);
         entry.enabled = json_util::safe_bool(value, "enabled", false);
         entry.reason = json_util::safe_string(value, "reason", "");
+        if (const nlohmann::json* saving = json_util::find_member(value, "saving");
+            saving != nullptr && saving->is_boolean()) {
+            entry.saving = saving->get<bool>();
+        }
         features[it.key()] = std::move(entry);
     }
     return features;

@@ -197,3 +197,26 @@ TEST_CASE("folding a frame keeps the tag's values under our own write's echo",
         CHECK(folded->color_rgb == std::optional<uint32_t>(0x00FF00u));
     }
 }
+
+TEST_CASE("a tag naming a Spoolman spool is a reading, and a different reading",
+          "[ams][tag_reading]") {
+    TagReading only_id;
+    only_id.spoolman_id = 42;
+    CHECK_FALSE(only_id.empty());
+
+    TagReading other_id = only_id;
+    other_id.spoolman_id = 43;
+    CHECK_FALSE(only_id == other_id);
+    CHECK(only_id == only_id);
+}
+
+TEST_CASE("folding a frame leaves the tag's spool id to the backend", "[ams][tag_reading]") {
+    TagReading kept;
+    kept.material = std::string("PLA");
+    kept.spoolman_id = 42;
+    TagReading raw;
+    raw.material = std::string("PLA");
+    const auto folded = fold_tag_frame(kept, raw, raw);
+    REQUIRE(folded);
+    CHECK_FALSE(folded->spoolman_id);
+}

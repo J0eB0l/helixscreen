@@ -51,10 +51,18 @@ android {
             cmake {
                 def cmakeArgs = ["-DANDROID_STL=c++_shared"]
                 if (project.hasProperty('useCcache')) {
+                    // ccache refuses every TU that uses the precompiled header
+                    // unless this sloppiness allows it; with it, and the PCH
+                    // built without timestamps (jni/CMakeLists.txt), the cache
+                    // also survives a fresh checkout rebuilding the PCH.
+                    def launcher = "env;CCACHE_SLOPPINESS=pch_defines,time_macros,include_file_mtime,include_file_ctime;ccache"
                     cmakeArgs += [
-                        "-DCMAKE_C_COMPILER_LAUNCHER=ccache",
-                        "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+                        "-DCMAKE_C_COMPILER_LAUNCHER=${launcher}",
+                        "-DCMAKE_CXX_COMPILER_LAUNCHER=${launcher}"
                     ]
+                }
+                if (project.hasProperty('helixNoDebugInfo')) {
+                    cmakeArgs += ["-DHELIX_NO_DEBUG_INFO=ON"]
                 }
                 if (System.getenv("ANDROID_KEYSTORE_PATH") || project.hasProperty('helixDiagUploads')) {
                     cmakeArgs += ["-DHELIX_DIAGNOSTIC_UPLOADS=ON"]

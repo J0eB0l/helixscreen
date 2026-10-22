@@ -17,6 +17,9 @@ setup() {
     FETCH_LOG="$BATS_TEST_TMPDIR/fetch.log"
     GIT_LOG="$BATS_TEST_TMPDIR/git.log"
     export RELEASE_ROOT FETCH_LOG GIT_LOG
+    # The stub wget answers every Moonraker probe yet no plugin ever loads, so
+    # the post-restart wait runs to its limit. Nothing here tests that wait.
+    export HELIX_MOONRAKER_UP_SECS=1
     publish_release v1.2.3
     mkdir -p "$BATS_TEST_TMPDIR/bin"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
@@ -32,7 +35,8 @@ setup() {
 publish_release() {
     local dir="$RELEASE_ROOT/$1/moonraker-plugin"
     mkdir -p "$dir"
-    for f in install.sh helix_print_conf.sh helix_print.py helix_3mf.py helix_capabilities.py \
+    for f in install.sh helix_print_conf.sh helix_print.py helix_3mf.py helix_capabilities.py helix_gcode_reader.py helix_plr.py \
+        helix_plr_qidi.py helix_plr_render.py helix_plr_scan.py \
         strip_phase_tracking.py; do
         cp "$REPO_ROOT/moonraker-plugin/$f" "$dir/$f"
     done

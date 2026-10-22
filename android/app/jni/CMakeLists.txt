@@ -14,6 +14,12 @@ get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOL
 # every style they share, and nothing at link time notices.
 add_compile_definitions($<$<NOT:$<CONFIG:Debug>>:HELIX_RELEASE_BUILD>)
 
+# CI's debug APK is a compile check that nobody attaches a debugger to, and its
+# DWARF is most of what that job's ccache has to store.
+if(HELIX_NO_DEBUG_INFO)
+    add_compile_options(-g0)
+endif()
+
 # ============================================================================
 # SDL2
 # ============================================================================
@@ -376,6 +382,11 @@ target_compile_options(main PRIVATE
 # lvgl.h, helix_xml.h, spdlog, and common STL headers into every TU.
 target_precompile_headers(main PRIVATE
     "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_ROOT}/include/lvgl_pch.h>"
+)
+# A PCH that records its inputs' mtimes differs on every checkout, so ccache
+# could never reuse an object compiled against it.
+target_compile_options(main PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-Xclang -fno-pch-timestamp>"
 )
 
 # Large-file support on 32-bit ABIs (armeabi-v7a), mirroring the per-object

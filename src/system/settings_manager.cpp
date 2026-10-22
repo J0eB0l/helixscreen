@@ -167,6 +167,8 @@ static constexpr settings::PersistedSetting SETTINGS[] = {
     // On: retention is the designed behavior
     {"ams_keep_spool_info_on_eject", "ams/keep_spool_info_on_eject", Scope::PerPrinter, true, 1, 0,
      1, "ams_keep_spool_info_on_eject"},
+    {"ams_tag_links_spoolman", "ams/tag_links_spoolman", Scope::PerPrinter, true, 1, 0, 1,
+     "ams_tag_links_spoolman"},
     {"ams_force_bypass_controls", "ams/force_bypass_controls", Scope::PerPrinter, true, 0, 0, 1,
      "ams_force_bypass_controls"},
     // Filament systems that run their own cooldown (AFC) want ours off.

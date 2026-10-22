@@ -112,6 +112,11 @@ class PrinterPluginStatusState {
     /// The features map the plugin's status reported; empty when it reported none.
     void set_features(PluginFeatureMap features) {
         features_ = std::move(features);
+        publish_plr_feature();
+        if (subjects_initialized_) {
+            lv_subject_set_int(&helix_plugin_probe_seq_,
+                               lv_subject_get_int(&helix_plugin_probe_seq_) + 1);
+        }
     }
     const PluginFeatureMap& features() const {
         return features_;
@@ -168,6 +173,25 @@ class PrinterPluginStatusState {
         return &helix_macros_status_;
     }
 
+    /// PluginFeatureState of the power-loss recovery feature (`plr`), as an
+    /// int: 0 Absent, 1 Disabled, 2 Ready. The settings row binds it.
+    lv_subject_t* get_plr_feature_state_subject() {
+        return &plr_feature_state_;
+    }
+
+    /// Counts the plugin's status answers applied this session (0 before the
+    /// first). Each discovery pass's probe answers after that pass has resolved
+    /// the printer type, so a change here says the type is this connection's.
+    lv_subject_t* get_helix_plugin_probe_seq_subject() {
+        return &helix_plugin_probe_seq_;
+    }
+
+    /// 1 while the plugin reports power-loss saving switched on: the plr entry's
+    /// `saving`, else its `enabled` from a plugin that reports no `saving`.
+    lv_subject_t* get_plr_saving_enabled_subject() {
+        return &plr_saving_enabled_;
+    }
+
     // ========================================================================
     // Query methods
     // ========================================================================
@@ -201,6 +225,12 @@ class PrinterPluginStatusState {
 
     // Plugin status subjects (tri-state: -1=unknown, 0=no, 1=yes)
     lv_subject_t helix_plugin_installed_{}; // HelixPrint Klipper plugin
+
+    lv_subject_t plr_feature_state_{};
+    lv_subject_t helix_plugin_probe_seq_{};
+    lv_subject_t plr_saving_enabled_{};
+    /// Republish the plr subjects from the plugin state and features map.
+    void publish_plr_feature();
 
     /// Composed HelixMacrosStatus; see publish_helix_macros_status()
     lv_subject_t helix_macros_status_{};

@@ -89,6 +89,10 @@ struct PrePrintStrategyPreStartGcode {
     /// expressed by sending nothing: Creality's BED_MESH_CALIBRATE_START_PRINT
     /// meshes unconditionally when called, so emitting it with a 0 would still
     /// mesh.
+    ///
+    /// False also marks the line as the step itself: when the started file
+    /// calls the same command (bed_mesh, qgl, z_tilt or nozzle_clean), the
+    /// line is not sent, so the printer does not run the step twice.
     bool emit_when_disabled = true;
 };
 

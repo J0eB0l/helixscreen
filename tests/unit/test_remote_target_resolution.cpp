@@ -656,14 +656,22 @@ struct CtlClickRig {
         return call("click", "name", name);
     }
 
-    /// One request with one string parameter. The transport thread services it
-    /// through the UI queue, so this thread must drain while waiting for the reply.
+    /// One request with one string parameter.
     nlohmann::json call(const std::string& method, const std::string& key,
                         const std::string& value) {
-        const std::string req = R"({"jsonrpc":"2.0","method":")" + method + R"(","params":{")" +
-                                key + R"(":")" + value + R"("},"id":)" + std::to_string(next_id++) +
-                                "}\n";
-        REQUIRE(send(fd, req.data(), req.size(), 0) == static_cast<ssize_t>(req.size()));
+        const nlohmann::json reply = request(method, {{key, value}});
+        REQUIRE(reply.contains("result"));
+        return reply["result"];
+    }
+
+    /// The whole JSON-RPC reply, result or error, to one request. The transport
+    /// thread services it through the UI queue, so this thread must drain while
+    /// waiting for the reply.
+    nlohmann::json request(const std::string& method, const nlohmann::json& params) {
+        const nlohmann::json req = {
+            {"jsonrpc", "2.0"}, {"method", method}, {"params", params}, {"id", next_id++}};
+        const std::string line = req.dump() + "\n";
+        REQUIRE(send(fd, line.data(), line.size(), 0) == static_cast<ssize_t>(line.size()));
 
         std::string response;
         char buf[4096];
@@ -685,8 +693,7 @@ struct CtlClickRig {
         response.erase(response.find('\n'));
         const nlohmann::json reply = nlohmann::json::parse(response, nullptr, false);
         REQUIRE(!reply.is_discarded());
-        REQUIRE(reply.contains("result"));
-        return reply["result"];
+        return reply;
     }
 };
 
@@ -838,4 +845,188 @@ TEST_CASE_METHOD(LVGLTestFixture,
     CHECK(found[0].obj == tight);
     CHECK(found[0].right == 4);
     CHECK(found[0].bottom == 0);
+}
+
+// --- ctl scroll --------------------------------------------------------------
+
+namespace {
+
+// An overlay shape: a scrolling viewport holding a plain, non-scrolling column
+// that is taller than the viewport, with the target row at its far end.
+struct ScrollTree {
+    lv_obj_t* viewport;
+    lv_obj_t* column;
+    lv_obj_t* row;
+};
+
+ScrollTree build_scroll_tree(lv_obj_t* screen) {
+    auto box = [](lv_obj_t* parent, int32_t w, int32_t h) {
+        lv_obj_t* o = lv_obj_create(parent);
+        lv_obj_set_size(o, w, h);
+        lv_obj_set_style_pad_all(o, 0, 0);
+        lv_obj_set_style_border_width(o, 0, 0);
+        return o;
+    };
+    ScrollTree t{};
+    t.viewport = box(screen, 200, 200);
+    t.column = box(t.viewport, 200, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(t.column, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(t.column, 0, 0);
+    for (int i = 0; i < 9; ++i) {
+        box(t.column, 200, 100);
+    }
+    t.row = box(t.column, 200, 100);
+    lv_obj_update_layout(screen);
+    return t;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: a row below the fold ends up inside the viewport",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    REQUIRE(helix::view_clipper(t.row) == t.viewport);
+
+    CHECK(helix::scroll_into_view(t.row) == nullptr);
+
+    lv_area_t row, view;
+    lv_obj_get_coords(t.row, &row);
+    lv_obj_get_coords(t.viewport, &view);
+    CHECK(row.y1 >= view.y1);
+    CHECK(row.y2 <= view.y2);
+    CHECK(lv_obj_get_scroll_y(t.viewport) == 800);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: an ancestor that cannot scroll is reported",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    lv_obj_remove_flag(t.viewport, LV_OBJ_FLAG_SCROLLABLE);
+
+    CHECK(helix::scroll_into_view(t.row) == t.viewport);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ctl scroll: a widget taller than the viewport only has to overlap it",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    lv_obj_set_height(t.row, 300);
+    lv_obj_update_layout(test_screen());
+
+    CHECK(helix::scroll_into_view(t.row) == nullptr);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: overflow-visible ancestors do not clip",
+                 "[remote][ctl][scroll]") {
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_size(host, 100, 100);
+    lv_obj_set_style_pad_all(host, 0, 0);
+    lv_obj_t* child = lv_obj_create(host);
+    lv_obj_set_size(child, 50, 50);
+    lv_obj_set_pos(child, 0, 150);
+    lv_obj_update_layout(test_screen());
+    REQUIRE(helix::view_clipper(child) == host);
+
+    lv_obj_add_flag(host, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    CHECK(helix::view_clipper(child) == nullptr);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: a widget inside a hidden ancestor is not in view",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(test_screen());
+    lv_obj_add_flag(t.column, LV_OBJ_FLAG_HIDDEN);
+
+    CHECK(helix::scroll_into_view(t.row) == t.column);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ctl scroll: a widget on a screen that is not loaded is not in view",
+                 "[remote][ctl][scroll]") {
+    lv_obj_t* other = lv_obj_create(nullptr);
+    ScrollTree t = build_scroll_tree(other);
+
+    CHECK(helix::scroll_into_view(t.row) == other);
+    lv_obj_delete(other);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: an empty clipping ancestor shows nothing",
+                 "[remote][ctl][scroll]") {
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_size(host, 0, 100);
+    lv_obj_set_pos(host, 50, 0);
+    lv_obj_set_style_pad_all(host, 0, 0);
+    lv_obj_t* child = lv_obj_create(host);
+    lv_obj_set_size(child, 50, 50);
+    // Straddling the empty box's edge, so an overlap test alone would pass it.
+    lv_obj_set_pos(child, -10, 0);
+    lv_obj_update_layout(test_screen());
+
+    CHECK(helix::view_clipper(child) == host);
+}
+
+namespace {
+
+/// The error message `scroll` answers for @p obj, empty when it succeeds.
+std::string scroll_error(CtlClickRig& rig, lv_obj_t* obj) {
+    const nlohmann::json reply = rig.request("scroll", {{"path", helix::path_of(obj)}});
+    if (!reply.contains("error")) {
+        return {};
+    }
+    return reply["error"].value("message", std::string());
+}
+
+void load_screen_cb(lv_event_t* e) {
+    lv_screen_load(static_cast<lv_obj_t*>(lv_event_get_user_data(e)));
+}
+
+} // namespace
+
+// The reply names which kind of ancestor keeps the widget out of view, so the
+// caller knows whether to unhide something, change screens or scroll it.
+TEST_CASE_METHOD(LVGLTestFixture, "ctl scroll: the reply says why a widget stays out of view",
+                 "[remote][ctl][scroll]") {
+    ScrollTree t = build_scroll_tree(lv_screen_active());
+    CtlClickRig rig;
+
+    SECTION("a hidden ancestor") {
+        lv_obj_add_flag(t.column, LV_OBJ_FLAG_HIDDEN);
+        CHECK_THAT(scroll_error(rig, t.row),
+                   Catch::Matchers::EndsWith("is still out of view: hidden by " +
+                                             helix::path_of(t.column)));
+    }
+    SECTION("an ancestor that clips without scrolling") {
+        lv_obj_remove_flag(t.viewport, LV_OBJ_FLAG_SCROLLABLE);
+        CHECK_THAT(scroll_error(rig, t.row),
+                   Catch::Matchers::EndsWith("is still out of view: clipped by " +
+                                             helix::path_of(t.viewport)));
+    }
+    SECTION("a screen that stopped being the loaded one") {
+        // Scrolling the viewport loads another screen, so the row's own screen
+        // is no longer on the display once it has been scrolled into view.
+        lv_obj_t* const home = lv_screen_active();
+        lv_obj_t* other = lv_obj_create(nullptr);
+        lv_obj_add_event_cb(t.viewport, load_screen_cb, LV_EVENT_SCROLL, other);
+        const std::string error = scroll_error(rig, t.row);
+        lv_screen_load(home);
+        lv_obj_delete(other);
+        CHECK_THAT(error, Catch::Matchers::EndsWith("is still out of view: on inactive screen s"));
+    }
+    SECTION("the loaded screen itself, when it does not scroll") {
+        lv_obj_t* const screen = lv_screen_active();
+        const bool screen_scrolls = lv_obj_has_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_t* below = lv_obj_create(screen);
+        lv_obj_set_size(below, 50, 50);
+        lv_obj_set_pos(below, 0, lv_obj_get_height(screen) + 100);
+        lv_obj_update_layout(screen);
+        const std::string error = scroll_error(rig, below);
+        lv_obj_delete(below);
+        if (screen_scrolls) {
+            lv_obj_add_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+        }
+        CHECK_THAT(error, Catch::Matchers::EndsWith("is still out of view: clipped by " +
+                                                    helix::path_of(screen)));
+    }
+    SECTION("nothing in the way") {
+        CHECK(scroll_error(rig, t.row).empty());
+    }
 }

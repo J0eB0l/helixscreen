@@ -6,6 +6,7 @@
 #include "gcode_homing.h"
 #include "json_utils.h"
 #include "moonraker_validation.h"
+#include "plugin_permissions.h"
 #include "printer_state.h"
 #include "spdlog/spdlog.h"
 #include "spool_latch_gate.h"
@@ -106,6 +107,7 @@ bool reject_restart_while_spools_on_bed(
     return true;
 }
 
+#if HELIX_HAS_PLUGINS
 bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
                        const nlohmann::json& params,
                        const std::function<void(const MoonrakerError&)>& on_error) {
@@ -125,6 +127,16 @@ bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
                                                        on_error) ||
                reject_job_while_spools_on_bed(&state, method.c_str(), on_error);
     }
+    // The rest of server.helix.* heats, moves, deletes or drives the resume wizard, which
+    // only a confirmed tap on the screen may do.
+    if (method.rfind("server.helix.", 0) == 0 &&
+        !helix::plugin::is_readonly_moonraker_method(method)) {
+        spdlog::warn("{} Refusing plugin call to {}", kTag, method);
+        if (on_error) {
+            on_error(MoonrakerError::not_ready(method, method + " is not available to plugins"));
+        }
+        return true;
+    }
     if (method == "printer.print.resume" || method == "server.job_queue.start") {
         return reject_job_while_spools_on_bed(&state, method.c_str(), on_error);
     }
@@ -140,5 +152,6 @@ bool reject_plugin_rpc(helix::PrinterState& state, const std::string& method,
     }
     return false;
 }
+#endif // HELIX_HAS_PLUGINS
 
 } // namespace helix::api

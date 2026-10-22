@@ -3268,7 +3268,7 @@ TEST_CASE_METHOD(HelixTestFixture,
         manager.set_option_state_provider(
             [](const std::string& id) { return id == "bed_mesh" ? 1 : -1; });
         auto lines = PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(
-            manager, "part.gcode", &scan.print_start);
+            manager, "part.gcode", &scan);
         bool found = false;
         for (const auto& l : lines) {
             if (l.find("BED_MESH_CALIBRATE_START_PRINT") != std::string::npos) {
@@ -3278,6 +3278,49 @@ TEST_CASE_METHOD(HelixTestFixture,
             }
         }
         REQUIRE(found);
+    }
+
+    SECTION("the file's own mesh call replaces the pre-start one") {
+        // A slicer start sequence that calls BED_MESH_CALIBRATE_START_PRINT
+        // meshes on its own; sending the macro ahead of the job meshes twice.
+        manager.set_option_state_provider(
+            [](const std::string& id) { return id == "bed_mesh" ? 1 : -1; });
+        const auto sends_mesh = [&](const std::string& start_gcode) {
+            const gcode::ScanResult scan = gcode::GCodeOpsDetector().scan_content(start_gcode);
+            for (const auto& l : PrintPreparationManagerTestAccess::get_pre_start_gcode_lines(
+                     manager, "part.gcode", &scan)) {
+                if (l.find("BED_MESH_CALIBRATE_START_PRINT") != std::string::npos) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        CHECK_FALSE(sends_mesh("G28\n"
+                               "BED_MESH_CALIBRATE_START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                               "START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                               "G1 X10 Y10 E5\n"));
+        CHECK_FALSE(sends_mesh("  bed_mesh_calibrate_start_print\n"
+                               "G1 X10 Y10 E5\n"));
+        // Other mesh lines ahead of the call do not hide it.
+        CHECK_FALSE(sends_mesh("BED_MESH_CLEAR\n"
+                               "BED_MESH_CALIBRATE_START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                               "G1 X10 Y10 E5\n"));
+        CHECK_FALSE(sends_mesh("BED_MESH_PROFILE LOAD=default\n"
+                               "G28\n"
+                               "BED_MESH_CALIBRATE_START_PRINT\n"
+                               "G1 X10 Y10 E5\n"));
+
+        // Lines that use a stored mesh or only ask for one do not mesh.
+        CHECK(sends_mesh("BED_MESH_PROFILE LOAD=default\n"
+                         "START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80\n"
+                         "G1 X10 Y10 E5\n"));
+        CHECK(sends_mesh("BED_MESH_CLEAR\n"
+                         "G1 X10 Y10 E5\n"));
+        CHECK(sends_mesh("START_PRINT EXTRUDER_TEMP=250 BED_TEMP=80 FORCE_LEVELING=true\n"
+                         "G1 X10 Y10 E5\n"));
+        CHECK(sends_mesh("G28\n"
+                         "G1 X10 Y10 E5\n"));
     }
 
     SECTION("temps render 0 when the start has no START_PRINT call of its own") {

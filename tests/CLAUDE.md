@@ -16,7 +16,7 @@ make t F='[tag]'               # build, then run ONE tag or case (the inner loop
 make test                      # build tests only (does NOT run them)
 make unit-sweep                # build AND run the C++ unit suite, sharded (~50s)
 make full-test-run             # unit-sweep + bats shell suite (~2m) - the completion gate
-make land-gate                 # full-test-run + CI's 8-shard layout + tests/ui + freshness - before landing
+make land-gate                 # C++ in CI's 8-shard layout + bats + tests/ui + freshness - before landing
 ./build/bin/helix-tests "[tag]"  # one tag with NO dependency scan, 0.05-0.6s
 ```
 
@@ -151,7 +151,7 @@ Key the choice on the question you actually have, not on a phase of work:
 | Did I break something elsewhere in C++? | `make unit-sweep` | ~50s idle, minutes loaded |
 | Will CI's unit job pass? | `make unit-sweep NPROCS=8`: CI runs 8 shards, split four apiece across two 4-core runners, so tests share a process with different neighbours than the local 96 | ~100s |
 | Am I finished - did I break anything, anywhere? | `make full-test-run` | ~2m, **once, at the end** |
-| **May this land on main?** - will CI go green on it | `make land-gate`: THE pre-landing gate (below) | ~10m, **once per landing** |
+| **May this land on main?** - will CI go green on it | `make land-gate`: THE pre-landing gate (below) | prints its measured ETA at start (17-36m on 2026-10-21), **once per landing** |
 | What does any of this actually cost? | `make dev-timing` | 5s, measured medians |
 
 The rule the table encodes: **a full run cannot tell you your feature works.** It can only
@@ -164,13 +164,14 @@ every way of naming what you want. With no `F` it refuses rather than running ev
 shortest target name is the one people type, so it must not start a full run.
 
 `make land-gate` is the gate a branch passes before it reaches main, and it is the one a
-batch landing runs on the combined result. It runs `full-test-run`'s sweep and bats, the
-sweep again in CI's 8-shard layout (a use-after-free can crash only next to the neighbours
-CI's layout gives it), CI's exact `tests/ui` pytest slice, the moonraker plugin tests and
-`tests/python` (`make test-ui-ci`, `make test-plugin`, `make test-python`), and the
+batch landing runs on the combined result. It runs the C++ suite once, in CI's 8-shard
+layout rather than the local sweep's 96 (a use-after-free can crash only next to the
+neighbours CI's layout gives it, and CI never runs the 96), the bats suite, CI's exact
+`tests/ui` pytest slice, the moonraker plugin tests and `tests/python` (`make test-ui-ci`, `make test-plugin`, `make test-python`), and the
 generated-artefact checks
-(`check-theme-tokens`, `check-xml-schema`, `lint-xml`, `check-lvgl-event-codes`). The C++
-sweeps go to the test host when `full-test-run`'s would (`TEST_HOST`); everything else runs
+(`check-theme-tokens`, `check-xml-schema`, `lint-xml`, `check-lvgl-event-codes`), and the
+`quality-checks.sh` sweep pre-push would otherwise repeat on the same commit. The C++
+run goes to the test host when `full-test-run`'s would (`TEST_HOST`); everything else runs
 here in parallel, and it ends with a PASS/FAIL/TIMEOUT table with durations, naming the
 commit it judged (`+dirty` when uncommitted changes were in the tree). It holds
 `build:<tree>` while it runs and refuses a missing bats rather than skipping it

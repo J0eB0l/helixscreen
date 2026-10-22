@@ -7,6 +7,7 @@
 
 #include "../test_helpers/filament_slot_override_store_test_access.h"
 #include "../test_helpers/mock_printer.h"
+#include "../test_helpers/update_queue_test_access.h"
 #include "ams_backend_ace.h"
 #include "ams_bypass_policy.h"
 #include "ams_types.h"
@@ -1180,6 +1181,56 @@ TEST_CASE("ACE send refused with no on_error leaves the action alone", "[ams][ac
 // unchanged at -1 — Klipper notifies on field changes, so no frame follows and
 // nothing arrives to contradict a stamp taken from the ack.
 // ============================================================================
+
+namespace {
+/// ACE against a real MoonrakerAPI over the mock client: the ack reaches the
+/// op through the base class's own single defer.
+class AceLiveAckHelper : public AmsBackendAceTestHelper {
+  public:
+    MockPrinter printer;
+
+    AceLiveAckHelper() {
+        api_ = &printer.api;
+        dispatch_via_base = true;
+        set_running(true);
+        AceTestAccess::parse_ace(*this, make_kobra_instance_object());
+    }
+    ~AceLiveAckHelper() override {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+};
+} // namespace
+
+TEST_CASE("ACE load and unload resolve in the queue pass after the ack",
+          "[ams][ace][threading][1761][1847]") {
+    using helix::ui::UpdateQueueTestAccess;
+    AceLiveAckHelper helper;
+    auto idle = [&] { return helper.get_test_system_info().action == AmsAction::IDLE; };
+
+    SECTION("load") {
+        REQUIRE(helper.load_filament(2).success());
+        REQUIRE(helper.get_test_system_info().action == AmsAction::LOADING);
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+        CHECK(helper.get_test_system_info().current_slot == 2);
+    }
+    SECTION("unload") {
+        REQUIRE(helper.unload_filament(0).success());
+        REQUIRE(helper.get_test_system_info().action == AmsAction::UNLOADING);
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
+}
+
+TEST_CASE("ACE load answered after a cancel leaves the cancelled state alone",
+          "[ams][ace][threading][1847]") {
+    AceLiveAckHelper helper;
+
+    REQUIRE(helper.load_filament(2).success());
+    // The ack is queued; the user cancels before it runs.
+    REQUIRE(helper.cancel().success());
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    CHECK(helper.get_test_system_info().current_slot != 2);
+}
 
 TEST_CASE("ACE load does not seat a slot the driver never moved to", "[ams][ace][1676]") {
     AmsBackendAceTestHelper helper;
@@ -3725,8 +3776,8 @@ void expect_slot_actions_refused(AmsBackendAceTestHelper& b) {
 
 // A seated tool whose unit has not reported its slots has no slot to
 // address: the first unit's slot 0 would feed a second strand into the path
-// that tool holds. With nothing seated the path is clear, so slot 0 is
-// addressed on the first unit.
+// that tool holds. With nothing seated the path is clear, so a manual feed
+// addresses slot 0 on the first unit.
 TEST_CASE("ACE slot actions on the ACEPRO driver while no slot is current",
           "[ams][ace][device_actions][kobra]") {
     AmsBackendAceTestHelper b;
@@ -3737,7 +3788,10 @@ TEST_CASE("ACE slot actions on the ACEPRO driver while no slot is current",
         CAPTURE(surface);
         present_driver_surface(b, surface);
         REQUIRE(b.get_current_slot() == -1);
-        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50");
+        b.captured_gcodes.clear();
+        REQUIRE(b.execute_device_action("ace_manual_feed", {}).success());
+        CHECK(b.captured_gcodes ==
+              std::vector<std::string>{"ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50"});
     }
     SECTION("a tool whose unit has not reported is loaded: refused") {
         present_driver_surface(b, "rest+ace_manager");
@@ -3757,7 +3811,160 @@ TEST_CASE("ACE slot actions keep slot 0 on single-hub drivers with nothing loade
     present_driver_surface(b, surface);
     REQUIRE(b.get_current_slot() == -1);
 
-    CHECK(run_slot_actions(b).front() == "ACE_FEED INDEX=0 LENGTH=50 SPEED=50");
+    b.captured_gcodes.clear();
+    REQUIRE(b.execute_device_action("ace_manual_feed", {}).success());
+    CHECK(b.captured_gcodes == std::vector<std::string>{"ACE_FEED INDEX=0 LENGTH=50 SPEED=50"});
+}
+
+namespace {
+helix::printer::DeviceAction feed_assist_action(const AmsBackendAceTestHelper& b) {
+    for (const auto& action : b.get_device_actions()) {
+        if (action.id == "ace_feed_assist_toggle") {
+            return action;
+        }
+    }
+    FAIL("no ace_feed_assist_toggle action");
+    return {};
+}
+
+/// The toggle's value: nullopt when it carries none.
+std::optional<bool> feed_assist_shown(const AmsBackendAceTestHelper& b) {
+    const auto action = feed_assist_action(b);
+    if (const bool* on = std::any_cast<bool>(&action.current_value)) {
+        return *on;
+    }
+    return std::nullopt;
+}
+
+void report_feed_assist(AmsBackendAceTestHelper& b, int instance, int local_slot) {
+    b.test_handle_status_update(status_notification("ace_instance_" + std::to_string(instance),
+                                                    json{{"feed_assist_slot", local_slot}}));
+}
+} // namespace
+
+// ace_instance_N.feed_assist_slot names the unit-local slot the driver is
+// assisting, -1 for none; the toggle is on only when that is the loaded slot.
+TEST_CASE("ACE Feed Assist shows the driver's feed_assist_slot for the loaded slot",
+          "[ams][ace][device_actions][kobra][1853]") {
+    AmsBackendAceTestHelper b;
+    b.test_handle_status_update(status_notification(
+        "ace_instance_0", json{{"slots", four_slot_array()}, {"feed_assist_slot", -1}}));
+    AceTestAccess::set_seat(b, 2, true);
+
+    SECTION("-1 is off") {
+        CHECK(feed_assist_shown(b) == false);
+        CHECK(feed_assist_action(b).enabled);
+    }
+    SECTION("the loaded slot is on") {
+        report_feed_assist(b, 0, 2);
+        CHECK(feed_assist_shown(b) == true);
+    }
+    SECTION("another slot is off") {
+        report_feed_assist(b, 0, 1);
+        CHECK(feed_assist_shown(b) == false);
+    }
+    SECTION("a frame without the field keeps the last report") {
+        report_feed_assist(b, 0, 2);
+        b.test_handle_status_update(
+            status_notification("ace_instance_0", json{{"status", "ready"}}));
+        CHECK(feed_assist_shown(b) == true);
+        report_feed_assist(b, 0, -1);
+        CHECK(feed_assist_shown(b) == false);
+    }
+    SECTION("the unit holding the loaded slot answers, not unit 0") {
+        b.test_handle_status_update(status_notification(
+            "ace_instance_1", json{{"slots", four_slot_array()}, {"feed_assist_slot", -1}}));
+        AceTestAccess::set_seat(b, 5, true);
+        report_feed_assist(b, 0, 1);
+        CHECK(feed_assist_shown(b) == false);
+        report_feed_assist(b, 1, 1);
+        CHECK(feed_assist_shown(b) == true);
+    }
+}
+
+TEST_CASE("ACE Feed Assist says the loaded slot is unknown when a tool's unit has not reported",
+          "[ams][ace][device_actions][kobra][1853]") {
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, "rest+ace_manager");
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
+    REQUIRE(b.get_current_slot() == -1);
+
+    const auto action = feed_assist_action(b);
+    CHECK_FALSE(action.enabled);
+    CHECK(action.disable_reason == "The loaded slot is not known yet");
+}
+
+TEST_CASE("ACE Feed Assist carries no value until the driver reports one",
+          "[ams][ace][device_actions][1853]") {
+    AmsBackendAceTestHelper b;
+    b.test_handle_status_update(
+        status_notification("ace_instance_0", json{{"slots", four_slot_array()}}));
+    AceTestAccess::set_seat(b, 2, true);
+    CHECK_FALSE(feed_assist_shown(b).has_value());
+}
+
+// Feed assist pushes the loaded slot's strand toward the head; with nothing
+// loaded there is no slot it could mean.
+TEST_CASE("ACE Feed Assist is disabled and refused with nothing loaded",
+          "[ams][ace][device_actions][1853]") {
+    const std::string surface =
+        GENERATE(as<std::string>{}, "filament_hub", "ace", "rest", "ace_instance_0");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    REQUIRE(b.get_current_slot() == -1);
+
+    const auto action = feed_assist_action(b);
+    CHECK_FALSE(action.enabled);
+    CHECK_FALSE(action.disable_reason.empty());
+
+    b.captured_gcodes.clear();
+    CHECK(b.execute_device_action("ace_feed_assist_toggle", std::any(true)).result ==
+          helix::AmsResult::WRONG_STATE);
+    CHECK(b.execute_device_action("ace_feed_assist_toggle", std::any(false)).result ==
+          helix::AmsResult::WRONG_STATE);
+    CHECK(b.captured_gcodes.empty());
+}
+
+// The backend refuses on its own, not only behind the offered action's
+// enabled flag: a caller that read the list while a slot was loaded can still
+// reach execute after the unload.
+TEST_CASE("ACE Feed Assist execute refuses with nothing loaded",
+          "[ams][ace][device_actions][1853]") {
+    const std::string surface =
+        GENERATE(as<std::string>{}, "filament_hub", "ace", "rest", "ace_instance_0");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    REQUIRE(b.get_current_slot() == -1);
+
+    b.captured_gcodes.clear();
+    for (const bool on : {true, false}) {
+        CAPTURE(on);
+        const auto err = b.do_execute_device_action("ace_feed_assist_toggle", std::any(on));
+        CHECK(err.result == helix::AmsResult::WRONG_STATE);
+        CHECK(err.technical_msg == "No filament loaded for feed assist");
+    }
+    CHECK(b.captured_gcodes.empty());
+}
+
+// A restart re-reads every unit from the bootstrap answer, so a
+// feed_assist_slot from the old session says nothing about the new one.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE Feed Assist forgets the driver's report on a restart",
+                 "[ams][ace][device_actions][kobra][1853]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+    answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()},
+                                                              {"feed_assist_slot", 2}}}});
+    AceTestAccess::set_seat(b, 2, true);
+    REQUIRE(feed_assist_shown(b) == true);
+
+    b.test_on_started();
+    answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()}}}});
+    AceTestAccess::set_seat(b, 2, true);
+    CHECK_FALSE(feed_assist_shown(b).has_value());
 }
 
 // A slotless ace_instance_N delta (a notify frame that beat the bootstrap
@@ -3841,7 +4048,10 @@ TEST_CASE_METHOD(LVGLTestFixture,
     AmsBackendAceTestHelper helper(&client);
     start_two_unit_backend(helper, client, -1);
 
-    CHECK(run_slot_actions(helper).front() == "ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50");
+    helper.captured_gcodes.clear();
+    REQUIRE(helper.execute_device_action("ace_manual_feed", {}).success());
+    CHECK(helper.captured_gcodes ==
+          std::vector<std::string>{"ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50"});
 }
 
 // Only the ACEPRO driver's per-unit objects state a link; another driver's

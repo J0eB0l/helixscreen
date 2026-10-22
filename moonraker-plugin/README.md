@@ -54,7 +54,8 @@ cd /path/to/helixscreen/moonraker-plugin
 The installer creates a symlink from Moonraker's components directory to `helix_print.py`.
 `helix_3mf.py` and `helix_capabilities.py` must stay beside `helix_print.py`: the plugin
 loads them from the link's target directory, and runs without .3mf conversion when either
-is missing.
+is missing. `helix_plr_qidi.py`, power-loss recovery through newer QIDI firmware's own
+`print_state` resume, sits beside them the same way.
 
 Vendor knowledge sits behind capability probes. The plugin asks "does this Moonraker print
 .3mf natively?" through `helix_capabilities.prints_3mf_natively`, which combines a generic
@@ -137,7 +138,7 @@ Response:
     "symlink_dir": ".helix_print",
     "cleanup_delay": 86400,
     "active_prints": 0,
-    "version": "1.3.0",
+    "version": "1.4.0",
     "convert_3mf": true,
     "start_3mf_on_upload": false,
     "api": 2,

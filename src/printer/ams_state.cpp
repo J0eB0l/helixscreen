@@ -14,6 +14,7 @@
 #include "ams_state.h"
 
 #include "ui_color_picker.h"
+#include "ui_error_reporting.h"
 #include "ui_update_queue.h"
 
 #include "ams_backend_registry.h"
@@ -38,6 +39,7 @@
 #include "runtime_config.h"
 #include "settings_manager.h"
 #include "spoolman_manager.h"
+#include "spoolman_types.h"
 #include "text_io.h"
 #include "tool_state.h"
 #include "ui/ui_widget_helpers.h"
@@ -386,6 +388,8 @@ void AmsState::clear_backends() {
     // per-slot stamps index the departing backend's slots; kept, they would
     // suppress a real runout on the same index of the next backend.
     runout_grace_.reset();
+    // What each lane's tag last named belongs to the departing backend's lanes.
+    tag_link_tracker_.clear();
     // A hold describes an operation on the departing backend.
     optimistic_action_until_.reset();
     // Every trace describes the departing backend's buffers.
@@ -648,6 +652,13 @@ void AmsState::sync_from_backend() {
         const SlotInfo* slot = info.get_slot_global(i);
         if (slot && write_slot_subjects(*backend, i, *slot)) {
             any_slot_changed = true;
+        }
+    }
+    for (int i = 0; i < info.total_slots; ++i) {
+        // An absent box's bays are placeholders that read empty, which is not
+        // a removal: the spool in them never left.
+        if (const SlotInfo* slot = info.get_slot_global(i); slot && !info.slot_absent(i)) {
+            sync_tag_spool_link(*backend, i, *slot);
         }
     }
 
@@ -1537,6 +1548,10 @@ void AmsState::update_slot(int slot_index) {
             }
         }
 
+        if (const auto info = read_system_info(0); info && !info->slot_absent(slot_index)) {
+            sync_tag_spool_link(*backend, slot_index, slot);
+        }
+
         spdlog::trace("[AMS State] Updated slot {} - color=0x{:06X}, status={}", slot_index,
                       slot.color_rgb, slot_status_to_string(slot.status));
     }
@@ -2160,6 +2175,11 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
         slot_index != last_synced_loaded_slot_ || filament_loaded != last_synced_filament_loaded_;
     last_synced_loaded_slot_ = slot_index;
     last_synced_filament_loaded_ = filament_loaded;
+    // Each load re-asserts its spool: the server's active spool may have been
+    // cleared since this lane last loaded (a print's end, another client).
+    if (loaded_identity_changed) {
+        last_synced_spoolman_id_ = 0;
+    }
 
     // Check for bypass mode (slot_index == -2)
     if (slot_index == -2 && loaded_backend->is_bypass_active()) {
@@ -2345,6 +2365,103 @@ AmsError AmsState::commit_slot_edit(int slot_index, const SlotInfo& original,
     // S4 + S7
     sync_from_backend();
     return err;
+}
+
+AmsState::SpoolLink AmsState::link_spool_to_slot(int slot_index, const SpoolInfo& spool) {
+    assert_main_thread();
+    SpoolLink link;
+    if (AmsBackend* backend = get_backend()) {
+        link.original = backend->get_slot_info(slot_index);
+    }
+    link.linked = link.original;
+    apply_spool_to_slot(link.linked, spool);
+    link.error = commit_slot_edit(slot_index, link.original, link.linked);
+    return link;
+}
+
+// ============================================================================
+// Tag-declared Spoolman links
+// ============================================================================
+
+void AmsState::sync_tag_spool_link(AmsBackend& backend, int slot_index, const SlotInfo& slot) {
+    // A lane whose occupancy is unknown says nothing about an insert.
+    const std::optional<bool> occupied = slot_status_reports_filament(slot.status);
+    if (!occupied) {
+        return;
+    }
+    const std::optional<helix::ams::TagReading> tag = backend.tag_reading(slot_index);
+    helix::ams::TagSpoolSighting sighting;
+    sighting.occupied = *occupied;
+    sighting.tag_spool_id = tag ? tag->spoolman_id : std::nullopt;
+    sighting.lane_spoolman_id = slot.spoolman_id;
+    const std::optional<int> want = tag_link_tracker_.observe(slot_index, sighting);
+    if (!want) {
+        return;
+    }
+    const int spool_id = *want;
+    if (!SettingsManager::instance().get_ams_tag_links_spoolman()) {
+        tag_link_tracker_.settle(slot_index, spool_id);
+        return;
+    }
+    // Offered again on a later frame, once Spoolman is reachable.
+    if (!api_ || !get_printer_state().is_spoolman_available()) {
+        return;
+    }
+    tag_link_tracker_.begin_lookup(slot_index, spool_id, slot.spoolman_id);
+    spdlog::info("[AMS State] Slot {} tag names Spoolman spool {}; looking it up", slot_index,
+                 spool_id);
+    auto tok = async_lifetime_.token();
+    api_->spoolman().get_spoolman_spool(
+        spool_id,
+        [tok, slot_index, spool_id](const std::optional<SpoolInfo>& spool) {
+            tok.defer("AmsState::tag_spool_link", [slot_index, spool_id, spool]() {
+                AmsState::instance().finish_tag_spool_link(slot_index, spool_id, spool);
+            });
+        },
+        [tok, slot_index, spool_id](const MoonrakerError& err) {
+            spdlog::warn("[AMS State] Slot {} tag names Spoolman spool {}, and the lookup "
+                         "failed: {}",
+                         slot_index, spool_id, err.message);
+            tok.defer("AmsState::tag_spool_link_failed", [slot_index, spool_id]() {
+                AmsState::instance().tag_link_tracker_.lookup_failed(slot_index, spool_id);
+            });
+        },
+        /*silent=*/true);
+}
+
+void AmsState::finish_tag_spool_link(int slot_index, int spool_id,
+                                     const std::optional<SpoolInfo>& spool) {
+    assert_main_thread();
+    // The tag changed or the lane emptied while the lookup ran.
+    if (!tag_link_tracker_.wants(slot_index, spool_id)) {
+        return;
+    }
+    const bool inserted = tag_link_tracker_.want_is_insert(slot_index);
+    tag_link_tracker_.settle(slot_index, spool_id);
+    AmsBackend* backend = get_backend();
+    if (!backend) {
+        return;
+    }
+    const std::string lane = helix::ui::lane_label(backend->lane_noun(), slot_index);
+    if (!spool) {
+        // A spool seated across a restart warned when it was put in.
+        if (!inserted) {
+            spdlog::info("[AMS State] Slot {} tag names Spoolman spool {}, which doesn't exist",
+                         slot_index, spool_id);
+            return;
+        }
+        NOTIFY_WARNING(lv_tr("{}: the tag names Spoolman spool #{}, which doesn't exist"), lane,
+                       spool_id);
+        return;
+    }
+    const SpoolLink link = link_spool_to_slot(slot_index, *spool);
+    if (!link.error.success() && !link.error.partially_applied) {
+        spdlog::warn("[AMS State] Slot {} could not be linked to Spoolman spool {} from its "
+                     "tag: {}",
+                     slot_index, spool_id, link.error.technical_msg);
+        return;
+    }
+    NOTIFY_INFO(lv_tr("{} linked to Spoolman spool #{} from its tag"), lane, spool_id);
 }
 
 } // namespace helix

@@ -17,6 +17,7 @@
 #include "lvgl/lvgl.h"
 #include "moonraker_error.h"
 #include "subject_managed_panel.h"
+#include "tag_spool_link.h"
 
 #include <array>
 #include <atomic>
@@ -29,6 +30,8 @@
 #include <vector>
 
 // Forward declarations
+struct SpoolInfo; // NAMESPACE_OK: forward declaration of spoolman_types.h's global type
+
 namespace helix {
 class IMoonrakerAPI;
 class IMoonrakerClient;
@@ -1944,6 +1947,24 @@ class AmsState {
     AmsError commit_slot_edit(int slot_index, const SlotInfo& original, const SlotInfo& info);
 
     /**
+     * @brief Link a backend slot to a Spoolman spool, the way a person's pick does.
+     *
+     * The slot as the backend shows it now, with @p spool's identity laid over
+     * it (apply_spool_to_slot()), committed through commit_slot_edit(). The one
+     * path for every surface that links a whole spool: the QR scan, and a tag
+     * that names a spool.
+     *
+     * @return the commit's error, and the slot before and after the link so a
+     *         caller can offer the edit's follow-up
+     */
+    struct SpoolLink {
+        AmsError error;
+        SlotInfo original;
+        SlotInfo linked;
+    };
+    SpoolLink link_spool_to_slot(int slot_index, const SpoolInfo& spool);
+
+    /**
      * @brief Commit an external-spool assignment through every backing store.
      *
      * Non-empty (spoolman_id > 0 OR material set) → S5 persist via
@@ -2195,6 +2216,11 @@ class AmsState {
     bool sync_tool_spools(AmsBackend* backend, const AmsSystemInfo& info);
     /// Per-unit temperature, humidity and environment-indicator subjects.
     void sync_unit_environment(AmsBackend* backend, const AmsSystemInfo& info);
+    /// Link a primary-backend lane to the Spoolman spool its tag names, when
+    /// TagSpoolLinkTracker says the tag has just appeared there: look the spool
+    /// up, then link it or report that it does not exist.
+    void sync_tag_spool_link(AmsBackend& backend, int slot_index, const SlotInfo& slot);
+    void finish_tag_spool_link(int slot_index, int spool_id, const std::optional<SpoolInfo>& spool);
     /// Reset the slot subjects past @p total_slots.
     /// @return true when a slot subject changed
     bool clear_unused_slot_subjects(int total_slots);
@@ -2281,7 +2307,10 @@ class AmsState {
 
     // Moonraker API for Spoolman integration
     IMoonrakerAPI* api_ = nullptr;
-    int last_synced_spoolman_id_ = 0; ///< Track to avoid duplicate set_active_spool calls
+    int last_synced_spoolman_id_ = 0; ///< Spool sent for the current load; reset on each load
+
+    /// Which primary-backend lanes should be linked to the spool their tag names.
+    helix::ams::TagSpoolLinkTracker tag_link_tracker_;
 
     /// Resolved (slot, loaded) identity behind the "Currently Loaded" card.
     /// Backend status frames arrive several times a second and each one re-runs

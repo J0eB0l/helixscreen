@@ -242,6 +242,14 @@ Its weight refresh ([`src/printer/spoolman_manager.cpp#refresh_spoolman_weights`
 
 Pushing "active spool" to Spoolman happens only for the loaded lane, and only when the backend does not answer `manages_active_spool()` ([`src/printer/ams_state.cpp#"if (api_ && slot_info.spoolman_id > 0 &&"`](../../../src/printer/ams_state.cpp)). AFC, for instance, updates Spoolman itself when HelixScreen sends its native spool command; calling Spoolman directly would update the widget while bypassing the firmware's own state (#644).
 
+The rule in full, since it decides whether a print is charged to any spool at all (Moonraker's `[spoolman]` records usage only against the active spool):
+
+- **Trigger.** `AmsState::sync_current_loaded_from_backend()` (`src/printer/ams_state.cpp#"sync_current_loaded_from_backend(const AmsSystemInfo& primary_info)"`) posts `set_active_spool(slot.spoolman_id)` when it finds a backend whose `filament_loaded` is true with `current_slot >= 0`, that slot's `spoolman_id > 0`, and the id differs from `last_synced_spoolman_id_`. That memory resets to 0 whenever the loaded `(slot, filament_loaded)` pair changes, so every load re-sends, including a reload of the same spool after something else cleared the server's active spool. A lane that stays loaded is not re-asserted against an outside clear until the next load.
+- **Other writers.** `AmsState::commit_slot_edit()` (`src/printer/ams_state.cpp#commit_slot_edit`) sets (or, on unlink, clears) the active spool when the edited lane is the actively loaded one, so linking a spool to the loaded lane takes effect without a reload. `AmsPanel`'s current-slot observer posts too while the panel is open, keyed on `current_slot` alone. Nothing clears the active spool on unload.
+- **Identity is the id.** Only `SlotInfo::spoolman_id` is compared; material and filament names never enter it.
+- **Backends that own it** (`manages_active_spool()` true): AFC; Happy Hare while its `spoolman_mode` is not off; INDX when its tool macros set the spool (`src/printer/indx_contract.cpp#macros_set_active_spool`); AD5X IFS always, which makes every Spoolman write there an explicit user action. Note `commit_slot_edit()` does not consult `manages_active_spool()`.
+- **What "loaded" means is the backend's.** On CFS it is the toolhead filament sensor (`FILAMENT_BACKEND_CFS.md`, "Active spool"), so the sync fires as filament reaches the head, not when the load starts.
+
 For debugging, every class here logs under a stable tag: `[AMS State]` for the coordinator, `[ToolState]` for assignments, `[SpoolmanAPI]` for Spoolman RPC, and one tag per backend from `backend_log_tag()` (e.g. `[AMS AFC]`, `[AMS HappyHare]`). A `-vv` run shows the whole pipeline: creation, events, queued syncs and spool saves each leave a line.
 
 ## Patterns & gotchas

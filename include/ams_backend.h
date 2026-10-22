@@ -414,6 +414,17 @@ class AmsBackend {
     }
 
     /**
+     * @brief Whether this backend's tag readings can name a Spoolman spool
+     *
+     * True when tag_reading() fills TagReading::spoolman_id for tags that
+     * carry one. Gates the setting that links a lane to the spool its tag
+     * names; the linking itself reads only tag_reading().
+     */
+    [[nodiscard]] virtual bool tags_name_spoolman_spools() const {
+        return false;
+    }
+
+    /**
      * @brief Per field, whether get_slot_info(slot_index) shows its tag's value
      *
      * Empty whenever tag_reading() is nullopt. Thread-safe.

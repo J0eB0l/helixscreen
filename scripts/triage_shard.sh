@@ -5,9 +5,10 @@
 #
 # Post-mortem for one unit-sweep shard that failed, crashed or timed out
 # (`diagnose_shards` in mk/tests.mk calls it per suspect shard). DIR holds the
-# shard's console log as DIR/SHARD.log; FILTER and ORDER_FLAGS are what the
-# sweep passed, so `--shard-count COUNT --shard-index SHARD` selects the same
-# cases in the same order.
+# shard's console log as DIR/SHARD.log and the binary's last progress record
+# (HELIX_TEST_PROGRESS_FILE) as DIR/SHARD.progress; FILTER and ORDER_FLAGS are
+# what the sweep passed, so `--shard-count COUNT --shard-index SHARD` selects
+# the same cases in the same order.
 #
 # It names the failing case(s) and re-runs them in up to four ways, cheapest
 # first, stopping at the first that fails:
@@ -176,7 +177,19 @@ if [ -n "$killed" ]; then
     echo "     the case was running at the kill, not failing: look at the shard's total time"
 fi
 if [ -z "$asserts" ] && [ -z "$killed" ]; then
-    echo "  no FAILED marker: died after its assertions passed (teardown/static dtor)"
+    # Catch2 reports a signal only inside a case body, so a kill or crash
+    # anywhere else leaves no marker. The binary's progress record says where.
+    progress=$(head -n 1 "$dir/$shard.progress" 2>/dev/null)
+    case $progress in
+        "running "*)
+            echo "  no FAILED marker; died inside: ${progress#running }" ;;
+        "after "*)
+            echo "  no FAILED marker; died after ${progress#after } returned, in its post-case checks or before the next case" ;;
+        run-ended)
+            echo "  no FAILED marker; every case had finished: died in exit-time teardown (static destructors)" ;;
+        *)
+            echo "  no FAILED marker and no progress record ($dir/$shard.progress): cannot say where it died" ;;
+    esac
 fi
 if [ "$nfail" -gt 0 ]; then
     echo "  failing case(s) -> $dir/$shard.failed:"

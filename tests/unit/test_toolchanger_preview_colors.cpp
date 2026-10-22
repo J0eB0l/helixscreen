@@ -125,6 +125,24 @@ G1 X10 Y10 E1
     REQUIRE(index.get_stats().initial_tool_index == 2);
 }
 
+TEST_CASE("Layer index: a tool change carrying macro parameters is still a tool change",
+          "[gcode][toolchanger][layer_index][1848]") {
+    TempGCodeFile file(R"(G28
+T0 PURGE_LENGTH=121.399 NEW_EXTRUDER_TEMP=222
+G1 Z0.3 F1000
+G1 X10 Y10 E1
+T1 PURGE_LENGTH=98.2 NEW_EXTRUDER_TEMP=230
+G1 X20 Y20 E1
+G1 Z0.5 F1000
+T2 PURGE_LENGTH=0 ; change
+G1 X30 Y30 E1
+)");
+    GCodeLayerIndex index;
+    REQUIRE(index.build_from_file(file.path()));
+    CHECK(index.get_stats().initial_tool_index == 0);
+    CHECK(index.get_stats().tools_used == std::set<int>{0, 1, 2});
+}
+
 TEST_CASE("Streaming: a layer chunk is parsed with the tool active at its offset",
           "[gcode][toolchanger][streaming]") {
     // The bug: every chunk was seeded with the FILE-GLOBAL first tool, so on a

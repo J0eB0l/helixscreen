@@ -34,8 +34,8 @@ class PrintPreparationManagerTestAccess {
     static std::vector<std::string>
     get_pre_start_gcode_lines(const helix::ui::PrintPreparationManager& m,
                               const std::string& filename = {},
-                              const helix::gcode::PrintStartCallInfo* job_start = nullptr) {
-        return m.collect_pre_start_gcode_lines(filename, true, job_start);
+                              const helix::gcode::ScanResult* scan = nullptr) {
+        return m.collect_pre_start_gcode_lines(filename, true, scan);
     }
     /// A scan neither the detail view nor a start asked for: it holds no file.
     static void request_scan(helix::ui::PrintPreparationManager& m, const std::string& filename,

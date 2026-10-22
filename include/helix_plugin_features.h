@@ -7,6 +7,7 @@
 // version string, so an older plugin loses only the features it lacks.
 
 #include <map>
+#include <optional>
 #include <string>
 
 #include "hv/json.hpp"
@@ -25,7 +26,10 @@ struct PluginFeatureEntry {
     int version = 0;        ///< the feature's own contract version
     bool available = false; ///< its module loaded and its requirements hold
     bool enabled = false;   ///< switched on (never true while unavailable)
-    std::string reason;     ///< why it is unavailable; empty when it is available
+    /// The feature's own saving switch as applied, where it reports one apart
+    /// from `enabled` (plr: `enabled` also holds while a snapshot waits).
+    std::optional<bool> saving;
+    std::string reason; ///< why it is unavailable; empty when it is available
 };
 
 using PluginFeatureMap = std::map<std::string, PluginFeatureEntry>;

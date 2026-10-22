@@ -161,6 +161,7 @@ void AmsBackendAce::on_started() {
         instance_objects_ = false;
         unit_actions_.clear();
         unit_links_.clear();
+        feed_assist_slots_.clear();
         // The bootstrap answer restates every unit's identity.
         unit_identities_.clear();
         // The load's ack died with the old session, so nothing would end it.
@@ -551,29 +552,32 @@ AmsError AmsBackendAce::do_load_filament(int slot_index) {
     return execute_gcode(
         gcode,
         [this, token, slot_index]() {
-            // L081 Mechanism C: marshal member writes (system_info_) to main.
-            token.defer("AmsBackendAce::load_done", [this, slot_index]() {
-                spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    end_own_op_locked();
-                    own_load_ = false;
+            // The base class already runs this on main. A cancel or stop
+            // since the send invalidated op_lifetime_, and then the answer
+            // must not overwrite the state the cancel left.
+            if (token.expired()) {
+                return;
+            }
+            spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                end_own_op_locked();
+                own_load_ = false;
 
-                    // Where firmware states the seat itself, the ack is only
-                    // "the command was accepted" and the seat waits for the
-                    // driver to confirm it moved.
-                    if (!manager_states_seat_) {
-                        seat_from_local_index_locked(slot_index);
+                // Where firmware states the seat itself, the ack is only
+                // "the command was accepted" and the seat waits for the
+                // driver to confirm it moved.
+                if (!manager_states_seat_) {
+                    seat_from_local_index_locked(slot_index);
 
-                        // Same derivation the parse paths use, so the next
-                        // status frame re-applies this stamp instead of
-                        // erasing it.
-                        apply_seated_slot_stamp_locked();
-                    }
+                    // Same derivation the parse paths use, so the next
+                    // status frame re-applies this stamp instead of
+                    // erasing it.
+                    apply_seated_slot_stamp_locked();
                 }
-                PostOpCooldownManager::instance().schedule();
-                emit_event(EVENT_STATE_CHANGED);
-            });
+            }
+            PostOpCooldownManager::instance().schedule();
+            emit_event(EVENT_STATE_CHANGED);
         },
         [this, token](const MoonrakerError&) {
             // The send failed, so the optimistic LOADING has to be unwound or
@@ -605,28 +609,31 @@ AmsError AmsBackendAce::do_unload_filament(int /*slot_index*/) {
     return execute_gcode(
         gcode,
         [this, token]() {
-            // L081 Mechanism C: marshal member writes (system_info_) to main.
-            token.defer("AmsBackendAce::unload_done", [this]() {
-                spdlog::info("[ACE] Unload gcode completed");
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    end_own_op_locked();
+            // The base class already runs this on main. A cancel or stop
+            // since the send invalidated op_lifetime_, and then the answer
+            // must not overwrite the state the cancel left.
+            if (token.expired()) {
+                return;
+            }
+            spdlog::info("[ACE] Unload gcode completed");
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                end_own_op_locked();
 
-                    // Symmetric with the load path: a driver that states the
-                    // seat also clears it, and an unload it declined would
-                    // otherwise read as an empty toolhead.
-                    if (!manager_states_seat_) {
-                        seat_from_local_index_locked(-1);
+                // Symmetric with the load path: a driver that states the
+                // seat also clears it, and an unload it declined would
+                // otherwise read as an empty toolhead.
+                if (!manager_states_seat_) {
+                    seat_from_local_index_locked(-1);
 
-                        // Releases the stamp back to the status the parse
-                        // wrote, rather than assuming AVAILABLE for a slot
-                        // firmware may have called EMPTY.
-                        apply_seated_slot_stamp_locked();
-                    }
+                    // Releases the stamp back to the status the parse
+                    // wrote, rather than assuming AVAILABLE for a slot
+                    // firmware may have called EMPTY.
+                    apply_seated_slot_stamp_locked();
                 }
-                PostOpCooldownManager::instance().schedule();
-                emit_event(EVENT_STATE_CHANGED);
-            });
+            }
+            PostOpCooldownManager::instance().schedule();
+            emit_event(EVENT_STATE_CHANGED);
         },
         [this, token](const MoonrakerError&) {
             // The send failed, so the optimistic UNLOADING has to be unwound or
@@ -1743,6 +1750,10 @@ void AmsBackendAce::parse_ace_object(const json& data, int unit) {
         system_info_.supports_bypass = !bypass_on_macro_.empty() && !bypass_off_macro_.empty();
     }
 
+    if (data.contains("feed_assist_slot") && data["feed_assist_slot"].is_number_integer()) {
+        feed_assist_slots_[unit_index] = data["feed_assist_slot"].get<int>();
+    }
+
     if (data.contains("endless_spool_enabled") && data["endless_spool_enabled"].is_boolean()) {
         endless_spool_seen_ = true;
         endless_spool_on_ = data["endless_spool_enabled"].get<bool>();
@@ -2346,10 +2357,9 @@ std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() co
         DA::button("ace_manual_retract", "Manual Retract", "filament_control", "",
                    "Retract filament to current slot")
             .with_machine_motion(),
-        DA::toggle("ace_feed_assist_toggle", "Feed Assist", "maintenance", {}, "",
-                   "Enable feed assist for active slot during printing"),
     };
     std::lock_guard<std::mutex> lock(mutex_);
+    actions.push_back(feed_assist_action_locked());
     if (endless_spool_seen_) {
         actions.push_back(DA::dropdown("ace_endless_spool_mode", "Match Mode", "endless_spool",
                                        {"exact", "material", "next"}, endless_spool_mode_, "",
@@ -2371,6 +2381,32 @@ std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() co
             "Which macro switches the ACE path back on"));
     }
     return actions;
+}
+
+helix::printer::DeviceAction AmsBackendAce::feed_assist_action_locked() const {
+    // Caller holds mutex_.
+    using DA = helix::printer::DeviceAction;
+    std::any value;
+    const int slot = system_info_.current_slot;
+    if (const AmsUnit* unit = slot >= 0 ? system_info_.get_unit_for_slot(slot) : nullptr) {
+        const auto it = feed_assist_slots_.find(unit->unit_index);
+        if (it != feed_assist_slots_.end()) {
+            value = it->second == slot - unit->first_slot_global_index;
+        }
+    }
+    DA action =
+        DA::toggle("ace_feed_assist_toggle", "Feed Assist", "maintenance", std::move(value), "",
+                   "The ACE pushes the loaded filament along with the extruder. The driver turns "
+                   "Feed Assist on after a load");
+    if (slot < 0) {
+        action.enabled = false;
+        // A seated tool whose unit has not reported its slots is loaded, just
+        // not yet placed, which the execute path refuses the same way.
+        action.disable_reason = instance_commands_ && seat_loaded_
+                                    ? TR_NOOP("The loaded slot is not known yet")
+                                    : TR_NOOP("Load filament first");
+    }
+    return action;
 }
 
 std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const {
@@ -2443,6 +2479,11 @@ AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,
         const auto [enable, err] = printer::device_action_value<bool>(value, "feed assist state");
         if (!err) {
             return err;
+        }
+        if (current_slot < 0) {
+            spdlog::info("[ACE] Feed assist refused: no filament is loaded");
+            return AmsError(AmsResult::WRONG_STATE, "No filament loaded for feed assist",
+                            lv_tr("Load filament first"), "");
         }
         return execute_gcode(
             slot_command(enable ? "ACE_ENABLE_FEED_ASSIST" : "ACE_DISABLE_FEED_ASSIST", slot));

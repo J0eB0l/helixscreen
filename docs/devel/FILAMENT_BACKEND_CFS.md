@@ -204,6 +204,60 @@ holds the user's values and they become the reading, and a value set on the prin
 screen cannot be told from a tag read
 (`src/printer/ams_backend_cfs.cpp#file_box_readings`, `src/printer/ams_tag_reading.cpp#fold_tag_frame_into`).
 
+What a stock tag reading can carry is whatever `box_wrapper` publishes per bay in
+`T<n>`: `material_type` (catalog code, resolved through `assets/filaments.json`'s `cfs`
+scheme to material, brand and nozzle range), `color_value`, `vender` and `remain_len`
+(shown as remaining length). The CFS `TagReading` states no weight and no bed temperature.
+The per-unit `uuid` array is not read at all. A tagged bay's `vender` entry is the tag's
+whole 40-character record (field layout in `printer-research/CREALITY_CFS_K2_INTERNALS.md`
+§ "RFID tags"), and HelixScreen reads three things from it: occupancy (a sentinel means an
+empty bay), a brand fallback for a material code the catalog does not know
+(`AmsBackendCfs::brand_from_vender`: supplier code `0276` and `"unknown"` read as Creality,
+another supplier's record as no brand, a short vendor name as itself), and a Spoolman spool
+id from the serial field (below). The printer has no known command that writes a tag.
+
+**Swap detection.** `check_hardware_event_clear()`
+(`src/printer/ams_backend_cfs.cpp#check_hardware_event_clear`) feeds each bay's
+fingerprint to `rfid_tracker_` (a `helix::ams::SlotFingerprintTracker`). A `Changed`
+event on a bay with an override runs `clear_override_locked()`
+(`src/printer/ams_subscription_backend.cpp#clear_override_locked`): the override, the
+lane's records and the per-spool fields (brand, Spoolman link, weights) go, so they do not
+follow the old spool. The fingerprint is `material_type|color_value`, so two blind spots
+follow from it: a different spool with the same Creality code and colour reads
+`Unchanged` and keeps the previous link and fields, and an untagged bay (sentinel code)
+yields an empty fingerprint, `NoSignal`, which never clears. In both cases the user must
+re-pick the spool, unless the new spool's tag names a Spoolman spool: that relinks the lane
+on its own. The serial is deliberately not part of the fingerprint: every persisted
+`material|color` baseline would read `Changed` against a three-part reading on the first
+frame after an upgrade, and a stock serial (always `000001`) adds no swap signal. Separately, a bay that reads empty after a confirmed runout drops only
+its Spoolman handle (`strip_spoolman_link_on_runout_locked`).
+
+**Spoolman link.** A tag written by CFTag ([koen01/cftag](https://github.com/koen01/cftag),
+`GetSpoolmanSerialNum()` in MainActivity.java) carries a Spoolman spool id in the record's
+serial field, chars 29-34, as `String.format("%06d", id)` for ids 1 to 999999.
+`AmsBackendCfs::tag_record_spoolman_id` decodes it into the bay's
+`TagReading::spoolman_id` (`src/printer/ams_backend_cfs.cpp#file_box_readings`). Creality
+writes its factory serial `000001` on every stock tag (CFTag's own default serial is the
+same, with reserve `000000`), so 1 names no spool, and neither do 0, a serial that is not
+six digits, or anything but a whole record. A real Spoolman spool #1 therefore cannot be
+linked from a tag. The generic tag-link policy (`FILAMENT_SLOT_METADATA.md` § "Tag-declared
+Spoolman links") turns that id into a link; `tags_name_spoolman_spools()` answers true on
+the stock schema. Otherwise a stock lane's `spoolman_id` comes from a user pick (editor,
+picker, QR scan). The flat (Kalico port) schema publishes no tag record, so it never
+decodes an id; it stores a per-slot `spoolman_id` that HelixScreen writes with
+`_BOX_SLOT_SET` and reads back as the box's own record, which is a stored user pick, not
+tag data.
+
+**Active spool.** `manages_active_spool()` is false, so `AmsState` sets Moonraker's active
+spool from the loaded lane (`architecture/07-filament-ams.md` § "Spoolman without AMS").
+`filament_loaded` is the toolhead `filament_switch_sensor` (`apply_filament_sensor`),
+which trips at the end of the extrude step, before waste and flush. A load HelixScreen
+starts moves `current_slot` to the target lane at dispatch, so the sync fires when the
+sensor rises; until then the loaded-lane card and the Active Spool widget show nothing
+loaded. On a swap the sensor can stay high from the outgoing filament while
+`current_slot` already names the incoming lane, which can set the new spool active before
+the old filament is out.
+
 ### Endless spool (auto-refill)
 
 CFS reports `Available` + `ReadOnly` + `FirmwareManaged`, with `enabled` derived from

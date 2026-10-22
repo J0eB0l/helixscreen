@@ -179,7 +179,7 @@ class CfsLifecycleHelper : public CfsRemapHelper {
 // The calibration flows ack through the on_complete overloads (a macro's
 // completion is their terminal signal), so the capture helper must intercept
 // those too, firing on_complete inline where the real path defers it to the
-// main thread. CfsLiveCalibBackend below covers that queue hop.
+// main thread. CfsLiveAckBackend below covers that queue hop.
 class CfsCalibHelper : public CfsLifecycleHelper {
   public:
     CfsCalibHelper() {
@@ -700,18 +700,19 @@ TEST_CASE("CFS chute save failure re-parks and reports the firmware message (#12
     CHECK_FALSE(failed_msg.empty());
 }
 
-// The calibration flows against a real MoonrakerAPI over the mock client, with
+// A K1 CFS against a real MoonrakerAPI over the mock client, with
 // no execute_gcode override: each answer reaches the flow through the base
 // class's own single defer. A step that adds a second hop costs a queue pass.
-class CfsLiveCalibBackend : public AmsBackendCfs {
+class CfsLiveAckBackend : public AmsBackendCfs {
   public:
     MockPrinter printer;
 
-    CfsLiveCalibBackend() : AmsBackendCfs(nullptr, nullptr) {
+    CfsLiveAckBackend() : AmsBackendCfs(nullptr, nullptr) {
         api_ = &printer.api;
         CfsTestAccess::set_macro_variant_k1(*this);
+        running_ = true;
     }
-    ~CfsLiveCalibBackend() override {
+    ~CfsLiveAckBackend() override {
         drain_calib_queue();
     }
 };
@@ -719,7 +720,7 @@ class CfsLiveCalibBackend : public AmsBackendCfs {
 TEST_CASE("CFS calibration steps complete in the queue pass after each answer",
           "[ams][cfs][calib][threading][1761]") {
     using helix::ui::UpdateQueueTestAccess;
-    CfsLiveCalibBackend backend;
+    CfsLiveAckBackend backend;
 
     SECTION("cutter calibration: one answer, one pass") {
         bool got_result = false;
@@ -737,6 +738,24 @@ TEST_CASE("CFS calibration steps complete in the queue pass after each answer",
         REQUIRE(backend.save_chute_position([&] { saved = true; }).success());
         CHECK(UpdateQueueTestAccess::passes_until([&] { return saved; }) == 2);
     }
+}
+
+TEST_CASE("CFS Endless Spool switch records the box's answer in the queue pass after it",
+          "[ams][cfs][threading][1847]") {
+    CfsLiveAckBackend backend;
+    CfsTestAccess::handle_status(backend,
+                                 make_cfs_notification(json::parse(
+                                     R"({"state":"connect","filament":0,"auto_refill":0,"enable":1,
+            "map":{"T1A":"T1A"},
+            "T1":{"state":"connect","filament":"None","vender":["none"],
+                  "remain_len":["-1"],"color_value":["-1"],
+                  "material_type":["-1"]}})")));
+    drain_calib_queue();
+    REQUIRE_FALSE(backend.get_system_info().endless_spool_enabled);
+
+    REQUIRE(backend.set_endless_spool_enabled(true).success());
+    CHECK(helix::ui::UpdateQueueTestAccess::passes_until(
+              [&] { return backend.get_system_info().endless_spool_enabled; }) == 1);
 }
 
 TEST_CASE("CFS refuses a second calibration while one is in flight (#1282)", "[ams][cfs][calib]") {
@@ -1391,6 +1410,101 @@ TEST_CASE("CFS presence: vender + remain_len combined signal (#1077)", "[ams][cf
         // material code. CFS RFID tags are Creality-only → brand resolves to
         // Creality rather than staying blank.
         REQUIRE(slots[0].brand == "Creality");
+    }
+}
+
+// A tagged bay's `vender` is the tag's whole 40-character record. With a
+// material code the catalog does not know, the record's supplier field is
+// what names the brand, and a record is never a brand itself.
+TEST_CASE("CFS brand fallback reads the tag record's supplier, never the record", "[ams][cfs]") {
+    json box = make_multi_unit_box(1);
+    box["T1"]["vender"] =
+        json::array({"BB5250276A21999990FFFFFF0165000001000000",
+                     "BB5251234A21999990FFFFFF0165000001000000", "Sunlu", "none"});
+    box["T1"]["material_type"] = json::array({"199999", "199999", "199999", "-1"});
+    box["T1"]["color_value"] = json::array({"0FFFFFF", "0FFFFFF", "0FFFFFF", "-1"});
+    auto info = AmsBackendCfs::parse_box_status(box);
+    REQUIRE(info.units.size() == 1);
+    const auto& slots = info.units[0].slots;
+
+    SECTION("Creality supplier code reads as Creality") {
+        REQUIRE(slots[0].status == SlotStatus::AVAILABLE);
+        REQUIRE(slots[0].brand == "Creality");
+    }
+
+    SECTION("another supplier's record names no brand") {
+        REQUIRE(slots[1].status == SlotStatus::AVAILABLE);
+        REQUIRE(slots[1].brand.empty());
+    }
+
+    SECTION("a vendor name the box reports is the brand") {
+        REQUIRE(slots[2].brand == "Sunlu");
+    }
+}
+
+TEST_CASE("CFS tag record names a Spoolman spool through its serial", "[ams][cfs][tag_link]") {
+    // The two known stock reads, a white and an orange Hyper PLA from two
+    // printers (CREALITY_CFS_K2_INTERNALS.md § "RFID tags").
+    SECTION("stock Creality records carry the factory serial and name no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("BB5250276A21010010FFFFFF0165000001000000"));
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("3C5250276A21010010C12E1F0165000001000000"));
+    }
+    SECTION("a CFTag serial is a zero-padded decimal spool id") {
+        CHECK(AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165000042000000") ==
+              42);
+        CHECK(AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165999999000000") ==
+              999999);
+        CHECK(AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165000002000000") ==
+              2);
+    }
+    SECTION("an all-zero serial names no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165000000000000"));
+    }
+    SECTION("a serial that is not all digits names no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF016500004A000000"));
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF0165 00042000000"));
+    }
+    SECTION("anything but a 40-character record names no spool") {
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF016500004200000"));
+        CHECK_FALSE(
+            AmsBackendCfs::tag_record_spoolman_id("AB1240276A21010010FFFFFF01650000420000000"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id("unknown"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id("none"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id("-1"));
+        CHECK_FALSE(AmsBackendCfs::tag_record_spoolman_id(""));
+    }
+}
+
+TEST_CASE("CFS tag reading carries the Spoolman spool its record names", "[ams][cfs][tag_link]") {
+    CfsRemapHelper backend;
+    backend.mark_running();
+    json box = make_multi_unit_box(1);
+    box["T1"]["vender"] = json::array({"AB1240276A21010010FFFFFF0165000042000000",
+                                       "BB5250276A21010010FFFFFF0165000001000000", "none", "none"});
+    box["T1"]["material_type"] = json::array({"101001", "101001", "-1", "-1"});
+    box["T1"]["color_value"] = json::array({"0FFFFFF", "0FFFFFF", "-1", "-1"});
+    CfsTestAccess::handle_status(backend, make_cfs_notification(box));
+
+    CHECK(backend.tags_name_spoolman_spools());
+    const auto tagged = backend.tag_reading(0);
+    REQUIRE(tagged);
+    CHECK(tagged->spoolman_id == 42);
+    const auto stock = backend.tag_reading(1);
+    REQUIRE(stock);
+    CHECK_FALSE(stock->spoolman_id);
+
+    SECTION("a record naming no spool takes the id away") {
+        box["T1"]["vender"][0] = "BB5250276A21010010FFFFFF0165000001000000";
+        CfsTestAccess::handle_status(backend, make_cfs_notification(box));
+        const auto after = backend.tag_reading(0);
+        REQUIRE(after);
+        CHECK_FALSE(after->spoolman_id);
     }
 }
 

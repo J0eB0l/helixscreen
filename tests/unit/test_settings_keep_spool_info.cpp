@@ -43,3 +43,24 @@ TEST_CASE_METHOD(LVGLTestFixture, "ams keep_spool_info_on_eject setting", "[sett
         REQUIRE(lv_subject_get_int(settings.subject_ams_keep_spool_info_on_eject()) == 1);
     }
 }
+
+TEST_CASE_METHOD(LVGLTestFixture, "ams tag_links_spoolman setting", "[settings][ams][tag_link]") {
+    helix::Config* config = helix::Config::get_instance();
+    auto& settings = helix::SettingsManager::instance();
+    settings.init_subjects();
+
+    const std::string path = config->df() + "ams/tag_links_spoolman";
+
+    SECTION("defaults to on") {
+        CHECK(settings.get_ams_tag_links_spoolman());
+        REQUIRE(lv_subject_get_int(settings.subject_ams_tag_links_spoolman()) == 1);
+    }
+
+    SECTION("off persists to the per-printer config path") {
+        settings.set_ams_tag_links_spoolman(false);
+        REQUIRE_FALSE(settings.get_ams_tag_links_spoolman());
+        REQUIRE(config->get<bool>(path, true) == false);
+        settings.set_ams_tag_links_spoolman(true);
+        REQUIRE(config->get<bool>(path, false) == true);
+    }
+}

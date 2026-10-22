@@ -39,16 +39,24 @@ struct TagReading {
     std::optional<int> nozzle_temp_max;
     std::optional<int> bed_temp;
     std::optional<float> total_weight_g;
+    /// The Spoolman spool the tag names. Set only for an id the tag actually
+    /// declares: each backend's decoder applies its own tag format's rules for
+    /// a value that names no spool (a factory default, a blank), so a set id
+    /// is always one to look up. A binding rather than a property the slot
+    /// shows, so it is no TagField and provenance and reset_to_tag() ignore
+    /// it. Nothing writes a tag, so fold_tag_frame() leaves it to the caller.
+    std::optional<int> spoolman_id;
 
     [[nodiscard]] bool states(TagField field) const;
-    /// True when the reading states no field at all.
+    /// True when the reading states no field and names no spool.
     [[nodiscard]] bool empty() const;
 
     bool operator==(const TagReading& o) const {
         return material == o.material && brand == o.brand && product_name == o.product_name &&
                color_rgb == o.color_rgb && multi_color_hexes == o.multi_color_hexes &&
                nozzle_temp_min == o.nozzle_temp_min && nozzle_temp_max == o.nozzle_temp_max &&
-               bed_temp == o.bed_temp && total_weight_g == o.total_weight_g;
+               bed_temp == o.bed_temp && total_weight_g == o.total_weight_g &&
+               spoolman_id == o.spoolman_id;
     }
 };
 

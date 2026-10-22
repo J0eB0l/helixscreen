@@ -1,0 +1,964 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""
+The plugin's one G-code reader.
+
+Power-loss recovery (helix_plr_scan.py) and file analysis (helix_analysis.py)
+both read files through this module; neither carries its own parser. It holds:
+
+- one streaming pass, scan_to_offset(), that splits each line into its
+  command and words and feeds the modal-state reducer, which follows a file the way Klipper's gcode_move
+  does (G90/G91, M82/M83, G92, the extrude and speed factors, gcode offsets)
+  plus the in-file state a resume has to restore (tool, heater targets, fans,
+  pressure advance, velocity limits, firmware retract, the print_stats layer);
+- layer markers (OrcaSlicer, PrusaSlicer and SuperSlicer `;LAYER_CHANGE`,
+  Bambu `; CHANGE_LAYER`, Cura `;LAYER:<n>`, and `SET_PRINT_STATS_INFO`);
+- the window: per-line motion records for the last WINDOW_BYTES before the
+  end offset, and the layer starts inside it; memory stays constant in the
+  file size;
+- the throttle policy every background reader follows.
+
+Offsets are byte offsets. A line counts as executed when its newline is at or
+before the end offset, which is how Klipper's virtual_sdcard advances
+file_position, so a final line with no newline is never applied.
+
+Positions follow gcode_move: `last_position` is the toolhead frame (what
+toolhead.position and motion_report.live_position report), and the G-code
+frame is last_position minus base_position, E divided by the extrude factor.
+Pure: no Moonraker imports, Python 3.8 stdlib only.
+"""
+
+from __future__ import annotations
+
+import collections
+import math
+import os
+import threading
+import time
+from typing import (
+    BinaryIO,
+    Callable,
+    Deque,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+)
+
+# Motion records are kept for the lines this many bytes behind the end offset:
+# the dispatch head leads the nozzle by up to ~120 KB on fine curved walls.
+WINDOW_BYTES = 256 * 1024
+
+# Cancel and throttle are consulted once per this many bytes, not per line.
+CHECK_INTERVAL_BYTES = 64 * 1024
+
+# Klipper's gcode_move default speed before any F word, in mm/s.
+DEFAULT_SPEED_MM_S = 25.0
+
+# A background follower reads at most this fast while a print runs. The bytes
+# are the ones Klipper has just read, so they come from the page cache.
+FOLLOWER_MAX_BYTES_PER_S = 4 * 1024 * 1024
+
+# Nice increment for a background reader thread.
+BACKGROUND_NICE = 10
+
+# Share of one core a background follower may use while a print runs; it
+# sleeps (1 - f) / f seconds for each second of work.
+FOLLOWER_CPU_FRACTION = 0.15
+
+_AXES = b"XYZE"
+
+
+class ScanCancelled(Exception):
+    """scan_to_offset stopped because its cancel event was set."""
+
+
+# --------------------------------------------------------------------------
+# Modal state
+# --------------------------------------------------------------------------
+
+
+class ModalState:
+    """What a file has set up to a point: gcode_move's state plus the in-file
+    settings a resume restores. Copy before keeping one: the reducer mutates."""
+
+    __slots__ = (
+        "absolute_coord",
+        "absolute_extrude",
+        "last_position",
+        "base_position",
+        "homing_position",
+        "speed",
+        "speed_factor",
+        "extrude_factor",
+        "active_tool",
+        "active_extruder",
+        "heater_targets",
+        "fan_speeds",
+        "pressure_advance",
+        "velocity_limits",
+        "retracted",
+        "layer",
+        "total_layers",
+        "layer_source",
+        "current_object",
+    )
+
+    def __init__(self) -> None:
+        self.absolute_coord = True
+        self.absolute_extrude = True
+        # Toolhead frame, [x, y, z, e].
+        self.last_position = [0.0, 0.0, 0.0, 0.0]
+        self.base_position = [0.0, 0.0, 0.0, 0.0]
+        self.homing_position = [0.0, 0.0, 0.0, 0.0]
+        # Requested feedrate in mm/s, before speed_factor.
+        self.speed = DEFAULT_SPEED_MM_S
+        # Public factors: 1.0 is 100 %.
+        self.speed_factor = 1.0
+        self.extrude_factor = 1.0
+        # Last `T<n>` seen; Klipper runs it as a macro.
+        self.active_tool = None  # type: Optional[int]
+        # Extruder that M104/M109/SET_PRESSURE_ADVANCE address with no T/EXTRUDER.
+        self.active_extruder = "extruder"
+        self.heater_targets = {}  # type: Dict[str, float]
+        # Fan name -> 0..1. M106/M107 with no P is "fan"; with P<n> it is
+        # "fan_p<n>", which the printer's macros map to a fan.
+        self.fan_speeds = {}  # type: Dict[str, float]
+        # extruder -> {"advance": a, "smooth_time": s}, only keys the file set.
+        self.pressure_advance = {}  # type: Dict[str, Dict[str, float]]
+        # velocity, accel, square_corner_velocity, minimum_cruise_ratio,
+        # accel_to_decel: only the ones the file set.
+        self.velocity_limits = {}  # type: Dict[str, float]
+        self.retracted = False
+        # The layer print_stats reports, 1 for the first; see _LayerStarts.
+        self.layer = None  # type: Optional[int]
+        self.total_layers = None  # type: Optional[int]
+        # What numbers the layers: "print_stats" once SET_PRINT_STATS_INFO
+        # CURRENT_LAYER is seen, else the first marker style ("count" or
+        # "cura"), None before any.
+        self.layer_source = None  # type: Optional[str]
+        self.current_object = None  # type: Optional[str]
+
+    def copy(self) -> "ModalState":
+        s = ModalState.__new__(ModalState)
+        s.absolute_coord = self.absolute_coord
+        s.absolute_extrude = self.absolute_extrude
+        s.last_position = list(self.last_position)
+        s.base_position = list(self.base_position)
+        s.homing_position = list(self.homing_position)
+        s.speed = self.speed
+        s.speed_factor = self.speed_factor
+        s.extrude_factor = self.extrude_factor
+        s.active_tool = self.active_tool
+        s.active_extruder = self.active_extruder
+        s.heater_targets = dict(self.heater_targets)
+        s.fan_speeds = dict(self.fan_speeds)
+        s.pressure_advance = {k: dict(v) for k, v in self.pressure_advance.items()}
+        s.velocity_limits = dict(self.velocity_limits)
+        s.retracted = self.retracted
+        s.layer = self.layer
+        s.total_layers = self.total_layers
+        s.layer_source = self.layer_source
+        s.current_object = self.current_object
+        return s
+
+    def gcode_position(self) -> List[float]:
+        """Position in the G-code frame, as gcode_move.gcode_position reports it."""
+        p = [lp - bp for lp, bp in zip(self.last_position, self.base_position)]
+        p[3] /= self.extrude_factor
+        return p
+
+    def to_dict(self) -> dict:
+        """JSON-safe form, for the layer_index sidecar."""
+        return {name: _plain(getattr(self, name)) for name in self.__slots__}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ModalState":
+        """Inverse of to_dict; missing keys keep their defaults."""
+        s = cls()
+        for name in cls.__slots__:
+            if name in data:
+                setattr(s, name, _plain(data[name]))
+        return s
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ModalState):
+            return NotImplemented
+        return self.to_dict() == other.to_dict()
+
+    def __repr__(self) -> str:
+        return "ModalState(%r)" % (self.to_dict(),)
+
+
+def _plain(value):
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    return value
+
+
+# --------------------------------------------------------------------------
+# Scan
+# --------------------------------------------------------------------------
+
+
+class LineRecord(NamedTuple):
+    """One motion line near the head. Positions are the toolhead frame."""
+
+    offset: int
+    end_offset: int
+    start_xy: Tuple[float, float]
+    end_xy: Tuple[float, float]
+    z: float
+    # Change in toolhead E (scaled by the extrude factor). Firmware retracts
+    # carry 0 here and +1/-1 in `retract`: their length is Klipper config.
+    toolhead_de: float
+    layer: Optional[int]
+    is_arc: bool
+    arc_center: Optional[Tuple[float, float]]  # I/J arcs; None for R arcs and lines
+    arc_cw: bool  # G2
+    speed: float  # requested feedrate in mm/s, before speed_factor
+    retract: int  # -1 for a G10 that retracts, +1 for a G11 that unretracts
+
+
+class ScanResult(NamedTuple):
+    state_at_head: ModalState
+    window: List[LineRecord]  # oldest first, ends at the head
+    object_defines: List[str]  # verbatim EXCLUDE_OBJECT_DEFINE lines
+    # layer -> (offset, state at that offset), for every layer that starts
+    # inside the window plus the one the window begins in.
+    layer_starts: Dict[int, Tuple[int, ModalState]]
+    # Line-aligned offset the scan reached: end_offset, or less when end_offset
+    # is mid-line or past the end of the file.
+    offset: int
+
+
+LayerCallback = Callable[[int, int, ModalState], None]
+ThrottleHook = Callable[[int], None]
+
+
+def scan_to_offset(
+    stream: BinaryIO,
+    end_offset: int,
+    start_offset: int = 0,
+    start_state: Optional[ModalState] = None,
+    cancel: Optional[threading.Event] = None,
+    throttle: Optional[ThrottleHook] = None,
+    on_layer_start: Optional[LayerCallback] = None,
+) -> ScanResult:
+    """Reduce `stream` from start_offset to end_offset.
+
+    start_offset/start_state resume from a layer_index entry; a start_offset
+    inside a line skips to the next line. `throttle(bytes_read)` is called
+    every CHECK_INTERVAL_BYTES and may sleep; `on_layer_start(layer, offset,
+    state)` sees every layer start, with the state before that line (shared
+    with the result; do not mutate it). Raises ScanCancelled
+    when `cancel` is set. Memory stays constant in the file size: only the
+    window's records and the layer starts inside it are kept.
+    """
+    state = start_state.copy() if start_state is not None else ModalState()
+    pos = start_offset
+    if start_offset > 0:
+        # The byte before a line start is its predecessor's newline, so this
+        # consumes exactly that newline, or the rest of a line cut in two.
+        stream.seek(start_offset - 1)
+        pos = start_offset - 1 + len(stream.readline())
+    else:
+        stream.seek(0)
+    window_begin = end_offset - WINDOW_BYTES
+    window = collections.deque()  # type: Deque[LineRecord]
+    object_defines = []  # type: List[str]
+    layers = _LayerStarts(window_begin, on_layer_start)
+    next_check = pos + CHECK_INTERVAL_BYTES
+    scan_begin = pos
+
+    lp = state.last_position
+    for raw in stream:
+        line_start = pos
+        end = pos + len(raw)
+        if end > end_offset or raw[-1:] != b"\n":
+            break
+        pos = end
+        if pos >= next_check:
+            next_check = pos + CHECK_INTERVAL_BYTES
+            if cancel is not None and cancel.is_set():
+                raise ScanCancelled()
+            if throttle is not None:
+                throttle(pos - scan_begin)
+
+        c = raw[:1]
+        if c in b" \t\r\n":
+            raw = raw.lstrip()
+            if not raw:
+                continue
+            c = raw[:1]
+        if c == b";":
+            marker = _layer_marker(raw)
+            if marker is not None:
+                layers.marker(marker[0], marker[1], line_start, state)
+            continue
+        cut = raw.find(b";")
+        body = raw[:cut] if cut >= 0 else raw
+        words = body.split()
+        if not words:
+            continue
+        cmd = words[0]
+        if not cmd.isupper():
+            # Klipper upper-cases a traditional command's whole line, and only
+            # the command word and keys of an extended one.
+            cmd = cmd.upper()
+            if cmd[1:2].isdigit():
+                words = [w.upper() for w in words]
+
+        if cmd == b"G1" or cmd == b"G0":
+            sx = lp[0]
+            sy = lp[1]
+            se = lp[3]
+            _apply_move(state, lp, words)
+            if line_start >= window_begin:
+                window.append(LineRecord(
+                    line_start, pos, (sx, sy), (lp[0], lp[1]), lp[2], lp[3] - se,
+                    state.layer, False, None, False, state.speed, 0,
+                ))
+            continue
+        if cmd == b"G2" or cmd == b"G3":
+            sx = lp[0]
+            sy = lp[1]
+            se = lp[3]
+            center = _apply_arc(state, lp, words, sx, sy)
+            if line_start >= window_begin:
+                window.append(LineRecord(
+                    line_start, pos, (sx, sy), (lp[0], lp[1]), lp[2], lp[3] - se,
+                    state.layer, True, center, cmd == b"G2", state.speed, 0,
+                ))
+            continue
+        if cmd == b"G10" or cmd == b"G11":
+            retracting = cmd == b"G10"
+            if state.retracted == retracting:
+                continue
+            state.retracted = retracting
+            if line_start >= window_begin:
+                xy = (lp[0], lp[1])
+                window.append(LineRecord(
+                    line_start, pos, xy, xy, lp[2], 0.0, state.layer, False, None,
+                    False, state.speed, -1 if retracting else 1,
+                ))
+            continue
+        if cmd == b"EXCLUDE_OBJECT_DEFINE":
+            object_defines.append(body.strip().decode("utf-8", "replace"))
+            continue
+        layer = _apply_other(state, cmd, words)
+        if layer is not None:
+            layers.print_stats(layer, line_start, state)
+
+    return ScanResult(state, list(window), object_defines, layers.result(), pos)
+
+
+_COUNT = "count"
+_CURA = "cura"
+_PRINT_STATS = "print_stats"
+
+
+def _layer_marker(line: bytes) -> Optional[Tuple[str, Optional[int]]]:
+    """(style, number) for a slicer layer comment, else None.
+
+    `;LAYER_CHANGE` (Orca, Prusa, SuperSlicer) and `; CHANGE_LAYER` (Bambu)
+    count; Cura's `;LAYER:<n>` carries a 0-based number.
+    """
+    if line.startswith(b";LAYER_CHANGE") or line.startswith(b"; CHANGE_LAYER"):
+        return (_COUNT, None)
+    if line.startswith(b";LAYER:"):
+        try:
+            return (_CURA, int(line[7:].strip()))
+        except ValueError:
+            return None
+    return None
+
+
+class _LayerStarts:
+    """Where each layer starts, and the starts the result keeps.
+
+    SET_PRINT_STATS_INFO numbers the layers from the first time a file uses
+    it, because print_stats, and so the snapshot, reports that number. A slicer
+    marker ahead of it still marks where the layer begins: the first marker
+    since the last start is the boundary, so the retract and Z move between
+    the marker and SET_PRINT_STATS_INFO belong to the new layer. A file
+    without it is numbered by its first marker style; another style in the
+    same file only marks boundaries.
+
+    The state kept with a start is the state before that line, so
+    scan_to_offset(start_offset=offset, start_state=state) reproduces it.
+    A later start for the same layer replaces the earlier one.
+    """
+
+    def __init__(self, window_begin: int, on_layer_start: Optional[LayerCallback]):
+        self._window_begin = window_begin
+        self._on_layer_start = on_layer_start
+        self._starts = {}  # type: Dict[int, Tuple[int, ModalState]]
+        # The latest start before the window, which the window begins in.
+        self._before_window = None  # type: Optional[Tuple[int, int, ModalState]]
+        self._boundary = None  # type: Optional[Tuple[int, ModalState]]
+
+    def marker(self, style: str, number: Optional[int], offset: int,
+               state: ModalState) -> None:
+        if self._boundary is None:
+            self._boundary = (offset, state.copy())
+        source = state.layer_source
+        if source == _PRINT_STATS or (source is not None and source != style):
+            return
+        state.layer_source = style
+        self._start((state.layer or 0) + 1 if number is None else number + 1, state)
+
+    def print_stats(self, layer: int, offset: int, state: ModalState) -> None:
+        state.layer_source = _PRINT_STATS
+        if self._boundary is None:
+            if layer == state.layer:
+                return
+            self._boundary = (offset, state.copy())
+        self._start(layer, state)
+
+    def _start(self, layer: int, state: ModalState) -> None:
+        offset, snap = self._boundary
+        self._boundary = None
+        state.layer = layer
+        if self._on_layer_start is not None:
+            self._on_layer_start(layer, offset, snap)
+        if offset >= self._window_begin:
+            self._starts[layer] = (offset, snap)
+        else:
+            self._before_window = (layer, offset, snap)
+
+    def result(self) -> Dict[int, Tuple[int, ModalState]]:
+        out = dict(self._starts)
+        if self._before_window is not None:
+            layer, offset, snap = self._before_window
+            out.setdefault(layer, (offset, snap))
+        return out
+
+
+def _apply_move(state: ModalState, lp: List[float], words: List[bytes]) -> None:
+    """G0/G1 the way gcode_move.cmd_G1 applies it."""
+    bp = state.base_position
+    absolute = state.absolute_coord
+    for w in words[1:]:
+        idx = _AXIS_INDEX.get(w[0])
+        if idx is None:
+            continue
+        try:
+            v = float(w[1:])
+        except ValueError:
+            continue
+        if idx == 3:
+            v *= state.extrude_factor
+            if absolute and state.absolute_extrude:
+                lp[3] = v + bp[3]
+            else:
+                lp[3] += v
+        elif idx < 3:
+            if absolute:
+                lp[idx] = v + bp[idx]
+            else:
+                lp[idx] += v
+        elif v > 0.0:
+            state.speed = v / 60.0
+
+
+# First byte of a move word -> last_position index; 4 is F.
+_AXIS_INDEX = {ord("X"): 0, ord("Y"): 1, ord("Z"): 2, ord("E"): 3, ord("F"): 4}
+
+
+def _apply_arc(
+    state: ModalState, lp: List[float], words: List[bytes], sx: float, sy: float
+) -> Optional[Tuple[float, float]]:
+    """G2/G3: the endpoint moves like G1; I/J give the centre relative to the start."""
+    _apply_move(state, lp, words)
+    i = j = None
+    for w in words[1:]:
+        a = w[:1]
+        if a == b"I":
+            i = _bf(w[1:])
+        elif a == b"J":
+            j = _bf(w[1:])
+    if i is None and j is None:
+        return None
+    return (sx + (i or 0.0), sy + (j or 0.0))
+
+
+def _words_kv(words: List[bytes]) -> Dict[bytes, bytes]:
+    out = {}
+    for w in words[1:]:
+        k, sep, v = w.partition(b"=")
+        if sep:
+            out[k.upper()] = v.strip(b'"')
+    return out
+
+
+def _words_letters(words: List[bytes]) -> Dict[bytes, bytes]:
+    return {w[:1].upper(): w[1:] for w in words[1:] if w}
+
+
+def _bf(value: Optional[bytes]) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except ValueError:
+        return None
+    if math.isnan(f) or math.isinf(f):
+        return None
+    return f
+
+
+def _extruder_for_tool(t: Optional[bytes], state: ModalState) -> str:
+    if t is None:
+        return state.active_extruder
+    try:
+        n = int(t)
+    except ValueError:
+        return state.active_extruder
+    return "extruder" if n == 0 else "extruder%d" % n
+
+
+def _apply_other(state: ModalState, cmd: bytes, words: List[bytes]) -> Optional[int]:
+    """Every non-motion command the reducer follows. Returns
+    SET_PRINT_STATS_INFO's CURRENT_LAYER for _LayerStarts, else None."""
+    if cmd == b"SET_VELOCITY_LIMIT":
+        kv = _words_kv(words)
+        for key, name in _VELOCITY_KEYS:
+            v = _bf(kv.get(key))
+            if v is not None:
+                state.velocity_limits[name] = v
+        return None
+    if cmd == b"M106":
+        p = _words_letters(words)
+        speed = _bf(p.get(b"S"))
+        state.fan_speeds[_fan_name(p.get(b"P"))] = (
+            1.0 if speed is None else max(0.0, min(1.0, speed / 255.0))
+        )
+        return None
+    if cmd == b"M107":
+        state.fan_speeds[_fan_name(_words_letters(words).get(b"P"))] = 0.0
+        return None
+    if cmd == b"G90":
+        state.absolute_coord = True
+        return None
+    if cmd == b"G91":
+        state.absolute_coord = False
+        return None
+    if cmd == b"M82":
+        state.absolute_extrude = True
+        return None
+    if cmd == b"M83":
+        state.absolute_extrude = False
+        return None
+    if cmd == b"G92":
+        _apply_g92(state, _words_letters(words))
+        return None
+    if cmd[:1] == b"T" and cmd[1:].isdigit():
+        state.active_tool = int(cmd[1:])
+        return None
+    if cmd == b"SET_PRINT_STATS_INFO":
+        # A file that sets print_stats info numbers its layers there, even
+        # when its first CURRENT_LAYER comes after a slicer marker.
+        state.layer_source = _PRINT_STATS
+        kv = _words_kv(words)
+        total = _bf(kv.get(b"TOTAL_LAYER"))
+        if total is not None:
+            state.total_layers = int(total)
+        current = _bf(kv.get(b"CURRENT_LAYER"))
+        return None if current is None else int(current)
+    if cmd in (b"M104", b"M109"):
+        p = _words_letters(words)
+        target = _bf(p.get(b"S"))
+        if target is not None:
+            state.heater_targets[_extruder_for_tool(p.get(b"T"), state)] = target
+        return None
+    if cmd in (b"M140", b"M190"):
+        target = _bf(_words_letters(words).get(b"S"))
+        if target is not None:
+            state.heater_targets["heater_bed"] = target
+        return None
+    if cmd in (b"M141", b"M191"):
+        target = _bf(_words_letters(words).get(b"S"))
+        if target is not None:
+            state.heater_targets["chamber"] = target
+        return None
+    if cmd == b"SET_HEATER_TEMPERATURE":
+        kv = _words_kv(words)
+        heater = kv.get(b"HEATER")
+        target = _bf(kv.get(b"TARGET"))
+        if heater:
+            state.heater_targets[heater.decode("utf-8", "replace")] = (
+                0.0 if target is None else target
+            )
+        return None
+    if cmd == b"SET_FAN_SPEED":
+        kv = _words_kv(words)
+        fan = kv.get(b"FAN")
+        speed = _bf(kv.get(b"SPEED"))
+        if fan and speed is not None:
+            state.fan_speeds[fan.decode("utf-8", "replace")] = speed
+        return None
+    if cmd == b"SET_PRESSURE_ADVANCE":
+        kv = _words_kv(words)
+        ext = kv.get(b"EXTRUDER")
+        name = ext.decode("utf-8", "replace") if ext else state.active_extruder
+        entry = state.pressure_advance.setdefault(name, {})
+        advance = _bf(kv.get(b"ADVANCE"))
+        smooth = _bf(kv.get(b"SMOOTH_TIME"))
+        if advance is not None:
+            entry["advance"] = advance
+        if smooth is not None:
+            entry["smooth_time"] = smooth
+        return None
+    if cmd == b"ACTIVATE_EXTRUDER":
+        ext = _words_kv(words).get(b"EXTRUDER")
+        if ext:
+            state.active_extruder = ext.decode("utf-8", "replace")
+        return None
+    if cmd == b"M220":
+        s = _bf(_words_letters(words).get(b"S"))
+        if s is not None and s > 0.0:
+            state.speed_factor = s / 100.0
+        return None
+    if cmd == b"M221":
+        s = _bf(_words_letters(words).get(b"S"))
+        if s is not None and s > 0.0:
+            _set_extrude_factor(state, s / 100.0)
+        return None
+    if cmd == b"M204":
+        p = _words_letters(words)
+        s = _bf(p.get(b"S"))
+        if s is None:
+            pt = [v for v in (_bf(p.get(b"P")), _bf(p.get(b"T"))) if v is not None]
+            s = min(pt) if len(pt) == 2 else None
+        if s is not None:
+            state.velocity_limits["accel"] = s
+        return None
+    if cmd == b"SET_GCODE_OFFSET":
+        _apply_gcode_offset(state, _words_kv(words))
+        return None
+    if cmd == b"EXCLUDE_OBJECT_START":
+        name = _words_kv(words).get(b"NAME")
+        state.current_object = name.decode("utf-8", "replace") if name else None
+        return None
+    if cmd == b"EXCLUDE_OBJECT_END":
+        state.current_object = None
+        return None
+    return None
+
+
+_VELOCITY_KEYS = (
+    (b"VELOCITY", "velocity"),
+    (b"ACCEL", "accel"),
+    (b"ACCEL_TO_DECEL", "accel_to_decel"),
+    (b"SQUARE_CORNER_VELOCITY", "square_corner_velocity"),
+    (b"MINIMUM_CRUISE_RATIO", "minimum_cruise_ratio"),
+)
+
+
+def _fan_name(p: Optional[bytes]) -> str:
+    if p is None or p in (b"", b"0"):
+        return "fan"
+    return "fan_p" + p.decode("ascii", "replace")
+
+
+def _apply_g92(state: ModalState, params: Dict[bytes, bytes]) -> None:
+    """gcode_move.cmd_G92."""
+    lp = state.last_position
+    bp = state.base_position
+    any_axis = False
+    for idx, axis in enumerate(_AXES):
+        v = _bf(params.get(bytes((axis,))))
+        if v is None:
+            continue
+        any_axis = True
+        if idx == 3:
+            v *= state.extrude_factor
+        bp[idx] = lp[idx] - v
+    if not any_axis:
+        bp[:] = lp
+
+
+def _set_extrude_factor(state: ModalState, new_factor: float) -> None:
+    """gcode_move.cmd_M221: keep the logical E where it is."""
+    lp = state.last_position
+    bp = state.base_position
+    e_value = (lp[3] - bp[3]) / state.extrude_factor
+    bp[3] = lp[3] - e_value * new_factor
+    state.extrude_factor = new_factor
+
+
+def _apply_gcode_offset(state: ModalState, kv: Dict[bytes, bytes]) -> None:
+    """gcode_move.cmd_SET_GCODE_OFFSET, without MOVE=1's toolhead move."""
+    hp = state.homing_position
+    bp = state.base_position
+    for idx, axis in enumerate(("X", "Y", "Z", "E")):
+        offset = _bf(kv.get(axis.encode()))
+        if offset is None:
+            adjust = _bf(kv.get((axis + "_ADJUST").encode()))
+            if adjust is None:
+                continue
+            offset = hp[idx] + adjust
+        delta = offset - hp[idx]
+        bp[idx] += delta
+        hp[idx] = offset
+
+
+# --------------------------------------------------------------------------
+# Throttle policy
+# --------------------------------------------------------------------------
+
+
+def whole_file_analysis_allowed(printing: bool, cpu_count: Optional[int]) -> bool:
+    """Whole-file analysis runs while printing only on a multi-core host.
+
+    The printing file's own layer index is the exception: the follower builds
+    it on any host, rate-capped by RateLimiter, never past file_position.
+    """
+    if not printing:
+        return True
+    return (cpu_count or 1) > 1
+
+
+class RateLimiter:
+    """A ThrottleHook that holds a reader to max_bytes_per_s.
+
+    Pass `limiter.pace` as scan_to_offset's throttle. The clock and sleep are
+    injectable for tests.
+    """
+
+    def __init__(
+        self,
+        max_bytes_per_s: float = FOLLOWER_MAX_BYTES_PER_S,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._rate = float(max_bytes_per_s)
+        self._clock = clock
+        self._sleep = sleep
+        self._start = clock()
+
+    def pace(self, bytes_read: int) -> None:
+        due = self._start + bytes_read / self._rate
+        ahead = due - self._clock()
+        if ahead > 0:
+            self._sleep(ahead)
+
+
+class DutyCycleLimiter:
+    """A ThrottleHook holding a reader to a share of one core and to a byte rate.
+
+    Between two pace() calls the reader was working; it then sleeps long
+    enough that work is cpu_fraction of the elapsed time, or longer when the
+    byte cap asks for more. Measured in wall time, which is what the printer's
+    other processes lose to it.
+    """
+
+    def __init__(
+        self,
+        cpu_fraction: float = FOLLOWER_CPU_FRACTION,
+        max_bytes_per_s: float = FOLLOWER_MAX_BYTES_PER_S,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        if not 0.0 < cpu_fraction <= 1.0:
+            raise ValueError("cpu_fraction must be in (0, 1]")
+        self._ratio = (1.0 - cpu_fraction) / cpu_fraction
+        self._clock = clock
+        self._sleep = sleep
+        self._bytes = RateLimiter(max_bytes_per_s, clock, self._sleep_noted)
+        self._byte_sleep = 0.0
+        self._work_start = clock()
+
+    def _sleep_noted(self, seconds: float) -> None:
+        self._byte_sleep = seconds
+
+    def pace(self, bytes_read: int) -> None:
+        work = self._clock() - self._work_start
+        self._byte_sleep = 0.0
+        self._bytes.pace(bytes_read)
+        pause = max(work * self._ratio, self._byte_sleep)
+        if pause > 0:
+            self._sleep(pause)
+        self._work_start = self._clock()
+
+
+def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
+    """Nice the calling thread only (Linux: a thread id is a PRIO_PROCESS
+    target). Returns False where that is not possible."""
+    try:
+        tid = threading.get_native_id()
+        current = os.getpriority(os.PRIO_PROCESS, tid)
+        os.setpriority(os.PRIO_PROCESS, tid, min(19, current + increment))
+    except (AttributeError, OSError):
+        return False
+    return True
+
+
+# --------------------------------------------------------------------------
+# Layer index sidecar
+# --------------------------------------------------------------------------
+
+# A file's layer starts with the modal state at each, so a scan can begin at a
+# layer instead of byte 0. JSON lines: a header naming the file it indexes,
+# one line per layer start, and a closing line once the whole file is
+# indexed. Append-only, so a reader that stops anywhere leaves a valid prefix;
+# an unreadable line (a write cut short) is skipped.
+LAYER_INDEX_FORMAT = 1
+LAYER_INDEX_DIR = ".helix_index"
+LAYER_INDEX_SUFFIX = ".layers.jsonl"
+
+# The file identity a layer index is valid for.
+IDENTITY_KEYS = ("file_size", "file_mtime", "file_hash")
+
+
+class LayerCheckpoint(NamedTuple):
+    layer: int
+    offset: int
+    state: ModalState
+
+
+def layer_index_path(gcodes_root: "os.PathLike", relpath: str) -> str:
+    return os.path.join(str(gcodes_root), LAYER_INDEX_DIR, relpath + LAYER_INDEX_SUFFIX)
+
+
+def _identity(record: dict) -> dict:
+    return {k: record.get(k) for k in IDENTITY_KEYS}
+
+
+class LayerIndexWriter:
+    """Appends checkpoints to a file's layer index, starting it over when the
+    one on disk indexes another version of the file."""
+
+    def __init__(self, path: str, identity: dict) -> None:
+        self.path = path
+        self.identity = _identity(identity)
+        self._f = None
+
+    def _open(self) -> None:
+        state = read_layer_index(self.path, self.identity)
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        if state is None:
+            self._f = open(self.path, "w")
+            self._write(dict(self.identity, format=LAYER_INDEX_FORMAT))
+        else:
+            self._f = open(self.path, "a")
+            # A line cut short by a crash would swallow the next record.
+            with open(self.path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                if f.tell() > 0:
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        self._f.write("\n")
+
+    def _write(self, record: dict) -> None:
+        import json
+        self._f.write(json.dumps(record, separators=(",", ":")) + "\n")
+        self._f.flush()
+
+    def append(self, layer: int, offset: int, state: ModalState) -> None:
+        if self._f is None:
+            self._open()
+        self._write({"layer": layer, "offset": offset, "z": state.last_position[2],
+                     "state": state.to_dict()})
+
+    def finish(self, end_offset: int) -> None:
+        if self._f is None:
+            self._open()
+        self._write({"complete": True, "end_offset": end_offset})
+
+    def close(self) -> None:
+        if self._f is not None:
+            self._f.close()
+            self._f = None
+
+
+class LayerIndexSummary(NamedTuple):
+    last: Optional[LayerCheckpoint]  # the checkpoint furthest into the file
+    at_or_before: Optional[LayerCheckpoint]  # furthest one at or before max_offset
+    complete: bool
+
+
+def read_layer_index(path: str, identity: dict,
+                     max_offset: Optional[int] = None) -> Optional[LayerIndexSummary]:
+    """Stream a layer index; None when it is missing, unreadable or indexes a
+    different version of the file. Memory stays constant in its length."""
+    import json
+    try:
+        f = open(path, "r")
+    except OSError:
+        return None
+    last = None
+    best = None
+    complete = False
+    with f:
+        header = None
+        for line in f:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            if header is None:
+                header = record
+                if header.get("format") != LAYER_INDEX_FORMAT \
+                        or _identity(header) != _identity(identity):
+                    return None
+                continue
+            if record.get("complete"):
+                complete = True
+                continue
+            layer = record.get("layer")
+            offset = record.get("offset")
+            if not isinstance(layer, int) or not isinstance(offset, int) \
+                    or not isinstance(record.get("state"), dict):
+                continue
+            if last is None or offset >= last[1]:
+                last = (layer, offset, record)
+            if (max_offset is None or offset <= max_offset) \
+                    and (best is None or offset >= best[1]):
+                best = (layer, offset, record)
+    if header is None:
+        return None
+
+    def checkpoint(entry):
+        if entry is None:
+            return None
+        return LayerCheckpoint(entry[0], entry[1], ModalState.from_dict(entry[2]["state"]))
+
+    return LayerIndexSummary(checkpoint(last), checkpoint(best), complete)
+
+
+def prune_layer_indexes(gcodes_root: "os.PathLike", keep: int) -> List[str]:
+    """Remove the layer indexes whose G-code file is gone, then all but the
+    `keep` most recently written. Returns the removed paths."""
+    root = os.path.join(str(gcodes_root), LAYER_INDEX_DIR)
+    external = os.path.join(root, ".external") + os.sep
+    found = []  # type: List[Tuple[float, str]]
+    removed = []  # type: List[str]
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            if not name.endswith(LAYER_INDEX_SUFFIX):
+                continue
+            path = os.path.join(dirpath, name)
+            source = os.path.join(str(gcodes_root),
+                                  os.path.relpath(path, root)[:-len(LAYER_INDEX_SUFFIX)])
+            try:
+                if not path.startswith(external) and not os.path.exists(source):
+                    os.remove(path)
+                    removed.append(path)
+                    continue
+                found.append((os.path.getmtime(path), path))
+            except OSError:
+                continue
+    found.sort(reverse=True)
+    for _mtime, path in found[keep:]:
+        try:
+            os.remove(path)
+            removed.append(path)
+        except OSError:
+            pass
+    return removed

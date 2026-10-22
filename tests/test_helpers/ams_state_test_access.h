@@ -83,6 +83,14 @@ class AmsStateTestAccess {
         ams.sync_buffer_from_info(info, now_ms);
     }
 
+    /// A status frame from the primary backend: the data moved, then the sync
+    /// that frame queues, run now. A test staging a mock slot by hand has no
+    /// event to say so.
+    static void backend_frame(AmsState& ams) {
+        ams.invalidate_system_info();
+        ams.sync_from_backend();
+    }
+
     /// Drop every buffer trace, which outlive a test on the singleton.
     static void clear_buffer_traces(AmsState& ams) {
         ams.buffer_traces_.clear();

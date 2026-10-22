@@ -990,9 +990,12 @@ std::set<int> scan_tools_used_from_content(const std::string& content,
  *
  * The single T-parse shared by every scan in the tree: the full parser, the
  * streaming layer index, the tools-used scans and the tool remapper. Strip a
- * trailing `;` comment, trim surrounding whitespace, then require exactly `T`
- * followed by one or more digits. `  T2 ; change` is a tool change; `T0 X1`,
- * `TURN_OFF_HEATERS` and a `Tn` inside a comment are not. Scans disagreeing
+ * trailing `;` comment, trim surrounding whitespace, then require `T` followed
+ * by one or more digits, optionally followed by whitespace-separated Klipper
+ * macro parameters (`KEY=VALUE`, KEY of letters, digits and `_`, VALUE
+ * non-empty). `  T2 ; change` and `T0 PURGE_LENGTH=121.4 NEW_EXTRUDER_TEMP=222`
+ * are tool changes; `T0 X1`, `T0X1`, `TURN_OFF_HEATERS` and a `Tn` inside a
+ * comment are not. Scans disagreeing
  * about what a tool change is put the streamed and full-load previews on
  * different tool sets, and leave a remapped file on the original tool.
  *
@@ -1001,7 +1004,8 @@ std::set<int> scan_tools_used_from_content(const std::string& content,
  *
  * @param raw One raw G-code line, with or without a trailing `\r`.
  * @param digits When non-null and @p raw is a tool change, receives the
- *        [begin, end) offsets of the tool number within @p raw.
+ *        [begin, end) offsets of the tool number within @p raw; any
+ *        parameters after it lie outside that span.
  * @return Tool index >= 0, or -1 if @p raw is not a standalone tool change.
  */
 int tool_index_for_line(const std::string& raw, std::pair<size_t, size_t>* digits = nullptr);

@@ -19,6 +19,8 @@
 #include "runtime_config.h"
 #include "test_helpers/config_test_access.h"
 #include "test_helpers/display_manager_test_access.h"
+#include "test_helpers/scoped_board.h"
+#include "test_helpers/scoped_env.h"
 
 #include <filesystem>
 #include <fstream>
@@ -958,4 +960,61 @@ TEST_CASE_METHOD(ApplicationTestFixture,
 
     DisplayManagerTestAccess::set_display(mgr, nullptr);
     lv_display_set_rotation(disp, prev);
+}
+
+// ============================================================================
+// First-boot orientation
+// ============================================================================
+
+TEST_CASE("a first boot reports the board's panel mount it applied", "[application][display]") {
+    helix::test::ScopedBoard board(helix::board::Board::K1);
+    helix::ScopedEnv no_force("HELIX_FORCE_ROTATION_PROBE", nullptr);
+    helix::ScopedEnv no_env_rotation("HELIX_DISPLAY_ROTATION", nullptr);
+    // No saved rotation, as on a first boot; the singleton's display block is put back.
+    struct DisplayBlockGuard {
+        nlohmann::json& data = helix::ConfigTestAccess::data(*helix::Config::get_instance());
+        nlohmann::json saved = data.contains("display") ? data["display"] : nlohmann::json();
+        DisplayBlockGuard() {
+            data["display"] = nlohmann::json::object();
+        }
+        ~DisplayBlockGuard() {
+            if (saved.is_null()) {
+                data.erase("display");
+            } else {
+                data["display"] = saved;
+            }
+        }
+    } display_block;
+
+    DisplayManager::Config config;
+    config.first_boot_probe = true;
+    config.kernel_orientation = -1;
+
+    SECTION("the K1 panel: its mount, which Application saves instead of probing") {
+        DisplayManager mgr;
+        DisplayManagerTestAccess::set_size(mgr, 480, 800);
+        DisplayManagerTestAccess::apply_startup_rotation(mgr, config);
+        CHECK(mgr.first_boot_orientation() == 270);
+    }
+    SECTION("another framebuffer: nothing known, the probe runs") {
+        DisplayManager mgr;
+        DisplayManagerTestAccess::set_size(mgr, 800, 480);
+        DisplayManagerTestAccess::apply_startup_rotation(mgr, config);
+        CHECK(mgr.first_boot_orientation() == -1);
+    }
+    SECTION("a kernel panel_orientation is what the boot applied") {
+        config.kernel_orientation = 90;
+        config.rotation = 90;
+        DisplayManager mgr;
+        DisplayManagerTestAccess::set_size(mgr, 480, 800);
+        DisplayManagerTestAccess::apply_startup_rotation(mgr, config);
+        CHECK(mgr.first_boot_orientation() == 90);
+    }
+    SECTION("not a first boot: nothing to report") {
+        config.first_boot_probe = false;
+        DisplayManager mgr;
+        DisplayManagerTestAccess::set_size(mgr, 480, 800);
+        DisplayManagerTestAccess::apply_startup_rotation(mgr, config);
+        CHECK(mgr.first_boot_orientation() == -1);
+    }
 }

@@ -64,7 +64,7 @@ HELIX_TEMP_TABLE = "helix_temp_files"
 DB_RECORD_MAX_AGE = 30 * 86400
 
 # Plugin version - used for API version detection by clients
-PLUGIN_VERSION = "1.3.0"
+PLUGIN_VERSION = "1.4.0"
 
 # Shape of the status reply; 2 added the `features` map
 STATUS_API = 2
@@ -107,7 +107,7 @@ SIBLING_LOAD_ERRORS: Dict[str, str] = {}
 
 
 def _load_sibling(name: str) -> Optional[Any]:
-    """Load <name>.py from beside this file.
+    """Load <name>.py from beside this file, as module `name`.
 
     Moonraker imports this component through a symlink in its components
     directory, where no sibling module exists, so the import follows the link
@@ -117,6 +117,9 @@ def _load_sibling(name: str) -> Optional[Any]:
     """
     SIBLING_LOAD_ERRORS.pop(name, None)
     path = Path(__file__).resolve().parent / f"{name}.py"
+    loaded = sys.modules.get(name)
+    if loaded is not None and Path(getattr(loaded, "__file__", "")).resolve() == path:
+        return loaded
     if not path.is_file():
         SIBLING_LOAD_ERRORS[name] = "module_missing"
         return None
@@ -125,9 +128,13 @@ def _load_sibling(name: str) -> Optional[Any]:
         SIBLING_LOAD_ERRORS[name] = "module_missing"
         return None
     module = importlib.util.module_from_spec(spec)
+    # Registered before it runs, as an import would, so a sibling loaded
+    # later can import this one by name.
+    sys.modules[name] = module
     try:
         spec.loader.exec_module(module)
     except Exception as e:
+        del sys.modules[name]
         logging.exception(f"HelixPrint: {name}.py failed to load")
         SIBLING_LOAD_ERRORS[name] = f"load_failed: {type(e).__name__}: {e}"
         return None
@@ -136,6 +143,12 @@ def _load_sibling(name: str) -> Optional[Any]:
 
 helix_capabilities = _load_sibling("helix_capabilities")
 helix_3mf = _load_sibling("helix_3mf")
+# Dependencies first: helix_plr imports the reader by name.
+helix_gcode_reader = _load_sibling("helix_gcode_reader")
+helix_plr_scan = _load_sibling("helix_plr_scan")
+helix_plr_render = _load_sibling("helix_plr_render")
+helix_plr_qidi = _load_sibling("helix_plr_qidi")
+helix_plr = _load_sibling("helix_plr")
 
 
 # ============================================================================
@@ -152,6 +165,9 @@ FeatureSwitch = Callable[[], Awaitable[bool]]
 
 # A feature's live availability: (available, reason when not).
 FeatureProbe = Callable[[], Tuple[bool, Optional[str]]]
+
+# Fields a feature adds to its own entry beyond version/available/enabled/reason.
+FeatureExtra = Callable[[], Awaitable[Dict[str, Any]]]
 
 
 class Feature:
@@ -171,6 +187,7 @@ class Feature:
         reason: Optional[str] = None,
         switch: Optional[FeatureSwitch] = None,
         probe: Optional[FeatureProbe] = None,
+        extra: Optional[FeatureExtra] = None,
     ) -> None:
         self.name = name
         self.version = version
@@ -179,6 +196,7 @@ class Feature:
         self.reason = reason
         self.switch = switch
         self.probe = probe
+        self.extra = extra
 
     def availability(self) -> Tuple[bool, Optional[str]]:
         """Whether the feature can run now, read from its probe when it has
@@ -414,6 +432,7 @@ class HelixPrint:
         self.convert_3mf = config.getboolean("convert_3mf", True)
         self.start_3mf_on_upload = config.getboolean("start_3mf_on_upload", False)
         self.converter: Optional[Any] = None
+        self.plr: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -540,6 +559,7 @@ class HelixPrint:
         reason: Optional[str] = None,
         switch: Optional[FeatureSwitch] = None,
         probe: Optional[FeatureProbe] = None,
+        extra: Optional[FeatureExtra] = None,
     ) -> Feature:
         """Add a feature to the status `features` map.
 
@@ -548,7 +568,7 @@ class HelixPrint:
         from `available` / `reason`. Registering a name again replaces the
         entry.
         """
-        feature = Feature(name, version, acts, available, reason, switch, probe)
+        feature = Feature(name, version, acts, available, reason, switch, probe, extra)
         self.features[name] = feature
         return feature
 
@@ -590,7 +610,14 @@ class HelixPrint:
         result: Dict[str, Any] = {}
         for name, feature in self.features.items():
             enabled = await self._feature_switch_value(feature, opt_ins)
-            result[name] = feature_entry(feature, enabled)
+            entry = feature_entry(feature, enabled)
+            if feature.extra is not None:
+                try:
+                    entry.update({k: v for k, v in (await feature.extra()).items()
+                                  if k not in entry})
+                except Exception:
+                    logging.exception(f"HelixPrint: extra fields of feature {name} failed")
+            result[name] = entry
         return result
 
     # =========================================================================
@@ -704,8 +731,11 @@ class HelixPrint:
 
         await self._start_3mf_converter()
         self._register_3mf_feature()
+        self._start_plr()
 
         await self._load_job_markers()
+        if self.plr is not None:
+            await self.plr.load_job()
 
     async def _start_3mf_converter(self) -> None:
         if not (self.enabled and self.convert_3mf):
@@ -761,7 +791,35 @@ class HelixPrint:
             "convert_3mf", 1, acts=False, switch=switch, probe=self._3mf_availability,
         )
 
+    def _data_dir(self) -> Path:
+        """Moonraker's data directory (printer_data)."""
+        get_args = getattr(self.server, "get_app_args", None)
+        if get_args is not None:
+            data_path = get_args().get("data_path")
+            if data_path:
+                return Path(data_path)
+        return self.gc_path.parent if self.gc_path is not None else Path(".")
+
+    def _start_plr(self) -> None:
+        """Power-loss recovery (helix_plr.py), switched by its own plr_user
+        record rather than plugin_features."""
+        if helix_plr is None:
+            self.register_feature(
+                "plr", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_plr", "module_missing"),
+            )
+            return
+        self.plr = helix_plr.HelixPlr(self, self._data_dir())
+        self.plr.start()
+        self.register_feature(
+            helix_plr.PLR_FEATURE, helix_plr.PLR_FEATURE_VERSION, acts=True,
+            switch=self.plr.feature_enabled, probe=self.plr.availability,
+            extra=self.plr.feature_extra,
+        )
+
     async def close(self) -> None:
+        if self.plr is not None:
+            self.plr.close()
         if self.converter is not None:
             await self.converter.close()
 
