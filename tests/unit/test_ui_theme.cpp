@@ -5,6 +5,7 @@
 
 #include "../ui_test_utils.h"
 #include "theme_manager.h"
+#include "theme_token_table.h"
 
 #include <cstring>
 
@@ -790,6 +791,44 @@ TEST_CASE("Multi-file aggregation: component overrides global", "[ui_theme][resp
 
         REQUIRE(results.empty());
     }
+}
+
+TEST_CASE("Token discovery parses an unchanged file once", "[ui_theme][responsive]") {
+    // Every LVGL test case and every layout refresh runs discovery over all of
+    // ui_xml/; a pass over files that have not changed must cost no parse.
+    REQUIRE_FALSE(helix::theme_tokens::enabled());
+    const auto first = theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_small");
+    REQUIRE_FALSE(first.empty());
+    const int parses = theme_manager_token_file_parse_count();
+
+    CHECK(theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_small") == first);
+    CHECK_FALSE(theme_manager_parse_all_xml_for_suffix("ui_xml", "px", "_large").empty());
+    CHECK_FALSE(theme_manager_parse_all_xml_for_element("ui_xml", "color").empty());
+    CHECK(theme_manager_token_file_parse_count() == parses);
+}
+
+TEST_CASE("Token discovery sees a file rewritten right after a scan", "[ui_theme][responsive]") {
+    TempXmlDirectory temp_dir;
+    const auto file = [](const char* value) {
+        return std::string(R"(<component><consts><px name="gap_small" value=")") + value +
+               R"("/></consts></component>)";
+    };
+
+    temp_dir.create_file("tokens.xml", file("11"));
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small")["gap"] ==
+          "11");
+
+    // Same size, inside one timestamp tick of the first write.
+    temp_dir.create_file("tokens.xml", file("22"));
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small")["gap"] ==
+          "22");
+
+    temp_dir.create_file("tokens.xml", file("333"));
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small")["gap"] ==
+          "333");
+
+    std::filesystem::remove(temp_dir.path() + "/tokens.xml");
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small").empty());
 }
 
 TEST_CASE("Multi-file aggregation: incomplete triplets ignored", "[ui_theme][responsive]") {
