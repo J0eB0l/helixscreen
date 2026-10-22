@@ -26,7 +26,8 @@
 #   lvgl-event-codes  make check-lvgl-event-codes: crash worker table vs lv_event_code_t
 #   quality           make quality: the full quality-checks.sh sweep pre-push runs,
 #                     after app-build, since its clang gate reads the build's
-#                     compile commands
+#                     compile commands, and after a local ci-shards, since it
+#                     runs makes of its own in the tree
 #
 # The C++ step runs on the test host when full-test-run's sweep would
 # (scripts/lib/sweep_location.sh: TEST_HOST=1, 0 or unset for the probe).
@@ -34,7 +35,8 @@
 # (default build/land-gate) and is killed after LAND_GATE_STEP_TIMEOUT seconds
 # (default 3600, far above any healthy step), which its row reports as TIMEOUT.
 # The table at the end names every step with its duration and the commit it
-# judged, marked +dirty when the tree had uncommitted changes; the exit status
+# judged, marked +dirty when the tree had uncommitted changes or untracked files
+# git does not ignore (a new source the commit lacks); the exit status
 # is non-zero unless every row passed. The run holds build:<tree>, so a second
 # gate or a peer's make in the same tree is refused instead of racing it.
 #
@@ -98,16 +100,24 @@ lane() {
                 step ci-shards "$TEST_HOST_RUN" sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT" SHARD_CRASH_FAILS=1
             else
                 step ci-shards "${mk[@]}" unit-sweep "NPROCS=$CI_SHARDS" "SHARD_TIMEOUT=$CI_SHARD_TIMEOUT" SHARD_CRASH_FAILS=1
+                # quality starts makes of its own in this tree (an incremental app
+                # build, the XML tools), so it waits for the local sweep to link
+                # and finish. This lane starts after the app build's row exists.
+                if grep -q '^PASS ' "$ROWS_DIR/app-build" 2>/dev/null; then
+                    step quality "${mk[@]}" quality
+                else
+                    skip quality "app-build failed"
+                fi
             fi ;;
         app)
             if step app-build "${mk[@]}"; then
                 step ui "${mk[@]}" test-ui-ci
                 step plugin "${mk[@]}" test-plugin
-                step quality "${mk[@]}" quality
+                [ "$SWEEP_WHERE" = local ] || step quality "${mk[@]}" quality
             else
                 skip ui "app-build failed"
                 skip plugin "app-build failed"
-                skip quality "app-build failed"
+                [ "$SWEEP_WHERE" = local ] || skip quality "app-build failed"
             fi ;;
         bats) step bats "${mk[@]}" test-shell BATS_REQUIRED=1 ;;
         fresh)
@@ -189,7 +199,7 @@ gate_eta() {
 gate_eta
 judged="$(git rev-parse --short HEAD 2>/dev/null || echo '?')"
 judged_sha="$(git rev-parse HEAD 2>/dev/null || true)"
-[ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] || judged+="+dirty"
+[ -z "$(git status --porcelain --untracked-files=normal 2>/dev/null)" ] || judged+="+dirty"
 
 # Each lane is its own process group, so one signal reaches everything under
 # it: a test-host ssh, a build, a pytest and its app, a bats run. A lane left
@@ -270,7 +280,7 @@ echo "LAND GATE: PASS ($judged)"
 if [[ "$judged" != *+dirty ]] && [ -n "$judged_sha" ] \
     && grep -q '^PASS ' "$ROWS_DIR/quality" 2>/dev/null \
     && [ "$(git rev-parse HEAD 2>/dev/null)" = "$judged_sha" ] \
-    && [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] \
+    && [ -z "$(git status --porcelain --untracked-files=normal 2>/dev/null)" ] \
     && land_gate_stamp_write "$judged_sha"; then
     echo "  recorded: pushing $judged skips pre-push's quality sweep"
 fi

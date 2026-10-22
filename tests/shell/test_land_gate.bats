@@ -35,6 +35,9 @@ export FAKE_MAKE_DEPTH=$((${FAKE_MAKE_DEPTH:-0} + 1))
 t=app; vars=""
 for a in "$@"; do case "$a" in -*) ;; *=*) vars="$vars $a" ;; *) t=$a ;; esac; done
 echo "make $t$vars" >> "$CALLS"
+echo "start $t" >> "$CALLS.order"
+[ "$t" != unit-sweep ] || [ -z "${UNIT_SWEEP_SECS:-}" ] || sleep "$UNIT_SWEEP_SECS"
+trap '\''echo "end $t" >> "$CALLS.order"'\'' EXIT
 [ "$t" != quality ] || [ -z "${MAKE_QUALITY_HOOK:-}" ] || eval "$MAKE_QUALITY_HOOK"
 echo "output of $t"
 eval "rc=\${RC_$(echo "$t" | tr - _):-0}"
@@ -133,6 +136,32 @@ row() { # <status> <step>: the table row for step has that status
     row SKIP quality
     refute_grep "make test-ui-ci" "$CALLS"
     row PASS bats
+}
+
+# order_of <event>: its line number in the stubs' start/end log.
+order_of() { grep -nx "$1" "$CALLS.order" | head -n 1 | cut -d: -f1; }
+
+@test "a local C++ run finishes before quality starts its own makes in the tree" {
+    UNIT_SWEEP_SECS=2 run "$GATE"
+    [ "$status" -eq 0 ]
+    row PASS quality
+    [ "$(grep -c "^make quality" "$CALLS")" -eq 1 ]
+    [ "$(order_of "end unit-sweep")" -lt "$(order_of "start quality")" ]
+}
+
+@test "a local C++ run after a failed app build still skips quality" {
+    RC_app=2 run "$GATE"
+    [ "$status" -eq 1 ]
+    row PASS ci-shards
+    row SKIP quality
+    refute_grep "make quality" "$CALLS"
+}
+
+@test "a test-host C++ run leaves quality in the app lane, beside it" {
+    TEST_HOST=1 run "$GATE"
+    [ "$status" -eq 0 ]
+    row PASS quality
+    [ "$(grep -c "^make quality" "$CALLS")" -eq 1 ]
 }
 
 @test "TEST_HOST=1 sends the C++ run to the test host, once, and runs none here" {
@@ -271,6 +300,25 @@ stamp_tree() {
     contains "+dirty" "$output"
     [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
     lacks "recorded:" "$output"
+}
+
+@test "an untracked file git does not ignore records nothing; an ignored one does not count" {
+    stamp_tree
+    echo build/ >"$T/.gitignore"
+    git -C "$T" add .gitignore
+    git -C "$T" -c user.email=t@t -c user.name=t commit -q -m ignore
+    SHA=$(git -C "$T" rev-parse HEAD)
+    mkdir "$T/build"; echo o >"$T/build/x.o"
+    echo new >"$T/new.cpp"
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    contains "+dirty" "$output"
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    rm "$T/new.cpp"
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    lacks "+dirty" "$output"
+    [ -f "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
 }
 
 @test "a gate whose tree is edited during the run records nothing" {
