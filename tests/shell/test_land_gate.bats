@@ -11,7 +11,7 @@ load helpers
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 GATE="$REPO_ROOT/scripts/land-gate.sh"
 
-ALL_STEPS="app-build sweep ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes"
+ALL_STEPS="app-build ci-shards bats ui plugin python theme-tokens xml-schema lint-xml lvgl-event-codes quality"
 
 # Every make here is a stub, and a stub must never reach the real make or the
 # jobpool shim: JOBPOOL=0 keeps the shim out of any make that does run, and the
@@ -24,6 +24,9 @@ setup() {
     export CALLS="$BATS_TEST_TMPDIR/calls"
     export LAND_GATE_LOGDIR="$BATS_TEST_TMPDIR/logs"
     export LAND_GATE_HISTORY="$BATS_TEST_TMPDIR/history.tsv"
+    # A passing gate run in the real tree must never vouch for its HEAD to the
+    # real pre-push hook.
+    export HELIX_LAND_GATE_STAMP_DIR="$BATS_TEST_TMPDIR/stamps"
     : >"$CALLS"
     # A target exits with $RC_<target, - as _>, default 0; no target is "app".
     mock_command_script fake-make '
@@ -32,13 +35,17 @@ export FAKE_MAKE_DEPTH=$((${FAKE_MAKE_DEPTH:-0} + 1))
 t=app; vars=""
 for a in "$@"; do case "$a" in -*) ;; *=*) vars="$vars $a" ;; *) t=$a ;; esac; done
 echo "make $t$vars" >> "$CALLS"
+echo "start $t" >> "$CALLS.order"
+[ "$t" != unit-sweep ] || [ -z "${UNIT_SWEEP_SECS:-}" ] || sleep "$UNIT_SWEEP_SECS"
+trap '\''echo "end $t" >> "$CALLS.order"'\'' EXIT
+[ "$t" != quality ] || [ -z "${MAKE_QUALITY_HOOK:-}" ] || eval "$MAKE_QUALITY_HOOK"
 echo "output of $t"
 eval "rc=\${RC_$(echo "$t" | tr - _):-0}"
 exit "$rc"'
     mock_command_script fake-test-host-run '
 echo "host-run $*" >> "$CALLS"
 case "$1" in
-    sweep) echo "host sweep $*"; case "$*" in *NPROCS=*) exit "${RC_host_ci:-0}" ;; *) exit "${RC_host_sweep:-0}" ;; esac ;;
+    sweep) echo "host sweep $*"; exit "${RC_host_ci:-0}" ;;
     --probe) exit 1 ;;
 esac'
     # take exits $CLAIM_TAKE_RC (default 0); every call is recorded.
@@ -67,7 +74,6 @@ row() { # <status> <step>: the table row for step has that status
     for s in $ALL_STEPS; do row PASS "$s"; done
     contains "LAND GATE: PASS" "$output"
     grep -qx "make app" "$CALLS"
-    grep -qx "make unit-sweep" "$CALLS"
     grep -qx "make test-shell BATS_REQUIRED=1" "$CALLS"
     grep -qx "make test-ui-ci" "$CALLS"
     grep -qx "make test-plugin" "$CALLS"
@@ -76,30 +82,32 @@ row() { # <status> <step>: the table row for step has that status
     grep -qx "make check-xml-schema" "$CALLS"
     grep -qx "make lint-xml" "$CALLS"
     grep -qx "make check-lvgl-event-codes" "$CALLS"
+    grep -qx "make quality" "$CALLS"
 }
 
-@test "the second sweep runs in CI's 8-shard layout, and CI_SHARDS changes it" {
+@test "the C++ suite runs once, in CI's 8-shard layout, and CI_SHARDS changes it" {
     run "$GATE"
     [ "$status" -eq 0 ]
-    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
+    [ "$(grep -c "unit-sweep" "$CALLS")" -eq 1 ]
+    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
     : >"$CALLS"
     CI_SHARDS=12 run "$GATE"
-    grep -qx "make unit-sweep NPROCS=12 SHARD_TIMEOUT=600" "$CALLS"
+    grep -qx "make unit-sweep NPROCS=12 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
 }
 
 @test "a CI-layout shard gets CI's step budget, not the sweep's 300s, and CI_SHARD_TIMEOUT changes it" {
     [ "$(sed -n '/name: Run unit tests/,/run:/s/.*timeout-minutes: *//p' "$REPO_ROOT/.github/workflows/build.yml")" = 10 ]
     TEST_HOST=1 run "$GATE"
-    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
+    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
     : >"$CALLS"
     CI_SHARD_TIMEOUT=900 run "$GATE"
-    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=900" "$CALLS"
+    grep -qx "make unit-sweep NPROCS=8 SHARD_TIMEOUT=900 SHARD_CRASH_FAILS=1" "$CALLS"
     refute_grep "make unit-sweep SHARD_TIMEOUT" "$CALLS"
 }
 
 @test "each failing step fails the gate and shows FAIL in its own row" {
     local target step
-    for pair in app:app-build unit-sweep:sweep test-shell:bats test-ui-ci:ui test-plugin:plugin test-python:python \
+    for pair in app:app-build unit-sweep:ci-shards test-shell:bats test-ui-ci:ui test-plugin:plugin test-python:python \
                 check-theme-tokens:theme-tokens check-xml-schema:xml-schema lint-xml:lint-xml \
                 check-lvgl-event-codes:lvgl-event-codes; do
         target=${pair%%:*} step=${pair#*:}
@@ -113,10 +121,9 @@ row() { # <status> <step>: the table row for step has that status
     done
 }
 
-@test "a red CI-layout pass alone fails the gate while the local layout passes" {
+@test "a red CI-layout run on the test host fails the gate" {
     TEST_HOST=1 RC_host_ci=1 run "$GATE"
     [ "$status" -eq 1 ]
-    row PASS sweep
     row FAIL ci-shards
 }
 
@@ -126,15 +133,42 @@ row() { # <status> <step>: the table row for step has that status
     row FAIL app-build
     row SKIP ui
     row SKIP plugin
+    row SKIP quality
     refute_grep "make test-ui-ci" "$CALLS"
     row PASS bats
 }
 
-@test "TEST_HOST=1 sends both sweeps to the test host and runs neither here" {
+# order_of <event>: its line number in the stubs' start/end log.
+order_of() { grep -nx "$1" "$CALLS.order" | head -n 1 | cut -d: -f1; }
+
+@test "a local C++ run finishes before quality starts its own makes in the tree" {
+    UNIT_SWEEP_SECS=2 run "$GATE"
+    [ "$status" -eq 0 ]
+    row PASS quality
+    [ "$(grep -c "^make quality" "$CALLS")" -eq 1 ]
+    [ "$(order_of "end unit-sweep")" -lt "$(order_of "start quality")" ]
+}
+
+@test "a local C++ run after a failed app build still skips quality" {
+    RC_app=2 run "$GATE"
+    [ "$status" -eq 1 ]
+    row PASS ci-shards
+    row SKIP quality
+    refute_grep "make quality" "$CALLS"
+}
+
+@test "a test-host C++ run leaves quality in the app lane, beside it" {
     TEST_HOST=1 run "$GATE"
     [ "$status" -eq 0 ]
-    grep -qx "host-run sweep" "$CALLS"
-    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600" "$CALLS"
+    row PASS quality
+    [ "$(grep -c "^make quality" "$CALLS")" -eq 1 ]
+}
+
+@test "TEST_HOST=1 sends the C++ run to the test host, once, and runs none here" {
+    TEST_HOST=1 run "$GATE"
+    [ "$status" -eq 0 ]
+    [ "$(grep -c "^host-run sweep" "$CALLS")" -eq 1 ]
+    grep -qx "host-run sweep NPROCS=8 SHARD_TIMEOUT=600 SHARD_CRASH_FAILS=1" "$CALLS"
     refute_grep "make unit-sweep" "$CALLS"
     grep -qx "make test-shell BATS_REQUIRED=1" "$CALLS"
     grep -qx "make test-ui-ci" "$CALLS"
@@ -233,6 +267,87 @@ case "$1" in take) [ "$5" = "$CLAIM_OWNER" ] ;; esac'
     run bash -c "cd '$T' && '$GATE'"
     contains "Land gate on $sha+dirty" "$output"
     contains "LAND GATE: PASS ($sha+dirty)" "$output"
+}
+
+# A one-commit repo the gate runs in, so its HEAD and cleanliness are the test's.
+stamp_tree() {
+    T="$BATS_TEST_TMPDIR/tree"
+    git init -q "$T"
+    echo a >"$T/f"; git -C "$T" add f
+    git -C "$T" -c user.email=t@t -c user.name=t commit -q -m init
+    SHA=$(git -C "$T" rev-parse HEAD)
+}
+
+@test "a clean PASS records the full HEAD SHA for pre-push" {
+    stamp_tree
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    [ -f "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    [ "$(ls "$HELIX_LAND_GATE_STAMP_DIR")" = "$SHA" ]
+    contains "recorded: pushing ${SHA:0:7}" "$output"
+}
+
+@test "a failed step or a dirty tree records nothing" {
+    stamp_tree
+    RC_quality=1 run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 1 ]
+    row FAIL quality
+    RC_lint_xml=1 run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 1 ]
+    echo b >"$T/f"
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    contains "+dirty" "$output"
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    lacks "recorded:" "$output"
+}
+
+@test "an untracked file git does not ignore records nothing; an ignored one does not count" {
+    stamp_tree
+    echo build/ >"$T/.gitignore"
+    git -C "$T" add .gitignore
+    git -C "$T" -c user.email=t@t -c user.name=t commit -q -m ignore
+    SHA=$(git -C "$T" rev-parse HEAD)
+    mkdir "$T/build"; echo o >"$T/build/x.o"
+    echo new >"$T/new.cpp"
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    contains "+dirty" "$output"
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    rm "$T/new.cpp"
+    run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    lacks "+dirty" "$output"
+    [ -f "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+}
+
+@test "a gate whose tree is edited during the run records nothing" {
+    stamp_tree
+    MAKE_QUALITY_HOOK="echo edited >f" run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    lacks "+dirty" "$output"
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+}
+
+@test "a tree dirty at the start records nothing, even if clean at the end" {
+    stamp_tree
+    echo b >"$T/f"
+    MAKE_QUALITY_HOOK="echo a >f" run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    contains "+dirty" "$output"
+    [ -z "$(git -C "$T" status --porcelain --untracked-files=no)" ]
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+}
+
+@test "a gate whose HEAD moves during the run records nothing" {
+    stamp_tree
+    # The quality step commits, as a peer committing in the tree mid-gate would.
+    RC_quality=0 MAKE_QUALITY_HOOK="git -c user.email=t@t -c user.name=t commit -q --allow-empty -m moved" \
+        run bash -c "cd '$T' && '$GATE'"
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$T" rev-parse HEAD)" != "$SHA" ]
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$SHA" ]
+    [ ! -e "$HELIX_LAND_GATE_STAMP_DIR/$(git -C "$T" rev-parse HEAD)" ]
 }
 
 @test "test-shell with BATS_REQUIRED=1 fails when bats is missing; without it, skips" {

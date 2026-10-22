@@ -124,7 +124,8 @@ jobs:
         if [ "$INCLUDE_RELEASE" = "yes" ]; then
           PREFIXES=$(jq -c '. + ["ccache-release-pi-",
                                  "ccache-release-pi32-",
-                                 "ccache-release-x86-"]' <<<"$PREFIXES")
+                                 "ccache-release-x86-",
+                                 "ccache-release-android-"]' <<<"$PREFIXES")
           echo "Release families included in this prune: $PREFIXES"
         fi
 

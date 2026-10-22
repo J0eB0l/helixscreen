@@ -24,6 +24,8 @@ set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=lib/build_hosts.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/build_hosts.sh"
+# shellcheck source-path=SCRIPTDIR source=lib/ccache_shared.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/ccache_shared.sh"
 require_build_host HELIX_TEST_HOST || exit 2
 
 RECREATE=0 CLONE=0
@@ -114,6 +116,10 @@ if [ "$CLONE" = 1 ]; then
     on_host "sudo -n docker exec $CONTAINER bash -lc '[ -d $WORKDIR/.git ] || git clone -q --recurse-submodules $url $WORKDIR'" ||
         die "clone failed: the container needs to reach $url without credentials"
 fi
+
+step "ccache at $CCACHE shared by every tree under $WORK"
+on_host "$(ccache_shared_cmd "$CONTAINER" "$CCACHE" apply "$WORK" "$HELIX_TEST_CCACHE_SIZE")" ||
+    die "could not apply the shared ccache settings in $CONTAINER"
 
 # Ask the compiler that does the linking, not PATH: clang resolves ld.mold from
 # its own program directory first, so a stale /usr/bin/ld.mold wins the link

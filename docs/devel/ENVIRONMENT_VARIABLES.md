@@ -1605,7 +1605,7 @@ HELIX_HOT_RELOAD=0 ./build/bin/helix-screen --test -vv
 ```
 
 **How it works:**
-1. On startup, recursively scans `ui_xml/` and records file modification times (skips `translations/` and `.claude-recall/`)
+1. On startup, recursively scans `ui_xml/` and records file modification times (skips `translations/`)
 2. Every 500ms, checks all tracked XML files for mtime changes
 3. On change: reads the file and validates XML well-formedness on the polling thread (no LVGL state touched). If the file is mid-write (truncated, briefly empty during atomic rename) or has a syntax error, the reload is deferred — the existing UI stays live and the next poll retries. Mtime cache is not updated on failure.
 4. If valid: queues `lv_xml_component_unregister()` + `lv_xml_register_component_from_data()` on the LVGL main thread, then fires `NavigationManager::rebuild_active_views()` which tears down + recreates the active panel, all overlays, and the top modal.

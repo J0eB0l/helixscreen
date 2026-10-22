@@ -3,8 +3,10 @@
 
 #include "ui_fonts.h"
 
+#include "../../src/ui/theme_manager_internal.h"
 #include "../ui_test_utils.h"
 #include "theme_manager.h"
+#include "theme_token_table.h"
 
 #include <cstring>
 
@@ -403,6 +405,7 @@ TEST_CASE("UI Theme: Font height helper", "[ui_theme][responsive]") {
 #include <filesystem>
 #include <fstream>
 #include <thread>
+#include <unistd.h>
 #include <unordered_map>
 #include <vector>
 
@@ -414,7 +417,8 @@ class TempXmlDirectory {
         // Use atomic counter + thread ID to avoid race conditions in parallel tests
         static std::atomic<int> counter{0};
         std::ostringstream oss;
-        oss << "/tmp/helix_test_xml_" << counter.fetch_add(1) << "_" << std::this_thread::get_id();
+        oss << "/tmp/helix_test_xml_" << getpid() << "_" << counter.fetch_add(1) << "_"
+            << std::this_thread::get_id();
         m_path = oss.str();
         std::filesystem::create_directories(m_path);
     }
@@ -790,6 +794,60 @@ TEST_CASE("Multi-file aggregation: component overrides global", "[ui_theme][resp
 
         REQUIRE(results.empty());
     }
+}
+
+TEST_CASE("Token discovery parses an unchanged file once", "[ui_theme][responsive]") {
+    // Every LVGL test case and every layout refresh runs discovery over all of
+    // ui_xml/; a pass over files that have not changed must cost no parse. The
+    // files are the case's own, and trusted as soon as they are written, so a
+    // peer editing ui_xml/ cannot make one look freshly changed.
+    REQUIRE_FALSE(helix::theme_tokens::enabled());
+    struct RestoreWindow {
+        int64_t previous = helix::theme_detail::set_token_racy_window_ns(-1);
+        ~RestoreWindow() {
+            helix::theme_detail::set_token_racy_window_ns(previous);
+        }
+    } restore_window;
+    TempXmlDirectory temp_dir;
+    temp_dir.create_file(
+        "a.xml", R"(<component><consts><px name="gap_small" value="4"/><px name="gap_large" )"
+                 R"(value="12"/></consts></component>)");
+    temp_dir.create_file("b.xml", R"(<component><consts><color name="accent" value="0xff0000"/>)"
+                                  R"(<px name="pad_small" value="2"/></consts></component>)");
+    const char* dir = temp_dir.path().c_str();
+
+    const auto first = theme_manager_parse_all_xml_for_suffix(dir, "px", "_small");
+    REQUIRE(first.size() == 2);
+    const int parses = theme_manager_token_file_parse_count();
+
+    CHECK(theme_manager_parse_all_xml_for_suffix(dir, "px", "_small") == first);
+    CHECK_FALSE(theme_manager_parse_all_xml_for_suffix(dir, "px", "_large").empty());
+    CHECK_FALSE(theme_manager_parse_all_xml_for_element(dir, "color").empty());
+    CHECK(theme_manager_token_file_parse_count() == parses);
+}
+
+TEST_CASE("Token discovery sees a file rewritten right after a scan", "[ui_theme][responsive]") {
+    TempXmlDirectory temp_dir;
+    const auto file = [](const char* value) {
+        return std::string(R"(<component><consts><px name="gap_small" value=")") + value +
+               R"("/></consts></component>)";
+    };
+
+    temp_dir.create_file("tokens.xml", file("11"));
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small")["gap"] ==
+          "11");
+
+    // Same size, inside one timestamp tick of the first write.
+    temp_dir.create_file("tokens.xml", file("22"));
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small")["gap"] ==
+          "22");
+
+    temp_dir.create_file("tokens.xml", file("333"));
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small")["gap"] ==
+          "333");
+
+    std::filesystem::remove(temp_dir.path() + "/tokens.xml");
+    CHECK(theme_manager_parse_all_xml_for_suffix(temp_dir.path().c_str(), "px", "_small").empty());
 }
 
 TEST_CASE("Multi-file aggregation: incomplete triplets ignored", "[ui_theme][responsive]") {

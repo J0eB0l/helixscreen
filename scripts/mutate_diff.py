@@ -208,6 +208,7 @@
 #   make mutate-diff
 
 import argparse
+import contextlib
 import copy
 import io
 import os
@@ -1399,6 +1400,40 @@ def tracked_proc(cmd, cwd, stdin=False, stdout=None):
     return p
 
 
+@contextlib.contextmanager
+def normal_priority():
+    """Lift this thread to normal CPU priority for the body, then put it back.
+
+    test-host-run.sh starts mutate at SCHED_IDLE and nice 19, where a gate on
+    the same host can starve a suite past any limit with nothing hung. Linux
+    keeps the scheduling class and niceness per thread, and a child inherits
+    its spawning thread's, so one worker can lift its own children without
+    touching the others. A thread already at normal priority, or one not
+    allowed to raise itself, is left as it is.
+    """
+    if not hasattr(os, 'sched_getscheduler'):
+        yield
+        return
+    policy = os.sched_getscheduler(0)
+    niceness = os.getpriority(os.PRIO_PROCESS, 0)
+    lifted = False
+    if policy == os.SCHED_IDLE or niceness > 0:
+        try:
+            if policy == os.SCHED_IDLE:
+                os.sched_setscheduler(0, os.SCHED_OTHER, os.sched_param(0))
+            if niceness > 0:
+                os.setpriority(os.PRIO_PROCESS, 0, 0)
+            lifted = True
+        except OSError:
+            pass
+    try:
+        yield
+    finally:
+        if lifted:
+            os.setpriority(os.PRIO_PROCESS, 0, niceness)
+            os.sched_setscheduler(0, policy, os.sched_param(0))
+
+
 def _unblock_stop_signals():
     signal.pthread_sigmask(signal.SIG_UNBLOCK, STOP_SIGNALS)
 
@@ -1878,13 +1913,16 @@ class Suites:
         A run that hits its timeout is asked once more at twice the limit: a
         machine under load can outrun a deadline with nothing hung, so one
         stall is not a detection. Only a second hang confirms the kill, and
-        a re-run that completes is judged by what it actually reported.
+        a re-run that completes is judged by what it actually reported. The
+        re-run goes at normal priority: a run yielding to everything else on
+        the host has no bound on how long it can be starved.
         """
         state, why, who = self._run_once(name, 1.0)
         if why != TIMED_OUT:
             return state, why
         note(f'[{who} hit its limit; re-running at 2x] ')
-        state, why, _ = self._run_once(name, 2.0)
+        with normal_priority():
+            state, why, _ = self._run_once(name, 2.0)
         return state, why
 
 

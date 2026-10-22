@@ -14,10 +14,13 @@ when the change's marker is gone.
 """
 
 import os
+import re
+import resource
 import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -751,6 +754,72 @@ def test_every_shard_runs_and_none_twice(tmp_path):
     state, _, _ = md.run_catch2(tmp_path, exe, '[x]', plan, open(os.devnull, 'w'))
     assert state == md.GREEN
     assert sorted(seen.read_text().split()) == [str(i) for i in range(7)]
+
+
+def _suites_timing_out_once(monkeypatch, entered):
+    suites = object.__new__(md.Suites)
+    runs = []
+
+    def run_once(name, scale):
+        runs.append((scale, list(entered)))
+        return (md.DETECTED, md.TIMED_OUT, 'bats (1s)') if scale == 1.0 else (md.GREEN, '', '')
+    monkeypatch.setattr(suites, '_run_once', run_once)
+    return suites, runs
+
+
+def test_a_timed_out_suite_reruns_at_normal_priority(monkeypatch):
+    entered = []
+
+    @md.contextlib.contextmanager
+    def lifted():
+        entered.append('lifted')
+        try:
+            yield
+        finally:
+            entered.pop()
+    monkeypatch.setattr(md, 'normal_priority', lifted)
+    suites, runs = _suites_timing_out_once(monkeypatch, entered)
+    assert suites.run('bats') == (md.GREEN, '')
+    assert runs == [(1.0, []), (2.0, ['lifted'])]
+
+
+def _sched_policy_of_child():
+    out = subprocess.run(['sh', '-c', 'cat /proc/$$/sched'], capture_output=True, text=True).stdout
+    return int(re.search(r'^policy\s*:\s*(\d+)', out, re.M).group(1))
+
+
+def _in_idle_thread(body):
+    """Run body in a thread lowered to SCHED_IDLE, as test-host-run.sh's mutate
+    is, so the test's own thread keeps its priority."""
+    result = {}
+
+    def target():
+        os.sched_setscheduler(0, os.SCHED_IDLE, os.sched_param(0))
+        try:
+            result['value'] = body()
+        except BaseException as e:  # noqa: BLE001
+            result['error'] = e
+    t = threading.Thread(target=target)
+    t.start()
+    t.join()
+    if 'error' in result:
+        raise result['error']
+    return result['value']
+
+
+@pytest.mark.skipif(not hasattr(os, 'sched_getscheduler') or not os.path.exists('/proc/self/sched'),
+                    reason='per-thread scheduling classes are Linux-only')
+def test_normal_priority_lifts_an_idle_thread_for_its_children_and_restores_it():
+    def body():
+        with md.normal_priority():
+            inside = _sched_policy_of_child()
+        return inside, _sched_policy_of_child(), os.sched_getscheduler(0)
+    inside, after, own = _in_idle_thread(body)
+    assert after == os.SCHED_IDLE and own == os.SCHED_IDLE
+    may_lift = os.geteuid() == 0 or resource.getrlimit(resource.RLIMIT_NICE)[0] >= 20
+    # Without the right to leave SCHED_IDLE the thread stays where it is, and
+    # the rerun still happens.
+    assert inside == (os.SCHED_OTHER if may_lift else os.SCHED_IDLE)
 
 
 # ---------------------------------------------------------------------------

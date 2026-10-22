@@ -87,6 +87,8 @@ set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=lib/build_hosts.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib/build_hosts.sh"
+# shellcheck source-path=SCRIPTDIR source=lib/ccache_shared.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/ccache_shared.sh"
 
 HOST="${HELIX_TEST_HOST:-}"
 CONTAINER="${HELIX_TEST_CONTAINER:-helix-test}"
@@ -163,6 +165,20 @@ GB_PER_JOB="${HELIX_TEST_GB_PER_JOB:-1}"      # asan overrides to 1.5 below
 # jobpool conf). Without it the run sizes -j from memory. Resolved on the host.
 JOBPOOL_BIN="${HELIX_TEST_JOBPOOL:-\$HOME/.local/bin/jobpool}"   # the host's $HOME
 
+# mutate is background work and yields to everything else on the test host. A
+# gate, sweep or tagged run blocks someone; a mutation run only has to finish
+# eventually. Its container shell lowers itself to SCHED_IDLE, nice 19 and idle
+# I/O before the command starts, and every compiler and test process inherits
+# that, so the scheduler gives it only the cores nothing else wants. It stays
+# out of the jobpool too: a starved process holding a pool token would keep
+# that token from the gate it is yielding to. docker exec starts its process
+# from the container runtime, not as a child of the host's shell, so a nice or
+# chrt on the host side never reaches it; this runs inside. Each of the three
+# is tried on its own, so one that is missing or refused leaves the others in
+# force. No single quote: it is spliced into a single-quoted remote command.
+YIELD_PRIORITY='_unlowered=""; chrt -i -p 0 $$ >/dev/null 2>&1 || _unlowered="$_unlowered chrt"; renice -n 19 -p $$ >/dev/null 2>&1 || _unlowered="$_unlowered renice"; ionice -c 3 -p $$ >/dev/null 2>&1 || _unlowered="$_unlowered ionice"; [ -z "$_unlowered" ] || echo "→ could not lower this background job with:$_unlowered; it competes with gates more than it should"; '
+YIELD=0
+
 usage() { awk 'NR > 1 && /^set -euo/ { exit } NR > 1' "$0" | sed 's/^# \?//'; exit 2; }
 
 # A tree name is spliced into scripts that run on the test host, so it is held to a
@@ -221,6 +237,20 @@ if ! sudo -n docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
         exit 1
     }
 fi
+SNIPPET
+}
+
+# The remote snippet that applies scripts/ccache-shared-config.sh to the
+# container's cache, then checks it covers <dir>, the directory this run builds
+# in. Every mirror, mutate checkout and the --commit checkout share CCACHE, and
+# base_dir=WORK is what lets them reuse each other's compiles. It runs on every
+# run, so a host set up before the settings existed corrects itself and none
+# can drift.
+ccache_shared() { # <container dir>
+    cat <<SNIPPET
+$(ccache_shared_cmd "$CONTAINER" "$CCACHE" apply "$WORK" "$HELIX_TEST_CCACHE_SIZE") | sed -n 's/^ *\(.*(was .*\)/→ ccache \1/p' ||
+    echo "⚠ could not apply the shared ccache settings in $CONTAINER" >&2
+$(ccache_shared_cmd "$CONTAINER" "$CCACHE" check "$1") || true
 SNIPPET
 }
 
@@ -649,7 +679,8 @@ fi
 case "$WHAT" in
     # The mutate checkout is a standalone clone on a reflink filesystem, which
     # is what --workers needs; a later --workers in the caller's arguments wins.
-    mutate) CMD='python3 scripts/mutate_diff.py --jobs $HELIX_J --workers auto '"$*" ;;
+    mutate) CMD="$YIELD_PRIORITY"'python3 scripts/mutate_diff.py --jobs $HELIX_J --workers auto '"$*"
+            YIELD=1 ;;
     asan)   _tag="${1:-}"; [ $# -gt 0 ] && shift
             # Trailing args become make overrides, so ASAN_RUN_OPTIONS can be
             # tuned per run (quarantine_size_mb keeps freed blocks poisoned, which
@@ -800,10 +831,19 @@ else
     done <<< "\$(sudo -n docker inspect -f '{{range .Mounts}}{{.Source}} {{.Destination}}{{println}}{{end}}' "$CONTAINER" 2>/dev/null)"
     [ -n "\$POOL_ENV" ] || echo "→ jobpool state \$_state is not mounted in $CONTAINER; sizing -j from memory"
 fi
+# A background job beside a pool runs on idle cores with its own -j, and does
+# not wait for the global lock either: pooled runs never take it.
+if [ "$YIELD" = 1 ] && [ -n "\$POOL_ENV" ]; then
+    POOL_ENV=""
+    YIELD_UNPOOLED=1
+    echo "→ background job: SCHED_IDLE, outside the jobpool, so pooled runs keep every token and core they want"
+else
+    YIELD_UNPOOLED=0
+fi
 
 # Without a pool, -j comes from MemAvailable at start, which only holds while
 # this is the only run allocating: runs of different trees take turns then.
-if [ -z "\$POOL_ENV" ]; then
+if [ -z "\$POOL_ENV" ] && [ "\$YIELD_UNPOOLED" = 0 ]; then
     exec 8>>"$LOCK_DIR/$LOCK_PREFIX.global.lock"
     if ! flock -n 8; then
         echo "→ no jobpool on \$(hostname): waiting for the run ahead, since -j is sized for one"
@@ -837,6 +877,14 @@ fi
 HELIX_J=\$(awk -v per=$GB_PER_JOB -v cpus="\$(nproc)" '
     /^MemAvailable/ { j = int((\$2/1048576) / per); if (j > cpus) j = cpus; if (j < 4) j = 4; print j }
 ' /proc/meminfo)
+# A background job outside the pool and the lock sized its -j from the same
+# free memory a gate or a second background job may be sizing from now, so it
+# takes half.
+if [ "\$YIELD_UNPOOLED" = 1 ]; then
+    _full_j=\$HELIX_J
+    HELIX_J=\$(( _full_j / 2 > 1 ? _full_j / 2 : 1 ))
+    echo "→ background job: half of the -j\$_full_j free memory allows"
+fi
 if [ -n "\$POOL_ENV" ]; then
     HELIX_JFLAG=""
     echo "→ MemAvailable \$(awk '/^MemAvailable/{printf "%.0fGB", \$2/1048576}' /proc/meminfo), joining jobpool: \$("\$JP" status --json 2>/dev/null | sed -n 's/.*"target":\([0-9]*\).*/target \1/p')"
@@ -850,6 +898,8 @@ fi
 $(container_up)
 
 D() { sudo -n docker exec -w "$RUNDIR" $GIT_SAFE_ENV -e CCACHE_DIR="$CCACHE" -e HELIX_J="\$HELIX_J" -e HELIX_JFLAG="\$HELIX_JFLAG" "$CONTAINER" bash -lc "\$1"; }
+
+$(ccache_shared "$RUNDIR")
 
 # Before git touches the --commit checkout. A mirror run waited before its sync;
 # this second wait costs one docker exec.

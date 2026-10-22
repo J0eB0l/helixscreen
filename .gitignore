@@ -183,6 +183,3 @@ docs/superpowers/
 # Advisory inter-session resource claims (see scripts/helix-claim)
 .helix-claims/
 
-# Derived cost ledger - rebuilt from transcripts by scripts/helix-dev-timing.py
-.claude-recall/timing.jsonl
-.claude-recall/TIMING.md

@@ -651,6 +651,14 @@ helix_app_lock_acquire() {
     done
 }
 
+# Skip unless the app binary at $1 is built. The Shell Tests CI job never
+# builds it, so build.yml's compile job runs every file that calls this against
+# the binary it just linked. A file that skips on a missing app any other way
+# runs in neither job, which test_code_lint.bats refuses.
+require_app() {
+    [ -x "$1" ] || skip "helix-screen not built (run 'make -j')"
+}
+
 # Give the shared app lock back. Safe to call from a file-level teardown that
 # runs after tests which never took it, and it drops only a lock this process
 # still owns, so a stale-breaker that already handed it on is not disturbed.

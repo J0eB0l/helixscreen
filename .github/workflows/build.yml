@@ -158,24 +158,16 @@ jobs:
         git submodule status
         echo "Submodules initialized"
 
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
-
+    # The app and test objects of one commit fill about 1.8G compressed. When a
+    # run's misses push the cache past its ceiling, ccache evicts the entries
+    # oldest by mtime, and mid-build those are the restored test objects the
+    # app build has not reached yet. 4G holds the restored generation plus a
+    # run's misses; "Trim ccache" below cuts the saved cache back to what this
+    # run used, so the saved generation does not grow.
     - name: Configure ccache
       run: |
-        ccache --set-config=max_size=2G
+        echo "CCACHE_RUN_START=$(date +%s)" >> "$GITHUB_ENV"
+        ccache --set-config=max_size=4G
         ccache --set-config=compression=true
         # Depend mode: resolve cache entries from the compiler's own -MMD
         # dependency output instead of preprocessing each TU first. Worth
@@ -219,6 +211,14 @@ jobs:
     # crowds out the entries every push restores from. A work branch still gets a
     # warm start: the `ccache-ubuntu-22.04-` prefix above resolves to the default
     # branch's generation, which is readable from every ref.
+    # A hit refreshes an entry's mtime, so everything older than this job is
+    # an entry no compile of this commit used.
+    - name: Trim ccache
+      if: always()
+      run: |
+        ccache --evict-older-than "$(( $(date +%s) - CCACHE_RUN_START + 60 ))s"
+        ccache -s | grep -i 'cache size'
+
     - name: Save ccache
       if: always() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
       uses: actions/cache/save@v5
@@ -240,20 +240,21 @@ jobs:
       timeout-minutes: 5
       run: ./scripts/smoke-headless.sh
 
-    # The shell suite is the only place installer/download/bats behavior is
-    # verified; without this step those changes ride to the release gate
-    # untested (two CI-green reds landed that way on 2026-09-01). Same recipe
-    # release.yml runs: bats via npm, suite via make test-shell. Runs here in
-    # compile-ubuntu because the patched submodules the gate tests read are
-    # already in place after the build steps above.
-    - name: Apply submodule patches
-      run: make apply-patches
-
+    # The whole shell suite runs in the test-shell job, before this one starts.
+    # Only the files that drive the built app skip there (each calls
+    # require_app, tests/shell/helpers.bash), so they run here, against the
+    # binary this job just linked.
     - name: Install bats
       run: sudo npm install -g bats
 
-    - name: Run shell tests
-      run: make test-shell
+    - name: Run shell tests that need the built app
+      run: |
+        files=$(grep -lE '^[[:space:]]*require_app[[:space:]]' tests/shell/*.bats)
+        if [ -z "$files" ]; then
+          echo "::error::no shell test file needs the built app; this step would run nothing"
+          exit 1
+        fi
+        bats $files
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
@@ -464,21 +465,6 @@ jobs:
         git submodule status
         echo "Submodules initialized"
 
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
-
     - name: Configure ccache
       run: |
         ccache --set-config=max_size=2G
@@ -569,9 +555,22 @@ jobs:
     - name: Apply submodule patches
       run: make apply-patches
 
+    # The two ABIs compile one after the other, 17-20 minutes each with no
+    # cache. Restored from main's newest generation on every ref, saved from
+    # main only (see the ccache note in compile-ubuntu), and trimmed to the
+    # entries this job used. The key is not release.yml's: that cache holds
+    # release objects, which share nothing with a debug build.
+    - name: Set up ccache
+      uses: hendrikmuhs/ccache-action@v1.2.22
+      with:
+        key: android-debug-ubuntu-22.04
+        max-size: 3G
+        evict-old-files: job
+        save: ${{ github.ref == 'refs/heads/main' }}
+
     - name: Build Android APK (debug)
       working-directory: android
-      run: ./gradlew assembleDebug -PhelixAbis=arm64-v8a,x86_64
+      run: ./gradlew assembleDebug -PhelixAbis=arm64-v8a,x86_64 -PuseCcache -PhelixNoDebugInfo
 
     - name: Upload APK
       uses: actions/upload-artifact@v7
@@ -655,21 +654,6 @@ jobs:
         restore-keys: |
           ccache-x86-fbdev-
 
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
-
     - name: Configure ccache
       run: |
         ccache --set-config=max_size=2G
@@ -738,6 +722,20 @@ jobs:
     - name: Setup Python venv for translation and XML gates
       run: make venv-setup
 
+    # test_release_health.bats runs scripts/release-health.sh, which runs
+    # `npx vite-node` in server/telemetry-worker. Without that directory's
+    # node_modules, npx downloads vite-node from npm in the middle of the test,
+    # and a slow registry holds the whole suite's output behind it.
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+        cache-dependency-path: server/telemetry-worker/package-lock.json
+
+    - name: Install telemetry worker dependencies
+      working-directory: server/telemetry-worker
+      run: npm ci --no-audit --no-fund
+
     # make test-shell runs the files in parallel, one per slot of
     # `helix-claim jobs`; bare bats runs them one after another, which on this
     # 4-core runner takes most of the job's timeout. A runner without GNU
@@ -787,16 +785,17 @@ jobs:
       with:
         submodules: false
 
+    # npm ci from the committed lockfile, with setup-node caching the
+    # downloads keyed on it, so a slow registry does not stall the install.
     - uses: actions/setup-node@v4
       with:
         node-version: '20'
+        cache: npm
+        cache-dependency-path: server/telemetry-worker/package-lock.json
 
-    # `npm install`, not `npm ci`: package-lock.json is gitignored repo-wide
-    # (.gitignore "Dependencies" block), so there is no lockfile to install
-    # from and nothing to key a cache on.
     - name: Install dependencies
       working-directory: server/telemetry-worker
-      run: npm install
+      run: npm ci --no-audit --no-fund
 
     - name: Run worker tests
       working-directory: server/telemetry-worker

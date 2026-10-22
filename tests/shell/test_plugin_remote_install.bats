@@ -17,6 +17,9 @@ setup() {
     FETCH_LOG="$BATS_TEST_TMPDIR/fetch.log"
     GIT_LOG="$BATS_TEST_TMPDIR/git.log"
     export RELEASE_ROOT FETCH_LOG GIT_LOG
+    # The stub wget answers every Moonraker probe yet no plugin ever loads, so
+    # the post-restart wait runs to its limit. Nothing here tests that wait.
+    export HELIX_MOONRAKER_UP_SECS=1
     publish_release v1.2.3
     mkdir -p "$BATS_TEST_TMPDIR/bin"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"

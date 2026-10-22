@@ -128,6 +128,7 @@ build_fixture_repo() {
     cp scripts/setup-worktree.sh "$root/main/scripts/"
     cp scripts/lib/worktree_lib.sh "$root/main/scripts/lib/"
     cp scripts/sync-worktree-mtimes.py "$root/main/scripts/"
+    cp scripts/ccache-shared-config.sh "$root/main/scripts/"
     : > "$root/main/patches/.keep"
     # git refuses a file:// submodule unless the transport is allowed on the
     # command line; the repo-config form is not consulted for the inner clone.
@@ -398,7 +399,7 @@ exit 0'
     run bash "$tmp/main/scripts/setup-worktree.sh" --base HEAD --no-build feat/iso
     [ "$status" -eq 0 ] || { echo "$output" >&2; return 1; }
     # Survival is half of it; the ceiling still has to be read correctly.
-    contains "raised to 25G (was 5.0G)" "$output"
+    contains "max_size: 25G (was 5.0G)" "$output"
     rm -rf "$tmp"
 }
 
