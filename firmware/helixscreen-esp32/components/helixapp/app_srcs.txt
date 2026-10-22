@@ -237,7 +237,9 @@ src/printer/printer_image_variants.cpp
 src/printer/printer_motion_state.cpp
 src/printer/printer_network_state.cpp
 src/printer/printer_plugin_status_state.cpp
+src/printer/file_analysis.cpp
 src/printer/helix_plugin_features.cpp
+src/printer/printer_event_journal.cpp
 src/printer/printer_print_state.cpp
 src/printer/printer_profile_state.cpp
 src/printer/printer_recovery_service.cpp
@@ -260,6 +262,8 @@ src/printer/fixed_tool_topology.cpp
 src/printer/plr_backend.cpp
 src/printer/plr_offer.cpp
 src/printer/plr_plugin_rpc.cpp
+src/printer/standing_print_options.cpp
+src/printer/standing_print_options_controller.cpp
 src/printer/plr_profile.cpp
 src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp
@@ -478,6 +482,7 @@ src/ui/ui_ams_edit_overlay.cpp
 src/ui/ui_ams_lane_settings.cpp
 src/ui/ui_ams_environment_overlay.cpp
 src/ui/ui_ams_zone_overview_overlay.cpp
+src/ui/ui_printer_events_overlay.cpp
 src/ui/ui_ams_lane_bar.cpp
 src/ui/ui_ams_lane_spool.cpp
 src/ui/ui_ams_loading_error_modal.cpp
@@ -576,6 +581,8 @@ src/ui/ui_overlay_printer_type.cpp
 src/ui/ui_overlay_retraction_settings.cpp
 src/ui/ui_overlay_temp_graph.cpp
 src/ui/ui_panel_advanced.cpp
+src/ui/ui_plugin_overview_overlay.cpp
+src/ui/ui_plugin_feature_row.cpp
 src/ui/ui_panel_ams.cpp
 src/ui/ui_panel_ams_overview.cpp
 src/ui/ui_panel_base.cpp
@@ -751,6 +758,7 @@ src/api/moonraker_advanced_api.cpp
 src/api/moonraker_file_api.cpp
 src/api/moonraker_history_api.cpp
 src/api/moonraker_job_api.cpp
+src/api/moonraker_db_item.cpp
 src/api/moonraker_motion_api.cpp
 src/api/moonraker_queue_api.cpp
 src/api/rpc_error_correlation.cpp
@@ -782,6 +790,7 @@ src/rendering/nozzle_renderer_stealthburner.cpp
 src/rendering/gcode_parser.cpp
 src/rendering/gcode_ops_detector.cpp
 src/rendering/gcode_footer_summary.cpp
+src/rendering/gcode_edit_list.cpp
 src/rendering/gcode_file_modifier.cpp
 src/rendering/gcode_tool_remapper.cpp
 src/rendering/gcode_color_metadata.cpp

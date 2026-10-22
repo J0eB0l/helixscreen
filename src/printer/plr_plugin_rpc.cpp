@@ -4,9 +4,11 @@
 #include "app_globals.h"
 #include "i_moonraker_api.h"
 #include "json_utils.h"
+#include "moonraker_db_item.h"
 #include "moonraker_error.h"
 #include "plr_profile.h"
 #include "printer_state.h"
+#include "standing_print_options.h"
 
 #include <spdlog/spdlog.h>
 
@@ -83,6 +85,9 @@ void prepare(IMoonrakerAPI& api, const std::string& plan_id, bool skip_chamber_w
 void commit(IMoonrakerAPI& api, const std::string& plan_id,
             const std::vector<PlrConfirmation>& given, int tier, std::function<void()> on_ok,
             ErrorCallback on_error) {
+    // The plugin starts the resumed job once it has heated and purged.
+    screen_start_ledger().note_any(ScreenStartLedger::Clock::now(),
+                                   std::chrono::milliseconds(kCommitTimeoutMs));
     send_action(api, kPlrCommitRpc, plr_commit_params(plan_id, given, tier), kCommitTimeoutMs,
                 std::move(on_ok), std::move(on_error));
 }
@@ -99,20 +104,8 @@ void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_e
 
 void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_written,
                    ErrorCallback on_error) {
-    auto post = [&api, profile, on_written, on_error]() {
-        api.database_post_item(kPlrDbNamespace, kPlrProfileKey, profile, on_written, on_error);
-    };
-    api.database_get_item(
-        kPlrDbNamespace, kPlrProfileKey,
-        [post, profile](const json& stored) {
-            if (stored == profile) {
-                spdlog::debug("[PLR] plr_profile already current");
-                return;
-            }
-            post();
-        },
-        // No record yet (Moonraker answers a missing key with an error).
-        [post](const MoonrakerError&) { post(); });
+    post_item_if_changed(api, kPlrDbNamespace, kPlrProfileKey, profile, std::move(on_written),
+                         std::move(on_error));
 }
 
 void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,

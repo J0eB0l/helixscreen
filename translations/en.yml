@@ -53,6 +53,8 @@ translations:
   (incompatible): (incompatible)
   (multi-tool): (multi-tool)
   (none detected): (none detected)
+  (recovered): (recovered)
+  (repeated {} times): (repeated {} times)
   (unnamed): (unnamed)
   + Add: + Add
   + Add Preset: + Add Preset
@@ -124,6 +126,7 @@ translations:
   3D Maze: 3D Maze
   3D Pipes: 3D Pipes
   3D View: 3D View
+  3MF conversion: 3MF conversion
   4. Paper should move but with resistance: 4. Paper should move but with resistance
   4. Repeat until bed is level: 4. Repeat until bed is level
   5 min: 5 min
@@ -133,6 +136,8 @@ translations:
   60 seconds: 60 seconds
   90°: 90°
   90° Clockwise: 90° Clockwise
+  = Clockwise: = Clockwise
+  = Counterclockwise: = Counterclockwise
   = Loosen: = Loosen
   = Tighten: = Tighten
   A: A
@@ -243,6 +248,7 @@ translations:
   Adjusts individual characteristics of your heaters for optimal control: Adjusts
     individual characteristics of your heaters for optimal control
   Advanced: Advanced
+  After an error: After an error
   After running the commands, tap Check Again below.: After running the commands,
     tap Check Again below.
   Alert: Alert
@@ -303,6 +309,7 @@ translations:
   : "Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer's filament profile, or save it to the spool."
   Applies to: Applies to
   Apply: Apply
+  Apply start options to prints from other apps: Apply start options to prints from other apps
   Aqua Surface: Aqua Surface
   Archive: Archive
   Archive Spool?: Archive Spool?
@@ -777,6 +784,7 @@ translations:
   Computing calibration...: Computing calibration...
   Config Dir: Config Dir
   Config Edit Failed: Config Edit Failed
+  Config editing: Config editing
   Config-defined (read-only): Config-defined (read-only)
   Configuration added successfully.: Configuration added successfully.
   Configuration already present.: Configuration already present.
@@ -887,6 +895,7 @@ translations:
   Copying from USB stopped responding: Copying from USB stopped responding
   Copying from USB...: Copying from USB...
   Corner roundness: Corner roundness
+  Corners differ by {} mm: Corners differ by {} mm
   Correction (Ki): Correction (Ki)
   Could not add to queue: Could not add to queue
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Could
@@ -1509,6 +1518,7 @@ translations:
   File: File
   File Size: File Size
   File Will Stop the Printer: File Will Stop the Printer
+  File analysis: File analysis
   File not found on printer.: File not found on printer.
   'File not found: {}': 'File not found: {}'
   Filename: Filename
@@ -1527,6 +1537,7 @@ translations:
   Fireworks: Fireworks
   Firmware Restart: Firmware Restart
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: Firmware reports no bypass. Enable if you feed filament straight to the extruder
+  Firmware restart: Firmware restart
   'Firmware restart failed: {}': 'Firmware restart failed: {}'
   Firmware restarting...: Firmware restarting...
   Firmware saved X = Y's value; the measured X result was discarded: Firmware saved X = Y's value; the measured X result was discarded
@@ -1743,6 +1754,7 @@ translations:
   Homing timed out: Homing timed out
   Homing timed out — printer may still be homing: Homing timed out — printer may still
     be homing
+  Homing, then probing...: Homing, then probing...
   Homing...: Homing...
   Horizontal: Horizontal
   Host: Host
@@ -1860,6 +1872,7 @@ translations:
   Interface size. Applies after restart.: Interface size. Applies after restart.
   'Internal error: API not available': 'Internal error: API not available'
   'Internal error: no scan result': 'Internal error: no scan result'
+  Interrupted: Interrupted
   Invalid Slot: Invalid Slot
   Invalid Tool: Invalid Tool
   Invalid duration: Invalid duration
@@ -1922,6 +1935,7 @@ translations:
   : Klippain Shake&Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd.
   Klipper: Klipper
   Klipper Error: Klipper Error
+  Klipper disconnected: Klipper disconnected
   Klipper failed to start with the skip macros, so they were removed: Klipper failed to start with the skip macros, so they were removed
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper
@@ -1938,8 +1952,10 @@ translations:
     has entered shutdown state. This may be due to an emergency stop, thermal runaway,
     or configuration error.
   Klipper is halted — restart firmware to continue: Klipper is halted — restart firmware to continue
+  Klipper ready: Klipper ready
   Klipper reserves 'default' for new calibrations. Choose another name.: Klipper reserves 'default' for new calibrations. Choose another name.
   Klipper restarting - macros activating: Klipper restarting - macros activating
+  Klipper shut down: Klipper shut down
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.
@@ -2098,6 +2114,7 @@ translations:
   MB RAM: MB RAM
   MCU: MCU
   MCU bridge daemon is shut down: MCU bridge daemon is shut down
+  MCU disconnected: MCU disconnected
   MCU, host, and auxiliary temperature monitoring: MCU, host, and auxiliary temperature
     monitoring
   'MCU: ': 'MCU: '
@@ -2403,6 +2420,7 @@ translations:
   No printer configured — check printer settings: No printer configured — check printer
     settings
   No printer connection: No printer connection
+  No printer events yet: No printer events yet
   No printers found: No printers found
   No prints this week: No prints this week
   No prints yet: No prints yet
@@ -2533,6 +2551,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: One tap runs this macro. Dangerous macros still ask.
   'Only on A: {} Hz': 'Only on A: {} Hz'
   'Only on B: {} Hz': 'Only on B: {} Hz'
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: Only while this app is connected. Install the HelixPrint plugin to cover every print.
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: Only while this app is connected. Update the HelixPrint plugin to cover every print.
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   Ooze Reduction: Ooze Reduction
@@ -2636,6 +2656,7 @@ translations:
   Pause, resume, or stop the print: Pause, resume, or stop the print
   Paused: Paused
   Paused (attention needed): Paused (attention needed)
+  Paused by a command: Paused by a command
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   Pausing at layer {}.: Pausing at layer {}.
@@ -2783,6 +2804,7 @@ translations:
   Print a test tower and tune K by eye: Print a test tower and tune K by eye
   Print canceled: Print canceled
   'Print complete': 'Print complete'
+  Print completed: Print completed
   Print details: Print details
   Print did not start: Print did not start
   Print didn't start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X}): Print
@@ -2793,6 +2815,7 @@ translations:
   Print history will show the rewritten name: Print history will show the rewritten name
   Print issue detected: Print issue detected
   Print jobs waiting to run: Print jobs waiting to run
+  Print paused: Print paused
   'Print preparation failed: {}': 'Print preparation failed: {}'
   Print resumed: Print resumed
   Print server rejected the job — check printer status: Print server rejected the
@@ -2806,6 +2829,7 @@ translations:
   Printed %d times: Printed %d times
   Printer: Printer
   Printer Error: Printer Error
+  Printer Events: Printer Events
   Printer Firmware Disconnected: Printer Firmware Disconnected
   Printer Image: Printer Image
   Printer Manager: Printer Manager
@@ -2837,6 +2861,10 @@ translations:
     — make sure it's on and in range
   Printer doesn't expose the expected service — wrong device?: Printer doesn't expose
     the expected service — wrong device?
+  Printer error: Printer error
+  Printer event: Printer event
+  Printer events: Printer events
+  Printer events need the HelixPrint plugin on this screen: Printer events need the HelixPrint plugin on this screen
   Printer hardware detected: Printer hardware detected
   Printer image set to auto-detect: Printer image set to auto-detect
   Printer is busy - {} stays in the queue: Printer is busy - {} stays in the queue
@@ -2995,6 +3023,8 @@ translations:
   Reconnect: Reconnect
   Record Timelapse: Record Timelapse
   Record timelapses of your prints: Record timelapses of your prints
+  Recorded by the HelixPrint plugin: Recorded by the HelixPrint plugin
+  Recorded by this screen while connected: Recorded by this screen while connected
   Recorded timelapses will appear here: Recorded timelapses will appear here
   Recording Mode: Recording Mode
   Recover: Recover
@@ -3067,6 +3097,8 @@ translations:
   Requires a filament system with bypass: Requires a filament system with bypass
   Requires a filament pressure sensor or sync feedback: 'Requires a filament pressure sensor or sync feedback'
   Requires a clog detector or filament motion sensor: Requires a clog detector or filament motion sensor
+  Requires a newer HelixPrint plugin: Requires a newer HelixPrint plugin
+  Requires the HelixPrint plugin: Requires the HelixPrint plugin
   Resend write failed at chunk {}: Resend write failed at chunk {}
   Reset: Reset
   Reset Blade Counter: Reset Blade Counter
@@ -3366,6 +3398,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Send this crash report to help
     improve HelixScreen.
   Sending...: Sending...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.
   Sensor: Sensor
   Sensor Error: Sensor Error
   Sensor Response: Sensor Response
@@ -3379,6 +3412,7 @@ translations:
   Separate on/off macros. HelixScreen tracks the state.: Separate on/off macros. HelixScreen
     tracks the state.
   Server Setup: Server Setup
+  Server-side edits: Server-side edits
   Service hours for the filter, nozzle, and rails: Service hours for the filter, nozzle, and rails
   Servo: Servo
   Servo Down: Servo Down
@@ -3570,6 +3604,7 @@ translations:
   Start failed: Start failed
   Start next: Start next
   'Start next: {}': 'Start next: {}'
+  Start options for prints from other apps: Start options for prints from other apps
   Start print anyway?: Start print anyway?
   Started: Started
   Starting Print...: Starting Print...
@@ -3840,6 +3875,7 @@ translations:
   The printer could not work out where to resume.: The printer could not work out where to resume.
   The printer did not change its bed check: The printer did not change its bed check
   'The printer did not change its bed check: {}': 'The printer did not change its bed check: {}'
+  'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.': 'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.
   The printer finishes this measurement on its own.: 'The printer finishes this measurement on its own.'
   The printer halted this print and cannot resume it. Restart from the beginning?: The
@@ -3851,6 +3887,7 @@ translations:
   The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear.: The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear.
   ? The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked.
   : The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked.
+  The printer homes, then probes each screw position.: The printer homes, then probes each screw position.
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.
   The printer is shut down.: The printer is shut down.
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.
@@ -4149,6 +4186,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Unable to reach printer. Check power and network connection.
   Unavailable: Unavailable
   Unavailable on this printer: Unavailable on this printer
+  'Unavailable: {}': 'Unavailable: {}'
   Undo: Undo
   Uninstall: Uninstall
   Uninstall HelixPrint Plugin: Uninstall HelixPrint Plugin
@@ -4255,6 +4293,7 @@ translations:
   Verifying...: Verifying...
   Version: Version
   Version and printer info: Version and printer info
+  Version and what the plugin runs: Version and what the plugin runs
   Version {}: Version {}
   Vertical: Vertical
   Vibration: Vibration

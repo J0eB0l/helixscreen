@@ -12,6 +12,7 @@
 #include <limits>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace helix {
@@ -150,6 +151,15 @@ struct LayerIndexStats {
 };
 
 /**
+ * @brief The identity hash a layer index sidecar records for its file.
+ *
+ * Lowercase hex sha1 of the file's first 64 KB and its last 64 KB (the whole
+ * file when shorter), as helix_gcode_reader.file_hash computes it. Empty when
+ * the file cannot be read.
+ */
+std::string layer_index_file_hash(const std::string& path);
+
+/**
  * @brief Layer index for streaming G-code access
  *
  * Provides random access to layers without loading the entire file.
@@ -201,6 +211,30 @@ class GCodeLayerIndex {
      */
     bool build_from_file(const std::string& filepath,
                          const std::function<bool(float)>& on_progress = {});
+
+    /**
+     * @brief Build from the HelixPrint plugin's layer index sidecar, without
+     *        reading the file.
+     *
+     * The plugin's file analysis writes the sidecar
+     * (`.helix_index/<path>.layers.jsonl`, format in
+     * moonraker-plugin/helix_gcode_reader.py): every layer start with the
+     * modal state there, the lines pause markers come from, and the file's
+     * model bounds, palette and tools. Each layer starts at its slicer marker
+     * line rather than at its first Z move, so its byte range also holds the
+     * marker's comment lines; the seeds, Z, bounds, tools, palette and pause
+     * scan are the ones build_from_file() finds. The sidecar records byte
+     * ranges, not lines: each entry's line_count is 1 and total_lines is 0.
+     *
+     * @param sidecar     The sidecar's text.
+     * @param file_size   The size of the G-code file the layers are read from.
+     * @param file_hash   That file's layer_index_file_hash().
+     * @param source_path That file, for get_source_path().
+     * @return false, leaving the index empty, unless the sidecar is a
+     *         complete index of this file (size and hash) with a printing layer.
+     */
+    bool build_from_sidecar(std::string_view sidecar, uint64_t file_size,
+                            std::string_view file_hash, const std::string& source_path);
 
     /**
      * @brief Get entry for a specific layer

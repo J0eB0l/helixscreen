@@ -3,6 +3,7 @@
 
 #include "env_knobs.h"
 #include "http_executor.h"
+#include "json_utils.h"
 #include "moonraker_client_mock_internal.h"
 
 #include <spdlog/spdlog.h>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <ctime>
 #include <map>
 #include <string>
 #include <thread>
@@ -518,11 +520,131 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                            {"symlink_dir", link_dir && *link_dir ? link_dir : ".helix_print"},
                            {"api", 2},
                            {"features", {{"convert_3mf", convert_3mf}}}}}};
+        response["result"]["features"]["event_journal"] = convert_3mf;
         if (json plr = self->mock_plr_feature_entry(); !disabled && !plr.is_null()) {
             response["result"]["features"]["plr"] = std::move(plr);
         }
+        if (!disabled) {
+            // print_hooks acts on prints, so it is off until opted into, as
+            // the plugin reads it: helix-screen/plugin_features.print_hooks.
+            // HELIX_MOCK_PRINT_HOOKS=unavailable reports it unable to run, as a
+            // plugin whose hooks module failed to load does.
+            const char* hooks_mode = std::getenv("HELIX_MOCK_PRINT_HOOKS");
+            const bool hooks_unavailable = hooks_mode && std::string(hooks_mode) == "unavailable";
+            const json opt_in = self->mock_db_get("helix-screen", "plugin_features.print_hooks");
+            response["result"]["features"]["print_hooks"] = {
+                {"version", 1},
+                {"available", !hooks_unavailable},
+                {"enabled", !hooks_unavailable && opt_in.is_boolean() && opt_in.get<bool>()},
+                {"reason", hooks_unavailable ? json("load_failed") : json(nullptr)}};
+            // The rest of what the plugin ships, each on and running.
+            for (const char* name : {"file_analysis", "server_edits", "config_edit"}) {
+                response["result"]["features"][name] = {
+                    {"version", 1}, {"available", true}, {"enabled", true}, {"reason", nullptr}};
+            }
+        }
         if (success_cb) {
             success_cb(response);
+        }
+        return true;
+    };
+
+    // server.helix.analysis - the plugin's file analysis record. A file a test
+    // gave a reply to (set_mock_file_analysis) answers it; any other file is
+    // pending, as one the plugin has not reached yet.
+    registry["server.helix.analysis"] =
+        [](MoonrakerClientMock* self, const json& params,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
+        const std::string filename = helix::json_util::safe_string(params, "filename");
+        json result = self->mock_file_analysis(filename);
+        if (result.is_null()) {
+            result = {{"filename", filename}, {"status", "pending"}};
+        }
+        if (success_cb) {
+            success_cb(json{{"jsonrpc", "2.0"}, {"result", std::move(result)}});
+        }
+        return true;
+    };
+
+    // server.helix.journal - the plugin's printer event journal, present with
+    // the plugin (HELIX_MOCK_HELIX_PLUGIN): a few events of the last hour, one a
+    // `!!` line counted twelve times.
+    registry["server.helix.journal"] =
+        [](MoonrakerClientMock* /*self*/, const json& /*params*/,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> error_cb) -> bool {
+        const char* mode = std::getenv("HELIX_MOCK_HELIX_PLUGIN");
+        if (!(mode && std::string(mode) == "disabled") &&
+            !helix::env_flag("HELIX_MOCK_HELIX_PLUGIN")) {
+            if (error_cb) {
+                error_cb(MoonrakerError::unknown("Method not found", "server.helix.journal"));
+            }
+            return true;
+        }
+        const double now = static_cast<double>(std::time(nullptr));
+        const json job = {{"job_id", "00002A"}, {"filename", "3DBenchy.gcode"}};
+        json entries = json::array({
+            {{"id", 1}, {"time", now - 3600}, {"kind", "klippy_ready"}, {"job", nullptr}},
+            {{"id", 2},
+             {"time", now - 1800},
+             {"kind", "runout"},
+             {"detail", "runout_sensor"},
+             {"job", job}},
+            {{"id", 3},
+             {"time", now - 1795},
+             {"kind", "pause"},
+             {"detail", "runout"},
+             {"job", job}},
+            {{"id", 4},
+             {"time", now - 900},
+             {"kind", "gcode_error"},
+             {"text", "Unknown command:\"PURGE_LINE\""},
+             {"class", "command"},
+             {"count", 12},
+             {"last_time", now - 860},
+             {"job", job}},
+            {{"id", 6},
+             {"time", now - 600},
+             {"kind", "klippy_shutdown"},
+             {"text", "MCU 'mcu' shutdown: Timer too close"},
+             {"class", "mcu"},
+             {"job", job}},
+            {{"id", 7},
+             {"time", now - 599},
+             {"kind", "job_end"},
+             {"detail", "klippy_shutdown"},
+             {"job", job}},
+        });
+        if (success_cb) {
+            success_cb(
+                json{{"jsonrpc", "2.0"},
+                     {"result", {{"entries", entries}, {"truncated", false}, {"latest_id", 7}}}});
+        }
+        return true;
+    };
+
+    // server.helix.config - the plugin's parsed config read. The mock has no
+    // config files to parse; Moonraker's answer for a method it lacks sends
+    // the config editor down its file-API route, which the mock serves.
+    registry["server.helix.config"] =
+        [](MoonrakerClientMock* /*self*/, const json& /*params*/,
+           std::function<void(const json&)> /*success_cb*/,
+           std::function<void(const MoonrakerError&)> error_cb) -> bool {
+        if (error_cb) {
+            error_cb(MoonrakerError::unknown("Method not found", "server.helix.config"));
+        }
+        return true;
+    };
+
+    // server.helix.print_hooks.screen_start - the screen announcing its own
+    // start to the plugin's print hooks; the mock has no hooks to skip.
+    registry["server.helix.print_hooks.screen_start"] =
+        [](MoonrakerClientMock* /*self*/, const json& params,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> /*error_cb*/) -> bool {
+        if (success_cb) {
+            success_cb(json{{"result", {{"filename", params.value("filename", "")}}}});
         }
         return true;
     };

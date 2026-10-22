@@ -15,7 +15,13 @@ both read files through this module; neither carries its own parser. It holds:
 - the window: per-line motion records for the last WINDOW_BYTES before the
   end offset, and the layer starts inside it; memory stays constant in the
   file size;
-- the throttle policy every background reader follows.
+- a ScanObserver hook, through which a whole-file reader (file analysis) sees
+  every move, command and comment after the reducer applied it;
+- the throttle policy every background reader follows, and WorkerProcess, the
+  niced child process a whole-file reader runs in so its pass never holds the
+  GIL Moonraker's event loop needs;
+- the layer index sidecar, the file identity it is valid for, and the one
+  prune rule for the sidecar directory.
 
 Offsets are byte offsets. A line counts as executed when its newline is at or
 before the end offset, which is how Klipper's virtual_sdcard advances
@@ -29,16 +35,22 @@ Pure: no Moonraker imports, Python 3.8 stdlib only.
 
 from __future__ import annotations
 
+import asyncio
 import collections
 import math
 import os
+import shutil
+import subprocess
+import sys
 import threading
 import time
 from typing import (
+    Any,
     BinaryIO,
     Callable,
     Deque,
     Dict,
+    Iterable,
     List,
     NamedTuple,
     Optional,
@@ -238,6 +250,27 @@ LayerCallback = Callable[[int, int, ModalState], None]
 ThrottleHook = Callable[[int], None]
 
 
+class ScanObserver:
+    """Sees every line scan_to_offset applies, after the reducer applied it.
+
+    Override what you need; each hook gets the live state (do not mutate it)
+    and the line's byte offset. `start` is the toolhead position [x, y, z, e]
+    before a move; state.last_position is where it ended.
+    """
+
+    def move(self, state: ModalState, start: List[float], words: List[bytes],
+             offset: int) -> None:
+        pass
+
+    def command(self, state: ModalState, cmd: bytes, words: List[bytes],
+                body: bytes, offset: int) -> None:
+        """Any non-motion command, EXCLUDE_OBJECT_DEFINE and G10/G11 included.
+        `cmd` is upper-cased; `body` is the line up to its comment."""
+
+    def comment(self, state: ModalState, line: bytes, offset: int) -> None:
+        """A whole-line comment, leading whitespace stripped."""
+
+
 def scan_to_offset(
     stream: BinaryIO,
     end_offset: int,
@@ -246,6 +279,7 @@ def scan_to_offset(
     cancel: Optional[threading.Event] = None,
     throttle: Optional[ThrottleHook] = None,
     on_layer_start: Optional[LayerCallback] = None,
+    observer: Optional[ScanObserver] = None,
 ) -> ScanResult:
     """Reduce `stream` from start_offset to end_offset.
 
@@ -297,6 +331,8 @@ def scan_to_offset(
             marker = _layer_marker(raw)
             if marker is not None:
                 layers.marker(marker[0], marker[1], line_start, state)
+            if observer is not None:
+                observer.comment(state, raw, line_start)
             continue
         cut = raw.find(b";")
         body = raw[:cut] if cut >= 0 else raw
@@ -315,42 +351,55 @@ def scan_to_offset(
             sx = lp[0]
             sy = lp[1]
             se = lp[3]
+            if observer is not None:
+                start = list(lp)
             _apply_move(state, lp, words)
             if line_start >= window_begin:
                 window.append(LineRecord(
                     line_start, pos, (sx, sy), (lp[0], lp[1]), lp[2], lp[3] - se,
                     state.layer, False, None, False, state.speed, 0,
                 ))
+            if observer is not None:
+                observer.move(state, start, words, line_start)
             continue
         if cmd == b"G2" or cmd == b"G3":
             sx = lp[0]
             sy = lp[1]
             se = lp[3]
+            if observer is not None:
+                start = list(lp)
             center = _apply_arc(state, lp, words, sx, sy)
             if line_start >= window_begin:
                 window.append(LineRecord(
                     line_start, pos, (sx, sy), (lp[0], lp[1]), lp[2], lp[3] - se,
                     state.layer, True, center, cmd == b"G2", state.speed, 0,
                 ))
+            if observer is not None:
+                observer.move(state, start, words, line_start)
             continue
         if cmd == b"G10" or cmd == b"G11":
             retracting = cmd == b"G10"
-            if state.retracted == retracting:
-                continue
-            state.retracted = retracting
-            if line_start >= window_begin:
-                xy = (lp[0], lp[1])
-                window.append(LineRecord(
-                    line_start, pos, xy, xy, lp[2], 0.0, state.layer, False, None,
-                    False, state.speed, -1 if retracting else 1,
-                ))
+            if state.retracted != retracting:
+                state.retracted = retracting
+                if line_start >= window_begin:
+                    xy = (lp[0], lp[1])
+                    window.append(LineRecord(
+                        line_start, pos, xy, xy, lp[2], 0.0, state.layer, False, None,
+                        False, state.speed, -1 if retracting else 1,
+                    ))
+            if observer is not None:
+                observer.command(state, cmd, words, body, line_start)
             continue
         if cmd == b"EXCLUDE_OBJECT_DEFINE":
             object_defines.append(body.strip().decode("utf-8", "replace"))
+            if observer is not None:
+                observer.command(state, cmd, words, body, line_start)
             continue
         layer = _apply_other(state, cmd, words)
         if layer is not None:
             layers.print_stats(layer, line_start, state)
+        if observer is not None:
+            observer.command(state, cmd, words, body, line_start)
 
     return ScanResult(state, list(window), object_defines, layers.result(), pos)
 
@@ -785,6 +834,66 @@ class DutyCycleLimiter:
         self._work_start = self._clock()
 
 
+def fsync_dir(directory: Any) -> None:
+    """Make a rename or create inside the directory at `directory` durable.
+    Best effort: one that cannot be opened or synced is left as it is."""
+    try:
+        fd = os.open(str(directory), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def atomic_publish(tmp: str, path: str, exclusive: bool = False,
+                   replace: Callable[[str, str], None] = os.replace) -> None:
+    """Move the finished file `tmp` to `path` in one step, durably. With
+    `exclusive` an existing `path` is never replaced: FileExistsError, and
+    `tmp` stays for the caller to remove. On a filesystem without hard links
+    (vfat) the exclusive check and the rename are two steps."""
+    if exclusive:
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            raise
+        except OSError:
+            if os.path.lexists(path):
+                raise FileExistsError(path)
+            replace(tmp, path)
+        else:
+            os.unlink(tmp)
+    else:
+        replace(tmp, path)
+    fsync_dir(os.path.dirname(path) or ".")
+
+
+def atomic_write_bytes(path: str, data: bytes, fsync: bool = True,
+                       replace: Callable[[str, str], None] = os.replace,
+                       mode: Optional[int] = None) -> None:
+    """Write `data` to `path` through a hidden, uniquely named temp file
+    beside it, then rename it over `path`. A failure at any point leaves
+    `path` as it was and no temp file behind."""
+    import tempfile
+    path = str(path)
+    directory, name = os.path.split(path)
+    fd, tmp = tempfile.mkstemp(dir=directory or ".", prefix="." + name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            if fsync:
+                os.fsync(f.fileno())
+        os.chmod(tmp, 0o644 if mode is None else mode)
+        atomic_publish(tmp, path, replace=replace)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
 def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     """Nice the calling thread only (Linux: a thread id is a PRIO_PROCESS
     target). Returns False where that is not possible."""
@@ -797,21 +906,165 @@ def lower_thread_priority(increment: int = BACKGROUND_NICE) -> bool:
     return True
 
 
+# How long a worker process gets for a file before it is killed: this much,
+# plus WORKER_SECONDS_PER_MB of the file's size. Sized for a nice-19 worker on
+# the slowest hosts (MIPS and Cortex-A7 boards), which share their CPU with
+# Klipper and run CPython 15 to 30 times slower than a desktop.
+WORKER_BASE_TIMEOUT_S = 600.0
+WORKER_SECONDS_PER_MB = 60.0
+
+
+def worker_timeout(size: int) -> float:
+    """The time a worker gets for a file of `size` bytes."""
+    return WORKER_BASE_TIMEOUT_S + WORKER_SECONDS_PER_MB * size / (1024.0 * 1024.0)
+
+
+class WorkerFailed(Exception):
+    """A worker process exited without its answer: crashed, killed or timed out."""
+
+
+class WorkerStopped(Exception):
+    """A worker process was stopped on purpose (WorkerProcess.kill / stop)."""
+
+
+def worker_argv(script: str, args: Iterable[str]) -> List[str]:
+    """argv running @p script under this interpreter (Moonraker's own, venv
+    included), at idle I/O priority where `ionice` exists. The script nices
+    its CPU priority itself (worker_nice)."""
+    argv = [sys.executable or "python3", os.path.abspath(script)] + list(args)
+    ionice = shutil.which("ionice")
+    if ionice is not None:
+        argv = [ionice, "-c", "3"] + argv
+    return argv
+
+
+def worker_nice() -> None:
+    """Called first thing in a worker process: the lowest CPU priority."""
+    try:
+        os.nice(19)
+    except (AttributeError, OSError):
+        pass
+
+
+class WorkerProcess:
+    """Runs one child process at a time and answers its stdout.
+
+    run() raises WorkerFailed for a non-zero exit, a timeout (the child is
+    killed) or a start that fails, and WorkerStopped when kill() or stop()
+    ended it. kill() is synchronous for event handlers; stop() also reaps.
+    """
+
+    def __init__(self) -> None:
+        self.proc = None  # type: Optional[Any]
+        self._stopped = False
+
+    @property
+    def running(self) -> bool:
+        return self.proc is not None and self.proc.returncode is None
+
+    async def run(self, argv: List[str], stdin: bytes, timeout: float) -> bytes:
+        self._stopped = False
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        except OSError as e:
+            raise WorkerFailed("could not start: %s" % e)
+        self.proc = proc
+        try:
+            try:
+                out, err = await asyncio.wait_for(proc.communicate(stdin), timeout)
+            except asyncio.TimeoutError:
+                raise WorkerFailed("timed out after %.0f s" % timeout)
+        finally:
+            if proc.returncode is None:
+                await self.stop()
+            self.proc = None
+        if self._stopped:
+            raise WorkerStopped()
+        if proc.returncode != 0:
+            tail = err.decode("utf-8", "replace").strip().splitlines()[-1:] if err else []
+            raise WorkerFailed("exit %s%s" % (proc.returncode, ": " + tail[0] if tail else ""))
+        return out
+
+    def kill(self) -> None:
+        if self.running:
+            self._stopped = True
+            try:
+                self.proc.kill()
+            except ProcessLookupError:
+                pass
+
+    async def stop(self) -> None:
+        proc = self.proc
+        if proc is None or proc.returncode is not None:
+            return
+        self.kill()
+        await proc.wait()
+
+
 # --------------------------------------------------------------------------
 # Layer index sidecar
 # --------------------------------------------------------------------------
 
 # A file's layer starts with the modal state at each, so a scan can begin at a
-# layer instead of byte 0. JSON lines: a header naming the file it indexes,
-# one line per layer start, and a closing line once the whole file is
-# indexed. Append-only, so a reader that stops anywhere leaves a valid prefix;
-# an unreadable line (a write cut short) is skipped.
+# layer instead of byte 0. JSON lines, one record each:
+#
+#   {"format": 1, "file_size": .., "file_mtime": .., "file_hash": ..}  header
+#   {"layer": n, "offset": o, "z": z, "state": {ModalState.to_dict()}} a layer start
+#   {"progress_lines": [[offset, "M73 P12 R30"], ...]}                 optional
+#   {"summary": {...}}                                                 optional
+#   {"complete": true, "end_offset": o}                                whole file read
+#
+# `z` is the toolhead Z at the offset. A layer start written by a reader that
+# saw the whole layer (file analysis) also carries:
+#
+#   "tools": [n, ...]  the tools that extrude in the layer (0 before any T<n>)
+#   "print_z": z       the toolhead Z of its first extruding move, or null
+#   "feature": "..."   the slicer `;TYPE:` section in effect at the offset, or null
+#
+# `progress_lines` are the lines a progress bar places markers from (pause
+# commands, M73, SET_PRINT_STATS_INFO), verbatim up to their comment, so the
+# screen classifies them with its own rules. `summary` is what a whole-file
+# reader learned that a preview frames and colors with:
+#
+#   "model_box": {"min": [x, y, z], "max": [x, y, z]} | null  extrusion outside
+#                the start-gcode purge and the wipe tower, G-code frame
+#   "palette": ["#RRGGBB" | "", ...]   per-tool colors the file declares
+#   "initial_tool": n | null           the first T<n>
+#   "tools": [n, ...]                  every T<n> the file selects
+#
+# Append-only, so a reader that stops anywhere leaves a valid prefix; an
+# unreadable line (a write cut short) is skipped, and so is a record of a kind
+# the reader does not know.
 LAYER_INDEX_FORMAT = 1
 LAYER_INDEX_DIR = ".helix_index"
 LAYER_INDEX_SUFFIX = ".layers.jsonl"
 
 # The file identity a layer index is valid for.
 IDENTITY_KEYS = ("file_size", "file_mtime", "file_hash")
+
+# file_hash reads this much from each end of the file.
+HASH_SPAN_BYTES = 64 * 1024
+
+
+def file_hash(path: "os.PathLike") -> str:
+    """sha1 of the first and last HASH_SPAN_BYTES (the whole file when shorter)."""
+    import hashlib
+    h = hashlib.sha1()
+    with open(str(path), "rb") as f:
+        h.update(f.read(HASH_SPAN_BYTES))
+        size = os.fstat(f.fileno()).st_size
+        if size > HASH_SPAN_BYTES:
+            f.seek(max(HASH_SPAN_BYTES, size - HASH_SPAN_BYTES))
+            h.update(f.read(HASH_SPAN_BYTES))
+    return h.hexdigest()
+
+
+def file_identity(path: "os.PathLike") -> dict:
+    """The identity a layer index for `path` is written against."""
+    st = os.stat(str(path))
+    return {"file_size": st.st_size, "file_mtime": st.st_mtime, "file_hash": file_hash(path)}
 
 
 class LayerCheckpoint(NamedTuple):
@@ -830,15 +1083,31 @@ def _identity(record: dict) -> dict:
 
 class LayerIndexWriter:
     """Appends checkpoints to a file's layer index, starting it over when the
-    one on disk indexes another version of the file."""
+    one on disk indexes another version of the file.
+
+    One writer per index: a complete index of this version (file analysis
+    writes them whole, with write_layer_index) is never appended to; the
+    writer then writes nothing. An index replaced while this writer has it
+    open stays intact, since the replacement is a rename and the writer's
+    appends go to the file it opened."""
 
     def __init__(self, path: str, identity: dict) -> None:
         self.path = path
         self.identity = _identity(identity)
         self._f = None
+        self.inert = False
+
+    def _ensure_open(self) -> None:
+        """Open the index on first use. A writer that found it complete stays
+        inert without reading it again."""
+        if self._f is None and not self.inert:
+            self._open()
 
     def _open(self) -> None:
         state = read_layer_index(self.path, self.identity)
+        if state is not None and state.complete:
+            self.inert = True
+            return
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         if state is None:
             self._f = open(self.path, "w")
@@ -855,24 +1124,64 @@ class LayerIndexWriter:
 
     def _write(self, record: dict) -> None:
         import json
+        if self.inert:
+            return
         self._f.write(json.dumps(record, separators=(",", ":")) + "\n")
         self._f.flush()
 
-    def append(self, layer: int, offset: int, state: ModalState) -> None:
-        if self._f is None:
-            self._open()
-        self._write({"layer": layer, "offset": offset, "z": state.last_position[2],
-                     "state": state.to_dict()})
+    def append(self, layer: int, offset: int, state: ModalState,
+               extra: Optional[dict] = None) -> None:
+        """One layer start; `extra` adds the whole-layer fields (tools,
+        print_z, feature) a reader that saw the layer knows."""
+        self._ensure_open()
+        record = {"layer": layer, "offset": offset, "z": state.last_position[2],
+                  "state": state.to_dict()}
+        if extra:
+            record.update((k, v) for k, v in extra.items() if k not in record)
+        self._write(record)
+
+    def progress_lines(self, lines: List[Tuple[int, str]]) -> None:
+        self._ensure_open()
+        self._write({"progress_lines": [[o, t] for o, t in lines]})
+
+    def summary(self, summary: dict) -> None:
+        self._ensure_open()
+        self._write({"summary": summary})
 
     def finish(self, end_offset: int) -> None:
-        if self._f is None:
-            self._open()
+        self._ensure_open()
         self._write({"complete": True, "end_offset": end_offset})
 
     def close(self) -> None:
         if self._f is not None:
             self._f.close()
             self._f = None
+
+
+def write_layer_index(path: str, identity: dict,
+                      starts: List[Tuple[int, int, ModalState, Optional[dict]]],
+                      progress_lines: List[Tuple[int, str]], end_offset: int,
+                      summary: Optional[dict] = None) -> None:
+    """Write a whole file's index in one go: (layer, offset, state, extra)
+    per start. It replaces the file atomically, so a follower appending to
+    the one it found keeps writing to an unlinked file, and readers never see
+    a half-written index."""
+    tmp = path + ".tmp"
+    writer = LayerIndexWriter(tmp, identity)
+    try:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        for layer, offset, state, extra in starts:
+            writer.append(layer, offset, state, extra)
+        writer.progress_lines(progress_lines)
+        if summary is not None:
+            writer.summary(summary)
+        writer.finish(end_offset)
+        if writer._f is not None:
+            os.fsync(writer._f.fileno())
+    finally:
+        writer.close()
+    atomic_publish(tmp, path)
 
 
 class LayerIndexSummary(NamedTuple):
@@ -932,33 +1241,95 @@ def read_layer_index(path: str, identity: dict,
     return LayerIndexSummary(checkpoint(last), checkpoint(best), complete)
 
 
-def prune_layer_indexes(gcodes_root: "os.PathLike", keep: int) -> List[str]:
-    """Remove the layer indexes whose G-code file is gone, then all but the
-    `keep` most recently written. Returns the removed paths."""
+def _header_identity(path: str) -> Optional[dict]:
+    import json
+    try:
+        with open(path, "r") as f:
+            header = json.loads(f.readline())
+    except (OSError, ValueError):
+        return None
+    return header if isinstance(header, dict) else None
+
+
+def layer_index_stale(index_path: str, source_path: Optional[str]) -> bool:
+    """The prune rule for one index: stale when its G-code is gone, unknown
+    (an index under .external, of a file outside gcodes), or a different
+    version than the index's header names (size or mtime). The content hash
+    is not read: a prune walks every index, and a file rewritten to the same
+    size within one mtime tick is not worth reading every file for."""
+    if source_path is None:
+        return True
+    try:
+        st = os.stat(source_path)
+    except OSError:
+        return True
+    header = _header_identity(index_path)
+    if header is None:
+        return True
+    return header.get("file_size") != st.st_size or header.get("file_mtime") != st.st_mtime
+
+
+def temp_index_orphaned(tmp_path: str, source_path: Optional[str], now: float) -> bool:
+    """Whether a whole-file write's temp index can no longer have a writer:
+    its source is gone, or it is older than the longest a worker may run for
+    that source (worker_timeout). An index of a file outside gcodes
+    (`source_path` None) gets the timeout of an empty file."""
+    try:
+        age = now - os.stat(tmp_path).st_mtime
+    except OSError:
+        return False
+    size = 0
+    if source_path is not None:
+        try:
+            size = os.stat(source_path).st_size
+        except OSError:
+            return True
+    return age > worker_timeout(size)
+
+
+def prune_layer_indexes(gcodes_root: "os.PathLike",
+                        protected: Iterable[str] = ()) -> List[str]:
+    """Remove every stale layer index (layer_index_stale) except the
+    @p protected paths: the index power-loss recovery is following during a
+    print and the one its waiting snapshot resumes from. A whole-file write's
+    `.tmp` is an orphan once no writer can still hold it (temp_index_orphaned),
+    and is kept while it or the index it becomes is protected. Returns the
+    removed paths."""
     root = os.path.join(str(gcodes_root), LAYER_INDEX_DIR)
     external = os.path.join(root, ".external") + os.sep
-    found = []  # type: List[Tuple[float, str]]
+    keep = {os.path.abspath(p) for p in protected if p}
     removed = []  # type: List[str]
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
-            if not name.endswith(LAYER_INDEX_SUFFIX):
-                continue
             path = os.path.join(dirpath, name)
-            source = os.path.join(str(gcodes_root),
-                                  os.path.relpath(path, root)[:-len(LAYER_INDEX_SUFFIX)])
-            try:
-                if not path.startswith(external) and not os.path.exists(source):
+            if name.endswith(LAYER_INDEX_SUFFIX + ".tmp"):
+                if os.path.abspath(path) in keep or os.path.abspath(path[:-4]) in keep:
+                    continue
+                source = None
+                if not path.startswith(external):
+                    source = os.path.join(str(gcodes_root), os.path.relpath(
+                        path, root)[:-len(LAYER_INDEX_SUFFIX + ".tmp")])
+                if not temp_index_orphaned(path, source, time.time()):
+                    continue
+                try:
                     os.remove(path)
                     removed.append(path)
-                    continue
-                found.append((os.path.getmtime(path), path))
-            except OSError:
+                except OSError:
+                    pass
                 continue
-    found.sort(reverse=True)
-    for _mtime, path in found[keep:]:
-        try:
-            os.remove(path)
-            removed.append(path)
-        except OSError:
-            pass
+            if not name.endswith(LAYER_INDEX_SUFFIX):
+                continue
+            if os.path.abspath(path) in keep:
+                continue
+            source = None
+            if not path.startswith(external):
+                source = os.path.join(
+                    str(gcodes_root), os.path.relpath(path, root)[:-len(LAYER_INDEX_SUFFIX)])
+            if not layer_index_stale(path, source):
+                continue
+            try:
+                os.remove(path)
+                removed.append(path)
+            except OSError:
+                pass
     return removed

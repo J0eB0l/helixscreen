@@ -128,6 +128,12 @@ class IJobAPI {
                                       const std::vector<std::string>& modifications,
                                       ModifiedPrintCallback on_success, ErrorCallback on_error) = 0;
 
+    virtual void start_edited_print(const std::string& original_filename,
+                                    const std::string& temp_file_path, const json& edits,
+                                    const std::vector<std::string>& modifications,
+                                    uint64_t file_size, ModifiedPrintCallback on_success,
+                                    ErrorCallback on_error) = 0;
+
     using PluginInfoCallback = std::function<void(const HelixPluginInfo&)>;
 
     /// Whether the HelixPrint plugin is installed, and its link directory.

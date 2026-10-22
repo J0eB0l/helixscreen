@@ -59,55 +59,12 @@ ScrewTiltResult make_screw(const std::string& name, const std::string& adjustmen
 
 } // namespace
 
-TEST_CASE("flip_screws_tilt_direction swaps CW and CCW tokens", "[calibration][screws_tilt]") {
-    SECTION("CW becomes CCW") {
-        std::string s = "CW 01:15";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CCW 01:15");
-    }
-
-    SECTION("CCW becomes CW") {
-        std::string s = "CCW 00:30";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CW 00:30");
-    }
-
-    SECTION("Zero-turn CW preserves magnitude") {
-        std::string s = "CW 00:00";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CCW 00:00");
-    }
-
-    SECTION("Non-matching prefix is untouched") {
-        std::string s = "XW 01:00";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "XW 01:00");
-    }
-
-    SECTION("Empty string is a no-op") {
-        std::string s;
-        flip_screws_tilt_direction(s);
-        REQUIRE(s.empty());
-    }
-
-    SECTION("String without direction token is a no-op") {
-        std::string s = "00:00";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "00:00");
-    }
-
-    SECTION("Mid-string CW is not flipped") {
-        std::string s = "foo CW bar";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "foo CW bar");
-    }
-
-    SECTION("Round-trip flip restores original") {
-        std::string s = "CW 02:45";
-        flip_screws_tilt_direction(s);
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CW 02:45");
-    }
+TEST_CASE("An AD5X line parses as Klipper wrote it", "[calibration][screws_tilt]") {
+    const auto results =
+        parse_lines({"// Right Near : x=202.0, y=12.5, z=-4.59750 : adjust CW 01:24"});
+    REQUIRE(results.size() == 1);
+    REQUIRE(results[0].adjustment == "CW 01:24");
+    REQUIRE(results[0].signed_adjustment_minutes().value() == 84);
 }
 
 TEST_CASE("ScrewTiltResult::adjustment_minutes parses arc-minute totals",
@@ -398,35 +355,55 @@ TEST_CASE("evaluate_screw_level fails loudly instead of reading as level",
     }
 }
 
-TEST_CASE("ScrewTiltResult::friendly_adjustment maps direction to verb",
+TEST_CASE("ScrewTiltResult::friendly_adjustment takes the verb from the corner's height",
           "[calibration][screws_tilt]") {
-    ScrewTiltResult r;
-    r.is_reference = false;
+    // A QIDI bed, Klipper's default CW-M3 thread. Klipper's CW raises a corner,
+    // which on a spring-mounted bed is loosening the screw.
+    const std::vector<ScrewTiltResult> screws = parse_lines({
+        "// front left screw (base) : x=30.0, y=30.0, z=-0.02265",
+        "// front right screw : x=240.0, y=30.0, z=0.00841 : adjust CCW 00:03",
+        "// rear right screw : x=240.0, y=240.0, z=-0.02877 : adjust CW 00:01",
+        "// rear left screw : x=30.0, y=240.0, z=-0.06507 : adjust CW 00:04",
+    });
+    const std::optional<float> ref_z = reference_screw_z(screws);
+    REQUIRE(ref_z);
+    REQUIRE(*ref_z == Catch::Approx(-0.02265f));
 
-    SECTION("CW output becomes Tighten") {
-        r.adjustment = "CW 00:18";
-        REQUIRE(r.friendly_adjustment(false) == "Tighten 1/4 turn");
+    SECTION("a corner above the reference tightens, whatever Klipper's direction") {
+        REQUIRE(screws[1].adjustment == "CCW 00:03");
+        REQUIRE(screws[1].friendly_adjustment(false, ref_z) == "Tighten 1/8 turn");
     }
 
-    SECTION("CCW output becomes Loosen") {
-        r.adjustment = "CCW 00:18";
-        REQUIRE(r.friendly_adjustment(false) == "Loosen 1/4 turn");
+    SECTION("a corner below the reference loosens") {
+        REQUIRE(screws[3].adjustment == "CW 00:04");
+        REQUIRE(screws[3].friendly_adjustment(false, ref_z) == "Loosen 1/8 turn");
     }
 
     SECTION("In-spec screw reports Level") {
-        r.adjustment = "CW 00:03";
-        REQUIRE(r.friendly_adjustment(true) == "Level");
+        REQUIRE(screws[2].friendly_adjustment(true, ref_z) == "Level");
     }
 
     SECTION("Reference screw reports Reference") {
-        r.is_reference = true;
-        REQUIRE(r.friendly_adjustment(false) == "Reference");
+        REQUIRE(screws[0].friendly_adjustment(false, ref_z) == "Reference");
     }
 
-    SECTION("Multi-turn magnitudes are described") {
-        r.adjustment = "CW 02:30";
-        REQUIRE(r.friendly_adjustment(false) == "Tighten 3 turns");
+    SECTION("without a reference height the raw Klipper advice is shown") {
+        REQUIRE(screws[3].friendly_adjustment(false, std::nullopt) == "CW 00:04");
     }
+}
+
+TEST_CASE("ScrewTiltResult::friendly_adjustment describes multi-turn magnitudes",
+          "[calibration][screws_tilt]") {
+    ScrewTiltResult r;
+    r.adjustment = "CW 02:30";
+    r.z_height = -1.0f;
+    REQUIRE(r.friendly_adjustment(false, 0.0f) == "Loosen 3 turns");
+}
+
+TEST_CASE("reference_screw_z is empty without a base screw", "[calibration][screws_tilt]") {
+    ScrewTiltResult r;
+    r.adjustment = "CW 00:18";
+    REQUIRE_FALSE(reference_screw_z({r}).has_value());
 }
 
 // ============================================================================
@@ -675,6 +652,10 @@ TEST_CASE("Re-centring fires when the datum is the lone outlier", "[calibration]
     SECTION("the datum moves the OPPOSITE way from the others") {
         REQUIRE(hint.signed_minutes == -150);
     }
+
+    SECTION("the datum sits above the others, so it tightens down to them") {
+        REQUIRE(hint.tighten);
+    }
 }
 
 TEST_CASE("Re-centring inverts correctly for CCW tilt", "[calibration][screws_tilt]") {
@@ -688,6 +669,8 @@ TEST_CASE("Re-centring inverts correctly for CCW tilt", "[calibration][screws_ti
     const ScrewRecenterHint hint = suggest_screw_recentering(screws, report);
     REQUIRE(hint.available);
     REQUIRE(hint.signed_minutes == 150);
+    // The datum sits below the others, so it loosens up to them.
+    REQUIRE_FALSE(hint.tighten);
 }
 
 TEST_CASE("Re-centring stays quiet when it would not save real work",

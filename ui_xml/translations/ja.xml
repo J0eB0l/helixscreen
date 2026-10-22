@@ -53,6 +53,8 @@
   <translation tag="(incompatible)" ja="(非対応)"/>
   <translation tag="(multi-tool)" ja="(マルチツール)"/>
   <translation tag="(none detected)" ja="(検出なし)"/>
+  <translation tag="(recovered)" ja="(復元)"/>
+  <translation tag="(repeated {} times)" ja="({} 回繰り返し)"/>
   <translation tag="(unnamed)" ja="(名称なし)"/>
   <translation tag="+ Add" ja="+ 追加"/>
   <translation tag="+ Add Preset" ja="+ プリセットを追加"/>
@@ -123,6 +125,7 @@
   <translation tag="3D Maze" ja="3D迷路"/>
   <translation tag="3D Pipes" ja="3Dパイプ"/>
   <translation tag="3D View" ja="3Dビュー"/>
+  <translation tag="3MF conversion" ja="3MF変換"/>
   <translation tag="4. Paper should move but with resistance" ja="4. 紙が抵抗を感じながら動く状態が適切です"/>
   <translation tag="4. Repeat until bed is level" ja="4. ベッドが水平になるまで繰り返してください"/>
   <translation tag="5 min" ja="5分"/>
@@ -132,6 +135,8 @@
   <translation tag="60 seconds" ja="60秒"/>
   <translation tag="90°" ja="90°"/>
   <translation tag="90° Clockwise" ja="90° 時計回り"/>
+  <translation tag="= Clockwise" ja="= 時計回り"/>
+  <translation tag="= Counterclockwise" ja="= 反時計回り"/>
   <translation tag="= Loosen" ja="= 緩める"/>
   <translation tag="= Tighten" ja="= 締める"/>
   <translation tag="A" ja="A"/>
@@ -236,6 +241,7 @@
   <translation tag="Adjustments stay active until restart. Save after print completes." ja="調整は再起動まで有効です。印刷完了後に保存してください。"/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" ja="ヒーターの個別特性を調整して最適な制御を実現します"/>
   <translation tag="Advanced" ja="詳細設定"/>
+  <translation tag="After an error" ja="エラーの後"/>
   <translation tag="After running the commands, tap Check Again below." ja="コマンド実行後、下の「再確認」をタップしてください。"/>
   <translation tag="Alert" ja="アラート"/>
   <translation tag="Alerts" ja="アラート"/>
@@ -287,6 +293,7 @@
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." ja="{}に適用しました。Klipperは再起動で忘れます: スライサーのフィラメントプロファイルでPressure Advanceに{}を入力するか、スプールに保存してください。"/>
   <translation tag="Applies to" ja="適用対象"/>
   <translation tag="Apply" ja="適用"/>
+  <translation tag="Apply start options to prints from other apps" ja="他のアプリからの印刷にも開始オプションを適用"/>
   <translation tag="Aqua Surface" ja="水面"/>
   <translation tag="Archive" ja="アーカイブ"/>
   <translation tag="Archive Spool?" ja="スプールをアーカイブしますか？"/>
@@ -728,6 +735,7 @@
   <translation tag="Computing calibration..." ja="キャリブレーション計算中..."/>
   <translation tag="Config Dir" ja="設定ディレクトリ"/>
   <translation tag="Config Edit Failed" ja="設定の編集に失敗しました"/>
+  <translation tag="Config editing" ja="設定の編集"/>
   <translation tag="Config-defined (read-only)" ja="設定で定義済み（読み取り専用）"/>
   <translation tag="Configuration added successfully." ja="設定が正常に追加されました。"/>
   <translation tag="Configuration already present." ja="設定は既に存在します。"/>
@@ -829,6 +837,7 @@
   <translation tag="Copying from USB stopped responding" ja="USB からのコピーが応答しなくなりました"/>
   <translation tag="Copying from USB..." ja="USB からコピー中..."/>
   <translation tag="Corner roundness" ja="角の丸み"/>
+  <translation tag="Corners differ by {} mm" ja="四隅の差 {} mm"/>
   <translation tag="Correction (Ki)" ja="補正 (Ki)"/>
   <translation tag="Could not add to queue" ja="キューに追加できませんでした"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." ja="PRINT_START マクロを分析できませんでした。一部の印刷オプションが利用できない場合があります。"/>
@@ -1412,6 +1421,7 @@
   <translation tag="File" ja="ファイル"/>
   <translation tag="File Size" ja="ファイルサイズ"/>
   <translation tag="File Will Stop the Printer" ja="ファイルがプリンターを停止します"/>
+  <translation tag="File analysis" ja="ファイル解析"/>
   <translation tag="File not found on printer." ja="プリンター上にファイルが見つかりません。"/>
   <translation tag="File not found: {}" ja="ファイルが見つかりません: {}"/>
   <translation tag="Filename" ja="ファイル名"/>
@@ -1430,6 +1440,7 @@
   <translation tag="Fireworks" ja="花火"/>
   <translation tag="Firmware Restart" ja="ファームウェア再起動"/>
   <translation tag="Firmware reports no bypass. Enable if you feed filament straight to the extruder" ja="ファームウェアはバイパスがないと報告しています。フィラメントをエクストルーダーに直接送っている場合は有効にしてください"/>
+  <translation tag="Firmware restart" ja="ファームウェア再起動"/>
   <translation tag="Firmware restart failed: {}" ja="ファームウェア再起動に失敗しました: {}"/>
   <translation tag="Firmware restarting..." ja="ファームウェア再起動中..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" ja="ファームウェアは X の値として Y の値を保存しました。測定された X の結果は破棄されました。"/>
@@ -1634,6 +1645,7 @@
   <translation tag="Homing selector" ja="セレクターをホーミングしています"/>
   <translation tag="Homing timed out" ja="ホーミングがタイムアウトしました"/>
   <translation tag="Homing timed out — printer may still be homing" ja="ホーミングがタイムアウトしました — プリンターはまだホーミング中の可能性があります"/>
+  <translation tag="Homing, then probing..." ja="原点復帰してから測定中..."/>
   <translation tag="Homing..." ja="ホーミング中..."/>
   <translation tag="Horizontal" ja="水平"/>
   <translation tag="Host" ja="ホスト"/>
@@ -1734,6 +1746,7 @@
   <translation tag="Interface size. Applies after restart." ja="インターフェースの大きさ。再起動後に適用されます。"/>
   <translation tag="Internal error: API not available" ja="内部エラー: API を利用できません"/>
   <translation tag="Internal error: no scan result" ja="内部エラー: スキャン結果がありません"/>
+  <translation tag="Interrupted" ja="中断"/>
   <translation tag="Invalid Slot" ja="無効なスロット"/>
   <translation tag="Invalid Tool" ja="無効なツール"/>
   <translation tag="Invalid duration" ja="時間の値が無効です"/>
@@ -1792,6 +1805,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." ja="Klippain Shake&amp;Tuneのマクロがプリンターにインストールされています。HelixScreenは検出しますが使用しません。MainsailまたはFluiddから実行してください。"/>
   <translation tag="Klipper" ja="Klipper"/>
   <translation tag="Klipper Error" ja="Klipper エラー"/>
+  <translation tag="Klipper disconnected" ja="Klipper切断"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" ja="スキップ用マクロでは Klipper が起動しなかったため、削除しました"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." ja="Klipper を起動できませんでした。printer.cfg から helix_skips.cfg の include を削除してください。"/>
   <translation tag="Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart." ja="Klipper ファームウェアがホストから切断されました。Klipper を再起動するか、ファームウェア再起動を実行してみてください。"/>
@@ -1801,8 +1815,10 @@
   <translation tag="Klipper has entered shutdown state." ja="Klipper がシャットダウン状態になりました。"/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." ja="Klipper がシャットダウン状態になりました。緊急停止、熱暴走、または設定エラーが原因の可能性があります。"/>
   <translation tag="Klipper is halted — restart firmware to continue" ja="Klipper が停止しています — 続行するにはファームウェアを再起動してください"/>
+  <translation tag="Klipper ready" ja="Klipper準備完了"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." ja="Klipper は &apos;default&apos; を新しいキャリブレーション用に予約しています。別の名前を選んでください。"/>
   <translation tag="Klipper restarting - macros activating" ja="Klipper を再起動しています - マクロを有効化中"/>
+  <translation tag="Klipper shut down" ja="Klipperシャットダウン"/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again." ja="Klipperが進捗の報告を停止しました。小型のプリンターでは解析でメモリが不足し、Klipperが停止したままになることがあり、その場合はファームウェア再起動では復旧できません。プリンターの電源を入れ直して（またはSSHでKlipperを再起動して）から再試行してください。"/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again." ja="Klipperが進捗の報告を停止しました。小型のプリンターでは解析でメモリが不足することがあります。Klipperを再起動してから再試行してください。"/>
   <translation tag="Klipper will restart to apply changes." ja="変更を適用するために Klipper が再起動します。"/>
@@ -1957,6 +1973,7 @@
   <translation tag="MB RAM" ja="MB RAM"/>
   <translation tag="MCU" ja="MCU"/>
   <translation tag="MCU bridge daemon is shut down" ja="MCU ブリッジのデーモンが停止しています"/>
+  <translation tag="MCU disconnected" ja="MCU切断"/>
   <translation tag="MCU, host, and auxiliary temperature monitoring" ja="MCU、ホスト、補助温度の監視"/>
   <translation tag="MCU: " ja="MCU: "/>
   <translation tag="MCUs" ja="MCUs"/>
@@ -2243,6 +2260,7 @@
   <translation tag="No print start macro found" ja="印刷開始マクロが見つかりません"/>
   <translation tag="No printer configured — check printer settings" ja="プリンターが設定されていません — プリンター設定を確認してください"/>
   <translation tag="No printer connection" ja="プリンター未接続"/>
+  <translation tag="No printer events yet" ja="プリンターイベントはまだありません"/>
   <translation tag="No printers found" ja="プリンターが見つかりません"/>
   <translation tag="No prints this week" ja="今週の印刷なし"/>
   <translation tag="No prints yet" ja="印刷履歴なし"/>
@@ -2370,6 +2388,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." ja="ワンタップでこのマクロを実行します。危険なマクロは確認を求めます。"/>
   <translation tag="Only on A: {} Hz" ja="Aのみ: {} Hz"/>
   <translation tag="Only on B: {} Hz" ja="Bのみ: {} Hz"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." ja="このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインをインストールしてください。"/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." ja="このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインを更新してください。"/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." ja="空きメモリは{} MBしかなく、Klipperの解析には約{} MB必要です。テストを実行すると、電源を入れ直すまでプリンターが停止したままになります。"/>
   <translation tag="Ooze Reduction" ja="にじみ低減"/>
   <translation tag="Open" ja="開く"/>
@@ -2465,6 +2485,7 @@
   <translation tag="Pause, resume, or stop the print" ja="印刷の一時停止、再開、停止"/>
   <translation tag="Paused" ja="一時停止"/>
   <translation tag="Paused (attention needed)" ja="一時停止（対応が必要）"/>
+  <translation tag="Paused by a command" ja="コマンドで一時停止"/>
   <translation tag="Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen." ja="選んだレイヤーで印刷を一時停止し、フィラメント交換やインサートを行えます。印刷中に印刷状況画面のプレビューカードからレイヤーを設定します。"/>
   <translation tag="Pausing at layer {}." ja="レイヤー {} で一時停止します。"/>
   <translation tag="Pausing..." ja="一時停止中..."/>
@@ -2603,6 +2624,7 @@
   <translation tag="Print a test tower and tune K by eye" ja="テストタワーを印刷して目視でKを調整"/>
   <translation tag="Print canceled" ja="印刷がキャンセルされました"/>
   <translation tag="Print complete" ja="印刷完了"/>
+  <translation tag="Print completed" ja="印刷完了"/>
   <translation tag="Print details" ja="印刷の詳細"/>
   <translation tag="Print did not start" ja="印刷は開始されませんでした"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" ja="印刷が開始されませんでした — プリンターがビジー状態またはオフラインの可能性があります (B3 polls={}, status=0x{:02X}, error=0x{:02X})"/>
@@ -2616,6 +2638,7 @@
   <translation tag="Print hours this week and lifetime totals" ja="今週の印刷時間と累計"/>
   <translation tag="Print issue detected" ja="印刷の問題を検出しました"/>
   <translation tag="Print jobs waiting to run" ja="実行待ちの印刷ジョブ"/>
+  <translation tag="Print paused" ja="印刷一時停止"/>
   <translation tag="Print preparation failed: {}" ja="印刷準備に失敗しました: {}"/>
   <translation tag="Print resumed" ja="印刷を再開しました"/>
   <translation tag="Print server rejected the job — check printer status" ja="印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください"/>
@@ -2628,6 +2651,7 @@
   <translation tag="Printed %d times" ja="%d 回印刷済み"/>
   <translation tag="Printer" ja="プリンター"/>
   <translation tag="Printer Error" ja="プリンターエラー"/>
+  <translation tag="Printer Events" ja="プリンターイベント"/>
   <translation tag="Printer Firmware Disconnected" ja="プリンターファームウェア切断"/>
   <translation tag="Printer Image" ja="プリンター画像"/>
   <translation tag="Printer Manager" ja="プリンター管理"/>
@@ -2655,6 +2679,10 @@
   <translation tag="Printer default" ja="プリンター既定"/>
   <translation tag="Printer didn&apos;t respond — make sure it&apos;s on and in range" ja="プリンターが応答しません — 電源が入っており通信範囲内にあることを確認してください"/>
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" ja="プリンターが想定されるサービスを公開していません — デバイスが違う可能性があります"/>
+  <translation tag="Printer error" ja="プリンターエラー"/>
+  <translation tag="Printer event" ja="プリンターイベント"/>
+  <translation tag="Printer events" ja="プリンターのイベント"/>
+  <translation tag="Printer events need the HelixPrint plugin on this screen" ja="この画面でプリンターのイベントを表示するにはHelixPrintプラグインが必要です"/>
   <translation tag="Printer hardware detected" ja="プリンターのハードウェアを検出"/>
   <translation tag="Printer image set to auto-detect" ja="プリンター画像を自動検出に設定しました"/>
   <translation tag="Printer is busy - {} stays in the queue" ja="プリンターは使用中です – {} はキューに残ります"/>
@@ -2804,6 +2832,8 @@
   <translation tag="Reconnect" ja="再接続"/>
   <translation tag="Record Timelapse" ja="タイムラプスを録画"/>
   <translation tag="Record timelapses of your prints" ja="印刷のタイムラプスを録画"/>
+  <translation tag="Recorded by the HelixPrint plugin" ja="HelixPrintプラグインが記録"/>
+  <translation tag="Recorded by this screen while connected" ja="接続中にこの画面が記録"/>
   <translation tag="Recorded timelapses will appear here" ja="録画済みタイムラプスがここに表示されます"/>
   <translation tag="Recording Mode" ja="録画モード"/>
   <translation tag="Recover" ja="回復"/>
@@ -2873,6 +2903,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" ja="詰まり検出器またはフィラメントモーションセンサーが必要です"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" ja="フィラメント圧力センサーまたは同期フィードバックが必要です"/>
   <translation tag="Requires a filament system with bypass" ja="バイパスに対応したフィラメントシステムが必要です"/>
+  <translation tag="Requires a newer HelixPrint plugin" ja="より新しいHelixPrintプラグインが必要です"/>
+  <translation tag="Requires the HelixPrint plugin" ja="HelixPrintプラグインが必要です"/>
   <translation tag="Resend write failed at chunk {}" ja="チャンク {} で再送信の書き込みに失敗しました"/>
   <translation tag="Reset" ja="リセット"/>
   <translation tag="Reset Blade Counter" ja="ブレードカウンターをリセット"/>
@@ -3145,6 +3177,7 @@
   <translation tag="Send commands directly to printer" ja="プリンターに直接コマンドを送信"/>
   <translation tag="Send this crash report to help improve HelixScreen." ja="HelixScreen の改善にこのクラッシュレポートを送信してください。"/>
   <translation tag="Sending..." ja="送信中..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." ja="別のアプリやジョブキューから印刷が開始されたときに、終了時のアンロードなどの常設の印刷オプションを送信します。"/>
   <translation tag="Sensor" ja="センサー"/>
   <translation tag="Sensor Error" ja="センサーエラー"/>
   <translation tag="Sensor Response" ja="センサー応答"/>
@@ -3157,6 +3190,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." ja="送り出し中のフィラメント径を測るセンサー。センサー設定で構成できます。"/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." ja="個別のオン/オフマクロ。HelixScreenが状態を追跡します。"/>
   <translation tag="Server Setup" ja="サーバー設定"/>
+  <translation tag="Server-side edits" ja="サーバー側の編集"/>
   <translation tag="Service hours for the filter, nozzle, and rails" ja="フィルター、ノズル、レールの稼働時間"/>
   <translation tag="Servo" ja="サーボ"/>
   <translation tag="Servo Down" ja="サーボを下げる"/>
@@ -3335,6 +3369,7 @@
   <translation tag="Start failed" ja="開始に失敗"/>
   <translation tag="Start next" ja="次を開始"/>
   <translation tag="Start next: {}" ja="次を開始：{}"/>
+  <translation tag="Start options for prints from other apps" ja="他のアプリからの印刷の開始オプション"/>
   <translation tag="Start print anyway?" ja="それでも印刷を開始しますか？"/>
   <translation tag="Started" ja="開始"/>
   <translation tag="Starting Print..." ja="印刷開始中..."/>
@@ -3575,6 +3610,7 @@
   <translation tag="The printer could not work out where to resume." ja="プリンターは再開位置を特定できませんでした。"/>
   <translation tag="The printer did not change its bed check" ja="プリンターはベッドチェックを変更しませんでした"/>
   <translation tag="The printer did not change its bed check: {}" ja="プリンターはベッドチェックを変更しませんでした：{}"/>
+  <translation tag="The printer did not confirm the print started ({}). It may still start: check the printer before starting it again." ja="プリンターが印刷開始を確認しませんでした ({})。まだ開始する可能性があります。もう一度開始する前にプリンターを確認してください。"/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." ja="プリンターは隅で押出しを行い、測定値が一致するまで繰り返します。目視での判断は不要です。"/>
   <translation tag="The printer finishes this measurement on its own." ja="この測定はプリンターが最後まで行います。"/>
   <translation tag="The printer halted this print and cannot resume it. Restart from the beginning?" ja="プリンターはこの印刷を停止し、再開できません。最初からやり直しますか？"/>
@@ -3583,6 +3619,7 @@
   <translation tag="The printer heats the nozzle, extrudes a few short test moves in a corner of the plate, and measures them itself. It repeats until the readings agree, then reports one number." ja="プリンターはノズルを加熱し、プレートの隅で短いテスト移動を数回行って自ら測定します。測定値が一致するまで繰り返し、最後にひとつの数値を報告します。"/>
   <translation tag="The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear." ja="プリンターが原点復帰してカッターを走査します（約1分）。フィラメントの経路を空けてください。"/>
   <translation tag="The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked." ja="プリンターはホームに戻ってから、ベッドをノズルからできるだけ離します。耐熱性が足りずに変形するスプールもあります。スプールをベッドから取り出したことを確認するまで、この画面からは何も動きません。Mainsail、マクロ、スライサーから送られた印刷はブロックされません。"/>
+  <translation tag="The printer homes, then probes each screw position." ja="プリンターは原点復帰してから各ネジ位置を測定します。"/>
   <translation tag="The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear." ja="プリンターがホーミングされていません。続行すると全軸がホーミングされ、ツールヘッドが移動します。ベッドに物がないことを確認してください。"/>
   <translation tag="The printer is shut down." ja="プリンターはシャットダウンしています。"/>
   <translation tag="The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed." ja="プリンターはチャンバーが温度に達するのを待っており、この待機を終わらせるには緊急停止とファームウェアの再起動しかありません。印刷はすぐに停止し、再開できません。"/>
@@ -3833,6 +3870,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." ja="プリンターに接続できません。電源とネットワーク接続を確認してください。"/>
   <translation tag="Unavailable" ja="利用不可"/>
   <translation tag="Unavailable on this printer" ja="このプリンターでは利用できません"/>
+  <translation tag="Unavailable: {}" ja="利用不可: {}"/>
   <translation tag="Undo" ja="元に戻す"/>
   <translation tag="Uninstall" ja="アンインストール"/>
   <translation tag="Uninstall HelixPrint Plugin" ja="HelixPrint プラグインをアンインストール"/>
@@ -3939,6 +3977,7 @@
   <translation tag="Verifying..." ja="検証中..."/>
   <translation tag="Version" ja="バージョン"/>
   <translation tag="Version and printer info" ja="バージョンとプリンター情報"/>
+  <translation tag="Version and what the plugin runs" ja="バージョンとプラグインが実行する機能"/>
   <translation tag="Version {}" ja="バージョン {}"/>
   <translation tag="Vertical" ja="垂直"/>
   <translation tag="Vibration" ja="振動"/>

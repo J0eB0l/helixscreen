@@ -53,6 +53,8 @@
   <translation tag="(incompatible)" en="(incompatible)"/>
   <translation tag="(multi-tool)" en="(multi-tool)"/>
   <translation tag="(none detected)" en="(none detected)"/>
+  <translation tag="(recovered)" en="(recovered)"/>
+  <translation tag="(repeated {} times)" en="(repeated {} times)"/>
   <translation tag="(unnamed)" en="(unnamed)"/>
   <translation tag="+ Add" en="+ Add"/>
   <translation tag="+ Add Preset" en="+ Add Preset"/>
@@ -123,6 +125,7 @@
   <translation tag="3D Maze" en="3D Maze"/>
   <translation tag="3D Pipes" en="3D Pipes"/>
   <translation tag="3D View" en="3D View"/>
+  <translation tag="3MF conversion" en="3MF conversion"/>
   <translation tag="4. Paper should move but with resistance" en="4. Paper should move but with resistance"/>
   <translation tag="4. Repeat until bed is level" en="4. Repeat until bed is level"/>
   <translation tag="5 min" en="5 min"/>
@@ -132,6 +135,8 @@
   <translation tag="60 seconds" en="60 seconds"/>
   <translation tag="90°" en="90°"/>
   <translation tag="90° Clockwise" en="90° Clockwise"/>
+  <translation tag="= Clockwise" en="= Clockwise"/>
+  <translation tag="= Counterclockwise" en="= Counterclockwise"/>
   <translation tag="= Loosen" en="= Loosen"/>
   <translation tag="= Tighten" en="= Tighten"/>
   <translation tag="A" en="A"/>
@@ -236,6 +241,7 @@
   <translation tag="Adjustments stay active until restart. Save after print completes." en="Adjustments stay active until restart. Save after print completes."/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" en="Adjusts individual characteristics of your heaters for optimal control"/>
   <translation tag="Advanced" en="Advanced"/>
+  <translation tag="After an error" en="After an error"/>
   <translation tag="After running the commands, tap Check Again below." en="After running the commands, tap Check Again below."/>
   <translation tag="Alert" en="Alert"/>
   <translation tag="Alerts" en="Alerts"/>
@@ -287,6 +293,7 @@
   <translation tag="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool." en="Applied to {}. Klipper forgets it on restart: enter {} as Pressure advance in your slicer&apos;s filament profile, or save it to the spool."/>
   <translation tag="Applies to" en="Applies to"/>
   <translation tag="Apply" en="Apply"/>
+  <translation tag="Apply start options to prints from other apps" en="Apply start options to prints from other apps"/>
   <translation tag="Aqua Surface" en="Aqua Surface"/>
   <translation tag="Archive" en="Archive"/>
   <translation tag="Archive Spool?" en="Archive Spool?"/>
@@ -728,6 +735,7 @@
   <translation tag="Computing calibration..." en="Computing calibration..."/>
   <translation tag="Config Dir" en="Config Dir"/>
   <translation tag="Config Edit Failed" en="Config Edit Failed"/>
+  <translation tag="Config editing" en="Config editing"/>
   <translation tag="Config-defined (read-only)" en="Config-defined (read-only)"/>
   <translation tag="Configuration added successfully." en="Configuration added successfully."/>
   <translation tag="Configuration already present." en="Configuration already present."/>
@@ -829,6 +837,7 @@
   <translation tag="Copying from USB stopped responding" en="Copying from USB stopped responding"/>
   <translation tag="Copying from USB..." en="Copying from USB..."/>
   <translation tag="Corner roundness" en="Corner roundness"/>
+  <translation tag="Corners differ by {} mm" en="Corners differ by {} mm"/>
   <translation tag="Correction (Ki)" en="Correction (Ki)"/>
   <translation tag="Could not add to queue" en="Could not add to queue"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." en="Could not analyze PRINT_START macro. Some print options may be unavailable."/>
@@ -1412,6 +1421,7 @@
   <translation tag="File" en="File"/>
   <translation tag="File Size" en="File Size"/>
   <translation tag="File Will Stop the Printer" en="File Will Stop the Printer"/>
+  <translation tag="File analysis" en="File analysis"/>
   <translation tag="File not found on printer." en="File not found on printer."/>
   <translation tag="File not found: {}" en="File not found: {}"/>
   <translation tag="Filename" en="Filename"/>
@@ -1430,6 +1440,7 @@
   <translation tag="Fireworks" en="Fireworks"/>
   <translation tag="Firmware Restart" en="Firmware Restart"/>
   <translation tag="Firmware reports no bypass. Enable if you feed filament straight to the extruder" en="Firmware reports no bypass. Enable if you feed filament straight to the extruder"/>
+  <translation tag="Firmware restart" en="Firmware restart"/>
   <translation tag="Firmware restart failed: {}" en="Firmware restart failed: {}"/>
   <translation tag="Firmware restarting..." en="Firmware restarting..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" en="Firmware saved X = Y&apos;s value; the measured X result was discarded"/>
@@ -1634,6 +1645,7 @@
   <translation tag="Homing selector" en="Homing selector"/>
   <translation tag="Homing timed out" en="Homing timed out"/>
   <translation tag="Homing timed out — printer may still be homing" en="Homing timed out — printer may still be homing"/>
+  <translation tag="Homing, then probing..." en="Homing, then probing..."/>
   <translation tag="Homing..." en="Homing..."/>
   <translation tag="Horizontal" en="Horizontal"/>
   <translation tag="Host" en="Host"/>
@@ -1734,6 +1746,7 @@
   <translation tag="Interface size. Applies after restart." en="Interface size. Applies after restart."/>
   <translation tag="Internal error: API not available" en="Internal error: API not available"/>
   <translation tag="Internal error: no scan result" en="Internal error: no scan result"/>
+  <translation tag="Interrupted" en="Interrupted"/>
   <translation tag="Invalid Slot" en="Invalid Slot"/>
   <translation tag="Invalid Tool" en="Invalid Tool"/>
   <translation tag="Invalid duration" en="Invalid duration"/>
@@ -1792,6 +1805,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." en="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd."/>
   <translation tag="Klipper" en="Klipper"/>
   <translation tag="Klipper Error" en="Klipper Error"/>
+  <translation tag="Klipper disconnected" en="Klipper disconnected"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" en="Klipper failed to start with the skip macros, so they were removed"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." en="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg."/>
   <translation tag="Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart." en="Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart."/>
@@ -1801,8 +1815,10 @@
   <translation tag="Klipper has entered shutdown state." en="Klipper has entered shutdown state."/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." en="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error."/>
   <translation tag="Klipper is halted — restart firmware to continue" en="Klipper is halted — restart firmware to continue"/>
+  <translation tag="Klipper ready" en="Klipper ready"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." en="Klipper reserves &apos;default&apos; for new calibrations. Choose another name."/>
   <translation tag="Klipper restarting - macros activating" en="Klipper restarting - macros activating"/>
+  <translation tag="Klipper shut down" en="Klipper shut down"/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again." en="Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again."/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again." en="Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again."/>
   <translation tag="Klipper will restart to apply changes." en="Klipper will restart to apply changes."/>
@@ -1957,6 +1973,7 @@
   <translation tag="MB RAM" en="MB RAM"/>
   <translation tag="MCU" en="MCU"/>
   <translation tag="MCU bridge daemon is shut down" en="MCU bridge daemon is shut down"/>
+  <translation tag="MCU disconnected" en="MCU disconnected"/>
   <translation tag="MCU, host, and auxiliary temperature monitoring" en="MCU, host, and auxiliary temperature monitoring"/>
   <translation tag="MCU: " en="MCU: "/>
   <translation tag="MCUs" en="MCUs"/>
@@ -2243,6 +2260,7 @@
   <translation tag="No print start macro found" en="No print start macro found"/>
   <translation tag="No printer configured — check printer settings" en="No printer configured — check printer settings"/>
   <translation tag="No printer connection" en="No printer connection"/>
+  <translation tag="No printer events yet" en="No printer events yet"/>
   <translation tag="No printers found" en="No printers found"/>
   <translation tag="No prints this week" en="No prints this week"/>
   <translation tag="No prints yet" en="No prints yet"/>
@@ -2370,6 +2388,8 @@
   <translation tag="One tap runs this macro. Dangerous macros still ask." en="One tap runs this macro. Dangerous macros still ask."/>
   <translation tag="Only on A: {} Hz" en="Only on A: {} Hz"/>
   <translation tag="Only on B: {} Hz" en="Only on B: {} Hz"/>
+  <translation tag="Only while this app is connected. Install the HelixPrint plugin to cover every print." en="Only while this app is connected. Install the HelixPrint plugin to cover every print."/>
+  <translation tag="Only while this app is connected. Update the HelixPrint plugin to cover every print." en="Only while this app is connected. Update the HelixPrint plugin to cover every print."/>
   <translation tag="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled." en="Only {} MB of memory is free, and Klipper&apos;s analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled."/>
   <translation tag="Ooze Reduction" en="Ooze Reduction"/>
   <translation tag="Open" en="Open"/>
@@ -2465,6 +2485,7 @@
   <translation tag="Pause, resume, or stop the print" en="Pause, resume, or stop the print"/>
   <translation tag="Paused" en="Paused"/>
   <translation tag="Paused (attention needed)" en="Paused (attention needed)"/>
+  <translation tag="Paused by a command" en="Paused by a command"/>
   <translation tag="Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen." en="Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen."/>
   <translation tag="Pausing at layer {}." en="Pausing at layer {}."/>
   <translation tag="Pausing..." en="Pausing..."/>
@@ -2603,6 +2624,7 @@
   <translation tag="Print a test tower and tune K by eye" en="Print a test tower and tune K by eye"/>
   <translation tag="Print canceled" en="Print canceled"/>
   <translation tag="Print complete" en="Print complete"/>
+  <translation tag="Print completed" en="Print completed"/>
   <translation tag="Print details" en="Print details"/>
   <translation tag="Print did not start" en="Print did not start"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" en="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})"/>
@@ -2616,6 +2638,7 @@
   <translation tag="Print hours this week and lifetime totals" en="Print hours this week and lifetime totals"/>
   <translation tag="Print issue detected" en="Print issue detected"/>
   <translation tag="Print jobs waiting to run" en="Print jobs waiting to run"/>
+  <translation tag="Print paused" en="Print paused"/>
   <translation tag="Print preparation failed: {}" en="Print preparation failed: {}"/>
   <translation tag="Print resumed" en="Print resumed"/>
   <translation tag="Print server rejected the job — check printer status" en="Print server rejected the job — check printer status"/>
@@ -2628,6 +2651,7 @@
   <translation tag="Printed %d times" en="Printed %d times"/>
   <translation tag="Printer" en="Printer"/>
   <translation tag="Printer Error" en="Printer Error"/>
+  <translation tag="Printer Events" en="Printer Events"/>
   <translation tag="Printer Firmware Disconnected" en="Printer Firmware Disconnected"/>
   <translation tag="Printer Image" en="Printer Image"/>
   <translation tag="Printer Manager" en="Printer Manager"/>
@@ -2655,6 +2679,10 @@
   <translation tag="Printer default" en="Printer default"/>
   <translation tag="Printer didn&apos;t respond — make sure it&apos;s on and in range" en="Printer didn&apos;t respond — make sure it&apos;s on and in range"/>
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" en="Printer doesn&apos;t expose the expected service — wrong device?"/>
+  <translation tag="Printer error" en="Printer error"/>
+  <translation tag="Printer event" en="Printer event"/>
+  <translation tag="Printer events" en="Printer events"/>
+  <translation tag="Printer events need the HelixPrint plugin on this screen" en="Printer events need the HelixPrint plugin on this screen"/>
   <translation tag="Printer hardware detected" en="Printer hardware detected"/>
   <translation tag="Printer image set to auto-detect" en="Printer image set to auto-detect"/>
   <translation tag="Printer is busy - {} stays in the queue" en="Printer is busy - {} stays in the queue"/>
@@ -2804,6 +2832,8 @@
   <translation tag="Reconnect" en="Reconnect"/>
   <translation tag="Record Timelapse" en="Record Timelapse"/>
   <translation tag="Record timelapses of your prints" en="Record timelapses of your prints"/>
+  <translation tag="Recorded by the HelixPrint plugin" en="Recorded by the HelixPrint plugin"/>
+  <translation tag="Recorded by this screen while connected" en="Recorded by this screen while connected"/>
   <translation tag="Recorded timelapses will appear here" en="Recorded timelapses will appear here"/>
   <translation tag="Recording Mode" en="Recording Mode"/>
   <translation tag="Recover" en="Recover"/>
@@ -2873,6 +2903,8 @@
   <translation tag="Requires a clog detector or filament motion sensor" en="Requires a clog detector or filament motion sensor"/>
   <translation tag="Requires a filament pressure sensor or sync feedback" en="Requires a filament pressure sensor or sync feedback"/>
   <translation tag="Requires a filament system with bypass" en="Requires a filament system with bypass"/>
+  <translation tag="Requires a newer HelixPrint plugin" en="Requires a newer HelixPrint plugin"/>
+  <translation tag="Requires the HelixPrint plugin" en="Requires the HelixPrint plugin"/>
   <translation tag="Resend write failed at chunk {}" en="Resend write failed at chunk {}"/>
   <translation tag="Reset" en="Reset"/>
   <translation tag="Reset Blade Counter" en="Reset Blade Counter"/>
@@ -3145,6 +3177,7 @@
   <translation tag="Send commands directly to printer" en="Send commands directly to printer"/>
   <translation tag="Send this crash report to help improve HelixScreen." en="Send this crash report to help improve HelixScreen."/>
   <translation tag="Sending..." en="Sending..."/>
+  <translation tag="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue." en="Sends your standing print options, such as unload at end, when a print starts from another app or the job queue."/>
   <translation tag="Sensor" en="Sensor"/>
   <translation tag="Sensor Error" en="Sensor Error"/>
   <translation tag="Sensor Response" en="Sensor Response"/>
@@ -3157,6 +3190,7 @@
   <translation tag="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings." en="Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings."/>
   <translation tag="Separate on/off macros. HelixScreen tracks the state." en="Separate on/off macros. HelixScreen tracks the state."/>
   <translation tag="Server Setup" en="Server Setup"/>
+  <translation tag="Server-side edits" en="Server-side edits"/>
   <translation tag="Service hours for the filter, nozzle, and rails" en="Service hours for the filter, nozzle, and rails"/>
   <translation tag="Servo" en="Servo"/>
   <translation tag="Servo Down" en="Servo Down"/>
@@ -3335,6 +3369,7 @@
   <translation tag="Start failed" en="Start failed"/>
   <translation tag="Start next" en="Start next"/>
   <translation tag="Start next: {}" en="Start next: {}"/>
+  <translation tag="Start options for prints from other apps" en="Start options for prints from other apps"/>
   <translation tag="Start print anyway?" en="Start print anyway?"/>
   <translation tag="Started" en="Started"/>
   <translation tag="Starting Print..." en="Starting Print..."/>
@@ -3575,6 +3610,7 @@
   <translation tag="The printer could not work out where to resume." en="The printer could not work out where to resume."/>
   <translation tag="The printer did not change its bed check" en="The printer did not change its bed check"/>
   <translation tag="The printer did not change its bed check: {}" en="The printer did not change its bed check: {}"/>
+  <translation tag="The printer did not confirm the print started ({}). It may still start: check the printer before starting it again." en="The printer did not confirm the print started ({}). It may still start: check the printer before starting it again."/>
   <translation tag="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye." en="The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye."/>
   <translation tag="The printer finishes this measurement on its own." en="The printer finishes this measurement on its own."/>
   <translation tag="The printer halted this print and cannot resume it. Restart from the beginning?" en="The printer halted this print and cannot resume it. Restart from the beginning?"/>
@@ -3583,6 +3619,7 @@
   <translation tag="The printer heats the nozzle, extrudes a few short test moves in a corner of the plate, and measures them itself. It repeats until the readings agree, then reports one number." en="The printer heats the nozzle, extrudes a few short test moves in a corner of the plate, and measures them itself. It repeats until the readings agree, then reports one number."/>
   <translation tag="The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear." en="The printer homes and sweeps the cutter (about 1 minute). Keep the filament path clear."/>
   <translation tag="The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked." en="The printer homes, then moves the plate as far from the nozzle as it goes. Some spools are not heat-resistant enough and can deform. Nothing moves from this screen until you confirm the spools are off the bed; Mainsail, macros and prints sent from a slicer are not blocked."/>
+  <translation tag="The printer homes, then probes each screw position." en="The printer homes, then probes each screw position."/>
   <translation tag="The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear." en="The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear."/>
   <translation tag="The printer is shut down." en="The printer is shut down."/>
   <translation tag="The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed." en="The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed."/>
@@ -3833,6 +3870,7 @@
   <translation tag="Unable to reach printer. Check power and network connection." en="Unable to reach printer. Check power and network connection."/>
   <translation tag="Unavailable" en="Unavailable"/>
   <translation tag="Unavailable on this printer" en="Unavailable on this printer"/>
+  <translation tag="Unavailable: {}" en="Unavailable: {}"/>
   <translation tag="Undo" en="Undo"/>
   <translation tag="Uninstall" en="Uninstall"/>
   <translation tag="Uninstall HelixPrint Plugin" en="Uninstall HelixPrint Plugin"/>
@@ -3939,6 +3977,7 @@
   <translation tag="Verifying..." en="Verifying..."/>
   <translation tag="Version" en="Version"/>
   <translation tag="Version and printer info" en="Version and printer info"/>
+  <translation tag="Version and what the plugin runs" en="Version and what the plugin runs"/>
   <translation tag="Version {}" en="Version {}"/>
   <translation tag="Vertical" en="Vertical"/>
   <translation tag="Vibration" en="Vibration"/>

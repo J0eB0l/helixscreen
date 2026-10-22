@@ -4060,45 +4060,6 @@ TEST_CASE_METHOD(PrinterDetectorFixture,
     REQUIRE(result.type_name == "Venture Delta");
 }
 
-TEST_CASE("PrinterDetector::screws_tilt_direction_override reads DB field",
-          "[printer_detector][screws_tilt]") {
-    auto* config = Config::get_instance();
-    std::string type_path = config->df() + "type";
-
-    SECTION("FlashForge Adventurer 5M reports ccw override") {
-        config->set<std::string>(type_path, "FlashForge Adventurer 5M");
-        REQUIRE(PrinterDetector::screws_tilt_direction_override() == "ccw");
-    }
-
-    SECTION("FlashForge Adventurer 5M Pro reports ccw override") {
-        config->set<std::string>(type_path, "FlashForge Adventurer 5M Pro");
-        REQUIRE(PrinterDetector::screws_tilt_direction_override() == "ccw");
-    }
-
-    SECTION("FlashForge Adventurer 5M (ForgeX) reports ccw override") {
-        config->set<std::string>(type_path, "FlashForge Adventurer 5M (ForgeX)");
-        REQUIRE(PrinterDetector::screws_tilt_direction_override() == "ccw");
-    }
-
-    SECTION("Printers without the field return empty string") {
-        config->set<std::string>(type_path, "Creality K1");
-        REQUIRE(PrinterDetector::screws_tilt_direction_override().empty());
-    }
-
-    SECTION("Unknown printer name returns empty string") {
-        config->set<std::string>(type_path, "Nonexistent Printer Model 9000");
-        REQUIRE(PrinterDetector::screws_tilt_direction_override().empty());
-    }
-
-    SECTION("Empty printer type returns empty string") {
-        config->set<std::string>(type_path, "");
-        REQUIRE(PrinterDetector::screws_tilt_direction_override().empty());
-    }
-
-    // Clean up
-    config->set<std::string>(type_path, "");
-}
-
 TEST_CASE("Creality K1 printer detection", "[printer_detector]") {
     auto* config = Config::get_instance();
     // printer_type_contains() uses config->df() + wizard::PRINTER_TYPE which

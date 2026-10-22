@@ -2007,18 +2007,6 @@ nlohmann::json database_rules() {
 
 } // namespace helix::probe_prep
 
-std::string PrinterDetector::screws_tilt_direction_override() {
-    Config* config = Config::get_instance();
-    std::string printer_name =
-        config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "");
-    if (printer_name.empty()) {
-        return "";
-    }
-    const std::string value =
-        helix::text_io::to_lower(printer_field(printer_name, "screws_tilt_direction"));
-    return (value == "cw" || value == "ccw") ? value : "";
-}
-
 bool PrinterDetector::meets_autosave_threshold(const PrinterDetectionResult& result) {
     if (result.type_name.empty() || !result.detected())
         return false;

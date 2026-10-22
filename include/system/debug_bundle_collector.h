@@ -3,6 +3,7 @@
 
 #include "board_identity.h"
 #include "platform_table.h"
+#include "printer_event_journal.h"
 #include "system/diagnostics.h"
 #include "system/host_census.h"
 #include "touch_calibration.h"
@@ -37,6 +38,9 @@ struct PrinterSnapshot {
     /// (helix::power_loss::required_status_objects), for the printer-state
     /// query. Empty on a printer without one.
     std::vector<std::string> mains_status_objects;
+    /// The plugin's event_journal feature is ready, so the bundle's
+    /// `event_journal` reads server.helix.journal rather than the screen's own.
+    bool journal_from_plugin = false;
 };
 
 struct BundleOptions {
@@ -147,6 +151,17 @@ class DebugBundleCollector {
     /// Pure assembly from a snapshot — touches no LVGL and no PrinterState, so
     /// it is safe on the collect worker and testable without either.
     static nlohmann::json collect_printer_info(const PrinterSnapshot& snap);
+
+    /// The `event_journal` section: @p plugin_response (a server.helix.journal
+    /// reply) when @p from_plugin and it carries a result, else the screen's
+    /// own @p screen entries. Redacted like every other section. Pure.
+    static nlohmann::json build_event_journal(bool from_plugin,
+                                              const nlohmann::json& plugin_response,
+                                              const std::vector<JournalEntry>& screen);
+
+    /// The newest @p tail_bytes of klippy.log as Moonraker serves it, verbatim
+    /// apart from redaction; empty when Moonraker is unreachable. Blocking.
+    static std::string fetch_klipper_log_window(int tail_bytes);
 
     /**
      * @brief The hardware name a bundle reports for @p platform on @p board.

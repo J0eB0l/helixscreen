@@ -430,6 +430,7 @@ subject:scanner_keymap_index
 subject:screws_share_count
 subject:screws_tilt_recenter_available
 subject:screws_tilt_recenter_hint
+subject:screws_tilt_spread_text
 subject:screws_tilt_state
 subject:spaghetti_message
 subject:spaghetti_tune_available

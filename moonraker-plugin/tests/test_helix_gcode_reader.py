@@ -7,9 +7,12 @@ window, and the throttle policy.
 Run with: pytest tests/test_helix_gcode_reader.py -v
 """
 
+import os
 import io
+import json
 import sys
 import threading
+import time
 import tracemalloc
 from pathlib import Path
 
@@ -611,3 +614,320 @@ def test_layer_index_appends_and_survives_a_cut_line(tmp_path):
 
 def test_missing_layer_index_is_none(tmp_path):
     assert read_layer_index(str(tmp_path / "nope.jsonl"), IDENT) is None
+
+
+def test_whole_index_carries_extras_and_progress_lines_and_stays_readable(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    st = ModalState()
+    reader.write_layer_index(
+        path, IDENT,
+        [(1, 10, st, {"tools": [0, 1], "print_z": 0.2, "feature": "Outer wall"}),
+         (2, 90, st, None)],
+        [(40, "M600"), (60, "M73 P50")], 120)
+    lines = [json.loads(l) for l in open(path).read().splitlines()]
+    assert lines[1]["tools"] == [0, 1] and lines[1]["print_z"] == 0.2
+    assert lines[1]["feature"] == "Outer wall"
+    assert "tools" not in lines[2]
+    assert lines[3] == {"progress_lines": [[40, "M600"], [60, "M73 P50"]]}
+    assert lines[4] == {"complete": True, "end_offset": 120}
+    summary = read_layer_index(path, IDENT)
+    assert summary.complete and (summary.last.layer, summary.last.offset) == (2, 90)
+    assert not (tmp_path / ".helix_index" / "a.gcode.layers.jsonl.tmp").exists()
+
+
+def test_extra_never_overrides_the_checkpoint_fields(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    w = LayerIndexWriter(path, IDENT)
+    w.append(1, 10, ModalState(), {"offset": 999, "tools": [2]})
+    w.close()
+    summary = read_layer_index(path, IDENT)
+    assert summary.last.offset == 10
+
+
+def test_a_complete_index_is_never_clobbered_by_a_partial_writer(tmp_path):
+    path = layer_index_path(tmp_path, "a.gcode")
+    complete_starts = [(1, 10, ModalState(), {"tools": [0]}), (2, 90, ModalState(), None)]
+
+    # A writer opening after the complete index exists writes nothing.
+    reader.write_layer_index(path, IDENT, complete_starts, [], 120)
+    whole = open(path, "rb").read()
+    late = LayerIndexWriter(path, IDENT)
+    late.append(1, 10, ModalState())
+    late.finish(50)
+    late.close()
+    assert late.inert
+    assert open(path, "rb").read() == whole
+
+    # A writer already appending when the complete index lands keeps writing
+    # to the file it opened; the complete index stays whole.
+    other = layer_index_path(tmp_path, "b.gcode")
+    early = LayerIndexWriter(other, IDENT)
+    early.append(1, 10, ModalState())
+    reader.write_layer_index(other, IDENT, complete_starts, [], 120)
+    whole = open(other, "rb").read()
+    early.append(2, 90, ModalState())
+    early.finish(120)
+    early.close()
+    assert open(other, "rb").read() == whole
+    assert read_layer_index(other, IDENT).complete
+
+
+def index_for(root, rel, identity):
+    path = layer_index_path(root, rel)
+    w = LayerIndexWriter(path, identity)
+    w.append(1, 0, ModalState())
+    w.close()
+    return path
+
+
+def test_prune_removes_stale_indexes_and_keeps_current_ones(tmp_path):
+    import os
+    kept, removed = [], []
+    for i in range(40):                      # no count cap
+        f = tmp_path / ("f%d.gcode" % i)
+        f.write_text("G1 X1\n")
+        kept.append(index_for(tmp_path, f.name, reader.file_identity(f)))
+    gone = tmp_path / "gone.gcode"
+    gone.write_text("G1 X1\n")
+    removed.append(index_for(tmp_path, gone.name, reader.file_identity(gone)))
+    gone.unlink()
+    changed = tmp_path / "changed.gcode"
+    changed.write_text("G1 X1\n")
+    removed.append(index_for(tmp_path, changed.name, reader.file_identity(changed)))
+    changed.write_text("G1 X2 Y2\n")
+    garbage = layer_index_path(tmp_path, "f0.gcode").replace("f0.gcode", "junk.gcode")
+    open(garbage, "w").write("not json\n")
+    removed.append(garbage)
+    external = index_for(tmp_path, ".external/x.gcode", IDENT)
+    removed.append(external)
+    orphan = kept[0] + ".tmp"
+    open(orphan, "w").write("{}\n")
+    # Older than any worker for a source under 1 GB could run
+    long_ago = time.time() - reader.worker_timeout(1 << 30)
+    os.utime(orphan, (long_ago, long_ago))
+    removed.append(orphan)
+    assert sorted(reader.prune_layer_indexes(tmp_path)) == sorted(removed)
+    assert all(os.path.exists(p) for p in kept)
+    assert not any(os.path.exists(p) for p in removed)
+
+
+def test_prune_spares_a_temp_index_a_live_writer_holds(tmp_path):
+    import os
+    f = tmp_path / "a.gcode"
+    f.write_text("G1 X1\n")
+    path = layer_index_path(tmp_path, "a.gcode")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path + ".tmp", "w").write("{}\n")
+    # A writer may hold it until the worker for its source would time out.
+    assert reader.prune_layer_indexes(tmp_path) == []
+    held_until = time.time() - reader.worker_timeout(f.stat().st_size)
+    os.utime(path + ".tmp", (held_until + 30, held_until + 30))
+    assert reader.prune_layer_indexes(tmp_path) == []
+    os.utime(path + ".tmp", (held_until - 30, held_until - 30))
+    assert reader.prune_layer_indexes(tmp_path, [path]) == []
+    assert reader.prune_layer_indexes(tmp_path, [path + ".tmp"]) == []
+    assert reader.prune_layer_indexes(tmp_path) == [path + ".tmp"]
+
+
+def test_prune_removes_a_temp_index_whose_source_is_gone(tmp_path):
+    import os
+    path = layer_index_path(tmp_path, "gone.gcode")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path + ".tmp", "w").write("{}\n")
+    assert reader.prune_layer_indexes(tmp_path) == [path + ".tmp"]
+
+
+def test_a_large_sources_temp_index_is_held_longer(tmp_path):
+    import os
+    big = tmp_path / "big.gcode"
+    with open(str(big), "wb") as f:
+        f.truncate(50 * 1024 * 1024)
+    path = layer_index_path(tmp_path, "big.gcode")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path + ".tmp", "w").write("{}\n")
+    age = reader.worker_timeout(0) + 60
+    os.utime(path + ".tmp", (time.time() - age, time.time() - age))
+    assert reader.prune_layer_indexes(tmp_path) == []
+
+
+def test_prune_spares_protected_indexes_even_when_stale(tmp_path):
+    import os
+    f = tmp_path / "a.gcode"
+    f.write_text("G1 X1\n")
+    path = index_for(tmp_path, "a.gcode", reader.file_identity(f))
+    external = index_for(tmp_path, ".external/x.gcode", IDENT)
+    f.unlink()
+    assert reader.prune_layer_indexes(tmp_path, [path, external]) == []
+    assert os.path.exists(path) and os.path.exists(external)
+
+
+# --------------------------------------------------------------------------
+# ScanObserver
+# --------------------------------------------------------------------------
+
+
+class Recorder(reader.ScanObserver):
+    def __init__(self):
+        self.seen = []
+
+    def move(self, state, start, words, offset):
+        self.seen.append(("move", offset, list(start), list(state.last_position),
+                          [w.decode() for w in words]))
+
+    def command(self, state, cmd, words, body, offset):
+        self.seen.append(("command", offset, cmd.decode(), state.active_tool))
+
+    def comment(self, state, line, offset):
+        self.seen.append(("comment", offset, line.decode().rstrip()))
+
+
+def test_observer_sees_every_line_after_the_reducer_applied_it():
+    data = gcode("""
+;LAYER_CHANGE
+T1
+G1 X10 E1
+G2 X20 I5 J0 E1
+EXCLUDE_OBJECT_DEFINE NAME=a
+G10
+G10
+""")
+    rec = Recorder()
+    scan(data, observer=rec)
+    kinds = [(s[0], s[1]) for s in rec.seen]
+    assert kinds == [
+        ("comment", 0), ("command", offset_of(data, "T1")), ("move", offset_of(data, "G1")),
+        ("move", offset_of(data, "G2")), ("command", offset_of(data, "EXCLUDE")),
+        ("command", offset_of(data, "G10")), ("command", offset_of(data, "G10", 1)),
+    ]
+    assert rec.seen[1][3] == 1                       # the T1 already applied
+    assert rec.seen[2][2] == [0.0, 0.0, 0.0, 0.0]    # start
+    assert rec.seen[2][3] == [10.0, 0.0, 0.0, 1.0]   # end
+    assert rec.seen[2][4] == ["G1", "X10", "E1"]
+    assert rec.seen[3][2] == [10.0, 0.0, 0.0, 1.0]
+
+
+def test_observer_does_not_change_the_scan():
+    data = gcode("""
+G90
+M83
+;LAYER_CHANGE
+G1 Z0.2
+G1 X5 Y5 E0.5
+;LAYER_CHANGE
+G1 Z0.4
+G1 X1 Y1 E0.5
+""")
+    plain = scan(data)
+    watched = scan(data, observer=Recorder())
+    assert plain.state_at_head == watched.state_at_head
+    assert plain.window == watched.window
+    assert sorted(plain.layer_starts) == sorted(watched.layer_starts)
+
+
+def test_fsync_dir_is_the_one_recovery_uses(tmp_path):
+    import helix_plr
+    assert helix_plr._fsync_dir is reader.fsync_dir
+    reader.fsync_dir(tmp_path)
+    reader.fsync_dir(tmp_path / "missing")
+
+
+def test_a_writer_behind_a_complete_index_reads_it_once(tmp_path, monkeypatch):
+    path = str(tmp_path / "a.layers.jsonl")
+    identity = {"file_size": 10, "file_mtime": 1.0, "file_hash": "x"}
+    reader.write_layer_index(path, identity, [(0, 0, reader.ModalState(), None)], [], 10)
+    reads = []
+    real_read = reader.read_layer_index
+    monkeypatch.setattr(reader, "read_layer_index",
+                        lambda *a, **k: reads.append(1) or real_read(*a, **k))
+    writer = reader.LayerIndexWriter(path, identity)
+    for layer in range(5):
+        writer.append(layer, layer * 10, reader.ModalState())
+    writer.progress_lines([])
+    writer.finish(10)
+    writer.close()
+    assert writer.inert
+    assert len(reads) == 1
+
+
+class TestAtomicWrites:
+
+    def test_write_bytes_replaces_whole_and_leaves_no_temp(self, tmp_path):
+        target = tmp_path / "a.png"
+        target.write_bytes(b"old")
+        reader.atomic_write_bytes(str(target), b"new")
+        assert target.read_bytes() == b"new"
+        assert [p.name for p in tmp_path.iterdir()] == ["a.png"]
+
+    def test_a_failed_replace_leaves_the_old_file_and_no_temp(self, tmp_path):
+        target = tmp_path / "a.cfg"
+        target.write_bytes(b"old")
+
+        def crash(src, dst):
+            assert open(src, "rb").read() == b"new"
+            raise OSError("disk gone")
+
+        with pytest.raises(OSError):
+            reader.atomic_write_bytes(str(target), b"new", replace=crash)
+        assert target.read_bytes() == b"old"
+        assert [p.name for p in tmp_path.iterdir()] == ["a.cfg"]
+
+    def test_the_temp_name_is_hidden_and_unique(self, tmp_path, monkeypatch):
+        seen = []
+
+        def spy(src, dst):
+            seen.append(os.path.basename(src))
+            os.replace(src, dst)
+
+        reader.atomic_write_bytes(str(tmp_path / "a"), b"1", replace=spy)
+        reader.atomic_write_bytes(str(tmp_path / "a"), b"2", replace=spy)
+        assert all(name.startswith(".a.") for name in seen)
+        assert seen[0] != seen[1]
+
+    def test_the_mode_is_applied(self, tmp_path):
+        reader.atomic_write_bytes(str(tmp_path / "a"), b"1", mode=0o640)
+        assert (tmp_path / "a").stat().st_mode & 0o777 == 0o640
+
+    def test_an_exclusive_publish_never_replaces(self, tmp_path):
+        (tmp_path / "out").write_bytes(b"printing")
+        (tmp_path / "part").write_bytes(b"other job")
+        with pytest.raises(FileExistsError):
+            reader.atomic_publish(str(tmp_path / "part"), str(tmp_path / "out"), exclusive=True)
+        assert (tmp_path / "out").read_bytes() == b"printing"
+        reader.atomic_publish(str(tmp_path / "part"), str(tmp_path / "new"), exclusive=True)
+        assert (tmp_path / "new").read_bytes() == b"other job"
+        assert not (tmp_path / "part").exists()
+
+    def test_without_hard_links_an_exclusive_publish_still_refuses(self, tmp_path,
+                                                                   monkeypatch):
+        def no_links(src, dst):
+            raise PermissionError("vfat")
+
+        monkeypatch.setattr(reader.os, "link", no_links)
+        (tmp_path / "out").write_bytes(b"printing")
+        (tmp_path / "part").write_bytes(b"x")
+        with pytest.raises(FileExistsError):
+            reader.atomic_publish(str(tmp_path / "part"), str(tmp_path / "out"), exclusive=True)
+        assert (tmp_path / "out").read_bytes() == b"printing"
+        reader.atomic_publish(str(tmp_path / "part"), str(tmp_path / "new"), exclusive=True)
+        assert (tmp_path / "new").read_bytes() == b"x"
+
+    def test_the_durable_writers_all_go_through_it(self, monkeypatch, tmp_path):
+        import helix_config
+        calls = []
+        real = reader.atomic_write_bytes
+        monkeypatch.setattr(reader, "atomic_write_bytes",
+                            lambda *a, **k: calls.append(a[0]) or real(*a, **k))
+        helix_config.atomic_write(tmp_path / "printer.cfg", "x")
+        assert calls == [str(tmp_path / "printer.cfg")]
+
+    def test_a_whole_layer_index_is_published_through_it(self, monkeypatch, tmp_path):
+        published = []
+        real = reader.atomic_publish
+        monkeypatch.setattr(reader, "atomic_publish",
+                            lambda tmp, path, **k: published.append(path) or real(tmp, path, **k))
+        path = str(tmp_path / "a.layers.jsonl")
+        reader.write_layer_index(path, {"file_size": 1, "file_mtime": 1.0, "file_hash": "x"},
+                                 [], [], 1)
+        assert published == [path]
+        assert reader.read_layer_index(path, {"file_size": 1, "file_mtime": 1.0,
+                                              "file_hash": "x"}).complete

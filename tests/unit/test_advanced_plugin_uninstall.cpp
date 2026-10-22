@@ -305,3 +305,20 @@ TEST_CASE_METHOD(PluginUninstallFixture,
     CHECK(restarts == 0);
     CHECK(warned_about_printing());
 }
+
+TEST_CASE_METHOD(PluginUninstallFixture, "the plugin overview row shows only while it is installed",
+                 "[advanced][plugin]") {
+    lv_obj_t* root =
+        static_cast<lv_obj_t*>(lv_xml_create(lv_screen_active(), "advanced_panel", nullptr));
+    REQUIRE(root != nullptr);
+    lv_obj_t* row = lv_obj_find_by_name(root, "row_helix_plugin_overview");
+    REQUIRE(row != nullptr);
+    CHECK_FALSE(lv_obj_has_flag(row, LV_OBJ_FLAG_HIDDEN));
+
+    get_printer_state().set_helix_plugin_installed(false);
+    UpdateQueue::instance().drain();
+    REQUIRE(plugin_installed() != 1);
+    CHECK(lv_obj_has_flag(row, LV_OBJ_FLAG_HIDDEN));
+
+    lv_obj_delete(root);
+}

@@ -46,8 +46,8 @@ bool axis_is_homed(const PrinterState& ps, Axis axis) {
 }
 
 void ensure_homed_then(IMoonrakerAPI* api, AsyncLifetimeGuard& guard, std::function<void()> then,
-                       std::function<void(const MoonrakerError&)> on_error) {
-    if (toolhead_is_homed(get_printer_state())) {
+                       std::function<void(const MoonrakerError&)> on_error, HomingPolicy policy) {
+    if (policy == HomingPolicy::IfNeeded && toolhead_is_homed(get_printer_state())) {
         spdlog::debug("[ensure_homed_then] Already homed, proceeding");
         if (then) {
             then();
@@ -57,7 +57,7 @@ void ensure_homed_then(IMoonrakerAPI* api, AsyncLifetimeGuard& guard, std::funct
 
     if (!api) {
         spdlog::error(
-            "[ensure_homed_then] Not homed and no IMoonrakerAPI available — cannot send G28");
+            "[ensure_homed_then] Homing needed and no IMoonrakerAPI available — cannot send G28");
         if (on_error) {
             MoonrakerError err;
             err.type = MoonrakerErrorType::CONNECTION_LOST;
@@ -67,7 +67,8 @@ void ensure_homed_then(IMoonrakerAPI* api, AsyncLifetimeGuard& guard, std::funct
         return;
     }
 
-    spdlog::info("[ensure_homed_then] Not fully homed, sending G28");
+    spdlog::info("[ensure_homed_then] {}, sending G28",
+                 policy == HomingPolicy::Always ? "Homing required" : "Not fully homed");
 
     // Capture the caller's error-reporting intent BEFORE on_error is moved into
     // the wrapper below. The wrapper is non-null for every call — including the

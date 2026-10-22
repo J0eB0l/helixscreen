@@ -7,6 +7,7 @@
 #include "ui_update_queue.h"
 #include "ui_utils.h"
 
+#include "file_analysis.h"
 #include "gcode_preview_setup.h"
 #include "print_status_preview_decision.h"
 #include "system/crash_handler.h"
@@ -178,7 +179,8 @@ bool PrintPreviewController::is_load_for_effective_print(const std::string& prin
     return print_filename == printer_state_.print_state().get_effective_print_filename();
 }
 
-void PrintPreviewController::load_file(const char* file_path, const std::string& print_filename) {
+void PrintPreviewController::load_file(const char* file_path, const std::string& print_filename,
+                                       std::string layer_index_sidecar) {
     // A fetch that started for the print showing when it was requested can
     // reach this point after the print has moved on - the metadata lookup and
     // the download both cross the network. Calling ui_gcode_viewer_load_file()
@@ -207,6 +209,7 @@ void PrintPreviewController::load_file(const char* file_path, const std::string&
 
     // Start loading the file
     gcode_load_filename_ = print_filename;
+    ui_gcode_viewer_set_layer_index_sidecar(gcode_viewer_, std::move(layer_index_sidecar));
     ui_gcode_viewer_load_file(gcode_viewer_, file_path);
 }
 
@@ -371,7 +374,19 @@ void PrintPreviewController::load_for_viewing(const std::string& filename) {
                       filename);
     }
     fetcher_.fetch(
-        source, [this, filename](const std::string& path) { load_file(path.c_str(), filename); },
+        source,
+        [this, filename, source](const std::string& path) {
+            // A current analysis record's layer index spares a streaming load
+            // its own pass over the file.
+            helix::with_layer_index_sidecar(
+                api_,
+                printer_state_.plugin_status_state().plugin_feature(helix::kFileAnalysisFeature,
+                                                                    helix::kFileAnalysisMinVersion),
+                source, helix::ui_gcode_viewer_would_stream(gcode_viewer_, path), lifetime_.token(),
+                [this, filename, path](std::string sidecar) {
+                    load_file(path.c_str(), filename, std::move(sidecar));
+                });
+        },
         [this](helix::ui::GcodePreviewFetcher::Unavailable) { host_.show_viewer(false); });
 }
 

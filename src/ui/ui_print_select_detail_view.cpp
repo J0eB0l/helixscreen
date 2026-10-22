@@ -25,6 +25,7 @@
 #include "color_utils.h"
 #include "config.h"
 #include "display_settings_manager.h"
+#include "file_analysis.h"
 #include "gcode_footer_summary.h"
 #include "gcode_parser.h"
 #include "gcode_preview_fetcher.h"
@@ -2511,11 +2512,26 @@ void PrintSelectDetailView::load_gcode_for_preview() {
             temp_gcode_path_ = path;
         }
         spdlog::info("[DetailView] Using G-code file ({} bytes): {}", local_size, path);
-        begin_viewer_load(path);
+        // A current analysis record's layer index spares a streaming load
+        // its own pass over the file.
+        const std::string key = current_file_key();
+        helix::with_layer_index_sidecar(
+            current_local_path_.empty() ? api_ : nullptr,
+            printer_state_ ? printer_state_->plugin_status_state().plugin_feature(
+                                 helix::kFileAnalysisFeature, helix::kFileAnalysisMinVersion)
+                           : helix::PluginFeatureState::Absent,
+            helix::gcode::join_gcode_path(current_path_, current_filename_),
+            helix::ui_gcode_viewer_would_stream(gcode_viewer_, path), tok,
+            [this, key, path](std::string sidecar) {
+                if (key == current_file_key()) {
+                    begin_viewer_load(path, std::move(sidecar));
+                }
+            });
     });
 }
 
-void PrintSelectDetailView::begin_viewer_load(const std::string& path) {
+void PrintSelectDetailView::begin_viewer_load(const std::string& path,
+                                              std::string layer_index_sidecar) {
     // Reached from a download callback, after which the tree may have died.
     if (!gcode_viewer_) {
         return;
@@ -2577,6 +2593,7 @@ void PrintSelectDetailView::begin_viewer_load(const std::string& path) {
             spdlog::debug("[DetailView] G-code preview loaded successfully");
         },
         this);
+    ui_gcode_viewer_set_layer_index_sidecar(gcode_viewer_, std::move(layer_index_sidecar));
     ui_gcode_viewer_load_file(gcode_viewer_, path.c_str());
 }
 

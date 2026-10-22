@@ -53,6 +53,8 @@ translations:
   (incompatible): (非対応)
   (multi-tool): (マルチツール)
   (none detected): (検出なし)
+  (recovered): '(復元)'
+  (repeated {} times): '({} 回繰り返し)'
   (unnamed): (名称なし)
   + Add: + 追加
   + Add Preset: + プリセットを追加
@@ -126,6 +128,7 @@ translations:
   3D Maze: 3D迷路
   3D Pipes: 3Dパイプ
   3D View: 3Dビュー
+  3MF conversion: '3MF変換'
   4. Paper should move but with resistance: 4. 紙が抵抗を感じながら動く状態が適切です
   4. Repeat until bed is level: 4. ベッドが水平になるまで繰り返してください
   5 min: '5分'
@@ -135,6 +138,8 @@ translations:
   60 seconds: 60秒
   90°: 90°
   90° Clockwise: 90° 時計回り
+  = Clockwise: = 時計回り
+  = Counterclockwise: = 反時計回り
   = Loosen: = 緩める
   = Tighten: = 締める
   A: A
@@ -238,6 +243,7 @@ translations:
   Adjustments stay active until restart. Save after print completes.: 調整は再起動まで有効です。印刷完了後に保存してください。
   Adjusts individual characteristics of your heaters for optimal control: ヒーターの個別特性を調整して最適な制御を実現します
   Advanced: 詳細設定
+  After an error: エラーの後
   After running the commands, tap Check Again below.: コマンド実行後、下の「再確認」をタップしてください。
   Alert: アラート
   Alerts: アラート
@@ -292,6 +298,7 @@ translations:
   : '{}に適用しました。Klipperは再起動で忘れます: スライサーのフィラメントプロファイルでPressure Advanceに{}を入力するか、スプールに保存してください。'
   Applies to: 適用対象
   Apply: 適用
+  Apply start options to prints from other apps: '他のアプリからの印刷にも開始オプションを適用'
   Aqua Surface: '水面'
   Archive: アーカイブ
   Archive Spool?: スプールをアーカイブしますか？
@@ -744,6 +751,7 @@ translations:
   Computing calibration...: キャリブレーション計算中...
   Config Dir: 設定ディレクトリ
   Config Edit Failed: '設定の編集に失敗しました'
+  Config editing: '設定の編集'
   Config-defined (read-only): 設定で定義済み（読み取り専用）
   Configuration added successfully.: 設定が正常に追加されました。
   Configuration already present.: 設定は既に存在します。
@@ -847,6 +855,7 @@ translations:
   Copying from USB stopped responding: 'USB からのコピーが応答しなくなりました'
   Copying from USB...: 'USB からコピー中...'
   Corner roundness: 角の丸み
+  Corners differ by {} mm: "四隅の差 {} mm"
   Correction (Ki): 補正 (Ki)
   Could not add to queue: キューに追加できませんでした
   Could not analyze PRINT_START macro. Some print options may be unavailable.: PRINT_START
@@ -1467,6 +1476,7 @@ translations:
   File: ファイル
   File Size: ファイルサイズ
   File Will Stop the Printer: 'ファイルがプリンターを停止します'
+  File analysis: 'ファイル解析'
   File not found on printer.: プリンター上にファイルが見つかりません。
   'File not found: {}': 'ファイルが見つかりません: {}'
   Filename: ファイル名
@@ -1485,6 +1495,7 @@ translations:
   Fireworks: 花火
   Firmware Restart: ファームウェア再起動
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: ファームウェアはバイパスがないと報告しています。フィラメントをエクストルーダーに直接送っている場合は有効にしてください
+  Firmware restart: ファームウェア再起動
   'Firmware restart failed: {}': 'ファームウェア再起動に失敗しました: {}'
   Firmware restarting...: ファームウェア再起動中...
   Firmware saved X = Y's value; the measured X result was discarded: ファームウェアは X の値として Y の値を保存しました。測定された X の結果は破棄されました。
@@ -1696,6 +1707,7 @@ translations:
   Homing selector: 'セレクターをホーミングしています'
   Homing timed out: ホーミングがタイムアウトしました
   Homing timed out — printer may still be homing: ホーミングがタイムアウトしました — プリンターはまだホーミング中の可能性があります
+  Homing, then probing...: "原点復帰してから測定中..."
   Homing...: ホーミング中...
   Horizontal: 水平
   Host: ホスト
@@ -1803,6 +1815,7 @@ translations:
   Interface size. Applies after restart.: インターフェースの大きさ。再起動後に適用されます。
   'Internal error: API not available': '内部エラー: API を利用できません'
   'Internal error: no scan result': '内部エラー: スキャン結果がありません'
+  Interrupted: 中断
   Invalid Slot: '無効なスロット'
   Invalid Tool: '無効なツール'
   Invalid duration: '時間の値が無効です'
@@ -1865,6 +1878,7 @@ translations:
   : 'Klippain Shake&Tuneのマクロがプリンターにインストールされています。HelixScreenは検出しますが使用しません。MainsailまたはFluiddから実行してください。'
   Klipper: Klipper
   Klipper Error: Klipper エラー
+  Klipper disconnected: Klipper切断
   Klipper failed to start with the skip macros, so they were removed: 'スキップ用マクロでは Klipper が起動しなかったため、削除しました'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper を起動できませんでした。printer.cfg から helix_skips.cfg の include を削除してください。'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper
@@ -1878,8 +1892,10 @@ translations:
   Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper
     がシャットダウン状態になりました。緊急停止、熱暴走、または設定エラーが原因の可能性があります。
   Klipper is halted — restart firmware to continue: Klipper が停止しています — 続行するにはファームウェアを再起動してください
+  Klipper ready: Klipper準備完了
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper は 'default' を新しいキャリブレーション用に予約しています。別の名前を選んでください。"
   Klipper restarting - macros activating: 'Klipper を再起動しています - マクロを有効化中'
+  Klipper shut down: Klipperシャットダウン
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipperが進捗の報告を停止しました。小型のプリンターでは解析でメモリが不足し、Klipperが停止したままになることがあり、その場合はファームウェア再起動では復旧できません。プリンターの電源を入れ直して（またはSSHでKlipperを再起動して）から再試行してください。"
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipperが進捗の報告を停止しました。小型のプリンターでは解析でメモリが不足することがあります。Klipperを再起動してから再試行してください。"
@@ -2036,6 +2052,7 @@ translations:
   MB RAM: MB RAM
   MCU: MCU
   MCU bridge daemon is shut down: MCU ブリッジのデーモンが停止しています
+  MCU disconnected: MCU切断
   MCU, host, and auxiliary temperature monitoring: MCU、ホスト、補助温度の監視
   'MCU: ': 'MCU: '
   MCUs: 'MCUs'
@@ -2329,6 +2346,7 @@ translations:
   No print start macro found: 印刷開始マクロが見つかりません
   No printer configured — check printer settings: プリンターが設定されていません — プリンター設定を確認してください
   No printer connection: プリンター未接続
+  No printer events yet: プリンターイベントはまだありません
   No printers found: プリンターが見つかりません
   No prints this week: 今週の印刷なし
   No prints yet: 印刷履歴なし
@@ -2461,6 +2479,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'ワンタップでこのマクロを実行します。危険なマクロは確認を求めます。'
   'Only on A: {} Hz': "Aのみ: {} Hz"
   'Only on B: {} Hz': "Bのみ: {} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインをインストールしてください。'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'このアプリが接続している間のみ有効です。すべての印刷に適用するにはHelixPrintプラグインを更新してください。'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "空きメモリは{} MBしかなく、Klipperの解析には約{} MB必要です。テストを実行すると、電源を入れ直すまでプリンターが停止したままになります。"
   Ooze Reduction: 'にじみ低減'
@@ -2562,6 +2582,7 @@ translations:
   Pause, resume, or stop the print: 印刷の一時停止、再開、停止
   Paused: 一時停止
   Paused (attention needed): 一時停止（対応が必要）
+  Paused by a command: コマンドで一時停止
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : '選んだレイヤーで印刷を一時停止し、フィラメント交換やインサートを行えます。印刷中に印刷状況画面のプレビューカードからレイヤーを設定します。'
   Pausing at layer {}.: 'レイヤー {} で一時停止します。'
@@ -2704,6 +2725,7 @@ translations:
   Print Tuning: 印刷チューニング
   Print Was Terminated: 印刷が中止されました
   Print a test tower and tune K by eye: テストタワーを印刷して目視でKを調整
+  Print completed: 印刷完了
   Print details: '印刷の詳細'
   Print did not start: 印刷は開始されませんでした
   Print canceled: 印刷がキャンセルされました
@@ -2716,6 +2738,7 @@ translations:
   Print history will show the rewritten name: 印刷履歴には書き換え後の名前が表示されます
   Print issue detected: 印刷の問題を検出しました
   Print jobs waiting to run: 実行待ちの印刷ジョブ
+  Print paused: 印刷一時停止
   'Print preparation failed: {}': '印刷準備に失敗しました: {}'
   Print resumed: 印刷を再開しました
   Print server rejected the job — check printer status: 印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください
@@ -2728,6 +2751,7 @@ translations:
   'Printed %d times': '%d 回印刷済み'
   Printer: プリンター
   Printer Error: プリンターエラー
+  Printer Events: プリンターイベント
   Printer Firmware Disconnected: プリンターファームウェア切断
   Printer Image: プリンター画像
   Printer Manager: プリンター管理
@@ -2757,6 +2781,10 @@ translations:
   Printer didn't respond — make sure it's on and in range: プリンターが応答しません — 電源が入っており通信範囲内にあることを確認してください
   Printer doesn't expose the expected service — wrong device?: プリンターが想定されるサービスを公開していません
     — デバイスが違う可能性があります
+  Printer error: プリンターエラー
+  Printer event: プリンターイベント
+  Printer events: 'プリンターのイベント'
+  Printer events need the HelixPrint plugin on this screen: 'この画面でプリンターのイベントを表示するにはHelixPrintプラグインが必要です'
   Printer hardware detected: プリンターのハードウェアを検出
   Printer image set to auto-detect: プリンター画像を自動検出に設定しました
   Printer is busy - {} stays in the queue: 'プリンターは使用中です – {} はキューに残ります'
@@ -2910,6 +2938,8 @@ translations:
   Reconnect: 再接続
   Record Timelapse: タイムラプスを録画
   Record timelapses of your prints: 印刷のタイムラプスを録画
+  Recorded by the HelixPrint plugin: HelixPrintプラグインが記録
+  Recorded by this screen while connected: 接続中にこの画面が記録
   Recorded timelapses will appear here: 録画済みタイムラプスがここに表示されます
   Recording Mode: 録画モード
   Recover: 回復
@@ -2980,6 +3010,8 @@ translations:
   Requires a filament system with bypass: バイパスに対応したフィラメントシステムが必要です
   Requires a filament pressure sensor or sync feedback: 'フィラメント圧力センサーまたは同期フィードバックが必要です'
   Requires a clog detector or filament motion sensor: '詰まり検出器またはフィラメントモーションセンサーが必要です'
+  Requires a newer HelixPrint plugin: 'より新しいHelixPrintプラグインが必要です'
+  Requires the HelixPrint plugin: 'HelixPrintプラグインが必要です'
   Resend write failed at chunk {}: チャンク {} で再送信の書き込みに失敗しました
   Reset: リセット
   Reset Blade Counter: 'ブレードカウンターをリセット'
@@ -3261,6 +3293,7 @@ translations:
   Send commands directly to printer: プリンターに直接コマンドを送信
   Send this crash report to help improve HelixScreen.: HelixScreen の改善にこのクラッシュレポートを送信してください。
   Sending...: 送信中...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: '別のアプリやジョブキューから印刷が開始されたときに、終了時のアンロードなどの常設の印刷オプションを送信します。'
   Sensor: センサー
   Sensor Error: 'センサーエラー'
   Sensor Response: センサー応答
@@ -3273,6 +3306,7 @@ translations:
   Sensors that measure the filament diameter as it feeds. Configure them in the sensor settings.: '送り出し中のフィラメント径を測るセンサー。センサー設定で構成できます。'
   Separate on/off macros. HelixScreen tracks the state.: 個別のオン/オフマクロ。HelixScreenが状態を追跡します。
   Server Setup: サーバー設定
+  Server-side edits: 'サーバー側の編集'
   Service hours for the filter, nozzle, and rails: 'フィルター、ノズル、レールの稼働時間'
   Servo: サーボ
   Servo Down: 'サーボを下げる'
@@ -3458,6 +3492,7 @@ translations:
   Start failed: 開始に失敗
   Start next: '次を開始'
   'Start next: {}': '次を開始：{}'
+  Start options for prints from other apps: '他のアプリからの印刷の開始オプション'
   Start print anyway?: それでも印刷を開始しますか？
   Started: 開始
   Starting Print...: 印刷開始中...
@@ -3721,6 +3756,7 @@ translations:
   The printer could not work out where to resume.: プリンターは再開位置を特定できませんでした。
   The printer did not change its bed check: 'プリンターはベッドチェックを変更しませんでした'
   'The printer did not change its bed check: {}': 'プリンターはベッドチェックを変更しませんでした：{}'
+  'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.': 'プリンターが印刷開始を確認しませんでした ({})。まだ開始する可能性があります。もう一度開始する前にプリンターを確認してください。'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'プリンターは隅で押出しを行い、測定値が一致するまで繰り返します。目視での判断は不要です。'
   The printer finishes this measurement on its own.: 'この測定はプリンターが最後まで行います。'
   The printer halted this print and cannot resume it. Restart from the beginning?: プリンターはこの印刷を停止し、再開できません。最初からやり直しますか？
@@ -3733,6 +3769,7 @@ translations:
 
   : プリンターはホームに戻ってから、ベッドをノズルからできるだけ離します。耐熱性が足りずに変形するスプールもあります。スプールをベッドから取り出したことを確認するまで、この画面からは何も動きません。Mainsail、マクロ、スライサーから送られた印刷はブロックされません。
 
+  The printer homes, then probes each screw position.: "プリンターは原点復帰してから各ネジ位置を測定します。"
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: プリンターがホーミングされていません。続行すると全軸がホーミングされ、ツールヘッドが移動します。ベッドに物がないことを確認してください。
   The printer is shut down.: 'プリンターはシャットダウンしています。'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.
@@ -4009,6 +4046,7 @@ translations:
   Unable to reach printer. Check power and network connection.: プリンターに接続できません。電源とネットワーク接続を確認してください。
   Unavailable: 利用不可
   Unavailable on this printer: このプリンターでは利用できません
+  'Unavailable: {}': '利用不可: {}'
   Undo: 元に戻す
   Uninstall: アンインストール
   Uninstall HelixPrint Plugin: HelixPrint プラグインをアンインストール
@@ -4108,6 +4146,7 @@ translations:
   Verifying...: 検証中...
   Version: バージョン
   Version and printer info: バージョンとプリンター情報
+  Version and what the plugin runs: 'バージョンとプラグインが実行する機能'
   Version {}: バージョン {}
   Vertical: 垂直
   Vibration: 振動

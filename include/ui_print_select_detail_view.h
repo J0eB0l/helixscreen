@@ -1116,7 +1116,8 @@ class PrintSelectDetailView : public OverlayBase {
      * preflight readiness, reveal — was identical in the former cached-file
      * and post-download paths; it lives here once now.
      */
-    void begin_viewer_load(const std::string& path);
+    /// @p layer_index_sidecar: the plugin's layer index for the file, or empty.
+    void begin_viewer_load(const std::string& path, std::string layer_index_sidecar = {});
     /// Clear every viewer callback that carries `this`.
     void disarm_viewer_callbacks();
 

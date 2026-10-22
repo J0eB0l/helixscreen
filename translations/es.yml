@@ -53,6 +53,8 @@ translations:
   (incompatible): (incompatible)
   (multi-tool): (multiherramienta)
   (none detected): (ninguno detectado)
+  (recovered): '(recuperado)'
+  (repeated {} times): '(repetido {} veces)'
   (unnamed): (sin nombre)
   + Add: + Agregar
   + Add Preset: + Agregar Preajuste
@@ -130,6 +132,7 @@ translations:
   3D Maze: Laberinto 3D
   3D Pipes: 3D Pipes
   3D View: Vista 3D
+  3MF conversion: 'Conversión 3MF'
   4. Paper should move but with resistance: 4. El papel debe moverse pero con resistencia
   4. Repeat until bed is level: 4. Repita hasta que la cama esté nivelada
   5 min: '5 min'
@@ -139,6 +142,8 @@ translations:
   60 seconds: 60 segundos
   90°: 90°
   90° Clockwise: 90° en sentido horario
+  = Clockwise: = Sentido horario
+  = Counterclockwise: = Sentido antihorario
   = Loosen: = Aflojar
   = Tighten: = Apretar
   A: A
@@ -248,6 +253,7 @@ translations:
   Adjusts individual characteristics of your heaters for optimal control: Ajusta las
     características individuales de sus calentadores para un control óptimo
   Advanced: Avanzado
+  After an error: Tras un error
   After running the commands, tap Check Again below.: Después de ejecutar los comandos,
     toque Verificar de nuevo abajo.
   Alert: Alerta
@@ -310,6 +316,7 @@ translations:
   : 'Aplicado a {}. Klipper lo olvida al reiniciar: introduce {} como Pressure Advance en el perfil de filamento de tu laminador o guárdalo en la bobina.'
   Applies to: Se aplica a
   Apply: Aplicar
+  Apply start options to prints from other apps: 'Aplicar opciones de inicio a impresiones de otras apps'
   Aqua Surface: 'Superficie acuática'
   Archive: Archivar
   Archive Spool?: ¿Archivar bobina?
@@ -800,6 +807,7 @@ translations:
   Computing calibration...: Calculando calibración...
   Config Dir: Directorio de Configuración
   Config Edit Failed: 'Error al editar la configuración'
+  Config editing: 'Edición de la configuración'
   Config-defined (read-only): Definido en configuración (solo lectura)
   Configuration added successfully.: Configuración añadida correctamente.
   Configuration already present.: Configuración ya presente.
@@ -913,6 +921,7 @@ translations:
   Copying from USB stopped responding: 'La copia desde USB dejó de responder'
   Copying from USB...: 'Copiando desde USB...'
   Corner roundness: Redondeo de esquinas
+  Corners differ by {} mm: "Las esquinas difieren {} mm"
   Correction (Ki): Corrección (Ki)
   Could not add to queue: No se pudo añadir a la cola
   Could not analyze PRINT_START macro. Some print options may be unavailable.: No
@@ -1554,6 +1563,7 @@ translations:
   File: Archivo
   File Size: Tamaño del archivo
   File Will Stop the Printer: 'El archivo detendrá la impresora'
+  File analysis: 'Análisis de archivos'
   File not found on printer.: Archivo no encontrado en la impresora.
   'File not found: {}': 'Archivo no encontrado: {}'
   Filename: Nombre de Archivo
@@ -1573,6 +1583,7 @@ translations:
   Firmware Restart: Reinicio de Firmware
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: El
     firmware no reporta bypass. Actívelo si alimenta el filamento directamente al extrusor.
+  Firmware restart: Reinicio de firmware
   'Firmware restart failed: {}': 'Reinicio de firmware fallido: {}'
   Firmware restarting...: Reiniciando firmware...
   Firmware saved X = Y's value; the measured X result was discarded: El firmware guardó el valor de Y para X; el resultado medido de X se descartó
@@ -1793,6 +1804,7 @@ translations:
   Homing timed out: Posicionamiento — tiempo de espera agotado
   Homing timed out — printer may still be homing: El homing agotó el tiempo de espera
     — la impresora podría seguir haciendo homing
+  Homing, then probing...: "Haciendo home, luego midiendo..."
   Homing...: Posicionando...
   Horizontal: Horizontal
   Host: Host
@@ -1911,6 +1923,7 @@ translations:
   Interface size. Applies after restart.: Tamaño de la interfaz. Se aplica tras reiniciar.
   'Internal error: API not available': 'Error interno: API no disponible'
   'Internal error: no scan result': 'Error interno: sin resultado de escaneo'
+  Interrupted: Interrumpido
   Invalid Slot: 'Ranura no válida'
   Invalid Tool: 'Herramienta no válida'
   Invalid duration: 'Duración no válida'
@@ -1975,6 +1988,7 @@ translations:
   : 'Las macros de Klippain Shake&Tune están instaladas en la impresora. HelixScreen las detecta pero no las usa; ejecútalas desde Mainsail o Fluidd.'
   Klipper: Klipper
   Klipper Error: Error de Klipper
+  Klipper disconnected: Klipper desconectado
   Klipper failed to start with the skip macros, so they were removed: 'Klipper no arrancó con las macros de omisión, así que se eliminaron'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper no pudo arrancar. Quita el include de helix_skips.cfg de printer.cfg.'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: El
@@ -1992,8 +2006,10 @@ translations:
     ha entrado en estado de apagado. Esto puede ser debido a una parada de emergencia,
     descontrol térmico o error de configuración.
   Klipper is halted — restart firmware to continue: Klipper está detenido — reinicia el firmware para continuar
+  Klipper ready: Klipper listo
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper reserva 'default' para nuevas calibraciones. Elija otro nombre."
   Klipper restarting - macros activating: 'Reiniciando Klipper - activando macros'
+  Klipper shut down: Klipper se apagó
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipper dejó de informar el progreso. Su análisis puede quedarse sin memoria en impresoras pequeñas y dejar Klipper bloqueado, donde un reinicio de firmware no puede alcanzarlo. Apague y encienda la impresora (o reinicie Klipper por SSH) e inténtelo de nuevo."
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipper dejó de informar el progreso. Su análisis puede quedarse sin memoria en impresoras pequeñas; reinicie Klipper e inténtelo de nuevo."
@@ -2155,6 +2171,7 @@ translations:
   MB RAM: MB de RAM
   MCU: MCU
   MCU bridge daemon is shut down: El servicio puente del MCU está detenido
+  MCU disconnected: MCU desconectado
   MCU, host, and auxiliary temperature monitoring: Monitoreo de temperatura de MCU,
     host y auxiliares
   'MCU: ': 'MCU: '
@@ -2463,6 +2480,7 @@ translations:
   No printer configured — check printer settings: No hay impresora configurada — revisa
     los ajustes de la impresora
   No printer connection: Sin conexión a impresora
+  No printer events yet: Aún no hay eventos de la impresora
   No printers found: No se encontraron impresoras
   No prints this week: Sin impresiones esta semana
   No prints yet: Sin impresiones aún
@@ -2596,6 +2614,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'Un toque ejecuta esta macro. Las macros peligrosas siguen preguntando.'
   'Only on A: {} Hz': "Solo en A: {} Hz"
   'Only on B: {} Hz': "Solo en B: {} Hz"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Solo mientras esta app esté conectada. Instala el plugin HelixPrint para cubrir todas las impresiones.'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Solo mientras esta app esté conectada. Actualiza el plugin HelixPrint para cubrir todas las impresiones.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "Solo hay {} MB de memoria libre y el análisis de Klipper necesita unos {} MB. La prueba dejaría la impresora bloqueada hasta apagarla y encenderla."
   Ooze Reduction: 'Reducción de goteo'
@@ -2700,6 +2720,7 @@ translations:
   Pause, resume, or stop the print: Pausar, reanudar o detener la impresión
   Paused: Pausado
   Paused (attention needed): Pausado (requiere atención)
+  Paused by a command: Pausado por un comando
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : 'Pausa una impresión en una capa elegida, para cambiar filamento o colocar una pieza. Durante la impresión, elige la capa en la tarjeta de vista previa de la pantalla de estado.'
   Pausing at layer {}.: 'Pausa en la capa {}.'
@@ -2846,6 +2867,7 @@ translations:
   Print Tuning: Ajuste de Impresión
   Print Was Terminated: La impresión fue terminada
   Print a test tower and tune K by eye: Imprime una torre de prueba y ajusta K a ojo
+  Print completed: Impresión completada
   Print details: 'Detalles de impresión'
   Print did not start: La impresión no se inició
   Print canceled: Impresión cancelada
@@ -2859,6 +2881,7 @@ translations:
   Print history will show the rewritten name: El historial de impresión mostrará el nombre reescrito
   Print issue detected: Problema de impresión detectado
   Print jobs waiting to run: Trabajos en espera de impresión
+  Print paused: Impresión pausada
   'Print preparation failed: {}': 'Error en preparación de impresión: {}'
   Print resumed: Impresión reanudada
   Print server rejected the job — check printer status: El servidor de impresión rechazó
@@ -2874,6 +2897,7 @@ translations:
   'Printed %d times': 'Impreso %d veces'
   Printer: Impresora
   Printer Error: Error de Impresora
+  Printer Events: Eventos de la impresora
   Printer Firmware Disconnected: Firmware de Impresora Desconectado
   Printer Image: Imagen de Impresora
   Printer Manager: Gestor de Impresora
@@ -2905,6 +2929,10 @@ translations:
     — asegúrate de que esté encendida y al alcance
   Printer doesn't expose the expected service — wrong device?: La impresora no expone
     el servicio esperado — ¿dispositivo equivocado?
+  Printer error: Error de la impresora
+  Printer event: Evento de la impresora
+  Printer events: 'Eventos de la impresora'
+  Printer events need the HelixPrint plugin on this screen: 'Los eventos de la impresora necesitan el plugin HelixPrint en esta pantalla'
   Printer hardware detected: Hardware de impresora detectado
   Printer image set to auto-detect: Imagen de impresora configurada en auto-detectar
   Printer is busy - {} stays in the queue: 'La impresora está ocupada: {} permanece en la cola'
@@ -3065,6 +3093,8 @@ translations:
   Reconnect: Reconectar
   Record Timelapse: Grabar Timelapse
   Record timelapses of your prints: Grabe timelapses de sus impresiones
+  Recorded by the HelixPrint plugin: Registrado por el plugin HelixPrint
+  Recorded by this screen while connected: Registrado por esta pantalla mientras estaba conectada
   Recorded timelapses will appear here: Los timelapses grabados aparecerán aquí
   Recording Mode: Modo de Grabación
   Recover: Recuperar
@@ -3139,6 +3169,8 @@ translations:
   Requires a filament system with bypass: Requiere un sistema de filamento con bypass
   Requires a filament pressure sensor or sync feedback: 'Requiere un sensor de presión de filamento o retroalimentación de sincronización'
   Requires a clog detector or filament motion sensor: 'Requiere un detector de atascos o un sensor de movimiento de filamento'
+  Requires a newer HelixPrint plugin: 'Requiere un plugin HelixPrint más reciente'
+  Requires the HelixPrint plugin: 'Requiere el plugin HelixPrint'
   Resend write failed at chunk {}: Error al reenviar la escritura en el fragmento
     {}
   Reset: Restablecer
@@ -3443,6 +3475,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Envíe este reporte de fallo
     para ayudar a mejorar HelixScreen.
   Sending...: Enviando...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Envía tus opciones de impresión fijas, como descargar al final, cuando una impresión se inicia desde otra app o la cola de trabajos.'
   Sensor: Sensor
   Sensor Error: 'Error del sensor'
   Sensor Response: Respuesta del sensor
@@ -3456,6 +3489,7 @@ translations:
   Separate on/off macros. HelixScreen tracks the state.: Macros separados de encendido/apagado.
     HelixScreen rastrea el estado.
   Server Setup: Configuración del Servidor
+  Server-side edits: 'Ediciones en el servidor'
   Service hours for the filter, nozzle, and rails: 'Horas de servicio del filtro, la boquilla y los rieles'
   Servo: Servo
   Servo Down: 'Servo abajo'
@@ -3654,6 +3688,7 @@ translations:
   Start failed: Inicio fallido
   Start next: 'Iniciar siguiente'
   'Start next: {}': 'Iniciar siguiente: {}'
+  Start options for prints from other apps: 'Opciones de inicio para impresiones de otras apps'
   Start print anyway?: ¿Iniciar la impresión de todos modos?
   Started: Iniciado
   Starting Print...: Iniciando impresión...
@@ -3931,6 +3966,7 @@ translations:
   The printer could not work out where to resume.: La impresora no pudo determinar dónde reanudar.
   The printer did not change its bed check: 'La impresora no cambió su comprobación de cama'
   'The printer did not change its bed check: {}': 'La impresora no cambió su comprobación de cama: {}'
+  'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.': 'La impresora no confirmó el inicio de la impresión ({}). Puede que aún empiece: revisa la impresora antes de iniciarla de nuevo.'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'La impresora extruye en una esquina y repite hasta que las lecturas coinciden. Tú no juzgas nada a ojo.'
   The printer finishes this measurement on its own.: 'La impresora termina esta medición por su cuenta.'
   The printer halted this print and cannot resume it. Restart from the beginning?: La
@@ -3944,6 +3980,7 @@ translations:
 
   : La impresora hace home y luego aleja la cama de la boquilla todo lo posible. Algunas bobinas no resisten suficiente calor y pueden deformarse. Nada se mueve desde esta pantalla hasta que confirmes que las bobinas no están en la cama; Mainsail, las macros y las impresiones enviadas desde un slicer no se bloquean.
 
+  The printer homes, then probes each screw position.: "La impresora hace home y luego mide cada posición de tornillo."
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: La impresora no está referenciada. Si continúa, se referenciarán todos los ejes y el cabezal se moverá. Asegúrese de que la cama esté despejada.
   The printer is shut down.: 'La impresora está apagada.'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.
@@ -4249,6 +4286,7 @@ translations:
   Unable to reach printer. Check power and network connection.: No se puede conectar con la impresora. Comprueba la alimentación y la conexión de red.
   Unavailable: No disponible
   Unavailable on this printer: No disponible en esta impresora
+  'Unavailable: {}': 'No disponible: {}'
   Undo: Deshacer
   Uninstall: Desinstalar
   Uninstall HelixPrint Plugin: Desinstalar Plugin HelixPrint
@@ -4352,6 +4390,7 @@ translations:
   Verifying...: Verificando...
   Version: Versión
   Version and printer info: Versión e información de la impresora
+  Version and what the plugin runs: 'Versión y lo que ejecuta el plugin'
   Version {}: Versión {}
   Vertical: Vertical
   Vibration: Vibración

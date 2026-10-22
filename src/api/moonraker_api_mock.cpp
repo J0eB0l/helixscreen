@@ -362,6 +362,43 @@ void helix::MoonrakerJobAPIMock::start_modified_print(const std::string& origina
     }
 }
 
+void helix::MoonrakerJobAPIMock::start_edited_print(
+    const std::string& original_filename, const std::string& temp_file_path, const json& edits,
+    const std::vector<std::string>& modifications, uint64_t file_size,
+    ModifiedPrintCallback on_success, ErrorCallback on_error) {
+    if (refused_by_spool_latch("server.helix.print_edited", on_error)) {
+        return;
+    }
+    edited_prints_.push_back({original_filename, temp_file_path, edits, modifications, file_size});
+
+    spdlog::info("[MoonrakerAPIMock] Mock start_edited_print: original='{}', temp='{}', "
+                 "{} edit(s)",
+                 original_filename, temp_file_path, edits.size());
+
+    if (edited_print_error_) {
+        if (on_error) {
+            on_error(*edited_print_error_);
+        }
+        return;
+    }
+    if (fail_modified_prints_) {
+        if (on_error) {
+            on_error(MoonrakerError::unknown("Mock plugin rejected: " + temp_file_path,
+                                             "start_edited_print"));
+        }
+        return;
+    }
+
+    if (on_success) {
+        ModifiedPrintResult result;
+        result.original_filename = original_filename;
+        result.print_filename = original_filename;
+        result.temp_filename = temp_file_path;
+        result.status = "printing";
+        on_success(result);
+    }
+}
+
 namespace {
 
 /// The toolchanger persona's firmware filament tables: the U1's `filament_parameters`
@@ -1502,8 +1539,7 @@ void MoonrakerAdvancedAPIMock::calculate_screws_tilt(ScrewTiltCallback on_succes
                  mock_bed_state_.get_probe_count() + 1);
 
     // Feed the simulated console output through the SAME parser the live
-    // collector uses, so --test exercises the line parser and the printer-database
-    // screws_tilt_direction override instead of bypassing both.
+    // collector uses, so --test exercises the line parser instead of bypassing it.
     std::vector<ScrewTiltResult> results;
     for (const auto& line : mock_bed_state_.probe_lines()) {
         ScrewTiltResult result;

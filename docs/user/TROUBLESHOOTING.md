@@ -28,6 +28,8 @@ Solutions to common problems with HelixScreen.
 
 ## Quick Debugging Guide
 
+**First, look at what the printer reported.** Tap the **Notifications** widget on the Home screen, then **Printer Events**. It lists Klipper shutdowns with their reason, lost MCU connections, pauses and what caused them, printer error messages and how each print ended, with times. A shutdown reason such as "Timer too close" or "Lost communication with MCU" often answers the question on its own. See [Printer Events](guide/advanced.md#printer-events).
+
 **Before troubleshooting anything, increase log verbosity. Three taps, no SSH:**
 
 1. **Settings → System → Log Level → Debug** (or Trace for the deepest detail)
@@ -546,6 +548,8 @@ If Klipper shuts down, hits an error, or loses contact with the printer's contro
 > **Note:** When the printer is fully disconnected, HelixScreen can't send restart commands to it, so only **Dismiss** is available. Once the connection comes back, the restart buttons return.
 
 **If Klipper fails to start again.** Whenever Klipper goes away, after a restart or for any other reason, HelixScreen keeps checking for up to two minutes until Klipper reports ready. If Klipper stops at a startup error instead (a mistake in `printer.cfg`, say, or a control board it can't reach), the dialog changes to **Printer Error** and shows Klipper's own message, so you can see what to fix without opening the log. On printers where HelixScreen installed a recovery script for the platform (such as the Creality K2 and the Snapmaker U1), it runs that script once when a restart alone doesn't bring Klipper back.
+
+**When a HelixScreen save is what broke it.** Saving an input shaper result, switching a heater between PID and MPC, or changing a probe setting writes to your Klipper config and restarts the firmware. Before writing, HelixScreen copies each file it changes into a hidden folder named `.helix_backups` inside your config folder, under the same name. If Klipper does not come back within a few seconds of that restart, HelixScreen puts the copy back, restarts again and tells you the change was undone. With the [HelixPrint plugin](guide/helixprint-plugin.md) installed, the plugin writes the change instead and keeps the five most recent copies of each file, named with the date and time (`printer.cfg.helixbak-20261022-101500`), so you can put an older one back by hand. Mainsail and Fluidd hide folders whose name starts with a dot until you turn on hidden files in their file manager.
 
 **Common causes:**
 
@@ -1766,6 +1770,8 @@ Should return acceleration values, not an error.
 - Bed gets worse after adjustments
 
 **Solutions:**
+
+**Check the turn direction.** Turn one screw the way its arrow points and re-probe. If that corner moves further from the reference, the `screw_thread` in your `[screws_tilt_adjust]` section names the wrong direction for your knobs: switch it between `CW-M3` and `CCW-M3` (or the M4/M5 equivalents). Tighten/Loosen does not depend on this setting; it always comes from the probed heights.
 
 **Verify screw positions** in `printer.cfg`:
 ```ini

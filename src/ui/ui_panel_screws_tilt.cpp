@@ -11,11 +11,14 @@
 #include "ui_utils.h"
 
 #include "app_globals.h"
+#include "bed_mesh_gradient.h"
 #include "i18n_plural.h"
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
+#include "lv_draw_buf_guard.h"
 #include "moonraker_error.h"
 #include "printer_state.h"
+#include "screw_tilt_surface.h"
 #include "screws_tilt_dialect.h"
 #include "static_panel_registry.h"
 #include "theme_manager.h"
@@ -127,6 +130,8 @@ void ScrewsTiltPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(recenter_hint_available_, 0, "screws_tilt_recenter_available",
                            subjects_);
     UI_MANAGED_SUBJECT_INT(results_is_leveled_subject_, 0, "results_is_leveled", subjects_);
+    UI_MANAGED_SUBJECT_STRING(tilt_spread_subject_, tilt_spread_buf_, "", "screws_tilt_spread_text",
+                              subjects_);
 
     subjects_initialized_ = true;
     spdlog::debug("[ScrewsTilt] Subjects initialized and registered");
@@ -293,7 +298,10 @@ void ScrewsTiltPanel::start_probing() {
                                   ? lv_tr("Homing timed out — printer may still be homing")
                                   : std::string(lv_tr("Homing failed: ")) + err.message;
             on_screws_tilt_error(msg);
-        });
+        },
+        // Every probe after the first follows screw turns, which move the bed
+        // under a Z that still reads homed.
+        HomingPolicy::Always);
 }
 
 void ScrewsTiltPanel::start_screws_tilt_command() {
@@ -370,6 +378,8 @@ void ScrewsTiltPanel::on_screws_tilt_results(const std::vector<ScrewTiltResult>&
     }
 
     set_state(State::RESULTS);
+    // Only once the results view is shown does the diagram have a size to render at.
+    create_tilt_surface();
 }
 
 void ScrewsTiltPanel::on_screws_tilt_error(const std::string& message) {
@@ -407,7 +417,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
         snprintf(recenter_hint_buf_, kRecenterHintBufSize, "%s: %s %s",
                  lv_tr("Or instead of turning the others"),
                  results[hint.screw_index].display_name().c_str(),
-                 describe_screw_turn(hint.signed_minutes).c_str());
+                 describe_screw_turn(hint.signed_minutes, hint.tighten).c_str());
         lv_subject_copy_string(&recenter_hint_subject_, recenter_hint_buf_);
         spdlog::info("[ScrewsTilt] Re-centring hint: {} instead of {} screws", recenter_hint_buf_,
                      hint.replaces);
@@ -415,6 +425,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
     lv_subject_set_int(&recenter_hint_available_, hint.available ? 1 : 0);
 
     // Update subjects for reactive list rows (XML handles the UI)
+    const std::optional<float> reference_z = reference_screw_z(results);
     for (size_t i = 0; i < kMaxScrews; i++) {
         if (i < results.size()) {
             const auto& screw = results[i];
@@ -425,7 +436,7 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
             snprintf(screw_name_bufs_[i], kScrewNameBufSize, "%s", screw.display_name().c_str());
             // Use friendly adjustment text (e.g., "Tighten 1/4 turn" instead of "CW 00:18")
             snprintf(screw_adj_bufs_[i], kScrewAdjBufSize, "%s",
-                     screw.friendly_adjustment(in_spec).c_str());
+                     screw.friendly_adjustment(in_spec, reference_z).c_str());
 
             // Update subjects - this triggers XML binding updates
             lv_subject_set_int(&screw_visible_subjects_[i], 1); // Show row
@@ -450,9 +461,14 @@ void ScrewsTiltPanel::populate_results(const std::vector<ScrewTiltResult>& resul
 }
 
 void ScrewsTiltPanel::clear_results() {
+    // Deferred: results arrive inside a queued UI-update batch, where a
+    // synchronous delete corrupts LVGL's event list.
+    helix::ui::safe_delete_deferred(tilt_surface_);
+    lv_subject_copy_string(&tilt_spread_subject_, "");
+
     // Clear bed diagram indicators (dynamically positioned)
     for (auto* indicator : screw_indicators_) {
-        helix::ui::safe_delete(indicator);
+        helix::ui::safe_delete_deferred(indicator);
     }
     screw_indicators_.clear();
 
@@ -460,6 +476,83 @@ void ScrewsTiltPanel::clear_results() {
     for (size_t i = 0; i < kMaxScrews; i++) {
         lv_subject_set_int(&screw_visible_subjects_[i], 0);
     }
+}
+
+namespace {
+
+/// Grid cells per side: a sense of scale across the bed, not real positions.
+constexpr int kTiltGridDivisions = 6;
+
+void tilt_surface_delete_cb(lv_event_t* e) {
+    lv_obj_t* image = lv_event_get_target_obj(e);
+    auto* buf = static_cast<lv_draw_buf_t*>(const_cast<void*>(lv_image_get_src(image)));
+    helix::safe_draw_buf_destroy(buf, "tilt_surface_buf");
+}
+
+} // namespace
+
+void ScrewsTiltPanel::create_tilt_surface() {
+    if (!bed_diagram_container_) {
+        return;
+    }
+    const double tolerance_mm = static_cast<double>(level_report_.tolerance_minutes) /
+                                kScrewMinutesPerTurn * screw_pitch_mm_;
+    const helix::ScrewTiltSurface surface =
+        helix::fit_screw_tilt_surface(screw_results_, tolerance_mm);
+    if (!surface.valid) {
+        return;
+    }
+    snprintf(tilt_spread_buf_, kTiltSpreadBufSize, "%s",
+             fmt::format(fmt::runtime(lv_tr("Corners differ by {} mm")),
+                         fmt::format("{:.2f}", surface.spread_mm))
+                 .c_str());
+    lv_subject_copy_string(&tilt_spread_subject_, tilt_spread_buf_);
+
+    // Rendered at the box's own size: a stretched image samples past its edges
+    // and bleeds the opposite corner's colour into each one.
+    lv_obj_update_layout(bed_diagram_container_);
+    const int32_t w = lv_obj_get_content_width(bed_diagram_container_);
+    const int32_t h = lv_obj_get_content_height(bed_diagram_container_);
+    if (w < 2 || h < 2) {
+        return;
+    }
+    lv_draw_buf_t* buf = lv_draw_buf_create(w, h, LV_COLOR_FORMAT_RGB565, 0);
+    if (!buf) {
+        spdlog::error("[ScrewsTilt] Failed to create {}x{} tilt surface buffer", w, h);
+        return;
+    }
+    // Interior lines only: the box edge already frames the bed.
+    auto on_grid_line = [](int32_t pos, int32_t size) {
+        for (int i = 1; i < kTiltGridDivisions; i++) {
+            if (pos == size * i / kTiltGridDivisions) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (int32_t y = 0; y < h; y++) {
+        auto* row = reinterpret_cast<uint16_t*>(buf->data + y * buf->header.stride);
+        const double v = 1.0 - static_cast<double>(y) / (h - 1); // rear of the bed on top
+        const bool grid_row = on_grid_line(y, h);
+        for (int32_t x = 0; x < w; x++) {
+            lv_color_t c =
+                bed_mesh_gradient_height_to_color(surface.z_at(static_cast<double>(x) / (w - 1), v),
+                                                  surface.color_min, surface.color_max);
+            if (grid_row || on_grid_line(x, w)) {
+                c = lv_color_mix(lv_color_black(), c, LV_OPA_40);
+            }
+            row[x] = lv_color_to_u16(c);
+        }
+    }
+
+    tilt_surface_ = lv_image_create(bed_diagram_container_);
+    lv_obj_add_event_cb(tilt_surface_, tilt_surface_delete_cb, LV_EVENT_DELETE, nullptr);
+    lv_image_set_src(tilt_surface_, buf);
+    lv_obj_set_style_radius(tilt_surface_,
+                            lv_obj_get_style_radius(bed_diagram_container_, LV_PART_MAIN), 0);
+    lv_obj_set_style_image_opa(tilt_surface_, LV_OPA_50, 0); // a backdrop to the screw icons
+    lv_obj_remove_flag(tilt_surface_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_move_to_index(tilt_surface_, 0); // beneath the screw indicators
 }
 
 /**
@@ -522,7 +615,8 @@ void ScrewsTiltPanel::create_screw_indicator(size_t index, const ScrewTiltResult
         bool is_clockwise = screw.adjustment.find("CW") == 0 && screw.adjustment.find("CCW") != 0;
 
         lv_obj_set_style_text_font(label, &mdi_icons_32, 0);
-        // rotate-right (F0467) = clockwise/tighten, rotate-left (F0465) = CCW/loosen
+        // rotate-right (F0467) = clockwise, rotate-left (F0465) = counterclockwise,
+        // straight from Klipper's CW/CCW, which does not say tighten or loosen
         const char* dir_icon = is_clockwise ? "\xF3\xB0\x91\xA7" : "\xF3\xB0\x91\xA5";
         lv_label_set_text(label, dir_icon);
 

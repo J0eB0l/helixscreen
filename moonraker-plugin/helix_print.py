@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import glob as glob_module
 import importlib.util
+import inspect
 import json
 import logging
 import os
@@ -71,6 +72,10 @@ STATUS_API = 2
 
 # Namespace for the key-value storage fallback (database without execute_db_command)
 HELIX_NAMESPACE = "helix_temp_files"
+
+# Top-level gcodes directories the app stages a linked print's copy in, beside
+# temp_dir: hidden where Klipper prints from dot-directories, else visible.
+APP_STAGING_DIRS = (".helix_temp", "helix_staging")
 
 def _ns_key(temp_filename: str) -> List[str]:
     """A namespace key naming one record. Moonraker's database splits a string
@@ -142,6 +147,8 @@ def _load_sibling(name: str) -> Optional[Any]:
 
 
 helix_capabilities = _load_sibling("helix_capabilities")
+# Dependencies first: helix_3mf and helix_analysis import it by name.
+helix_file_queue = _load_sibling("helix_file_queue")
 helix_3mf = _load_sibling("helix_3mf")
 # Dependencies first: helix_plr imports the reader by name.
 helix_gcode_reader = _load_sibling("helix_gcode_reader")
@@ -149,6 +156,11 @@ helix_plr_scan = _load_sibling("helix_plr_scan")
 helix_plr_render = _load_sibling("helix_plr_render")
 helix_plr_qidi = _load_sibling("helix_plr_qidi")
 helix_plr = _load_sibling("helix_plr")
+helix_analysis = _load_sibling("helix_analysis")
+helix_journal = _load_sibling("helix_journal")
+helix_config = _load_sibling("helix_config")
+helix_edits = _load_sibling("helix_edits")
+helix_print_hooks = _load_sibling("helix_print_hooks")
 
 
 # ============================================================================
@@ -162,6 +174,13 @@ PLUGIN_FEATURES_KEY = "plugin_features"
 
 # A feature's own switch: answers its `enabled` instead of plugin_features.
 FeatureSwitch = Callable[[], Awaitable[bool]]
+
+
+async def always_on() -> bool:
+    """The switch of a feature with no user setting: one that only observes, or
+    a transport the user drives from the screen. No plugin_features key turns
+    it off."""
+    return True
 
 # A feature's live availability: (available, reason when not).
 FeatureProbe = Callable[[], Tuple[bool, Optional[str]]]
@@ -219,10 +238,20 @@ def opt_in_enabled(opt_ins: Any, name: str, acts: bool) -> bool:
     return not acts
 
 
-def feature_entry(feature: Feature, enabled: bool) -> Dict[str, Any]:
+def feature_availability(feature: Feature, plugin_enabled: bool) -> Tuple[bool, Optional[str]]:
+    """Whether a feature can run now, and why not. `[helix_print] enabled:
+    False` stops every feature, whatever its own probe says."""
+    if not plugin_enabled:
+        return False, "plugin_disabled"
+    return feature.availability()
+
+
+def feature_entry(
+    feature: Feature, enabled: bool, plugin_enabled: bool = True
+) -> Dict[str, Any]:
     """The status map's entry for a feature. A feature that cannot run is
     never enabled, whatever its switch says."""
-    available, reason = feature.availability()
+    available, reason = feature_availability(feature, plugin_enabled)
     return {
         "version": feature.version,
         "available": available,
@@ -284,8 +313,8 @@ class HelixJobMarkers:
     job ids they were bound to.
 
     A marker is matched by filename to the next job history adds for that
-    file, oldest marker first. Unmatched markers expire after
-    HELIX_MARKER_TTL_S. History reuses job ids (after a delete, or a
+    file, oldest marker first. Unmatched markers expire after `ttl`
+    (HELIX_MARKER_TTL_S unless the owner sets its own). History reuses job ids (after a delete, or a
     delete-all and restart), so a binding answers only for its job's start
     time and one of its filenames, and an id history adds again without a
     marker loses its binding.
@@ -295,19 +324,25 @@ class HelixJobMarkers:
         self,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
+        kinds: Tuple[str, ...] = HELIX_JOB_KINDS,
+        ttl: float = HELIX_MARKER_TTL_S,
     ) -> None:
+        self._ttl = ttl
         self._clock = clock
         self._wall_clock = wall_clock
+        # The kinds mark() accepts: a module keeping markers of its own passes
+        # its private kinds, which helix_initiated() never answers.
+        self._kinds = kinds
         # (start filename, kind, marked at, history filename or None)
         self._pending: List[Tuple[str, str, float, Optional[str]]] = []
         self._bound: Dict[str, JobBinding] = {}
 
     def _expire(self) -> None:
-        cutoff = self._clock() - HELIX_MARKER_TTL_S
+        cutoff = self._clock() - self._ttl
         self._pending = [p for p in self._pending if p[2] >= cutoff]
 
     def mark(self, filename: str, kind: str, history_name: Optional[str] = None) -> None:
-        if kind not in HELIX_JOB_KINDS:
+        if kind not in self._kinds:
             raise ValueError(f"unknown helix job kind {kind!r}")
         self._expire()
         self._pending.append((filename, kind, self._clock(), history_name))
@@ -433,6 +468,9 @@ class HelixPrint:
         self.start_3mf_on_upload = config.getboolean("start_3mf_on_upload", False)
         self.converter: Optional[Any] = None
         self.plr: Optional[Any] = None
+        self.analysis: Optional[Any] = None
+        self.journal: Optional[Any] = None
+        self.print_hooks: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -601,7 +639,7 @@ class HelixPrint:
         on. Read at the moment a feature acts, so a settings change applies
         without any notification."""
         feature = self.features.get(name)
-        if feature is None or not feature.availability()[0]:
+        if feature is None or not feature_availability(feature, self.enabled)[0]:
             return False
         return await self._feature_switch_value(feature, None)
 
@@ -610,7 +648,7 @@ class HelixPrint:
         result: Dict[str, Any] = {}
         for name, feature in self.features.items():
             enabled = await self._feature_switch_value(feature, opt_ins)
-            entry = feature_entry(feature, enabled)
+            entry = feature_entry(feature, enabled, self.enabled)
             if feature.extra is not None:
                 try:
                     entry.update({k: v for k, v in (await feature.extra()).items()
@@ -731,11 +769,43 @@ class HelixPrint:
 
         await self._start_3mf_converter()
         self._register_3mf_feature()
-        self._start_plr()
+        await self._start_isolated("plr", True, self._start_plr)
+        await self._start_isolated("file_analysis", False, self._start_analysis)
+        await self._start_isolated("event_journal", False, self._start_journal)
+        await self._start_isolated("config_edit", True, self._start_config)
+        await self._start_isolated("server_edits", False, self._start_edits)
+        await self._start_isolated("print_hooks", True, self._start_print_hooks)
 
         await self._load_job_markers()
         if self.plr is not None:
-            await self.plr.load_job()
+            await self._start_isolated("plr", True, self.plr.load_job)
+        # Analysis prunes stale layer indexes as it starts, and recovery's job,
+        # loaded just above, names the ones it must keep.
+        if self.analysis is not None and self.features["file_analysis"].available \
+                and self.enabled:
+            self.eventloop.register_callback(self.analysis.start)
+
+    async def _start_isolated(
+        self, name: str, acts: bool, start: Callable[[], Any]
+    ) -> None:
+        """Run one feature module's start. One that raises is registered
+        unavailable with the reason, and the component and every other
+        feature keep running. With the plugin disabled no module starts: no
+        handler, endpoint or worker of one exists."""
+        if not self.enabled:
+            self.register_feature(name, 1, acts=acts, available=False, reason="plugin_disabled")
+            return
+        try:
+            result = start()
+            if inspect.isawaitable(result):
+                await result
+        except Exception as e:
+            logging.exception(f"HelixPrint: feature {name} failed to start")
+            previous = self.features.get(name)
+            self.register_feature(
+                name, previous.version if previous is not None else 1, acts=acts,
+                available=False, reason=f"start_failed: {type(e).__name__}: {e}",
+            )
 
     async def _start_3mf_converter(self) -> None:
         if not (self.enabled and self.convert_3mf):
@@ -770,8 +840,6 @@ class HelixPrint:
         top-level convert_3mf field."""
         if self._converter_active():
             return True, None
-        if not self.enabled:
-            return False, "plugin_disabled"
         if not self.convert_3mf:
             # Off by its own switch, not unavailable
             return True, None
@@ -817,7 +885,92 @@ class HelixPrint:
             extra=self.plr.feature_extra,
         )
 
+    def _start_analysis(self) -> None:
+        """File analysis (helix_analysis.py). It only observes, so it has no
+        switch."""
+        if helix_analysis is None:
+            self.register_feature(
+                "file_analysis", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_analysis", "module_missing"),
+            )
+            return
+        self.analysis = helix_analysis.HelixAnalysis(self)
+        self.analysis.register()
+        self.register_feature(
+            helix_analysis.ANALYSIS_FEATURE, helix_analysis.ANALYSIS_FEATURE_VERSION,
+            acts=False, switch=always_on, probe=self.analysis.availability,
+        )
+
+    async def _start_journal(self) -> None:
+        """Printer event journal (helix_journal.py). It has no switch: it owns
+        one that is always on, so no plugin_features key turns it off."""
+        if helix_journal is None:
+            self.register_feature(
+                "event_journal", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_journal", "module_missing"),
+            )
+            return
+        self.journal = helix_journal.HelixJournal(self)
+        self.journal.start()
+        self.register_feature(
+            helix_journal.JOURNAL_FEATURE, helix_journal.JOURNAL_FEATURE_VERSION, acts=False,
+            switch=always_on,
+        )
+        await self.journal.load()
+
+    def _start_config(self) -> None:
+        """Config read and edit (helix_config.py). It acts only when the user
+        saves a change on the screen, which is its own consent, so it has no
+        switch: always on while the module loads."""
+        if helix_config is None:
+            self.register_feature(
+                "config_edit", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_config", "module_missing"),
+            )
+            return
+        helix_config.HelixConfig(self).start()
+        self.register_feature(
+            helix_config.CONFIG_EDIT_FEATURE, helix_config.CONFIG_EDIT_FEATURE_VERSION,
+            acts=True, switch=always_on,
+        )
+
+    def _start_edits(self) -> None:
+        """Server-side G-code edits (helix_edits.py): print_edited. A transport for
+        a print the user started on the screen, so it has no switch."""
+        if helix_edits is None:
+            self.register_feature(
+                "server_edits", 1, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_edits", "module_missing"),
+            )
+            return
+        helix_edits.HelixEdits(self).start()
+        self.register_feature(
+            helix_edits.SERVER_EDITS_FEATURE, helix_edits.SERVER_EDITS_FEATURE_VERSION,
+            acts=False, switch=always_on,
+        )
+
+    def _start_print_hooks(self) -> None:
+        """Print-start hooks for prints started anywhere (helix_print_hooks.py),
+        opted into through plugin_features."""
+        if helix_print_hooks is None:
+            self.register_feature(
+                "print_hooks", 1, acts=True, available=False,
+                reason=SIBLING_LOAD_ERRORS.get("helix_print_hooks", "module_missing"),
+            )
+            return
+        markers = HelixJobMarkers(kinds=(helix_print_hooks.SCREEN_START_KIND,),
+                                  ttl=helix_print_hooks.SCREEN_START_TTL_S)
+        self.print_hooks = helix_print_hooks.PrintHooks(self, markers, HELIX_SCREEN_NAMESPACE)
+        self.print_hooks.start()
+        self.register_feature(
+            helix_print_hooks.PRINT_HOOKS_FEATURE,
+            helix_print_hooks.PRINT_HOOKS_FEATURE_VERSION,
+            acts=True,
+        )
+
     async def close(self) -> None:
+        if self.analysis is not None:
+            await self.analysis.close()
         if self.plr is not None:
             self.plr.close()
         if self.converter is not None:
@@ -938,17 +1091,18 @@ class HelixPrint:
         if self.gc_path is None:
             raise self.server.error("File manager not initialized", 500)
 
-        # Get and validate parameters
         original_filename = web_request.get_str("original_filename")
         temp_file_path = web_request.get_str("temp_file_path")
         modifications = web_request.get_list("modifications", [])
         copy_metadata = web_request.get_boolean("copy_metadata", True)
+        return await self.start_linked_print(
+            original_filename, temp_file_path, modifications, copy_metadata, "print_modified"
+        )
 
-        # Security validations
+    def resolve_original(self, original_filename: str) -> Path:
+        """The original file of a linked print, resolved: a file inside the
+        gcodes root that exists and is not itself a symlink."""
         self._validate_filename(original_filename)
-        self._validate_filename(temp_file_path)
-
-        # Validate original file exists and is within gcodes
         original_path = self.gc_path / original_filename
         original_resolved = self._validate_path_within_gcodes(original_path)
 
@@ -962,10 +1116,43 @@ class HelixPrint:
             raise self.server.error(
                 "Original file cannot be a symlink", 400
             )
+        return original_resolved
 
-        # Validate temp file exists and is within gcodes
+    def resolve_temp(self, temp_file_path: str, original: Path) -> Path:
+        """Where a linked print's copy lives, resolved: directly inside temp_dir
+        or one of the app's staging directories, and never the original. A
+        failed start deletes the copy, so any other path would let a request
+        delete a user's file. The file need not exist yet."""
+        self._validate_filename(temp_file_path)
+        resolved = self._validate_path_within_gcodes(self.gc_path / temp_file_path)
+        staging = {(self.gc_path / d).resolve() for d in (self.temp_dir,) + APP_STAGING_DIRS}
+        if resolved.parent not in staging:
+            raise self.server.error(
+                f"Temp file must sit directly in a staging directory "
+                f"({', '.join(sorted({self.temp_dir} | set(APP_STAGING_DIRS)))}): "
+                f"{temp_file_path}", 400
+            )
+        if resolved == original:
+            raise self.server.error("Temp file cannot be the original file", 400)
+        return resolved
+
+    async def start_linked_print(
+        self,
+        original_filename: str,
+        temp_file_path: str,
+        modifications: List[Any],
+        copy_metadata: bool,
+        kind: str,
+    ) -> Dict[str, Any]:
+        """Start the copy at `temp_file_path` through a link named after
+        `original_filename`, so print_stats and history name the original.
+        `kind` is the HELIX_JOB_KINDS entry the job is marked with. A start
+        that fails removes the copy."""
+        self._validate_filename(original_filename)
+        self._validate_filename(temp_file_path)
+        original_resolved = self.resolve_original(original_filename)
         temp_path = self.gc_path / temp_file_path
-        temp_resolved = self._validate_path_within_gcodes(temp_path)
+        temp_resolved = self.resolve_temp(temp_file_path, original_resolved)
 
         if not temp_resolved.exists():
             raise self.server.error(
@@ -1033,7 +1220,7 @@ class HelixPrint:
 
         # Start the print with symlink path (escape filename for G-code)
         self.mark_helix_initiated(
-            symlink_filename, "print_modified", self._history_name(original_filename)
+            symlink_filename, kind, self._history_name(original_filename)
         )
         safe_symlink = self._escape_gcode_string(symlink_filename)
         try:
@@ -1467,25 +1654,11 @@ class HelixPrint:
             logging.warning(f"HelixPrint: Failed to update cleanup status: {e}")
 
     async def _namespace_items(self, namespace: str = HELIX_NAMESPACE) -> List[Any]:
-        """(key, value) pairs of a namespace; empty when it does not exist.
-
-        get_item with no key returns the whole namespace as a dict, and with a
-        default it does not raise for a namespace never written. That is what
-        Moonraker 0.9.3's database offers; ns_items is used where get_item
-        cannot answer that way.
-        """
-        try:
-            whole = await self.database.get_item(namespace, None, {})
-        except Exception:
-            whole = None
-        if isinstance(whole, dict):
-            return list(whole.items())
-        if hasattr(self.database, "ns_items"):
-            try:
-                return list(await self.database.ns_items(namespace))
-            except Exception:
-                return []
-        return []
+        """(key, value) pairs of a namespace; empty when it does not exist
+        (helix_file_queue.namespace_items)."""
+        if helix_file_queue is None:
+            return []
+        return await helix_file_queue.namespace_items(self.database, namespace)
 
     async def _migrate_legacy_keys(self) -> None:
         """Re-store records a dotted string key left nested, one record per key.

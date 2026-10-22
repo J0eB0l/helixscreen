@@ -32,6 +32,8 @@
 #include <string>
 #include <vector>
 
+#include "hv/json.hpp"
+
 class PrintPreparationManagerTestAccess;
 
 namespace helix::ui {
@@ -927,6 +929,11 @@ class PrintPreparationManager {
         const char* upload_error = nullptr;   ///< toast format, given the error
         /// The .3mf plate to extract before the rewrite, or 0 for plain G-code.
         int archive_plate = 0;
+        /// The rewrite as the plugin's print_edited edit list, when it can
+        /// travel (gcode::to_server_edits).
+        std::optional<nlohmann::json> server_edits;
+        /// The original's size in bytes, 0 when unknown: sizes the wait for print_edited.
+        uint64_t file_size = 0;
     };
 
     /**
@@ -939,6 +946,14 @@ class PrintPreparationManager {
      */
     void rewrite_and_print(RewriteRoute route, NavigateToStatusCallback on_navigate_to_status,
                            PrintCompletionCallback on_completion);
+
+    /// Starts @p job's copy at @p remote_temp_path: through print_edited when
+    /// @p plugin_edits (the plugin writes the copy), else through
+    /// print_modified or as itself per the route. Main thread.
+    void start_staged_print(std::shared_ptr<const RewriteRoute> job,
+                            const std::string& remote_temp_path, bool plugin_edits,
+                            NavigateToStatusCallback on_navigate_to_status,
+                            PrintCompletionCallback on_completion);
 
     /// Where this printer's staged copies go (StagingRoot): visible when its
     /// Klipper cannot print from a dot-directory.

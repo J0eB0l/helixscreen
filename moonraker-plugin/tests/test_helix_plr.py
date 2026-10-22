@@ -9,6 +9,7 @@ Run with: pytest tests/test_helix_plr.py -v
 import asyncio
 import json
 import os
+import time
 import sys
 from pathlib import Path
 
@@ -2206,22 +2207,61 @@ def test_a_resumed_job_keeps_the_mesh_it_resumed_with(plr, helix, resume, tmp_pa
     assert not cfg.exists()
 
 
-def test_layer_indexes_of_deleted_files_and_old_ones_are_pruned(tmp_path):
-    gcodes = tmp_path / "gcodes"
-    gcodes.mkdir()
-    import os as _os
-    paths = []
-    for i in range(6):
-        (gcodes / ("f%d.gcode" % i)).write_text("G1 X1\n")
-        index = helix_gcode_reader.layer_index_path(gcodes, "f%d.gcode" % i)
-        _os.makedirs(_os.path.dirname(index), exist_ok=True)
-        open(index, "w").write("{}\n")
-        _os.utime(index, (1000 + i, 1000 + i))
-        paths.append(index)
-    (gcodes / "f5.gcode").unlink()                         # the newest index's file is gone
-    removed = helix_gcode_reader.prune_layer_indexes(gcodes, keep=3)
-    assert sorted(removed) == sorted(paths[:2] + [paths[5]])
-    assert all(_os.path.exists(p) for p in paths[2:5])
+def test_the_prune_spares_the_indexes_recovery_is_using(plr, helix, monkeypatch):
+    monkeypatch.setattr(helix_plr, "FOLLOW_MIN_BYTES", 1000)
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    plr._follow_executor = SyncExecutor()
+    added(plr)
+    tick(plr, **printing_status(2000))
+    index = helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")
+    assert plr.protected_index_paths() == [index, index]
+    # The file changed under the print: stale by the rule, kept while in use.
+    path.write_bytes(path.read_bytes() + b"; edited\n")
+    plr._prune_indexes()
+    assert os.path.exists(index)
+    plr.follower = None
+    plr.job = None
+    assert plr.protected_index_paths() == []
+    plr._prune_indexes()
+    assert not os.path.exists(index)
+
+
+def test_the_job_start_prune_spares_a_temp_index_analysis_is_writing(plr, helix):
+    """The one prune rule: a whole-file write's temp index stays while its
+    worker could still be writing it, whoever runs the prune."""
+    path = helix.gc_path / "sub" / "other.gcode"
+    path.write_bytes(layered_gcode())
+    tmp = helix_gcode_reader.layer_index_path(helix.gc_path, "sub/other.gcode") + ".tmp"
+    os.makedirs(os.path.dirname(tmp), exist_ok=True)
+    open(tmp, "w").write("{}\n")
+    plr._follow_executor = SyncExecutor()
+    plr._prune_indexes()
+    assert os.path.exists(tmp)
+    old = time.time() - helix_gcode_reader.worker_timeout(path.stat().st_size) - 60
+    os.utime(tmp, (old, old))
+    plr._prune_indexes()
+    assert not os.path.exists(tmp)
+
+
+def test_a_waiting_snapshots_index_is_protected(plr, helix):
+    path = helix.gc_path / "sub" / "part.gcode"
+    path.write_bytes(layered_gcode())
+    added(plr)
+    plr.follower = None
+    assert plr.protected_index_paths() == [
+        helix_gcode_reader.layer_index_path(helix.gc_path, "sub/part.gcode")]
+
+
+def test_a_follower_never_writes_into_a_complete_index(gfile):
+    data = gfile.read_bytes()
+    index = helix_gcode_reader.layer_index_path(gfile.parent, "part.gcode")
+    helix_gcode_reader.write_layer_index(index, ident(gfile), [], [], len(data))
+    before = open(index, "rb").read()
+    f = LayerFollower(gfile, index, ident(gfile), limiter=NoThrottle())
+    f.step(len(data) // 2)
+    f.finish(None)
+    assert open(index, "rb").read() == before
 
 
 def test_two_status_frames_at_once_save_one_snapshot(plr):

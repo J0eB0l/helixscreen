@@ -86,6 +86,8 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   (applied again whenever that filament becomes active, never mid-print), and is kept in
   Moonraker's database for slicer plugins. The print Tune overlay also gains a live
   pressure advance row.
+- **Bed screw adjustment shows the tilt** - the bed diagram is shaded by height in the
+  bed mesh colors, with a line giving how far apart the highest and lowest corners are.
 
 **Home screen**
 
@@ -1329,6 +1331,12 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   over the still-running calibration.
 - **Centauri Carbon** (#1529) - screws tilt, probe accuracy and Z-offset no longer probe on an
   untared load cell, and the tare uses the command COSMOS actually defines.
+- **Bed screw adjustment said Tighten where it meant Loosen** - the word followed Klipper's
+  clockwise/counterclockwise, which on a spring-mounted bed is the opposite. It now comes
+  from each corner's probed height. The AD5M and AD5X no longer reverse the arrows, which
+  now always match Klipper's console (#1860).
+- **Bed screw re-probes measured against a stale home** - turning a screw moves the bed under
+  a Z that still reads homed, so screws tilt now homes before every probe.
 - **Z-offset kept showing a pending delta after a successful save**, could not tell a
   clamped-to-limit adjustment from a failed one, and would clear a valid stored step size on
   an out-of-range write.

@@ -59,13 +59,21 @@ Tapping a row (or its Load icon) loads that profile.
 Assisted manual bed leveling:
 
 1. Navigate to **Advanced > Screws Tilt**
-2. Tap **Measure** to probe all bed screw positions
-3. View adjustment amounts (e.g., "CW 00:15" = clockwise 15 minutes)
-4. Adjust screws and re-measure until level
+2. Tap **Start Probing**. The printer homes, then probes every bed screw position. It homes before every probe, Re-probe included, because turning a screw moves the bed under a Z position that still reads as homed
+3. Read each screw's instruction, e.g. "Tighten 1/4 turn" or "Loosen 1/8 turn"
+4. Turn the screws, tap **Re-probe**, and repeat until the bed reads level
 
-**Color coding:**
+**Which way to turn:**
 
-- **Green**: Level (within tolerance)
+- **Tighten or Loosen** comes from the probed heights: a corner higher than the reference screw tightens down to it, a lower one loosens up to it. This is true of any spring-mounted bed, whatever thread your screws use
+- **The arrow** on each screw is Klipper's own clockwise or counterclockwise direction, the same one the console prints (`adjust CW 00:15`). The legend above the list says which arrow is which
+
+**The bed diagram** is shaded by height across the bed, using the same colors as the bed mesh view: red is high, purple is low. A twisted bed shows as a saddle. The line under it gives how far apart the highest and lowest corners are.
+
+**Screw colors:**
+
+- **Green**: Level (within tolerance), or the reference screw
+- **Highlighted**: The screw furthest off; start with this one
 - **Yellow**: Minor adjustment needed
 - **Red**: Significant adjustment needed
 
