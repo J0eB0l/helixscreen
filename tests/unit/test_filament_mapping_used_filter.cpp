@@ -560,6 +560,31 @@ TEST_CASE_METHOD(MappingCardRenderFixture,
     process_lvgl(100);
 }
 
+TEST_CASE_METHOD(MappingCardRenderFixture,
+                 "A palette arriving late for the same file keeps the user's picks",
+                 "[filament_mapping][routing]") {
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto picked = card.get_mappings();
+    REQUIRE(picked.size() == 2);
+    picked[1].mapped_slot = 3;
+    picked[1].user_picked = true;
+    card.set_mappings(picked);
+
+    // The same file's palette re-read (footer or parse backfill).
+    card.refresh_palette({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto kept = card.get_mappings();
+    REQUIRE(kept.size() == 2);
+    CHECK(kept[1].mapped_slot == 3);
+    CHECK(kept[1].user_picked);
+
+    // A different file starts from its own seed.
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto fresh = card.get_mappings();
+    REQUIRE(fresh.size() == 2);
+    CHECK_FALSE(fresh[1].user_picked);
+    process_lvgl(100);
+}
+
 TEST_CASE("resolve_mapped_slot: a mapping that outlived its lane resolves to nothing",
           "[filament][mapping][mapper]") {
     // Unit unplugged between the mapping and the render. Better to show no

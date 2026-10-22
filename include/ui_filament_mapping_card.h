@@ -70,6 +70,11 @@ class FilamentMappingCard {
     void update(const std::vector<std::string>& gcode_colors,
                 const std::vector<std::string>& gcode_materials);
 
+    /// update() for a palette re-read of the file already shown. Same seeding,
+    /// but the user's picks survive it.
+    void refresh_palette(const std::vector<std::string>& gcode_colors,
+                         const std::vector<std::string>& gcode_materials);
+
     /**
      * @brief Re-pull loaded slot colors/presence from AmsState and re-render.
      * Used by the detail view's live AMS-change handler.
@@ -367,6 +372,12 @@ class FilamentMappingCard {
      * @return the new value of should_show_, so update() can early-out on false.
      */
     bool recompute_visibility();
+
+    /// update()'s body. @p keep_picks: the user's picks laid over the fresh seed
+    /// (empty for a new file).
+    void seed_from_palette(const std::vector<std::string>& gcode_colors,
+                           const std::vector<std::string>& gcode_materials,
+                           const std::vector<helix::ToolMapping>& keep_picks);
 
     std::vector<helix::ToolMapping> mappings_;
     std::vector<helix::GcodeToolInfo> tool_info_;

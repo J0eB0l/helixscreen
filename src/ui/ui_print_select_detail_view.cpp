@@ -1563,7 +1563,8 @@ void PrintSelectDetailView::try_extract_gcode_colors(lv_obj_t* viewer) {
         // newly-extracted colors (the card uses them when AMS is present). The
         // filament_mismatch_ / empty_tools_warning_ subjects are NOT published
         // here — the pre-flight validator below is the single source of truth.
-        filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
+        filament_mapping_card_.refresh_palette(current_filament_colors_,
+                                               current_filament_materials_);
 
         // Re-push the preview colors now that we finally know them. The earlier
         // apply_preview_colors() ran while current_filament_colors_ was still
@@ -1640,7 +1641,8 @@ void PrintSelectDetailView::render_authoritative_chips(const std::set<int>& tool
     // documents). Also BEFORE the gate, which must validate against the
     // rebuilt mappings.
     if (refresh_card_from_palette) {
-        filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
+        filament_mapping_card_.refresh_palette(current_filament_colors_,
+                                               current_filament_materials_);
     }
 
     // Backend-agnostic pre-flight validation (single source of truth for
@@ -2305,7 +2307,8 @@ void PrintSelectDetailView::apply_footer_summary(const helix::gcode::GcodeFooter
         // still describes the empty palette show() built the card from, and
         // publishing that is how a card that should now appear stays hidden.
         // Mirrors try_extract_gcode_colors()'s ordering.
-        filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
+        filament_mapping_card_.refresh_palette(current_filament_colors_,
+                                               current_filament_materials_);
         publish_card_visibility();
         palette_arrived = true;
     }

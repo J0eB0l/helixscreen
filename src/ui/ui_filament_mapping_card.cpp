@@ -174,6 +174,19 @@ FilamentMappingCard::compute_mapping(const std::vector<std::string>& colors,
 
 void FilamentMappingCard::update(const std::vector<std::string>& gcode_colors,
                                  const std::vector<std::string>& gcode_materials) {
+    seed_from_palette(gcode_colors, gcode_materials, {});
+}
+
+void FilamentMappingCard::refresh_palette(const std::vector<std::string>& gcode_colors,
+                                          const std::vector<std::string>& gcode_materials) {
+    // A copy: seeding replaces mappings_ before the picks are laid back over it.
+    const std::vector<helix::ToolMapping> picks = mappings_;
+    seed_from_palette(gcode_colors, gcode_materials, picks);
+}
+
+void FilamentMappingCard::seed_from_palette(const std::vector<std::string>& gcode_colors,
+                                            const std::vector<std::string>& gcode_materials,
+                                            const std::vector<helix::ToolMapping>& keep_picks) {
     Mapping m = compute_mapping(gcode_colors, gcode_materials, used_tools_);
     // Kept, because set_used_tools() re-runs the visibility rule without a
     // palette to hand.
@@ -192,6 +205,7 @@ void FilamentMappingCard::update(const std::vector<std::string>& gcode_colors,
 
     available_slots_ = std::move(m.slots);
     mappings_ = std::move(m.mappings);
+    helix::FilamentMapper::apply_picks(mappings_, keep_picks);
 
     // Build the compact UI
     rebuild_compact_view();
