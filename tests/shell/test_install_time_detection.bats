@@ -201,3 +201,28 @@ _link_settings_into_printer_data() {
     seed_full_preset_for_printer sovol_sv06_ace
     python3 -c "import json;c=json.load(open('$SETTINGS_FILE'))['input']['calibration'];assert (c['a'],c['c'],c['e'],c['f'])==(1.1,3.0,1.2,4.0),c"
 }
+
+@test "tier2 C: a low-confidence verdict seeds no display or input block" {
+    rm -f "$SETTINGS_FILE"
+    export FAKE_VERDICT='{"model":"Creality K1C","preset":"k1c","confidence":60,"runner_up_preset":"k1","runner_up_confidence":55}'
+    run seed_from_moonraker_detection
+    [ "$status" -eq 0 ]
+    python3 -c "import json;d=json.load(open('$SETTINGS_FILE'));assert 'display' not in d,d;assert 'input' not in d,d;assert 'preset' not in d,d"
+}
+
+@test "update: install-time settings seeding writes nothing" {
+    printf '{"printers":{"default":{"wizard_completed":true}}}\n' > "$SETTINGS_FILE"
+    cp "$SETTINGS_FILE" "$BATS_TEST_TMPDIR/before.json"
+    export FAKE_VERDICT='{"model":"Creality K1C","preset":"k1c","confidence":100,"runner_up_preset":"k1","runner_up_confidence":81}'
+    run seed_install_time_settings true ""
+    [ "$status" -eq 0 ]
+    cmp "$SETTINGS_FILE" "$BATS_TEST_TMPDIR/before.json"
+}
+
+@test "fresh install: install-time settings seeding applies a confident verdict" {
+    rm -f "$SETTINGS_FILE"
+    export FAKE_VERDICT='{"model":"Creality K1C","preset":"k1c","confidence":100,"runner_up_preset":"k1","runner_up_confidence":81}'
+    run seed_install_time_settings false ""
+    [ "$status" -eq 0 ]
+    python3 -c "import json;d=json.load(open('$SETTINGS_FILE'));assert d['preset']=='k1c',d;assert d['display']['animations_enabled'] is False,d"
+}

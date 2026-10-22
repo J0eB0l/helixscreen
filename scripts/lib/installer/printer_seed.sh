@@ -407,11 +407,11 @@ def transform(base):
         deep_merge(pnode, preset["printer"])
 
     # Top-level structural markers for multi-printer settings shape.
-    # setdefault, never assign: this seeding runs on --update too, after the
-    # settings.json of the user has been restored. Overwriting wizard_completed
-    # would send a configured user back through first-boot setup, and on a
-    # multi-printer config the stale-entry recovery in the app would then drop
-    # the printer node entirely.
+    # setdefault, never assign: a reinstall without --update reaches this after
+    # the settings.json of the user has been restored. Overwriting
+    # wizard_completed would send a configured user back through first-boot
+    # setup, and on a multi-printer config the stale-entry recovery in the app
+    # would then drop the printer node entirely.
     base["active_printer_id"] = active
     pnode.setdefault("wizard_completed", False)
     base.setdefault("preset", preset.get("preset", preset_id))
@@ -442,7 +442,7 @@ def transform(d):
 
 # Confidence thresholds for the B/C gate.
 # B (full preset-mode seed): confidence >= MIN_CONFIDENCE AND margin >= MIN_MARGIN
-# C (device-level + host pre-fill): preset present but ambiguous
+# C (Moonraker host pre-fill only): preset present but ambiguous
 # Override at call-site via environment for testing.
 HELIX_DETECT_MIN_CONFIDENCE="${HELIX_DETECT_MIN_CONFIDENCE:-85}"
 HELIX_DETECT_MIN_MARGIN="${HELIX_DETECT_MIN_MARGIN:-10}"
@@ -471,9 +471,28 @@ seed_from_moonraker_detection() {
         log_info "Detection B (conf=${conf}, margin=${margin}) -> full preset ${preset}"
         seed_full_preset_for_printer "$preset"
     else
-        log_info "Detection C (conf=${conf}, margin=${margin}) -> device-level seed ${preset}"
-        seed_settings_for_printer "$preset"
+        # A verdict this weak may name the wrong printer, and its rotation or
+        # touch matrix would then skip the first-boot probe and calibration.
+        log_info "Detection C (conf=${conf}, margin=${margin}) -> Moonraker host only (${preset} not seeded)"
         _seed_moonraker_host_localhost
+    fi
+    return 0
+}
+
+# The install-time settings layer: a confirmed printer fingerprint seeds its
+# device-level defaults, otherwise Moonraker detection does. An update keeps the
+# user's settings as they are: a preset merged into a printer configured by hand
+# brings back hardware the user removed and marks it a preset install.
+# Args: $1 = "true" on --update, $2 = detect_printer_model's id (may be empty)
+seed_install_time_settings() {
+    if [ "${1:-false}" = true ]; then
+        log_info "Update: printer settings left as they are"
+        return 0
+    fi
+    if [ -n "${2:-}" ]; then
+        seed_settings_for_printer "$2" || true
+    else
+        seed_from_moonraker_detection || true
     fi
     return 0
 }
