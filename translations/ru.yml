@@ -963,6 +963,9 @@ translations:
     быть недоступны.
   Could not answer the connection request: 'Не удалось ответить на запрос подключения'
   'Could not check {} - it stays in the queue': 'Не удалось проверить {} – остаётся в очереди'
+  "Every screen and setting explained": "Описание всех экранов и настроек"
+  "Getting Started": "Начало работы"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Основы: мастер настройки, переход между экранами и жесты касания."
   Load all stopped: 'Загрузка всех остановлена'
   Load stopped: 'Загрузка остановлена'
   No filament was inserted in time. The heater is off and the carriage is restored: 'Филамент не был вставлен вовремя. Нагреватель выключен, каретка возвращена'
@@ -970,7 +973,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: 'Часы печати между заменами сопла. «Выкл» скрывает этот счётчик.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Часы печати между чисткой и смазкой направляющих. «Выкл» скрывает этот счётчик.'
   Print hours this week and lifetime totals: 'Часы печати за неделю и общие итоги'
+  "Setup, navigation and gestures": "Настройка, навигация и жесты"
   Unload stopped: 'Выгрузка остановлена'
+  "User Guide": "Руководство пользователя"
   '{} could not be checked from Home - review it and tap Print': 'Не удалось проверить {} с главного экрана – проверьте файл и нажмите «Печать»'
   ? "Could not check webcam status.\nCheck printer connection."
   : "Не удалось проверить статус веб-камеры.\nПроверьте подключение принтера."
@@ -1151,7 +1156,6 @@ translations:
   Dock sensors disagree: Противоречие датчиков стыковки
   Dock tool: Состыковать инструмент
   Docking tool: Парковка инструмента
-  Documentation: Документация
   Don't Save: Не сохранять
   Don't ask again: Больше не спрашивать
   Done: Готово
@@ -1688,7 +1692,6 @@ translations:
   Grip the filament: Зажать филамент
   Guide the toolhead to the chute's extrude position: Подведите печатающую головку к позиции экструзии жёлоба
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Пошаговая калибровка: датчик до сопла, выгрузка и ретракция резака'
-  Guides and reference: Руководства и справка
   H: Х
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'

@@ -922,6 +922,9 @@ translations:
     verfügbar.
   Could not answer the connection request: 'Verbindungsanfrage konnte nicht beantwortet werden'
   'Could not check {} - it stays in the queue': '{} konnte nicht geprüft werden – bleibt in der Warteschlange'
+  "Every screen and setting explained": "Jeder Bildschirm und jede Einstellung erklärt"
+  "Getting Started": "Erste Schritte"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Die Grundlagen: der Einrichtungsassistent, die Navigation zwischen den Bildschirmen und Touch-Gesten."
   Load all stopped: Laden gestoppt
   Load stopped: Laden gestoppt
   No filament was inserted in time. The heater is off and the carriage is restored: 'Kein Filament wurde rechtzeitig eingeführt. Die Heizung ist aus und der Schlitten ist zurückgestellt'
@@ -929,7 +932,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: 'Druckstunden zwischen Düsenwechseln. Aus blendet diesen Zähler aus.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Druckstunden zwischen Reinigen und Schmieren der Linearschienen. Aus blendet diesen Zähler aus.'
   Print hours this week and lifetime totals: 'Druckstunden dieser Woche und Gesamtwerte'
+  "Setup, navigation and gestures": "Einrichtung, Navigation und Gesten"
   Unload stopped: Entladen gestoppt
+  "User Guide": "Benutzerhandbuch"
   '{} could not be checked from Home - review it and tap Print': '{} konnte von der Startseite aus nicht geprüft werden – prüfe die Datei und tippe auf Drucken'
   ? "Could not check webcam status.\nCheck printer connection."
   : "Webcam-Status konnte nicht geprüft werden.\nDruckerverbindung prüfen."
@@ -1113,7 +1118,6 @@ translations:
   Dock sensors disagree: Dock-Sensoren widersprüchlich
   Dock tool: Werkzeug andocken
   Docking tool: Werkzeug andocken
-  Documentation: Dokumentation
   Don't Save: Nicht speichern
   Don't ask again: Nicht erneut fragen
   Done: Fertig
@@ -1654,7 +1658,6 @@ translations:
   Grip the filament: Filament greifen
   Guide the toolhead to the chute's extrude position: Werkzeugkopf zur Extrusionsposition der Rinne führen
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Geführte Kalibrierung: Sensor zur Düse, Entladeweg und Einzug des Schneiders'
-  Guides and reference: Anleitungen und Referenz
   H: H
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'

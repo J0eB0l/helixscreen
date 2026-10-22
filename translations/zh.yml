@@ -850,6 +850,9 @@ translations:
     PRINT_START 宏。部分打印选项可能不可用。
   Could not answer the connection request: '无法响应连接请求'
   'Could not check {} - it stays in the queue': '无法检查 {} – 保留在队列中'
+  "Every screen and setting explained": "每个界面和设置的说明"
+  "Getting Started": "入门"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "了解基本操作：设置向导、在界面间切换以及触摸手势。"
   Load all stopped: '全部装载已停止'
   Load stopped: '装载已停止'
   No filament was inserted in time. The heater is off and the carriage is restored: '未及时插入耗材。加热已关闭，滑架已复位'
@@ -857,7 +860,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: '两次更换喷嘴之间的打印小时数。关闭则隐藏此计数器。'
   Print hours between rail cleaning and lubrication. Off hides this meter.: '两次清洁和润滑导轨之间的打印小时数。关闭则隐藏此计数器。'
   Print hours this week and lifetime totals: '本周打印时长和累计总数'
+  "Setup, navigation and gestures": "设置、导航和手势"
   Unload stopped: '卸载已停止'
+  "User Guide": "用户指南"
   '{} could not be checked from Home - review it and tap Print': '无法从主页检查 {} – 请查看后点按打印'
   ? "Could not check webcam status.\nCheck printer connection."
   : "无法检查摄像头状态。\n请检查打印机连接。"
@@ -1037,7 +1042,6 @@ translations:
   Dock sensors disagree: 归位传感器不一致
   Dock tool: 归位工具
   Docking tool: 正在归位工具
-  Documentation: 文档
   Don't Save: 不保存
   Don't ask again: 不再询问
   Done: 完成
@@ -1554,7 +1558,6 @@ translations:
   Grip the filament: 夹持耗材
   Guide the toolhead to the chute's extrude position: 引导工具头到排料口的挤出位置
   Guided sensor-to-nozzle, unload and cutter retract calibration: '引导式校准：传感器至喷嘴、卸载和切刀回抽'
-  Guides and reference: 指南与参考
   H: 头
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
