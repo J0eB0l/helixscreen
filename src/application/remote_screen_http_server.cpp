@@ -73,7 +73,10 @@ bool ScreenHttpServer::start(const ScreenServerConfig& cfg) {
 
     auto impl = std::make_unique<Impl>();
 
-    impl->router.GET("/snapshot.jpg", [this, cap](HttpRequest*, HttpResponse* resp) {
+    impl->router.GET("/snapshot.jpg", [this, cap](HttpRequest* req, HttpResponse* resp) {
+        if (req->GetParam(kViewerPageParam) == "1") {
+            store_->note_page_view();
+        }
         const uint64_t full = store_->full_generation();
         if (store_->note_request() == ScreenFrameStore::Need::FullRedraw) {
             if (hooks_.request_full_redraw) {

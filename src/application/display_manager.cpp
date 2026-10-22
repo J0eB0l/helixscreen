@@ -105,13 +105,10 @@ static int sdl_event_filter(void* /*userdata*/, SDL_Event* event) {
 #endif
 
 DisplayManager::DisplayManager()
-    : m_sleep(DisplaySleepHost{m_backend, m_backlight, m_display, m_shutting_down,
-                               [] { cancel_pointer_presses(); },
-                               [this](lv_display_flush_cb_t cb) { restore_flush_cb(cb); },
-                               [] {
-                                   return helix::RemoteScreenService::instance().viewer_active(
-                                       std::chrono::steady_clock::now());
-                               }}) {}
+    : m_sleep(DisplaySleepHost{
+          m_backend, m_backlight, m_display, m_shutting_down, [] { cancel_pointer_presses(); },
+          [this](lv_display_flush_cb_t cb) { restore_flush_cb(cb); },
+          [] { return helix::RemoteScreenService::instance().viewer_active(); }}) {}
 
 DisplayManager::~DisplayManager() {
     shutdown();

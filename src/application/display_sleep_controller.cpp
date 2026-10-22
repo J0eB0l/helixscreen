@@ -416,9 +416,12 @@ void DisplaySleepController::tick() {
     if (decision.sleep_held != m_remote_sleep_held) {
         m_remote_sleep_held = decision.sleep_held;
         if (decision.sleep_held) {
-            spdlog::info("[DisplaySleep] Remote screen viewer present: holding at dim instead "
-                         "of sleeping after {}s",
-                         inactive_ms / 1000);
+            // Holding at dim needs something to dim with, or a display already dimmed.
+            const bool can_hold_dim =
+                in.state == helix::IdleState::Dimmed || in.can_dim || in.has_screensaver;
+            spdlog::info("[DisplaySleep] Remote screen viewer present: holding {} instead of "
+                         "sleeping after {}s",
+                         can_hold_dim ? "at dim" : "awake", inactive_ms / 1000);
         } else {
             spdlog::info("[DisplaySleep] Remote screen sleep hold released ({})",
                          in.remote_viewer ? "display active again" : "viewer gone");
@@ -454,7 +457,12 @@ void DisplaySleepController::tick() {
             // setting wins.
             backlight->set_brightness(std::max(m_dim_brightness_percent, 50));
         }
-        spdlog::info("[DisplaySleep] Screensaver started after {}s inactivity", m_dim_timeout_sec);
+        if (decision.sleep_held) {
+            spdlog::info("[DisplaySleep] Screensaver started in place of sleep (remote viewer)");
+        } else {
+            spdlog::info("[DisplaySleep] Screensaver started after {}s inactivity",
+                         m_dim_timeout_sec);
+        }
 #endif
         break;
     case helix::IdleAction::Dim:
@@ -462,8 +470,13 @@ void DisplaySleepController::tick() {
         if (backlight) {
             backlight->set_brightness(m_dim_brightness_percent);
         }
-        spdlog::info("[DisplaySleep] Display dimmed to {}% after {}s inactivity",
-                     m_dim_brightness_percent, m_dim_timeout_sec);
+        if (decision.sleep_held) {
+            spdlog::info("[DisplaySleep] Display dimmed to {}% in place of sleep (remote viewer)",
+                         m_dim_brightness_percent);
+        } else {
+            spdlog::info("[DisplaySleep] Display dimmed to {}% after {}s inactivity",
+                         m_dim_brightness_percent, m_dim_timeout_sec);
+        }
         break;
     }
 }

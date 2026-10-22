@@ -19,6 +19,7 @@
 #include "printer_state.h"
 #include "remote_pointer.h"
 #include "remote_screen_control.h"
+#include "remote_screen_http_server.h"
 #include "remote_screen_server_sink.h"
 #include "remote_screen_service.h"
 #include "remote_screen_settings_manager.h"
@@ -172,30 +173,33 @@ TEST_CASE_METHOD(RemoteScreenFixture,
     CHECK_FALSE(svc.store()->wants_frames());
 }
 
-TEST_CASE_METHOD(RemoteScreenFixture,
-                 "service: a snapshot fetch makes a viewer active until kViewerIdleMs passes",
+TEST_CASE_METHOD(RemoteScreenFixture, "service: only the viewer page's poll makes a viewer active",
                  "[remote_screen][settings][remote_viewer]") {
     auto& svc = RemoteScreenService::instance();
     RemoteScreenSettingsManager::instance().set_enabled(true);
     svc.init(nullptr);
     REQUIRE(svc.running());
-    CHECK_FALSE(svc.viewer_active(std::chrono::steady_clock::now()));
+    CHECK_FALSE(svc.viewer_active());
 
-    // The page's info poll keeps running in a hidden tab, so it is not a viewer.
+    // The page's info poll keeps running in a hidden tab.
     REQUIRE(helix::test::raw_http(svc.port(), "GET", "/info").status == 200);
-    CHECK_FALSE(svc.viewer_active(std::chrono::steady_clock::now()));
+    CHECK_FALSE(svc.viewer_active());
 
-    // Nothing captured yet answers 503, and the page retries: still a viewer.
-    const int status = helix::test::raw_http(svc.port(), "GET", "/snapshot.jpg").status;
+    // A webcam integration polling the snapshot. Nothing captured yet answers 503.
+    int status = helix::test::raw_http(svc.port(), "GET", "/snapshot.jpg").status;
     REQUIRE((status == 200 || status == 503));
-    const auto fetched = std::chrono::steady_clock::now();
-    CHECK(svc.viewer_active(fetched));
-    CHECK(svc.viewer_active(fetched + std::chrono::milliseconds(kViewerIdleMs - 1000)));
-    CHECK_FALSE(svc.viewer_active(fetched + std::chrono::milliseconds(kViewerIdleMs)));
+    REQUIRE(svc.store()->wants_frames());
+    CHECK_FALSE(svc.viewer_active());
 
-    // A stopped server has no viewer, however recent the last fetch.
+    status = helix::test::raw_http(svc.port(), "GET",
+                                   std::string("/snapshot.jpg?") + kViewerPageParam + "=1")
+                 .status;
+    REQUIRE((status == 200 || status == 503));
+    CHECK(svc.viewer_active());
+
+    // A stopped server has no viewer, however recent the last poll.
     RemoteScreenSettingsManager::instance().set_enabled(false);
-    CHECK_FALSE(svc.viewer_active(std::chrono::steady_clock::now()));
+    CHECK_FALSE(svc.viewer_active());
 }
 
 TEST_CASE_METHOD(RemoteScreenFixture, "service: firmware-provided screen never starts",
