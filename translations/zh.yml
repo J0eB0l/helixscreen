@@ -2618,6 +2618,7 @@ translations:
   Power was lost about {} minutes ago.: 大约 {} 分钟前断电。
   'Power was lost during the print; the printer stopped and saved its progress': '打印过程中断电，打印机已停止并保存了进度'
   Power was lost less than a minute ago.: 不到一分钟前断电。
+  Power-loss recovery: 断电恢复
   Pre-heat the extruder first: 请先预热挤出机
   'Pre-print command failed: {}': '打印前命令失败: {}'
   Pre-print homing...: 打印前归位...
@@ -3137,6 +3138,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: 已保存到{}。每当该耗材启用时都会应用。
   Saved values, and whether to ask before running: '保存的值,以及运行前是否询问'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: '已保存。Spoolman 离线，因此价格、位置、批次和备注暂留在此处，尚未保存。'
+  Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: 大约每秒保存一次打印位置，以便断电后可以恢复打印。在 SD 卡上这会增加磨损。
   Saves to Klipper config and restarts firmware.: 保存到 Klipper 配置并重启固件。
   Saving Configuration...: 正在保存配置...
   Saving Z-offset...: 正在保存 Z 偏移...

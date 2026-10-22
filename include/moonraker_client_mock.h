@@ -964,10 +964,13 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
 
     /// HELIX_MOCK_PLR with HELIX_MOCK_HELIX_PLUGIN: the plugin's `plr`
     /// feature entry for server.helix.status; null when the knob is off.
-    [[nodiscard]] static json mock_plr_feature_entry();
+    /// `enabled` follows a written `helix-screen` / `plr_user`, on by default.
+    [[nodiscard]] json mock_plr_feature_entry();
     /// A power-loss snapshot is on record: the newest history job reads
     /// `interrupted` until a discard or a resume clears it.
     [[nodiscard]] bool mock_plr_interrupted() const;
+    /// The plugin's saving switch: a written `plr_user.enabled`, else on.
+    [[nodiscard]] bool mock_plr_saving();
     /// Answer one server.helix.plr.* request (moonraker_client_mock_plr.cpp).
     void mock_plr_request(const std::string& method, const json& params,
                           std::function<void(const json&)> success_cb,

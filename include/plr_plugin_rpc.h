@@ -49,5 +49,17 @@ void abort(IMoonrakerAPI& api, const std::string& plan_id, std::function<void()>
 
 void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_error);
 
+/// Write `helix-screen` / `plr_profile`.
+void write_profile(IMoonrakerAPI& api, const nlohmann::json& profile, std::function<void()> on_ok,
+                   ErrorCallback on_error);
+
+/// Write `helix-screen` / `plr_user`, the plugin's saving switch.
+void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,
+                ErrorCallback on_error);
+
+/// Re-read the plugin's features map into PrinterState, so a switch or profile
+/// the plugin just read shows up as the `plr` feature's new state.
+void refresh_features(IMoonrakerAPI& api);
+
 } // namespace plr_rpc
 } // namespace helix

@@ -4169,6 +4169,12 @@
       "print_start_profile": "qidi",
       "ams_type": "qidi_box",
       "notes": "Compatible with the QIDI Box filament changer (4-slot hub-style, chainable to 16).",
+      "plr": {
+        "tier": 2,
+        "backend": "qidi_print_state",
+        "storage": "emmc",
+        "z_holds_unpowered": true
+      },
       "heuristics": [
         {
           "type": "kinematics_match",

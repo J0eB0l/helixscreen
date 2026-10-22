@@ -2804,6 +2804,7 @@ translations:
   Power was lost about {} minutes ago.: Питание пропало примерно {} мин назад.
   'Power was lost during the print; the printer stopped and saved its progress': 'Во время печати пропало питание; принтер остановился и сохранил прогресс'
   Power was lost less than a minute ago.: Питание пропало меньше минуты назад.
+  Power-loss recovery: Восстановление после отключения питания
   Pre-heat the extruder first: Сначала прогрейте экструдер
   'Pre-print command failed: {}': 'Ошибка команды перед печатью: {}'
   Pre-print homing...: Парковка перед печатью...
@@ -3361,6 +3362,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Сохранено в {}. Применяется каждый раз, когда этот филамент становится активным.
   Saved values, and whether to ask before running: 'Сохранённые значения и запрос перед запуском'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Сохранено. Spoolman не в сети, поэтому цена, расположение, партия и заметки остаются здесь несохранёнными.'
+  Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Сохраняет позицию печати примерно раз в секунду, чтобы печать можно было продолжить после отключения питания. На SD-карте это увеличивает износ.
   Saves to Klipper config and restarts firmware.: Сохраняет в конфигурацию Klipper
     и перезапускает прошивку.
   Saving Configuration...: Сохранение конфигурации...

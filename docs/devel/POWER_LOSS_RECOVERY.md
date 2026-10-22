@@ -21,6 +21,7 @@ Code map:
 | `include/plr_wizard.h`, `src/printer/plr_wizard.cpp` | GENERIC: readers for the plugin's `server.helix.plr.*` replies and the wizard's pure decisions (bed state, confirmations, commit gate, step machine). |
 | `include/plr_plugin_rpc.h`, `src/printer/plr_plugin_rpc.cpp` | GENERIC: the plugin's endpoints as calls. |
 | `include/ui_plr_wizard_overlay.h`, `src/ui/ui_plr_wizard_overlay.cpp`, `ui_xml/plr_wizard_overlay.xml` | GENERIC: the resume wizard. |
+| `include/plr_profile.h`, `src/printer/plr_profile.cpp` | GENERIC: the printer database `plr` block, its resolution with the user's overrides, and the `plr_profile` / `plr_user` records. |
 | `src/api/moonraker_client_mock_plr.cpp` | The mock plugin's endpoints (`HELIX_MOCK_PLR*`, `MOCK_ENVIRONMENT_VARIABLES.md`). |
 
 Tests: `tests/unit/test_plr_backend.cpp`, `test_plr_offer.cpp`, `test_plr_state.cpp`,
@@ -181,6 +182,31 @@ features map), the Klipper state and the connection state each trigger the check
 so whichever arrives last asks. An answer blocked by `klippy_not_ready` is not
 kept, so the next Klipper-ready edge asks again. The disconnect edge drops the
 answer with the other latches.
+
+**The profile and the switch.** The plugin acts on two Moonraker database records
+in the `helix-screen` namespace, so it has them with the screen off:
+
+- `plr_profile`, which the app resolves and writes: `{"tier", "backend",
+  "storage_hint", "z_holds_unpowered", "xy_home_gcode", "z_lift_mm",
+  "purge_gcode", "resume_skip_fraction", "macro_vars"}`. `plr_resolve_profile()`
+  folds the user's overrides into the printer database's `plr` block
+  (`PrinterDetector::get_plr_block()`). A printer with no block is tier 0, which
+  offers nothing (ruling 7); a database tier 2 without `z_holds_unpowered` resolves
+  to 1; a user may lower the tier, or raise it to 1 or 2 only where X/Y homing is
+  safe or overridden. `PlrOfferController::publish_profile()` writes it once per
+  connection and printer type while the `plr` feature is available at all
+  (Disabled counts: a missing profile is what keeps saving off), then re-reads the
+  plugin's features map, since the plugin's saving verdict follows the profile.
+- `plr_user` = `{"enabled": bool}`, the only record the plugin reads for its
+  saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it;
+  the row shows while the feature is available (`plr_feature_state` subject, 0
+  Absent / 1 Disabled / 2 Ready) and its switch follows `plr_saving_enabled`, the
+  plugin's own report re-read after each write.
+
+Listed printers: the Qidi Q2 (`backend: qidi_print_state`, eMMC, tier 2: QIDI's
+own resume already trusts the Z the steppers held, which the Q2 Z-hold test in
+the design's § 11.4 still has to measure). The K1 line stays unlisted: Creality's
+own recovery serves it and outranks the generic backend (ruling 8).
 
 **The wizard.** Resume on the offer opens `PlrWizardOverlay`, whose steps are
 `plr_next_wizard_step()` (`include/plr_wizard.h`):

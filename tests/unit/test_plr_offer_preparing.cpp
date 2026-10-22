@@ -31,7 +31,10 @@
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
 #include "connection_state.h"
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
 #include "plr_offer_controller.h"
+#include "plr_profile.h"
 #include "print_lifecycle_state.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
@@ -447,4 +450,48 @@ TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR: a disconnect drops the plug
                        static_cast<int>(ConnectionState::DISCONNECTED));
     settle();
     CHECK_FALSE(PlrOfferControllerTestAccess::has_plugin_status(controller));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR feature state reaches its subjects",
+                 "[plr][generic][profile]") {
+    auto& plugin = get_printer_state().plugin_status_state();
+    CHECK(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+          static_cast<int>(helix::PluginFeatureState::Ready));
+    CHECK(lv_subject_get_int(plugin.get_plr_saving_enabled_subject()) == 1);
+
+    set_plr_feature(true, false);
+    CHECK(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+          static_cast<int>(helix::PluginFeatureState::Disabled));
+    CHECK(lv_subject_get_int(plugin.get_plr_saving_enabled_subject()) == 0);
+
+    plugin.set_installed(false);
+    CHECK(lv_subject_get_int(plugin.get_plr_feature_state_subject()) ==
+          static_cast<int>(helix::PluginFeatureState::Absent));
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR writes the resolved profile while saving is still off",
+                 "[plr][generic][profile]") {
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    ps.set_printer_type_sync("Qidi Q2");
+    // Disabled: the plugin can run but is not saving, which is what a missing
+    // profile (tier 0) leaves it at.
+    set_plr_feature(true, false);
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    settle();
+
+    PlrOfferController controller;
+    settle();
+
+    const json profile = client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey);
+    set_moonraker_api(nullptr);
+    REQUIRE(profile.is_object());
+    CHECK(profile["tier"] == 2);
+    CHECK(profile["backend"] == "qidi_print_state");
+    CHECK(profile["storage_hint"] == "emmc");
+    ps.set_printer_type_sync("");
 }

@@ -2767,6 +2767,7 @@ translations:
   Power was lost about {} minutes ago.: La corrente è mancata circa {} minuti fa.
   'Power was lost during the print; the printer stopped and saved its progress': 'È mancata la corrente durante la stampa; la stampante si è fermata e ha salvato l''avanzamento'
   Power was lost less than a minute ago.: La corrente è mancata meno di un minuto fa.
+  Power-loss recovery: Ripresa dopo interruzione di corrente
   Pre-heat the extruder first: Preriscaldare prima l'estrusore
   'Pre-print command failed: {}': 'Comando pre-stampa fallito: {}'
   Pre-print homing...: Homing pre-stampa...
@@ -3314,6 +3315,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Salvato su {}. Viene applicato ogni volta che questo filamento diventa attivo.
   Saved values, and whether to ask before running: 'Valori salvati e se chiedere prima di eseguire'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Salvato. Spoolman è offline, quindi prezzo, posizione, lotto e note restano qui non salvati.'
+  Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Salva la posizione di stampa circa una volta al secondo, così una stampa può riprendere dopo un'interruzione di corrente. Su una scheda SD questo aumenta l'usura.
   Saves to Klipper config and restarts firmware.: Salva nella configurazione Klipper
     e riavvia il firmware.
   Saving Configuration...: Salvataggio configurazione...

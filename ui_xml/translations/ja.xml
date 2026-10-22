@@ -2525,6 +2525,7 @@
   <translation tag="Power was lost about {} minutes ago." ja="約{}分前に停電しました。"/>
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" ja="印刷中に電源が失われました。プリンターは停止し、進行状況を保存しました"/>
   <translation tag="Power was lost less than a minute ago." ja="1分以内に停電しました。"/>
+  <translation tag="Power-loss recovery" ja="停電からの復帰"/>
   <translation tag="Pre-heat the extruder first" ja="先にエクストルーダーを予熱してください"/>
   <translation tag="Pre-print command failed: {}" ja="印刷前コマンドに失敗しました: {}"/>
   <translation tag="Pre-print homing..." ja="印刷前ホーミング中..."/>
@@ -3037,6 +3038,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." ja="{}に保存しました。このフィラメントが使用中になるたびに適用されます。"/>
   <translation tag="Saved values, and whether to ask before running" ja="保存した値と、実行前に確認するかどうか"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." ja="保存しました。Spoolmanがオフラインのため、価格、場所、ロット、メモは未保存のままここに残ります。"/>
+  <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." ja="停電後に印刷を再開できるよう、約1秒ごとに印刷位置を保存します。SDカードでは摩耗が多くなります。"/>
   <translation tag="Saves to Klipper config and restarts firmware." ja="Klipper 設定に保存してファームウェアを再起動します。"/>
   <translation tag="Saving Configuration..." ja="設定を保存中..."/>
   <translation tag="Saving Z-offset..." ja="Zオフセットを保存中..."/>

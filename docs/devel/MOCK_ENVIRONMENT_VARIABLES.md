@@ -446,7 +446,9 @@ other id (`plr_stale_plan`), and `commit` refuses a missing confirmation
 `notify_plr_progress` for `bed_wait`, `lift`, `home_xy` (and `move_to_resume` at
 tier 1) 1.5 s apart, then answers. `commit` emits `heat_nozzle`, `purge`, `start`,
 starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
-`discard` clears it too; `abort` keeps it and turns the bed off.
+`discard` clears it too; `abort` keeps it and turns the bed off. The feature's
+`enabled` (and the status `saving`) follow a `helix-screen` / `plr_user` record
+written to the mock database, on when none is, so the Settings switch round-trips.
 
 ### `HELIX_MOCK_PLR_TIER`
 

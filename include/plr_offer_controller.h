@@ -95,13 +95,21 @@ class PlrOfferController {
     /// link is up, Klipper is ready and the `plr` feature is Ready.
     void request_plugin_status();
     void on_plugin_status(const helix::PlrPluginStatus& status);
+    /// The `plr` feature changed state (Absent / Disabled / Ready): the
+    /// plugin's earlier answer is stale, and its profile may need writing.
+    void on_plr_feature_changed(int state);
+    /// Resolve and write `plr_profile` once per connection and printer type,
+    /// while the feature is available at all: the plugin decides from it
+    /// whether to save, so it has to land even while saving is off.
+    void publish_profile();
 
     ObserverGuard pl_valid_observer_;
     ObserverGuard interrupted_flag_observer_;
     ObserverGuard creality_capable_observer_;
     ObserverGuard conn_observer_;
     ObserverGuard wizard_observer_;
-    ObserverGuard plugin_installed_observer_;
+    ObserverGuard plr_feature_observer_;
+    ObserverGuard printer_type_observer_;
     ObserverGuard klippy_observer_;
 
     /// Guards the probe response, which arrives on the WebSocket thread.
@@ -118,6 +126,9 @@ class PlrOfferController {
     /// The plugin's answer this connection; nullopt until it answers.
     std::optional<helix::PlrPluginStatus> plugin_status_;
     bool plugin_status_inflight_ = false;
+    int last_plr_feature_state_ = 0;
+    /// The printer type whose profile this connection wrote; empty when none.
+    std::optional<std::string> published_profile_type_;
     /// Counts connections, so a status reply from a dropped link is ignored.
     int connection_generation_ = 0;
 };

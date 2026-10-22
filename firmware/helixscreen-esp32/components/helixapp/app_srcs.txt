@@ -259,6 +259,7 @@ src/printer/fixed_tool_topology.cpp
 src/printer/plr_backend.cpp
 src/printer/plr_offer.cpp
 src/printer/plr_plugin_rpc.cpp
+src/printer/plr_profile.cpp
 src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp
 src/printer/toolchanger_addon.cpp

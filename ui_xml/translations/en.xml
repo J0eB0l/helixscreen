@@ -2525,6 +2525,7 @@
   <translation tag="Power was lost about {} minutes ago." en="Power was lost about {} minutes ago."/>
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" en="Power was lost during the print; the printer stopped and saved its progress"/>
   <translation tag="Power was lost less than a minute ago." en="Power was lost less than a minute ago."/>
+  <translation tag="Power-loss recovery" en="Power-loss recovery"/>
   <translation tag="Pre-heat the extruder first" en="Pre-heat the extruder first"/>
   <translation tag="Pre-print command failed: {}" en="Pre-print command failed: {}"/>
   <translation tag="Pre-print homing..." en="Pre-print homing..."/>
@@ -3037,6 +3038,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." en="Saved to {}. It applies whenever this filament becomes active."/>
   <translation tag="Saved values, and whether to ask before running" en="Saved values, and whether to ask before running"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." en="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved."/>
+  <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." en="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear."/>
   <translation tag="Saves to Klipper config and restarts firmware." en="Saves to Klipper config and restarts firmware."/>
   <translation tag="Saving Configuration..." en="Saving Configuration..."/>
   <translation tag="Saving Z-offset..." en="Saving Z-offset..."/>

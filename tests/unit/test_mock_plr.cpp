@@ -15,6 +15,7 @@
 #include "moonraker_client_mock.h"
 #include "moonraker_error.h"
 #include "plr_backend.h"
+#include "plr_profile.h"
 #include "plr_wizard.h"
 
 #include <optional>
@@ -160,4 +161,17 @@ TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the newest history job reads interru
     call(client, helix::kPlrDiscardRpc);
     history = call(client, "server.history.list", json{{"limit", 1}});
     CHECK(history.result->at("jobs")[0].at("status") != "interrupted");
+}
+
+TEST_CASE_METHOD(MockPlrFixture, "Mock PLR: the saving switch follows plr_user", "[plr][mock]") {
+    auto enabled = [this]() {
+        return call(client, "server.helix.status").result->at("features").at("plr").at("enabled");
+    };
+    CHECK(enabled() == true);
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(false));
+    CHECK(enabled() == false);
+    CHECK(helix::plr_parse_plugin_status(*call(client, helix::kPlrStatusRpc).result).saving ==
+          false);
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrUserKey, helix::plr_user_json(true));
+    CHECK(enabled() == true);
 }

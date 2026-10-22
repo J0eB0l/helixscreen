@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "plr_plugin_rpc.h"
 
+#include "app_globals.h"
 #include "i_moonraker_api.h"
 #include "json_utils.h"
 #include "moonraker_error.h"
+#include "plr_profile.h"
+#include "printer_state.h"
 
 #include <spdlog/spdlog.h>
 
@@ -92,6 +95,28 @@ void abort(IMoonrakerAPI& api, const std::string& plan_id, std::function<void()>
 
 void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_error) {
     send_action(api, kPlrDiscardRpc, json::object(), 0, std::move(on_ok), std::move(on_error));
+}
+
+void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_ok,
+                   ErrorCallback on_error) {
+    api.database_post_item(kPlrDbNamespace, kPlrProfileKey, profile, std::move(on_ok),
+                           std::move(on_error));
+}
+
+void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,
+                ErrorCallback on_error) {
+    api.database_post_item(kPlrDbNamespace, kPlrUserKey, plr_user_json(enabled), std::move(on_ok),
+                           std::move(on_error));
+}
+
+void refresh_features(IMoonrakerAPI& api) {
+    // set_helix_plugin_features defers to the main thread itself. An absent
+    // plugin answers with an empty map, which reads as Absent.
+    api.job().check_helix_plugin(
+        [](const HelixPluginInfo& info) {
+            get_printer_state().set_helix_plugin_features(info.features);
+        },
+        [](const MoonrakerError&) {});
 }
 
 } // namespace helix::plr_rpc

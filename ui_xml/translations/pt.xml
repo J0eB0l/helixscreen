@@ -2525,6 +2525,7 @@
   <translation tag="Power was lost about {} minutes ago." pt="A energia caiu há cerca de {} minutos."/>
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" pt="A energia caiu durante a impressão; a impressora parou e salvou o progresso"/>
   <translation tag="Power was lost less than a minute ago." pt="A energia caiu há menos de um minuto."/>
+  <translation tag="Power-loss recovery" pt="Recuperação após queda de energia"/>
   <translation tag="Pre-heat the extruder first" pt="Pré-aqueça o extrusor primeiro"/>
   <translation tag="Pre-print command failed: {}" pt="Falha no comando pré-impressão: {}"/>
   <translation tag="Pre-print homing..." pt="Posicionamento pré-impressão..."/>
@@ -3037,6 +3038,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." pt="Salvo em {}. É aplicado sempre que este filamento ficar ativo."/>
   <translation tag="Saved values, and whether to ask before running" pt="Valores salvos e se deve perguntar antes de executar"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." pt="Salvo. O Spoolman está offline, então o preço, a localização, o lote e as notas ficam aqui sem salvar."/>
+  <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." pt="Salva a posição da impressão cerca de uma vez por segundo para que a impressão possa ser retomada após uma queda de energia. Em um cartão SD isso aumenta o desgaste."/>
   <translation tag="Saves to Klipper config and restarts firmware." pt="Salva na configuração do Klipper e reinicia o firmware."/>
   <translation tag="Saving Configuration..." pt="Salvando Configuração..."/>
   <translation tag="Saving Z-offset..." pt="Salvando Z-offset..."/>

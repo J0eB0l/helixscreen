@@ -10,6 +10,7 @@
 #include "moonraker_client_mock.h"
 #include "moonraker_client_mock_internal.h"
 #include "plr_backend.h"
+#include "plr_profile.h"
 #include "plr_wizard.h"
 #include "text_io.h"
 
@@ -122,8 +123,14 @@ json MoonrakerClientMock::mock_plr_feature_entry() {
     }
     return json{{"version", helix::kPlrFeatureMinVersion},
                 {"available", true},
-                {"enabled", true},
+                {"enabled", mock_plr_saving()},
                 {"reason", nullptr}};
+}
+
+bool MoonrakerClientMock::mock_plr_saving() {
+    const json user = mock_db_get(helix::kPlrDbNamespace, helix::kPlrUserKey);
+    return !(user.is_object() && user.contains("enabled") && user["enabled"].is_boolean()) ||
+           user["enabled"].get<bool>();
 }
 
 bool MoonrakerClientMock::mock_plr_interrupted() const {
@@ -164,7 +171,7 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
                     {"saved_at", now - kMockPlrOutageS},
                     {"age_s", kMockPlrOutageS}};
         }
-        reply({{"saving", true},
+        reply({{"saving", mock_plr_saving()},
                {"storage",
                 {{"storage_class", "emmc"},
                  {"wear_tolerant", true},

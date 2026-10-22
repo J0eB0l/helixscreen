@@ -2702,6 +2702,7 @@ translations:
   Power was lost about {} minutes ago.: Power was lost about {} minutes ago.
   'Power was lost during the print; the printer stopped and saved its progress': 'Power was lost during the print; the printer stopped and saved its progress'
   Power was lost less than a minute ago.: Power was lost less than a minute ago.
+  Power-loss recovery: Power-loss recovery
   Pre-heat the extruder first: Pre-heat the extruder first
   'Pre-print command failed: {}': 'Pre-print command failed: {}'
   'Pre-print homing...': 'Pre-print homing...'
@@ -3243,6 +3244,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Saved to {}. It applies whenever this filament becomes active.
   Saved values, and whether to ask before running: Saved values, and whether to ask before running
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.
+  Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.
   Saves to Klipper config and restarts firmware.: Saves to Klipper config and restarts
     firmware.
   Saving Configuration...: Saving Configuration...
