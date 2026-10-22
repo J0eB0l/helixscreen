@@ -144,6 +144,7 @@ class PlrOfferController {
     helix::PlrDetectResult creality_detect_{};
     std::string creality_recovery_file_;
     int last_conn_state_ = 0;
+    /// Idle holds no job, so the registration fire is never a held -> Idle edge.
     PrintState last_lifecycle_ = PrintState::Idle;
     /// Prompts shown over the controller's life.
     int offers_shown_ = 0;

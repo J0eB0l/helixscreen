@@ -33,8 +33,6 @@ PlrOfferController::PlrOfferController() {
     // not spuriously re-arm the latch.
     last_conn_state_ =
         lv_subject_get_int(ps.network_state().get_printer_connection_state_subject());
-    // Same seeding for the lifecycle, so its registration-fire is not an edge.
-    last_lifecycle_ = ps.print_state().get_print_lifecycle();
 
     // pl_env_valid is the PRIMARY Snapmaker trigger. observe<int> fires once
     // at registration with the current value (deferred via the update queue), so
