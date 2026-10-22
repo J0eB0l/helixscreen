@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <ctime>
 #include <map>
 #include <string>
 #include <thread>
@@ -518,11 +519,60 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                            {"symlink_dir", link_dir && *link_dir ? link_dir : ".helix_print"},
                            {"api", 2},
                            {"features", {{"convert_3mf", convert_3mf}}}}}};
+        response["result"]["features"]["event_journal"] = convert_3mf;
         if (json plr = self->mock_plr_feature_entry(); !disabled && !plr.is_null()) {
             response["result"]["features"]["plr"] = std::move(plr);
         }
         if (success_cb) {
             success_cb(response);
+        }
+        return true;
+    };
+
+    // server.helix.journal - the plugin's printer event journal, present with
+    // the plugin (HELIX_MOCK_HELIX_PLUGIN): a few events of the last hour.
+    registry["server.helix.journal"] =
+        [](MoonrakerClientMock* /*self*/, const json& /*params*/,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> error_cb) -> bool {
+        const char* mode = std::getenv("HELIX_MOCK_HELIX_PLUGIN");
+        if (!(mode && std::string(mode) == "disabled") &&
+            !helix::env_flag("HELIX_MOCK_HELIX_PLUGIN")) {
+            if (error_cb) {
+                error_cb(MoonrakerError::unknown("Method not found", "server.helix.journal"));
+            }
+            return true;
+        }
+        const double now = static_cast<double>(std::time(nullptr));
+        const json job = {{"job_id", "00002A"}, {"filename", "3DBenchy.gcode"}};
+        json entries = json::array({
+            {{"id", 1}, {"time", now - 3600}, {"kind", "klippy_ready"}, {"job", nullptr}},
+            {{"id", 2},
+             {"time", now - 1800},
+             {"kind", "runout"},
+             {"detail", "runout_sensor"},
+             {"job", job}},
+            {{"id", 3},
+             {"time", now - 1795},
+             {"kind", "pause"},
+             {"detail", "runout"},
+             {"job", job}},
+            {{"id", 4},
+             {"time", now - 600},
+             {"kind", "klippy_shutdown"},
+             {"text", "MCU 'mcu' shutdown: Timer too close"},
+             {"class", "mcu"},
+             {"job", job}},
+            {{"id", 5},
+             {"time", now - 599},
+             {"kind", "job_end"},
+             {"detail", "klippy_shutdown"},
+             {"job", job}},
+        });
+        if (success_cb) {
+            success_cb(
+                json{{"jsonrpc", "2.0"},
+                     {"result", {{"entries", entries}, {"truncated", false}, {"latest_id", 5}}}});
         }
         return true;
     };

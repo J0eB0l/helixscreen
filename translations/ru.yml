@@ -97,6 +97,7 @@ translations:
   (incompatible): (несовместимо)
   (multi-tool): (мультиинструмент)
   (none detected): (не обнаружено)
+  (recovered): '(восстановлено)'
   (unnamed): (без имени)
   + Add: + Добавить
   + Add Preset: + Добавить пресет
@@ -289,6 +290,7 @@ translations:
   Adjusts individual characteristics of your heaters for optimal control: Настраивает
     индивидуальные характеристики нагревателей для оптимального контроля
   Advanced: Дополнительно
+  After an error: После ошибки
   After running the commands, tap Check Again below.: После выполнения команд нажмите
     «Проверить снова» ниже.
   Alert: Оповещение
@@ -1607,6 +1609,7 @@ translations:
   Fireworks: Фейерверк
   Firmware Restart: Перезапуск прошивки
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: Прошивка не сообщает о байпасе. Включите, если филамент подаётся прямо в экструдер.
+  Firmware restart: Перезапуск прошивки
   'Firmware restart failed: {}': 'Ошибка перезапуска прошивки: {}'
   Firmware restarting...: Перезапуск прошивки...
   Firmware saved X = Y's value; the measured X result was discarded: Прошивка сохранила для X значение Y; результат измерения X был отброшен
@@ -1948,6 +1951,7 @@ translations:
   Interface size. Applies after restart.: Размер интерфейса. Применяется после перезапуска.
   'Internal error: API not available': 'Внутренняя ошибка: API недоступен'
   'Internal error: no scan result': 'Внутренняя ошибка: нет результата сканирования'
+  Interrupted: Прервано
   Invalid Slot: 'Неверный слот'
   Invalid Tool: 'Неверный инструмент'
   Invalid duration: 'Неверная длительность'
@@ -2012,6 +2016,7 @@ translations:
   : 'На принтере установлены макросы Klippain Shake&Tune. HelixScreen обнаруживает их, но не использует; запускайте их из Mainsail или Fluidd.'
   Klipper: Klipper
   Klipper Error: Ошибка Klipper
+  Klipper disconnected: Klipper отключён
   Klipper failed to start with the skip macros, so they were removed: 'Klipper не запустился с макросами пропуска, поэтому они удалены'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper не запустился. Удалите include helix_skips.cfg из printer.cfg.'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Прошивка
@@ -2028,8 +2033,10 @@ translations:
     перешёл в состояние остановки. Это может быть вызвано аварийной остановкой, тепловым
     разгоном или ошибкой конфигурации.
   Klipper is halted — restart firmware to continue: Klipper остановлен — перезапустите прошивку, чтобы продолжить
+  Klipper ready: Klipper готов
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper резервирует 'default' для новых калибровок. Выберите другое имя."
   Klipper restarting - macros activating: 'Перезапуск Klipper - активация макросов'
+  Klipper shut down: Klipper остановлен
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipper перестал сообщать о ходе. На небольших принтерах его анализу может не хватить памяти, и Klipper зависнет так, что перезапуск прошивки до него не дойдёт. Выключите и снова включите принтер (или перезапустите Klipper по SSH), затем повторите попытку."
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipper перестал сообщать о ходе. На небольших принтерах его анализу может не хватить памяти; перезапустите Klipper и повторите попытку."
@@ -2191,6 +2198,7 @@ translations:
   MB RAM: МБ ОЗУ
   MCU: MCU
   MCU bridge daemon is shut down: Служба моста MCU остановлена
+  MCU disconnected: MCU отключён
   MCU, host, and auxiliary temperature monitoring: Мониторинг температуры MCU, хоста
     и вспомогательных датчиков
   'MCU: ': 'MCU: '
@@ -2496,6 +2504,7 @@ translations:
   No printer configured — check printer settings: Принтер не настроен — проверьте
     настройки принтера
   No printer connection: Нет подключения к принтеру
+  No printer events yet: Событий принтера пока нет
   No printers found: Принтеры не найдены
   No prints this week: Нет печатей за неделю
   No prints yet: Нет печатей
@@ -2731,6 +2740,7 @@ translations:
   Pause, resume, or stop the print: Пауза, продолжение или остановка
   Paused: Приостановлено
   Paused (attention needed): Приостановлено (требует внимания)
+  Paused by a command: Приостановлено командой
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : 'Ставит печать на паузу на выбранном слое для смены филамента или закладной детали. Во время печати задайте слой в карточке предпросмотра на экране состояния печати.'
   Pausing at layer {}.: 'Пауза на слое {}.'
@@ -2880,6 +2890,7 @@ translations:
   Print Tuning: Настройка печати
   Print Was Terminated: Печать была прекращена
   Print a test tower and tune K by eye: Напечатать тестовую башню и подобрать K на глаз
+  Print completed: Печать завершена
   Print details: 'Сведения о печати'
   Print did not start: Печать не началась
   Print canceled: Печать отменена
@@ -2893,6 +2904,7 @@ translations:
   Print history will show the rewritten name: История печати покажет изменённое имя
   Print issue detected: Обнаружена проблема печати
   Print jobs waiting to run: Задания печати в очереди
+  Print paused: Печать приостановлена
   'Print preparation failed: {}': 'Ошибка подготовки печати: {}'
   Print resumed: Печать продолжена
   Print server rejected the job — check printer status: Сервер печати отклонил задание
@@ -2911,6 +2923,7 @@ translations:
     other: 'Напечатано %d раза'
   Printer: Принтер
   Printer Error: Ошибка принтера
+  Printer Events: События принтера
   Printer Firmware Disconnected: Прошивка принтера отключена
   Printer Image: Изображение принтера
   Printer Manager: Менеджер принтеров
@@ -2942,6 +2955,8 @@ translations:
     что он включён и в зоне доступа
   Printer doesn't expose the expected service — wrong device?: Принтер не предоставляет
     ожидаемый сервис — не то устройство?
+  Printer error: Ошибка принтера
+  Printer event: Событие принтера
   Printer hardware detected: Обнаружено оборудование принтера
   Printer image set to auto-detect: Изображение принтера — автоопределение
   Printer is busy - {} stays in the queue: 'Принтер занят – {} остаётся в очереди'
@@ -3106,6 +3121,8 @@ translations:
   Reconnect: Переподключиться
   Record Timelapse: Записать таймлапс
   Record timelapses of your prints: Записывайте таймлапсы ваших печатей
+  Recorded by the HelixPrint plugin: Записано плагином HelixPrint
+  Recorded by this screen while connected: Записано этим экраном во время подключения
   Recorded timelapses will appear here: Записанные таймлапсы появятся здесь
   Recording Mode: Режим записи
   Recover: Восстановить
@@ -3559,6 +3576,7 @@ translations:
   Shutdown failed: Ошибка выключения
   Shutdown failed — host is still reachable: Ошибка выключения — хост всё ещё доступен
   Shutdown/Reboot: 'Выключение/Перезагрузка'
+  Shutdowns, errors and how prints ended: Остановки, ошибки и итоги печати
   Shutting down printer...: Выключение принтера...
   Shutting down screen...: Выключение экрана...
   Shutting down...: Выключение...

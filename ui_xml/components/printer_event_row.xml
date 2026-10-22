@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2025-2026 356C LLC -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<component>
+  <!-- One printer event journal entry, laid out like a notification history item:
+       a card whose left border and icon carry the severity. Severity values are
+       JournalSeverity's: 0 info, 1 success, 2 warning, 3 error. -->
+  <styles>
+    <style name="event_info" border_color="#info"/>
+    <style name="event_success" border_color="#success"/>
+    <style name="event_warning" border_color="#warning"/>
+    <style name="event_error" border_color="#danger"/>
+  </styles>
+  <api>
+    <prop name="severity_subject" type="string" default=""/>
+    <prop name="title_subject" type="string" default=""/>
+    <prop name="message_subject" type="string" default=""/>
+    <prop name="has_message_subject" type="string" default=""/>
+    <prop name="time_subject" type="string" default=""/>
+  </api>
+  <view name="printer_event_row"
+        width="100%" height="content" style_pad_left="#space_md" style_pad_right="#space_md" style_pad_top="#space_sm"
+        style_pad_bottom="#space_sm" style_bg_color="#card_bg" style_bg_opa="255" style_border_width="4"
+        style_border_side="left" style_radius="#border_radius" scrollable="false" clickable="false" flex_flow="row"
+        style_flex_main_place="start" style_flex_cross_place="start" style_pad_gap="#space_sm">
+    <bind_style_if_eq name="event_info" subject="$severity_subject" ref_value="0"/>
+    <bind_style_if_eq name="event_success" subject="$severity_subject" ref_value="1"/>
+    <bind_style_if_eq name="event_warning" subject="$severity_subject" ref_value="2"/>
+    <bind_style_if_eq name="event_error" subject="$severity_subject" ref_value="3"/>
+    <lv_obj width="content"
+            height="content" style_pad_all="0" style_pad_top="#space_xxs" clickable="false" scrollable="false">
+      <icon src="info_circle" size="sm" variant="info">
+        <bind_flag_if_not_eq subject="$severity_subject" flag="hidden" ref_value="0"/>
+      </icon>
+      <icon src="check" size="sm" variant="success">
+        <bind_flag_if_not_eq subject="$severity_subject" flag="hidden" ref_value="1"/>
+      </icon>
+      <icon src="triangle_exclamation" size="sm" variant="warning">
+        <bind_flag_if_not_eq subject="$severity_subject" flag="hidden" ref_value="2"/>
+      </icon>
+      <icon src="alert_octagon" size="sm" variant="danger">
+        <bind_flag_if_not_eq subject="$severity_subject" flag="hidden" ref_value="3"/>
+      </icon>
+    </lv_obj>
+    <lv_obj height="content"
+            flex_grow="1" style_pad_all="0" flex_flow="column" style_pad_gap="#space_xxs" clickable="false"
+            scrollable="false">
+      <lv_obj width="100%"
+              height="content" style_pad_all="0" style_pad_gap="#space_sm" flex_flow="row"
+              style_flex_cross_place="start" clickable="false" scrollable="false">
+        <text_body name="event_title" flex_grow="1" bind_text="$title_subject" long_mode="wrap"/>
+        <text_small name="event_time" bind_text="$time_subject"/>
+      </lv_obj>
+      <text_small name="event_message" width="100%" bind_text="$message_subject" long_mode="wrap">
+        <bind_flag_if_eq subject="$has_message_subject" flag="hidden" ref_value="0"/>
+      </text_small>
+    </lv_obj>
+  </view>
+</component>

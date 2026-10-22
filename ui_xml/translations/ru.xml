@@ -86,6 +86,7 @@
   <translation tag="(incompatible)" ru="(несовместимо)"/>
   <translation tag="(multi-tool)" ru="(мультиинструмент)"/>
   <translation tag="(none detected)" ru="(не обнаружено)"/>
+  <translation tag="(recovered)" ru="(восстановлено)"/>
   <translation tag="(unnamed)" ru="(без имени)"/>
   <translation tag="+ Add" ru="+ Добавить"/>
   <translation tag="+ Add Preset" ru="+ Добавить пресет"/>
@@ -269,6 +270,7 @@
   <translation tag="Adjustments stay active until restart. Save after print completes." ru="Настройки активны до перезагрузки. Сохраните после завершения печати."/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" ru="Настраивает индивидуальные характеристики нагревателей для оптимального контроля"/>
   <translation tag="Advanced" ru="Дополнительно"/>
+  <translation tag="After an error" ru="После ошибки"/>
   <translation tag="After running the commands, tap Check Again below." ru="После выполнения команд нажмите «Проверить снова» ниже."/>
   <translation tag="Alert" ru="Оповещение"/>
   <translation tag="Alerts" ru="Оповещения"/>
@@ -1472,6 +1474,7 @@
   <translation tag="Fireworks" ru="Фейерверк"/>
   <translation tag="Firmware Restart" ru="Перезапуск прошивки"/>
   <translation tag="Firmware reports no bypass. Enable if you feed filament straight to the extruder" ru="Прошивка не сообщает о байпасе. Включите, если филамент подаётся прямо в экструдер."/>
+  <translation tag="Firmware restart" ru="Перезапуск прошивки"/>
   <translation tag="Firmware restart failed: {}" ru="Ошибка перезапуска прошивки: {}"/>
   <translation tag="Firmware restarting..." ru="Перезапуск прошивки..."/>
   <translation tag="Firmware saved X = Y&apos;s value; the measured X result was discarded" ru="Прошивка сохранила для X значение Y; результат измерения X был отброшен"/>
@@ -1778,6 +1781,7 @@
   <translation tag="Interface size. Applies after restart." ru="Размер интерфейса. Применяется после перезапуска."/>
   <translation tag="Internal error: API not available" ru="Внутренняя ошибка: API недоступен"/>
   <translation tag="Internal error: no scan result" ru="Внутренняя ошибка: нет результата сканирования"/>
+  <translation tag="Interrupted" ru="Прервано"/>
   <translation tag="Invalid Slot" ru="Неверный слот"/>
   <translation tag="Invalid Tool" ru="Неверный инструмент"/>
   <translation tag="Invalid duration" ru="Неверная длительность"/>
@@ -1836,6 +1840,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." ru="На принтере установлены макросы Klippain Shake&amp;Tune. HelixScreen обнаруживает их, но не использует; запускайте их из Mainsail или Fluidd."/>
   <translation tag="Klipper" ru="Klipper"/>
   <translation tag="Klipper Error" ru="Ошибка Klipper"/>
+  <translation tag="Klipper disconnected" ru="Klipper отключён"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" ru="Klipper не запустился с макросами пропуска, поэтому они удалены"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." ru="Klipper не запустился. Удалите include helix_skips.cfg из printer.cfg."/>
   <translation tag="Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart." ru="Прошивка Klipper отключилась от хоста. Попробуйте перезапустить Klipper или выполнить перезапуск прошивки."/>
@@ -1845,8 +1850,10 @@
   <translation tag="Klipper has entered shutdown state." ru="Klipper перешёл в состояние остановки."/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." ru="Klipper перешёл в состояние остановки. Это может быть вызвано аварийной остановкой, тепловым разгоном или ошибкой конфигурации."/>
   <translation tag="Klipper is halted — restart firmware to continue" ru="Klipper остановлен — перезапустите прошивку, чтобы продолжить"/>
+  <translation tag="Klipper ready" ru="Klipper готов"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." ru="Klipper резервирует &apos;default&apos; для новых калибровок. Выберите другое имя."/>
   <translation tag="Klipper restarting - macros activating" ru="Перезапуск Klipper - активация макросов"/>
+  <translation tag="Klipper shut down" ru="Klipper остановлен"/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again." ru="Klipper перестал сообщать о ходе. На небольших принтерах его анализу может не хватить памяти, и Klipper зависнет так, что перезапуск прошивки до него не дойдёт. Выключите и снова включите принтер (или перезапустите Klipper по SSH), затем повторите попытку."/>
   <translation tag="Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again." ru="Klipper перестал сообщать о ходе. На небольших принтерах его анализу может не хватить памяти; перезапустите Klipper и повторите попытку."/>
   <translation tag="Klipper will restart to apply changes." ru="Klipper перезапустится для применения изменений."/>
@@ -1998,6 +2005,7 @@
   <translation tag="MB RAM" ru="МБ ОЗУ"/>
   <translation tag="MCU" ru="MCU"/>
   <translation tag="MCU bridge daemon is shut down" ru="Служба моста MCU остановлена"/>
+  <translation tag="MCU disconnected" ru="MCU отключён"/>
   <translation tag="MCU, host, and auxiliary temperature monitoring" ru="Мониторинг температуры MCU, хоста и вспомогательных датчиков"/>
   <translation tag="MCU: " ru="MCU: "/>
   <translation tag="MCUs" ru="MCUs"/>
@@ -2284,6 +2292,7 @@
   <translation tag="No print start macro found" ru="Макрос старта печати не найден"/>
   <translation tag="No printer configured — check printer settings" ru="Принтер не настроен — проверьте настройки принтера"/>
   <translation tag="No printer connection" ru="Нет подключения к принтеру"/>
+  <translation tag="No printer events yet" ru="Событий принтера пока нет"/>
   <translation tag="No printers found" ru="Принтеры не найдены"/>
   <translation tag="No prints this week" ru="Нет печатей за неделю"/>
   <translation tag="No prints yet" ru="Нет печатей"/>
@@ -2506,6 +2515,7 @@
   <translation tag="Pause, resume, or stop the print" ru="Пауза, продолжение или остановка"/>
   <translation tag="Paused" ru="Приостановлено"/>
   <translation tag="Paused (attention needed)" ru="Приостановлено (требует внимания)"/>
+  <translation tag="Paused by a command" ru="Приостановлено командой"/>
   <translation tag="Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen." ru="Ставит печать на паузу на выбранном слое для смены филамента или закладной детали. Во время печати задайте слой в карточке предпросмотра на экране состояния печати."/>
   <translation tag="Pausing at layer {}." ru="Пауза на слое {}."/>
   <translation tag="Pausing..." ru="Приостановка..."/>
@@ -2647,6 +2657,7 @@
   <translation tag="Print a test tower and tune K by eye" ru="Напечатать тестовую башню и подобрать K на глаз"/>
   <translation tag="Print canceled" ru="Печать отменена"/>
   <translation tag="Print complete" ru="Печать завершена"/>
+  <translation tag="Print completed" ru="Печать завершена"/>
   <translation tag="Print details" ru="Сведения о печати"/>
   <translation tag="Print did not start" ru="Печать не началась"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" ru="Печать не началась — принтер может быть занят или не в сети (опросы B3={}, статус=0x{:02X}, ошибка=0x{:02X})"/>
@@ -2660,6 +2671,7 @@
   <translation tag="Print hours this week and lifetime totals" ru="Часы печати за неделю и общие итоги"/>
   <translation tag="Print issue detected" ru="Обнаружена проблема печати"/>
   <translation tag="Print jobs waiting to run" ru="Задания печати в очереди"/>
+  <translation tag="Print paused" ru="Печать приостановлена"/>
   <translation tag="Print preparation failed: {}" ru="Ошибка подготовки печати: {}"/>
   <translation tag="Print resumed" ru="Печать продолжена"/>
   <translation tag="Print server rejected the job — check printer status" ru="Сервер печати отклонил задание — проверьте статус принтера"/>
@@ -2675,6 +2687,7 @@
   <translation tag="Printed %d times_one" ru="Напечатано %d раз"/>
   <translation tag="Printer" ru="Принтер"/>
   <translation tag="Printer Error" ru="Ошибка принтера"/>
+  <translation tag="Printer Events" ru="События принтера"/>
   <translation tag="Printer Firmware Disconnected" ru="Прошивка принтера отключена"/>
   <translation tag="Printer Image" ru="Изображение принтера"/>
   <translation tag="Printer Manager" ru="Менеджер принтеров"/>
@@ -2702,6 +2715,8 @@
   <translation tag="Printer default" ru="По умолчанию для принтера"/>
   <translation tag="Printer didn&apos;t respond — make sure it&apos;s on and in range" ru="Принтер не ответил — убедитесь, что он включён и в зоне доступа"/>
   <translation tag="Printer doesn&apos;t expose the expected service — wrong device?" ru="Принтер не предоставляет ожидаемый сервис — не то устройство?"/>
+  <translation tag="Printer error" ru="Ошибка принтера"/>
+  <translation tag="Printer event" ru="Событие принтера"/>
   <translation tag="Printer hardware detected" ru="Обнаружено оборудование принтера"/>
   <translation tag="Printer image set to auto-detect" ru="Изображение принтера — автоопределение"/>
   <translation tag="Printer is busy - {} stays in the queue" ru="Принтер занят – {} остаётся в очереди"/>
@@ -2854,6 +2869,8 @@
   <translation tag="Reconnect" ru="Переподключиться"/>
   <translation tag="Record Timelapse" ru="Записать таймлапс"/>
   <translation tag="Record timelapses of your prints" ru="Записывайте таймлапсы ваших печатей"/>
+  <translation tag="Recorded by the HelixPrint plugin" ru="Записано плагином HelixPrint"/>
+  <translation tag="Recorded by this screen while connected" ru="Записано этим экраном во время подключения"/>
   <translation tag="Recorded timelapses will appear here" ru="Записанные таймлапсы появятся здесь"/>
   <translation tag="Recording Mode" ru="Режим записи"/>
   <translation tag="Recover" ru="Восстановить"/>
@@ -3264,6 +3281,7 @@
   <translation tag="Shutdown failed" ru="Ошибка выключения"/>
   <translation tag="Shutdown failed — host is still reachable" ru="Ошибка выключения — хост всё ещё доступен"/>
   <translation tag="Shutdown/Reboot" ru="Выключение/Перезагрузка"/>
+  <translation tag="Shutdowns, errors and how prints ended" ru="Остановки, ошибки и итоги печати"/>
   <translation tag="Shutting down printer..." ru="Выключение принтера..."/>
   <translation tag="Shutting down screen..." ru="Выключение экрана..."/>
   <translation tag="Shutting down..." ru="Выключение..."/>

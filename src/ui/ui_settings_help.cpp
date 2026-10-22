@@ -13,6 +13,7 @@
 #include "ui_info_qr_modal.h"
 #include "ui_nav.h"
 #include "ui_next_tick.h"
+#include "ui_printer_events_overlay.h"
 #include "ui_settings_about.h"
 
 #include "first_run_tour.h"
@@ -40,6 +41,11 @@ void HelpSettingsOverlay::register_callbacks() {
          [](lv_event_t*) {
              spdlog::info("[HelpSettingsOverlay] Upload Debug Bundle clicked");
              DebugBundleModal::show_owned();
+         }},
+        {"on_printer_events_clicked",
+         [](lv_event_t*) {
+             spdlog::info("[HelpSettingsOverlay] Printer Events clicked");
+             helix::ui::get_printer_events_overlay().show(lv_screen_active());
          }},
         {"on_discord_clicked",
          [](lv_event_t*) {

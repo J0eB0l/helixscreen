@@ -53,6 +53,7 @@ translations:
   (incompatible): (非対応)
   (multi-tool): (マルチツール)
   (none detected): (検出なし)
+  (recovered): '(復元)'
   (unnamed): (名称なし)
   + Add: + 追加
   + Add Preset: + プリセットを追加
@@ -238,6 +239,7 @@ translations:
   Adjustments stay active until restart. Save after print completes.: 調整は再起動まで有効です。印刷完了後に保存してください。
   Adjusts individual characteristics of your heaters for optimal control: ヒーターの個別特性を調整して最適な制御を実現します
   Advanced: 詳細設定
+  After an error: エラーの後
   After running the commands, tap Check Again below.: コマンド実行後、下の「再確認」をタップしてください。
   Alert: アラート
   Alerts: アラート
@@ -1481,6 +1483,7 @@ translations:
   Fireworks: 花火
   Firmware Restart: ファームウェア再起動
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: ファームウェアはバイパスがないと報告しています。フィラメントをエクストルーダーに直接送っている場合は有効にしてください
+  Firmware restart: ファームウェア再起動
   'Firmware restart failed: {}': 'ファームウェア再起動に失敗しました: {}'
   Firmware restarting...: ファームウェア再起動中...
   Firmware saved X = Y's value; the measured X result was discarded: ファームウェアは X の値として Y の値を保存しました。測定された X の結果は破棄されました。
@@ -1799,6 +1802,7 @@ translations:
   Interface size. Applies after restart.: インターフェースの大きさ。再起動後に適用されます。
   'Internal error: API not available': '内部エラー: API を利用できません'
   'Internal error: no scan result': '内部エラー: スキャン結果がありません'
+  Interrupted: 中断
   Invalid Slot: '無効なスロット'
   Invalid Tool: '無効なツール'
   Invalid duration: '時間の値が無効です'
@@ -1861,6 +1865,7 @@ translations:
   : 'Klippain Shake&Tuneのマクロがプリンターにインストールされています。HelixScreenは検出しますが使用しません。MainsailまたはFluiddから実行してください。'
   Klipper: Klipper
   Klipper Error: Klipper エラー
+  Klipper disconnected: Klipper切断
   Klipper failed to start with the skip macros, so they were removed: 'スキップ用マクロでは Klipper が起動しなかったため、削除しました'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper を起動できませんでした。printer.cfg から helix_skips.cfg の include を削除してください。'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper
@@ -1874,8 +1879,10 @@ translations:
   Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper
     がシャットダウン状態になりました。緊急停止、熱暴走、または設定エラーが原因の可能性があります。
   Klipper is halted — restart firmware to continue: Klipper が停止しています — 続行するにはファームウェアを再起動してください
+  Klipper ready: Klipper準備完了
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper は 'default' を新しいキャリブレーション用に予約しています。別の名前を選んでください。"
   Klipper restarting - macros activating: 'Klipper を再起動しています - マクロを有効化中'
+  Klipper shut down: Klipperシャットダウン
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipperが進捗の報告を停止しました。小型のプリンターでは解析でメモリが不足し、Klipperが停止したままになることがあり、その場合はファームウェア再起動では復旧できません。プリンターの電源を入れ直して（またはSSHでKlipperを再起動して）から再試行してください。"
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipperが進捗の報告を停止しました。小型のプリンターでは解析でメモリが不足することがあります。Klipperを再起動してから再試行してください。"
@@ -2030,6 +2037,7 @@ translations:
   MB RAM: MB RAM
   MCU: MCU
   MCU bridge daemon is shut down: MCU ブリッジのデーモンが停止しています
+  MCU disconnected: MCU切断
   MCU, host, and auxiliary temperature monitoring: MCU、ホスト、補助温度の監視
   'MCU: ': 'MCU: '
   MCUs: 'MCUs'
@@ -2323,6 +2331,7 @@ translations:
   No print start macro found: 印刷開始マクロが見つかりません
   No printer configured — check printer settings: プリンターが設定されていません — プリンター設定を確認してください
   No printer connection: プリンター未接続
+  No printer events yet: プリンターイベントはまだありません
   No printers found: プリンターが見つかりません
   No prints this week: 今週の印刷なし
   No prints yet: 印刷履歴なし
@@ -2556,6 +2565,7 @@ translations:
   Pause, resume, or stop the print: 印刷の一時停止、再開、停止
   Paused: 一時停止
   Paused (attention needed): 一時停止（対応が必要）
+  Paused by a command: コマンドで一時停止
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : '選んだレイヤーで印刷を一時停止し、フィラメント交換やインサートを行えます。印刷中に印刷状況画面のプレビューカードからレイヤーを設定します。'
   Pausing at layer {}.: 'レイヤー {} で一時停止します。'
@@ -2698,6 +2708,7 @@ translations:
   Print Tuning: 印刷チューニング
   Print Was Terminated: 印刷が中止されました
   Print a test tower and tune K by eye: テストタワーを印刷して目視でKを調整
+  Print completed: 印刷完了
   Print details: '印刷の詳細'
   Print did not start: 印刷は開始されませんでした
   Print canceled: 印刷がキャンセルされました
@@ -2710,6 +2721,7 @@ translations:
   Print history will show the rewritten name: 印刷履歴には書き換え後の名前が表示されます
   Print issue detected: 印刷の問題を検出しました
   Print jobs waiting to run: 実行待ちの印刷ジョブ
+  Print paused: 印刷一時停止
   'Print preparation failed: {}': '印刷準備に失敗しました: {}'
   Print resumed: 印刷を再開しました
   Print server rejected the job — check printer status: 印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください
@@ -2722,6 +2734,7 @@ translations:
   'Printed %d times': '%d 回印刷済み'
   Printer: プリンター
   Printer Error: プリンターエラー
+  Printer Events: プリンターイベント
   Printer Firmware Disconnected: プリンターファームウェア切断
   Printer Image: プリンター画像
   Printer Manager: プリンター管理
@@ -2751,6 +2764,8 @@ translations:
   Printer didn't respond — make sure it's on and in range: プリンターが応答しません — 電源が入っており通信範囲内にあることを確認してください
   Printer doesn't expose the expected service — wrong device?: プリンターが想定されるサービスを公開していません
     — デバイスが違う可能性があります
+  Printer error: プリンターエラー
+  Printer event: プリンターイベント
   Printer hardware detected: プリンターのハードウェアを検出
   Printer image set to auto-detect: プリンター画像を自動検出に設定しました
   Printer is busy - {} stays in the queue: 'プリンターは使用中です – {} はキューに残ります'
@@ -2904,6 +2919,8 @@ translations:
   Reconnect: 再接続
   Record Timelapse: タイムラプスを録画
   Record timelapses of your prints: 印刷のタイムラプスを録画
+  Recorded by the HelixPrint plugin: HelixPrintプラグインが記録
+  Recorded by this screen while connected: 接続中にこの画面が記録
   Recorded timelapses will appear here: 録画済みタイムラプスがここに表示されます
   Recording Mode: 録画モード
   Recover: 回復
@@ -3326,6 +3343,7 @@ translations:
   Shutdown failed: シャットダウンに失敗しました
   Shutdown failed — host is still reachable: シャットダウンに失敗しました — ホストに依然として到達可能です
   Shutdown/Reboot: 'シャットダウン/再起動'
+  Shutdowns, errors and how prints ended: 停止、エラー、印刷の終了状況
   Shutting down printer...: プリンターをシャットダウン中...
   Shutting down screen...: 画面をシャットダウン中...
   Shutting down...: シャットダウン中...

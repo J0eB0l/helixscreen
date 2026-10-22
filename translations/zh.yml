@@ -53,6 +53,7 @@ translations:
   (incompatible): (不兼容)
   (multi-tool): (多工具)
   (none detected): (未检测到)
+  (recovered): '(已恢复)'
   (unnamed): (未命名)
   + Add: + 添加
   + Add Preset: + 添加预设
@@ -237,6 +238,7 @@ translations:
   Adjustments stay active until restart. Save after print completes.: 调整在重启前保持有效。打印完成后保存。
   Adjusts individual characteristics of your heaters for optimal control: 调整加热器的各项参数以实现最佳控制
   Advanced: 高级
+  After an error: 发生错误后
   After running the commands, tap Check Again below.: 执行命令后，点击下方的重新检查。
   Alert: 警报
   Alerts: 警报
@@ -1477,6 +1479,7 @@ translations:
   Fireworks: 烟花
   Firmware Restart: 固件重启
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: 固件报告未配置旁路。如果您将耗材直接送入挤出机，请启用此选项
+  Firmware restart: 固件重启
   'Firmware restart failed: {}': '固件重启失败: {}'
   Firmware restarting...: 固件重启中...
   Firmware saved X = Y's value; the measured X result was discarded: 固件将 X 轴保存为 Y 轴的值；实测的 X 轴结果已被丢弃
@@ -1794,6 +1797,7 @@ translations:
   Interface size. Applies after restart.: 界面大小。重启后生效。
   'Internal error: API not available': '内部错误: API 不可用'
   'Internal error: no scan result': '内部错误: 无扫描结果'
+  Interrupted: 已中断
   Invalid Slot: '无效槽位'
   Invalid Tool: '无效工具'
   Invalid duration: '时长无效'
@@ -1856,6 +1860,7 @@ translations:
   : '打印机上已安装 Klippain Shake&Tune 宏。HelixScreen 会检测到它们但不使用;请在 Mainsail 或 Fluidd 中运行。'
   Klipper: Klipper
   Klipper Error: Klipper 错误
+  Klipper disconnected: Klipper已断开
   Klipper failed to start with the skip macros, so they were removed: 'Klipper 无法在加载跳过宏后启动，已将其移除'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper 无法启动。请从 printer.cfg 中删除 helix_skips.cfg 的 include。'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Klipper
@@ -1869,8 +1874,10 @@ translations:
   Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper
     已进入关机状态。这可能是由于紧急停止、热失控或配置错误引起的。
   Klipper is halted — restart firmware to continue: Klipper 已停止 — 请重启固件以继续
+  Klipper ready: Klipper就绪
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper 将 'default' 保留用于新的校准。请选择其他名称。"
   Klipper restarting - macros activating: '正在重启 Klipper - 正在启用宏'
+  Klipper shut down: Klipper已关闭
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipper 停止报告进度。在小型打印机上，其分析可能耗尽内存并使 Klipper 卡住，此时固件重启无法到达。请将打印机断电重启（或通过 SSH 重启 Klipper），然后重试。"
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipper 停止报告进度。在小型打印机上，其分析可能耗尽内存；请重启 Klipper 后重试。"
@@ -2024,6 +2031,7 @@ translations:
   MB RAM: MB 内存
   MCU: MCU
   MCU bridge daemon is shut down: MCU 桥接守护进程已关闭
+  MCU disconnected: MCU已断开
   MCU, host, and auxiliary temperature monitoring: MCU、主机及辅助温度监控
   'MCU: ': 'MCU: '
   MCUs: 'MCUs'
@@ -2316,6 +2324,7 @@ translations:
   No print start macro found: 未找到打印启动宏
   No printer configured — check printer settings: 未配置打印机 — 请检查打印机设置
   No printer connection: 无打印机连接
+  No printer events yet: 暂无打印机事件
   No printers found: 未找到打印机
   No prints this week: 本周暂无打印
   No prints yet: 暂无打印记录
@@ -2549,6 +2558,7 @@ translations:
   Pause, resume, or stop the print: 暂停、恢复或停止打印
   Paused: 已暂停
   Paused (attention needed): 已暂停（需要处理）
+  Paused by a command: 由命令暂停
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : '在选定的层暂停打印，用于换料或放入嵌件。打印时，在打印状态页面的预览卡片中设置层。'
   Pausing at layer {}.: '将在第 {} 层暂停。'
@@ -2690,6 +2700,7 @@ translations:
   Print Tuning: 打印调优
   Print Was Terminated: 打印已终止
   Print a test tower and tune K by eye: 打印测试塔并目测调整K值
+  Print completed: 打印完成
   Print details: '打印详情'
   Print did not start: 打印未启动
   Print canceled: 打印已取消
@@ -2702,6 +2713,7 @@ translations:
   Print history will show the rewritten name: 打印历史将显示改写后的名称
   Print issue detected: 检测到打印问题
   Print jobs waiting to run: 等待执行的打印任务
+  Print paused: 打印已暂停
   'Print preparation failed: {}': '打印准备失败: {}'
   Print resumed: 打印已恢复
   Print server rejected the job — check printer status: 打印服务器拒绝了任务 — 请检查打印机状态
@@ -2714,6 +2726,7 @@ translations:
   'Printed %d times': '已打印 %d 次'
   Printer: 打印机
   Printer Error: 打印机错误
+  Printer Events: 打印机事件
   Printer Firmware Disconnected: 打印机固件已断开
   Printer Image: 打印机图片
   Printer Manager: 打印机管理
@@ -2742,6 +2755,8 @@ translations:
   Printer default: 打印机默认
   Printer didn't respond — make sure it's on and in range: 打印机无响应 — 请确保已开机且在范围内
   Printer doesn't expose the expected service — wrong device?: 打印机未提供预期的服务 — 设备是否有误？
+  Printer error: 打印机错误
+  Printer event: 打印机事件
   Printer hardware detected: 检测到打印机硬件
   Printer image set to auto-detect: 打印机图片已设为自动检测
   Printer is busy - {} stays in the queue: '打印机忙碌中 – {} 保留在队列中'
@@ -2895,6 +2910,8 @@ translations:
   Reconnect: 重新连接
   Record Timelapse: 录制延时摄影
   Record timelapses of your prints: 录制打印延时摄影
+  Recorded by the HelixPrint plugin: 由HelixPrint插件记录
+  Recorded by this screen while connected: 由此屏幕在连接期间记录
   Recorded timelapses will appear here: 录制的延时摄影将显示在此处
   Recording Mode: 录制模式
   Recover: 恢复
@@ -3317,6 +3334,7 @@ translations:
   Shutdown failed: 关机失败
   Shutdown failed — host is still reachable: 关机失败 — 主机仍可访问
   Shutdown/Reboot: '关机/重启'
+  Shutdowns, errors and how prints ended: 关机、错误以及打印结束情况
   Shutting down printer...: 正在关闭打印机...
   Shutting down screen...: 正在关闭屏幕...
   Shutting down...: 正在关机...
