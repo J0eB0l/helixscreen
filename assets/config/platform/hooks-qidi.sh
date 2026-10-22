@@ -14,6 +14,23 @@ QIDI_STOCK_UI_BINS="/home/mks/QD_Q2/bin/client /home/qidi/QD_Q2/bin/client"
 # The same directory also contains tuning.sh, which must remain enabled.
 QIDI_STOCK_UI_EXEC_PATTERN='QD_Q2/bin/(client|start\.sh)([^[:alnum:]_.-]|$)|qidiclient|qidi-client|makerbase-client'
 
+# Vendor units that live beside the stock screen and must keep running. A
+# broader stock-screen match on older HelixScreen installs disabled them, so
+# one found disabled is enabled again, once per install: the marker keeps a
+# later deliberate disable by the user in place (prestonbrown/helixscreen#1854).
+QIDI_SPARED_UNITS="makerbase-tuning.service"
+
+qidi_restore_spared_units() {
+    [ -n "${INSTALL_DIR:-}" ] && [ -d "${INSTALL_DIR}/config" ] || return 0
+    _qidi_marker="${INSTALL_DIR}/config/.qidi_spared_units_restored"
+    [ -e "$_qidi_marker" ] && return 0
+    for _qidi_spared in $QIDI_SPARED_UNITS; do
+        [ "$(systemctl is-enabled "$_qidi_spared" 2>/dev/null)" = "disabled" ] || continue
+        systemctl enable --now "$_qidi_spared" 2>/dev/null || true
+    done
+    : > "$_qidi_marker" 2>/dev/null || true
+}
+
 platform_stop_competing_uis() {
     _qidi_path=""
     _qidi_unit=""
@@ -34,6 +51,7 @@ platform_stop_competing_uis() {
             systemctl stop "$_qidi_unit" 2>/dev/null || true
             systemctl disable "$_qidi_unit" 2>/dev/null || true
         done
+        qidi_restore_spared_units
     fi
 
     # A client that outlived its unit holds the framebuffer just as well. Its

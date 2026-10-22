@@ -268,8 +268,51 @@ EOF
         grep -qx "disable $unit.service" "$systemctl_log"
     done
     for unit in makerbase-tuning client-helper start-backup; do
-        refute_grep "$unit" "$systemctl_log"
+        refute_grep "^stop $unit" "$systemctl_log"
+        refute_grep "^disable $unit" "$systemctl_log"
     done
+}
+
+# Run the shipped boot hook against the fake units, logging every systemctl
+# call. is-enabled answers $TUNING_STATE for makerbase-tuning.
+run_qidi_boot_hook() {
+    local hook="$BATS_TEST_TMPDIR/hooks-qidi.sh"
+    sed -e "s|/etc/systemd/system|$MOCK_ROOT/etc/systemd/system|g" \
+        -e "s|/lib/systemd/system|$MOCK_ROOT/lib/systemd/system|g" \
+        -e "s|/home/|$MOCK_ROOT/home/|g" \
+        "$WORKTREE_ROOT/assets/config/platform/hooks-qidi.sh" > "$hook"
+    run sh -c '. "$1"; platform_stop_competing_uis' sh "$hook"
+}
+
+@test "qidi boot hook: re-enables a disabled makerbase-tuning once per install" {
+    local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log"
+    write_unit "makerbase-tuning.service" "bash /home/mks/QD_Q2/bin/tuning.sh" >/dev/null
+    mock_command_script "systemctl" "echo \"\$@\" >> \"$systemctl_log\"
+[ \"\$1\" = is-enabled ] && echo \"\${TUNING_STATE:-enabled}\"
+exit 0"
+
+    TUNING_STATE=disabled run_qidi_boot_hook
+    [ "$status" -eq 0 ]
+    grep -qx "enable --now makerbase-tuning.service" "$systemctl_log"
+    [ -e "$INSTALL_DIR/config/.qidi_spared_units_restored" ]
+
+    # A later boot leaves a unit the user disabled since then alone.
+    : > "$systemctl_log"
+    TUNING_STATE=disabled run_qidi_boot_hook
+    [ "$status" -eq 0 ]
+    refute_grep "makerbase-tuning" "$systemctl_log"
+}
+
+@test "qidi boot hook: leaves an enabled makerbase-tuning alone" {
+    local systemctl_log="$BATS_TEST_TMPDIR/systemctl.log"
+    write_unit "makerbase-tuning.service" "bash /home/mks/QD_Q2/bin/tuning.sh" >/dev/null
+    mock_command_script "systemctl" "echo \"\$@\" >> \"$systemctl_log\"
+[ \"\$1\" = is-enabled ] && echo enabled
+exit 0"
+
+    run_qidi_boot_hook
+    [ "$status" -eq 0 ]
+    refute_grep "enable --now" "$systemctl_log"
 }
 
 # --- ordering: the unit goes down before the binary ---
