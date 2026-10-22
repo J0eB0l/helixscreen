@@ -552,3 +552,24 @@ class TestResume:
         await adapter.discard()
         assert log[-1] == ("delete", "print_state", None)
         assert await adapter.has_resume_rows() is False
+
+
+def test_rows_from_a_snapshot_whose_fields_have_not_arrived():
+    snap = make_snapshot()
+    for key in ("file_position", "extrude_factor", "speed", "speed_factor", "abs_coord",
+                "abs_extrude"):
+        snap[key] = None
+    snap["heaters"] = {"extruder": {"target": None}, "heater_bed": {"target": None}}
+    snap["fans"] = {"fan": None}
+    rows = q.print_state_rows(snap, {})
+    assert rows["file_position"] == "0" and rows["extruder_target"] == "0"
+    assert rows["absolute_coord"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_on_snapshot_survives_an_unwritable_snapshot(cache_dir):
+    adapter, db, _k, clock, _log = make_adapter(cache_dir)
+    adapter.on_job_start()
+    clock.t += 10.0
+    assert await adapter.on_snapshot({"speed_factor": "fast"}, {}) == {}
+    assert db.rows == {}

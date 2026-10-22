@@ -1622,6 +1622,8 @@ class HelixPlr:
                 purge = helix_plr_render.generic_purge_xy(objects, bed[0], bed[1])
             if purge is None:
                 warnings.append("no_purge_location")
+        if qidi:
+            self._check_qidi_landing(snapshot, job.get("mesh"))
         part_top = _part_top_z(scan, point)
         if tier == 1 and part_top is None and not qidi:
             raise self._error("plr_scan_failed", "no_part_top: no extrusion before the resume point",
@@ -1656,6 +1658,19 @@ class HelixPlr:
         self._plan_file_size = os.stat(str(target[0])).st_size if target else None
         self._bed_now = bed_now
         return plan
+
+    def _check_qidi_landing(self, snapshot: Dict[str, Any], mesh: Any) -> None:
+        """QIDI's landing move is off by the gcode offset plus the mesh at the
+        cut (helix_plr_qidi.frame_z); refuse when that would press the hot
+        nozzle into the plastic."""
+        offset = snapshot.get("gcode_offset") or [0.0, 0.0, 0.0]
+        live = snapshot.get("live_pos") or snapshot.get("toolhead_pos") or [0.0, 0.0, 0.0]
+        mesh_z = helix_plr_render.mesh_adjustment(mesh, live[0], live[1], live[2],
+                                                  self.mesh_fade) or 0.0
+        landing = (offset[2] or 0.0) + mesh_z
+        if landing < -QIDI_LANDING_TOL_MM:
+            raise self._error("plr_scan_failed",
+                              "qidi_landing_below_part: %.3f mm" % landing, 400)
 
     def _bed_limits(self, mesh: Any) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:
         """The bed, not the travel: [bed_mesh] mesh_min/mesh_max, else the
@@ -1992,6 +2007,10 @@ PLAN_SYNC_WAIT_S = 10.0
 HEAT_POLL_S = 2.0
 BED_WAIT_TIMEOUT_S = 20 * 60.0
 CHAMBER_WAIT_TIMEOUT_S = 45 * 60.0
+
+# How far below the plastic QIDI's landing move may end before a QIDI resume
+# is refused.
+QIDI_LANDING_TOL_MM = 0.05
 
 # The include-file mesh section (§ 6.4).
 MESH_SECTION = "helix_plr"

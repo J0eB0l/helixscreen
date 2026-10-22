@@ -1884,3 +1884,20 @@ def test_the_purge_line_runs_inside_the_bed_not_the_travel(plr, resume):
 def test_homing_overrides_that_may_move_z(override, reason):
     check = check_xy_homing({"homing_override": override}, "corexy")
     assert check == HomingCheck(reason is None, reason)
+
+
+def test_qidi_refuses_a_landing_below_the_plastic(plr, helix, qidi_resume):
+    record = plr.store.load()
+    record["gcode_offset"] = [0.0, 0.0, -0.1, 0.0]
+    plr.store.write(fit_record(record)[0])
+    with pytest.raises(Exception, match="plr_scan_failed: qidi_landing_below_part"):
+        run(plr.handle_plan(Req()))
+    record["gcode_offset"] = [0.0, 0.0, -0.04, 0.0]
+    plr.store.write(fit_record(record)[0])
+    assert run(plr.handle_plan(Req()))["method"] == "measured"
+
+
+def test_qidi_landing_counts_the_mesh(plr, helix, qidi_resume):
+    plr.job["mesh"] = {"points": [[-0.2, -0.2], [-0.2, -0.2]], "min": [0, 0], "max": [220, 220]}
+    with pytest.raises(Exception, match="qidi_landing_below_part"):
+        run(plr.handle_plan(Req()))

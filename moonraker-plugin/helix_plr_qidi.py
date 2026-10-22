@@ -223,7 +223,10 @@ def frame_z(snapshot: Mapping[str, Any]) -> float:
 
     What no value can fix: the declaration and the landing move share this
     field, so the rest of the resumed layer, until the file's next Z move,
-    prints offset + mesh(x, y at the cut) high.
+    prints off by D = offset + mesh(x, y at the cut): above the plastic when D
+    is positive, pressed into it when D is negative (a negative Z offset, a
+    low mesh point). helix_plr.py refuses a QIDI resume whose D is below
+    -QIDI_LANDING_TOL_MM.
     """
     for key in ("live_pos", "toolhead_pos"):
         pos = _vec(snapshot.get(key))
@@ -234,6 +237,11 @@ def frame_z(snapshot: Mapping[str, Any]) -> float:
     return gcode_pos[2] + offset[2]
 
 
+def _or(value: Any, default: Any) -> Any:
+    """A snapshot field, or its default when it has not arrived (None)."""
+    return default if value is None else value
+
+
 def _internal_speed_factor(snapshot: Mapping[str, Any], qidi_status: Mapping[str, Any]) -> float:
     """gcode_move's internal speed factor, 1/60 at 100 %: QIDI's
     `speed_factor_2` when subscribed, else the public factor / 60
@@ -242,7 +250,7 @@ def _internal_speed_factor(snapshot: Mapping[str, Any], qidi_status: Mapping[str
     raw = gm.get("speed_factor_2")
     if raw is not None:
         return float(raw)
-    return float(snapshot.get("speed_factor", 1.0)) / 60.0
+    return float(_or(snapshot.get("speed_factor"), 1.0)) / 60.0
 
 
 def _internal_speed(
@@ -255,7 +263,7 @@ def _internal_speed(
     raw = gm.get("speed_2")
     if raw is not None:
         return float(raw)
-    return float(snapshot.get("speed", 0.0)) * internal_sf
+    return float(_or(snapshot.get("speed"), 0.0)) * internal_sf
 
 
 def print_state_rows(
@@ -282,24 +290,25 @@ def print_state_rows(
     fans = snapshot.get("fans") or {}
 
     rows = {
-        "file_position": _fmt_int(snapshot.get("file_position", 0)),
+        "file_position": _fmt_int(_or(snapshot.get("file_position"), 0)),
         "plate_index": str(vsd.get("plate_index", "1")),
         "gcode_position": _fmt_vec4(position),
         "homing_position": _fmt_vec4(offset),
         "base_position": _fmt_vec4(base),
         "speed": _fmt_float(_internal_speed(snapshot, qs, internal_sf)),
         "speed_factor": _fmt_truncated(internal_sf, 6000.0, _qidi_m220),
-        "extrude_factor": _fmt_truncated(snapshot.get("extrude_factor", 1.0), 100.0, _qidi_m221),
-        "absolute_coord": _fmt_bool(snapshot.get("abs_coord", True)),
-        "absolute_extrude": _fmt_bool(snapshot.get("abs_extrude", True)),
+        "extrude_factor": _fmt_truncated(_or(snapshot.get("extrude_factor"), 1.0), 100.0,
+                                         _qidi_m221),
+        "absolute_coord": _fmt_bool(_or(snapshot.get("abs_coord"), True)),
+        "absolute_extrude": _fmt_bool(_or(snapshot.get("abs_extrude"), True)),
         "all_objects": json.dumps(list(snapshot.get("objects") or [])),
         "exclude_objects": json.dumps(list(snapshot.get("excluded") or [])),
         "current_layer": _fmt_int(snapshot.get("layer") or 0),
     }
     for row, heater in _TARGET_ROWS:
-        rows[row] = _fmt_target((heaters.get(heater) or {}).get("target", 0.0))
+        rows[row] = _fmt_target(_or((heaters.get(heater) or {}).get("target"), 0.0))
     for row, fan in _FAN_ROWS:
-        rows[row] = _fmt_truncated(fans.get(fan, 0.0), 255.0, _qidi_m106)
+        rows[row] = _fmt_truncated(_or(fans.get(fan), 0.0), 255.0, _qidi_m106)
     return rows
 
 
@@ -426,7 +435,11 @@ class QidiPrintStateAdapter:
                 return {}
         elif not force and self._last_write is not None and now - self._last_write < WRITE_INTERVAL_S:
             return {}
-        rows = print_state_rows(snapshot, qidi_status)
+        try:
+            rows = print_state_rows(snapshot, qidi_status)
+        except (TypeError, ValueError):
+            logging.exception("HelixPLR[qidi]: snapshot not writable as print_state rows")
+            return {}
         todo = changed_rows(self._written, rows)
         if not todo:
             return {}
