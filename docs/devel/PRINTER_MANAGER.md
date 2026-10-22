@@ -335,7 +335,6 @@ The printer database (`assets/config/printer_database.json`) is the source of tr
 | `hide_manual_z_calibration` | `true` when the printer's `CALIBRATE_TOOL_OFFSETS` routine sets every tool's Z, the reference tool included, so the manual Z calibration (paper test) entries step aside. Omit (default `false`) for a stock klipper-toolchanger, whose example macro measures the other tools against T0 and writes nothing for T0. Independent of `z_offset_calibration_strategy`: the result may still need `SAVE_CONFIG`. |
 | `heuristics` | Array of detection rules with confidence scores |
 | `print_start_capabilities` | PRINT_START macro parameters |
-| `screws_tilt_direction` | `"cw"` or `"ccw"` — override for the bed-screw turn direction. Use when the vendor-shipped Klipper `screw_thread` makes `SCREWS_TILT_CALCULATE` name the wrong rotation. When set to `"ccw"`, HelixScreen flips CW↔CCW in the rotation arrows. The Tighten/Loosen wording comes from the probed heights and never reads this field. Omit the field (or set `"cw"`) for printers whose Klipper direction matches reality. Known use: FlashForge Adventurer 5M family. |
 
 The bundled `assets/config/printer_database.json` is schema-checked by the `[printer_database][schema]` test (`tests/unit/test_printer_database_evidence.cpp`): every entry needs non-empty string `id`, `name`, `manufacturer` and `image` fields and a `heuristics` array, ids are unique lowercase slugs (`a-z`, `0-9`, `_`, `-`), and names are unique ignoring case.
 

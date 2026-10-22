@@ -459,7 +459,7 @@ Invariants:
 
 ### Screws-tilt specifics
 
-- **Direction override.** `screws_tilt_direction` (`"cw"` / `"ccw"`) on a printer entry flips the parser's tighten/loosen wording (`include/printer_detector.h#screws_tilt_direction_override`, applied via `flip_screws_tilt_direction()` in `include/calibration_types.h`) for firmwares whose reported direction is inverted.
+- **Direction.** The rotation arrows show Klipper's CW/CCW as reported; the Tighten/Loosen wording is derived from the probed corner heights, not from Klipper's direction.
 - **Recentering hint.** Klipper reports every screw relative to `screw1`, treating it as a fixed base - but the adjustment vector is only determined up to a uniform translation (adding a constant to every screw moves the bed without changing tilt), so "reference = 0" is an arbitrary choice, not the cheapest one. When all non-reference screws need the same large correction, `suggest_screw_recentering()` offers the one-screw alternative as a hint subject on the panel (`screws_tilt_recenter_hint`).
 
 ---

@@ -1502,8 +1502,7 @@ void MoonrakerAdvancedAPIMock::calculate_screws_tilt(ScrewTiltCallback on_succes
                  mock_bed_state_.get_probe_count() + 1);
 
     // Feed the simulated console output through the SAME parser the live
-    // collector uses, so --test exercises the line parser and the printer-database
-    // screws_tilt_direction override instead of bypassing both.
+    // collector uses, so --test exercises the line parser instead of bypassing it.
     std::vector<ScrewTiltResult> results;
     for (const auto& line : mock_bed_state_.probe_lines()) {
         ScrewTiltResult result;

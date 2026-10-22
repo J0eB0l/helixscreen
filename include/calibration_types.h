@@ -89,22 +89,6 @@ constexpr float kScrewSevereAdjustmentMm = 0.25f;
 }
 
 /**
- * @brief Flip the leading CW↔CCW direction token in an adjustment string
- *
- * Rewrites `"CW 01:15"` → `"CCW 01:15"` and `"CCW 00:30"` → `"CW 00:30"`
- * in place. No-op if the string doesn't begin with a direction token (e.g.
- * already stripped, empty, or malformed). Used by the screws-tilt parser
- * to apply the printer-database `screws_tilt_direction` override.
- */
-inline void flip_screws_tilt_direction(std::string& adjustment) {
-    if (adjustment.rfind("CCW", 0) == 0) {
-        adjustment.replace(0, 3, "CW");
-    } else if (adjustment.rfind("CW", 0) == 0) {
-        adjustment.replace(0, 2, "CCW");
-    }
-}
-
-/**
  * @file calibration_types.h
  * @brief Data structures for printer calibration features
  *

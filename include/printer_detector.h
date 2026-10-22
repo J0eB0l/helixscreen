@@ -671,20 +671,6 @@ class PrinterDetector {
     static bool is_creality_hi();
 
     /**
-     * @brief Declared correction for Klipper's bed-screw turn direction
-     *
-     * Printer database entries may set `"screws_tilt_direction": "ccw"` when
-     * the printer's shipped `screw_thread` makes SCREWS_TILT_CALCULATE name the
-     * wrong turn direction. HelixScreen then flips CW↔CCW in the displayed
-     * direction (the rotation arrows). The Tighten/Loosen wording comes from
-     * the probed heights and is unaffected; "cw" or no field means Klipper's
-     * direction is shown as is.
-     *
-     * @return "cw", "ccw", or empty string if not declared (treat as "cw")
-     */
-    static std::string screws_tilt_direction_override();
-
-    /**
      * @brief Resolve a stored printer type name to the name the database uses now.
      *
      * The saved type is a display name, not a stable id, so renaming an entry

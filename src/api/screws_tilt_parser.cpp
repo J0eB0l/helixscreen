@@ -3,7 +3,6 @@
 
 #include "screws_tilt_parser.h"
 
-#include "printer_detector.h"
 #include "text_io.h"
 
 #include <spdlog/spdlog.h>
@@ -81,14 +80,6 @@ bool parse_screws_tilt_line(const std::string& line, ScrewTiltResult& out) {
             while (!result.adjustment.empty() &&
                    std::isspace(static_cast<unsigned char>(result.adjustment.back()))) {
                 result.adjustment.pop_back();
-            }
-
-            // The printer database may declare `"screws_tilt_direction": "ccw"`
-            // for a vendor whose shipped screw_thread makes Klipper name the
-            // wrong rotation; flip CW↔CCW so the arrows match the screw. Raw
-            // Klipper output still appears in the klippy log.
-            if (PrinterDetector::screws_tilt_direction_override() == "ccw") {
-                flip_screws_tilt_direction(result.adjustment);
             }
         }
     }

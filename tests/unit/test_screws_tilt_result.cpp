@@ -59,55 +59,12 @@ ScrewTiltResult make_screw(const std::string& name, const std::string& adjustmen
 
 } // namespace
 
-TEST_CASE("flip_screws_tilt_direction swaps CW and CCW tokens", "[calibration][screws_tilt]") {
-    SECTION("CW becomes CCW") {
-        std::string s = "CW 01:15";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CCW 01:15");
-    }
-
-    SECTION("CCW becomes CW") {
-        std::string s = "CCW 00:30";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CW 00:30");
-    }
-
-    SECTION("Zero-turn CW preserves magnitude") {
-        std::string s = "CW 00:00";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CCW 00:00");
-    }
-
-    SECTION("Non-matching prefix is untouched") {
-        std::string s = "XW 01:00";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "XW 01:00");
-    }
-
-    SECTION("Empty string is a no-op") {
-        std::string s;
-        flip_screws_tilt_direction(s);
-        REQUIRE(s.empty());
-    }
-
-    SECTION("String without direction token is a no-op") {
-        std::string s = "00:00";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "00:00");
-    }
-
-    SECTION("Mid-string CW is not flipped") {
-        std::string s = "foo CW bar";
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "foo CW bar");
-    }
-
-    SECTION("Round-trip flip restores original") {
-        std::string s = "CW 02:45";
-        flip_screws_tilt_direction(s);
-        flip_screws_tilt_direction(s);
-        REQUIRE(s == "CW 02:45");
-    }
+TEST_CASE("An AD5X line parses as Klipper wrote it", "[calibration][screws_tilt]") {
+    const auto results =
+        parse_lines({"// Right Near : x=202.0, y=12.5, z=-4.59750 : adjust CW 01:24"});
+    REQUIRE(results.size() == 1);
+    REQUIRE(results[0].adjustment == "CW 01:24");
+    REQUIRE(results[0].signed_adjustment_minutes().value() == 84);
 }
 
 TEST_CASE("ScrewTiltResult::adjustment_minutes parses arc-minute totals",
