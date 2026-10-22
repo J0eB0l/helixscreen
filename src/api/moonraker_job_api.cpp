@@ -13,6 +13,9 @@
 
 using namespace moonraker_internal;
 
+static_assert(helix::gcode::kPrintEditedStartMarginMs >= MoonrakerJobAPI::kPrintStartTimeoutMs,
+              "print_edited must wait for the start as long as a direct start does");
+
 // ============================================================================
 // MoonrakerJobAPI Implementation
 // ============================================================================
@@ -299,8 +302,11 @@ void MoonrakerJobAPI::start_edited_print(const std::string& original_filename,
     spdlog::info("[Moonraker API] Starting edited print via helix_print plugin: {} ({} edits, "
                  "copy: {})",
                  original_filename, edits.size(), temp_file_path);
-    // The plugin starts it through a link and marks it as its own start.
-    helix::screen_start_ledger().note_any();
+    // The plugin starts it through a link and marks it as its own start, once
+    // its rewrite is done: the note waits as long as this call may.
+    const uint32_t timeout_ms = helix::gcode::print_edited_timeout_ms(file_size);
+    helix::screen_start_ledger().note_any(helix::ScreenStartLedger::Clock::now(),
+                                          std::chrono::milliseconds(timeout_ms));
 
     client_.send_jsonrpc(
         "server.helix.print_edited", params,
@@ -317,9 +323,14 @@ void MoonrakerJobAPI::start_edited_print(const std::string& original_filename,
         [on_error](const MoonrakerError& err) {
             spdlog::error("[Moonraker API] helix_print plugin print_edited failed: {} ({})",
                           err.message, err.get_type_string());
+            // Nothing will start for a definite answer, so its note goes.
+            if (helix::gcode::classify_print_edited_failure(err) !=
+                helix::gcode::EditedPrintFailure::Unanswered) {
+                helix::screen_start_ledger().withdraw_any();
+            }
             if (on_error) {
                 on_error(err);
             }
         },
-        helix::gcode::print_edited_timeout_ms(file_size));
+        timeout_ms);
 }

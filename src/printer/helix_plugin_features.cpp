@@ -139,12 +139,14 @@ std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& feat
         line.home = known.home;
         lines.push_back(std::move(line));
     }
-    for (const auto& [name, entry] : features) {
+    for (const auto& feature : features) {
+        // A named reference: C++17 lambdas cannot capture a structured binding.
+        const std::string& name = feature.first;
         const bool known =
             std::any_of(std::begin(kKnownPluginFeatures), std::end(kKnownPluginFeatures),
                         [&name](const KnownPluginFeature& k) { return name == k.name; });
         if (!known) {
-            lines.push_back(line_for(name, entry));
+            lines.push_back(line_for(name, feature.second));
         }
     }
     return lines;

@@ -262,9 +262,14 @@ TEST_CASE("gcode edit list: the wait for print_edited grows with the file",
     CHECK(print_edited_timeout_ms(1) == kPrintEditedBaseTimeoutMs + kPrintEditedTimeoutMsPerMiB);
     CHECK(print_edited_timeout_ms(100 * kMiB) ==
           kPrintEditedBaseTimeoutMs + 100 * kPrintEditedTimeoutMsPerMiB);
-    // Longer than the plugin's own worker limit (600 s + 60 s/MiB) is not the goal; minutes
-    // per hundred MiB on a slow host is.
-    CHECK(print_edited_timeout_ms(100 * kMiB) >= 60u * 60 * 1000);
+    // Never shorter than the plugin's worker limit (600 s + 60 s/MiB) plus the start
+    // it answers after, or the app gives up on a rewrite the plugin is still doing.
+    for (const uint64_t size : {uint64_t{1}, 3 * kMiB / 2, 100 * kMiB, 900 * kMiB}) {
+        INFO(size);
+        const double plugin_limit_ms =
+            1000.0 * (600.0 + 60.0 * static_cast<double>(size) / static_cast<double>(kMiB));
+        CHECK(print_edited_timeout_ms(size) >= plugin_limit_ms + kPrintEditedStartMarginMs);
+    }
     CHECK(print_edited_timeout_ms(0) == print_edited_timeout_ms(kPrintEditedAssumedBytes));
     CHECK(print_edited_timeout_ms(UINT64_MAX / 2) == UINT32_MAX);
 }

@@ -210,12 +210,20 @@ struct MethodRecordingClient : public MoonrakerClientMock {
             }
             return 0;
         }
+        if (method == "server.helix.print_edited" && fail_print_edited) {
+            if (error_cb) {
+                error_cb(*fail_print_edited);
+            }
+            return 0;
+        }
         return MoonrakerClientMock::send_jsonrpc(method, params, std::move(success_cb),
                                                  std::move(error_cb), timeout_ms, silent, intent);
     }
 
     /// When set, printer.print.start answers with this error.
     std::optional<MoonrakerError> fail_print_start;
+    /// When set, server.helix.print_edited answers with this error.
+    std::optional<MoonrakerError> fail_print_edited;
 };
 
 struct JobStartFx : LVGLTestFixture {
@@ -232,6 +240,8 @@ struct JobStartFx : LVGLTestFixture {
     /// The ledger is process-wide: drop what earlier cases noted.
     static void forget_notes() {
         while (screen_start_ledger().withdraw("benchy.gcode")) {
+        }
+        while (screen_start_ledger().withdraw_any()) {
         }
         while (screen_start_ledger().claim("")) {
         }
@@ -281,6 +291,35 @@ TEST_CASE_METHOD(JobStartFx, "a start from this screen is noted before it is sen
             "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, 0,
             [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
         CHECK(screen_start_ledger().claim(".helix_print/abcd_benchy.gcode"));
+    }
+
+    SECTION("an edited start's note outlasts the plugin's rewrite of a large file") {
+        constexpr uint64_t kSize = 200ull * 1024 * 1024;
+        api.job().start_edited_print(
+            "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, kSize,
+            [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
+        // The plugin's worker alone may take 600 s + 60 s/MiB for this file.
+        CHECK(screen_start_ledger().claim("benchy.gcode",
+                                          ScreenStartLedger::Clock::now() + std::chrono::hours(3)));
+    }
+
+    SECTION("a refused edited start takes its note back; a lost answer keeps it") {
+        MoonrakerError refused = MoonrakerError::from_json_rpc(
+            {{"code", 400}, {"message", "Original file changed since the screen read it"}},
+            "server.helix.print_edited");
+        client.fail_print_edited = refused;
+        api.job().start_edited_print(
+            "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, 0,
+            [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
+        CHECK_FALSE(screen_start_ledger().claim("benchy.gcode"));
+
+        MoonrakerError lost;
+        lost.type = MoonrakerErrorType::TIMEOUT;
+        client.fail_print_edited = lost;
+        api.job().start_edited_print(
+            "benchy.gcode", ".helix_temp/benchy.gcode", nlohmann::json::array(), {}, 0,
+            [](const ModifiedPrintResult&) {}, [](const MoonrakerError&) {});
+        CHECK(screen_start_ledger().claim("benchy.gcode"));
     }
 
     SECTION("a refused start takes back its note and its announcement") {

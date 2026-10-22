@@ -94,6 +94,10 @@ class ScreenStartLedger {
     /// False when there was none.
     bool withdraw(const std::string& filename);
 
+    /// Take back the newest note_any(), for a start that failed. False when
+    /// there was none.
+    bool withdraw_any();
+
     /// Whether the job history added for @p filename is one this screen
     /// started; a match is used up.
     bool claim(const std::string& filename, Clock::time_point now = Clock::now());

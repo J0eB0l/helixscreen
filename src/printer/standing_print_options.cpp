@@ -97,6 +97,17 @@ bool ScreenStartLedger::withdraw(const std::string& filename) {
     return false;
 }
 
+bool ScreenStartLedger::withdraw_any() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = entries_.rbegin(); it != entries_.rend(); ++it) {
+        if (!it->filename) {
+            entries_.erase(std::next(it).base());
+            return true;
+        }
+    }
+    return false;
+}
+
 void ScreenStartLedger::set_announce(bool announce) {
     std::lock_guard<std::mutex> lock(mutex_);
     announce_ = announce;

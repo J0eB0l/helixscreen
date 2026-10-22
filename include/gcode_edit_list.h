@@ -62,8 +62,18 @@ EditTransport choose_edit_transport(PluginFeatureState server_edits, bool archiv
 /// the print has started, so this is generous: an answer that arrives after it is lost.
 uint32_t print_edited_timeout_ms(uint64_t file_size);
 
-inline constexpr uint32_t kPrintEditedBaseTimeoutMs = 10 * 60 * 1000;
-inline constexpr uint32_t kPrintEditedTimeoutMsPerMiB = 30 * 1000;
+/// The plugin's limit on its rewrite worker, tracking WORKER_BASE_TIMEOUT_S and
+/// WORKER_SECONDS_PER_MB in moonraker-plugin/helix_gcode_reader.py (worker_timeout()).
+inline constexpr uint32_t kPluginWorkerBaseTimeoutMs = 600 * 1000;
+inline constexpr uint32_t kPluginWorkerTimeoutMsPerMiB = 60 * 1000;
+/// After its rewrite the plugin answers only once Klipper acknowledged the start,
+/// which a print-start macro heating synchronously holds as long as a direct
+/// start's (MoonrakerJobAPI::kPrintStartTimeoutMs, asserted there).
+inline constexpr uint32_t kPrintEditedStartMarginMs = 10 * 60 * 1000;
+/// The app's wait: the plugin's worker limit, then the start.
+inline constexpr uint32_t kPrintEditedBaseTimeoutMs =
+    kPluginWorkerBaseTimeoutMs + kPrintEditedStartMarginMs;
+inline constexpr uint32_t kPrintEditedTimeoutMsPerMiB = kPluginWorkerTimeoutMsPerMiB;
 inline constexpr uint64_t kPrintEditedAssumedBytes = 256ull * 1024 * 1024;
 
 /// What a failed print_edited means for the start.
