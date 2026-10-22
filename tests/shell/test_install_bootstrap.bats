@@ -73,6 +73,8 @@ cp \"$body\" \"\$out\""
 }
 
 @test "falls back to wget when curl is absent" {
+    # sandbox-gap-reviewed: the replaced PATH holds only a mock wget and links
+    # to sh, cp, rm and cat, so nothing here can reach the host.
     local bin="$BATS_TEST_TMPDIR/wget-only"
     mkdir -p "$bin"
     cat > "$bin/wget" <<EOF
