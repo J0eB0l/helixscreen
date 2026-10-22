@@ -34,6 +34,8 @@ most, because it is the one that is not always connected and cannot afford to re
 |------|------|
 | `moonraker-plugin/helix_print.py` | The component: `print_modified`, status, the feature framework (`HelixPrint#register_feature`, `always_on`, `opt_in_enabled`, `feature_entry`), the helix-initiated job marker (`HelixJobMarkers`), sibling loading (`_load_sibling`) |
 | `moonraker-plugin/helix_<feature>.py` | One module per feature, loaded by `_load_sibling`; see each feature's section |
+| `moonraker-plugin/helix_file_queue.py` | What a feature keeping one record per gcodes file shares: `file_event` / `FileTracker` (filelist_changed, directory events fanned out per record, hidden staging paths), `WorkQueue` (one at a time, `front`, a `ready` gate, an item's exception logged), `RecordStore` / `namespace_items` (a namespace keyed by path, with the `ns_items` fallback), `scan_files`, `IDLE_JOB_STATES`. Used by analysis and .3mf conversion |
+| `moonraker-plugin/helix_gcode_reader.py` | Shared pure helpers beyond the G-code reader: `WorkerProcess`, `worker_argv`, `worker_nice`, `worker_timeout`, `atomic_write_bytes`, `atomic_publish`, `fsync_dir` |
 | `moonraker-plugin/remote-install.sh` | Remote installer; `PLUGIN_FILES` names every file it downloads |
 | `moonraker-plugin/tests/test_helix_features.py` | Framework tests: status entries, a sibling that fails to import, opt-in defaults |
 | `include/helix_plugin_features.h`, `src/printer/helix_plugin_features.cpp` | `parse_plugin_features`, `plugin_feature_state`, `plugin_feature_opted_in`, `plugin_switch_mode`, `fallback_sender_role`, the `local_screen` presence record, `kKnownPluginFeatures`, `plugin_feature_lines` |
@@ -72,7 +74,9 @@ most, because it is the one that is not always connected and cannot afford to re
 A plugin without `api` predates the map.
 
 **`[helix_print] enabled: False` turns off every feature.** No module starts, so no handler,
-endpoint or worker of one exists, and every entry reports `available: false` with reason
+endpoint or worker of one exists: a call to `print_edited`, `config`, `config_edit`,
+`journal`, `analysis` or `print_hooks/screen_start` finds no such endpoint, and
+`print_modified` answers 503. Every entry reports `available: false` with reason
 `plugin_disabled` (`feature_availability`), whatever its own switch or probe says.
 
 **Each feature starts in isolation.** `component_init` runs every module's start through
@@ -289,7 +293,8 @@ files and per-tool amounts only this way. Observer: `always_on`, no switch.
 
 **Endpoint.** `server.helix.analysis {"filename"}` answers `ready` with the record, `pending`
 (queued at the front; `notify_analysis_ready {"filename"}` follows), `failed` (this version
-failed twice; a change retries) or `disabled`. 400 for a path that is not a visible
+failed twice; a change retries, a restart does not: namespace `helix_analysis_failures` keeps
+`[size, mtime, attempts]` per path) or `disabled`. 400 for a path that is not a visible
 `.gcode/.g/.gco`, 404 for a missing file. Record shape (schema 1: tools with per-field
 `sources`, bounds, header, objects, layers, pauses, thumbnail): README § File Analysis and the
 `helix_analysis.py` docstring.
@@ -297,14 +302,22 @@ failed twice; a change retries) or `disabled`. 400 for a path that is not a visi
 **Layer index sidecar.** `.helix_index/<path>.layers.jsonl`, shared with power-loss recovery:
 a header with the file's identity (size, mtime, sha1 of the first and last 64 KB), one line per
 layer start with offset, Z and the full modal state, then `summary` and `complete`. One writer
-per file: analysis renames a whole file in; the PLR follower appends during a print and never
-touches a complete one. One prune rule: `prune_layer_indexes` removes an index whose source is
-gone or changed, and `.external` indexes, except the paths PLR protects (the one it follows and
-the one its waiting snapshot resumes from).
+per file: analysis writes `<index>.tmp` and publishes it whole (`atomic_publish`); the PLR
+follower appends during a print and never touches a complete one. One prune rule:
+`prune_layer_indexes` removes an index whose source is gone or changed, `.external` indexes and
+orphaned `.tmp` files, except the paths PLR protects (the one it follows and the one its waiting
+snapshot resumes from) and the index of the file the worker is reading. Analysis starts, and so
+prunes, only after PLR has loaded its job.
 
 **Worker.** One file at a time in a child process (Moonraker's interpreter, nice 19,
-`ionice -c 3`, timeout 120 s + 10 s/MB, killed on shutdown). While printing it runs only on a
-multi-core host; a print starting on a one-core host kills the worker and requeues the file.
+`ionice -c 3`, killed on shutdown). The timeout, `worker_timeout()` in `helix_gcode_reader.py`,
+is 600 s + 60 s/MB, sized for a nice-19 worker on a MIPS or Cortex-A7 host; `print_edited`'s
+worker uses the same rule. While printing it runs only on a multi-core host; a print starting
+on a one-core host kills the worker and requeues the file. A file deleted while its worker ran
+is forgotten, sidecar included; one changed meanwhile loses the sidecar just written and is
+queued again. An embedded thumbnail block is dropped once it passes its cap or meets a line that
+is not base64, and the comments after it are read as usual; an extruding move far off the
+footprint grid is clipped to it before stepping.
 
 **Decisions.** `file_analysis_source(plugin_feature("file_analysis", 1), filename)`: Plugin
 only when Ready and the file is not a `.3mf`. `apply_file_analysis()`: the record wins per field
@@ -349,12 +362,17 @@ settings, so only the screen whose `fallback_sender_role` is Sender writes it, a
 empty one: before the filament backend reports, nothing is known, and no record beats a wrong
 one (`src/printer/standing_print_options.cpp#writes_standing_record`). `POST /server/helix/print_hooks/screen_start
 {"filename"}`: the screen announces its own direct start just before `printer.print.start`,
-only while `print_hooks` is Ready; a private marker (60 s) that `helix_initiated()` never
-answers. The plugin acts from history `added`.
+only while `print_hooks` is Ready; a private marker (`SCREEN_START_TTL_S`, 15 s) that
+`helix_initiated()` never answers. `{"filename", "withdraw": true}` takes it back after a
+start that failed, so a start of the same file elsewhere still gets its hooks. The plugin acts
+from history `added`, and sends only if `job_still_running()` holds when it is about to:
+`print_stats` reports that file `printing`. Every await before the send can outlive the job.
 
 **Decisions.**
 - Plugin `hook_gcode(kind, screen_started, enabled, record)`: nothing for any helix-initiated
   kind, a screen start, opt-in off, or an absent, empty or other-version record.
+- Plugin `job_still_running(status, filename)`: the last check before the send; an
+  unreadable `print_stats` reads as not running.
 - App `standing_options_sender(state, opted_in, screen_started, has_gcode, role)`: a screen
   start or nothing rendered sends nothing; Ready means the plugin sends; Disabled sends nothing;
   Absent sends from the app when opted in and `fallback_sender_role` says Sender.
@@ -384,7 +402,7 @@ and starts the result through the same linked-print path as `print_modified`. Tr
 
 | File | Role |
 |------|------|
-| `moonraker-plugin/helix_edits.py` | `parse_edits`, `apply_plan` / `apply_file` (pure), `HelixEdits` (endpoint) |
+| `moonraker-plugin/helix_edits.py` | `parse_edits` / `resolve_spans`, `apply_plan` / `apply_file` (pure), `HelixEdits` (endpoint); run as a script, the worker that rewrites one file |
 | `moonraker-plugin/helix_print.py` | `_start_edits`; `resolve_original`, `resolve_temp`, `start_linked_print(..., kind)` shared with `print_modified` |
 | `include/gcode_edit_list.h`, `src/rendering/gcode_edit_list.cpp` | `EditList`, `to_server_edits`, `from_server_edits`, `choose_edit_transport` |
 | `src/ui/ui_print_preparation_manager.cpp` | `modify_and_print`, `modify_and_print_with_remap` fill the server-edits route; `rewrite_and_print` picks it; `start_staged_print` starts either |
@@ -393,10 +411,18 @@ and starts the result through the same linked-print path as `print_modified`. Tr
 | `tests/fixtures/gcode_edits/` | Golden cases both suites apply |
 
 **Endpoint.** `server.helix.print_edited {original_filename, temp_file_path?, edits[],
-modifications[]}`. The reply is `print_modified`'s plus `lines_changed`. Errors: 400 malformed
-list or bad path, 403 switched off, 409 a line differs from its `expect_raw_line`, 500 write or
-start failed, 503 plugin disabled. The copy is written to `<temp>.part` and renamed, and the job
-is marked `print_edited` immediately before `SDCARD_PRINT_FILE`. Edit grammar
+modifications[]}`. The reply is `print_modified`'s plus `lines_changed`. Errors: 400 for a
+malformed or out-of-bounds list (lines 1..2147483647, `end_line` at least `line_number`, at
+most `MAX_EDITS` = 10000 edits), a path outside gcodes, or a copy path that is not directly in
+`temp_dir` / `.helix_temp` / `helix_staging` or is the original (`resolve_temp`, shared with
+`print_modified`); 409 for a line that differs from its `expect_raw_line` or a copy path that
+already exists; 500 when the worker crashes or times out, or the write or start fails. With the
+plugin disabled the endpoint does not exist. A range stays one span (`resolve_spans`), so a
+plan's size follows the edit count, never a range's length. The rewrite runs in a worker process
+(`helix_edits.py` as a script, nice 19), never in Moonraker's: its stdout is `{"changed"}` or
+`{"refused": line}`. It writes a uniquely named `<name>.<random>.part` beside the copy, which is
+published with `atomic_publish(exclusive=True)`: two requests for one path give one whole copy
+and a 409. The job is marked `print_edited` immediately before `SDCARD_PRINT_FILE`. Edit grammar
 (`comment_out`, `delete`, `inject_before`, `inject_after`, `replace`, `tool_remap`) and line
 rules: README § Start Edited Print.
 
@@ -437,7 +463,11 @@ it the screen keeps its own and backfills gaps on reconnect. Observer: `always_o
 `{entries, truncated, latest_id, enabled}`, oldest first; `latest_id` is the next `since`. Each
 append is broadcast as `notify_helix_journal_appended [entry]`. Entry kinds, classes and the
 `detail` field: README § Printer Event Journal. Storage: namespace `helix_journal`, one key per
-entry, 500 entries or 30 days.
+entry, 500 entries or 30 days. A `gcode_error` repeating one of the `REPEAT_LOOKBACK` (16)
+newest entries (same text, class, detail and job) within `REPEAT_WINDOW_S` (60 s) of its
+`last_time` is counted on it: `count` (absent means 1) and `last_time`. A repeat is written back
+at most every `REPEAT_PERSIST_S` (10 s), and the next new entry flushes its final count; it is
+broadcast only when first recorded.
 
 **Decision.** `decide_journal_source(plugin_feature("event_journal", 1), recorder_built)`:
 Plugin only for Ready; everything else is Screen with `record_locally` in a build that has the
@@ -480,7 +510,10 @@ with Klipper down. Includes are read where their line stands; the root's `SAVE_C
 read last and supplies only options the regular config leaves undefined.
 `server.helix.config_edit {edits: [{section, option, action, value, expect}], dry_run}` returns
 `{dry_run, files, backups, diff}`; a refusal is 409 naming its rule first (`autosave`, `moved`,
-`outside_root`, `invalid`). Backups go to `.helix_backups/<file>.helixbak-<stamp>` under the
+`outside_root`, `invalid`). `invalid` includes a section or option name Klipper could not read
+back (a newline, `[`, `]`, `#`, `;`; and `=`, `:` or whitespace in an option). Include globs
+expand as Klipper's `glob.glob` does, without `recursive=True`, so `**` is one directory.
+Files are written through `atomic_write_bytes` with their own mode. Backups go to `.helix_backups/<file>.helixbak-<stamp>` under the
 config root, newest five per file. The plugin never restarts Klipper. Full shapes: README
 § Read and Edit the Klipper Config.
 
@@ -505,10 +538,16 @@ both.
 
 1. **Module.** `moonraker-plugin/helix_<feature>.py`, with its feature name and contract version
    as module constants. Keep the rules pure and the Moonraker-facing class thin. Python 3.8.
+   A feature that keeps one record per gcodes file builds on `helix_file_queue.py`
+   (`FileTracker`, `WorkQueue`, `RecordStore`, `scan_files`); one that reads whole files does
+   so in a worker (`WorkerProcess`, `worker_timeout`); one that writes a file uses
+   `atomic_write_bytes` / `atomic_publish`. A sibling it imports by name loads before it in
+   `helix_print.py`.
 2. **Register.** A `_start_<feature>()` in `helix_print.py` that loads the sibling, registers the
    feature (`acts`, and `switch=always_on` if it has no setting), and registers it with
    `available=False` and its load error when the module is missing. Call it from
-   `component_init`. A start-of-job feature acts from history `added` and checks
+   `component_init` through `_start_isolated(name, acts, start)`, which handles a disabled
+   plugin and a start that raises; a module checks `feature_enabled(name)` before it acts. A start-of-job feature acts from history `added` and checks
    `helix_initiated()`; a path that starts a job marks it.
 3. **Install list.** Add the file to `PLUGIN_FILES` in `moonraker-plugin/remote-install.sh`.
    `tests/shell/test_plugin_remote_install.bats` fails for any shipped `.py` or `.sh` the

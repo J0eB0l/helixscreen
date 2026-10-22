@@ -2,6 +2,8 @@
 
 A Moonraker component that handles modified G-code files while preserving original file attribution in Klipper's `print_stats` and Moonraker's history.
 
+Developer guide (feature framework, each feature's app side, adding a feature): [docs/devel/HELIXPRINT_PLUGIN.md](../docs/devel/HELIXPRINT_PLUGIN.md).
+
 ## Quick Install (Recommended)
 
 On a printer that runs HelixScreen, install the plugin from the app: **Advanced > Install
@@ -203,7 +205,8 @@ Fluidd, a slicer, or Moonraker's job queue moving to its next job. Off until the
 The screen keeps the options in Moonraker's database, namespace `helix-screen`, key
 `standing_print_options`, as finished G-code rendered by the same code its own print start
 uses: `{"version": 1, "gcode": "..."}`. The plugin never renders backend G-code itself. When
-history adds a job that no HelixScreen path started, the plugin sends that G-code once. A job
+history adds a job that no HelixScreen path started, the plugin sends that G-code once, and
+only if `print_stats` still reports that file printing at the moment it sends. A job
 with a helix-initiated marker of any kind gets nothing, and neither does a start the screen
 made itself, which it announces just before its start command:
 
@@ -212,8 +215,14 @@ POST /server/helix/print_hooks/screen_start
 {"filename": "benchy.gcode"}
 ```
 
-The announcement waits 60 s for its job, like a helix-initiated marker, but it is private to
-this feature: `helix_initiated()` never answers it.
+The announcement waits 15 s for its job, and it is private to this feature:
+`helix_initiated()` never answers it. A screen whose start command fails withdraws it, so a
+start of the same file from elsewhere still gets its hooks:
+
+```
+POST /server/helix/print_hooks/screen_start
+{"filename": "benchy.gcode", "withdraw": true}
+```
 
 ### Start Modified Print
 
@@ -270,7 +279,9 @@ screen is rewritten, and acts on nothing by itself). The client sends the edits 
 edited copy; the plugin applies them beside the original and starts the result as
 `print_modified` does, marked `print_edited`. The rewrite runs in a worker process at the
 lowest CPU and I/O priority, never inside Moonraker's own, with the same time limit as file
-analysis (10 minutes plus 60 s per MB).
+analysis (10 minutes plus 60 s per MB). It writes a uniquely named `<copy>.<random>.part`
+beside the copy and publishes it only if the copy path is still free, so two requests for one
+path give one whole copy and a 409, never a mix.
 
 ```http
 POST /server/helix/print_edited
@@ -314,10 +325,11 @@ implementations must turn into the same bytes.
 
 | Code | Description |
 |------|-------------|
-| 400 | Malformed or out-of-bounds edit list, original not found, or a path outside the gcodes root |
+| 400 | Malformed or out-of-bounds edit list, original not found, a path outside the gcodes root, or a copy path outside the staging directories or equal to the original |
 | 409 | A line differs from its `expect_raw_line`, or `temp_file_path` already exists |
-| 500 | Failed to write the copy, create the symlink or start the print |
-| 503 | Plugin is disabled |
+| 500 | The rewrite crashed or timed out, or writing the copy, creating the symlink or starting the print failed |
+
+With `enabled: False` the endpoint is not registered at all.
 
 ### List .3mf Conversions
 
