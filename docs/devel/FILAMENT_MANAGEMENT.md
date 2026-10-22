@@ -2931,10 +2931,15 @@ fails with the backend's `not_supported`.
 
 **Where the at-tap chain lives now.** The dialog half of the table above is the print-start
 gate pipeline: `PrintStartController::run_gates_from()` iterates
-`default_print_start_gates()` (`include/print_start_checks.h`) — six pure gates over a single
-`gather_print_start_context()` snapshot, in order:
+`default_print_start_gates()` (`include/print_start_checks.h`) — pure gates over a single
+`gather_print_start_context()` snapshot, in order. The file's own questions come first: a
+command this printer treats as an emergency stop (`printer_stopping_command`), then whether the
+file fits the printer at all (`fit_check`: travel, heater limits, tools, nozzle and model;
+`include/fit_check.h`, documented with the HelixPrint plugin's `fit_check_blocks_autostart`).
+The filament gates follow:
 
-1. `insufficient_spool_weight` — spoolman remaining weight vs. the file's need
+1. `insufficient_spool_weight` — spoolman remaining weight vs. the file's need; its lane-fed
+   twin `insufficient_lane_weight` follows it
 2. `bypass_engaged_lane_print` — bypass engaged **and** the file uses more than one tool;
    a single-tool bypass print is the legitimate bypass use and stays silent. "Single-tool"
    is the gcode-scan's used-tool count, not the filament palette size — slicers emit a

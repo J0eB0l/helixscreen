@@ -553,26 +553,27 @@ TEST_CASE("material_mismatches_in: bypass falls back to palette materials",
 
 TEST_CASE("default gate list: names in behavior-preserving order", "[print-start][gate-pipeline]") {
     auto& gates = default_print_start_gates();
-    REQUIRE(gates.size() == 8);
+    REQUIRE(gates.size() == 9);
     CHECK(gates[0].name == "printer_stopping_command");
-    CHECK(gates[1].name == "insufficient_spool_weight");
+    CHECK(gates[1].name == "fit_check");
+    CHECK(gates[2].name == "insufficient_spool_weight");
     // The lane-fed counterpart sits beside its sibling; the two are mutually
     // exclusive by construction, so their relative order is not load-bearing.
-    CHECK(gates[2].name == "insufficient_lane_weight");
-    CHECK(gates[3].name == "bypass_engaged_lane_print");
-    CHECK(gates[4].name == "unaccounted_toolhead_filament");
-    CHECK(gates[5].name == "required_filament_present");
-    CHECK(gates[6].name == "unresolved_tools");
-    CHECK(gates[7].name == "material_compatibility");
+    CHECK(gates[3].name == "insufficient_lane_weight");
+    CHECK(gates[4].name == "bypass_engaged_lane_print");
+    CHECK(gates[5].name == "unaccounted_toolhead_filament");
+    CHECK(gates[6].name == "required_filament_present");
+    CHECK(gates[7].name == "unresolved_tools");
+    CHECK(gates[8].name == "material_compatibility");
 }
 
 TEST_CASE("default gate list: the two new gates keep their relative order",
           "[print-start][gate-pipeline]") {
     auto& gates = default_print_start_gates();
-    REQUIRE(gates.size() == 8);
-    CHECK(gates[3].name == "bypass_engaged_lane_print");
-    CHECK(gates[4].name == "unaccounted_toolhead_filament");
-    CHECK(gates[5].name == "required_filament_present");
+    REQUIRE(gates.size() == 9);
+    CHECK(gates[4].name == "bypass_engaged_lane_print");
+    CHECK(gates[5].name == "unaccounted_toolhead_filament");
+    CHECK(gates[6].name == "required_filament_present");
 }
 
 // ---------------------------------------------------------------------------

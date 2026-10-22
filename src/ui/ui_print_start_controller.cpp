@@ -737,9 +737,11 @@ helix::PrintStartContext PrintStartController::gather_print_start_context() cons
         ctx.tools_used = detail_view_->get_tools_used();
         ctx.effective_remap = detail_view_->get_effective_remap();
         ctx.tool_grams = detail_view_->get_tool_grams();
+        ctx.fit_file = detail_view_->get_fit_file();
     } else if (file_facts_) {
         helix::fill_file_context(ctx, *file_facts_);
     }
+    ctx.fit_machine = helix::current_fit_machine();
     if (!ctx.has_file_facts) {
         ctx.printer_stop.not_run_reason = "no file detail view";
     } else if (auto* prep = active_prep_manager()) {

@@ -382,6 +382,13 @@ class PrintSelectDetailView : public OverlayBase {
     /// once the viewer has it. Publishes whether the skip button shows.
     void refresh_exclude_objects();
 
+    /// Re-run the fit check over what is known of the shown file and publish
+    /// detail_fit_check_severity / detail_fit_check_text.
+    void refresh_fit_check();
+
+    /// Ask the plugin for the shown file's analysis, for the fit check.
+    void request_fit_record();
+
     /// Pick or un-pick a defined object (matched upper-case). A name the
     /// printer cannot be sent is refused with a toast.
     void toggle_exclude_pick(const std::string& name);
@@ -547,6 +554,11 @@ class PrintSelectDetailView : public OverlayBase {
     [[nodiscard]] std::vector<double> get_tool_grams() const {
         return headless_tool_grams_;
     }
+
+    /// What the file does, for the file-fits-printer check: the plugin's
+    /// analysis when it answered, else this view's head scan, the metadata and
+    /// the preview's model box (fit_file_from_sources()).
+    [[nodiscard]] helix::FitFile get_fit_file() const;
 
     /**
      * @brief Effective tool→slot remap the print will actually use.
@@ -943,6 +955,13 @@ class PrintSelectDetailView : public OverlayBase {
     // the copy is chosen when the icon is tapped, not when it is published.
     lv_subject_t color_card_remap_help_visible_{};
     lv_subject_t empty_tools_warning_{}; // 1 = at least one used tool's slot is empty
+    // The fit check's verdict for the shown file: 0 none, 1 warnings, 2 a block,
+    // and one line per finding.
+    lv_subject_t detail_fit_severity_{};
+    lv_subject_t detail_fit_text_{};
+    char detail_fit_text_buf_[512]{};
+    // The plugin's analysis of the shown file, as the fit check reads it.
+    std::optional<helix::FitFile> fit_record_;
     /// 1 while an enabled plugin declares a print_file menu item: the button row
     /// becomes Delete, more, Print as square icon buttons. Set on every show().
     lv_subject_t print_detail_has_plugin_items_{};

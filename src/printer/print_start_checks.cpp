@@ -480,6 +480,27 @@ CheckResult gate_printer_stopping_command(const PrintStartContext& ctx) {
     return r;
 }
 
+CheckResult gate_fit_check(const PrintStartContext& ctx) {
+    if (!ctx.fit_machine) {
+        return pass_result();
+    }
+    const std::vector<FitFinding> findings = check_fit(*ctx.fit_machine, ctx.fit_file);
+    if (findings.empty()) {
+        return pass_result();
+    }
+    const bool blocks = fit_blocks(findings);
+    const std::string lines = fit_findings_text(findings, blocks);
+    if (blocks) {
+        CheckResult r;
+        r.verdict = CheckResult::Verdict::Block;
+        r.severity = GateSeverity::Error;
+        r.title = lv_tr("File Does Not Fit This Printer");
+        r.body = lines + "\n\n" + lv_tr("Re-slice the file with a profile made for this printer.");
+        return r;
+    }
+    return warn_result(lv_tr("Sliced for a Different Setup"), lines, lv_tr("Start Anyway"));
+}
+
 PrinterStopCheck printer_stop_check_in(const std::string& content, size_t limit) {
     PrinterStopCheck check;
     auto& macros = MacroParamCache::instance();
@@ -850,6 +871,8 @@ const std::vector<PrintStartGate>& default_print_start_gates() {
     static const std::vector<PrintStartGate> gates = {
         // A file that shuts the printer down outranks every filament question.
         {"printer_stopping_command", gate_printer_stopping_command},
+        // Then a file the printer cannot run as sliced.
+        {"fit_check", gate_fit_check},
         {"insufficient_spool_weight", gate_insufficient_spool_weight},
         // The lane-fed counterpart. Mutually exclusive with the spool check by
         // construction: that one returns early on a lane-fed AMS print, this

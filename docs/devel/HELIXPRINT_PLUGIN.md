@@ -286,7 +286,7 @@ files and per-tool amounts only this way. Observer: `always_on`, no switch.
 |------|------|
 | `moonraker-plugin/helix_analysis.py` | Queue, backfill, endpoint, records (namespace `helix_analysis`), thumbnail publishing; run as a script, the worker that analyzes one file |
 | `moonraker-plugin/helix_gcode_reader.py` | The one G-code reader shared with PLR: `scan_to_offset` with a `ScanObserver`, the layer index (`write_layer_index`, `LayerIndexWriter`, `read_layer_index`), `file_identity`, `prune_layer_indexes`, `WorkerProcess` |
-| `include/file_analysis.h`, `src/printer/file_analysis.cpp` | `file_analysis_source`, `parse_file_analysis_reply`, `apply_file_analysis`, `with_layer_index_sidecar`; exception-free, compiled for the K-Touch |
+| `include/file_analysis.h`, `src/printer/file_analysis.cpp` | `file_analysis_source`, `parse_file_analysis_reply` (the record's `bounds` and `header` into `FileAnalysisRecord::fit`), `apply_file_analysis`, `request_file_analysis`, `with_layer_index_sidecar`; exception-free, compiled for the K-Touch |
 | `src/printer/print_start_inputs.cpp#load` | `FileStartFactsLoader::load`: metadata, record, footer, scan, in that order |
 | `src/rendering/gcode_layer_index.cpp` | `GCodeLayerIndex::build_from_sidecar`, `layer_index_file_hash` |
 | `src/ui/ui_print_select_detail_view.cpp`, `src/ui/print_preview_controller.cpp` | The two previews: fetch the sidecar, then load |

@@ -324,6 +324,24 @@
                           text="Bypass active — this print runs on the external spool." clickable="false" flex_grow="1"/>
             </ui_card>
 
+            <!-- File-fits-printer findings, one line each: a move past the
+                 travel, a heater past its limit or a missing tool blocks (danger),
+                 a nozzle or model mismatch warns. Text and severity come from
+                 PrintSelectDetailView::refresh_fit_check(). -->
+            <ui_card name="fit_check_card"
+                     width="100%" style_pad_hor="0" style_pad_ver="#space_xs" style_pad_gap="#space_xs"
+                     style_border_width="0" style_bg_color="#elevated_bg" flex_flow="row" style_flex_cross_place="start"
+                     scrollable="false" clickable="false">
+              <bind_flag_if_eq subject="detail_fit_check_severity" flag="hidden" ref_value="0"/>
+              <icon name="fit_check_block_icon" src="alert_octagon" size="sm" variant="danger" clickable="false">
+                <bind_flag_if_not_eq subject="detail_fit_check_severity" flag="hidden" ref_value="2"/>
+              </icon>
+              <icon name="fit_check_warn_icon" src="alert" size="sm" variant="warning" clickable="false">
+                <bind_flag_if_not_eq subject="detail_fit_check_severity" flag="hidden" ref_value="1"/>
+              </icon>
+              <text_small name="fit_check_label"
+                          width="0" flex_grow="1" bind_text="detail_fit_check_text" clickable="false"/>
+            </ui_card>
 
             <!-- Filament card. ONE chip surface for every AMS backend: the card
                  renders stacked filament_swatch chips from its own mappings store.

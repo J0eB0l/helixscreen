@@ -399,7 +399,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                 json extruder_settings = {
                     {"min_temp", self->get_extruder_min_temp()},
                     {"max_temp", self->get_extruder_max_temp()},
-                    {"min_extrude_temp", self->get_extruder_min_extrude_temp()}};
+                    {"min_extrude_temp", self->get_extruder_min_extrude_temp()},
+                    {"nozzle_diameter", 0.4}};
                 if (is_mock_kalico()) {
                     extruder_settings["control"] = "mpc";
                     extruder_settings["heater_power"] = 50.0;

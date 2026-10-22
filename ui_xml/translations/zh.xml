@@ -1419,6 +1419,7 @@
   <translation tag="Filament tracking and inventory" zh="耗材跟踪和库存"/>
   <translation tag="FilamentSensor" zh="耗材传感器"/>
   <translation tag="File" zh="文件"/>
+  <translation tag="File Does Not Fit This Printer" zh="文件不适合此打印机"/>
   <translation tag="File Size" zh="文件大小"/>
   <translation tag="File Will Stop the Printer" zh="文件会使打印机停止"/>
   <translation tag="File analysis" zh="文件分析"/>
@@ -1590,6 +1591,8 @@
   <translation tag="Heating {}..." zh="正在加热{}..."/>
   <translation tag="Heating..." zh="正在加热..."/>
   <translation tag="Heating: %d / %d°C" zh="加热中：%d / %d°C"/>
+  <translation tag="Heats the bed to {:g}°C, above this printer&apos;s {:g}°C limit." zh="将热床加热到 {:g}°C，超过此打印机 {:g}°C 的上限。"/>
+  <translation tag="Heats the nozzle to {:g}°C, above this printer&apos;s {:g}°C limit." zh="将喷嘴加热到 {:g}°C，超过此打印机 {:g}°C 的上限。"/>
   <translation tag="Heightmap and flatness of the active bed mesh" zh="当前热床网格的高度图和平整度"/>
   <translation tag="HelixPrint Plugin" zh="HelixPrint 插件"/>
   <translation tag="HelixPrint plugin updated." zh="HelixPrint 插件已更新。"/>
@@ -1615,6 +1618,7 @@
   <translation tag="High Fly" zh="云端飞翔"/>
   <translation tag="High Water Mark" zh="峰值标记"/>
   <translation tag="Hold anywhere to cancel" zh="长按任意位置取消"/>
+  <translation tag="Hold slicer prints that do not fit" zh="暂缓不适合的切片软件打印"/>
   <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." zh="将{}完全按在打印头上。锁定装置会锁住它，它将成为已安装的工具。"/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." zh="将喷嘴保持在 {}°C 以清洗之前的耗材。"/>
   <translation tag="Home" zh="归位"/>
@@ -2124,6 +2128,8 @@
   <translation tag="Move speed multipliers" zh="移动速度倍率"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." zh="移动打印头、归位轴、调平热床，并微调温度、风扇及其他运动设置。"/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." zh="移动打印头以测量每个轴上的振动频率。需要 2-3 分钟。打印机会发出噪音——这是正常的。"/>
+  <translation tag="Moves to {} {:g} mm, below this printer&apos;s {:g} mm." zh="移动到 {} {:g} mm，低于此打印机的 {:g} mm。"/>
+  <translation tag="Moves to {} {:g} mm, past this printer&apos;s {:g} mm." zh="移动到 {} {:g} mm，超出此打印机的 {:g} mm。"/>
   <translation tag="Moving back to the print" zh="正在移回打印件"/>
   <translation tag="Moving lane" zh="正在移动耗材通道"/>
   <translation tag="Moving over the resume point" zh="正在移动到恢复点上方"/>
@@ -2808,10 +2814,12 @@
   <translation tag="Re-probe" zh="重新探测"/>
   <translation tag="Re-read spool RFID tags and remaining length" zh="重新读取料盘 RFID 标签与剩余长度"/>
   <translation tag="Re-seat the Bowden tube connector on the CFS unit" zh="请重新插紧 CFS 单元上的鲍登管接头"/>
+  <translation tag="Re-slice the file with a profile made for this printer." zh="请使用为此打印机制作的配置重新切片。"/>
   <translation tag="Re-syncs Happy Hare&apos;s tracked state with the hardware." zh="将 Happy Hare 跟踪的状态与硬件重新同步。"/>
   <translation tag="Re-test" zh="重新测试"/>
   <translation tag="Re-test A" zh="重新测试 A"/>
   <translation tag="Re-test B" zh="重新测试 B"/>
+  <translation tag="Reaches {:g} mm from the center, past this printer&apos;s {:g} mm radius." zh="距中心 {:g} mm，超出此打印机 {:g} mm 的半径。"/>
   <translation tag="Readings don&apos;t repeat" zh="读数无法重复"/>
   <translation tag="Readings from extra temperature sensors" zh="额外温度传感器的读数"/>
   <translation tag="Ready" zh="就绪"/>
@@ -3266,6 +3274,9 @@
   <translation tag="Sleep adjusted to match dim timeout" zh="休眠超时已调整"/>
   <translation tag="Sleep {} min" zh="{} 分钟后休眠"/>
   <translation tag="Sliced colors" zh="切片颜色"/>
+  <translation tag="Sliced for a Different Setup" zh="为不同配置切片"/>
+  <translation tag="Sliced for a {:g} mm nozzle on T{}; the printer has {:g} mm." zh="按 {:g} mm 喷嘴（T{}）切片；打印机为 {:g} mm。"/>
+  <translation tag="Sliced for {}, not {}." zh="为 {} 切片，而不是 {}。"/>
   <translation tag="Slicer" zh="切片软件"/>
   <translation tag="Slot" zh="槽位"/>
   <translation tag="Slot 1" zh="槽位 1"/>
@@ -3958,6 +3969,7 @@
   <translation tag="Use the home layout set on the printer&apos;s own screen" zh="使用打印机自身屏幕上设置的主屏幕布局"/>
   <translation tag="User Guide" zh="用户指南"/>
   <translation tag="User intervention required" zh="需要手动干预"/>
+  <translation tag="Uses tool T{}, and this printer&apos;s last tool is T{}." zh="使用工具 T{}，而此打印机的最后一个工具是 T{}。"/>
   <translation tag="VM Peak" zh="虚拟内存峰值"/>
   <translation tag="VM Size" zh="虚拟内存大小"/>
   <translation tag="Validating bed mesh..." zh="正在验证热床网格..."/>
@@ -4035,6 +4047,7 @@
   <translation tag="Went past {} by {:.1f} Hz. Back it off a little." zh="超过 {} {:.1f} Hz。请稍微回调。"/>
   <translation tag="What We Collect" zh="我们收集的内容"/>
   <translation tag="What happens when a print ends" zh="打印结束时的操作"/>
+  <translation tag="When a slicer uploads and starts a file that moves past this printer&apos;s travel, heats past its limits or uses a missing tool, keep the file but do not start it." zh="当切片软件上传并启动的文件超出此打印机的行程、加热超过其上限或使用不存在的工具时，保留文件但不开始打印。"/>
   <translation tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." zh="启用时仅运行宏。禁用时先设置温度，然后运行宏。"/>
   <translation tag="Where UI sounds play" zh="界面声音的播放位置"/>
   <translation tag="Whether filament is loaded" zh="耗材是否已装载"/>

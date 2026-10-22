@@ -946,6 +946,11 @@ void MoonrakerDiscoverySequence::continue_discovery_objects(uint64_t seq) {
                                     std::lock_guard<std::mutex> lock(hardware_mutex_);
                                     hardware_.parse_build_volume(settings);
                                     hardware_.parse_extruder_dimensions(settings);
+                                    hardware_.parse_fit_limits(settings);
+                                    spdlog::debug(
+                                        "[Discovery] Fit-check limits: {}",
+                                        helix::json_util::safe_dump(
+                                            helix::fit_machine_json(*hardware_.fit_machine())));
                                     hardware_.parse_leveling_probe_points(settings);
                                     hardware_.parse_probe_xy_offset(settings);
                                 }

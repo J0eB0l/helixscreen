@@ -6,6 +6,7 @@
 // documented in moonraker-plugin/helix_analysis.py and the plugin README; this
 // reads the parts the screen uses, and decides whether a caller asks for it.
 
+#include "fit_check.h"
 #include "helix_plugin_features.h"
 #include "json_fwd.h"
 
@@ -64,6 +65,8 @@ struct FileAnalysisRecord {
     int layer_count = 0;
     std::string layer_index; ///< gcodes-relative sidecar path, or empty
     int pauses = 0;
+    /// The record's `bounds`, `header` and tool numbers, as the fit check reads them.
+    FitFile fit;
 };
 
 /// What server.helix.analysis answered.
@@ -83,10 +86,16 @@ struct FileAnalysisReply {
 
 /// Take what @p record answers into @p facts, field by field: the tools it
 /// prints with, each tool's color and material (a slot the record leaves empty
-/// keeps the metadata's), and per-tool grams when the record has grams for
-/// every tool it prints with. A field the record does not answer is left as it
-/// was, for the screen's own reads to fill.
+/// keeps the metadata's), per-tool grams when the record has grams for
+/// every tool it prints with, and the fit check's file facts. A field the record does not answer is
+/// left as it was, for the screen's own reads to fill.
 void apply_file_analysis(FileStartFacts& facts, const FileAnalysisRecord& record);
+
+/// Ask the plugin for @p filename's analysis. @p on_reply runs on a
+/// background thread with what it answered (an Invalid reply when the call
+/// failed); the caller moves it to the main thread.
+void request_file_analysis(IMoonrakerAPI* api, const std::string& filename,
+                           std::function<void(FileAnalysisReply)> on_reply);
 
 /// Hand @p load the text of @p filename's layer index sidecar
 /// (GCodeLayerIndex::build_from_sidecar) when the plugin's current record

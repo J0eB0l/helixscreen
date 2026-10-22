@@ -228,6 +228,9 @@ void PrintSelectDetailView::init_subjects() {
     // Empty-tools warning visibility (0=hidden, 1=visible). Set by
     // recompute_preflight() when any T-command-referenced slot is empty.
     UI_MANAGED_SUBJECT_INT(empty_tools_warning_, 0, "empty_tools_warning", subjects_);
+    UI_MANAGED_SUBJECT_INT(detail_fit_severity_, 0, "detail_fit_check_severity", subjects_);
+    UI_MANAGED_SUBJECT_STRING(detail_fit_text_, detail_fit_text_buf_, "", "detail_fit_check_text",
+                              subjects_);
 
     // Options scroll-area overflow (0=everything visible, 1=content hidden
     // below the visible bottom edge). print_file_detail.xml shows the bottom
@@ -486,6 +489,7 @@ void PrintSelectDetailView::set_analysis_dependencies(IMoonrakerAPI* api,
         // A scan answer can be what a deferred Print tap is waiting on.
         prep_manager_->set_on_scan_answered([this]() {
             refresh_exclude_objects();
+            refresh_fit_check();
             notify_print_readiness_changed();
             fire_on_preflight_ready();
         });
@@ -609,6 +613,8 @@ void PrintSelectDetailView::show(const std::string& filename, const std::string&
     lv_subject_set_int(&empty_tools_warning_, 0);
     lv_subject_set_int(&filament_mismatch_, 0);
     lv_subject_set_int(&detail_prefer_sliced_colors_, 0); // every open starts on actual colors
+    fit_record_.reset();
+    refresh_fit_check();
 
     // Drop any cached pre-flight result from a previously-selected file. The
     // validator re-runs in try_extract_gcode_colors() once this file's gcode is
@@ -941,6 +947,8 @@ void PrintSelectDetailView::on_activate() {
     notify_print_readiness_changed();
     // A cached scan answers without calling back, so read it here too.
     refresh_exclude_objects();
+    refresh_fit_check();
+    request_fit_record();
 
     // Headless tools_used scan — runs on ALL platforms (including 2D-only, where
     // the visual viewer below skips parsing). Provides tools_used + the pre-flight
@@ -1594,6 +1602,8 @@ void PrintSelectDetailView::try_extract_gcode_colors(lv_obj_t* viewer) {
     // Authoritative render from the precise tools_used set — not the slicer
     // palette size (which often over-counts).
     render_authoritative_chips(tools_used_effective());
+    // The preview's model box is the fit check's bounds without the plugin.
+    refresh_fit_check();
 
     // Write-through: persist the used set so the next open of this file renders
     // final chips instantly instead of the skeleton. Gated on the set actually
@@ -2065,6 +2075,57 @@ void PrintSelectDetailView::refresh_exclude_objects() {
     lv_subject_set_int(&detail_exclude_available_, available ? 1 : 0);
     publish_exclude_picks();
     exclude_mode_.refresh_render_badges();
+}
+
+helix::FitFile PrintSelectDetailView::get_fit_file() const {
+    const auto* scan = prep_manager_ ? prep_manager_->scan_result_for(current_file_key()) : nullptr;
+    // An open view shown for another file still holds the previous file's parse.
+    std::optional<helix::FitBox> preview;
+    if (gcode_viewer_ && viewer_file_ == current_filename_) {
+        preview = ui_gcode_viewer_get_model_bounds(gcode_viewer_);
+    }
+    return helix::fit_file_from_sources(fit_record_, scan ? &scan->fit_head : nullptr,
+                                        cached_file_metadata_, preview, tools_used_effective());
+}
+
+void PrintSelectDetailView::refresh_fit_check() {
+    if (!subjects_initialized_) {
+        return;
+    }
+    const auto machine = helix::current_fit_machine();
+    const std::vector<helix::FitFinding> findings = machine && !current_filename_.empty()
+                                                        ? helix::check_fit(*machine, get_fit_file())
+                                                        : std::vector<helix::FitFinding>{};
+    const int severity = findings.empty() ? 0 : helix::fit_blocks(findings) ? 2 : 1;
+    lv_subject_copy_string(&detail_fit_text_,
+                           helix::fit_findings_text(findings, /*blocking_only=*/false).c_str());
+    lv_subject_set_int(&detail_fit_severity_, severity);
+}
+
+void PrintSelectDetailView::request_fit_record() {
+    // A USB stick file has no record on the printer.
+    if (!api_ || !printer_state_ || !current_local_path_.empty() ||
+        helix::file_analysis_source(
+            printer_state_->plugin_status_state().plugin_feature(helix::kFileAnalysisFeature,
+                                                                 helix::kFileAnalysisMinVersion),
+            current_filename_) != helix::FileAnalysisSource::Plugin) {
+        return;
+    }
+    const std::string key = current_file_key();
+    auto token = lifetime_.token();
+    helix::request_file_analysis(
+        api_, helix::gcode::join_gcode_path(current_path_, current_filename_),
+        [this, token, key](helix::FileAnalysisReply reply) {
+            if (reply.status != helix::FileAnalysisReply::Status::Ready || !reply.record) {
+                return;
+            }
+            token.defer("DetailView::fit_record", [this, key, fit = reply.record->fit]() {
+                if (key == current_file_key()) {
+                    fit_record_ = fit;
+                    refresh_fit_check();
+                }
+            });
+        });
 }
 
 void PrintSelectDetailView::toggle_exclude_pick(const std::string& name) {
@@ -2643,6 +2704,7 @@ bool PrintSelectDetailView::apply_file_metadata(const std::string& file_key,
     }
     cached_file_metadata_ = metadata;
     update_prep_time_label();
+    refresh_fit_check();
     return true;
 }
 

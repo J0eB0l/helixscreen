@@ -15,6 +15,7 @@
 
 #include "ams_types.h"
 #include "filament_database.h" // filament::kDefaultDiameterMm
+#include "fit_check.h"
 #include "leveling_probe_points.h"
 #include "openams_api.h" // OpenAMS claims only a manager speaking its API
 #include "preprint_skip_wrappers.h"
@@ -615,6 +616,17 @@ class PrinterDiscovery {
         return nozzle_diameter_mm_;
     }
 
+    /// Read the limits the file-fits-printer check compares a file with.
+    /// @param settings JSON object from a configfile.settings response
+    void parse_fit_limits(const nlohmann::json& settings) {
+        fit_machine_ = fit_machine_from_settings(settings);
+    }
+
+    /// The printer's limits from its config; unset until the config was read.
+    [[nodiscard]] const std::optional<FitMachine>& fit_machine() const {
+        return fit_machine_;
+    }
+
     /// Filament diameter in mm the extruder is configured for.
     [[nodiscard]] float filament_diameter_mm() const {
         return filament_diameter_mm_;
@@ -1056,6 +1068,7 @@ class PrinterDiscovery {
     float filament_diameter_mm_ = filament::kDefaultDiameterMm; ///< [extruder] filament_diameter
     static constexpr float kDefaultNozzleDiameterMm = 0.4f;
     float nozzle_diameter_mm_ = kDefaultNozzleDiameterMm;   ///< [extruder] nozzle_diameter
+    std::optional<FitMachine> fit_machine_;                 ///< configfile limits for the fit check
     std::vector<LevelingProbePoint> leveling_probe_points_; ///< [quad_gantry_level]/[z_tilt] points
     std::optional<ProbeXYOffset> probe_xy_offset_;          ///< Z probe x_offset/y_offset
     int chamber_fan_resting_deci_ = 0; ///< Cooling fan's configured resting/off target

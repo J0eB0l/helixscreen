@@ -1561,6 +1561,7 @@ translations:
   Filament tracking and inventory: Seguimiento e inventario de filamento
   FilamentSensor: Sensor de filamento
   File: Archivo
+  File Does Not Fit This Printer: 'El archivo no cabe en esta impresora'
   File Size: Tamaño del archivo
   File Will Stop the Printer: 'El archivo detendrá la impresora'
   File analysis: 'Análisis de archivos'
@@ -1743,6 +1744,8 @@ translations:
   Heating {}...: Calentando {}...
   Heating...: Calentando...
   'Heating: %d / %d°C': 'Calentando: %d / %d°C'
+  Heats the bed to {:g}°C, above this printer's {:g}°C limit.: 'Calienta la cama a {:g}°C, por encima del límite de {:g}°C de esta impresora.'
+  Heats the nozzle to {:g}°C, above this printer's {:g}°C limit.: 'Calienta la boquilla a {:g}°C, por encima del límite de {:g}°C de esta impresora.'
   Heightmap and flatness of the active bed mesh: 'Mapa de alturas y planitud de la malla de cama activa'
   HelixPrint Plugin: 'Plugin HelixPrint'
   HelixPrint plugin updated.: 'Plugin HelixPrint actualizado.'
@@ -1771,6 +1774,7 @@ translations:
   High Fly: 'Sobre las nubes'
   High Water Mark: Marca de máximo histórico
   Hold anywhere to cancel: Mantén pulsado en cualquier lugar para cancelar
+  Hold slicer prints that do not fit: 'Retener impresiones del laminador que no caben'
   Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Sujete {} completamente en el cabezal. El cierre se bloquea y pasa a ser la herramienta montada.
   Holding nozzle at {}°C to purge previous filament.: Manteniendo la boquilla a {}°C
     para purgar el filamento anterior.
@@ -2335,6 +2339,8 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Mueve el cabezal para medir frecuencias de vibración en cada eje. Tarda 2-3 minutos.
     La impresora hará ruido — esto es normal.
+  Moves to {} {:g} mm, below this printer's {:g} mm.: 'Se mueve a {} {:g} mm, por debajo de los {:g} mm de esta impresora.'
+  Moves to {} {:g} mm, past this printer's {:g} mm.: 'Se mueve a {} {:g} mm, más allá de los {:g} mm de esta impresora.'
   Moving back to the print: Volviendo a la impresión
   Moving lane: Moviendo carril
   Moving over the resume point: Moviendo sobre el punto de reanudación
@@ -3066,11 +3072,13 @@ translations:
   Re-probe: Re-sondear
   Re-read spool RFID tags and remaining length: 'Volver a leer las etiquetas RFID de las bobinas y la longitud restante'
   Re-seat the Bowden tube connector on the CFS unit: Vuelva a asentar el conector del tubo Bowden en la unidad CFS
+  Re-slice the file with a profile made for this printer.: 'Vuelve a laminar el archivo con un perfil hecho para esta impresora.'
   Re-syncs Happy Hare's tracked state with the hardware.: Vuelve a sincronizar el
     estado registrado de Happy Hare con el hardware.
   Re-test: Probar de nuevo
   Re-test A: "Repetir A"
   Re-test B: "Repetir B"
+  Reaches {:g} mm from the center, past this printer's {:g} mm radius.: 'Llega a {:g} mm del centro, más allá del radio de {:g} mm de esta impresora.'
   Readings don't repeat: "Las lecturas no se repiten"
   Readings from extra temperature sensors: Lecturas de sensores adicionales
   Ready: Listo
@@ -3573,6 +3581,9 @@ translations:
   Sleep adjusted to match dim timeout: Tiempo de suspensión ajustado
   Sleep {} min: Reposo en {} min
   Sliced colors: Colores laminados
+  Sliced for a Different Setup: 'Laminado para otra configuración'
+  Sliced for a {:g} mm nozzle on T{}; the printer has {:g} mm.: 'Laminado para una boquilla de {:g} mm en T{}; la impresora tiene {:g} mm.'
+  Sliced for {}, not {}.: 'Laminado para {}, no para {}.'
   Slicer: Laminador
   Slot: Ranura
   Slot 1: Ranura 1
@@ -4372,6 +4383,7 @@ translations:
   Use Scan: Usar escaneo
   Use the home layout set on the printer's own screen: "Usar el diseño de inicio definido en la pantalla de la impresora"
   User intervention required: 'Se requiere intervención manual'
+  Uses tool T{}, and this printer's last tool is T{}.: 'Usa la herramienta T{}, y la última herramienta de esta impresora es T{}.'
   VM Peak: Pico de VM
   VM Size: Tamaño de VM
   Validating bed mesh...: Validando malla de cama...
@@ -4453,6 +4465,8 @@ translations:
   Went past {} by {:.1f} Hz. Back it off a little.: "Te pasaste de {} por {:.1f} Hz. Retrocede un poco."
   What We Collect: Lo que recopilamos
   What happens when a print ends: 'Qué ocurre al terminar una impresión'
+  ? When a slicer uploads and starts a file that moves past this printer's travel, heats past its limits or uses a missing tool, keep the file but do not start it.
+  : 'Cuando un laminador sube e inicia un archivo que se mueve más allá del recorrido de esta impresora, calienta por encima de sus límites o usa una herramienta que no existe, conservar el archivo pero no iniciarlo.'
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Cuando
     está activado, solo se ejecuta el macro. Cuando está desactivado, primero se establecen
     las temperaturas y luego se ejecuta el macro.

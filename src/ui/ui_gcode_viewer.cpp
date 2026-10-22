@@ -1503,6 +1503,40 @@ std::set<int> ui_gcode_viewer_get_tools_used(lv_obj_t* obj) {
     return {};
 }
 
+// NAMESPACE_OK: joins this file's global ui_gcode_viewer_* API
+std::optional<helix::FitBox> ui_gcode_viewer_get_model_bounds(lv_obj_t* obj) {
+    gcode_viewer_state_t* st = get_state(obj);
+    if (!st) {
+        return std::nullopt;
+    }
+    // Same "which ONE holds data" choice as get_tool_palette above.
+    if (st->gcode_file) {
+        const auto& bb = st->gcode_file->global_bounding_box;
+        if (!(bb.min.x <= bb.max.x && bb.min.y <= bb.max.y)) {
+            return std::nullopt;
+        }
+        helix::FitBox box;
+        box.min = {bb.min.x, bb.min.y, bb.min.z};
+        box.max = {bb.max.x, bb.max.y, bb.max.z};
+        return box;
+    }
+    if (st->streaming_controller_ && st->streaming_controller_->is_open()) {
+        const auto& stats = st->streaming_controller_->get_index_stats();
+        if (!stats.has_xy_bounds()) {
+            return std::nullopt;
+        }
+        helix::FitBox box;
+        box.min = {stats.min_x, stats.min_y, std::nullopt};
+        box.max = {stats.max_x, stats.max_y, std::nullopt};
+        if (stats.has_z_bounds()) {
+            box.min[2] = stats.min_z;
+            box.max[2] = stats.max_z;
+        }
+        return box;
+    }
+    return std::nullopt;
+}
+
 bool ui_gcode_viewer_adopt_palette_if_empty(lv_obj_t* obj, std::vector<std::string>& colors) {
     if (!colors.empty()) {
         return false;
@@ -1932,6 +1966,11 @@ const helix::gcode::ParsedGCodeFile* ui_gcode_viewer_get_parsed_file(lv_obj_t*) 
 
 std::set<int> ui_gcode_viewer_get_tools_used(lv_obj_t*) {
     return {};
+}
+
+// NAMESPACE_OK: joins this file's global ui_gcode_viewer_* API
+std::optional<helix::FitBox> ui_gcode_viewer_get_model_bounds(lv_obj_t*) {
+    return std::nullopt;
 }
 
 bool ui_gcode_viewer_adopt_palette_if_empty(lv_obj_t*, std::vector<std::string>&) {

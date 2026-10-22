@@ -5,6 +5,7 @@
 
 #include "ui_exclude_object_badges.h"
 
+#include "fit_check.h"
 #include "gcode_pause_scan.h"
 
 #include <lvgl/lvgl.h>
@@ -549,6 +550,19 @@ const helix::gcode::ParsedGCodeFile* ui_gcode_viewer_get_parsed_file(lv_obj_t* o
  *         names no tools and carries no palette.
  */
 std::set<int> ui_gcode_viewer_get_tools_used(lv_obj_t* obj);
+
+/**
+ * @brief The loaded file's model box, for the file-fits-printer check.
+ *
+ * Mode-independent like the tool queries: the full parse's global bounding
+ * box, or the extents the streaming layer index accumulates. Both cover the
+ * extruding moves outside purge and wipe-tower geometry, in G-code coordinates.
+ *
+ * @param obj Viewer widget
+ * @return nullopt when nothing is loaded or nothing extruded.
+ */
+// NAMESPACE_OK: joins this file's global ui_gcode_viewer_* API
+std::optional<helix::FitBox> ui_gcode_viewer_get_model_bounds(lv_obj_t* obj);
 
 /**
  * @brief The scheduled pauses and layer marks of the loaded file, with its

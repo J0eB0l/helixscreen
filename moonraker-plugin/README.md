@@ -225,6 +225,44 @@ POST /server/helix/print_hooks/screen_start
 {"filename": "benchy.gcode", "withdraw": true}
 ```
 
+### File-fits-printer check (`fit_check_blocks_autostart`)
+
+Holds a slicer's upload-and-print (an upload carrying `print=true`, as OrcaSlicer's
+**Print** button sends) while the file breaks a limit of this printer. Off until the user
+opts in; the screen's switch is Settings > Safety & Alerts.
+
+With the feature on, `helix_fitcheck.py` stores a plain G-code upload without Moonraker's
+print flag, waits up to 120 s for its file analysis (moved to the front of the queue), and
+checks it. With no blocking finding the print starts through Moonraker's own rules (started,
+or queued when the printer is busy and `queue_gcode_uploads` is on); with one, nothing starts,
+the file stays uploaded, the upload response says `print_started: false`, and a
+`helix:fit_check_refused` notification (`notify_fit_check_refused` to clients) names the file
+and the blocking findings:
+
+```json
+{"filename": "big_part.gcode",
+ "findings": [{"kind": "out_of_bounds", "severity": "block",
+               "detail": {"axis": "x", "side": "max", "value": 361.0, "limit": 350.0}}]}
+```
+
+A `.gcode.3mf` with `start_3mf_on_upload` asks the same check before the converter starts its
+plate. A file whose analysis does not arrive in time, or a printer whose config cannot be
+read, starts unchecked.
+
+The checker compares a file analysis record (`bounds`, `header`, tools) with Klipper's
+`configfile.settings`. Each finding is `{kind, severity, detail}`:
+
+| `kind` | `severity` | `detail` | When |
+|--------|------------|----------|------|
+| `out_of_bounds` | block | `axis` (`x`, `y`, `z`, `radius`), `side` (`min`, `max`), `value`, `limit` | A move outside `stepper_[xyz]` `position_min`/`position_max` (a `dual_carriage` widens its axis), or on a delta a box edge farther from the centre than `print_radius` (else `delta_radius`), or above the lowest tower `position_endstop` / below `minimum_z_position`. Travel moves are checked, else printing moves; exactly at a limit passes |
+| `temp_over_max` | block | `heater` (`extruder`, `heater_bed`), `value`, `limit` | A target above the hottest `extruder*` `max_temp`, or above `heater_bed` `max_temp` |
+| `too_many_tools` | block | `tool`, `limit` | A tool number at or past the count of extruders and `T<n>` macros. The plugin's hold never uses this one: a filament system's T commands are not in the config |
+| `nozzle_mismatch` | warn | `tool`, `file`, `printer` | The slicer's nozzle for an extruder differs from that extruder's `nozzle_diameter` by more than 0.005 mm |
+| `printer_model_mismatch` | warn | `file`, `printer` | Neither model name contains the other, ignoring case and punctuation. The printer's model comes from the screen; the plugin has none |
+
+Warnings never hold a start. The screen runs the same checker as print-start gates
+(`src/printer/fit_check.cpp`); `tests/fixtures/fit_check/cases.json` holds both to one table.
+
 ### Start Modified Print
 
 The client uploads the modified file first, through Moonraker's own file upload, into
@@ -682,7 +720,9 @@ beside it, so Moonraker's metadata, thumbnails and every client work.
   starts the converted print through Moonraker's own start/queue rules: when the
   printer is busy and `[file_manager] queue_gcode_uploads` is on, it is queued, and
   the upload response says `print_queued`. The upload's own conversion goes ahead
-  of any queued backfill. A multi-plate file is converted but not started. This hooks Moonraker's upload
+  of any queued backfill. A multi-plate file is converted but not started. With
+  `fit_check_blocks_autostart` opted into, the plate is published first and started only
+  when the file-fits-printer check allows it. This hooks Moonraker's upload
   method; on a Moonraker whose method does not have the expected shape the hook
   stays off with a log line, and conversion still works.
 

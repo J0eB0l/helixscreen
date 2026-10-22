@@ -368,6 +368,7 @@ struct FileMetadata {
                           // empty as "unknown" (do NOT assume all-zero).
     double first_layer_bed_temp = 0.0;
     double first_layer_extr_temp = 0.0;
+    double nozzle_diameter = 0.0; ///< mm, the slicer's; 0 when the file states none
     uint64_t gcode_start_byte = 0;
     uint64_t gcode_end_byte = 0;
     std::string uuid;                      // Slicer-generated UUID (for history matching)

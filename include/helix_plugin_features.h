@@ -126,6 +126,7 @@ std::optional<bool> local_screen_present(const nlohmann::json& record, int64_t n
 enum class PluginFeatureHome {
     None,     ///< no setting: the overview shows its status only
     Printing, ///< Settings > Printing
+    Safety,   ///< Settings > Safety & Alerts
 };
 
 /// What this app knows about a plugin feature. Labels are English; the UI
@@ -143,6 +144,8 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"print_hooks", TR_NOOP("Start options for prints from other apps"), "play_circle",
      PluginFeatureHome::Printing},
     {"plr", TR_NOOP("Power-loss recovery"), "power_plug", PluginFeatureHome::Printing},
+    {"fit_check_blocks_autostart", TR_NOOP("Hold slicer prints that do not fit"), "ruler",
+     PluginFeatureHome::Safety},
     {"convert_3mf", TR_NOOP("3MF conversion"), "cube_outline", PluginFeatureHome::None},
     {"file_analysis", TR_NOOP("File analysis"), "magnify_scan", PluginFeatureHome::None},
     {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},
