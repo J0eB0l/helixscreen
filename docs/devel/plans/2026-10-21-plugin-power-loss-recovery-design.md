@@ -723,7 +723,9 @@ As built in the v1 plugin core (`helix_plr.py`), with the shapes above unchanged
   start selects the job's.
 - The `plr` feature's `enabled` is "saving is on, or a saved snapshot is waiting": turning saving
   off stops new snapshots without withdrawing the offer for one already saved, until it is
-  resumed or discarded.
+  resumed or discarded. The entry also carries `saving` (bool): `saving_enabled(...)` as applied
+  (plr_user.enabled, else the storage and tier default) and PLR able to run. The settings switch
+  shows `saving`, not `enabled`: `{"version": 1, "available", "enabled", "reason", "saving"}`.
 - `plr_profile` and the switch: § 7.2. The checkpoint sidecar: § 6.2.
 
 ---

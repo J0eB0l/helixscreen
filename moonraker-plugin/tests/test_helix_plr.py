@@ -259,7 +259,7 @@ def helix(tmp_path, fake_sys):
 def test_plr_feature_entry_defaults_off_without_a_profile(helix):
     status = run(helix._handle_status(None))
     assert status["features"]["plr"] == {
-        "version": 1, "available": True, "enabled": False, "reason": None}
+        "version": 1, "available": True, "enabled": False, "reason": None, "saving": False}
 
 
 def test_plr_feature_follows_storage_tier_and_switch(helix, fake_sys):
@@ -268,9 +268,11 @@ def test_plr_feature_follows_storage_tier_and_switch(helix, fake_sys):
     helix.plr.sys_root = fake_sys.root
     helix.plr.runtime_storage = classify_block_device(fake_sys.root, fake_sys.link(disk))
     run(db.insert_item("helix-screen", "plr_profile", {"tier": 1}))
-    assert run(helix._handle_status(None))["features"]["plr"]["enabled"] is True
+    entry = run(helix._handle_status(None))["features"]["plr"]
+    assert entry["enabled"] is True and entry["saving"] is True
     run(db.insert_item("helix-screen", "plr_user", {"enabled": False}))
-    assert run(helix._handle_status(None))["features"]["plr"]["enabled"] is False
+    entry = run(helix._handle_status(None))["features"]["plr"]
+    assert entry["enabled"] is False and entry["saving"] is False
     # plugin_features is not PLR's switch
     run(db.insert_item("helix-screen", "plugin_features", {"plr": True}))
     assert run(helix._handle_status(None))["features"]["plr"]["enabled"] is False
@@ -2039,6 +2041,7 @@ def test_turning_saving_off_keeps_an_existing_offer(plr, helix, resume):
     run(helix.database.insert_item("helix-screen", "plr_user", {"enabled": False}))
     entry = run(helix._handle_status(None))["features"]["plr"]
     assert entry["enabled"] is True                  # a snapshot is waiting
+    assert entry["saving"] is False                  # what the settings switch shows
     assert run(plr.handle_status(Req()))["offer"]["available"] is True
     run(plr.handle_discard(Req()))
     assert run(helix._handle_status(None))["features"]["plr"]["enabled"] is False

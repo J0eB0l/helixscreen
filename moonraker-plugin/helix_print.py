@@ -166,6 +166,9 @@ FeatureSwitch = Callable[[], Awaitable[bool]]
 # A feature's live availability: (available, reason when not).
 FeatureProbe = Callable[[], Tuple[bool, Optional[str]]]
 
+# Fields a feature adds to its own entry beyond version/available/enabled/reason.
+FeatureExtra = Callable[[], Awaitable[Dict[str, Any]]]
+
 
 class Feature:
     """One entry of the status `features` map.
@@ -184,6 +187,7 @@ class Feature:
         reason: Optional[str] = None,
         switch: Optional[FeatureSwitch] = None,
         probe: Optional[FeatureProbe] = None,
+        extra: Optional[FeatureExtra] = None,
     ) -> None:
         self.name = name
         self.version = version
@@ -192,6 +196,7 @@ class Feature:
         self.reason = reason
         self.switch = switch
         self.probe = probe
+        self.extra = extra
 
     def availability(self) -> Tuple[bool, Optional[str]]:
         """Whether the feature can run now, read from its probe when it has
@@ -554,6 +559,7 @@ class HelixPrint:
         reason: Optional[str] = None,
         switch: Optional[FeatureSwitch] = None,
         probe: Optional[FeatureProbe] = None,
+        extra: Optional[FeatureExtra] = None,
     ) -> Feature:
         """Add a feature to the status `features` map.
 
@@ -562,7 +568,7 @@ class HelixPrint:
         from `available` / `reason`. Registering a name again replaces the
         entry.
         """
-        feature = Feature(name, version, acts, available, reason, switch, probe)
+        feature = Feature(name, version, acts, available, reason, switch, probe, extra)
         self.features[name] = feature
         return feature
 
@@ -604,7 +610,14 @@ class HelixPrint:
         result: Dict[str, Any] = {}
         for name, feature in self.features.items():
             enabled = await self._feature_switch_value(feature, opt_ins)
-            result[name] = feature_entry(feature, enabled)
+            entry = feature_entry(feature, enabled)
+            if feature.extra is not None:
+                try:
+                    entry.update({k: v for k, v in (await feature.extra()).items()
+                                  if k not in entry})
+                except Exception:
+                    logging.exception(f"HelixPrint: extra fields of feature {name} failed")
+            result[name] = entry
         return result
 
     # =========================================================================
@@ -801,6 +814,7 @@ class HelixPrint:
         self.register_feature(
             helix_plr.PLR_FEATURE, helix_plr.PLR_FEATURE_VERSION, acts=True,
             switch=self.plr.feature_enabled, probe=self.plr.availability,
+            extra=self.plr.feature_extra,
         )
 
     async def close(self) -> None:

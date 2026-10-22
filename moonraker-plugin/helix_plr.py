@@ -910,6 +910,11 @@ class HelixPlr:
             return True
         return self.job is not None and self._load_snapshot() is not None
 
+    async def feature_extra(self) -> Dict[str, Any]:
+        """`saving`: whether snapshots are being saved (the switch as applied,
+        and PLR able to run). The settings switch shows this, not `enabled`."""
+        return {"saving": await self.saving_enabled() and self.availability()[0]}
+
     async def saving_enabled(self) -> bool:
         """The `plr` feature's switch: saving_enabled() over the storage
         verdict, the profile's tier and plr_user.enabled."""
