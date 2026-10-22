@@ -10,6 +10,7 @@ what each script is for; the script's own header carries the reasoning behind it
 |--------|---------|
 | `install-dev.sh` | Modular dev installer - uses `lib/installer/` modules. Edit this one |
 | `bundle-installer.sh` | Bundles `lib/installer/*` → `install.sh`, the single-file end-user installer (`curl\|sh`). Run through `make installer` → `build/installer/`; never committed |
+| `install.sh` | Bootstrap behind the old one-line URL (the raw GitHub URL for main/scripts/install.sh): downloads the release-bundled installer from `https://releases.helixscreen.org/install.sh` (`HELIX_INSTALLER_URL` overrides) with curl or wget and runs it with the same arguments. Docs give the releases URL. Tests: `tests/shell/test_install_bootstrap.bats` |
 | `bundle-uninstaller.sh` | Bundles uninstall modules → `uninstall.sh` (`make installer` → `build/installer/`) |
 | `render-installer-logo.sh` | Regenerates `lib/installer/logo.sh` (the installer's banner: half-block text art plus kitty, iTerm2 and sixel images) from `assets/images/helix-icon-256.png`, drawing each with `installer_logo_art.py`. Needs python3 with Pillow; the output is committed, so only re-run it when the icon changes |
 | `helix-launcher.sh` | Systemd-launched watchdog wrapper. Sources `helixscreen.env` for runtime config |
@@ -235,7 +236,7 @@ each screen maps to a navigation recipe in `screenshot-recipes.sh`, the single s
 ## Key Patterns
 
 - **`helix-claim jobs` is make's `-j` only.** With a jobpool live it prints the whole pool, which a make draws from and anything else would run on top of. Work outside make sizes itself with `scripts/helix-claim hold [--min M] -- cmd` (exports `JOBPOOL_SLOTS`), and a container goes through `pool-docker.sh`. Called outside a make with a pool live, `jobs` says so on stderr; its stdout is always the bare number, since make and `SHARD_CONCURRENCY` parse it
-- **Generated installers**: `install.sh` and `uninstall.sh` are bundled from `lib/installer/` by `make installer` into `build/installer/` and are not in git; edit the modules
+- **Generated installers**: `install.sh` and `uninstall.sh` are bundled from `lib/installer/` by `make installer` into `build/installer/` and are not in git; edit the modules. The tracked `scripts/install.sh` is not that bundle: it is the bootstrap that keeps the raw GitHub URL for main/scripts/install.sh working, downloading `https://releases.helixscreen.org/install.sh` and running it with the same arguments
 - **Telemetry credentials**: Scripts auto-load from `.env.telemetry` in project root. Set `HELIX_TELEMETRY_ADMIN_KEY` env var
 - **Asset regeneration**: via Makefile targets (`make regen-fonts`, `make regen-images`), not directly
 - **Python deps**: telemetry scripts need pandas; install `telemetry-requirements.txt` into the project `.venv/`
