@@ -263,7 +263,7 @@ The check always uses Klipper's plain pulse test, even on printers set up for th
 
 The check measures **paths**: Path A is the 1,-1 diagonal and Path B the 1,1 diagonal, the same naming Shake&Tune and the Voron documentation use. Which physical belt each path is depends on your printer, so name them before you turn anything:
 
-1. Tap **Which belt is which?** on the start screen, or a path name above the results chart
+1. Tap **Which belt is which?** on the start screen, a path name above the results chart, or the tensioner line while tuning
 2. Tap **Identify** next to Path A. Path A's motor buzzes back and forth for about 10 seconds; watch which motor and belt move. Do the same for Path B. Identify is unavailable while a check runs or a print is active
 3. Pick the layout that matches: A left and B right, A right and B left, A upper and B lower, or A lower and B upper
 

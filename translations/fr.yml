@@ -503,6 +503,7 @@ translations:
   Busy: 'Occupé'
   Button taps and navigation sounds: Sons de boutons et de navigation
   Buzz Servo: 'Faire vibrer le servo'
+  Buzzing the motor of {}: "Vibration du moteur de {}"
   Bypass: Bypass
   Bypass Is Active: Bypass actif
   Bypass Mode: Mode bypass
@@ -3924,6 +3925,7 @@ translations:
   Temporary adjustment for this print, unless saved on Controls panel: Ajustement
     temporaire pour cette impression, sauf si enregistré dans le panneau Contrôles
   Temporary for this print; a tool change resets it: "Temporaire pour cette impression ; un changement d'outil le réinitialise"
+  'Tensioner: {}': "Tendeur : {}"
   Tertiary: Tertiaire
   Test All Lanes: 'Tester toutes les voies'
   Test Connection: Tester la connexion
@@ -4031,6 +4033,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : La buse est chaude. Brossez-la avec la brosse métallique fournie, gardez la position d'ancrage propre, puis appuyez sur Suivant.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "La buse est levée au-dessus de l'impression et X et Y sont mis à l'origine. La reprise la redescend à la hauteur où elle s'est arrêtée."
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
+  : "Le pic de {0} a quitté la zone. Vérifiez que seul le tendeur de {1} a été tourné. Vous ne savez pas laquelle est laquelle ? Touchez la ligne du tendeur pour identifier les courroies."
+  The peak of {} moved out of the zone. Widening it.: "Le pic de {} est sorti de la zone. Élargissement."
   The plate and the spools are still hot. Use gloves.: Le plateau et les bobines sont encore chauds. Portez des gants.
 
   The plate finishes its current move, but drying will not start.: 'Le plateau termine son déplacement en cours, mais le séchage ne démarrera pas.'
@@ -4800,8 +4805,6 @@ translations:
   you have: vous avez
   ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
   : "{0} résonne bien plus que {1} à {2:.0f} Hz. Cela indique une différence mécanique (vis sans tête de poulie, roulements des galets, alignement de la courroie), pas la tension."
-  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
-  : "Le pic de {0} a quitté la zone. Vérifiez que seul le tendeur de {1} a été tourné. Vous ne savez pas laquelle est laquelle ? Touchez le nom d'une courroie sur l'écran des résultats pour faire vibrer son moteur."
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · environ {} min'
   '{} ({})': '{} ({})'
   '{} Extruders': '{} extrudeurs'
@@ -4879,7 +4882,6 @@ translations:
   '{} spool cleared': '{} : bobine effacée'
   '{} started': '{} démarré'
   '{} target set to {}°C': Cible {} réglée à {}°C
-  '{} tensioner': "Tendeur de {}"
   '{} turn': "{} tour"
   '{} turns': "{} tours"
   '{} updated': '{} : mise à jour'
@@ -4890,8 +4892,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — réponse expirée'
   '{} → {}: no filament loaded.': '{} → {} : aucun filament chargé.'
-  "{}'s motor is buzzing": "Le moteur de {} vibre"
-  "{}'s peak moved out of the zone. Widening it.": "Le pic de {} est sorti de la zone. Élargissement."
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{} : l''étiquette indique la bobine Spoolman #{}, qui n''existe pas'
   '{}:{:02} elapsed': '{}:{:02} écoulé'
   '{}% left': '{} % restant'

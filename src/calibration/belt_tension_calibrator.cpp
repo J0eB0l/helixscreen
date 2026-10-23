@@ -242,8 +242,6 @@ void BeltTensionCalibrator::buzz_path(BeltPath path, std::function<void()> on_do
     state_.store(State::BUZZING);
     spdlog::info("[BeltTension] Identifying path {}: {}", output_name(path), gcode);
 
-    // A buzz queued behind a blocking op never answers; it is as done as it
-    // will get, so both dispositions release the state.
     auto done = [this, generation, on_done]() {
         if (generation != run_generation_)
             return;
@@ -262,8 +260,7 @@ void BeltTensionCalibrator::buzz_path(BeltPath path, std::function<void()> on_do
                                             if (on_error)
                                                 on_error(err.message);
                                         }),
-                        /*timeout_ms=*/0, /*silent=*/false,
-                        /*on_queued=*/lifetime_.bg_cb("BeltTensionCalibrator::buzz_queued", done),
+                        /*timeout_ms=*/0, /*silent=*/false, /*on_queued=*/nullptr,
                         /*caller_surfaces_errors=*/true);
 }
 

@@ -840,7 +840,7 @@ void BeltTensionPanel::handle_identify_clicked(helix::calibration::BeltPath path
         return;
     }
     set_identify_status(
-        1, fmt::format(fmt::runtime(lv_tr("{}'s motor is buzzing")), path_title(path)));
+        1, fmt::format(fmt::runtime(lv_tr("Buzzing the motor of {}")), path_phrase(path)));
     calibrator_->buzz_path(
         path,
         [this]() {
@@ -1466,7 +1466,7 @@ void BeltTensionPanel::refresh_run_title() {
     // A single-path run is a re-test: the path already has a result.
     const char* title = run_queue_total_ == 1 ? lv_tr("Re-measuring {}") : lv_tr("Measuring {}");
     lv_subject_copy_string(&run_title_subject_,
-                           fmt::format(fmt::runtime(title), path_title(queue_.front())).c_str());
+                           fmt::format(fmt::runtime(title), path_phrase(queue_.front())).c_str());
 }
 
 void BeltTensionPanel::refresh_run_detail() {
@@ -1984,7 +1984,7 @@ void BeltTensionPanel::refresh_tune() {
 
     lv_subject_copy_string(
         &tune_tensioner_subject_,
-        fmt::format(fmt::runtime(lv_tr("{} tensioner")), path_title(adj)).c_str());
+        fmt::format(fmt::runtime(lv_tr("Tensioner: {}")), path_title(adj)).c_str());
 
     const auto swept = t.sweep_window();
     lv_subject_copy_string(
@@ -2099,15 +2099,15 @@ std::string BeltTensionPanel::tune_last_message() const {
     case BeltTuneOutcome::NO_PEAK:
         if (!t.rounds().empty() && t.rounds().back().reference_lost) {
             return fmt::format(
-                fmt::runtime(lv_tr("{0}'s peak left the zone. Check that only {1}'s tensioner was "
-                                   "turned. Not sure which is which? Tap a belt name on the "
-                                   "results screen to buzz its motor.")),
-                path_title(other_path(t.adjusted_path())), adj_name);
+                fmt::runtime(lv_tr("The peak of {0} left the zone. Check that only {1}'s tensioner "
+                                   "was turned. Not sure which is which? Tap the tensioner line "
+                                   "to identify the belts.")),
+                ref_name, adj_name);
         }
         return lv_tr("No clear peak in this zone");
     case BeltTuneOutcome::OUT_OF_WINDOW:
-        return fmt::format(fmt::runtime(lv_tr("{}'s peak moved out of the zone. Widening it.")),
-                           path_title(t.adjusted_path()));
+        return fmt::format(
+            fmt::runtime(lv_tr("The peak of {} moved out of the zone. Widening it.")), adj_name);
     case BeltTuneOutcome::IMPLAUSIBLE:
         return lv_tr("That reading jumped too far to trust. Re-measure without turning.");
     case BeltTuneOutcome::MATCHED:

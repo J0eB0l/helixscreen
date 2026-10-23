@@ -31,7 +31,8 @@ depends on the printer, so the user names the paths rather than the app guessing
 - **Identify** (`BeltTensionPanel::handle_identify_clicked`) buzzes a path's motor with
   `STEPPER_BUZZ STEPPER=<stepper>` through `BeltTensionCalibrator::buzz_path`. Klipper's
   `force_move` is always loaded and the buzz needs no homing: the motor moves 1 mm back and
-  forth ten times (about 10 s). The calibrator reads `BUZZING` until Klipper answers, which
+  forth ten times (about 10 s). On an AWD CoreXY it moves only the named motor of the pair on
+  that belt, which still moves the belt and so still identifies it. The calibrator reads `BUZZING` until Klipper answers, which
   closes Start's gate (`bt_can_start`), so a buzz is allowed exactly when Start is, never
   during a sweep and never two at once. A refusal shows Klipper's message in the dialog
   (`bt_identify_status`, `bt_identify_state` 2) and leaves the view where it was.
@@ -47,7 +48,11 @@ depends on the printer, so the user names the paths rather than the app guessing
   which reads `bt_path_a_name` / `bt_path_b_name` as it draws. Log lines keep the letter.
 
 The dialog (`ui_xml/belt_names_modal.xml`, `helix::ui::BeltNamesModal`) opens from START's
-"Which belt is which?" button and from the RESULTS path headers.
+"Which belt is which?" button, the RESULTS path headers, and the tuning view's tensioner line
+("Tensioner: Left belt"), where it leaves the session as it was. A title stands only where it
+reads as a label (a header, a button, after a colon, at the start of an English sentence whose
+translations also start with it); everywhere else the phrase form goes inside the sentence, so
+no locale gets a capitalised name mid-sentence.
 
 Start is gated, in `src/calibration/belt_gating.cpp#evaluate_belt_gate`:
 

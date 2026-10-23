@@ -503,6 +503,7 @@
   <translation tag="Busy" ru="Занят"/>
   <translation tag="Button taps and navigation sounds" ru="Звуки нажатий и навигации"/>
   <translation tag="Buzz Servo" ru="Дёрнуть сервопривод"/>
+  <translation tag="Buzzing the motor of {}" ru="Двигатель жужжит: {}"/>
   <translation tag="Bypass" ru="Обход"/>
   <translation tag="Bypass Is Active" ru="Байпас активен"/>
   <translation tag="Bypass Mode" ru="Режим обхода"/>
@@ -3623,6 +3624,7 @@
   <translation tag="Temporary adjustment for this print" ru="Временная настройка для этой печати"/>
   <translation tag="Temporary adjustment for this print, unless saved on Controls panel" ru="Временная настройка для этой печати, если не сохранена в панели управления"/>
   <translation tag="Temporary for this print; a tool change resets it" ru="Временно для этой печати; смена инструмента сбрасывает её"/>
+  <translation tag="Tensioner: {}" ru="Натяжитель: {}"/>
   <translation tag="Tertiary" ru="Третичный"/>
   <translation tag="Test All Lanes" ru="Проверить все каналы"/>
   <translation tag="Test Both" ru="Тест обоих"/>
@@ -3710,6 +3712,8 @@
   <translation tag="The nozzle is clear of the print" ru="Сопло не касается печати"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." ru="Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее»."/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." ru="Сопло поднято над печатью, X и Y запаркованы. При продолжении оно опустится на высоту, где остановилось."/>
+  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts." ru="Пик ({0}) вышел из зоны. Проверьте, что крутили только натяжитель: {1}. Не знаете, где какой? Коснитесь строки натяжителя, чтобы определить ремни."/>
+  <translation tag="The peak of {} moved out of the zone. Widening it." ru="Пик ({}) вышел из зоны. Расширяем её."/>
   <translation tag="The plate and the spools are still hot. Use gloves." ru="Стол и катушки ещё горячие. Используйте перчатки."/>
   <translation tag="The plate finishes its current move, but drying will not start." ru="Стол завершит текущее перемещение, но сушка не начнётся."/>
   <translation tag="The plugin can&apos;t reach the camera, so this screen takes the photos." ru="Плагин не может подключиться к камере, поэтому фотографирует этот экран."/>
@@ -4391,7 +4395,6 @@
   <translation tag="wpa_supplicant is not running. WiFi features unavailable." ru="wpa_supplicant не запущен. Функции WiFi недоступны."/>
   <translation tag="you have" ru="у вас"/>
   <translation tag="{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension." ru="{0} резонирует на {2:.0f} Гц намного сильнее, чем {1}. Это указывает на механическое различие (установочные винты шкивов, подшипники роликов, ход ремня), а не на натяжение."/>
-  <translation tag="{0}&apos;s peak left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor." ru="Пик ({0}) вышел из зоны. Проверьте, что крутили только натяжитель: {1}. Не знаете, где какой? Коснитесь названия ремня на экране результатов, чтобы двигатель зажужжал."/>
   <translation tag="{:.0f}-{:.0f} Hz · about {} min" ru="{:.0f}-{:.0f} Гц · примерно {} мин"/>
   <translation tag="{} ({})" ru="{} ({})"/>
   <translation tag="{} Extruders" ru="Экструдеров: {}"/>
@@ -4486,7 +4489,6 @@
   <translation tag="{} spool cleared" ru="{}: катушка удалена"/>
   <translation tag="{} started" ru="{} запущено"/>
   <translation tag="{} target set to {}°C" ru="Целевая температура {} — {}°C"/>
-  <translation tag="{} tensioner" ru="Натяжитель: {}"/>
   <translation tag="{} turn" ru="{} об."/>
   <translation tag="{} turns" ru="{} об."/>
   <translation tag="{} updated" ru="{}: обновлено"/>
@@ -4497,8 +4499,6 @@
   <translation tag="{} — response timed out" ru="{} — время ожидания ответа истекло"/>
   <translation tag="{} → {}: no filament loaded." ru="{} → {}: филамент не загружен."/>
   <translation tag="{}% left" ru="Осталось {}%"/>
-  <translation tag="{}&apos;s motor is buzzing" ru="Двигатель ({}) жужжит"/>
-  <translation tag="{}&apos;s peak moved out of the zone. Widening it." ru="Пик {} вышел из зоны. Расширяем её."/>
   <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" ru="{}: метка указывает катушку Spoolman #{}, которой не существует"/>
   <translation tag="{}:{:02} elapsed" ru="прошло {}:{:02}"/>
   <translation tag="~{:.1f} Hz / turn" ru="~{:.1f} Гц / оборот"/>

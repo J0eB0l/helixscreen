@@ -1933,8 +1933,8 @@ TEST_CASE("a reference peak that leaves the zone names the reference", "[belt][p
         belts.set_a({});
         tune_round(fx);
         CHECK(fx.text("bt_tune_last") ==
-              "Path A's peak left the zone. Check that only Path B's tensioner was turned. Not "
-              "sure which is which? Tap a belt name on the results screen to buzz its motor.");
+              "The peak of Path A left the zone. Check that only Path B's tensioner was turned. "
+              "Not sure which is which? Tap the tensioner line to identify the belts.");
     }
     SECTION("the adjusted path losing its peak keeps the generic line") {
         belts.set_b({});
@@ -2468,17 +2468,18 @@ TEST_CASE("every locale's tuning strings fit their buffers", "[belt][panel][tune
                                 "turning."))
                   .size() < fx.last_buf_size());
         CHECK(f("No turn: the gap moved {:.1f} Hz", 12.3).size() < fx.last_buf_size());
-        CHECK(f("{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure "
-                "which is which? Tap a belt name on the results screen to buzz its motor.",
+        CHECK(f("The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not "
+                "sure which is which? Tap the tensioner line to identify the belts.",
                 name, name)
                   .size() < fx.last_buf_size());
         CHECK(f("Went past {} by {:.1f} Hz. Back it off a little.", name, 12.3).size() <
               fx.last_buf_size());
-        CHECK(f("{}'s peak moved out of the zone. Widening it.", name).size() < fx.last_buf_size());
+        CHECK(f("The peak of {} moved out of the zone. Widening it.", name).size() <
+              fx.last_buf_size());
         for (const char* caption : {"{} is looser", "{} is tighter"}) {
             CHECK(f(caption, name).size() < fx.gap_caption_buf_size());
         }
-        CHECK(f("{} tensioner", name).size() < fx.tensioner_buf_size());
+        CHECK(f("Tensioner: {}", name).size() < fx.tensioner_buf_size());
         CHECK(name.size() < fx.path_name_buf_size());
         for (const char* title : {"Measuring {}", "Re-measuring {}"}) {
             CHECK(f(title, name).size() < fx.run_title_buf_size());
@@ -2486,7 +2487,7 @@ TEST_CASE("every locale's tuning strings fit their buffers", "[belt][panel][tune
         CHECK((f("Only on {0}: {1} Hz", name, "120, 129, 133") + " · " +
                f("Only on {0}: {1} Hz", name, "120, 129, 133"))
                   .size() < fx.unpaired_buf_size());
-        CHECK(f("{}'s motor is buzzing", name).size() < fx.identify_status_buf_size());
+        CHECK(f("Buzzing the motor of {}", name).size() < fx.identify_status_buf_size());
         for (const char* hint :
              {"These readings aren't repeatable, so tuning can't be steered. Check the mechanics "
               "first.",
@@ -3899,12 +3900,12 @@ TEST_CASE("a saved belt layout renames the results and the tuning advice",
     REQUIRE(fx.state_int("belt_tension_state") == kTuning);
     CHECK(fx.text("bt_tune_instruction") == "Tighten the right belt one full turn");
     CHECK(fx.text("bt_tune_gap_caption") == "Right belt is looser");
-    CHECK(fx.text("bt_tune_tensioner") == "Right belt tensioner");
+    CHECK(fx.text("bt_tune_tensioner") == "Tensioner: Right belt");
 
     // A change while the advice is on screen renames it at once.
     set_layout(helix::calibration::BeltLayout::A_UPPER_B_LOWER);
     CHECK(fx.text("bt_tune_instruction") == "Tighten the lower belt one full turn");
-    CHECK(fx.text("bt_tune_tensioner") == "Lower belt tensioner");
+    CHECK(fx.text("bt_tune_tensioner") == "Tensioner: Lower belt");
 }
 
 TEST_CASE("the measuring title names the path by its saved name", "[belt][panel][names]") {
@@ -3912,8 +3913,8 @@ TEST_CASE("the measuring title names the path by its saved name", "[belt][panel]
     set_layout(helix::calibration::BeltLayout::A_RIGHT_B_LEFT);
     REQUIRE(fx.wait_gate_open());
     fx.panel().handle_start_clicked();
-    CHECK(fx.pump_until_text("bt_run_title", "Measuring Right belt"));
-    CHECK(fx.pump_until_text("bt_run_title", "Measuring Left belt"));
+    CHECK(fx.pump_until_text("bt_run_title", "Measuring the right belt"));
+    CHECK(fx.pump_until_text("bt_run_title", "Measuring the left belt"));
 }
 
 TEST_CASE("Identify buzzes the motor that drives each path", "[belt][panel][names][identify]") {
@@ -3942,7 +3943,7 @@ TEST_CASE("one buzz at a time, and it holds Start", "[belt][panel][names][identi
     // In flight: Identify (bound to bt_can_start) and Start are both shut.
     CHECK(fx.state_int("bt_can_start") == 0);
     CHECK(fx.state_int("bt_identify_state") == 1);
-    CHECK(fx.text("bt_identify_status") == "Path A's motor is buzzing");
+    CHECK(fx.text("bt_identify_status") == "Buzzing the motor of Path A");
     fx.panel().handle_identify_clicked(helix::calibration::BeltPath::PATH_B);
     fx.panel().handle_start_clicked();
     UpdateQueue::instance().drain();
@@ -4022,4 +4023,35 @@ TEST_CASE("the names dialog sets the layout and closes with the panel", "[belt][
     fx.panel().on_deactivate(DeactivateReason::NavigateAway);
     fx.pump_ms(1000);
     CHECK(lv_obj_find_by_name(screen, "btn_layout_4") == nullptr);
+}
+
+TEST_CASE("the tensioner line opens the names dialog without ending the tuning session",
+          "[belt][panel][names][tune]") {
+    BeltPanelFixture fx;
+    get_printer_state().set_printer_type_sync("Voron 2.4");
+    REQUIRE(fx.register_component("belt_names_modal"));
+    enter_tuning(fx);
+    REQUIRE(fx.state_int("bt_tune_phase") == kPhaseCalibrate);
+    const auto* session = fx.panel_session();
+    REQUIRE(session != nullptr);
+
+    lv_obj_t* row = named(fx, "bt_tune_tensioner_row");
+    REQUIRE_FALSE(lv_hidden(row));
+    lv_obj_send_event(row, LV_EVENT_CLICKED, nullptr);
+    UpdateQueue::instance().drain();
+    lv_obj_t* screen = lv_screen_active();
+    REQUIRE(lv_obj_find_by_name(screen, "btn_identify_b") != nullptr);
+
+    // Identify works mid-session: the adjusted path's motor buzzes.
+    fx.mock().clear_gcode_script_history();
+    lv_obj_send_event(lv_obj_find_by_name(screen, "btn_identify_b"), LV_EVENT_CLICKED, nullptr);
+    fx.pump_ms(500);
+    CHECK(buzz_lines(fx) == std::vector<std::string>{"STEPPER_BUZZ STEPPER=stepper_x"});
+
+    lv_obj_send_event(lv_obj_find_by_name(screen, "btn_names_done"), LV_EVENT_CLICKED, nullptr);
+    fx.pump_ms(1000);
+    CHECK(lv_obj_find_by_name(screen, "btn_identify_b") == nullptr);
+    CHECK(fx.state_int("belt_tension_state") == kTuning);
+    CHECK(fx.state_int("bt_tune_phase") == kPhaseCalibrate);
+    CHECK(fx.panel_session() == session);
 }

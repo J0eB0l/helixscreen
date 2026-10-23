@@ -464,6 +464,7 @@
   <translation tag="Busy" zh="正忙"/>
   <translation tag="Button taps and navigation sounds" zh="按钮点击和导航声音"/>
   <translation tag="Buzz Servo" zh="轻动舵机"/>
+  <translation tag="Buzzing the motor of {}" zh="正在振动{}的电机"/>
   <translation tag="Bypass" zh="旁路"/>
   <translation tag="Bypass Is Active" zh="旁路已启用"/>
   <translation tag="Bypass Mode" zh="旁路模式"/>
@@ -3563,6 +3564,7 @@
   <translation tag="Temporary adjustment for this print" zh="此打印的临时调整"/>
   <translation tag="Temporary adjustment for this print, unless saved on Controls panel" zh="此打印的临时调整，除非在控制面板上保存"/>
   <translation tag="Temporary for this print; a tool change resets it" zh="仅限此打印的临时调整；换工具会将其重置"/>
+  <translation tag="Tensioner: {}" zh="张紧器：{}"/>
   <translation tag="Tertiary" zh="第三"/>
   <translation tag="Test All Lanes" zh="测试所有耗材通道"/>
   <translation tag="Test Both" zh="测试两者"/>
@@ -3650,6 +3652,8 @@
   <translation tag="The nozzle is clear of the print" zh="喷嘴未接触打印件"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." zh="喷嘴很烫。请用随机附带的金属刷清洁，并保持停靠位置干净，然后点击下一步。"/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." zh="喷嘴已抬离打印件，X 和 Y 已归零。恢复时会降回停止时的高度。"/>
+  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts." zh="{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?点按张紧器一行来识别皮带。"/>
+  <translation tag="The peak of {} moved out of the zone. Widening it." zh="{} 的峰移出了区间。正在扩大区间。"/>
   <translation tag="The plate and the spools are still hot. Use gloves." zh="热床和料盘仍然很烫。请戴手套。"/>
   <translation tag="The plate finishes its current move, but drying will not start." zh="热床会完成当前移动,但烘干不会开始。"/>
   <translation tag="The plugin can&apos;t reach the camera, so this screen takes the photos." zh="插件无法连接摄像头，因此由此屏幕拍照。"/>
@@ -4328,7 +4332,6 @@
   <translation tag="wpa_supplicant is not running. WiFi features unavailable." zh="wpa_supplicant 未运行。WiFi 功能不可用。"/>
   <translation tag="you have" zh="您有"/>
   <translation tag="{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension." zh="{0} 在 {2:.0f} Hz 处的共振远强于 {1}。这说明是机械差异(同步轮顶丝、惰轮轴承、皮带走向),而不是张力。"/>
-  <translation tag="{0}&apos;s peak left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor." zh="{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?在结果页点按皮带名称,让对应电机振动。"/>
   <translation tag="{:.0f}-{:.0f} Hz · about {} min" zh="{:.0f}-{:.0f} Hz · 约 {} 分钟"/>
   <translation tag="{} ({})" zh="{}（{}）"/>
   <translation tag="{} Extruders" zh="{} 个挤出机"/>
@@ -4405,7 +4408,6 @@
   <translation tag="{} spool cleared" zh="{} 料盘已清除"/>
   <translation tag="{} started" zh="已开始{}"/>
   <translation tag="{} target set to {}°C" zh="{} 目标已设为 {}°C"/>
-  <translation tag="{} tensioner" zh="{} 张紧器"/>
   <translation tag="{} turn" zh="{} 圈"/>
   <translation tag="{} turns" zh="{} 圈"/>
   <translation tag="{} updated" zh="{} 已更新"/>
@@ -4416,8 +4418,6 @@
   <translation tag="{} — response timed out" zh="{} — 响应超时"/>
   <translation tag="{} → {}: no filament loaded." zh="{} → {}: 未加载耗材。"/>
   <translation tag="{}% left" zh="剩余 {}%"/>
-  <translation tag="{}&apos;s motor is buzzing" zh="{} 的电机正在振动"/>
-  <translation tag="{}&apos;s peak moved out of the zone. Widening it." zh="{} 的峰移出了区间。正在扩大区间。"/>
   <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" zh="{}：标签指定的 Spoolman 料盘 #{} 不存在"/>
   <translation tag="{}:{:02} elapsed" zh="已用时 {}:{:02}"/>
   <translation tag="~{:.1f} Hz / turn" zh="约 {:.1f} Hz / 圈"/>

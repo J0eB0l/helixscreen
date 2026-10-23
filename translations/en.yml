@@ -487,6 +487,7 @@ translations:
   Busy: Busy
   Button taps and navigation sounds: Button taps and navigation sounds
   Buzz Servo: Buzz Servo
+  Buzzing the motor of {}: Buzzing the motor of {}
   Bypass: Bypass
   Bypass Is Active: Bypass Is Active
   Bypass Mode: Bypass Mode
@@ -3813,6 +3814,7 @@ translations:
   Temporary adjustment for this print, unless saved on Controls panel: Temporary adjustment
     for this print, unless saved on Controls panel
   Temporary for this print; a tool change resets it: Temporary for this print; a tool change resets it
+  'Tensioner: {}': 'Tensioner: {}'
   Tertiary: Tertiary
   Test All Lanes: Test All Lanes
   Test Connection: Test Connection
@@ -3917,6 +3919,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
+  : The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
+  The peak of {} moved out of the zone. Widening it.: The peak of {} moved out of the zone. Widening it.
   The plate and the spools are still hot. Use gloves.: The plate and the spools are still hot. Use gloves.
   The plate finishes its current move, but drying will not start.: The plate finishes its current move, but drying will not start.
   The plugin can't reach the camera, so this screen takes the photos.: The plugin can't reach the camera, so this screen takes the photos.
@@ -4661,8 +4666,6 @@ translations:
   you have: you have
   ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
   : '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
-  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
-  : "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · about {} min'
   '{} ({})': '{} ({})'
   '{} Extruders': '{} Extruders'
@@ -4739,7 +4742,6 @@ translations:
   '{} spool cleared': '{} spool cleared'
   '{} started': '{} started'
   '{} target set to {}°C': '{} target set to {}°C'
-  '{} tensioner': '{} tensioner'
   '{} turn': '{} turn'
   '{} turns': '{} turns'
   '{} updated': '{} updated'
@@ -4750,8 +4752,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — response timed out'
   '{} → {}: no filament loaded.': '{} → {}: no filament loaded.'
-  "{}'s motor is buzzing": "{}'s motor is buzzing"
-  "{}'s peak moved out of the zone. Widening it.": "{}'s peak moved out of the zone. Widening it."
   "{}: the tag names Spoolman spool #{}, which doesn't exist": "{}: the tag names Spoolman spool #{}, which doesn't exist"
   '{}:{:02} elapsed': '{}:{:02} elapsed'
   '{}% left': '{}% left'

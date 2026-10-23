@@ -469,6 +469,7 @@ translations:
   Busy: '正忙'
   Button taps and navigation sounds: 按钮点击和导航声音
   Buzz Servo: '轻动舵机'
+  Buzzing the motor of {}: "正在振动{}的电机"
   Bypass: 旁路
   Bypass Is Active: 旁路已启用
   Bypass Mode: 旁路模式
@@ -3686,6 +3687,7 @@ translations:
   Temporary adjustment for this print: "此打印的临时调整"
   Temporary adjustment for this print, unless saved on Controls panel: 此打印的临时调整，除非在控制面板上保存
   Temporary for this print; a tool change resets it: "仅限此打印的临时调整；换工具会将其重置"
+  'Tensioner: {}': "张紧器：{}"
   Tertiary: 第三
   Test All Lanes: '测试所有耗材通道'
   Test Connection: 测试连接
@@ -3788,6 +3790,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : 喷嘴很烫。请用随机附带的金属刷清洁，并保持停靠位置干净，然后点击下一步。
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "喷嘴已抬离打印件，X 和 Y 已归零。恢复时会降回停止时的高度。"
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
+  : "{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?点按张紧器一行来识别皮带。"
+  The peak of {} moved out of the zone. Widening it.: "{} 的峰移出了区间。正在扩大区间。"
   The plate and the spools are still hot. Use gloves.: 热床和料盘仍然很烫。请戴手套。
 
   The plate finishes its current move, but drying will not start.: '热床会完成当前移动,但烘干不会开始。'
@@ -4500,8 +4505,6 @@ translations:
   you have: 您有
   ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
   : "{0} 在 {2:.0f} Hz 处的共振远强于 {1}。这说明是机械差异(同步轮顶丝、惰轮轴承、皮带走向),而不是张力。"
-  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
-  : "{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?在结果页点按皮带名称,让对应电机振动。"
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · 约 {} 分钟'
   '{} ({})': '{}（{}）'
   '{} Extruders': '{} 个挤出机'
@@ -4577,7 +4580,6 @@ translations:
   '{} spool cleared': '{} 料盘已清除'
   '{} started': '已开始{}'
   '{} target set to {}°C': '{} 目标已设为 {}°C'
-  '{} tensioner': "{} 张紧器"
   '{} turn': "{} 圈"
   '{} turns': "{} 圈"
   '{} updated': '{} 已更新'
@@ -4588,8 +4590,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — 响应超时'
   '{} → {}: no filament loaded.': '{} → {}: 未加载耗材。'
-  "{}'s motor is buzzing": "{} 的电机正在振动"
-  "{}'s peak moved out of the zone. Widening it.": "{} 的峰移出了区间。正在扩大区间。"
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}：标签指定的 Spoolman 料盘 #{} 不存在'
   '{}:{:02} elapsed': 已用时 {}:{:02}
   '{}% left': '剩余 {}%'

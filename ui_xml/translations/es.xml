@@ -464,6 +464,7 @@
   <translation tag="Busy" es="Ocupado"/>
   <translation tag="Button taps and navigation sounds" es="Sonidos de botones y navegación"/>
   <translation tag="Buzz Servo" es="Mover brevemente el servo"/>
+  <translation tag="Buzzing the motor of {}" es="Vibrando el motor de {}"/>
   <translation tag="Bypass" es="Bypass"/>
   <translation tag="Bypass Is Active" es="Bypass activo"/>
   <translation tag="Bypass Mode" es="Modo Bypass"/>
@@ -3563,6 +3564,7 @@
   <translation tag="Temporary adjustment for this print" es="Ajuste temporal para esta impresión"/>
   <translation tag="Temporary adjustment for this print, unless saved on Controls panel" es="Ajuste temporal para esta impresión, a menos que se guarde en el panel de Controles"/>
   <translation tag="Temporary for this print; a tool change resets it" es="Temporal para esta impresión; un cambio de herramienta lo restablece"/>
+  <translation tag="Tensioner: {}" es="Tensor: {}"/>
   <translation tag="Tertiary" es="Terciario"/>
   <translation tag="Test All Lanes" es="Probar todos los carriles"/>
   <translation tag="Test Both" es="Ambos"/>
@@ -3650,6 +3652,8 @@
   <translation tag="The nozzle is clear of the print" es="La boquilla no toca la impresión"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." es="La boquilla está caliente. Límpiala con el cepillo de alambre incluido, mantén limpia la posición de anclaje y pulsa Siguiente."/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." es="La boquilla está separada de la impresión y X e Y están posicionados. Al reanudar, baja de nuevo a la altura en que se detuvo."/>
+  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts." es="El pico de {0} salió de la zona. Comprueba que solo giraste el tensor de {1}. ¿No sabes cuál es cuál? Toca la línea del tensor para identificar las correas."/>
+  <translation tag="The peak of {} moved out of the zone. Widening it." es="El pico de {} salió de la zona. Ampliándola."/>
   <translation tag="The plate and the spools are still hot. Use gloves." es="La cama y las bobinas siguen calientes. Usa guantes."/>
   <translation tag="The plate finishes its current move, but drying will not start." es="La cama termina su movimiento actual, pero el secado no empezará."/>
   <translation tag="The plugin can&apos;t reach the camera, so this screen takes the photos." es="El plugin no llega a la cámara, así que esta pantalla toma las fotos."/>
@@ -4328,7 +4332,6 @@
   <translation tag="wpa_supplicant is not running. WiFi features unavailable." es="wpa_supplicant no se está ejecutando. Las funciones WiFi no están disponibles."/>
   <translation tag="you have" es="tienes"/>
   <translation tag="{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension." es="{0} resuena mucho más que {1} a {2:.0f} Hz. Eso apunta a una diferencia mecánica (prisioneros de la polea, rodamientos de las poleas locas, alineación de la correa), no a la tensión."/>
-  <translation tag="{0}&apos;s peak left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor." es="El pico de {0} salió de la zona. Comprueba que solo giraste el tensor de {1}. ¿No sabes cuál es cuál? Toca el nombre de una correa en la pantalla de resultados para hacer vibrar su motor."/>
   <translation tag="{:.0f}-{:.0f} Hz · about {} min" es="{:.0f}-{:.0f} Hz · unos {} min"/>
   <translation tag="{} ({})" es="{} ({})"/>
   <translation tag="{} Extruders" es="{} extrusores"/>
@@ -4405,7 +4408,6 @@
   <translation tag="{} spool cleared" es="{}: bobina eliminada"/>
   <translation tag="{} started" es="{} iniciado"/>
   <translation tag="{} target set to {}°C" es="{} configurado a {}°C"/>
-  <translation tag="{} tensioner" es="Tensor de {}"/>
   <translation tag="{} turn" es="{} vuelta"/>
   <translation tag="{} turns" es="{} vueltas"/>
   <translation tag="{} updated" es="Se actualizó {}"/>
@@ -4416,8 +4418,6 @@
   <translation tag="{} — response timed out" es="{} — tiempo de espera agotado"/>
   <translation tag="{} → {}: no filament loaded." es="{} → {}: no hay filamento cargado."/>
   <translation tag="{}% left" es="Queda {}%"/>
-  <translation tag="{}&apos;s motor is buzzing" es="El motor de {} está vibrando"/>
-  <translation tag="{}&apos;s peak moved out of the zone. Widening it." es="El pico de {} salió de la zona. Ampliándola."/>
   <translation tag="{}: the tag names Spoolman spool #{}, which doesn&apos;t exist" es="{}: la etiqueta indica la bobina #{} de Spoolman, que no existe"/>
   <translation tag="{}:{:02} elapsed" es="{}:{:02} transcurrido"/>
   <translation tag="~{:.1f} Hz / turn" es="~{:.1f} Hz / vuelta"/>

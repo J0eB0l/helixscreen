@@ -470,6 +470,7 @@ translations:
   Busy: 'ビジー状態'
   Button taps and navigation sounds: ボタンタップとナビゲーション音
   Buzz Servo: 'サーボを小刻みに動かす'
+  Buzzing the motor of {}: "{}のモーターを振動中"
   Bypass: バイパス
   Bypass Is Active: バイパス使用中
   Bypass Mode: バイパスモード
@@ -3694,6 +3695,7 @@ translations:
   Temporary adjustment for this print: "この印刷のみの一時的な調整です"
   Temporary adjustment for this print, unless saved on Controls panel: コントロールパネルで保存しない限り、この印刷のみの一時的な調整です
   Temporary for this print; a tool change resets it: "この印刷のみの一時的な調整です。ツール交換でリセットされます"
+  'Tensioner: {}': "テンショナー: {}"
   Tertiary: ターシャリ
   Test All Lanes: '全レーンをテスト'
   Test Connection: 接続テスト
@@ -3797,6 +3799,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : ノズルは高温です。付属のワイヤーブラシで清掃し、ドッキング位置もきれいに保ってから「次へ」をタップしてください。
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "ノズルは印刷物から持ち上げられ、XとYはホーミング済みです。再開すると、停止した高さまで再び下がります。"
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
+  : "{0}のピークがゾーンから外れました。{1}のテンショナーだけを回したか確認してください。どれがどれか分からない場合は、テンショナーの行をタップしてベルトを識別してください。"
+  The peak of {} moved out of the zone. Widening it.: "{}のピークがゾーン外に出ました。ゾーンを広げます。"
   The plate and the spools are still hot. Use gloves.: ベッドとスプールはまだ熱いです。手袋を使ってください。
 
   The plate finishes its current move, but drying will not start.: 'ベッドは現在の移動を完了しますが、乾燥は開始しません。'
@@ -4510,8 +4515,6 @@ translations:
   you have: 現在は
   ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
   : "{0}は{2:.0f} Hzで{1}よりはるかに強く共振しています。張力ではなく機械的な違い(プーリーのイモネジ、アイドラーのベアリング、ベルトの走行)を示しています。"
-  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
-  : "{0}のピークがゾーンから外れました。{1}のテンショナーだけを回したか確認してください。どれがどれか分からない場合は、結果画面でベルト名をタップするとモーターが振動します。"
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · 約{}分'
   '{} ({})': '{}（{}）'
   '{} Extruders': '{} エクストルーダー'
@@ -4587,7 +4590,6 @@ translations:
   '{} spool cleared': '{} のスプールをクリアしました'
   '{} started': '{} を開始しました'
   '{} target set to {}°C': '{} 目標温度を {}°C に設定しました'
-  '{} tensioner': "{}のテンショナー"
   '{} turn': "{}回転"
   '{} turns': "{}回転"
   '{} updated': '{} を更新しました'
@@ -4598,8 +4600,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — 応答タイムアウト'
   '{} → {}: no filament loaded.': '{} → {}: フィラメントが装填されていません。'
-  "{}'s motor is buzzing": "{}のモーターが振動中"
-  "{}'s peak moved out of the zone. Widening it.": "{}のピークがゾーン外に出ました。ゾーンを広げます。"
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: タグが示す Spoolman スプール #{} は存在しません'
   '{}:{:02} elapsed': 経過 {}:{:02}
   '{}% left': '残り {}%'

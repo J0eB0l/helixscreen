@@ -498,6 +498,7 @@ translations:
   Busy: 'Ocupado'
   Button taps and navigation sounds: Sonidos de botones y navegación
   Buzz Servo: 'Mover brevemente el servo'
+  Buzzing the motor of {}: "Vibrando el motor de {}"
   Bypass: Bypass
   Bypass Is Active: Bypass activo
   Bypass Mode: Modo Bypass
@@ -3900,6 +3901,7 @@ translations:
   Temporary adjustment for this print, unless saved on Controls panel: Ajuste temporal
     para esta impresión, a menos que se guarde en el panel de Controles
   Temporary for this print; a tool change resets it: "Temporal para esta impresión; un cambio de herramienta lo restablece"
+  'Tensioner: {}': "Tensor: {}"
   Tertiary: Terciario
   Test All Lanes: 'Probar todos los carriles'
   Test Connection: Probar Conexión
@@ -4006,6 +4008,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : La boquilla está caliente. Límpiala con el cepillo de alambre incluido, mantén limpia la posición de anclaje y pulsa Siguiente.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "La boquilla está separada de la impresión y X e Y están posicionados. Al reanudar, baja de nuevo a la altura en que se detuvo."
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
+  : "El pico de {0} salió de la zona. Comprueba que solo giraste el tensor de {1}. ¿No sabes cuál es cuál? Toca la línea del tensor para identificar las correas."
+  The peak of {} moved out of the zone. Widening it.: "El pico de {} salió de la zona. Ampliándola."
   The plate and the spools are still hot. Use gloves.: La cama y las bobinas siguen calientes. Usa guantes.
 
   The plate finishes its current move, but drying will not start.: 'La cama termina su movimiento actual, pero el secado no empezará.'
@@ -4765,8 +4770,6 @@ translations:
   you have: tienes
   ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
   : "{0} resuena mucho más que {1} a {2:.0f} Hz. Eso apunta a una diferencia mecánica (prisioneros de la polea, rodamientos de las poleas locas, alineación de la correa), no a la tensión."
-  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
-  : "El pico de {0} salió de la zona. Comprueba que solo giraste el tensor de {1}. ¿No sabes cuál es cuál? Toca el nombre de una correa en la pantalla de resultados para hacer vibrar su motor."
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · unos {} min'
   '{} ({})': '{} ({})'
   '{} Extruders': '{} extrusores'
@@ -4843,7 +4846,6 @@ translations:
   '{} spool cleared': '{}: bobina eliminada'
   '{} started': '{} iniciado'
   '{} target set to {}°C': '{} configurado a {}°C'
-  '{} tensioner': "Tensor de {}"
   '{} turn': "{} vuelta"
   '{} turns': "{} vueltas"
   '{} updated': 'Se actualizó {}'
@@ -4854,8 +4856,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — tiempo de espera agotado'
   '{} → {}: no filament loaded.': '{} → {}: no hay filamento cargado.'
-  "{}'s motor is buzzing": "El motor de {} está vibrando"
-  "{}'s peak moved out of the zone. Widening it.": "El pico de {} salió de la zona. Ampliándola."
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: la etiqueta indica la bobina #{} de Spoolman, que no existe'
   '{}:{:02} elapsed': '{}:{:02} transcurrido'
   '{}% left': 'Queda {}%'
