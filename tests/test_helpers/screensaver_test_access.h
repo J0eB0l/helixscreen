@@ -286,7 +286,7 @@ class PipesScreensaverTestAccess {
         return ss.sim_;
     }
 
-    static std::array<helix::ui::PipeState, helix::ui::kPipesMaxActive>
+    static std::array<helix::ui::PipeState, helix::ui::kPipesActive>
     pipes(const PipesScreensaver& ss) {
         return ss.sim_.screen().pipes();
     }

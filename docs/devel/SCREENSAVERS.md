@@ -176,9 +176,9 @@ the sprite count.
 A port of the Windows NT OpenGL "3D Pipes", with the original's numbers. The grid has 15
 nodes along the long screen axis, the short axis by aspect, and 15 deep (15 x 9 x 15 at
 800x480), nodes 7 apart, pipes of radius 1, seen from 75 back with a 90 degree vertical field
-of view. A screen starts 2 to 4 pipes at once and 7 in all; a pipe that gets stuck ends with a
-ball cap and a new one starts at a random empty node until the 7 are used, or the nodes run
-out. Each step goes straight with the pipe's own weight (1-4, now and then 25-100) against one
+of view. One pipe grows at a time, the original's default single-pipe mode, and a screen
+draws 5; a pipe that gets stuck ends with a ball cap and the next starts at a random empty node
+until the 5 are used, or the nodes run out. Each step goes straight with the pipe's own weight (1-4, now and then 25-100) against one
 per empty turn; a turn takes the direction with the longest empty run, looking two nodes
 ahead. A turn's joint is a ball a third of the time, otherwise an elbow, and a teapot one
 time in a thousand.

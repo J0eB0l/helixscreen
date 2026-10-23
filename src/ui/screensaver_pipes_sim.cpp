@@ -333,7 +333,7 @@ void PipesScreen::begin(PipeGridDims dims, std::minstd_rand& rng, std::vector<Pi
     straight_ = 0;
     started_ = 0;
     max_pipes_ = kPipesPerScreen;
-    const int n = std::min(kPipesPerScreen, random_int(rng, kPipesMinActive, kPipesMaxActive));
+    const int n = std::min(kPipesPerScreen, kPipesActive);
     counted_ = n;
     for (size_t i = 0; i < static_cast<size_t>(n); i++) {
         if (!start_pipe(i, rng, out)) {
@@ -925,7 +925,7 @@ void PipesSim::init(const FrameTarget& frame, std::minstd_rand& rng, size_t leve
     renderer_.init(frame.w, frame.h, kPipesLevels[level_].scale);
     dissolve_.init(frame.w, frame.h);
     pieces_.clear();
-    pieces_.reserve(4 * kPipesMaxActive * kPipesMaxStepsPerTick);
+    pieces_.reserve(4 * kPipesActive * kPipesMaxStepsPerTick);
     yrot_deg_ = 0.0f;
     screens_ = 0;
     std::vector<DirtyRect> unused;

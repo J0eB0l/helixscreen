@@ -296,7 +296,7 @@ TEST_CASE("pieces sit where the original draws them", "[screensaver][pipes_sim]"
                                    PipeDir::POS_X, 0.0f, 9)));
 }
 
-TEST_CASE("a screen begins with 2 to 4 pipes on distinct taken nodes", "[screensaver][pipes_sim]") {
+TEST_CASE("a screen begins with one pipe on a taken node", "[screensaver][pipes_sim]") {
     std::set<int> counts;
     for (uint32_t seed = 1; seed <= 300; seed++) {
         std::minstd_rand rng(seed);
@@ -315,18 +315,16 @@ TEST_CASE("a screen begins with 2 to 4 pipes on distinct taken nodes", "[screens
             CHECK(p.material < kPipeMaterialCount);
             CHECK(p.segment_count == 0);
         }
-        CHECK(alive >= kPipesMinActive);
-        CHECK(alive <= kPipesMaxActive);
         CHECK(alive == screen.pipes_counted());
         CHECK(alive == screen.pipes_started());
         CHECK(positions.size() == static_cast<size_t>(alive));
         CHECK_FALSE(out.empty());
         counts.insert(alive);
     }
-    CHECK(counts == std::set<int>{2, 3, 4});
+    CHECK(counts == std::set<int>{kPipesActive});
 }
 
-TEST_CASE("a screen starts exactly 7 pipes before it finishes", "[screensaver][pipes_sim]") {
+TEST_CASE("a screen starts exactly 5 pipes before it finishes", "[screensaver][pipes_sim]") {
     for (uint32_t seed = 1; seed <= 40; seed++) {
         std::minstd_rand rng(seed);
         PipesScreen screen;
@@ -417,7 +415,7 @@ TEST_CASE("over many turns a third of the joints are balls", "[screensaver][pipe
 
 TEST_CASE("a screen replays exactly from a seed", "[screensaver][pipes_sim]") {
     struct Run {
-        std::vector<std::array<PipeState, kPipesMaxActive>> pipes;
+        std::vector<std::array<PipeState, kPipesActive>> pipes;
         std::vector<PipePiece> pieces;
 
         bool operator==(const Run& o) const {
@@ -1244,7 +1242,8 @@ TEST_CASE("pipes grow one step per 100 ms, at most three per call", "[screensave
     CHECK(first_segments(c) == 3);
     c.step(50, fc.target, rng_c, dirty);
     CHECK(first_segments(c) == 4);
-    CHECK(total_segments(c) > 4);
+    // Slot 0 is the only pipe growing.
+    CHECK(total_segments(c) == 4);
 }
 
 TEST_CASE("a level's scale waits for the next screen", "[screensaver][pipes_sim]") {
