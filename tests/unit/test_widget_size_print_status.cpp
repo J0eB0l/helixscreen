@@ -778,3 +778,39 @@ TEST_CASE_METHOD(LVGLUITestFixture, "print_status library actions re-fit to a la
     }
     PrintStatusWidget::destroy_formatter_for_test();
 }
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "print_status measures its detailed rows when a print builds them",
+                 "[widget_size][print_status]") {
+    PrintStatusWidget::destroy_formatter_for_test();
+    auto& ps = get_printer_state();
+    PrinterStateTestAccess::reset(ps);
+    ps.init_subjects(false);
+    ToolState::instance().init_subjects(false);
+    heal_global_print_status_panel_subjects();
+
+    {
+        PanelWidgetHarness<PrintStatusWidget> h(test_screen(),
+                                                HarnessConfig{{{"layout_style", "detailed"}}});
+        UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+        h.resize(4, 2, 700, 400);
+        process_lvgl(30);
+
+        // Room for everything at this width, so a stale "no room" verdict can
+        // only clear if the rows are measured once the print builds them.
+        const char* const fits[] = {"print_status_nozzle_picker_fits", "print_status_layer_z_fits",
+                                    "print_status_elapsed_fits"};
+        for (const char* name : fits) {
+            lv_subject_set_int(lv_xml_get_subject(nullptr, name), 0);
+        }
+
+        helix::test::set_wire_state(ps, PrintJobState::PRINTING);
+        process_lvgl(30);
+        REQUIRE(h.child("detailed_time_row") != nullptr);
+        for (const char* name : fits) {
+            INFO(name);
+            CHECK(lv_subject_get_int(lv_xml_get_subject(nullptr, name)) == 1);
+        }
+    }
+    PrintStatusWidget::destroy_formatter_for_test();
+}
