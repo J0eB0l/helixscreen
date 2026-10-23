@@ -38,6 +38,9 @@ The installer restarts Moonraker once, which disconnects every screen and web in
 few seconds. Once the plugin is installed, the Advanced screen shows **HelixPrint Plugin** and
 **Uninstall HelixPrint Plugin** in place of the Install row.
 
+The plugin needs the standard Moonraker. Replacements that do not run Python add-ons, such as
+Moonruster on the Centauri Carbon, cannot load it.
+
 K-Touch owners: see also [Install the HelixPrint plugin on your printer](install-esp32.md#install-the-helixprint-plugin-on-your-printer).
 
 ---

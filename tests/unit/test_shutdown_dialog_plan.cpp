@@ -4,7 +4,8 @@
  * Which shutdown dialog opens, and which scope its split buttons start on.
  *
  * A screen on the printer's own host gets one row of buttons that go through
- * Moonraker (or local power when Moonraker is down). A screen on a different
+ * Moonraker, or straight to local power when Moonraker is down or the host
+ * does not run systemd (Moonraker's own power path needs it). A screen on a different
  * host gets the Both / Printer / Screen split buttons, starting on Screen: the
  * user is standing at the screen, and taking a printer down from another
  * machine is the choice that has to be made on purpose.
@@ -21,6 +22,7 @@
 #include "system_power.h"
 
 #include <string>
+#include <vector>
 
 #include "../catch_amalgamated.hpp"
 
@@ -30,7 +32,8 @@ TEST_CASE("Shutdown dialog plan: remote screen defaults to Screen", "[shutdown][
     SECTION("connected, live verdict remote") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
                                                /*live_moonraker_remote=*/true,
-                                               /*configured_host_same=*/false);
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::Dual);
         CHECK(plan.dual_default == ShutdownScope::Screen);
     }
@@ -38,7 +41,8 @@ TEST_CASE("Shutdown dialog plan: remote screen defaults to Screen", "[shutdown][
     SECTION("connected: the live verdict outranks a stale configured host") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
                                                /*live_moonraker_remote=*/true,
-                                               /*configured_host_same=*/true);
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::Dual);
         CHECK(plan.dual_default == ShutdownScope::Screen);
     }
@@ -46,7 +50,20 @@ TEST_CASE("Shutdown dialog plan: remote screen defaults to Screen", "[shutdown][
     SECTION("disconnected: the configured host decides") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/false,
                                                /*live_moonraker_remote=*/false,
-                                               /*configured_host_same=*/false);
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/true);
+        CHECK(plan.mode == ShutdownDialogMode::Dual);
+        CHECK(plan.dual_default == ShutdownScope::Screen);
+    }
+}
+
+TEST_CASE("Shutdown dialog plan: a remote printer splits whatever this host runs",
+          "[shutdown][power]") {
+    for (const bool connected : {true, false}) {
+        const auto plan = plan_shutdown_dialog(connected,
+                                               /*live_moonraker_remote=*/true,
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/false);
         CHECK(plan.mode == ShutdownDialogMode::Dual);
         CHECK(plan.dual_default == ShutdownScope::Screen);
     }
@@ -56,14 +73,32 @@ TEST_CASE("Shutdown dialog plan: same host stays single-scope", "[shutdown][powe
     SECTION("connected goes through Moonraker") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
                                                /*live_moonraker_remote=*/false,
-                                               /*configured_host_same=*/false);
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::SingleViaMoonraker);
+    }
+
+    SECTION("connected on a non-systemd host goes straight to local power") {
+        const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
+                                               /*live_moonraker_remote=*/false,
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/false);
+        CHECK(plan.mode == ShutdownDialogMode::SingleViaLocalPower);
+    }
+
+    SECTION("disconnected on a non-systemd host uses local power too") {
+        const auto plan = plan_shutdown_dialog(/*api_connected=*/false,
+                                               /*live_moonraker_remote=*/false,
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/false);
+        CHECK(plan.mode == ShutdownDialogMode::SingleViaLocalPower);
     }
 
     SECTION("disconnected falls back to local power") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/false,
                                                /*live_moonraker_remote=*/true,
-                                               /*configured_host_same=*/true);
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::SingleViaLocalPower);
     }
 }
@@ -157,4 +192,40 @@ TEST_CASE("Screen power failure toast names a missing permission", "[shutdown][p
           "Screen shutdown failed");
     CHECK(std::string(screen_power_failure_message(PowerResult::Failed, true)) ==
           "Screen reboot failed");
+}
+
+TEST_CASE("Local power holds black only after the request dispatched", "[shutdown][power]") {
+    std::vector<std::string> steps;
+    auto power_returning = [&steps](PowerResult r) {
+        return [&steps, r]() {
+            steps.push_back("power");
+            return r;
+        };
+    };
+    auto stop_drawing = [&steps]() { steps.push_back("stop_drawing"); };
+    auto clear = [&steps]() { steps.push_back("clear"); };
+
+    SECTION("dispatched: power, then stop drawing, then clear") {
+        CHECK(power_then_hold_black(power_returning(PowerResult::Dispatched), stop_drawing,
+                                    clear) == PowerResult::Dispatched);
+        CHECK(steps == std::vector<std::string>{"power", "stop_drawing", "clear"});
+    }
+
+    SECTION("failed or refused: the screen is left alone") {
+        for (const PowerResult r : {PowerResult::Failed, PowerResult::NotAuthorized}) {
+            steps.clear();
+            CHECK(power_then_hold_black(power_returning(r), stop_drawing, clear) == r);
+            CHECK(steps == std::vector<std::string>{"power"});
+        }
+    }
+}
+
+TEST_CASE("A failed local power retries through a connected Moonraker", "[shutdown][power]") {
+    CHECK(host_power_follow_up(PowerResult::Dispatched, true) == HostPowerFollowUp::Done);
+    CHECK(host_power_follow_up(PowerResult::Dispatched, false) == HostPowerFollowUp::Done);
+    CHECK(host_power_follow_up(PowerResult::Failed, true) == HostPowerFollowUp::RetryViaMoonraker);
+    CHECK(host_power_follow_up(PowerResult::NotAuthorized, true) ==
+          HostPowerFollowUp::RetryViaMoonraker);
+    CHECK(host_power_follow_up(PowerResult::Failed, false) == HostPowerFollowUp::Toast);
+    CHECK(host_power_follow_up(PowerResult::NotAuthorized, false) == HostPowerFollowUp::Toast);
 }

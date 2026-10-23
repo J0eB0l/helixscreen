@@ -87,6 +87,7 @@ SPLASH_EXTRA_OBJS := \
     $(BUILD_DIR)/splash/ui_notification_stub.o \
     $(BUILD_DIR)/splash/drm_mode_matching.o \
     $(BUILD_DIR)/splash/fbdev_size_helper.o \
+    $(BUILD_DIR)/splash/fbdev_signal_clear.o \
     $(BUILD_DIR)/splash/pending_startup_warnings.o \
     $(BUILD_DIR)/splash/log_redact.o \
     $(BUILD_DIR)/splash/platform_info.o \
@@ -153,6 +154,11 @@ $(BUILD_DIR)/splash/drm_mode_matching.o: src/api/drm_mode_matching.cpp $(LIBHV_L
 
 # Fbdev kernel-size helper (pure, referenced by display_backend_fbdev.cpp). Added for #766.
 $(BUILD_DIR)/splash/fbdev_size_helper.o: src/api/fbdev_size_helper.cpp $(LIBHV_LIB) $(LIBHV_JSON_HEADER) $(ABI_STAMP) | $(BUILD_DIR)/splash
+	@echo "[CXX] $< (splash)"
+	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# Signal-safe framebuffer blank (registered by display_backend_fbdev.cpp)
+$(BUILD_DIR)/splash/fbdev_signal_clear.o: src/api/fbdev_signal_clear.cpp $(ABI_STAMP) | $(BUILD_DIR)/splash
 	@echo "[CXX] $< (splash)"
 	$(Q)$(CXX) $(SPLASH_CXXFLAGS) $(DEPFLAGS) -c $< -o $@
 

@@ -49,6 +49,7 @@ DisplayManager* DisplayManager::instance() {
     return nullptr;
 }
 void DisplayManager::wake_display() {}
+void DisplayManager::hold_flush_for_power_off() {}
 void DisplayManager::register_resize_callback(ResizeCallback) {}
 bool DisplayManager::needs_touch_calibration() const {
     return false;

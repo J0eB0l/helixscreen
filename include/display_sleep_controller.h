@@ -73,6 +73,11 @@ class DisplaySleepController {
     /// Leaves the panel usable for the next process.
     void restore_on_shutdown();
 
+    /// Stops LVGL from drawing for the rest of this process: no wake, touch or
+    /// shutdown path turns the flush back on. For a host power-off already under
+    /// way, so the black frame written after it holds until init stops us.
+    void hold_flush_for_power_off();
+
     /// Drops state that points into LVGL objects lv_deinit() is about to free.
     void abandon_lvgl_state();
 
@@ -155,6 +160,7 @@ class DisplaySleepController {
 
     lv_display_flush_cb_t m_saved_flush_cb_for_sleep = nullptr;
     bool m_flush_suppressed_for_sleep = false;
+    bool m_flush_held_for_power_off = false;
 
 #if HELIX_ENABLE_SCREENSAVER
     bool m_screensaver_active = false;

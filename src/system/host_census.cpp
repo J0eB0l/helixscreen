@@ -5,6 +5,7 @@
 
 #include "system/log_collector.h"
 #include "system/moonraker_local_probe.h"
+#include "system_power.h"
 #include "text_io.h"
 
 #include <spdlog/spdlog.h>
@@ -109,12 +110,6 @@ std::optional<std::vector<std::string>> failed_units_from(int exit_status,
     return parse_failed_units(output);
 }
 
-bool systemd_is_init(const std::string& root) {
-    std::error_code ec;
-    return fs::is_directory(root + "/run/systemd/system", ec) &&
-           !find_binary(root, "systemctl").empty();
-}
-
 std::vector<CensusProcess> census_processes(const std::string& proc_root, size_t cap) {
     std::vector<CensusProcess> out;
     // A partial census is the useful answer: the caller's section also carries
@@ -156,7 +151,7 @@ HostCensus collect_host_census(const std::string& root) {
     }
 
     // Run only against the live machine; a test root has nothing to run.
-    if (root.empty() && systemd_is_init(root)) {
+    if (root.empty() && helix::host_runs_systemd(root) && !find_binary(root, "systemctl").empty()) {
         // `timeout` keeps a wedged systemd from stalling the bundle upload.
         const std::string timeout = find_binary(root, "timeout");
         int status = -1;

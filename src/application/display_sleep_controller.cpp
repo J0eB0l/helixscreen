@@ -282,8 +282,13 @@ void DisplaySleepController::suppress_flush_for_sleep() {
     spdlog::debug("[DisplaySleep] Flush suppressed while panel powered off");
 }
 
+void DisplaySleepController::hold_flush_for_power_off() {
+    suppress_flush_for_sleep();
+    m_flush_held_for_power_off = true;
+}
+
 void DisplaySleepController::restore_flush_after_sleep() {
-    if (!m_flush_suppressed_for_sleep) {
+    if (!m_flush_suppressed_for_sleep || m_flush_held_for_power_off) {
         return;
     }
     m_flush_suppressed_for_sleep = false;
@@ -685,8 +690,10 @@ void DisplaySleepController::restore_on_shutdown() {
     }
 
     // Clear framebuffer to black so the last rendered frame doesn't persist
-    // after the process exits (SIGTERM/SIGINT graceful shutdown)
-    if (backend) {
+    // after the process exits (SIGTERM/SIGINT graceful shutdown). A power-off
+    // hold has already painted opaque black, which this transparent clear
+    // would undo on panels that read the X byte as alpha.
+    if (backend && !m_flush_held_for_power_off) {
         backend->clear_framebuffer(0x00000000);
     }
 
