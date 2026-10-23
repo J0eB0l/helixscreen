@@ -86,6 +86,7 @@ set(LOCAL_SRCS
 idf_component_register(
     SRCS ${APP_SRCS} ${MOCK_SRCS} ${LOCAL_SRCS}
     INCLUDE_DIRS "."
+    LDFRAGMENTS linker.lf
     REQUIRES helixcore helixnet
     # esp_wifi/esp_netif/esp_event/nvs_flash: the non-mock connect path
     # (app_boot.cpp, Task 8) brings up the WiFi station before connecting.
