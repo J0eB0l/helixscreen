@@ -1601,6 +1601,10 @@ AmsError AmsBackendToolChanger::start_mount_feed(const std::vector<int>& heads, 
 
 void AmsBackendToolChanger::publish_feed_state_locked() {
     system_info_.action = feed_action_;
+    // The status line shows operation_detail ahead of the action, and a frame
+    // writes the controller's own phase word there ("idle" between the run's
+    // swaps). The run has no detail of its own: the step under way says it.
+    system_info_.operation_detail.clear();
     system_info_.operation_phase = feed_phase_;
     step_action_ = feed_step_action_;
 }

@@ -130,9 +130,9 @@ TEST_CASE("mount-to-feed: a load mounts, heats, prompts, purges and restores",
     CHECK(stages[2].gcode.find("MSG=HELIX_MOUNT_FEED_CONTINUE|primary") != std::string::npos);
     CHECK(stages[2].gcode.find("MSG=HELIX_MOUNT_FEED_CANCEL|error") != std::string::npos);
     CHECK(stages[3].step == mf::Step::Purge);
-    CHECK(stages[3].gcode ==
-          mf::prompt_end_gcode() + "\nM83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
-                                   "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
+    CHECK(stages[3].gcode == mf::prompt_end_gcode() +
+                                 "\nM83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
+                                 "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
     CHECK(stages[4].gcode == "SELECT_TOOL T=0");
 }
 
@@ -946,4 +946,26 @@ TEST_CASE_METHOD(BusyGuardFixture,
     CHECK(tc.get_current_action() != AmsAction::HEATING);
     tc.cancel();
     helix::ui::UpdateQueue::instance().drain();
+}
+
+TEST_CASE("MedusaHC: a dock-sensor frame never relabels a live mount-to-feed run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // mounted; heating
+    REQUIRE(tc.get_current_action() == AmsAction::HEATING);
+
+    // The controller's own phase word says it is idle: true of the changer,
+    // not of the run, and the run's status line must not read it.
+    tc.feed(json{{"medusahc", {{"operation", "idle"}}}});
+    CHECK(tc.get_current_action() == AmsAction::HEATING);
+    CHECK(tc.get_system_info().operation_detail.empty());
+
+    // A sensor fault and its recovery mid-run leave the run's action standing.
+    tc.feed(pin_watch_frame(-2));
+    tc.feed(pin_watch_frame(1));
+    CHECK(tc.get_current_action() == AmsAction::HEATING);
+    CHECK(tc.get_system_info().operation_detail.empty());
 }
