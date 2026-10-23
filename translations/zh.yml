@@ -1896,6 +1896,7 @@ translations:
   : '打印机上已安装 Klippain Shake&Tune 宏。HelixScreen 会检测到它们但不使用;请在 Mainsail 或 Fluidd 中运行。'
   Klipper: Klipper
   Klipper Error: Klipper 错误
+  Klipper already reports the ACE slots.: "Klipper 已在报告 ACE 槽位。"
   Klipper disconnected: Klipper已断开
   Klipper failed to start with the skip macros, so they were removed: 'Klipper 无法在加载跳过宏后启动，已将其移除'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper 无法启动。请从 printer.cfg 中删除 helix_skips.cfg 的 include。'
@@ -1909,6 +1910,7 @@ translations:
   Klipper has entered shutdown state.: Klipper 已进入关闭状态。
   Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper
     已进入关机状态。这可能是由于紧急停止、热失控或配置错误引起的。
+  Klipper has no [virtual_sdcard] section.: "Klipper 没有 [virtual_sdcard] 部分。"
   Klipper is halted — restart firmware to continue: Klipper 已停止 — 请重启固件以继续
   Klipper ready: Klipper就绪
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper 将 'default' 保留用于新的校准。请选择其他名称。"
@@ -2196,6 +2198,7 @@ translations:
   Monitoring: 监控中
   Month: 月
   Moonraker: Moonraker
+  Moonraker has no G-code folder.: "Moonraker 没有 G-code 文件夹。"
   ? Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen.
   : 'Moonraker 已连接 Spoolman,它会记录你的料盘和剩余耗材量。在 Spoolman 界面浏览。'
   Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started.: Moonraker 在 {} 无响应。它运行在这台打印机上，请检查 Klipper 和 Moonraker 服务是否已启动。
@@ -2204,6 +2207,7 @@ translations:
     未连接。请检查服务器。
   ? "Moonraker restarting...\nWaiting for reconnection..."
   : "Moonraker 重启中...\n等待重新连接..."
+  Moonraker's Python is too old for this feature.: "Moonraker 的 Python 版本太旧，无法使用此功能。"
   'Moonraker: ': 'Moonraker: '
   More points = more accurate, but takes longer.: 点数越多越精确，但耗时更长。
   Motion: 运动
@@ -2292,6 +2296,7 @@ translations:
   'Next: {}': '下一个：{}'
   Niimbot (Bluetooth): Niimbot（蓝牙）
   'No': 否
+  No ACE unit was found.: "未找到 ACE 单元。"
   No AMS Detected: '未检测到 AMS'
   No API connection: 无 API 连接
   No Bluetooth printer selected — pick one in settings: 未选择蓝牙打印机 — 请在设置中选择
@@ -2591,6 +2596,8 @@ translations:
   Part: 零件
   Part Cooling Fan: 零件冷却风扇
   Part Fan: 零件风扇
+  Part of the plugin failed to load. Reinstall the plugin.: "插件的一部分加载失败。请重新安装插件。"
+  Part of the plugin is missing. Reinstall the plugin.: "插件缺少一部分。请重新安装插件。"
   Part, hotend, and auxiliary fan speeds: '零件、热端与辅助风扇速度'
   Password: 密码
   Password cannot be empty: 密码不能为空
@@ -2686,6 +2693,7 @@ translations:
   'Power was lost during the print; the printer stopped and saved its progress': '打印过程中断电，打印机已停止并保存了进度'
   Power was lost less than a minute ago.: 不到一分钟前断电。
   Power-loss recovery: 断电恢复
+  Power-loss recovery isn't supported on this printer yet.: "此打印机暂不支持断电恢复。"
   Pre-heat the extruder first: 请先预热挤出机
   'Pre-print command failed: {}': '打印前命令失败: {}'
   Pre-print homing...: 打印前归位...
@@ -3710,12 +3718,14 @@ translations:
   That turn didn't register yet. Tighten {0} a little more.: "这次转动还没有体现出来。请将 {0} 再拉紧一点。"
   That turn didn't register yet. Tighten {0} one more full turn.: "这次转动还没有体现出来。请将 {0} 再拉紧一整圈。"
   The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "ACE 与挤出机一起推送已加载的耗材。驱动程序会在加载后开启送料辅助"
+  The ACE state can't be read.: "无法读取 ACE 状态。"
   The CFS odometer hardware is faulty and needs repair or replacement: CFS 计量硬件故障，需维修或更换
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'CFS 的 {} 耗材已用完。打印将使用管内剩余的耗材继续。'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'CFS 耗材已用完。打印将使用管内剩余的耗材继续。'
   ? The HelixPrint plugin enables fast G-code modifications directly on your printer—like
     skipping bed mesh for quick reprints.
   : HelixPrint 插件可在打印机上直接进行快速 G-code 修改——例如跳过热床网格以快速重新打印。
+  The IFS state file can't be read.: "无法读取 IFS 状态文件。"
   The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings.: '已安装 Moonraker 延时摄影插件。在延时摄影设置中设定录制方式。'
   The PEI sheet is still on the bed. Take it off, then tap Next.: PEI 板仍在热床上。请取下后点击下一步。
   The Spoolman spool currently loaded: 当前装载的 Spoolman 料盘
@@ -3783,6 +3793,9 @@ translations:
   The plate and the spools are still hot. Use gloves.: 热床和料盘仍然很烫。请戴手套。
 
   The plate finishes its current move, but drying will not start.: '热床会完成当前移动,但烘干不会开始。'
+  The plugin can't reach the camera, so this screen takes the photos.: "插件无法连接摄像头，因此由此屏幕拍照。"
+  The plugin can't save its recovery data to disk.: "插件无法保存其恢复数据。"
+  The plugin is turned off in moonraker.conf.: "插件已在 moonraker.conf 中关闭。"
   The print ended before any layer was printed. Nothing was changed.: 打印在任何一层完成前就结束了。未做任何更改。
   The print is canceled and you pick the best band from what has printed so far.: 打印将被取消,你可以从已打印的部分中选择最佳区段。
   The print is on its last layer.: '正在打印最后一层。'
@@ -3869,6 +3882,7 @@ translations:
   This AFC system does not support bypass mode: '此 AFC 系统不支持旁通模式'
   This CFS firmware exposes no external spool slot: '此 CFS 固件没有外部料盘槽位'
   This Happy Hare system does not support bypass mode: '此 Happy Hare 系统不支持旁通模式'
+  This Moonraker version can't hold uploads. Update Moonraker.: "此版本的 Moonraker 无法暂缓上传。请更新 Moonraker。"
   This button controls: 此按钮控制
   This calibration uses the paper friction method to set your Z-offset.: 此校准使用纸张摩擦法设置
     Z 偏移。
@@ -3884,7 +3898,9 @@ translations:
   : 此设备内存极少。共振校准会占用大量内存，可能导致 "Timer Too Close" 错误。仍要继续吗？
   This doesn't match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?: 这与关联的 Spoolman 料盘不匹配。是否添加为新料盘，或更新关联料盘以匹配？
   This dryer cannot run while filament from the unit is loaded: '此单元的耗材处于装载状态时，烘干机无法运行'
+  This feature failed to start. The Moonraker log says why.: "此功能启动失败。原因见 Moonraker 日志。"
   This feature requires different hardware or configuration: 此功能需要不同的硬件或配置
+  This feature stopped. Restart Moonraker to start it again.: "此功能已停止。重启 Moonraker 即可重新启动。"
   This filament system does not report buffer or flow data.: 此耗材系统不报告缓冲区或流量数据。
   This file was sliced for {} but {} is loaded.: 此文件为 {} 切片，但当前加载的是 {}。
   This file was sliced for {}, but {} is loaded. It will print slower and hotter than the loaded spool needs.: 此文件为 {} 切片，但当前加载的是 {}。打印会比当前装载的料盘所需更慢、更热。
@@ -3897,6 +3913,7 @@ translations:
   This is what data would be sent if enabled: 这是启用后将发送的数据
   This looks like a {}, but it is set up as a {}: 这台打印机看起来是 {}，但被设置为 {}
   This may take up to 30 seconds: 这可能需要 30 秒
+  This needs the plugin's file analysis, which isn't running.: "这需要插件的文件分析，但它未在运行。"
   This plugin asks for no special permissions.: '此插件不请求任何特殊权限。'
   This plugin lets HelixScreen control print start options like bed mesh and QGL.: '此插件让 HelixScreen 控制打印启动选项，如热床网格和 QGL。'
   This print can't be resumed. Restart it, or turn off the bed check if it keeps happening.: '此打印无法继续。请重新开始打印；如果反复出现，可关闭热床检查。'
@@ -3907,6 +3924,7 @@ translations:
   This printer cannot calibrate tool offsets automatically: 此打印机无法自动校准工具偏移
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: 此打印机的通道信息来自 Spoolman。HelixScreen 已清除本地副本；请在 Spoolman 中移除该线轴。
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: 此打印机的通道信息来自 Spoolman。请在 Spoolman 中更改颜色、材料和线轴。
+  This printer has no IFS.: "此打印机没有 IFS。"
   This printer has no INDX LOAD_FILAMENT macro: "此打印机没有 INDX LOAD_FILAMENT 宏"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: 此打印机没有自动退料功能。请在工具头处剪断耗材，然后用手拉出。
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.

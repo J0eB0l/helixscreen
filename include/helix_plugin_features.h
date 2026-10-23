@@ -13,6 +13,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "hv/json.hpp"
@@ -189,6 +190,41 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"vendor_ace", TR_NOOP("ACE updates without polling"), "sync", PluginFeatureHome::None,
      kAceAbsentReasons},
 };
+
+/// What a reason code the plugin reports means, for the overview. Text is
+/// English; plugin_reason_text() translates it.
+struct PluginReasonText {
+    const char* code;
+    const char* text;
+};
+
+/// Every reason code the plugin's feature modules report.
+inline constexpr PluginReasonText kPluginReasonTexts[] = {
+    {"plugin_disabled", TR_NOOP("The plugin is turned off in moonraker.conf.")},
+    {"module_missing", TR_NOOP("Part of the plugin is missing. Reinstall the plugin.")},
+    {"load_failed", TR_NOOP("Part of the plugin failed to load. Reinstall the plugin.")},
+    {"start_failed", TR_NOOP("This feature failed to start. The Moonraker log says why.")},
+    {"stopped", TR_NOOP("This feature stopped. Restart Moonraker to start it again.")},
+    {"needs_file_analysis", TR_NOOP("This needs the plugin's file analysis, which isn't running.")},
+    {"upload_hook_unsupported",
+     TR_NOOP("This Moonraker version can't hold uploads. Update Moonraker.")},
+    {"no_gcodes_dir", TR_NOOP("Moonraker has no G-code folder.")},
+    {"python_too_old", TR_NOOP("Moonraker's Python is too old for this feature.")},
+    {"no_virtual_sdcard", TR_NOOP("Klipper has no [virtual_sdcard] section.")},
+    {"store_unwritable", TR_NOOP("The plugin can't save its recovery data to disk.")},
+    {"not_listed", TR_NOOP("Power-loss recovery isn't supported on this printer yet.")},
+    {"snapshot_unreachable",
+     TR_NOOP("The plugin can't reach the camera, so this screen takes the photos.")},
+    {"no_adventurer_json", TR_NOOP("This printer has no IFS.")},
+    {"adventurer_json_unreadable", TR_NOOP("The IFS state file can't be read.")},
+    {"no_ace_bridge", TR_NOOP("No ACE unit was found.")},
+    {"ace_objects_carry_slots", TR_NOOP("Klipper already reports the ACE slots.")},
+    {"bridge_unreadable", TR_NOOP("The ACE state can't be read.")},
+};
+
+/// The overview's text for @p reason: a code in kPluginReasonTexts, read up to
+/// any ": detail" suffix, as its translated text; any other reason unchanged.
+std::string plugin_reason_text(std::string_view reason);
 
 /// The icon of a feature this app does not know.
 inline constexpr const char* kUnknownPluginFeatureIcon = "puzzle_outline";

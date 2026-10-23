@@ -1958,6 +1958,7 @@ translations:
   : Klippain Shake&Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd.
   Klipper: Klipper
   Klipper Error: Klipper Error
+  Klipper already reports the ACE slots.: Klipper already reports the ACE slots.
   Klipper disconnected: Klipper disconnected
   Klipper failed to start with the skip macros, so they were removed: Klipper failed to start with the skip macros, so they were removed
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.
@@ -1974,6 +1975,7 @@ translations:
   Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper
     has entered shutdown state. This may be due to an emergency stop, thermal runaway,
     or configuration error.
+  Klipper has no [virtual_sdcard] section.: Klipper has no [virtual_sdcard] section.
   Klipper is halted — restart firmware to continue: Klipper is halted — restart firmware to continue
   Klipper ready: Klipper ready
   Klipper reserves 'default' for new calibrations. Choose another name.: Klipper reserves 'default' for new calibrations. Choose another name.
@@ -2269,6 +2271,7 @@ translations:
   Monitoring: Monitoring
   Month: Month
   Moonraker: Moonraker
+  Moonraker has no G-code folder.: Moonraker has no G-code folder.
   ? Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen.
   : Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen.
   Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started.: Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started.
@@ -2277,6 +2280,7 @@ translations:
     but Spoolman not connected. Check server.
   ? "Moonraker restarting...\nWaiting for reconnection..."
   : "Moonraker restarting...\nWaiting for reconnection..."
+  Moonraker's Python is too old for this feature.: Moonraker's Python is too old for this feature.
   'Moonraker: ': 'Moonraker: '
   More: More
   More points = more accurate, but takes longer.: More points = more accurate, but
@@ -2369,6 +2373,7 @@ translations:
   'Next: {}': 'Next: {}'
   Niimbot (Bluetooth): Niimbot (Bluetooth)
   'No': 'No'
+  No ACE unit was found.: No ACE unit was found.
   No AMS Detected: No AMS Detected
   No API connection: No API connection
   No Bluetooth printer selected — pick one in settings: No Bluetooth printer selected
@@ -2671,6 +2676,8 @@ translations:
   Part: Part
   Part Cooling Fan: Part Cooling Fan
   Part Fan: Part Fan
+  Part of the plugin failed to load. Reinstall the plugin.: Part of the plugin failed to load. Reinstall the plugin.
+  Part of the plugin is missing. Reinstall the plugin.: Part of the plugin is missing. Reinstall the plugin.
   Part, hotend, and auxiliary fan speeds: Part, hotend, and auxiliary fan speeds
   Password: Password
   Password cannot be empty: Password cannot be empty
@@ -2770,6 +2777,7 @@ translations:
   'Power was lost during the print; the printer stopped and saved its progress': 'Power was lost during the print; the printer stopped and saved its progress'
   Power was lost less than a minute ago.: Power was lost less than a minute ago.
   Power-loss recovery: Power-loss recovery
+  Power-loss recovery isn't supported on this printer yet.: Power-loss recovery isn't supported on this printer yet.
   Pre-heat the extruder first: Pre-heat the extruder first
   'Pre-print command failed: {}': 'Pre-print command failed: {}'
   'Pre-print homing...': 'Pre-print homing...'
@@ -3838,6 +3846,7 @@ translations:
   That turn didn't register yet. Tighten {0} a little more.: That turn didn't register yet. Tighten {0} a little more.
   That turn didn't register yet. Tighten {0} one more full turn.: That turn didn't register yet. Tighten {0} one more full turn.
   The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load
+  The ACE state can't be read.: The ACE state can't be read.
   The CFS odometer hardware is faulty and needs repair or replacement: The CFS odometer hardware is faulty and needs repair or replacement
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: The CFS ran out of filament in {}. Printing continues on what is left in the tube.
   The CFS ran out of filament. Printing continues on what is left in the tube.: The CFS ran out of filament. Printing continues on what is left in the tube.
@@ -3845,6 +3854,7 @@ translations:
     skipping bed mesh for quick reprints.
   : The HelixPrint plugin enables fast G-code modifications directly on your printer—like
     skipping bed mesh for quick reprints.
+  The IFS state file can't be read.: The IFS state file can't be read.
   The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings.: The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings.
   The PEI sheet is still on the bed. Take it off, then tap Next.: The PEI sheet is still on the bed. Take it off, then tap Next.
   The Spoolman spool currently loaded: The Spoolman spool currently loaded
@@ -3911,6 +3921,9 @@ translations:
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.
   The plate and the spools are still hot. Use gloves.: The plate and the spools are still hot. Use gloves.
   The plate finishes its current move, but drying will not start.: The plate finishes its current move, but drying will not start.
+  The plugin can't reach the camera, so this screen takes the photos.: The plugin can't reach the camera, so this screen takes the photos.
+  The plugin can't save its recovery data to disk.: The plugin can't save its recovery data to disk.
+  The plugin is turned off in moonraker.conf.: The plugin is turned off in moonraker.conf.
   The print ended before any layer was printed. Nothing was changed.: The print ended before any layer was printed. Nothing was changed.
   The print is canceled and you pick the best band from what has printed so far.: The print is canceled and you pick the best band from what has printed so far.
   The print is on its last layer.: The print is on its last layer.
@@ -4002,6 +4015,7 @@ translations:
   This AFC system does not support bypass mode: This AFC system does not support bypass mode
   This CFS firmware exposes no external spool slot: This CFS firmware exposes no external spool slot
   This Happy Hare system does not support bypass mode: This Happy Hare system does not support bypass mode
+  This Moonraker version can't hold uploads. Update Moonraker.: This Moonraker version can't hold uploads. Update Moonraker.
   This button controls: This button controls
   This calibration uses the paper friction method to set your Z-offset.: This calibration
     uses the paper friction method to set your Z-offset.
@@ -4018,7 +4032,9 @@ translations:
   This doesn't match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?: This doesn't match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?
   This doesn't match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?: This doesn't match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?
   This dryer cannot run while filament from the unit is loaded: This dryer cannot run while filament from the unit is loaded
+  This feature failed to start. The Moonraker log says why.: This feature failed to start. The Moonraker log says why.
   This feature requires different hardware or configuration: This feature requires different hardware or configuration
+  This feature stopped. Restart Moonraker to start it again.: This feature stopped. Restart Moonraker to start it again.
   This filament system does not report buffer or flow data.: This filament system does not report buffer or flow data.
   This file was sliced for {} but {} is loaded.: This file was sliced for {} but {}
     is loaded.
@@ -4033,6 +4049,7 @@ translations:
   This is what data would be sent if enabled: This is what data would be sent if enabled
   This looks like a {}, but it is set up as a {}: This looks like a {}, but it is set up as a {}
   This may take up to 30 seconds: This may take up to 30 seconds
+  This needs the plugin's file analysis, which isn't running.: This needs the plugin's file analysis, which isn't running.
   This plugin asks for no special permissions.: This plugin asks for no special permissions.
   This plugin lets HelixScreen control print start options like bed mesh and QGL.: This plugin lets HelixScreen control print start options like bed mesh and QGL.
   This print can't be resumed. Restart it, or turn off the bed check if it keeps happening.: This print can't be resumed. Restart it, or turn off the bed check if it keeps happening.
@@ -4043,6 +4060,7 @@ translations:
   This printer cannot calibrate tool offsets automatically: This printer cannot calibrate tool offsets automatically
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.
+  This printer has no IFS.: This printer has no IFS.
   This printer has no INDX LOAD_FILAMENT macro: This printer has no INDX LOAD_FILAMENT macro
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: This printer has no automatic unload. Cut the filament at the head and pull it out by hand.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.

@@ -2,6 +2,9 @@
 
 #include "helix_plugin_features.h"
 
+#include <iterator>
+#include <string>
+
 #include "../catch_amalgamated.hpp"
 
 using namespace helix;
@@ -87,4 +90,28 @@ TEST_CASE("parse_plugin_features tolerates old and malformed replies", "[plugin_
     CHECK(features.at("plr").version == 0);
     CHECK_FALSE(features.at("plr").enabled);
     CHECK(plugin_feature_state(true, features, "plr", 1) == PluginFeatureState::Absent);
+}
+
+TEST_CASE("plugin_reason_text says what a reason code means", "[plugin_feature]") {
+    CHECK(plugin_reason_text("no_virtual_sdcard") == "Klipper has no [virtual_sdcard] section.");
+    CHECK(plugin_reason_text("not_listed") ==
+          "Power-loss recovery isn't supported on this printer yet.");
+    // A code with a detail suffix maps on the code before the colon.
+    CHECK(plugin_reason_text("snapshot_unreachable: /webcam/?action=snapshot") ==
+          "The plugin can't reach the camera, so this screen takes the photos.");
+    CHECK(plugin_reason_text("load_failed: SyntaxError: bad input") ==
+          "Part of the plugin failed to load. Reinstall the plugin.");
+    // Anything else reads as the plugin wrote it.
+    CHECK(plugin_reason_text("moonraker<0.9") == "moonraker<0.9");
+    CHECK(plugin_reason_text("unsafe gcodes root: it holds the config directory") ==
+          "unsafe gcodes root: it holds the config directory");
+    CHECK(plugin_reason_text("").empty());
+}
+
+TEST_CASE("every plugin reason code is listed once", "[plugin_feature]") {
+    for (size_t i = 0; i < std::size(kPluginReasonTexts); ++i) {
+        for (size_t j = i + 1; j < std::size(kPluginReasonTexts); ++j) {
+            CHECK(std::string(kPluginReasonTexts[i].code) != kPluginReasonTexts[j].code);
+        }
+    }
 }

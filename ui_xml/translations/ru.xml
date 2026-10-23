@@ -1873,6 +1873,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." ru="На принтере установлены макросы Klippain Shake&amp;Tune. HelixScreen обнаруживает их, но не использует; запускайте их из Mainsail или Fluidd."/>
   <translation tag="Klipper" ru="Klipper"/>
   <translation tag="Klipper Error" ru="Ошибка Klipper"/>
+  <translation tag="Klipper already reports the ACE slots." ru="Klipper уже сообщает слоты ACE."/>
   <translation tag="Klipper disconnected" ru="Klipper отключён"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" ru="Klipper не запустился с макросами пропуска, поэтому они удалены"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." ru="Klipper не запустился. Удалите include helix_skips.cfg из printer.cfg."/>
@@ -1882,6 +1883,7 @@
   <translation tag="Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart." ru="Klipper перешёл в состояние ошибки. Обычно это вызвано сбоем соединения MCU или ошибкой конфигурации. Попробуйте перезапустить прошивку."/>
   <translation tag="Klipper has entered shutdown state." ru="Klipper перешёл в состояние остановки."/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." ru="Klipper перешёл в состояние остановки. Это может быть вызвано аварийной остановкой, тепловым разгоном или ошибкой конфигурации."/>
+  <translation tag="Klipper has no [virtual_sdcard] section." ru="В Klipper нет раздела [virtual_sdcard]."/>
   <translation tag="Klipper is halted — restart firmware to continue" ru="Klipper остановлен — перезапустите прошивку, чтобы продолжить"/>
   <translation tag="Klipper ready" ru="Klipper готов"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." ru="Klipper резервирует &apos;default&apos; для новых калибровок. Выберите другое имя."/>
@@ -2167,11 +2169,13 @@
   <translation tag="Monitoring" ru="Мониторинг"/>
   <translation tag="Month" ru="Месяц"/>
   <translation tag="Moonraker" ru="Moonraker"/>
+  <translation tag="Moonraker has no G-code folder." ru="У Moonraker нет папки G-code."/>
   <translation tag="Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen." ru="Moonraker подключен к Spoolman, который учитывает ваши катушки и остаток филамента. Просматривайте их на экране Spoolman."/>
   <translation tag="Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started." ru="Moonraker не отвечает по адресу {}. Он работает на этом принтере, поэтому проверьте, запущены ли службы Klipper и Moonraker."/>
   <translation tag="Moonraker keeps a queue of prints to run one after another. View it in the job queue." ru="Moonraker ведет очередь печатей, которые выполняются одна за другой. Смотрите ее в очереди заданий."/>
   <translation tag="Moonraker restarted but Spoolman not connected. Check server." ru="Moonraker перезапущен, но Spoolman не подключен. Проверьте сервер."/>
   <translation tag="Moonraker restarting...&#10;Waiting for reconnection..." ru="Moonraker перезапускается...&#10;Ожидание переподключения..."/>
+  <translation tag="Moonraker&apos;s Python is too old for this feature." ru="Python в Moonraker слишком старый для этой функции."/>
   <translation tag="Moonraker: " ru="Moonraker: "/>
   <translation tag="More" ru="Ещё"/>
   <translation tag="More points = more accurate, but takes longer." ru="Больше точек — точнее, но дольше."/>
@@ -2257,6 +2261,7 @@
   <translation tag="Next: {}" ru="Далее: {}"/>
   <translation tag="Niimbot (Bluetooth)" ru="Niimbot (Bluetooth)"/>
   <translation tag="No" ru="Нет"/>
+  <translation tag="No ACE unit was found." ru="Блок ACE не найден."/>
   <translation tag="No AMS Detected" ru="AMS не обнаружен"/>
   <translation tag="No API connection" ru="Нет соединения с API"/>
   <translation tag="No Bluetooth printer selected — pick one in settings" ru="Bluetooth-принтер не выбран — выберите его в настройках"/>
@@ -2545,6 +2550,8 @@
   <translation tag="Part" ru="Деталь"/>
   <translation tag="Part Cooling Fan" ru="Вентилятор охлаждения детали"/>
   <translation tag="Part Fan" ru="Вент. детали"/>
+  <translation tag="Part of the plugin failed to load. Reinstall the plugin." ru="Часть плагина не загрузилась. Переустановите плагин."/>
+  <translation tag="Part of the plugin is missing. Reinstall the plugin." ru="Часть плагина отсутствует. Переустановите плагин."/>
   <translation tag="Part, hotend, and auxiliary fan speeds" ru="Скорости вентиляторов обдува, хотэнда и дополнительного"/>
   <translation tag="Password" ru="Пароль"/>
   <translation tag="Password cannot be empty" ru="Пароль не может быть пустым"/>
@@ -2634,6 +2641,7 @@
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" ru="Во время печати пропало питание; принтер остановился и сохранил прогресс"/>
   <translation tag="Power was lost less than a minute ago." ru="Питание пропало меньше минуты назад."/>
   <translation tag="Power-loss recovery" ru="Восстановление после отключения питания"/>
+  <translation tag="Power-loss recovery isn&apos;t supported on this printer yet." ru="Восстановление после отключения питания пока не поддерживается на этом принтере."/>
   <translation tag="Pre-heat the extruder first" ru="Сначала прогрейте экструдер"/>
   <translation tag="Pre-print command failed: {}" ru="Ошибка команды перед печатью: {}"/>
   <translation tag="Pre-print homing..." ru="Парковка перед печатью..."/>
@@ -3646,10 +3654,12 @@
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." ru="Этот поворот ещё не отразился. Натяните {0} ещё немного."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." ru="Этот поворот ещё не отразился. Натяните {0} ещё на один полный оборот."/>
   <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" ru="ACE проталкивает загруженный филамент вместе с экструдером. Драйвер включает помощь подачи после загрузки"/>
+  <translation tag="The ACE state can&apos;t be read." ru="Не удаётся прочитать состояние ACE."/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" ru="Оборудование одометра CFS неисправно и требует ремонта или замены"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." ru="В CFS закончился филамент в {}. Печать продолжается остатком в трубке."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." ru="В CFS закончился филамент. Печать продолжается остатком в трубке."/>
   <translation tag="The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints." ru="Плагин HelixPrint позволяет быстро модифицировать G-code прямо на принтере — например, пропускать сетку стола для быстрых перепечаток."/>
+  <translation tag="The IFS state file can&apos;t be read." ru="Не удаётся прочитать файл состояния IFS."/>
   <translation tag="The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings." ru="Плагин таймлапса Moonraker установлен. Способ записи задается в настройках таймлапса."/>
   <translation tag="The PEI sheet is still on the bed. Take it off, then tap Next." ru="Лист PEI всё ещё на столе. Снимите его и нажмите «Далее»."/>
   <translation tag="The Spoolman spool currently loaded" ru="Текущая катушка Spoolman"/>
@@ -3705,6 +3715,9 @@
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." ru="Сопло поднято над печатью, X и Y запаркованы. При продолжении оно опустится на высоту, где остановилось."/>
   <translation tag="The plate and the spools are still hot. Use gloves." ru="Стол и катушки ещё горячие. Используйте перчатки."/>
   <translation tag="The plate finishes its current move, but drying will not start." ru="Стол завершит текущее перемещение, но сушка не начнётся."/>
+  <translation tag="The plugin can&apos;t reach the camera, so this screen takes the photos." ru="Плагин не может подключиться к камере, поэтому фотографирует этот экран."/>
+  <translation tag="The plugin can&apos;t save its recovery data to disk." ru="Плагин не может сохранить данные для восстановления."/>
+  <translation tag="The plugin is turned off in moonraker.conf." ru="Плагин выключен в moonraker.conf."/>
   <translation tag="The print ended before any layer was printed. Nothing was changed." ru="Печать завершилась до первого слоя. Ничего не изменено."/>
   <translation tag="The print is canceled and you pick the best band from what has printed so far." ru="Печать будет отменена, и вы выберете лучшую полосу из уже напечатанного."/>
   <translation tag="The print is on its last layer." ru="Печатается последний слой."/>
@@ -3783,6 +3796,7 @@
   <translation tag="This AFC system does not support bypass mode" ru="Эта система AFC не поддерживает режим обхода"/>
   <translation tag="This CFS firmware exposes no external spool slot" ru="Эта прошивка CFS не предоставляет слот для внешней катушки"/>
   <translation tag="This Happy Hare system does not support bypass mode" ru="Эта система Happy Hare не поддерживает режим обхода"/>
+  <translation tag="This Moonraker version can&apos;t hold uploads. Update Moonraker." ru="Эта версия Moonraker не умеет задерживать загрузки. Обновите Moonraker."/>
   <translation tag="This button controls" ru="Эта кнопка управляет"/>
   <translation tag="This calibration uses the paper friction method to set your Z-offset." ru="Эта калибровка использует метод трения бумаги об сопло для установки Z-смещения."/>
   <translation tag="This cannot be undone." ru="Это действие нельзя отменить."/>
@@ -3795,7 +3809,9 @@
   <translation tag="This doesn&apos;t match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?" ru="Это не совпадает с привязанной катушкой Spoolman. Добавить как новую катушку или обновить привязанную?"/>
   <translation tag="This doesn&apos;t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?" ru="Не совпадает со связанной катушкой Spoolman. Обновить в Spoolman или отвязать и оставить на этом слоте?"/>
   <translation tag="This dryer cannot run while filament from the unit is loaded" ru="Сушилка не может работать, пока загружен филамент из этого узла"/>
+  <translation tag="This feature failed to start. The Moonraker log says why." ru="Эта функция не запустилась. Причина в журнале Moonraker."/>
   <translation tag="This feature requires different hardware or configuration" ru="Для этой функции требуется другое оборудование или конфигурация"/>
+  <translation tag="This feature stopped. Restart Moonraker to start it again." ru="Эта функция остановилась. Перезапустите Moonraker, чтобы запустить её снова."/>
   <translation tag="This filament system does not report buffer or flow data." ru="Эта система филамента не сообщает данные буфера и потока."/>
   <translation tag="This file was sliced for {} but {} is loaded." ru="Файл нарезан для {}, но загружен {}."/>
   <translation tag="This file was sliced for {}, but {} is loaded. It will print slower and hotter than the loaded spool needs." ru="Файл нарезан для {}, но загружен {}. Печать будет медленнее и горячее, чем требуется загруженной катушке."/>
@@ -3807,6 +3823,7 @@
   <translation tag="This is what data would be sent if enabled" ru="Эти данные были бы отправлены при включении"/>
   <translation tag="This looks like a {}, but it is set up as a {}" ru="Похоже, это {}, но принтер настроен как {}"/>
   <translation tag="This may take up to 30 seconds" ru="Это может занять до 30 секунд"/>
+  <translation tag="This needs the plugin&apos;s file analysis, which isn&apos;t running." ru="Нужен анализ файлов плагина, но он не запущен."/>
   <translation tag="This plugin asks for no special permissions." ru="Этот плагин не запрашивает специальных разрешений."/>
   <translation tag="This plugin lets HelixScreen control print start options like bed mesh and QGL." ru="Этот плагин позволяет HelixScreen управлять опциями начала печати, такими как сетка стола и QGL."/>
   <translation tag="This print can&apos;t be resumed. Restart it, or turn off the bed check if it keeps happening." ru="Эту печать нельзя продолжить. Перезапустите её или отключите проверку стола, если это повторяется."/>
@@ -3816,6 +3833,7 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" ru="Этот принтер не может калибровать смещения инструментов автоматически"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." ru="Этот принтер берёт данные шлюзов из Spoolman. HelixScreen очистил свою копию; удалите катушку в Spoolman."/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." ru="Этот принтер берёт данные шлюзов из Spoolman. Меняйте цвет, материал и катушку в Spoolman."/>
+  <translation tag="This printer has no IFS." ru="У этого принтера нет IFS."/>
   <translation tag="This printer has no INDX LOAD_FILAMENT macro" ru="На этом принтере нет макроса INDX LOAD_FILAMENT"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." ru="У этого принтера нет автоматической выгрузки. Отрежьте филамент у головки и вытащите его вручную."/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." ru="Этот принтер похож на {} (уверенность {}%), но настроен как {}. Неверный тип применяет неправильные параметры перед печатью и пресеты."/>

@@ -3,6 +3,7 @@
 #include "helix_plugin_features.h"
 
 #include "json_utils.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 
 #include <algorithm>
 #include <iterator>
@@ -113,6 +114,16 @@ std::optional<bool> local_screen_present(const nlohmann::json& record, int64_t n
         return std::nullopt;
     }
     return now - seen->get<int64_t>() <= 2 * kLocalScreenPresenceIntervalS;
+}
+
+std::string plugin_reason_text(std::string_view reason) {
+    const std::string_view code = reason.substr(0, reason.find(':'));
+    for (const PluginReasonText& known : kPluginReasonTexts) {
+        if (code == known.code) {
+            return lv_tr(known.text);
+        }
+    }
+    return std::string(reason);
 }
 
 namespace {

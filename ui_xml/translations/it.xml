@@ -1828,6 +1828,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." it="Le macro Klippain Shake&amp;Tune sono installate sulla stampante. HelixScreen le rileva ma non le usa; eseguile da Mainsail o Fluidd."/>
   <translation tag="Klipper" it="Klipper"/>
   <translation tag="Klipper Error" it="Errore Klipper"/>
+  <translation tag="Klipper already reports the ACE slots." it="Klipper riporta già gli slot dell&apos;ACE."/>
   <translation tag="Klipper disconnected" it="Klipper disconnesso"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" it="Klipper non si è avviato con le macro di salto, quindi sono state rimosse"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." it="Klipper non si è avviato. Rimuovi l&apos;include di helix_skips.cfg da printer.cfg."/>
@@ -1837,6 +1838,7 @@
   <translation tag="Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart." it="Klipper è entrato in uno stato di errore. Questo è generalmente causato da un guasto di connessione MCU o da un errore di configurazione. Prova un riavvio del firmware."/>
   <translation tag="Klipper has entered shutdown state." it="Klipper è entrato in stato di arresto."/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." it="Klipper è entrato in stato di arresto. Questo potrebbe essere dovuto a un arresto di emergenza, fuga termica o errore di configurazione."/>
+  <translation tag="Klipper has no [virtual_sdcard] section." it="Klipper non ha una sezione [virtual_sdcard]."/>
   <translation tag="Klipper is halted — restart firmware to continue" it="Klipper è fermo — riavvia il firmware per continuare"/>
   <translation tag="Klipper ready" it="Klipper pronto"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." it="Klipper riserva &apos;default&apos; alle nuove calibrazioni. Scegli un altro nome."/>
@@ -2122,11 +2124,13 @@
   <translation tag="Monitoring" it="Monitoraggio"/>
   <translation tag="Month" it="Mese"/>
   <translation tag="Moonraker" it="Moonraker"/>
+  <translation tag="Moonraker has no G-code folder." it="Moonraker non ha una cartella G-code."/>
   <translation tag="Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen." it="Moonraker è connesso a Spoolman, che tiene traccia delle tue bobine e del filamento rimasto. Sfogliale nella schermata Spoolman."/>
   <translation tag="Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started." it="Moonraker non risponde su {}. Funziona su questa stampante, quindi verifica che i servizi Klipper e Moonraker siano avviati."/>
   <translation tag="Moonraker keeps a queue of prints to run one after another. View it in the job queue." it="Moonraker mantiene una coda di stampe da eseguire una dopo l&apos;altra. Consultala nella coda lavori."/>
   <translation tag="Moonraker restarted but Spoolman not connected. Check server." it="Moonraker riavviato ma Spoolman non connesso. Controllare il server."/>
   <translation tag="Moonraker restarting...&#10;Waiting for reconnection..." it="Moonraker in riavvio...&#10;In attesa di riconnessione..."/>
+  <translation tag="Moonraker&apos;s Python is too old for this feature." it="Il Python di Moonraker è troppo vecchio per questa funzione."/>
   <translation tag="Moonraker: " it="Moonraker: "/>
   <translation tag="More" it="Altro"/>
   <translation tag="More points = more accurate, but takes longer." it="Più punti = più preciso, ma richiede più tempo."/>
@@ -2212,6 +2216,7 @@
   <translation tag="Next: {}" it="Prossimo: {}"/>
   <translation tag="Niimbot (Bluetooth)" it="Niimbot (Bluetooth)"/>
   <translation tag="No" it="No"/>
+  <translation tag="No ACE unit was found." it="Nessuna unità ACE trovata."/>
   <translation tag="No AMS Detected" it="Nessun AMS rilevato"/>
   <translation tag="No API connection" it="Nessuna connessione API"/>
   <translation tag="No Bluetooth printer selected — pick one in settings" it="Nessuna stampante Bluetooth selezionata — sceglierne una nelle impostazioni"/>
@@ -2500,6 +2505,8 @@
   <translation tag="Part" it="Pezzo"/>
   <translation tag="Part Cooling Fan" it="Ventola raffreddamento pezzo"/>
   <translation tag="Part Fan" it="Ventola pezzo"/>
+  <translation tag="Part of the plugin failed to load. Reinstall the plugin." it="Una parte del plugin non è stata caricata. Reinstalla il plugin."/>
+  <translation tag="Part of the plugin is missing. Reinstall the plugin." it="Manca una parte del plugin. Reinstalla il plugin."/>
   <translation tag="Part, hotend, and auxiliary fan speeds" it="Velocità delle ventole pezzo, hotend e ausiliaria"/>
   <translation tag="Password" it="Password"/>
   <translation tag="Password cannot be empty" it="La password non può essere vuota"/>
@@ -2589,6 +2596,7 @@
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" it="È mancata la corrente durante la stampa; la stampante si è fermata e ha salvato l&apos;avanzamento"/>
   <translation tag="Power was lost less than a minute ago." it="La corrente è mancata meno di un minuto fa."/>
   <translation tag="Power-loss recovery" it="Ripresa dopo interruzione di corrente"/>
+  <translation tag="Power-loss recovery isn&apos;t supported on this printer yet." it="La ripresa dopo interruzione di corrente non è ancora supportata su questa stampante."/>
   <translation tag="Pre-heat the extruder first" it="Preriscaldare prima l&apos;estrusore"/>
   <translation tag="Pre-print command failed: {}" it="Comando pre-stampa fallito: {}"/>
   <translation tag="Pre-print homing..." it="Homing pre-stampa..."/>
@@ -3586,10 +3594,12 @@
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." it="Quel giro non si è ancora visto. Tendi {0} ancora un po&apos;."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." it="Quel giro non si è ancora visto. Tendi {0} di un altro giro completo."/>
   <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" it="L&apos;ACE spinge il filamento caricato insieme all&apos;estrusore. Il driver attiva l&apos;assistenza all&apos;alimentazione dopo un caricamento"/>
+  <translation tag="The ACE state can&apos;t be read." it="Impossibile leggere lo stato dell&apos;ACE."/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" it="L&apos;hardware dell&apos;odometro del CFS è guasto e va riparato o sostituito"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." it="Il CFS ha esaurito il filamento in {}. La stampa continua con quello rimasto nel tubo."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." it="Il CFS ha esaurito il filamento. La stampa continua con quello rimasto nel tubo."/>
   <translation tag="The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints." it="Il plugin HelixPrint abilita modifiche G-code rapide direttamente sulla stampante, come saltare la mesh piano per ristampe veloci."/>
+  <translation tag="The IFS state file can&apos;t be read." it="Impossibile leggere il file di stato dell&apos;IFS."/>
   <translation tag="The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings." it="Il plugin timelapse di Moonraker è installato. Imposta come registra nelle impostazioni del timelapse."/>
   <translation tag="The PEI sheet is still on the bed. Take it off, then tap Next." it="Il foglio PEI è ancora sul piatto. Rimuovilo, poi tocca Avanti."/>
   <translation tag="The Spoolman spool currently loaded" it="La bobina Spoolman caricata"/>
@@ -3645,6 +3655,9 @@
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." it="L&apos;ugello è sollevato dalla stampa e X e Y sono azzerati. Riprendendo, scende di nuovo all&apos;altezza in cui si è fermato."/>
   <translation tag="The plate and the spools are still hot. Use gloves." it="Il piano e le bobine sono ancora caldi. Usa i guanti."/>
   <translation tag="The plate finishes its current move, but drying will not start." it="Il piano termina lo spostamento in corso, ma l&apos;essiccazione non partirà."/>
+  <translation tag="The plugin can&apos;t reach the camera, so this screen takes the photos." it="Il plugin non raggiunge la fotocamera, quindi le foto le scatta questo schermo."/>
+  <translation tag="The plugin can&apos;t save its recovery data to disk." it="Il plugin non può salvare i dati di ripresa."/>
+  <translation tag="The plugin is turned off in moonraker.conf." it="Il plugin è disattivato in moonraker.conf."/>
   <translation tag="The print ended before any layer was printed. Nothing was changed." it="La stampa è terminata prima di stampare uno strato. Non è stato cambiato nulla."/>
   <translation tag="The print is canceled and you pick the best band from what has printed so far." it="La stampa viene annullata e scegli la fascia migliore tra quanto stampato finora."/>
   <translation tag="The print is on its last layer." it="La stampa è all&apos;ultimo strato."/>
@@ -3723,6 +3736,7 @@
   <translation tag="This AFC system does not support bypass mode" it="Questo sistema AFC non supporta la modalità bypass"/>
   <translation tag="This CFS firmware exposes no external spool slot" it="Questo firmware CFS non offre uno slot per bobine esterne"/>
   <translation tag="This Happy Hare system does not support bypass mode" it="Questo sistema Happy Hare non supporta la modalità bypass"/>
+  <translation tag="This Moonraker version can&apos;t hold uploads. Update Moonraker." it="Questa versione di Moonraker non può trattenere i caricamenti. Aggiorna Moonraker."/>
   <translation tag="This button controls" it="Questo pulsante controlla"/>
   <translation tag="This calibration uses the paper friction method to set your Z-offset." it="Questa calibrazione utilizza il metodo della frizione della carta per impostare lo Z-offset."/>
   <translation tag="This cannot be undone." it="Questa azione non può essere annullata."/>
@@ -3735,7 +3749,9 @@
   <translation tag="This doesn&apos;t match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?" it="Non corrisponde alla bobina Spoolman collegata. Aggiungerla come nuova bobina o aggiornare quella collegata?"/>
   <translation tag="This doesn&apos;t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?" it="Non corrisponde alla bobina Spoolman collegata. Aggiornarla in Spoolman oppure scollegarla e tenerla su questo slot?"/>
   <translation tag="This dryer cannot run while filament from the unit is loaded" it="Questo essiccatore non può funzionare finché è caricato filamento dell&apos;unità"/>
+  <translation tag="This feature failed to start. The Moonraker log says why." it="Questa funzione non si è avviata. Il log di Moonraker spiega perché."/>
   <translation tag="This feature requires different hardware or configuration" it="Questa funzione richiede hardware o configurazione diversi"/>
+  <translation tag="This feature stopped. Restart Moonraker to start it again." it="Questa funzione si è fermata. Riavvia Moonraker per avviarla di nuovo."/>
   <translation tag="This filament system does not report buffer or flow data." it="Questo sistema filamento non riporta dati di buffer o flusso."/>
   <translation tag="This file was sliced for {} but {} is loaded." it="Questo file è stato sezionato per {} ma è caricato {}."/>
   <translation tag="This file was sliced for {}, but {} is loaded. It will print slower and hotter than the loaded spool needs." it="Questo file è stato sezionato per {}, ma è caricato {}. La stampa sarà più lenta e più calda di quanto richiesto dalla bobina caricata."/>
@@ -3747,6 +3763,7 @@
   <translation tag="This is what data would be sent if enabled" it="Questi sono i dati che verrebbero inviati se abilitato"/>
   <translation tag="This looks like a {}, but it is set up as a {}" it="Questa stampante sembra una {}, ma è configurata come {}"/>
   <translation tag="This may take up to 30 seconds" it="Questo potrebbe richiedere fino a 30 secondi"/>
+  <translation tag="This needs the plugin&apos;s file analysis, which isn&apos;t running." it="Serve l&apos;analisi dei file del plugin, che non è in esecuzione."/>
   <translation tag="This plugin asks for no special permissions." it="Questo plugin non richiede permessi speciali."/>
   <translation tag="This plugin lets HelixScreen control print start options like bed mesh and QGL." it="Questo plugin permette a HelixScreen di controllare opzioni avvio stampa come mesh piano e QGL."/>
   <translation tag="This print can&apos;t be resumed. Restart it, or turn off the bed check if it keeps happening." it="Questa stampa non può essere ripresa. Riavviala, oppure disattiva il controllo del piano se continua a succedere."/>
@@ -3756,6 +3773,7 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" it="Questa stampante non può calibrare automaticamente gli offset degli strumenti"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." it="Questa stampante riempie i suoi gate da Spoolman. HelixScreen ha svuotato la propria copia; rimuovi la bobina in Spoolman."/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." it="Questa stampante riempie i suoi gate da Spoolman. Modifica colore, materiale e bobina in Spoolman."/>
+  <translation tag="This printer has no IFS." it="Questa stampante non ha l&apos;IFS."/>
   <translation tag="This printer has no INDX LOAD_FILAMENT macro" it="Questa stampante non ha la macro INDX LOAD_FILAMENT"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." it="Questa stampante non ha lo scarico automatico. Taglia il filamento sulla testina ed estrailo a mano."/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." it="Questa stampante sembra una {} (affidabilità {}%), ma è configurata come {}. Un tipo errato applica opzioni pre-stampa e preset errati."/>

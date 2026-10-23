@@ -1828,6 +1828,7 @@
   <translation tag="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd." en="Klippain Shake&amp;Tune macros are installed on the printer. HelixScreen detects them but does not use them; run them from Mainsail or Fluidd."/>
   <translation tag="Klipper" en="Klipper"/>
   <translation tag="Klipper Error" en="Klipper Error"/>
+  <translation tag="Klipper already reports the ACE slots." en="Klipper already reports the ACE slots."/>
   <translation tag="Klipper disconnected" en="Klipper disconnected"/>
   <translation tag="Klipper failed to start with the skip macros, so they were removed" en="Klipper failed to start with the skip macros, so they were removed"/>
   <translation tag="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg." en="Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg."/>
@@ -1837,6 +1838,7 @@
   <translation tag="Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart." en="Klipper has entered an error state. This is typically caused by an MCU connection failure or configuration error. Try a firmware restart."/>
   <translation tag="Klipper has entered shutdown state." en="Klipper has entered shutdown state."/>
   <translation tag="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error." en="Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error."/>
+  <translation tag="Klipper has no [virtual_sdcard] section." en="Klipper has no [virtual_sdcard] section."/>
   <translation tag="Klipper is halted — restart firmware to continue" en="Klipper is halted — restart firmware to continue"/>
   <translation tag="Klipper ready" en="Klipper ready"/>
   <translation tag="Klipper reserves &apos;default&apos; for new calibrations. Choose another name." en="Klipper reserves &apos;default&apos; for new calibrations. Choose another name."/>
@@ -2122,11 +2124,13 @@
   <translation tag="Monitoring" en="Monitoring"/>
   <translation tag="Month" en="Month"/>
   <translation tag="Moonraker" en="Moonraker"/>
+  <translation tag="Moonraker has no G-code folder." en="Moonraker has no G-code folder."/>
   <translation tag="Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen." en="Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen."/>
   <translation tag="Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started." en="Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started."/>
   <translation tag="Moonraker keeps a queue of prints to run one after another. View it in the job queue." en="Moonraker keeps a queue of prints to run one after another. View it in the job queue."/>
   <translation tag="Moonraker restarted but Spoolman not connected. Check server." en="Moonraker restarted but Spoolman not connected. Check server."/>
   <translation tag="Moonraker restarting...&#10;Waiting for reconnection..." en="Moonraker restarting...&#10;Waiting for reconnection..."/>
+  <translation tag="Moonraker&apos;s Python is too old for this feature." en="Moonraker&apos;s Python is too old for this feature."/>
   <translation tag="Moonraker: " en="Moonraker: "/>
   <translation tag="More" en="More"/>
   <translation tag="More points = more accurate, but takes longer." en="More points = more accurate, but takes longer."/>
@@ -2212,6 +2216,7 @@
   <translation tag="Next: {}" en="Next: {}"/>
   <translation tag="Niimbot (Bluetooth)" en="Niimbot (Bluetooth)"/>
   <translation tag="No" en="No"/>
+  <translation tag="No ACE unit was found." en="No ACE unit was found."/>
   <translation tag="No AMS Detected" en="No AMS Detected"/>
   <translation tag="No API connection" en="No API connection"/>
   <translation tag="No Bluetooth printer selected — pick one in settings" en="No Bluetooth printer selected — pick one in settings"/>
@@ -2500,6 +2505,8 @@
   <translation tag="Part" en="Part"/>
   <translation tag="Part Cooling Fan" en="Part Cooling Fan"/>
   <translation tag="Part Fan" en="Part Fan"/>
+  <translation tag="Part of the plugin failed to load. Reinstall the plugin." en="Part of the plugin failed to load. Reinstall the plugin."/>
+  <translation tag="Part of the plugin is missing. Reinstall the plugin." en="Part of the plugin is missing. Reinstall the plugin."/>
   <translation tag="Part, hotend, and auxiliary fan speeds" en="Part, hotend, and auxiliary fan speeds"/>
   <translation tag="Password" en="Password"/>
   <translation tag="Password cannot be empty" en="Password cannot be empty"/>
@@ -2589,6 +2596,7 @@
   <translation tag="Power was lost during the print; the printer stopped and saved its progress" en="Power was lost during the print; the printer stopped and saved its progress"/>
   <translation tag="Power was lost less than a minute ago." en="Power was lost less than a minute ago."/>
   <translation tag="Power-loss recovery" en="Power-loss recovery"/>
+  <translation tag="Power-loss recovery isn&apos;t supported on this printer yet." en="Power-loss recovery isn&apos;t supported on this printer yet."/>
   <translation tag="Pre-heat the extruder first" en="Pre-heat the extruder first"/>
   <translation tag="Pre-print command failed: {}" en="Pre-print command failed: {}"/>
   <translation tag="Pre-print homing..." en="Pre-print homing..."/>
@@ -3586,10 +3594,12 @@
   <translation tag="That turn didn&apos;t register yet. Tighten {0} a little more." en="That turn didn&apos;t register yet. Tighten {0} a little more."/>
   <translation tag="That turn didn&apos;t register yet. Tighten {0} one more full turn." en="That turn didn&apos;t register yet. Tighten {0} one more full turn."/>
   <translation tag="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load" en="The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load"/>
+  <translation tag="The ACE state can&apos;t be read." en="The ACE state can&apos;t be read."/>
   <translation tag="The CFS odometer hardware is faulty and needs repair or replacement" en="The CFS odometer hardware is faulty and needs repair or replacement"/>
   <translation tag="The CFS ran out of filament in {}. Printing continues on what is left in the tube." en="The CFS ran out of filament in {}. Printing continues on what is left in the tube."/>
   <translation tag="The CFS ran out of filament. Printing continues on what is left in the tube." en="The CFS ran out of filament. Printing continues on what is left in the tube."/>
   <translation tag="The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints." en="The HelixPrint plugin enables fast G-code modifications directly on your printer—like skipping bed mesh for quick reprints."/>
+  <translation tag="The IFS state file can&apos;t be read." en="The IFS state file can&apos;t be read."/>
   <translation tag="The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings." en="The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings."/>
   <translation tag="The PEI sheet is still on the bed. Take it off, then tap Next." en="The PEI sheet is still on the bed. Take it off, then tap Next."/>
   <translation tag="The Spoolman spool currently loaded" en="The Spoolman spool currently loaded"/>
@@ -3645,6 +3655,9 @@
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." en="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at."/>
   <translation tag="The plate and the spools are still hot. Use gloves." en="The plate and the spools are still hot. Use gloves."/>
   <translation tag="The plate finishes its current move, but drying will not start." en="The plate finishes its current move, but drying will not start."/>
+  <translation tag="The plugin can&apos;t reach the camera, so this screen takes the photos." en="The plugin can&apos;t reach the camera, so this screen takes the photos."/>
+  <translation tag="The plugin can&apos;t save its recovery data to disk." en="The plugin can&apos;t save its recovery data to disk."/>
+  <translation tag="The plugin is turned off in moonraker.conf." en="The plugin is turned off in moonraker.conf."/>
   <translation tag="The print ended before any layer was printed. Nothing was changed." en="The print ended before any layer was printed. Nothing was changed."/>
   <translation tag="The print is canceled and you pick the best band from what has printed so far." en="The print is canceled and you pick the best band from what has printed so far."/>
   <translation tag="The print is on its last layer." en="The print is on its last layer."/>
@@ -3723,6 +3736,7 @@
   <translation tag="This AFC system does not support bypass mode" en="This AFC system does not support bypass mode"/>
   <translation tag="This CFS firmware exposes no external spool slot" en="This CFS firmware exposes no external spool slot"/>
   <translation tag="This Happy Hare system does not support bypass mode" en="This Happy Hare system does not support bypass mode"/>
+  <translation tag="This Moonraker version can&apos;t hold uploads. Update Moonraker." en="This Moonraker version can&apos;t hold uploads. Update Moonraker."/>
   <translation tag="This button controls" en="This button controls"/>
   <translation tag="This calibration uses the paper friction method to set your Z-offset." en="This calibration uses the paper friction method to set your Z-offset."/>
   <translation tag="This cannot be undone." en="This cannot be undone."/>
@@ -3735,7 +3749,9 @@
   <translation tag="This doesn&apos;t match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?" en="This doesn&apos;t match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?"/>
   <translation tag="This doesn&apos;t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?" en="This doesn&apos;t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?"/>
   <translation tag="This dryer cannot run while filament from the unit is loaded" en="This dryer cannot run while filament from the unit is loaded"/>
+  <translation tag="This feature failed to start. The Moonraker log says why." en="This feature failed to start. The Moonraker log says why."/>
   <translation tag="This feature requires different hardware or configuration" en="This feature requires different hardware or configuration"/>
+  <translation tag="This feature stopped. Restart Moonraker to start it again." en="This feature stopped. Restart Moonraker to start it again."/>
   <translation tag="This filament system does not report buffer or flow data." en="This filament system does not report buffer or flow data."/>
   <translation tag="This file was sliced for {} but {} is loaded." en="This file was sliced for {} but {} is loaded."/>
   <translation tag="This file was sliced for {}, but {} is loaded. It will print slower and hotter than the loaded spool needs." en="This file was sliced for {}, but {} is loaded. It will print slower and hotter than the loaded spool needs."/>
@@ -3747,6 +3763,7 @@
   <translation tag="This is what data would be sent if enabled" en="This is what data would be sent if enabled"/>
   <translation tag="This looks like a {}, but it is set up as a {}" en="This looks like a {}, but it is set up as a {}"/>
   <translation tag="This may take up to 30 seconds" en="This may take up to 30 seconds"/>
+  <translation tag="This needs the plugin&apos;s file analysis, which isn&apos;t running." en="This needs the plugin&apos;s file analysis, which isn&apos;t running."/>
   <translation tag="This plugin asks for no special permissions." en="This plugin asks for no special permissions."/>
   <translation tag="This plugin lets HelixScreen control print start options like bed mesh and QGL." en="This plugin lets HelixScreen control print start options like bed mesh and QGL."/>
   <translation tag="This print can&apos;t be resumed. Restart it, or turn off the bed check if it keeps happening." en="This print can&apos;t be resumed. Restart it, or turn off the bed check if it keeps happening."/>
@@ -3756,6 +3773,7 @@
   <translation tag="This printer cannot calibrate tool offsets automatically" en="This printer cannot calibrate tool offsets automatically"/>
   <translation tag="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman." en="This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman."/>
   <translation tag="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman." en="This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman."/>
+  <translation tag="This printer has no IFS." en="This printer has no IFS."/>
   <translation tag="This printer has no INDX LOAD_FILAMENT macro" en="This printer has no INDX LOAD_FILAMENT macro"/>
   <translation tag="This printer has no automatic unload. Cut the filament at the head and pull it out by hand." en="This printer has no automatic unload. Cut the filament at the head and pull it out by hand."/>
   <translation tag="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets." en="This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets."/>

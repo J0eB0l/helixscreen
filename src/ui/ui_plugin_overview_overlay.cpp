@@ -64,7 +64,7 @@ std::string plugin_feature_status_text(const PluginFeatureLine& line) {
     if (line.reason.empty()) {
         return lv_tr("Unavailable");
     }
-    return fmt::format(lv_tr("Unavailable: {}"), line.reason);
+    return fmt::format(lv_tr("Unavailable: {}"), plugin_reason_text(line.reason));
 }
 
 void PluginOverviewOverlay::refresh() {

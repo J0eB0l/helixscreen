@@ -2025,6 +2025,7 @@ translations:
   : 'Les macros Klippain Shake&Tune sont installées sur l''imprimante. HelixScreen les détecte mais ne les utilise pas ; lancez-les depuis Mainsail ou Fluidd.'
   Klipper: Klipper
   Klipper Error: Erreur Klipper
+  Klipper already reports the ACE slots.: "Klipper indique déjà les emplacements de l'ACE."
   Klipper disconnected: Klipper déconnecté
   Klipper failed to start with the skip macros, so they were removed: 'Klipper n''a pas démarré avec les macros de saut, elles ont donc été supprimées'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper n''a pas pu démarrer. Retirez l''include de helix_skips.cfg de printer.cfg.'
@@ -2041,6 +2042,7 @@ translations:
   Klipper has entered shutdown state. This may be due to an emergency stop, thermal runaway, or configuration error.: Klipper
     est passé en état d'arrêt. Cela peut être dû à un arrêt d'urgence, à un emballement
     thermique ou à une erreur de configuration.
+  Klipper has no [virtual_sdcard] section.: "Klipper n'a pas de section [virtual_sdcard]."
   Klipper is halted — restart firmware to continue: Klipper est arrêté — redémarrez le firmware pour continuer
   Klipper ready: Klipper prêt
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper réserve 'default' aux nouvelles calibrations. Choisissez un autre nom."
@@ -2341,6 +2343,7 @@ translations:
   Monitoring: Surveillance
   Month: Mois
   Moonraker: Moonraker
+  Moonraker has no G-code folder.: "Moonraker n'a pas de dossier G-code."
   ? Moonraker is connected to Spoolman, which tracks your spools and how much filament is left. Browse them on the Spoolman screen.
   : 'Moonraker est connecté à Spoolman, qui suit vos bobines et le filament restant. Parcourez-les sur l''écran Spoolman.'
   Moonraker is not responding at {}. It runs on this printer, so check that the Klipper and Moonraker services started.: 'Moonraker ne répond pas à {}. Il tourne sur cette imprimante : vérifiez que les services Klipper et Moonraker ont démarré.'
@@ -2349,6 +2352,7 @@ translations:
     mais Spoolman n'est pas connecté. Vérifiez le serveur.
   ? "Moonraker restarting...\nWaiting for reconnection..."
   : "Redémarrage de Moonraker...\nEn attente de reconnexion..."
+  Moonraker's Python is too old for this feature.: "Le Python de Moonraker est trop ancien pour cette fonction."
   'Moonraker: ': 'Moonraker : '
   More points = more accurate, but takes longer.: Plus de points = plus précis, mais
     prend plus de temps.
@@ -2441,6 +2445,7 @@ translations:
   'Next: {}': 'À suivre : {}'
   Niimbot (Bluetooth): Niimbot (Bluetooth)
   'No': Non
+  No ACE unit was found.: "Aucune unité ACE trouvée."
   No AMS Detected: 'Aucun AMS détecté'
   No API connection: Aucune connexion API
   No Bluetooth printer selected — pick one in settings: Aucune imprimante Bluetooth
@@ -2750,6 +2755,8 @@ translations:
   Part: Pièce
   Part Cooling Fan: Ventilateur de refroidissement pièce
   Part Fan: Ventilateur pièce
+  Part of the plugin failed to load. Reinstall the plugin.: "Une partie du plugin n'a pas pu se charger. Réinstallez le plugin."
+  Part of the plugin is missing. Reinstall the plugin.: "Une partie du plugin est manquante. Réinstallez le plugin."
   Part, hotend, and auxiliary fan speeds: 'Vitesses des ventilateurs de pièce, de hotend et auxiliaire'
   Password: Mot de passe
   Password cannot be empty: Le mot de passe ne peut pas être vide
@@ -2851,6 +2858,7 @@ translations:
   'Power was lost during the print; the printer stopped and saved its progress': 'Une coupure de courant est survenue pendant l''impression ; l''imprimante s''est arrêtée et a enregistré sa progression'
   Power was lost less than a minute ago.: Coupure de courant il y a moins d'une minute.
   Power-loss recovery: Reprise après coupure de courant
+  Power-loss recovery isn't supported on this printer yet.: "La reprise après coupure de courant n'est pas encore prise en charge sur cette imprimante."
   Pre-heat the extruder first: Préchauffez d'abord l'extrudeur
   'Pre-print command failed: {}': 'Échec de la commande pré-impression : {}'
   Pre-print homing...: Référence pré-impression...
@@ -3949,6 +3957,7 @@ translations:
   That turn didn't register yet. Tighten {0} a little more.: "Ce tour ne s'est pas encore vu. Tendez {0} un peu plus."
   That turn didn't register yet. Tighten {0} one more full turn.: "Ce tour ne s'est pas encore vu. Tendez {0} d'un tour complet de plus."
   The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "L'ACE pousse le filament chargé en même temps que l'extrudeur. Le pilote active l'assistance d'alimentation après un chargement"
+  The ACE state can't be read.: "L'état de l'ACE ne peut pas être lu."
   The CFS odometer hardware is faulty and needs repair or replacement: Le matériel d'odométrie du CFS est défectueux et doit être réparé ou remplacé
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'Le CFS est à court de filament dans {}. L''impression continue avec ce qui reste dans le tube.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'Le CFS est à court de filament. L''impression continue avec ce qui reste dans le tube.'
@@ -3956,6 +3965,7 @@ translations:
     skipping bed mesh for quick reprints.
   : Le plugin HelixPrint permet des modifications rapides du G-code directement sur
     votre imprimante—comme ignorer le maillage du plateau pour des réimpressions rapides.
+  The IFS state file can't be read.: "Le fichier d'état de l'IFS ne peut pas être lu."
   The Moonraker timelapse plugin is installed. Set how it records in the timelapse settings.: 'Le plugin timelapse de Moonraker est installé. Définissez le mode d''enregistrement dans les paramètres du timelapse.'
   The PEI sheet is still on the bed. Take it off, then tap Next.: La plaque PEI est toujours sur le plateau. Retirez-la, puis appuyez sur Suivant.
   The Spoolman spool currently loaded: La bobine Spoolman actuellement chargée
@@ -4026,6 +4036,9 @@ translations:
   The plate and the spools are still hot. Use gloves.: Le plateau et les bobines sont encore chauds. Portez des gants.
 
   The plate finishes its current move, but drying will not start.: 'Le plateau termine son déplacement en cours, mais le séchage ne démarrera pas.'
+  The plugin can't reach the camera, so this screen takes the photos.: "Le plugin n'atteint pas la caméra, cet écran prend donc les photos."
+  The plugin can't save its recovery data to disk.: "Le plugin ne peut pas enregistrer ses données de reprise."
+  The plugin is turned off in moonraker.conf.: "Le plugin est désactivé dans moonraker.conf."
   The print ended before any layer was printed. Nothing was changed.: L'impression s'est terminée avant la première couche. Rien n'a été modifié.
   The print is canceled and you pick the best band from what has printed so far.: L'impression est annulée et vous choisissez la meilleure bande parmi ce qui a été imprimé.
   The print is on its last layer.: 'L''impression en est à sa dernière couche.'
@@ -4129,6 +4142,7 @@ translations:
   This AFC system does not support bypass mode: 'Ce système AFC ne prend pas en charge le mode bypass'
   This CFS firmware exposes no external spool slot: 'Ce firmware CFS n''expose pas de slot pour bobine externe'
   This Happy Hare system does not support bypass mode: 'Ce système Happy Hare ne prend pas en charge le mode bypass'
+  This Moonraker version can't hold uploads. Update Moonraker.: "Cette version de Moonraker ne peut pas retenir les envois. Mettez Moonraker à jour."
   This button controls: Ce bouton contrôle
   This calibration uses the paper friction method to set your Z-offset.: Cette calibration
     utilise la méthode de friction du papier pour définir votre Z-offset.
@@ -4144,7 +4158,9 @@ translations:
   : Cet appareil dispose de très peu de RAM. La calibration de résonance est gourmande en mémoire et peut provoquer une erreur "Timer Too Close". Continuer quand même ?
   This doesn't match the linked Spoolman spool. Add it as a new spool, or update the linked one to match?: Cela ne correspond pas à la bobine Spoolman liée. L'ajouter comme nouvelle bobine, ou mettre à jour la bobine liée pour correspondre ?
   This dryer cannot run while filament from the unit is loaded: 'Ce séchoir ne peut pas fonctionner tant que du filament de l''unité est chargé'
+  This feature failed to start. The Moonraker log says why.: "Cette fonction n'a pas pu démarrer. Le journal de Moonraker indique pourquoi."
   This feature requires different hardware or configuration: Cette fonctionnalité requiert un autre matériel ou une autre configuration
+  This feature stopped. Restart Moonraker to start it again.: "Cette fonction s'est arrêtée. Redémarrez Moonraker pour la relancer."
   This filament system does not report buffer or flow data.: Ce système de filament ne fournit ni données de tampon ni données de débit.
   This file was sliced for {} but {} is loaded.: Ce fichier a été tranché pour {}
     mais {} est chargé.
@@ -4160,6 +4176,7 @@ translations:
     si activé
   This looks like a {}, but it is set up as a {}: Cette imprimante ressemble à une {}, mais elle est configurée comme {}
   This may take up to 30 seconds: Cela peut prendre jusqu'à 30 secondes
+  This needs the plugin's file analysis, which isn't running.: "Ceci nécessite l'analyse des fichiers du plugin, qui ne tourne pas."
   This plugin asks for no special permissions.: 'Ce plugin ne demande aucune autorisation particulière.'
   This plugin lets HelixScreen control print start options like bed mesh and QGL.: 'Ce plugin permet à HelixScreen de contrôler les options de démarrage d''impression comme le maillage du plateau et QGL.'
   This print can't be resumed. Restart it, or turn off the bed check if it keeps happening.: 'Cette impression ne peut pas reprendre. Relancez-la, ou désactivez la vérification du plateau si cela se reproduit.'
@@ -4171,6 +4188,7 @@ translations:
   This printer cannot calibrate tool offsets automatically: Cette imprimante ne peut pas calibrer les offsets d'outil automatiquement
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: Cette imprimante remplit ses gates depuis Spoolman. HelixScreen a effacé sa propre copie ; retirez la bobine dans Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: Cette imprimante remplit ses gates depuis Spoolman. Effectuez les changements de couleur, matériau et bobine dans Spoolman.
+  This printer has no IFS.: "Cette imprimante n'a pas d'IFS."
   This printer has no INDX LOAD_FILAMENT macro: "Cette imprimante n'a pas de macro INDX LOAD_FILAMENT"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: Cette imprimante n'a pas de déchargement automatique. Coupez le filament au niveau de la tête et retirez-le à la main.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
