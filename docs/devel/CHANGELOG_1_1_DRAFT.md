@@ -628,6 +628,9 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   small, portrait and very wide displays, with the chart beside the controls on a wide one, and
   the chart's axis labels no longer clip. The thresholds are provisional until it has run on
   more hardware.
+- **Which belt is which?** - Belt Tension can buzz each path's motor so you can see which
+  belt it drives, then name the paths left and right or upper and lower. Every instruction
+  then uses those names ("Tighten the left belt one full turn"), saved per printer.
 - **Live sweep graphs** (#1812) - the Input Shaper screen, the setup wizard's Input Shaper
   step and Belt Tension draw the response live while the printer sweeps, instead of a bare
   progress bar for minutes. Klipper's own analysis replaces the live curve when the sweep
