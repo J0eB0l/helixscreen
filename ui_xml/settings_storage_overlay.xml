@@ -37,7 +37,7 @@
         <storage_consumer_row key="helix_temp" label="Print copies" icon="content_copy"/>
         <storage_consumer_row key="3mf_outputs" label="3MF conversions" icon="cube_outline"/>
         <storage_consumer_row key="analysis_sidecars" label="File analysis" icon="magnify_scan"/>
-        <storage_consumer_row key="photos" label="Print photos" icon="webcam"/>
+        <storage_consumer_row key="photos" label="Print photos" icon="image_area"/>
         <storage_consumer_row key="timelapse" label="Timelapse videos" icon="video"/>
         <storage_consumer_row key="logs" label="Old logs" icon="console"/>
         <storage_consumer_row key="thumbnails" label="Thumbnails" icon="image_area"/>
