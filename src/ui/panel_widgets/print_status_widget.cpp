@@ -44,6 +44,7 @@
 #include "printer_state.h"
 #include "runtime_config.h"
 #include "src/ui/panel_widgets/content_chrome.h"
+#include "src/ui/panel_widgets/print_status_library_layout.h"
 #include "standard_macros.h"
 #include "static_subject_registry.h"
 #include "subject_managed_panel.h"
@@ -134,6 +135,12 @@ void PrintStatusWidget::init_static_subjects() {
     s_static_subjects.publish("print_status_queue_hidden", &queue_hidden_subject_);
     lv_subject_init_int(&actions_hidden_subject_, 0);
     s_static_subjects.publish("print_status_actions_hidden", &actions_hidden_subject_);
+    lv_subject_init_int(&library_icon_only_subject_, 0);
+    s_static_subjects.publish("print_status_library_icon_only", &library_icon_only_subject_);
+    lv_subject_init_int(&library_grid_subject_, 0);
+    s_static_subjects.publish("print_status_library_grid", &library_grid_subject_);
+    lv_subject_init_int(&library_wrap_at_subject_, -1);
+    s_static_subjects.publish("print_status_library_wrap_at", &library_wrap_at_subject_);
     visibility_subjects_initialized_ = true;
 
     // Detailed-layout subjects
@@ -397,8 +404,14 @@ void PrintStatusWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
             self->apply_card_layout();
             if (v >= 3)
                 self->defer_apply_active_thumbnail();
+            else
+                self->schedule_library_fit();
         },
         subject_never_freed());
+
+    // XML re-translates the labels; their new widths may no longer fit.
+    language_observer_ = helix::ui::observe_language_change(
+        this, [](PrintStatusWidget* self) { self->schedule_library_fit(); });
 
     // Re-run visibility when the breakpoint changes so the 'Print Library' header
     // hides on shrink-to-micro and returns on grow-past-micro.
@@ -436,6 +449,7 @@ void PrintStatusWidget::detach() {
     live_instances().erase(this);
     idle_reset_timer_.cancel();
     active_apply_timer_.cancel();
+    library_fit_timer_.cancel();
     // The next attach may bring fresh XML thumbs that show nothing of this.
     shown_idle_thumb_ = {};
 
@@ -447,6 +461,7 @@ void PrintStatusWidget::detach() {
     // Release observers
     print_state_observer_.reset();
     view_observer_.reset();
+    language_observer_.reset();
     print_thumbnail_path_observer_.reset();
 #if defined(HELIX_PLATFORM_ESP32)
     print_psram_thumb_observer_.reset();
@@ -570,6 +585,7 @@ void PrintStatusWidget::on_size_changed(int /*colspan*/, int /*rowspan*/, int wi
         width_band = 2; // wide
     }
     lv_subject_set_int(&width_band_subject_, width_band);
+    schedule_library_fit();
 
     // Derive layout_effective: detailed only when user opted in AND width clears the normal floor
     int user_pref = (layout_style_ == "detailed") ? 1 : 0;
@@ -1440,6 +1456,7 @@ void PrintStatusWidget::recompute_actions_visibility() {
         show_print_files_ || show_reprint_last_ || show_recent_prints_ || queue_visible;
 
     lv_subject_set_int(&actions_hidden_subject_, any_button_visible ? 0 : 1);
+    schedule_library_fit();
 
     if (!widget_obj_ || !print_card_thumb_)
         return;
@@ -1456,6 +1473,96 @@ void PrintStatusWidget::recompute_actions_visibility() {
             lv_obj_set_style_flex_main_place(library_body, LV_FLEX_ALIGN_CENTER, 0);
             lv_obj_set_style_flex_cross_place(library_body, LV_FLEX_ALIGN_CENTER, 0);
         }
+    }
+}
+
+void PrintStatusWidget::schedule_library_fit() {
+    // Same next-tick escape as defer_reset_print_card_to_idle(): the fit reads a
+    // settled layout, and its subjects restyle the column it measured.
+    library_fit_timer_.schedule_once([this]() {
+        if (widget_obj_) {
+            fit_library_actions();
+        }
+    });
+}
+
+void PrintStatusWidget::fit_library_actions() {
+    lv_obj_t* actions = lv_obj_find_by_name(widget_obj_, "library_actions");
+    // Off-screen trees may be awaiting deletion: laying one out walks freed grids.
+    if (!actions || lv_subject_get_int(&view_subject_) != 0 ||
+        !helix::ui::is_on_active_screen(actions)) {
+        return;
+    }
+    lv_obj_update_layout(actions);
+
+    struct Action {
+        lv_subject_t* hidden;
+        const char* button;
+        const char* icon;
+        const char* label;
+    };
+    static constexpr int kActions = helix::kLibraryActionsMax;
+    const Action all[kActions] = {
+        {&files_hidden_subject_, "library_row_files", "library_files_icon", "library_files_label"},
+        {&last_hidden_subject_, "library_row_last", "library_last_icon", "library_last_label"},
+        {&recent_hidden_subject_, "library_row_recent", "library_recent_icon",
+         "library_recent_label"},
+        {&queue_hidden_subject_, "library_row_queue", "library_queue_icon", "library_queue_label"},
+    };
+
+    helix::LibraryActionsInput in;
+    in.avail_w = lv_obj_get_content_width(actions);
+    in.avail_h = lv_obj_get_content_height(actions);
+    // The column's gap, which the two-row layout trades for cell padding.
+    in.gap = theme_manager_get_spacing("space_xs");
+    in.min_button_h = theme_manager_get_spacing("button_height_sm");
+    // The icon sits beside the label unless the card's column mode hides it there.
+    const bool icon_beside_label = lv_subject_get_int(&column_mode_subject_) == 0;
+    int cell_of[kActions] = {};
+    for (int i = 0; i < kActions; ++i) {
+        const Action& a = all[i];
+        if (lv_subject_get_int(a.hidden) != 0) {
+            continue;
+        }
+        lv_obj_t* btn = lv_obj_find_by_name(actions, a.button);
+        lv_obj_t* label = lv_obj_find_by_name(actions, a.label);
+        if (!btn || !label) {
+            continue;
+        }
+        // Measured from the label's text, whether or not it is shown now, so the
+        // verdict never depends on the one it last published.
+        int need = lv_obj_get_style_space_left(btn, LV_PART_MAIN) +
+                   lv_obj_get_style_space_right(btn, LV_PART_MAIN) +
+                   helix::ui::text_width(lv_label_get_text(label),
+                                         lv_obj_get_style_text_font(label, LV_PART_MAIN),
+                                         lv_obj_get_style_text_letter_space(label, LV_PART_MAIN));
+        lv_obj_t* icon = icon_beside_label ? lv_obj_find_by_name(actions, a.icon) : nullptr;
+        if (icon) {
+            need += lv_obj_get_width(icon) + lv_obj_get_style_pad_column(btn, LV_PART_MAIN);
+        }
+        cell_of[in.count] = i;
+        in.labeled_w[in.count++] = need;
+    }
+
+    const helix::LibraryActionsVerdict v = helix::decide_library_actions_layout(in);
+    const int icon_only = v.icon_only ? 1 : 0;
+    const int grid = v.grid ? 1 : 0;
+    const int wrap_at =
+        v.second_row_at >= 0 && v.second_row_at < in.count ? cell_of[v.second_row_at] : -1;
+    if (lv_subject_get_int(&library_icon_only_subject_) != icon_only ||
+        lv_subject_get_int(&library_grid_subject_) != grid ||
+        lv_subject_get_int(&library_wrap_at_subject_) != wrap_at) {
+        std::string widths;
+        for (int i = 0; i < in.count; ++i) {
+            widths += fmt::format("{}{}", i ? "," : "", in.labeled_w[i]);
+        }
+        spdlog::debug("[PrintStatusWidget] library actions {}x{} ({} buttons, labelled widths {}): "
+                      "icon_only={} grid={} wrap_at={}",
+                      in.avail_w, in.avail_h, in.count, widths, icon_only, grid, wrap_at);
+        // The new track lands before the layout re-flows to rows.
+        lv_subject_set_int(&library_wrap_at_subject_, wrap_at);
+        lv_subject_set_int(&library_icon_only_subject_, icon_only);
+        lv_subject_set_int(&library_grid_subject_, grid);
     }
 }
 
