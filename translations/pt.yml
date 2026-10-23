@@ -429,6 +429,7 @@ translations:
 
   Bed is Level!: Mesa Nivelada!
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: A mesa está a {:.0f}°C, a impressão precisa de {:.0f}°C.
+  Bed mesh: Malha da mesa
   'Bed mesh calibration failed: {}': 'Falha na calibração da malha da mesa: {}'
   Bed mesh operation timed out: Malha da mesa — tempo esgotado
   Bed mesh...: Malha da mesa...
@@ -753,6 +754,7 @@ translations:
   Clean up: 'Limpar'
   Clean {}: Limpar {}
   Cleaning Nozzle...: Limpando bocal...
+  Cleaning nozzle: Limpando o bico
   Cleaning nozzle...: Limpando o bico...
   Clear: Limpar
   Clear All: Limpar Tudo
@@ -1722,6 +1724,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Aqueça
     a mesa antes de calibrar para um offset preciso com expansão térmica.
   Heat nozzle: Aquecer bico
+  Heat soak: Aquecimento Prolongado
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'O heat soak deixa o gabinete aquecer antes de uma impressão. Aparece porque a impressora tem uma macro de heat soak ou ele foi ativado nas configurações; o HelixScreen não o executa.'
   Heat the bed to {}°C: Aquecer a mesa a {}°C
@@ -1749,6 +1752,7 @@ translations:
   Heating Chamber...: Aquecendo câmara...
   Heating Nozzle...: Aquecendo bocal...
   Heating and homing: Aquecendo e fazendo homing
+  Heating bed: Aquecendo mesa
   Heating bed to $1°C...: Aquecendo mesa a $1°C...
   Heating bed...: Aquecendo mesa...
   Heating chamber...: Aquecendo câmara...
@@ -1810,6 +1814,7 @@ translations:
   Home layout copied from the printer's screen: "Layout da tela inicial copiado da tela da impressora"
   Home printer first?: Fazer home da impressora primeiro?
   Home Selector: Fazer home do seletor
+  Homing: Posicionando
   Homing AFC system...: Homing do sistema AFC...
   Homing Failed: 'Falha ao referenciar'
   Homing X and Y: Posicionando X e Y
@@ -3081,6 +3086,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'O Nivelamento Quad Gantry alinha com a mesa um gantry movido por quatro motores Z. O HelixScreen o oferece nas telas Controles e Movimento.'
   Quad Gantry Level started...: QGL iniciado...
+  Quad gantry level: Nivelamento Quad Gantry
   Queue empty: 'Fila vazia'
   'Queue: Paused': 'Fila: Pausada'
   'Queue: Ready': 'Fila: Pronta'
@@ -4637,6 +4643,7 @@ translations:
   Z motor calibration failed: Falha na calibração do motor Z
   Z probes for bed leveling and mesh generation: Sondas Z para nivelamento da mesa
     e geração de malha
+  Z tilt: Inclinação Z
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}, subirá para {}mm'
   'Z-Off:': 'Z-Offset:'

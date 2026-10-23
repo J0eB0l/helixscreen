@@ -429,6 +429,7 @@ translations:
 
   Bed is Level!: ¡La Cama está Nivelada!
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: La cama está a {:.0f}°C, la impresión necesita {:.0f}°C.
+  Bed mesh: Malla de cama
   'Bed mesh calibration failed: {}': 'Falló la calibración de la malla de cama: {}'
   Bed mesh operation timed out: Malla de cama — tiempo de espera agotado
   Bed mesh...: Malla de cama...
@@ -754,6 +755,7 @@ translations:
   Clean up: 'Limpiar'
   Clean {}: Limpiar {}
   Cleaning Nozzle...: Limpiando boquilla...
+  Cleaning nozzle: Limpiando boquilla
   Cleaning nozzle...: Limpiando boquilla...
   Clear: Borrar
   Clear All: Borrar Todo
@@ -1722,6 +1724,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Caliente
     la cama antes de calibrar para un offset preciso con expansión térmica.
   Heat nozzle: Calentar boquilla
+  Heat soak: Estabilización Térmica
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'El heat soak deja que el recinto se caliente antes de imprimir. Aparece porque la impresora tiene una macro de heat soak o se activó en los ajustes; HelixScreen no lo ejecuta.'
   Heat the bed to {}°C: Calentar la cama a {}°C
@@ -1749,6 +1752,7 @@ translations:
   Heating Chamber...: Calentando cámara...
   Heating Nozzle...: Calentando boquilla...
   Heating and homing: Calentando y haciendo homing
+  Heating bed: Calentando cama
   Heating bed to $1°C...: Calentando cama a $1°C...
   Heating bed...: Calentando cama...
   Heating chamber...: Calentando cámara...
@@ -1809,6 +1813,7 @@ translations:
   Home layout copied from the printer's screen: "Diseño de la pantalla de inicio copiado de la pantalla de la impresora"
   Home printer first?: ¿Referenciar la impresora primero?
   Home Selector: Referenciar selector
+  Homing: Posicionando
   Homing AFC system...: Referenciando sistema AFC...
   Homing Failed: 'Fallo de homing'
   Homing X and Y: Posicionando X e Y
@@ -3080,6 +3085,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'Nivelación de Pórtico Cuádruple alinea con la cama un pórtico movido por cuatro motores Z. HelixScreen la ofrece en las pantallas Controles y Movimiento.'
   Quad Gantry Level started...: QGL iniciado...
+  Quad gantry level: Nivelación de Pórtico Cuádruple
   Queue empty: 'Cola vacía'
   'Queue: Paused': 'Cola: Pausada'
   'Queue: Ready': 'Cola: Lista'
@@ -4633,6 +4639,7 @@ translations:
   Z motor calibration failed: Falló la calibración del motor Z
   Z probes for bed leveling and mesh generation: Sondas Z para nivelación de cama
     y generación de malla
+  Z tilt: Inclinación Z
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}, subirá a {}mm'
   'Z-Off:': 'Z-Offset:'

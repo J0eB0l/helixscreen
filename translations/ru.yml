@@ -476,6 +476,7 @@ translations:
 
   Bed is Level!: Стол выровнен!
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: Стол нагрет до {:.0f}°C, печати нужно {:.0f}°C.
+  Bed mesh: Сетка стола
   'Bed mesh calibration failed: {}': 'Ошибка калибровки сетки стола: {}'
   Bed mesh operation timed out: Сетка стола — время ожидания истекло
   Bed mesh...: Сетка стола...
@@ -798,6 +799,7 @@ translations:
   Clean up: 'Очистить'
   Clean {}: Очистите {}
   Cleaning Nozzle...: Очистка сопла...
+  Cleaning nozzle: Очистка сопла
   Cleaning nozzle...: Очистка сопла...
   Clear: Очистить
   Clear All: Очистить всё
@@ -1765,6 +1767,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Нагрейте
     стол перед калибровкой для точного смещения с учётом теплового расширения.
   Heat nozzle: Нагреть сопло
+  Heat soak: Прогрев
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'Прогрев камеры даёт корпусу нагреться перед печатью. Он показан, потому что у принтера есть макрос прогрева или он включён в настройках; HelixScreen его не запускает.'
   Heat the bed to {}°C: Нагреть стол до {}°C
@@ -1791,6 +1794,7 @@ translations:
   Heating Chamber...: Нагрев камеры...
   Heating Nozzle...: Нагрев сопла...
   Heating and homing: Нагрев и парковка
+  Heating bed: Нагрев стола
   Heating bed to $1°C...: Нагрев стола до $1°C...
   Heating bed...: Нагрев стола...
   Heating chamber...: Нагрев камеры...
@@ -1849,6 +1853,7 @@ translations:
   Home layout copied from the printer's screen: "Макет главного экрана скопирован с экрана принтера"
   Home printer first?: Сначала запарковать принтер?
   Home Selector: Парковать селектор
+  Homing: Парковка
   Homing AFC system...: Парковка системы AFC...
   Homing Failed: 'Ошибка парковки'
   Homing X and Y: Парковка X и Y
@@ -3127,6 +3132,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'Выравнивание портала выставляет портал с четырьмя Z-моторами параллельно столу. HelixScreen предлагает его на экранах «Управление» и «Движение».'
   Quad Gantry Level started...: QGL запущен...
+  Quad gantry level: Выравнивание портала
   Queue empty: 'Очередь пуста'
   'Queue: Paused': 'Очередь: Пауза'
   'Queue: Ready': 'Очередь: Готово'
@@ -4671,6 +4677,7 @@ translations:
   Z motor calibration failed: Не удалась калибровка двигателя Z
   Z probes for bed leveling and mesh generation: Z-зонды для выравнивания стола и
     создания сетки
+  Z tilt: Наклон Z
   Z {:.2f} mm: Z {:.2f} мм
   Z {}, will lift to {}mm: 'Z {}, подъём до {}мм'
   'Z-Off:': 'Z-Off:'

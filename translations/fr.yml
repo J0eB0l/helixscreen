@@ -434,6 +434,7 @@ translations:
 
   Bed is Level!: Le plateau est niveau !
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: Le plateau est à {:.0f}°C, l'impression a besoin de {:.0f}°C.
+  Bed mesh: Maillage du plateau
   'Bed mesh calibration failed: {}': 'Échec du calibrage du maillage du plateau : {}'
   Bed mesh operation timed out: Maillage du plateau — délai dépassé
   Bed mesh...: Maillage du plateau...
@@ -760,6 +761,7 @@ translations:
   Clean up: 'Nettoyer'
   Clean {}: Nettoyer {}
   Cleaning Nozzle...: Nettoyage de la buse...
+  Cleaning nozzle: Nettoyage de la buse
   Cleaning nozzle...: Nettoyage de la buse...
   Clear: Effacer
   Clear All: Tout effacer
@@ -1735,6 +1737,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Chauffez
     le plateau avant de calibrer pour un offset précis avec la dilatation thermique.
   Heat nozzle: Chauffer la buse
+  Heat soak: Stabilisation thermique
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'Le heat soak laisse le caisson chauffer avant une impression. Il apparaît car l''imprimante a une macro de heat soak ou il a été activé dans les réglages ; HelixScreen ne le lance pas.'
   Heat the bed to {}°C: Chauffer le plateau à {}°C
@@ -1762,6 +1765,7 @@ translations:
   Heating Chamber...: Chauffe de la chambre...
   Heating Nozzle...: Chauffe de la buse...
   Heating and homing: Chauffe et mise à l'origine
+  Heating bed: Chauffe du plateau
   Heating bed to $1°C...: Chauffe du plateau à $1°C...
   Heating bed...: Chauffe du plateau...
   Heating chamber...: Chauffe de la chambre...
@@ -1822,6 +1826,7 @@ translations:
   Home layout copied from the printer's screen: "Disposition de l'écran d'accueil copiée depuis l'écran de l'imprimante"
   Home printer first?: Référencer l'imprimante d'abord ?
   Home Selector: Origine du sélecteur
+  Homing: Mise à l'origine
   Homing AFC system...: Référence du système AFC...
   Homing Failed: 'Échec de la prise d''origine'
   Homing X and Y: Mise à l'origine X et Y
@@ -3097,6 +3102,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'Quad Gantry Level met d''équerre avec le plateau un portique entraîné par quatre moteurs Z. HelixScreen le propose sur les écrans Commandes et Mouvement.'
   Quad Gantry Level started...: Quad Gantry Level démarré...
+  Quad gantry level: Quad Gantry Level
   Queue empty: 'File vide'
   'Queue: Paused': 'File : En pause'
   'Queue: Ready': 'File : Prête'
@@ -4667,6 +4673,7 @@ translations:
   Z motor calibration failed: Échec de l'étalonnage du moteur Z
   Z probes for bed leveling and mesh generation: Sondes Z pour la mise à niveau du
     plateau et la génération de maillage
+  Z tilt: Inclinaison Z
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}, montera à {}mm'
   'Z-Off:': 'Z-Off :'

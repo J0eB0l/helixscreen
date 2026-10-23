@@ -399,6 +399,7 @@
   <translation tag="Bed cooling, spools still on the bed:" zh="热床正在冷却,料盘仍在上面:"/>
   <translation tag="Bed is Level!" zh="热床已水平！"/>
   <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." zh="热床为 {:.0f}°C，打印需要 {:.0f}°C。"/>
+  <translation tag="Bed mesh" zh="热床网格"/>
   <translation tag="Bed mesh calibration failed: {}" zh="热床网格校准失败：{}"/>
   <translation tag="Bed mesh operation timed out" zh="热床网格操作超时"/>
   <translation tag="Bed mesh..." zh="热床网格..."/>
@@ -689,6 +690,7 @@
   <translation tag="Clean up" zh="清理"/>
   <translation tag="Clean {}" zh="清洁{}"/>
   <translation tag="Cleaning Nozzle..." zh="正在清洁喷嘴..."/>
+  <translation tag="Cleaning nozzle" zh="清洁喷嘴"/>
   <translation tag="Cleaning nozzle..." zh="正在清洁喷嘴..."/>
   <translation tag="Clear" zh="清除"/>
   <translation tag="Clear All" zh="全部清除"/>
@@ -1571,6 +1573,7 @@
   <translation tag="Heat and Home" zh="加热并归零"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." zh="校准前加热热床，以获得考虑热膨胀的精确偏移。"/>
   <translation tag="Heat nozzle" zh="加热喷嘴"/>
+  <translation tag="Heat soak" zh="预热浸泡"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." zh="热浸让腔体在打印前升温。显示此项是因为打印机有热浸宏，或已在设置中开启；HelixScreen 不会运行它。"/>
   <translation tag="Heat the bed to {}°C" zh="将热床加热到 {}°C"/>
   <translation tag="Heat the chamber too" zh="同时加热腔体"/>
@@ -1596,6 +1599,7 @@
   <translation tag="Heating Chamber..." zh="正在加热腔体..."/>
   <translation tag="Heating Nozzle..." zh="正在加热喷嘴..."/>
   <translation tag="Heating and homing" zh="加热并归零中"/>
+  <translation tag="Heating bed" zh="加热热床"/>
   <translation tag="Heating bed to $1°C..." zh="正在加热热床至 $1°C..."/>
   <translation tag="Heating bed..." zh="正在加热热床..."/>
   <translation tag="Heating chamber..." zh="正在加热腔体..."/>
@@ -1652,6 +1656,7 @@
   <translation tag="Home failed" zh="归位失败"/>
   <translation tag="Home layout copied from the printer&apos;s screen" zh="已从打印机屏幕复制主屏幕布局"/>
   <translation tag="Home printer first?" zh="先将打印机归位？"/>
+  <translation tag="Homing" zh="归零"/>
   <translation tag="Homing AFC system..." zh="AFC系统归位中..."/>
   <translation tag="Homing Failed" zh="回零失败"/>
   <translation tag="Homing X and Y" zh="正在归零 X 和 Y"/>
@@ -2819,6 +2824,7 @@
   <translation tag="Quad Gantry Level complete" zh="QGL 完成"/>
   <translation tag="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens." zh="四角龙门调平可将由四个 Z 电机驱动的龙门与热床调平。HelixScreen 在控制和运动界面提供该功能。"/>
   <translation tag="Quad Gantry Level started..." zh="QGL 已开始..."/>
+  <translation tag="Quad gantry level" zh="四角龙门调平"/>
   <translation tag="Queue empty" zh="队列为空"/>
   <translation tag="Queue: Paused" zh="队列：已暂停"/>
   <translation tag="Queue: Ready" zh="队列：就绪"/>
@@ -4204,6 +4210,7 @@
   <translation tag="Z jog feedrate" zh="Z 轴移动速度"/>
   <translation tag="Z motor calibration failed" zh="Z 电机校准失败"/>
   <translation tag="Z probes for bed leveling and mesh generation" zh="用于热床调平和网格生成的 Z 探针"/>
+  <translation tag="Z tilt" zh="Z倾斜"/>
   <translation tag="Z {:.2f} mm" zh="Z {:.2f} mm"/>
   <translation tag="Z {}, will lift to {}mm" zh="Z {}，将抬升至 {}mm"/>
   <translation tag="Z-Off:" zh="Z 偏移："/>

@@ -404,6 +404,7 @@ translations:
 
   Bed is Level!: 热床已水平！
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: 热床为 {:.0f}°C，打印需要 {:.0f}°C。
+  Bed mesh: 热床网格
   'Bed mesh calibration failed: {}': '热床网格校准失败：{}'
   Bed mesh operation timed out: 热床网格操作超时
   Bed mesh...: 热床网格...
@@ -700,6 +701,7 @@ translations:
   Clean up: '清理'
   Clean {}: 清洁{}
   Cleaning Nozzle...: 正在清洁喷嘴...
+  Cleaning nozzle: 清洁喷嘴
   Cleaning nozzle...: 正在清洁喷嘴...
   Clear: 清除
   Clear All: 全部清除
@@ -1627,6 +1629,7 @@ translations:
   Heat and Home: 加热并归零
   Heat bed before calibrating for accurate offset with thermal expansion.: 校准前加热热床，以获得考虑热膨胀的精确偏移。
   Heat nozzle: 加热喷嘴
+  Heat soak: 预热浸泡
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : '热浸让腔体在打印前升温。显示此项是因为打印机有热浸宏，或已在设置中开启；HelixScreen 不会运行它。'
   Heat the bed to {}°C: 将热床加热到 {}°C
@@ -1653,6 +1656,7 @@ translations:
   Heating Chamber...: 正在加热腔体...
   Heating Nozzle...: 正在加热喷嘴...
   Heating and homing: 加热并归零中
+  Heating bed: 加热热床
   Heating bed to $1°C...: 正在加热热床至 $1°C...
   Heating bed...: 正在加热热床...
   Heating chamber...: 正在加热腔体...
@@ -1710,6 +1714,7 @@ translations:
   Home layout copied from the printer's screen: "已从打印机屏幕复制主屏幕布局"
   Home printer first?: 先将打印机归位？
   Home Selector: 选择器归位
+  Homing: 归零
   Homing AFC system...: AFC系统归位中...
   Homing Failed: '回零失败'
   Homing X and Y: 正在归零 X 和 Y
@@ -2918,6 +2923,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : '四角龙门调平可将由四个 Z 电机驱动的龙门与热床调平。HelixScreen 在控制和运动界面提供该功能。'
   Quad Gantry Level started...: QGL 已开始...
+  Quad gantry level: 四角龙门调平
   Queue empty: '队列为空'
   'Queue: Paused': '队列：已暂停'
   'Queue: Ready': 队列：就绪
@@ -4371,6 +4377,7 @@ translations:
   Z jog feedrate: Z 轴移动速度
   Z motor calibration failed: Z 电机校准失败
   Z probes for bed leveling and mesh generation: 用于热床调平和网格生成的 Z 探针
+  Z tilt: Z倾斜
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}，将抬升至 {}mm'
   'Z-Off:': Z 偏移：

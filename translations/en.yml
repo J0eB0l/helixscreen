@@ -418,6 +418,7 @@ translations:
   'Bed cooling, spools still on the bed:': 'Bed cooling, spools still on the bed:'
   Bed is Level!: Bed is Level!
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: Bed is at {:.0f}°C, the print needs {:.0f}°C.
+  Bed mesh: Bed mesh
   'Bed mesh calibration failed: {}': 'Bed mesh calibration failed: {}'
   Bed mesh operation timed out: Bed mesh operation timed out
   'Bed mesh...': 'Bed mesh...'
@@ -735,6 +736,7 @@ translations:
   Clean up: Clean up
   Clean {}: Clean {}
   Cleaning Nozzle...: Cleaning Nozzle...
+  Cleaning nozzle: Cleaning nozzle
   'Cleaning nozzle...': 'Cleaning nozzle...'
   Clear: Clear
   Clear All: Clear All
@@ -1675,6 +1677,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Heat bed
     before calibrating for accurate offset with thermal expansion.
   Heat nozzle: Heat nozzle
+  Heat soak: Heat soak
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   Heat the bed to {}°C: Heat the bed to {}°C
@@ -1701,6 +1704,7 @@ translations:
   'Heating Chamber...': 'Heating Chamber...'
   Heating Nozzle...: Heating Nozzle...
   Heating and homing: Heating and homing
+  Heating bed: Heating bed
   'Heating bed to $1°C...': 'Heating bed to $1°C...'
   'Heating bed...': 'Heating bed...'
   'Heating chamber...': 'Heating chamber...'
@@ -1759,6 +1763,7 @@ translations:
   Home layout copied from the printer's screen: Home layout copied from the printer's screen
   Home printer first?: Home printer first?
   Home Selector: Home Selector
+  Homing: Homing
   Homing AFC system...: Homing AFC system...
   Homing Failed: Homing Failed
   Homing X and Y: Homing X and Y
@@ -3010,6 +3015,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   Quad Gantry Level started...: Quad Gantry Level started...
+  Quad gantry level: Quad gantry level
   Queue empty: Queue empty
   'Queue: Paused': 'Queue: Paused'
   'Queue: Ready': 'Queue: Ready'
@@ -4535,6 +4541,7 @@ translations:
   Z motor calibration failed: Z motor calibration failed
   Z probes for bed leveling and mesh generation: Z probes for bed leveling and mesh
     generation
+  Z tilt: Z tilt
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: Z {}, will lift to {}mm
   'Z-Off:': 'Z-Off:'
