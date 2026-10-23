@@ -123,10 +123,16 @@ rewritten):
 | Chamber temp | `chamber` | |
 | Light | `light` | tap toggles the light |
 | Aux fan(s) % | none | no line; dimmed at 0% |
-| Speed + flow | none | one chip; amber border and amber value when either is not 100%; tap opens Tune |
+| Speed + flow | none | one chip; amber border and amber value when either is not 100%; tap opens Tune (ruling). The percent/mm/s choice it toggles today already lives in Tune (`ui_print_tune_overlay.cpp`) and the chip honors it |
 
 A heater off its target mid-print turns its chip amber and shows `value / target` again.
-Today's 5% deviation check is that rule.
+That is today's `classify_heater_status` (Heating / Ready / Cooling, a ±2 °C band) moved
+onto the chip.
+
+**Heater power** (the `NN%` beside each heater today is duty, from
+`get_heater_power_subject`) lives in the detail the chip opens. Ruling: on wide screens
+where the chip has room, the heater chips also show it (`220° · 5%`). The builder decides
+"has room" by measured chip fit in the BothSides/OneSide modes, not by breakpoint name.
 
 **Strip**: big %, time left, ETA clock time, elapsed time, progress bar, filament line (swatch,
 tool, name, tool changes N/M), Up next (when the queue has more).
@@ -193,7 +199,8 @@ Everything dropped stays reachable through the tile's tap-through detail.
 
 | Today | Goes to |
 |---|---|
-| Nozzle / bed / chamber temp + target + % deviation check | printer chips; target shown while heating or off target |
+| Nozzle / bed / chamber temp + target + Heating/Ready/Cooling status | printer chips; target shown while heating or off target |
+| Heater power % | temp detail overlay; on the chip too on wide screens |
 | Speed %, flow % | speed/flow chip, amber when changed |
 | Tool changes N/M, filament swatch + name, AMS current tool | strip filament line |
 | Part / hotend / aux fans | printer chips |
