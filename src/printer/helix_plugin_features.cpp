@@ -130,7 +130,7 @@ std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& feat
     };
     for (const KnownPluginFeature& known : kKnownPluginFeatures) {
         const auto it = features.find(known.name);
-        if (it == features.end()) {
+        if (it == features.end() || (known.hide_when_unavailable && !it->second.available)) {
             continue;
         }
         PluginFeatureLine line = line_for(it->first, it->second);

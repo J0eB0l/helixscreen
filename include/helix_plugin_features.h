@@ -135,6 +135,9 @@ struct KnownPluginFeature {
     const char* label;
     const char* icon;
     PluginFeatureHome home;
+    /// The overview leaves the feature out while it is unavailable: it serves
+    /// one kind of hardware, and on any other printer it has nothing to say.
+    bool hide_when_unavailable = false;
 };
 
 /// Every feature this app can name. A feature the plugin reports that is not
@@ -148,8 +151,8 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},
     {"server_edits", TR_NOOP("Server-side edits"), "pencil", PluginFeatureHome::None},
     {"config_edit", TR_NOOP("Config editing"), "wrench", PluginFeatureHome::None},
-    {"vendor_ad5x", TR_NOOP("IFS updates without polling"), "sync", PluginFeatureHome::None},
-    {"vendor_ace", TR_NOOP("ACE updates without polling"), "sync", PluginFeatureHome::None},
+    {"vendor_ad5x", TR_NOOP("IFS updates without polling"), "sync", PluginFeatureHome::None, true},
+    {"vendor_ace", TR_NOOP("ACE updates without polling"), "sync", PluginFeatureHome::None, true},
 };
 
 /// The icon of a feature this app does not know.
@@ -173,7 +176,8 @@ struct PluginFeatureLine {
 };
 
 /// The overview lines for @p features: known features in kKnownPluginFeatures
-/// order, then unknown ones by name.
+/// order, then unknown ones by name. A known feature marked
+/// hide_when_unavailable gets no line while it is unavailable.
 std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& features);
 
 } // namespace helix
