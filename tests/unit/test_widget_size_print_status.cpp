@@ -391,8 +391,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         lv_obj_t* data_col = h.child("detailed_data_col");
         REQUIRE(data_col != nullptr);
         REQUIRE(lv_obj_get_child_count(data_col) == 3); // layer, time, filament
-        lv_obj_t* filament_label = h.child("detailed_filament_text");
-        REQUIRE(filament_label != nullptr);
+        lv_obj_t* filament_row = h.child("detailed_filament_row");
+        REQUIRE(filament_row != nullptr);
         REQUIRE(lv_subject_get_int(PrintStatusWidget::view_subject_for_test()) ==
                 4); // active_detailed
 
@@ -400,7 +400,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         // — old predicate colspan>=3 would not have shown it here).
         h.resize(1, 1, w_wide(), 400);
         CHECK(lv_subject_get_int(PrintStatusWidget::show_filament_active_subject_for_test()) == 0);
-        CHECK(lv_obj_has_flag(filament_label, LV_OBJ_FLAG_HIDDEN));
+        CHECK(lv_obj_has_flag(filament_row, LV_OBJ_FLAG_HIDDEN));
 
         // Wide band, filament now used: visible. Isolates on_size_changed's
         // half of the gate (:461) — re-run on_size_changed at the SAME
@@ -409,14 +409,14 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
         h.resize(1, 1, w_wide(), 400);
         CHECK(lv_subject_get_int(PrintStatusWidget::show_filament_active_subject_for_test()) == 1);
-        CHECK_FALSE(lv_obj_has_flag(filament_label, LV_OBJ_FLAG_HIDDEN));
+        CHECK_FALSE(lv_obj_has_flag(filament_row, LV_OBJ_FLAG_HIDDEN));
 
         // Normal (not wide) band, filament still used: hidden again.
         // Contradicting span (colspan=5 — old predicate colspan>=3 would
         // have kept it shown).
         h.resize(5, 1, w_normal(), 400);
         CHECK(lv_subject_get_int(PrintStatusWidget::show_filament_active_subject_for_test()) == 0);
-        CHECK(lv_obj_has_flag(filament_label, LV_OBJ_FLAG_HIDDEN));
+        CHECK(lv_obj_has_flag(filament_row, LV_OBJ_FLAG_HIDDEN));
 
         // --- Mirror (:1712): back to wide band via one resize call...
         h.resize(1, 1, w_wide(), 400);
@@ -430,13 +430,13 @@ TEST_CASE_METHOD(LVGLUITestFixture,
                            0); // e.g. print re-sliced
         UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
         CHECK(lv_subject_get_int(PrintStatusWidget::show_filament_active_subject_for_test()) == 0);
-        CHECK(lv_obj_has_flag(filament_label, LV_OBJ_FLAG_HIDDEN));
+        CHECK(lv_obj_has_flag(filament_row, LV_OBJ_FLAG_HIDDEN));
 
         lv_subject_set_int(ps.print_state().get_print_filament_used_subject(),
                            2000); // extrusion resumes
         UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
         CHECK(lv_subject_get_int(PrintStatusWidget::show_filament_active_subject_for_test()) == 1);
-        CHECK_FALSE(lv_obj_has_flag(filament_label, LV_OBJ_FLAG_HIDDEN));
+        CHECK_FALSE(lv_obj_has_flag(filament_row, LV_OBJ_FLAG_HIDDEN));
     }
     PrintStatusWidget::destroy_formatter_for_test();
 }

@@ -56,13 +56,43 @@
               style_flex_cross_place="start" style_pad_row="#space_xs" scrollable="false" clickable="false"
               event_bubble="true">
         <bind_flag_if_not_eq subject="print_start_phase" flag="hidden" ref_value="0"/>
-        <text_small bind_text="print_status_layer_text" clickable="false" event_bubble="true"/>
-        <text_small bind_text="print_status_time_text" clickable="false" event_bubble="true"/>
-        <text_small name="detailed_filament_text"
-                    width="100%" bind_text="print_status_filament_text" long_mode="scroll_circular" clickable="false"
-                    event_bubble="true">
+        <!-- Icon + value rows, the print status panel's vocabulary. Where a row
+             has no room, its less useful piece goes: the Z height after the
+             layer count, the elapsed time before the remaining. -->
+        <lv_obj name="detailed_layer_row"
+                width="100%" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"
+                style_pad_gap="#space_xs" scrollable="false" clickable="false" event_bubble="true">
+          <icon src="layers" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
+          <text_small name="detailed_layer_count"
+                      bind_text="print_status_layer_text" clickable="false" event_bubble="true"/>
+          <text_small name="detailed_layer_z"
+                      bind_text="print_status_layer_z_text" clickable="false" event_bubble="true">
+            <bind_flag_if_eq subject="print_status_layer_z_fits" flag="hidden" ref_value="0"/>
+          </text_small>
+        </lv_obj>
+        <lv_obj name="detailed_time_row"
+                width="100%" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"
+                style_pad_gap="#space_xs" scrollable="false" clickable="false" event_bubble="true">
+          <lv_obj name="detailed_elapsed_group"
+                  width="content" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"
+                  style_pad_gap="#space_xs" scrollable="false" clickable="false" event_bubble="true">
+            <bind_flag_if_eq subject="print_status_elapsed_fits" flag="hidden" ref_value="0"/>
+            <icon src="hourglass" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
+            <text_small bind_text="print_status_elapsed_text" clickable="false" event_bubble="true"/>
+            <text_small text="·" clickable="false" event_bubble="true"/>
+          </lv_obj>
+          <icon src="clock" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
+          <text_small bind_text="print_status_remaining_text" clickable="false" event_bubble="true"/>
+        </lv_obj>
+        <lv_obj name="detailed_filament_row"
+                width="100%" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"
+                style_pad_gap="#space_xs" scrollable="false" clickable="false" event_bubble="true">
           <bind_flag_if_eq subject="print_status_show_filament_active" flag="hidden" ref_value="0"/>
-        </text_small>
+          <icon src="filament" size="xs" variant="secondary" clickable="false" event_bubble="true"/>
+          <text_small name="detailed_filament_text"
+                      bind_text="print_status_filament_text" flex_grow="1" long_mode="scroll_circular" clickable="false"
+                      event_bubble="true"/>
+        </lv_obj>
       </lv_obj>
     </lv_obj>
     <!-- Temps: always a full-width row at the bottom of the card. Uses the

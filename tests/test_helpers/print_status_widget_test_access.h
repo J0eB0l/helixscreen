@@ -42,6 +42,13 @@ class PrintStatusWidgetTestAccess {
         widget.widget_obj_ = nullptr;
     }
 
+    static void fit_row(PrintStatusWidget& widget, lv_obj_t* root, const char* row_name,
+                        lv_subject_t* fits) {
+        widget.widget_obj_ = root;
+        widget.fit_row(row_name, fits);
+        widget.widget_obj_ = nullptr;
+    }
+
     static void dispatch_load(PrintStatusWidget& widget) {
         widget.dispatch_load();
     }

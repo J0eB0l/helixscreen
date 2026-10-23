@@ -432,3 +432,92 @@ TEST_CASE_METHOD(LVGLUITestFixture, "Detailed card: the picker goes where the ro
 
     lv_obj_delete(host);
 }
+
+namespace {
+
+// Builds the detailed card with the given texts and checks that the named row
+// drops its optional piece exactly when the row is one pixel short of it.
+void check_row_drops_piece(lv_obj_t* screen, const char* row_name, const char* piece_name,
+                           const char* fits_name) {
+    REQUIRE(lv_xml_register_component_from_file(
+                "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
+    lv_obj_t* host = lv_obj_create(screen);
+    lv_obj_set_size(host, 600, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(host, 0, LV_PART_MAIN);
+    auto* card =
+        static_cast<lv_obj_t*>(lv_xml_create(host, "print_status_detailed_active", nullptr));
+    REQUIRE(card != nullptr);
+    lv_obj_t* row = lv_obj_find_by_name(card, row_name);
+    REQUIRE(row != nullptr);
+    lv_obj_t* piece = lv_obj_find_by_name(row, piece_name);
+    REQUIRE(piece != nullptr);
+    auto* fits = lv_xml_get_subject(nullptr, fits_name);
+    REQUIRE(fits != nullptr);
+
+    PrintStatusWidget w;
+    lv_obj_set_width(row, 400);
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 1);
+    CHECK_FALSE(lv_obj_has_flag(piece, LV_OBJ_FLAG_HIDDEN));
+
+    // The row as laid out with every piece shown.
+    lv_obj_update_layout(row);
+    int whole = 0;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(row); ++i) {
+        whole += lv_obj_get_width(lv_obj_get_child(row, static_cast<int32_t>(i)));
+    }
+    whole += lv_obj_get_style_pad_column(row, LV_PART_MAIN) *
+             (static_cast<int>(lv_obj_get_child_count(row)) - 1);
+
+    lv_obj_set_width(row, whole - 1);
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 0);
+    CHECK(lv_obj_has_flag(piece, LV_OBJ_FLAG_HIDDEN));
+
+    // Hiding the piece must not read as room for it.
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 0);
+
+    lv_obj_set_width(row, whole);
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 1);
+
+    lv_obj_delete(host);
+}
+
+struct FormatterTexts {
+    FormatterTexts() {
+        PrintStatusWidget::destroy_formatter_for_test();
+        PrinterState& ps = get_printer_state();
+        PrinterStateTestAccess::reset(ps);
+        ps.init_subjects(false);
+        PrintStatusWidget::ensure_formatter_for_test();
+    }
+    ~FormatterTexts() {
+        PrintStatusWidget::release_formatter_for_test();
+    }
+    static void set(const char* subject, const char* text) {
+        lv_subject_copy_string(lv_xml_get_subject(nullptr, subject), text);
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Detailed card: the layer Z goes where the row has no room",
+                 "[print_status][formatter]") {
+    FormatterTexts texts;
+    FormatterTexts::set("print_status_layer_text", "120 / 240");
+    FormatterTexts::set("print_status_layer_z_text", "· 24.0mm");
+    check_row_drops_piece(test_screen(), "detailed_layer_row", "detailed_layer_z",
+                          "print_status_layer_z_fits");
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Detailed card: the elapsed time goes where the row has no room",
+                 "[print_status][formatter]") {
+    FormatterTexts texts;
+    FormatterTexts::set("print_status_elapsed_text", "1h 14m");
+    FormatterTexts::set("print_status_remaining_text", "35m");
+    check_row_drops_piece(test_screen(), "detailed_time_row", "detailed_elapsed_group",
+                          "print_status_elapsed_fits");
+}

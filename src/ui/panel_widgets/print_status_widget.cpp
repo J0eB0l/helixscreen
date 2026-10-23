@@ -158,6 +158,10 @@ void PrintStatusWidget::init_static_subjects() {
     s_static_subjects.publish("print_status_nozzle_pickable", &nozzle_pickable_subject_);
     lv_subject_init_int(&nozzle_picker_fits_subject_, 1);
     s_static_subjects.publish("print_status_nozzle_picker_fits", &nozzle_picker_fits_subject_);
+    lv_subject_init_int(&layer_z_fits_subject_, 1);
+    s_static_subjects.publish("print_status_layer_z_fits", &layer_z_fits_subject_);
+    lv_subject_init_int(&elapsed_fits_subject_, 1);
+    s_static_subjects.publish("print_status_elapsed_fits", &elapsed_fits_subject_);
     // Initial value 0 = idle_library_full — matches the default ref_value=0
     // on print_card_idle's bind_flag_if_not_eq so it shows by default
     // before any state events fire.
@@ -1486,6 +1490,8 @@ void PrintStatusWidget::schedule_library_fit() {
         if (widget_obj_) {
             fit_library_actions();
             fit_nozzle_picker();
+            fit_row("detailed_layer_row", &layer_z_fits_subject_);
+            fit_row("detailed_time_row", &elapsed_fits_subject_);
         }
     });
 }
@@ -1855,6 +1861,49 @@ void PrintStatusWidget::fit_nozzle_picker() {
     }
 }
 
+namespace {
+// The width an object asks for laid out on one line: a label's text, a row's
+// children side by side. Hidden children count, so a verdict that hides a piece
+// never reads its absence as room for it.
+int natural_width(lv_obj_t* obj) {
+    if (lv_obj_check_type(obj, &lv_label_class)) {
+        return helix::ui::text_width(lv_label_get_text(obj),
+                                     lv_obj_get_style_text_font(obj, LV_PART_MAIN),
+                                     lv_obj_get_style_text_letter_space(obj, LV_PART_MAIN));
+    }
+    const uint32_t n = lv_obj_get_child_count(obj);
+    if (n == 0) {
+        return lv_obj_get_width(obj);
+    }
+    int width = lv_obj_get_style_pad_left(obj, LV_PART_MAIN) +
+                lv_obj_get_style_pad_right(obj, LV_PART_MAIN) +
+                lv_obj_get_style_pad_column(obj, LV_PART_MAIN) * static_cast<int>(n - 1);
+    for (uint32_t i = 0; i < n; ++i) {
+        width += natural_width(lv_obj_get_child(obj, static_cast<int32_t>(i)));
+    }
+    return width;
+}
+} // namespace
+
+void PrintStatusWidget::fit_row(const char* row_name, lv_subject_t* fits) {
+    lv_obj_t* row = lv_obj_find_by_name(widget_obj_, row_name);
+    // Off-screen trees may be awaiting deletion: laying one out walks freed grids.
+    if (!row || !helix::ui::is_on_active_screen(row)) {
+        return;
+    }
+    lv_obj_update_layout(row);
+
+    const int avail = lv_obj_get_content_width(row);
+    const int need = natural_width(row) - lv_obj_get_style_pad_left(row, LV_PART_MAIN) -
+                     lv_obj_get_style_pad_right(row, LV_PART_MAIN);
+    const int verdict = need <= avail ? 1 : 0;
+    if (lv_subject_get_int(fits) != verdict) {
+        spdlog::debug("[PrintStatusWidget] {} needs {}px of {}px: fits={}", row_name, need, avail,
+                      verdict);
+        lv_subject_set_int(fits, verdict);
+    }
+}
+
 void PrintStatusWidget::show_nozzle_tool_picker(lv_obj_t* anchor) {
     if (nozzle_picker_.is_visible() || !parent_screen_ || !anchor)
         return;
@@ -2128,22 +2177,31 @@ void PrintStatusWidget::DetailedFormatter::update_layer_text() {
     auto& ps = get_printer_state();
     int cur = lv_subject_get_int(ps.print_state().get_print_layer_current_subject());
     int tot = lv_subject_get_int(ps.print_state().get_print_layer_total_subject());
-    std::string text = helix::ui::format_layer_progress(
-        cur, tot, ps.print_state().layer_is_accurate(),
-        lv_subject_get_int(ps.motion_state().get_gcode_position_z_subject()));
+    std::string text =
+        helix::ui::format_layer_progress_compact(cur, tot, ps.print_state().layer_is_accurate(), 0);
     snprintf(layer_text_buf_, sizeof(layer_text_buf_), "%s", text.c_str());
     lv_subject_copy_string(&layer_text_subject_, layer_text_buf_);
+    std::string z = helix::ui::format_layer_z(
+        lv_subject_get_int(ps.motion_state().get_gcode_position_z_subject()));
+    snprintf(layer_z_text_buf_, sizeof(layer_z_text_buf_), "%s", z.c_str());
+    lv_subject_copy_string(&layer_z_text_subject_, layer_z_text_buf_);
+    // The count and the Z both grow as the print climbs, so the room for the Z
+    // is measured again each time they change.
+    for (auto* widget : live_instances()) {
+        widget->schedule_library_fit();
+    }
 }
 
 void PrintStatusWidget::DetailedFormatter::update_time_text() {
     auto& ps = get_printer_state();
     int elapsed = lv_subject_get_int(ps.print_state().get_print_elapsed_subject());
     int remain = lv_subject_get_int(ps.print_state().get_print_time_left_subject());
-    int total = elapsed + remain;
-    std::string text =
-        helix::format::duration_padded(elapsed) + " / " + helix::format::duration_padded(total);
-    snprintf(time_text_buf_, sizeof(time_text_buf_), "%s", text.c_str());
-    lv_subject_copy_string(&time_text_subject_, time_text_buf_);
+    snprintf(elapsed_text_buf_, sizeof(elapsed_text_buf_), "%s",
+             helix::format::duration_padded(elapsed).c_str());
+    lv_subject_copy_string(&elapsed_text_subject_, elapsed_text_buf_);
+    snprintf(remaining_text_buf_, sizeof(remaining_text_buf_), "%s",
+             helix::format::duration_padded(remain).c_str());
+    lv_subject_copy_string(&remaining_text_subject_, remaining_text_buf_);
 }
 
 void PrintStatusWidget::DetailedFormatter::update_filament_text() {
@@ -2152,8 +2210,7 @@ void PrintStatusWidget::DetailedFormatter::update_filament_text() {
     if (used_mm <= 0) {
         filament_text_buf_[0] = '\0';
     } else {
-        std::string text = std::string(lv_tr("Filament")) + ": " +
-                           helix::format::format_filament_length(static_cast<double>(used_mm));
+        std::string text = helix::format::format_filament_length(static_cast<double>(used_mm));
         snprintf(filament_text_buf_, sizeof(filament_text_buf_), "%s", text.c_str());
     }
     lv_subject_copy_string(&filament_text_subject_, filament_text_buf_);
@@ -2391,8 +2448,12 @@ void PrintStatusWidget::DetailedFormatter::update_idle_fields() {
 PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
     UI_MANAGED_SUBJECT_STRING(layer_text_subject_, layer_text_buf_, "", "print_status_layer_text",
                               subjects_);
-    UI_MANAGED_SUBJECT_STRING(time_text_subject_, time_text_buf_, "0h 00m / 0h 00m",
-                              "print_status_time_text", subjects_);
+    UI_MANAGED_SUBJECT_STRING(layer_z_text_subject_, layer_z_text_buf_, "",
+                              "print_status_layer_z_text", subjects_);
+    UI_MANAGED_SUBJECT_STRING(elapsed_text_subject_, elapsed_text_buf_, "0m",
+                              "print_status_elapsed_text", subjects_);
+    UI_MANAGED_SUBJECT_STRING(remaining_text_subject_, remaining_text_buf_, "0m",
+                              "print_status_remaining_text", subjects_);
     UI_MANAGED_SUBJECT_STRING(filament_text_subject_, filament_text_buf_, "",
                               "print_status_filament_text", subjects_);
     UI_MANAGED_SUBJECT_STRING(nozzle_text_subject_, nozzle_text_buf_, "0 / 0°C",

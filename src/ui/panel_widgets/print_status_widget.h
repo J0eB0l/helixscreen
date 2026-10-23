@@ -379,6 +379,10 @@ class PrintStatusWidget : public PanelWidget {
     static inline lv_subject_t nozzle_pickable_subject_{};
     // 1 when the detailed temperature row has room for the picker chevron.
     static inline lv_subject_t nozzle_picker_fits_subject_{};
+    // 1 when the detailed layer row has room for the Z height after the count.
+    static inline lv_subject_t layer_z_fits_subject_{};
+    // 1 when the detailed time row has room for the elapsed time before the remaining.
+    static inline lv_subject_t elapsed_fits_subject_{};
     // Resolved thumbnail path for the detailed-idle hero; written by
     // reset_print_card_to_idle alongside the lv_image_set_src calls on the
     // Library-mode thumbs, so all three idle thumbnails share the same source.
@@ -524,9 +528,11 @@ class PrintStatusWidget : public PanelWidget {
         SubjectManager subjects_;
 
         // Buffers backing string subjects
-        char layer_text_buf_[64];        // "Layer ~9999 / 9999 (123.4mm)", translated
-        char time_text_buf_[40];         // "12h 34m / 99h 99m"
-        char filament_text_buf_[32];     // "1234.5m / 9999.9m"
+        char layer_text_buf_[32];        // "~9999 / 9999"
+        char layer_z_text_buf_[24];      // "· 123.4mm"
+        char elapsed_text_buf_[24];      // "12h 34m"
+        char remaining_text_buf_[24];    // "99h 59m"
+        char filament_text_buf_[32];     // "1234.5m"
         char nozzle_text_buf_[32];       // "265 / 270°C" — kept for tool_override test
         char nozzle_badge_text_buf_[16]; // the nozzle icon's 1-based tool number
         char idle_filename_buf_[160];
@@ -535,7 +541,9 @@ class PrintStatusWidget : public PanelWidget {
 
         // String + int subjects (XML-registered)
         lv_subject_t layer_text_subject_{};
-        lv_subject_t time_text_subject_{};
+        lv_subject_t layer_z_text_subject_{};
+        lv_subject_t elapsed_text_subject_{};
+        lv_subject_t remaining_text_subject_{};
         lv_subject_t filament_text_subject_{};
         lv_subject_t nozzle_text_subject_{};
         lv_subject_t nozzle_badge_text_subject_{};
@@ -704,6 +712,9 @@ class PrintStatusWidget : public PanelWidget {
     bool nozzle_picker_available() const;
     // Publishes print_status_nozzle_picker_fits from the temperature row's widths.
     void fit_nozzle_picker();
+    // Publishes whether the named row has room for all of its pieces, the ones
+    // its optional piece hides included.
+    void fit_row(const char* row_name, lv_subject_t* fits);
 
     // The two context menus this widget raises
     ConfigurePicker configure_picker_{*this};
