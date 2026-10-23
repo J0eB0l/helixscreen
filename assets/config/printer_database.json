@@ -4169,7 +4169,7 @@
         "backend": "qidi_print_state",
         "storage": "emmc",
         "z_holds_unpowered": true,
-        "note": "Tier 2 replicates QIDI's own stock resume, which already trusts the Z the steppers held. Unverified until the Q2 power-cut test."
+        "note": "Tier 2 replicates QIDI's own stock resume, which already trusts the Z the steppers held. Verified on a Q2 (fw 01.01.02.01) with host-stack kills through QIDI's resume; a real power pull has not been run."
       },
       "heuristics": [
         {

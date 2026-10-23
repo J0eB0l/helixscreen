@@ -379,12 +379,19 @@ up without waiting for the next check.
 
 ### Power-loss recovery
 
-On printers HelixScreen supports for it, the plugin can save the print's progress
-so a print can resume after a power cut. Turn it on at **Settings > Printing > Power-loss
-recovery**; without the plugin that switch is greyed out. See
+On printers HelixScreen supports for it (today, the QIDI Q2), the plugin saves the print's
+position about once a second, whichever app started the print, so a print can resume after a
+power cut. After the power comes back, HelixScreen offers the resume and walks you through it
+one confirmed step at a time: checking the part is still on the bed,
+heating the bed and nozzle together, checking the nozzle height, then continuing.
+
+Saving is on by default when the printer keeps its data on eMMC or similar storage, and off on
+a printer that runs from an SD card, since it adds wear to the card. The switch is
+**Settings > Printing > Power-loss recovery**; without the plugin it is greyed out, and on
+other printers it does not appear. See
 [Settings > Printing](settings/printing.md#power-loss-recovery-and-start-options-for-other-apps)
-for the switch and [Recovering After a Power Loss](printing.md#recovering-after-a-power-loss)
-for resuming.
+for the switch and [Recovering After a Power Loss](printing.md#resuming-with-the-helixprint-plugin)
+for the step-by-step resume.
 
 ---
 

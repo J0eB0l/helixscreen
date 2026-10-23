@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
-Power-loss recovery: where to resume (§ 6.2 of
-docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md).
+Power-loss recovery: where to resume
+(docs/devel/POWER_LOSS_RECOVERY.md, "Where it resumes").
 
 The snapshot says how far Klipper had read (file_position, the dispatch head)
 and where the nozzle was (motion_report.live_position). Between them lie up to

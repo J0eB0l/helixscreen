@@ -102,10 +102,10 @@ void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_e
     send_action(api, kPlrDiscardRpc, json::object(), 0, std::move(on_ok), std::move(on_error));
 }
 
-void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_written,
+void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_stored,
                    ErrorCallback on_error) {
-    post_item_if_changed(api, kPlrDbNamespace, kPlrProfileKey, profile, std::move(on_written),
-                         std::move(on_error));
+    post_item_if_changed(api, kPlrDbNamespace, kPlrProfileKey, profile, on_stored,
+                         std::move(on_error), on_stored);
 }
 
 void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,

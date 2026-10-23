@@ -35,6 +35,12 @@ PluginFeatureMap parse_plugin_features(const nlohmann::json& status_result) {
     return features;
 }
 
+bool plugin_feature_reported(bool plugin_available, const PluginFeatureMap& features,
+                             const std::string& name, int min_version) {
+    const auto it = features.find(name);
+    return plugin_available && it != features.end() && it->second.version >= min_version;
+}
+
 PluginFeatureState plugin_feature_state(bool plugin_available, const PluginFeatureMap& features,
                                         const std::string& name, int min_version) {
     if (!plugin_available) {
@@ -69,9 +75,7 @@ PluginSwitchMode plugin_switch_mode(bool plugin_available, const PluginFeatureMa
     case PluginFeatureState::Absent:
         break;
     }
-    const auto it = features.find(name);
-    const bool current_entry = it != features.end() && it->second.version >= min_version;
-    if (plugin_available && current_entry && !has_fallback) {
+    if (plugin_feature_reported(plugin_available, features, name, min_version) && !has_fallback) {
         // Absent with a current entry: the plugin says it cannot run here,
         // and nothing else can.
         return PluginSwitchMode::Hidden;

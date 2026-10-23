@@ -45,7 +45,7 @@ Which printers get deep, model-specific integration — and exactly what works o
 Your printer dashboard: status area, configurable home widgets (temperature, network, LED, AMS, power, notifications, and more), active tool badge for toolchanger printers, emergency stop, and the Printer Manager with custom images. Long-press the widget grid to enter Edit Mode, where you can add, move, resize, and configure widgets across up to 8 pages; the Add page tile one swipe past your last page gives you a new one with a tap, or drag a widget past either edge of your pages. Each Light button picks its own light, or All lights, from the gear icon in Edit Mode; tap to toggle, or use its arrow (or the separate LED Controls widget) for full color, brightness, and effects in the LEDs overlay.
 
 ### [Printing](guide/printing.md)
-The full printing workflow — file selection, preview, pre-print options, monitoring active prints, tune overlay, Z-offset baby steps, pressure advance, exclude object, and post-print summary.
+The full printing workflow — file selection, preview, pre-print options, monitoring active prints, tune overlay, Z-offset baby steps, pressure advance, exclude object, post-print summary, and resuming after a power loss.
 
 ![Print File Detail](../images/user/print-detail.png)
 

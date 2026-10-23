@@ -420,16 +420,60 @@ Once a print has finished — whether it completed, was canceled, or failed — 
 
 ## Recovering After a Power Loss
 
-If the power dies mid-print, some printers keep a recovery point of the interrupted job. When HelixScreen connects to one of these printers and finds a recovery waiting, a dialog offers to pick the print back up:
+If the power dies mid-print, the print can often be picked back up. There are two ways this happens: some printers keep a recovery point themselves, and on printers HelixScreen supports for it, the [HelixPrint plugin](helixprint-plugin.md) keeps one and walks you through the resume step by step.
 
-- **Resume** — continues the interrupted file from where the power failed
-- **Discard** — clears the recovery data so the printer starts fresh next time
+Either way, when HelixScreen connects to the printer and finds a recovery waiting, a dialog asks **Resume interrupted print?** and names the file when it knows it:
 
-The dialog names the file when the printer reports one, and warns that the layer in progress when the power dropped may not line up perfectly — a small seam at the resume point is normal.
-
-This works on Creality's Klipper firmware (K1, K1C, K1 Max, K2 Plus, Ender 3 V3, Hi, and i7), on the Snapmaker U1, and on Qidi printers running their stock firmware (Q2, Q1 Pro, and Plus 4). On the Creality printers, HelixScreen asks the printer itself to confirm that a recoverable print exists before offering Resume — if the printer's own check does not pass, the offer never appears, because resuming without it can make the printer home straight through the part left on the bed.
+- **Resume** continues the interrupted print from where the power failed
+- **Discard** clears the recovery data so the printer starts fresh next time
 
 The offer appears once per connection while the printer is idle; if it went unanswered, it comes back the next time HelixScreen connects.
+
+### Printers with their own recovery
+
+This works on Creality's Klipper firmware (K1, K1C, K1 Max, K2 Plus, Ender 3 V3, Hi, and i7), on the Snapmaker U1, and on Qidi printers running their stock firmware (Q2, Q1 Pro, and Plus 4). **Resume** hands the print straight to the printer's own recovery. On the Creality printers, the dialog warns that the layer in progress when the power dropped may not line up perfectly: a small seam at the resume point is normal.
+
+On the Creality printers, HelixScreen asks the printer itself to confirm that a recoverable print exists before offering Resume. If the printer's own check does not pass, the offer never appears, because resuming without it can make the printer home straight through the part left on the bed.
+
+### Resuming with the HelixPrint plugin
+
+With the plugin installed, the printer saves the print's position about once a second while it prints, whichever app started the print and whether or not HelixScreen was running at the time. After a power cut, **Resume** opens a guided resume that heats, checks and moves the printer one confirmed step at a time. Nothing moves until you tap a button.
+
+**What it needs**
+
+- The [HelixPrint plugin](helixprint-plugin.md) installed on the printer.
+- A printer HelixScreen supports for it (today, the QIDI Q2). On other printers the **Power-loss recovery** switch does not appear, and the plugin's overview page lists power-loss recovery as unavailable.
+- Saving switched on. It is on by default only when the printer stores its data on eMMC or similar storage that tolerates constant small writes. On a printer that runs from an SD card it starts off, because saving once a second adds wear to the card; turn it on at **Settings > Printing > Power-loss recovery** if you accept that.
+
+**When the offer appears**
+
+After the power comes back and HelixScreen connects, it offers the resume when the print was cut off partway through (at layer 2 or later, or at least two minutes in when the file does not report layers) and the file has not been changed since. If the printer shut down with an error rather than losing power, there is no offer.
+
+**Resuming step by step**
+
+1. **Finding where the print stopped.** The printer reads the file up to the last saved position. A large file can take a minute.
+2. Next, the screen shows the file, the layer and height it stopped at, how long ago the power was lost, and the bed's temperature against what the print needs. Tick every box shown:
+   - **The print is still stuck to the bed**
+   - **The nozzle is clear of the print** (only when you will lower the nozzle yourself, see below)
+   - **Skip the rest of this layer and resume at the next one**, when the exact stopping point could not be found. The rest of the interrupted layer is left out rather than printed twice.
+   - **Resume even though the bed cooled down**, when the bed has cooled more than 10 °C below the print's temperature.
+
+   Then tap **Heat and Home** (on QIDI printers, **Start Heating**).
+3. **Preparing the printer.** The bed and the nozzle heat together with the nozzle left where it stopped, so the print grips the bed again and the nozzle lets go of the plastic before anything moves. Then the nozzle lifts clear of the print, cools to a standby temperature while you check the print, and X and Y home. On QIDI printers the nozzle heats and drops to standby but nothing moves yet. The screen names each step and shows the bed temperature. The large red **Cancel** stops everything and turns the heaters off.
+4. Next comes the height check. What you see depends on the printer:
+   - *"The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at."* The printer trusts the height its motors held during the outage.
+   - On QIDI printers: *"The nozzle hasn't moved since the power went out. Check that it sits just above the top of the print, then resume."*
+   - On printers whose Z axis may drop when unpowered: *"Lower the nozzle until it just touches the top of the print, then resume."* Pick a step size (**0.05 mm**, **0.1 mm** or **1 mm**) and tap **Lower** or **Raise** until the nozzle just touches the top of the print. **Resume Print** becomes available once you have lowered the nozzle.
+
+   Tap **Resume Print**.
+5. **Resuming the print.** The nozzle heats back to printing temperature, purges away from the part, moves back over the print and lowers to the right height, and the print continues. **Cancel** stays available until the print actually starts.
+6. **Print resumed.** Tap **Done**. The print carries on like any other.
+
+The resume deliberately reprints a short stretch before the stopping point, so the new plastic bonds to the old. A faint line at the resume point is normal.
+
+**When to cancel instead.** If the part has come loose from the bed, or the bed went cold long enough that the part no longer holds, tap **Cancel** (or **Discard** at the offer) and start the print over: resuming over a loose part only makes a bigger mess. A canceled resume keeps the saved position, so you are offered it again the next time HelixScreen connects or restarts. **Discard** throws it away for good.
+
+**QIDI printers.** On newer QIDI firmware (Q2), the plugin hands the final resume to QIDI's own resume, after heating the printer with the nozzle in place. That is why nothing moves during preparation and the height check asks you to look rather than confirm a lift.
 
 For everything else HelixScreen watches for during and around a print, see [Print Monitoring & Failure Detection](print-monitoring.md).
 

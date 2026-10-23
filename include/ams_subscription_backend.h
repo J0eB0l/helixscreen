@@ -15,10 +15,13 @@
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace helix {
 
@@ -490,6 +493,37 @@ class AmsSubscriptionBackend : public AmsBackend {
                                   const helix::ams::LaneDataRecord& entry,
                                   helix::ams::Observation& obs);
 
+    /// Re-read lane_data once a burst of firmware changes settles. A tool that
+    /// changes a slot from outside (an NFC tag reader, a spool-binding macro)
+    /// writes its lane record beside the firmware change, and nothing else
+    /// reads lane_data after start (prestonbrown/helixscreen#1632). Debounced,
+    /// so a burst issues one read. Safe under mutex_.
+    void schedule_lane_record_reread();
+
+    /// Remember each slot's lane_data document as the store loaded it, so the
+    /// first re-read files only what another tool changed since. Caller holds
+    /// mutex_, after installing override_store_.
+    void seed_lane_records_seen_locked();
+
+    /// File each record that changed since it was last read as another tool's
+    /// edit when it is one and newer (file_reread_outside_edit()), and move the
+    /// slot's override onto it: a rebinding record starts the override afresh,
+    /// anything else amends it. Main thread.
+    void
+    apply_reread_lane_records(const std::unordered_map<int, helix::ams::LaneDataRecord>& records);
+
+    /// A re-read was scheduled and has not yet run. Called under the caller's
+    /// locks, from schedule_lane_record_reread().
+    virtual void on_lane_reread_scheduled() {}
+
+    /// A re-read finished: @p taken holds the slots that took another tool's
+    /// record. A read that failed took none. Main thread; mutex_ not held.
+    virtual void on_lane_reread_finished(const std::unordered_set<int>& /*taken*/) {}
+
+    [[nodiscard]] bool lane_reread_pending() const {
+        return lane_reread_pending_.load();
+    }
+
     /// Clear @p slot_index's user override from every store holding it: the
     /// in-memory map, the lane's records, the echo guard and the persisted
     /// record. @p slot, when non-null, also loses clear_override_fields().
@@ -535,7 +569,33 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// it is not filed as a reading. Under mutex_.
     helix::ams::OwnWriteEchoes own_write_echoes_;
 
+    /// Wakes every debounce worker the moment the backend is destroyed. Each
+    /// debounce sleeps on a fast-lane worker, and a backend that is gone has
+    /// nothing left for the worker to do, so it hands the lane back at once.
+    /// Shared with the workers, which outlive the backend.
+    struct DebounceCancel {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool cancelled = false;
+    };
+    std::shared_ptr<DebounceCancel> debounce_cancel_ = std::make_shared<DebounceCancel>();
+    /// BG THREAD: sleep @p window on a debounce worker. False when the backend
+    /// was destroyed first, and the worker must return without touching it.
+    static bool debounce_wait(const std::shared_ptr<DebounceCancel>& cancel,
+                              std::chrono::milliseconds window);
+
+    /// A debounced lane_data re-read is waiting to run.
+    std::atomic<bool> lane_reread_pending_{false};
+
+    /// Read the lane-record store now; the debounce lands here.
+    void reread_lane_records();
+
   private:
+    /// Each slot's lane_data document as last read, so a re-read files only a
+    /// record that changed since: an unchanged document says nothing new, and
+    /// an outside record carries no stamp to order it by. Under mutex_.
+    std::unordered_map<int, nlohmann::json> lane_wire_seen_;
+
     /// The gated operations, so motion can be classified per METHOD in one
     /// place instead of per backend at every call site.
     enum class FilamentOp { Load, Unload, SelectSlot, ChangeTool, ParkTool };

@@ -3725,8 +3725,8 @@ TEST_CASE_METHOD(PrinterDetectorFixture,
         .steppers = {"stepper_x", "stepper_y", "stepper_z", "stepper_z1", "stepper_z2"},
         .kinematics = "corexy",
         .mcu = "stm32f446xx",
-        .cpu_arch = "aarch64",
-        .build_volume = {.x_min = 0, .x_max = 255, .y_min = 0, .y_max = 255, .z_max = 260}};
+        .build_volume = {.x_min = 0, .x_max = 255, .y_min = 0, .y_max = 255, .z_max = 260},
+        .cpu_arch = "aarch64"};
     auto result = PrinterDetector::detect(hardware);
     CAPTURE(result.type_name, result.confidence, result.runner_up_type_name,
             result.runner_up_confidence, result.margin());

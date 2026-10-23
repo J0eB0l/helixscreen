@@ -140,11 +140,11 @@ void MoonrakerTimelapseAPI::get_webcam_list(WebcamListCallback, ErrorCallback) {
     task10_unimplemented("MoonrakerTimelapseAPI::get_webcam_list");
 }
 
-void MoonrakerTimelapseAPI::post_webcam(const nlohmann::json&, SuccessCallback, ErrorCallback) {
+void MoonrakerTimelapseAPI::post_webcam(const nlohmann::json&, WebcamCallback, ErrorCallback) {
     task10_unimplemented("MoonrakerTimelapseAPI::post_webcam");
 }
 
-void MoonrakerTimelapseAPI::delete_webcam(const std::string&, SuccessCallback, ErrorCallback) {
+void MoonrakerTimelapseAPI::delete_webcam(const WebcamInfo&, SuccessCallback, ErrorCallback) {
     task10_unimplemented("MoonrakerTimelapseAPI::delete_webcam");
 }
 

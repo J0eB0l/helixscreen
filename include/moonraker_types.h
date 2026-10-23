@@ -390,6 +390,9 @@ struct WebcamInfo {
     bool flip_horizontal = false; ///< Moonraker's own flip, applied before any user transform
     bool flip_vertical = false;
     int target_fps = 15; ///< Configured frame rate (Moonraker default 15)
+    /// Registered by a built-in screen server (its extra_data carries the marker), so
+    /// it stays recognizable whatever the user renames it to.
+    bool screen_server = false;
     /// Empty when the camera can be shown. Otherwise why discovery ruled it
     /// out — its serving process is not running, or its absolute snapshot URL
     /// did not answer — so the auto-pick skips it and a picker can say so.

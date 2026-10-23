@@ -417,6 +417,15 @@ A block stops a start; a warn asks before one on the screen; a note is only show
 warn nor a note holds a slicer's start. The screen runs the same checker as print-start gates
 (`src/printer/fit_check.cpp`); `tests/fixtures/fit_check/cases.json` holds both to one table.
 
+### Power-loss recovery (`plr`)
+
+`helix_plr.py` (with `helix_plr_scan.py`, `helix_plr_render.py` and the optional
+`helix_plr_qidi.py`) saves a snapshot during every print while its saving switch is on, and resumes an interrupted print in two confirmed steps:
+`server.helix.plr.status`, `.plan`, `.prepare`, `.commit`, `.abort` and `.discard`
+(`/server/helix/plr/...`), with progress as `notify_plr_progress`. Reply shapes, errors,
+confirmations and the resume sequence:
+[POWER_LOSS_RECOVERY.md](../docs/devel/POWER_LOSS_RECOVERY.md#endpoints-events-and-confirmations).
+
 ### Start Modified Print
 
 The client uploads the modified file first, through Moonraker's own file upload, into

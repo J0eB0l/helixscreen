@@ -404,8 +404,9 @@ void PlrOfferController::publish_profile() {
         static_cast<int>(ConnectionState::CONNECTED)) {
         return;
     }
-    if (ps.plugin_status_state().plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion) ==
-        PluginFeatureState::Absent) {
+    // An unavailable plr feature still takes the profile: the plugin reports
+    // an unlisted printer unavailable until a profile of tier 1 or more lands.
+    if (!ps.plugin_status_state().plugin_feature_reported(kPlrFeatureName, kPlrFeatureMinVersion)) {
         return;
     }
     // Until this connection's discovery has run, printer_type() can still be
@@ -423,19 +424,25 @@ void PlrOfferController::publish_profile() {
     }
     published_profile_type_ = type;
     // The app does not read homing_override, so homing is unknown here: no
-    // user raise passes it. The plugin checks the database tier itself (§ 7.3).
+    // user raise passes it. The plugin checks the database tier itself.
     const PlrProfile profile = plr_resolve_profile(PrinterDetector::get_plr_block(type),
                                                    PlrUserOverride{}, PlrHomingCheck{});
     spdlog::info("[PLR] Writing plr_profile for '{}' (tier {})", type, profile.tier);
     plr_rpc::write_profile(
         *api, plr_profile_json(profile),
         [api]() {
-            // The plugin's verdict on saving follows the profile.
+            // The plugin's availability and saving verdict follow the profile,
+            // and a map read before it was stored still reads not_listed.
             plr_rpc::refresh_features(*api);
         },
-        [](const MoonrakerError& err) {
-            spdlog::warn("[PLR] Writing plr_profile failed: {}", err.message);
-        });
+        lifetime_.bg_cb("PlrOfferController::write_profile_error",
+                        [this, type](const MoonrakerError& err) {
+                            spdlog::warn("[PLR] Writing plr_profile failed: {}", err.message);
+                            // The next probe answer or type change writes again.
+                            if (published_profile_type_ == type) {
+                                published_profile_type_.reset();
+                            }
+                        }));
 }
 
 void PlrOfferController::on_plugin_status(const PlrPluginStatus& status) {

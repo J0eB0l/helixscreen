@@ -1001,21 +1001,13 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // Install the store on_started() loaded: file its records onto the lanes,
     // remember each slot's document as read, then take the store and map.
     void adopt_loaded_override_store(helix::ams::LoadedOverrideStore loaded);
-    // Re-read lane_data once a burst of firmware colour/type changes settles.
-    // A tool that changes a slot from outside writes its lane record beside
-    // the firmware change, and nothing else reads lane_data after boot
-    // (prestonbrown/helixscreen#1632). Debounced like schedule_json_reread(),
-    // so a burst issues one read.
-    void schedule_lane_record_reread();
-    void reread_lane_records();
+    // A scheduled lane_data re-read owes: saves hold until it has run.
+    void on_lane_reread_scheduled() override;
+    // The re-read ran (or failed): release what it held.
+    void on_lane_reread_finished(const std::unordered_set<int>& taken) override;
     // Save @p slot_index's override to lane_data, or hold it until the owed
     // lane_data re-read has run. Caller holds mutex_.
     void publish_override_locked(int slot_index, const char* reason);
-    // File each record that changed since it was last read as another tool's
-    // edit when it is one and newer (file_reread_outside_edit()), and move the
-    // slot's override onto it. Main thread.
-    void
-    apply_reread_lane_records(const std::unordered_map<int, helix::ams::LaneDataRecord>& records);
     // Publish the saves the owed re-read held, except for a slot in @p taken,
     // which took the tool's record. Runs when the read lands and when it
     // fails. Main thread; takes mutex_.
@@ -1574,33 +1566,13 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     // then dispatched after unlock. Guarded by mutex_.
     bool ifs_vars_repair_staged_ = false;
 
-    // Wakes every debounce worker the moment the backend is destroyed. Each
-    // debounce sleeps on a fast-lane worker, and a backend that is gone has
-    // nothing left for the worker to do, so it hands the lane back at once.
-    // Shared with the workers, which outlive the backend.
-    struct DebounceCancel {
-        std::mutex mutex;
-        std::condition_variable cv;
-        bool cancelled = false;
-    };
-    std::shared_ptr<DebounceCancel> debounce_cancel_ = std::make_shared<DebounceCancel>();
-    // BG THREAD: sleep @p window on a debounce worker. False when the backend
-    // was destroyed first, and the worker must return without touching it.
-    static bool debounce_wait(const std::shared_ptr<DebounceCancel>& cancel,
-                              std::chrono::milliseconds window);
-
     std::atomic<bool> reread_pending_{false};
-    std::atomic<bool> lane_reread_pending_{false};
     // A re-read is scheduled and has not yet run, so lane_data may hold a
     // newer record than anything we would publish over it.
     std::atomic<bool> lane_reread_owed_{false};
     // Slots whose save waits on that re-read, with the reason each save was
     // made for the log when it publishes. Under mutex_.
     std::unordered_map<int, std::string> lane_saves_held_;
-    // Each slot's lane_data document as last read, so a re-read files only a
-    // record that changed since: an unchanged document says nothing new, and
-    // an outside record carries no stamp to order it by. Under mutex_.
-    std::unordered_map<int, nlohmann::json> lane_wire_seen_;
 
     // Main-thread-only: counts CHANGE_ZCOLOR trigger lines seen in the gcode
     // stream since the last coalesced re-read fired. zmod re-emits CHANGE_ZCOLOR

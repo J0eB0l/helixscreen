@@ -252,6 +252,17 @@ struct AfcStateReading {
 /// neither object.
 std::optional<AfcStateReading> read_afc_state(const nlohmann::json& status);
 
+/// One afclite lane's Spoolman spool as its `AFC_lane <name>` object publishes
+/// it; spool_id 0 when the lane has none.
+struct AfcLaneSpool {
+    std::string lane; ///< The shim's lane name ("E0" is head 0)
+    int spool_id = 0;
+};
+
+/// The `spool_id` of every `AFC_lane <name>` object a status frame carries.
+/// nullopt when it carried none: a frame without the field is not a clearing.
+std::optional<std::vector<AfcLaneSpool>> read_afc_lane_spools(const nlohmann::json& status);
+
 /// The dock sensor this printer exposes, or an absent capability.
 ToolSensor resolve_tool_sensor(const PrinterDiscovery& hw);
 

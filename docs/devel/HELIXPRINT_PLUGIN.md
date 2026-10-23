@@ -8,7 +8,8 @@ where each feature's setting lives, and one section per shipped feature.
 [`moonraker-plugin/README.md`](../../moonraker-plugin/README.md)
 **User-facing doc**: [HelixPrint Plugin](../user/guide/helixprint-plugin.md)
 **Power-loss recovery** is a plugin feature with its own guide:
-[POWER_LOSS_RECOVERY.md](POWER_LOSS_RECOVERY.md#generic-helixprint-plugin---asked)
+[POWER_LOSS_RECOVERY.md](POWER_LOSS_RECOVERY.md#generic-helixprint-plugin---asked) for the
+app, [Inside the plugin](POWER_LOSS_RECOVERY.md#inside-the-plugin-generic) for the plugin
 
 ---
 
@@ -1232,7 +1233,10 @@ Backend details: [FILAMENT_BACKEND_AD5X_IFS.md](FILAMENT_BACKEND_AD5X_IFS.md),
    `atomic_write_bytes` / `atomic_publish`; one that records per job writes history rows only
    through `patch_history_job` / `set_history_aux`. A vendor's knowledge lives in its own
    module (`helix_vendor_<vendor>.py`). A sibling it imports by name loads before it in
-   `helix_print.py`.
+   `helix_print.py`. G-code a backend already produces is rendered by the app and only
+   sent by the plugin (print hooks); the plugin renders G-code only when it is built from a
+   file scan the plugin runs, as power-loss recovery's resume is
+   ([why](POWER_LOSS_RECOVERY.md#why-the-plugin-renders-the-resume-g-code)).
 2. **Register.** A `_start_<feature>()` in `helix_print.py` that loads the sibling, registers the
    feature (`acts`, and `switch=always_on` if it has no setting), and registers it with
    `available=False` and its load error when the module is missing. Call it from

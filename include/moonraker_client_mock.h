@@ -2347,10 +2347,11 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
 
   public:
     /// Entries added through server.webcams.post_item, listed after the HELIX_MOCK_WEBCAMS
-    /// ones. Keyed by name like Moonraker's own registry.
+    /// ones. Keyed by uid, or by name, like Moonraker's own registry.
     struct PostedWebcams {
         std::mutex mutex;
         std::vector<nlohmann::json> items;
+        int next_uid = 0;
     };
     PostedWebcams& posted_webcams() {
         return posted_webcams_;

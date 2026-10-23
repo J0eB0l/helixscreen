@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
-Power-loss recovery: the generic resume sequence as G-code (§ 6.3 of
-docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md).
+Power-loss recovery: the generic resume sequence as G-code
+(docs/devel/POWER_LOSS_RECOVERY.md, "The resume sequence").
 
-The plugin renders and sends this sequence itself (ruling 5). It runs in two
+The plugin renders and sends this sequence itself. It runs in two
 phases around the app's confirmations:
 
-- prepare: bed (and chamber) to temperature with the nozzle cold, declare the
-  physical Z the snapshot measured, lift, home X and Y, and for tier 1 stop
-  above the resume point so the user can jog down to the part.
+- prepare: bed, chamber and nozzle to temperature with the nozzle where it
+  stopped, declare the physical Z the snapshot measured, lift, drop the nozzle
+  to standby, home X and Y, and for tier 1 stop above the resume point so the
+  user can jog down to the part.
 - commit: settle the Z reference, restore the print's state, heat and purge
   the nozzle away from the part, return to the resume point, then the single
   start command (M23 / M26 / M24).
@@ -246,7 +247,7 @@ def _resume_xyz(state: ModalState) -> Tuple[float, float, float]:
 
 
 class HeatStep(NamedTuple):
-    """§ 6.3 step 2, one heater: the set command, then the plugin waits for
+    """One heater of the heat wait: the set command, then the plugin waits for
     `sensor` (a Klipper object) to reach `minimum`. The wait is not a G-code
     (M190, TEMPERATURE_WAIT): those hold Klipper's G-code lock, so an abort's
     heaters-off could not run until the target was reached."""
@@ -264,12 +265,12 @@ HEAT_TOLERANCE_C = 1.0
 def render_heat_wait(plan: ResumePlan, skip_chamber_wait: bool = False,
                      nozzle_in_place: bool = False) -> List[HeatStep]:
     """Bed, chamber and, with `nozzle_in_place`, the nozzle where it stands.
-    helix_plr.py sets them all at once, then waits for each (R29). After a
+    helix_plr.py sets them all at once, then waits for each. After a
     cut the nozzle is frozen into the plastic: lifting or homing it cold
     tears the part off the bed, and a reheated bed is the part's best chance
     to grip again, so no Z move happens before both are hot. Every prepare
-    and every commit heats all three: prepare leaves the nozzle at standby
-    (R30), and commit brings it back before anything moves."""
+    and every commit heats all three: prepare leaves the nozzle at standby,
+    and commit brings it back before anything moves."""
     steps = []  # type: List[HeatStep]
     if plan.bed_target > 0:
         steps.append(HeatStep("bed_wait", ["M140 S%s" % _f(plan.bed_target)], "heater_bed",
@@ -531,7 +532,7 @@ def required_confirmations(tier: int, warnings: Sequence[str], bed_cold: bool) -
     if bed_cold:
         out.append("accept_cold_bed")
     if "layer_start" in warnings:
-        # The rest of the current layer is skipped (ruling R26).
+        # The rest of the current layer is skipped.
         out.append("accept_next_layer")
     return out
 
