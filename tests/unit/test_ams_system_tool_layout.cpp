@@ -1392,3 +1392,64 @@ TEST_CASE("SystemToolLayout: a MIXED unit shares placed nozzles too", "[ams][too
     CHECK(layout.virtual_to_physical.at(5) == 4); // direct, new
     CHECK(layout.virtual_to_physical.at(6) == 0); // hub group on head 1's nozzle
 }
+
+// ============================================================================
+// unit_feeds_toolhead: whether a unit view draws a route on to a toolhead
+// ============================================================================
+
+TEST_CASE("SystemToolLayout: an unwired hub unit feeds no toolhead and a wired one does",
+          "[ams][tool_layout]") {
+    AmsSystemInfo info;
+    info.type = AmsType::ACE;
+
+    // Unit 0: a hub whose lanes name no tool, no extruder and no hub label.
+    AmsUnit unwired;
+    unwired.unit_index = 0;
+    unwired.slot_count = 4;
+    unwired.first_slot_global_index = 0;
+    unwired.topology = PathTopology::HUB;
+    unwired.hub_tool_label = -1;
+    for (int s = 0; s < 4; ++s) {
+        SlotInfo slot;
+        slot.slot_index = s;
+        slot.global_index = s;
+        slot.mapped_tool = -1;
+        unwired.slots.push_back(slot);
+    }
+    info.units.push_back(unwired);
+
+    // Unit 1: a hub feeding extruder1.
+    AmsUnit wired;
+    wired.unit_index = 1;
+    wired.slot_count = 4;
+    wired.first_slot_global_index = 4;
+    wired.topology = PathTopology::HUB;
+    for (int s = 0; s < 4; ++s) {
+        SlotInfo slot;
+        slot.slot_index = s;
+        slot.global_index = 4 + s;
+        slot.mapped_tool = 1;
+        slot.extruder_name = "extruder1";
+        wired.slots.push_back(slot);
+    }
+    info.units.push_back(wired);
+
+    // Unit 2: a box that is not on the bus.
+    AmsUnit absent = wired;
+    absent.unit_index = 2;
+    absent.first_slot_global_index = 8;
+    absent.absent = true;
+    info.units.push_back(absent);
+    info.total_slots = 12;
+
+    const auto layout = compute_system_tool_layout(info, nullptr);
+    REQUIRE(layout.units.size() == 3);
+    CHECK(layout.units[0].tool_count == 0);
+    CHECK(layout.units[1].tool_count == 1);
+
+    CHECK_FALSE(helix::ui::unit_feeds_toolhead(layout, 0));
+    CHECK(helix::ui::unit_feeds_toolhead(layout, 1));
+    CHECK_FALSE(helix::ui::unit_feeds_toolhead(layout, 2));
+    // The all-units view always ends at a toolhead.
+    CHECK(helix::ui::unit_feeds_toolhead(layout, -1));
+}

@@ -617,16 +617,22 @@ SpanStyle unpainted(SpanStyle s) {
 
 namespace {
 
+// The hub's output sensor, on the hub box's bottom edge.
+void add_hub_output_band(PathPlan& plan, const Lane& lane, const LinearHubFrame& f,
+                         const FilamentPathData& data) {
+    if (!data.hub_on_toolhead && data.has_hub_sensor) {
+        add_band(plan, BandKind::Trunk, {(float)f.output_x, (float)f.output_y}, {0, 1},
+                 lane.band(PathSegment::OUTPUT), lane.color, /*on_box_edge=*/true);
+    }
+}
+
 // Hub bottom → inlet, appended to the route that owns the trunk. Ends at the
 // merge when an active bypass (@p bypass_owner) owns everything below it.
 void append_trunk(PathPlan& plan, Route& r, const Lane& lane, const LinearHubFrame& f,
                   const FilamentPathData& data, bool bypass_on_trunk, const Lane* bypass_owner) {
     const float cx = (float)f.center_x;
     const float hub_bot = (float)f.output_y;
-    if (!data.hub_on_toolhead && data.has_hub_sensor) {
-        add_band(plan, BandKind::Trunk, {(float)f.output_x, hub_bot}, {0, 1},
-                 lane.band(PathSegment::OUTPUT), lane.color, /*on_box_edge=*/true);
-    }
+    add_hub_output_band(plan, lane, f, data);
 
     const float output_end = (float)(bypass_on_trunk ? f.bypass_merge_y : f.toolhead_y);
     // LINEAR: the exit jogs from under the active slot to the center above the buffer.
@@ -809,7 +815,9 @@ void plan_linear_hub(const LinearHubFrame& f, const FilamentPathData& data, cons
     const bool on_head = data.hub_on_toolhead && !linear;
     const int n = LV_MIN(data.slot_count, FilamentPathData::kMaxSlots);
     const int active = (data.active_slot >= 0 && data.active_slot < n) ? data.active_slot : -1;
-    const bool bypass = data.show_bypass;
+    // A hub that feeds no toolhead ends there: no trunk, buffer or bypass below it.
+    const bool feeds = data.feeds_toolhead;
+    const bool bypass = data.show_bypass && feeds;
     // On-toolhead the merge point sits above the head hub, off the trunk.
     const bool bypass_on_trunk = bypass && !on_head;
     const bool bypass_owns = bypass_on_trunk && data.bypass_active;
@@ -886,7 +894,10 @@ void plan_linear_hub(const LinearHubFrame& f, const FilamentPathData& data, cons
         }
 
         out.active_route = i;
-        append_trunk(out, r, lane, f, data, bypass_on_trunk, bypass_owner);
+        if (feeds)
+            append_trunk(out, r, lane, f, data, bypass_on_trunk, bypass_owner);
+        else
+            add_hub_output_band(out, lane, f, data);
     }
 
     if (active < 0) {
@@ -896,9 +907,13 @@ void plan_linear_hub(const LinearHubFrame& f, const FilamentPathData& data, cons
         const bool parked = data.has_hub_sensor && data.hub_sensor_triggered;
         const Lane idle{parked ? PathSegment::OUTPUT : PathSegment::NONE, false, f.error_seg,
                         f.idle_color, bg};
-        out.trunk_route = out.route_count;
-        Route& r = new_route(out);
-        append_trunk(out, r, idle, f, data, bypass_on_trunk, bypass_owner);
+        if (feeds) {
+            out.trunk_route = out.route_count;
+            Route& r = new_route(out);
+            append_trunk(out, r, idle, f, data, bypass_on_trunk, bypass_owner);
+        } else {
+            add_hub_output_band(out, idle, f, data);
+        }
     }
 
     if (bypass) {

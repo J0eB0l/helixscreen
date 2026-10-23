@@ -1712,6 +1712,8 @@ void AmsOverviewPanel::refresh_page_bypass(bool node) {
     if (!page_bypass_widgets_.valid() || !unit_view_active_) {
         return;
     }
+    // A unit whose path ends at its hub has no trunk for the bypass to join.
+    node = node && ui_filament_path_canvas_get_feeds_toolhead(detail_path_canvas_);
     helix::ui::bypass_spool_sync_from_state(page_bypass_widgets_, node);
     // The canvas draws the tube to the spool; its own state follows the same subjects.
     if (detail_path_canvas_ && shown_unit_pos_ >= 0) {
