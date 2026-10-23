@@ -58,7 +58,8 @@ The installer creates a symlink from Moonraker's components directory to `helix_
 loads them from the link's target directory, and runs without .3mf conversion when either
 is missing. `helix_plr_qidi.py`, power-loss recovery through newer QIDI firmware's own
 `print_state` resume, sits beside them the same way, as does `helix_journal.py`, the
-printer event journal.
+printer event journal, and the vendor push modules (`helix_vendor_push.py`,
+`helix_vendor_ad5x.py`, `helix_vendor_ace.py`).
 
 Vendor knowledge sits behind capability probes. The plugin asks "does this Moonraker print
 .3mf natively?" through `helix_capabilities.prints_3mf_natively`, which combines a generic
@@ -850,6 +851,32 @@ would leave less than 100 MB free on the gcodes volume (`FREE_SPACE_FLOOR_BYTES`
 `print_edited` before writing its copy (counting the original's size), `print_modified`
 before starting the copy the client uploaded, which it then deletes. A volume whose free
 space cannot be read never refuses.
+
+### Vendor State Push
+
+Features `vendor_ad5x` (`helix_vendor_ad5x.py`) and `vendor_ace` (`helix_vendor_ace.py`),
+sharing `helix_vendor_push.py`. Each watches state the screen's filament backend would
+otherwise poll and broadcasts it only when it changed:
+
+```json
+{"jsonrpc": "2.0", "method": "notify_helix_vendor_state",
+ "params": [{"vendor": "ad5x", "payload": {"file": "Adventurer5M.json", "content": "{...}"}}]}
+```
+
+| Feature | `vendor` | Watches | `payload` | Unavailable (`reason`) |
+|---------|----------|---------|-----------|------------------------|
+| `vendor_ad5x` | `ad5x` | `Adventurer5M.json` in the config root: a stat every second, plus Moonraker's file-change event for it; read only when its stat moved, pushed only when it parses as JSON (a read mid-write is read again next second) | `{"file": "Adventurer5M.json", "content": <the file's text>}` | `no_adventurer_json`: no such file, so not an AD5X on ZMOD; `adventurer_json_unreadable`: no read has parsed yet, or the last 3 did not |
+| `vendor_ace` | `ace` | The `ace_status` bridge's `/server/ace/status` and `/server/ace/slots`, called in-process with `instance=0` every 500 ms while a websocket client is connected, once Klipper's objects show the bridge is the source | `{"status": <the /status answer>, "slots": <the /slots answer>}`, an `error` answer included; a read that returned nothing is `{"error": "unreadable"}`, and `"failures": n` counts the failed reads in a row | `no_ace_bridge`: nothing registered those endpoints; `ace_objects_carry_slots`: the `ace`, `filament_hub` or `ace_instance_0` object carries slots at Klipper start, so the screen reads them by subscription; `bridge_unreadable`: Klipper not ready yet, no read has returned data yet, or the last 3 did not |
+
+The payload is exactly what the screen's poll reads, so it parses a push with the same code.
+Both are transports with no switch: always on where available, and a `plugin_features` key
+for either is ignored. A feature reports ready only once a read has returned data, because
+the screen stops its own poll while it is: a push that cannot read must not look ready. The
+screen takes the push while the feature is ready on a probe of the current connection and
+polls in every other state. It reads the state once whenever a probe finds it ready (after a
+reconnect a change may have been missed), and keeps a 30 s backstop poll while pushing, so a
+push that stops mid-session costs at most that long. A plugin newer than the screen reads
+the ACE bridge beside the screen's own poll; both are cheap Klipper queries.
 
 ## Visible symlink directory
 

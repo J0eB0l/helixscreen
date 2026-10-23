@@ -176,6 +176,7 @@ translations:
   ACCELEROMETERS: 加速度センサー
   'ACCEPT failed: {}': 'ACCEPT に失敗しました: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: ACE Moonraker ブリッジが見つかりません。完全なサポートには ace_status.py をインストールしてください。
+  ACE updates without polling: 'ポーリングなしの ACE 更新'
   ACTIONS: アクション
   ADD-ONS: 'アドオン'
   ADXL: ADXL
@@ -1763,6 +1764,7 @@ translations:
   I understand: 理解しました
 
   ID (optional): ID（任意）
+  IFS updates without polling: 'ポーリングなしの IFS 更新'
   IMPORT FROM USB: USBからインポート
   INDX dock positions are not calibrated: "INDXのドック位置がキャリブレーションされていません"
   INDX macros not recognized: "INDXマクロを認識できません"

@@ -527,14 +527,48 @@ TEST_CASE("the plugin overview lists every reported feature with its status", "[
     CHECK(plugin_feature_lines({}).empty());
 }
 
+TEST_CASE("the overview hides a vendor push row only while its vendor is absent",
+          "[plugin_feature][plugin_vendor]") {
+    PluginFeatureMap features;
+    features["vendor_ad5x"] = entry(1, false, false, "no_adventurer_json");
+    features["vendor_ace"] = entry(1, true, true);
+    features["event_journal"] = entry(1, false, false, "load_failed");
+    auto lines = plugin_feature_lines(features);
+    REQUIRE(lines.size() == 2);
+    CHECK(lines[0].name == "event_journal");
+    CHECK(lines[0].status == PluginFeatureStatus::Unavailable);
+    CHECK(lines[0].reason == "load_failed");
+    CHECK(lines[1].name == "vendor_ace");
+    CHECK(lines[1].status == PluginFeatureStatus::Active);
+
+    features["vendor_ad5x"] = entry(1, true, false);
+    features["vendor_ace"] = entry(1, false, false, "ace_objects_carry_slots");
+    lines = plugin_feature_lines(features);
+    REQUIRE(lines.size() == 2);
+    CHECK(lines[1].name == "vendor_ad5x");
+    CHECK(lines[1].status == PluginFeatureStatus::Off);
+
+    INFO("a vendor module that failed to load still shows why");
+    features["vendor_ace"] = entry(1, false, false, "load_failed: SyntaxError");
+    features["vendor_ad5x"] = entry(1, false, false, "no_ace_bridge");
+    lines = plugin_feature_lines(features);
+    REQUIRE(lines.size() == 3);
+    CHECK(lines[1].name == "vendor_ad5x");
+    CHECK(lines[1].reason == "no_ace_bridge");
+    CHECK(lines[2].name == "vendor_ace");
+    CHECK(lines[2].status == PluginFeatureStatus::Unavailable);
+    CHECK(lines[2].reason == "load_failed: SyntaxError");
+}
+
 TEST_CASE("the overview names every batch feature and gives the switchless ones no home",
           "[plugin_feature]") {
     PluginFeatureMap features;
-    for (const char* name : {"file_analysis", "event_journal", "server_edits", "config_edit"}) {
+    for (const char* name : {"file_analysis", "event_journal", "server_edits", "config_edit",
+                             "vendor_ad5x", "vendor_ace"}) {
         features[name] = entry(1, true, true);
     }
     const auto lines = plugin_feature_lines(features);
-    REQUIRE(lines.size() == 4);
+    REQUIRE(lines.size() == 6);
     for (const PluginFeatureLine& line : lines) {
         INFO(line.name);
         CHECK(line.label != line.name);

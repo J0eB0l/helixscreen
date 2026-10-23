@@ -166,6 +166,10 @@ helix_print_hooks = _load_sibling("helix_print_hooks")
 helix_storage = _load_sibling("helix_storage")
 helix_filament = _load_sibling("helix_filament")
 helix_photos = _load_sibling("helix_photos")
+# Dependencies first: each vendor module imports helix_vendor_push by name.
+helix_vendor_push = _load_sibling("helix_vendor_push")
+helix_vendor_ad5x = _load_sibling("helix_vendor_ad5x")
+helix_vendor_ace = _load_sibling("helix_vendor_ace")
 
 
 # ============================================================================
@@ -481,6 +485,7 @@ class HelixPrint:
         self.filament: Optional[Any] = None
         self.photos: Optional[Any] = None
         self._history_rewrite_lock: Optional[asyncio.Lock] = None
+        self.vendor_pushes: List[Any] = []
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -789,6 +794,8 @@ class HelixPrint:
         await self._start_isolated("filament_accounting", True, self._start_filament)
         await self._start_isolated("photos", False, self._start_photos)
         await self._start_isolated("fit_check_blocks_autostart", True, self._start_fit_check)
+        await self._start_isolated("vendor_ad5x", False, self._start_vendor_ad5x)
+        await self._start_isolated("vendor_ace", False, self._start_vendor_ace)
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -1062,7 +1069,44 @@ class HelixPrint:
             acts=True, probe=self.fit_check.availability,
         )
 
+    def _start_vendor_push(
+        self, name: str, module_name: str, version: int, factory: Optional[Callable[[Any], Any]]
+    ) -> None:
+        """A vendor push module: a transport that only observes, so it has no
+        switch. Unavailable, with its reason, where its vendor is absent."""
+        if factory is None:
+            self.register_feature(
+                name, version, acts=False, available=False,
+                reason=SIBLING_LOAD_ERRORS.get(module_name)
+                or SIBLING_LOAD_ERRORS.get("helix_vendor_push", "module_missing"),
+            )
+            return
+        vendor = factory(self)
+        vendor.start()
+        self.vendor_pushes.append(vendor)
+        self.register_feature(
+            name, version, acts=False, switch=always_on, probe=vendor.availability,
+        )
+
+    def _start_vendor_ad5x(self) -> None:
+        module = helix_vendor_ad5x
+        self._start_vendor_push(
+            "vendor_ad5x", "helix_vendor_ad5x",
+            module.AD5X_FEATURE_VERSION if module is not None else 1,
+            module.HelixVendorAd5x if module is not None else None,
+        )
+
+    def _start_vendor_ace(self) -> None:
+        module = helix_vendor_ace
+        self._start_vendor_push(
+            "vendor_ace", "helix_vendor_ace",
+            module.ACE_FEATURE_VERSION if module is not None else 1,
+            module.HelixVendorAce if module is not None else None,
+        )
+
     async def close(self) -> None:
+        for vendor in self.vendor_pushes:
+            vendor.close()
         if self.storage is not None:
             self.storage.close()
         if self.fit_check is not None:

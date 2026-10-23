@@ -61,13 +61,20 @@ static constexpr int kMaxInfoFetchFailures = 3;
 static constexpr const char* kRestStatusPath = "/server/ace/status?instance=0";
 static constexpr const char* kRestSlotsPath = "/server/ace/slots?instance=0";
 
+/// The registration name of the plugin's vendor state listener.
+static constexpr const char* kVendorStateHandler = "ace_vendor_state";
+
 namespace {
 /// Whether a REST data poll answered with data. The ACEPRO bridge answers an
 /// instance it does not have with a result carrying only `error`, which is a
 /// failed poll, not an empty unit.
+bool rest_result_answered(const json& result) {
+    return result.is_object() && !result.contains("error");
+}
+
 bool rest_poll_answered(const RestResponse& resp) {
-    return resp.success && resp.data.contains("result") && resp.data["result"].is_object() &&
-           !resp.data["result"].contains("error");
+    return resp.success && resp.data.contains("result") &&
+           rest_result_answered(resp.data["result"]);
 }
 } // namespace
 
@@ -143,6 +150,7 @@ AmsBackendAce::~AmsBackendAce() {
 
 void AmsBackendAce::on_started() {
     spdlog::info("[ACE] Backend started — querying initial filament_hub/ace state via WebSocket");
+    vendor_push_.reset();
 
     // A restart re-subscribes and re-parses from a fresh initial query, so
     // the insert edge re-baselines too: a prev status carried across a
@@ -203,6 +211,10 @@ void AmsBackendAce::on_started() {
         spdlog::debug("[ACE] No Moonraker client — skipping initial status query");
         return;
     }
+
+    helix::subscribe_vendor_state(*client_, kVendorStateHandler, kVendorPushVendor,
+                                  lifetime_.token(),
+                                  [this](const json& payload) { on_vendor_state(payload); });
 
     auto token = op_lifetime_.token();
 
@@ -323,11 +335,19 @@ void AmsBackendAce::on_stopping() {
     // stop_rest_fallback uses its own rest_stop_mutex_, which is safe.
     stop_rest_fallback();
     op_lifetime_.invalidate();
+    vendor_push_.reset();
+    if (client_) {
+        helix::unsubscribe_vendor_state(*client_, kVendorStateHandler);
+    }
 }
 
 void AmsBackendAce::handle_status(const json& status_obj) {
-    if (use_rest_fallback_)
-        return; // Using REST polling, ignore subscriptions
+    if (use_rest_fallback_) {
+        // The bridge is the source; a status frame is only the tick that
+        // notices the plugin starting or stopping its push.
+        refresh_vendor_push();
+        return;
+    }
 
     const json* status = &status_obj;
 
@@ -1903,6 +1923,7 @@ void AmsBackendAce::rest_polling_loop() {
 
     // Fetch system info first
     poll_info();
+    std::chrono::steady_clock::time_point last_data_poll{};
 
     while (!rest_stop_requested_.load()) {
         // /server/ace/info is OPTIONAL — best-effort retry until the cap for the
@@ -1919,10 +1940,16 @@ void AmsBackendAce::rest_polling_loop() {
         }
 
         // Data endpoints are the source of truth for slots (and model, via the
-        // /status envelope) — poll them unconditionally, NOT gated on
-        // info_fetched_. Gated on it, the ACEPRO driver's backend would sit idle.
-        poll_status();
-        poll_slots();
+        // /status envelope) — poll them whatever info_fetched_ says. Gated on
+        // it, the ACEPRO driver's backend would sit idle. While the plugin
+        // pushes their answers the poll drops to a slow backstop.
+        const auto now = std::chrono::steady_clock::now();
+        if (rest_data_poll_due(vendor_push_.pushing(), now - last_data_poll)) {
+            last_data_poll = now;
+            ++rest_data_polls_;
+            poll_status();
+            poll_slots();
+        }
 
         // Interruptible sleep
         std::unique_lock<std::mutex> lock(rest_stop_mutex_);
@@ -1996,36 +2023,34 @@ void AmsBackendAce::poll_status() {
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_status_apply", [this, resp]() {
             if (rest_poll_answered(resp)) {
-                rest_data_ok_.store(true);
-                data_fetch_failures_.store(0);
-                if (parse_status_response(resp.data["result"])) {
-                    emit_event(EVENT_STATE_CHANGED);
-                }
+                apply_rest_status(resp.data["result"]);
             } else {
-                int failures = ++data_fetch_failures_;
-                spdlog::debug("[ACE] Status poll attempt {} failed: {}", failures, resp.error);
-                // Genuinely-missing-bridge case: the DATA endpoints are down and
-                // nothing has ever succeeded. Surface it once. A working /slots
-                // resets data_fetch_failures_, so this only fires when BOTH
-                // /status and /slots are unavailable (#1069).
-                if (failures == kMaxDataFetchFailures && !rest_data_ok_.load()) {
-                    spdlog::warn("[ACE] Moonraker ACE bridge not responding at /server/ace/status "
-                                 "after {} attempts — no ACE data endpoints available.",
-                                 failures);
-                    emit_event(kEventError,
-                               "ACE detected but Moonraker bridge not found. "
-                               "Install the ace_status.py component for full ACE support.");
-                    helix::ui::queue_update("AmsBackendAce::poll_status", []() {
-                        ToastManager::instance().show(
-                            ToastSeverity::WARNING,
-                            lv_tr("ACE Moonraker bridge not found. Install ace_status.py "
-                                  "for full support."),
-                            6000);
-                    });
-                }
+                note_rest_status_failure(resp.error);
             }
         });
     });
+}
+
+void AmsBackendAce::note_rest_status_failure(const std::string& error) {
+    int failures = ++data_fetch_failures_;
+    spdlog::debug("[ACE] Status poll attempt {} failed: {}", failures, error);
+    // Genuinely-missing-bridge case: the DATA endpoints are down and nothing
+    // has ever succeeded. Surface it once. A working /slots resets
+    // data_fetch_failures_, so this only fires when BOTH /status and /slots
+    // are unavailable (#1069).
+    if (failures == kMaxDataFetchFailures && !rest_data_ok_.load()) {
+        spdlog::warn("[ACE] Moonraker ACE bridge not responding at /server/ace/status "
+                     "after {} attempts — no ACE data endpoints available.",
+                     failures);
+        emit_event(kEventError, "ACE detected but Moonraker bridge not found. "
+                                "Install the ace_status.py component for full ACE support.");
+        helix::ui::queue_update("AmsBackendAce::poll_status", []() {
+            ToastManager::instance().show(
+                ToastSeverity::WARNING,
+                lv_tr("ACE Moonraker bridge not found. Install ace_status.py for full support."),
+                6000);
+        });
+    }
 }
 
 void AmsBackendAce::poll_slots() {
@@ -2042,22 +2067,74 @@ void AmsBackendAce::poll_slots() {
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_slots_apply", [this, resp]() {
             if (rest_poll_answered(resp)) {
-                // A working /slots is sufficient data — latch data-ok and reset
-                // the failure counter so the "bridge not found" error only fires
-                // when BOTH data endpoints are down (#1069).
-                rest_data_ok_.store(true);
-                data_fetch_failures_.store(0);
-                if (parse_slots_response(resp.data["result"])) {
-                    // REST fallback parses all slots at once — use STATE_CHANGED
-                    // (full-sync semantics) rather than SLOT_CHANGED without a
-                    // slot_index.
-                    emit_event(EVENT_STATE_CHANGED);
-                }
+                apply_rest_slots(resp.data["result"]);
             } else {
                 spdlog::debug("[ACE] Slots poll failed: {}", resp.error);
             }
         });
     });
+}
+
+void AmsBackendAce::apply_rest_status(const json& result) {
+    rest_data_ok_.store(true);
+    data_fetch_failures_.store(0);
+    if (parse_status_response(result)) {
+        emit_event(EVENT_STATE_CHANGED);
+    }
+}
+
+void AmsBackendAce::apply_rest_slots(const json& result) {
+    // A working /slots is sufficient data — latch data-ok and reset the
+    // failure counter so the "bridge not found" error only fires when BOTH
+    // data endpoints are down (#1069).
+    rest_data_ok_.store(true);
+    data_fetch_failures_.store(0);
+    if (parse_slots_response(result)) {
+        // REST fallback parses all slots at once — use STATE_CHANGED
+        // (full-sync semantics) rather than SLOT_CHANGED without a slot_index.
+        emit_event(EVENT_STATE_CHANGED);
+    }
+}
+
+void AmsBackendAce::refresh_vendor_push() {
+    const helix::PluginFeatureProbe probe =
+        helix::current_plugin_feature(kVendorPushFeature, kVendorPushMinVersion);
+    const uint64_t connection = client_ ? client_->connection_generation() : 0;
+    if (vendor_push_.update(probe.state, probe.seq, connection)) {
+        spdlog::debug("[ACE] Bridge state pushed by the HelixPrint plugin; polling it once");
+        poll_status();
+        poll_slots();
+    }
+}
+
+bool AmsBackendAce::rest_data_poll_due(bool pushing,
+                                       std::chrono::steady_clock::duration since_last) {
+    return !pushing || since_last >= helix::kVendorPushBackstop;
+}
+
+void AmsBackendAce::on_vendor_state(const json& payload) {
+    if (!use_rest_fallback_ || !vendor_push_.pushing() || !payload.is_object()) {
+        return;
+    }
+    // Each answer goes where the poll's answer would: data to its apply,
+    // a status error to the same failure count and toast.
+    auto status = payload.find("status");
+    if (status != payload.end()) {
+        if (rest_result_answered(*status)) {
+            apply_rest_status(*status);
+        } else {
+            auto error = status->is_object() ? status->find("error") : status->end();
+            note_rest_status_failure(error != status->end() ? error->dump() : "no answer");
+        }
+    }
+    auto slots = payload.find("slots");
+    if (slots != payload.end()) {
+        if (rest_result_answered(*slots)) {
+            apply_rest_slots(*slots);
+        } else {
+            spdlog::debug("[ACE] Pushed slots answer failed: {}", slots->dump());
+        }
+    }
 }
 
 // ============================================================================

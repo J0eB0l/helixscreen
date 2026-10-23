@@ -175,6 +175,7 @@ translations:
   ACCELEROMETERS: 加速度计
   'ACCEPT failed: {}': 'ACCEPT 失败: {}'
   ACE Moonraker bridge not found. Install ace_status.py for full support.: 未找到 ACE Moonraker 桥接。请安装 ace_status.py 以获得完整支持。
+  ACE updates without polling: '无需轮询的 ACE 更新'
   ACTIONS: 操作
   ADD-ONS: '附加功能'
   ADXL: ADXL
@@ -1758,6 +1759,7 @@ translations:
   I understand: 我已了解
 
   ID (optional): ID（可选）
+  IFS updates without polling: '无需轮询的 IFS 更新'
   IMPORT FROM USB: 从 USB 导入
   INDX dock positions are not calibrated: "INDX 停靠位置未校准"
   INDX macros not recognized: "无法识别 INDX 宏"

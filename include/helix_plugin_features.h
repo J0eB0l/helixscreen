@@ -139,7 +139,15 @@ struct KnownPluginFeature {
     const char* label;
     const char* icon;
     PluginFeatureHome home;
+    /// Reasons, nullptr-terminated, that say the hardware this feature serves
+    /// is not on the printer. The overview leaves the feature out while it is
+    /// unavailable for one of them; any other reason still shows.
+    const char* const* hidden_reasons = nullptr;
 };
+
+inline constexpr const char* kIfsAbsentReasons[] = {"no_adventurer_json", nullptr};
+inline constexpr const char* kAceAbsentReasons[] = {"no_ace_bridge", "ace_objects_carry_slots",
+                                                    nullptr};
 
 /// Every feature this app can name. A feature the plugin reports that is not
 /// listed shows by its key, with no setting to lead to.
@@ -160,6 +168,10 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"storage_auto_cleanup", TR_NOOP("Automatic storage cleanup"), "delete",
      PluginFeatureHome::Storage},
     {"photos", TR_NOOP("Print photos"), "image_area", PluginFeatureHome::Devices},
+    {"vendor_ad5x", TR_NOOP("IFS updates without polling"), "sync", PluginFeatureHome::None,
+     kIfsAbsentReasons},
+    {"vendor_ace", TR_NOOP("ACE updates without polling"), "sync", PluginFeatureHome::None,
+     kAceAbsentReasons},
 };
 
 /// The icon of a feature this app does not know.
@@ -183,7 +195,8 @@ struct PluginFeatureLine {
 };
 
 /// The overview lines for @p features: known features in kKnownPluginFeatures
-/// order, then unknown ones by name.
+/// order, then unknown ones by name. A known feature unavailable for one of
+/// its hidden_reasons gets no line.
 std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& features);
 
 } // namespace helix

@@ -193,7 +193,8 @@ Two avoidance rules come out of the same host-starvation mechanism:
 - **Host work during toolhead motion is hair-trigger.** Forge-X's own regression
   harness had to stop screenshotting during motion to avoid TTC (Forge-X commit
   `46c75cb`, 2026-08-12). This is the external rationale for HelixScreen's print-time
-  IFS poll backoff (5 s → 30 s while printing) —
+  IFS poll backoff (5 s → 30 s while printing), and for the HelixPrint plugin's
+  `vendor_ad5x` push that replaces the poll where installed —
   `docs/devel/FILAMENT_BACKEND_AD5X_IFS.md` § "Polling caution". [upstream-doc,
   Forge-X repo]
 

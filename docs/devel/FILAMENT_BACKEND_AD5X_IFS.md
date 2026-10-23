@@ -75,7 +75,7 @@ Stock zMod owns two Klipper objects — `zmod_ifs` and `zmod_color` — that hol
 |--------|------|-------|
 | `filament_switch_sensor head_switch_sensor` | Toolhead filament presence | Authoritative NOZZLE/TOOLHEAD indicator |
 | `filament_motion_sensor ifs_motion_sensor` | Filament moving **post-hub**, inside the IFS | Single boolean on stock zMod. Maps to `OUTPUT` segment — **not** the toolhead. Replaced by per-port sensors when plugins are installed. |
-| `Adventurer5M.json` (Moonraker file API) | Per-channel color + material type | Polled + re-read on sensor edges / gcode responses. No push notifications. Poll cadence 5 s idle / 30 s while printing — see "Polling caution" below. |
+| `Adventurer5M.json` (Moonraker file API) | Per-channel color + material type | Polled + re-read on sensor edges / gcode responses. Moonraker sends no push for it; the HelixPrint Moonraker plugin can (below). Poll cadence 5 s idle / 30 s while printing — see "Polling caution" below. |
 
 **Plugin-only (lessWaste / bambufy) — the Moonraker-visible export of `zmod_ifs` / `zmod_color`:**
 
@@ -108,7 +108,7 @@ On native ZMOD (no lessWaste / bambufy plugin) the backend reconciles **two** in
 
 | Source | Transport | Question it answers | Code |
 |--------|-----------|---------------------|------|
-| `Adventurer5M.json` `FFMInfo` | Moonraker `download_file("config", "Adventurer5M.json")`, 5s content-compare poll | What **color / material** is *assigned* to each channel (persisted metadata) | `parse_adventurer_json()`, `poll_adventurer_json()`, `note_json_content()` |
+| `Adventurer5M.json` `FFMInfo` | Moonraker `download_file("config", "Adventurer5M.json")`, 5s content-compare poll, or the HelixPrint plugin's push | What **color / material** is *assigned* to each channel (persisted metadata) | `parse_adventurer_json()`, `poll_adventurer_json()`, `apply_json_content()`, `note_json_content()` |
 | `GET_ZCOLOR SILENT=1` (and, future, `IFS_STATUS`) | gcode console, on-demand | Which lanes **physically have filament** (RS-485 silk sensor) + the active lane | `query_zcolor_silent()`, `parse_zcolor_silent()`, `apply_zcolor_result()` |
 
 **`Adventurer5M.json` `FFMInfo` has NO per-channel presence field.** It carries `ffmColor{1-4}` / `ffmType{1-4}` plus an active `channel`, and those colors **persist across unload/eject** — zmod never blanks `ffmColorN` when a lane is emptied. So a non-empty `ffmColorN` means "this channel was *assigned* this color", **not** "filament is loaded here". (Field-proven on raza616's hardware: he ejected *and* unloaded channel 1, yet `ffmColor1` stayed populated; a live `IFS_STATUS` reported `Ports:[F,T,T,T]` while the JSON still had `ffmColor1` set — the JSON simply does not track presence.)
@@ -185,6 +185,32 @@ That is the external rationale for the print-time poll backoff: the
 poll is a loopback HTTP GET on a 2-core board that is simultaneously feeding the MCU
 step queue). PAUSED deliberately keeps the 5 s cadence — a pause is when a user
 actually swaps a spool and relabels it.
+
+#### Pushed by the HelixPrint plugin
+
+Where the HelixPrint Moonraker plugin's `vendor_ad5x` feature is ready
+(`moonraker-plugin/helix_vendor_ad5x.py`), the plugin stats the file once a second on the
+printer and broadcasts its text as `notify_helix_vendor_state` (vendor `ad5x`, payload
+`{"file", "content"}`) only when it changed and parses as JSON; the feature is ready only
+once a read has parsed. The periodic poll then drops to a 30 s backstop
+(`kVendorPushBackstop`, `should_poll_json(..., pushing)`), which removes most of the
+loopback GETs the caution above is about while bounding how long a silent push can leave
+the colours stale.
+
+- One function applies a body either way: `apply_json_content(content, reason)` runs
+  `note_json_content()`, then `parse_adventurer_json()` and `schedule_zcolor_query()` on a
+  change. The poll calls it with `"json_poll"`, a push (`#on_vendor_state`) with
+  `"json_push"`, so a push gets the same GET_ZCOLOR / IFS_STATUS follow-up.
+- The poll's stand-downs hold for a push too: nothing is applied while the standalone module
+  is live, or while the backend polls.
+- `handle_status` re-reads the plugin's state each frame (`#refresh_vendor_push`). A plugin
+  probe on the current connection that finds the feature ready owes one read of the file (a
+  reconnect can have missed a change); anything else, no probe yet since a reconnect, a
+  plugin uninstalled or too old for the contract, puts the poll back on its cadence at once.
+  `on_started` / `on_stopping` reset the tracker. The rule is `vendor_state_source()`
+  (`include/vendor_state_push.h`), shared with the ACE backend.
+- The event-driven re-reads (`schedule_json_reread()` on sensor edges and klippy ready)
+  are unchanged: they are rare, and they answer "did that edit land" sooner than any push.
 
 #### Unattended runout detection (#1250, reported as #1247)
 

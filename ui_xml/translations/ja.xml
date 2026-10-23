@@ -171,6 +171,7 @@
   <translation tag="ACCELEROMETERS" ja="加速度センサー"/>
   <translation tag="ACCEPT failed: {}" ja="ACCEPT に失敗しました: {}"/>
   <translation tag="ACE Moonraker bridge not found. Install ace_status.py for full support." ja="ACE Moonraker ブリッジが見つかりません。完全なサポートには ace_status.py をインストールしてください。"/>
+  <translation tag="ACE updates without polling" ja="ポーリングなしの ACE 更新"/>
   <translation tag="ACTIONS" ja="アクション"/>
   <translation tag="ADD-ONS" ja="アドオン"/>
   <translation tag="ADXL" ja="ADXL"/>
@@ -1697,6 +1698,7 @@
   <translation tag="Hyperspace" ja="ハイパースペース"/>
   <translation tag="I understand" ja="理解しました"/>
   <translation tag="ID (optional)" ja="ID（任意）"/>
+  <translation tag="IFS updates without polling" ja="ポーリングなしの IFS 更新"/>
   <translation tag="IMPORT FROM USB" ja="USBからインポート"/>
   <translation tag="INDX dock positions are not calibrated" ja="INDXのドック位置がキャリブレーションされていません"/>
   <translation tag="INDX macros not recognized" ja="INDXマクロを認識できません"/>

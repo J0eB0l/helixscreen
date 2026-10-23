@@ -481,6 +481,23 @@ class Ad5xIfsTestAccess {
     static bool note_json_content(AmsBackendAd5xIfs& b, const std::string& content) {
         return b.note_json_content(content);
     }
+    // --- HelixPrint plugin vendor push ---
+    static void on_vendor_state(AmsBackendAd5xIfs& b, const json& payload) {
+        b.on_vendor_state(payload);
+    }
+    static bool vendor_pushing(const AmsBackendAd5xIfs& b) {
+        return b.vendor_push_.pushing();
+    }
+    static void on_stopping(AmsBackendAd5xIfs& b) {
+        b.on_stopping();
+    }
+    static std::chrono::steady_clock::time_point last_json_poll_kick(const AmsBackendAd5xIfs& b) {
+        return b.last_json_poll_kick_;
+    }
+    static void set_last_json_poll_kick(AmsBackendAd5xIfs& b,
+                                        std::chrono::steady_clock::time_point at) {
+        b.last_json_poll_kick_ = at;
+    }
     // Override the resolved on-disk Adventurer5M.json path so tests can drive
     // the direct-write path against a tmp file instead of the real
     // /usr/prog/config target. Empty string forces the Moonraker fallback.
