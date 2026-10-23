@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <netinet/in.h>
 #include <string>
@@ -76,6 +77,11 @@ class ScriptedServer {
     }
 
     ~ScriptedServer() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stopping_ = true;
+        }
+        stop_cv_.notify_all();
         ::shutdown(listen_fd_, SHUT_RDWR);
         ::close(listen_fd_);
         if (thread_.joinable())
@@ -137,9 +143,14 @@ class ScriptedServer {
                 body_ = request.substr(header_end + 4);
         }
 
+        // The rest of a script the client gave up on is dropped once the test ends.
         for (size_t i = 0; i < chunks_.size(); ++i) {
-            if (i > 0)
-                std::this_thread::sleep_for(std::chrono::milliseconds(gap_ms_));
+            if (i > 0) {
+                std::unique_lock<std::mutex> lock(mutex_);
+                if (stop_cv_.wait_for(lock, std::chrono::milliseconds(gap_ms_),
+                                      [this] { return stopping_; }))
+                    break;
+            }
             ::send(fd, chunks_[i].data(), chunks_[i].size(), MSG_NOSIGNAL);
         }
         // Keep the connection open until the client hangs up, as a printer would.
@@ -151,6 +162,8 @@ class ScriptedServer {
     std::vector<std::string> chunks_;
     int gap_ms_;
     mutable std::mutex mutex_;
+    std::condition_variable stop_cv_;
+    bool stopping_ = false;
     std::string request_line_;
     std::string body_;
     int listen_fd_ = -1;
@@ -213,7 +226,7 @@ TEST_CASE("IPP POST returns nullptr when only an interim response arrives",
           "[label][ipp][ipp_http]") {
     ScriptedServer server({kContinue});
 
-    auto resp = ipp::post_request("127.0.0.1", server.port(), "ipp/print", job_body(), 2);
+    auto resp = ipp::post_request("127.0.0.1", server.port(), "ipp/print", job_body(), 1);
 
     REQUIRE(resp == nullptr);
 }
