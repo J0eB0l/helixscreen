@@ -263,7 +263,12 @@ def make_helix(tmp_path, records=None):
 
 @pytest.fixture
 def helix(tmp_path, fake_sys):
-    return make_helix(tmp_path)
+    component = make_helix(tmp_path)
+    # start() probed the real /sys; the host's own disk must not decide the
+    # storage verdict, so a test that wants one builds it in fake_sys.
+    component.plr.sys_root = fake_sys.root
+    component.plr.runtime_storage = component.plr.detect_storage()
+    return component
 
 
 def test_plr_feature_is_unavailable_without_a_profile(helix):
