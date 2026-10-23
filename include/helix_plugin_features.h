@@ -129,6 +129,7 @@ enum class PluginFeatureHome {
     Storage,  ///< Settings > System > Storage
     Spoolman, ///< Settings > Devices > Spoolman
     Devices,  ///< Settings > Devices
+    Safety,   ///< Settings > Safety & Alerts
 };
 
 /// What this app knows about a plugin feature. Labels are English; the UI
@@ -148,6 +149,8 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"plr", TR_NOOP("Power-loss recovery"), "power_plug", PluginFeatureHome::Printing},
     {"filament_accounting", TR_NOOP("Spool switching per tool and lane"), "swap_horizontal",
      PluginFeatureHome::Spoolman},
+    {"fit_check_blocks_autostart", TR_NOOP("Hold slicer prints that do not fit"), "ruler",
+     PluginFeatureHome::Safety},
     {"convert_3mf", TR_NOOP("3MF conversion"), "cube_outline", PluginFeatureHome::None},
     {"file_analysis", TR_NOOP("File analysis"), "magnify_scan", PluginFeatureHome::None},
     {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},

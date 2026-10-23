@@ -609,6 +609,7 @@ FileMetadata MoonrakerFileAPI::parse_file_metadata(const json& response) {
     // Temperature info
     metadata.first_layer_bed_temp = helix::json_util::safe_double(result, "first_layer_bed_temp");
     metadata.first_layer_extr_temp = helix::json_util::safe_double(result, "first_layer_extr_temp");
+    metadata.nozzle_diameter = helix::json_util::safe_double(result, "nozzle_diameter");
 
     // G-code info
     metadata.gcode_start_byte = helix::json_util::safe_uint64(result, "gcode_start_byte");

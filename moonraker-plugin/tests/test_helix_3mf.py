@@ -1040,6 +1040,58 @@ class TestDeferredDelete:
         assert (env.gc / "a.gcode").read_bytes() == b"; edited\n"
 
 
+class TestStartGate:
+    """A start gate (the fit check's) decides every print the converter starts."""
+
+    async def upload(self, env, name, plates):
+        tmp = env.gc / ".helix_temp" / "incoming.mru"
+        make_3mf(tmp, plates)
+        return await env.fm.finalize_upload(
+            {"filename": name, "tmp_file_path": str(tmp), "print": "true",
+             "current_user": "orca"})
+
+    @pytest.mark.asyncio
+    async def test_a_refusing_gate_keeps_the_new_plate_and_starts_nothing(self, env):
+        conv = await started(env, start_on_upload=True)
+        asked = []
+
+        async def gate(output):
+            asked.append(output)
+            return False
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert asked == ["a.gcode"]
+        assert result["print_started"] is False and result["print_queued"] is False
+        assert env.fm.started == [] and env.apis.started == []
+        # Published without the print flag, so Moonraker did not start it either.
+        assert env.fm.uploads[1].get("print") == "false"
+        assert (env.gc / "a.gcode").exists()
+
+    @pytest.mark.asyncio
+    async def test_an_allowing_gate_starts_the_published_plate(self, env):
+        conv = await started(env, start_on_upload=True)
+
+        async def gate(output):
+            return True
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is True
+        assert env.apis.started == ["a.gcode"]
+
+    @pytest.mark.asyncio
+    async def test_a_reused_output_asks_the_gate_too(self, env):
+        data = plate_gcode(9)
+        (env.gc / "a.gcode").write_bytes(data)
+        conv = await started(env, start_on_upload=True)
+
+        async def gate(output):
+            return False
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: data})
+        assert result["print_started"] is False
+        assert env.apis.started == []
+
+
 class FakeJobQueue:
     def __init__(self):
         self.queued: List[str] = []

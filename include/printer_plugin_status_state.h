@@ -2,6 +2,7 @@
 #pragma once
 
 #include "filament_accounting.h"
+#include "fit_check.h"
 #include "helix_plugin_features.h"
 #include "plr_backend.h"
 #include "print_photos.h"
@@ -31,7 +32,7 @@ struct PluginSwitchFeature {
     const char* on_subject;
 };
 
-inline constexpr std::array<PluginSwitchFeature, 5> kPluginSwitchFeatures = {{
+inline constexpr std::array<PluginSwitchFeature, 6> kPluginSwitchFeatures = {{
     {kPlrFeatureName, kPlrFeatureMinVersion, false, true, "plugin_feature_mode_plr", nullptr},
     {kPrintHooksFeature, kPrintHooksMinVersion, true, true, "plugin_feature_mode_print_hooks",
      "plugin_feature_on_print_hooks"},
@@ -41,6 +42,9 @@ inline constexpr std::array<PluginSwitchFeature, 5> kPluginSwitchFeatures = {{
      "plugin_feature_mode_filament_accounting", "plugin_feature_on_filament_accounting"},
     {kPhotosFeature, kPhotosMinVersion, true, false, "plugin_feature_mode_photos",
      "plugin_feature_on_photos"},
+    {kFitCheckFeature, kFitCheckMinVersion, false, true,
+     "plugin_feature_mode_fit_check_blocks_autostart",
+     "plugin_feature_on_fit_check_blocks_autostart"},
 }};
 
 /// helix_plugin_installed values once the probe has answered (-1 before). A

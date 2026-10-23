@@ -1096,6 +1096,7 @@ void PrinterDiscovery::clear() {
     chamber_fan_resting_deci_ = 0;
     filament_diameter_mm_ = filament::kDefaultDiameterMm;
     nozzle_diameter_mm_ = kDefaultNozzleDiameterMm;
+    fit_machine_.reset();
     leveling_probe_points_.clear();
     probe_xy_offset_.reset();
     fan_max_power_.clear();

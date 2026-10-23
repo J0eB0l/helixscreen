@@ -133,6 +133,17 @@ The dialog names the line and the command, plus the printer's own stop message w
 
 ---
 
+## File Does Not Fit This Printer
+
+A file sliced for another printer can ask for moves this printer can't make or temperatures its heaters don't allow. Before a print starts, HelixScreen compares the file with the printer's own limits (its travel, its heaters' maximum temperatures and its tools) and stops a file that breaks one:
+
+> *Moves to X 360 mm, past this printer's 350 mm.*
+> *Re-slice the file with a profile made for this printer.*
+
+A file sliced for a different nozzle size gets the softer **Sliced for a Different Setup** warning, with **Start Anyway**. A different printer model in the slicer profile is only shown in the file details. The findings also show in the file's details before you tap Start Print; see [Does the file fit this printer?](printing.md#does-the-file-fit-this-printer).
+
+---
+
 ## Filament Runout During a Print
 
 When the runout sensor stops detecting filament during a print, **the printer's own firmware pauses the job** - that happens before HelixScreen is involved at all. HelixScreen notices the pause and shows the **Filament Runout** modal so you can recover without dropping to the console.

@@ -699,6 +699,7 @@ void PrintPreparationManager::request_scan(const std::string& filename,
         // The whole downloaded head, not the detector's shorter op window:
         // a large thumbnail block can push the definitions past that.
         scan_result.objects = gcode::collect_exclude_object_defines(content);
+        scan_result.fit_head = helix::fit_head_facts(content);
 
         if (scan_result.operations.empty()) {
             spdlog::debug("[PrintPreparationManager] No embedded operations found in {}", filename);

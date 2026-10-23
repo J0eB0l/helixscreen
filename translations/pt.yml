@@ -1573,6 +1573,7 @@ translations:
   Filament tracking and inventory: Rastreamento e inventário de filamento
   FilamentSensor: Sensor de Filamento
   File: Arquivo
+  File Does Not Fit This Printer: 'O arquivo não cabe nesta impressora'
   File Size: Tamanho do Arquivo
   File Will Stop the Printer: 'O arquivo vai parar a impressora'
   File analysis: 'Análise de arquivos'
@@ -1759,6 +1760,8 @@ translations:
   Heating {}...: Aquecendo {}...
   Heating...: Aquecendo...
   'Heating: %d / %d°C': 'Aquecendo: %d / %d°C'
+  Heats the bed to {:g}°C, above this printer's {:g}°C limit.: 'Aquece a mesa a {:g}°C, acima do limite de {:g}°C desta impressora.'
+  Heats the nozzle to {:g}°C, above this printer's {:g}°C limit.: 'Aquece o bico a {:g}°C, acima do limite de {:g}°C desta impressora.'
   Heightmap and flatness of the active bed mesh: 'Mapa de alturas e planicidade da malha da mesa ativa'
   HelixPrint Plugin: 'Plugin HelixPrint'
   HelixPrint plugin updated.: 'Plugin HelixPrint atualizado.'
@@ -1788,6 +1791,7 @@ translations:
   High Fly: 'Acima das nuvens'
   High Water Mark: Marca de Pico
   Hold anywhere to cancel: Segure em qualquer lugar para cancelar
+  Hold slicer prints that do not fit: 'Reter impressões do fatiador que não cabem'
   Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Segure {} totalmente no cabeçote. A trava se fecha nela e ela passa a ser a ferramenta montada.
   Holding nozzle at {}°C to purge previous filament.: Mantendo o bico a {}°C para purgar
     o filamento anterior.
@@ -2360,6 +2364,8 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Move o cabeçote para medir frequências de vibração em cada eixo. Leva 2-3 minutos.
     A impressora fará barulho — isso é normal.
+  Moves to {} {:g} mm, below this printer's {:g} mm.: 'Move para {} {:g} mm, abaixo dos {:g} mm desta impressora.'
+  Moves to {} {:g} mm, past this printer's {:g} mm.: 'Move para {} {:g} mm, além dos {:g} mm desta impressora.'
   Moving back to the print: Voltando para a impressão
   Moving lane: Movendo lane
   Moving over the resume point: Movendo sobre o ponto de retomada
@@ -3099,11 +3105,13 @@ translations:
   Re-probe: Sondar Novamente
   Re-read spool RFID tags and remaining length: 'Reler as etiquetas RFID dos carretéis e o comprimento restante'
   Re-seat the Bowden tube connector on the CFS unit: Reencaixe o conector do tubo Bowden na unidade CFS
+  Re-slice the file with a profile made for this printer.: 'Fatie o arquivo novamente com um perfil feito para esta impressora.'
   Re-syncs Happy Hare's tracked state with the hardware.: Ressincroniza o estado rastreado
     do Happy Hare com o hardware.
   Re-test: Testar novamente
   Re-test A: "Repetir A"
   Re-test B: "Repetir B"
+  Reaches {:g} mm from the center, past this printer's {:g} mm radius.: 'Chega a {:g} mm do centro, além do raio de {:g} mm desta impressora.'
   Readings don't repeat: "As leituras não se repetem"
   Readings from extra temperature sensors: Leituras de sensores adicionais
   Ready: Pronto
@@ -3611,6 +3619,9 @@ translations:
   Sleep adjusted to match dim timeout: Tempo de suspensão ajustado
   Sleep {} min: Suspender em {} min
   Sliced colors: Cores fatiadas
+  Sliced for a Different Setup: 'Fatiado para outra configuração'
+  Sliced for a {:g} mm nozzle on T{}; the printer has {:g} mm.: 'Fatiado para um bico de {:g} mm em T{}; a impressora tem {:g} mm.'
+  Sliced for {}, not {}.: 'Fatiado para {}, não para {}.'
   Slicer: Fatiador
   Slot: Slot
   Slot 1: Slot 1
@@ -4416,6 +4427,7 @@ translations:
   Use Scan: Usar leitura
   Use the home layout set on the printer's own screen: "Usar o layout inicial definido na tela da impressora"
   User intervention required: 'Intervenção manual necessária'
+  Uses tool T{}, and this printer's last tool is T{}.: 'Usa a ferramenta T{}, e a última ferramenta desta impressora é T{}.'
   VM Peak: Pico de VM
   VM Size: Tamanho de VM
   Validating bed mesh...: Validando malha da mesa...
@@ -4498,6 +4510,8 @@ translations:
   What We Collect: O Que Coletamos
   What fills the printer's disk, and cleanup: 'O que ocupa o disco da impressora, e limpeza'
   What happens when a print ends: 'O que acontece ao terminar uma impressão'
+  ? When a slicer uploads and starts a file that moves past this printer's travel, heats past its limits or uses a missing tool, keep the file but do not start it.
+  : 'Quando um fatiador envia e inicia um arquivo que vai além do curso desta impressora, aquece acima dos limites ou usa uma ferramenta que não existe, manter o arquivo mas não iniciá-lo.'
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Quando
     habilitado, apenas a macro é executada. Quando desabilitado, as temperaturas são
     definidas primeiro, depois a macro é executada.

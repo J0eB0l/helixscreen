@@ -1433,6 +1433,7 @@
   <translation tag="Filament tracking and inventory" fr="Suivi et inventaire du filament"/>
   <translation tag="FilamentSensor" fr="Capteur de filament"/>
   <translation tag="File" fr="Fichier"/>
+  <translation tag="File Does Not Fit This Printer" fr="Le fichier ne convient pas à cette imprimante"/>
   <translation tag="File Size" fr="Taille du fichier"/>
   <translation tag="File Will Stop the Printer" fr="Le fichier arrêtera l&apos;imprimante"/>
   <translation tag="File analysis" fr="Analyse des fichiers"/>
@@ -1606,6 +1607,8 @@
   <translation tag="Heating {}..." fr="Chauffe de {}..."/>
   <translation tag="Heating..." fr="Chauffage..."/>
   <translation tag="Heating: %d / %d°C" fr="Chauffage : %d / %d°C"/>
+  <translation tag="Heats the bed to {:g}°C, above this printer&apos;s {:g}°C limit." fr="Chauffe le plateau à {:g}°C, au-delà de la limite de {:g}°C de cette imprimante."/>
+  <translation tag="Heats the nozzle to {:g}°C, above this printer&apos;s {:g}°C limit." fr="Chauffe la buse à {:g}°C, au-delà de la limite de {:g}°C de cette imprimante."/>
   <translation tag="Heightmap and flatness of the active bed mesh" fr="Carte des hauteurs et planéité du maillage du plateau actif"/>
   <translation tag="HelixPrint Plugin" fr="Plugin HelixPrint"/>
   <translation tag="HelixPrint plugin updated." fr="Plugin HelixPrint mis à jour."/>
@@ -1631,6 +1634,7 @@
   <translation tag="High Fly" fr="Au-dessus des nuages"/>
   <translation tag="High Water Mark" fr="Pic d&apos;utilisation"/>
   <translation tag="Hold anywhere to cancel" fr="Maintenez n&apos;importe où pour annuler"/>
+  <translation tag="Hold slicer prints that do not fit" fr="Retenir les impressions du trancheur qui ne conviennent pas"/>
   <translation tag="Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool." fr="Maintenez {} bien en place sur la tête. Le verrou se ferme dessus et il devient l&apos;outil monté."/>
   <translation tag="Holding nozzle at {}°C to purge previous filament." fr="Maintien de la buse à {}°C pour purger le filament précédent."/>
   <translation tag="Home" fr="Origine"/>
@@ -2146,6 +2150,8 @@
   <translation tag="Move speed multipliers" fr="Multiplicateurs de vitesse de déplacement"/>
   <translation tag="Move the toolhead, home axes, level the bed, and fine-tune temperatures, fans, and other motion settings." fr="Déplacez la tête d&apos;impression, faites l&apos;origine des axes, mettez le plateau à niveau et ajustez les températures, les ventilateurs et les autres paramètres de mouvement."/>
   <translation tag="Moves the print head to measure vibration frequencies on each axis. Takes 2-3 minutes. The printer will make noise — this is normal." fr="Déplace la tête d&apos;impression pour mesurer les fréquences de vibration sur chaque axe. Prend 2-3 minutes. L&apos;imprimante fera du bruit — c&apos;est normal."/>
+  <translation tag="Moves to {} {:g} mm, below this printer&apos;s {:g} mm." fr="Se déplace à {} {:g} mm, sous les {:g} mm de cette imprimante."/>
+  <translation tag="Moves to {} {:g} mm, past this printer&apos;s {:g} mm." fr="Se déplace à {} {:g} mm, au-delà des {:g} mm de cette imprimante."/>
   <translation tag="Moving back to the print" fr="Retour au-dessus de l&apos;impression"/>
   <translation tag="Moving lane" fr="Déplacement de la voie"/>
   <translation tag="Moving over the resume point" fr="Déplacement au-dessus du point de reprise"/>
@@ -2838,10 +2844,12 @@
   <translation tag="Re-probe" fr="Re-palper"/>
   <translation tag="Re-read spool RFID tags and remaining length" fr="Relire les étiquettes RFID des bobines et la longueur restante"/>
   <translation tag="Re-seat the Bowden tube connector on the CFS unit" fr="Réemboîtez le raccord du tube Bowden sur l&apos;unité CFS"/>
+  <translation tag="Re-slice the file with a profile made for this printer." fr="Retranchez le fichier avec un profil conçu pour cette imprimante."/>
   <translation tag="Re-syncs Happy Hare&apos;s tracked state with the hardware." fr="Resynchronise l&apos;état suivi par Happy Hare avec le matériel."/>
   <translation tag="Re-test" fr="Retester"/>
   <translation tag="Re-test A" fr="Retester A"/>
   <translation tag="Re-test B" fr="Retester B"/>
+  <translation tag="Reaches {:g} mm from the center, past this printer&apos;s {:g} mm radius." fr="Atteint {:g} mm du centre, au-delà du rayon de {:g} mm de cette imprimante."/>
   <translation tag="Readings don&apos;t repeat" fr="Les mesures ne se répètent pas"/>
   <translation tag="Readings from extra temperature sensors" fr="Relevés des capteurs supplémentaires"/>
   <translation tag="Ready" fr="Prêt"/>
@@ -3297,6 +3305,9 @@
   <translation tag="Sleep adjusted to match dim timeout" fr="Délai de veille ajusté"/>
   <translation tag="Sleep {} min" fr="Veille dans {} min"/>
   <translation tag="Sliced colors" fr="Couleurs tranchées"/>
+  <translation tag="Sliced for a Different Setup" fr="Tranché pour une autre configuration"/>
+  <translation tag="Sliced for a {:g} mm nozzle on T{}; the printer has {:g} mm." fr="Tranché pour une buse de {:g} mm sur T{} ; l&apos;imprimante a {:g} mm."/>
+  <translation tag="Sliced for {}, not {}." fr="Tranché pour {}, pas pour {}."/>
   <translation tag="Slicer" fr="Trancheur"/>
   <translation tag="Slot" fr="Slot"/>
   <translation tag="Slot 1" fr="Slot 1"/>
@@ -3996,6 +4007,7 @@
   <translation tag="Use the home layout set on the printer&apos;s own screen" fr="Utiliser la disposition d&apos;accueil définie sur l&apos;écran de l&apos;imprimante"/>
   <translation tag="User Guide" fr="Guide d&apos;utilisation"/>
   <translation tag="User intervention required" fr="Intervention manuelle requise"/>
+  <translation tag="Uses tool T{}, and this printer&apos;s last tool is T{}." fr="Utilise l&apos;outil T{}, et le dernier outil de cette imprimante est T{}."/>
   <translation tag="VM Peak" fr="Pic de mémoire virtuelle"/>
   <translation tag="VM Size" fr="Taille de la mémoire virtuelle"/>
   <translation tag="Validating bed mesh..." fr="Validation du maillage du plateau..."/>
@@ -4074,6 +4086,7 @@
   <translation tag="What We Collect" fr="Ce que nous collectons"/>
   <translation tag="What fills the printer&apos;s disk, and cleanup" fr="Ce qui remplit le disque de l&apos;imprimante, et nettoyage"/>
   <translation tag="What happens when a print ends" fr="Ce qui se passe à la fin d&apos;une impression"/>
+  <translation tag="When a slicer uploads and starts a file that moves past this printer&apos;s travel, heats past its limits or uses a missing tool, keep the file but do not start it." fr="Quand un trancheur envoie et lance un fichier qui dépasse la course de cette imprimante, chauffe au-delà de ses limites ou utilise un outil absent, garder le fichier sans le lancer."/>
   <translation tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." fr="Quand activé, seule la macro s&apos;exécute. Quand désactivé, les températures sont définies d&apos;abord, puis la macro s&apos;exécute."/>
   <translation tag="Where UI sounds play" fr="Où les sons de l&apos;interface sont diffusés"/>
   <translation tag="Whether filament is loaded" fr="Si du filament est chargé"/>

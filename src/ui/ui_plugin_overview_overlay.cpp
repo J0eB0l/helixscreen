@@ -6,6 +6,7 @@
 #include "ui_event_safety.h"
 #include "ui_settings_hardware.h"
 #include "ui_settings_printing.h"
+#include "ui_settings_safety.h"
 #include "ui_settings_storage.h"
 #include "ui_spoolman_overlay.h"
 #include "ui_utils.h"
@@ -164,6 +165,9 @@ void PluginOverviewOverlay::on_feature_clicked(lv_event_t* e) {
             }
             case PluginFeatureHome::Devices:
                 helix::settings::get_hardware_settings_overlay().show(overlay.parent_screen_);
+                break;
+            case PluginFeatureHome::Safety:
+                helix::settings::get_safety_settings_overlay().show(overlay.parent_screen_);
                 break;
             case PluginFeatureHome::None:
                 break;

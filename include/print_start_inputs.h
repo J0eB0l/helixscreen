@@ -14,6 +14,7 @@
 #include "async_lifetime_guard.h"
 #include "filament_mapper.h"
 #include "file_version.h"
+#include "fit_check.h"
 #include "gcode_footer_summary.h"
 #include "moonraker_types.h"
 #include "preflight_validator.h"
@@ -51,6 +52,8 @@ struct FileStartFacts {
     FilePalette palette;
     std::set<int> tools_used;       ///< empty when the scan could not answer
     std::vector<double> tool_grams; ///< empty means unknown, never zero
+    /// The plugin's analysis as the fit check reads it; unset without one.
+    std::optional<FitFile> fit_record;
 };
 
 /// The mapping a print uses: @p card_mappings when the file view's mapping card
@@ -72,8 +75,14 @@ effective_file_mappings(std::vector<ToolMapping> card_mappings,
 /// the derivation the file view uses when its mapping card holds no user edit:
 /// FilamentMappingCard::build_used_tool_info(), AmsState::seed_tool_mappings(),
 /// AmsState::collect_available_slots(), FilamentMapper::identity_filtered_remap().
-/// Sets ctx.has_file_facts.
+/// Sets ctx.has_file_facts and the fit check's file facts (the plugin's
+/// record and the metadata; a queued start reads no head and has no preview).
 void fill_file_context(PrintStartContext& ctx, const FileStartFacts& facts);
+
+/// The connected printer's limits as this screen knows them
+/// (fit_machine_for_screen() over the config the discovery read), or unset
+/// before the printer's config was read.
+[[nodiscard]] std::optional<FitMachine> current_fit_machine();
 
 /// The tools @p facts shows the file using: its scanned tools, else the tools
 /// its metadata gives filament weight to. Empty when neither answers; a palette

@@ -1,6 +1,6 @@
 # Settings: Safety & Alerts
 
-**Settings > Safety & Alerts** decides how careful HelixScreen is and how loudly it tells you things. Use it to add a confirmation to the emergency stop or to macros, to set a safety net for cancels that hang, to control camera failure detection, and to choose how finished prints and other messages are announced.
+**Settings > Safety & Alerts** decides how careful HelixScreen is and how loudly it tells you things. Use it to add a confirmation to the emergency stop or to macros, to set a safety net for cancels that hang, to control camera failure detection, to hold slicer prints that don't fit the printer, and to choose how finished prints and other messages are announced.
 
 ![Safety & Alerts settings, top of the page](../../../images/user/settings-safety.png)
 
@@ -69,6 +69,22 @@ The first time HelixScreen starts on a K2 Plus that had its own detection settin
 Grayed out while Spaghetti Detection is off. Hidden on printers whose firmware pauses the print on its own when it sees a failure (the Snapmaker U1).
 
 See [Print Monitoring](../print-monitoring.md) for what the detection dialog offers.
+
+---
+
+## Hold slicer prints that do not fit
+
+When your slicer uploads a file with "print" (OrcaSlicer's **Print** button, for example), the printer starts it without HelixScreen ever seeing it. This switch lets the **HelixPrint plugin** on your printer check the file first. If the file would move past the printer's travel, heat the nozzle or bed past their limits, or use a tool the printer doesn't have, the file is still uploaded but the print isn't started. Start it from the screen once you have re-sliced it, or ignore it.
+
+| Setting | What happens |
+|---------|--------------|
+| **On** | A slicer's upload-and-print waits for the check, and a file that doesn't fit stays in the file list unstarted |
+| **Off** (default) | The slicer's print starts as soon as the upload finishes |
+
+- A different nozzle size or printer model in the slicer profile never holds a print.
+- If the check can't be made (for example, the plugin hasn't finished reading a very large file within two minutes, or can't read the printer's configuration), the print starts as it would without the switch. The printer's Moonraker log says why.
+- The plugin can't see the extra tools a filament system adds, so this switch doesn't hold a print for its tool count. The screen still checks it when you start the file there.
+- Without the HelixPrint plugin the switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button: only the plugin sees a slicer's print. Prints you start from the screen are checked either way; see [Does the file fit this printer?](../printing.md#does-the-file-fit-this-printer).
 
 ---
 

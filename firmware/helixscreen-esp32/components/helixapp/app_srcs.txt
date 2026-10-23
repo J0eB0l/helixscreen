@@ -238,6 +238,7 @@ src/printer/printer_motion_state.cpp
 src/printer/printer_network_state.cpp
 src/printer/printer_plugin_status_state.cpp
 src/printer/file_analysis.cpp
+src/printer/fit_check.cpp
 src/printer/helix_plugin_features.cpp
 src/printer/printer_event_journal.cpp
 src/printer/printer_print_state.cpp

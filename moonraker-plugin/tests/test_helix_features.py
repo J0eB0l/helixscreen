@@ -692,7 +692,8 @@ def test_a_features_extra_fields_join_its_entry_and_cannot_replace_the_base(heli
 # ============================================================================
 
 FEATURE_MODULE_NAMES = ("plr", "file_analysis", "event_journal", "config_edit",
-                        "server_edits", "print_hooks", "convert_3mf")
+                        "server_edits", "print_hooks", "convert_3mf",
+                        "fit_check_blocks_autostart")
 
 
 @pytest.fixture
@@ -726,6 +727,7 @@ class TestPluginDisabled:
         a config file, record an event or run a worker."""
         await disabled_component.component_init()
         assert disabled_component.print_hooks is None
+        assert disabled_component.fit_check is None
         assert disabled_component.journal is None
         assert disabled_component.analysis is None
         assert disabled_component.plr is None

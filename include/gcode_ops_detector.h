@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "fit_check.h"
 #include "gcode_parser.h"
 #include "operation_patterns.h"
 
@@ -114,6 +115,8 @@ struct ScanResult {
     /// The upper-case command word of every scanned line that runs an
     /// operation, with its type. Unlike `operations`, every occurrence counts.
     std::set<std::pair<OperationType, std::string>> operation_commands;
+    /// What the scanned head declares for the file-fits-printer check.
+    helix::FitHeadFacts fit_head;
 
     /**
      * @brief Check if a specific operation type was detected

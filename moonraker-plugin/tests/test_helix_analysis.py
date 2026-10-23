@@ -115,6 +115,7 @@ class TestPrusa:
         r = run(gc, "prusa_labels.gcode").record
         assert r["header"]["bed"] == {"min": [0.0, 0.0], "max": [250.0, 210.0],
                                       "max_height": 210.0}
+        # printer_settings_id is in this file too: the model is printer_model's
         assert r["header"]["printer_model"] == "MK4"
         assert r["header"]["nozzle_diameters"] == [0.6]
         # extruder_colour is empty, so filament_colour answers
@@ -247,6 +248,13 @@ def test_parse_object_define():
     d = parse_object_define("EXCLUDE_OBJECT_DEFINE NAME=a CENTER=1.5,2 POLYGON=[[0,0],[3,0],[3,4]]")
     assert d == {"name": "a", "center": [1.5, 2.0], "polygon": [[0.0, 0.0], [3.0, 0.0], [3.0, 4.0]]}
     assert parse_object_define("EXCLUDE_OBJECT_DEFINE CENTER=1,2") is None
+
+
+def test_a_preset_name_is_never_the_printer_model():
+    from helix_analysis import header_from_config
+    assert header_from_config({"printer_settings_id": "My Voron"})["printer_model"] is None
+    assert header_from_config({"printer_settings_id": "My Voron",
+                               "printer_model": "Voron 0.2"})["printer_model"] == "Voron 0.2"
 
 
 @pytest.mark.parametrize("path,ok", [
@@ -625,6 +633,49 @@ class TestComponent:
         await settle(again)
         assert set(again.records) == {"no_define.gcode"}
         assert set(helix.database.ns[analysis.DB_NAMESPACE]) == {"no_define.gcode"}
+
+
+class TestRecordFor:
+    """record_for(): what the fit check waits on before an upload may start."""
+
+    @pytest.mark.asyncio
+    async def test_a_current_record_answers_at_once(self, gc):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        record = await comp.record_for("no_define.gcode", 0.01)
+        assert record is comp.records["no_define.gcode"]
+
+    @pytest.mark.asyncio
+    async def test_a_changed_file_is_analyzed_first_and_answered(self, gc):
+        helix, comp = await make(gc, files={"no_define.gcode", "cura_mesh.gcode"})
+        await settle(comp)
+        path = gc / "no_define.gcode"
+        path.write_bytes(path.read_bytes() + b"G1 X71 Y71 E9\n")
+        comp.enqueue("cura_mesh.gcode")
+        record = await comp.record_for("no_define.gcode", 30.0)
+        assert record is not None
+        assert record["bounds"]["print"]["max"][:2] == [71.0, 71.0]
+        assert not comp._waiters
+
+    @pytest.mark.asyncio
+    async def test_a_held_queue_answers_none_at_the_timeout(self, gc):
+        helix, comp = await make(gc, cpu_count=1, state="printing", files={"no_define.gcode"})
+        assert await comp.record_for("no_define.gcode", 0.05) is None
+        assert not comp._waiters
+
+    @pytest.mark.asyncio
+    async def test_a_file_deleted_while_waiting_answers_none(self, gc):
+        helix, comp = await make(gc, cpu_count=1, state="printing", files={"no_define.gcode"})
+        waiting = asyncio.ensure_future(comp.record_for("no_define.gcode", 30.0))
+        await asyncio.sleep(0)
+        await comp.forget("no_define.gcode")
+        assert await waiting is None
+
+    @pytest.mark.asyncio
+    async def test_a_missing_file_answers_none(self, gc):
+        helix, comp = await make(gc, files={"no_define.gcode"})
+        await settle(comp)
+        assert await comp.record_for("nope.gcode", 30.0) is None
 
 
 def test_checked_in_sidecar_is_what_analysis_writes(gc):

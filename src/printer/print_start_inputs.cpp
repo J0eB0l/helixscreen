@@ -13,6 +13,7 @@
 #include "http_executor.h"
 #include "i_moonraker_api.h"
 #include "json_utils.h"
+#include "printer_detector.h"
 #include "printer_state.h"
 #include "text_io.h"
 #include "tools_used_cache.h"
@@ -124,6 +125,37 @@ void fill_file_context(PrintStartContext& ctx, const FileStartFacts& facts) {
     ctx.filament_materials = facts.palette.materials;
     ctx.tools_used = file_tools_used(facts);
     ctx.tool_grams = facts.tool_grams;
+    ctx.fit_file = fit_file_from_sources(facts.fit_record, nullptr, facts.metadata, std::nullopt,
+                                         ctx.tools_used);
+}
+
+namespace {
+
+/// @p name when the printer database knows it as a real machine; the
+/// pseudo-entries (Custom/Other, Unknown) and an empty name say nothing about
+/// which printer this is.
+std::string known_printer_model(const std::string& name) {
+    if (name.empty()) {
+        return {};
+    }
+    for (const PrinterListEntry& entry : PrinterDetector::get_list_entries("")) {
+        if (entry.name == name && !entry.manufacturer.empty()) {
+            return name;
+        }
+    }
+    return {};
+}
+
+} // namespace
+
+std::optional<FitMachine> current_fit_machine() {
+    PrinterState& state = get_printer_state();
+    const std::optional<FitMachine>& base = state.get_discovery().fit_machine();
+    if (!base) {
+        return std::nullopt;
+    }
+    return fit_machine_for_screen(*base, known_printer_model(state.profile_state().printer_type()),
+                                  AmsState::instance().backend_count() > 0);
 }
 
 PreflightResult preflight_for(const FileStartFacts& facts) {

@@ -562,6 +562,15 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                 {"available", true},
                 {"enabled", !(photos_opt_in.is_boolean() && !photos_opt_in.get<bool>())},
                 {"reason", nullptr}};
+            // fit_check_blocks_autostart acts on prints the same way: off until
+            // opted into.
+            const json fit_opt_in =
+                self->mock_db_get("helix-screen", "plugin_features.fit_check_blocks_autostart");
+            response["result"]["features"]["fit_check_blocks_autostart"] = {
+                {"version", 1},
+                {"available", true},
+                {"enabled", fit_opt_in.is_boolean() && fit_opt_in.get<bool>()},
+                {"reason", nullptr}};
             // The rest of what the plugin ships, each on and running.
             for (const char* name : {"file_analysis", "server_edits", "config_edit", "storage"}) {
                 response["result"]["features"][name] = {

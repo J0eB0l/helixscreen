@@ -13,6 +13,7 @@
 #include "ams_types.h"
 #include "filament_database.h"
 #include "filament_mapper.h"
+#include "fit_check.h"
 #include "moonraker_types.h"
 
 #include <cstdint>
@@ -111,6 +112,11 @@ struct PrintStartContext {
     /// The printer-stopping command scan of this file (PrintPreparationManager).
     PrinterStopCheck printer_stop;
 
+    /// What the file does and what the printer allows, for the fit check.
+    /// No machine (the printer's config not read yet) checks nothing.
+    FitFile fit_file;
+    std::optional<FitMachine> fit_machine;
+
     // ---- environment (from AmsState / FilamentSensorManager) ----
     bool ams_available = false;           ///< AmsState::is_available()
     bool ams_manages_filament = false;    ///< any backend present
@@ -155,6 +161,11 @@ struct PrintStartGate {
 /// emergency stop. Pass for every other state, so a caller can hand it any
 /// check and read the verdict.
 [[nodiscard]] CheckResult gate_printer_stopping_command(const PrintStartContext& ctx);
+
+/// The dialog for a file that does not fit the printer: a hard stop for a
+/// blocking finding (out of bounds, over a heater limit, a missing tool), a
+/// warning with Start Anyway for a nozzle or model mismatch alone.
+[[nodiscard]] CheckResult gate_fit_check(const PrintStartContext& ctx);
 
 /// Per-tool material mismatch detail (ported verbatim from
 /// PrintStartController::MaterialMismatchDetail).

@@ -105,6 +105,30 @@ std::optional<FileAnalysisRecord> record_of(const json& r) {
         rec.layer_index = json_util::safe_string(*layers, "index");
     }
     rec.pauses = json_util::safe_int(r, "pauses", 0);
+    for (const auto& t : rec.tools) {
+        rec.fit.tools.insert(t.tool);
+    }
+    if (const json* bounds = json_util::find_member(r, "bounds")) {
+        if (const json* b = json_util::find_member(*bounds, "print")) {
+            rec.fit.print = fit_box_from_json(*b);
+        }
+        if (const json* b = json_util::find_member(*bounds, "travel")) {
+            rec.fit.travel = fit_box_from_json(*b);
+        }
+        rec.fit.max_hotend_temp = number_at(*bounds, "max_hotend_temp");
+        rec.fit.max_bed_temp = number_at(*bounds, "max_bed_temp");
+    }
+    if (const json* header = json_util::find_member(r, "header")) {
+        rec.fit.printer_model = json_util::safe_string(*header, "printer_model");
+        if (const json* n = json_util::find_member(*header, "nozzle_diameters");
+            n && n->is_array()) {
+            for (const auto& d : *n) {
+                if (d.is_number()) {
+                    rec.fit.nozzle_diameters.push_back(json_util::as_double(d));
+                }
+            }
+        }
+    }
     return rec;
 }
 
@@ -142,6 +166,7 @@ FileAnalysisReply parse_file_analysis_reply(const json& result) {
 }
 
 void apply_file_analysis(FileStartFacts& facts, const FileAnalysisRecord& record) {
+    facts.fit_record = record.fit;
     if (record.tools.empty()) {
         return;
     }
@@ -173,6 +198,21 @@ void apply_file_analysis(FileStartFacts& facts, const FileAnalysisRecord& record
     }
 }
 
+void request_file_analysis(IMoonrakerAPI* api, const std::string& filename,
+                           std::function<void(FileAnalysisReply)> on_reply) {
+    api->get_client().send_jsonrpc(
+        kFileAnalysisRpc, json{{"filename", filename}},
+        [on_reply](const json& response) {
+            const json* result = json_util::find_member(response, "result");
+            on_reply(parse_file_analysis_reply(result != nullptr ? *result : json::object()));
+        },
+        [on_reply, filename](const MoonrakerError& error) {
+            spdlog::debug("[FileAnalysis] No analysis for {}: {}", filename, error.message);
+            on_reply(FileAnalysisReply{});
+        },
+        0, /*silent=*/true);
+}
+
 void with_layer_index_sidecar(IMoonrakerAPI* api, PluginFeatureState feature,
                               const std::string& filename, bool wanted, const LifetimeToken& tok,
                               std::function<void(std::string sidecar)> load) {
@@ -186,27 +226,20 @@ void with_layer_index_sidecar(IMoonrakerAPI* api, PluginFeatureState feature,
         load({});
         return;
     }
-    api->get_client().send_jsonrpc(
-        kFileAnalysisRpc, json{{"filename", filename}},
-        [api, answer, filename](const json& response) {
-            const json* result = json_util::find_member(response, "result");
-            const FileAnalysisReply reply =
-                parse_file_analysis_reply(result != nullptr ? *result : json::object());
-            if (reply.status != FileAnalysisReply::Status::Ready || !reply.record ||
-                reply.record->layer_index.empty()) {
+    request_file_analysis(api, filename, [api, answer, filename](FileAnalysisReply reply) {
+        if (reply.status != FileAnalysisReply::Status::Ready || !reply.record ||
+            reply.record->layer_index.empty()) {
+            answer({});
+            return;
+        }
+        api->transfers().download_file(
+            "gcodes", reply.record->layer_index,
+            [answer](const std::string& content) { answer(content); },
+            [answer, filename](const MoonrakerError& error) {
+                spdlog::debug("[FileAnalysis] No layer index for {}: {}", filename, error.message);
                 answer({});
-                return;
-            }
-            api->transfers().download_file(
-                "gcodes", reply.record->layer_index,
-                [answer](const std::string& content) { answer(content); },
-                [answer, filename](const MoonrakerError& error) {
-                    spdlog::debug("[FileAnalysis] No layer index for {}: {}", filename,
-                                  error.message);
-                    answer({});
-                });
-        },
-        [answer](const MoonrakerError&) { answer({}); }, 0, /*silent=*/true);
+            });
+    });
 }
 
 } // namespace helix

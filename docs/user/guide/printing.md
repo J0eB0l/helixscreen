@@ -53,6 +53,8 @@ In OrcaSlicer:
 
 Once connected, OrcaSlicer's **Print** button uploads the sliced file and (optionally) starts it. The file appears in HelixScreen's file browser like any other, and you can also start it from the touchscreen.
 
+> **A print that doesn't fit:** with the HelixPrint plugin installed you can have the printer refuse to start an uploaded file that would move past its travel or heat past its limits. See [Hold slicer prints that do not fit](settings/safety.md#hold-slicer-prints-that-do-not-fit).
+
 > **Older OrcaSlicer (2.3.x):** the native Moonraker option isn't available. Either upgrade to 2.4.0+, use the older **Octo (Klipper)** host type, or just export the G-code and copy it through Mainsail/Fluidd.
 
 > **Filament presets come along for the ride:** if your AMS slots are configured in HelixScreen, OrcaSlicer pre-selects matching filament presets automatically — see the [Filament guide](filament.md#syncing-with-orcaslicer-232-and-later).
@@ -125,6 +127,27 @@ Changing a pre-print option updates the estimate straight away:
 The line appears once the file's details have loaded. It is not shown for files on a USB stick, and small screens (480x320 and below) leave it out to make room for the options.
 
 The UI switches to the Print Status panel automatically.
+
+### Does the file fit this printer?
+
+When you open a file, HelixScreen compares it with your printer's own limits and shows anything it finds in a card above the filament card:
+
+| Finding | What it means | At Start Print |
+|---------|---------------|----------------|
+| Moves past the printer's travel (or a delta's radius) | The file was sliced for a bigger bed, or places a purge line where this printer can't reach | Blocked |
+| Heats the nozzle or bed above the printer's limit | The slicer profile asks for more than the printer's heater allows | Blocked |
+| Uses a tool the printer doesn't have | For example T2 on a two-extruder printer with no filament system | Blocked |
+| Sliced for a different nozzle size | The slicer assumed a 0.6 mm nozzle and the printer is set up for 0.4 mm | Warning, with **Start Anyway** |
+| Sliced for a different printer | The slicer profile names another printer model (not your own preset name) | Shown in the card only; Start Print is not interrupted |
+
+A blocked file shows **File Does Not Fit This Printer**, naming each problem; re-slice it with a profile made for this printer. A nozzle mismatch alone shows **Sliced for a Different Setup**.
+
+How much HelixScreen can see depends on whether the **HelixPrint plugin** is installed:
+
+- **With the plugin**, the printer reads the whole file when it's uploaded, so every move, temperature and tool is checked, including the purge line and wipe tower.
+- **Without it**, the screen reads the start of the file and its slicer details for temperatures, nozzle and printer model, and takes the travel from the 3D or 2D preview once that has loaded. The preview covers the part itself, not the purge line or wipe tower, and a file whose preview hasn't loaded (or a screen that shows thumbnails only) is not checked for travel.
+
+Files you start from the print queue get the same check. To have a slicer's own upload-and-print held as well, see [Hold slicer prints that do not fit](settings/safety.md#hold-slicer-prints-that-do-not-fit).
 
 ### Before the print actually begins
 
