@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import helix_photos
-from helix_print import HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY
+from helix_print import HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, HelixPrint
 from helix_photos import (
     KIND_END,
     KIND_LAYER,
@@ -31,7 +31,7 @@ from helix_photos import (
     history_matches,
     is_jpeg,
     layer_two_done,
-    merge_aux,
+    aux_paths,
     new_record,
     orphan_files,
     photo_path,
@@ -179,19 +179,20 @@ class TestRecords:
         assert not history_matches(record, {"start_time": T0 + 100})
         assert not history_matches(record, None)
 
-    def test_merge_aux_keeps_others_and_replaces_ours(self):
+    def test_history_aux_keeps_others_and_replaces_ours(self):
         record = with_photo(new_record("1", "a", T0), KIND_END, f"{PHOTOS_DIR}/e.jpg", 1, 1, "p")
         existing = [
             {"provider": "spoolman", "name": "spool_ids", "value": [1]},
             {"provider": "helix_print", "name": "modifications", "value": {}},
             {"provider": "helix_print", "name": "photos", "value": ["old"]},
         ]
-        merged = merge_aux(existing, record)
+        merged = HelixPrint.set_history_aux(existing, "photos", aux_paths(record), "Camera photos")
         names = [(e["provider"], e["name"]) for e in merged]
         assert names == [("spoolman", "spool_ids"), ("helix_print", "modifications"),
                          ("helix_print", "photos")]
         assert merged[-1]["value"] == [f"{PHOTOS_DIR}/e.jpg"]
-        assert merge_aux({"not": "a list"}, record)[0]["name"] == "photos"
+        assert HelixPrint.set_history_aux({"not": "a list"}, "photos", [],
+                                          "Camera photos")[0]["name"] == "photos"
 
 
 class TestPrunePlanVersions:

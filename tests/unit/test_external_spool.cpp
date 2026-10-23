@@ -1,6 +1,8 @@
 // Copyright (C) 2025-2026 356C LLC
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_update_queue.h"
+
 #include "../helix_test_fixture.h"
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/mock_bypass.h"
@@ -361,6 +363,7 @@ TEST_CASE("commit_external_spool_edit empty arm erases settings record",
     REQUIRE(fixture.client.spoolman_mock().get_mock_active_spool_id() == 169);
 
     AmsState::instance().commit_external_spool_edit(SlotInfo{});
+    helix::ui::UpdateQueue::instance().drain();
 
     // S5 — the settings subtree is ABSENT, not an empty assigned=true record
     REQUIRE_FALSE(SettingsManager::instance().get_external_spool_info().has_value());

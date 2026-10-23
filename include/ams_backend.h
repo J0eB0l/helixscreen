@@ -362,6 +362,18 @@ class AmsBackend {
         return false;
     }
 
+    /**
+     * @brief Whether linking a spool to the loaded lane makes the firmware set
+     * Moonraker's active spool itself
+     *
+     * Asked only where manages_active_spool() is true: a backend that switches
+     * the spool on a lane LOAD may never see a link edit as one, and then the
+     * app sets it for the user's explicit link of the loaded lane.
+     */
+    [[nodiscard]] virtual bool sets_active_spool_on_link() const {
+        return false;
+    }
+
     /// A Klipper status field that says which slot is feeding now: the
     /// object, the path inside it, and each value (spelled as
     /// helix::feed_signal_key() spells it) with the slot it names.

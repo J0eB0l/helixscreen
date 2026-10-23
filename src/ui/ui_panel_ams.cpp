@@ -38,6 +38,7 @@
 #include "color_utils.h"
 #include "config.h"
 #include "display_numbering.h"
+#include "filament_accounting_controller.h"
 #include "i_moonraker_api.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
@@ -263,11 +264,11 @@ void AmsPanel::init_subjects() {
             self->update_current_slot_highlight(slot);
             self->update_path_canvas_from_backend();
 
-            // Auto-set active Spoolman spool when slot becomes active.
-            // Skip when the backend manages active spool itself (e.g., AFC).
+            // Auto-set active Spoolman spool when slot becomes active, unless
+            // something else switches it (helix_sets_active_spool()).
             if (slot >= 0 && self->api_) {
                 auto* backend = AmsState::instance().get_backend();
-                if (backend && !backend->manages_active_spool()) {
+                if (backend && helix_sets_active_spool(backend)) {
                     SlotInfo slot_info = backend->get_slot_info(slot);
                     if (slot_info.spoolman_id > 0) {
                         spdlog::info(
@@ -555,7 +556,7 @@ void AmsPanel::sync_spoolman_active_spool() {
     }
 
     auto* backend = AmsState::instance().get_backend();
-    if (!backend || backend->manages_active_spool()) {
+    if (!backend || !helix_sets_active_spool(backend)) {
         return;
     }
 

@@ -69,11 +69,12 @@ def _feed(tool, spool, lane=None, gpm=2.98):
             "grams_per_mm": gpm}
 
 
-def _extruder_map(manages=False, macros=False, spools=(11, 12)):
+def _extruder_map(manages=False, macros=False, spools=(11, 12), printer=False):
     """A two-tool toolchanger: each tool its own extruder."""
     return {
         "version": 1,
         "manages_active_spool": manages,
+        "printer_switches_active_spool": printer,
         "macros_set_active_spool": macros,
         "signals": [{
             "object": "toolhead", "path": ["extruder"],
@@ -140,6 +141,7 @@ async def _setup(component, mock_server, *, opt_in=True, spool_map=None, active=
 @pytest.mark.parametrize("case", CASES["ownership"], ids=lambda c: c["name"])
 def test_ownership_table(case):
     assert active_spool_owner(case["spoolman"], case["manages_active_spool"],
+                              case["printer_switches_active_spool"],
                               case["macros_set_active_spool"]) == case["owner"]
 
 
@@ -293,12 +295,15 @@ class TestFilamentAccounting:
             FILAMENT_NAMESPACE, ACTIVE_KEY) is None
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("manages,macros", [(True, False), (False, True)],
-                             ids=["backend switches (AFC, Happy Hare push)", "macros switch"])
+    @pytest.mark.parametrize("manages,macros,printer",
+                             [(True, False, False), (False, True, False), (False, False, True)],
+                             ids=["backend switches (AFC, Happy Hare push)", "macros switch",
+                                  "firmware switches (U1 SpoolLink)"])
     async def test_a_printer_that_switches_itself_sees_no_call(
-            self, helix_print_component, mock_server, manages, macros):
+            self, helix_print_component, mock_server, manages, macros, printer):
         spoolman = await _setup(helix_print_component, mock_server,
-                                spool_map=_extruder_map(manages, macros), active=40)
+                                spool_map=_extruder_map(manages, macros, printer=printer),
+                                active=40)
         await _history(mock_server, _added("000002"))
         await _update(mock_server, {"toolhead": {"extruder": "extruder1",
                                                  "position": [0, 0, 0, 5.0]}})
@@ -427,6 +432,9 @@ class TestFilamentAccounting:
         await db.insert_item(FILAMENT_NAMESPACE, LAST_KEY,
                              {"job_id": "00000A", "filename": "part.gcode", "continues": None,
                               "ledger": ledger.to_state()})
+        # Moonraker restarted after the power cut: what this module had stored.
+        await db.insert_item(FILAMENT_NAMESPACE, helix_filament.LAST_ADDED_KEY, "00000A")
+        await helix_print_component.filament.load()
         helix_print_component.mark_helix_initiated("part.gcode", "plr_resume")
         await _history(mock_server, _added("00000B"))
         await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 1.0]}})
@@ -523,15 +531,12 @@ class TestHistoryAuxiliaryData:
         history.add_job("00002A", filename=".helix_print/x.gcode", start_time=T0,
                         auxiliary_data=[spoolman_entry])
 
-        # The photos feature links its end photo.
-        photo_record = {"photos": [{"path": ".helix_photos/00002A_end.jpg"}]}
-
-        def link_photos(row):
-            row["auxiliary_data"] = helix_photos.merge_aux(row.get("auxiliary_data"),
-                                                           photo_record)
-            return True
-
-        assert await helix_print_component.patch_history_job("00002A", link_photos)
+        # The photos feature links its end photo, through its own path.
+        photo_record = helix_photos.with_photo(
+            helix_photos.new_record("00002A", ".helix_print/x.gcode", T0),
+            helix_photos.KIND_END, ".helix_photos/00002A_end.jpg", 1, T0, "plugin")
+        job_row = {"job_id": "00002A", "start_time": T0}
+        await helix_print_component.photos._link_in_history(job_row, photo_record)
         # This feature records the job's spools when history finishes it.
         await _history(mock_server, _added("00002A", filename=".helix_print/x.gcode"))
         await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 5.0]}})
@@ -542,7 +547,7 @@ class TestHistoryAuxiliaryData:
         info.job_id = "00002A"
         await helix_print_component._patch_history_entry(info, "complete")
         # Each feature again: its own entry is replaced, never stacked.
-        assert await helix_print_component.patch_history_job("00002A", link_photos)
+        await helix_print_component.photos._link_in_history(job_row, photo_record)
 
         aux = history.jobs[history._key("00002A")]["auxiliary_data"]
         names = [(e["provider"], e["name"]) for e in aux]
@@ -560,3 +565,169 @@ class TestHistoryAuxiliaryData:
         await _history(mock_server, _added("00002B"))
         await _history(mock_server, _finished("00002B"))
         assert history.save_job_calls == []
+
+
+class TestReviewFindings:
+    @pytest.mark.asyncio
+    async def test_a_map_written_after_ready_is_subscribed_at_job_start(
+            self, helix_print_component, mock_server):
+        indx = {"version": 1, "manages_active_spool": False,
+                "printer_switches_active_spool": False, "macros_set_active_spool": False,
+                "signals": [{"object": "save_variables", "path": ["variables", "active_tool"],
+                             "values": {"0": _feed(0, 21), "1": _feed(1, 22)}}]}
+        spoolman = await _setup(helix_print_component, mock_server, spool_map=None, active=21)
+        apis = mock_server.components["klippy_apis"]
+        # The screen writes the map once it sees the plugin, after Klippy is ready.
+        await helix_print_component.database.insert_item(HELIX_SCREEN_NAMESPACE, SPOOL_MAP_KEY,
+                                                         indx)
+        apis.subscribe_objects.return_value = {"save_variables": {"variables": {"active_tool": 0}}}
+        await _history(mock_server, _added("000020"))
+        assert any(c.args[0].get("save_variables") == ["variables"]
+                   for c in apis.subscribe_objects.call_args_list)
+        await _update(mock_server, {"save_variables": {"variables": {"active_tool": 1}}})
+        assert spoolman.calls == [22]
+
+    @pytest.mark.asyncio
+    async def test_a_relink_mid_print_counts_at_the_next_change(
+            self, helix_print_component, mock_server):
+        spoolman = await _setup(helix_print_component, mock_server, spool_map=_extruder_map(),
+                                active=11)
+        await _history(mock_server, _added("000021"))
+        db = helix_print_component.database
+        # T1 runs out; the user links a new spool to it mid-print.
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, SPOOL_MAP_KEY,
+                             _extruder_map(spools=(11, 45)))
+        await _update(mock_server, {"toolhead": {"extruder": "extruder1"}})
+        assert spoolman.calls == [45]
+        await _update(mock_server, {"toolhead": {"extruder": "extruder"}})
+        # Then unlinks it: the next change to T1 clears instead of setting 45.
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, SPOOL_MAP_KEY,
+                             _extruder_map(spools=(11, None)))
+        await _update(mock_server, {"toolhead": {"extruder": "extruder1"}})
+        assert spoolman.calls == [45, 11, None]
+
+    @pytest.mark.asyncio
+    async def test_a_quick_change_and_back_ends_on_the_feeding_spool(
+            self, helix_print_component, mock_server):
+        spoolman = await _setup(helix_print_component, mock_server, spool_map=_extruder_map(),
+                                active=11)
+        await _history(mock_server, _added("000022"))
+        gate = asyncio.Event()
+        real_enabled = helix_print_component.feature_enabled
+
+        async def slow_enabled(name):
+            await gate.wait()
+            return await real_enabled(name)
+
+        helix_print_component.feature_enabled = slow_enabled
+        to_t1 = asyncio.ensure_future(
+            _update(mock_server, {"toolhead": {"extruder": "extruder1"}}))
+        await asyncio.sleep(0)
+        back_to_t0 = asyncio.ensure_future(
+            _update(mock_server, {"toolhead": {"extruder": "extruder"}}))
+        await asyncio.sleep(0)
+        gate.set()
+        await asyncio.gather(to_t1, back_to_t0)
+        assert spoolman.spool_id == 11
+
+    @pytest.mark.asyncio
+    async def test_a_resume_does_not_continue_an_unrelated_job(
+            self, helix_print_component, mock_server):
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        db = helix_print_component.database
+        ledger = UsageLedger()
+        ledger.entries.append([0, 0, 11, 15.0, None])
+        await db.insert_item(FILAMENT_NAMESPACE, LAST_KEY,
+                             {"job_id": "000009", "filename": "other.gcode", "continues": None,
+                              "ledger": ledger.to_state()})
+        helix_print_component.mark_helix_initiated("part.gcode", "plr_resume")
+        await _history(mock_server, _added("000023"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 1.0]}})
+        await _history(mock_server, _finished("000023"))
+        record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000023")
+        assert record["continues"] is None
+        assert [s["mm"] for s in record["spools"]] == [1.0]
+
+    @pytest.mark.asyncio
+    async def test_a_reused_job_id_does_not_answer_with_the_old_record(
+            self, helix_print_component, mock_server):
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        handler = mock_server.endpoints["/server/helix/filament_usage"]
+        await _history(mock_server, _added("000024"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 2.0]}})
+        await _history(mock_server, _finished("000024"))
+        same = await handler(MockWebRequest({"job_id": "000024", "start_time": T0}))
+        assert same["record"]["spools"][0]["mm"] == 2.0
+        reused = await handler(MockWebRequest({"job_id": "000024", "start_time": T0 + 5000}))
+        assert reused["record"] is None
+
+
+class TestQidiResume:
+    @pytest.mark.asyncio
+    async def test_a_qidi_resume_continues_the_interrupted_record(
+            self, helix_print_component, mock_server):
+        """QIDI's resume prints its .cache copy under an absolute path, with no
+        original name on the marker; the interrupted job is the one history
+        added before it."""
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        await _history(mock_server, _added("000030", filename="benchy.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 12.0]}})
+        cache_name = "/home/mks/printer_data/gcodes/.cache/benchy.gcode"
+        helix_print_component.mark_helix_initiated(cache_name, "plr_resume")
+        await _ready(mock_server, _status(e=0.0, filename=cache_name))
+        await _history(mock_server, _added("000031", filename=cache_name,
+                                           start_time=T0 + 9000))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 3.0]}})
+        await _history(mock_server, _finished("000031", filename=cache_name,
+                                              start_time=T0 + 9000))
+        record = await helix_print_component.database.get_item(
+            FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000031")
+        assert record["continues"] == "000030"
+        assert [s["mm"] for s in record["spools"]] == [15.0]
+
+    @pytest.mark.asyncio
+    async def test_a_resume_after_an_uncounted_job_starts_fresh(
+            self, helix_print_component, mock_server):
+        """The interrupted job ran with the feature off: the last counted job
+        is older and unrelated, so the resume starts its own record."""
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        db = helix_print_component.database
+        await _history(mock_server, _added("000032", filename="old.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 7.0]}})
+        await _history(mock_server, _finished("000032", filename="old.gcode"))
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY,
+                             {FILAMENT_FEATURE: False})
+        await _history(mock_server, _added("000033", filename="benchy.gcode"))
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY,
+                             {FILAMENT_FEATURE: True})
+        helix_print_component.mark_helix_initiated("benchy.gcode", "plr_resume")
+        await _history(mock_server, _added("000034", filename="benchy.gcode",
+                                           start_time=T0 + 9000))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 8.0]}})
+        await _history(mock_server, _finished("000034", filename="benchy.gcode",
+                                              start_time=T0 + 9000))
+        record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000034")
+        assert record["continues"] is None
+        assert [s["mm"] for s in record["spools"]] == [1.0]
+
+    @pytest.mark.asyncio
+    async def test_a_resume_of_a_job_this_module_never_saw_starts_fresh(
+            self, helix_print_component, mock_server):
+        """The interrupted job's start was missed (Moonraker restarting, plugin
+        off): the last job seen is an older one, but PLR names the job it
+        resumed, so the older record is not continued."""
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        db = helix_print_component.database
+        await _history(mock_server, _added("000040", filename="benchy.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 9.0]}})
+        # Job 000041 printed while this module was not running; PLR snapshotted it.
+        helix_print_component.plr.job = {"job_id": "000041", "filename": "benchy.gcode"}
+        helix_print_component.mark_helix_initiated("benchy.gcode", "plr_resume")
+        await _history(mock_server, _added("000042", filename="benchy.gcode",
+                                           start_time=T0 + 9000))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 12.0]}})
+        await _history(mock_server, _finished("000042", filename="benchy.gcode",
+                                              start_time=T0 + 9000))
+        record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000042")
+        assert record["continues"] is None
+        assert [s["mm"] for s in record["spools"]] == [3.0]

@@ -487,6 +487,8 @@ void PrinterDiscovery::parse_objects(const nlohmann::json& objects) {
             has_indx_ = true;
         } else if (name == "save_variables") {
             has_save_variables_ = true;
+        } else if (name == "spoollink") {
+            has_spoollink_ = true;
         }
         // Tool object discovery
         else if (name.rfind("tool ", 0) == 0) {
@@ -876,6 +878,9 @@ void PrinterDiscovery::parse_config_keys(const nlohmann::json& config) {
         }
     }
 
+    if (config.contains("spoollink")) {
+        has_spoollink_ = true;
+    }
     // [indx] on Kalico may have no get_status(), so the configfile section is
     // the only sign of it, and it arrives after parse_objects() registered the
     // filament systems.
@@ -1084,6 +1089,7 @@ void PrinterDiscovery::clear() {
     medusahc_object_name_.clear();
     has_indx_ = false;
     has_save_variables_ = false;
+    has_spoollink_ = false;
     has_chamber_heater_ = false;
     has_chamber_sensor_ = false;
     chamber_sensor_name_.clear();

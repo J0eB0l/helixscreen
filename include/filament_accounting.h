@@ -13,6 +13,7 @@
 // tests/fixtures/filament_accounting/cases.json; the wiring lives in
 // FilamentAccountingController.
 
+#include "display_numbering.h"
 #include "helix_plugin_features.h"
 
 #include <functional>
@@ -24,6 +25,8 @@
 #include "hv/json.hpp"
 
 namespace helix {
+
+class PrinterDiscovery;
 
 /// The plugin feature and the contract this app reads.
 inline constexpr const char* kFilamentAccountingFeature = "filament_accounting";
@@ -40,15 +43,34 @@ inline constexpr const char* kFilamentUsageRpc = "server.helix.filament_usage";
 enum class ActiveSpoolOwner {
     NoSpoolman, ///< no Spoolman: there is no active spool to switch
     Backend,    ///< the filament system does it (AFC, Happy Hare with spoolman on)
+    Printer,    ///< the printer's firmware does it at every extruder change
     Macros,     ///< the printer's T<n> macros call SET_ACTIVE_SPOOL
     Helix,      ///< nobody: the plugin, or this app's fallback, does it
 };
 
 /// The one ownership rule. @p manages_active_spool is what the filament
 /// backends report (AmsBackend::manages_active_spool()), @p
-/// macros_set_active_spool whether a T<n> macro switches it.
+/// printer_switches_active_spool whether the firmware switches it itself
+/// (printer_switches_active_spool()), @p macros_set_active_spool whether a
+/// T<n> macro switches it.
 ActiveSpoolOwner active_spool_owner(bool spoolman, bool manages_active_spool,
+                                    bool printer_switches_active_spool,
                                     bool macros_set_active_spool);
+
+/// Whether the printer's firmware switches Moonraker's active spool at every
+/// extruder change by itself: the Snapmaker U1 extended firmware's SpoolLink
+/// (a `spoollink` Klipper object or `[spoollink]` section, installed only
+/// with Spoolman configured).
+bool printer_switches_active_spool(const PrinterDiscovery& hw);
+
+/// Whether this app sets the active spool for the user's explicit link of the
+/// loaded lane (or the external spool). The automatic switches stand down for
+/// any owner but Helix; an edit is different, because a switcher that acts on
+/// a load or a tool change never sees it. So: Helix sets; Backend sets unless
+/// the backend sets it itself on a link (@p backend_sets_on_link); Macros
+/// sets, since the macros run only at the next tool change; Printer leaves it
+/// to firmware that keeps its own assignment (SpoolLink); NoSpoolman has none.
+bool app_sets_spool_on_edit(ActiveSpoolOwner owner, bool backend_sets_on_link);
 
 /// The record spelling of an owner, as the case table names it.
 const char* active_spool_owner_name(ActiveSpoolOwner owner);
@@ -74,8 +96,10 @@ struct FeedSignal {
 };
 
 /// The database record: {"version", "manages_active_spool",
-/// "macros_set_active_spool", "signals": [{"object", "path", "values"}]}.
-nlohmann::json filament_spools_record(bool manages_active_spool, bool macros_set_active_spool,
+/// "printer_switches_active_spool", "macros_set_active_spool",
+/// "signals": [{"object", "path", "values"}]}.
+nlohmann::json filament_spools_record(bool manages_active_spool, bool printer_switches_active_spool,
+                                      bool macros_set_active_spool,
                                       const std::vector<FeedSignal>& signals);
 
 /// The toolhead.extruder signal of a printer whose tools each have their own
@@ -144,10 +168,13 @@ bool filament_usage_available(PluginFeatureState accounting);
 std::vector<SpoolUsage> parse_filament_usage(const nlohmann::json& reply);
 
 /// One line per spool for the print history: "<who fed it> · <spool> ·
-/// <amount>", newline-joined. @p spool_name names a linked spool (empty when
-/// it cannot); the amount is grams where the record has them, else length.
+/// <amount>", newline-joined. Who fed it is the tool's G-code label, else the
+/// lane in @p noun, the printer's word for one. @p spool_name names a linked
+/// spool (empty when it cannot); the amount is grams where the record has
+/// them, else length.
 std::string describe_spool_usage(const std::vector<SpoolUsage>& usage,
-                                 const std::function<std::string(int)>& spool_name);
+                                 const std::function<std::string(int)>& spool_name,
+                                 ui::LaneNoun noun);
 
 template <typename Macros, typename Sets>
 bool tool_macros_set_active_spool(const Macros& macros, Sets sets) {

@@ -73,7 +73,7 @@ With Spoolman connected, HelixScreen doesn't decrement weight itself — Spoolma
 
 - On a printer with several tools or lanes, turn on **Switch spools at each tool change** (same page) so each tool's filament is charged to that tool's spool. See [Settings → Devices → Spoolman](settings/devices.md#switch-spools-at-each-tool-change).
 
-> **Note:** Because Spoolman owns consumption for any spool you've assigned from it, HelixScreen's own estimator stands down for those spools — you won't get two systems fighting over the same number. HelixScreen only writes to Spoolman when *you* make an explicit change (assigning a spool, editing weight, or creating a spool).
+> **Note:** Because Spoolman owns consumption for any spool you've assigned from it, HelixScreen's own estimator stands down for those spools — you won't get two systems fighting over the same number. HelixScreen only writes to Spoolman when *you* make an explicit change (assigning a spool, editing weight, or creating a spool), plus switching the active spool when a lane loads or, with **Switch spools at each tool change** on, when the tool changes.
 
 > **Color from the printer's own screen (AD5X):** on a lane with a Spoolman spool
 > linked, the spool's own color wins over anything the machine itself reports - a change

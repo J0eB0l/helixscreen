@@ -301,15 +301,20 @@ class JobBinding:
     """A marker bound to one history job."""
 
     def __init__(
-        self, kind: str, filenames: List[str], start_time: Any, bound_at: float
+        self, kind: str, filenames: List[str], start_time: Any, bound_at: float,
+        resumes: Optional[str] = None,
     ) -> None:
         self.kind = kind
         self.filenames = filenames
         self.start_time = start_time
         self.bound_at = bound_at
+        # For a resume: the history job id of the job it continues
+        self.resumes = resumes
 
     def record(self) -> Dict[str, Any]:
+        extra = {"resumes": self.resumes} if self.resumes is not None else {}
         return {
+            **extra,
             "kind": self.kind,
             "filenames": list(self.filenames),
             "start_time": self.start_time,
@@ -343,18 +348,20 @@ class HelixJobMarkers:
         # its private kinds, which helix_initiated() never answers.
         self._kinds = kinds
         # (start filename, kind, marked at, history filename or None)
-        self._pending: List[Tuple[str, str, float, Optional[str]]] = []
+        # (start filename, kind, marked at, history filename, resumed job id)
+        self._pending: List[Tuple[str, str, float, Optional[str], Optional[str]]] = []
         self._bound: Dict[str, JobBinding] = {}
 
     def _expire(self) -> None:
         cutoff = self._clock() - self._ttl
         self._pending = [p for p in self._pending if p[2] >= cutoff]
 
-    def mark(self, filename: str, kind: str, history_name: Optional[str] = None) -> None:
+    def mark(self, filename: str, kind: str, history_name: Optional[str] = None,
+             resumes: Optional[str] = None) -> None:
         if kind not in self._kinds:
             raise ValueError(f"unknown helix job kind {kind!r}")
         self._expire()
-        self._pending.append((filename, kind, self._clock(), history_name))
+        self._pending.append((filename, kind, self._clock(), history_name, resumes))
 
     def unmark(self, filename: str) -> bool:
         """Withdraw the newest pending marker for filename, for a start that
@@ -369,13 +376,13 @@ class HelixJobMarkers:
         """Bind the oldest live marker for filename to job_id; the binding, or
         None when no marker matches (a job some other client started)."""
         self._expire()
-        for i, (name, kind, _t, history_name) in enumerate(self._pending):
+        for i, (name, kind, _t, history_name, resumes) in enumerate(self._pending):
             if name == filename:
                 del self._pending[i]
                 names = [name]
                 if history_name and history_name != name:
                     names.append(history_name)
-                binding = JobBinding(kind, names, start_time, self._wall_clock())
+                binding = JobBinding(kind, names, start_time, self._wall_clock(), resumes)
                 self._bound[_job_key(job_id)] = binding
                 return binding
         return None
@@ -405,6 +412,11 @@ class HelixJobMarkers:
             return None
         return bound.kind
 
+    def resumed_by(self, job_id: Any) -> Optional[str]:
+        """The job id a bound resume continues, or None."""
+        bound = self._bound.get(_job_key(job_id))
+        return bound.resumes if bound is not None else None
+
     def pending_count(self) -> int:
         self._expire()
         return len(self._pending)
@@ -430,7 +442,9 @@ def _binding_from_record(record: Any) -> Optional[JobBinding]:
         return None
     if isinstance(bound_at, bool) or not isinstance(bound_at, (int, float)):
         return None
-    return JobBinding(kind, filenames, start_time, float(bound_at))
+    resumes = record.get("resumes")
+    return JobBinding(kind, filenames, start_time, float(bound_at),
+                      resumes if isinstance(resumes, str) else None)
 
 
 class PrintInfo:
@@ -692,7 +706,14 @@ class HelixPrint:
         HELIX_MARKER_TTL_S for history to add the job. A start that fails
         calls unmark_helix_initiated().
         """
-        self.job_markers.mark(filename, kind, history_name)
+        resumes = None
+        if kind == "plr_resume":
+            # A resume starts from PLR's snapshot of the interrupted job, which
+            # is still PLR's job until history adds the resumed one.
+            plr_job = getattr(self.plr, "job", None)
+            if isinstance(plr_job, dict) and plr_job.get("job_id"):
+                resumes = str(plr_job["job_id"])
+        self.job_markers.mark(filename, kind, history_name, resumes)
 
     def unmark_helix_initiated(self, filename: str) -> bool:
         """Withdraw the marker of a start that failed."""
@@ -707,6 +728,11 @@ class HelixPrint:
         history reuses ids, and a binding for a reused id names another file
         or start time."""
         return self.job_markers.kind_of(job_id, filename, start_time)
+
+    def helix_resumed_job(self, job_id: Any) -> Optional[str]:
+        """For a helix-initiated resume, the history job id it continues (PLR's
+        interrupted job); None for any other job or when PLR named none."""
+        return self.job_markers.resumed_by(job_id)
 
     async def _drop_job_bindings(self, keys: List[str], must_exist: bool) -> None:
         """Delete bindings from the database. A failure where the record must

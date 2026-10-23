@@ -57,22 +57,6 @@
 
 namespace helix::ui {
 
-// Fire-and-forget: notify Moonraker of the active spool so other clients
-// (Mainsail, Fluidd) see the change and filament tracking works.
-// Pass 0 to clear the active spool (unlink).
-static void sync_active_spool(IMoonrakerAPI* api, int spool_id) {
-    spdlog::info("[AmsEditOverlay] Syncing active spool to {} on server", spool_id);
-    api->spoolman().set_active_spool(
-        spool_id,
-        [spool_id]() {
-            spdlog::debug("[AmsEditOverlay] Active spool synced to {} on server", spool_id);
-        },
-        [spool_id](const MoonrakerError& err) {
-            spdlog::warn("[AmsEditOverlay] Failed to sync active spool {}: {}", spool_id,
-                         err.message);
-        });
-}
-
 namespace {
 
 /// Move every element of @p recents that appears in @p base (case-insensitive)
@@ -2409,11 +2393,6 @@ void AmsEditOverlay::run_spoolman_save(const SaveCapture& cap,
                         SpoolmanManager::apply_fetched_spool(*owner, 0, cap.slot_index, repointed);
 #endif
                     }
-                }
-                // The commit owns the active-spool sync EXCEPT for a newly
-                // created spool, whose id only exists here.
-                if (result.created_new_spool && result.new_spool_id != 0 && api_) {
-                    sync_active_spool(api_, result.new_spool_id);
                 }
                 if (result.created_new_spool) {
                     ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Added to Spoolman"),

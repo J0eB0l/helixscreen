@@ -5,12 +5,13 @@
 // per-spool record the print history shows. The ownership, key and switch
 // rules come from the case table the plugin's suite reads too.
 
+#include "../test_helpers/filament_accounting_cases.h"
 #include "filament_accounting.h"
 #include "helix_plugin_features.h"
+#include "printer_discovery.h"
 #include "printer_plugin_status_state.h"
 
 #include <algorithm>
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -23,13 +24,7 @@ using json = nlohmann::json;
 namespace {
 
 json cases() {
-    std::string src = __FILE__;
-    const auto pos = src.rfind("/tests/unit/");
-    const std::string root = pos != std::string::npos ? src.substr(0, pos) : ".";
-    std::ifstream f(root + "/tests/fixtures/filament_accounting/cases.json");
-    REQUIRE(f.good());
-    std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    json parsed = json::parse(text, nullptr, false);
+    json parsed = helix::test::filament_accounting_cases();
     REQUIRE_FALSE(parsed.is_discarded());
     return parsed;
 }
@@ -59,6 +54,7 @@ TEST_CASE("filament accounting: ownership follows the shared case table", "[plug
         INFO(row["name"].get<std::string>());
         const ActiveSpoolOwner owner =
             active_spool_owner(row["spoolman"].get<bool>(), row["manages_active_spool"].get<bool>(),
+                               row["printer_switches_active_spool"].get<bool>(),
                                row["macros_set_active_spool"].get<bool>());
         CHECK(std::string(active_spool_owner_name(owner)) == row["owner"].get<std::string>());
     }
@@ -169,9 +165,10 @@ TEST_CASE("filament accounting: the spool map record", "[plugin_filament]") {
     FeedSignal sig{"save_variables",
                    {"variables", "active_tool"},
                    {{"0", feed(0, 0, 21, 0.003f)}, {"1", feed(1, 1, 0)}}};
-    const json record = filament_spools_record(false, true, {sig});
+    const json record = filament_spools_record(false, true, true, {sig});
     CHECK(record["version"] == kFilamentSpoolsVersion);
     CHECK(record["manages_active_spool"] == false);
+    CHECK(record["printer_switches_active_spool"] == true);
     CHECK(record["macros_set_active_spool"] == true);
     REQUIRE(record["signals"].size() == 1);
     const json& s = record["signals"][0];
@@ -187,6 +184,27 @@ TEST_CASE("filament accounting: the spool map record", "[plugin_filament]") {
     CHECK(writes_filament_spools_record(FallbackSenderRole::Sender, {sig}));
     CHECK_FALSE(writes_filament_spools_record(FallbackSenderRole::Standby, {sig}));
     CHECK_FALSE(writes_filament_spools_record(FallbackSenderRole::Sender, {}));
+}
+
+TEST_CASE("filament accounting: SpoolLink firmware switches the spool itself",
+          "[plugin_filament]") {
+    PrinterDiscovery stock;
+    stock.parse_objects(json::array({"toolhead", "extruder", "extruder1", "print_stats"}));
+    CHECK_FALSE(printer_switches_active_spool(stock));
+
+    PrinterDiscovery listed;
+    listed.parse_objects(json::array({"toolhead", "extruder", "spoollink", "print_stats"}));
+    CHECK(printer_switches_active_spool(listed));
+
+    INFO("a [spoollink] section the object list does not show still counts");
+    PrinterDiscovery configured;
+    configured.parse_objects(json::array({"toolhead", "extruder"}));
+    configured.parse_config_keys(json{{"spoollink", json::object()}});
+    CHECK(printer_switches_active_spool(configured));
+
+    INFO("a later object list without it forgets it");
+    listed.parse_objects(json::array({"toolhead", "extruder"}));
+    CHECK_FALSE(printer_switches_active_spool(listed));
 }
 
 TEST_CASE("filament accounting: tool-select macros", "[plugin_filament]") {
@@ -253,11 +271,16 @@ TEST_CASE("filament accounting: history lines name who fed what", "[plugin_filam
     usage[1].mm = 1530.0;
     usage[2].lane = 3;
     usage[2].mm = 200.0;
-    const std::string text = describe_spool_usage(
-        usage, [](int id) { return id == 7 ? std::string("Polymaker PLA") : std::string(); });
+    const auto names = [](int id) {
+        return id == 7 ? std::string("Polymaker PLA") : std::string();
+    };
+    const std::string text = describe_spool_usage(usage, names, ui::LaneNoun::Slot);
     CHECK(text ==
           "T0 · Polymaker PLA · 12 g\nT1 · Spool #9 · 1.5m\nSlot 4 · No spool linked · 200mm");
-    CHECK(describe_spool_usage({}, nullptr).empty());
+    INFO("a lane is named in the printer's own word for one");
+    CHECK(describe_spool_usage({usage[2]}, names, ui::LaneNoun::Gate) ==
+          "Gate 4 · No spool linked · 200mm");
+    CHECK(describe_spool_usage({}, nullptr, ui::LaneNoun::Slot).empty());
 }
 
 TEST_CASE("filament accounting: its switch lives on the Spoolman page", "[plugin_filament]") {
@@ -279,4 +302,18 @@ TEST_CASE("filament accounting: its switch lives on the Spoolman page", "[plugin
 
     INFO("acts on spools: off until opted into");
     CHECK_FALSE(plugin_feature_opted_in(json::object(), kFilamentAccountingFeature, true));
+}
+
+TEST_CASE("filament accounting: who sets the spool for an explicit link of the loaded lane",
+          "[plugin_filament]") {
+    CHECK(app_sets_spool_on_edit(ActiveSpoolOwner::Helix, false));
+    INFO("a backend that switches only on a load never sees the edit");
+    CHECK(app_sets_spool_on_edit(ActiveSpoolOwner::Backend, false));
+    INFO("one that takes the link itself (AFC) is left to it");
+    CHECK_FALSE(app_sets_spool_on_edit(ActiveSpoolOwner::Backend, true));
+    INFO("T<n> macros run only at the next tool change");
+    CHECK(app_sets_spool_on_edit(ActiveSpoolOwner::Macros, false));
+    INFO("firmware keeping its own assignment (SpoolLink) is left to it");
+    CHECK_FALSE(app_sets_spool_on_edit(ActiveSpoolOwner::Printer, false));
+    CHECK_FALSE(app_sets_spool_on_edit(ActiveSpoolOwner::NoSpoolman, false));
 }

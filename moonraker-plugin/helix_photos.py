@@ -62,7 +62,7 @@ ORPHAN_GRACE_S = 3600.0
 
 FETCH_TIMEOUT_S = 10.0
 
-# Our entry in a history job's auxiliary_data
+# Our entry in a history job's auxiliary_data (HelixPrint.set_history_aux)
 AUX_PROVIDER = "helix_print"
 AUX_NAME = "photos"
 
@@ -276,19 +276,9 @@ def _inside_photos_dir(path: str) -> bool:
     return bool(name) and "/" not in name and name not in (".", "..")
 
 
-def merge_aux(existing: Any, record: Dict[str, Any]) -> List[Any]:
-    """A job's auxiliary_data with our photos entry set: every other entry
-    kept, an earlier photos entry of ours replaced. A value that is not a
-    list is dropped rather than walked."""
-    kept = without_aux(existing)
-    kept.append({
-        "provider": AUX_PROVIDER,
-        "name": AUX_NAME,
-        "value": [p["path"] for p in record.get("photos", []) if isinstance(p, dict)],
-        "description": "Camera photos",
-        "units": None,
-    })
-    return kept
+def aux_paths(record: Dict[str, Any]) -> List[str]:
+    """The value of our photos entry in a job's auxiliary_data: the paths."""
+    return [p["path"] for p in record.get("photos", []) if isinstance(p, dict)]
 
 
 def without_aux(existing: Any) -> List[Any]:
@@ -679,7 +669,8 @@ class HelixPhotos:
         def update(row: Dict[str, Any]) -> bool:
             if not history_matches(record, row) or row.get("status") == "in_progress":
                 return False
-            row["auxiliary_data"] = merge_aux(row.get("auxiliary_data"), record)
+            row["auxiliary_data"] = self.helix.set_history_aux(
+                row.get("auxiliary_data"), AUX_NAME, aux_paths(record), "Camera photos")
             return True
 
         await patch(job["job_id"], update)

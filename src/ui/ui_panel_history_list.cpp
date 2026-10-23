@@ -16,6 +16,8 @@
 #include "ui_update_queue.h"
 #include "ui_utils.h"
 
+#include "ams_backend.h"
+#include "ams_state.h"
 #include "app_globals.h"
 #include "display_settings_manager.h"
 #include "filament_accounting.h"
@@ -1137,30 +1139,40 @@ void HistoryListPanel::fetch_spool_usage(const PrintHistoryJob& job) {
     if (!filament_usage_available(accounting) || client == nullptr || job.job_id.empty()) {
         return;
     }
+    // History reuses job ids: the start time keeps a deleted job's record out.
+    nlohmann::json params{{"job_id", job.job_id}};
+    if (job.start_time > 0) {
+        params["start_time"] = job.start_time;
+    }
     client->send_jsonrpc(
-        kFilamentUsageRpc, nlohmann::json{{"job_id", job.job_id}},
-        lifetime_.bg_cb("HistoryListPanel::spool_usage",
-                        [this, request](const nlohmann::json& response) {
-                            if (request != detail_spools_request_) {
-                                return;
-                            }
-                            const nlohmann::json* result =
-                                json_util::find_member(response, "result");
-                            const std::vector<SpoolUsage> usage =
-                                result ? parse_filament_usage(*result) : std::vector<SpoolUsage>{};
-                            if (usage.empty()) {
-                                return;
-                            }
-                            const std::string text = describe_spool_usage(usage, [](int spool_id) {
-                                const auto identity = SpoolmanManager::find_identity(spool_id);
-                                return identity ? compose_filament_label(identity->vendor,
-                                                                         identity->filament_name,
-                                                                         identity->material)
-                                                : std::string();
-                            });
-                            lv_subject_copy_string(&detail_spools_, text.c_str());
-                            lv_subject_set_int(&detail_has_spools_, 1);
-                        }),
+        kFilamentUsageRpc, params,
+        lifetime_.bg_cb(
+            "HistoryListPanel::spool_usage",
+            [this, request](const nlohmann::json& response) {
+                if (request != detail_spools_request_) {
+                    return;
+                }
+                const nlohmann::json* result = json_util::find_member(response, "result");
+                const std::vector<SpoolUsage> usage =
+                    result ? parse_filament_usage(*result) : std::vector<SpoolUsage>{};
+                if (usage.empty()) {
+                    return;
+                }
+                const AmsBackend* backend = AmsState::instance().get_backend(0);
+                const ui::LaneNoun noun = backend ? backend->lane_noun() : ui::LaneNoun::Slot;
+                const std::string text = describe_spool_usage(
+                    usage,
+                    [](int spool_id) {
+                        const auto identity = SpoolmanManager::find_identity(spool_id);
+                        return identity ? compose_filament_label(identity->vendor,
+                                                                 identity->filament_name,
+                                                                 identity->material)
+                                        : std::string();
+                    },
+                    noun);
+                lv_subject_copy_string(&detail_spools_, text.c_str());
+                lv_subject_set_int(&detail_has_spools_, 1);
+            }),
         [](const MoonrakerError& err) {
             spdlog::debug("[HistoryListPanel] No spool record: {}", err.message);
         },

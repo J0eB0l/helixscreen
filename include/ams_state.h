@@ -2325,6 +2325,14 @@ class AmsState {
     /// assigned=true records).
     void apply_external_spool_store(const SlotInfo& info);
 
+    /// Clear Moonraker's active spool only while it is @p spool_id: an unlink
+    /// takes back its own spool, never one something else made active since.
+    void clear_active_spool_if(int spool_id);
+
+    /// Whether the external spool is what feeds the toolhead: no filament
+    /// system, the bypass engaged, or no lane loaded.
+    bool external_spool_feeds() const;
+
     /// S6 — drop the replaced link's identity-cache entry when the external
     /// spool's Spoolman link changes (mirrors commit_slot_edit's original-vs-
     /// edited guard).
