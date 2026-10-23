@@ -7,6 +7,7 @@
 #include "helix_thread.h"
 #include "log_redact.h"
 #include "spdlog/spdlog.h"
+#include "system/child_process.h"
 #include "system/run_capture.h"
 
 #if !defined(__APPLE__) && !defined(__ANDROID__)
@@ -734,45 +735,28 @@ WifiBackendNetworkManager::try_nmcli_connect(const std::string& ssid, const std:
 
     close(stderr_pipe[1]);
 
-    constexpr int kConnectTimeoutSeconds = 30;
-    constexpr int kPollIntervalMs = 100;
-    auto start_time = std::chrono::steady_clock::now();
+    constexpr auto kConnectTimeout = std::chrono::seconds(30);
+    constexpr auto kPollInterval = std::chrono::milliseconds(100);
+    constexpr auto kTermGrace = std::chrono::milliseconds(500);
 
-    int status = 0;
-    bool child_done = false;
+    const helix::ChildWaitResult wait = helix::terminate_and_reap(
+        pid, std::chrono::steady_clock::now() + kConnectTimeout, kTermGrace, kPollInterval,
+        [this] { return connect_active_.load(); });
 
-    while (!child_done) {
-        if (!connect_active_) {
-            kill(pid, SIGTERM);
-            waitpid(pid, &status, 0);
-            close(stderr_pipe[0]);
-            spdlog::debug("[WifiBackend] NM: Connect cancelled");
-            return result; // caller will see !connect_active_ and bail
-        }
-
-        pid_t wait_result = waitpid(pid, &status, WNOHANG);
-        if (wait_result == pid) {
-            child_done = true;
-        } else if (wait_result < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            spdlog::error("[WifiBackend] NM: waitpid error: {}", strerror(errno));
-            close(stderr_pipe[0]);
-            return result;
-        } else {
-            auto elapsed = std::chrono::steady_clock::now() - start_time;
-            if (elapsed > std::chrono::seconds(kConnectTimeoutSeconds)) {
-                result.timed_out = true;
-                kill(pid, SIGTERM);
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                kill(pid, SIGKILL);
-                waitpid(pid, &status, 0);
-                child_done = true;
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
-            }
-        }
+    switch (wait.outcome) {
+    case helix::ChildWaitOutcome::Cancelled:
+        close(stderr_pipe[0]);
+        spdlog::debug("[WifiBackend] NM: Connect cancelled");
+        return result; // caller will see !connect_active_ and bail
+    case helix::ChildWaitOutcome::WaitFailed:
+        spdlog::error("[WifiBackend] NM: waitpid error: {}", strerror(wait.wait_errno));
+        close(stderr_pipe[0]);
+        return result;
+    case helix::ChildWaitOutcome::TimedOut:
+        result.timed_out = true;
+        break;
+    case helix::ChildWaitOutcome::Exited:
+        break;
     }
 
     char buf[512];
@@ -783,7 +767,7 @@ WifiBackendNetworkManager::try_nmcli_connect(const std::string& ssid, const std:
     }
     close(stderr_pipe[0]);
 
-    result.exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    result.exit_code = wait.exit_code();
     return result;
 }
 

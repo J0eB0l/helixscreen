@@ -44,6 +44,7 @@
 #include "replace_method_callback.h"
 #include "runtime_config.h"
 #include "spdlog/spdlog.h"
+#include "system/child_process.h"
 #include "system/config_trust.h"
 #include "system/helix_paths.h"
 #include "system/log_path_probe.h"
@@ -2350,9 +2351,8 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
                 close(log_fd);
 
             constexpr int timeout_seconds = 600;
-            int status = 0;
-            bool exited = false;
-            bool wait_failed = false;
+            constexpr auto kPollInterval = std::chrono::milliseconds(200);
+            constexpr auto kTermGrace = std::chrono::milliseconds(500);
 
             static constexpr const char* install_message_keys[] = {
                 "Still working...", "Almost there...", "Just a bit more...",
@@ -2361,51 +2361,53 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             constexpr int num_messages =
                 sizeof(install_message_keys) / sizeof(install_message_keys[0]);
 
-            for (int elapsed = 0; elapsed < timeout_seconds; ++elapsed) {
-                pid_t result = waitpid(pid, &status, WNOHANG);
-                if (result < 0) {
-                    if (errno == EINTR) {
-                        continue;
+            const auto start = std::chrono::steady_clock::now();
+            const auto elapsed_seconds = [start] {
+                return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(
+                                            std::chrono::steady_clock::now() - start)
+                                            .count());
+            };
+            int last_reported = 0;
+            const ChildWaitResult wait = terminate_and_reap(
+                pid, start + std::chrono::seconds(timeout_seconds), kTermGrace, kPollInterval, [&] {
+                    const int elapsed = elapsed_seconds();
+                    if (elapsed >= last_reported + 10 && elapsed < timeout_seconds) {
+                        last_reported = elapsed - elapsed % 10;
+                        flog_info("[UpdateChecker] Still waiting for install.sh pid={} ({}s/{}s)",
+                                  pid, last_reported, timeout_seconds);
+                        if (last_reported >= 30) {
+                            int idx = ((last_reported - 30) / 10) % num_messages;
+                            report_download_status(DownloadStatus::Installing, 100,
+                                                   lv_tr(install_message_keys[idx]));
+                        }
                     }
-                    flog_error("[UpdateChecker] waitpid(install) failed: {} (errno={})",
-                               strerror(errno), errno);
-                    wait_failed = true;
-                    break;
-                }
-                if (result > 0) {
-                    exited = true;
-                    flog_info("[UpdateChecker] install.sh (pid={}) exited after ~{}s", pid,
-                              elapsed);
-                    break;
-                }
-                if (elapsed > 0 && elapsed % 10 == 0) {
-                    flog_info("[UpdateChecker] Still waiting for install.sh pid={} ({}s/{}s)", pid,
-                              elapsed, timeout_seconds);
-                    if (elapsed >= 30) {
-                        int idx = ((elapsed - 30) / 10) % num_messages;
-                        report_download_status(DownloadStatus::Installing, 100,
-                                               lv_tr(install_message_keys[idx]));
-                    }
-                }
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
+                    return true;
+                });
 
-            if (exited) {
+            switch (wait.outcome) {
+            case ChildWaitOutcome::Exited: {
+                const int status = wait.status;
                 bool normal_exit = WIFEXITED(status);
                 bool signaled = WIFSIGNALED(status);
-                ret = normal_exit ? WEXITSTATUS(status) : -1;
+                ret = wait.exit_code();
                 int sig = signaled ? WTERMSIG(status) : 0;
+                flog_info("[UpdateChecker] install.sh (pid={}) exited after ~{}s", pid,
+                          elapsed_seconds());
                 flog_info(
                     "[UpdateChecker] install.sh exit: code={} normal={} signaled={} signal={}", ret,
                     normal_exit, signaled, sig);
-            } else if (!wait_failed) {
-                // A failed waitpid means the pid may already be reaped and reused,
-                // so only a child still known to be running is signalled.
+                break;
+            }
+            case ChildWaitOutcome::TimedOut:
+            case ChildWaitOutcome::Cancelled:
                 timed_out = true;
-                flog_error("[UpdateChecker] install.sh timed out after {}s, killing",
-                           timeout_seconds);
-                kill(pid, SIGKILL);
-                waitpid(pid, nullptr, 0); // reap zombie
+                flog_error("[UpdateChecker] install.sh timed out after {}s, {}", timeout_seconds,
+                           wait.killed ? "killed" : "terminated");
+                break;
+            case ChildWaitOutcome::WaitFailed:
+                flog_error("[UpdateChecker] waitpid(install) failed: {} (errno={})",
+                           strerror(wait.wait_errno), wait.wait_errno);
+                break;
             }
         }
 
