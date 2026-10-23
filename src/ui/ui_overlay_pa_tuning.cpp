@@ -106,14 +106,7 @@ PaTuningOverlay::~PaTuningOverlay() {
 void PaTuningOverlay::init_subjects() {
     init_subjects_guarded([this]() {
         UI_MANAGED_SUBJECT_INT(stage_subject_, SETUP, "pa_tune_stage", subjects_);
-        UI_MANAGED_SUBJECT_INT(multi_tool_, 0, "pa_tune_multi_tool", subjects_);
-        UI_MANAGED_SUBJECT_INT(tool_count_, 1, "pa_tune_tool_count", subjects_);
-        for (int i = 0; i < kMaxHeads; ++i) {
-            UI_MANAGED_SUBJECT_INT(tool_selected_[i], i == 0 ? 1 : 0,
-                                   fmt::format("pa_tune_tool_selected_{}", i).c_str(), subjects_);
-            UI_MANAGED_SUBJECT_STRING(tool_label_[i], tool_label_buf_[i], "",
-                                      fmt::format("pa_tune_tool_label_{}", i).c_str(), subjects_);
-        }
+        heads_.init_subjects("pa_tune", subjects_);
         for (int i = 0; i < kPresetSlots; ++i) {
             UI_MANAGED_SUBJECT_INT(preset_selected_[i], i == 0 ? 1 : 0,
                                    fmt::format("pa_tune_preset_selected_{}", i).c_str(), subjects_);
@@ -167,8 +160,7 @@ void PaTuningOverlay::register_callbacks() {
          [](lv_event_t* e) {
              auto& self = get_global_pa_tuning_overlay();
              if (self.stage_ == SETUP) {
-                 self.selected_head_ = std::clamp(user_int(e), 0, kMaxHeads - 1);
-                 self.refresh_tools();
+                 self.heads_.select(user_int(e));
              }
          }},
         {"on_pa_tune_preset",
@@ -237,13 +229,13 @@ void PaTuningOverlay::on_activate() {
         auto& tools = helix::ToolState::instance();
         active_tool_observer_ = helix::ui::observe<int>(
             tools.get_active_tool_subject(), this,
-            [](PaTuningOverlay* self, int) { self->refresh_tools(); },
+            [](PaTuningOverlay* self, int) { self->heads_.refresh(); },
             tools.get_subjects_lifetime());
         if (const auto temps = helix::presets::slot_temps(selected_preset_)) {
             nozzle_temp_ = temps->nozzle;
             bed_temp_ = temps->bed;
         }
-        refresh_tools();
+        heads_.refresh();
         refresh_presets();
         refresh_setup();
     } else if (stage_ == RUNNING || stage_ == STARTING) {
@@ -296,30 +288,9 @@ PaTuningOverlay::ChosenHead PaTuningOverlay::choose_head(const std::vector<Physi
 
 PaTuningOverlay::ChosenHead PaTuningOverlay::chosen_head() const {
     auto& tools = helix::ToolState::instance();
-    return choose_head(tools.heated_heads(), tools.has_multiple_extruders(), selected_head_,
+    return choose_head(tools.heated_heads(), tools.has_multiple_extruders(), heads_.selected(),
                        tools.active_tool_index(),
                        get_printer_state().temperature_state().active_extruder_name());
-}
-
-void PaTuningOverlay::refresh_tools() {
-    auto& tools = helix::ToolState::instance();
-    const auto heads = tools.heated_heads();
-    const int count = std::clamp(static_cast<int>(heads.size()), 1, kMaxHeads);
-    lv_subject_set_int(&multi_tool_, tools.has_multiple_extruders() ? 1 : 0);
-    if (selected_head_ >= count) {
-        selected_head_ = 0;
-    }
-    const int active = tools.active_tool_index();
-    for (int i = 0; i < kMaxHeads; ++i) {
-        lv_subject_set_int(&tool_selected_[i], i == selected_head_ ? 1 : 0);
-        std::string label;
-        if (i < static_cast<int>(heads.size())) {
-            label =
-                helix::ui::tool_label(heads[static_cast<size_t>(i)].representative_tool(active));
-        }
-        lv_subject_copy_string(&tool_label_[i], label.c_str());
-    }
-    lv_subject_set_int(&tool_count_, count);
 }
 
 void PaTuningOverlay::refresh_presets() {

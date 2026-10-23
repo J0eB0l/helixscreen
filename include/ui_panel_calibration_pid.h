@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ui_head_picker.h"
 #include "ui_observer_guard.h"
 #include "ui_temp_graph.h"
 
@@ -251,6 +252,8 @@ class PIDCalibrationPanel : public OverlayBase {
     // State
     State state_ = State::IDLE;
     Heater selected_heater_ = Heater::EXTRUDER;
+    /// Which extruder an EXTRUDER calibration heats, on a printer with several
+    helix::ui::HeadPicker heads_;
     int target_temp_ = 200;         // Default for extruder
     int fan_speed_ = 0;             // Part cooling fan speed for extruder PID
     std::string selected_material_; // Active material preset name
@@ -470,9 +473,17 @@ class PIDCalibrationPanel : public OverlayBase {
     // Fan section visibility — single source of truth for both subjects
     void update_fan_section_visibility();
 
+    /// The Klipper heater the selected heater calibrates: the picked head's
+    /// heater, or "heater_bed".
+    std::string heater_name() const;
+    /// Part-fan gcode (M106/M107) drives the active tool's fan, so it only
+    /// cools the heater being tuned when that heater is the active tool's.
+    bool part_fan_reaches_heater() const;
+
     // Event handlers
     void handle_heater_extruder_clicked();
     void handle_heater_bed_clicked();
+    void handle_head_clicked(int head);
     void handle_temp_up();
     void handle_temp_down();
     void handle_start_clicked();

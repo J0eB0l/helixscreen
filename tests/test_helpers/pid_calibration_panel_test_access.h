@@ -17,6 +17,18 @@ struct PIDCalibrationPanelTestAccess {
     static void start_clicked(PIDCalibrationPanel& p) {
         p.handle_start_clicked();
     }
+    static void activate(PIDCalibrationPanel& p) {
+        p.on_activate();
+    }
+    static void head_clicked(PIDCalibrationPanel& p, int head) {
+        p.handle_head_clicked(head);
+    }
+    static void bed_clicked(PIDCalibrationPanel& p) {
+        p.handle_heater_bed_clicked();
+    }
+    static void set_fan_speed(PIDCalibrationPanel& p, int percent) {
+        p.fan_speed_ = percent;
+    }
 };
 
 } // namespace ui

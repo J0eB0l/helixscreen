@@ -137,6 +137,7 @@ void PIDCalibrationPanel::init_subjects() {
 
     // Int subject: 1 when extruder selected, 0 when bed selected (controls fan/preset visibility)
     UI_MANAGED_SUBJECT_INT(subj_heater_is_extruder_, 1, "pid_heater_is_extruder", subjects_);
+    heads_.init_subjects("pid_cal", subjects_);
 
     // Int subject: 1 when not idle (disables Start button in header)
     UI_MANAGED_SUBJECT_INT(subj_cal_not_idle_, 0, "pid_cal_not_idle", subjects_);
@@ -195,6 +196,11 @@ void PIDCalibrationPanel::init_subjects() {
              [](lv_event_t*) { get_global_pid_cal_panel().handle_heater_extruder_clicked(); }},
             {"on_pid_heater_bed",
              [](lv_event_t*) { get_global_pid_cal_panel().handle_heater_bed_clicked(); }},
+            {"on_pid_cal_tool",
+             [](lv_event_t* e) {
+                 get_global_pid_cal_panel().handle_head_clicked(
+                     helix::ui::event_user_int(e).value_or(0));
+             }},
             {"on_pid_temp_up", [](lv_event_t*) { get_global_pid_cal_panel().handle_temp_up(); }},
             {"on_pid_temp_down",
              [](lv_event_t*) { get_global_pid_cal_panel().handle_temp_down(); }},
@@ -301,6 +307,7 @@ void PIDCalibrationPanel::on_activate() {
     // Reset to idle state with default values
     set_state(State::IDLE);
     selected_heater_ = Heater::EXTRUDER;
+    heads_.select_active();
     target_temp_ = kExtruderDefaultTemp;
     fan_speed_ = 0;
     selected_material_.clear();
@@ -418,7 +425,7 @@ void PIDCalibrationPanel::on_ui_destroyed() {
 // ============================================================================
 
 void PIDCalibrationPanel::turn_off_fan() {
-    if (fan_speed_ > 0 && api_) {
+    if (fan_speed_ > 0 && part_fan_reaches_heater() && api_) {
         api_->execute_gcode("M107", nullptr, nullptr);
         spdlog::debug("[PIDCal] Fan turned off after calibration");
     }
@@ -490,10 +497,29 @@ void PIDCalibrationPanel::update_wattage_display() {
     lv_subject_copy_string(&subj_wattage_display_, buf);
 }
 
+std::string PIDCalibrationPanel::heater_name() const {
+    if (selected_heater_ == Heater::BED) {
+        return "heater_bed";
+    }
+    if (const auto head = heads_.selected_head()) {
+        auto& tools = helix::ToolState::instance().tools();
+        const int tool =
+            head->representative_tool(helix::ToolState::instance().active_tool_index());
+        if (tool >= 0 && tool < static_cast<int>(tools.size())) {
+            return tools[static_cast<size_t>(tool)].effective_heater();
+        }
+    }
+    return get_printer_state().temperature_state().active_extruder_name();
+}
+
+bool PIDCalibrationPanel::part_fan_reaches_heater() const {
+    return selected_heater_ == Heater::EXTRUDER && heads_.selected_holds_active_tool();
+}
+
 void PIDCalibrationPanel::update_fan_section_visibility() {
     bool is_extruder = (selected_heater_ == Heater::EXTRUDER);
     bool is_mpc = (selected_method_ == CalibMethod::MPC);
-    lv_subject_set_int(&subj_show_pid_fan_, (is_extruder && !is_mpc) ? 1 : 0);
+    lv_subject_set_int(&subj_show_pid_fan_, (part_fan_reaches_heater() && !is_mpc) ? 1 : 0);
     lv_subject_set_int(&subj_show_fan_config_, (is_extruder && is_mpc) ? 1 : 0);
 }
 
@@ -565,9 +591,9 @@ void PIDCalibrationPanel::setup_pid_graph() {
     ui_temp_graph_set_axis_size(pid_graph_, "xs");
 
     // Add single series for the active heater
-    const char* heater_name = is_extruder ? "Nozzle" : "Bed";
+    const char* series_name = is_extruder ? "Nozzle" : "Bed";
     lv_color_t color = is_extruder ? lv_color_hex(0xFF4444) : lv_color_hex(0x00CED1);
-    pid_graph_series_id_ = ui_temp_graph_add_series(pid_graph_, heater_name, color);
+    pid_graph_series_id_ = ui_temp_graph_add_series(pid_graph_, series_name, color);
 
     if (pid_graph_series_id_ != SeriesId::None) {
         // Show target temperature line
@@ -576,13 +602,12 @@ void PIDCalibrationPanel::setup_pid_graph() {
 
         // Register with TemperatureService for live updates
         if (temp_control_panel_) {
-            std::string klipper_heater = is_extruder ? "extruder" : "heater_bed";
             temp_control_panel_->register_heater_graph(pid_graph_, pid_graph_series_id_,
-                                                       klipper_heater);
+                                                       heater_name());
         }
     }
 
-    spdlog::debug("[{}] PID temp graph created for {}", get_name(), heater_name);
+    spdlog::debug("[{}] PID temp graph created for {}", get_name(), heater_name());
 }
 
 void PIDCalibrationPanel::teardown_pid_graph() {
@@ -612,10 +637,11 @@ void PIDCalibrationPanel::send_pid_calibrate() {
         return;
     }
 
-    const char* heater_name = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    const std::string heater = heater_name();
 
     // Set fan speed before calibration (extruder only)
-    if (selected_heater_ == Heater::EXTRUDER && fan_speed_ > 0 && api_) {
+    if (selected_heater_ == Heater::EXTRUDER && fan_speed_ > 0 && part_fan_reaches_heater() &&
+        api_) {
         char fan_cmd[32];
         snprintf(fan_cmd, sizeof(fan_cmd), "M106 S%d", fan_speed_ * 255 / 100);
         spdlog::info("[PIDCal] Setting fan: {}", fan_cmd);
@@ -627,11 +653,11 @@ void PIDCalibrationPanel::send_pid_calibrate() {
                                                                : lv_tr("Heated Bed PID Tuning");
     lv_subject_copy_string(&subj_calibrating_heater_, label);
 
-    spdlog::info("[PIDCal] Starting PID calibration: {} at {}°C", heater_name, target_temp_);
+    spdlog::info("[PIDCal] Starting PID calibration: {} at {}°C", heater, target_temp_);
 
     auto token = lifetime_.token();
     api_->advanced().start_pid_calibrate(
-        heater_name, target_temp_,
+        heater, target_temp_,
         [this, token](float kp, float ki, float kd) {
             // Callback from background thread - marshal to UI thread
             token.defer([this, kp, ki, kd]() {
@@ -700,12 +726,12 @@ void PIDCalibrationPanel::fetch_old_pid_values() {
         return;
     }
 
-    const char* heater_name = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
-    spdlog::debug("[PIDCal] Fetching old PID values for '{}'", heater_name);
+    const std::string heater = heater_name();
+    spdlog::debug("[PIDCal] Fetching old PID values for '{}'", heater);
 
     auto token = lifetime_.token();
     api_->advanced().get_heater_pid_values(
-        heater_name,
+        heater,
         [this, token](float kp, float ki, float kd) {
             token.defer([this, kp, ki, kd]() {
                 old_kp_ = kp;
@@ -716,8 +742,8 @@ void PIDCalibrationPanel::fetch_old_pid_values() {
                               kd);
             });
         },
-        [heater_name](const MoonrakerError& err) {
-            spdlog::warn("[PIDCal] Failed to fetch old PID for '{}': {}", heater_name, err.message);
+        [heater](const MoonrakerError& err) {
+            spdlog::warn("[PIDCal] Failed to fetch old PID for '{}': {}", heater, err.message);
         });
 }
 
@@ -743,6 +769,27 @@ void PIDCalibrationPanel::handle_heater_extruder_clicked() {
     if (is_kalico_) {
         heater_wattage_ = kWattageDefaultExtruder;
         update_wattage_display();
+        // The new heater's control type is unread until the query answers
+        current_control_ = ControlType::UNKNOWN;
+        update_migration_notice();
+        detect_heater_control_type();
+    }
+}
+
+void PIDCalibrationPanel::handle_head_clicked(int head) {
+    if (state_ != State::IDLE || selected_heater_ != Heater::EXTRUDER)
+        return;
+
+    heads_.select(head);
+    spdlog::debug("[PIDCal] Head {} selected ({})", heads_.selected(), heater_name());
+    if (!part_fan_reaches_heater()) {
+        fan_speed_ = 0;
+        update_fan_slider(0);
+    }
+    update_fan_section_visibility();
+    fetch_old_pid_values();
+
+    if (is_kalico_) {
         // The new heater's control type is unread until the query answers
         current_control_ = ControlType::UNKNOWN;
         update_migration_notice();
@@ -1047,7 +1094,7 @@ void PIDCalibrationPanel::start_progress_tracking() {
                                                               : PidProgressTracker::Heater::BED;
 
     if (selected_heater_ == Heater::EXTRUDER) {
-        temp_subj = state.temperature_state().get_extruder_temp_subject("extruder",
+        temp_subj = state.temperature_state().get_extruder_temp_subject(heater_name(),
                                                                         progress_temp_lifetime_);
     } else {
         temp_subj = state.temperature_state().get_bed_temp_subject(progress_temp_lifetime_);
@@ -1063,7 +1110,7 @@ void PIDCalibrationPanel::start_progress_tracking() {
 
     // Load historical data if available
     auto* config = helix::Config::get_instance();
-    const char* heater_key = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    const std::string heater_key = heater_name();
 
     // Heat rate from shared ThermalRateManager (ensure loaded from config)
     auto& thermal_mgr = ThermalRateManager::instance();
@@ -1208,7 +1255,7 @@ void PIDCalibrationPanel::save_calibration_history() {
     if (heat_rate <= 0 && osc_duration <= 0)
         return;
 
-    const char* heater_key = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    const std::string heater_key = heater_name();
 
     // Save heat rate to shared path at /thermal/rates/{heater}/heat_rate
     // The progress tracker's thermal model has both history and measured data,
@@ -1303,7 +1350,7 @@ void PIDCalibrationPanel::detect_heater_control_type(bool preselect_mpc) {
     if (!api_)
         return;
 
-    const char* heater = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    const std::string heater = heater_name();
     spdlog::debug("[PIDCal] Querying heater control type for '{}'", heater);
 
     auto token = lifetime_.token();
@@ -1343,7 +1390,7 @@ void PIDCalibrationPanel::start_migration(CalibMethod target) {
     if (!api_)
         return;
 
-    const char* section = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    const std::string section = heater_name();
     const bool to_mpc = target == CalibMethod::MPC;
     std::vector<helix::system::ConfigEdit> edits =
         build_control_migration_edits(target, heater_wattage_);
@@ -1387,7 +1434,7 @@ void PIDCalibrationPanel::send_mpc_calibrate() {
         return;
     }
 
-    const char* heater = (selected_heater_ == Heater::EXTRUDER) ? "extruder" : "heater_bed";
+    const std::string heater = heater_name();
     const char* label = (selected_heater_ == Heater::EXTRUDER)
                             ? lv_tr("Extruder MPC Calibration")
                             : lv_tr("Heated Bed MPC Calibration");
