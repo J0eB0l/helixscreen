@@ -23,6 +23,7 @@
 #include "../lvgl_ui_test_fixture.h"
 #include "helix-xml/src/xml/lv_xml.h"
 #include "settings_manager.h"
+#include "storage_report.h"
 
 #include <array>
 #include <string>
@@ -97,6 +98,36 @@ TEST_CASE_METHOD(PageRowsFixture, "settings pages: every row lives on its page",
             CAPTURE(p.view, row);
             CHECK(has(row));
         }
+    }
+}
+
+TEST_CASE_METHOD(PageRowsFixture,
+                 "settings pages: each plugin feature's switch is on the page the overview opens",
+                 "[settings][settings_pages][plugin_feature]") {
+    // PluginFeatureHome: Devices, Safety, System > Storage, Spoolman.
+    const std::vector<Placement> placements = {
+        {"settings_hardware_overlay", {"row_print_photos"}},
+        {"settings_safety_overlay", {"row_fit_check_blocks_autostart"}},
+        {"settings_system_overlay", {"row_storage"}},
+        {"spoolman_settings", {"row_filament_accounting"}},
+        {"settings_storage_overlay", {"row_storage_auto_cleanup"}},
+    };
+    for (const auto& p : placements) {
+        build(p.view);
+        for (const char* row : p.rows) {
+            CAPTURE(p.view, row);
+            CHECK(has(row));
+        }
+    }
+}
+
+TEST_CASE_METHOD(PageRowsFixture, "settings pages: Storage has a row for every consumer",
+                 "[settings][settings_pages][plugin_storage]") {
+    build("settings_storage_overlay");
+    for (const auto& consumer : helix::storage::kConsumers) {
+        const std::string clean = std::string("storage_clean_") + consumer.key;
+        CAPTURE(clean);
+        CHECK(has(clean.c_str()));
     }
 }
 

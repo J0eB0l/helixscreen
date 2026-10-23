@@ -15,6 +15,7 @@
 #include "ui_print_select_detail_view.h"
 #include "ui_print_start_controller.h"
 
+#include "../test_helpers/moonraker_client_mock_test_access.h"
 #include "../test_helpers/print_select_panel_fixture.h"
 #include "../test_helpers/print_select_panel_test_access.h"
 #include "../test_helpers/print_start_controller_test_access.h"
@@ -457,6 +458,16 @@ class FitDetailFixture : private PrintSelectGlobalStateReset, public PrintSelect
         return lv_subject_get_string(lv_xml_get_subject(nullptr, "detail_fit_check_text"));
     }
 
+    lv_obj_t* find(const char* name) const {
+        lv_obj_t* obj = lv_obj_find_by_name(detail->get_widget(), name);
+        REQUIRE(obj != nullptr);
+        return obj;
+    }
+
+    bool shown(const char* name) const {
+        return !lv_obj_has_flag(find(name), LV_OBJ_FLAG_HIDDEN);
+    }
+
     PlantedGcode file_{"fit_hot.gcode", "",
                        "; printer_model = Voron 0.2\nM104 S320\nM140 S60\nG28\n"};
     ui::PrintSelectDetailView* detail = nullptr;
@@ -468,6 +479,12 @@ TEST_CASE_METHOD(FitDetailFixture, "the detail view shows a blocking finding and
                  "[plugin_fitcheck][print_select]") {
     CHECK(severity() == 3);
     CHECK(text().find("320") != std::string::npos);
+    // The card shows, with the blocking icon and not the others.
+    CHECK(shown("fit_check_card"));
+    CHECK(shown("fit_check_block_icon"));
+    CHECK_FALSE(shown("fit_check_warn_icon"));
+    CHECK_FALSE(shown("fit_check_note_icon"));
+    CHECK(std::string(lv_label_get_text(find("fit_check_label"))) == text());
     CHECK(detail->get_fit_file().max_hotend_temp == std::optional<double>(320.0));
 
     auto* controller = PrintSelectPanelTestAccess::print_controller(*panel_);
@@ -484,4 +501,82 @@ TEST_CASE_METHOD(FitDetailFixture, "without the printer's config the detail view
     detail->refresh_fit_check();
     CHECK(severity() == 0);
     CHECK(text().empty());
+    CHECK_FALSE(shown("fit_check_card"));
+}
+
+namespace {
+
+/// Two files that fit by their own G-code, and the plugin's file analysis
+/// answering a record only for the first: one heating past the nozzle limit.
+class FitRecordFixture : private PrintSelectGlobalStateReset, public PrintSelectPanelFixture {
+  public:
+    FitRecordFixture()
+        : PrintSelectPanelFixture(PrintSelectFilelistHandler::Unregistered,
+                                  PrintSelectVisit::Immediate, PrintSelectApi::Mock) {
+        set_moonraker_api(api_.get());
+        PrinterDiscovery hw;
+        hw.parse_objects(json{"extruder"});
+        hw.parse_fit_limits(kSettings);
+        get_printer_state().set_hardware(hw);
+        PluginFeatureEntry entry;
+        entry.version = kFileAnalysisMinVersion;
+        entry.available = true;
+        entry.enabled = true;
+        auto& plugin = get_printer_state().plugin_status_state();
+        plugin.set_installed(true);
+        plugin.set_features({{kFileAnalysisFeature, entry}});
+        MoonrakerClientMockTestAccess::set_method_handler(
+            mock_client_, kFileAnalysisRpc,
+            [](MoonrakerClientMock*, const json& params,
+               std::function<void(const json&)> success_cb,
+               std::function<void(const MoonrakerError&)>) -> bool {
+                const std::string name = params.value("filename", "");
+                json result = {{"status", "pending"}};
+                if (name == "fit_rec_hot.gcode") {
+                    result = {{"status", "ready"},
+                              {"analysis",
+                               {{"schema", 1},
+                                {"filename", name},
+                                {"bounds", {{"max_hotend_temp", 320.0}}}}}};
+                }
+                success_cb(json{{"result", result}});
+                return true;
+            });
+        panel_->refresh_files(/*force=*/true);
+        drain();
+        detail = PrintSelectPanelTestAccess::detail_view(*panel_);
+        REQUIRE(detail != nullptr);
+    }
+
+    ~FitRecordFixture() override {
+        auto& plugin = get_printer_state().plugin_status_state();
+        plugin.set_features({});
+        plugin.set_installed(false);
+        get_printer_state().set_hardware(PrinterDiscovery{});
+        set_moonraker_api(nullptr);
+        drain();
+    }
+
+    static int severity() {
+        return lv_subject_get_int(lv_xml_get_subject(nullptr, "detail_fit_check_severity"));
+    }
+
+    PlantedGcode hot_{"fit_rec_hot.gcode", "", "G28\n"};
+    PlantedGcode cool_{"fit_rec_cool.gcode", "", "G28\n"};
+    ui::PrintSelectDetailView* detail = nullptr;
+};
+
+} // namespace
+
+TEST_CASE_METHOD(FitRecordFixture,
+                 "the detail view reads the plugin's record, and drops it for the next file",
+                 "[plugin_fitcheck][print_select]") {
+    REQUIRE(panel_->select_file_by_name(hot_.name()));
+    drain();
+    // Only the record knows this file heats past the limit.
+    CHECK(severity() == 3);
+
+    REQUIRE(panel_->select_file_by_name(cool_.name()));
+    drain();
+    CHECK(severity() == 0);
 }

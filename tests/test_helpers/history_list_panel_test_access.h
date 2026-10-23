@@ -36,6 +36,11 @@ struct HistoryListPanelTestAccess {
         p.handle_delete();
     }
 
+    /// The delete dialog's confirm button.
+    static void confirm_delete(HistoryListPanel& p) {
+        p.confirm_delete();
+    }
+
     static lv_obj_t* delete_dialog(HistoryListPanel& p) {
         return p.delete_confirmation_dialog_;
     }

@@ -5,10 +5,13 @@
 // camera both pick, and how the history detail card chooses what to show.
 
 #include "ui_history_photos.h"
+#include "ui_nav_manager.h"
+#include "ui_panel_history_list.h"
 #include "ui_update_queue.h"
 
 #include "../lvgl_test_fixture.h"
 #include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/history_list_panel_test_access.h"
 #include "app_globals.h"
 #include "helix_plugin_features.h"
 #include "history_job_events.h"
@@ -698,4 +701,54 @@ TEST_CASE_METHOD(PhotosStatusFx,
     setenv("HELIX_MOCK_PHOTOS", "unavailable", 1);
     history("added");
     CHECK(seq() == before + 1);
+}
+
+TEST_CASE_METHOD(PhotosApiFx, "history's detail card offers the job's photos",
+                 "[plugin_photos][history]") {
+    PrintHistoryJob job;
+    job.job_id = "00002A";
+    job.filename = "a.gcode";
+    job.start_time = kT0;
+    job.status = PrintJobStatus::COMPLETED;
+    job.photos = {{kPhotoKindEnd, ".helix_photos/2A_end.jpg"}};
+
+    HistoryListPanel panel;
+    panel.init_subjects();
+    ui::HistoryListPanelTestAccess::show_detail_overlay(panel, test_screen(), job);
+    drain();
+    process_lvgl(10);
+    drain();
+
+    lv_obj_t* tabs = lv_obj_find_by_name(test_screen(), "photo_tabs");
+    lv_obj_t* photo = lv_obj_find_by_name(test_screen(), "photo_layer");
+    REQUIRE(tabs != nullptr);
+    REQUIRE(photo != nullptr);
+    // The card opens on the end photo, with the tabs to go back to the preview.
+    CHECK_FALSE(lv_obj_has_flag(tabs, LV_OBJ_FLAG_HIDDEN));
+    CHECK_FALSE(lv_obj_has_flag(photo, LV_OBJ_FLAG_HIDDEN));
+
+    NavigationManager::instance().go_back();
+    drain();
+    process_lvgl(10);
+}
+
+TEST_CASE_METHOD(PhotosApiFx, "deleting a job from history deletes its photos",
+                 "[plugin_photos][history]") {
+    client.mock_db_set(
+        kPhotosNamespace, "00002A",
+        record(kT0, json::array({{{"kind", "end"}, {"path", ".helix_photos/2A_end.jpg"}}})));
+    PrintHistoryJob job;
+    job.job_id = "00002A";
+    job.filename = "a.gcode";
+    job.start_time = kT0;
+
+    HistoryListPanel panel;
+    panel.init_subjects();
+    ui::HistoryListPanelTestAccess::select_job(panel, {job}, 0);
+    ui::HistoryListPanelTestAccess::confirm_delete(panel);
+    drain();
+
+    CHECK(api->files_mock().deleted_files() ==
+          std::vector<std::string>{"gcodes/.helix_photos/2A_end.jpg"});
+    CHECK(stored("00002A").is_null());
 }
