@@ -56,6 +56,17 @@ struct PidHeadsFixture : LVGLTestFixture {
             {{"toolchanger", {{"tool_number", active_tool}}}});
     }
 
+    void set_active_tool(int tool) {
+        helix::ToolState::instance().update_from_status({{"toolchanger", {{"tool_number", tool}}}});
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
+    static int subject_int(const char* name) {
+        lv_subject_t* s = lv_xml_get_subject(nullptr, name);
+        REQUIRE(s != nullptr);
+        return lv_subject_get_int(s);
+    }
+
     void start() {
         client.clear_gcode_script_history();
         Access::start_clicked(panel);
@@ -124,4 +135,40 @@ TEST_CASE_METHOD(PidHeadsFixture, "The part fan runs only for the head holding t
         CHECK(sent("PID_CALIBRATE HEATER=extruder "));
         CHECK_FALSE(sent("M106"));
     }
+}
+
+TEST_CASE_METHOD(PidHeadsFixture, "The tool chips mark the active tool's head",
+                 "[pid][pid_heads]") {
+    toolchanger(1);
+    Access::activate(panel);
+    CHECK(subject_int("pid_cal_multi_tool") == 1);
+    CHECK(subject_int("pid_cal_tool_count") == 2);
+    CHECK(subject_int("pid_cal_tool_selected_0") == 0);
+    CHECK(subject_int("pid_cal_tool_selected_1") == 1);
+    CHECK(lv_xml_get_event_cb(nullptr, "on_pid_cal_tool") != nullptr);
+}
+
+TEST_CASE_METHOD(PidHeadsFixture, "A run's part fan is turned off whatever tool is active by then",
+                 "[pid][pid_heads]") {
+    toolchanger(1);
+    Access::activate(panel);
+    Access::set_fan_speed(panel, 50);
+    start();
+    REQUIRE(sent("M106"));
+
+    set_active_tool(0);
+    client.clear_gcode_script_history();
+    Access::turn_off_fan(panel);
+    CHECK(sent("M107"));
+}
+
+TEST_CASE_METHOD(PidHeadsFixture, "No M107 for a run that never set the fan", "[pid][pid_heads]") {
+    toolchanger(1);
+    Access::activate(panel);
+    Access::head_clicked(panel, 0);
+    Access::set_fan_speed(panel, 50);
+    start();
+    client.clear_gcode_script_history();
+    Access::turn_off_fan(panel);
+    CHECK_FALSE(sent("M107"));
 }

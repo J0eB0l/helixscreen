@@ -29,6 +29,9 @@ struct PIDCalibrationPanelTestAccess {
     static void set_fan_speed(PIDCalibrationPanel& p, int percent) {
         p.fan_speed_ = percent;
     }
+    static void turn_off_fan(PIDCalibrationPanel& p) {
+        p.turn_off_fan();
+    }
 };
 
 } // namespace ui

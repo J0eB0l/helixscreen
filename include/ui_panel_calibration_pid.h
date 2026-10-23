@@ -254,6 +254,14 @@ class PIDCalibrationPanel : public OverlayBase {
     Heater selected_heater_ = Heater::EXTRUDER;
     /// Which extruder an EXTRUDER calibration heats, on a printer with several
     helix::ui::HeadPicker heads_;
+    ObserverGuard active_tool_observer_;
+    /// The heater and extruder a run calibrates, fixed when it begins: the tool
+    /// list can rebuild mid-run, and its results must land under the heater
+    /// that was heated.
+    std::string run_heater_;
+    std::string run_extruder_;
+    /// M106 went out for this run, so it is owed an M107.
+    bool fan_sent_ = false;
     int target_temp_ = 200;         // Default for extruder
     int fan_speed_ = 0;             // Part cooling fan speed for extruder PID
     std::string selected_material_; // Active material preset name
@@ -476,6 +484,8 @@ class PIDCalibrationPanel : public OverlayBase {
     /// The Klipper heater the selected heater calibrates: the picked head's
     /// heater, or "heater_bed".
     std::string heater_name() const;
+    /// The extruder object of the picked head, which keys its temperature.
+    std::string extruder_name() const;
     /// Part-fan gcode (M106/M107) drives the active tool's fan, so it only
     /// cools the heater being tuned when that heater is the active tool's.
     bool part_fan_reaches_heater() const;
@@ -484,6 +494,7 @@ class PIDCalibrationPanel : public OverlayBase {
     void handle_heater_extruder_clicked();
     void handle_heater_bed_clicked();
     void handle_head_clicked(int head);
+    void on_active_tool_changed();
     void handle_temp_up();
     void handle_temp_down();
     void handle_start_clicked();
