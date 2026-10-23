@@ -1,6 +1,6 @@
 # Filament Slot Metadata — `lane_data` Convention
 
-**Status**: Informational, v1.15 (2026-09). See [Changelog](#changelog).
+**Status**: Informational, v1.16 (2026-10). See [Changelog](#changelog).
 
 This document describes HelixScreen's use of the `lane_data` Moonraker database
 namespace to share per-slot filament metadata with OrcaSlicer and other tools.
@@ -481,7 +481,7 @@ Write AFC-shaped records using `POST /server/database/item`:
     "color": "#1A1A1A",
     "material": "ASA",
     "helix_material": "ASA-GF",
-    "vendor": "Polymaker",
+    "vendor_name": "Polymaker",
     "spool_id": 42,
     "scan_time": "2026-04-18T12:34:56Z",
     "bed_temp": 90,
@@ -502,6 +502,10 @@ Guidelines:
   `material`.
 - **Stamp** `scan_time` on every write. Use ISO-8601 UTC with second
   precision; other readers will rely on it.
+- **Write `vendor_name` and `name`, never `vendor` or `spool_name`.** Those two
+  are HelixScreen's legacy spellings, so a record carrying either reads as
+  HelixScreen's own write (§5) and is not taken as your edit: the screen keeps
+  showing the old spool.
 - **Pick one key style and stay consistent within a slot.** Use `laneN`
   (1-based outer key) for filament systems or `T<n>` (0-based outer key) for
   tool changers; either way the inner `lane` field is 0-based (§4). The outer
@@ -642,6 +646,10 @@ reader can resolve.
 
 ## Changelog
 
+- **v1.16 (2026-10-22)**: §7: an outside writer writes `vendor_name` and
+  `name`, never the legacy `vendor` / `spool_name` that mark a record as
+  HelixScreen's own (§5); the write example now uses `vendor_name`. The wire
+  format is unchanged.
 - **v1.15 (2026-09-27)**: §5: a record AFC's plugin wrote (`td`, no
   `vendor_name`) is a firmware reading and never promotes, whether or not the
   plugin build writes `extruder_index`. §6: stock CFS judges a finished read

@@ -136,6 +136,12 @@ std::vector<std::string> zmod_c5_status_objects(const PrinterDiscovery& hw) {
     std::vector<std::string> objects = {kZmodColorObject};
     if (hw.has_zmod_afclite()) {
         objects.emplace_back("zmod_afclite");
+        // Each lane's spool_id: a tool that binds a spool to a head from
+        // outside (SET_SPOOL_ID) restates nothing zmod_color shows when the
+        // new spool's colour matches the old one's.
+        for (const auto& lane : hw.afc_lane_names()) {
+            objects.emplace_back("AFC_lane " + lane);
+        }
     }
     return objects;
 }
@@ -499,6 +505,33 @@ std::optional<AfcStateReading> read_afc_state(const nlohmann::json& status) {
         }
     }
     return r;
+}
+
+std::optional<std::vector<AfcLaneSpool>> read_afc_lane_spools(const nlohmann::json& status) {
+    if (!status.is_object()) {
+        return std::nullopt;
+    }
+    constexpr std::string_view kPrefix = "AFC_lane ";
+    std::vector<AfcLaneSpool> spools;
+    for (auto it = status.begin(); it != status.end(); ++it) {
+        if (it.key().rfind(kPrefix, 0) != 0 || !it.value().is_object()) {
+            continue;
+        }
+        const auto id = it.value().find("spool_id");
+        if (id == it.value().end()) {
+            continue;
+        }
+        AfcLaneSpool spool;
+        spool.lane = it.key().substr(kPrefix.size());
+        if (id->is_number_integer()) {
+            spool.spool_id = std::max(0, id->get<int>());
+        }
+        spools.push_back(std::move(spool));
+    }
+    if (spools.empty()) {
+        return std::nullopt;
+    }
+    return spools;
 }
 
 std::string machine_name(const PrinterDiscovery& hw) {

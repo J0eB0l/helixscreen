@@ -19,6 +19,7 @@
 #include "json_utils.h"
 #include "lane_legacy_migration.h"
 #include "lane_source_store.h"
+#include "lane_translation.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "macro_param_cache.h"
 #include "printer_state.h"
@@ -127,6 +128,7 @@ void AmsBackendToolChanger::on_started() {
         std::lock_guard<std::mutex> lock(mutex_);
         override_store_ = std::move(loaded.store);
         overrides_ = std::move(loaded.overrides);
+        seed_lane_records_seen_locked();
         // set_discovered_tools() built the slots before start() ran, so they
         // predate everything just loaded. Layer it on now rather than leaving
         // the panel grey until the first status frame arrives.
@@ -723,6 +725,11 @@ void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
                 apply_material_reading_locked(*reading);
                 state_changed = true;
             }
+            // The C5 row also watches each afclite lane's spool. Any other
+            // tool changer with AFC lanes owes no lane_data re-read for them.
+            if (auto spools = helix::toolchanger_addon::read_afc_lane_spools(params)) {
+                apply_afc_lane_spools_locked(*spools);
+            }
         }
 
         // Z-Mod's afclite shim: the firmware's own fault flag (a boolean, not a
@@ -945,11 +952,24 @@ void AmsBackendToolChanger::apply_material_reading_locked(
     }
     firmware_slots_seen_ = true;
     bool filament_changed = false;
+    bool restated = false;
     for (size_t i = 0; i < reading.slots->size(); ++i) {
         const auto& slot = (*reading.slots)[i];
         if (!slot) {
             continue;
         }
+        // A head whose material or colour the firmware now states differently
+        // was changed by something; its lane record may have changed with it.
+        // The first statement is the boot state, not a change.
+        if (i >= firmware_slot_values_.size()) {
+            firmware_slot_values_.resize(i + 1);
+        }
+        std::pair<std::string, std::uint32_t> value{slot->material, slot->rgb.value_or(0)};
+        auto& seen = firmware_slot_values_[i];
+        if (seen && *seen != value) {
+            restated = true;
+        }
+        seen = std::move(value);
         // The firmware's statement of what this head holds, replaced whole each
         // time the frame carries it.
         helix::ams::Observation vendor(helix::ams::ObservationSource::VendorCache);
@@ -970,6 +990,26 @@ void AmsBackendToolChanger::apply_material_reading_locked(
     }
     if (filament_changed) {
         refresh_slot_statuses_locked();
+    }
+    if (restated) {
+        schedule_lane_record_reread();
+    }
+}
+
+void AmsBackendToolChanger::apply_afc_lane_spools_locked(
+    const std::vector<helix::toolchanger_addon::AfcLaneSpool>& spools) {
+    bool changed = false;
+    for (const auto& spool : spools) {
+        auto it = afc_lane_spool_seen_.find(spool.lane);
+        if (it == afc_lane_spool_seen_.end()) {
+            afc_lane_spool_seen_.emplace(spool.lane, spool.spool_id);
+        } else if (it->second != spool.spool_id) {
+            it->second = spool.spool_id;
+            changed = true;
+        }
+    }
+    if (changed) {
+        schedule_lane_record_reread();
     }
 }
 
