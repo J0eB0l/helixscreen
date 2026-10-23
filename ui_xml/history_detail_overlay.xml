@@ -78,27 +78,28 @@
           </lv_obj>
           <!-- What the card shows: the slicer preview or one of the job's photos -->
           <lv_obj name="photo_tabs"
-                  width="content" height="content" align="top_mid" style_pad_all="#space_xs" style_pad_gap="#space_xs"
+                  width="100%" height="content" align="top_mid" style_pad_all="#space_xs" style_pad_gap="#space_xs"
                   style_radius="#border_radius" style_bg_color="#card_bg" style_bg_opa="220" style_border_width="0"
                   scrollable="false" flex_flow="row" style_translate_y="#space_sm">
             <bind_flag_if cond="history_detail_has_layer_photo eq 0 and history_detail_has_end_photo eq 0" flag="hidden"/>
             <ui_button name="photo_tab_preview"
-                       height="#button_height_sm" text="Preview" variant="ghost" focusable="false"
-                       click_focusable="false">
+                       height="#button_height_sm" flex_grow="1" style_pad_hor="#space_sm" text="Preview" variant="ghost"
+                       focusable="false" click_focusable="false">
               <style name="styles.chip_idle"/>
               <bind_style_if_eq name="styles.chip_active" subject="history_detail_photo_view" ref_value="0"/>
               <event_cb trigger="clicked" callback="history_detail_photo_view" user_data="0"/>
             </ui_button>
             <ui_button name="photo_tab_layer"
-                       height="#button_height_sm" text="Layer 2" variant="ghost" focusable="false"
-                       click_focusable="false">
+                       height="#button_height_sm" flex_grow="1" style_pad_hor="#space_sm" text="Layer 2" variant="ghost"
+                       focusable="false" click_focusable="false">
               <style name="styles.chip_idle"/>
               <bind_style_if_eq name="styles.chip_active" subject="history_detail_photo_view" ref_value="1"/>
               <bind_flag_if_eq subject="history_detail_has_layer_photo" flag="hidden" ref_value="0"/>
               <event_cb trigger="clicked" callback="history_detail_photo_view" user_data="1"/>
             </ui_button>
             <ui_button name="photo_tab_end"
-                       height="#button_height_sm" text="End" variant="ghost" focusable="false" click_focusable="false">
+                       height="#button_height_sm" flex_grow="1" style_pad_hor="#space_sm" text="End" variant="ghost"
+                       focusable="false" click_focusable="false">
               <style name="styles.chip_idle"/>
               <bind_style_if_eq name="styles.chip_active" subject="history_detail_photo_view" ref_value="2"/>
               <bind_flag_if_eq subject="history_detail_has_end_photo" flag="hidden" ref_value="0"/>
