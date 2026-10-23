@@ -431,12 +431,18 @@ void PlrOfferController::publish_profile() {
     plr_rpc::write_profile(
         *api, plr_profile_json(profile),
         [api]() {
-            // The plugin's verdict on saving follows the profile.
+            // The plugin's availability and saving verdict follow the profile,
+            // and a map read before it was stored still reads not_listed.
             plr_rpc::refresh_features(*api);
         },
-        [](const MoonrakerError& err) {
-            spdlog::warn("[PLR] Writing plr_profile failed: {}", err.message);
-        });
+        lifetime_.bg_cb("PlrOfferController::write_profile_error",
+                        [this, type](const MoonrakerError& err) {
+                            spdlog::warn("[PLR] Writing plr_profile failed: {}", err.message);
+                            // The next probe answer or type change writes again.
+                            if (published_profile_type_ == type) {
+                                published_profile_type_.reset();
+                            }
+                        }));
 }
 
 void PlrOfferController::on_plugin_status(const PlrPluginStatus& status) {

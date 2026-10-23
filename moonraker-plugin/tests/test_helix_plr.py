@@ -280,6 +280,15 @@ def test_plr_feature_is_unavailable_at_tier_0(helix):
     assert run(helix.feature_enabled("plr")) is False
 
 
+def test_saving_stops_at_tier_0_even_when_the_user_turned_it_on(helix):
+    db = helix.database
+    run(db.insert_item("helix-screen", "plr_profile", {"tier": 0}))
+    run(db.insert_item("helix-screen", "plr_user", {"enabled": True}))
+    entry = run(helix._handle_status(None))["features"]["plr"]
+    assert (entry["enabled"], entry["saving"]) == (False, False)
+    assert run(helix.plr._saving()) is False
+
+
 def test_plr_feature_defaults_off_on_a_listed_printer(helix):
     run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 1}))
     status = run(helix._handle_status(None))

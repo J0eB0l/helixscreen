@@ -735,6 +735,16 @@ TEST_CASE_METHOD(PluginPlrOfferFixture,
     ps.set_printer_type_sync("");
 }
 
+namespace {
+helix::PluginFeatureMap not_listed_plr() {
+    helix::PluginFeatureEntry entry;
+    entry.version = helix::kPlrFeatureMinVersion;
+    entry.available = false;
+    entry.reason = "not_listed";
+    return {{helix::kPlrFeatureName, entry}};
+}
+} // namespace
+
 TEST_CASE_METHOD(PluginPlrOfferFixture,
                  "Plugin PLR writes the profile while the plugin reports the printer unlisted",
                  "[plr][generic][profile]") {
@@ -744,11 +754,7 @@ TEST_CASE_METHOD(PluginPlrOfferFixture,
     set_moonraker_api(&api);
     // No profile yet, so the plugin cannot run PLR: only the profile can list
     // the printer.
-    helix::PluginFeatureEntry entry;
-    entry.version = helix::kPlrFeatureMinVersion;
-    entry.available = false;
-    entry.reason = "not_listed";
-    ps.plugin_status_state().set_features({{helix::kPlrFeatureName, entry}});
+    ps.plugin_status_state().set_features(not_listed_plr());
     REQUIRE(ps.plugin_status_state().plugin_feature(helix::kPlrFeatureName,
                                                     helix::kPlrFeatureMinVersion) ==
             helix::PluginFeatureState::Absent);
@@ -761,6 +767,86 @@ TEST_CASE_METHOD(PluginPlrOfferFixture,
     set_moonraker_api(nullptr);
     REQUIRE(profile.is_object());
     CHECK(profile["tier"] == 2);
+    ps.set_printer_type_sync("");
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture,
+                 "Plugin PLR re-reads the features when the stored profile is already current",
+                 "[plr][generic][profile]") {
+    // A second screen on a printer another screen already listed: nothing to
+    // write, but this screen's features map was read before the profile landed.
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    ps.plugin_status_state().set_features(not_listed_plr());
+    ps.set_printer_type_sync("Qidi Q2");
+    client.mock_db_set(helix::kPlrDbNamespace, helix::kPlrProfileKey,
+                       helix::plr_profile_json(helix::plr_resolve_profile(
+                           PrinterDetector::get_plr_block("Qidi Q2"), helix::PlrUserOverride{},
+                           helix::PlrHomingCheck{})));
+    const int status_reads = client.call_count("server.helix.status");
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    const int posts = client.call_count("server.database.post_item");
+    const int status_reads_after = client.call_count("server.helix.status");
+    set_moonraker_api(nullptr);
+    CHECK(posts == 0);
+    CHECK(status_reads_after > status_reads);
+    ps.set_printer_type_sync("");
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR writes the profile again after a failed write",
+                 "[plr][generic][profile]") {
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    ps.plugin_status_state().set_features(not_listed_plr());
+    ps.set_printer_type_sync("Qidi Q2");
+    client.fail_next("server.database.post_item");
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    REQUIRE(client.call_count("server.database.post_item") == 1);
+    REQUIRE(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey).is_null());
+
+    // The next plugin probe answer is the next opportunity.
+    ps.plugin_status_state().set_features(not_listed_plr());
+    settle();
+    const json profile = client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey);
+    set_moonraker_api(nullptr);
+    REQUIRE(profile.is_object());
+    CHECK(profile["tier"] == 2);
+    ps.set_printer_type_sync("");
+}
+
+TEST_CASE_METHOD(PluginPlrOfferFixture, "Plugin PLR writes no profile without a plr entry",
+                 "[plr][generic][profile]") {
+    auto& ps = get_printer_state();
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    MoonrakerAPIMock api{client, ps};
+    set_moonraker_api(&api);
+    SECTION("a plugin that reports no plr feature") {
+        ps.plugin_status_state().set_features({});
+    }
+    SECTION("no plugin") {
+        ps.plugin_status_state().set_installed(false);
+    }
+    ps.set_printer_type_sync("Qidi Q2");
+    lv_subject_set_int(ps.network_state().get_printer_connection_state_subject(),
+                       static_cast<int>(ConnectionState::CONNECTED));
+    PlrOfferController controller;
+    settle();
+    const int posts = client.call_count("server.database.post_item");
+    const int gets = client.call_count("server.database.get_item");
+    set_moonraker_api(nullptr);
+    CHECK(posts == 0);
+    CHECK(gets == 0);
+    CHECK(client.mock_db_get(helix::kPlrDbNamespace, helix::kPlrProfileKey).is_null());
     ps.set_printer_type_sync("");
 }
 

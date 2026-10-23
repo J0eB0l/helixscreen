@@ -774,6 +774,9 @@ class TestFeatureStartIsolation:
                 raise RuntimeError("store unreadable")
 
         monkeypatch.setattr(helix_journal, "HelixJournal", Broken)
+        # A listed printer, so plr can run.
+        await mock_server.components["database"].insert_item(
+            HELIX_SCREEN_NAMESPACE, "plr_profile", {"tier": 1})
         await helix_print_component.component_init()
 
         features = (await _status(helix_print_component, mock_server))["features"]

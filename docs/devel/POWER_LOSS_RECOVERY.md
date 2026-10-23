@@ -210,9 +210,12 @@ in the `helix-screen` namespace, so it has them with the screen off:
   writes only after this connection's plugin probe has answered: discovery resolves
   the printer type before that probe, so the type is this printer's, never the
   previous one's. It reads the stored record first and writes only when it
-  differs, so several screens on one printer do not rewrite it in turn. After a
-  write it re-reads the plugin's features map, since the plugin's saving verdict
-  follows the profile.
+  differs, so several screens on one printer do not rewrite it in turn. Once the
+  stored record matches, written now or already current, it re-reads the
+  plugin's features map, since the plugin's availability and saving verdict
+  follow the profile: a second screen whose map was read before another screen
+  wrote the profile would otherwise keep reading `not_listed`. A failed write
+  forgets the type, so the next probe answer or type change writes again.
 - `plr_user` = `{"enabled": bool}`, the only record the plugin reads for its
   saving switch. Settings > Printing > Extras > **Power-loss recovery** writes it.
   The row is a `plugin_feature_toggle_row` in its own-switch form: its mode
@@ -403,9 +406,11 @@ printer database's `storage` hint, so a CM4 with eMMC qualifies whatever its lis
 says and a listed eMMC model booted from an SD card does not; `unknown` falls back to
 the hint. `emmc` and `ssd` are wear-tolerant; raw NAND only when the database says the
 model has it. `saving_enabled` is the user's `plr_user.enabled` when set, else
-wear-tolerant storage on a printer listed at tier 1 or above. The settings switch is
-offered wherever the feature is available, which needs the profile's tier to be 1 or
-more.
+wear-tolerant storage on a printer listed at tier 1 or above. Saving also needs the
+feature available (`_saving()` and the `saving` field both require
+`availability()`), so an unlisted printer saves nothing even with `plr_user.enabled`
+true. The settings switch is offered wherever the feature is available, which needs
+the profile's tier to be 1 or more.
 
 `HelixPlr.availability()` is the feature's probe, read synchronously on every status
 call: Python 3.8 or newer, a `[virtual_sdcard]`, a writable snapshot store, and a
@@ -414,7 +419,7 @@ probe cannot read the database, so it answers from `listed_tier`, which every
 `profile()` read updates. The plugin reads the profile at component init, and a
 features status reads the switch (`feature_enabled()`, which reads the profile) before
 the probe, so a profile the app writes shows in the next status; the app re-reads the
-features map after each write.
+features map once the stored profile matches what it resolved.
 
 ### Tiers and the printer database `plr` block
 

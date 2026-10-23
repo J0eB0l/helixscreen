@@ -14,11 +14,13 @@ class IMoonrakerAPI;
 
 /// Write a Moonraker database item unless the stored value already equals
 /// @p value, so several screens on one printer do not rewrite it in turn.
-/// @p on_written runs only after an actual write. Callbacks arrive on the
-/// client's thread. @p api must outlive the reply, as the API object does.
+/// @p on_written runs only after an actual write, @p on_current when the
+/// stored value already matched and nothing was written. Callbacks arrive on
+/// the client's thread. @p api must outlive the reply, as the API object does.
 void post_item_if_changed(IMoonrakerAPI& api, const std::string& namespace_name,
                           const std::string& key, const nlohmann::json& value,
                           std::function<void()> on_written,
-                          std::function<void(const MoonrakerError&)> on_error);
+                          std::function<void(const MoonrakerError&)> on_error,
+                          std::function<void()> on_current = {});
 
 } // namespace helix
