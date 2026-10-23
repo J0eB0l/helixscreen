@@ -29,7 +29,7 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/install-linux-desktop.md` | x86_64 Linux desktop package: the app in a window, per-user install with `--desktop`, connecting to a remote printer, window size, updating, uninstall, running from the tarball |
 | `guide/install-esp32.md` | BigTreeTech K-Touch (ESP32-S3) alpha firmware: browser flasher, esptool install, first-boot hotspot setup, updating, recovery, other ESP32-S3 panels |
 | `guide/home-panel.md` | Home dashboard, printer manager, custom images |
-| `guide/printing.md` | File selection, printing, pausing at a layer, tune overlay, Z-offset |
+| `guide/printing.md` | File selection, printing, pausing at a layer, tune overlay, Z-offset, recovering after a power loss (firmware recovery and the plugin's guided resume) |
 | `guide/print-monitoring.md` | Pre-print filament checks (empty-slot block, unassigned-tool Color Mismatch, bypass exemption), camera-based failure detection (Snapmaker U1 dialog, Creality K2 AI toggle) |
 | `guide/temperature.md` | Nozzle/bed temperature panels, presets, reassigning preset filament types, graphs, drying filament on the bed, chamber heater diagnostics card |
 | `guide/chamber-heater.md` | Add-on chamber heater setup (BIGTREETECH Panda Breath): network step, stock vs DragonBreath firmware, the Klipper module and config each needs, the Snapmaker U1 menu shortcut, troubleshooting |

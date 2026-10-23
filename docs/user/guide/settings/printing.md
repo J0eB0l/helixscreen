@@ -227,7 +227,7 @@ These two switches come from the **HelixPrint plugin** on your printer. See [Hel
 
 | Setting | What it does |
 |---------|--------------|
-| **Power-loss recovery** | Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear |
+| **Power-loss recovery** | Saves the print position about once a second so a print can resume after a power cut. On by default when the printer stores its data on eMMC; off on an SD card, where it adds wear. Resuming is described in [Recovering After a Power Loss](../printing.md#resuming-with-the-helixprint-plugin) |
 | **Apply start options to prints from other apps** | When a print starts from Mainsail, Fluidd, your slicer or the job queue, sends your standing print options too, such as which toolheads unload at the end. Off until you turn it on |
 
 Without the plugin on the printer:
