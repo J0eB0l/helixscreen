@@ -146,6 +146,10 @@ struct PendingToolMapRestore {
     /// armed for an earlier print can tell it no longer owns the printer's map.
     uint64_t epoch = 0;
 
+    /// True once a print has started with this record still pending. An entry
+    /// whose lane is still unreported at that print's restore is let go.
+    bool outlived_a_print = false;
+
     [[nodiscard]] bool empty() const {
         return mapping.empty() || backend_index < 0;
     }
@@ -512,6 +516,10 @@ class AmsState {
 
     /// Advance the record's epoch: a new print now owns it. Returns the new epoch.
     uint64_t claim_pending_tool_map_restore();
+
+    /// Replace one tool's entry in the record, keeping its epoch. False when
+    /// there is no record or @p tool is outside it.
+    bool set_pending_tool_map_entry(int tool, int slot);
 
     /// Forget the record: its restore was confirmed, or it no longer describes
     /// this printer.

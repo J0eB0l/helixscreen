@@ -199,12 +199,24 @@ void AmsState::set_pending_tool_map_restore(int backend_index, AmsType backend_t
     pending_tool_map_restore_.backend_index = backend_index;
     pending_tool_map_restore_.backend_type = backend_type;
     pending_tool_map_restore_.mapping = std::move(mapping);
+    pending_tool_map_restore_.outlived_a_print = false;
     ++pending_tool_map_restore_.epoch;
 }
 
 uint64_t AmsState::claim_pending_tool_map_restore() {
     assert_main_thread();
+    pending_tool_map_restore_.outlived_a_print = true;
     return ++pending_tool_map_restore_.epoch;
+}
+
+bool AmsState::set_pending_tool_map_entry(int tool, int slot) {
+    assert_main_thread();
+    auto& mapping = pending_tool_map_restore_.mapping;
+    if (pending_tool_map_restore_.empty() || tool < 0 || tool >= static_cast<int>(mapping.size())) {
+        return false;
+    }
+    mapping[static_cast<size_t>(tool)] = slot;
+    return true;
 }
 
 void AmsState::clear_pending_tool_map_restore() {
@@ -212,6 +224,7 @@ void AmsState::clear_pending_tool_map_restore() {
     pending_tool_map_restore_.backend_index = -1;
     pending_tool_map_restore_.backend_type = AmsType::NONE;
     pending_tool_map_restore_.mapping.clear();
+    pending_tool_map_restore_.outlived_a_print = false;
     ++pending_tool_map_restore_.epoch;
 }
 

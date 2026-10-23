@@ -4,6 +4,7 @@
 #include "ui_ams_lane_settings.h"
 
 #include "ui_error_reporting.h"
+#include "ui_print_start_controller.h"
 #include "ui_toast_manager.h"
 
 #include "ams_backend.h"
@@ -144,6 +145,7 @@ bool commit_assigned_tool(AmsBackend& backend, int slot, int tool) {
         helix::ui::notify_ams_error(result, lv_tr("Couldn't assign the tool"));
         return false;
     }
+    helix::ui::adopt_hand_tool_mapping(backend.backend_index(), tool, slot);
     return true;
 }
 

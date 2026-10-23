@@ -421,6 +421,10 @@ class PrintStartController {
      */
     void observe_backend_for_retry();
 
+    /// For a record a print has run under: an entry whose lane the backend
+    /// still does not report takes the tool's live lane in @p current.
+    void drop_unreported_entries(const AmsBackend& backend, const std::vector<int>& current);
+
     /// True while the pending record is still the one this controller's retry
     /// observers were armed for.
     [[nodiscard]] bool still_owns_restore() const;
@@ -453,16 +457,28 @@ class PrintStartController {
     void check_restore_confirmed();
 
     // === Crash Recovery Persistence ===
-    /// Save remap state to disk so it survives app restart
-    void persist_remap_state();
+    /// Save the active printer's pending record so it survives app restart.
+    static void persist_remap_state();
 
-    /// Delete persisted remap state (called after successful restore)
-    void clear_persisted_remap_state();
+    /// Delete the active printer's persisted record; other printers' stay.
+    static void clear_persisted_remap_state();
+
+    friend void adopt_hand_tool_mapping(int backend_index, int tool, int slot);
 
   public:
     /// Check for and restore any pending remap from a previous crashed session.
     /// Call once after AMS backends are initialized.
     void recover_pending_remap();
 };
+
+/**
+ * @brief The user mapped @p tool to @p slot by hand on backend @p backend_index.
+ *
+ * Outside a print that is the printer's own map now: a pending restore takes it
+ * as the tool's entry, so no replay reverts it, and ends once nothing is left
+ * to restore. During a print the edit re-routes that print only, and the
+ * restore at its end still puts the printer's map back.
+ */
+void adopt_hand_tool_mapping(int backend_index, int tool, int slot);
 
 } // namespace helix::ui

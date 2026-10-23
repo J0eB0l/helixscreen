@@ -43,6 +43,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <vector>
 
@@ -440,13 +441,152 @@ TEST_CASE("remap restore: a print that sends nothing keeps the pending record",
     PrintStartControllerTestAccess::restore(h.controller);
     REQUIRE(be.backend->calls.size() == 2); // T0 refused, T1 sent
 
-    // Print B's pick matches the live table, so nothing goes out.
+    // Print B's pick matches the live table, so nothing goes out, but B's end
+    // still owes the printer its map: start arms the restore on this answer.
     helix::ui::PrintSelectDetailView view;
     h.controller.set_detail_view(&view);
     view.set_filament_mappings({row(1, 2, true)});
-    CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+    const bool restore_owed = PrintStartControllerTestAccess::apply_remaps(h.controller);
+    CHECK(restore_owed);
     CHECK(be.backend->calls.size() == 2);
     CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller) == std::vector<int>{2, 1});
+    if (restore_owed) {
+        PrintStartControllerTestAccess::observe_for_restore(h.controller);
+    }
+    h.report("printing", "b.gcode");
+
+    SECTION("the unit back by B's end gets T0's lane restored") {
+        be.backend->reported_slots = 4;
+        h.report("complete", "b.gcode");
+        REQUIRE(be.backend->calls.size() == 4);
+        CHECK(be.backend->calls[2].tool == 0);
+        CHECK(be.backend->calls[2].slot == 2);
+    }
+
+    SECTION("a unit still gone at B's end lets T0's entry go") {
+        h.report("complete", "b.gcode");
+        REQUIRE(be.backend->calls.size() == 3);
+        CHECK(be.backend->calls[2].tool == 1);
+        CHECK(be.backend->calls[2].slot == 1);
+        CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller).empty());
+
+        be.backend->reported_slots = 4;
+        Harness::ams_data_tick();
+        CHECK(be.backend->calls.size() == 3);
+    }
+    h.controller.set_detail_view(nullptr);
+}
+
+TEST_CASE("remap restore: two controllers armed on one print restore it once",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_two_lifecycle"};
+    ScopedCountingBackend be{{1, 2}};
+    be.backend->echoes_firmware = true; // the record outlives the first send
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 0);
+
+    helix::ui::PrintSelectDetailView view_a;
+    h.controller.set_detail_view(&view_a);
+    view_a.set_filament_mappings({row(1, 3, true)});
+    REQUIRE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+    PrintStartControllerTestAccess::observe_for_restore(h.controller);
+
+    PrintStartController b{h.ps, &h.api};
+    helix::ui::PrintSelectDetailView view_b;
+    b.set_detail_view(&view_b);
+    view_b.set_filament_mappings({row(1, 3, true)});
+    REQUIRE(PrintStartControllerTestAccess::apply_remaps(b));
+    PrintStartControllerTestAccess::observe_for_restore(b);
+    const size_t before_end = be.backend->calls.size();
+
+    h.report("printing", "b.gcode");
+    h.report("complete", "b.gcode");
+    CHECK(be.backend->calls.size() == before_end + 2); // T0->2 and T1->1, once
+    b.set_detail_view(nullptr);
+    h.controller.set_detail_view(nullptr);
+}
+
+TEST_CASE("remap restore: a tool mapped by hand outside a print is not reverted",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_hand_edit"};
+    ScopedCountingBackend be{{1, 2}};
+    be.backend->reported_slots = 2;
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 0);
+
+    SECTION("the edit becomes the tool's entry") {
+        be.backend->locally_assume({3, 2}); // the user put T0 on lane 3
+        helix::ui::adopt_hand_tool_mapping(0, 0, 3);
+        CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller) ==
+              std::vector<int>{3, 1});
+        be.backend->reported_slots = 4;
+        PrintStartControllerTestAccess::restore(h.controller);
+        REQUIRE(be.backend->calls.size() == 1);
+        CHECK(be.backend->calls[0].tool == 1);
+    }
+
+    SECTION("an edit that leaves nothing to restore ends the record") {
+        be.backend->locally_assume({2, 1});
+        helix::ui::adopt_hand_tool_mapping(0, 1, 1);
+        CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller).empty());
+    }
+
+    SECTION("an edit on another backend leaves the record alone") {
+        helix::ui::adopt_hand_tool_mapping(1, 0, 3);
+        CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller) ==
+              std::vector<int>{2, 1});
+    }
+}
+
+TEST_CASE("remap restore: each printer keeps its own pending record on disk",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_per_printer_file"};
+    ScopedCountingBackend be{{1, 2}};
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    auto* cfg = Config::get_instance();
+    const std::string printer_a = "remap-printer-a";
+    cfg->add_printer(printer_a, nlohmann::json{{"printer_name", "A"}});
+    cfg->add_printer("remap-printer-b", nlohmann::json{{"printer_name", "B"}});
+    REQUIRE(cfg->set_active_printer(printer_a));
+    helix::ui::PrintSelectDetailView view;
+    h.controller.set_detail_view(&view);
+
+    // Printer A: a print remapped T1, and its restore is still pending.
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 0);
+    view.set_filament_mappings({row(1, 3, true)});
+    REQUIRE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+
+    // Switch to B, which prints with a remap of its own.
+    helix::PrinterCacheRegistry::instance().invalidate_all();
+    REQUIRE(cfg->set_active_printer("remap-printer-b"));
+    view.set_filament_mappings({row(0, 3, true)});
+    REQUIRE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+
+    // Back to A: startup replays A's record, not B's.
+    helix::PrinterCacheRegistry::instance().invalidate_all();
+    REQUIRE(cfg->set_active_printer(printer_a));
+    be.backend->calls.clear();
+    h.controller.recover_pending_remap();
+    REQUIRE(be.backend->calls.size() == 2);
+    CHECK(be.backend->calls[0].tool == 0);
+    CHECK(be.backend->calls[0].slot == 2);
+    CHECK(be.backend->calls[1].tool == 1);
+    CHECK(be.backend->calls[1].slot == 1);
+
+    // A's restore landing clears A's entry only.
+    const auto record = std::filesystem::path(helix::get_user_config_dir()) / "pending_remap.json";
+    REQUIRE(std::filesystem::exists(record));
+    std::ifstream ifs(record);
+    const std::string text((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    const auto j = nlohmann::json::parse(text, nullptr, false);
+    CHECK_FALSE(j["printers"].contains(printer_a));
+    CHECK(j["printers"].contains("remap-printer-b"));
     h.controller.set_detail_view(nullptr);
 }
 
@@ -545,12 +685,12 @@ TEST_CASE("remap restore: startup replays only the active printer's record",
     const auto record = std::filesystem::path(helix::get_user_config_dir()) / "pending_remap.json";
     std::filesystem::create_directories(record.parent_path());
     const std::string active = Config::get_instance()->get_active_printer_id();
+    const std::string entry = "{\"backend_index\":0,\"tool_mapping\":[2,1]}";
 
     SECTION("another printer's record is left alone") {
         {
             std::ofstream ofs(record);
-            ofs << "{\"backend_index\":0,\"tool_mapping\":[2,1],\"printer_id\":\"" << active
-                << "-other\"}";
+            ofs << "{\"printers\":{\"" << active << "-other\":" << entry << "}}";
         }
         h.controller.recover_pending_remap();
         CHECK(be.backend->calls.empty());
@@ -561,8 +701,16 @@ TEST_CASE("remap restore: startup replays only the active printer's record",
     SECTION("the active printer's record is restored") {
         {
             std::ofstream ofs(record);
-            ofs << "{\"backend_index\":0,\"tool_mapping\":[2,1],\"printer_id\":\"" << active
-                << "\"}";
+            ofs << "{\"printers\":{\"" << active << "\":" << entry << "}}";
+        }
+        h.controller.recover_pending_remap();
+        CHECK(be.backend->calls.size() == 2);
+    }
+
+    SECTION("a record naming no printer is the active printer's") {
+        {
+            std::ofstream ofs(record);
+            ofs << entry;
         }
         h.controller.recover_pending_remap();
         CHECK(be.backend->calls.size() == 2);

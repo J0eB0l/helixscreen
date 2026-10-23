@@ -3324,10 +3324,16 @@ restore is confirmed, even across a deferred (Klipper not ready) or refused
 (unit detached) restore and the next print start. While the record is held,
 `AmsState::collect_firmware_routing()` answers from it, so the next print's seed
 shows the printer's own lanes, and print start sends those lanes for the rows it
-did not change. The record is shared by every `PrintStartController`, belongs to
-one backend type, and is dropped on a printer switch;
-`<user-config>/pending_remap.json` carries the printer id, so startup replays only the active
-printer's record (prestonbrown/helixscreen#1859).
+did not change. The record is shared by every `PrintStartController` and is
+dropped on a printer switch. It names the backend type it was taken from, and
+each use (print start, restore, seed) checks that type and ignores or drops a
+record that no longer matches; nothing drops it the moment the type changes.
+Two things bound how long it lives: a print start that finds an entry's lane
+unreported keeps that tool on its live lane and stops restoring it, and a tool
+the user maps by hand outside a print takes that mapping as its entry, so no
+replay reverts it. `<user-config>/pending_remap.json` holds one entry per printer
+id, so a print on one printer never overwrites another's record and startup
+replays only the active printer's (prestonbrown/helixscreen#1859).
 
 ### 2. Add Detection in PrinterDiscovery
 
