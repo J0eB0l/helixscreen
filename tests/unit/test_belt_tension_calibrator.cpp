@@ -438,6 +438,53 @@ TEST_CASE("belt path names match Klipper's axis syntax", "[belt_tension][calibra
     CHECK(std::string(BeltTensionCalibrator::output_name(BeltPath::PATH_B)) == "helix_belt_b");
 }
 
+TEST_CASE("each belt path is driven by the stepper its diagonal turns alone",
+          "[belt_tension][calibrator][identify]") {
+    // CoreXY: stepper_x moves x+y, stepper_y moves x-y. A 1,-1 move leaves
+    // stepper_x still, a 1,1 move leaves stepper_y still.
+    CHECK(std::string(belt_path_stepper(BeltPath::PATH_A)) == "stepper_y");
+    CHECK(std::string(belt_path_stepper(BeltPath::PATH_B)) == "stepper_x");
+}
+
+TEST_CASE_METHOD(BeltCalibratorFixture, "buzz_path buzzes the path's own stepper",
+                 "[belt_tension][calibrator][identify]") {
+    for (const auto& [path, gcode] :
+         {std::pair{BeltPath::PATH_A, "STEPPER_BUZZ STEPPER=stepper_y"},
+          std::pair{BeltPath::PATH_B, "STEPPER_BUZZ STEPPER=stepper_x"}}) {
+        INFO(gcode);
+        mock_client_.clear_gcode_script_history();
+        mock_client_.defer_next("printer.gcode.script");
+        std::atomic<bool> done{false};
+        calibrator_->buzz_path(
+            path, [&]() { done = true; }, [&](const std::string& msg) { FAIL(msg); });
+        // Busy until Klipper answers: the panel's gate reads this state.
+        CHECK(calibrator_->get_state() == BeltTensionCalibrator::State::BUZZING);
+        mock_client_.fire_deferred("printer.gcode.script");
+        REQUIRE(pump_until(done));
+        CHECK(mock_client_.gcode_script_history() == std::vector<std::string>{gcode});
+        CHECK(calibrator_->get_state() == BeltTensionCalibrator::State::IDLE);
+    }
+}
+
+TEST_CASE_METHOD(BeltCalibratorFixture,
+                 "a refused buzz reports Klipper's message and frees the calibrator",
+                 "[belt_tension][calibrator][identify]") {
+    mock_client_.defer_next("printer.gcode.script");
+    std::atomic<bool> failed{false};
+    std::string message;
+    calibrator_->buzz_path(
+        BeltPath::PATH_A, [&]() { FAIL("buzz reported done"); },
+        [&](const std::string& msg) {
+            message = msg;
+            failed = true;
+        });
+    mock_client_.fire_deferred_error("printer.gcode.script",
+                                     MoonrakerError::unknown("Unknown stepper stepper_y"));
+    REQUIRE(pump_until(failed));
+    CHECK(message.find("Unknown stepper stepper_y") != std::string::npos);
+    CHECK(calibrator_->get_state() == BeltTensionCalibrator::State::IDLE);
+}
+
 TEST_CASE_METHOD(BeltCalibratorFixture, "measure_path reports both curves",
                  "[belt_tension][calibrator]") {
     std::atomic<bool> done{false};

@@ -25,6 +25,19 @@
 namespace helix::calibration {
 
 // ============================================================================
+// Path identity: belt_path_stepper() / belt_layout_from_int()
+// ============================================================================
+
+const char* belt_path_stepper(BeltPath path) {
+    return path == BeltPath::PATH_A ? "stepper_y" : "stepper_x";
+}
+
+BeltLayout belt_layout_from_int(int value) {
+    return value > 0 && value < kBeltLayoutCount ? static_cast<BeltLayout>(value)
+                                                 : BeltLayout::UNSET;
+}
+
+// ============================================================================
 // Band-limited comparison: band_similarity() / detect_belt_peaks() /
 // pair_belt_peaks() / verdict_for_similarity() / compare_belt_paths()
 // ============================================================================
