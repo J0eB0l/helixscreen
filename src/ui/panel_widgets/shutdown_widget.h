@@ -120,8 +120,8 @@ void show_shutdown_dialog(IMoonrakerAPI* api, ShutdownModal& modal, AsyncLifetim
 ///
 /// Hosts running Moonraker with `provider: none` implement those RPCs as
 /// `sudo systemctl reboot|poweroff`, which fails without passwordless sudo
-/// even where SystemPower can power the host itself. (A non-systemd host never
-/// sends the RPC: plan_shutdown_dialog() routes it to SystemPower directly.)
+/// even where SystemPower can power the host itself. (A same-host, non-systemd
+/// dialog tries SystemPower first and sends the RPC only as its retry.)
 ///
 /// @param err_message          Moonraker's error text, for the log.
 /// @param is_reboot            Reboot vs. shutdown, selects the user-facing toast.
