@@ -1475,8 +1475,9 @@ namespace {
 // backend_index at its top level is a single entry naming no printer; it is
 // read as the active printer's, which is all a single-printer setup has.
 
-// nullopt when the file exists but cannot be read or parsed: it may still hold
-// other printers' records, so nothing rebuilds it from empty.
+// nullopt when the file exists but cannot be read: it may still hold other
+// printers' records, so nothing rebuilds it from empty. A file that reads but
+// does not parse is moved aside to <path>.corrupt and read as empty.
 std::optional<nlohmann::json> read_remap_file() {
     nlohmann::json j = nlohmann::json::object();
     const std::string path = pending_remap_path();
@@ -1487,13 +1488,19 @@ std::optional<nlohmann::json> read_remap_file() {
             return std::nullopt;
         }
         auto parsed = nlohmann::json::parse(*text, nullptr, false);
-        if (!parsed.is_object()) {
-            spdlog::error("[PrintStartController] {} is not a JSON object — leaving it "
-                          "untouched",
-                          path);
-            return std::nullopt;
+        if (parsed.is_object()) {
+            j = std::move(parsed);
+        } else {
+            const std::string aside = path + ".corrupt";
+            if (!hfs::rename(path, aside)) {
+                spdlog::error("[PrintStartController] {} is not a JSON object and could not be "
+                              "moved aside: {} — leaving it untouched",
+                              path, std::strerror(errno));
+                return std::nullopt;
+            }
+            spdlog::error("[PrintStartController] {} is not a JSON object — moved to {}", path,
+                          aside);
         }
-        j = std::move(parsed);
     }
     if (j.contains("backend_index")) {
         nlohmann::json converted = nlohmann::json::object();

@@ -675,35 +675,35 @@ TEST_CASE("remap restore: a printer switch drops the record", "[remap-restore][1
     CHECK(be.backend->calls.empty());
 }
 
-TEST_CASE("remap restore: an unreadable record file is left as it is", "[remap-restore][1859]") {
+TEST_CASE("remap restore: an unparsable record file is moved aside", "[remap-restore][1859]") {
     LVGLTestFixture fx;
     ConfigDirGuard config_dir{"remap_torn_file"};
     ScopedCountingBackend be{{1, 2}};
     Harness h;
     h.set_klippy(KlippyState::READY);
     const auto record = std::filesystem::path(helix::get_user_config_dir()) / "pending_remap.json";
+    const auto aside = std::filesystem::path(record.string() + ".corrupt");
     std::filesystem::create_directories(record.parent_path());
     const std::string torn = "{\"printers\":{\"other\":{\"backend_ind";
     {
         std::ofstream ofs(record);
         ofs << torn;
     }
-    const auto contents = [&record] {
-        std::ifstream ifs(record);
+    const auto contents = [](const std::filesystem::path& p) {
+        std::ifstream ifs(p);
         return std::string((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
     };
 
-    // A print start with a remap would persist; it must not rebuild the file.
+    // A print start with a remap persists over an empty file, the torn bytes kept aside.
     PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 0);
     helix::ui::PrintSelectDetailView view;
     h.controller.set_detail_view(&view);
     view.set_filament_mappings({row(1, 3, true)});
     REQUIRE(PrintStartControllerTestAccess::apply_remaps(h.controller));
-    CHECK(contents() == torn);
-
-    // Nor may a restore landing clear it.
-    PrintStartControllerTestAccess::restore(h.controller);
-    CHECK(contents() == torn);
+    CHECK(contents(aside) == torn);
+    const auto j = nlohmann::json::parse(contents(record), nullptr, false);
+    REQUIRE(j.is_object());
+    CHECK(j["printers"].contains(Config::get_instance()->get_active_printer_id()));
     h.controller.set_detail_view(nullptr);
 }
 
