@@ -128,6 +128,35 @@ class PrinterDiscovery;
 namespace helix {
 inline constexpr bool kPreprintSeedFollowsUserSetting = false;
 
+/**
+ * @brief A printer's own tool map, held while a print's remap is still on it.
+ *
+ * Taken when print start writes a remap into a backend's mapping table, and
+ * held until the restore that puts it back is confirmed. Until then the
+ * backend's live table is the PRINT's map, not the printer's: seeds, the next
+ * print's snapshot and every restore read this instead
+ * (prestonbrown/helixscreen#1859).
+ */
+struct PendingToolMapRestore {
+    int backend_index = -1;
+    AmsType backend_type = AmsType::NONE;
+    std::vector<int> mapping; ///< tool -> slot before the remap; -1 = tool was unmapped
+
+    /// Bumped each time a print start takes or keeps this record, so a retry
+    /// armed for an earlier print can tell it no longer owns the printer's map.
+    uint64_t epoch = 0;
+
+    [[nodiscard]] bool empty() const {
+        return mapping.empty() || backend_index < 0;
+    }
+
+    /// Whether a backend of @p type is the one this map was taken from. NONE
+    /// means the type was never recorded, which any backend matches.
+    [[nodiscard]] bool matches_type(AmsType type) const {
+        return backend_type == AmsType::NONE || backend_type == type;
+    }
+};
+
 class AmsState {
   public:
     /**
@@ -471,6 +500,22 @@ class AmsState {
     /// The routing an unremapped print runs with - see
     /// AmsBackend::firmware_default_routing() for when that is a live table.
     [[nodiscard]] helix::FirmwareRouting collect_firmware_routing() const;
+
+    /// The tool map a print's remap displaced, while its restore is unconfirmed.
+    /// Empty when the backend's table is the printer's own. Main thread only.
+    [[nodiscard]] const helix::PendingToolMapRestore& pending_tool_map_restore() const;
+
+    /// Record @p mapping as backend @p backend_index's own map, displaced by a
+    /// print's remap. Keeps the epoch counting up across records.
+    void set_pending_tool_map_restore(int backend_index, AmsType backend_type,
+                                      std::vector<int> mapping);
+
+    /// Advance the record's epoch: a new print now owns it. Returns the new epoch.
+    uint64_t claim_pending_tool_map_restore();
+
+    /// Forget the record: its restore was confirmed, or it no longer describes
+    /// this printer.
+    void clear_pending_tool_map_restore();
 
     /**
      * @brief Whether ANY backend is currently feeding from its bypass / external
@@ -2304,6 +2349,7 @@ class AmsState {
 
     AmsBackendRegistry registry_;
     std::vector<BackendSlotSubjects> secondary_slot_subjects_;
+    helix::PendingToolMapRestore pending_tool_map_restore_;
     bool initialized_ = false;
 
     // Moonraker API for Spoolman integration

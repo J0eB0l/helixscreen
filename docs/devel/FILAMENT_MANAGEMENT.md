@@ -3317,6 +3317,18 @@ Three consumers read this and they must all agree: the mapping-card seed
 (`FilamentSensorManager`). Answering them differently is a silent bug - a
 lane-per-tool identity read as a genuine remap, or a runout watch on lane 0.
 
+**While a print's remap is still on the printer**, the live table a Native
+backend reports as its default is that print's map. Print start records the map
+it displaced in `AmsState::pending_tool_map_restore()` and keeps it until the
+restore is confirmed, even across a deferred (Klipper not ready) or refused
+(unit detached) restore and the next print start. While the record is held,
+`AmsState::collect_firmware_routing()` answers from it, so the next print's seed
+shows the printer's own lanes, and print start sends those lanes for the rows it
+did not change. The record is shared by every `PrintStartController`, belongs to
+one backend type, and is dropped on a printer switch;
+`<user-config>/pending_remap.json` carries the printer id, so startup replays only the active
+printer's record (prestonbrown/helixscreen#1859).
+
 ### 2. Add Detection in PrinterDiscovery
 
 In `printer_discovery.h`, add detection logic in `parse_objects()`:

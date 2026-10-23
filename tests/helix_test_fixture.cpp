@@ -512,6 +512,9 @@ void HelixTestFixture::reset_all() {
     }
     helix::AmsStateTestAccess::reset_action(helix::AmsState::instance());
     helix::AmsStateTestAccess::clear_narration(helix::AmsState::instance());
+    // A displaced tool map one test leaves pending would be the next test's
+    // print-start snapshot and seed routing.
+    helix::AmsState::instance().clear_pending_tool_map_restore();
 
     // DisplaySettingsManager's animations_enabled is a process-global subject
     // that defaults to the platform value (true on desktop). A fixture-less

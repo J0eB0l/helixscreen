@@ -342,9 +342,13 @@ class PrintStartController {
     NavigateToPrintStatusCallback navigate_to_print_status_;
 
     // === Filament Remap State ===
-    // Saved firmware mapping before we send remaps (for restore on print end)
-    std::vector<int> saved_tool_mapping_;
-    int saved_backend_index_ = -1; ///< Which backend we remapped
+    // The firmware mapping a remap displaced lives in
+    // AmsState::pending_tool_map_restore(), shared by every controller: the
+    // next print start keeps it, and the seed reads it as the printer's own.
+
+    // The record epoch the klippy and retry observers were armed under. A print
+    // start since then owns the record, and those observers stand down.
+    uint64_t restore_epoch_ = 0;
 
     // Observer for print state changes (to restore mapping on print end)
     ObserverGuard print_state_observer_;
@@ -416,6 +420,13 @@ class PrintStartController {
      * the machine (prestonbrown/helixscreen#1684). Idempotent.
      */
     void observe_backend_for_retry();
+
+    /// True while the pending record is still the one this controller's retry
+    /// observers were armed for.
+    [[nodiscard]] bool still_owns_restore() const;
+
+    /// True when this controller has an observer armed for the pending record.
+    [[nodiscard]] bool owns_restore_observers() const;
 
     /// True when the backend has reported its lanes and would send every saved
     /// entry that differs from its current mapping.

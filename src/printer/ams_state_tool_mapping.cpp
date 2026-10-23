@@ -170,10 +170,49 @@ AmsState::seed_tool_mappings(const std::vector<helix::GcodeToolInfo>& tools,
 
 helix::FirmwareRouting AmsState::collect_firmware_routing() const {
     assert_main_thread();
-    if (auto* backend = get_backend(0)) {
-        return backend->firmware_default_routing();
+    auto* backend = get_backend(0);
+    if (!backend) {
+        return helix::FirmwareRouting::identity();
     }
-    return helix::FirmwareRouting::identity();
+    helix::FirmwareRouting routing = backend->firmware_default_routing();
+
+    // A default read from the live table is the last print's remap while its
+    // restore is pending; the map that remap displaced is the printer's own.
+    const auto& pending = pending_tool_map_restore_;
+    if (!pending.empty() && pending.backend_index == 0 &&
+        pending.matches_type(backend->get_type()) && !routing.head_for_tool.empty() &&
+        routing.head_for_tool == backend->get_tool_mapping()) {
+        routing.head_for_tool = pending.mapping;
+        routing.fallback_head = -1;
+    }
+    return routing;
+}
+
+const helix::PendingToolMapRestore& AmsState::pending_tool_map_restore() const {
+    assert_main_thread();
+    return pending_tool_map_restore_;
+}
+
+void AmsState::set_pending_tool_map_restore(int backend_index, AmsType backend_type,
+                                            std::vector<int> mapping) {
+    assert_main_thread();
+    pending_tool_map_restore_.backend_index = backend_index;
+    pending_tool_map_restore_.backend_type = backend_type;
+    pending_tool_map_restore_.mapping = std::move(mapping);
+    ++pending_tool_map_restore_.epoch;
+}
+
+uint64_t AmsState::claim_pending_tool_map_restore() {
+    assert_main_thread();
+    return ++pending_tool_map_restore_.epoch;
+}
+
+void AmsState::clear_pending_tool_map_restore() {
+    assert_main_thread();
+    pending_tool_map_restore_.backend_index = -1;
+    pending_tool_map_restore_.backend_type = AmsType::NONE;
+    pending_tool_map_restore_.mapping.clear();
+    ++pending_tool_map_restore_.epoch;
 }
 
 bool AmsState::effective_auto_match() const {

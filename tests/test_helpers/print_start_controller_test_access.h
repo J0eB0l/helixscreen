@@ -14,6 +14,8 @@
 
 #include "ui_print_start_controller.h"
 
+#include "ams_state.h"
+
 #include <functional>
 #include <map>
 #include <set>
@@ -93,18 +95,21 @@ class PrintStartControllerTestAccess {
 
     /// Seed the snapshot apply_filament_remaps() would have taken, without
     /// needing a real print-start round trip.
-    static void seed_saved_mapping(helix::ui::PrintStartController& c, std::vector<int> mapping,
+    /// The record is AmsState's, shared by every controller; @p c is kept so
+    /// call sites read as the controller's snapshot. The type is left
+    /// unrecorded, which any backend matches.
+    static void seed_saved_mapping(helix::ui::PrintStartController& /*c*/, std::vector<int> mapping,
                                    int backend_index) {
-        c.saved_tool_mapping_ = std::move(mapping);
-        c.saved_backend_index_ = backend_index;
+        helix::AmsState::instance().set_pending_tool_map_restore(
+            backend_index, helix::AmsType::NONE, std::move(mapping));
     }
 
-    static const std::vector<int>& saved_mapping(const helix::ui::PrintStartController& c) {
-        return c.saved_tool_mapping_;
+    static const std::vector<int>& saved_mapping(const helix::ui::PrintStartController& /*c*/) {
+        return helix::AmsState::instance().pending_tool_map_restore().mapping;
     }
 
-    static int saved_backend_index(const helix::ui::PrintStartController& c) {
-        return c.saved_backend_index_;
+    static int saved_backend_index(const helix::ui::PrintStartController& /*c*/) {
+        return helix::AmsState::instance().pending_tool_map_restore().backend_index;
     }
 
     static void restore(helix::ui::PrintStartController& c) {

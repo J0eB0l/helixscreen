@@ -13,6 +13,7 @@
 #include "ams_state_internal.h"
 #include "app_globals.h"
 #include "observer_factory.h"
+#include "printer_cache_registry.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 #include "state/subject_macros.h"
@@ -614,6 +615,17 @@ void AmsState::init_subjects(bool register_xml) {
     // Self-register cleanup — ensures deinit runs before lv_deinit()
     StaticSubjectRegistry::instance().register_deinit(
         "AmsState", []() { AmsState::instance().deinit_subjects(); });
+
+    // A displaced tool map belongs to the printer whose table it came from.
+    // Kept past a switch, the next printer's seed would read it and its next
+    // print start would restore it onto the wrong machine.
+    helix::PrinterCacheRegistry::instance().register_invalidator("AmsStateToolMapRestore", []() {
+        auto& ams = AmsState::instance();
+        if (!ams.pending_tool_map_restore().empty()) {
+            spdlog::info("[AMS State] Dropping the pending tool map restore: printer scope ended");
+        }
+        ams.clear_pending_tool_map_restore();
+    });
 
     // Observe PrinterState's print state so the ams_action_detail label can
     // flip between "Idle" / "Printing" / "Paused" when the AMS itself is IDLE

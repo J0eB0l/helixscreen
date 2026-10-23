@@ -2520,7 +2520,7 @@ TEST_CASE("CFS push_slot_identity_to_firmware skips invalid inputs (must NOT cra
 }
 
 TEST_CASE("CFS set_tool_mapping updates local tool_to_slot_map", "[ams][cfs][remap]") {
-    // PrintStartController::saved_tool_mapping_ snapshots get_tool_mapping()
+    // Print start snapshots get_tool_mapping() (AmsState::pending_tool_map_restore())
     // before sending remaps and replays it on print end to restore the prior
     // configuration. If get_tool_mapping() returned an empty vector after a
     // successful set_tool_mapping, the restore path would be a no-op.

@@ -25,6 +25,7 @@
 #include "ams_state.h"
 #include "app_constants.h"
 #include "app_globals.h"
+#include "config.h"
 #include "data_root_resolver.h"
 #include "filament_sensor_manager.h"
 #include "helix_fs.h"
@@ -61,12 +62,14 @@ PrintStartController::PrintStartController(PrinterState& printer_state, IMoonrak
 }
 
 PrintStartController::~PrintStartController() {
-    // Warn if we still have a pending remap restore — the mapping will NOT be
-    // restored automatically since the observer is about to be destroyed.
-    if (!saved_tool_mapping_.empty()) {
+    // The record itself stays in AmsState: the next print start keeps it as its
+    // snapshot and restores it at that print's end, and pending_remap.json
+    // replays it on the next startup.
+    if (owns_restore_observers()) {
+        const auto& saved = AmsState::instance().pending_tool_map_restore();
         spdlog::warn("[PrintStartController] Destroyed with pending remap restore "
-                     "({} tools on backend {}) — mapping will not be restored",
-                     saved_tool_mapping_.size(), saved_backend_index_);
+                     "({} tools on backend {}) — this controller will not restore it",
+                     saved.mapping.size(), saved.backend_index);
     }
 
     // Clear observers before modal cleanup. All four must be reset here, not
@@ -890,14 +893,33 @@ bool PrintStartController::apply_filament_remaps() {
         return false;
     }
 
-    if (std::none_of(mappings.begin(), mappings.end(), sends_remap)) {
+    auto& ams = AmsState::instance();
+    // A restore still pending from an earlier print means the backend's live
+    // table holds that print's map. The seed showed this print's un-picked rows
+    // on the printer's own lanes (AmsState::collect_firmware_routing()), so
+    // those rows are put back on them; the rest of the record waits for this
+    // print's end like any other restore.
+    // Copied: the record is replaced below while the send loop still asks it.
+    PendingToolMapRestore pending = ams.pending_tool_map_restore();
+    const auto lane_for = [&pending](const helix::ToolMapping& m) {
+        if (sends_remap(m)) {
+            return m.mapped_slot;
+        }
+        if (!pending.empty() && !m.is_auto && m.mapped_slot >= 0 && m.tool_index >= 0 &&
+            m.tool_index < static_cast<int>(pending.mapping.size()) &&
+            pending.mapping[static_cast<size_t>(m.tool_index)] == m.mapped_slot) {
+            return m.mapped_slot;
+        }
+        return -1;
+    };
+
+    if (std::none_of(mappings.begin(), mappings.end(),
+                     [&lane_for](const helix::ToolMapping& m) { return lane_for(m) >= 0; })) {
         spdlog::debug("[PrintStartController] No mapping asks for a remap — the printer's "
                       "table stands");
         return false;
     }
 
-    // Get the AMS backend for remapping
-    auto& ams = AmsState::instance();
     if (!ams.is_available()) {
         spdlog::warn("[PrintStartController] AMS not available for remapping");
         return false;
@@ -951,15 +973,38 @@ bool PrintStartController::apply_filament_remaps() {
         return false;
     }
 
-    // Snapshot current firmware mapping BEFORE sending any remaps. This print's
-    // snapshot replaces a retained one, and a retry still armed for that one
-    // would replay it over the remaps sent below.
-    backend_retry_observer_.reset();
-    saved_tool_mapping_ = backend->get_tool_mapping();
-    saved_backend_index_ = backend_idx;
+    // A record for another backend, or one this backend's type no longer
+    // matches, does not describe the table about to be written.
+    if (!pending.empty() &&
+        (pending.backend_index != backend_idx || !pending.matches_type(backend->get_type()))) {
+        spdlog::warn("[PrintStartController] Dropping the pending restore for backend {} ({}): "
+                     "this print remaps backend {} ({})",
+                     pending.backend_index, ams_type_to_string(pending.backend_type), backend_idx,
+                     ams_type_to_string(backend->get_type()));
+        ams.clear_pending_tool_map_restore();
+        clear_persisted_remap_state();
+        pending = {};
+    }
 
-    spdlog::info("[PrintStartController] Saved firmware mapping ({} tools) from backend {}",
-                 saved_tool_mapping_.size(), backend_idx);
+    // A retry or confirmation still armed for an earlier print would replay or
+    // judge the printer's map against the remaps sent below.
+    backend_retry_observer_.reset();
+    klippy_state_observer_.reset();
+    ams_data_observer_.reset();
+    awaiting_restore_confirmation_ = false;
+
+    const std::vector<int> current = backend->get_tool_mapping();
+    const bool kept_pending = !ams.pending_tool_map_restore().empty();
+    if (kept_pending) {
+        ams.claim_pending_tool_map_restore();
+        spdlog::info("[PrintStartController] Keeping the unrestored firmware mapping ({} tools) "
+                     "from backend {} as this print's snapshot",
+                     ams.pending_tool_map_restore().mapping.size(), backend_idx);
+    } else {
+        ams.set_pending_tool_map_restore(backend_idx, backend->get_type(), current);
+        spdlog::info("[PrintStartController] Saved firmware mapping ({} tools) from backend {}",
+                     current.size(), backend_idx);
+    }
 
     // Send remap commands for changed mappings only.
     // Note: set_tool_mapping() is fire-and-forget (async G-code via WebSocket).
@@ -968,26 +1013,27 @@ bool PrintStartController::apply_filament_remaps() {
     // prep_manager->start_print() also sends an async request to Moonraker.
     int remaps_sent = 0;
     for (const auto& m : mappings) {
-        if (!sends_remap(m)) {
+        const int lane = lane_for(m);
+        if (lane < 0) {
             continue;
         }
 
         // Check if this mapping differs from current firmware mapping
         int current_slot = -1;
-        if (m.tool_index >= 0 && m.tool_index < static_cast<int>(saved_tool_mapping_.size())) {
-            current_slot = saved_tool_mapping_[m.tool_index];
+        if (m.tool_index >= 0 && m.tool_index < static_cast<int>(current.size())) {
+            current_slot = current[static_cast<size_t>(m.tool_index)];
         }
 
-        if (m.mapped_slot == current_slot) {
+        if (lane == current_slot) {
             spdlog::debug("[PrintStartController] T{} already mapped to slot {} — skipping",
-                          m.tool_index, m.mapped_slot);
+                          m.tool_index, lane);
             continue;
         }
 
         spdlog::info("[PrintStartController] Remapping T{}: slot {} -> slot {}", m.tool_index,
-                     current_slot, m.mapped_slot);
+                     current_slot, lane);
 
-        auto err = backend->set_tool_mapping(m.tool_index, m.mapped_slot);
+        auto err = backend->set_tool_mapping(m.tool_index, lane);
         if (err.result != AmsResult::SUCCESS) {
             spdlog::error("[PrintStartController] Failed to remap T{}: {}", m.tool_index,
                           err.technical_msg);
@@ -1003,9 +1049,11 @@ bool PrintStartController::apply_filament_remaps() {
         return true;
     }
 
-    // No actual remaps sent (all matched current mapping)
-    saved_tool_mapping_.clear();
-    saved_backend_index_ = -1;
+    // Nothing sent. A record this print found pending still describes the
+    // printer's own map, so it stays until a restore of it is confirmed.
+    if (!kept_pending) {
+        ams.clear_pending_tool_map_restore();
+    }
     return false;
 }
 
@@ -1061,10 +1109,15 @@ void PrintStartController::observe_klippy_state_for_restore() {
     // here (we only get called from the not-ready branch), so the first fire is a
     // no-op. Without this the snapshot would sit until a full app restart, which
     // is the only other thing that replays pending_remap.json.
+    restore_epoch_ = AmsState::instance().pending_tool_map_restore().epoch;
     klippy_state_observer_ = observe<int>(
         subject, this,
         [](PrintStartController* self, int state_val) {
             if (static_cast<KlippyState>(state_val) != KlippyState::READY) {
+                return;
+            }
+            if (!self->still_owns_restore()) {
+                self->klippy_state_observer_.reset();
                 return;
             }
             spdlog::info(
@@ -1078,9 +1131,12 @@ void PrintStartController::observe_klippy_state_for_restore() {
 }
 
 void PrintStartController::restore_filament_mapping() {
-    if (saved_tool_mapping_.empty() || saved_backend_index_ < 0) {
+    auto& ams = AmsState::instance();
+    if (ams.pending_tool_map_restore().empty()) {
         return; // Nothing to restore
     }
+    // Copied: the record is cleared below while this still reads it.
+    const PendingToolMapRestore saved = ams.pending_tool_map_restore();
 
     // A restore sent to a halted Klipper is refused, and set_tool_mapping()
     // cannot tell us: every native backend routes into
@@ -1096,18 +1152,24 @@ void PrintStartController::restore_filament_mapping() {
     if (klippy != KlippyState::READY) {
         spdlog::info("[PrintStartController] Klipper not ready (state={}) — deferring restore of "
                      "{} mapping(s); snapshot and pending_remap.json retained",
-                     static_cast<int>(klippy), saved_tool_mapping_.size());
+                     static_cast<int>(klippy), saved.mapping.size());
         observe_klippy_state_for_restore();
-        return; // NOT delivered: keep saved_tool_mapping_ and the persisted file
+        return; // NOT delivered: keep the record and the persisted file
     }
 
-    auto& ams = AmsState::instance();
-    auto* backend = ams.get_backend(saved_backend_index_);
+    auto* backend = ams.get_backend(saved.backend_index);
     if (!backend) {
         spdlog::warn("[PrintStartController] Backend {} gone — cannot restore mapping",
-                     saved_backend_index_);
-        saved_tool_mapping_.clear();
-        saved_backend_index_ = -1;
+                     saved.backend_index);
+        ams.clear_pending_tool_map_restore();
+        return;
+    }
+    if (!saved.matches_type(backend->get_type())) {
+        spdlog::warn("[PrintStartController] Backend {} is now {}, not the {} its mapping was "
+                     "saved from — dropping the restore",
+                     saved.backend_index, ams_type_to_string(backend->get_type()),
+                     ams_type_to_string(saved.backend_type));
+        finish_restore();
         return;
     }
 
@@ -1116,8 +1178,8 @@ void PrintStartController::restore_filament_mapping() {
 
     int restores_sent = 0;
     int restores_refused = 0;
-    for (size_t i = 0; i < saved_tool_mapping_.size(); ++i) {
-        int saved_slot = saved_tool_mapping_[i];
+    for (size_t i = 0; i < saved.mapping.size(); ++i) {
+        int saved_slot = saved.mapping[i];
         int current_slot = (i < current_mapping.size()) ? current_mapping[i] : -1;
 
         // A tool that was unmapped before the print has no lane to go back to;
@@ -1193,8 +1255,12 @@ void PrintStartController::restore_filament_mapping() {
 }
 
 bool PrintStartController::retained_restore_sendable() const {
-    auto* backend = AmsState::instance().get_backend(saved_backend_index_);
-    if (!backend || saved_tool_mapping_.empty()) {
+    const auto& saved = AmsState::instance().pending_tool_map_restore();
+    if (saved.empty()) {
+        return false;
+    }
+    auto* backend = AmsState::instance().get_backend(saved.backend_index);
+    if (!backend) {
         return false;
     }
     // Before a backend's first report its bounds are not the printer's: CFS
@@ -1204,8 +1270,8 @@ bool PrintStartController::retained_restore_sendable() const {
         return false;
     }
     const auto current = backend->get_tool_mapping();
-    for (size_t i = 0; i < saved_tool_mapping_.size(); ++i) {
-        const int want = saved_tool_mapping_[i];
+    for (size_t i = 0; i < saved.mapping.size(); ++i) {
+        const int want = saved.mapping[i];
         const int have = (i < current.size()) ? current[i] : -1;
         if (want >= 0 && want != have &&
             !backend->can_set_tool_mapping(static_cast<int>(i), want).success()) {
@@ -1231,9 +1297,14 @@ void PrintStartController::observe_backend_for_retry() {
     if (!subject) {
         return;
     }
+    restore_epoch_ = AmsState::instance().pending_tool_map_restore().epoch;
     backend_retry_observer_ = observe<int>(
         subject, this,
         [](PrintStartController* self, int) {
+            if (!self->still_owns_restore()) {
+                self->backend_retry_observer_.reset();
+                return;
+            }
             // A remap mid-job re-routes the tools of the print in progress.
             if (job_holds_machine(self->printer_state_.print_state().get_print_lifecycle()) ||
                 !self->retained_restore_sendable()) {
@@ -1251,9 +1322,20 @@ void PrintStartController::finish_restore() {
     awaiting_restore_confirmation_ = false;
     ams_data_observer_.reset();
     backend_retry_observer_.reset();
-    saved_tool_mapping_.clear();
-    saved_backend_index_ = -1;
+    klippy_state_observer_.reset();
+    AmsState::instance().clear_pending_tool_map_restore();
     clear_persisted_remap_state();
+}
+
+bool PrintStartController::still_owns_restore() const {
+    const auto& saved = AmsState::instance().pending_tool_map_restore();
+    return !saved.empty() && saved.epoch == restore_epoch_;
+}
+
+bool PrintStartController::owns_restore_observers() const {
+    return (print_state_observer_ || klippy_state_observer_ || backend_retry_observer_ ||
+            ams_data_observer_) &&
+           !AmsState::instance().pending_tool_map_restore().empty();
 }
 
 void PrintStartController::observe_ams_data_for_confirmation() {
@@ -1272,18 +1354,18 @@ void PrintStartController::observe_ams_data_for_confirmation() {
 }
 
 void PrintStartController::check_restore_confirmed() {
-    if (!awaiting_restore_confirmation_ || saved_tool_mapping_.empty() ||
-        saved_backend_index_ < 0) {
+    const auto& saved = AmsState::instance().pending_tool_map_restore();
+    if (!awaiting_restore_confirmation_ || saved.empty()) {
         return;
     }
 
-    auto* backend = AmsState::instance().get_backend(saved_backend_index_);
+    auto* backend = AmsState::instance().get_backend(saved.backend_index);
     if (!backend) {
         // Backend disappeared mid-wait. Nothing can confirm now, and holding the
         // record would block every future restore, so give up on THIS one but
         // leave the persisted file for the next startup to replay.
         spdlog::warn("[PrintStartController] Backend {} gone while awaiting restore confirmation",
-                     saved_backend_index_);
+                     saved.backend_index);
         awaiting_restore_confirmation_ = false;
         ams_data_observer_.reset();
         return;
@@ -1298,8 +1380,8 @@ void PrintStartController::check_restore_confirmed() {
     }
 
     auto current = backend->get_tool_mapping();
-    for (size_t i = 0; i < saved_tool_mapping_.size(); ++i) {
-        const int want = saved_tool_mapping_[i];
+    for (size_t i = 0; i < saved.mapping.size(); ++i) {
+        const int want = saved.mapping[i];
         const int have = (i < current.size()) ? current[i] : -1;
         if (want != have) {
             // Firmware reported something, but not what we asked for. Keep
@@ -1314,7 +1396,7 @@ void PrintStartController::check_restore_confirmed() {
 
     spdlog::info("[PrintStartController] Firmware confirmed restore of {} mapping(s) (generation "
                  "{} -> {})",
-                 saved_tool_mapping_.size(), restore_generation_at_send_, generation);
+                 saved.mapping.size(), restore_generation_at_send_, generation);
     finish_restore();
 }
 
@@ -1329,13 +1411,18 @@ static std::string pending_remap_path() {
 }
 
 void PrintStartController::persist_remap_state() {
-    if (saved_tool_mapping_.empty() || saved_backend_index_ < 0) {
+    const auto& saved = AmsState::instance().pending_tool_map_restore();
+    if (saved.empty()) {
         return;
     }
 
     nlohmann::json j;
-    j["backend_index"] = saved_backend_index_;
-    j["tool_mapping"] = saved_tool_mapping_;
+    j["backend_index"] = saved.backend_index;
+    j["backend_type"] = static_cast<int>(saved.backend_type);
+    j["tool_mapping"] = saved.mapping;
+    // The file is shared by every configured printer; only the one it was
+    // taken from may replay it.
+    j["printer_id"] = Config::get_instance()->get_active_printer_id();
 
     const std::string path = pending_remap_path();
     if (!hfs::create_directories(std::string(hfs::parent_path(path)))) {
@@ -1407,9 +1494,29 @@ void PrintStartController::recover_pending_remap() {
         return;
     }
 
+    // A record with no printer_id names no printer; it is replayed as the
+    // active one's, which is all a single-printer setup has.
+    const std::string printer_id = helix::json_util::safe_string(j, "printer_id", "");
+    const std::string active_id = Config::get_instance()->get_active_printer_id();
+    if (!printer_id.empty() && printer_id != active_id) {
+        spdlog::info("[PrintStartController] Pending remap belongs to printer '{}', not the "
+                     "active '{}' — leaving it for that printer",
+                     printer_id, active_id);
+        return;
+    }
+
+    auto& ams = AmsState::instance();
+    if (!ams.pending_tool_map_restore().empty()) {
+        spdlog::debug("[PrintStartController] A pending remap is already held in memory — "
+                      "not reloading pending_remap.json");
+        return;
+    }
+
     // Load saved state and decide between immediate vs deferred restore.
-    saved_tool_mapping_ = std::move(mapping);
-    saved_backend_index_ = backend_idx;
+    const int type_val = helix::json_util::safe_int(j, "backend_type", 0);
+    ams.set_pending_tool_map_restore(backend_idx, static_cast<AmsType>(type_val),
+                                     std::move(mapping));
+    const auto& saved = ams.pending_tool_map_restore();
 
     // If a print is still active, the user's remap is still LOAD-BEARING —
     // reverting now would silently swap filament routing under a running
@@ -1430,13 +1537,12 @@ void PrintStartController::recover_pending_remap() {
         spdlog::info("[PrintStartController] Crash recovery: found pending remap "
                      "({} tools, backend {}) — print still active (state={}), "
                      "deferring restore until print ends",
-                     saved_tool_mapping_.size(), saved_backend_index_,
-                     static_cast<int>(current_state));
+                     saved.mapping.size(), saved.backend_index, static_cast<int>(current_state));
         observe_lifecycle_for_restore();
     } else {
         spdlog::info("[PrintStartController] Crash recovery: found pending remap "
                      "({} tools, backend {}) — restoring",
-                     saved_tool_mapping_.size(), saved_backend_index_);
+                     saved.mapping.size(), saved.backend_index);
         restore_filament_mapping();
     }
 }
