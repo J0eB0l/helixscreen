@@ -2352,6 +2352,7 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             constexpr int timeout_seconds = 600;
             int status = 0;
             bool exited = false;
+            bool wait_failed = false;
 
             static constexpr const char* install_message_keys[] = {
                 "Still working...", "Almost there...", "Just a bit more...",
@@ -2363,8 +2364,12 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
             for (int elapsed = 0; elapsed < timeout_seconds; ++elapsed) {
                 pid_t result = waitpid(pid, &status, WNOHANG);
                 if (result < 0) {
+                    if (errno == EINTR) {
+                        continue;
+                    }
                     flog_error("[UpdateChecker] waitpid(install) failed: {} (errno={})",
                                strerror(errno), errno);
+                    wait_failed = true;
                     break;
                 }
                 if (result > 0) {
@@ -2393,7 +2398,9 @@ void UpdateChecker::do_install(const std::string& tarball_path) {
                 flog_info(
                     "[UpdateChecker] install.sh exit: code={} normal={} signaled={} signal={}", ret,
                     normal_exit, signaled, sig);
-            } else {
+            } else if (!wait_failed) {
+                // A failed waitpid means the pid may already be reaped and reused,
+                // so only a child still known to be running is signalled.
                 timed_out = true;
                 flog_error("[UpdateChecker] install.sh timed out after {}s, killing",
                            timeout_seconds);
