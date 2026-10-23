@@ -22,6 +22,7 @@
 #include "system_power.h"
 
 #include <string>
+#include <vector>
 
 #include "../catch_amalgamated.hpp"
 
@@ -191,4 +192,40 @@ TEST_CASE("Screen power failure toast names a missing permission", "[shutdown][p
           "Screen shutdown failed");
     CHECK(std::string(screen_power_failure_message(PowerResult::Failed, true)) ==
           "Screen reboot failed");
+}
+
+TEST_CASE("Local power holds black only after the request dispatched", "[shutdown][power]") {
+    std::vector<std::string> steps;
+    auto power_returning = [&steps](PowerResult r) {
+        return [&steps, r]() {
+            steps.push_back("power");
+            return r;
+        };
+    };
+    auto stop_drawing = [&steps]() { steps.push_back("stop_drawing"); };
+    auto clear = [&steps]() { steps.push_back("clear"); };
+
+    SECTION("dispatched: power, then stop drawing, then clear") {
+        CHECK(power_then_hold_black(power_returning(PowerResult::Dispatched), stop_drawing,
+                                    clear) == PowerResult::Dispatched);
+        CHECK(steps == std::vector<std::string>{"power", "stop_drawing", "clear"});
+    }
+
+    SECTION("failed or refused: the screen is left alone") {
+        for (const PowerResult r : {PowerResult::Failed, PowerResult::NotAuthorized}) {
+            steps.clear();
+            CHECK(power_then_hold_black(power_returning(r), stop_drawing, clear) == r);
+            CHECK(steps == std::vector<std::string>{"power"});
+        }
+    }
+}
+
+TEST_CASE("A failed local power retries through a connected Moonraker", "[shutdown][power]") {
+    CHECK(host_power_follow_up(PowerResult::Dispatched, true) == HostPowerFollowUp::Done);
+    CHECK(host_power_follow_up(PowerResult::Dispatched, false) == HostPowerFollowUp::Done);
+    CHECK(host_power_follow_up(PowerResult::Failed, true) == HostPowerFollowUp::RetryViaMoonraker);
+    CHECK(host_power_follow_up(PowerResult::NotAuthorized, true) ==
+          HostPowerFollowUp::RetryViaMoonraker);
+    CHECK(host_power_follow_up(PowerResult::Failed, false) == HostPowerFollowUp::Toast);
+    CHECK(host_power_follow_up(PowerResult::NotAuthorized, false) == HostPowerFollowUp::Toast);
 }

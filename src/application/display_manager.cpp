@@ -806,6 +806,10 @@ void DisplayManager::restore_display_on_shutdown() {
     m_sleep.restore_on_shutdown();
 }
 
+void DisplayManager::hold_flush_for_power_off() {
+    m_sleep.hold_flush_for_power_off();
+}
+
 #if HELIX_ENABLE_SCREENSAVER
 helix::ui::SaverHost DisplayManager::screensaver_host(const DisplayBackend* backend) {
     helix::ui::SaverHost host;

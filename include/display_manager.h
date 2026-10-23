@@ -257,6 +257,15 @@ class DisplayManager : public helix::ICalibrationSink {
      */
     void restore_display_on_shutdown();
 
+    /**
+     * @brief Stop LVGL flushing for the rest of the process
+     *
+     * For a reboot or shutdown of this host that has already been dispatched:
+     * a framebuffer clear made after this holds until init stops us instead of
+     * being painted over on the next frame. No wake or touch undoes it.
+     */
+    void hold_flush_for_power_off();
+
 #if HELIX_ENABLE_SCREENSAVER
     /**
      * @brief Start a screensaver immediately for preview/testing

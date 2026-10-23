@@ -109,6 +109,16 @@ DetectedResolution DisplayBackendFbdev::detect_resolution() const {
     return {static_cast<int>(vinfo.xres), static_cast<int>(vinfo.yres), true};
 }
 
+namespace {
+
+/// Bits per pixel the clear fills by, read from the stride (32 when xres is 0).
+/// clear_framebuffer() and the signal-safe clear must agree on it.
+uint32_t fill_bits_per_pixel(const fb_var_screeninfo& vinfo, const fb_fix_screeninfo& finfo) {
+    return vinfo.xres > 0 ? (finfo.line_length * 8) / vinfo.xres : 32;
+}
+
+} // namespace
+
 lv_display_t* DisplayBackendFbdev::create_display(int width, int height) {
     spdlog::info("[Fbdev Backend] Creating framebuffer display on {}", fb_device_);
 
@@ -176,8 +186,11 @@ lv_display_t* DisplayBackendFbdev::create_display(int width, int height) {
     // otherwise survive into whatever draws next (a reboot's boot screen).
     if (int fb_fd = open(fb_device_.c_str(), O_RDONLY | O_CLOEXEC); fb_fd >= 0) {
         struct fb_fix_screeninfo finfo {};
-        if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == 0) {
-            helix::cache_framebuffer_for_signal(fb_device_, finfo.smem_len);
+        struct fb_var_screeninfo vinfo {};
+        if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == 0 &&
+            ioctl(fb_fd, FBIOGET_VSCREENINFO, &vinfo) == 0) {
+            helix::cache_framebuffer_for_signal(fb_device_, finfo.smem_len,
+                                                fill_bits_per_pixel(vinfo, finfo));
         }
         close(fb_fd);
     }
@@ -798,11 +811,7 @@ bool DisplayBackendFbdev::clear_framebuffer(uint32_t color) {
         return false;
     }
 
-    // Determine bytes per pixel from stride
-    uint32_t bpp = 32; // Default assumption
-    if (vinfo.xres > 0) {
-        bpp = (finfo.line_length * 8) / vinfo.xres;
-    }
+    const uint32_t bpp = fill_bits_per_pixel(vinfo, finfo);
 
     // Fill framebuffer with the specified color
     // Color is in ARGB format (0xAARRGGBB)
