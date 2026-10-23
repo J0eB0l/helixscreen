@@ -55,6 +55,7 @@
   <translation tag="(none detected)" de="(keine erkannt)"/>
   <translation tag="(recovered)" de="(nachträglich ermittelt)"/>
   <translation tag="(repeated {} times)" de="(wiederholt {}-mal)"/>
+  <translation tag="(too many folders to list them all)" de="(zu viele Ordner, um alle aufzulisten)"/>
   <translation tag="(unnamed)" de="(unbenannt)"/>
   <translation tag="+ Add" de="+ Hinzufügen"/>
   <translation tag="+ Add Preset" de="+ Voreinstellung"/>
@@ -126,6 +127,7 @@
   <translation tag="3D Pipes" de="3D Pipes"/>
   <translation tag="3D View" de="3D-Ansicht"/>
   <translation tag="3MF conversion" de="3MF-Konvertierung"/>
+  <translation tag="3MF conversions" de="3MF-Konvertierungen"/>
   <translation tag="4. Paper should move but with resistance" de="4. Papier sollte sich bewegen, aber mit Widerstand"/>
   <translation tag="4. Repeat until bed is level" de="4. Wiederholen bis das Bett nivelliert ist"/>
   <translation tag="5 min" de="5 Min"/>
@@ -332,6 +334,8 @@
   <translation tag="Automatic Heater Control Calibration" de="Automatische Heizungsregelung Kalibrierung"/>
   <translation tag="Automatic LED Control" de="Automatische LED-Steuerung"/>
   <translation tag="Automatic calibration" de="Automatische Kalibrierung"/>
+  <translation tag="Automatic cleanup" de="Automatische Bereinigung"/>
+  <translation tag="Automatic storage cleanup" de="Automatische Speicherbereinigung"/>
   <translation tag="Aux" de="Aux"/>
   <translation tag="Available" de="Verfügbar"/>
   <translation tag="Available Networks" de="Verfügbare Netzwerke"/>
@@ -676,9 +680,12 @@
   <translation tag="Chute position: X {:.1f}, Y {:.1f}" de="Position der Entlüftungsrinne: X {:.1f}, Y {:.1f}"/>
   <translation tag="Clean Brush" de="Bürste reinigen"/>
   <translation tag="Clean Nozzle" de="Düse reinigen"/>
+  <translation tag="Clean Up Storage" de="Speicher bereinigen"/>
+  <translation tag="Clean up" de="Bereinigen"/>
   <translation tag="Clean {}" de="{} reinigen"/>
   <translation tag="Cleaning Nozzle..." de="Düse reinigen..."/>
   <translation tag="Cleaning nozzle..." de="Düse reinigen..."/>
+  <translation tag="Cleanup failed" de="Bereinigung fehlgeschlagen"/>
   <translation tag="Clear" de="Löschen"/>
   <translation tag="Clear All" de="Alles löschen"/>
   <translation tag="Clear All Events" de="Alle Ereignisse löschen"/>
@@ -856,6 +863,7 @@
   <translation tag="Could not open a browser for the update" de="Browser für das Update konnte nicht geöffnet werden"/>
   <translation tag="Could not parse tips database" de="Tipps-Datenbank konnte nicht ausgelesen werden"/>
   <translation tag="Could not reach Spoolman at" de="Spoolman nicht erreichbar unter:"/>
+  <translation tag="Could not read the printer&apos;s storage" de="Der Speicher des Druckers konnte nicht gelesen werden"/>
   <translation tag="Could not read the screw adjustments from the printer" de="Schraubeneinstellungen konnten nicht vom Drucker gelesen werden"/>
   <translation tag="Could not remove the job from the queue" de="Der Auftrag konnte nicht aus der Warteschlange entfernt werden"/>
   <translation tag="Could not reset the printer image tags" de="Bildmarkierungen konnten nicht zurückgesetzt werden"/>
@@ -954,7 +962,12 @@
   <translation tag="Delete Profile?" de="Profil löschen?"/>
   <translation tag="Delete Spool?" de="Spule löschen?"/>
   <translation tag="Delete Video" de="Video löschen"/>
+  <translation tag="Delete every modified print copy that is not in use? Files you uploaded are not touched." de="Alle nicht verwendeten geänderten Druckkopien löschen? Hochgeladene Dateien bleiben unberührt."/>
+  <translation tag="Delete every print photo? Print history keeps its entries." de="Alle Druckfotos löschen? Der Druckverlauf behält seine Einträge."/>
+  <translation tag="Delete every timelapse video?" de="Alle Zeitraffer-Videos löschen?"/>
   <translation tag="Delete the history record for {}?" de="Verlaufseintrag für {} löschen?"/>
+  <translation tag="Delete the layer indexes? Previews read each file again until it is analyzed again." de="Die Ebenenindizes löschen? Vorschauen lesen jede Datei erneut, bis sie wieder analysiert ist."/>
+  <translation tag="Delete the rotated logs? The logs in use are kept, and debug bundles still work." de="Die archivierten Protokolle löschen? Die verwendeten Protokolle bleiben erhalten, Debug-Pakete funktionieren weiterhin."/>
   <translation tag="Delete {}?" de="{} löschen?"/>
   <translation tag="Delta:" de="Delta:"/>
   <translation tag="Density" de="Dichte"/>
@@ -1482,6 +1495,8 @@
   <translation tag="Found 1 printer" de="1 Drucker gefunden"/>
   <translation tag="Found {} at {}." de="{} unter {} gefunden."/>
   <translation tag="Framerate" de="Bildrate"/>
+  <translation tag="Free space unknown" de="Freier Speicher unbekannt"/>
+  <translation tag="Freed {}" de="{} freigegeben"/>
   <translation tag="From Buffer" de="Aus Puffer"/>
   <translation tag="From Printer" de="Vom Drucker"/>
   <translation tag="From SpoolmanDB" de="Aus SpoolmanDB"/>
@@ -2060,7 +2075,9 @@
   <translation tag="Measure this zone first" de="Erst diese Zone messen"/>
   <translation tag="Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed." de="Von der Platte aus messen. Scharfe Ecken ohne Wulst und ohne Lücke zeigen das richtige K. Jede Zeile ist ein Höhenbereich mit dem K, das der Drucker dabei gemeldet hat."/>
   <translation tag="Measured (shaper off)" de="Gemessen (Shaper aus)"/>
+  <translation tag="Measured by the HelixPrint plugin" de="Vom HelixPrint-Plugin gemessen"/>
   <translation tag="Measured filament diameter" de="Gemessener Filamentdurchmesser"/>
+  <translation tag="Measured from the printer&apos;s file list" de="Aus der Dateiliste des Druckers gemessen"/>
   <translation tag="Measured offsets, read-only" de="Gemessene Versätze, nur lesbar"/>
   <translation tag="Measured pressure advance" de="Gemessener Pressure Advance"/>
   <translation tag="Measurement incomplete. Try again." de="Messung unvollständig. Bitte erneut versuchen."/>
@@ -2073,6 +2090,7 @@
   <translation tag="Measuring vibrations... {}%" de="Messe Vibrationen... {}%"/>
   <translation tag="Measuring wheel error" de="Fehler am Messrad"/>
   <translation tag="Measuring {}..." de="{} wird vermessen..."/>
+  <translation tag="Measuring..." de="Messen..."/>
   <translation tag="Memory" de="Speicher"/>
   <translation tag="Memory (MB)" de="Speicher (MB)"/>
   <translation tag="Memory Snapshot" de="Speicher-Momentaufnahme"/>
@@ -2311,6 +2329,7 @@
   <translation tag="Not connected to the printer" de="Nicht mit dem Drucker verbunden"/>
   <translation tag="Not detected" de="Nicht erkannt"/>
   <translation tag="Not drying" de="Trocknet nicht"/>
+  <translation tag="Not enough free space on the printer for this file. Free some in Settings &gt; System &gt; Storage." de="Nicht genug freier Speicher auf dem Drucker für diese Datei. Schaffen Sie Platz unter Einstellungen &gt; System &gt; Speicher."/>
   <translation tag="Not enough frequency data from the sweeps. Try again." de="Nicht genügend Frequenzdaten aus den Messungen. Versuchen Sie es erneut."/>
   <translation tag="Not enough room for this widget. Rearrange or remove widgets to make space." de="Nicht genug Platz für dieses Widget. Ordnen Sie Widgets neu an oder entfernen Sie welche, um Platz zu schaffen."/>
   <translation tag="Not in your spools? Set it up" de="Nicht in Ihren Spulen? Einrichten"/>
@@ -2378,6 +2397,7 @@
   <translation tag="Offset" de="Versatz"/>
   <translation tag="Offsets Saved" de="Offsets gespeichert"/>
   <translation tag="Offsets saved" de="Offsets gespeichert"/>
+  <translation tag="Old logs" de="Alte Protokolle"/>
   <translation tag="Old setting on today&apos;s data: {} residual - now: {}" de="Alte Einstellung auf heutigen Daten: {} Restvibration - jetzt: {}"/>
   <translation tag="On" de="Ein"/>
   <translation tag="On and Off macros must be different" de="Ein- und Aus-Makros müssen unterschiedlich sein"/>
@@ -2385,6 +2405,7 @@
   <translation tag="On/Off" de="Ein/Aus"/>
   <translation tag="On/Off (state-aware)" de="Ein/Aus (zustandsbewusst)"/>
   <translation tag="On:" de="Ein:"/>
+  <translation tag="Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept." de="Löscht einmal täglich Druckkopien, die älter als eine Woche sind, und Protokolle, die älter als einen Monat sind. Ihre Dateien, Fotos und Zeitraffer-Videos bleiben erhalten."/>
   <translation tag="One tap runs this macro. Dangerous macros still ask." de="Ein Tipp führt dieses Makro aus. Gefährliche Makros fragen weiterhin nach."/>
   <translation tag="Only on A: {} Hz" de="Nur bei A: {} Hz"/>
   <translation tag="Only on B: {} Hz" de="Nur bei B: {} Hz"/>
@@ -2625,6 +2646,7 @@
   <translation tag="Print canceled" de="Druck abgebrochen"/>
   <translation tag="Print complete" de="Druck abgeschlossen"/>
   <translation tag="Print completed" de="Druck abgeschlossen"/>
+  <translation tag="Print copies" de="Druckkopien"/>
   <translation tag="Print details" de="Druckdetails"/>
   <translation tag="Print did not start" de="Druck wurde nicht gestartet"/>
   <translation tag="Print didn&apos;t start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})" de="Druck nicht gestartet – Drucker ist möglicherweise beschäftigt oder offline (B3 polls={}, status=0x{:02X}, error=0x{:02X})"/>
@@ -2639,6 +2661,7 @@
   <translation tag="Print issue detected" de="Druckproblem erkannt"/>
   <translation tag="Print jobs waiting to run" de="Wartende Druckaufträge"/>
   <translation tag="Print paused" de="Druck pausiert"/>
+  <translation tag="Print photos" de="Druckfotos"/>
   <translation tag="Print preparation failed: {}" de="Druckvorbereitung fehlgeschlagen: {}"/>
   <translation tag="Print resumed" de="Druck fortgesetzt"/>
   <translation tag="Print server rejected the job — check printer status" de="Druckserver hat den Auftrag abgelehnt — Druckerstatus prüfen"/>
@@ -3410,6 +3433,8 @@
   <translation tag="Stopped between Spool and Lane" de="Zwischen Spule und Spur gestoppt"/>
   <translation tag="Stopped drying %s" de="Trocknen gestoppt: %s"/>
   <translation tag="Stops all motion. Requires firmware restart." de="Stoppt alle Bewegung. Erfordert Firmware-Neustart."/>
+  <translation tag="Storage" de="Speicher"/>
+  <translation tag="Storage report" de="Speicherbericht"/>
   <translation tag="Stow" de="Einfahren"/>
   <translation tag="Subtle" de="Dezent"/>
   <translation tag="Success" de="Erfolg"/>
@@ -3742,6 +3767,7 @@
   <translation tag="Thorough" de="Gründlich"/>
   <translation tag="Thumbnail Only" de="Nur Vorschaubild"/>
   <translation tag="Thumbnail: " de="Miniaturbild: "/>
+  <translation tag="Thumbnails" de="Vorschaubilder"/>
   <translation tag="Tighten {0} noticeably" de="{0} spürbar spannen"/>
   <translation tag="Tighten {0} one full turn" de="{0} eine volle Umdrehung spannen"/>
   <translation tag="Tighten {0} {1}" de="{0} um {1} spannen"/>
@@ -3761,6 +3787,7 @@
   <translation tag="Timelapse render failed" de="Zeitraffer-Rendern fehlgeschlagen"/>
   <translation tag="Timelapse render failed: {}" de="Zeitraffer-Rendern fehlgeschlagen: {}"/>
   <translation tag="Timelapse rendered successfully" de="Zeitraffer erfolgreich gerendert"/>
+  <translation tag="Timelapse videos" de="Zeitraffer-Videos"/>
   <translation tag="Timeout" de="Zeitüberschreitung"/>
   <translation tag="Timezone" de="Zeitzone"/>
   <translation tag="Tip Forming" de="Spitzenformung"/>
@@ -4034,6 +4061,7 @@
   <translation tag="Welcome to HelixScreen" de="Willkommen bei HelixScreen"/>
   <translation tag="Went past {} by {:.1f} Hz. Back it off a little." de="Über {} hinaus um {:.1f} Hz. Etwas zurückdrehen."/>
   <translation tag="What We Collect" de="Was wir erfassen"/>
+  <translation tag="What fills the printer&apos;s disk, and cleanup" de="Was den Speicher des Druckers füllt, und Bereinigung"/>
   <translation tag="What happens when a print ends" de="Was am Druckende passiert"/>
   <translation tag="When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs." de="Wenn aktiviert, wird nur das Makro ausgeführt. Wenn deaktiviert, werden zuerst die Temperaturen gesetzt, dann das Makro."/>
   <translation tag="Where UI sounds play" de="Wo UI-Töne abgespielt werden"/>
@@ -4104,6 +4132,7 @@
   <translation tag="You can skip this and calibrate later in Settings." de="Sie können dies überspringen und später in den Einstellungen kalibrieren."/>
   <translation tag="You have unsaved changes. Discard them?" de="Sie haben ungespeicherte Änderungen. Verwerfen?"/>
   <translation tag="Your completed prints will appear here" de="Ihre abgeschlossenen Drucke werden hier angezeigt"/>
+  <translation tag="Your files" de="Ihre Dateien"/>
   <translation tag="Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other." de="Ihr Druckstart- oder Druckende-Makro steuert ebenfalls LEDs. Es und die automatische LED-Steuerung können sich gegenseitig überschreiben."/>
   <translation tag="Your printer at a glance" de="Ihr Drucker auf einen Blick"/>
   <translation tag="Your printer has an automatic filament changer" de="Ihr Drucker hat einen automatischen Filamentwechsler"/>
@@ -4275,6 +4304,7 @@
   <translation tag="{} filament sensors available" de="{} Filamentsensoren verfügbar"/>
   <translation tag="{} filament • {}" de="{} Filament • {}"/>
   <translation tag="{} firmware" de="{} Firmware"/>
+  <translation tag="{} free of {}" de="{} frei von {}"/>
   <translation tag="{} h" de="{} Std"/>
   <translation tag="{} h of {} h" de="{} Std von {} Std"/>
   <translation tag="{} has no hotend" de="{} hat kein Hotend"/>

@@ -27,6 +27,7 @@
 #include "preprint_skip_wrappers.h"
 #include "print_start_collector.h"
 #include "scope_exit.h"
+#include "storage_report_service.h"
 #include "system/telemetry_manager.h"
 #include "text_io.h"
 #include "three_mf_reader.h"
@@ -2218,51 +2219,68 @@ void PrintPreparationManager::rewrite_and_print(RewriteRoute route,
             const std::string modified_path = rewritten.modified_path;
             spdlog::info("[PrintPreparationManager] Rewrite done, uploading {}", modified_path);
 
-            // Upload the rewritten copy from disk; the api_-> kick-off runs on main.
+            // Upload the rewritten copy from disk once the printer has room for
+            // it; the api_-> kick-off runs on main.
             token.defer("PrintPreparationManager::modify_upload_kickoff", [this, token, job,
                                                                            modified_path,
                                                                            remote_temp_path,
                                                                            on_navigate_to_status,
                                                                            on_completion]() {
-                api_->transfers().upload_file_from_path(
-                    "gcodes", remote_temp_path, modified_path,
-                    // Upload success - runs on the HTTP thread.
+                const uint64_t size = text_io::file_size(modified_path).value_or(0);
+                storage::check_upload_space(
+                    &api_->get_client(), size, token,
                     [this, token, job, modified_path, remote_temp_path, on_navigate_to_status,
-                     on_completion]() {
-                        if (!hfs::remove(modified_path) && errno != ENOENT) {
-                            spdlog::warn(
-                                "[PrintPreparationManager] Failed to clean up modified file: {}",
-                                std::strerror(errno));
+                     on_completion](storage::UploadSpace space) {
+                        if (space == storage::UploadSpace::TooFull) {
+                            BusyOverlay::hide();
+                            hfs::remove(modified_path);
+                            helix::ui::notify_error_tr(storage::kNoUploadSpaceMessage);
+                            abandon_start("no_upload_space", on_completion);
+                            return;
                         }
+                        api_->transfers().upload_file_from_path(
+                            "gcodes", remote_temp_path, modified_path,
+                            // Upload success - runs on the HTTP thread.
+                            [this, token, job, modified_path, remote_temp_path,
+                             on_navigate_to_status, on_completion]() {
+                                if (!hfs::remove(modified_path) && errno != ENOENT) {
+                                    spdlog::warn("[PrintPreparationManager] Failed to clean up "
+                                                 "modified file: {}",
+                                                 std::strerror(errno));
+                                }
 
-                        spdlog::info("[PrintPreparationManager] Modified file uploaded, starting "
-                                     "print (use_plugin={})",
-                                     job->use_plugin);
-                        helix::MemoryMonitor::log_now("print_start_dispatched",
-                                                      spdlog::level::debug);
+                                spdlog::info(
+                                    "[PrintPreparationManager] Modified file uploaded, starting "
+                                    "print (use_plugin={})",
+                                    job->use_plugin);
+                                helix::MemoryMonitor::log_now("print_start_dispatched",
+                                                              spdlog::level::debug);
 
-                        token.defer(
-                            "PrintPreparationManager::start_print_kickoff",
-                            [this, job, remote_temp_path, on_navigate_to_status, on_completion]() {
-                                start_staged_print(job, remote_temp_path, false,
-                                                   on_navigate_to_status, on_completion);
+                                token.defer("PrintPreparationManager::start_print_kickoff",
+                                            [this, job, remote_temp_path, on_navigate_to_status,
+                                             on_completion]() {
+                                                start_staged_print(job, remote_temp_path, false,
+                                                                   on_navigate_to_status,
+                                                                   on_completion);
+                                            });
+                            },
+                            // Upload error - runs on the HTTP thread.
+                            [this, token, job, modified_path,
+                             on_completion](const MoonrakerError& error) {
+                                queue_busy_hide();
+                                hfs::remove(modified_path);
+                                helix::ui::notify_error_tr(job->upload_error, error);
+                                LOG_ERROR_INTERNAL("[PrintPreparationManager] Upload failed: {}",
+                                                   error.message);
+                                token.defer("PrintPreparationManager::upload_fail_clear_progress",
+                                            [this, on_completion]() {
+                                                abandon_start("upload_failed", on_completion);
+                                            });
+                            },
+                            // Upload progress callback
+                            [](size_t sent, size_t total) {
+                                BusyOverlay::queue_progress("Uploading", sent, total);
                             });
-                    },
-                    // Upload error - runs on the HTTP thread.
-                    [this, token, job, modified_path, on_completion](const MoonrakerError& error) {
-                        queue_busy_hide();
-                        hfs::remove(modified_path);
-                        helix::ui::notify_error_tr(job->upload_error, error);
-                        LOG_ERROR_INTERNAL("[PrintPreparationManager] Upload failed: {}",
-                                           error.message);
-                        token.defer("PrintPreparationManager::upload_fail_clear_progress",
-                                    [this, on_completion]() {
-                                        abandon_start("upload_failed", on_completion);
-                                    });
-                    },
-                    // Upload progress callback
-                    [](size_t sent, size_t total) {
-                        BusyOverlay::queue_progress("Uploading", sent, total);
                     });
             });
         },

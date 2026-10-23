@@ -272,6 +272,7 @@ Response:
 | 400 | Original or temp file not found, a path outside the gcodes root, or a temp path outside the staging directories |
 | 500 | Failed to create the symlink or start the print |
 | 503 | Plugin is disabled |
+| 507 | Starting would leave less than 100 MB free on the gcodes volume; the uploaded copy is deleted (Storage Report and Cleanup) |
 
 ### Start Edited Print
 
@@ -329,6 +330,7 @@ implementations must turn into the same bytes.
 | 400 | Malformed or out-of-bounds edit list, original not found, a path outside the gcodes root, or a copy path outside the staging directories or equal to the original |
 | 409 | A line differs from its `expect_raw_line`, or `temp_file_path` already exists |
 | 500 | The rewrite crashed or timed out, or writing the copy, creating the symlink or starting the print failed |
+| 507 | Writing the copy would leave less than 100 MB free on the gcodes volume; nothing is written |
 
 With `enabled: False` the endpoint is not registered at all.
 
@@ -630,6 +632,75 @@ is in the `SAVE_CONFIG` block, which Klipper owns), `moved` (`expect` no longer 
 the file changed while the edit was prepared), `outside_root`, `invalid` (a malformed
 edit, or a section or option name Klipper could not read back: a newline, `[`, `]`, `#` or
 `;` in either, and `=`, `:` or whitespace in an option).
+
+### Storage Report and Cleanup
+
+Feature `storage` (`helix_storage.py`) reports what fills the printer's disks and cleans
+up one kind of file at a time. It only observes until the user asks for a cleanup, so it
+has no switch. Automatic cleanup is its own feature, `storage_auto_cleanup`, which acts
+on files and is off until the user opts in through `plugin_features`.
+
+```http
+GET /server/helix/storage
+```
+
+JSON-RPC: `server.helix.storage`. Response:
+```json
+{
+  "result": {
+    "volume": {"total": 30000000000, "used": 21000000000, "free": 9000000000},
+    "floor": 104857600,
+    "consumers": [
+      {"name": "helix_temp", "root": "gcodes", "bytes": 431000000, "files": 6,
+       "available": true, "cleanable": true}
+    ],
+    "auto_cleanup": {"enabled": false, "last_run": null}
+  }
+}
+```
+
+`volume` is the gcodes volume (`null` when it cannot be read). Consumers come in this
+order; `available` is false when their root does not exist here (no timelapse plugin, say),
+and `cleanable` says whether `storage_cleanup` takes them:
+
+| `name` | Root | What | Cleanable |
+|--------|------|------|-----------|
+| `helix_temp` | gcodes | `temp_dir`, `symlink_dir`, and the app's staging directories (`.helix_temp`, `helix_staging`) | yes, files at least 10 minutes old |
+| `3mf_outputs` | gcodes | G-code the .3mf converter wrote itself | no |
+| `analysis_sidecars` | gcodes | `.helix_index/` layer indexes | yes |
+| `photos` | gcodes | `.helix_photos/` | yes |
+| `timelapse` | timelapse | Moonraker timelapse renders | yes |
+| `logs` | logs | rotated logs; a name ending `.log` is in use and kept | yes |
+| `thumbnails` | gcodes | every `.thumbs/` directory | no |
+| `user_gcode` | gcodes | everything else under gcodes | no |
+| `plr` | data | `helix-plr/`: power-loss recovery's snapshot and mesh | no |
+
+Sizes are file sizes, counted once: a root inside gcodes is not counted in gcodes again,
+and a linked directory (a USB stick) is not followed.
+
+```http
+POST /server/helix/storage_cleanup
+{"consumer": "timelapse", "older_than": 0}
+```
+
+JSON-RPC: `server.helix.storage_cleanup`. Removes the consumer's files at least
+`older_than` seconds old (default 0), then the directories that leaves empty below the
+consumer's own. Returns `{"consumer", "removed", "freed", "errors"}`. 400 for an unknown
+consumer, one that is not cleanable (your files are never touched), or an `older_than` that
+is not zero or more seconds. A cleanup never removes the copy and link of a linked print in
+progress, the file Klipper is printing or holding paused, or a layer index power-loss
+recovery or a running analysis uses; a layer index cleanup first drops the stale ones
+(`prune_layer_indexes`).
+
+**Automatic cleanup** runs 10 minutes after Moonraker starts and every 24 hours after, only
+while no print runs, and removes print copies older than 7 days and rotated logs older than
+30 days. It never removes photos, timelapse videos or anything else.
+
+**Free-space floor.** `print_modified` and `print_edited` refuse with 507 when the print
+would leave less than 100 MB free on the gcodes volume (`FREE_SPACE_FLOOR_BYTES`):
+`print_edited` before writing its copy (counting the original's size), `print_modified`
+before starting the copy the client uploaded, which it then deletes. A volume whose free
+space cannot be read never refuses.
 
 ## Visible symlink directory
 

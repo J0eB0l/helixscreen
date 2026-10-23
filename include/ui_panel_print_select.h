@@ -1174,6 +1174,9 @@ class PrintSelectPanel : public PanelBase {
     /// Name the copy from what kUsbCopyDir holds, then upload or reuse.
     void upload_usb_copy(UsbCopyRequest req, const std::map<std::string, uint64_t>& existing);
 
+    /// Upload the USB file of @p req to gcodes/@p dest.
+    void start_usb_upload(UsbCopyRequest req, const std::string& dest);
+
     /// Hand the controller @p filename in Moonraker directory @p dir, with the
     /// tool colors, thumbnail, object picks and @p scan_key (the key its scan
     /// is kept under) read when Print was tapped, and start.

@@ -265,8 +265,8 @@ Where the rewrite runs is one pure decision, `gcode::choose_edit_transport`
 
 | HelixPrint `server_edits` feature | Route |
 |---|---|
-| Ready (`plugin_feature("server_edits", 1)`), the list can travel, not a `.3mf` plate | `server.helix.print_edited`: the app sends the edit list (`gcode::to_server_edits`) and the plugin rewrites beside the original, then starts the copy as `print_modified` does. Nothing is downloaded or uploaded |
-| Anything else | `rewrite_and_print`: download, `GCodeFileModifier::apply_streaming` (or `GcodeToolRemapper::apply_to_file`) file to file, upload, then `print_modified` (or a plain start without the plugin) |
+| Ready (`plugin_feature("server_edits", 1)`), the list can travel, not a `.3mf` plate | `server.helix.print_edited`: the app sends the edit list (`gcode::to_server_edits`) and the plugin rewrites beside the original, then starts the copy as `print_modified` does. Nothing is downloaded or uploaded. The plugin refuses with 507 when the copy would leave less than 100 MB free (`helix_storage.py`), as `print_modified` does |
+| Anything else | `rewrite_and_print`: download, `GCodeFileModifier::apply_streaming` (or `GcodeToolRemapper::apply_to_file`) file to file, upload, then `print_modified` (or a plain start without the plugin). The upload waits for `storage::check_upload_space`: a copy that would leave less than 100 MB free on the gcodes volume is not uploaded and the start is abandoned with a toast |
 
 A list cannot travel when it holds text that is not UTF-8, both edits and a tool remap,
 or a range on an edit kind that has none; it then rewrites on the screen. A `.3mf` plate

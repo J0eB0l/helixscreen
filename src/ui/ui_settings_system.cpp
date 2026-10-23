@@ -8,6 +8,7 @@
 #include "ui_overlay_performance.h"
 #include "ui_panel_common.h"
 #include "ui_settings_security.h"
+#include "ui_settings_storage.h"
 #include "ui_settings_telemetry_data.h"
 #include "ui_toast_manager.h"
 #include "ui_update_queue.h"
@@ -54,6 +55,10 @@ void SystemSettingsOverlay::register_callbacks() {
         {"on_log_level_changed",
          [](lv_event_t* e) {
              SystemSettingsManager::instance().set_log_level_by_index(event_selected(e));
+         }},
+        {"on_storage_clicked",
+         [](lv_event_t*) {
+             get_storage_settings_overlay().show(get_system_settings_overlay().parent_screen_);
          }},
         {"on_system_performance_clicked",
          [](lv_event_t*) { get_system_settings_overlay().open_performance(); }},

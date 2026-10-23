@@ -55,6 +55,7 @@ translations:
   (none detected): (未检测到)
   (recovered): '(已恢复)'
   (repeated {} times): '(重复 {} 次)'
+  (too many folders to list them all): '(文件夹太多，无法全部列出)'
   (unnamed): (未命名)
   + Add: + 添加
   + Add Preset: + 添加预设
@@ -128,6 +129,7 @@ translations:
   3D Pipes: 3D 管道
   3D View: 3D 视图
   3MF conversion: '3MF 转换'
+  3MF conversions: '3MF转换'
   4. Paper should move but with resistance: 4. 纸张应能移动但有阻力
   4. Repeat until bed is level: 4. 重复直到热床水平
   5 min: '5分钟'
@@ -337,6 +339,8 @@ translations:
   Automatic Heater Control Calibration: 自动加热控制校准
   Automatic LED Control: 自动 LED 控制
   Automatic calibration: '自动校准'
+  Automatic cleanup: '自动清理'
+  Automatic storage cleanup: '存储自动清理'
   Aux: 辅助
   Available: 可用
   Available Networks: 可用网络
@@ -687,9 +691,12 @@ translations:
 
   Clean Brush: '清洁刷子'
   Clean Nozzle: 清洁喷嘴
+  Clean Up Storage: '清理存储'
+  Clean up: '清理'
   Clean {}: 清洁{}
   Cleaning Nozzle...: 正在清洁喷嘴...
   Cleaning nozzle...: 正在清洁喷嘴...
+  Cleanup failed: '清理失败'
   Clear: 清除
   Clear All: 全部清除
   Clear All Events: 清除所有事件
@@ -889,6 +896,7 @@ translations:
   Could not open a browser for the update: 无法打开浏览器进行更新
   Could not parse tips database: 无法解析提示数据库
   Could not reach Spoolman at: 无法连接 Spoolman：
+  Could not read the printer's storage: '无法读取打印机存储'
   Could not read the screw adjustments from the printer: 无法从打印机读取螺丝调整数据
   Could not remove the job from the queue: 无法从队列中移除任务
   Could not reset the printer image tags: 重置打印机图片标记失败
@@ -989,7 +997,12 @@ translations:
   Delete Profile?: 删除配置？
   Delete Spool?: 删除料盘？
   Delete Video: 删除视频
+  Delete every modified print copy that is not in use? Files you uploaded are not touched.: '删除所有未使用的已修改打印副本？您上传的文件不受影响。'
+  Delete every print photo? Print history keeps its entries.: '删除所有打印照片？打印历史记录会保留。'
+  Delete every timelapse video?: '删除所有延时摄影视频？'
   Delete the history record for {}?: '删除 {} 的历史记录？'
+  Delete the layer indexes? Previews read each file again until it is analyzed again.: '删除图层索引？在文件重新分析之前，预览会重新读取每个文件。'
+  Delete the rotated logs? The logs in use are kept, and debug bundles still work.: '删除已轮转的旧日志？正在使用的日志会保留，调试捆绑包仍可使用。'
   Delete {}?: 删除 {}?
   'Delta:': 差值：
   Density: 密度
@@ -1534,6 +1547,8 @@ translations:
   Found 1 printer: 找到 1 台打印机
   Found {} at {}.: '已发现 {}，地址为 {}。'
   Framerate: 帧率
+  Free space unknown: '可用空间未知'
+  Freed {}: '已释放 {}'
   From Buffer: 来自缓冲区
   From Printer: '从打印机'
   From SpoolmanDB: '来自 SpoolmanDB'
@@ -2137,7 +2152,9 @@ translations:
   ? Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   : 从热床开始测量高度。边角干净、没有多余也没有缺口的位置对应正确的K值。每一行是一个高度范围,以及打印时打印机报告的K值。
   Measured (shaper off): 实测（关闭整形）
+  Measured by the HelixPrint plugin: '由 HelixPrint 插件测量'
   Measured filament diameter: 测量的耗材直径
+  Measured from the printer's file list: '根据打印机文件列表测量'
   Measured offsets, read-only: 已测量的偏移，只读
   Measured pressure advance: '测得的压力提前'
   Measurement incomplete. Try again.: 测量未完成。请重试。
@@ -2150,6 +2167,7 @@ translations:
   Measuring vibrations... {}%: '正在测量振动... {}%'
   Measuring wheel error: 计量轮错误
   Measuring {}...: 正在测量{}...
+  Measuring...: '测量中...'
   Memory: 内存
   Memory (MB): 内存 (MB)
   Memory Snapshot: 内存快照
@@ -2393,6 +2411,7 @@ translations:
   Not connected to the printer: 未连接到打印机
   Not detected: 未检测到
   Not drying: 未在烘干
+  Not enough free space on the printer for this file. Free some in Settings > System > Storage.: '打印机上的可用空间不足以存放此文件。请在设置 > 系统 > 存储中释放空间。'
   Not enough frequency data from the sweeps. Try again.: '扫频得到的频率数据不足，请重试。'
   Not enough room for this widget. Rearrange or remove widgets to make space.: 没有足够的空间放置此小组件。请重新排列或移除小组件以腾出空间。
   'Not in your spools? Set it up': 不在您的料盘中？立即设置
@@ -2462,6 +2481,7 @@ translations:
   Offset: 偏移
   Offsets Saved: 偏移已保存
   Offsets saved: 偏移已保存
+  Old logs: '旧日志'
   "Old setting on today's data: {} residual - now: {}": 旧设置（今日数据）：残余 {} — 当前：{}
   'On': 开
   On and Off macros must be different: 开和关的宏必须不同
@@ -2469,6 +2489,8 @@ translations:
   On/Off: 开/关
   On/Off (state-aware): 开/关（状态跟踪）
   'On:': '开:'
+  ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
+  : '每天一次，删除超过一周的打印副本和超过一个月的日志。您的文件、照片和延时摄影视频会保留。'
   One tap runs this macro. Dangerous macros still ask.: '单击即可运行此宏。危险宏仍会询问。'
   'Only on A: {} Hz': "仅 A：{} Hz"
   'Only on B: {} Hz': "仅 B：{} Hz"
@@ -2718,6 +2740,7 @@ translations:
   Print Was Terminated: 打印已终止
   Print a test tower and tune K by eye: 打印测试塔并目测调整K值
   Print completed: 打印完成
+  Print copies: '打印副本'
   Print details: '打印详情'
   Print did not start: 打印未启动
   Print canceled: 打印已取消
@@ -2731,6 +2754,7 @@ translations:
   Print issue detected: 检测到打印问题
   Print jobs waiting to run: 等待执行的打印任务
   Print paused: 打印已暂停
+  Print photos: '打印照片'
   'Print preparation failed: {}': '打印准备失败: {}'
   Print resumed: 打印已恢复
   Print server rejected the job — check printer status: 打印服务器拒绝了任务 — 请检查打印机状态
@@ -3526,6 +3550,8 @@ translations:
   Stopped between Spool and Lane: 停在料盘与耗材通道之间
   Stopped drying %s: '已停止烘干：%s'
   Stops all motion. Requires firmware restart.: 停止所有运动。需要固件重启。
+  Storage: '存储'
+  Storage report: '存储报告'
   Stow: 收回
   Subtle: 微妙
   Success: 成功
@@ -3905,6 +3931,7 @@ translations:
   Thorough: 全面
   Thumbnail Only: 仅缩略图
   'Thumbnail: ': '缩略图: '
+  Thumbnails: '缩略图'
   Tighten {0} noticeably: "明显拉紧 {0}"
   Tighten {0} one full turn: "将 {0} 拉紧一整圈"
   Tighten {0} {1}: '拉紧 {0} {1}'
@@ -3924,6 +3951,7 @@ translations:
   Timelapse render failed: 延时摄影渲染失败
   'Timelapse render failed: {}': '延时摄影渲染失败: {}'
   Timelapse rendered successfully: 延时视频渲染成功
+  Timelapse videos: '延时摄影视频'
   Timeout: '超时'
   Timezone: 时区
   Tip Forming: '尖端成型'
@@ -4196,6 +4224,7 @@ translations:
   Welcome to HelixScreen: 欢迎使用 HelixScreen
   Went past {} by {:.1f} Hz. Back it off a little.: "超过 {} {:.1f} Hz。请稍微回调。"
   What We Collect: 我们收集的内容
+  What fills the printer's disk, and cleanup: '打印机磁盘占用情况与清理'
   What happens when a print ends: '打印结束时的操作'
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: 启用时仅运行宏。禁用时先设置温度，然后运行宏。
   Where UI sounds play: 界面声音的播放位置
@@ -4267,6 +4296,7 @@ translations:
   You can skip this and calibrate later in Settings.: 您可以跳过此步骤，稍后在设置中进行校准。
   You have unsaved changes. Discard them?: 您有未保存的更改。是否丢弃？
   Your completed prints will appear here: 您完成的打印将显示在此处
+  Your files: '您的文件'
   Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other.: '您的打印开始或结束宏也会设置 LED。它与自动 LED 控制可能会互相覆盖。'
   Your printer at a glance: 一览您的打印机
   Your printer has an automatic filament changer: 您的打印机配有自动换色系统
@@ -4443,6 +4473,7 @@ translations:
   '{} filament sensors available': '{} 个耗材传感器可用'
   '{} filament • {}': '耗材 {} • {}'
   '{} firmware': '{} 固件'
+  '{} free of {}': '可用 {} / 共 {}'
   '{} h': '{} 小时'
   '{} h of {} h': '{} / {} 小时'
   '{} has no hotend': "{} 没有热端"

@@ -625,6 +625,7 @@ class HelixEdits:
         if output.exists():
             raise self.server.error(f"{temp_file_path} already exists", 409)
         output.parent.mkdir(parents=True, exist_ok=True)
+        helix.check_free_space(original.stat().st_size)
 
         started = time.monotonic()
         changed = await self._rewrite(original, output, edits, original_filename)

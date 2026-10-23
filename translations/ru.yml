@@ -99,6 +99,7 @@ translations:
   (none detected): (не обнаружено)
   (recovered): '(восстановлено)'
   (repeated {} times): '(повторено {} раз)'
+  (too many folders to list them all): '(слишком много папок, чтобы перечислить все)'
   (unnamed): (без имени)
   + Add: + Добавить
   + Add Preset: + Добавить пресет
@@ -176,6 +177,7 @@ translations:
   3D Pipes: 3D трубы
   3D View: 3D вид
   3MF conversion: 'Преобразование 3MF'
+  3MF conversions: 'Преобразования 3MF'
   4. Paper should move but with resistance: 4. Бумага должна двигаться, но с сопротивлением
   4. Repeat until bed is level: 4. Повторяйте, пока стол не выровняется
   5 min: '5 мин'
@@ -405,6 +407,8 @@ translations:
   Automatic Heater Control Calibration: Автоматическая калибровка нагревателя
   Automatic LED Control: Автоматическое управление LED
   Automatic calibration: 'Автоматическая калибровка'
+  Automatic cleanup: 'Автоматическая очистка'
+  Automatic storage cleanup: 'Автоматическая очистка хранилища'
   Aux: Доп
   Available: Доступен
   Available Networks: Доступные сети
@@ -785,9 +789,12 @@ translations:
 
   Clean Brush: 'Очистить щётку'
   Clean Nozzle: Очистить сопло
+  Clean Up Storage: 'Очистка хранилища'
+  Clean up: 'Очистить'
   Clean {}: Очистите {}
   Cleaning Nozzle...: Очистка сопла...
   Cleaning nozzle...: Очистка сопла...
+  Cleanup failed: 'Не удалось выполнить очистку'
   Clear: Очистить
   Clear All: Очистить всё
   Clear All Events: Очистить все события
@@ -1002,6 +1009,7 @@ translations:
   Could not open a browser for the update: Не удалось открыть браузер для обновления
   Could not parse tips database: Не удалось разобрать базу данных советов
   Could not reach Spoolman at: Не удалось связаться со Spoolman по адресу
+  Could not read the printer's storage: 'Не удалось прочитать хранилище принтера'
   Could not read the screw adjustments from the printer: Не удалось получить данные регулировки винтов от принтера
   Could not remove the job from the queue: Не удалось удалить задание из очереди
   Could not reset the printer image tags: Не удалось сбросить отметки изображения
@@ -1102,7 +1110,12 @@ translations:
   Delete Profile?: Удалить профиль?
   Delete Spool?: Удалить катушку?
   Delete Video: Удалить видео
+  Delete every modified print copy that is not in use? Files you uploaded are not touched.: 'Удалить все неиспользуемые изменённые копии для печати? Загруженные вами файлы не затрагиваются.'
+  Delete every print photo? Print history keeps its entries.: 'Удалить все фото печати? Записи истории печати сохранятся.'
+  Delete every timelapse video?: 'Удалить все видео таймлапса?'
   Delete the history record for {}?: 'Удалить запись истории для {}?'
+  Delete the layer indexes? Previews read each file again until it is analyzed again.: 'Удалить индексы слоёв? Предпросмотр будет заново читать каждый файл, пока он не будет проанализирован снова.'
+  Delete the rotated logs? The logs in use are kept, and debug bundles still work.: 'Удалить старые журналы? Используемые журналы сохранятся, пакеты диагностики продолжат работать.'
   Delete {}?: Удалить {}?
   'Delta:': 'Дельта:'
   Density: Плотность
@@ -1668,6 +1681,8 @@ translations:
   Found 1 printer: Найден 1 принтер
   Found {} at {}.: '{} найден по адресу {}.'
   Framerate: Частота кадров
+  Free space unknown: 'Свободное место неизвестно'
+  Freed {}: 'Освобождено {}'
   From Buffer: Из буфера
   From Printer: 'С принтера'
   From SpoolmanDB: 'Из SpoolmanDB'
@@ -2308,7 +2323,9 @@ translations:
   ? Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   : Отсчитывайте высоту от стола. Острые углы без наплывов и пропусков означают верный K. Каждая строка - диапазон высот и K, который принтер сообщал во время его печати.
   Measured (shaper off): Измерено (шейпер выключен)
+  Measured by the HelixPrint plugin: 'Измерено плагином HelixPrint'
   Measured filament diameter: Измеренный диаметр филамента
+  Measured from the printer's file list: 'Измерено по списку файлов принтера'
   Measured offsets, read-only: Измеренные смещения, только чтение
   Measured pressure advance: 'Измеренный Pressure Advance'
   Measurement incomplete. Try again.: Измерение не завершено. Повторите попытку.
@@ -2321,6 +2338,7 @@ translations:
   Measuring vibrations... {}%: 'Измерение вибраций... {}%'
   Measuring wheel error: Ошибка измерительного колеса
   Measuring {}...: 'Измерение: {}...'
+  Measuring...: 'Измерение...'
   Memory: Память
   Memory (MB): Память (МБ)
   Memory Snapshot: Снимок памяти
@@ -2573,6 +2591,7 @@ translations:
   Not connected to the printer: Нет подключения к принтеру
   Not detected: Не обнаружено
   Not drying: Не сушится
+  Not enough free space on the printer for this file. Free some in Settings > System > Storage.: 'На принтере недостаточно свободного места для этого файла. Освободите место в разделе Настройки > Система > Хранилище.'
   Not enough frequency data from the sweeps. Try again.: 'Недостаточно данных о частоте по результатам измерений. Попробуйте снова.'
   Not enough room for this widget. Rearrange or remove widgets to make space.: Недостаточно места для этого виджета. Измените раскладку или удалите виджеты, чтобы освободить место.
   Not in your spools? Set it up: Нет в ваших катушках? Настроить
@@ -2642,6 +2661,7 @@ translations:
   Offset: Смещение
   Offsets Saved: Смещения сохранены
   Offsets saved: Смещения сохранены
+  Old logs: 'Старые журналы'
   "Old setting on today's data: {} residual - now: {}": 'Прежняя настройка на сегодняшних данных: остаточная вибрация {} — сейчас: {}'
   'On': Вкл
   On and Off macros must be different: Макросы включения и выключения должны отличаться
@@ -2649,6 +2669,8 @@ translations:
   On/Off: Вкл/Выкл
   On/Off (state-aware): Вкл/Выкл (с отслеживанием)
   'On:': 'Вкл:'
+  ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
+  : 'Раз в день удаляет копии для печати старше недели и журналы старше месяца. Ваши файлы, фото и видео таймлапса сохраняются.'
   One tap runs this macro. Dangerous macros still ask.: 'Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение.'
   'Only on A: {} Hz': "Только на A: {} Гц"
   'Only on B: {} Hz': "Только на B: {} Гц"
@@ -2908,6 +2930,7 @@ translations:
   Print Was Terminated: Печать была прекращена
   Print a test tower and tune K by eye: Напечатать тестовую башню и подобрать K на глаз
   Print completed: Печать завершена
+  Print copies: 'Копии для печати'
   Print details: 'Сведения о печати'
   Print did not start: Печать не началась
   Print canceled: Печать отменена
@@ -2922,6 +2945,7 @@ translations:
   Print issue detected: Обнаружена проблема печати
   Print jobs waiting to run: Задания печати в очереди
   Print paused: Печать приостановлена
+  Print photos: 'Фото печати'
   'Print preparation failed: {}': 'Ошибка подготовки печати: {}'
   Print resumed: Печать продолжена
   Print server rejected the job — check printer status: Сервер печати отклонил задание
@@ -3783,6 +3807,8 @@ translations:
   Stopped drying %s: 'Сушка остановлена: %s'
   Stops all motion. Requires firmware restart.: Останавливает всё движение. Требуется
     перезапуск прошивки.
+  Storage: 'Хранилище'
+  Storage report: 'Отчёт о хранилище'
   Stow: Убрать
   Subtle: Сдержанный
   Success: Успех
@@ -4191,6 +4217,7 @@ translations:
   Thorough: Тщательно
   Thumbnail Only: Только миниатюра
   'Thumbnail: ': 'Миниатюра: '
+  Thumbnails: 'Миниатюры'
   Tighten {0} noticeably: "Заметно натянуть {0}"
   Tighten {0} one full turn: "Натянуть {0} на полный оборот"
   Tighten {0} {1}: 'Натянуть {0} на {1}'
@@ -4211,6 +4238,7 @@ translations:
   Timelapse render failed: Не удалось отрендерить таймлапс
   'Timelapse render failed: {}': 'Не удалось отрендерить таймлапс: {}'
   Timelapse rendered successfully: Таймлапс успешно отрендерен
+  Timelapse videos: 'Видео таймлапса'
   Timeout: 'Время ожидания истекло'
   Timezone: Часовой пояс
   Tip Forming: 'Формирование кончика'
@@ -4490,6 +4518,7 @@ translations:
   Welcome to HelixScreen: Добро пожаловать в HelixScreen
   Went past {} by {:.1f} Hz. Back it off a little.: "Перешли {} на {:.1f} Гц. Немного верните назад."
   What We Collect: Что мы собираем
+  What fills the printer's disk, and cleanup: 'Что занимает диск принтера, и очистка'
   What happens when a print ends: 'Что происходит по окончании печати'
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: Когда
     включено, запускается только макрос. Когда выключено, сначала задаются температуры,
@@ -4565,6 +4594,7 @@ translations:
   You have unsaved changes. Discard them?: У вас есть несохранённые изменения. Отменить
     их?
   Your completed prints will appear here: Ваши завершённые печати появятся здесь
+  Your files: 'Ваши файлы'
   Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other.: 'Ваш макрос начала или окончания печати тоже управляет светодиодами. Он и автоматическое управление светодиодами могут перезаписывать друг друга.'
   Your printer at a glance: Ваш принтер одним взглядом
   Your printer has an automatic filament changer: Ваш принтер оснащён автоматическим
@@ -4757,6 +4787,7 @@ translations:
   '{} filament sensors available': 'Доступно датчиков филамента: {}'
   '{} filament • {}': '{} филамента • {}'
   '{} firmware': 'Прошивка {}'
+  '{} free of {}': '{} свободно из {}'
   '{} h': '{} ч'
   '{} h of {} h': '{} ч из {} ч'
   '{} has no hotend': "У {} нет хотэнда"

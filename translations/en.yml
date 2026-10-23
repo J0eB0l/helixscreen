@@ -55,6 +55,7 @@ translations:
   (none detected): (none detected)
   (recovered): (recovered)
   (repeated {} times): (repeated {} times)
+  (too many folders to list them all): (too many folders to list them all)
   (unnamed): (unnamed)
   + Add: + Add
   + Add Preset: + Add Preset
@@ -127,6 +128,7 @@ translations:
   3D Pipes: 3D Pipes
   3D View: 3D View
   3MF conversion: 3MF conversion
+  3MF conversions: 3MF conversions
   4. Paper should move but with resistance: 4. Paper should move but with resistance
   4. Repeat until bed is level: 4. Repeat until bed is level
   5 min: 5 min
@@ -352,6 +354,8 @@ translations:
   Automatic Heater Control Calibration: Automatic Heater Control Calibration
   Automatic LED Control: Automatic LED Control
   Automatic calibration: Automatic calibration
+  Automatic cleanup: Automatic cleanup
+  Automatic storage cleanup: Automatic storage cleanup
   Aux: Aux
   Available: Available
   Available Networks: Available Networks
@@ -722,9 +726,12 @@ translations:
   'Chute position: X {:.1f}, Y {:.1f}': 'Chute position: X {:.1f}, Y {:.1f}'
   Clean Brush: Clean Brush
   Clean Nozzle: Clean Nozzle
+  Clean Up Storage: Clean Up Storage
+  Clean up: Clean up
   Clean {}: Clean {}
   Cleaning Nozzle...: Cleaning Nozzle...
   'Cleaning nozzle...': 'Cleaning nozzle...'
+  Cleanup failed: Cleanup failed
   Clear: Clear
   Clear All: Clear All
   Clear All Events: Clear All Events
@@ -930,6 +937,7 @@ translations:
   Could not open a browser for the update: Could not open a browser for the update
   Could not parse tips database: Could not parse tips database
   Could not reach Spoolman at: Could not reach Spoolman at
+  Could not read the printer's storage: Could not read the printer's storage
   Could not read the screw adjustments from the printer: Could not read the screw adjustments from the printer
   Could not remove the job from the queue: Could not remove the job from the queue
   Could not reset the printer image tags: Could not reset the printer image tags
@@ -1028,7 +1036,12 @@ translations:
   Delete Profile?: Delete Profile?
   Delete Spool?: Delete Spool?
   Delete Video: Delete Video
+  Delete every modified print copy that is not in use? Files you uploaded are not touched.: Delete every modified print copy that is not in use? Files you uploaded are not touched.
+  Delete every print photo? Print history keeps its entries.: Delete every print photo? Print history keeps its entries.
+  Delete every timelapse video?: Delete every timelapse video?
   Delete the history record for {}?: Delete the history record for {}?
+  Delete the layer indexes? Previews read each file again until it is analyzed again.: Delete the layer indexes? Previews read each file again until it is analyzed again.
+  Delete the rotated logs? The logs in use are kept, and debug bundles still work.: Delete the rotated logs? The logs in use are kept, and debug bundles still work.
   Delete {}?: Delete {}?
   'Delta:': 'Delta:'
   Density: Density
@@ -1579,6 +1592,8 @@ translations:
   Found 1 printer: Found 1 printer
   Found {} at {}.: Found {} at {}.
   Framerate: Framerate
+  Free space unknown: Free space unknown
+  Freed {}: Freed {}
   From Buffer: From Buffer
   From Printer: From Printer
   From SpoolmanDB: From SpoolmanDB
@@ -2206,7 +2221,9 @@ translations:
   ? Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   : Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   Measured (shaper off): Measured (shaper off)
+  Measured by the HelixPrint plugin: Measured by the HelixPrint plugin
   Measured filament diameter: Measured filament diameter
+  Measured from the printer's file list: Measured from the printer's file list
   Measured offsets, read-only: Measured offsets, read-only
   Measured pressure advance: Measured pressure advance
   Measurement incomplete. Try again.: Measurement incomplete. Try again.
@@ -2219,6 +2236,7 @@ translations:
   Measuring vibrations... {}%: Measuring vibrations... {}%
   Measuring wheel error: Measuring wheel error
   Measuring {}...: Measuring {}...
+  Measuring...: Measuring...
   Memory: Memory
   Memory (MB): Memory (MB)
   Memory Snapshot: Memory Snapshot
@@ -2472,6 +2490,7 @@ translations:
   Not connected to the printer: Not connected to the printer
   Not detected: Not detected
   Not drying: Not drying
+  Not enough free space on the printer for this file. Free some in Settings > System > Storage.: Not enough free space on the printer for this file. Free some in Settings > System > Storage.
   Not enough frequency data from the sweeps. Try again.: 'Not enough frequency data from the sweeps. Try again.'
   Not enough room for this widget. Rearrange or remove widgets to make space.: Not enough room for this widget. Rearrange or remove widgets to make space.
   Not in your spools? Set it up: Not in your spools? Set it up
@@ -2541,6 +2560,7 @@ translations:
   Offset: Offset
   Offsets Saved: Offsets Saved
   Offsets saved: Offsets saved
+  Old logs: Old logs
   "Old setting on today's data: {} residual - now: {}": "Old setting on today's data: {} residual - now: {}"
   'On': 'On'
   On and Off macros must be different: On and Off macros must be different
@@ -2548,6 +2568,8 @@ translations:
   On/Off: On/Off
   On/Off (state-aware): On/Off (state-aware)
   'On:': 'On:'
+  ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
+  : Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
   One tap runs this macro. Dangerous macros still ask.: One tap runs this macro. Dangerous macros still ask.
   'Only on A: {} Hz': 'Only on A: {} Hz'
   'Only on B: {} Hz': 'Only on B: {} Hz'
@@ -2805,6 +2827,7 @@ translations:
   Print canceled: Print canceled
   'Print complete': 'Print complete'
   Print completed: Print completed
+  Print copies: Print copies
   Print details: Print details
   Print did not start: Print did not start
   Print didn't start — printer may be busy or offline (B3 polls={}, status=0x{:02X}, error=0x{:02X}): Print
@@ -2816,6 +2839,7 @@ translations:
   Print issue detected: Print issue detected
   Print jobs waiting to run: Print jobs waiting to run
   Print paused: Print paused
+  Print photos: Print photos
   'Print preparation failed: {}': 'Print preparation failed: {}'
   Print resumed: Print resumed
   Print server rejected the job — check printer status: Print server rejected the
@@ -3647,6 +3671,8 @@ translations:
   Stopped drying %s: Stopped drying %s
   Stops all motion. Requires firmware restart.: Stops all motion. Requires firmware
     restart.
+  Storage: Storage
+  Storage report: Storage report
   Stow: Stow
   Subtle: Subtle
   Success: Success
@@ -4051,6 +4077,7 @@ translations:
   Thorough: Thorough
   Thumbnail Only: Thumbnail Only
   'Thumbnail: ': 'Thumbnail: '
+  Thumbnails: Thumbnails
   Tighten {0} noticeably: Tighten {0} noticeably
   Tighten {0} one full turn: Tighten {0} one full turn
   Tighten {0} {1}: Tighten {0} {1}
@@ -4071,6 +4098,7 @@ translations:
   Timelapse render failed: Timelapse render failed
   'Timelapse render failed: {}': 'Timelapse render failed: {}'
   Timelapse rendered successfully: Timelapse rendered successfully
+  Timelapse videos: Timelapse videos
   Timeout: Timeout
   Timezone: Timezone
   Tip Forming: Tip Forming
@@ -4355,6 +4383,7 @@ translations:
   Welcome to HelixScreen: Welcome to HelixScreen
   Went past {} by {:.1f} Hz. Back it off a little.: Went past {} by {:.1f} Hz. Back it off a little.
   What We Collect: What We Collect
+  What fills the printer's disk, and cleanup: What fills the printer's disk, and cleanup
   What happens when a print ends: What happens when a print ends
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: When
     enabled, only the macro runs. When disabled, temperatures are set first, then
@@ -4429,6 +4458,7 @@ translations:
     later in Settings.
   You have unsaved changes. Discard them?: You have unsaved changes. Discard them?
   Your completed prints will appear here: Your completed prints will appear here
+  Your files: Your files
   Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other.: Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other.
   Your printer at a glance: Your printer at a glance
   Your printer has an automatic filament changer: Your printer has an automatic filament
@@ -4604,6 +4634,7 @@ translations:
   '{} filament sensors available': '{} filament sensors available'
   '{} filament • {}': '{} filament • {}'
   '{} firmware': '{} firmware'
+  '{} free of {}': '{} free of {}'
   '{} h': '{} h'
   '{} h of {} h': '{} h of {} h'
   '{} has no hotend': '{} has no hotend'

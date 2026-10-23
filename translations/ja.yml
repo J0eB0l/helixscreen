@@ -55,6 +55,7 @@ translations:
   (none detected): (検出なし)
   (recovered): '(復元)'
   (repeated {} times): '({} 回繰り返し)'
+  (too many folders to list them all): '(フォルダーが多すぎてすべては一覧できません)'
   (unnamed): (名称なし)
   + Add: + 追加
   + Add Preset: + プリセットを追加
@@ -129,6 +130,7 @@ translations:
   3D Pipes: 3Dパイプ
   3D View: 3Dビュー
   3MF conversion: '3MF変換'
+  3MF conversions: '3MF変換'
   4. Paper should move but with resistance: 4. 紙が抵抗を感じながら動く状態が適切です
   4. Repeat until bed is level: 4. ベッドが水平になるまで繰り返してください
   5 min: '5分'
@@ -338,6 +340,8 @@ translations:
   Automatic Heater Control Calibration: 自動ヒーター制御キャリブレーション
   Automatic LED Control: 自動LED制御
   Automatic calibration: '自動キャリブレーション'
+  Automatic cleanup: '自動クリーンアップ'
+  Automatic storage cleanup: 'ストレージの自動クリーンアップ'
   Aux: 補助
   Available: 利用可能
   Available Networks: 利用可能なネットワーク
@@ -688,9 +692,12 @@ translations:
 
   Clean Brush: 'ブラシを清掃'
   Clean Nozzle: ノズル清掃
+  Clean Up Storage: 'ストレージのクリーンアップ'
+  Clean up: 'クリーンアップ'
   Clean {}: '{}を清掃'
   Cleaning Nozzle...: ノズル清掃中...
   Cleaning nozzle...: ノズル清掃中...
+  Cleanup failed: 'クリーンアップに失敗しました'
   Clear: クリア
   Clear All: すべてクリア
   Clear All Events: すべてのイベントをクリア
@@ -891,6 +898,7 @@ translations:
   Could not open a browser for the update: 更新用のブラウザを開けませんでした
   Could not parse tips database: ヒントデータベースを解析できませんでした
   Could not reach Spoolman at: 'Spoolman に接続できません:'
+  Could not read the printer's storage: 'プリンターのストレージを読み取れませんでした'
   Could not read the screw adjustments from the printer: プリンターからネジ調整を読み取れませんでした
   Could not remove the job from the queue: キューからジョブを削除できませんでした
   Could not reset the printer image tags: プリンター画像のタグのリセットに失敗しました
@@ -991,7 +999,12 @@ translations:
   Delete Profile?: プロファイルを削除しますか？
   Delete Spool?: スプールを削除しますか？
   Delete Video: 動画を削除
+  Delete every modified print copy that is not in use? Files you uploaded are not touched.: '使用中でない変更済みの印刷コピーをすべて削除しますか？アップロードしたファイルには影響しません。'
+  Delete every print photo? Print history keeps its entries.: '印刷写真をすべて削除しますか？印刷履歴の項目は残ります。'
+  Delete every timelapse video?: 'タイムラプス動画をすべて削除しますか？'
   Delete the history record for {}?: '{} の履歴記録を削除しますか？'
+  Delete the layer indexes? Previews read each file again until it is analyzed again.: 'レイヤーインデックスを削除しますか？再解析されるまで、プレビューは各ファイルを読み直します。'
+  Delete the rotated logs? The logs in use are kept, and debug bundles still work.: '古いログを削除しますか？使用中のログは残り、デバッグバンドルは引き続き使えます。'
   Delete {}?: '{} を削除しますか?'
   'Delta:': '差分:'
   Density: 密度
@@ -1538,6 +1551,8 @@ translations:
   Found 1 printer: プリンター1台を検出
   Found {} at {}.: '{} を {} で検出しました。'
   Framerate: フレームレート
+  Free space unknown: '空き容量不明'
+  Freed {}: '{}を解放しました'
   From Buffer: バッファから
   From Printer: 'プリンターから'
   From SpoolmanDB: 'SpoolmanDB から'
@@ -2143,7 +2158,9 @@ translations:
   ? Measure up from the plate. Sharp corners with no bulge and no gap mark the right K. Each row is a height range and the K the printer reported while it printed.
   : ベッドから高さを測ってください。膨らみもすき間もないきれいな角が正しいKです。各行は高さの範囲と、その印刷中にプリンターが報告したKです。
   Measured (shaper off): 測定値（シェーパーオフ時）
+  Measured by the HelixPrint plugin: 'HelixPrintプラグインによる測定'
   Measured filament diameter: 測定したフィラメント直径
+  Measured from the printer's file list: 'プリンターのファイル一覧から測定'
   Measured offsets, read-only: 測定済みオフセット（読み取り専用）
   Measured pressure advance: '測定された Pressure Advance'
   Measurement incomplete. Try again.: 測定が不完全です。再試行してください。
@@ -2156,6 +2173,7 @@ translations:
   Measuring vibrations... {}%: '振動を測定中... {}%'
   Measuring wheel error: 計測ホイールのエラー
   Measuring {}...: '{}を計測中...'
+  Measuring...: '測定中...'
   Memory: メモリ
   Memory (MB): メモリ (MB)
   Memory Snapshot: メモリースナップショット
@@ -2400,6 +2418,7 @@ translations:
   Not connected to the printer: プリンターに未接続
   Not detected: 検出されません
   Not drying: 乾燥していません
+  Not enough free space on the printer for this file. Free some in Settings > System > Storage.: 'このファイルを置く空き容量がプリンターにありません。設定 > システム > ストレージで空き容量を確保してください。'
   Not enough frequency data from the sweeps. Try again.: '測定から十分な周波数データが得られませんでした。再試行してください。'
   Not enough room for this widget. Rearrange or remove widgets to make space.: このウィジェットを配置するスペースが足りません。スペースを確保するためにウィジェットを整理または削除してください。
   Not in your spools? Set it up: スプールにない？登録する
@@ -2469,6 +2488,7 @@ translations:
   Offset: オフセット
   Offsets Saved: オフセットを保存しました
   Offsets saved: オフセットを保存しました
+  Old logs: '古いログ'
   "Old setting on today's data: {} residual - now: {}": '旧設定を今日のデータに適用: 残留 {} - 現在: {}'
   'On': オン
   On and Off macros must be different: オンとオフのマクロは異なるものにしてください
@@ -2476,6 +2496,8 @@ translations:
   On/Off: オン/オフ
   On/Off (state-aware): オン/オフ（状態追跡）
   'On:': 'オン:'
+  ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
+  : '1日1回、1週間より古い印刷コピーと1か月より古いログを削除します。ファイル、写真、タイムラプス動画は残ります。'
   One tap runs this macro. Dangerous macros still ask.: 'ワンタップでこのマクロを実行します。危険なマクロは確認を求めます。'
   'Only on A: {} Hz': "Aのみ: {} Hz"
   'Only on B: {} Hz': "Bのみ: {} Hz"
@@ -2726,6 +2748,7 @@ translations:
   Print Was Terminated: 印刷が中止されました
   Print a test tower and tune K by eye: テストタワーを印刷して目視でKを調整
   Print completed: 印刷完了
+  Print copies: '印刷コピー'
   Print details: '印刷の詳細'
   Print did not start: 印刷は開始されませんでした
   Print canceled: 印刷がキャンセルされました
@@ -2739,6 +2762,7 @@ translations:
   Print issue detected: 印刷の問題を検出しました
   Print jobs waiting to run: 実行待ちの印刷ジョブ
   Print paused: 印刷一時停止
+  Print photos: '印刷写真'
   'Print preparation failed: {}': '印刷準備に失敗しました: {}'
   Print resumed: 印刷を再開しました
   Print server rejected the job — check printer status: 印刷サーバーがジョブを拒否しました — プリンターの状態を確認してください
@@ -3535,6 +3559,8 @@ translations:
   Stopped between Spool and Lane: スプールとレーンの間で停止
   Stopped drying %s: '乾燥を停止しました: %s'
   Stops all motion. Requires firmware restart.: すべての動作を停止します。ファームウェアの再起動が必要です。
+  Storage: 'ストレージ'
+  Storage report: 'ストレージレポート'
   Stow: 格納
   Subtle: サトル
   Success: 成功
@@ -3914,6 +3940,7 @@ translations:
   Thorough: 徹底的
   Thumbnail Only: サムネイルのみ
   'Thumbnail: ': 'サムネイル: '
+  Thumbnails: 'サムネイル'
   Tighten {0} noticeably: "{0}をはっきり締める"
   Tighten {0} one full turn: "{0}を1回転締める"
   Tighten {0} {1}: '{0}を{1}締める'
@@ -3933,6 +3960,7 @@ translations:
   Timelapse render failed: タイムラプスのレンダリングに失敗しました
   'Timelapse render failed: {}': 'タイムラプスのレンダリングに失敗しました: {}'
   Timelapse rendered successfully: タイムラプスのレンダリングが完了しました
+  Timelapse videos: 'タイムラプス動画'
   Timeout: 'タイムアウト'
   Timezone: タイムゾーン
   Tip Forming: 'チップ形成'
@@ -4205,6 +4233,7 @@ translations:
   Welcome to HelixScreen: HelixScreen へようこそ
   Went past {} by {:.1f} Hz. Back it off a little.: "{}を{:.1f} Hz超えました。少し戻してください。"
   What We Collect: 収集する情報
+  What fills the printer's disk, and cleanup: 'プリンターのディスクの使用状況とクリーンアップ'
   What happens when a print ends: '印刷終了時の動作'
   When enabled, only the macro runs. When disabled, temperatures are set first, then the macro runs.: 有効時はマクロのみ実行されます。無効時は先に温度を設定してからマクロが実行されます。
   Where UI sounds play: UIサウンドの再生先
@@ -4276,6 +4305,7 @@ translations:
   You can skip this and calibrate later in Settings.: スキップして後で設定でキャリブレーションできます。
   You have unsaved changes. Discard them?: 保存されていない変更があります。破棄しますか？
   Your completed prints will appear here: 完了した印刷がここに表示されます
+  Your files: 'あなたのファイル'
   Your print start or end macro also sets LEDs. It and Automatic LED Control may override each other.: '印刷開始または終了マクロもLEDを設定しています。マクロと自動LED制御が互いに上書きする可能性があります。'
   Your printer at a glance: プリンターを一目で確認
   Your printer has an automatic filament changer: プリンターに自動フィラメントチェンジャーが搭載されています
@@ -4453,6 +4483,7 @@ translations:
   '{} filament sensors available': '{} 個のフィラメントセンサーが利用可能です'
   '{} filament • {}': 'フィラメント {} • {}'
   '{} firmware': '{} ファームウェア'
+  '{} free of {}': '空き {} / {}'
   '{} h': '{} 時間'
   '{} h of {} h': '{} / {} 時間'
   '{} has no hotend': "{}にはホットエンドがありません"

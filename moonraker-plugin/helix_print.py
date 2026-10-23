@@ -161,6 +161,7 @@ helix_journal = _load_sibling("helix_journal")
 helix_config = _load_sibling("helix_config")
 helix_edits = _load_sibling("helix_edits")
 helix_print_hooks = _load_sibling("helix_print_hooks")
+helix_storage = _load_sibling("helix_storage")
 
 
 # ============================================================================
@@ -471,6 +472,7 @@ class HelixPrint:
         self.analysis: Optional[Any] = None
         self.journal: Optional[Any] = None
         self.print_hooks: Optional[Any] = None
+        self.storage: Optional[Any] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -775,6 +777,7 @@ class HelixPrint:
         await self._start_isolated("config_edit", True, self._start_config)
         await self._start_isolated("server_edits", False, self._start_edits)
         await self._start_isolated("print_hooks", True, self._start_print_hooks)
+        await self._start_isolated("storage", False, self._start_storage)
 
         await self._load_job_markers()
         if self.plr is not None:
@@ -968,7 +971,36 @@ class HelixPrint:
             acts=True,
         )
 
+    def _start_storage(self) -> None:
+        """Storage report, cleanup and free-space guard (helix_storage.py). The
+        report only observes, so it has no switch; automatic cleanup acts, so
+        it is its own feature, off until opted into through plugin_features."""
+        if helix_storage is None:
+            reason = SIBLING_LOAD_ERRORS.get("helix_storage", "module_missing")
+            self.register_feature("storage", 1, acts=False, available=False, reason=reason)
+            self.register_feature("storage_auto_cleanup", 1, acts=True, available=False,
+                                  reason=reason)
+            return
+        self.storage = helix_storage.HelixStorage(self)
+        self.storage.start()
+        self.register_feature(
+            helix_storage.STORAGE_FEATURE, helix_storage.STORAGE_FEATURE_VERSION,
+            acts=False, switch=always_on,
+        )
+        self.register_feature(
+            helix_storage.AUTO_CLEANUP_FEATURE, helix_storage.AUTO_CLEANUP_FEATURE_VERSION,
+            acts=True,
+        )
+
+    def check_free_space(self, incoming_bytes: int) -> None:
+        """Refuse (507) a print whose copy would leave the gcodes volume below
+        the storage floor. No guard without the storage module."""
+        if self.storage is not None:
+            self.storage.check_free_space(incoming_bytes)
+
     async def close(self) -> None:
+        if self.storage is not None:
+            self.storage.close()
         if self.analysis is not None:
             await self.analysis.close()
         if self.plr is not None:
@@ -1159,6 +1191,12 @@ class HelixPrint:
                 f"Temp file not found: {temp_file_path}. "
                 "Upload the modified file first via /server/files/upload", 400
             )
+
+        try:
+            self.check_free_space(0)
+        except Exception:
+            temp_resolved.unlink(missing_ok=True)
+            raise
 
         # Use the provided temp path (client already uploaded it)
         temp_filename = temp_file_path

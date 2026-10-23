@@ -255,6 +255,8 @@ src/printer/snapmaker_print_preferences.cpp
 src/printer/snapmaker_resume.cpp
 src/printer/snapmaker_status_parse.cpp
 src/printer/status_dispatch.cpp
+src/printer/storage_report.cpp
+src/printer/storage_report_service.cpp
 src/printer/preprint_skip_wrappers.cpp
 src/printer/z_offset_persistence.cpp
 src/printer/layer_pause.cpp
@@ -662,6 +664,7 @@ src/ui/ui_settings_sound.cpp
 src/ui/ui_settings_telemetry_data.cpp
 src/ui/ui_settings_touch.cpp
 src/ui/ui_settings_system.cpp
+src/ui/ui_settings_storage.cpp
 src/ui/ui_settings_connection.cpp
 src/ui/ui_settings_updates.cpp
 src/ui/ui_severity_card.cpp
