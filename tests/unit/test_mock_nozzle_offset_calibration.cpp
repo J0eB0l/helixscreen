@@ -72,10 +72,14 @@ struct NozzleCalFixture : public LVGLTestFixture {
         },
         nullptr, nullptr}};
 
+    // The mock never answers EXIT inside leave_live_run()'s wait, so every
+    // wait here runs to its end.
     NozzleCalFixture() {
         clear_exit_pending();
+        set_teardown_exit_wait_ms(10);
     }
     ~NozzleCalFixture() {
+        set_teardown_exit_wait_ms(kTeardownExitWaitMs);
         clear_exit_pending();
     }
 

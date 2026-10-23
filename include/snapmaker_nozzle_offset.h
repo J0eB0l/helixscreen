@@ -167,11 +167,16 @@ void reconcile_on_connect(helix::IMoonrakerClient& client, std::function<void()>
 /// How long leave_live_run() waits for EXIT's reply before teardown goes on.
 inline constexpr uint32_t kTeardownExitWaitMs = 1000;
 
+/// Overrides kTeardownExitWaitMs for the leave_live_run() calls that follow.
+/// Main thread, like leave_live_run().
+void set_teardown_exit_wait_ms(uint32_t ms);
+
 /**
  * @brief Ends the run in progress before the client disconnects
  *
  * A run left behind holds the heaters on. With @p client connected this aborts
- * a probe pass in progress, sends EXIT and waits up to kTeardownExitWaitMs for
+ * a probe pass in progress, sends EXIT and waits up to kTeardownExitWaitMs
+ * (or what set_teardown_exit_wait_ms() last set) for
  * the reply, marking it unconfirmed when none comes; otherwise it marks the
  * exit pending. Either way the run ends here (its changed hook refreshes the
  * overlay's subjects),
