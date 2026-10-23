@@ -425,6 +425,15 @@ TEST_CASE_METHOD(LVGLUITestFixture, "text_input fits one line of text inside a f
         CHECK(lv_obj_get_style_pad_bottom(ta, LV_PART_MAIN) == space_md);
     }
 
+    SECTION("a short multiline input keeps the full padding") {
+        const char* attrs[] = {"multiline", "true", "height", "20", nullptr};
+        lv_obj_t* ta = create_text_input(test_screen(), attrs);
+        REQUIRE(ta != nullptr);
+        lv_obj_update_layout(ta);
+        REQUIRE(lv_obj_get_height(ta) == 20);
+        CHECK(lv_obj_get_style_pad_top(ta, LV_PART_MAIN) == space_md);
+    }
+
     SECTION("a tall fixed height keeps the full padding") {
         const char* attrs[] = {"height", "400", nullptr};
         lv_obj_t* ta = create_text_input(test_screen(), attrs);

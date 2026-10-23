@@ -56,6 +56,7 @@ class LabelPrinterSettingsOverlay : public OverlayBase {
     void handle_bt_forget();
     void handle_label_count_changed(int index);
     void handle_user_printer_selected(int index);
+    void handle_manual_entry_started();
 
   private:
     /// A discovered network printer with auto-detected protocol

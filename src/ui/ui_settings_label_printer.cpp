@@ -246,6 +246,16 @@ void LabelPrinterSettingsOverlay::on_deactivating(DeactivateReason) {
 // INTERNAL METHODS
 // ============================================================================
 
+// Typing an address or port takes the choice over from discovery, so a later
+// discovery report cannot replace what is being typed.
+static void manual_entry_focused_cb(lv_event_t*) {
+    get_label_printer_settings_overlay().handle_manual_entry_started();
+}
+
+void LabelPrinterSettingsOverlay::handle_manual_entry_started() {
+    auto_picked_ = false;
+}
+
 void LabelPrinterSettingsOverlay::init_address_input() {
     if (!overlay_root_)
         return;
@@ -267,6 +277,7 @@ void LabelPrinterSettingsOverlay::init_address_input() {
                     LVGL_SAFE_EVENT_CB_END();
                 },
                 LV_EVENT_DEFOCUSED, nullptr);
+            lv_obj_add_event_cb(input, manual_entry_focused_cb, LV_EVENT_FOCUSED, nullptr);
         }
         spdlog::trace("[{}] Address input initialized", get_name());
     }
@@ -294,6 +305,7 @@ void LabelPrinterSettingsOverlay::init_port_input() {
                     LVGL_SAFE_EVENT_CB_END();
                 },
                 LV_EVENT_DEFOCUSED, nullptr);
+            lv_obj_add_event_cb(input, manual_entry_focused_cb, LV_EVENT_FOCUSED, nullptr);
         }
         spdlog::trace("[{}] Port input initialized", get_name());
     }
