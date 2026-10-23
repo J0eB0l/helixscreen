@@ -39,6 +39,7 @@
 
 #pragma once
 
+#include "helix_callback.h"
 #include "lvgl/lvgl.h"
 #include "system/crash_handler.h"
 
@@ -46,7 +47,6 @@
 
 #include <atomic>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -58,8 +58,11 @@ namespace helix::ui {
 
 /**
  * @brief Callback type for queued updates
+ *
+ * Move-only: the queue moves each callback in under its lock and runs it once
+ * on the main thread, so nothing ever copies one.
  */
-using UpdateCallback = std::function<void()>;
+using UpdateCallback = helix::Callback<void()>;
 
 /**
  * @brief Callback entry with optional debug tag
@@ -702,17 +705,17 @@ inline void queue_update(const char* tag, UpdateCallback callback) {
  * The data is captured and passed to the callback.
  *
  * @tparam T Type of data to pass
+ * @tparam F Callback type: void(T*)
  * @param data Data to pass to callback (moved into queue)
  * @param callback Function to execute with data
  */
-template <typename T>
-void queue_update(std::unique_ptr<T> data, std::function<void(T*)> callback,
-                  const char* file = __builtin_FILE(), int line = __builtin_LINE()) {
-    // shared_ptr, not a raw release: UpdateCallback must be copyable, and a
-    // callback the queue drops unrun must still free the payload.
-    queue_update([owned = std::shared_ptr<T>(std::move(data)),
-                  callback = std::move(callback)]() { callback(owned.get()); },
-                 file, line);
+template <typename T, typename F>
+void queue_update(std::unique_ptr<T> data, F&& callback, const char* file = __builtin_FILE(),
+                  int line = __builtin_LINE()) {
+    // The callback owns the payload, so one the queue drops unrun still frees it.
+    queue_update(
+        [owned = std::move(data), cb = std::forward<F>(callback)]() mutable { cb(owned.get()); },
+        file, line);
 }
 
 /**
@@ -759,7 +762,7 @@ template <typename T, typename F>
 void queue_update(lv_obj_t* widget, std::unique_ptr<T> data, F&& callback,
                   const char* file = __builtin_FILE(), int line = __builtin_LINE()) {
     queue_update(
-        [widget, owned = std::shared_ptr<T>(std::move(data)), cb = std::forward<F>(callback)]() {
+        [widget, owned = std::move(data), cb = std::forward<F>(callback)]() mutable {
             if (!lv_obj_is_valid(widget)) {
                 spdlog::debug(
                     "[UpdateQueue] Widget-safe guard: widget destroyed, skipping callback");
