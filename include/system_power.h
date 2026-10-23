@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace helix {
 
 /// How a local power request ended.
@@ -15,6 +17,11 @@ enum class PowerResult {
 /// True when @p dbus_error_name is logind's answer to a caller polkit has not
 /// authorized. Pure; null reads as false.
 bool is_authorization_error(const char* dbus_error_name);
+
+/// True when systemd is the running init under @p root ("" = this host),
+/// read from the /run/systemd/system marker the way sd_booted() reads it. A
+/// systemctl binary proves nothing: chroots, containers and SysV boxes ship one.
+bool host_runs_systemd(const std::string& root = {});
 
 /// Initiates shutdown/reboot of the machine running helixscreen. Tries logind
 /// via sd-bus first; falls back to systemctl, then busybox, if sd-bus is

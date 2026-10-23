@@ -12,6 +12,8 @@
 
 #include "app_globals.h"
 #include "config.h"
+#include "display_backend.h"
+#include "display_manager.h"
 #include "host_identity.h"
 #include "i_moonraker_api.h"
 #include "panel_widget_manager.h"
@@ -103,6 +105,10 @@ ShutdownModal* find_shutdown_modal(lv_event_t* e) {
 
 // Powers this host down. Test mode reports success without touching the dev
 // machine.
+//
+// The panel is cleared to black first: whatever the framebuffer holds when the
+// kernel goes down is what the next boot shows until something draws over it.
+// A request that fails repaints the UI the clear wiped.
 PowerResult invoke_local_power(bool is_reboot) {
     if (auto* rc = get_runtime_config(); rc && rc->test_mode) {
         spdlog::warn("[ShutdownDialog] TEST MODE: skipping SystemPower::{}_local() — "
@@ -113,7 +119,19 @@ PowerResult invoke_local_power(bool is_reboot) {
             is_reboot ? "TEST: would reboot screen" : "TEST: would shut down screen", 4000);
         return PowerResult::Dispatched;
     }
-    return is_reboot ? helix::SystemPower::reboot_local() : helix::SystemPower::shutdown_local();
+
+    DisplayBackend* backend = nullptr;
+    if (auto* dm = DisplayManager::instance()) {
+        backend = dm->backend();
+    }
+    const bool cleared = backend && backend->clear_framebuffer(0xFF000000);
+
+    const PowerResult result =
+        is_reboot ? helix::SystemPower::reboot_local() : helix::SystemPower::shutdown_local();
+    if (cleared && result != PowerResult::Dispatched) {
+        lv_obj_invalidate(lv_screen_active());
+    }
+    return result;
 }
 
 // Moonraker error callbacks arrive on the WebSocket thread; SystemPower's
@@ -164,6 +182,17 @@ void execute_screen_power(bool is_reboot) {
     spdlog::info("[ShutdownDialog] Executing local screen {}", is_reboot ? "reboot" : "shutdown");
     const PowerResult result = invoke_local_power(is_reboot);
     if (const char* msg = screen_power_failure_message(result, is_reboot)) {
+        ToastManager::instance().show(ToastSeverity::ERROR, msg, 6000);
+    }
+}
+
+// Single-scope local power: on a same-host screen this host IS the printer,
+// so a failure reads as the machine's, not the screen's.
+void execute_host_power(bool is_reboot) {
+    spdlog::info("[ShutdownDialog] Executing local {} of this host",
+                 is_reboot ? "reboot" : "shutdown");
+    const PowerResult result = invoke_local_power(is_reboot);
+    if (const char* msg = machine_power_failure_message(result, is_reboot)) {
         ToastManager::instance().show(ToastSeverity::ERROR, msg, 6000);
     }
 }
@@ -403,13 +432,13 @@ const char* screen_power_failure_message(PowerResult result, bool is_reboot) {
 }
 
 ShutdownDialogPlan plan_shutdown_dialog(bool api_connected, bool live_moonraker_remote,
-                                        bool configured_host_same) {
+                                        bool configured_host_same, bool this_host_runs_systemd) {
     const bool same_host = api_connected ? !live_moonraker_remote : configured_host_same;
     if (!same_host) {
         return {ShutdownDialogMode::Dual, ShutdownScope::Screen};
     }
-    return {api_connected ? ShutdownDialogMode::SingleViaMoonraker
-                          : ShutdownDialogMode::SingleViaLocalPower,
+    return {api_connected && this_host_runs_systemd ? ShutdownDialogMode::SingleViaMoonraker
+                                                    : ShutdownDialogMode::SingleViaLocalPower,
             ShutdownScope::Screen};
 }
 
@@ -430,27 +459,35 @@ void show_shutdown_dialog(IMoonrakerAPI* api, ShutdownModal& modal, AsyncLifetim
 
     Config* cfg = Config::get_instance();
     const std::string host = cfg->get<std::string>(cfg->df() + "moonraker_host", "localhost");
+    const bool connected = api->is_connected();
     const ShutdownDialogPlan plan =
-        plan_shutdown_dialog(api->is_connected(), get_printer_state().is_moonraker_remote(),
-                             helix::is_moonraker_on_same_host(host));
+        plan_shutdown_dialog(connected, get_printer_state().is_moonraker_remote(),
+                             helix::is_moonraker_on_same_host(host), helix::host_runs_systemd());
     switch (plan.mode) {
     case ShutdownDialogMode::SingleViaMoonraker:
-        // Normally Moonraker's machine.shutdown brings the whole device down.
-        // Moonraker with `provider: none` answers it by shelling out to
-        // sudo/systemctl, which OpenWrt/procd firmwares don't ship. Pass
-        // allow_local_fallback so a rejected RPC retries through SystemPower
-        // instead of dead-ending in a toast.
+        // Moonraker's machine.shutdown brings the whole device down. Moonraker
+        // with `provider: none` answers it by shelling out to sudo, which a
+        // host without passwordless sudo refuses. Pass allow_local_fallback so
+        // a rejected RPC retries through SystemPower instead of dead-ending in
+        // a toast.
         modal.set_single_callbacks(
             [api]() { execute_printer_shutdown(api, /*allow_local_fallback=*/true); },
             [api]() { execute_printer_reboot(api, /*allow_local_fallback=*/true); });
         break;
     case ShutdownDialogMode::SingleViaLocalPower:
-        // Klipper failed to boot, or the user runs a SonicPad as a screen-only
-        // with the local Moonraker disabled: SystemPower spares the user the
-        // hardware switch.
-        spdlog::info("[ShutdownDialog] Moonraker not connected — using local SystemPower fallback");
-        modal.set_single_callbacks([]() { execute_screen_shutdown(); },
-                                   []() { execute_screen_reboot(); });
+        // Moonraker is down (Klipper failed to boot, or a screen-only setup with
+        // the local Moonraker disabled), or this host has no systemd, where
+        // Moonraker's machine.reboot/shutdown always fails. Either way this host
+        // is the printer, and SystemPower powers it directly.
+        if (connected) {
+            spdlog::info("[ShutdownDialog] Host does not run systemd — Moonraker cannot power "
+                         "it; using local SystemPower");
+        } else {
+            spdlog::info(
+                "[ShutdownDialog] Moonraker not connected — using local SystemPower fallback");
+        }
+        modal.set_single_callbacks([]() { execute_host_power(/*is_reboot=*/false); },
+                                   []() { execute_host_power(/*is_reboot=*/true); });
         break;
     case ShutdownDialogMode::Dual:
         modal.set_dual_callbacks([api, &lifetime]() { execute_both_shutdown(api, lifetime); },

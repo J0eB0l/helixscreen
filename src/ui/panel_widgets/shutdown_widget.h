@@ -61,7 +61,7 @@ const char* screen_power_failure_message(PowerResult result, bool is_reboot);
 /// Which power dialog a screen gets.
 enum class ShutdownDialogMode {
     SingleViaMoonraker,  ///< Same host, Moonraker up: machine.shutdown takes the device down.
-    SingleViaLocalPower, ///< Same host, Moonraker down: SystemPower on this host.
+    SingleViaLocalPower, ///< Same host, Moonraker down or unable to: SystemPower on this host.
     Dual,                ///< Different hosts: Both / Printer / Screen split buttons.
 };
 
@@ -78,10 +78,14 @@ struct ShutdownDialogPlan {
 /// CONNECTED edge that verdict sits at its default (local), so the configured
 /// host (@p configured_host_same, from is_moonraker_on_same_host()) decides.
 ///
+/// A same-host screen goes straight to SystemPower when this host does not run
+/// systemd (@p this_host_runs_systemd, from host_runs_systemd()): Moonraker's
+/// machine.reboot/shutdown there shells out to sudo/systemctl and always fails.
+///
 /// A remote screen opens on Screen: the user is standing at the screen, and
 /// powering down a printer on another machine has to be chosen on purpose.
 ShutdownDialogPlan plan_shutdown_dialog(bool api_connected, bool live_moonraker_remote,
-                                        bool configured_host_same);
+                                        bool configured_host_same, bool this_host_runs_systemd);
 
 /// Configure @p modal with single-/dual-scope callbacks for @p api (matching
 /// the home-panel widget's behavior — including local-fallback when Moonraker
@@ -96,9 +100,9 @@ void show_shutdown_dialog(IMoonrakerAPI* api, ShutdownModal& modal, AsyncLifetim
 /// Handle a failed Moonraker machine.reboot / machine.shutdown.
 ///
 /// Hosts running Moonraker with `provider: none` implement those RPCs as
-/// `sudo systemctl reboot|poweroff`. Non-systemd printer hosts (OpenWrt/procd
-/// K2, K1C, AD5M, CC1, U1) ship neither binary, so the RPC always fails even
-/// though busybox /sbin/reboot works — which is what SystemPower falls back to.
+/// `sudo systemctl reboot|poweroff`, which fails without passwordless sudo
+/// even where SystemPower can power the host itself. (A non-systemd host never
+/// sends the RPC: plan_shutdown_dialog() routes it to SystemPower directly.)
 ///
 /// @param err_message          Moonraker's error text, for the log.
 /// @param is_reboot            Reboot vs. shutdown, selects the user-facing toast.

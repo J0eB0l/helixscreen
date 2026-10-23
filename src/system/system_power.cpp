@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <sys/stat.h>
 #include <sys/wait.h>
 
 #ifdef HELIX_HAS_SYSTEMD
@@ -23,6 +24,11 @@ bool is_authorization_error(const char* dbus_error_name) {
     return std::strcmp(dbus_error_name,
                        "org.freedesktop.DBus.Error.InteractiveAuthorizationRequired") == 0 ||
            std::strcmp(dbus_error_name, "org.freedesktop.DBus.Error.AccessDenied") == 0;
+}
+
+bool host_runs_systemd(const std::string& root) {
+    struct stat st {};
+    return stat((root + "/run/systemd/system").c_str(), &st) == 0 && S_ISDIR(st.st_mode);
 }
 
 namespace {

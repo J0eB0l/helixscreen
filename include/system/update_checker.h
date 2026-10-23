@@ -400,10 +400,6 @@ class UpdateChecker {
      */
     static std::string init_service_dest_dir();
 
-    /// True when systemd is this host's running init (install.sh's
-    /// _systemd_is_init).
-    static bool systemd_is_init();
-
     /**
      * @brief Whether an in-app update writes the service destination, so the
      *        pre-download probe applies.

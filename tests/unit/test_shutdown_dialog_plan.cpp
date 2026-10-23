@@ -4,7 +4,8 @@
  * Which shutdown dialog opens, and which scope its split buttons start on.
  *
  * A screen on the printer's own host gets one row of buttons that go through
- * Moonraker (or local power when Moonraker is down). A screen on a different
+ * Moonraker, or straight to local power when Moonraker is down or the host
+ * does not run systemd (Moonraker's own power path needs it). A screen on a different
  * host gets the Both / Printer / Screen split buttons, starting on Screen: the
  * user is standing at the screen, and taking a printer down from another
  * machine is the choice that has to be made on purpose.
@@ -30,7 +31,8 @@ TEST_CASE("Shutdown dialog plan: remote screen defaults to Screen", "[shutdown][
     SECTION("connected, live verdict remote") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
                                                /*live_moonraker_remote=*/true,
-                                               /*configured_host_same=*/false);
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::Dual);
         CHECK(plan.dual_default == ShutdownScope::Screen);
     }
@@ -38,7 +40,8 @@ TEST_CASE("Shutdown dialog plan: remote screen defaults to Screen", "[shutdown][
     SECTION("connected: the live verdict outranks a stale configured host") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
                                                /*live_moonraker_remote=*/true,
-                                               /*configured_host_same=*/true);
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::Dual);
         CHECK(plan.dual_default == ShutdownScope::Screen);
     }
@@ -46,7 +49,20 @@ TEST_CASE("Shutdown dialog plan: remote screen defaults to Screen", "[shutdown][
     SECTION("disconnected: the configured host decides") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/false,
                                                /*live_moonraker_remote=*/false,
-                                               /*configured_host_same=*/false);
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/true);
+        CHECK(plan.mode == ShutdownDialogMode::Dual);
+        CHECK(plan.dual_default == ShutdownScope::Screen);
+    }
+}
+
+TEST_CASE("Shutdown dialog plan: a remote printer splits whatever this host runs",
+          "[shutdown][power]") {
+    for (const bool connected : {true, false}) {
+        const auto plan = plan_shutdown_dialog(connected,
+                                               /*live_moonraker_remote=*/true,
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/false);
         CHECK(plan.mode == ShutdownDialogMode::Dual);
         CHECK(plan.dual_default == ShutdownScope::Screen);
     }
@@ -56,14 +72,32 @@ TEST_CASE("Shutdown dialog plan: same host stays single-scope", "[shutdown][powe
     SECTION("connected goes through Moonraker") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
                                                /*live_moonraker_remote=*/false,
-                                               /*configured_host_same=*/false);
+                                               /*configured_host_same=*/false,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::SingleViaMoonraker);
+    }
+
+    SECTION("connected on a non-systemd host goes straight to local power") {
+        const auto plan = plan_shutdown_dialog(/*api_connected=*/true,
+                                               /*live_moonraker_remote=*/false,
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/false);
+        CHECK(plan.mode == ShutdownDialogMode::SingleViaLocalPower);
+    }
+
+    SECTION("disconnected on a non-systemd host uses local power too") {
+        const auto plan = plan_shutdown_dialog(/*api_connected=*/false,
+                                               /*live_moonraker_remote=*/false,
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/false);
+        CHECK(plan.mode == ShutdownDialogMode::SingleViaLocalPower);
     }
 
     SECTION("disconnected falls back to local power") {
         const auto plan = plan_shutdown_dialog(/*api_connected=*/false,
                                                /*live_moonraker_remote=*/true,
-                                               /*configured_host_same=*/true);
+                                               /*configured_host_same=*/true,
+                                               /*this_host_runs_systemd=*/true);
         CHECK(plan.mode == ShutdownDialogMode::SingleViaLocalPower);
     }
 }

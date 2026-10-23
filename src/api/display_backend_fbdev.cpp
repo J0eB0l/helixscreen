@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "env_knobs.h"
+#include "fbdev_signal_clear.h"
 #include "fbdev_size_helper.h"
 #include "input_device_scanner.h"
 #include "pending_startup_warnings.h"
@@ -170,6 +171,16 @@ lv_display_t* DisplayBackendFbdev::create_display(int width, int height) {
 
     // Set the framebuffer device path (opens /dev/fb0 and mmaps it)
     lv_linux_fbdev_set_file(display_, fb_device_.c_str());
+
+    // The SIGTERM fast exit skips the graceful clear, and the last frame would
+    // otherwise survive into whatever draws next (a reboot's boot screen).
+    if (int fb_fd = open(fb_device_.c_str(), O_RDONLY | O_CLOEXEC); fb_fd >= 0) {
+        struct fb_fix_screeninfo finfo {};
+        if (ioctl(fb_fd, FBIOGET_FSCREENINFO, &finfo) == 0) {
+            helix::cache_framebuffer_for_signal(fb_device_, finfo.smem_len);
+        }
+        close(fb_fd);
+    }
 
     // AD5M's LCD controller interprets XRGB8888's X byte as alpha.
     // By default, LVGL uses XRGB8888 for 32bpp and sets X=0x00 (transparent).
