@@ -146,8 +146,18 @@ bool fallback_may_clean(bool plugin_installed, const PluginFeatureMap& features)
 
 /// Whether the timelapse root in a server.files.roots result may be cleaned:
 /// it exists and is neither the gcodes or config root nor above either. A
-/// result that does not name all three is not safe.
+/// result that does not name all three is not safe. Moonraker reports paths
+/// as configured, and the app cannot resolve them on the printer, so two
+/// spellings of one directory pass here; timelapse_listing_is_own() is the
+/// check that does not depend on spelling.
 bool timelapse_root_safe(const nlohmann::json& roots_result);
+
+/// Whether the timelapse root's own listing looks like timelapse's alone: no
+/// subdirectory and only render outputs (fallback_name_allowed). The gcodes
+/// root holds G-code and `.thumbs`, the config root `.cfg` files and the data
+/// directory folders, so a root that is really one of those under another
+/// spelling fails here.
+bool timelapse_listing_is_own(const DirectoryListing& listing);
 
 /// How long a cleanup request may wait for its answer before the page stops
 /// waiting and calls it failed.

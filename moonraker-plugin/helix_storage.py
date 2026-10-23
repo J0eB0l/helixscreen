@@ -598,6 +598,15 @@ class HelixStorage:
             result.update(await photos.delete_older_than(max(older_than, consumer.min_age_s)))
             return result
         tops = cleanup_tops(consumer, root, self.staging_dirs())
+        plr = getattr(self.helix, "plr", None)
+        if consumer.name in ("helix_temp", "analysis_sidecars") and plr is not None \
+                and plr.resume_unaccounted():
+            # A snapshot waits whose files no record names: any copy or index
+            # may be the one it resumes from.
+            result["errors"] = 1
+            logging.warning("HelixPrint: storage cleanup of %s skipped: a power-loss snapshot "
+                            "waits with no job record", consumer.name)
+            return result
         protected = await self.protected_paths()
         if protected is None:
             # Without knowing what prints, no file may be judged unused.

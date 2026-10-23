@@ -1148,6 +1148,12 @@ class HelixPlr:
 
     # -- layer checkpoints ---------------------------------------------------
 
+    def resume_unaccounted(self) -> bool:
+        """A snapshot is on disk but no job record names its files (the
+        record could not be read back): what a resume would read is unknown,
+        so every print copy and link must be kept."""
+        return self.job is None and self._load_snapshot() is not None
+
     def protected_paths(self) -> List[str]:
         """Every file no cleanup may remove, for a live print and for a
         snapshot or offer waiting to resume: the file Klipper read (it can lie

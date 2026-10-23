@@ -134,6 +134,10 @@ void StorageReportService::on_listing(const Pending& dir,
                                       const std::optional<DirectoryListing>& listing) {
     if (listing) {
         const bool at_root = dir.rel.empty();
+        if (at_root && dir.root == Root::Timelapse && !timelapse_listing_is_own(*listing)) {
+            // Another directory reached under another spelling: report only.
+            timelapse_cleanable_ = false;
+        }
         if (at_root) {
             for (std::size_t i = 0; i < kConsumerCount; ++i) {
                 const ConsumerInfo& info = kConsumers[i];

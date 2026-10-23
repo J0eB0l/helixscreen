@@ -249,6 +249,23 @@ TEST_CASE("Timelapse is cleaned only from a root of its own", "[plugin_storage]"
         json::array({{{"name", "timelapse"}, {"path", "/home/pi/timelapse"}}})));
 }
 
+TEST_CASE("A timelapse root holding anything but renders is not timelapse's own",
+          "[plugin_storage]") {
+    DirectoryListing own;
+    own.files = {{"benchy.mp4", 5, 0.0}, {"benchy.jpg", 1, 0.0}};
+    CHECK(timelapse_listing_is_own(own));
+    CHECK(timelapse_listing_is_own(DirectoryListing{}));
+    DirectoryListing gcodes = own;
+    gcodes.files.push_back({"benchy.gcode", 9, 0.0});
+    CHECK_FALSE(timelapse_listing_is_own(gcodes));
+    DirectoryListing config = own;
+    config.files.push_back({"printer.cfg", 9, 0.0});
+    CHECK_FALSE(timelapse_listing_is_own(config));
+    DirectoryListing with_dir = own;
+    with_dir.dirs = {".thumbs"};
+    CHECK_FALSE(timelapse_listing_is_own(with_dir));
+}
+
 TEST_CASE("A start refused for space shows the space message", "[plugin_storage]") {
     CHECK(std::string(print_start_failure_tag(kNoSpaceRpcCode)) == kNoUploadSpaceMessage);
     CHECK(std::string(print_start_failure_tag(500)) == "Failed to start print: {}");
@@ -401,8 +418,7 @@ std::optional<StorageReport> fallback_fetch(test::FakeMoonrakerClient& client,
     return got;
 }
 
-const json kOldVideos = json::array(
-    {{{"filename", "benchy.mp4"}, {"size", 5}}, {{"filename", "stray.gcode"}, {"size", 50}}});
+const json kOldVideos = json::array({{{"filename", "benchy.mp4"}, {"size", 5}}});
 
 } // namespace
 
@@ -585,6 +601,26 @@ TEST_CASE_METHOD(LVGLTestFixture, "The fallback cleans nothing when the plugin r
         CAPTURE(kConsumers[i].key);
         CHECK_FALSE(got->consumers[i].cleanable);
     }
+    std::optional<CleanupOutcome> outcome;
+    service.cleanup(ReportSource::FileApi, consumer_at("timelapse"),
+                    [&](const CleanupOutcome& o) { outcome = o; });
+    CHECK(client.rpc_calls.empty());
+    REQUIRE(outcome.has_value());
+    CHECK(outcome->refused);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "The fallback leaves a timelapse root that is gcodes under another spelling",
+                 "[plugin_storage]") {
+    // The roots reply names two different strings for one directory: only its
+    // contents give it away.
+    test::FakeMoonrakerClient client;
+    StorageReportService service(&client);
+    const json gcodes_files = json::array(
+        {{{"filename", "benchy.gcode"}, {"size", 9}}, {{"filename", "benchy.png"}, {"size", 1}}});
+    const auto got = fallback_fetch(client, service, true, "/home/pi/pd-link/gcodes", gcodes_files);
+    REQUIRE(got.has_value());
+    CHECK_FALSE(got->consumers[consumer_at("timelapse")].cleanable);
     std::optional<CleanupOutcome> outcome;
     service.cleanup(ReportSource::FileApi, consumer_at("timelapse"),
                     [&](const CleanupOutcome& o) { outcome = o; });

@@ -942,3 +942,62 @@ class TestScheduledCopyCleanup:
 
         assert copy.exists()
         assert loop.delays == [storage.cleanup_delay]
+
+    @pytest.mark.asyncio
+    async def test_a_snapshot_with_no_readable_job_keeps_every_copy(
+            self, storage, tree, mock_server, monkeypatch):
+        await _init(storage, tree)
+        loop = _RecordingLoop()
+        storage.eventloop = loop
+        gcodes = tree / "gcodes"
+        copy = _write(gcodes / ".helix_temp" / "mod_benchy.gcode", 5, age=OLD)
+        index = gcodes / ".helix_index" / "benchy.gcode.layers.jsonl"
+        name = ".helix_print/full/benchy.gcode"
+        link = gcodes / name
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(str(copy), str(link))
+        # The job record could not be read back; the snapshot is still there.
+        storage.plr.job = None
+        monkeypatch.setattr(storage.plr, "_load_snapshot", lambda: {"file_position": 1})
+
+        await storage._cleanup_temp_file(".helix_temp/mod_benchy.gcode", name)
+        assert copy.exists() and os.path.islink(str(link))
+        assert loop.delays == [storage.cleanup_delay]
+        for consumer in ("helix_temp", "analysis_sidecars"):
+            result = await mock_server.endpoints[CLEANUP](Request({"consumer": consumer,
+                                                                   "older_than": 0}))
+            assert result["removed"] == 0 and result["errors"] == 1
+        assert copy.exists() and index.exists()
+
+        monkeypatch.setattr(storage.plr, "_load_snapshot", lambda: None)
+        await storage._cleanup_temp_file(".helix_temp/mod_benchy.gcode", name)
+        assert not copy.exists()
+
+
+class _InitOrderLoop(_RecordingLoop):
+    """Notes, at the moment the startup cleanup is queued, whether recovery's
+    job is already loaded."""
+
+    def __init__(self, helix):
+        super().__init__()
+        self.helix = helix
+        self.job_loaded_when_queued = None
+
+    def register_callback(self, callback, *args):
+        if getattr(callback, "__name__", "") == "_startup_cleanup":
+            plr = self.helix.plr
+            self.job_loaded_when_queued = plr is not None and plr.job is not None
+
+
+class TestStartupOrder:
+
+    @pytest.mark.asyncio
+    async def test_the_startup_cleanup_is_queued_after_recovery_loads_its_job(
+            self, storage, tree, mock_server):
+        from helix_plr import JOB_KEY, PLR_NAMESPACE
+        await mock_server.components["database"].insert_item(PLR_NAMESPACE, JOB_KEY, {
+            "filename": ".helix_print/full/benchy.gcode", "job_id": "00002A"})
+        loop = _InitOrderLoop(storage)
+        storage.eventloop = loop
+        await storage.component_init()
+        assert loop.job_loaded_when_queued is True

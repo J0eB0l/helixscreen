@@ -195,6 +195,17 @@ bool timelapse_root_safe(const nlohmann::json& roots_result) {
     return !is_or_holds(timelapse, gcodes) && !is_or_holds(timelapse, config);
 }
 
+bool timelapse_listing_is_own(const DirectoryListing& listing) {
+    if (!listing.dirs.empty()) {
+        return false;
+    }
+    const auto timelapse = consumer_index("timelapse");
+    return timelapse &&
+           std::all_of(listing.files.begin(), listing.files.end(), [&](const ListedFile& f) {
+               return fallback_name_allowed(*timelapse, f.name);
+           });
+}
+
 const char* print_start_failure_tag(int rpc_code) {
     return is_no_space_refusal(rpc_code) ? kNoUploadSpaceMessage
                                          : TR_NOOP("Failed to start print: {}");

@@ -1703,11 +1703,15 @@ class HelixPrint:
                 logging.debug(f"HelixPrint: Removed thumbnail symlink {thumb}")
 
     def recovery_protects(self, *paths: Path) -> bool:
-        """Whether power-loss recovery still needs any of `paths`: its job may
-        resume from it (HelixPlr.protected_paths)."""
+        """Whether power-loss recovery still needs any of `paths` (print copies
+        and links): its job may resume from it (HelixPlr.protected_paths), or a
+        snapshot waits whose job record could not be read, so any of them may
+        be the one (HelixPlr.resume_unaccounted)."""
         protected = getattr(self.plr, "protected_paths", None)
         if protected is None:
             return False
+        if self.plr.resume_unaccounted():
+            return True
         needed = set(protected())
         return any(os.path.abspath(str(p)) in needed or os.path.realpath(str(p)) in needed
                    for p in paths)
