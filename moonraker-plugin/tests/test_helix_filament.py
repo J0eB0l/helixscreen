@@ -535,8 +535,10 @@ class TestHistoryAuxiliaryData:
         photo_record = helix_photos.with_photo(
             helix_photos.new_record("00002A", ".helix_print/x.gcode", T0),
             helix_photos.KIND_END, ".helix_photos/00002A_end.jpg", 1, T0, "plugin")
+        await helix_print_component.database.insert_item(
+            helix_photos.PHOTOS_NAMESPACE, ["00002A"], photo_record)
         job_row = {"job_id": "00002A", "start_time": T0}
-        await helix_print_component.photos._link_in_history(job_row, photo_record)
+        await helix_print_component.photos._link_in_history(job_row)
         # This feature records the job's spools when history finishes it.
         await _history(mock_server, _added("00002A", filename=".helix_print/x.gcode"))
         await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 5.0]}})
@@ -547,7 +549,7 @@ class TestHistoryAuxiliaryData:
         info.job_id = "00002A"
         await helix_print_component._patch_history_entry(info, "complete")
         # Each feature again: its own entry is replaced, never stacked.
-        await helix_print_component.photos._link_in_history(job_row, photo_record)
+        await helix_print_component.photos._link_in_history(job_row)
 
         aux = history.jobs[history._key("00002A")]["auxiliary_data"]
         names = [(e["provider"], e["name"]) for e in aux]
