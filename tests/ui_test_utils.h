@@ -297,6 +297,17 @@ bool send_key(uint32_t key);
 void advance_ms(uint32_t ms);
 
 /**
+ * @brief Advance LVGL's VIRTUAL clock in @p step_ms steps until @p condition holds
+ * @return true if it held within @p budget_ms of virtual time
+ *
+ * Each step advances the tick and pumps timers, then evaluates the condition, so
+ * it runs at least once. Never sleeps, like advance_ms(): for a wait on another
+ * thread use wait_until().
+ */
+bool advance_until(const std::function<bool()>& condition, uint32_t budget_ms,
+                   uint32_t step_ms = 5);
+
+/**
  * @brief Wait @p ms of REAL time, pumping LVGL and advancing its clock in step
  *
  * Sleeps in 5ms slices, advancing the virtual tick by 5ms per slice and running

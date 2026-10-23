@@ -371,12 +371,28 @@ bool send_key(uint32_t key) {
 // with the sleep; advance_ms() advances it without sleeping at all.
 static constexpr uint32_t kWaitPollMs = 5;
 
-void advance_ms(uint32_t ms) {
-    for (uint32_t elapsed = 0; elapsed < ms; elapsed += kWaitPollMs) {
-        lv_tick_inc(kWaitPollMs);
+bool advance_until(const std::function<bool()>& condition, uint32_t budget_ms, uint32_t step_ms) {
+    if (step_ms == 0) {
+        step_ms = 1;
+    }
+    for (uint32_t elapsed = 0;;) {
+        lv_tick_inc(step_ms);
+        elapsed += step_ms;
         // Drains the UpdateQueue, normalizes timer timestamps, and pauses the
         // queue timer during lv_timer_handler() to prevent infinite loops.
         lv_timer_handler_safe();
+        if (condition()) {
+            return true;
+        }
+        if (elapsed >= budget_ms) {
+            return false;
+        }
+    }
+}
+
+void advance_ms(uint32_t ms) {
+    if (ms > 0) {
+        advance_until([] { return false; }, ms, kWaitPollMs);
     }
 }
 
