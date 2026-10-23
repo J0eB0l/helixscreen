@@ -243,7 +243,7 @@
   <translation tag="Adds to:" en="Adds to:"/>
   <translation tag="Adjust screen brightness level" en="Adjust screen brightness level"/>
   <translation tag="Adjust screws, then re-probe." en="Adjust screws, then re-probe."/>
-  <translation tag="Adjust {}" en="Adjust {}"/>
+  <translation tag="Adjust the other belt" en="Adjust the other belt"/>
   <translation tag="Adjustments stay active until restart. Save after print completes." en="Adjustments stay active until restart. Save after print completes."/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" en="Adjusts individual characteristics of your heaters for optimal control"/>
   <translation tag="Advanced" en="Advanced"/>
@@ -4369,16 +4369,17 @@
   <translation tag="{} is feeding the current print. Clear it after the print ends." en="{} is feeding the current print. Clear it after the print ends."/>
   <translation tag="{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout." en="{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout."/>
   <translation tag="{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool." en="{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool."/>
+  <translation tag="{} is looser" en="{} is looser"/>
   <translation tag="{} is not available on this device. Printing original file." en="{} is not available on this device. Printing original file."/>
   <translation tag="{} is not set up on this printer" en="{} is not set up on this printer"/>
   <translation tag="{} is still printing. The print keeps running after you switch." en="{} is still printing. The print keeps running after you switch."/>
+  <translation tag="{} is tighter" en="{} is tighter"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." en="{} isn&apos;t loaded. The print will pause when it needs it."/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" en="{} kept crashing the panel; pick a printer to connect"/>
   <translation tag="{} kept crashing the panel; switched back to {}" en="{} kept crashing the panel; switched back to {}"/>
   <translation tag="{} left" en="{} left"/>
   <translation tag="{} lines in helixscreen.env were ignored" en="{} lines in helixscreen.env were ignored"/>
   <translation tag="{} linked to Spoolman spool #{} from its tag" en="{} linked to Spoolman spool #{} from its tag"/>
-  <translation tag="{} looser" en="{} looser"/>
   <translation tag="{} m" en="{} m"/>
   <translation tag="{} macro not configured" en="{} macro not configured"/>
   <translation tag="{} matches." en="{} matches."/>
@@ -4405,7 +4406,6 @@
   <translation tag="{} started" en="{} started"/>
   <translation tag="{} target set to {}°C" en="{} target set to {}°C"/>
   <translation tag="{} tensioner" en="{} tensioner"/>
-  <translation tag="{} tighter" en="{} tighter"/>
   <translation tag="{} turn" en="{} turn"/>
   <translation tag="{} turns" en="{} turns"/>
   <translation tag="{} updated" en="{} updated"/>

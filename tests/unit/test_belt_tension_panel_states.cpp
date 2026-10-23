@@ -274,9 +274,6 @@ class BeltPanelFixture : public XMLTestFixture {
     size_t gap_caption_buf_size() const {
         return sizeof(panel_->tune_gap_caption_buf_);
     }
-    size_t swap_label_buf_size() const {
-        return sizeof(panel_->tune_swap_label_buf_);
-    }
     size_t tensioner_buf_size() const {
         return sizeof(panel_->tune_tensioner_buf_);
     }
@@ -1127,8 +1124,7 @@ TEST_CASE("Tune opens on the calibration turn", "[belt][panel][tune]") {
     CHECK(fx.text("bt_tune_zone").empty());
     CHECK(fx.state_int("bt_tune_shape_warning") == 1);
     CHECK(fx.text("bt_tune_round") == "Round 1");
-    CHECK(fx.text("bt_tune_gap_caption") == "Path B looser");
-    CHECK(fx.text("bt_tune_swap_label") == "Adjust Path A");
+    CHECK(fx.text("bt_tune_gap_caption") == "Path B is looser");
     CHECK(fx.text("bt_tune_last").empty());
     // The calibration measures both paths in full, as the sweep fact line does.
     const std::string hw = fx.text("bt_hw_sweep");
@@ -1447,8 +1443,7 @@ TEST_CASE("Adjust A instead swaps the instruction", "[belt][panel][tune]") {
         CHECK(fx.text("bt_tune_instruction") == "Loosen Path A noticeably");
         CHECK(fx.state_int("bt_tune_path") == 0);
         CHECK(fx.state_int("bt_tune_dir") == 1);
-        CHECK(fx.text("bt_tune_gap_caption") == "Path A tighter");
-        CHECK(fx.text("bt_tune_swap_label") == "Adjust Path B");
+        CHECK(fx.text("bt_tune_gap_caption") == "Path A is tighter");
     }
     SECTION("a zone being tuned") {
         ReplayBelts belts({110.0f}, {98.0f});
@@ -1458,8 +1453,7 @@ TEST_CASE("Adjust A instead swaps the instruction", "[belt][panel][tune]") {
         CHECK(fx.text("bt_tune_instruction") == "Loosen Path A");
         CHECK(fx.state_int("bt_tune_path") == 0);
         CHECK(fx.state_int("bt_tune_dir") == 1);
-        CHECK(fx.text("bt_tune_gap_caption") == "Path A tighter");
-        CHECK(fx.text("bt_tune_swap_label") == "Adjust Path B");
+        CHECK(fx.text("bt_tune_gap_caption") == "Path A is tighter");
     }
 }
 
@@ -2481,10 +2475,9 @@ TEST_CASE("every locale's tuning strings fit their buffers", "[belt][panel][tune
         CHECK(f("Went past {} by {:.1f} Hz. Back it off a little.", name, 12.3).size() <
               fx.last_buf_size());
         CHECK(f("{}'s peak moved out of the zone. Widening it.", name).size() < fx.last_buf_size());
-        for (const char* caption : {"{} looser", "{} tighter"}) {
+        for (const char* caption : {"{} is looser", "{} is tighter"}) {
             CHECK(f(caption, name).size() < fx.gap_caption_buf_size());
         }
-        CHECK(f("Adjust {}", name).size() < fx.swap_label_buf_size());
         CHECK(f("{} tensioner", name).size() < fx.tensioner_buf_size());
         CHECK(name.size() < fx.path_name_buf_size());
         for (const char* title : {"Measuring {}", "Re-measuring {}"}) {
@@ -2695,7 +2688,6 @@ TEST_CASE("TUNING below medium is one tappable line over the chart",
     REQUIRE(fx.text("bt_tune_instruction").rfind("Tighten Path B ", 0) == 0);
     lv_obj_send_event(named("bt_tune_line"), LV_EVENT_CLICKED, nullptr);
     CHECK(fx.state_int("bt_tune_path") == 0);
-    CHECK(fx.text("bt_tune_swap_label") == "Adjust Path B");
 
     SECTION("landscape medium keeps the full hero") {
         bp.set(kBpMedium);
@@ -3906,8 +3898,7 @@ TEST_CASE("a saved belt layout renames the results and the tuning advice",
     fx.panel().handle_tune_clicked();
     REQUIRE(fx.state_int("belt_tension_state") == kTuning);
     CHECK(fx.text("bt_tune_instruction") == "Tighten the right belt one full turn");
-    CHECK(fx.text("bt_tune_gap_caption") == "Right belt looser");
-    CHECK(fx.text("bt_tune_swap_label") == "Adjust the left belt");
+    CHECK(fx.text("bt_tune_gap_caption") == "Right belt is looser");
     CHECK(fx.text("bt_tune_tensioner") == "Right belt tensioner");
 
     // A change while the advice is on screen renames it at once.
@@ -4015,6 +4006,18 @@ TEST_CASE("the names dialog sets the layout and closes with the panel", "[belt][
     UpdateQueue::instance().drain();
     CHECK(helix::SettingsManager::instance().get_belt_layout() == 4);
     CHECK(fx.text("bt_path_a_name") == "Lower belt");
+    // The body keeps its height after a choice: the layout buttons and the
+    // Identify rows stay on screen under the heading.
+    lv_obj_update_layout(screen);
+    lv_obj_t* body = lv_obj_find_by_name(screen, "belt_names_content");
+    REQUIRE(body != nullptr);
+    CHECK(lv_obj_get_height(body) > 3 * lv_obj_get_height(lower_a));
+    for (const char* name : {"btn_identify_a", "btn_identify_b", "btn_layout_0", "btn_layout_4"}) {
+        INFO(name);
+        lv_obj_t* obj = lv_obj_find_by_name(screen, name);
+        REQUIRE(obj != nullptr);
+        CHECK(lv_obj_get_height(obj) > 0);
+    }
 
     fx.panel().on_deactivate(DeactivateReason::NavigateAway);
     fx.pump_ms(1000);

@@ -244,7 +244,7 @@ translations:
   'Adds to:': '添加到:'
   Adjust screen brightness level: 调整屏幕亮度
   Adjust screws, then re-probe.: 调整螺丝，然后重新探测。
-  Adjust {}: "调整 {}"
+  Adjust the other belt: "调整另一条"
   Adjustments stay active until restart. Save after print completes.: 调整在重启前保持有效。打印完成后保存。
   Adjusts individual characteristics of your heaters for optimal control: 调整加热器的各项参数以实现最佳控制
   Advanced: 高级
@@ -4542,15 +4542,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} 已安装，但其无限料盘设置已关闭，因此耗材用尽时不会切换。'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} 已安装，但无法读取其无限料盘设置 - 请勿指望无限料盘。'
   '{} is still printing. The print keeps running after you switch.': '{} 仍在打印。切换后打印会继续进行。'
+  '{} is looser': "{} 更松"
   '{} is not available on this device. Printing original file.': '此设备不支持{}。将打印原始文件。'
   '{} is not set up on this printer': '{} 未在此打印机上设置'
   '{} left': '剩余 {}'
   '{} lines in helixscreen.env were ignored': 'helixscreen.env 中有 {} 行被忽略'
   '{} kept crashing the panel; switched back to {}': '{} 反复导致屏幕崩溃，已切换回 {}'
+  '{} is tighter': "{} 更紧"
   "{} isn't loaded. The print will pause when it needs it.": '{}未装载。打印需要时将暂停。'
   '{} kept crashing the panel; pick a printer to connect': '{} 反复导致屏幕崩溃，请选择要连接的打印机'
   '{} linked to Spoolman spool #{} from its tag': '已通过标签将 {} 关联到 Spoolman 料盘 #{}'
-  '{} looser': "{} 更松"
   '{} m': '{} 米'
   '{} macro not configured': '{} 宏未配置'
   '{} matches.': '{} 匹配。'
@@ -4577,7 +4578,6 @@ translations:
   '{} started': '已开始{}'
   '{} target set to {}°C': '{} 目标已设为 {}°C'
   '{} tensioner': "{} 张紧器"
-  '{} tighter': "{} 更紧"
   '{} turn': "{} 圈"
   '{} turns': "{} 圈"
   '{} updated': '{} 已更新'

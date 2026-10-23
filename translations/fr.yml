@@ -255,7 +255,7 @@ translations:
   'Adds to:': 'Ajoute à :'
   Adjust screen brightness level: Ajuster le niveau de luminosité de l'écran
   Adjust screws, then re-probe.: Ajustez les vis, puis re-palpez.
-  Adjust {}: "Régler {}"
+  Adjust the other belt: "Régler l'autre"
   Adjustments stay active until restart. Save after print completes.: Les ajustements
     restent actifs jusqu'au redémarrage. Enregistrez après la fin de l'impression.
   Adjusts individual characteristics of your heaters for optimal control: Ajuste les
@@ -4842,15 +4842,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} est installé mais son réglage de bobine infinie est désactivé, rien ne changera donc en fin de filament.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': "{} est installé, mais son réglage de bobine infinie n'a pas pu être lu - ne comptez pas sur la bobine infinie."
   '{} is still printing. The print keeps running after you switch.': '{} imprime encore. L''impression continue après le changement.'
+  '{} is looser': "{} est plus lâche"
   '{} is not available on this device. Printing original file.': '{} n''est pas disponible sur cet appareil. Impression du fichier original.'
   '{} is not set up on this printer': "{} n'est pas configuré sur cette imprimante"
   '{} left': '{} restant'
   '{} lines in helixscreen.env were ignored': '{} lignes de helixscreen.env ont été ignorées'
   '{} kept crashing the panel; switched back to {}': '{} a planté l''écran à plusieurs reprises ; retour à {}'
+  '{} is tighter': "{} est plus tendue"
   "{} isn't loaded. The print will pause when it needs it.": '{} n''est pas chargé. L''impression se mettra en pause quand elle en aura besoin.'
   '{} kept crashing the panel; pick a printer to connect': '{} a planté l''écran à plusieurs reprises ; choisissez une imprimante à connecter'
   '{} linked to Spoolman spool #{} from its tag': '{} : liaison à la bobine Spoolman #{} via son étiquette'
-  '{} looser': "{} plus lâche"
   '{} m': '{} m'
   '{} macro not configured': Macro {} non configurée
   '{} matches.': '{} correspond.'
@@ -4879,7 +4880,6 @@ translations:
   '{} started': '{} démarré'
   '{} target set to {}°C': Cible {} réglée à {}°C
   '{} tensioner': "Tendeur de {}"
-  '{} tighter': "{} plus tendue"
   '{} turn': "{} tour"
   '{} turns': "{} tours"
   '{} updated': '{} : mise à jour'

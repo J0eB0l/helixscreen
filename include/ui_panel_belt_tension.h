@@ -469,8 +469,6 @@ class BeltTensionPanel : public OverlayBase {
     lv_subject_t tune_range_known_subject_{};
     lv_subject_t tune_measure_short_label_subject_{};
     char tune_measure_short_label_buf_[32] = {};
-    lv_subject_t tune_swap_label_subject_{};
-    char tune_swap_label_buf_[96] = {};
     lv_subject_t tune_tensioner_subject_{};
     char tune_tensioner_buf_[96] = {};
     lv_subject_t tune_measure_label_subject_{};

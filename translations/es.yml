@@ -253,7 +253,7 @@ translations:
   'Adds to:': 'Añade a:'
   Adjust screen brightness level: Ajustar el nivel de brillo de la pantalla
   Adjust screws, then re-probe.: Ajuste los tornillos, luego vuelva a sondear.
-  Adjust {}: "Ajustar {}"
+  Adjust the other belt: "Ajustar la otra"
   Adjustments stay active until restart. Save after print completes.: Los ajustes
     permanecen activos hasta reiniciar. Guarde después de que termine la impresión.
   Adjusts individual characteristics of your heaters for optimal control: Ajusta las
@@ -4807,15 +4807,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} está instalado pero su ajuste de bobina infinita está desactivado, así que no se cambiará nada al agotarse.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} está instalado, pero no se pudo leer su ajuste de bobina infinita - no cuentes con la bobina infinita.'
   '{} is still printing. The print keeps running after you switch.': '{} sigue imprimiendo. La impresión continúa después de cambiar.'
+  '{} is looser': "{} está más floja"
   '{} is not available on this device. Printing original file.': '{} no está disponible en este dispositivo. Se imprimirá el archivo original.'
   '{} is not set up on this printer': '{} no está configurado en esta impresora'
   '{} left': 'quedan {}'
   '{} lines in helixscreen.env were ignored': '{} líneas de helixscreen.env fueron ignoradas'
   '{} kept crashing the panel; switched back to {}': '{} bloqueó la pantalla repetidamente; se volvió a {}'
+  '{} is tighter': "{} está más tensa"
   "{} isn't loaded. The print will pause when it needs it.": '{} no está cargado. La impresión se pausará cuando lo necesite.'
   '{} kept crashing the panel; pick a printer to connect': '{} bloqueó la pantalla repetidamente; elige una impresora para conectar'
   '{} linked to Spoolman spool #{} from its tag': 'Se vinculó {} a la bobina #{} de Spoolman por su etiqueta'
-  '{} looser': "{} más floja"
   '{} m': '{} m'
   '{} macro not configured': Macro {} no configurado
   '{} matches.': '{} coincide.'
@@ -4843,7 +4844,6 @@ translations:
   '{} started': '{} iniciado'
   '{} target set to {}°C': '{} configurado a {}°C'
   '{} tensioner': "Tensor de {}"
-  '{} tighter': "{} más tensa"
   '{} turn': "{} vuelta"
   '{} turns': "{} vueltas"
   '{} updated': 'Se actualizó {}'

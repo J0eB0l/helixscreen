@@ -275,7 +275,6 @@ subject:bt_tune_rate
 subject:bt_tune_round
 subject:bt_tune_severity
 subject:bt_tune_shape_warning
-subject:bt_tune_swap_label
 subject:bt_tune_tensioner
 subject:bt_tune_unrepeatable
 subject:bt_tune_zone

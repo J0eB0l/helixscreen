@@ -508,9 +508,9 @@
                 <bind_style name="gap_near" subject="bt_tune_severity" ref_value="1"/>
                 <bind_style name="gap_far" subject="bt_tune_severity" ref_value="2"/>
               </lv_label>
-              <text_small width="100%"
-                          bind_text="bt_tune_gap_caption" style_text_align="center" style_text_color="#text_muted"
-                          long_mode="dots"/>
+              <text_small name="bt_tune_gap_caption_label"
+                          width="100%" bind_text="bt_tune_gap_caption" style_text_align="center"
+                          style_text_color="#text_muted" long_mode="dots"/>
               <belt_gap_gauge name="bt_tune_gauge" width="100%" height="#space_xl">
                 <bind_flag_if cond="bt_tune_baseline eq 1 or bt_tune_has_gap eq 0" flag="hidden"/>
               </belt_gap_gauge>
@@ -628,8 +628,8 @@
               <event_cb trigger="clicked" callback="belt_tension_tune_done_cb"/>
             </ui_button>
             <ui_button name="btn_tune_swap"
-                       width="0" height="#button_height" flex_grow="1" bind_text="bt_tune_swap_label"
-                       variant="secondary" long_mode="dots">
+                       width="0" height="#button_height" flex_grow="1" text="Adjust the other belt" variant="secondary"
+                       long_mode="dots">
               <bind_flag_if cond="(ui_breakpoint le 2 or ui_is_portrait eq 1) and ui_is_ultrawide eq 0 and (ui_is_portrait eq 0 or ui_breakpoint eq 0) or bt_tune_phase eq 4 or bt_tune_can_swap eq 0"
                             flag="hidden"/>
               <event_cb trigger="clicked" callback="belt_tension_tune_swap_cb"/>

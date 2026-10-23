@@ -243,7 +243,7 @@
   <translation tag="Adds to:" ja="追加先:"/>
   <translation tag="Adjust screen brightness level" ja="画面の明るさを調整します"/>
   <translation tag="Adjust screws, then re-probe." ja="ネジを調整して、再度プローブしてください。"/>
-  <translation tag="Adjust {}" ja="{}を調整"/>
+  <translation tag="Adjust the other belt" ja="もう一方を調整"/>
   <translation tag="Adjustments stay active until restart. Save after print completes." ja="調整は再起動まで有効です。印刷完了後に保存してください。"/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" ja="ヒーターの個別特性を調整して最適な制御を実現します"/>
   <translation tag="Advanced" ja="詳細設定"/>
@@ -4369,16 +4369,17 @@
   <translation tag="{} is feeding the current print. Clear it after the print ends." ja="{} は現在の印刷に給紙中です。印刷終了後にクリアしてください。"/>
   <translation tag="{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout." ja="{} はインストールされていますが、エンドレススプールの設定がオフになっているため、フィラメント切れになっても何も切り替わりません。"/>
   <translation tag="{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool." ja="{} はインストールされていますが、エンドレススプールの設定を読み取れませんでした - エンドレススプールを当てにしないでください。"/>
+  <translation tag="{} is looser" ja="{}の方が緩い"/>
   <translation tag="{} is not available on this device. Printing original file." ja="このデバイスでは {} を利用できません。元のファイルを印刷します。"/>
   <translation tag="{} is not set up on this printer" ja="{} はこのプリンターで設定されていません"/>
   <translation tag="{} is still printing. The print keeps running after you switch." ja="{}は印刷中です。切り替えても印刷は続行されます。"/>
+  <translation tag="{} is tighter" ja="{}の方が張っている"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." ja="{}はロードされていません。必要になった時点で印刷が一時停止します。"/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" ja="{} で画面のクラッシュが繰り返されました。接続するプリンターを選んでください"/>
   <translation tag="{} kept crashing the panel; switched back to {}" ja="{} で画面のクラッシュが繰り返されたため、{} に戻しました"/>
   <translation tag="{} left" ja="残り {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" ja="helixscreen.env の{}行が無視されました"/>
   <translation tag="{} linked to Spoolman spool #{} from its tag" ja="{} をタグから Spoolman スプール #{} にリンクしました"/>
-  <translation tag="{} looser" ja="{}の方が緩い"/>
   <translation tag="{} m" ja="{} m"/>
   <translation tag="{} macro not configured" ja="{} マクロが未設定です"/>
   <translation tag="{} matches." ja="{} が一致します。"/>
@@ -4405,7 +4406,6 @@
   <translation tag="{} started" ja="{} を開始しました"/>
   <translation tag="{} target set to {}°C" ja="{} 目標温度を {}°C に設定しました"/>
   <translation tag="{} tensioner" ja="{}のテンショナー"/>
-  <translation tag="{} tighter" ja="{}の方が張っている"/>
   <translation tag="{} turn" ja="{}回転"/>
   <translation tag="{} turns" ja="{}回転"/>
   <translation tag="{} updated" ja="{} を更新しました"/>

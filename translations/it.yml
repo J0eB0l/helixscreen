@@ -253,7 +253,7 @@ translations:
   'Adds to:': 'Aggiunge a:'
   Adjust screen brightness level: Regola il livello di luminosità dello schermo
   Adjust screws, then re-probe.: Regolare le viti, poi risondare.
-  Adjust {}: "Regola {}"
+  Adjust the other belt: "Regola l'altra"
   Adjustments stay active until restart. Save after print completes.: Le regolazioni
     restano attive fino al riavvio. Salvare dopo il completamento della stampa.
   Adjusts individual characteristics of your heaters for optimal control: Regola le
@@ -4808,15 +4808,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} è installato ma la sua impostazione della bobina infinita è disattivata, quindi nulla cambierà a filamento esaurito.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} è installato, ma non è stato possibile leggere la sua impostazione della bobina infinita - non contare sulla bobina infinita.'
   '{} is still printing. The print keeps running after you switch.': '{} sta ancora stampando. La stampa continua dopo il cambio.'
+  '{} is looser': "{} è più lenta"
   '{} is not available on this device. Printing original file.': '{} non è disponibile su questo dispositivo. Verrà stampato il file originale.'
   '{} is not set up on this printer': '{} non è configurato su questa stampante'
   '{} left': '{} rimanenti'
   '{} lines in helixscreen.env were ignored': '{} righe di helixscreen.env sono state ignorate'
   '{} kept crashing the panel; switched back to {}': '{} ha bloccato ripetutamente lo schermo; tornato a {}'
+  '{} is tighter': "{} è più tesa"
   "{} isn't loaded. The print will pause when it needs it.": '{} non è caricato. La stampa andrà in pausa quando ne avrà bisogno.'
   '{} kept crashing the panel; pick a printer to connect': '{} ha bloccato ripetutamente lo schermo; scegli una stampante a cui connetterti'
   '{} linked to Spoolman spool #{} from its tag': 'Collegamento di {} alla bobina Spoolman #{} dal suo tag'
-  '{} looser': "{} più lenta"
   '{} m': '{} m'
   '{} macro not configured': Macro {} non configurata
   '{} matches.': '{} corrisponde.'
@@ -4844,7 +4845,6 @@ translations:
   '{} started': '{} avviato'
   '{} target set to {}°C': Obiettivo {} impostato a {}°C
   '{} tensioner': "Tenditore di {}"
-  '{} tighter': "{} più tesa"
   '{} turn': "{} giro"
   '{} turns': "{} giri"
   '{} updated': 'Aggiornamento di {}'

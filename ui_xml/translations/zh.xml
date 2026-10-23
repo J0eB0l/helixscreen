@@ -243,7 +243,7 @@
   <translation tag="Adds to:" zh="添加到:"/>
   <translation tag="Adjust screen brightness level" zh="调整屏幕亮度"/>
   <translation tag="Adjust screws, then re-probe." zh="调整螺丝，然后重新探测。"/>
-  <translation tag="Adjust {}" zh="调整 {}"/>
+  <translation tag="Adjust the other belt" zh="调整另一条"/>
   <translation tag="Adjustments stay active until restart. Save after print completes." zh="调整在重启前保持有效。打印完成后保存。"/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" zh="调整加热器的各项参数以实现最佳控制"/>
   <translation tag="Advanced" zh="高级"/>
@@ -4369,16 +4369,17 @@
   <translation tag="{} is feeding the current print. Clear it after the print ends." zh="{} 正在为当前打印供料。请在打印结束后清除。"/>
   <translation tag="{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout." zh="{} 已安装，但其无限料盘设置已关闭，因此耗材用尽时不会切换。"/>
   <translation tag="{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool." zh="{} 已安装，但无法读取其无限料盘设置 - 请勿指望无限料盘。"/>
+  <translation tag="{} is looser" zh="{} 更松"/>
   <translation tag="{} is not available on this device. Printing original file." zh="此设备不支持{}。将打印原始文件。"/>
   <translation tag="{} is not set up on this printer" zh="{} 未在此打印机上设置"/>
   <translation tag="{} is still printing. The print keeps running after you switch." zh="{} 仍在打印。切换后打印会继续进行。"/>
+  <translation tag="{} is tighter" zh="{} 更紧"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." zh="{}未装载。打印需要时将暂停。"/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" zh="{} 反复导致屏幕崩溃，请选择要连接的打印机"/>
   <translation tag="{} kept crashing the panel; switched back to {}" zh="{} 反复导致屏幕崩溃，已切换回 {}"/>
   <translation tag="{} left" zh="剩余 {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" zh="helixscreen.env 中有 {} 行被忽略"/>
   <translation tag="{} linked to Spoolman spool #{} from its tag" zh="已通过标签将 {} 关联到 Spoolman 料盘 #{}"/>
-  <translation tag="{} looser" zh="{} 更松"/>
   <translation tag="{} m" zh="{} 米"/>
   <translation tag="{} macro not configured" zh="{} 宏未配置"/>
   <translation tag="{} matches." zh="{} 匹配。"/>
@@ -4405,7 +4406,6 @@
   <translation tag="{} started" zh="已开始{}"/>
   <translation tag="{} target set to {}°C" zh="{} 目标已设为 {}°C"/>
   <translation tag="{} tensioner" zh="{} 张紧器"/>
-  <translation tag="{} tighter" zh="{} 更紧"/>
   <translation tag="{} turn" zh="{} 圈"/>
   <translation tag="{} turns" zh="{} 圈"/>
   <translation tag="{} updated" zh="{} 已更新"/>

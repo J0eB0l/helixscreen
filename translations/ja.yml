@@ -245,7 +245,7 @@ translations:
   'Adds to:': '追加先:'
   Adjust screen brightness level: 画面の明るさを調整します
   Adjust screws, then re-probe.: ネジを調整して、再度プローブしてください。
-  Adjust {}: "{}を調整"
+  Adjust the other belt: "もう一方を調整"
   Adjustments stay active until restart. Save after print completes.: 調整は再起動まで有効です。印刷完了後に保存してください。
   Adjusts individual characteristics of your heaters for optimal control: ヒーターの個別特性を調整して最適な制御を実現します
   Advanced: 詳細設定
@@ -4552,15 +4552,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} はインストールされていますが、エンドレススプールの設定がオフになっているため、フィラメント切れになっても何も切り替わりません。'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} はインストールされていますが、エンドレススプールの設定を読み取れませんでした - エンドレススプールを当てにしないでください。'
   '{} is still printing. The print keeps running after you switch.': '{}は印刷中です。切り替えても印刷は続行されます。'
+  '{} is looser': "{}の方が緩い"
   '{} is not available on this device. Printing original file.': 'このデバイスでは {} を利用できません。元のファイルを印刷します。'
   '{} is not set up on this printer': '{} はこのプリンターで設定されていません'
   '{} left': '残り {}'
   '{} lines in helixscreen.env were ignored': 'helixscreen.env の{}行が無視されました'
   '{} kept crashing the panel; switched back to {}': '{} で画面のクラッシュが繰り返されたため、{} に戻しました'
+  '{} is tighter': "{}の方が張っている"
   "{} isn't loaded. The print will pause when it needs it.": '{}はロードされていません。必要になった時点で印刷が一時停止します。'
   '{} kept crashing the panel; pick a printer to connect': '{} で画面のクラッシュが繰り返されました。接続するプリンターを選んでください'
   '{} linked to Spoolman spool #{} from its tag': '{} をタグから Spoolman スプール #{} にリンクしました'
-  '{} looser': "{}の方が緩い"
   '{} m': '{} m'
   '{} macro not configured': '{} マクロが未設定です'
   '{} matches.': '{} が一致します。'
@@ -4587,7 +4588,6 @@ translations:
   '{} started': '{} を開始しました'
   '{} target set to {}°C': '{} 目標温度を {}°C に設定しました'
   '{} tensioner': "{}のテンショナー"
-  '{} tighter': "{}の方が張っている"
   '{} turn': "{}回転"
   '{} turns': "{}回転"
   '{} updated': '{} を更新しました'

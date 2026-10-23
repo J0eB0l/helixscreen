@@ -243,7 +243,7 @@
   <translation tag="Adds to:" es="Añade a:"/>
   <translation tag="Adjust screen brightness level" es="Ajustar el nivel de brillo de la pantalla"/>
   <translation tag="Adjust screws, then re-probe." es="Ajuste los tornillos, luego vuelva a sondear."/>
-  <translation tag="Adjust {}" es="Ajustar {}"/>
+  <translation tag="Adjust the other belt" es="Ajustar la otra"/>
   <translation tag="Adjustments stay active until restart. Save after print completes." es="Los ajustes permanecen activos hasta reiniciar. Guarde después de que termine la impresión."/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" es="Ajusta las características individuales de sus calentadores para un control óptimo"/>
   <translation tag="Advanced" es="Avanzado"/>
@@ -4369,16 +4369,17 @@
   <translation tag="{} is feeding the current print. Clear it after the print ends." es="{}: alimenta la impresión actual. Elimina la bobina cuando termine la impresión."/>
   <translation tag="{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout." es="{} está instalado pero su ajuste de bobina infinita está desactivado, así que no se cambiará nada al agotarse."/>
   <translation tag="{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool." es="{} está instalado, pero no se pudo leer su ajuste de bobina infinita - no cuentes con la bobina infinita."/>
+  <translation tag="{} is looser" es="{} está más floja"/>
   <translation tag="{} is not available on this device. Printing original file." es="{} no está disponible en este dispositivo. Se imprimirá el archivo original."/>
   <translation tag="{} is not set up on this printer" es="{} no está configurado en esta impresora"/>
   <translation tag="{} is still printing. The print keeps running after you switch." es="{} sigue imprimiendo. La impresión continúa después de cambiar."/>
+  <translation tag="{} is tighter" es="{} está más tensa"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." es="{} no está cargado. La impresión se pausará cuando lo necesite."/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" es="{} bloqueó la pantalla repetidamente; elige una impresora para conectar"/>
   <translation tag="{} kept crashing the panel; switched back to {}" es="{} bloqueó la pantalla repetidamente; se volvió a {}"/>
   <translation tag="{} left" es="quedan {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" es="{} líneas de helixscreen.env fueron ignoradas"/>
   <translation tag="{} linked to Spoolman spool #{} from its tag" es="Se vinculó {} a la bobina #{} de Spoolman por su etiqueta"/>
-  <translation tag="{} looser" es="{} más floja"/>
   <translation tag="{} m" es="{} m"/>
   <translation tag="{} macro not configured" es="Macro {} no configurado"/>
   <translation tag="{} matches." es="{} coincide."/>
@@ -4405,7 +4406,6 @@
   <translation tag="{} started" es="{} iniciado"/>
   <translation tag="{} target set to {}°C" es="{} configurado a {}°C"/>
   <translation tag="{} tensioner" es="Tensor de {}"/>
-  <translation tag="{} tighter" es="{} más tensa"/>
   <translation tag="{} turn" es="{} vuelta"/>
   <translation tag="{} turns" es="{} vueltas"/>
   <translation tag="{} updated" es="Se actualizó {}"/>

@@ -351,8 +351,6 @@ void BeltTensionPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(tune_range_known_subject_, 0, "bt_tune_range_known", subjects_);
     UI_MANAGED_SUBJECT_STRING(tune_measure_short_label_subject_, tune_measure_short_label_buf_, "",
                               "bt_tune_measure_short_label", subjects_);
-    UI_MANAGED_SUBJECT_STRING(tune_swap_label_subject_, tune_swap_label_buf_, "",
-                              "bt_tune_swap_label", subjects_);
     UI_MANAGED_SUBJECT_STRING(tune_tensioner_subject_, tune_tensioner_buf_, "", "bt_tune_tensioner",
                               subjects_);
     UI_MANAGED_SUBJECT_STRING(tune_measure_label_subject_, tune_measure_label_buf_, "",
@@ -1858,9 +1856,7 @@ void BeltTensionPanel::refresh_tune() {
     using helix::calibration::BeltTurnDirection;
     const auto& t = *tune_;
     const BeltPath adj = t.adjusted_path();
-    const BeltPath ref = other_path(adj);
     const std::string adj_name = path_phrase(adj);
-    const std::string ref_name = path_phrase(ref);
     const auto& zone = t.zone();
     const auto stage = t.stage();
     const bool baseline = t.needs_baseline();
@@ -1939,11 +1935,11 @@ void BeltTensionPanel::refresh_tune() {
 
     std::string caption;
     if (has_gap) {
-        caption =
-            std::abs(gap) <= tolerance
-                ? std::string(lv_tr("within one bin"))
-                : fmt::format(fmt::runtime(gap < 0.0f ? lv_tr("{} looser") : lv_tr("{} tighter")),
-                              path_title(adj));
+        caption = std::abs(gap) <= tolerance
+                      ? std::string(lv_tr("within one bin"))
+                      : fmt::format(fmt::runtime(gap < 0.0f ? lv_tr("{} is looser")
+                                                            : lv_tr("{} is tighter")),
+                                    path_title(adj));
     }
     lv_subject_copy_string(&tune_gap_caption_subject_, caption.c_str());
 
@@ -1986,8 +1982,6 @@ void BeltTensionPanel::refresh_tune() {
     lv_subject_copy_string(&tune_power_hint_subject_, tune_power_hint_buf_);
     lv_subject_set_int(&tune_has_power_hint_subject_, power ? 1 : 0);
 
-    lv_subject_copy_string(&tune_swap_label_subject_,
-                           fmt::format(fmt::runtime(lv_tr("Adjust {}")), ref_name).c_str());
     lv_subject_copy_string(
         &tune_tensioner_subject_,
         fmt::format(fmt::runtime(lv_tr("{} tensioner")), path_title(adj)).c_str());

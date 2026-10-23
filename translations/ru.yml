@@ -294,7 +294,7 @@ translations:
   'Adds to:': 'Добавляет в:'
   Adjust screen brightness level: Настроить уровень яркости экрана
   Adjust screws, then re-probe.: Отрегулируйте винты, затем перепроверьте.
-  Adjust {}: "Регулировать {}"
+  Adjust the other belt: "Другой ремень"
   Adjustments stay active until restart. Save after print completes.: Настройки активны
     до перезагрузки. Сохраните после завершения печати.
   Adjusts individual characteristics of your heaters for optimal control: Настраивает
@@ -4856,15 +4856,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} установлен, но его настройка бесконечной катушки выключена, поэтому при обрыве ничего не переключится.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} установлен, но прочитать его настройку бесконечной катушки не удалось - не рассчитывайте на бесконечную катушку.'
   '{} is still printing. The print keeps running after you switch.': '{} ещё печатает. Печать продолжится после переключения.'
+  '{} is looser': "{} слабее"
   '{} is not available on this device. Printing original file.': '{} недоступно на этом устройстве. Будет напечатан исходный файл.'
   '{} is not set up on this printer': '{} не настроен на этом принтере'
   '{} left': 'осталось {}'
   '{} lines in helixscreen.env were ignored': 'В helixscreen.env проигнорировано строк: {}'
   '{} kept crashing the panel; switched back to {}': '{} постоянно вызывал сбой экрана; возврат к {}'
+  '{} is tighter': "{} туже"
   "{} isn't loaded. The print will pause when it needs it.": '{}: филамент не загружен. Печать приостановится, когда он понадобится.'
   '{} kept crashing the panel; pick a printer to connect': '{} постоянно вызывал сбой экрана; выберите принтер для подключения'
   '{} linked to Spoolman spool #{} from its tag': '{}: привязано к катушке Spoolman #{} по метке'
-  '{} looser': "{} слабее"
   '{} m': '{} м'
   '{} macro not configured': Макрос {} не настроен
   '{} matches.': '{} подходит.'
@@ -4908,7 +4909,6 @@ translations:
   '{} started': '{} запущено'
   '{} target set to {}°C': Целевая температура {} — {}°C
   '{} tensioner': "Натяжитель: {}"
-  '{} tighter': "{} туже"
   '{} turn': "{} об."
   '{} turns': "{} об."
   '{} updated': '{}: обновлено'

@@ -276,7 +276,7 @@
   <translation tag="Adds to:" ru="Добавляет в:"/>
   <translation tag="Adjust screen brightness level" ru="Настроить уровень яркости экрана"/>
   <translation tag="Adjust screws, then re-probe." ru="Отрегулируйте винты, затем перепроверьте."/>
-  <translation tag="Adjust {}" ru="Регулировать {}"/>
+  <translation tag="Adjust the other belt" ru="Другой ремень"/>
   <translation tag="Adjustments stay active until restart. Save after print completes." ru="Настройки активны до перезагрузки. Сохраните после завершения печати."/>
   <translation tag="Adjusts individual characteristics of your heaters for optimal control" ru="Настраивает индивидуальные характеристики нагревателей для оптимального контроля"/>
   <translation tag="Advanced" ru="Дополнительно"/>
@@ -4438,16 +4438,17 @@
   <translation tag="{} is feeding the current print. Clear it after the print ends." ru="{}: подаёт филамент для текущей печати. Удалите катушку после завершения печати."/>
   <translation tag="{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout." ru="{} установлен, но его настройка бесконечной катушки выключена, поэтому при обрыве ничего не переключится."/>
   <translation tag="{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool." ru="{} установлен, но прочитать его настройку бесконечной катушки не удалось - не рассчитывайте на бесконечную катушку."/>
+  <translation tag="{} is looser" ru="{} слабее"/>
   <translation tag="{} is not available on this device. Printing original file." ru="{} недоступно на этом устройстве. Будет напечатан исходный файл."/>
   <translation tag="{} is not set up on this printer" ru="{} не настроен на этом принтере"/>
   <translation tag="{} is still printing. The print keeps running after you switch." ru="{} ещё печатает. Печать продолжится после переключения."/>
+  <translation tag="{} is tighter" ru="{} туже"/>
   <translation tag="{} isn&apos;t loaded. The print will pause when it needs it." ru="{}: филамент не загружен. Печать приостановится, когда он понадобится."/>
   <translation tag="{} kept crashing the panel; pick a printer to connect" ru="{} постоянно вызывал сбой экрана; выберите принтер для подключения"/>
   <translation tag="{} kept crashing the panel; switched back to {}" ru="{} постоянно вызывал сбой экрана; возврат к {}"/>
   <translation tag="{} left" ru="осталось {}"/>
   <translation tag="{} lines in helixscreen.env were ignored" ru="В helixscreen.env проигнорировано строк: {}"/>
   <translation tag="{} linked to Spoolman spool #{} from its tag" ru="{}: привязано к катушке Spoolman #{} по метке"/>
-  <translation tag="{} looser" ru="{} слабее"/>
   <translation tag="{} m" ru="{} м"/>
   <translation tag="{} macro not configured" ru="Макрос {} не настроен"/>
   <translation tag="{} matches." ru="{} подходит."/>
@@ -4486,7 +4487,6 @@
   <translation tag="{} started" ru="{} запущено"/>
   <translation tag="{} target set to {}°C" ru="Целевая температура {} — {}°C"/>
   <translation tag="{} tensioner" ru="Натяжитель: {}"/>
-  <translation tag="{} tighter" ru="{} туже"/>
   <translation tag="{} turn" ru="{} об."/>
   <translation tag="{} turns" ru="{} об."/>
   <translation tag="{} updated" ru="{}: обновлено"/>

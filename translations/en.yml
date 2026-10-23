@@ -248,7 +248,7 @@ translations:
   'Adds to:': 'Adds to:'
   Adjust screen brightness level: Adjust screen brightness level
   Adjust screws, then re-probe.: Adjust screws, then re-probe.
-  Adjust {}: Adjust {}
+  Adjust the other belt: Adjust the other belt
   Adjustments stay active until restart. Save after print completes.: Adjustments
     stay active until restart. Save after print completes.
   Adjusts individual characteristics of your heaters for optimal control: Adjusts
@@ -4703,15 +4703,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.'
   '{} is still printing. The print keeps running after you switch.': '{} is still printing. The print keeps running after you switch.'
+  '{} is looser': '{} is looser'
   '{} is not available on this device. Printing original file.': '{} is not available on this device. Printing original file.'
   '{} is not set up on this printer': '{} is not set up on this printer'
   '{} left': '{} left'
   '{} lines in helixscreen.env were ignored': '{} lines in helixscreen.env were ignored'
   '{} kept crashing the panel; switched back to {}': '{} kept crashing the panel; switched back to {}'
+  '{} is tighter': '{} is tighter'
   "{} isn't loaded. The print will pause when it needs it.": "{} isn't loaded. The print will pause when it needs it."
   '{} kept crashing the panel; pick a printer to connect': '{} kept crashing the panel; pick a printer to connect'
   '{} linked to Spoolman spool #{} from its tag': '{} linked to Spoolman spool #{} from its tag'
-  '{} looser': '{} looser'
   '{} m': '{} m'
   '{} macro not configured': '{} macro not configured'
   '{} matches.': '{} matches.'
@@ -4739,7 +4740,6 @@ translations:
   '{} started': '{} started'
   '{} target set to {}°C': '{} target set to {}°C'
   '{} tensioner': '{} tensioner'
-  '{} tighter': '{} tighter'
   '{} turn': '{} turn'
   '{} turns': '{} turns'
   '{} updated': '{} updated'

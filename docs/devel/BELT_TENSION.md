@@ -464,7 +464,7 @@ calibration turns so far, and counts only a move the advised way (the turned bel
 the gap rising for a tightening turn, falling for a loosening one) of at least
 `kCalibrationMinMoveHz` (1.5 Hz).
 
-**Adjust X** (`bt_tune_swap_label`) at CALIBRATE is offered only before the first step
+**Adjust the other belt** at CALIBRATE is offered only before the first step
 (`can_swap_adjusted_path`, `bt_tune_can_swap`): every step is measured against round 0 on the
 same belt, so a swap after one would mix two belts' turns into one move and one turn count.
 Before it, the swap makes the turn loosen the tighter belt ("Loosen A one full turn"), which

@@ -253,7 +253,7 @@ translations:
   'Adds to:': 'Adiciona a:'
   Adjust screen brightness level: Ajustar nível de brilho da tela
   Adjust screws, then re-probe.: Ajuste os parafusos, depois sonde novamente.
-  Adjust {}: "Ajustar {}"
+  Adjust the other belt: "Ajustar a outra"
   Adjustments stay active until restart. Save after print completes.: Ajustes permanecem
     ativos até reiniciar. Salve após a impressão terminar.
   Adjusts individual characteristics of your heaters for optimal control: Ajusta características
@@ -4811,15 +4811,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} está instalado mas sua configuração de carretel infinito está desligada, então nada trocará ao acabar o filamento.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} está instalado, mas não foi possível ler sua configuração de carretel infinito - não conte com o carretel infinito.'
   '{} is still printing. The print keeps running after you switch.': '{} ainda está imprimindo. A impressão continua depois da troca.'
+  '{} is looser': "{} está mais frouxa"
   '{} is not available on this device. Printing original file.': '{} não está disponível neste dispositivo. O arquivo original será impresso.'
   '{} is not set up on this printer': '{} não está configurado nesta impressora'
   '{} left': '{} restantes'
   '{} lines in helixscreen.env were ignored': '{} linhas do helixscreen.env foram ignoradas'
   '{} kept crashing the panel; switched back to {}': '{} travou a tela repetidamente; voltou para {}'
+  '{} is tighter': "{} está mais apertada"
   "{} isn't loaded. The print will pause when it needs it.": '{} não está carregado. A impressão vai pausar quando precisar dele.'
   '{} kept crashing the panel; pick a printer to connect': '{} travou a tela repetidamente; escolha uma impressora para conectar'
   '{} linked to Spoolman spool #{} from its tag': 'Vinculação de {} ao carretel #{} do Spoolman pela etiqueta'
-  '{} looser': "{} mais frouxa"
   '{} m': '{} m'
   '{} macro not configured': Macro {} não configurado
   '{} matches.': '{} corresponde.'
@@ -4847,7 +4848,6 @@ translations:
   '{} started': '{} iniciado'
   '{} target set to {}°C': '{} configurado para {}°C'
   '{} tensioner': "Tensor de {}"
-  '{} tighter': "{} mais apertada"
   '{} turn': "{} volta"
   '{} turns': "{} voltas"
   '{} updated': 'Atualização de {}'
