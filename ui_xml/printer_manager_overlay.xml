@@ -248,7 +248,8 @@
             <capability_chip name="pm_chip_tool_changer" icon="toolbox_outline" text="pm_chip_text_tool_changer">
               <bind_flag_if_eq subject="pm_has_tool_changer" flag="hidden" ref_value="0"/>
             </capability_chip>
-            <capability_chip name="pm_chip_filament_sensors" icon="filament_alert" text="pm_chip_text_filament_sensors">
+            <capability_chip name="pm_chip_filament_sensors"
+                             icon="filament_sensor_alert" text="pm_chip_text_filament_sensors">
               <bind_flag_if_eq subject="filament_sensor_count" flag="hidden" ref_value="0"/>
             </capability_chip>
             <capability_chip name="pm_chip_width_sensors" icon="ruler" text="pm_chip_text_width_sensors">
