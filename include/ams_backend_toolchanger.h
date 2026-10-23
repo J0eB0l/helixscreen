@@ -525,6 +525,7 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
         return step_action_;
     }
     void on_stopping() override;
+    void on_stopped() override;
     [[nodiscard]] bool needs_mount_to_feed(int head) const override;
 
     /// Apply an add-on dock-sensor reading over the toolchanger's own claim.
@@ -557,7 +558,7 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// A lost connection (or a klippy restart) under a live run: the full
     /// cleanup goes out, best effort, and the run resets without waiting for
     /// an ack that can no longer arrive. Shared by on_started() (reconnect)
-    /// and on_stopping().
+    /// and on_stopped(). Takes mutex_ and emits, so never under the lock.
     void abandon_feed_run_after_disconnect();
     /// The operator wait outlived its timeout: unwind the run and say so.
     void handle_wait_elapsed(uint32_t elapsed_ms);

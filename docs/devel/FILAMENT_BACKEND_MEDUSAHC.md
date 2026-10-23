@@ -39,7 +39,11 @@ The official controller agrees: its `_current_tool()` returns `pin_watch.current
 
 `current_tool == -2` is a third state, distinct from "no tool": the sensors cannot tell.
 Reporting it as `-1` would invite a tool change against an unknown carriage state, so the
-backend holds the last known tool and raises `AmsAction::ERROR` instead.
+backend holds the last known tool and raises `AmsAction::ERROR` instead. A swap in flight
+reads `-2` for a moment between the head sensor and the dock sensor changing, so an
+unreported `-2` is a fault only outside one (`toolchanger_addon::sensor_error_is_fault()`);
+a mount-to-feed run's Mount and Restore stages count as a swap. A `sensor_error` the
+firmware itself reports is always a fault.
 
 ### 1a. And which tools are in their docks
 
@@ -144,12 +148,23 @@ operation whose step bar is the stage list:
 | Load | Gcode | Unload | Gcode |
 |------|-------|--------|-------|
 | Mount tool | `SELECT_TOOL T=<n>` (or the machine's own `T<n>`); skipped when already mounted | Mount tool | same |
-| Heat nozzle | `M109 S<material temp>` (the target slot's material, else 220) | Heat nozzle | same |
-| Insert filament | an action prompt: "Insert filament into Tool N, then tap Continue", with Continue and Cancel. The extruder grabs the strand itself: nothing is opened and nothing is pushed by hand past it | Retract filament | `M83`, `G1 E-25 F1800`, `G1 E-150 F1200` (until the strand is fully out), `M104 S0` |
-| Purge | `M83`, `G1 E5 F60` (slow draw), `G1 E50 F300` twice, `G1 E-10 F1800`, `M104 S0` | Restore tool | remount the tool that was on the carriage, or park if none was |
+| Heat nozzle | `M109 T<n> S<material temp>` (the target slot's material, else 220) | Heat nozzle | same |
+| Insert filament | an action prompt: "Insert filament into Tool N, then tap Continue", with Continue and Cancel. The extruder grabs the strand itself: nothing is opened and nothing is pushed by hand past it | Retract filament | `M83`, `G1 E-25 F1800`, `G1 E-150 F1200` (until the strand is fully out), `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` |
+| Purge | `M83`, `G1 E5 F60` (slow draw), `G1 E50 F300` twice, `G1 E-10 F1800`, `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` | Restore tool | remount the tool that was on the carriage, or park if none was |
 | Restore tool | same as Unload's | | |
 
 Neither direction sends `OPEN`: the feeder buttons stay a separate control.
+
+Every temperature command names the tool's own heater (`T<n>`, or `extruder` / `extruder<n>`
+by name). The swap does not run `ACTIVATE_EXTRUDER`, so Klipper's active extruder stays
+where it was and a bare `M109` or `M104` would act on that one.
+
+Each stage goes out with `bypass_busy_gate` (`AmsSubscriptionBackend::execute_gcode()` sets
+it for every send that waits on its answer). A swap leaves `idle_timeout` reading
+`Printing` for a while, and the API's busy gate sends a discretionary script such as
+`M109` fire-and-forget then, dropping its answer: the run would wait at Heat forever.
+A stage that times out (`kAmsOperationTimeoutMs`) or errors unwinds the run like any
+failed stage.
 
 The prompt is Klipper's own action prompt, raised with `RESPOND TYPE=command` lines, so it
 shows on this screen and on Mainsail/Fluidd alike, and it needs `[respond]`. Its payload is
@@ -168,8 +183,9 @@ the failure. A cleanup that cannot be sent at all ends the run and says
 
 A lost connection or a klippy restart under a live run strands it: no ack can arrive for
 the stage in flight. `abandon_feed_run_after_disconnect()` runs from both `on_started()`
-(the reconnect) and `on_stopping()`: it sends the whole cleanup best effort and resets the
-run without waiting for an ack.
+(the reconnect) and `on_stopped()`: it sends the whole cleanup best effort and resets the
+run without waiting for an ack. Both run without `mutex_` held, since the unwind takes it
+and emits; `on_stopping()` runs under it.
 
 **The wait has a ceiling.** Nobody inserting the filament for three minutes
 (`mount_feed::kPromptTimeoutMs`) unwinds the run the same way - a hot nozzle must not sit

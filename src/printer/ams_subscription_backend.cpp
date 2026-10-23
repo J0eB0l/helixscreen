@@ -123,14 +123,17 @@ void AmsSubscriptionBackend::handle_status_update(const nlohmann::json& notifica
 }
 
 void AmsSubscriptionBackend::stop() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!running_) {
-        return;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!running_) {
+            return;
+        }
+        on_stopping();
+        subscription_.reset();
+        running_ = false;
+        spdlog::info("{} Backend stopped", backend_log_tag());
     }
-    on_stopping();
-    subscription_.reset();
-    running_ = false;
-    spdlog::info("{} Backend stopped", backend_log_tag());
+    on_stopped();
 }
 
 std::uint64_t AmsSubscriptionBackend::own_write_echo_sequence(int slot_index) {
@@ -933,6 +936,8 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
     // own on_error also only logs overrides this explicitly (CFS does). See
     // include/rpc_error_policy.h.
     const bool caller_surfaces = caller_surfaces_errors.value_or(on_error != nullptr);
+    const bool on_complete_given = on_complete != nullptr;
+    const bool on_error_given = on_error != nullptr;
 
     api_->execute_gcode(
         gcode,
@@ -956,7 +961,10 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
             token.defer("AmsSubscriptionBackend::dispatch_payload_error",
                         [this, err, on_error]() { handle_dispatch_error(err, on_error); });
         },
-        timeout_ms, silent, /*on_queued=*/nullptr, caller_surfaces);
+        timeout_ms, silent, /*on_queued=*/nullptr, caller_surfaces,
+        // A caller that waits on the answer cannot take the busy gate's
+        // fire-and-forget path, which drops both callbacks.
+        /*bypass_busy_gate=*/on_complete_given || on_error_given);
     return AmsErrorHelper::success();
 }
 
@@ -1064,7 +1072,12 @@ AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode,
         // not put anything on screen, so declaring otherwise would silence
         // GcodeErrorRouter and a real macro rejection would reach nobody.
         // See include/rpc_error_policy.h.
-        /*caller_surfaces_errors=*/false);
+        /*caller_surfaces_errors=*/false,
+        // The caller waits on this answer. The busy gate sends a discretionary
+        // script (a bare M109, a heater target) fire-and-forget while
+        // idle_timeout reads "Printing", dropping both callbacks, and a tool
+        // swap the backend just sent is exactly what leaves it reading that.
+        /*bypass_busy_gate=*/true);
     return AmsErrorHelper::success();
 }
 

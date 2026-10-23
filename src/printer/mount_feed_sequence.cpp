@@ -39,14 +39,6 @@ std::string respond_command(std::string_view message) {
     return fmt::format("RESPOND TYPE=command MSG=\"{}\"", message);
 }
 
-std::string heat_gcode(int temp_c) {
-    return fmt::format("M109 S{}", temp_c);
-}
-
-std::string with_heater_off(std::string gcode) {
-    return gcode + "\nM104 S0";
-}
-
 /// Warm @p head partway while another tool works, so its own M109 starts from
 /// heat instead of room temperature - unless it is already set at least that
 /// hot, in which case its target stands and nothing is sent.
@@ -61,6 +53,18 @@ std::string preheat_gcode(const HeadRequest& head) {
 
 std::string heater_off_gcode(int head) {
     return fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET=0", heater_name(head));
+}
+
+/// Heat @p head's own heater and wait. Named by T: a changer that swaps tools
+/// without ACTIVATE_EXTRUDER leaves Klipper's active extruder where it was, so
+/// a bare M109 would heat that one instead.
+std::string heat_gcode(int head, int temp_c) {
+    return fmt::format("M109 T{} S{}", head, temp_c);
+}
+
+/// @p gcode, then @p head's heater off by name, for the same reason.
+std::string with_heater_off(std::string gcode, int head) {
+    return gcode + "\n" + heater_off_gcode(head);
 }
 
 /// The moves that work one tool's filament: the printer's own macro when it
@@ -168,7 +172,7 @@ std::vector<Stage> plan(const Request& r) {
         const HeadRequest* next = t + 1 < r.heads.size() ? &r.heads[t + 1] : nullptr;
         const std::string preheat = next ? preheat_gcode(*next) : std::string();
         const int tool = static_cast<int>(t);
-        std::string heat = heat_gcode(head.temp_c);
+        std::string heat = heat_gcode(head.head, head.temp_c);
         if (!preheat.empty()) {
             // The next tool warms partway while this one works. It rides the
             // stage that starts this tool: mount where there is one, else heat.
@@ -186,7 +190,7 @@ std::vector<Stage> plan(const Request& r) {
             push_stage(Step::Insert, prompt_gcode(r), /*awaits_operator=*/true, tool);
         }
         push_stage(r.load ? Step::Purge : Step::Retract,
-                   with_heater_off(feed_or_retract_gcode(r, head)), false, tool);
+                   with_heater_off(feed_or_retract_gcode(r, head), head.head), false, tool);
     }
     if (!r.restore_gcode.empty()) {
         push_stage(Step::Restore, r.restore_gcode, false, static_cast<int>(r.heads.size()) - 1);

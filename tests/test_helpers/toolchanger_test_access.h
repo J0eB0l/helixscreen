@@ -84,9 +84,10 @@ class ToolChangerTestAccess {
         b.on_started();
     }
 
-    /// The backend stopping under a live run (on_stopping).
+    /// The backend stopping under a live run, through stop() itself so the
+    /// unwind runs under the same locking it meets in the app.
     static void feed_disconnect_stopping(AmsBackendToolChanger& b) {
-        b.on_stopping();
+        b.stop();
     }
 
     /// The wording of the last toast a feed run raised.

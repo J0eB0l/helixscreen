@@ -165,11 +165,16 @@ void AmsBackendToolChanger::query_zmod_tool_state() {
 }
 
 void AmsBackendToolChanger::on_stopping() {
-    // Losing the client under a live run strands a hot nozzle: the cleanup
-    // goes out while the connection may still carry it, and the run resets.
-    abandon_feed_run_after_disconnect();
     unregister_zmod_marker_listener();
     unregister_mount_feed_listener();
+}
+
+void AmsBackendToolChanger::on_stopped() {
+    // Losing the client under a live run strands a hot nozzle: the cleanup
+    // goes out while the connection may still carry it, and the run resets.
+    // Here and not in on_stopping(): the unwind takes mutex_ and emits, and
+    // stop() holds mutex_ across on_stopping().
+    abandon_feed_run_after_disconnect();
 }
 
 void AmsBackendToolChanger::register_zmod_marker_listener() {
@@ -786,12 +791,18 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     const bool was_mid_operation = pending_dispatch_action_.has_value() ||
                                    system_info_.action == AmsAction::SELECTING ||
                                    system_info_.action == AmsAction::UNLOADING;
+    // A mount-to-feed run publishes its own action (LOADING/UNLOADING) over the
+    // swap its Mount and Restore stages send, so those stages count as a swap on
+    // their own. Only for the fault rule: the run republishes the action, phase
+    // and step after every frame, so nothing else here decides what it shows.
+    const bool feed_swap_in_flight = feed_active_ && feed_step_action_ == AmsAction::SELECTING;
 
     // -2 means the sensors cannot tell, which is NOT "no tool". Reporting -1
     // would invite a tool change against an unknown carriage state, so hold the
     // last known tool and let the error surface instead. Which -2 readings are
     // faults at all is sensor_error_is_fault()'s rule, not this function's.
-    if (helix::toolchanger_addon::sensor_error_is_fault(reading, was_mid_operation)) {
+    if (helix::toolchanger_addon::sensor_error_is_fault(reading,
+                                                        was_mid_operation || feed_swap_in_flight)) {
         if (!sensor_error_) {
             spdlog::warn("{} Dock sensors cannot identify the mounted tool", backend_log_tag());
         }

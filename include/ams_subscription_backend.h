@@ -36,6 +36,7 @@ namespace helix {
 /// Derived classes MAY override:
 ///   - on_started() - post-start initialization (version detection, config loading, etc.)
 ///   - on_stopping() - pre-stop cleanup
+///   - on_stopped() - post-stop work that needs mutex_ or emits
 ///   - additional_start_checks() - extra preconditions before subscribing
 ///   - get_system_info() - if they need to build info from SlotRegistry
 ///   - slot_index_bound_locked() - if the valid index range is not total_slots
@@ -274,6 +275,11 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// Called before stop() releases the subscription.
     /// Lock IS held.
     virtual void on_stopping() {}
+
+    /// Called at the end of stop(), once mutex_ is released and the subscription
+    /// is gone. Lock is NOT held: work that takes mutex_, sends gcode or calls
+    /// emit_event() belongs here rather than in on_stopping().
+    virtual void on_stopped() {}
 
     /// The SlotInfo get_slot_info() serves for @p slot_index, or nullptr when
     /// there is none to repaint. Lock IS held.
