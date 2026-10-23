@@ -399,6 +399,7 @@
   <translation tag="Bed cooling, spools still on the bed:" en="Bed cooling, spools still on the bed:"/>
   <translation tag="Bed is Level!" en="Bed is Level!"/>
   <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." en="Bed is at {:.0f}°C, the print needs {:.0f}°C."/>
+  <translation tag="Bed mesh" en="Bed mesh"/>
   <translation tag="Bed mesh calibration failed: {}" en="Bed mesh calibration failed: {}"/>
   <translation tag="Bed mesh operation timed out" en="Bed mesh operation timed out"/>
   <translation tag="Bed mesh..." en="Bed mesh..."/>
@@ -689,6 +690,7 @@
   <translation tag="Clean up" en="Clean up"/>
   <translation tag="Clean {}" en="Clean {}"/>
   <translation tag="Cleaning Nozzle..." en="Cleaning Nozzle..."/>
+  <translation tag="Cleaning nozzle" en="Cleaning nozzle"/>
   <translation tag="Cleaning nozzle..." en="Cleaning nozzle..."/>
   <translation tag="Clear" en="Clear"/>
   <translation tag="Clear All" en="Clear All"/>
@@ -1541,6 +1543,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" en="Guide the toolhead to the chute&apos;s extrude position"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" en="Guided sensor-to-nozzle, unload and cutter retract calibration"/>
   <translation tag="H" en="H"/>
+  <translation tag="HE" en="HE"/>
   <translation tag="HELIXSCREEN" en="HELIXSCREEN"/>
   <translation tag="HEPA" en="HEPA"/>
   <translation tag="HEPA filter" en="HEPA filter"/>
@@ -1571,6 +1574,7 @@
   <translation tag="Heat and Home" en="Heat and Home"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." en="Heat bed before calibrating for accurate offset with thermal expansion."/>
   <translation tag="Heat nozzle" en="Heat nozzle"/>
+  <translation tag="Heat soak" en="Heat soak"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." en="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it."/>
   <translation tag="Heat the bed to {}°C" en="Heat the bed to {}°C"/>
   <translation tag="Heat the chamber too" en="Heat the chamber too"/>
@@ -1596,6 +1600,7 @@
   <translation tag="Heating Chamber..." en="Heating Chamber..."/>
   <translation tag="Heating Nozzle..." en="Heating Nozzle..."/>
   <translation tag="Heating and homing" en="Heating and homing"/>
+  <translation tag="Heating bed" en="Heating bed"/>
   <translation tag="Heating bed to $1°C..." en="Heating bed to $1°C..."/>
   <translation tag="Heating bed..." en="Heating bed..."/>
   <translation tag="Heating chamber..." en="Heating chamber..."/>
@@ -1652,6 +1657,7 @@
   <translation tag="Home failed" en="Home failed"/>
   <translation tag="Home layout copied from the printer&apos;s screen" en="Home layout copied from the printer&apos;s screen"/>
   <translation tag="Home printer first?" en="Home printer first?"/>
+  <translation tag="Homing" en="Homing"/>
   <translation tag="Homing AFC system..." en="Homing AFC system..."/>
   <translation tag="Homing Failed" en="Homing Failed"/>
   <translation tag="Homing X and Y" en="Homing X and Y"/>
@@ -2819,6 +2825,7 @@
   <translation tag="Quad Gantry Level complete" en="Quad Gantry Level complete"/>
   <translation tag="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens." en="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens."/>
   <translation tag="Quad Gantry Level started..." en="Quad Gantry Level started..."/>
+  <translation tag="Quad gantry level" en="Quad gantry level"/>
   <translation tag="Queue empty" en="Queue empty"/>
   <translation tag="Queue: Paused" en="Queue: Paused"/>
   <translation tag="Queue: Ready" en="Queue: Ready"/>
@@ -4204,6 +4211,7 @@
   <translation tag="Z jog feedrate" en="Z jog feedrate"/>
   <translation tag="Z motor calibration failed" en="Z motor calibration failed"/>
   <translation tag="Z probes for bed leveling and mesh generation" en="Z probes for bed leveling and mesh generation"/>
+  <translation tag="Z tilt" en="Z tilt"/>
   <translation tag="Z {:.2f} mm" en="Z {:.2f} mm"/>
   <translation tag="Z {}, will lift to {}mm" en="Z {}, will lift to {}mm"/>
   <translation tag="Z-Off:" en="Z-Off:"/>

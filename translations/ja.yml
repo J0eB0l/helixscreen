@@ -405,6 +405,7 @@ translations:
 
   Bed is Level!: ベッドが水平です！
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: ベッドは{:.0f}°C、印刷には{:.0f}°Cが必要です。
+  Bed mesh: ベッドメッシュ
   'Bed mesh calibration failed: {}': 'ベッドメッシュのキャリブレーションに失敗しました: {}'
   Bed mesh operation timed out: ベッドメッシュ操作がタイムアウトしました
   Bed mesh...: ベッドメッシュ...
@@ -701,6 +702,7 @@ translations:
   Clean up: 'クリーンアップ'
   Clean {}: '{}を清掃'
   Cleaning Nozzle...: ノズル清掃中...
+  Cleaning nozzle: ノズル清掃
   Cleaning nozzle...: ノズル清掃中...
   Clear: クリア
   Clear All: すべてクリア
@@ -1597,6 +1599,7 @@ translations:
   Guide the toolhead to the chute's extrude position: ツールヘッドをシュートの押出し位置へ誘導します
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'ガイド付きキャリブレーション：センサーからノズルまで、アンロード、カッターの引き戻し'
   H: H
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
   HEPA filter: 'HEPAフィルター'
@@ -1631,6 +1634,7 @@ translations:
   Heat and Home: 加熱してホーミング
   Heat bed before calibrating for accurate offset with thermal expansion.: 熱膨張を考慮した正確なオフセットのため、キャリブレーション前にベッドを加熱してください。
   Heat nozzle: ノズルを加熱
+  Heat soak: ヒートソーク
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'ヒートソークは印刷前に筐体内を温めます。プリンターにヒートソークマクロがあるか、設定で有効にされたため表示されています。HelixScreenは実行しません。'
   Heat the bed to {}°C: ベッドを {}°C に加熱
@@ -1657,6 +1661,7 @@ translations:
   Heating Chamber...: チャンバー加熱中...
   Heating Nozzle...: ノズル加熱中...
   Heating and homing: 加熱とホーミング中
+  Heating bed: ベッド加熱
   Heating bed to $1°C...: ベッドを$1°Cに加熱中...
   Heating bed...: ベッド加熱中...
   Heating chamber...: チャンバー加熱中...
@@ -1714,6 +1719,7 @@ translations:
   Home layout copied from the printer's screen: "プリンターの画面からホーム画面のレイアウトをコピーしました"
   Home printer first?: 先にプリンターをホーミングしますか？
   Home Selector: セレクターをホーミング
+  Homing: ホーミング
   Homing AFC system...: AFCシステムをホーミング中...
   Homing Failed: 'ホーミングに失敗しました'
   Homing X and Y: XとYをホーミング中
@@ -2927,6 +2933,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'クアッドガントリーレベルは、4つのZモーターで駆動するガントリーをベッドに対して水平に整えます。HelixScreenではコントロール画面と動作画面から使えます。'
   Quad Gantry Level started...: QGL を開始しました...
+  Quad gantry level: クアッドガントリーレベル
   Queue empty: 'キューは空です'
   'Queue: Paused': 'キュー: 一時停止'
   'Queue: Ready': 'キュー: 準備完了'
@@ -4380,6 +4387,7 @@ translations:
   Z jog feedrate: Z軸のジョグ移動速度
   Z motor calibration failed: Z モーターの校正に失敗しました
   Z probes for bed leveling and mesh generation: ベッドレベリングとメッシュ生成用 Z プローブ
+  Z tilt: Zチルト
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}、{}mmまで上昇します'
   'Z-Off:': 'Z-Off:'

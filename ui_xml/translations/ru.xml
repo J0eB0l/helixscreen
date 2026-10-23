@@ -438,6 +438,7 @@
   <translation tag="Bed cooling, spools still on the bed:" ru="Стол остывает, катушки всё ещё на нём:"/>
   <translation tag="Bed is Level!" ru="Стол выровнен!"/>
   <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." ru="Стол нагрет до {:.0f}°C, печати нужно {:.0f}°C."/>
+  <translation tag="Bed mesh" ru="Сетка стола"/>
   <translation tag="Bed mesh calibration failed: {}" ru="Ошибка калибровки сетки стола: {}"/>
   <translation tag="Bed mesh operation timed out" ru="Сетка стола — время ожидания истекло"/>
   <translation tag="Bed mesh..." ru="Сетка стола..."/>
@@ -728,6 +729,7 @@
   <translation tag="Clean up" ru="Очистить"/>
   <translation tag="Clean {}" ru="Очистите {}"/>
   <translation tag="Cleaning Nozzle..." ru="Очистка сопла..."/>
+  <translation tag="Cleaning nozzle" ru="Очистка сопла"/>
   <translation tag="Cleaning nozzle..." ru="Очистка сопла..."/>
   <translation tag="Clear" ru="Очистить"/>
   <translation tag="Clear All" ru="Очистить всё"/>
@@ -1586,6 +1588,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" ru="Подведите печатающую головку к позиции экструзии жёлоба"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" ru="Пошаговая калибровка: датчик до сопла, выгрузка и ретракция резака"/>
   <translation tag="H" ru="Х"/>
+  <translation tag="HE" ru="HE"/>
   <translation tag="HELIXSCREEN" ru="HELIXSCREEN"/>
   <translation tag="HEPA" ru="HEPA"/>
   <translation tag="HEPA filter" ru="HEPA-фильтр"/>
@@ -1616,6 +1619,7 @@
   <translation tag="Heat and Home" ru="Нагреть и запарковать"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." ru="Нагрейте стол перед калибровкой для точного смещения с учётом теплового расширения."/>
   <translation tag="Heat nozzle" ru="Нагреть сопло"/>
+  <translation tag="Heat soak" ru="Прогрев"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." ru="Прогрев камеры даёт корпусу нагреться перед печатью. Он показан, потому что у принтера есть макрос прогрева или он включён в настройках; HelixScreen его не запускает."/>
   <translation tag="Heat the bed to {}°C" ru="Нагреть стол до {}°C"/>
   <translation tag="Heat the chamber too" ru="Нагреть и камеру"/>
@@ -1641,6 +1645,7 @@
   <translation tag="Heating Chamber..." ru="Нагрев камеры..."/>
   <translation tag="Heating Nozzle..." ru="Нагрев сопла..."/>
   <translation tag="Heating and homing" ru="Нагрев и парковка"/>
+  <translation tag="Heating bed" ru="Нагрев стола"/>
   <translation tag="Heating bed to $1°C..." ru="Нагрев стола до $1°C..."/>
   <translation tag="Heating bed..." ru="Нагрев стола..."/>
   <translation tag="Heating chamber..." ru="Нагрев камеры..."/>
@@ -1697,6 +1702,7 @@
   <translation tag="Home failed" ru="Парковка не удалась"/>
   <translation tag="Home layout copied from the printer&apos;s screen" ru="Макет главного экрана скопирован с экрана принтера"/>
   <translation tag="Home printer first?" ru="Сначала запарковать принтер?"/>
+  <translation tag="Homing" ru="Парковка"/>
   <translation tag="Homing AFC system..." ru="Парковка системы AFC..."/>
   <translation tag="Homing Failed" ru="Ошибка парковки"/>
   <translation tag="Homing X and Y" ru="Парковка X и Y"/>
@@ -2873,6 +2879,7 @@
   <translation tag="Quad Gantry Level complete" ru="QGL завершён"/>
   <translation tag="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens." ru="Выравнивание портала выставляет портал с четырьмя Z-моторами параллельно столу. HelixScreen предлагает его на экранах «Управление» и «Движение»."/>
   <translation tag="Quad Gantry Level started..." ru="QGL запущен..."/>
+  <translation tag="Quad gantry level" ru="Выравнивание портала"/>
   <translation tag="Queue empty" ru="Очередь пуста"/>
   <translation tag="Queue: Paused" ru="Очередь: Пауза"/>
   <translation tag="Queue: Ready" ru="Очередь: Готово"/>
@@ -4264,6 +4271,7 @@
   <translation tag="Z jog feedrate" ru="Скорость перемещения по оси Z"/>
   <translation tag="Z motor calibration failed" ru="Не удалась калибровка двигателя Z"/>
   <translation tag="Z probes for bed leveling and mesh generation" ru="Z-зонды для выравнивания стола и создания сетки"/>
+  <translation tag="Z tilt" ru="Наклон Z"/>
   <translation tag="Z {:.2f} mm" ru="Z {:.2f} мм"/>
   <translation tag="Z {}, will lift to {}mm" ru="Z {}, подъём до {}мм"/>
   <translation tag="Z-Off:" ru="Z-Off:"/>

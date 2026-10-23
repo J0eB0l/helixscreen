@@ -399,6 +399,7 @@
   <translation tag="Bed cooling, spools still on the bed:" pt="A mesa está esfriando, os carretéis ainda estão sobre ela:"/>
   <translation tag="Bed is Level!" pt="Mesa Nivelada!"/>
   <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." pt="A mesa está a {:.0f}°C, a impressão precisa de {:.0f}°C."/>
+  <translation tag="Bed mesh" pt="Malha da mesa"/>
   <translation tag="Bed mesh calibration failed: {}" pt="Falha na calibração da malha da mesa: {}"/>
   <translation tag="Bed mesh operation timed out" pt="Malha da mesa — tempo esgotado"/>
   <translation tag="Bed mesh..." pt="Malha da mesa..."/>
@@ -689,6 +690,7 @@
   <translation tag="Clean up" pt="Limpar"/>
   <translation tag="Clean {}" pt="Limpar {}"/>
   <translation tag="Cleaning Nozzle..." pt="Limpando bocal..."/>
+  <translation tag="Cleaning nozzle" pt="Limpando o bico"/>
   <translation tag="Cleaning nozzle..." pt="Limpando o bico..."/>
   <translation tag="Clear" pt="Limpar"/>
   <translation tag="Clear All" pt="Limpar Tudo"/>
@@ -1541,6 +1543,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" pt="Leve o cabeçote até a posição de extrusão da calha"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" pt="Calibração guiada: sensor ao bico, descarregamento e retração do cortador"/>
   <translation tag="H" pt="H"/>
+  <translation tag="HE" pt="HE"/>
   <translation tag="HELIXSCREEN" pt="HELIXSCREEN"/>
   <translation tag="HEPA" pt="HEPA"/>
   <translation tag="HEPA filter" pt="Filtro HEPA"/>
@@ -1571,6 +1574,7 @@
   <translation tag="Heat and Home" pt="Aquecer e posicionar"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." pt="Aqueça a mesa antes de calibrar para um offset preciso com expansão térmica."/>
   <translation tag="Heat nozzle" pt="Aquecer bico"/>
+  <translation tag="Heat soak" pt="Aquecimento Prolongado"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." pt="O heat soak deixa o gabinete aquecer antes de uma impressão. Aparece porque a impressora tem uma macro de heat soak ou ele foi ativado nas configurações; o HelixScreen não o executa."/>
   <translation tag="Heat the bed to {}°C" pt="Aquecer a mesa a {}°C"/>
   <translation tag="Heat the chamber too" pt="Aquecer também a câmara"/>
@@ -1596,6 +1600,7 @@
   <translation tag="Heating Chamber..." pt="Aquecendo câmara..."/>
   <translation tag="Heating Nozzle..." pt="Aquecendo bocal..."/>
   <translation tag="Heating and homing" pt="Aquecendo e fazendo homing"/>
+  <translation tag="Heating bed" pt="Aquecendo mesa"/>
   <translation tag="Heating bed to $1°C..." pt="Aquecendo mesa a $1°C..."/>
   <translation tag="Heating bed..." pt="Aquecendo mesa..."/>
   <translation tag="Heating chamber..." pt="Aquecendo câmara..."/>
@@ -1652,6 +1657,7 @@
   <translation tag="Home failed" pt="Homing falhou"/>
   <translation tag="Home layout copied from the printer&apos;s screen" pt="Layout da tela inicial copiado da tela da impressora"/>
   <translation tag="Home printer first?" pt="Fazer home da impressora primeiro?"/>
+  <translation tag="Homing" pt="Posicionando"/>
   <translation tag="Homing AFC system..." pt="Homing do sistema AFC..."/>
   <translation tag="Homing Failed" pt="Falha ao referenciar"/>
   <translation tag="Homing X and Y" pt="Posicionando X e Y"/>
@@ -2819,6 +2825,7 @@
   <translation tag="Quad Gantry Level complete" pt="QGL concluído"/>
   <translation tag="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens." pt="O Nivelamento Quad Gantry alinha com a mesa um gantry movido por quatro motores Z. O HelixScreen o oferece nas telas Controles e Movimento."/>
   <translation tag="Quad Gantry Level started..." pt="QGL iniciado..."/>
+  <translation tag="Quad gantry level" pt="Nivelamento Quad Gantry"/>
   <translation tag="Queue empty" pt="Fila vazia"/>
   <translation tag="Queue: Paused" pt="Fila: Pausada"/>
   <translation tag="Queue: Ready" pt="Fila: Pronta"/>
@@ -4204,6 +4211,7 @@
   <translation tag="Z jog feedrate" pt="Velocidade de movimento do eixo Z"/>
   <translation tag="Z motor calibration failed" pt="Falha na calibração do motor Z"/>
   <translation tag="Z probes for bed leveling and mesh generation" pt="Sondas Z para nivelamento da mesa e geração de malha"/>
+  <translation tag="Z tilt" pt="Inclinação Z"/>
   <translation tag="Z {:.2f} mm" pt="Z {:.2f} mm"/>
   <translation tag="Z {}, will lift to {}mm" pt="Z {}, subirá para {}mm"/>
   <translation tag="Z-Off:" pt="Z-Offset:"/>

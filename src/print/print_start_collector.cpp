@@ -14,6 +14,7 @@
 #include "json_utils.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "memory_monitor.h"
+#include "print_start_analyzer.h"
 #include "printer_detector.h"
 #include "text_io.h"
 #include "thermal_rate_model.h"
@@ -430,6 +431,7 @@ void PrintStartCollector::reset_run_locked() {
     host_pre_start_echo_lines_.clear();
     phase_overrides_.reset();
     detected_phases_.clear();
+    phases_left_.clear();
     current_phase_ = PrintStartPhase::INITIALIZING;
     print_start_detected_ = false;
     max_sequential_progress_ = 0;
@@ -2756,11 +2758,79 @@ int PrintStartCollector::get_current_phase_elapsed_seconds() const {
 
 void PrintStartCollector::enter_phase_locked(PrintStartPhase phase) {
     if (phase != current_phase_) {
+        if (std::find(phases_left_.begin(), phases_left_.end(), current_phase_) ==
+            phases_left_.end()) {
+            phases_left_.push_back(current_phase_);
+        }
         const auto now = helix::sim::SimulatedClock::now();
         phase_time_spent_[static_cast<int>(current_phase_)] += now - phase_since_;
         phase_since_ = now;
     }
     current_phase_ = phase;
+}
+
+namespace {
+std::optional<PrintStartPhase> phase_of_operation(helix::OperationCategory c) {
+    using helix::OperationCategory;
+    switch (c) {
+    case OperationCategory::BED_MESH:
+        return PrintStartPhase::BED_MESH;
+    case OperationCategory::QGL:
+        return PrintStartPhase::QGL;
+    case OperationCategory::Z_TILT:
+        return PrintStartPhase::Z_TILT;
+    case OperationCategory::NOZZLE_CLEAN:
+        return PrintStartPhase::CLEANING;
+    case OperationCategory::PURGE_LINE:
+        return PrintStartPhase::PURGING;
+    case OperationCategory::HOMING:
+        return PrintStartPhase::HOMING;
+    case OperationCategory::CHAMBER_SOAK:
+        return PrintStartPhase::SOAKING;
+    case OperationCategory::BED_LEVEL:
+    case OperationCategory::SKEW_CORRECT:
+    case OperationCategory::START_PRINT:
+    case OperationCategory::UNKNOWN:
+        break;
+    }
+    return std::nullopt;
+}
+} // namespace
+
+void PrintStartCollector::set_macro_analysis(const helix::PrintStartAnalysis& analysis) {
+    std::vector<PrintStartPhase> phases;
+    for (const auto& op : analysis.operations) {
+        auto phase = phase_of_operation(op.category);
+        if (phase && std::find(phases.begin(), phases.end(), *phase) == phases.end()) {
+            phases.push_back(*phase);
+        }
+    }
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    macro_expected_phases_ = std::move(phases);
+}
+
+helix::PreprintChecklistInput PrintStartCollector::checklist_input() const {
+    helix::PreprintChecklistInput in;
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    for (PrintStartPhase p : phases_left_) {
+        if (p != current_phase_ && p != PrintStartPhase::IDLE &&
+            p != PrintStartPhase::INITIALIZING) {
+            in.done_in_order.push_back(p);
+            in.actual_seconds[static_cast<int>(p)] =
+                static_cast<int>(phase_seconds_locked(p).count());
+        }
+    }
+    in.current = current_phase_;
+    in.current_elapsed_seconds = static_cast<int>(phase_seconds_locked(current_phase_).count());
+    if (start_block_.has_steps()) {
+        for (const auto& step : start_block_.steps()) {
+            in.expected_order.push_back(helix::start_block_step_phase(step.kind));
+        }
+    } else {
+        in.expected_order = macro_expected_phases_;
+    }
+    in.predicted_seconds = predictor_.predicted_phases();
+    return in;
 }
 
 std::chrono::seconds PrintStartCollector::phase_seconds_locked(PrintStartPhase phase) const {

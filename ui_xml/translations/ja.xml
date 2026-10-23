@@ -399,6 +399,7 @@
   <translation tag="Bed cooling, spools still on the bed:" ja="ベッド冷却中、スプールはまだベッドの上です:"/>
   <translation tag="Bed is Level!" ja="ベッドが水平です！"/>
   <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." ja="ベッドは{:.0f}°C、印刷には{:.0f}°Cが必要です。"/>
+  <translation tag="Bed mesh" ja="ベッドメッシュ"/>
   <translation tag="Bed mesh calibration failed: {}" ja="ベッドメッシュのキャリブレーションに失敗しました: {}"/>
   <translation tag="Bed mesh operation timed out" ja="ベッドメッシュ操作がタイムアウトしました"/>
   <translation tag="Bed mesh..." ja="ベッドメッシュ..."/>
@@ -689,6 +690,7 @@
   <translation tag="Clean up" ja="クリーンアップ"/>
   <translation tag="Clean {}" ja="{}を清掃"/>
   <translation tag="Cleaning Nozzle..." ja="ノズル清掃中..."/>
+  <translation tag="Cleaning nozzle" ja="ノズル清掃"/>
   <translation tag="Cleaning nozzle..." ja="ノズル清掃中..."/>
   <translation tag="Clear" ja="クリア"/>
   <translation tag="Clear All" ja="すべてクリア"/>
@@ -1541,6 +1543,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" ja="ツールヘッドをシュートの押出し位置へ誘導します"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" ja="ガイド付きキャリブレーション：センサーからノズルまで、アンロード、カッターの引き戻し"/>
   <translation tag="H" ja="H"/>
+  <translation tag="HE" ja="HE"/>
   <translation tag="HELIXSCREEN" ja="HELIXSCREEN"/>
   <translation tag="HEPA" ja="HEPA"/>
   <translation tag="HEPA filter" ja="HEPAフィルター"/>
@@ -1571,6 +1574,7 @@
   <translation tag="Heat and Home" ja="加熱してホーミング"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." ja="熱膨張を考慮した正確なオフセットのため、キャリブレーション前にベッドを加熱してください。"/>
   <translation tag="Heat nozzle" ja="ノズルを加熱"/>
+  <translation tag="Heat soak" ja="ヒートソーク"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." ja="ヒートソークは印刷前に筐体内を温めます。プリンターにヒートソークマクロがあるか、設定で有効にされたため表示されています。HelixScreenは実行しません。"/>
   <translation tag="Heat the bed to {}°C" ja="ベッドを {}°C に加熱"/>
   <translation tag="Heat the chamber too" ja="チャンバーも加熱"/>
@@ -1596,6 +1600,7 @@
   <translation tag="Heating Chamber..." ja="チャンバー加熱中..."/>
   <translation tag="Heating Nozzle..." ja="ノズル加熱中..."/>
   <translation tag="Heating and homing" ja="加熱とホーミング中"/>
+  <translation tag="Heating bed" ja="ベッド加熱"/>
   <translation tag="Heating bed to $1°C..." ja="ベッドを$1°Cに加熱中..."/>
   <translation tag="Heating bed..." ja="ベッド加熱中..."/>
   <translation tag="Heating chamber..." ja="チャンバー加熱中..."/>
@@ -1652,6 +1657,7 @@
   <translation tag="Home failed" ja="ホーミング失敗"/>
   <translation tag="Home layout copied from the printer&apos;s screen" ja="プリンターの画面からホーム画面のレイアウトをコピーしました"/>
   <translation tag="Home printer first?" ja="先にプリンターをホーミングしますか？"/>
+  <translation tag="Homing" ja="ホーミング"/>
   <translation tag="Homing AFC system..." ja="AFCシステムをホーミング中..."/>
   <translation tag="Homing Failed" ja="ホーミングに失敗しました"/>
   <translation tag="Homing X and Y" ja="XとYをホーミング中"/>
@@ -2819,6 +2825,7 @@
   <translation tag="Quad Gantry Level complete" ja="QGL 完了"/>
   <translation tag="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens." ja="クアッドガントリーレベルは、4つのZモーターで駆動するガントリーをベッドに対して水平に整えます。HelixScreenではコントロール画面と動作画面から使えます。"/>
   <translation tag="Quad Gantry Level started..." ja="QGL を開始しました..."/>
+  <translation tag="Quad gantry level" ja="クアッドガントリーレベル"/>
   <translation tag="Queue empty" ja="キューは空です"/>
   <translation tag="Queue: Paused" ja="キュー: 一時停止"/>
   <translation tag="Queue: Ready" ja="キュー: 準備完了"/>
@@ -4204,6 +4211,7 @@
   <translation tag="Z jog feedrate" ja="Z軸のジョグ移動速度"/>
   <translation tag="Z motor calibration failed" ja="Z モーターの校正に失敗しました"/>
   <translation tag="Z probes for bed leveling and mesh generation" ja="ベッドレベリングとメッシュ生成用 Z プローブ"/>
+  <translation tag="Z tilt" ja="Zチルト"/>
   <translation tag="Z {:.2f} mm" ja="Z {:.2f} mm"/>
   <translation tag="Z {}, will lift to {}mm" ja="Z {}、{}mmまで上昇します"/>
   <translation tag="Z-Off:" ja="Z-Off:"/>

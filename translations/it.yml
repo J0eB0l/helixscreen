@@ -430,6 +430,7 @@ translations:
 
   Bed is Level!: Piano livellato!
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: Il piano è a {:.0f}°C, la stampa richiede {:.0f}°C.
+  Bed mesh: Mesh piano
   'Bed mesh calibration failed: {}': 'Calibrazione della mesh del piano non riuscita: {}'
   Bed mesh operation timed out: Mesh piano — tempo scaduto
   Bed mesh...: Mesh piano...
@@ -751,6 +752,7 @@ translations:
   Clean up: 'Pulisci'
   Clean {}: Pulisci {}
   Cleaning Nozzle...: Pulizia ugello...
+  Cleaning nozzle: Pulizia ugello
   Cleaning nozzle...: Pulizia ugello...
   Clear: Cancella
   Clear All: Cancella tutto
@@ -1682,6 +1684,7 @@ translations:
   Guide the toolhead to the chute's extrude position: Portare la testina alla posizione di estrusione del condotto
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Calibrazione guidata: sensore all''ugello, scarico e retrazione della taglierina'
   H: H
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
   HEPA filter: 'Filtro HEPA'
@@ -1720,6 +1723,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Riscalda
     il piano prima di calibrare per un offset preciso con espansione termica.
   Heat nozzle: Riscalda ugello
+  Heat soak: Preriscaldamento
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'L''heat soak lascia scaldare la camera prima di una stampa. È elencato perché la stampante ha una macro di heat soak o è stato attivato nelle impostazioni; HelixScreen non lo esegue.'
   Heat the bed to {}°C: Riscalda il piano a {}°C
@@ -1747,6 +1751,7 @@ translations:
   Heating Chamber...: Riscaldamento camera...
   Heating Nozzle...: Riscaldamento ugello...
   Heating and homing: Riscaldamento e homing
+  Heating bed: Riscaldamento piano
   Heating bed to $1°C...: Riscaldamento piano a $1°C...
   Heating bed...: Riscaldamento piano...
   Heating chamber...: Riscaldamento camera...
@@ -1806,6 +1811,7 @@ translations:
   Home layout copied from the printer's screen: "Layout della schermata iniziale copiato dallo schermo della stampante"
   Home printer first?: Eseguire prima l'homing della stampante?
   Home Selector: Homing selettore
+  Homing: Azzeramento
   Homing AFC system...: Homing sistema AFC...
   Homing Failed: 'Azzeramento non riuscito'
   Homing X and Y: Azzeramento X e Y
@@ -3078,6 +3084,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'Il livellamento gantry quadruplo squadra al piano un gantry mosso da quattro motori Z. HelixScreen lo offre nelle schermate Controlli e Movimento.'
   Quad Gantry Level started...: QGL avviato...
+  Quad gantry level: Livellamento gantry quadruplo
   Queue empty: 'Coda vuota'
   'Queue: Paused': 'Coda: In pausa'
   'Queue: Ready': 'Coda: Pronta'
@@ -4634,6 +4641,7 @@ translations:
   Z motor calibration failed: Calibrazione del motore Z non riuscita
   Z probes for bed leveling and mesh generation: Sonde Z per livellamento piano e
     generazione mesh
+  Z tilt: Inclinazione Z
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}, salirà a {}mm'
   'Z-Off:': 'Z-Off:'

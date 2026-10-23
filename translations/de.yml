@@ -435,6 +435,7 @@ translations:
 
   Bed is Level!: Bett ist nivelliert!
   Bed is at {:.0f}°C, the print needs {:.0f}°C.: Heizbett hat {:.0f}°C, der Druck braucht {:.0f}°C.
+  Bed mesh: Bettnetz
   'Bed mesh calibration failed: {}': 'Bettnetz-Kalibrierung fehlgeschlagen: {}'
   Bed mesh operation timed out: Bettnetz-Vorgang Zeitüberschreitung
   Bed mesh...: Bettnetz...
@@ -760,6 +761,7 @@ translations:
   Clean up: 'Bereinigen'
   Clean {}: '{} reinigen'
   Cleaning Nozzle...: Düse reinigen...
+  Cleaning nozzle: Düse reinigen
   Cleaning nozzle...: Düse reinigen...
   Clear: Löschen
   Clear All: Alles löschen
@@ -1693,6 +1695,7 @@ translations:
   Guide the toolhead to the chute's extrude position: Werkzeugkopf zur Extrusionsposition der Rinne führen
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Geführte Kalibrierung: Sensor zur Düse, Entladeweg und Einzug des Schneiders'
   H: H
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
   HEPA filter: 'HEPA-Filter'
@@ -1731,6 +1734,7 @@ translations:
   Heat bed before calibrating for accurate offset with thermal expansion.: Bett vor
     der Kalibrierung heizen für genauen Offset mit Wärmeausdehnung.
   Heat nozzle: Düse aufheizen
+  Heat soak: Aufwärmen
   ? Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it.
   : 'Heat Soak lässt den Bauraum vor einem Druck aufwärmen. Er wird angezeigt, weil der Drucker ein Heat-Soak-Makro hat oder er in den Einstellungen eingeschaltet wurde; HelixScreen führt ihn nicht aus.'
   Heat the bed to {}°C: Bett auf {}°C heizen
@@ -1758,6 +1762,7 @@ translations:
   Heating Chamber...: Kammer aufheizen...
   Heating Nozzle...: Düse aufheizen...
   Heating and homing: Aufheizen und Referenzfahrt
+  Heating bed: Bett aufheizen
   Heating bed to $1°C...: Bett heizt auf $1°C auf...
   Heating bed...: Bett aufheizen...
   Heating chamber...: Kammer aufheizen...
@@ -1817,6 +1822,7 @@ translations:
   Home layout copied from the printer's screen: "Startbildschirm-Layout vom Bildschirm des Druckers übernommen"
   Home printer first?: Drucker zuerst referenzieren?
   Home Selector: Selektor referenzieren
+  Homing: Referenzfahrt
   Homing AFC system...: AFC-Referenzfahrt...
   Homing Failed: 'Referenzfahrt fehlgeschlagen'
   Homing X and Y: Referenzfahrt X und Y
@@ -3087,6 +3093,7 @@ translations:
   ? Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens.
   : 'Quad Gantry Level richtet eine Brücke mit vier Z-Motoren am Heizbett aus. HelixScreen bietet es in den Bildschirmen Steuerung und Bewegung an.'
   Quad Gantry Level started...: Quad Gantry Level gestartet...
+  Quad gantry level: Quad Gantry Level
   Queue empty: 'Warteschlange leer'
   'Queue: Paused': 'Warteschlange: Pausiert'
   'Queue: Ready': 'Warteschlange: Bereit'
@@ -4641,6 +4648,7 @@ translations:
   Z motor calibration failed: Kalibrierung des Z-Motors fehlgeschlagen
   Z probes for bed leveling and mesh generation: Z-Sonden für Bettnivellierung und
     Netzerzeugung
+  Z tilt: Z-Neigung
   Z {:.2f} mm: Z {:.2f} mm
   Z {}, will lift to {}mm: 'Z {}, hebt auf {}mm an'
   'Z-Off:': 'Z-Off:'

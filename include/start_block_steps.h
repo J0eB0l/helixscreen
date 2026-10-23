@@ -54,6 +54,10 @@ class StartBlockFollower {
     [[nodiscard]] bool has_steps() const {
         return !steps_.empty();
     }
+    /// The steps in file order.
+    [[nodiscard]] const std::vector<StartBlockStep>& steps() const {
+        return steps_;
+    }
 
     /// The step the print reached at @p position, when it is one not yet
     /// reached: the last line at or before the position that runs a step, a

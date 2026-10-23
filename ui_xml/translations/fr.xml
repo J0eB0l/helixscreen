@@ -399,6 +399,7 @@
   <translation tag="Bed cooling, spools still on the bed:" fr="Le plateau refroidit, les bobines sont toujours dessus :"/>
   <translation tag="Bed is Level!" fr="Le plateau est niveau !"/>
   <translation tag="Bed is at {:.0f}°C, the print needs {:.0f}°C." fr="Le plateau est à {:.0f}°C, l&apos;impression a besoin de {:.0f}°C."/>
+  <translation tag="Bed mesh" fr="Maillage du plateau"/>
   <translation tag="Bed mesh calibration failed: {}" fr="Échec du calibrage du maillage du plateau : {}"/>
   <translation tag="Bed mesh operation timed out" fr="Maillage du plateau — délai dépassé"/>
   <translation tag="Bed mesh..." fr="Maillage du plateau..."/>
@@ -689,6 +690,7 @@
   <translation tag="Clean up" fr="Nettoyer"/>
   <translation tag="Clean {}" fr="Nettoyer {}"/>
   <translation tag="Cleaning Nozzle..." fr="Nettoyage de la buse..."/>
+  <translation tag="Cleaning nozzle" fr="Nettoyage de la buse"/>
   <translation tag="Cleaning nozzle..." fr="Nettoyage de la buse..."/>
   <translation tag="Clear" fr="Effacer"/>
   <translation tag="Clear All" fr="Tout effacer"/>
@@ -1541,6 +1543,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" fr="Guidez la tête d&apos;outil vers la position d&apos;extrusion de la goulotte"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" fr="Calibration guidée : capteur à la buse, déchargement et rétraction du coupeur"/>
   <translation tag="H" fr="H"/>
+  <translation tag="HE" fr="HE"/>
   <translation tag="HELIXSCREEN" fr="HELIXSCREEN"/>
   <translation tag="HEPA" fr="HEPA"/>
   <translation tag="HEPA filter" fr="Filtre HEPA"/>
@@ -1571,6 +1574,7 @@
   <translation tag="Heat and Home" fr="Chauffer et mettre à l&apos;origine"/>
   <translation tag="Heat bed before calibrating for accurate offset with thermal expansion." fr="Chauffez le plateau avant de calibrer pour un offset précis avec la dilatation thermique."/>
   <translation tag="Heat nozzle" fr="Chauffer la buse"/>
+  <translation tag="Heat soak" fr="Stabilisation thermique"/>
   <translation tag="Heat soak lets the enclosure warm up before a print. It is listed because the printer has a heat soak macro or it was turned on in settings; HelixScreen does not run it." fr="Le heat soak laisse le caisson chauffer avant une impression. Il apparaît car l&apos;imprimante a une macro de heat soak ou il a été activé dans les réglages ; HelixScreen ne le lance pas."/>
   <translation tag="Heat the bed to {}°C" fr="Chauffer le plateau à {}°C"/>
   <translation tag="Heat the chamber too" fr="Chauffer aussi l&apos;enceinte"/>
@@ -1596,6 +1600,7 @@
   <translation tag="Heating Chamber..." fr="Chauffe de la chambre..."/>
   <translation tag="Heating Nozzle..." fr="Chauffe de la buse..."/>
   <translation tag="Heating and homing" fr="Chauffe et mise à l&apos;origine"/>
+  <translation tag="Heating bed" fr="Chauffe du plateau"/>
   <translation tag="Heating bed to $1°C..." fr="Chauffe du plateau à $1°C..."/>
   <translation tag="Heating bed..." fr="Chauffe du plateau..."/>
   <translation tag="Heating chamber..." fr="Chauffe de la chambre..."/>
@@ -1652,6 +1657,7 @@
   <translation tag="Home failed" fr="Échec de la référence"/>
   <translation tag="Home layout copied from the printer&apos;s screen" fr="Disposition de l&apos;écran d&apos;accueil copiée depuis l&apos;écran de l&apos;imprimante"/>
   <translation tag="Home printer first?" fr="Référencer l&apos;imprimante d&apos;abord ?"/>
+  <translation tag="Homing" fr="Mise à l&apos;origine"/>
   <translation tag="Homing AFC system..." fr="Référence du système AFC..."/>
   <translation tag="Homing Failed" fr="Échec de la prise d&apos;origine"/>
   <translation tag="Homing X and Y" fr="Mise à l&apos;origine X et Y"/>
@@ -2819,6 +2825,7 @@
   <translation tag="Quad Gantry Level complete" fr="Quad Gantry Level terminé"/>
   <translation tag="Quad Gantry Level squares a gantry driven by four Z motors to the bed. HelixScreen offers it on the Controls and Motion screens." fr="Quad Gantry Level met d&apos;équerre avec le plateau un portique entraîné par quatre moteurs Z. HelixScreen le propose sur les écrans Commandes et Mouvement."/>
   <translation tag="Quad Gantry Level started..." fr="Quad Gantry Level démarré..."/>
+  <translation tag="Quad gantry level" fr="Quad Gantry Level"/>
   <translation tag="Queue empty" fr="File vide"/>
   <translation tag="Queue: Paused" fr="File : En pause"/>
   <translation tag="Queue: Ready" fr="File : Prête"/>
@@ -4204,6 +4211,7 @@
   <translation tag="Z jog feedrate" fr="Vitesse d&apos;avance du déplacement Z"/>
   <translation tag="Z motor calibration failed" fr="Échec de l&apos;étalonnage du moteur Z"/>
   <translation tag="Z probes for bed leveling and mesh generation" fr="Sondes Z pour la mise à niveau du plateau et la génération de maillage"/>
+  <translation tag="Z tilt" fr="Inclinaison Z"/>
   <translation tag="Z {:.2f} mm" fr="Z {:.2f} mm"/>
   <translation tag="Z {}, will lift to {}mm" fr="Z {}, montera à {}mm"/>
   <translation tag="Z-Off:" fr="Z-Off :"/>
