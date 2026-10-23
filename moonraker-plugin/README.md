@@ -225,6 +225,45 @@ POST /server/helix/print_hooks/screen_start
 {"filename": "benchy.gcode", "withdraw": true}
 ```
 
+### Camera photos (`photos`)
+
+Saves the default webcam's snapshot twice per job: once the print finishes layer 2 and once
+when it ends `completed`, `cancelled` or `error`. On by default (it only observes); opt out
+with `helix-screen` / `plugin_features.photos = false`. No endpoint: clients read the record
+and the files.
+
+- **When.** Layer 2 is done when `print_stats.info.current_layer` is seen moving from 1 or 2
+  past 2 in a job history added, so a print whose slicer emits no `SET_PRINT_STATS_INFO`, a
+  job first seen past layer 2 (a restart mid-print) and a job marked `plr_resume` get no
+  layer photo. The end photo is taken on history's `finished` event.
+- **Which camera.** Of the enabled webcams with a snapshot URL that is not an HTML page
+  (HelixScreen's own screen-server entry excluded), the first MJPEG one, else the first. A
+  relative URL is fetched from `http://127.0.0.1`. No webcam: nothing happens.
+- **What is kept.** The bytes, unchanged, when they start like a JPEG and are at most 8 MB, as
+  `gcodes/.helix_photos/<job id>_<start time>_<layer2|end>.jpg`. No photo is taken while the
+  volume has less than 256 MB free.
+- **Record.** Namespace `helix_photos`, key = the history job id:
+
+  ```json
+  {"version": 1, "job_id": "00002A", "filename": "benchy.gcode", "start_time": 1700000000.2,
+   "photos": [{"kind": "layer2", "path": ".helix_photos/00002A_1700000000_layer2.jpg",
+               "size": 48213, "taken_at": 1700000300.1, "source": "plugin"},
+              {"kind": "end", "path": ".helix_photos/00002A_1700000000_end.jpg",
+               "size": 51022, "taken_at": 1700003600.4, "source": "plugin"}]}
+  ```
+
+  The screen writes the same record with `"source": "app"` when it takes the photos itself.
+  History reuses job ids, so a record answers only for the job whose `start_time` matches.
+- **History link.** Where history has `get_job`/`save_job` (Moonraker 0.9 and newer), the job's
+  `auxiliary_data` gets `{"provider": "helix_print", "name": "photos", "value": [<paths>]}`.
+  Every rewrite of a history row by the plugin goes through one lock, so it never saves over
+  the `modifications` entry of a linked print, or the other way round.
+- **Pruning.** At startup and after each job ends: a record whose history job is gone, or
+  whose id history now uses for a later job, is deleted with its files; then the oldest jobs
+  go until at most 500 remain and their photos fit in 128 MB; then files in `.helix_photos`
+  that no record lists and that are over an hour old. A Moonraker whose history cannot be
+  asked keeps every record (the bounds still apply).
+
 ### Start Modified Print
 
 The client uploads the modified file first, through Moonraker's own file upload, into
@@ -807,6 +846,8 @@ After installation:
 │   └── benchy.gcode          # Symlink → .helix_temp/mod_...
 ├── .helix_index/
 │   └── benchy.gcode.layers.jsonl  # Layer index (file analysis, power-loss recovery)
+├── .helix_photos/
+│   └── 00002A_1700000000_end.jpg  # Camera photos of history jobs
 └── .thumbs/
     ├── benchy-32x32.png      # Original thumbnails
     └── mod_1702400000_benchy-32x32.png  # Symlink → original

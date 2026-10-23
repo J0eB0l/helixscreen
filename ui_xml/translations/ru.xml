@@ -1158,6 +1158,7 @@
   <translation tag="Enclosure" ru="Корпус"/>
   <translation tag="Encoder" ru="Энкодер"/>
   <translation tag="Encoder Error" ru="Ошибка энкодера"/>
+  <translation tag="End" ru="Конец"/>
   <translation tag="End K" ru="Конечный K"/>
   <translation tag="End Test" ru="Завершить тест"/>
   <translation tag="End calibration" ru="Завершить калибровку"/>
@@ -1920,6 +1921,7 @@
   <translation tag="Last print failed" ru="Последняя печать не удалась"/>
   <translation tag="Later" ru="Позже"/>
   <translation tag="Layer" ru="Слой"/>
+  <translation tag="Layer 2" ru="Слой 2"/>
   <translation tag="Layer Height" ru="Высота слоя"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." ru="Слоевой макрос захватывает один кадр при смене слоя. Подходит для большинства печатей."/>
   <translation tag="Layer Pause" ru="Пауза на слое"/>
@@ -1992,6 +1994,7 @@
   <translation tag="Loading filament..." ru="Загрузка филамента..."/>
   <translation tag="Loading filaments..." ru="Загрузка филаментов..."/>
   <translation tag="Loading history..." ru="Загрузка истории..."/>
+  <translation tag="Loading photo" ru="Загрузка фото"/>
   <translation tag="Loading spools..." ru="Загрузка катушек..."/>
   <translation tag="Loading vendors..." ru="Загрузка производителей..."/>
   <translation tag="Loading..." ru="Загрузка..."/>
@@ -2565,6 +2568,7 @@
   <translation tag="Phomemo M110" ru="Phomemo M110"/>
   <translation tag="Phone" ru="Телефон"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" ru="Телефон: 1 2 3 в верхнем ряду, калькулятор: 7 8 9"/>
+  <translation tag="Photo unavailable" ru="Фото недоступно"/>
   <translation tag="Pick" ru="Выбрать"/>
   <translation tag="Pick Color" ru="Выбрать цвет"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." ru="Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках."/>
@@ -2657,6 +2661,7 @@
   <translation tag="Pressure advance" ru="Pressure Advance"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." ru="Pressure Advance растёт вместе с башней. Следите за углами: нажмите - или + в любой момент, и рампа остановится, чтобы вы оценили своё значение."/>
   <translation tag="Pressure:" ru="Давление:"/>
+  <translation tag="Preview" ru="Предпросмотр"/>
   <translation tag="Preview Sounds" ru="Предпросмотр звуков"/>
   <translation tag="Previous" ru="Прежняя"/>
   <translation tag="Price" ru="Цена"/>
@@ -3152,6 +3157,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." ru="Сохранено в {}. Применяется каждый раз, когда этот филамент становится активным."/>
   <translation tag="Saved values, and whether to ask before running" ru="Сохранённые значения и запрос перед запуском"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." ru="Сохранено. Spoolman не в сети, поэтому цена, расположение, партия и заметки остаются здесь несохранёнными."/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." ru="Сохраняет снимок камеры после 2-го слоя и в конце каждой печати; он показывается в истории печати."/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." ru="Сохраняет позицию печати примерно раз в секунду, чтобы печать можно было продолжить после отключения питания. На SD-карте это увеличивает износ."/>
   <translation tag="Saves to Klipper config and restarts firmware." ru="Сохраняет в конфигурацию Klipper и перезапускает прошивку."/>
   <translation tag="Saving Configuration..." ru="Сохранение конфигурации..."/>

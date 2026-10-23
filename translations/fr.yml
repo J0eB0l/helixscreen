@@ -1242,6 +1242,7 @@ translations:
 
   Encoder: Encodeur
   Encoder Error: 'Erreur de l''encodeur'
+  End: 'Fin'
   End K: K final
   End Test: Terminer le test
   End calibration: 'Terminer la calibration'
@@ -2083,6 +2084,7 @@ translations:
   Last print failed: Dernière impression échouée
   Later: Plus tard
   Layer: Couche
+  Layer 2: 'Couche 2'
   Layer Height: Hauteur de couche
   Layer Macro captures one frame per layer change. Best for most prints.: La macro
     de couche capture une image à chaque changement de couche. Idéal pour la plupart
@@ -2159,6 +2161,7 @@ translations:
   Loading filament...: Chargement du filament...
   Loading filaments...: Chargement des filaments...
   Loading history...: Chargement de l'historique...
+  Loading photo: 'Chargement de la photo'
   Loading spools...: Chargement des bobines...
   Loading vendors...: Chargement des fournisseurs...
   Loading...: Chargement...
@@ -2772,6 +2775,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Téléphone
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: Téléphone place 1 2 3 en haut, calculatrice place 7 8 9
+  Photo unavailable: 'Photo indisponible'
   Pick: Choisir
   Pick Color: Choisir la couleur
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Choisissez le comportement de HelixScreen. Vous pourrez tout modifier plus tard dans Paramètres.'
@@ -2872,6 +2876,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'Calibration Pressure Advance'
+  Preview: 'Aperçu'
   Preview Sounds: Aperçu des sons
   Previous: Précédent
   Price: Prix
@@ -3398,6 +3403,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Enregistré sur {}. Appliqué chaque fois que ce filament devient actif.
   Saved values, and whether to ask before running: 'Valeurs enregistrées et demande de confirmation avant exécution ou non'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Enregistré. Spoolman est hors ligne, donc le prix, l''emplacement, le lot et les notes restent ici sans être enregistrés.'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'Enregistre une photo de la caméra après la couche 2 et à la fin de chaque impression, visible dans l''historique d''impression.'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Enregistre la position d'impression environ une fois par seconde pour qu'une impression puisse reprendre après une coupure de courant. Sur une carte SD, cela ajoute de l'usure.
   Saves to Klipper config and restarts firmware.: Enregistre dans la config Klipper
     et redémarre le firmware.

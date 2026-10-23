@@ -546,6 +546,13 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                 {"available", true},
                 {"enabled", auto_cleanup.is_boolean() && auto_cleanup.get<bool>()},
                 {"reason", nullptr}};
+            // photos only observes, so it is on unless opted out.
+            const json photos_opt_in = self->mock_db_get("helix-screen", "plugin_features.photos");
+            response["result"]["features"]["photos"] = {
+                {"version", 1},
+                {"available", true},
+                {"enabled", !(photos_opt_in.is_boolean() && !photos_opt_in.get<bool>())},
+                {"reason", nullptr}};
             // The rest of what the plugin ships, each on and running.
             for (const char* name : {"file_analysis", "server_edits", "config_edit", "storage"}) {
                 response["result"]["features"][name] = {

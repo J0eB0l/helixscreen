@@ -9,6 +9,16 @@
 #include <string>
 #include <vector>
 
+namespace helix {
+
+/// One camera photo of a job (print_photos.h).
+struct PrintPhoto {
+    std::string kind; ///< kPhotoKindLayer or kPhotoKindEnd
+    std::string path; ///< relative to the gcodes root, inside kPhotosDir
+};
+
+} // namespace helix
+
 /**
  * @brief Time filter for history dashboard queries
  */
@@ -70,6 +80,10 @@ struct PrintHistoryJob {
     std::string
         timelapse_filename;     ///< Associated timelapse file (e.g., "timelapse/print_2024...mp4")
     bool has_timelapse = false; ///< True if timelapse file was found for this job
+
+    /// Camera photos its auxiliary_data links; empty when it links none (the
+    /// photo record may still list some: HistoryPhotoViewer asks for it).
+    std::vector<helix::PrintPhoto> photos;
 };
 
 namespace helix {

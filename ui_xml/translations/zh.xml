@@ -1116,6 +1116,7 @@
   <translation tag="Enclosure" zh="机箱"/>
   <translation tag="Encoder" zh="编码器"/>
   <translation tag="Encoder Error" zh="编码器错误"/>
+  <translation tag="End" zh="结束"/>
   <translation tag="End K" zh="结束K值"/>
   <translation tag="End Test" zh="结束测试"/>
   <translation tag="End calibration" zh="结束校准"/>
@@ -1875,6 +1876,7 @@
   <translation tag="Last print failed" zh="上次打印失败"/>
   <translation tag="Later" zh="稍后"/>
   <translation tag="Layer" zh="层"/>
+  <translation tag="Layer 2" zh="第 2 层"/>
   <translation tag="Layer Height" zh="层高"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." zh="层变化宏在每次层变化时捕获一帧。适合大多数打印。"/>
   <translation tag="Layer Pause" zh="层暂停"/>
@@ -1947,6 +1949,7 @@
   <translation tag="Loading filament..." zh="正在加载耗材..."/>
   <translation tag="Loading filaments..." zh="正在加载耗材..."/>
   <translation tag="Loading history..." zh="正在加载历史..."/>
+  <translation tag="Loading photo" zh="正在加载照片"/>
   <translation tag="Loading spools..." zh="正在加载料盘..."/>
   <translation tag="Loading vendors..." zh="正在加载供应商…"/>
   <translation tag="Loading..." zh="正在加载..."/>
@@ -2520,6 +2523,7 @@
   <translation tag="Phomemo M110" zh="Phomemo M110"/>
   <translation tag="Phone" zh="电话"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" zh="电话布局第一行为 1 2 3，计算器布局第一行为 7 8 9"/>
+  <translation tag="Photo unavailable" zh="照片不可用"/>
   <translation tag="Pick" zh="选取"/>
   <translation tag="Pick Color" zh="选择颜色"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." zh="选择 HelixScreen 的行为方式。以后可在“设置”中更改。"/>
@@ -2609,6 +2613,7 @@
   <translation tag="Pressure advance" zh="压力提前"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." zh="压力提前随测试塔升高而增加。查看角落: 随时点击-或+,自动步进就会停止,方便你判断自己的数值。"/>
   <translation tag="Pressure:" zh="压力:"/>
+  <translation tag="Preview" zh="预览"/>
   <translation tag="Preview Sounds" zh="预览声音"/>
   <translation tag="Previous" zh="上一步"/>
   <translation tag="Price" zh="价格"/>
@@ -3098,6 +3103,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." zh="已保存到{}。每当该耗材启用时都会应用。"/>
   <translation tag="Saved values, and whether to ask before running" zh="保存的值,以及运行前是否询问"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." zh="已保存。Spoolman 离线，因此价格、位置、批次和备注暂留在此处，尚未保存。"/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." zh="在第 2 层之后和每次打印结束时保存一张摄像头照片，显示在打印历史中。"/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." zh="大约每秒保存一次打印位置，以便断电后可以恢复打印。在 SD 卡上这会增加磨损。"/>
   <translation tag="Saves to Klipper config and restarts firmware." zh="保存到 Klipper 配置并重启固件。"/>
   <translation tag="Saving Configuration..." zh="正在保存配置..."/>

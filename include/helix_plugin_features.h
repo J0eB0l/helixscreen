@@ -127,6 +127,7 @@ enum class PluginFeatureHome {
     None,     ///< no setting: the overview shows its status only
     Printing, ///< Settings > Printing
     Storage,  ///< Settings > System > Storage
+    Devices,  ///< Settings > Devices
 };
 
 /// What this app knows about a plugin feature. Labels are English; the UI
@@ -152,6 +153,7 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"storage", TR_NOOP("Storage report"), "sd", PluginFeatureHome::Storage},
     {"storage_auto_cleanup", TR_NOOP("Automatic storage cleanup"), "delete",
      PluginFeatureHome::Storage},
+    {"photos", TR_NOOP("Print photos"), "image_area", PluginFeatureHome::Devices},
 };
 
 /// The icon of a feature this app does not know.

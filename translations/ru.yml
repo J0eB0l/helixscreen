@@ -1278,6 +1278,7 @@ translations:
 
   Encoder: Энкодер
   Encoder Error: 'Ошибка энкодера'
+  End: 'Конец'
   End K: Конечный K
   End Test: Завершить тест
   End calibration: 'Завершить калибровку'
@@ -2110,6 +2111,7 @@ translations:
   Last print failed: Последняя печать не удалась
   Later: Позже
   Layer: Слой
+  Layer 2: 'Слой 2'
   Layer Height: Высота слоя
   Layer Macro captures one frame per layer change. Best for most prints.: Слоевой
     макрос захватывает один кадр при смене слоя. Подходит для большинства печатей.
@@ -2186,6 +2188,7 @@ translations:
   Loading filament...: Загрузка филамента...
   Loading filaments...: Загрузка филаментов...
   Loading history...: Загрузка истории...
+  Loading photo: 'Загрузка фото'
   Loading spools...: Загрузка катушек...
   Loading vendors...: Загрузка производителей...
   Loading...: Загрузка...
@@ -2794,6 +2797,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Телефон
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: 'Телефон: 1 2 3 в верхнем ряду, калькулятор: 7 8 9'
+  Photo unavailable: 'Фото недоступно'
   Pick: Выбрать
   Pick Color: Выбрать цвет
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках.'
@@ -2896,6 +2900,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'Калибровка Pressure Advance'
+  Preview: 'Предпросмотр'
   Preview Sounds: Предпросмотр звуков
   Previous: Прежняя
   Price: Цена
@@ -3425,6 +3430,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Сохранено в {}. Применяется каждый раз, когда этот филамент становится активным.
   Saved values, and whether to ask before running: 'Сохранённые значения и запрос перед запуском'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Сохранено. Spoolman не в сети, поэтому цена, расположение, партия и заметки остаются здесь несохранёнными.'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'Сохраняет снимок камеры после 2-го слоя и в конце каждой печати; он показывается в истории печати.'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Сохраняет позицию печати примерно раз в секунду, чтобы печать можно было продолжить после отключения питания. На SD-карте это увеличивает износ.
   Saves to Klipper config and restarts firmware.: Сохраняет в конфигурацию Klipper
     и перезапускает прошивку.

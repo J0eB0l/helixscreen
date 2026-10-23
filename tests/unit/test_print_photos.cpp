@@ -1,0 +1,377 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Camera photos in print history (print_photos.h): who takes them, the
+// record and auxiliary_data the plugin and the screen share, pruning, the
+// camera both pick, and how the history detail card chooses what to show.
+
+#include "ui_history_photos.h"
+#include "ui_update_queue.h"
+
+#include "../lvgl_test_fixture.h"
+#include "app_globals.h"
+#include "helix_plugin_features.h"
+#include "print_history_parse.h"
+#include "print_photos.h"
+#include "print_photos_controller.h"
+#include "printer_plugin_status_state.h"
+#include "printer_state.h"
+#include "webcam_selection.h"
+
+#include <string>
+#include <vector>
+
+#include "../catch_amalgamated.hpp"
+#include "hv/json.hpp"
+
+using namespace helix;
+using json = nlohmann::json;
+
+namespace {
+
+constexpr double kT0 = 1700000000.25;
+
+const std::string kJpeg = std::string("\xFF\xD8\xFF\xE0", 4) + std::string(32, '\0');
+
+PluginFeatureEntry entry(int version, bool available, bool enabled) {
+    PluginFeatureEntry e;
+    e.version = version;
+    e.available = available;
+    e.enabled = enabled;
+    return e;
+}
+
+PluginFeatureState photos_state(bool plugin, int version, bool available, bool enabled) {
+    PluginFeatureMap features;
+    if (version > 0) {
+        features[kPhotosFeature] = entry(version, available, enabled);
+    }
+    return plugin_feature_state(plugin, features, kPhotosFeature, kPhotosMinVersion);
+}
+
+WebcamInfo cam(const std::string& name, const std::string& service, const std::string& snapshot,
+               const std::string& stream = "/s") {
+    WebcamInfo c;
+    c.name = name;
+    c.service = service;
+    c.snapshot_url = snapshot;
+    c.stream_url = stream;
+    return c;
+}
+
+json record(double start, json photos) {
+    return json{{"version", 1},
+                {"job_id", "00002A"},
+                {"filename", "a.gcode"},
+                {"start_time", start},
+                {"photos", std::move(photos)}};
+}
+
+} // namespace
+
+TEST_CASE("one taker of a job's photos per plugin state", "[plugin_photos]") {
+    using R = FallbackSenderRole;
+    const PluginFeatureState ready = photos_state(true, 1, true, true);
+    const PluginFeatureState disabled = photos_state(true, 1, true, false);
+    REQUIRE(ready == PluginFeatureState::Ready);
+    REQUIRE(disabled == PluginFeatureState::Disabled);
+
+    INFO("Ready: the plugin takes them, whatever this screen could do");
+    CHECK(photo_taker(ready, true, true, R::Sender) == PhotoTaker::Plugin);
+    CHECK(photo_taker(ready, false, false, R::Standby) == PhotoTaker::Plugin);
+
+    INFO("Disabled: switched off, nobody takes them");
+    CHECK(photo_taker(disabled, true, true, R::Sender) == PhotoTaker::None);
+
+    for (PluginFeatureState absent :
+         {photos_state(false, 1, true, true), photos_state(true, 0, false, false),
+          photos_state(true, 1, false, false)}) {
+        INFO("Absent: no plugin, an old plugin without the feature, or it cannot run here");
+        REQUIRE(absent == PluginFeatureState::Absent);
+        CHECK(photo_taker(absent, true, true, R::Sender) == PhotoTaker::App);
+        CHECK(photo_taker(absent, false, true, R::Sender) == PhotoTaker::None);
+        CHECK(photo_taker(absent, true, false, R::Sender) == PhotoTaker::None);
+        CHECK(photo_taker(absent, true, true, R::Standby) == PhotoTaker::None);
+    }
+}
+
+TEST_CASE("photos are on unless opted out: they only observe", "[plugin_photos]") {
+    CHECK(plugin_feature_opted_in(json::object(), kPhotosFeature, false));
+    CHECK_FALSE(plugin_feature_opted_in(json{{kPhotosFeature, false}}, kPhotosFeature, false));
+    const auto& row = kPluginSwitchFeatures.back();
+    CHECK(std::string(row.name) == kPhotosFeature);
+    CHECK(row.has_fallback);
+    CHECK_FALSE(row.acts);
+}
+
+TEST_CASE("the photos switch keeps working without the plugin", "[plugin_photos]") {
+    CHECK(plugin_switch_mode(false, {}, kPhotosFeature, kPhotosMinVersion, true, true) ==
+          PluginSwitchMode::Switch);
+    CHECK(plugin_switch_mode(false, {}, kPhotosFeature, kPhotosMinVersion, true, false) ==
+          PluginSwitchMode::FallbackInstallHint);
+    PluginFeatureMap features;
+    features[kPhotosFeature] = entry(1, true, true);
+    CHECK(plugin_switch_mode(true, features, kPhotosFeature, kPhotosMinVersion, true, false) ==
+          PluginSwitchMode::Switch);
+}
+
+TEST_CASE("the overview leads the photos line to Devices", "[plugin_photos]") {
+    PluginFeatureMap features;
+    features[kPhotosFeature] = entry(1, true, true);
+    const auto lines = plugin_feature_lines(features);
+    REQUIRE(lines.size() == 1);
+    CHECK(lines[0].label == "Print photos");
+    CHECK(lines[0].home == PluginFeatureHome::Devices);
+}
+
+TEST_CASE("layer 2 is done only when the job is seen moving past it", "[plugin_photos]") {
+    CHECK(layer_two_done(2, 3));
+    CHECK(layer_two_done(1, 3));
+    CHECK_FALSE(layer_two_done(1, 2));
+    CHECK_FALSE(layer_two_done(2, 2));
+    CHECK_FALSE(layer_two_done(0, 3));
+    CHECK_FALSE(layer_two_done(std::nullopt, 3));
+    CHECK_FALSE(layer_two_done(3, 4));
+    CHECK_FALSE(layer_two_done(40, 41));
+}
+
+TEST_CASE("an end photo for completed, cancelled and failed jobs only", "[plugin_photos]") {
+    CHECK(ends_with_photo("completed"));
+    CHECK(ends_with_photo("cancelled"));
+    CHECK(ends_with_photo("error"));
+    CHECK_FALSE(ends_with_photo("klippy_shutdown"));
+    CHECK_FALSE(ends_with_photo("in_progress"));
+    CHECK_FALSE(ends_with_photo(""));
+}
+
+TEST_CASE("a snapshot is kept only when it is a JPEG", "[plugin_photos]") {
+    CHECK(is_jpeg(kJpeg));
+    CHECK_FALSE(is_jpeg("<html>"));
+    CHECK_FALSE(is_jpeg(""));
+    CHECK_FALSE(is_jpeg(std::string("\xFF\xD8", 2)));
+}
+
+TEST_CASE("photo paths carry the job and its start, and stay in the photos dir",
+          "[plugin_photos]") {
+    CHECK(photo_path("00002A", kT0, kPhotoKindEnd) == ".helix_photos/00002A_1700000000_end.jpg");
+    CHECK(photo_file_name("00002A", kT0, kPhotoKindLayer) == "00002A_1700000000_layer2.jpg");
+    CHECK(is_photo_path(".helix_photos/a.jpg"));
+    CHECK_FALSE(is_photo_path(".helix_photos/"));
+    CHECK_FALSE(is_photo_path(".helix_photos/../printer.cfg"));
+    CHECK_FALSE(is_photo_path(".helix_photos/sub/a.jpg"));
+    CHECK_FALSE(is_photo_path("benchy.gcode"));
+    CHECK_FALSE(is_photo_path("x/.helix_photos/a.jpg"));
+}
+
+TEST_CASE("a photo record lists its photos, layer first, nothing outside", "[plugin_photos]") {
+    const json rec = record(kT0, json::array({
+                                     {{"kind", "end"}, {"path", ".helix_photos/e.jpg"}},
+                                     {{"kind", "layer2"}, {"path", ".helix_photos/l.jpg"}},
+                                     {{"kind", "end"}, {"path", "../etc/passwd"}},
+                                     {{"kind", "weird"}, {"path", ".helix_photos/w.jpg"}},
+                                     "junk",
+                                 }));
+    const auto photos = parse_photo_record(rec);
+    REQUIRE(photos.size() == 2);
+    CHECK(photos[0].kind == kPhotoKindLayer);
+    CHECK(photos[1].path == ".helix_photos/e.jpg");
+
+    json other = rec;
+    other["version"] = 2;
+    CHECK(parse_photo_record(other).empty());
+    CHECK(parse_photo_record(json()).empty());
+    CHECK(photo_record_paths(rec) == std::vector<std::string>{".helix_photos/e.jpg",
+                                                              ".helix_photos/l.jpg",
+                                                              ".helix_photos/w.jpg"});
+}
+
+TEST_CASE("a record answers only for its own job's start", "[plugin_photos]") {
+    const json rec = record(kT0, json::array());
+    CHECK(photo_record_matches(rec, kT0 + 0.5));
+    CHECK_FALSE(photo_record_matches(rec, kT0 + 5000));
+    CHECK_FALSE(photo_record_matches(json(), kT0));
+}
+
+TEST_CASE("the screen writes the plugin's record shape", "[plugin_photos]") {
+    const json first =
+        photo_record_with(json(), "00002A", "a.gcode", kT0, kPhotoKindEnd, "p/end.jpg", 10, 99);
+    CHECK(first["version"] == 1);
+    CHECK(first["job_id"] == "00002A");
+    CHECK(first["start_time"] == kT0);
+    REQUIRE(first["photos"].size() == 1);
+    CHECK(first["photos"][0] == json{{"kind", "end"},
+                                     {"path", "p/end.jpg"},
+                                     {"size", 10},
+                                     {"taken_at", 99},
+                                     {"source", "app"}});
+
+    const json both =
+        photo_record_with(first, "00002A", "a.gcode", kT0, kPhotoKindLayer, "p/l.jpg", 5, 100);
+    REQUIRE(both["photos"].size() == 2);
+    CHECK(both["photos"][0]["kind"] == "layer2");
+    CHECK(both["photos"][1]["kind"] == "end");
+
+    const json again =
+        photo_record_with(both, "00002A", "a.gcode", kT0, kPhotoKindEnd, "p/end2.jpg", 11, 101);
+    REQUIRE(again["photos"].size() == 2);
+    CHECK(again["photos"][1]["path"] == "p/end2.jpg");
+
+    INFO("a record left by an earlier job under the same id is replaced");
+    const json reused =
+        photo_record_with(both, "00002A", "b.gcode", kT0 + 5000, kPhotoKindEnd, "p/new.jpg", 1, 1);
+    CHECK(reused["filename"] == "b.gcode");
+    REQUIRE(reused["photos"].size() == 1);
+}
+
+TEST_CASE("the oldest jobs' photos go beyond the bound", "[plugin_photos]") {
+    const json records = {
+        {"A", record(30, json::array())},
+        {"B", record(10, json::array())},
+        {"C", record(20, json::array())},
+        {"D", json{{"junk", 1}}},
+    };
+    auto drop = photo_records_to_prune(records, 2);
+    std::sort(drop.begin(), drop.end());
+    CHECK(drop == std::vector<std::string>{"B", "D"});
+    CHECK(photo_records_to_prune(records, 3) == std::vector<std::string>{"D"});
+    CHECK(photo_records_to_prune(json::array(), 1).empty());
+}
+
+TEST_CASE("history's auxiliary_data links the photos", "[plugin_photos]") {
+    const json aux = json::array({
+        {{"provider", "spoolman"}, {"name", "spool_ids"}, {"value", json::array({1})}},
+        {{"provider", "helix_print"}, {"name", "modifications"}, {"value", json::object()}},
+        {{"provider", "helix_print"},
+         {"name", "photos"},
+         {"value", json::array({".helix_photos/2A_1_end.jpg", ".helix_photos/2A_1_layer2.jpg",
+                                "../x_end.jpg", 7})}},
+    });
+    const auto photos = parse_photo_aux(aux);
+    REQUIRE(photos.size() == 2);
+    CHECK(photos[0].kind == kPhotoKindLayer);
+    CHECK(photos[1].kind == kPhotoKindEnd);
+    CHECK(parse_photo_aux(json::object()).empty());
+
+    json job = {{"job_id", "00002A"}, {"filename", "a.gcode"}, {"auxiliary_data", aux}};
+    CHECK(parse_history_job(job).photos.size() == 2);
+    job["auxiliary_data"] = nullptr;
+    CHECK(parse_history_job(job).photos.empty());
+}
+
+TEST_CASE("the plugin and the screen photograph the same camera", "[plugin_photos][webcam]") {
+    CHECK_FALSE(webcam::photo_pick({}).has_value());
+
+    auto webrtc = cam("webrtc", "webrtc-camerastreamer", "/a.jpg");
+    auto main = cam("main", "mjpegstreamer", "/main/?action=snapshot");
+    auto pick = webcam::photo_pick({webrtc, main});
+    REQUIRE(pick);
+    CHECK(pick->name == "main");
+
+    pick = webcam::photo_pick({webrtc});
+    REQUIRE(pick);
+    CHECK(pick->name == "webrtc");
+
+    auto off = cam("off", "mjpegstreamer", "/off.jpg");
+    off.enabled = false;
+    auto down = cam("down", "mjpegstreamer", "/down.jpg");
+    down.unavailable_reason = "service not running";
+    auto page = cam("page", "mjpegstreamer", "/viewer.html");
+    auto screen = cam(kRemoteScreenWebcamName, "mjpegstreamer", "/screen.jpg");
+    CHECK_FALSE(webcam::photo_pick({off, down, page, screen}).has_value());
+}
+
+TEST_CASE("the detail card opens on the end photo", "[plugin_photos]") {
+    using ui::HistoryPhotoView;
+    const std::vector<PrintPhoto> both = {{kPhotoKindLayer, "l"}, {kPhotoKindEnd, "e"}};
+    const std::vector<PrintPhoto> layer = {{kPhotoKindLayer, "l"}};
+    CHECK(ui::default_photo_view(both) == HistoryPhotoView::End);
+    CHECK(ui::default_photo_view(layer) == HistoryPhotoView::Layer);
+    CHECK(ui::default_photo_view({}) == HistoryPhotoView::Preview);
+    CHECK(ui::photo_for_view(both, HistoryPhotoView::Layer)->path == "l");
+    CHECK(ui::photo_for_view(layer, HistoryPhotoView::End) == nullptr);
+    CHECK(ui::photo_for_view(both, HistoryPhotoView::Preview) == nullptr);
+}
+
+namespace {
+
+/// The screen's fallback against the global PrinterState: a local screen
+/// with no plugin and one camera, fetching through a recorder.
+struct PhotosFx : LVGLTestFixture {
+    std::vector<std::string> fetched;
+    std::unique_ptr<PrintPhotosController> controller;
+
+    PhotosFx() {
+        auto& ps = get_printer_state();
+        ps.capabilities_state().set_webcams({cam("main", "mjpegstreamer", "http://cam/snap.jpg")});
+        ps.plugin_status_state().set_locality_source([] { return true; });
+        ps.plugin_status_state().set_stored_opt_ins(json::object());
+        ui::UpdateQueue::instance().drain();
+        controller = std::make_unique<PrintPhotosController>(
+            [this](const std::string& url, std::function<void(std::string)> done) {
+                fetched.push_back(url);
+                done("");
+            });
+    }
+    ~PhotosFx() override {
+        controller.reset();
+        auto& ps = get_printer_state();
+        ps.capabilities_state().set_webcam_available(false);
+        ps.plugin_status_state().set_locality_source(nullptr);
+        ps.plugin_status_state().set_stored_opt_ins(json::object());
+        ui::UpdateQueue::instance().drain();
+    }
+};
+
+const PrintPhotosController::Job kJob{"00002A", "a.gcode", kT0};
+
+} // namespace
+
+TEST_CASE_METHOD(PhotosFx, "the screen takes the layer 2 photo once, as the job passes it",
+                 "[plugin_photos]") {
+    controller->on_job_added(kJob);
+    for (int layer : {1, 2, 3, 4, 3, 5}) {
+        controller->on_slicer_layer(layer);
+    }
+    CHECK(fetched == std::vector<std::string>{"http://cam/snap.jpg"});
+}
+
+TEST_CASE_METHOD(PhotosFx, "a job first seen past layer 2 gets no layer photo", "[plugin_photos]") {
+    controller->on_job_added(kJob);
+    controller->on_slicer_layer(40);
+    controller->on_slicer_layer(41);
+    CHECK(fetched.empty());
+
+    INFO("nor does a layer report with no job history added");
+    PrintPhotosController other([this](const std::string& url, std::function<void(std::string)>) {
+        fetched.push_back(url);
+    });
+    other.on_slicer_layer(2);
+    other.on_slicer_layer(3);
+    CHECK(fetched.empty());
+}
+
+TEST_CASE_METHOD(PhotosFx, "the end photo follows how the job ended", "[plugin_photos]") {
+    controller->on_job_finished(kJob, "klippy_shutdown");
+    CHECK(fetched.empty());
+    controller->on_job_finished(kJob, "cancelled");
+    CHECK(fetched.size() == 1);
+}
+
+TEST_CASE_METHOD(PhotosFx, "the screen takes nothing when opted out or without a camera",
+                 "[plugin_photos]") {
+    SECTION("opted out") {
+        get_printer_state().plugin_status_state().set_stored_opt_ins(json{{kPhotosFeature, false}});
+        controller->on_job_finished(kJob, "completed");
+        CHECK(fetched.empty());
+    }
+    SECTION("no camera") {
+        get_printer_state().capabilities_state().set_webcam_available(false);
+        ui::UpdateQueue::instance().drain();
+        controller->on_job_finished(kJob, "completed");
+        CHECK(fetched.empty());
+    }
+    SECTION("a build that cannot fetch a snapshot") {
+        PrintPhotosController blind(nullptr);
+        blind.on_job_finished(kJob, "completed");
+        CHECK(fetched.empty());
+    }
+}

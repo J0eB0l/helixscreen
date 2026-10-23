@@ -1116,6 +1116,7 @@
   <translation tag="Enclosure" en="Enclosure"/>
   <translation tag="Encoder" en="Encoder"/>
   <translation tag="Encoder Error" en="Encoder Error"/>
+  <translation tag="End" en="End"/>
   <translation tag="End K" en="End K"/>
   <translation tag="End Test" en="End Test"/>
   <translation tag="End calibration" en="End calibration"/>
@@ -1875,6 +1876,7 @@
   <translation tag="Last print failed" en="Last print failed"/>
   <translation tag="Later" en="Later"/>
   <translation tag="Layer" en="Layer"/>
+  <translation tag="Layer 2" en="Layer 2"/>
   <translation tag="Layer Height" en="Layer Height"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." en="Layer Macro captures one frame per layer change. Best for most prints."/>
   <translation tag="Layer Pause" en="Layer Pause"/>
@@ -1947,6 +1949,7 @@
   <translation tag="Loading filament..." en="Loading filament..."/>
   <translation tag="Loading filaments..." en="Loading filaments..."/>
   <translation tag="Loading history..." en="Loading history..."/>
+  <translation tag="Loading photo" en="Loading photo"/>
   <translation tag="Loading spools..." en="Loading spools..."/>
   <translation tag="Loading vendors..." en="Loading vendors..."/>
   <translation tag="Loading..." en="Loading..."/>
@@ -2520,6 +2523,7 @@
   <translation tag="Phomemo M110" en="Phomemo M110"/>
   <translation tag="Phone" en="Phone"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" en="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there"/>
+  <translation tag="Photo unavailable" en="Photo unavailable"/>
   <translation tag="Pick" en="Pick"/>
   <translation tag="Pick Color" en="Pick Color"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." en="Pick how HelixScreen behaves. You can change any of these later in Settings."/>
@@ -2609,6 +2613,7 @@
   <translation tag="Pressure advance" en="Pressure advance"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." en="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value."/>
   <translation tag="Pressure:" en="Pressure:"/>
+  <translation tag="Preview" en="Preview"/>
   <translation tag="Preview Sounds" en="Preview Sounds"/>
   <translation tag="Previous" en="Previous"/>
   <translation tag="Price" en="Price"/>
@@ -3098,6 +3103,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." en="Saved to {}. It applies whenever this filament becomes active."/>
   <translation tag="Saved values, and whether to ask before running" en="Saved values, and whether to ask before running"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." en="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved."/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." en="Saves a camera photo after layer 2 and when each print ends, shown in print history."/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." en="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear."/>
   <translation tag="Saves to Klipper config and restarts firmware." en="Saves to Klipper config and restarts firmware."/>
   <translation tag="Saving Configuration..." en="Saving Configuration..."/>

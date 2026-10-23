@@ -266,6 +266,9 @@ src/printer/plr_offer.cpp
 src/printer/plr_plugin_rpc.cpp
 src/printer/standing_print_options.cpp
 src/printer/standing_print_options_controller.cpp
+src/printer/fallback_sender.cpp
+src/printer/print_photos.cpp
+src/printer/print_photos_controller.cpp
 src/printer/plr_profile.cpp
 src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp
@@ -548,6 +551,7 @@ src/ui/ui_gradient_canvas.cpp
 src/ui/ui_heater_icon_binder.cpp
 src/ui/ui_heating_animator.cpp
 src/ui/ui_history_list_view.cpp
+src/ui/ui_history_photos.cpp
 src/ui/ui_humidity_drop.cpp
 src/ui/ui_icon.cpp
 src/ui/ui_icon_picker.cpp

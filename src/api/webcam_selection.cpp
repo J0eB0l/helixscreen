@@ -118,6 +118,26 @@ std::optional<WebcamInfo> auto_pick(const std::vector<WebcamInfo>& cams) {
     return feed_for(cams[*idx]);
 }
 
+std::optional<WebcamInfo> photo_pick(const std::vector<WebcamInfo>& cams) {
+    const WebcamInfo* first = nullptr;
+    for (const auto& cam : cams) {
+        if (!cam.enabled || !cam.unavailable_reason.empty() || is_own_screen_webcam(cam) ||
+            !is_usable_snapshot_url(cam.snapshot_url)) {
+            continue;
+        }
+        if (is_mjpeg_service(cam.service) && !cam.stream_url.empty()) {
+            return cam;
+        }
+        if (first == nullptr) {
+            first = &cam;
+        }
+    }
+    if (first == nullptr) {
+        return std::nullopt;
+    }
+    return *first;
+}
+
 namespace {
 const WebcamInfo* find_named_usable(const std::vector<WebcamInfo>& cams,
                                     const std::string& source) {
