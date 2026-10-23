@@ -3,8 +3,8 @@
 Status: design for review (2026-10-21). Rulings of 2026-10-21 are in § 1; everything else is a
 proposal. Delete this file in the change that ships the last v1 piece.
 
-Related: the plugin umbrella spec, `docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md`
-(this design depends on its Phase 0); today's vendor backends, `docs/devel/POWER_LOSS_RECOVERY.md`;
+Related: the plugin feature framework, `docs/devel/HELIXPRINT_PLUGIN.md`
+(this design depends on it); today's vendor backends, `docs/devel/POWER_LOSS_RECOVERY.md`;
 QIDI's newer-firmware mechanism, prestonbrown/helixscreen#1716.
 
 Evidence markers: **[src]** read in source (path given), **[web]** primary web source (URL given),

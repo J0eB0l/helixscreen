@@ -412,21 +412,25 @@ whose `convert_3mf` entry owns its switch. With `1` it is `Ready` to
 (`reason: "plugin_disabled"`) and reads `Absent`. `event_journal` follows the same
 pattern, and `server.helix.journal` answers with five events of the last hour (a runout,
 the pause it caused, a shutdown and the job it ended), so the notification history's
-Printer Events button shows the plugin's journal. Installed and not `disabled`, it
-also reports `print_hooks`, `enabled` from the mock database's
-`helix-screen`/`plugin_features.print_hooks` (off until the Printing page's switch
-writes it; `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false` with
-`reason: "load_failed"`), `storage_auto_cleanup`, `enabled` from
-`helix-screen`/`plugin_features.storage_auto_cleanup` (off until System > Storage's switch
-writes it), `photos`, on unless the mock database's `helix-screen`/`plugin_features.photos`
-is `false` (`HELIX_MOCK_PHOTOS=unavailable` reports it `available: false`, reason
-`snapshot_unreachable: ...`, so the screen takes the photos), and `file_analysis`,
-`server_edits`, `config_edit` and `storage`, each `Ready`. The mock has no
-`server.helix.config`, so a config edit falls back to the file API.
+Printer Events button shows the plugin's journal. `HELIX_MOCK_PLR` adds the `plr` entry
+(below). Installed and not `disabled`, it also reports:
+
+| Feature | `enabled` |
+|---------|-----------|
+| `print_hooks` | `helix-screen`/`plugin_features.print_hooks`, off until Settings > Printing writes it. `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false`, `reason: "load_failed"` |
+| `fit_check_blocks_autostart` | `plugin_features.fit_check_blocks_autostart`, off until Settings > Safety & Alerts writes it |
+| `filament_accounting` | `plugin_features.filament_accounting`, off until Settings > Devices > Spoolman writes it |
+| `storage_auto_cleanup` | `plugin_features.storage_auto_cleanup`, off until Settings > System > Storage writes it |
+| `photos` | on unless `plugin_features.photos` is `false`. `HELIX_MOCK_PHOTOS=unavailable` reports it `available: false`, `reason: "snapshot_unreachable: ..."`, so the screen takes the photos |
+| `file_analysis`, `server_edits`, `config_edit`, `storage` | always on, `Ready` |
+
+The mock reports no `vendor_ad5x` or `vendor_ace` entry, so its AD5X and ACE backends poll as
+they do without the plugin. The mock has no `server.helix.config`, so a config edit falls back
+to the file API. `server.helix.filament_usage` answers a two-spool record for every job.
 `server.helix.storage` answers a fixed breakdown on the mock's gcodes disk, and
 `server.helix.storage_cleanup` of `helix_temp` frees its 412 MB of print copies for the
-rest of the run; any other consumer frees nothing.
-`HELIX_MOCK_PLR` adds the `plr` entry (below); no other feature is reported.
+rest of the run; any other consumer frees nothing. `HELIX_MOCK_PRINT_PHOTOS` (below) gives the
+newest history job its photos.
 
 The mock answers the absent case with a JSON-RPC error, which is what Moonraker
 does for an endpoint it has no component for. That distinction is the point: a

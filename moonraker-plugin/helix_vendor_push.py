@@ -8,9 +8,9 @@ poll (a file, a REST bridge) and broadcasts it as
 only when it changed. The payload is what the app's poll reads, unchanged,
 so the app runs the same parse on a push as on a poll.
 
-Design: docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md,
-Phase 11. One module per vendor (helix_vendor_ad5x.py, helix_vendor_ace.py);
-this one holds no vendor knowledge. Python 3.8, stdlib only.
+App side: docs/devel/HELIXPRINT_PLUGIN.md, Vendor State Push. One module per
+vendor (helix_vendor_ad5x.py, helix_vendor_ace.py); this one holds no vendor
+knowledge. Python 3.8, stdlib only.
 """
 
 from __future__ import annotations

@@ -115,7 +115,7 @@ History dashboard with time-range statistics and trend charts, searchable/filter
 Console, macro execution, power device control (with home panel quick-toggle and device selection), print history, notification history with the Printer Events log, and timelapse settings.
 
 ### [HelixPrint Plugin](guide/helixprint-plugin.md)
-The optional add-on for your printer's Moonraker: installing it, what it adds (thumbnails and faster previews, start options for prints from other apps, faster edited prints, Printer Events, safer config saves, power-loss recovery), and how each works without it on an attached or a remote screen.
+The optional add-on for your printer's Moonraker: installing it, what it adds (thumbnails and faster previews, checking that a file fits the printer, start options for prints from other apps, faster edited prints, switching spools at each tool change, Printer Events, print photos, a storage report and cleanup, safer config saves, faster AD5X and ACE updates, power-loss recovery), and how each works without it on an attached or a remote screen.
 
 ### [Beta Features](guide/beta-features.md)
 How to enable beta features, the full beta feature list, and update channel selection.

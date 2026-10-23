@@ -10,8 +10,8 @@ broadcasts its text as the vendor `ad5x` payload, {"file", "content"}, only
 when the text changed. The app applies the content exactly as a poll that
 saw a change.
 
-Design: docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md,
-Phase 11. Python 3.8, stdlib only.
+App side: docs/devel/HELIXPRINT_PLUGIN.md, Vendor State Push. Python 3.8,
+stdlib only.
 """
 
 from __future__ import annotations

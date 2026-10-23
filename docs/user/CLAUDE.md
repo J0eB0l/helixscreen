@@ -29,7 +29,7 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/install-linux-desktop.md` | x86_64 Linux desktop package: the app in a window, per-user install with `--desktop`, connecting to a remote printer, window size, updating, uninstall, running from the tarball |
 | `guide/install-esp32.md` | BigTreeTech K-Touch (ESP32-S3) alpha firmware: browser flasher, esptool install, first-boot hotspot setup, updating, recovery, other ESP32-S3 panels |
 | `guide/home-panel.md` | Home dashboard, printer manager, custom images |
-| `guide/printing.md` | File selection, printing, pausing at a layer, tune overlay, Z-offset |
+| `guide/printing.md` | File selection, printing, the file-fits-printer check, pausing at a layer, tune overlay, Z-offset |
 | `guide/print-monitoring.md` | Pre-print filament checks (empty-slot block, unassigned-tool Color Mismatch, bypass exemption), camera-based failure detection (Snapmaker U1 dialog, Creality K2 AI toggle) |
 | `guide/temperature.md` | Nozzle/bed temperature panels, presets, reassigning preset filament types, graphs, drying filament on the bed, chamber heater diagnostics card |
 | `guide/chamber-heater.md` | Add-on chamber heater setup (BIGTREETECH Panda Breath): network step, stock vs DragonBreath firmware, the Klipper module and config each needs, the Snapmaker U1 menu shortcut, troubleshooting |
@@ -47,12 +47,12 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/settings/touch-input.md` | Touch calibration, debug viz, scroll engage distance, long press, home screen editing, scroll guard, scroll buttons, Android keyboard and navigation bar |
 | `guide/settings/sound.md` | Sounds, volume, UI sounds, sound themes, output device, custom themes, supported hardware, troubleshooting |
 | `guide/settings/printing.md` | Machine limits, motion, retraction, enclosure, multi-filament systems, material temperatures, cold load/unload, post-filament cooldown, tool-change confirmation, timelapse, macro buttons |
-| `guide/settings/devices.md` | Hardware health, camera, fans, sensors, LEDs, power devices, Spoolman |
+| `guide/settings/devices.md` | Hardware health, camera, print photos, fans, sensors, LEDs, power devices, Spoolman (with switching spools at each tool change) |
 | `guide/settings/led-settings.md` | LED strip selection, auto-state, macro devices, setup guides |
-| `guide/settings/safety.md` | Safety & Alerts: E-Stop confirmation, cancel escalation, macro confirmation, spaghetti detection, print completion alert, on-screen alerts |
+| `guide/settings/safety.md` | Safety & Alerts: E-Stop confirmation, cancel escalation, macro confirmation, spaghetti detection, holding slicer prints that do not fit, print completion alert, on-screen alerts |
 | `guide/settings/connection.md` | Network settings, printers, Moonraker host, screen sharing rows (details in guide/screen-sharing.md) |
 | `guide/settings/language-time.md` | Language, timezone, time format |
-| `guide/settings/system.md` | Security, performance, telemetry, log level, restart, factory reset |
+| `guide/settings/system.md` | Security, storage (usage by kind, cleanup, automatic cleanup), performance, telemetry, log level, restart, factory reset |
 | `guide/settings/updates.md` | Update channel, check and install, firmware-managed and can't-update notices |
 | `guide/settings/help-about.md` | Welcome tour, debug bundles, Discord, docs, About (version, system info, print hours, beta features) |
 | `guide/fans.md` | Discovered fans grouped by controllable vs. automatic, live speed dials, RPM readouts, per-fan renaming |
@@ -60,9 +60,9 @@ These docs are **end-user facing**. They must be written for people who are NOT 
 | `guide/security.md` | PIN screen lock, auto-lock tied to display sleep, lock-screen keypad, what a factory reset clears |
 | `guide/screen-sharing.md` | Screen sharing and remote control: Settings rows, opening it in a browser or Mainsail/Fluidd, code pairing vs Moonraker-decided access per printer, the remote-control icon, cost, troubleshooting |
 | `guide/camera.md` | Webcam viewing via the home widget and fullscreen viewer, rotation/flip, stream status, performance throttling |
-| `guide/print-history.md` | History dashboard with time-range statistics and trend charts, searchable job list, per-job details, reprinting |
+| `guide/print-history.md` | History dashboard with time-range statistics and trend charts, searchable job list, per-job details (spools used, camera photos), reprinting |
 | `guide/advanced.md` | Console, macros, power, history, timelapse |
-| `guide/helixprint-plugin.md` | The HelixPrint plugin: what it is, installing it (on the printer's screen or by SSH command from a remote one), each feature with and without it on attached vs remote screens, the Advanced overview, what "Requires the HelixPrint plugin" / "Requires a newer HelixPrint plugin" / "Only while this app is connected" mean |
+| `guide/helixprint-plugin.md` | The HelixPrint plugin: what it is, installing it (on the printer's screen or by SSH command from a remote one), a feature table, each feature (file analysis, the fit check and holding slicer prints, start options, edited prints, spool switching, Printer Events, print photos, storage, config saves, AD5X/ACE updates, power-loss recovery) with and without it on attached vs remote screens, the Advanced overview, what "Requires the HelixPrint plugin" / "Requires a newer HelixPrint plugin" / "Only while this app is connected" mean |
 | `guide/beta-features.md` | Beta activation, feature list, update channels |
 | `guide/tips.md` | Workflow tips, troubleshooting, panel reference |
 | `INSTALL.md` | Installation guide for all platforms |

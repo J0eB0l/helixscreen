@@ -74,7 +74,7 @@ See [Print Monitoring](../print-monitoring.md) for what the detection dialog off
 
 ## Hold slicer prints that do not fit
 
-When your slicer uploads a file and asks the printer to print it, the printer starts it without HelixScreen ever seeing it. This switch lets the **HelixPrint plugin** on your printer check the file first. If the file would move past the printer's travel, heat the nozzle or bed past their limits, or use a tool the printer doesn't have, the file is still uploaded but the print isn't started. Start it from the screen once you have re-sliced it, or ignore it.
+When your slicer uploads a file and asks the printer to print it, the printer starts it without HelixScreen ever seeing it. This switch lets the [HelixPrint plugin](../helixprint-plugin.md) on your printer check the file first. If the file would move past the printer's travel, heat the nozzle or bed past their limits, or use a tool the printer doesn't have, the file is still uploaded but the print isn't started. Start it from the screen once you have re-sliced it, or ignore it.
 
 | Setting | What happens |
 |---------|--------------|
@@ -92,7 +92,7 @@ Which slicer starts are held: only an upload that asks for the print in the same
 - While the printer is already printing, nothing waits. A file the plugin has already read is checked and, if it doesn't fit, isn't queued. A file it hasn't read yet is queued unchecked, as it would be without the switch, and starts later without a check.
 - A file that is printing right now, or already waits in the job queue, is never started or queued a second time, even if the slicer sends it twice. Uploading the same name again after its print has finished starts it as usual.
 - The plugin can't see the extra tools a filament system adds, so this switch doesn't hold a print for its tool count. The screen still checks it when you start the file there: a file using a tool past the printer's extruders is blocked, and one past a count only its tool macros give is a warning with **Start Anyway**.
-- Without the HelixPrint plugin the switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button: only the plugin sees a slicer's print. Prints you start from the screen are checked either way; see [Does the file fit this printer?](../printing.md#does-the-file-fit-this-printer).
+- Without the [HelixPrint plugin](../helixprint-plugin.md) the switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button: only the plugin sees a slicer's print. Prints you start from the screen are checked either way; see [Does the file fit this printer?](../printing.md#does-the-file-fit-this-printer).
 
 ---
 

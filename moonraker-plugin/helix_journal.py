@@ -3,8 +3,7 @@
 Printer event journal: the HelixPrint plugin's record of what happened to the
 printer, kept whichever client was connected at the time.
 
-Design: docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md,
-Phase 6.
+App side and fallback: docs/devel/HELIXPRINT_PLUGIN.md, Printer Event Journal.
 
 Each entry carries a wall-clock time and the job that was active: klippy
 shutdown (with its state_message), disconnect and ready, MCU disconnect,

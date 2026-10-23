@@ -97,7 +97,7 @@ Welcome to the HelixScreen documentation. Choose your path:
 | [**Printer Manager**](devel/PRINTER_MANAGER.md) | Printer overlay, custom images, inline editing |
 | [**Timelapse**](devel/TIMELAPSE.md) | Moonraker timelapse plugin integration |
 | [**Crash Reporter**](devel/CRASH_REPORTER.md) | Crash detection, delivery pipeline, CF Worker |
-| [**HelixPrint Plugin**](devel/HELIXPRINT_PLUGIN.md) | The Moonraker plugin and the app: feature framework, plugin-vs-fallback decisions, settings placement, the Lua allowlist, file analysis, print hooks, server edits, event journal, config edit |
+| [**HelixPrint Plugin**](devel/HELIXPRINT_PLUGIN.md) | The Moonraker plugin and the app: feature framework, plugin-vs-fallback decisions, settings placement, the Lua allowlist, file analysis, fit check, print hooks, server edits, filament accounting, event journal, photos, storage, config edit, vendor push |
 | [**HelixPrint Plugin API**](../moonraker-plugin/README.md) | Plugin reference: install, configuration, every server/helix endpoint and record |
 
 ### Platform Support

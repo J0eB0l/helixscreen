@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """
-File analysis on upload (Phase 1 of
-docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md).
+File analysis on upload. How the app uses it: docs/devel/HELIXPRINT_PLUGIN.md,
+File Analysis.
 
 Every G-code file under gcodes gets one analysis record, written in the
 background after it appears or changes and kept in the `helix_analysis`

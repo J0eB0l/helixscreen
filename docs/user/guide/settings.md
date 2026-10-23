@@ -23,8 +23,8 @@ Tap the **gear icon** in the navigation bar to open Settings. It's a single list
 |------|--------------|
 | [Printer](home-panel.md#printer-manager) | Opens the Printer Manager: the printer's name, its picture, the model HelixScreen recorded, software versions, detected hardware, and Manage Printers. The same screen opens when you tap the printer picture on the Home screen |
 | [Printing](settings/printing.md) | Machine limits, motion, retraction, enclosure, filament system, material temperatures, cold load and unload, cooling the nozzle after a filament change, confirming tool changes, timelapse, macro buttons |
-| [Devices](settings/devices.md) | Hardware health, camera, fans, sensors, [LED settings](settings/led-settings.md), power devices, Spoolman (with label printer and barcode scanner) |
-| [Safety & Alerts](settings/safety.md) | E-Stop confirmation, cancel escalation, macro confirmation, spaghetti detection, print completion alert, on-screen alerts |
+| [Devices](settings/devices.md) | Hardware health, camera, print photos, fans, sensors, [LED settings](settings/led-settings.md), power devices, Spoolman (with spool switching, label printer and barcode scanner) |
+| [Safety & Alerts](settings/safety.md) | E-Stop confirmation, cancel escalation, macro confirmation, spaghetti detection, holding slicer prints that do not fit, print completion alert, on-screen alerts |
 | [Connection](settings/connection.md) | Wi-Fi and Ethernet, your printers, the Moonraker address |
 
 **HelixScreen** is about the app itself.
@@ -34,7 +34,7 @@ Tap the **gear icon** in the navigation bar to open Settings. It's a single list
 | Page | What's in it |
 |------|--------------|
 | [Language & Time](settings/language-time.md) | Language, timezone, 12 or 24-hour clock |
-| [System](settings/system.md) | Screen lock PIN, performance, usage data, log level, restart, factory reset |
+| [System](settings/system.md) | Screen lock PIN, storage, performance, usage data, log level, restart, factory reset |
 | [Updates](settings/updates.md) | Update channel, checking for and installing updates. Shows a note instead when your firmware handles updates |
 | [Help & About](settings/help-about.md) | Welcome tour, debug bundles, Discord, documentation, and About (versions, system details, print hours) |
 

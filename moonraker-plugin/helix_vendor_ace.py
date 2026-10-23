@@ -17,8 +17,8 @@ A printer whose ACE object carries slots is read by subscription and has
 nothing to push, so the feature reports itself unavailable there, and no
 read is made until Klipper's objects say which kind of printer this is.
 
-Design: docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md,
-Phase 11. Python 3.8, stdlib only.
+App side: docs/devel/HELIXPRINT_PLUGIN.md, Vendor State Push. Python 3.8,
+stdlib only.
 """
 
 from __future__ import annotations

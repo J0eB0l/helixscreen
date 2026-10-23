@@ -53,7 +53,7 @@ In OrcaSlicer:
 
 Once connected, OrcaSlicer's **Print** button uploads the sliced file and (optionally) starts it. The file appears in HelixScreen's file browser like any other, and you can also start it from the touchscreen.
 
-> **A print that doesn't fit:** with the HelixPrint plugin installed you can have the printer refuse to start an uploaded file that would move past its travel or heat past its limits. See [Hold slicer prints that do not fit](settings/safety.md#hold-slicer-prints-that-do-not-fit).
+> **A print that doesn't fit:** with the [HelixPrint plugin](helixprint-plugin.md) installed you can have the printer refuse to start an uploaded file that would move past its travel or heat past its limits. See [Hold slicer prints that do not fit](settings/safety.md#hold-slicer-prints-that-do-not-fit).
 
 > **Older OrcaSlicer (2.3.x):** the native Moonraker option isn't available. Either upgrade to 2.4.0+, use the older **Octo (Klipper)** host type, or just export the G-code and copy it through Mainsail/Fluidd.
 
@@ -142,7 +142,7 @@ When you open a file, HelixScreen compares it with your printer's own limits and
 
 A blocked file shows **File Does Not Fit This Printer**, naming each problem; re-slice it with a profile made for this printer. A nozzle mismatch alone shows **Sliced for a Different Setup**.
 
-How much HelixScreen can see depends on whether the **HelixPrint plugin** is installed:
+How much HelixScreen can see depends on whether the [HelixPrint plugin](helixprint-plugin.md) is installed:
 
 - **With the plugin**, the printer reads the whole file when it's uploaded, so every move, temperature and tool is checked, including the purge line and wipe tower.
 - **Without it**, the screen reads the start of the file and its slicer details for temperatures, nozzle and printer model, and takes the travel from the 3D or 2D preview once that has loaded. The preview covers the part itself, not the purge line or wipe tower, and a file whose preview hasn't loaded (or a screen that shows thumbnails only) is not checked for travel.

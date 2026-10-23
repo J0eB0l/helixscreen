@@ -71,7 +71,7 @@ Tap a job to open its detail view, which shows:
 - Layer count and layer height
 - Nozzle and bed temperatures
 - Filament used and filament type
-- **Spools**: which spool each tool or slot used and how much, for prints counted by the HelixPrint plugin's spool switching (see [Settings > Devices > Spoolman](settings/devices.md#switch-spools-at-each-tool-change))
+- **Spools**: which spool each tool or slot used and how much, for prints counted by the [HelixPrint plugin](helixprint-plugin.md#switch-spools-at-each-tool-change)'s spool switching (see [Settings > Devices > Spoolman](settings/devices.md#switch-spools-at-each-tool-change))
 - A thumbnail, when one is available
 - Camera photos, when the print has them: one taken after layer 2 and one when it ended. The picture area opens on the end photo; the **Preview**, **Layer 2** and **End** buttons at its top switch between the slicer thumbnail and the photos. See Settings > Devices > [Print photos](settings/devices.md#print-photos) for how they are taken.
 
