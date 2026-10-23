@@ -1,9 +1,13 @@
 # XML bindings the desktop registers and the ESP32 firmware does not.
 # Accepted debt, shrink-only: register the name on the firmware, then
 # re-run scripts/check_esp32_xml_bindings.py with --write-baseline.
+callback:belt_names_layout_cb
 callback:belt_retest_menu_a_cb
 callback:belt_retest_menu_b_cb
 callback:belt_tension_help_cb
+callback:belt_tension_identify_a_cb
+callback:belt_tension_identify_b_cb
+callback:belt_tension_names_cb
 callback:belt_tension_retest_a_cb
 callback:belt_tension_retest_b_cb
 callback:belt_tension_retest_menu_cb
@@ -231,8 +235,12 @@ subject:bt_has_unpaired
 subject:bt_hw_accel
 subject:bt_hw_kinematics
 subject:bt_hw_sweep
+subject:bt_identify_state
+subject:bt_identify_status
 subject:bt_note_a
 subject:bt_note_b
+subject:bt_path_a_name
+subject:bt_path_b_name
 subject:bt_run_detail
 subject:bt_run_title
 subject:bt_running_path
@@ -268,6 +276,7 @@ subject:bt_tune_round
 subject:bt_tune_severity
 subject:bt_tune_shape_warning
 subject:bt_tune_swap_label
+subject:bt_tune_tensioner
 subject:bt_tune_unrepeatable
 subject:bt_tune_zone
 subject:bt_unpaired

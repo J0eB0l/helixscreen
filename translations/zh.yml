@@ -151,6 +151,8 @@ translations:
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: '打印机上已设置热浸(heat soak)宏。HelixScreen 会检测到它,但不会运行。'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: '为腔体内空气加热的加热器。在腔体温度界面设置温度。'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Klipper 用来补偿热床不平整的高度图。在热床网格界面查看和校准。'
+  A left, B right: "A 左,B 右"
+  A lower, B upper: "A 下,B 上"
   "A macro printed stray template text '{}': check its Jinja tags": "宏输出了多余的模板文本 '{}'：请检查其 Jinja 标签"
   A macro that wipes the nozzle. HelixScreen can run it before a print from the pre-print options.: '用于擦拭喷嘴的宏。HelixScreen 可在打印前通过打印前选项运行它。'
   A motor IO pin couldn't be restored. Power-cycle the printer to recover: 无法恢复电机 IO 引脚。请重新为打印机上电以恢复
@@ -163,6 +165,7 @@ translations:
   A print is running. Apply the result after it ends.: 正在打印。请在打印结束后应用结果。
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: "在料盘仍标记为放在热床上时开始了打印。如果料盘还在，请立即用紧急停止停下打印机。"
   A restart is already in progress: 重启正在进行中
+  A right, B left: "A 右,B 左"
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : '测量到热床距离的传感器。HelixScreen 用它进行 Z 偏移校准,并在探针界面进行探针测试。'
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: '读取腔体内空气温度的传感器。在腔体温度界面查看。'
@@ -170,7 +173,7 @@ translations:
   ? A system that feeds several filaments to the toolhead, shown with its slot count. Manage the slots on the filament system screen.
   : '向工具头供应多种耗材的系统,显示槽位数量。在耗材系统界面管理槽位。'
   A toolhead offset calibration is in progress, possibly from another screen. End it now?: '工具头偏移校准正在进行，可能来自另一个屏幕。现在结束吗?'
-  A · 1,-1: "A · 1,-1"
+  A upper, B lower: "A 上,B 下"
   ABS: ABS
   ACCELEROMETERS: 加速度计
   'ACCEPT failed: {}': 'ACCEPT 失败: {}'
@@ -241,7 +244,7 @@ translations:
   'Adds to:': '添加到:'
   Adjust screen brightness level: 调整屏幕亮度
   Adjust screws, then re-probe.: 调整螺丝，然后重新探测。
-  Adjust {} instead: "改为调整 {}"
+  Adjust {}: "调整 {}"
   Adjustments stay active until restart. Save after print completes.: 调整在重启前保持有效。打印完成后保存。
   Adjusts individual characteristics of your heaters for optimal control: 调整加热器的各项参数以实现最佳控制
   Advanced: 高级
@@ -349,7 +352,6 @@ translations:
   Average: 平均值
   Axis Rows: '按轴分行'
   Axis limits unknown: 轴限位未知
-  B · 1,1: "B · 1,1"
   BACK: 后侧
   BEACON: BEACON
   BETA: 测试版
@@ -1768,6 +1770,8 @@ translations:
   'IP:': IP：
   'IPP error: {}': 'IPP 错误: {}'
   Icon: 图标
+  Identify: "识别"
+  'Identify failed: {}': "识别失败：{}"
   Idle: 空闲
   If Moonraker is local or your screen is attached to the printer directly, we'll connect automatically: 如果
     Moonraker 在本地或屏幕直接连接到打印机，将自动连接
@@ -1974,6 +1978,7 @@ translations:
   Leave it: '保持不变'
   LedSelect: 选择 LED
   Left: '左'
+  Left belt: "左皮带"
   Length of filament to purge: '要排出的耗材长度'
   Length of the cooling tube section: '冷却管段的长度'
   'Length:': 长度：
@@ -2062,6 +2067,7 @@ translations:
   Lot/Batch Nr: 批次号
   Low Memory: 内存不足
   Lower: 降低
+  Lower belt: "下皮带"
   Lower the nozzle until it just touches the top of the print, then resume.: 降低喷嘴，直到刚好接触打印件顶部，然后恢复。
   Lowest notification level that interrupts with a toast: '以浮层提醒打断的最低通知级别'
   M to toggle: 按 M 切换
@@ -2176,10 +2182,10 @@ translations:
   Measures the bed at each adjustment screw and says how far to turn it. Run it on the Screws Tilt screen.: '在每个调节螺丝处测量热床,并告诉你该拧多少。在螺丝倾斜界面运行。'
   Measures vibration for input shaping. Run resonance tests on the Input Shaper screen.: '测量振动以进行输入整形。在输入整形器界面运行共振测试。'
   Measuring: '测量中'
-  Measuring Path {}: 正在测量路径 {}
   Measuring accelerometer noise...: '正在测量加速度计噪声...'
   Measuring vibrations... {}%: '正在测量振动... {}%'
   Measuring wheel error: 计量轮错误
+  Measuring {}: "正在测量 {}"
   Measuring {}...: 正在测量{}...
   Measuring...: '测量中...'
   Memory: 内存
@@ -2450,6 +2456,8 @@ translations:
   Nothing to remap: 没有可重新映射的内容
   Nothing to tune here: "这里没有需要调整的"
   'Nothing to unload: no filament at the nozzle': '没有可卸载的耗材: 喷嘴处没有耗材'
+  Which belt is each path?: "每条路径是哪条皮带?"
+  Which belt is which?: "哪条皮带是哪条?"
   'Which lane is in the toolhead?': '哪个料道在打印头里？'
   'Choose which lane is in the toolhead to unload it': '请选择打印头里的料道以卸载'
   Nothing was changed. Temperature and material are kept, so a retry is one tap.: '没有更改任何内容。温度和材料保持不变，重试只需轻点一下。'
@@ -2513,8 +2521,7 @@ translations:
   ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
   : '每天一次，删除超过一周的打印副本和超过一个月的日志。您的文件、照片和延时摄影视频会保留。'
   One tap runs this macro. Dangerous macros still ask.: '单击即可运行此宏。危险宏仍会询问。'
-  'Only on A: {} Hz': "仅 A：{} Hz"
-  'Only on B: {} Hz': "仅 B：{} Hz"
+  'Only on {0}: {1} Hz': "仅 {0}：{1} Hz"
   Only while this app is connected. Install the HelixPrint plugin to cover every print.: '仅在此应用连接时生效。安装 HelixPrint 插件以覆盖所有打印。'
   Only while this app is connected. Update the HelixPrint plugin to cover every print.: '仅在此应用连接时生效。更新 HelixPrint 插件以覆盖所有打印。'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
@@ -2556,8 +2563,6 @@ translations:
   P: 件
   PA: PA
   PA Calibration: 'PA 校准'
-  PATH A · 1,-1: "路径 A · 1,-1"
-  PATH B · 1,1: "路径 B · 1,1"
   PAUSED: 已暂停
   PETG: PETG
   PID: PID
@@ -2602,14 +2607,8 @@ translations:
   Password: 密码
   Password cannot be empty: 密码不能为空
   Password is required for secured networks: 加密网络需要密码
-  Path A tensioner: "路径 A 张紧器"
-  Path B tensioner: "路径 B 张紧器"
-  ? Path {0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.
-  : "路径 {0} 在 {2:.0f} Hz 处的共振远强于 {1}。这说明是机械差异(同步轮顶丝、惰轮轴承、皮带走向),而不是张力。"
-  Path {0}'s peak left the zone. Check that only Path {1}'s tensioner was turned.: "路径 {0} 的峰离开了区间。请确认只转动了路径 {1} 的张紧器。"
-  Path {}: 路径 {}
-  Path {} before: 路径 {}（之前）
-  Path {} earlier round: "路径 {} 上一轮"
+  Path A: "路径 A"
+  Path B: "路径 B"
   Pause: 暂停
   Pause Layer: '暂停层'
   Pause at Layer: '在指定层暂停'
@@ -2950,15 +2949,13 @@ translations:
   Re-identify: 重新识别
   Re-measure: '重新测量'
   Re-measure (~{} min): "重新测量(约 {} 分钟)"
-  Re-measuring Path {}: 正在重新测量路径 {}
+  Re-measuring {}: "正在重新测量 {}"
   Re-probe: 重新探测
   Re-read spool RFID tags and remaining length: '重新读取料盘 RFID 标签与剩余长度'
   Re-seat the Bowden tube connector on the CFS unit: 请重新插紧 CFS 单元上的鲍登管接头
   Re-slice the file with a profile made for this printer.: '请使用为此打印机制作的配置重新切片。'
   Re-syncs Happy Hare's tracked state with the hardware.: 将 Happy Hare 跟踪的状态与硬件重新同步。
   Re-test: 重新测试
-  Re-test A: 重新测试 A
-  Re-test B: 重新测试 B
   Reaches {:g} mm from the center, past this printer's {:g} mm radius.: '距中心 {:g} mm，超出此打印机 {:g} mm 的半径。'
   Readings don't repeat: "读数无法重复"
   Readings from extra temperature sensors: 额外温度传感器的读数
@@ -3151,6 +3148,7 @@ translations:
   Review your configuration below, then click Finish to save: 请检查以下配置，然后点击完成以保存
   Rewinding: 回卷中
   Right: '右'
+  Right belt: "右皮带"
   'Role:': 角色：
   Rotate: 旋转
   Rotating tips for using your printer: 轮播的打印机使用提示
@@ -3759,8 +3757,8 @@ translations:
   The filament system needs attention: '耗材系统需要处理'
   The filament system reported an error: 耗材系统报告错误
   The gap didn't close (moved {:.1f} Hz). Try a bigger turn.: "差距没有缩小(移动了 {:.1f} Hz)。请转得更多一些。"
-  The gap grew after loosening {0}. Check you turned Path {0}'s tensioner.: "放松 {0} 后差距变大了。请确认转动的是路径 {0} 的张紧器。"
-  The gap grew after tightening {0}. Check you turned Path {0}'s tensioner.: "拉紧 {0} 后差距变大了。请确认转动的是路径 {0} 的张紧器。"
+  The gap grew after loosening {0}. Check you turned {0}'s tensioner.: "放松 {0} 后差距变大了。请确认转动的是 {0} 的张紧器。"
+  The gap grew after tightening {0}. Check you turned {0}'s tensioner.: "拉紧 {0} 后差距变大了。请确认转动的是 {0} 的张紧器。"
   The gap is not closing. Something besides tension may be shaping it.: "差距没有缩小。可能有张力以外的因素在影响。"
   The heated bed and enclosure can dry spools placed on the bed. Start a cycle from the bed drying dialog.: '热床和机箱可以烘干放在热床上的料盘。在热床烘干对话框中启动周期。'
   The heater can't be changed while the printer is waiting.: '打印机等待期间无法更改加热器。'
@@ -4182,6 +4180,7 @@ translations:
   Upload Failed: 上传失败
   Upload gcode files to get started: 上传 gcode 文件开始使用
   Upload unavailable in this build: 此构建版本无法上传
+  Upper belt: "上皮带"
   Uptime: 运行时长
   Use Android native keyboard for text input: 使用 Android 原生键盘进行文本输入
   Use G10/G11 firmware retraction: 使用 G10/G11 固件回抽
@@ -4240,6 +4239,7 @@ translations:
   Wait for the current filament operation to finish: 请等待当前耗材操作完成
   Wait for the current operation to complete: 请等待当前操作完成
   Wait for the current operation to complete or cancel it first: 请等待当前操作完成，或先将其取消
+  Wait for the motor to stop: "请等待电机停止"
   Wait for the nozzle to stop moving: 请等待喷嘴停止移动
   Wait for the running INDX operation to finish: 请等待正在进行的INDX操作完成
   Wait until the print finishes: 请等待打印完成
@@ -4260,6 +4260,7 @@ translations:
   Warning: 警告
   Warnings & errors: '警告与错误'
   Watch the camera during a print for failed prints: 打印期间监视摄像头以发现打印失败
+  Watch which motor turns: "看看哪个电机在转动"
   Weak battery: 电池电量低
   Webcam: 摄像头
   Website (optional): 网站（可选）
@@ -4480,6 +4481,10 @@ translations:
   target {}%: '目标 {}%'
   target {}°: '目标 {}°'
   the extruder: 挤出机
+  the left belt: "左皮带"
+  the lower belt: "下皮带"
+  the right belt: "右皮带"
+  the upper belt: "上皮带"
   this week: 本周
   too slow: 太慢
   tool(s): 工具
@@ -4493,6 +4498,10 @@ translations:
   within one bin: "在一个频点内"
   wpa_supplicant is not running. WiFi features unavailable.: wpa_supplicant 未运行。WiFi 功能不可用。
   you have: 您有
+  ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
+  : "{0} 在 {2:.0f} Hz 处的共振远强于 {1}。这说明是机械差异(同步轮顶丝、惰轮轴承、皮带走向),而不是张力。"
+  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
+  : "{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?在结果页点按皮带名称,让对应电机振动。"
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · 约 {} 分钟'
   '{} ({})': '{}（{}）'
   '{} Extruders': '{} 个挤出机'
@@ -4541,7 +4550,7 @@ translations:
   "{} isn't loaded. The print will pause when it needs it.": '{}未装载。打印需要时将暂停。'
   '{} kept crashing the panel; pick a printer to connect': '{} 反复导致屏幕崩溃，请选择要连接的打印机'
   '{} linked to Spoolman spool #{} from its tag': '已通过标签将 {} 关联到 Spoolman 料盘 #{}'
-  '{} looser than {}': "{} 比 {} 松"
+  '{} looser': "{} 更松"
   '{} m': '{} 米'
   '{} macro not configured': '{} 宏未配置'
   '{} matches.': '{} 匹配。'
@@ -4567,7 +4576,8 @@ translations:
   '{} spool cleared': '{} 料盘已清除'
   '{} started': '已开始{}'
   '{} target set to {}°C': '{} 目标已设为 {}°C'
-  '{} tighter than {}': "{} 比 {} 紧"
+  '{} tensioner': "{} 张紧器"
+  '{} tighter': "{} 更紧"
   '{} turn': "{} 圈"
   '{} turns': "{} 圈"
   '{} updated': '{} 已更新'
@@ -4578,6 +4588,7 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — 响应超时'
   '{} → {}: no filament loaded.': '{} → {}: 未加载耗材。'
+  "{}'s motor is buzzing": "{} 的电机正在振动"
   "{}'s peak moved out of the zone. Widening it.": "{} 的峰移出了区间。正在扩大区间。"
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}：标签指定的 Spoolman 料盘 #{} 不存在'
   '{}:{:02} elapsed': 已用时 {}:{:02}

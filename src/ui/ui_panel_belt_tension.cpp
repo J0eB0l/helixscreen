@@ -4,6 +4,7 @@
 #include "ui_panel_belt_tension.h"
 
 #include "ui_belt_gap_gauge.h"
+#include "ui_belt_path_names.h"
 #include "ui_callback_helpers.h"
 #include "ui_frequency_response_chart.h"
 #include "ui_modal.h"
@@ -16,10 +17,12 @@
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
 #include "memory_utils.h"
+#include "observe_language.h"
 #include "observer_factory.h"
 #include "printer_detector.h"
 #include "printer_state.h"
 #include "resonance_console.h"
+#include "settings_manager.h"
 #include "static_panel_registry.h"
 #include "static_subject_registry.h"
 #include "theme_manager.h"
@@ -47,8 +50,19 @@ BeltPath path_at(int index) {
     return index == 0 ? BeltPath::PATH_A : BeltPath::PATH_B;
 }
 
+/// The path's letter, for logs. Screens name a path through helix::ui::belt_path_name().
 char path_letter(BeltPath path) {
     return path == BeltPath::PATH_A ? 'A' : 'B';
+}
+
+/// "Path A" / "Left belt": labels and the start of a sentence.
+std::string path_title(BeltPath path) {
+    return helix::ui::belt_path_name(path).title;
+}
+
+/// "Path A" / "the left belt": inside a sentence.
+std::string path_phrase(BeltPath path) {
+    return helix::ui::belt_path_name(path).phrase;
 }
 
 BeltPath other_path(BeltPath path) {
@@ -110,6 +124,8 @@ BeltTensionPanel::~BeltTensionPanel() {
     connected_observer_.reset();
     klippy_observer_.reset();
     max_velocity_observer_.reset();
+    belt_layout_observer_.reset();
+    language_observer_.reset();
     gate_observers_wired_ = false;
 
     if (subjects_initialized_) {
@@ -171,6 +187,16 @@ void ui_panel_belt_tension_register_callbacks() {
              get_global_belt_tension_panel().handle_retest_menu_clicked(
                  static_cast<lv_obj_t*>(lv_event_get_current_target(e)));
          }},
+        {"belt_tension_names_cb",
+         [](lv_event_t* /*e*/) { get_global_belt_tension_panel().handle_names_clicked(); }},
+        {"belt_tension_identify_a_cb",
+         [](lv_event_t* /*e*/) {
+             get_global_belt_tension_panel().handle_identify_clicked(calibration::BeltPath::PATH_A);
+         }},
+        {"belt_tension_identify_b_cb",
+         [](lv_event_t* /*e*/) {
+             get_global_belt_tension_panel().handle_identify_clicked(calibration::BeltPath::PATH_B);
+         }},
         {"belt_tension_tune_cb",
          [](lv_event_t* /*e*/) { get_global_belt_tension_panel().handle_tune_clicked(); }},
         {"belt_tension_tune_measure_cb",
@@ -225,6 +251,7 @@ void ui_panel_belt_tension_register_callbacks() {
          }},
     });
     helix::ui::BeltRetestMenu::register_callbacks();
+    helix::ui::BeltNamesModal::register_callbacks();
 
     // Initialize subjects BEFORE XML creation
     auto& panel = get_global_belt_tension_panel();
@@ -261,6 +288,15 @@ void BeltTensionPanel::init_subjects() {
     UI_MANAGED_SUBJECT_STRING(run_title_subject_, run_title_buf_, "", "bt_run_title", subjects_);
     UI_MANAGED_SUBJECT_STRING(run_detail_subject_, run_detail_buf_, "", "bt_run_detail", subjects_);
     UI_MANAGED_SUBJECT_INT(running_path_subject_, 0, "bt_running_path", subjects_);
+
+    // Path names
+    UI_MANAGED_SUBJECT_STRING(path_a_name_subject_, path_a_name_buf_, "", "bt_path_a_name",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(path_b_name_subject_, path_b_name_buf_, "", "bt_path_b_name",
+                              subjects_);
+    UI_MANAGED_SUBJECT_INT(identify_state_subject_, 0, "bt_identify_state", subjects_);
+    UI_MANAGED_SUBJECT_STRING(identify_status_subject_, identify_status_buf_, "",
+                              "bt_identify_status", subjects_);
 
     // Results
     UI_MANAGED_SUBJECT_STRING(note_a_subject_, note_a_buf_, "", "bt_note_a", subjects_);
@@ -317,6 +353,8 @@ void BeltTensionPanel::init_subjects() {
                               "bt_tune_measure_short_label", subjects_);
     UI_MANAGED_SUBJECT_STRING(tune_swap_label_subject_, tune_swap_label_buf_, "",
                               "bt_tune_swap_label", subjects_);
+    UI_MANAGED_SUBJECT_STRING(tune_tensioner_subject_, tune_tensioner_buf_, "", "bt_tune_tensioner",
+                              subjects_);
     UI_MANAGED_SUBJECT_STRING(tune_measure_label_subject_, tune_measure_label_buf_, "",
                               "bt_tune_measure_label", subjects_);
     UI_MANAGED_SUBJECT_STRING(tune_confirm_label_subject_, tune_confirm_label_buf_, "",
@@ -325,6 +363,7 @@ void BeltTensionPanel::init_subjects() {
                               "bt_tune_next_zone_label", subjects_);
 
     subjects_initialized_ = true;
+    refresh_names();
 
     // Subject deinit runs after StaticPanelRegistry::destroy_all() has freed the
     // panel (its destructor deinits these subjects), so the hook peeks rather
@@ -350,6 +389,8 @@ void BeltTensionPanel::deinit_subjects() {
     connected_observer_.reset();
     klippy_observer_.reset();
     max_velocity_observer_.reset();
+    belt_layout_observer_.reset();
+    language_observer_.reset();
     gate_observers_wired_ = false;
 
     if (subjects_initialized_) {
@@ -475,6 +516,17 @@ void BeltTensionPanel::on_activate() {
             },
             subject_never_freed());
     }
+    // The names follow the active printer's saved layout, and the language.
+    auto& settings = SettingsManager::instance();
+    if (settings.are_subjects_initialized()) {
+        belt_layout_observer_ = helix::ui::observe<int>(
+            settings.subject_belt_layout(), this,
+            [](BeltTensionPanel* self, int) { self->refresh_names(); },
+            settings.get_subjects_lifetime());
+    }
+    language_observer_ = helix::ui::observe_language_change(
+        this, [](BeltTensionPanel* self) { self->refresh_names(); });
+    refresh_names();
     probe_klippy_socket();
     query_hw_facts();
     start_hardware_detection();
@@ -512,6 +564,8 @@ void BeltTensionPanel::on_deactivating(DeactivateReason reason) {
     // The dialog's answer is owned by lifetime_, which every deactivation
     // expires: left up, Continue would close it and start nothing.
     hide_low_ram_dialog();
+    // Left up, Identify would buzz a motor with no belt UI on screen.
+    hide_names_dialog();
 
     // An idle screen is not a walk-away. A sweep means nobody is touching the
     // screen, so the screensaver lands mid-measurement; the run has to survive
@@ -523,6 +577,8 @@ void BeltTensionPanel::on_deactivating(DeactivateReason reason) {
     suspended_ = false;
     theme_observer_.reset();
     ultrawide_observer_.reset();
+    belt_layout_observer_.reset();
+    language_observer_.reset();
 
     // A rebuild frees the whole widget tree without firing on_ui_destroyed(),
     // and the chart's object is a child of a host inside that tree. Drop it
@@ -561,7 +617,10 @@ void BeltTensionPanel::cleanup() {
     max_velocity_observer_.reset();
     theme_observer_.reset();
     ultrawide_observer_.reset();
+    belt_layout_observer_.reset();
+    language_observer_.reset();
     gate_observers_wired_ = false;
+    hide_names_dialog();
 
     destroy_chart();
 
@@ -746,6 +805,78 @@ void BeltTensionPanel::hide_low_ram_dialog() {
 void BeltTensionPanel::hide_retest_menu() {
     retest_menu_.set_action_callback(nullptr);
     retest_menu_.hide();
+}
+
+// ============================================================================
+// WHICH BELT IS WHICH
+// ============================================================================
+
+void BeltTensionPanel::handle_names_clicked() {
+    if (names_modal_.is_visible()) {
+        return;
+    }
+    set_identify_status(0, "");
+    names_modal_.show(lv_screen_active());
+}
+
+void BeltTensionPanel::hide_names_dialog() {
+    if (names_modal_.is_visible()) {
+        names_modal_.hide();
+    }
+}
+
+void BeltTensionPanel::set_identify_status(int state, const std::string& text) {
+    if (!subjects_initialized_) {
+        return;
+    }
+    snprintf(identify_status_buf_, sizeof(identify_status_buf_), "%s", text.c_str());
+    lv_subject_copy_string(&identify_status_subject_, identify_status_buf_);
+    lv_subject_set_int(&identify_state_subject_, state);
+}
+
+void BeltTensionPanel::handle_identify_clicked(helix::calibration::BeltPath path) {
+    spdlog::info("[BeltTension] Identify clicked for path {}", path_letter(path));
+    // Start's gate covers a buzz too: the calibrator reads busy while a sweep
+    // or another buzz runs, which closes it.
+    if (measuring() || !gate_allows_sweep("Identify") || !calibrator_) {
+        return;
+    }
+    set_identify_status(
+        1, fmt::format(fmt::runtime(lv_tr("{}'s motor is buzzing")), path_title(path)));
+    calibrator_->buzz_path(
+        path,
+        [this]() {
+            set_identify_status(0, "");
+            refresh_gate();
+        },
+        [this](const std::string& message) {
+            set_identify_status(2,
+                                fmt::format(fmt::runtime(lv_tr("Identify failed: {}")), message));
+            refresh_gate();
+        });
+    refresh_gate();
+}
+
+void BeltTensionPanel::refresh_names() {
+    if (!subjects_initialized_) {
+        return;
+    }
+    const auto a = helix::ui::belt_path_name(BeltPath::PATH_A);
+    const auto b = helix::ui::belt_path_name(BeltPath::PATH_B);
+    lv_subject_copy_string(&path_a_name_subject_, a.title.c_str());
+    lv_subject_copy_string(&path_b_name_subject_, b.title.c_str());
+
+    if (last_cmp_.valid) {
+        refresh_unpaired(last_cmp_);
+    }
+    refresh_run_title();
+    refresh_tune();
+    if (overlay_root_) {
+        // The sketch is drawn, not bound: it reads bt_path_*_name as it draws.
+        if (lv_obj_t* sketch = lv_obj_find_by_name(overlay_root_, "bt_sketch")) {
+            lv_obj_invalidate(sketch);
+        }
+    }
 }
 
 bool BeltTensionPanel::gate_allows_sweep(const char* action) {
@@ -996,11 +1127,7 @@ void BeltTensionPanel::start_next_measurement() {
     const auto path = queue_.front();
     const int idx = path_index(path);
     lv_subject_set_int(&running_path_subject_, idx);
-    // A single-path run is a re-test: the path already has a result.
-    const char* title =
-        run_queue_total_ == 1 ? lv_tr("Re-measuring Path {}") : lv_tr("Measuring Path {}");
-    lv_subject_copy_string(&run_title_subject_,
-                           fmt::format(fmt::runtime(title), static_cast<char>('A' + idx)).c_str());
+    refresh_run_title();
     refresh_run_detail();
     refresh_notes();
 
@@ -1173,8 +1300,22 @@ void BeltTensionPanel::populate_results(const helix::calibration::BeltComparison
     snprintf(facts_buf_, sizeof(facts_buf_), "%s", facts.c_str());
     lv_subject_copy_string(&facts_subject_, facts_buf_);
 
+    refresh_unpaired(cmp);
+
+    lv_subject_copy_string(&tune_cta_subject_,
+                           cmp.verdict == helix::calibration::BeltVerdict::MATCHED
+                               ? lv_tr("Fine-tune")
+                               : lv_tr("Tune Belts"));
+
+    push_chart_markers(cmp);
+    refresh_notes();
+    refresh_similarity_was();
+    push_chart_data();
+}
+
+void BeltTensionPanel::refresh_unpaired(const helix::calibration::BeltComparison& cmp) {
     // Unpaired peaks, the strongest few per path, in frequency order:
-    // "Only on A: 120, 129 Hz".
+    // "Only on Path A: 120, 129 Hz".
     const auto listed = [](std::vector<helix::calibration::BeltPeak> peaks) {
         std::sort(peaks.begin(), peaks.end(),
                   [](const auto& l, const auto& r) { return l.amplitude > r.amplitude; });
@@ -1196,25 +1337,17 @@ void BeltTensionPanel::populate_results(const helix::calibration::BeltComparison
     const auto only_b = listed(cmp.peaks.unpaired_b);
     std::string unpaired;
     if (!only_a.empty()) {
-        unpaired = fmt::format(fmt::runtime(lv_tr("Only on A: {} Hz")), join_freqs(only_a));
+        unpaired = fmt::format(fmt::runtime(lv_tr("Only on {0}: {1} Hz")),
+                               path_phrase(BeltPath::PATH_A), join_freqs(only_a));
     }
     if (!only_b.empty()) {
         unpaired += (unpaired.empty() ? "" : " · ") +
-                    fmt::format(fmt::runtime(lv_tr("Only on B: {} Hz")), join_freqs(only_b));
+                    fmt::format(fmt::runtime(lv_tr("Only on {0}: {1} Hz")),
+                                path_phrase(BeltPath::PATH_B), join_freqs(only_b));
     }
     snprintf(unpaired_buf_, sizeof(unpaired_buf_), "%s", unpaired.c_str());
     lv_subject_copy_string(&unpaired_subject_, unpaired_buf_);
     lv_subject_set_int(&has_unpaired_subject_, unpaired.empty() ? 0 : 1);
-
-    lv_subject_copy_string(&tune_cta_subject_,
-                           cmp.verdict == helix::calibration::BeltVerdict::MATCHED
-                               ? lv_tr("Fine-tune")
-                               : lv_tr("Tune Belts"));
-
-    push_chart_markers(cmp);
-    refresh_notes();
-    refresh_similarity_was();
-    push_chart_data();
 }
 
 void BeltTensionPanel::push_chart_markers(const helix::calibration::BeltComparison& cmp) {
@@ -1326,6 +1459,16 @@ void BeltTensionPanel::start_note_age_timer() {
             self->refresh_notes();
         },
         kNoteAgeRefreshMs, this));
+}
+
+void BeltTensionPanel::refresh_run_title() {
+    if (!run_active_ || settling_ || queue_.empty()) {
+        return; // the laps own the title while they run
+    }
+    // A single-path run is a re-test: the path already has a result.
+    const char* title = run_queue_total_ == 1 ? lv_tr("Re-measuring {}") : lv_tr("Measuring {}");
+    lv_subject_copy_string(&run_title_subject_,
+                           fmt::format(fmt::runtime(title), path_title(queue_.front())).c_str());
 }
 
 void BeltTensionPanel::refresh_run_detail() {
@@ -1534,7 +1677,7 @@ void BeltTensionPanel::handle_tune_confirm_clicked() {
             }
             summary += fmt::format(fmt::runtime(turns > 0.0f ? lv_tr(" · {} tightened about {}")
                                                              : lv_tr(" · {} loosened about {}")),
-                                   path_letter(path), format_turn_amount(turns));
+                                   path_title(path), format_turn_amount(turns));
         }
     }
     const float round0 = tune_round0_similarity_;
@@ -1715,8 +1858,9 @@ void BeltTensionPanel::refresh_tune() {
     using helix::calibration::BeltTurnDirection;
     const auto& t = *tune_;
     const BeltPath adj = t.adjusted_path();
-    const char adj_letter = path_letter(adj);
-    const char ref_letter = path_letter(other_path(adj));
+    const BeltPath ref = other_path(adj);
+    const std::string adj_name = path_phrase(adj);
+    const std::string ref_name = path_phrase(ref);
     const auto& zone = t.zone();
     const auto stage = t.stage();
     const bool baseline = t.needs_baseline();
@@ -1760,7 +1904,7 @@ void BeltTensionPanel::refresh_tune() {
                                                                : lv_tr("Tighten {0} one full turn"))
                                                      : (loosen ? lv_tr("Loosen {0} noticeably")
                                                                : lv_tr("Tighten {0} noticeably"))),
-                                  adj_letter);
+                                  adj_name);
     } else if (tune_phase_ == TunePhase::MATCHED) {
         instruction = fmt::format(fmt::runtime(lv_tr("Matched at {:.1f} Hz")), t.adjusted_hz());
     } else if (baseline) {
@@ -1770,18 +1914,18 @@ void BeltTensionPanel::refresh_tune() {
     } else if (advice.spring_reseat) {
         instruction = fmt::format(
             fmt::runtime(lv_tr("Release {}'s tensioner, let the spring settle, lock it")),
-            adj_letter);
+            adj_name);
     } else if (advice.turns) {
         // The suggestion lives here; the stepper records what was turned.
         instruction = fmt::format(fmt::runtime(advice.direction == BeltTurnDirection::TIGHTEN
                                                    ? lv_tr("Tighten {0} {1}")
                                                    : lv_tr("Loosen {0} {1}")),
-                                  adj_letter, format_turn_amount(*advice.turns));
+                                  adj_name, format_turn_amount(*advice.turns));
     } else {
         instruction = fmt::format(fmt::runtime(advice.direction == BeltTurnDirection::TIGHTEN
                                                    ? lv_tr("Tighten {}")
                                                    : lv_tr("Loosen {}")),
-                                  adj_letter);
+                                  adj_name);
     }
     lv_subject_copy_string(&tune_instruction_subject_, instruction.c_str());
 
@@ -1795,11 +1939,11 @@ void BeltTensionPanel::refresh_tune() {
 
     std::string caption;
     if (has_gap) {
-        caption = std::abs(gap) <= tolerance
-                      ? std::string(lv_tr("within one bin"))
-                      : fmt::format(fmt::runtime(gap < 0.0f ? lv_tr("{} looser than {}")
-                                                            : lv_tr("{} tighter than {}")),
-                                    adj_letter, ref_letter);
+        caption =
+            std::abs(gap) <= tolerance
+                ? std::string(lv_tr("within one bin"))
+                : fmt::format(fmt::runtime(gap < 0.0f ? lv_tr("{} looser") : lv_tr("{} tighter")),
+                              path_title(adj));
     }
     lv_subject_copy_string(&tune_gap_caption_subject_, caption.c_str());
 
@@ -1833,18 +1977,20 @@ void BeltTensionPanel::refresh_tune() {
     std::string power_line;
     if (power) {
         power_line = fmt::format(
-            fmt::runtime(lv_tr("Path {0} resonates much more than {1} at {2:.0f} Hz. That points "
-                               "at a mechanical difference (pulley grub screws, idler bearings, "
-                               "belt tracking), not tension.")),
-            path_letter(power->stronger), path_letter(other_path(power->stronger)), power->freq_hz);
+            fmt::runtime(lv_tr("{0} resonates much more than {1} at {2:.0f} Hz. That points at a "
+                               "mechanical difference (pulley grub screws, idler bearings, belt "
+                               "tracking), not tension.")),
+            path_title(power->stronger), path_phrase(other_path(power->stronger)), power->freq_hz);
     }
     snprintf(tune_power_hint_buf_, sizeof(tune_power_hint_buf_), "%s", power_line.c_str());
     lv_subject_copy_string(&tune_power_hint_subject_, tune_power_hint_buf_);
     lv_subject_set_int(&tune_has_power_hint_subject_, power ? 1 : 0);
 
+    lv_subject_copy_string(&tune_swap_label_subject_,
+                           fmt::format(fmt::runtime(lv_tr("Adjust {}")), ref_name).c_str());
     lv_subject_copy_string(
-        &tune_swap_label_subject_,
-        fmt::format(fmt::runtime(lv_tr("Adjust {} instead")), ref_letter).c_str());
+        &tune_tensioner_subject_,
+        fmt::format(fmt::runtime(lv_tr("{} tensioner")), path_title(adj)).c_str());
 
     const auto swept = t.sweep_window();
     lv_subject_copy_string(
@@ -1889,8 +2035,8 @@ std::string BeltTensionPanel::tune_last_message() const {
     using helix::calibration::BeltTuneOutcome;
     using helix::calibration::BeltTuneStage;
     const auto& t = *tune_;
-    const char adj_letter = path_letter(t.adjusted_path());
-    const char ref_letter = path_letter(other_path(t.adjusted_path()));
+    const std::string adj_name = path_phrase(t.adjusted_path());
+    const std::string ref_name = path_phrase(other_path(t.adjusted_path()));
     const bool screw = t.tensioner() == BeltTensionerKind::SCREW;
 
     if (t.stage() == BeltTuneStage::ALREADY_MATCHED) {
@@ -1903,10 +2049,10 @@ std::string BeltTensionPanel::tune_last_message() const {
             return screw ? fmt::format(fmt::runtime(lv_tr("Nothing followed {1} turns of {0}. Turn "
                                                           "{0} back {1} turns, then check the "
                                                           "mechanics.")),
-                                       adj_letter, static_cast<int>(std::lround(cal.turns)))
+                                       adj_name, static_cast<int>(std::lround(cal.turns)))
                          : fmt::format(fmt::runtime(lv_tr("Nothing followed the turns on {0}. "
                                                           "Undo them, then check the mechanics.")),
-                                       adj_letter);
+                                       adj_name);
         }
         const bool loosen = t.advice().direction == helix::calibration::BeltTurnDirection::LOOSEN;
         const char* line =
@@ -1915,7 +2061,7 @@ std::string BeltTensionPanel::tune_last_message() const {
                                     "turn."))
                   : (loosen ? lv_tr("That turn didn't register yet. Loosen {0} a little more.")
                             : lv_tr("That turn didn't register yet. Tighten {0} a little more."));
-        return fmt::format(fmt::runtime(line), adj_letter);
+        return fmt::format(fmt::runtime(line), adj_name);
     }
     if (!tune_last_outcome_) {
         return {};
@@ -1943,29 +2089,31 @@ std::string BeltTensionPanel::tune_last_message() const {
     }
     case BeltTuneOutcome::OVERSHOT:
         return fmt::format(fmt::runtime(lv_tr("Went past {} by {:.1f} Hz. Back it off a little.")),
-                           ref_letter, std::abs(t.gap_hz()));
+                           ref_name, std::abs(t.gap_hz()));
     case BeltTuneOutcome::WRONG_WAY:
         return fmt::format(
             fmt::runtime(tune_last_direction_ == helix::calibration::BeltTurnDirection::TIGHTEN
                              ? lv_tr("The gap grew after tightening {0}. Check you turned "
-                                     "Path {0}'s tensioner.")
+                                     "{0}'s tensioner.")
                              : lv_tr("The gap grew after loosening {0}. Check you turned "
-                                     "Path {0}'s tensioner.")),
-            adj_letter);
+                                     "{0}'s tensioner.")),
+            adj_name);
     case BeltTuneOutcome::NO_MOVEMENT:
         return fmt::format(
             fmt::runtime(lv_tr("The gap didn't close (moved {:.1f} Hz). Try a bigger turn.")),
             tune_last_move_hz_);
     case BeltTuneOutcome::NO_PEAK:
         if (!t.rounds().empty() && t.rounds().back().reference_lost) {
-            return fmt::format(fmt::runtime(lv_tr("Path {0}'s peak left the zone. Check that only "
-                                                  "Path {1}'s tensioner was turned.")),
-                               ref_letter, adj_letter);
+            return fmt::format(
+                fmt::runtime(lv_tr("{0}'s peak left the zone. Check that only {1}'s tensioner was "
+                                   "turned. Not sure which is which? Tap a belt name on the "
+                                   "results screen to buzz its motor.")),
+                path_title(other_path(t.adjusted_path())), adj_name);
         }
         return lv_tr("No clear peak in this zone");
     case BeltTuneOutcome::OUT_OF_WINDOW:
         return fmt::format(fmt::runtime(lv_tr("{}'s peak moved out of the zone. Widening it.")),
-                           adj_letter);
+                           path_title(t.adjusted_path()));
     case BeltTuneOutcome::IMPLAUSIBLE:
         return lv_tr("That reading jumped too far to trust. Re-measure without turning.");
     case BeltTuneOutcome::MATCHED:
@@ -2017,6 +2165,10 @@ void BeltTensionPanel::refresh_gate() {
                                                  "This one is {}."),
                                            detected_hw_.kinematics_name)
                                    .c_str());
+    } else if (gate == helix::calibration::BeltGate::OK && calibrator_ &&
+               calibrator_->get_state() ==
+                   helix::calibration::BeltTensionCalibrator::State::BUZZING) {
+        lv_subject_copy_string(&gate_message_subject_, lv_tr("Wait for the motor to stop"));
     } else {
         lv_subject_copy_string(&gate_message_subject_,
                                lv_tr(helix::calibration::belt_gate_message(gate)));
@@ -2160,27 +2312,28 @@ ui_frequency_response_chart_t* BeltTensionPanel::ensure_chart() {
     ui_frequency_response_chart_set_y_labels_visible(chart_, true);
     ui_frequency_response_chart_set_y_labels_percent(chart_, true);
 
+    // Series names appear only in the chart's logs, so they keep the path letter.
     for (int idx = 0; idx < 2; ++idx) {
         const char letter = 'A' + idx;
         series_[idx] = ui_frequency_response_chart_add_series(
-            chart_, fmt::format(lv_tr("Path {}"), letter).c_str(), path_color(path_at(idx)));
+            chart_, fmt::format("Path {}", letter).c_str(), path_color(path_at(idx)));
         ui_frequency_response_chart_set_series_style(chart_, series_[idx], kFrMeasuredCurveStyle);
 
         // The preview stands in for the path's own curve, so it carries its name.
         preview_series_[idx] = ui_frequency_response_chart_add_series(
-            chart_, fmt::format(lv_tr("Path {}"), letter).c_str(), path_color(path_at(idx)));
+            chart_, fmt::format("Path {} preview", letter).c_str(), path_color(path_at(idx)));
         ui_frequency_response_chart_set_series_style(chart_, preview_series_[idx],
                                                      kFrMeasuredCurveStyle);
         ui_frequency_response_chart_show_series(chart_, preview_series_[idx], false);
 
         ghost_series_[idx] = ui_frequency_response_chart_add_series(
-            chart_, fmt::format(lv_tr("Path {} before"), letter).c_str(), path_color(path_at(idx)));
+            chart_, fmt::format("Path {} before", letter).c_str(), path_color(path_at(idx)));
         ui_frequency_response_chart_set_series_muted(chart_, ghost_series_[idx], true);
         ui_frequency_response_chart_show_series(chart_, ghost_series_[idx], false);
 
         for (int& id : tune_ghost_series_[idx]) {
             id = ui_frequency_response_chart_add_series(
-                chart_, fmt::format(lv_tr("Path {} earlier round"), letter).c_str(),
+                chart_, fmt::format("Path {} earlier round", letter).c_str(),
                 path_color(path_at(idx)));
             ui_frequency_response_chart_set_series_muted(chart_, id, true);
             ui_frequency_response_chart_show_series(chart_, id, false);

@@ -73,6 +73,14 @@ void draw_label(lv_layer_t* layer, const char* text, lv_color_t color, const lv_
     lv_draw_label(layer, &dsc, &area);
 }
 
+/// A path's name as the panel publishes it, or the untranslated-key fallback
+/// before the panel has registered its subjects.
+const char* path_name(const char* subject_name, const char* fallback) {
+    lv_subject_t* subject = lv_xml_get_subject(nullptr, subject_name);
+    const char* name = subject ? lv_subject_get_string(subject) : nullptr;
+    return name && name[0] ? name : lv_tr(fallback);
+}
+
 void on_draw(lv_event_t* e) {
     lv_obj_t* obj = lv_event_get_target_obj(e);
     lv_layer_t* layer = lv_event_get_layer(e);
@@ -117,10 +125,15 @@ void on_draw(lv_event_t* e) {
     const lv_area_t bottom_row = {frame.x1 + pad, frame.y2 - pad - font_h, frame.x2 - pad,
                                   frame.y2 - pad};
     draw_label(layer, lv_tr("BACK"), muted, font, top_row, LV_TEXT_ALIGN_CENTER);
-    // Each label sits at the +X end of its own arrow: B's 1,1 diagonal points
-    // up-right, A's 1,-1 diagonal down-right.
-    draw_label(layer, lv_tr("B · 1,1"), b_color, font, top_row, LV_TEXT_ALIGN_RIGHT);
-    draw_label(layer, lv_tr("A · 1,-1"), a_color, font, bottom_row, LV_TEXT_ALIGN_RIGHT);
+    // Each name sits at the +X end of its own arrow: B's 1,1 diagonal points
+    // up-right, A's 1,-1 diagonal down-right. B's shares the top row with
+    // BACK, so it gets the right half of it.
+    const lv_area_t top_right = {top_row.x1 + (top_row.x2 - top_row.x1) / 2 + font_h, top_row.y1,
+                                 top_row.x2, top_row.y2};
+    draw_label(layer, path_name("bt_path_b_name", "Path B"), b_color, font, top_right,
+               LV_TEXT_ALIGN_RIGHT);
+    draw_label(layer, path_name("bt_path_a_name", "Path A"), a_color, font, bottom_row,
+               LV_TEXT_ALIGN_RIGHT);
 
     // Diagonals through the centre, kept clear of the label rows.
     const float cx = (frame.x1 + frame.x2) / 2.0f;

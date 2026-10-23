@@ -294,6 +294,9 @@ const std::vector<Row>& rows() {
         {"settings_z_offset_save_mode", Mgr::Settings, true, "z_offset/save_mode", false, 0, 0, 2,
          "z_offset_save_mode", true, SETI(sm().set_z_offset_save_mode),
          GET(sm().get_z_offset_save_mode), SUBJ(sm().subject_z_offset_save_mode)},
+        {"settings_belt_layout", Mgr::Settings, true, "belt_tension/layout", false, 0, 0, 4,
+         "belt_layout", true, SETI(sm().set_belt_layout), GET(sm().get_belt_layout),
+         SUBJ(sm().subject_belt_layout)},
     };
     return r;
 }

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ui_belt_names_modal.h"
 #include "ui_belt_retest_menu.h"
 #include "ui_observer_guard.h"
 #include "ui_timer_guard.h"
@@ -163,6 +164,14 @@ class BeltTensionPanel : public OverlayBase {
     /// The compact layouts' single Re-test button: a menu of the two paths.
     void handle_retest_menu_clicked(lv_obj_t* anchor);
 
+    // Which belt is which
+    /// Open the "Which belt is which?" dialog.
+    void handle_names_clicked();
+    /// Buzz @p path's motor (STEPPER_BUZZ), so the user can see which belt it
+    /// drives. Allowed exactly when Start is, so never during a sweep or
+    /// while another buzz is still running.
+    void handle_identify_clicked(helix::calibration::BeltPath path);
+
     // Tuning loop
     void handle_tune_clicked();
     void handle_tune_measure_clicked();
@@ -281,8 +290,18 @@ class BeltTensionPanel : public OverlayBase {
     void refresh_notes();
     /// bt_similarity_was: "was N%" after a re-test or Confirm, else empty.
     void refresh_similarity_was();
+    /// Every subject and drawing that names a path, from the saved layout:
+    /// the headers and Re-test buttons, the unpaired-peak line, run title, the
+    /// tuning strings and the START sketch.
+    void refresh_names();
+    /// bt_unpaired from a comparison, under the current path names.
+    void refresh_unpaired(const helix::calibration::BeltComparison& cmp);
+    void set_identify_status(int state, const std::string& text);
+    void hide_names_dialog();
     /// RESULTS keeps the notes' ages current on this timer.
     void start_note_age_timer();
+    /// bt_run_title for the path sweeping now; the laps keep their own.
+    void refresh_run_title();
     void refresh_run_detail();
     void start_elapsed_timer();
 
@@ -373,10 +392,20 @@ class BeltTensionPanel : public OverlayBase {
     char hw_sweep_buf_[64] = {};
 
     lv_subject_t run_title_subject_{};
-    char run_title_buf_[64] = {};
+    char run_title_buf_[96] = {};
     lv_subject_t run_detail_subject_{};
     char run_detail_buf_[96] = {};
     lv_subject_t running_path_subject_{};
+
+    // Path names, from the saved layout (helix::ui::belt_path_name)
+    lv_subject_t path_a_name_subject_{};
+    char path_a_name_buf_[48] = {};
+    lv_subject_t path_b_name_subject_{};
+    char path_b_name_buf_[48] = {};
+    /// 0 idle, 1 a motor is buzzing, 2 the buzz failed
+    lv_subject_t identify_state_subject_{};
+    lv_subject_t identify_status_subject_{};
+    char identify_status_buf_[192] = {};
 
     lv_subject_t note_a_subject_{};
     char note_a_buf_[64] = {};
@@ -389,7 +418,7 @@ class BeltTensionPanel : public OverlayBase {
     lv_subject_t facts_subject_{};
     char facts_buf_[256] = {};
     lv_subject_t unpaired_subject_{};
-    char unpaired_buf_[128] = {};
+    char unpaired_buf_[256] = {};
     lv_subject_t has_unpaired_subject_{};
     lv_subject_t similarity_subject_{};
     char similarity_buf_[16] = {};
@@ -419,7 +448,7 @@ class BeltTensionPanel : public OverlayBase {
     lv_subject_t tune_gap_subject_{};
     char tune_gap_buf_[24] = {};
     lv_subject_t tune_gap_caption_subject_{};
-    char tune_gap_caption_buf_[64] = {};
+    char tune_gap_caption_buf_[128] = {};
     lv_subject_t tune_round_subject_{};
     char tune_round_buf_[32] = {};
     lv_subject_t tune_zone_subject_{};
@@ -427,7 +456,7 @@ class BeltTensionPanel : public OverlayBase {
     lv_subject_t tune_rate_subject_{};
     char tune_rate_buf_[32] = {};
     lv_subject_t tune_last_subject_{};
-    char tune_last_buf_[160] = {};
+    char tune_last_buf_[384] = {};
     lv_subject_t tune_has_last_subject_{};
     lv_subject_t tune_hint_subject_{};
     char tune_hint_buf_[256] = {};
@@ -441,7 +470,9 @@ class BeltTensionPanel : public OverlayBase {
     lv_subject_t tune_measure_short_label_subject_{};
     char tune_measure_short_label_buf_[32] = {};
     lv_subject_t tune_swap_label_subject_{};
-    char tune_swap_label_buf_[48] = {};
+    char tune_swap_label_buf_[96] = {};
+    lv_subject_t tune_tensioner_subject_{};
+    char tune_tensioner_buf_[96] = {};
     lv_subject_t tune_measure_label_subject_{};
     char tune_measure_label_buf_[48] = {};
     lv_subject_t tune_confirm_label_subject_{};
@@ -459,6 +490,8 @@ class BeltTensionPanel : public OverlayBase {
     ObserverGuard max_velocity_observer_;
     ObserverGuard theme_observer_;
     ObserverGuard ultrawide_observer_;
+    ObserverGuard belt_layout_observer_;
+    ObserverGuard language_observer_;
     bool gate_observers_wired_ = false;
 
     // Klippy's UDS path, from Moonraker's /server/config. Reachability is
@@ -520,6 +553,8 @@ class BeltTensionPanel : public OverlayBase {
     bool suspended_ = false;
     /// RESULTS's Re-test menu on compact layouts.
     helix::ui::BeltRetestMenu retest_menu_;
+    /// "Which belt is which?", reshown on each open.
+    helix::ui::BeltNamesModal names_modal_;
     /// Close the Re-test menu and drop its callback, so nothing it dispatches
     /// later can start a sweep.
     void hide_retest_menu();

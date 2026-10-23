@@ -158,6 +158,8 @@ translations:
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: 'Une macro de heat soak est configurée sur l''imprimante. HelixScreen la détecte mais ne l''exécute pas.'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: 'Un chauffage qui réchauffe l''air de l''enceinte. Réglez sa température sur l''écran de température de l''enceinte.'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Une carte des hauteurs du plateau que Klipper utilise pour compenser une surface irrégulière. Consultez-la et calibrez-la sur l''écran Maillage du plateau.'
+  A left, B right: "A gauche, B droite"
+  A lower, B upper: "A en bas, B en haut"
   "A macro printed stray template text '{}': check its Jinja tags": "Une macro a émis du texte de modèle parasite '{}' : vérifiez ses balises Jinja"
   A macro that wipes the nozzle. HelixScreen can run it before a print from the pre-print options.: 'Une macro qui nettoie la buse. HelixScreen peut l''exécuter avant une impression depuis les options de pré-impression.'
   A motor IO pin couldn't be restored. Power-cycle the printer to recover: Une broche d'E/S moteur n'a pas pu être restaurée. Éteignez et rallumez l'imprimante pour récupérer
@@ -170,6 +172,7 @@ translations:
   A print is running. Apply the result after it ends.: Une impression est en cours. Appliquez le résultat quand elle sera terminée.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: "Une impression a démarré alors que des bobines sont signalées sur le plateau. Si elles y sont encore, arrêtez l'imprimante maintenant avec l'arrêt d'urgence."
   A restart is already in progress: Un redémarrage est déjà en cours
+  A right, B left: "A droite, B gauche"
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : 'Un capteur qui mesure la distance au plateau. HelixScreen l''utilise pour la calibration du Z Offset et les tests de sonde sur l''écran Sonde.'
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: 'Un capteur qui mesure la température de l''air dans l''enceinte. Suivez-la sur l''écran de température de l''enceinte.'
@@ -177,7 +180,7 @@ translations:
   ? A system that feeds several filaments to the toolhead, shown with its slot count. Manage the slots on the filament system screen.
   : 'Un système qui alimente plusieurs filaments vers la tête d''outil, affiché avec son nombre de slots. Gérez les slots sur l''écran du système de filament.'
   A toolhead offset calibration is in progress, possibly from another screen. End it now?: 'Une calibration des offsets des têtes d''outil est en cours, peut-être depuis un autre écran. La terminer maintenant ?'
-  A · 1,-1: "A · 1,-1"
+  A upper, B lower: "A en haut, B en bas"
   ABS: ABS
   ACCELEROMETERS: ACCÉLÉROMÈTRES
   'ACCEPT failed: {}': 'Échec de ACCEPT : {}'
@@ -252,7 +255,7 @@ translations:
   'Adds to:': 'Ajoute à :'
   Adjust screen brightness level: Ajuster le niveau de luminosité de l'écran
   Adjust screws, then re-probe.: Ajustez les vis, puis re-palpez.
-  Adjust {} instead: "Régler {} à la place"
+  Adjust {}: "Régler {}"
   Adjustments stay active until restart. Save after print completes.: Les ajustements
     restent actifs jusqu'au redémarrage. Enregistrez après la fin de l'impression.
   Adjusts individual characteristics of your heaters for optimal control: Ajuste les
@@ -379,7 +382,6 @@ translations:
   Average: Moyenne
   Axis Rows: 'Rangées par axe'
   Axis limits unknown: Limites de l'axe inconnues
-  B · 1,1: "B · 1,1"
   BACK: ARRIÈRE
   BEACON: BEACON
   BETA: BETA
@@ -1885,6 +1887,8 @@ translations:
   'IP:': 'IP :'
   'IPP error: {}': 'Erreur IPP : {}'
   Icon: Icône
+  Identify: "Identifier"
+  'Identify failed: {}': "Échec de l'identification : {}"
   Idle: Inactif
   If Moonraker is local or your screen is attached to the printer directly, we'll connect automatically: Si
     Moonraker est local ou si votre écran est connecté directement à l'imprimante,
@@ -2111,6 +2115,7 @@ translations:
   Leave it: 'La laisser'
   LedSelect: Sélection de la LED
   Left: 'Gauche'
+  Left belt: "Courroie gauche"
   Length of filament to purge: 'Longueur de filament à purger'
   Length of the cooling tube section: 'Longueur de la section du tube de refroidissement'
   'Length:': 'Longueur :'
@@ -2202,6 +2207,7 @@ translations:
   Lot/Batch Nr: N° de lot
   Low Memory: Mémoire faible
   Lower: Descendre
+  Lower belt: "Courroie du bas"
   Lower the nozzle until it just touches the top of the print, then resume.: Descendez la buse jusqu'à ce qu'elle touche juste le haut de l'impression, puis reprenez.
   Lowest notification level that interrupts with a toast: 'Niveau de notification le plus bas qui interrompt par une notification éphémère'
   M to toggle: M pour basculer
@@ -2321,10 +2327,10 @@ translations:
   Measures the bed at each adjustment screw and says how far to turn it. Run it on the Screws Tilt screen.: 'Mesure le plateau à chaque vis de réglage et indique de combien la tourner. Lancez-le sur l''écran Inclinaison des vis.'
   Measures vibration for input shaping. Run resonance tests on the Input Shaper screen.: 'Mesure les vibrations pour l''input shaping. Lancez les tests de résonance sur l''écran Input Shaper.'
   Measuring: 'Mesure'
-  Measuring Path {}: Mesure du Chemin {}
   Measuring accelerometer noise...: 'Mesure du bruit de l''accéléromètre...'
   Measuring vibrations... {}%: 'Mesure des vibrations... {}%'
   Measuring wheel error: Erreur de la roue de mesure
+  Measuring {}: "Mesure : {}"
   Measuring {}...: Mesure de {}...
   Measuring...: 'Mesure...'
   Memory: Mémoire
@@ -2606,6 +2612,8 @@ translations:
   Nothing to remap: Rien à réaffecter
   Nothing to tune here: "Rien à régler ici"
   'Nothing to unload: no filament at the nozzle': 'Rien à décharger : pas de filament à la buse'
+  Which belt is each path?: "Quelle courroie correspond à chaque chemin ?"
+  Which belt is which?: "Quelle courroie est laquelle ?"
   'Which lane is in the toolhead?': 'Quelle voie est dans la tête ?'
   'Choose which lane is in the toolhead to unload it': 'Choisissez quelle voie est dans la tête pour la décharger'
   Nothing was changed. Temperature and material are kept, so a retry is one tap.: 'Rien n''a été modifié. La température et le matériau sont conservés, réessayer ne demande qu''un appui.'
@@ -2669,8 +2677,7 @@ translations:
   ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
   : 'Une fois par jour, supprime les copies d''impression de plus d''une semaine et les journaux de plus d''un mois. Vos fichiers, photos et vidéos timelapse sont conservés.'
   One tap runs this macro. Dangerous macros still ask.: 'Un appui exécute cette macro. Les macros dangereuses demandent toujours confirmation.'
-  'Only on A: {} Hz': "Seulement sur A : {} Hz"
-  'Only on B: {} Hz': "Seulement sur B : {} Hz"
+  'Only on {0}: {1} Hz': "Seulement sur {0} : {1} Hz"
   Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Uniquement tant que cette appli est connectée. Installez le plugin HelixPrint pour couvrir chaque impression.'
   Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Uniquement tant que cette appli est connectée. Mettez à jour le plugin HelixPrint pour couvrir chaque impression.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
@@ -2714,8 +2721,6 @@ translations:
   P: P
   PA: PA
   PA Calibration: 'Calibration PA'
-  PATH A · 1,-1: "CHEMIN A · 1,-1"
-  PATH B · 1,1: "CHEMIN B · 1,1"
   PAUSED: EN PAUSE
   PETG: PETG
   PID: PID
@@ -2762,14 +2767,8 @@ translations:
   Password cannot be empty: Le mot de passe ne peut pas être vide
   Password is required for secured networks: Un mot de passe est requis pour les réseaux
     sécurisés
-  Path A tensioner: "Tendeur du Chemin A"
-  Path B tensioner: "Tendeur du Chemin B"
-  ? Path {0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.
-  : "Le chemin {0} résonne bien plus que {1} à {2:.0f} Hz. Cela indique une différence mécanique (vis sans tête de poulie, roulements des galets, alignement de la courroie), pas la tension."
-  Path {0}'s peak left the zone. Check that only Path {1}'s tensioner was turned.: "Le pic du Chemin {0} a quitté la zone. Vérifiez que seul le tendeur du Chemin {1} a été tourné."
-  Path {}: Chemin {}
-  Path {} before: Chemin {} avant
-  Path {} earlier round: "Chemin {} tour précédent"
+  Path A: "Chemin A"
+  Path B: "Chemin B"
   Pause: Pause
   Pause Layer: 'Couche de pause'
   Pause at Layer: 'Pause à la couche'
@@ -3129,7 +3128,7 @@ translations:
   Re-identify: Ré-identifier
   Re-measure: 'Remesurer'
   Re-measure (~{} min): "Mesurer (~{} min)"
-  Re-measuring Path {}: Nouvelle mesure du Chemin {}
+  Re-measuring {}: "Nouvelle mesure : {}"
   Re-probe: Re-palper
   Re-read spool RFID tags and remaining length: 'Relire les étiquettes RFID des bobines et la longueur restante'
   Re-seat the Bowden tube connector on the CFS unit: Réemboîtez le raccord du tube Bowden sur l'unité CFS
@@ -3137,8 +3136,6 @@ translations:
   Re-syncs Happy Hare's tracked state with the hardware.: Resynchronise l'état suivi
     par Happy Hare avec le matériel.
   Re-test: Retester
-  Re-test A: Retester A
-  Re-test B: Retester B
   Reaches {:g} mm from the center, past this printer's {:g} mm radius.: 'Atteint {:g} mm du centre, au-delà du rayon de {:g} mm de cette imprimante.'
   Readings don't repeat: "Les mesures ne se répètent pas"
   Readings from extra temperature sensors: Relevés des capteurs supplémentaires
@@ -3342,6 +3339,7 @@ translations:
     ci-dessous, puis cliquez sur Terminer pour enregistrer
   Rewinding: Rembobinage
   Right: 'Droite'
+  Right belt: "Courroie droite"
   'Role:': 'Rôle :'
   Rotate: Tourner
   Rotating tips for using your printer: Conseils variés pour votre imprimante
@@ -4001,8 +3999,8 @@ translations:
   The filament system needs attention: 'Le système de filament demande votre attention'
   The filament system reported an error: Le système de filament a signalé une erreur
   The gap didn't close (moved {:.1f} Hz). Try a bigger turn.: "L'écart ne s'est pas réduit (déplacé de {:.1f} Hz). Tournez davantage."
-  The gap grew after loosening {0}. Check you turned Path {0}'s tensioner.: "L'écart a grandi après détente de {0}. Vérifiez que vous avez tourné le tendeur du Chemin {0}."
-  The gap grew after tightening {0}. Check you turned Path {0}'s tensioner.: "L'écart a grandi après tension de {0}. Vérifiez que vous avez tourné le tendeur du Chemin {0}."
+  The gap grew after loosening {0}. Check you turned {0}'s tensioner.: "L'écart a grandi après détente de {0}. Vérifiez que vous avez tourné le tendeur de {0}."
+  The gap grew after tightening {0}. Check you turned {0}'s tensioner.: "L'écart a grandi après tension de {0}. Vérifiez que vous avez tourné le tendeur de {0}."
   The gap is not closing. Something besides tension may be shaping it.: "L'écart ne se réduit pas. Autre chose que la tension peut en être la cause."
   The heated bed and enclosure can dry spools placed on the bed. Start a cycle from the bed drying dialog.: 'Le plateau chauffant et l''enceinte peuvent sécher des bobines posées sur le plateau. Démarrez un cycle depuis la boîte de dialogue de séchage du plateau.'
   The heater can't be changed while the printer is waiting.: 'Le chauffage ne peut pas être modifié pendant que l''imprimante attend.'
@@ -4465,6 +4463,7 @@ translations:
   Upload Failed: Téléversement échoué
   Upload gcode files to get started: Téléversez des fichiers gcode pour commencer
   Upload unavailable in this build: Téléversement indisponible dans cette version
+  Upper belt: "Courroie du haut"
   Uptime: Temps de fonctionnement
   Use Android native keyboard for text input: Utiliser le clavier natif Android pour
     la saisie de texte
@@ -4526,6 +4525,7 @@ translations:
   Wait for the current filament operation to finish: Attendez la fin de l'opération de filament en cours
   Wait for the current operation to complete: Attendez la fin de l'opération en cours
   Wait for the current operation to complete or cancel it first: Attendez la fin de l'opération en cours ou annulez-la d'abord
+  Wait for the motor to stop: "Attendez l'arrêt du moteur"
   Wait for the nozzle to stop moving: Attendez que la buse s'arrête
   Wait for the running INDX operation to finish: Attendez la fin de l'opération INDX en cours
   Wait until the print finishes: Attendez la fin de l'impression
@@ -4547,6 +4547,7 @@ translations:
   Warning: Avertissement
   Warnings & errors: 'Avertissements et erreurs'
   Watch the camera during a print for failed prints: Surveille la caméra pendant une impression pour détecter les impressions échouées
+  Watch which motor turns: "Regardez quel moteur tourne"
   Weak battery: Batterie faible
   Webcam: Webcam
   Website (optional): Site web (facultatif)
@@ -4780,6 +4781,10 @@ translations:
   target {}%: 'cible {}%'
   target {}°: 'cible {}°'
   the extruder: l'extrudeur
+  the left belt: "la courroie gauche"
+  the lower belt: "la courroie du bas"
+  the right belt: "la courroie droite"
+  the upper belt: "la courroie du haut"
   this week: cette semaine
   too slow: trop lent
   tool(s): outil(s)
@@ -4793,6 +4798,10 @@ translations:
   within one bin: "à moins d'un bin"
   wpa_supplicant is not running. WiFi features unavailable.: wpa_supplicant ne fonctionne pas. Les fonctions WiFi sont indisponibles.
   you have: vous avez
+  ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
+  : "{0} résonne bien plus que {1} à {2:.0f} Hz. Cela indique une différence mécanique (vis sans tête de poulie, roulements des galets, alignement de la courroie), pas la tension."
+  ? "{0}'s peak left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap a belt name on the results screen to buzz its motor."
+  : "Le pic de {0} a quitté la zone. Vérifiez que seul le tendeur de {1} a été tourné. Vous ne savez pas laquelle est laquelle ? Touchez le nom d'une courroie sur l'écran des résultats pour faire vibrer son moteur."
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · environ {} min'
   '{} ({})': '{} ({})'
   '{} Extruders': '{} extrudeurs'
@@ -4841,7 +4850,7 @@ translations:
   "{} isn't loaded. The print will pause when it needs it.": '{} n''est pas chargé. L''impression se mettra en pause quand elle en aura besoin.'
   '{} kept crashing the panel; pick a printer to connect': '{} a planté l''écran à plusieurs reprises ; choisissez une imprimante à connecter'
   '{} linked to Spoolman spool #{} from its tag': '{} : liaison à la bobine Spoolman #{} via son étiquette'
-  '{} looser than {}': "{} plus lâche que {}"
+  '{} looser': "{} plus lâche"
   '{} m': '{} m'
   '{} macro not configured': Macro {} non configurée
   '{} matches.': '{} correspond.'
@@ -4869,7 +4878,8 @@ translations:
   '{} spool cleared': '{} : bobine effacée'
   '{} started': '{} démarré'
   '{} target set to {}°C': Cible {} réglée à {}°C
-  '{} tighter than {}': "{} plus tendue que {}"
+  '{} tensioner': "Tendeur de {}"
+  '{} tighter': "{} plus tendue"
   '{} turn': "{} tour"
   '{} turns': "{} tours"
   '{} updated': '{} : mise à jour'
@@ -4880,6 +4890,7 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — réponse expirée'
   '{} → {}: no filament loaded.': '{} → {} : aucun filament chargé.'
+  "{}'s motor is buzzing": "Le moteur de {} vibre"
   "{}'s peak moved out of the zone. Widening it.": "Le pic de {} est sorti de la zone. Élargissement."
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{} : l''étiquette indique la bobine Spoolman #{}, qui n''existe pas'
   '{}:{:02} elapsed': '{}:{:02} écoulé'
