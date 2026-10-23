@@ -4,6 +4,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <future>
 #include <map>
@@ -220,6 +221,12 @@ class KlipperConfigEditor {
     /// thread it answers Absent.
     void set_feature_state_source(FeatureStateSource source);
 
+    /// How often the FIRMWARE_RESTART health monitor checks the connection and
+    /// the cancel flag. A monitor already running keeps the interval it started with.
+    void set_restart_poll_interval(std::chrono::milliseconds interval) {
+        restart_poll_interval_ = interval;
+    }
+
     /// Perform a safe config edit: edit value, restart firmware, monitor health.
     /// If Klipper fails to restart within the timeout, auto-restore backups
     /// and restart again.
@@ -287,6 +294,8 @@ class KlipperConfigEditor {
                            SuccessCallback on_complete, ErrorCallback on_error);
 
     FeatureStateSource feature_state_source_;
+
+    std::chrono::milliseconds restart_poll_interval_{500};
 
     /// Remember a freshly submitted health monitor so the destructor can wait
     /// for it, and drop the futures of monitors that have already finished.

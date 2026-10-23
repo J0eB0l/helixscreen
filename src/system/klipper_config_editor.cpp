@@ -40,9 +40,9 @@ std::optional<ConfigKey> ConfigStructure::find_key(const std::string& section,
 }
 
 // How long the destructor is willing to wait for a health monitor to notice the
-// cancel flag. The monitor checks it once per 500ms poll, so a live one is gone
-// in well under a second; the bound only exists so a wedged worker cannot stall
-// shutdown on the main thread.
+// cancel flag. The monitor checks it once per poll (500ms by default), so a live
+// one is gone in well under a second; the bound only exists so a wedged worker
+// cannot stall shutdown on the main thread.
 static constexpr auto kMonitorJoinTimeout = std::chrono::seconds(3);
 
 KlipperConfigEditor::~KlipperConfigEditor() {
@@ -1258,15 +1258,15 @@ void KlipperConfigEditor::restart_and_monitor(IMoonrakerAPI& api, RestartRecover
                                               SuccessCallback on_success, ErrorCallback on_error,
                                               int restart_timeout_ms) {
     api.restart_firmware(
-        [this, &api, recovery, on_success, on_error, restart_timeout_ms]() {
+        [this, &api, recovery, on_success, on_error, restart_timeout_ms,
+         poll_interval = restart_poll_interval_]() {
             // HttpExecutor::fast(), never a raw std::thread: a spawn failure is
             // std::terminate on AD5M (#724, #837). The future goes to
             // track_restart_monitor() so ~KlipperConfigEditor() can wait this
             // loop out: it holds `this` and `api` by reference and outlives neither.
             track_restart_monitor(helix::http::HttpExecutor::fast().submit(
-                [&api, recovery, on_success, on_error, restart_timeout_ms,
+                [&api, recovery, on_success, on_error, restart_timeout_ms, poll_interval,
                  cancel = monitor_cancel_]() {
-                    const auto poll_interval = std::chrono::milliseconds(500);
                     const auto timeout = std::chrono::milliseconds(restart_timeout_ms);
                     const auto start = std::chrono::steady_clock::now();
 
