@@ -336,6 +336,9 @@ struct FilamentPathData {
     // toolhead and the shared hub->nozzle run is a short stub (printers whose
     // combiner mounts on the print head; the per-lane tubes run the whole way).
     bool hub_on_toolhead = false;
+    // The LINEAR/HUB path continues past the hub to a toolhead. False for a unit
+    // that feeds no nozzle: its lanes end at the hub, with nothing drawn below it.
+    bool feeds_toolhead = true;
     bool eject_mode = false;         // true = allow segment to drop below LANE (past slot sensor)
     bool has_toolhead_sensor = true; // the unit reports a toolhead filament sensor
 

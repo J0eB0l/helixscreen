@@ -94,6 +94,19 @@ void ui_filament_path_canvas_set_topology(lv_obj_t* obj, int topology);
 void ui_filament_path_canvas_set_hub_on_toolhead(lv_obj_t* obj, bool on_toolhead);
 
 /**
+ * @brief Whether the LINEAR/HUB path continues past the hub to a toolhead
+ *
+ * False for a unit that feeds no nozzle: the lanes still run into the hub box,
+ * but nothing is drawn below it (no trunk, buffer, bypass, toolhead sensor or
+ * nozzle), and the toolhead and bypass getters report nothing to anchor on.
+ * PARALLEL and MIXED layouts ignore it. Default: true.
+ */
+void ui_filament_path_canvas_set_feeds_toolhead(lv_obj_t* obj, bool feeds);
+
+/// The value set by ui_filament_path_canvas_set_feeds_toolhead(); true for a null widget.
+bool ui_filament_path_canvas_get_feeds_toolhead(lv_obj_t* obj);
+
+/**
  * @brief Set the number of slots
  *
  * @param obj The filament_path_canvas widget
@@ -384,7 +397,8 @@ bool ui_filament_path_canvas_get_hub_box(lv_obj_t* obj, lv_area_t* area_out);
  * @brief Where the toolhead glyph is drawn, in absolute display coordinates
  *
  * The same frame and glyph bounds the renderer draws (LINEAR and HUB layouts).
- * False for other layouts or before the widget has a size.
+ * False for other layouts, for a path that feeds no toolhead, or before the
+ * widget has a size.
  */
 bool ui_filament_path_canvas_get_toolhead_box(lv_obj_t* obj, lv_area_t* area_out);
 
@@ -485,8 +499,8 @@ void ui_filament_path_canvas_set_bypass_has_spool(lv_obj_t* obj, bool has_spool)
  * @brief Compute where the bypass tube terminates (absolute screen coords).
  *
  * The owning panel anchors its shared BypassSpoolWidgets overlay at this
- * point. Returns false when bypass isn't enabled (`show_bypass=false`) or the canvas hasn't been
- * laid out yet.
+ * point. Returns false when bypass isn't enabled (`show_bypass=false`), when a LINEAR/HUB
+ * path feeds no toolhead, or the canvas hasn't been laid out yet.
  */
 bool ui_filament_path_canvas_get_bypass_merge_pos(lv_obj_t* obj, int32_t* cx_out, int32_t* cy_out);
 

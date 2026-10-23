@@ -855,6 +855,19 @@ void set_lane_badge_active(lv_obj_t* badge, bool active) {
 
 namespace helix::ui {
 
+bool unit_feeds_toolhead(const helix::AmsSystemInfo& info, const helix::AmsBackend* backend,
+                         int unit_index) {
+    if (unit_index < 0 || unit_index >= static_cast<int>(info.units.size())) {
+        return true;
+    }
+    if (info.units[static_cast<size_t>(unit_index)].absent) {
+        return false;
+    }
+    const auto layout = ams_draw::compute_system_tool_layout(info, backend);
+    return layout.total_physical_tools <= 1 ||
+           layout.units[static_cast<size_t>(unit_index)].tool_count > 0;
+}
+
 int overview_hub_group(const ams_draw::SystemToolLayout& layout, int unit) {
     if (unit < 0 || unit >= static_cast<int>(layout.units.size())) {
         return 0;

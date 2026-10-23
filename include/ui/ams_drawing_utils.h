@@ -350,4 +350,16 @@ namespace helix::ui {
 [[nodiscard]] std::vector<int> hub_groups_of_tool(const ams_draw::SystemToolLayout& layout,
                                                   int physical_tool);
 
+/**
+ * @brief Whether the view of @p unit_index draws its path on to a toolhead
+ *
+ * The overview's own rule. With one nozzle or none, the overview joins every
+ * present unit to the one toolhead. With several, a unit the layout places on
+ * no nozzle (an unwired hub) feeds none, so its view ends at the hub. An absent
+ * box never feeds one. The all-units view (@p unit_index < 0) and an index past
+ * the system always do.
+ */
+[[nodiscard]] bool unit_feeds_toolhead(const helix::AmsSystemInfo& info,
+                                       const helix::AmsBackend* backend, int unit_index);
+
 } // namespace helix::ui

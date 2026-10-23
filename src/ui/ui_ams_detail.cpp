@@ -951,6 +951,13 @@ void ams_detail_setup_path_canvas(lv_obj_t* canvas, lv_obj_t* slot_grid, int uni
         topo = helix::PathTopology::HUB;
     ui_filament_path_canvas_set_topology(canvas, static_cast<int>(topo));
     ui_filament_path_canvas_set_hub_on_toolhead(canvas, backend->hub_on_toolhead());
+    // A unit the overview joins to no nozzle (an unwired hub) ends at its hub
+    // here too: the overview's own rule decides both. A hub mounted on the head feeds
+    // it by construction, and the all-units view always reaches a toolhead.
+    const bool linear_hub = topo == helix::PathTopology::HUB || topo == helix::PathTopology::LINEAR;
+    const bool feeds_toolhead = !linear_hub || unit_index < 0 || backend->hub_on_toolhead() ||
+                                helix::ui::unit_feeds_toolhead(info, backend, unit_index);
+    ui_filament_path_canvas_set_feeds_toolhead(canvas, feeds_toolhead);
 
     // A unit-scoped view asks its own unit; the all-units view asks whether any has one.
     bool has_toolhead_sensor = false;
@@ -1081,8 +1088,8 @@ void ams_detail_setup_path_canvas(lv_obj_t* canvas, lv_obj_t* slot_grid, int uni
     // until it is selected, and drawing it anyway put a loaded lane's material
     // on the bypass node (#1229 defect 5).
     auto ext_spool = helix::AmsState::instance().get_external_spool_info();
-    const bool show_bypass_spool =
-        ext_spool.has_value() && helix::ui::bypass_node_visible_for(backend, info);
+    const bool show_bypass_spool = ext_spool.has_value() && feeds_toolhead &&
+                                   helix::ui::bypass_node_visible_for(backend, info);
     ui_filament_path_canvas_set_bypass_has_spool(canvas, show_bypass_spool);
     if (show_bypass_spool) {
         ui_filament_path_canvas_set_bypass_color(canvas, ext_spool->color_rgb);
