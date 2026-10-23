@@ -511,10 +511,10 @@ std::optional<std::vector<AfcLaneSpool>> read_afc_lane_spools(const nlohmann::js
     if (!status.is_object()) {
         return std::nullopt;
     }
-    static const std::string prefix = "AFC_lane ";
+    constexpr std::string_view kPrefix = "AFC_lane ";
     std::vector<AfcLaneSpool> spools;
     for (auto it = status.begin(); it != status.end(); ++it) {
-        if (it.key().rfind(prefix, 0) != 0 || !it.value().is_object()) {
+        if (it.key().rfind(kPrefix, 0) != 0 || !it.value().is_object()) {
             continue;
         }
         const auto id = it.value().find("spool_id");
@@ -522,7 +522,7 @@ std::optional<std::vector<AfcLaneSpool>> read_afc_lane_spools(const nlohmann::js
             continue;
         }
         AfcLaneSpool spool;
-        spool.lane = it.key().substr(prefix.size());
+        spool.lane = it.key().substr(kPrefix.size());
         if (id->is_number_integer()) {
             spool.spool_id = std::max(0, id->get<int>());
         }

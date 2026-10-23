@@ -460,14 +460,9 @@ void AmsBackendAd5xIfs::adopt_loaded_override_store(helix::ams::LoadedOverrideSt
                                           backend_index());
     }
     std::lock_guard<std::mutex> lock(mutex_);
-    lane_wire_seen_.clear();
-    if (loaded.store) {
-        for (const auto& [slot, entry] : loaded.store->last_lane_data_records()) {
-            lane_wire_seen_[slot] = entry.wire;
-        }
-    }
     override_store_ = std::move(loaded.store);
     overrides_ = std::move(loaded.overrides);
+    seed_lane_records_seen_locked();
 }
 
 void AmsBackendAd5xIfs::publish_override_locked(int slot_index, const char* reason) {
@@ -482,95 +477,18 @@ void AmsBackendAd5xIfs::publish_override_locked(int slot_index, const char* reas
     }
 }
 
-void AmsBackendAd5xIfs::schedule_lane_record_reread() {
+void AmsBackendAd5xIfs::on_lane_reread_scheduled() {
     lane_reread_owed_.store(true);
-    if (lane_reread_pending_.exchange(true))
-        return;
-    auto token = lifetime_.token();
-    helix::http::HttpExecutor::fast().submit([this, token]() {
-        // BG THREAD: only the debounce sleep.
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        token.defer("Ad5xIfsBackend::lane_record_reread", [this]() {
-            lane_reread_pending_.store(false);
-            reread_lane_records();
-        });
-    });
 }
 
-void AmsBackendAd5xIfs::reread_lane_records() {
-    helix::ams::FilamentSlotOverrideStore* store = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        store = override_store_.get();
-    }
-    if (!store) {
-        release_held_lane_saves({});
-        return;
-    }
-    auto token = lifetime_.token();
-    // A read that never lands took no slot, so what it held publishes as if
-    // the tool had written nothing: a held save outlives no failed read.
-    store->reload_async(
-        [this, token](std::unordered_map<int, helix::ams::LaneDataRecord> records) {
-            token.defer(
-                "Ad5xIfsBackend::apply_lane_records",
-                [this, records = std::move(records)]() { apply_reread_lane_records(records); });
-        },
-        [this, token]() {
-            token.defer("Ad5xIfsBackend::lane_reread_failed",
-                        [this]() { release_held_lane_saves({}); });
-        });
-}
-
-void AmsBackendAd5xIfs::apply_reread_lane_records(
-    const std::unordered_map<int, helix::ams::LaneDataRecord>& records) {
-    std::unordered_set<int> taken;
-    for (const auto& [slot, entry] : records) {
-        if (slot < 0 || slot >= kNumPorts)
-            continue;
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            auto seen = lane_wire_seen_.find(slot);
-            const bool unchanged = seen != lane_wire_seen_.end() && seen->second == entry.wire;
-            lane_wire_seen_[slot] = entry.wire;
-            if (unchanged)
-                continue;
-        }
-        // Every field the record states, not only what request_resync() would
-        // re-file as remembered: the spool link is what this read is for.
-        helix::ams::Observation obs = helix::ams::declared_from_record(entry.record);
-        const auto lane = lane_id(slot);
-        const bool rebinds = helix::ams::outside_record_rebinds(lane, obs);
-        if (!file_reread_outside_edit(lane, slot, entry, obs))
-            continue;
-        spdlog::info("{} Slot {} lane_data rewritten by another tool; taking its record",
-                     backend_log_tag(), slot);
-        taken.insert(slot);
-        {
-            // The override follows the lane: a rebinding starts both afresh,
-            // and anything else amends both, so a later save neither
-            // republishes what the tool replaced nor drops what it left alone.
-            std::lock_guard<std::mutex> lock(mutex_);
-            auto& ovr = overrides_[slot];
-            if (rebinds) {
-                helix::ams::FilamentSlotOverride fresh;
-                fresh.fingerprint = ovr.fingerprint;
-                fresh.unlinked_spool_id = ovr.unlinked_spool_id;
-                ovr = std::move(fresh);
-            }
-            helix::ams::amend_record(ovr, obs);
-        }
-        repaint_slot_from_lane(slot);
-        emit_event(kEventSlotChanged, std::to_string(slot));
-    }
-
+void AmsBackendAd5xIfs::on_lane_reread_finished(const std::unordered_set<int>& taken) {
     release_held_lane_saves(taken);
 }
 
 void AmsBackendAd5xIfs::release_held_lane_saves(const std::unordered_set<int>& taken) {
     // What a firmware change held back publishes now, unless the tool's record
     // took the slot: that record is already what lane_data says.
-    if (lane_reread_pending_.load())
+    if (lane_reread_pending())
         return; // a newer read is coming, and it publishes
     std::lock_guard<std::mutex> lock(mutex_);
     lane_reread_owed_.store(false);

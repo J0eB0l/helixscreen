@@ -3,6 +3,7 @@
 
 #include "ams_subscription_backend.h"
 
+#include "http_executor.h"
 #include "lane_echo.h"
 #include "lane_legacy_migration.h"
 #include "lane_source_store.h"
@@ -12,6 +13,8 @@
 #include "printer_state.h"
 #include "toolhead_homing.h"
 
+#include <chrono>
+#include <thread>
 #include <utility>
 
 #include "hv/json.hpp"
@@ -265,6 +268,106 @@ bool AmsSubscriptionBackend::file_reread_outside_edit(helix::ams::LaneId lane, i
         write_in_flight = own_write_echoes_.standing(slot_index);
     }
     return helix::ams::file_outside_edit_if_newer(lane, entry, obs, write_in_flight);
+}
+
+void AmsSubscriptionBackend::schedule_lane_record_reread() {
+    on_lane_reread_scheduled();
+    if (lane_reread_pending_.exchange(true)) {
+        return;
+    }
+    auto token = lifetime_.token();
+    helix::http::HttpExecutor::fast().submit([this, token]() {
+        // BG THREAD: only the debounce sleep.
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        token.defer("AmsSubscriptionBackend::lane_record_reread", [this]() {
+            lane_reread_pending_.store(false);
+            reread_lane_records();
+        });
+    });
+}
+
+void AmsSubscriptionBackend::seed_lane_records_seen_locked() {
+    lane_wire_seen_.clear();
+    if (!override_store_) {
+        return;
+    }
+    for (const auto& [slot, entry] : override_store_->last_lane_data_records()) {
+        lane_wire_seen_[slot] = entry.wire;
+    }
+}
+
+void AmsSubscriptionBackend::reread_lane_records() {
+    helix::ams::FilamentSlotOverrideStore* store = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        store = override_store_.get();
+    }
+    if (!store) {
+        on_lane_reread_finished({});
+        return;
+    }
+    auto token = lifetime_.token();
+    // A read that never lands took no slot.
+    store->reload_async(
+        [this, token](std::unordered_map<int, helix::ams::LaneDataRecord> records) {
+            token.defer(
+                "AmsSubscriptionBackend::apply_lane_records",
+                [this, records = std::move(records)]() { apply_reread_lane_records(records); });
+        },
+        [this, token]() {
+            token.defer("AmsSubscriptionBackend::lane_reread_failed", [this]() {
+                spdlog::debug("{} lane_data re-read failed; the next change retries",
+                              backend_log_tag());
+                on_lane_reread_finished({});
+            });
+        });
+}
+
+void AmsSubscriptionBackend::apply_reread_lane_records(
+    const std::unordered_map<int, helix::ams::LaneDataRecord>& records) {
+    std::unordered_set<int> taken;
+    for (const auto& [slot, entry] : records) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (slot < 0 || slot >= slot_index_bound_locked()) {
+                continue;
+            }
+            auto seen = lane_wire_seen_.find(slot);
+            const bool unchanged = seen != lane_wire_seen_.end() && seen->second == entry.wire;
+            lane_wire_seen_[slot] = entry.wire;
+            if (unchanged) {
+                continue;
+            }
+        }
+        // Every field the record states, not only what request_resync() would
+        // re-file as remembered: the spool link is what this read is for.
+        helix::ams::Observation obs = helix::ams::declared_from_record(entry.record);
+        const auto lane = lane_id(slot);
+        const bool rebinds = helix::ams::outside_record_rebinds(lane, obs);
+        if (!file_reread_outside_edit(lane, slot, entry, obs)) {
+            continue;
+        }
+        spdlog::info("{} Slot {} lane_data rewritten by another tool; taking its record",
+                     backend_log_tag(), slot);
+        taken.insert(slot);
+        {
+            // The override follows the lane: a rebinding starts it afresh, and
+            // anything else amends it, so a later save neither republishes
+            // what the tool replaced nor drops what it left alone.
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto& ovr = overrides_[slot];
+            if (rebinds) {
+                helix::ams::FilamentSlotOverride fresh;
+                fresh.fingerprint = ovr.fingerprint;
+                fresh.unlinked_spool_id = ovr.unlinked_spool_id;
+                ovr = std::move(fresh);
+            }
+            helix::ams::amend_record(ovr, obs);
+        }
+        repaint_slot_from_lane(slot);
+        emit_event(kEventSlotChanged, std::to_string(slot));
+    }
+    on_lane_reread_finished(taken);
 }
 
 void AmsSubscriptionBackend::repaint_slot_from_lane(int slot_index) {

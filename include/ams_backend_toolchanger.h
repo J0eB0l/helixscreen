@@ -10,7 +10,6 @@
 #include "mount_feed_sequence.h"
 #include "toolchanger_addon.h"
 
-#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <optional>
@@ -605,19 +604,6 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// lane_data re-read. Caller holds mutex_.
     void
     apply_afc_lane_spools_locked(const std::vector<helix::toolchanger_addon::AfcLaneSpool>& spools);
-    /// Re-read lane_data once a burst of firmware changes settles. A tool that
-    /// changes a head from outside (an NFC tag reader through CHANGE_ZCOLOR or
-    /// SET_SPOOL_ID) writes its lane record beside the change, and nothing else
-    /// reads lane_data after boot - the same gap AmsBackendAd5xIfs closes with
-    /// its own schedule_lane_record_reread() (prestonbrown/helixscreen#1632).
-    /// Debounced, so a burst issues one read. Safe under mutex_.
-    void schedule_lane_record_reread();
-    void reread_lane_records();
-    /// File each record that changed since it was last read as another tool's
-    /// edit when it is one and newer (file_reread_outside_edit()), and move the
-    /// head's override onto it. Main thread.
-    void
-    apply_reread_lane_records(const std::unordered_map<int, helix::ams::LaneDataRecord>& records);
     /// Ask Z-Mod where every tool sits (T_INFO is read-only). Its answer fixes
     /// the boot state on firmware whose active_tool_id only recomputes inside
     /// its own commands.
@@ -644,10 +630,6 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     std::vector<std::optional<std::pair<std::string, std::uint32_t>>> firmware_slot_values_;
     /// Each afclite lane's spool_id as last published, by lane name.
     std::unordered_map<std::string, int> afc_lane_spool_seen_;
-    std::atomic<bool> lane_reread_pending_{false};
-    /// Each head's lane_data document as last read, so a re-read files only a
-    /// record that changed since. Under mutex_.
-    std::unordered_map<int, nlohmann::json> lane_wire_seen_;
     /// Latest per-dock occupancy from the dock sensors, indexed by slot: true
     /// seated, false empty, nullopt never reported. Kept across frames, because
     /// Moonraker republishes only what CHANGED and a frame carrying just the
