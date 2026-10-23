@@ -20,6 +20,7 @@
 #include "settings_manager.h"
 #include "spoolman_manager.h"
 #include "spoolman_slot_saver.h"
+#include "test_helpers/scoped_printer_discovery.h"
 #include "test_helpers/unique_temp_dir.h"
 
 #include <atomic>
@@ -796,4 +797,97 @@ TEST_CASE_METHOD(OverlayCommitFixture,
 
     CHECK(lane_settings::backup_of(*lanes, 1) == 3);
     CHECK_FALSE(access.lane_dirty());
+}
+
+// ============================================================================
+// Tests: a spool created from the editor becomes active only through the
+// commit's rule (the loaded lane, and only where nothing else switches it)
+// ============================================================================
+
+namespace {
+
+/// Create a Spoolman spool from the editor for @p slot (unlinked, complete
+/// identity) and commit it the way the AMS panels do; the created id.
+int add_new_spool_from_editor(OverlayCommitFixture& f, int slot) {
+    f.client.spoolman_mock().get_mock_spools().clear();
+    f.client.spoolman_mock().add_vendor(7, "Polymaker");
+    f.client.spoolman_mock().next_created_filament_id = 101;
+    f.client.spoolman_mock().next_created_spool_id = 500;
+
+    AmsEditOverlay overlay;
+    AmsEditOverlayTestAccess access(overlay);
+    access.init_subjects();
+    SlotInfo working = f.backend->get_slot_info(slot);
+    working.spoolman_id = 0;
+    working.brand = "Polymaker";
+    working.material = "PLA";
+    working.color_rgb = 0xFF0000;
+    access.set_original_info(working);
+    access.set_working_info(working);
+    access.set_api(&f.api);
+    access.set_slot_index(slot);
+    int committed_id = 0;
+    access.set_completion_callback([&](const AmsEditOverlay::EditResult& result) {
+        REQUIRE(result.saved);
+        committed_id = result.slot_info.spoolman_id;
+        SlotInfo pre_edit = AmsState::instance().get_backend()->get_slot_info(result.slot_index);
+        AmsState::instance().commit_slot_edit(result.slot_index, pre_edit, result.slot_info);
+    });
+    access.call_handle_add_to_spoolman();
+    UpdateQueue::instance().drain();
+    return committed_id;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(OverlayCommitFixture,
+                 "a spool added to a lane that is not loaded leaves the active spool alone",
+                 "[ams_edit_overlay][spoolman][active_spool][plugin_filament]") {
+    install_backend(9);
+    backend->set_operation_delay(0);
+    REQUIRE(backend->start().success());
+    REQUIRE(backend->slot_is_actively_loaded(0));
+    REQUIRE_FALSE(backend->slot_is_actively_loaded(2));
+    client.spoolman_mock().set_active_spool_id(9);
+
+    REQUIRE(add_new_spool_from_editor(*this, 2) == 500);
+    CHECK(backend->get_slot_info(2).spoolman_id == 500);
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 9);
+}
+
+TEST_CASE_METHOD(OverlayCommitFixture, "a spool added to the loaded lane becomes the active one",
+                 "[ams_edit_overlay][spoolman][active_spool][plugin_filament]") {
+    install_backend(0);
+    backend->set_operation_delay(0);
+    REQUIRE(backend->start().success());
+    REQUIRE(backend->slot_is_actively_loaded(0));
+    client.spoolman_mock().set_active_spool_id(9);
+
+    REQUIRE(add_new_spool_from_editor(*this, 0) == 500);
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 500);
+}
+
+TEST_CASE_METHOD(OverlayCommitFixture,
+                 "an external spool edit leaves the active spool to SpoolLink firmware",
+                 "[ams_edit_overlay][spoolman][active_spool][plugin_filament]") {
+    helix::test::ScopedPrinterDiscovery printer(helix::test::spoollink_printer_objects());
+    client.spoolman_mock().set_active_spool_id(5);
+
+    SlotInfo linked;
+    linked.spoolman_id = 42;
+    AmsState::instance().commit_external_spool_edit(linked);
+    UpdateQueue::instance().drain();
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 5);
+    CHECK(AmsState::instance().get_external_spool_info().value_or(SlotInfo{}).spoolman_id == 42);
+
+    INFO("the server-first form writes the store without the server round trip");
+    bool committed = false;
+    SlotInfo relinked;
+    relinked.spoolman_id = 43;
+    AmsState::instance().commit_external_spool_edit(
+        relinked, [&] { committed = true; }, [](const MoonrakerError&) {});
+    UpdateQueue::instance().drain();
+    CHECK(committed);
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 5);
+    CHECK(AmsState::instance().get_external_spool_info().value_or(SlotInfo{}).spoolman_id == 43);
 }

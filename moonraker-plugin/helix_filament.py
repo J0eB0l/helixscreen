@@ -40,6 +40,9 @@ FILAMENT_NAMESPACE = "helix_filament"
 ACTIVE_KEY = "active"
 # The last job closed, which a power-loss resume continues.
 LAST_KEY = "last"
+# The id of the job history added last, counted or not: a power-loss resume
+# continues only the job added right before it, the one that was interrupted.
+LAST_ADDED_KEY = "last_added"
 JOB_KEY_PREFIX = "job_"
 RECORD_SCHEMA = 1
 
@@ -452,6 +455,7 @@ class FilamentAccounting:
         self._last_persist = float("-inf")
         self._dirty = False
         self._map: Optional[SpoolMap] = None
+        self._last_added: Optional[str] = None
         # The objects and fields subscribed on this Klippy connection
         self._subscribed: Dict[str, set] = {}
         self._switch_lock = asyncio.Lock()
@@ -470,6 +474,8 @@ class FilamentAccounting:
     async def load(self) -> None:
         """Read back the job a restart interrupted."""
         self.job = OpenJob.from_state(await self._ns_get(ACTIVE_KEY))
+        last_added = await self._ns_get(LAST_ADDED_KEY)
+        self._last_added = last_added if isinstance(last_added, str) else None
         await self._prune()
 
     # -- database ------------------------------------------------------------
@@ -717,11 +723,16 @@ class FilamentAccounting:
         # job before it awaits.
         start_time = job.get("start_time")
         kind = self.helix.helix_initiated(job_id, filename, start_time)
-        resumed_names = self.helix.helix_initiated_names(job_id) if kind == "plr_resume" else []
+        # PLR resumes only the newest job, so the job history added before this
+        # one is the job a resume continues, whatever file name either has (a
+        # QIDI resume prints QIDI's .cache copy under its absolute path).
+        interrupted = self._last_added
+        self._last_added = job_id
         previous = self.job
         if previous is not None and previous.job_id == job_id:
             return
         self.job = None
+        await self._ns_put(LAST_ADDED_KEY, job_id)
         if previous is not None:
             # No finish was seen for it: a power cut, or Moonraker restarted.
             await self._close(previous, None, None)
@@ -732,7 +743,7 @@ class FilamentAccounting:
             base = previous or OpenJob.from_state(await self._ns_get(LAST_KEY))
             # Only the job the resume continues: one that was not counted
             # leaves an older, unrelated job as the last one closed.
-            if base is not None and base.filename not in resumed_names:
+            if base is not None and base.job_id != interrupted:
                 base = None
         if base is not None:
             # The resumed part continues the interrupted job's spools.

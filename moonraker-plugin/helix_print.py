@@ -399,12 +399,6 @@ class HelixJobMarkers:
             return None
         return bound.kind
 
-    def names_of(self, job_id: Any) -> List[str]:
-        """The filenames job_id was bound with: the start name, and the
-        original file's name for a start through a link."""
-        bound = self._bound.get(_job_key(job_id))
-        return list(bound.filenames) if bound is not None else []
-
     def pending_count(self) -> int:
         self._expire()
         return len(self._pending)
@@ -703,11 +697,6 @@ class HelixPrint:
         history reuses ids, and a binding for a reused id names another file
         or start time."""
         return self.job_markers.kind_of(job_id, filename, start_time)
-
-    def helix_initiated_names(self, job_id: Any) -> List[str]:
-        """The filenames a helix-initiated job was started under (empty for
-        any other job): what a resume names the file it continues."""
-        return self.job_markers.names_of(job_id)
 
     async def _drop_job_bindings(self, keys: List[str], must_exist: bool) -> None:
         """Delete bindings from the database. A failure where the record must

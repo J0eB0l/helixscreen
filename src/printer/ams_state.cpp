@@ -2248,8 +2248,7 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
         // means Spoolman is in use.
         if (api_ && slot_info.spoolman_id > 0 &&
             slot_info.spoolman_id != last_synced_spoolman_id_ &&
-            active_spool_owner_now(/*spoolman=*/true, loaded_backend->manages_active_spool()) ==
-                ActiveSpoolOwner::Helix) {
+            helix_sets_active_spool(loaded_backend)) {
             last_synced_spoolman_id_ = slot_info.spoolman_id;
             spdlog::info("[AMS State] Setting active Spoolman spool to {} (slot {})",
                          slot_info.spoolman_id, slot_index);
@@ -2325,9 +2324,11 @@ AmsError AmsState::commit_slot_edit(int slot_index, const SlotInfo& original,
 
     // S1 — server-side active spool (fire-and-forget, warn on failure). The
     // active spool is the one feeding the toolhead, so only an edit on the
-    // loaded lane sets or clears it.
+    // loaded lane sets or clears it. It sets one only where nothing else
+    // switches it; an unlink always clears, since no firmware drops a link
+    // Moonraker holds.
     if (api_ && backend->slot_is_actively_loaded(slot_index)) {
-        if (info.spoolman_id > 0) {
+        if (info.spoolman_id > 0 && helix_sets_active_spool(backend)) {
             api_->spoolman().set_active_spool(
                 info.spoolman_id, []() {},
                 [](const MoonrakerError& err) {

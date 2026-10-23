@@ -432,6 +432,9 @@ class TestFilamentAccounting:
         await db.insert_item(FILAMENT_NAMESPACE, LAST_KEY,
                              {"job_id": "00000A", "filename": "part.gcode", "continues": None,
                               "ledger": ledger.to_state()})
+        # Moonraker restarted after the power cut: what this module had stored.
+        await db.insert_item(FILAMENT_NAMESPACE, helix_filament.LAST_ADDED_KEY, "00000A")
+        await helix_print_component.filament.load()
         helix_print_component.mark_helix_initiated("part.gcode", "plr_resume")
         await _history(mock_server, _added("00000B"))
         await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 1.0]}})
@@ -657,3 +660,52 @@ class TestReviewFindings:
         assert same["record"]["spools"][0]["mm"] == 2.0
         reused = await handler(MockWebRequest({"job_id": "000024", "start_time": T0 + 5000}))
         assert reused["record"] is None
+
+
+class TestQidiResume:
+    @pytest.mark.asyncio
+    async def test_a_qidi_resume_continues_the_interrupted_record(
+            self, helix_print_component, mock_server):
+        """QIDI's resume prints its .cache copy under an absolute path, with no
+        original name on the marker; the interrupted job is the one history
+        added before it."""
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        await _history(mock_server, _added("000030", filename="benchy.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 12.0]}})
+        cache_name = "/home/mks/printer_data/gcodes/.cache/benchy.gcode"
+        helix_print_component.mark_helix_initiated(cache_name, "plr_resume")
+        await _ready(mock_server, _status(e=0.0, filename=cache_name))
+        await _history(mock_server, _added("000031", filename=cache_name,
+                                           start_time=T0 + 9000))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 3.0]}})
+        await _history(mock_server, _finished("000031", filename=cache_name,
+                                              start_time=T0 + 9000))
+        record = await helix_print_component.database.get_item(
+            FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000031")
+        assert record["continues"] == "000030"
+        assert [s["mm"] for s in record["spools"]] == [15.0]
+
+    @pytest.mark.asyncio
+    async def test_a_resume_after_an_uncounted_job_starts_fresh(
+            self, helix_print_component, mock_server):
+        """The interrupted job ran with the feature off: the last counted job
+        is older and unrelated, so the resume starts its own record."""
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        db = helix_print_component.database
+        await _history(mock_server, _added("000032", filename="old.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 7.0]}})
+        await _history(mock_server, _finished("000032", filename="old.gcode"))
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY,
+                             {FILAMENT_FEATURE: False})
+        await _history(mock_server, _added("000033", filename="benchy.gcode"))
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY,
+                             {FILAMENT_FEATURE: True})
+        helix_print_component.mark_helix_initiated("benchy.gcode", "plr_resume")
+        await _history(mock_server, _added("000034", filename="benchy.gcode",
+                                           start_time=T0 + 9000))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 8.0]}})
+        await _history(mock_server, _finished("000034", filename="benchy.gcode",
+                                              start_time=T0 + 9000))
+        record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000034")
+        assert record["continues"] is None
+        assert [s["mm"] for s in record["spools"]] == [1.0]

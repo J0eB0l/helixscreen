@@ -12,6 +12,7 @@
 
 #include "ams_state.h"
 #include "ams_state_internal.h"
+#include "filament_accounting_controller.h"
 #include "i_moonraker_api.h"
 #include "lane_apply.h"
 #include "lane_binding.h"
@@ -159,15 +160,17 @@ void AmsState::invalidate_stale_external_identity(const SlotInfo& info) {
 void AmsState::commit_external_spool_edit(const SlotInfo& info) {
     assert_main_thread();
 
-    // S1 — match the server active spool to what we are committing
+    // S1 — match the server active spool to what we are committing: set it
+    // only where nothing else switches it; a clear always goes out
     if (api_) {
-        if (info.spoolman_id > 0) {
+        if (info.spoolman_id > 0 && helix_sets_active_spool(get_backend())) {
             api_->spoolman().set_active_spool(
                 info.spoolman_id, []() {},
                 [](const MoonrakerError& err) {
                     spdlog::warn("[AmsState] Failed to set active spool: {}", err.message);
                 });
-        } else if (get_external_spool_info().value_or(SlotInfo{}).spoolman_id > 0) {
+        } else if (info.spoolman_id == 0 &&
+                   get_external_spool_info().value_or(SlotInfo{}).spoolman_id > 0) {
             // Committing a manual entry (id=0, material set) over a linked
             // spool intentionally clears the server link — the UI no longer
             // shows that spool as in use, so the server must not either.
@@ -191,7 +194,7 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info, std::function<vo
 
     invalidate_stale_external_identity(info);
 
-    if (api_ && info.spoolman_id > 0) {
+    if (api_ && info.spoolman_id > 0 && helix_sets_active_spool(get_backend())) {
         // Server-first: the store subset waits for the server round-trip. The
         // API callbacks fire on a background thread, so both the store write
         // and the caller's completion are marshalled to the main thread.
@@ -219,9 +222,9 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info, std::function<vo
         return;
     }
 
-    // Manual entry or clear: no server identity gates the store write. The
-    // clear arm (replacing a linked spool with an empty record) still tells
-    // the server, fire-and-forget, exactly like the sync commit.
+    // Manual entry, clear, or a spool something else makes active: no server
+    // identity gates the store write. The clear arm (replacing a linked spool with an empty record)
+    // still tells the server, fire-and-forget, exactly like the sync commit.
     if (api_ && info.spoolman_id == 0 &&
         get_external_spool_info().value_or(SlotInfo{}).spoolman_id > 0) {
         api_->spoolman().set_active_spool(

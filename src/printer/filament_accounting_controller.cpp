@@ -70,6 +70,12 @@ ActiveSpoolOwner active_spool_owner_now(bool spoolman, bool backend_manages_acti
                               FilamentAccountingController::macros_set_active_spool());
 }
 
+bool helix_sets_active_spool(const AmsBackend* backend) {
+    return active_spool_owner_now(/*spoolman=*/true,
+                                  backend != nullptr && backend->manages_active_spool()) ==
+           ActiveSpoolOwner::Helix;
+}
+
 FilamentAccountingController::FilamentAccountingController() {
     auto& ps = get_printer_state();
     probe_observer_ = observe<int>(

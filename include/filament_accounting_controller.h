@@ -20,6 +20,7 @@
 namespace helix {
 
 struct ToolInfo;
+class AmsBackend;
 
 /// Who switches the active spool on this printer now: active_spool_owner()
 /// over what this app knows (Spoolman, @p backend_manages_active_spool for
@@ -27,6 +28,12 @@ struct ToolInfo;
 /// Every HelixScreen path that sets the active spool asks this, and acts only
 /// on ActiveSpoolOwner::Helix. Main thread.
 ActiveSpoolOwner active_spool_owner_now(bool spoolman, bool backend_manages_active_spool);
+
+/// Whether HelixScreen itself sets the active spool for a lane of @p backend
+/// (nullptr: the printer has no filament system): active_spool_owner_now()
+/// answers Helix. Asked with a linked spool in hand, so Spoolman is in use.
+/// Every path that sets it from a lane or spool edit asks this.
+bool helix_sets_active_spool(const AmsBackend* backend);
 
 class FilamentAccountingController {
   public:
