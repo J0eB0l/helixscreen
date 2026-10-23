@@ -35,6 +35,7 @@
 #include "platform_info.h"
 #include "printer_state.h"
 #include "static_subject_registry.h"
+#include "system/child_process.h"
 #include "system/helix_paths.h"
 #include "temperature_controller.h"
 
@@ -524,8 +525,9 @@ bool updates_externally_managed() {
 // from the main thread during startup, so poll for the child instead of a
 // blocking waitpid() and treat "still running at the deadline" as no.
 static bool probe_passwordless_sudo() {
-    constexpr int kTimeoutMs = 2000;
-    constexpr int kPollIntervalMs = 20;
+    constexpr auto kTimeout = std::chrono::milliseconds(2000);
+    constexpr auto kPollInterval = std::chrono::milliseconds(20);
+    constexpr auto kTermGrace = std::chrono::milliseconds(100);
 
     pid_t pid = fork();
     if (pid < 0) {
@@ -553,23 +555,13 @@ static bool probe_passwordless_sudo() {
         _exit(127); // no sudo binary
     }
 
-    for (int waited_ms = 0; waited_ms < kTimeoutMs; waited_ms += kPollIntervalMs) {
-        int status = 0;
-        const pid_t done = waitpid(pid, &status, WNOHANG);
-        if (done == pid) {
-            return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-        }
-        if (done < 0) {
-            return false; // child vanished (SIGCHLD reaped elsewhere) — assume no
-        }
-        usleep(kPollIntervalMs * 1000);
+    const ChildWaitResult wait = terminate_and_reap(
+        pid, std::chrono::steady_clock::now() + kTimeout, kTermGrace, kPollInterval);
+    if (wait.outcome == ChildWaitOutcome::TimedOut) {
+        spdlog::warn("[Updates] sudo probe did not finish in {}ms — assuming no escalation",
+                     kTimeout.count());
     }
-
-    spdlog::warn("[Updates] sudo probe did not finish in {}ms — assuming no escalation",
-                 kTimeoutMs);
-    kill(pid, SIGKILL);
-    waitpid(pid, nullptr, 0);
-    return false;
+    return wait.outcome == ChildWaitOutcome::Exited && wait.exit_code() == 0;
 }
 
 static bool (*g_escalation_probe)() = probe_passwordless_sudo;
