@@ -8,6 +8,7 @@
 #include "helix_regex.h"
 #include "i_moonraker_client.h"
 #include "leveling_probe_points.h"
+#include "preprint_checklist.h"
 #include "preprint_predictor.h"
 #include "print_start_position_classifier.h"
 #include "print_start_profile.h"
@@ -28,6 +29,10 @@
 #include <set>
 #include <string>
 #include <vector>
+
+namespace helix {
+struct PrintStartAnalysis;
+}
 
 /**
  * @file print_start_collector.h
@@ -297,6 +302,26 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
      * @param profile Profile to use, or nullptr to disable profile-based matching
      */
     void set_profile(std::shared_ptr<PrintStartProfile> profile);
+
+    /**
+     * @brief Hand over the PRINT_START macro analysis, the fallback source of the
+     *        checklist's expected order when the file has no inline start block
+     *
+     * Survives start(): the macro belongs to the printer, not to one run. Any thread.
+     */
+    void set_macro_analysis(const helix::PrintStartAnalysis& analysis);
+
+    /**
+     * @brief What the pre-print checklist needs, as of now
+     *
+     * Done phases in the order they were left, the current phase and its elapsed
+     * time, seconds spent per phase, the expected order (start block, else macro
+     * analysis, else empty) and the predictor's per-phase seconds. Any thread;
+     * takes state_mutex_. It changes only when print_start_phase or
+     * print_start_progress does (both are set at every phase entry), plus the
+     * elapsed time that the panel reads on its own tick.
+     */
+    [[nodiscard]] helix::PreprintChecklistInput checklist_input() const;
 
     /**
      * @brief Get the predictor for reading predictions
@@ -642,6 +667,10 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
 
     // Phase tracking (protected by state_mutex_)
     std::set<helix::PrintStartPhase> detected_phases_;
+    /// Phases left behind, in the order they were left, each phase once.
+    std::vector<helix::PrintStartPhase> phases_left_;
+    /// Phases of the PRINT_START macro's detected operations, in macro order.
+    std::vector<helix::PrintStartPhase> macro_expected_phases_;
     helix::PrintStartPhase current_phase_ = helix::PrintStartPhase::IDLE;
     bool print_start_detected_ = false;
     int max_sequential_progress_ = 0; // Monotonic progress guard for sequential mode

@@ -167,6 +167,13 @@ class PrintStartCollectorTestAccess {
         return c.run_generation_.load();
     }
 
+    /// Install the steps the follower reads from the print file's start block.
+    static void set_start_block_steps(PrintStartCollector& c,
+                                      std::vector<helix::StartBlockStep> steps) {
+        std::lock_guard<std::mutex> lock(c.state_mutex_);
+        c.start_block_.set_steps(std::move(steps));
+    }
+
     /// Show a start-block step as run `run` reached it.
     static void apply_start_block_step(PrintStartCollector& c, const helix::StartBlockStep& step,
                                        uint64_t run) {

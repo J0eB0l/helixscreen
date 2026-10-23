@@ -521,6 +521,7 @@ TEST_CASE("PrintStart: typical noise lines should not match phases", "[print][ne
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
 #include "moonraker_client_mock.h"
+#include "print_start_analyzer.h"
 #include "print_start_collector.h"
 #include "print_start_profile.h"
 #include "simulated_clock.h"
@@ -8623,4 +8624,89 @@ TEST_CASE_METHOD(PurgeShapeFixture,
         eta_tick();
     }
     CHECK(get_current_phase() == PrintStartPhase::BED_MESH);
+}
+
+// ============================================================================
+// checklist_input
+// ============================================================================
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture, "checklist_input orders done phases by entry",
+                 "[print][collector][checklist_input]") {
+    helix::sim::SimulatedClock::ManualScope clock(helix::sim::SimSpeed::of(1.0));
+    collector().start();
+    collector().enable_fallbacks();
+
+    send_gcode_response("G28");
+    clock.advance(std::chrono::seconds(12));
+    send_gcode_response("QUAD_GANTRY_LEVEL");
+    clock.advance(std::chrono::seconds(30));
+    send_gcode_response("BED_MESH_CALIBRATE");
+
+    auto in = collector().checklist_input();
+    REQUIRE(in.done_in_order.size() == 2);
+    CHECK(in.done_in_order[0] == PrintStartPhase::HOMING);
+    CHECK(in.done_in_order[1] == PrintStartPhase::QGL);
+    CHECK(in.current == PrintStartPhase::BED_MESH);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "checklist_input actual seconds match time spent",
+                 "[print][collector][checklist_input]") {
+    helix::sim::SimulatedClock::ManualScope clock(helix::sim::SimSpeed::of(1.0));
+    collector().start();
+    collector().enable_fallbacks();
+
+    send_gcode_response("G28");
+    clock.advance(std::chrono::seconds(12));
+    send_gcode_response("QUAD_GANTRY_LEVEL");
+    clock.advance(std::chrono::seconds(30));
+
+    auto in = collector().checklist_input();
+    REQUIRE(in.actual_seconds.count(static_cast<int>(PrintStartPhase::HOMING)) == 1);
+    CHECK(in.actual_seconds.at(static_cast<int>(PrintStartPhase::HOMING)) == 12);
+    CHECK(in.current_elapsed_seconds == 30);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "checklist_input takes expected order from the start block",
+                 "[print][collector][checklist_input]") {
+    collector().start();
+    PrintStartCollectorTestAccess::set_start_block_steps(
+        collector(), {{100, helix::StartBlockStepKind::HomeAxes, true, "G28"},
+                      {200, helix::StartBlockStepKind::TiltZ, true, "Z_TILT_ADJUST"},
+                      {300, helix::StartBlockStepKind::BedMesh, true, "BED_MESH_CALIBRATE"}});
+    // The macro analysis is only the fallback.
+    helix::PrintStartAnalysis analysis;
+    analysis.operations.push_back({"QUAD_GANTRY_LEVEL", helix::OperationCategory::QGL});
+    collector().set_macro_analysis(analysis);
+
+    auto in = collector().checklist_input();
+    REQUIRE(in.expected_order.size() == 3);
+    CHECK(in.expected_order[0] == PrintStartPhase::HOMING);
+    CHECK(in.expected_order[1] == PrintStartPhase::Z_TILT);
+    CHECK(in.expected_order[2] == PrintStartPhase::BED_MESH);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "checklist_input falls back to the macro analysis, in macro order",
+                 "[print][collector][checklist_input]") {
+    helix::PrintStartAnalysis analysis;
+    analysis.operations.push_back({"G28", helix::OperationCategory::HOMING});
+    analysis.operations.push_back({"PRINT_START", helix::OperationCategory::START_PRINT});
+    analysis.operations.push_back({"QUAD_GANTRY_LEVEL", helix::OperationCategory::QGL});
+    analysis.operations.push_back({"G28", helix::OperationCategory::HOMING});
+    collector().set_macro_analysis(analysis);
+    collector().start();
+
+    auto in = collector().checklist_input();
+    REQUIRE(in.expected_order.size() == 2);
+    CHECK(in.expected_order[0] == PrintStartPhase::HOMING);
+    CHECK(in.expected_order[1] == PrintStartPhase::QGL);
+}
+
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "checklist_input with no start block and no analysis has empty expected order",
+                 "[print][collector][checklist_input]") {
+    collector().start();
+    CHECK(collector().checklist_input().expected_order.empty());
 }
