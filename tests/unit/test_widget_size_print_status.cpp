@@ -95,6 +95,7 @@
 #include "print_lifecycle_state.h"
 #include "printer_state.h"
 #include "src/ui/panel_widgets/print_status_widget.h"
+#include "system_settings_manager.h"
 #include "theme_manager.h"
 #include "tool_state.h"
 
@@ -692,6 +693,88 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         CHECK(library_subject("print_status_library_icon_only") == 0);
         CHECK(lv_obj_get_style_flex_flow(actions, LV_PART_MAIN) == LV_FLEX_FLOW_COLUMN);
         CHECK(lv_obj_get_style_text_font(icon, LV_PART_MAIN) == column_icon_font);
+    }
+    PrintStatusWidget::destroy_formatter_for_test();
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "print_status library actions re-fit when a button appears",
+                 "[widget_size][print_status][print_status_library_fit]") {
+    PrintStatusWidget::destroy_formatter_for_test();
+    PrinterStateTestAccess::reset(get_printer_state());
+    get_printer_state().init_subjects(false);
+    ToolState::instance().init_subjects(false);
+    heal_global_print_status_panel_subjects();
+    {
+        // Queue subjects live before the component parses, empty to start.
+        JobQueueState jqs(nullptr, nullptr);
+        ScopedJobQueueSubjects subject_guard; // destroyed AFTER the harness
+        ScopedJobQueueState state_guard(&jqs);
+        jqs.init_subjects();
+        REQUIRE(lv_subject_get_int(lv_xml_get_subject(nullptr, "job_queue_count")) == 0);
+
+        // Reprint Last and Recent Prints only: two buttons sit one per row.
+        PanelWidgetHarness<PrintStatusWidget> h(test_screen(),
+                                                HarnessConfig{{{"show_print_files", false}}});
+        h.resize(4, 2, 235, 115);
+        process_lvgl(30);
+        REQUIRE(library_subject("print_status_library_icon_only") == 1);
+        REQUIRE(library_subject("print_status_library_grid") == 0);
+
+        // A queued job shows the queue button with no resize: three buttons
+        // in the same short card go to two rows.
+        JobQueueStateTestAccess::deliver_status(jqs, status_with(2));
+        process_lvgl(30);
+        CHECK(library_subject("print_status_library_grid") == 1);
+        // Reprint Last and Recent Prints on top, the queue (cell 3) below.
+        CHECK(library_subject("print_status_library_wrap_at") == 3);
+    }
+    PrintStatusWidget::destroy_formatter_for_test();
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "print_status library actions re-fit to a language switch",
+                 "[widget_size][print_status][print_status_library_fit]") {
+    PrintStatusWidget::destroy_formatter_for_test();
+    PrinterStateTestAccess::reset(get_printer_state());
+    get_printer_state().init_subjects(false);
+    ToolState::instance().init_subjects(false);
+    heal_global_print_status_panel_subjects();
+    struct RestoreEnglish {
+        ~RestoreEnglish() {
+            SystemSettingsManager::instance().set_language("en");
+        }
+    } restore_english;
+    SystemSettingsManager::instance().set_language("en");
+    {
+        PanelWidgetHarness<PrintStatusWidget> h(test_screen());
+        // Narrow first, so the scan below starts from a verdict the fit made.
+        h.resize(6, 6, 200, 600);
+        process_lvgl(30);
+        REQUIRE(library_subject("print_status_library_icon_only") == 1);
+        // Tall, and just wide enough for the English labels beside their icons.
+        int width = 0;
+        for (int w = 300; w <= 1200; w += 10) {
+            h.resize(6, 6, w, 600);
+            process_lvgl(30);
+            if (library_subject("print_status_library_icon_only") == 0) {
+                width = w;
+                break;
+            }
+        }
+        REQUIRE(width > 0);
+        REQUIRE(library_subject("print_status_library_grid") == 0);
+
+        // German labels are longer; nothing resizes, so only the language
+        // observer can re-fit.
+        SystemSettingsManager::instance().set_language("de");
+        UpdateQueue::instance().drain();
+        process_lvgl(30);
+        CHECK(library_subject("print_status_library_icon_only") == 1);
+        CHECK(library_subject("print_status_library_grid") == 0);
+
+        SystemSettingsManager::instance().set_language("en");
+        UpdateQueue::instance().drain();
+        process_lvgl(30);
+        CHECK(library_subject("print_status_library_icon_only") == 0);
     }
     PrintStatusWidget::destroy_formatter_for_test();
 }
