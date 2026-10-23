@@ -1569,12 +1569,18 @@ TEST_CASE("PrinterDiscovery clear resets all state", "[printer_discovery]") {
     json objects = {"extruder", "heater_bed",      "quad_gantry_level", "bed_mesh",
                     "probe",    "neopixel lights", "gcode_macro FOO"};
     hw.parse_objects(objects);
+    hw.parse_fit_limits(json{{"printer", {{"kinematics", "corexy"}}},
+                             {"stepper_x", {{"position_min", 0}, {"position_max", 120}}}});
 
     REQUIRE(hw.has_qgl());
     REQUIRE(hw.heaters().size() == 2);
+    REQUIRE(hw.fit_machine().has_value());
 
     // Clear should reset everything
     hw.clear();
+
+    // Another printer's limits would judge every file against the wrong travel.
+    REQUIRE_FALSE(hw.fit_machine().has_value());
 
     REQUIRE_FALSE(hw.has_qgl());
     REQUIRE_FALSE(hw.has_bed_mesh());

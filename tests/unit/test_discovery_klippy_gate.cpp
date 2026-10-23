@@ -382,3 +382,24 @@ TEST_CASE("Discovery resolves the sensor toggle command from configfile.settings
         CHECK(discovered_toggle_command(client) == "SET_FILAMENT_SENSOR");
     }
 }
+
+TEST_CASE("Discovery reads the printer's fit-check limits from its config",
+          "[discovery][plugin_fitcheck]") {
+    LVGLTestFixture fixture;
+
+    TestDiscoveryClient client;
+    client.set_klippy_state(MoonrakerClientMock::KlippyState::READY);
+    REQUIRE_FALSE(client.hardware().fit_machine().has_value());
+
+    bool completed = false;
+    client.discover_printer_real([&completed]() { completed = true; }, [](const std::string&) {});
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(completed);
+
+    // Unset limits read as "config unread", which judges no file at all.
+    const helix::PrinterDiscovery hw = client.hardware();
+    const auto& machine = hw.fit_machine();
+    REQUIRE(machine.has_value());
+    CHECK_FALSE(machine->kinematics.empty());
+    CHECK(machine->axis_max[0].value_or(0.0) > 0.0);
+}

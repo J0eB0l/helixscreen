@@ -265,6 +265,37 @@ TEST_CASE_METHOD(PluginStateFixture,
     }
 }
 
+TEST_CASE_METHOD(PluginStateFixture,
+                 "AD5X IFS takes a push through the client from start until it stops",
+                 "[plugin_vendor][ad5x_ifs]") {
+    helix::test::FakeMoonrakerClient client;
+    helix::test::RegisteredBackend<AmsBackendAd5xIfs> backend_reg(nullptr, &client);
+    AmsBackendAd5xIfs& backend = *backend_reg;
+    Ad5xIfsTestAccess::set_zcolor_query_active(backend, false);
+    const json push = notification({{"vendor", "ad5x"}, {"payload", {{"content", kJsonA}}}});
+
+    // Nothing listens until the backend's first state query answers.
+    CHECK_FALSE(client.fire_notification(kVendorStateNotifyMethod, push));
+
+    Ad5xIfsTestAccess::on_started(backend);
+    REQUIRE_FALSE(client.rpc_calls.empty());
+    client.rpc_calls.front().success_cb(json{{"result", {{"status", json::object()}}}});
+    helix::ui::UpdateQueue::instance().drain();
+
+    set_plugin(true, {{"vendor_ad5x", entry(1, true, true)}});
+    Ad5xIfsTestAccess::handle_status(backend, {{"extruder", {{"temperature", 25.0}}}});
+    REQUIRE(Ad5xIfsTestAccess::vendor_pushing(backend));
+
+    REQUIRE(client.fire_notification(kVendorStateNotifyMethod, push));
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(backend.get_slot_info(0).color_rgb == 0xFF0000);
+    CHECK(backend.get_slot_info(0).material == "PLA");
+
+    // A stopped backend leaves no handler behind on the shared client.
+    Ad5xIfsTestAccess::on_stopping(backend);
+    CHECK_FALSE(client.fire_notification(kVendorStateNotifyMethod, push));
+}
+
 // ============================================================================
 // ACE
 // ============================================================================

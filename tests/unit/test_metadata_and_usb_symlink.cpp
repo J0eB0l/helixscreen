@@ -327,6 +327,18 @@ TEST_CASE_METHOD(MetadataAPITestFixture, "Metadata sent as JSON strings still pa
     CHECK(m.estimated_time == Catch::Approx(600.0));
 }
 
+TEST_CASE_METHOD(MetadataAPITestFixture, "Metadata carries the slicer's nozzle diameter",
+                 "[metadata][api][plugin_fitcheck]") {
+    MetadataParseProbe probe(mock_client);
+    json response;
+    response["result"] = {{"filename", "part.gcode"}, {"nozzle_diameter", 0.6}};
+    CHECK(probe.parse_file_metadata(response).nozzle_diameter == Catch::Approx(0.6));
+
+    // A file that states none reads as 0, the fit check's "unknown".
+    response["result"].erase("nozzle_diameter");
+    CHECK(probe.parse_file_metadata(response).nozzle_diameter == 0.0);
+}
+
 TEST_CASE_METHOD(MetadataAPITestFixture, "Integer metadata sent as JSON strings still parses",
                  "[metadata][api][json_coercion]") {
     MetadataParseProbe probe(mock_client);

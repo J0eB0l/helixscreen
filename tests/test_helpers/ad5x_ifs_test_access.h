@@ -491,6 +491,9 @@ class Ad5xIfsTestAccess {
     static void on_stopping(AmsBackendAd5xIfs& b) {
         b.on_stopping();
     }
+    static void on_started(AmsBackendAd5xIfs& b) {
+        b.on_started();
+    }
     static std::chrono::steady_clock::time_point last_json_poll_kick(const AmsBackendAd5xIfs& b) {
         return b.last_json_poll_kick_;
     }
