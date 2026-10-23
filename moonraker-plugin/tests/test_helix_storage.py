@@ -35,7 +35,7 @@ from helix_storage import (
     resolve_consumer,
     scan_usage,
 )
-from helix_print import HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, PrintInfo
+from helix_print import HELIX_AUX_PROVIDER, HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, PrintInfo
 from test_helix_print import (  # noqa: F401  (fixtures are used by name)
     MockWebRequest,
     helix_print_component,
@@ -722,7 +722,7 @@ class TestPhotosCleanup:
         await storage.database.insert_item(helix_photos.PHOTOS_NAMESPACE, ["00002A"], record)
         storage.history.add_job("00002A", start_time=start, auxiliary_data=[
             {"provider": "other", "name": "x", "value": 1},
-            {"provider": helix_photos.AUX_PROVIDER, "name": helix_photos.AUX_NAME,
+            {"provider": HELIX_AUX_PROVIDER, "name": helix_photos.AUX_NAME,
              "value": [helix_photos.PHOTOS_DIR + "/2A_end.jpg"]}])
 
         result = await mock_server.endpoints[CLEANUP](Request({"consumer": "photos",
@@ -748,7 +748,7 @@ class TestPhotosCleanup:
             helix_photos.KIND_END, helix_photos.PHOTOS_DIR + "/2A_end.jpg", 40, start, "cam")
         await storage.database.insert_item(helix_photos.PHOTOS_NAMESPACE, ["00002A"], record)
         storage.history.add_job("00002A", start_time=start, auxiliary_data=[
-            {"provider": helix_photos.AUX_PROVIDER, "name": helix_photos.AUX_NAME,
+            {"provider": HELIX_AUX_PROVIDER, "name": helix_photos.AUX_NAME,
              "value": [helix_photos.PHOTOS_DIR + "/2A_end.jpg"]}])
 
         async def broken_save(job, job_id=None):

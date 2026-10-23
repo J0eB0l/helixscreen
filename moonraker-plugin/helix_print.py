@@ -1640,20 +1640,26 @@ class HelixPrint:
         return self._history_rewrite_lock
 
     @staticmethod
+    def drop_history_aux(existing: Any, name: str) -> List[Any]:
+        """A history row's auxiliary_data without our `name` entry, every
+        other entry kept. A value that is not a list is dropped rather than
+        walked: iterating a dict would yield its keys and write them back over
+        the real thing."""
+        entries = existing if isinstance(existing, list) else []
+        return [e for e in entries
+                if not (isinstance(e, dict) and e.get("provider") == HELIX_AUX_PROVIDER
+                        and e.get("name") == name)]
+
+    @staticmethod
     def set_history_aux(existing: Any, name: str, value: Any, description: str) -> List[Any]:
         """A history row's auxiliary_data with our `name` entry set: every
-        other entry kept, an earlier `name` entry of ours replaced. A value
-        that is not a list is dropped rather than walked: iterating a dict
-        would yield its keys and write them back over the real thing."""
+        other entry kept, an earlier `name` entry of ours replaced."""
         if existing is not None and not isinstance(existing, list):
             logging.warning(
                 "HelixPrint: Ignoring auxiliary_data of unexpected type "
                 f"{type(existing).__name__}"
             )
-        entries = existing if isinstance(existing, list) else []
-        kept = [e for e in entries
-                if not (isinstance(e, dict) and e.get("provider") == HELIX_AUX_PROVIDER
-                        and e.get("name") == name)]
+        kept = HelixPrint.drop_history_aux(existing, name)
         kept.append({"provider": HELIX_AUX_PROVIDER, "name": name, "value": value,
                      "description": description, "units": None})
         return kept

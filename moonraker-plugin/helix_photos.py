@@ -63,8 +63,7 @@ ORPHAN_GRACE_S = 3600.0
 
 FETCH_TIMEOUT_S = 10.0
 
-# Our entry in a history job's auxiliary_data (HelixPrint.set_history_aux)
-AUX_PROVIDER = "helix_print"
+# Our entry's name in a history job's auxiliary_data (HelixPrint.set_history_aux)
 AUX_NAME = "photos"
 
 # Where a relative snapshot URL is served on the printer's own host: the web
@@ -280,15 +279,6 @@ def _inside_photos_dir(path: str) -> bool:
 def aux_paths(record: Dict[str, Any]) -> List[str]:
     """The value of our photos entry in a job's auxiliary_data: the paths."""
     return [p["path"] for p in record.get("photos", []) if isinstance(p, dict)]
-
-
-def without_aux(existing: Any) -> List[Any]:
-    """A job's auxiliary_data with our photos entry removed, every other
-    entry kept."""
-    entries = existing if isinstance(existing, list) else []
-    return [e for e in entries
-            if not (isinstance(e, dict) and e.get("provider") == AUX_PROVIDER
-                    and e.get("name") == AUX_NAME)]
 
 
 def records_older_than(items: List[Tuple[str, Any]], now: float, older_than: float) -> List[str]:
@@ -811,7 +801,7 @@ class HelixPhotos:
             if not history_matches(record, row):
                 return False
             entries = row.get("auxiliary_data")
-            kept = without_aux(entries)
+            kept = self.helix.drop_history_aux(entries, AUX_NAME)
             if isinstance(entries, list) and len(kept) == len(entries):
                 return False
             row["auxiliary_data"] = kept
