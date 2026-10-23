@@ -172,3 +172,31 @@ TEST_CASE_METHOD(PidHeadsFixture, "No M107 for a run that never set the fan", "[
     Access::turn_off_fan(panel);
     CHECK_FALSE(sent("M107"));
 }
+
+TEST_CASE_METHOD(PidHeadsFixture, "MPC calibration tunes the picked tool's heater",
+                 "[pid][pid_heads]") {
+    toolchanger(1);
+    Access::activate(panel);
+    Access::use_mpc(panel);
+    start();
+    CHECK(sent("MPC_CALIBRATE HEATER=extruder1 "));
+}
+
+TEST_CASE_METHOD(PidHeadsFixture, "A closed panel stops following the active tool",
+                 "[pid][pid_heads]") {
+    toolchanger(1);
+    Access::activate(panel);
+    REQUIRE(subject_int("cal_show_pid_fan") == 1);
+
+    panel.cleanup();
+    set_active_tool(0);
+    CHECK(subject_int("cal_show_pid_fan") == 1);
+}
+
+TEST_CASE_METHOD(PidHeadsFixture, "An open panel hides the fan when its tool is parked",
+                 "[pid][pid_heads]") {
+    toolchanger(1);
+    Access::activate(panel);
+    set_active_tool(0);
+    CHECK(subject_int("cal_show_pid_fan") == 0);
+}

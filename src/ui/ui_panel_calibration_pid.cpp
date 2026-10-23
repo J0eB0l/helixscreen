@@ -81,7 +81,6 @@ PIDCalibrationPanel::PIDCalibrationPanel() {
 }
 
 PIDCalibrationPanel::~PIDCalibrationPanel() {
-    active_tool_observer_.reset();
     deinit_subjects();
 
     // stop_progress_tracking() cancels this on the normal path, but a teardown
