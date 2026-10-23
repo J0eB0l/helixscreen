@@ -19,7 +19,12 @@ namespace {
 
 PluginFeatureMap plr_map(int version, bool available, bool enabled) {
     PluginFeatureMap features;
-    features["plr"] = PluginFeatureEntry{version, available, enabled, available ? "" : "why"};
+    PluginFeatureEntry entry;
+    entry.version = version;
+    entry.available = available;
+    entry.enabled = enabled;
+    entry.reason = available ? "" : "why";
+    features["plr"] = entry;
     return features;
 }
 
@@ -56,6 +61,17 @@ TEST_CASE("plugin_feature_state over plugin and feature states", "[plugin_featur
     INFO("feature not in the map");
     CHECK(plugin_feature_state(true, plr_map(1, true, true), "file_analysis", 1) ==
           PluginFeatureState::Absent);
+}
+
+TEST_CASE("an overview line carries the reason of an unavailable feature", "[plugin_feature]") {
+    const std::vector<PluginFeatureLine> unavailable =
+        plugin_feature_lines(plr_map(1, false, false));
+    REQUIRE(unavailable.size() == 1);
+    CHECK(unavailable[0].reason == "why");
+    CHECK_FALSE(plr_map(1, false, false).at("plr").saving.has_value());
+    const std::vector<PluginFeatureLine> ready = plugin_feature_lines(plr_map(1, true, true));
+    REQUIRE(ready.size() == 1);
+    CHECK(ready[0].reason.empty());
 }
 
 TEST_CASE("parse_plugin_features reads the status features map", "[plugin_feature]") {
