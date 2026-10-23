@@ -615,6 +615,10 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// Fold one afclite status frame in: fault flag to the error surface,
     /// activity word and lane map to the log.
     void apply_afc_state_locked(const helix::toolchanger_addon::AfcStateReading& afc);
+    /// Latch each afclite lane's spool_id; a lane whose spool changed owes a
+    /// lane_data re-read. Caller holds mutex_.
+    void
+    apply_afc_lane_spools_locked(const std::vector<helix::toolchanger_addon::AfcLaneSpool>& spools);
     /// Ask Z-Mod where every tool sits (T_INFO is read-only). Its answer fixes
     /// the boot state on firmware whose active_tool_id only recomputes inside
     /// its own commands.
@@ -636,6 +640,11 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     std::optional<std::vector<std::string>> firmware_valid_types_;
     std::optional<std::vector<std::pair<int, std::uint32_t>>> firmware_palette_;
     bool firmware_slots_seen_ = false;
+    /// Each head's material and colour as the firmware last stated them, so a
+    /// frame restating them is not taken for a change.
+    std::vector<std::optional<std::pair<std::string, std::uint32_t>>> firmware_slot_values_;
+    /// Each afclite lane's spool_id as last published, by lane name.
+    std::unordered_map<std::string, int> afc_lane_spool_seen_;
     /// Latest per-dock occupancy from the dock sensors, indexed by slot: true
     /// seated, false empty, nullopt never reported. Kept across frames, because
     /// Moonraker republishes only what CHANGED and a frame carrying just the
