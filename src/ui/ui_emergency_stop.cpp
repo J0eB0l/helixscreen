@@ -15,6 +15,7 @@
 #include "app_globals.h"
 #include "fault_modal_registry.h"
 #include "gcode_error_router.h"
+#include "helix_psram_attr.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "print_lifecycle_state.h"
@@ -114,7 +115,7 @@ bool restart_may_be_running(const MoonrakerError& err) {
 using helix::ui::observe;
 
 EmergencyStopOverlay& EmergencyStopOverlay::instance() {
-    static EmergencyStopOverlay instance;
+    static HELIX_PSRAM_BSS EmergencyStopOverlay instance;
     return instance;
 }
 
