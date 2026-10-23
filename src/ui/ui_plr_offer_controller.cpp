@@ -423,7 +423,7 @@ void PlrOfferController::publish_profile() {
     }
     published_profile_type_ = type;
     // The app does not read homing_override, so homing is unknown here: no
-    // user raise passes it. The plugin checks the database tier itself (§ 7.3).
+    // user raise passes it. The plugin checks the database tier itself.
     const PlrProfile profile = plr_resolve_profile(PrinterDetector::get_plr_block(type),
                                                    PlrUserOverride{}, PlrHomingCheck{});
     spdlog::info("[PLR] Writing plr_profile for '{}' (tier {})", type, profile.tier);

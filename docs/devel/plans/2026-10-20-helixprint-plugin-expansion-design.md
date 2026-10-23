@@ -361,7 +361,7 @@ edit, lane change, backend reconnect). Never reimplement a backend's gcode in Py
 **Exception (ruled 2026-10-21): power-loss recovery renders its resume gcode in the plugin.** The
 resume script is built from a G-code file scan that runs in the plugin, the K-Touch cannot scan
 files, and one endpoint serves every client; no vendor backend's gcode is duplicated. Details and
-the reasoning: `docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md` § 3.2.
+the reasoning: `docs/devel/POWER_LOSS_RECOVERY.md` § "Why the plugin renders the resume G-code".
 
 Skips and file rewrites are excluded: once a foreign client has started the file, it is too late
 to rewrite it. Moonraker's own queue transitions are in scope.
@@ -638,9 +638,8 @@ Today's polling.
 (uses 1 for per-tool amounts) -> 6 journal -> 7 photos -> 8 storage -> 10 config -> 11 vendor
 shims.
 
-Power-loss recovery is its own design, depending on Phase 0 only, and its v1 starts by
-implementing Phase 0: `docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md`. It also
-builds `helix_gcode_reader.py`, which Phase 1 then uses.
+Power-loss recovery depends on Phase 0 only and has shipped, together with Phase 0 and
+`helix_gcode_reader.py`, which Phase 1 uses: `docs/devel/POWER_LOSS_RECOVERY.md`.
 
 ## Open questions
 

@@ -76,7 +76,7 @@ TEST_CASE("plr_z_step_kind: the Z step says where prepare left the nozzle", "[pl
 // plr_bed_decision
 // ===========================================================================
 
-TEST_CASE("plr_bed_decision: the design's cases", "[plr][wizard]") {
+TEST_CASE("plr_bed_decision: ok, wait, cold", "[plr][wizard]") {
     CHECK(helix::plr_bed_decision(60.0f, 60.0f, 5.0f) == PlrBedState::Ok);
     CHECK(helix::plr_bed_decision(60.0f, 50.0f, 5.0f) == PlrBedState::NeedsWait);
     CHECK(helix::plr_bed_decision(60.0f, 22.0f, 5.0f) == PlrBedState::ColdWarn);
@@ -298,7 +298,7 @@ TEST_CASE("plr_confirmation_name round-trips every confirmation", "[plr][wizard]
     CHECK_FALSE(helix::plr_parse_confirmation("bogus").has_value());
 }
 
-TEST_CASE("plr_parse_plugin_status: the § 9 reply", "[plr][wizard]") {
+TEST_CASE("plr_parse_plugin_status: the status reply", "[plr][wizard]") {
     json result = {{"saving", true},
                    {"storage",
                     {{"storage_class", "emmc"},
@@ -356,7 +356,7 @@ TEST_CASE("plr_parse_plugin_status: blocked, malformed and backend names", "[plr
     CHECK(helix::plr_parse_plugin_backend("none") == helix::PlrPluginBackend::None);
 }
 
-TEST_CASE("plr_parse_plan_reply: the § 9 plan", "[plr][wizard]") {
+TEST_CASE("plr_parse_plan_reply: the plan reply", "[plr][wizard]") {
     json result = {{"plan_id", "plan-7"},
                    {"filename", "part.gcode"},
                    {"method", "measured"},

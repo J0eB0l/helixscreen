@@ -2,7 +2,7 @@
 """
 Power-loss recovery for any Klipper printer: the HelixPrint plugin's PLR module.
 
-Design: docs/devel/plans/2026-10-21-plugin-power-loss-recovery-design.md.
+Design and protocol: docs/devel/POWER_LOSS_RECOVERY.md, "Inside the plugin".
 
 This module holds the save side (storage-safety verdict, PLR profile and
 switch, the two-slot snapshot store, the save policy) and the offer rules.
@@ -34,7 +34,7 @@ except ImportError:  # the QIDI adapter is optional; generic PLR runs without it
     helix_plr_qidi = None
 
 # ============================================================================
-# Storage safety (§ 7.4)
+# Storage safety
 # ============================================================================
 
 STORAGE_CLASSES = ("emmc", "sd", "nand", "ssd", "unknown")
@@ -127,7 +127,7 @@ def saving_enabled(verdict: StorageVerdict, tier: int, user_enabled: Optional[bo
 
 
 # ============================================================================
-# PLR profile and switch (§ 7.2)
+# PLR profile and switch
 # ============================================================================
 
 # helix-screen namespace keys: the app writes the resolved profile, and the
@@ -154,7 +154,7 @@ class PlrProfile(NamedTuple):
     resume_skip_fraction: float = RESUME_SKIP_FRACTION_DEFAULT
     macro_vars: Dict[str, Tuple[str, ...]] = {}
     # Once the nozzle has let go of the part, prepare drops it this far under
-    # the print temperature until commit (R30).
+    # the print temperature until commit.
     nozzle_standby_drop_c: float = DEFAULT_NOZZLE_STANDBY_DROP_C
 
 
@@ -214,7 +214,7 @@ def user_enabled(record: Any) -> Optional[bool]:
 
 
 # ============================================================================
-# XY-homing safety (§ 7.3)
+# XY-homing safety
 # ============================================================================
 
 
@@ -298,12 +298,12 @@ def effective_tier(profile: PlrProfile, homing: HomingCheck) -> Tuple[int, Optio
 
 
 # ============================================================================
-# Snapshot record (§ 4.1)
+# Snapshot record
 # ============================================================================
 
 SNAPSHOT_SCHEMA = 1
 
-# Persist at most this often while file_position moves (ruling 2).
+# Persist at most this often while file_position moves.
 SAVE_INTERVAL_S = 1.0
 
 # Klipper objects a snapshot reads, besides the per-name families below.
@@ -429,7 +429,7 @@ def build_record(status: Dict[str, Any], now: float,
 
 
 def mesh_record(status: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """The active bed mesh (§ 6.4): its profile name, whether that names a
+    """The active bed mesh: its profile name, whether that names a
     stored profile, and what an unsaved mesh needs to be written back."""
     bm = _obj(status, "bed_mesh")
     name = bm.get("profile_name")
@@ -490,7 +490,7 @@ def _event_view(record: Dict[str, Any]) -> tuple:
 
 
 class SavePolicy:
-    """When to persist (§ 5.1): while printing, at most every interval while
+    """When to persist: while printing, at most every interval while
     file_position moves, and at once on a layer change, an exclude, a change
     of factors, offset, heater targets or fans, and on entering pause."""
 
@@ -528,7 +528,7 @@ class SavePolicy:
 
 
 # ============================================================================
-# Two-slot snapshot store (§ 4.2)
+# Two-slot snapshot store
 # ============================================================================
 
 SLOT_SIZE = 4096
@@ -651,7 +651,7 @@ _fsync_dir = helix_gcode_reader.fsync_dir
 
 
 # ============================================================================
-# Layer checkpoints (§ 6.2, O3: T1 failed, so they are in v1)
+# Layer checkpoints
 # ============================================================================
 
 # The follower runs when the print has moved this far past it, or this long
@@ -727,14 +727,14 @@ class LayerFollower:
 
 
 # ============================================================================
-# Offer rules (§ 8)
+# Offer rules
 # ============================================================================
 
-# With no layer count, the offer waits for this much print time instead of layer 2 (O5).
+# With no layer count, the offer waits for this much print time instead of layer 2.
 OFFER_MIN_PRINT_S = 120.0
 
 # A bed this far under its target when the plan is made has cooled long enough
-# that adhesion is in doubt: the plan asks for accept_cold_bed (O6).
+# that adhesion is in doubt: the plan asks for accept_cold_bed.
 COLD_BED_DIFF_C = 10.0
 
 
@@ -758,7 +758,7 @@ class OfferInputs(NamedTuple):
     tier: int
     klippy_ready: bool
     print_duration: Optional[float] = None
-    resume_rows: bool = True  # QIDI backend: its print_state file_position row exists (§ 10)
+    resume_rows: bool = True  # QIDI backend: its print_state file_position row exists
     lift_room: bool = True  # MIN_LIFT_MM fits under the top of Z travel
 
 
@@ -771,7 +771,7 @@ class OfferVerdict(NamedTuple):
 
 
 def offer_verdict(i: OfferInputs) -> OfferVerdict:
-    """Every rule of § 8; blocked_by lists each one that fails."""
+    """Every offer rule; blocked_by lists each one that fails."""
     blocked = []
     if i.newest_job_status != "interrupted":
         blocked.append("not_interrupted")
@@ -1257,7 +1257,7 @@ class HelixPlr:
             await self._ns_put(JOB_KEY, self.job)
 
     async def _maybe_save_mesh(self, record: Dict[str, Any]) -> None:
-        """Once per job, when layer 1 is done (§ 5.1, § 6.4)."""
+        """Once per job, when layer 1 is done."""
         if self.job is None or "mesh" in self.job:
             return
         layer = record.get("layer")
@@ -1401,7 +1401,7 @@ class HelixPlr:
         await self._ns_delete(JOB_KEY)
 
     # =========================================================================
-    # Resume: offer, plan, prepare, commit (§ 6.3, § 8, § 9)
+    # Resume: offer, plan, prepare, commit
     # =========================================================================
 
     def register_endpoints(self) -> None:
@@ -1725,8 +1725,8 @@ class HelixPlr:
                 warnings.append("mesh_unavailable")
         heaters = snapshot.get("heaters") or {}
         bed_target = (heaters.get("heater_bed") or {}).get("target") or 0.0
-        # The snapshot's target, or the file's at the resume point when higher
-        # (R28): a snapshot taken with the heater down still resumes at the
+        # The snapshot's target, or the file's at the resume point when higher:
+        # a snapshot taken with the heater down still resumes at the
         # temperature the resume line prints at.
         nozzle = (heaters.get("extruder") or {}).get("target") or 0.0
         nozzle = max(nozzle, point.state.heater_targets.get("extruder", 0.0))
@@ -1959,8 +1959,8 @@ class HelixPlr:
 
     async def _heat(self, plan: Any, skip_chamber: bool = False,
                     nozzle_in_place: bool = False) -> None:
-        """§ 6.3 step 2: set every heater at once, then poll each to
-        temperature (R29): nothing waits for the bed before the nozzle starts."""
+        """The heat wait: set every heater at once, then poll each to
+        temperature: nothing waits for the bed before the nozzle starts."""
         heats = helix_plr_render.render_heat_wait(plan, skip_chamber, nozzle_in_place)
         for heat in heats:
             await self._send(plan.plan_id, heat.step, heat.lines, done=not heat.wait)
@@ -2184,7 +2184,7 @@ class HelixPlr:
 
     def _heat_wait(self, plan: Any, skip_chamber: bool = False,
                    nozzle_in_place: bool = False) -> Callable[[], Any]:
-        """§ 6.3 step 2 as the coroutine the QIDI adapter awaits."""
+        """The heat wait as the coroutine the QIDI adapter awaits."""
         async def wait() -> None:
             await self._heat(plan, skip_chamber, nozzle_in_place)
         return wait
@@ -2315,7 +2315,7 @@ CHAMBER_WAIT_TIMEOUT_S = 45 * 60.0
 # is refused.
 QIDI_LANDING_TOL_MM = 0.05
 
-# The include-file mesh section (§ 6.4).
+# The include-file mesh section.
 MESH_SECTION = "helix_plr"
 
 # A root-level link M23 can select when the file is in a subfolder.

@@ -180,7 +180,7 @@ def test_profile_bad_types_take_defaults():
     })
     assert profile == PlrProfile()
     assert parse_profile({"tier": 9}).tier == 3
-    assert parse_profile({}).resume_skip_fraction == 0.0      # re-trace (O2)
+    assert parse_profile({}).resume_skip_fraction == 0.0      # re-trace
     assert parse_profile({"tier": True}).tier == 0
 
 
@@ -1345,7 +1345,7 @@ def test_prepare_then_commit_starts_the_job(plr, helix, resume, monkeypatch):
     assert prepare[0] == "M140 S60"
     assert prepare[1] == "M104 S220"                        # in place, before anything moves
     assert prepare[2].startswith("SET_KINEMATIC_POSITION Z=0.8 SET_HOMED=Z\nG91\nG1 Z5 F300")
-    assert prepare[3] == "M83\nG1 E-1 F2100\nM104 S150"       # lifted: standby (R30)
+    assert prepare[3] == "M83\nG1 E-1 F2100\nM104 S150"       # lifted: standby
     assert prepare[4] == "G28 X Y"
     assert not any("M109" in s for s in prepare)
     reply = run(plr.handle_commit(Req(plan_id=plan_id, z_reference="trusted",
@@ -2057,7 +2057,7 @@ def moved_before_hot(printer, target=220.0, bed_target=60.0, since=0):
 
 def test_prepare_heats_the_nozzle_in_place_before_anything_moves(plr, helix, resume):
     """After a cut the nozzle is frozen into the part: a cold lift or XY
-    homing tears it off the bed (R28)."""
+    homing tears it off the bed."""
     plr.printer.nozzle_rate = 40.0
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     run(plr.handle_prepare(Req(plan_id=plan_id)))
@@ -2070,7 +2070,7 @@ def test_prepare_heats_the_nozzle_in_place_before_anything_moves(plr, helix, res
 
 def test_prepare_starts_bed_and_nozzle_together_and_moves_once_both_are_hot(
         plr, helix, resume):
-    """R29: the nozzle frees itself while the bed reheats and the part grips
+    """The nozzle frees itself while the bed reheats and the part grips
     again; nothing lifts before both are at temperature."""
     plr.printer.bed = 25.0
     plr.printer.bed_rate = 5.0

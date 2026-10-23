@@ -211,7 +211,7 @@ def _vec(value: Any) -> Optional[List[float]]:
 
 
 def frame_z(snapshot: Mapping[str, Any]) -> float:
-    """The Z to store in gcode_position (O8).
+    """The Z to store in gcode_position.
 
     QIDI declares `SET_KINEMATIC_POSITION Z=<z>`, applies the gcode offset and
     the mesh, and then moves `G1 Z<z>`. The declared value becomes the frame
@@ -382,11 +382,11 @@ class QidiPrintStateAdapter:
       on_snapshot(snap, status) after each snapshot it persists; force=True
                                 for an event save
       on_job_end()              a job completed or was cancelled
-      prepare(heat_wait)        § 9 prepare: the heat wait, nothing else
-      commit(..., heat_wait)    § 9 commit: heat wait, rows for the resume
+      prepare(heat_wait)        prepare: the heat wait, nothing else
+      commit(..., heat_wait)    commit: heat wait, rows for the resume
                                 point, marker, power_off_print
-      abort()                   § 9 abort: rows kept
-      discard()                 § 9 discard: delete the section
+      abort()                   abort: rows kept
+      discard()                 discard: delete the section
       has_resume_rows()         the offer's extra rule
     """
 
@@ -476,8 +476,8 @@ class QidiPrintStateAdapter:
         return bool(row)
 
     async def prepare(self, heat_wait: Callable[[], Awaitable[Any]]) -> None:
-        """§ 9 prepare for this backend: the heat wait only (helix_plr.py's
-        § 6.3 step 2: bed, chamber, then the nozzle where it stands)."""
+        """prepare for this backend: the heat wait only (helix_plr.py's bed,
+        chamber and nozzle where it stands, set together)."""
         await heat_wait()
 
     async def commit(
@@ -489,7 +489,7 @@ class QidiPrintStateAdapter:
         resume_state: Any = None,
         qidi_status: Optional[Mapping[str, Any]] = None,
     ) -> Any:
-        """§ 9 commit for this backend: the heat wait, the rows for the resume
+        """commit for this backend: the heat wait, the rows for the resume
         point, the marker, then QIDI's resume.
 
         The wait runs again here because QIDI's sequence sends M140 and M104
@@ -517,7 +517,7 @@ class QidiPrintStateAdapter:
             raise
 
     def abort(self) -> None:
-        """§ 9 abort keeps the snapshot: the rows stay, so the offer stands.
+        """abort keeps the snapshot: the rows stay, so the offer stands.
         Rows a commit already rewrote point at the same resume point."""
 
     async def discard(self) -> None:

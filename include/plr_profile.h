@@ -25,7 +25,7 @@ inline constexpr const char* kPlrUserKey = "plr_user";
 enum class PlrBackendKind { Generic, QidiPrintState, Vendor };
 enum class StorageHint { Emmc, Sd, Nand, Ssd, Unknown };
 
-/// Whether `G28 X Y` is safe on this printer (§ 7.3). The plugin re-checks it
+/// Whether `G28 X Y` is safe on this printer. The plugin re-checks it
 /// against configfile; the app's answer only gates a user tier raise, and an
 /// answer the app does not have (`known` false) counts as unsafe for that.
 struct PlrHomingCheck {
