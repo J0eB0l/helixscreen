@@ -52,6 +52,7 @@
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "settings_manager.h"
+#include "theme_manager.h"
 #include "tool_state.h"
 #include "translation_loader.h"
 
@@ -3944,6 +3945,8 @@ TEST_CASE("one buzz at a time, and it holds Start", "[belt][panel][names][identi
     CHECK(fx.state_int("bt_can_start") == 0);
     CHECK(fx.state_int("bt_identify_state") == 1);
     CHECK(fx.text("bt_identify_status") == "Buzzing the motor of Path A");
+    // START says why it is shut instead of a bare "Ready".
+    CHECK(fx.text("bt_gate_message") == "Wait for the motor to stop");
     fx.panel().handle_identify_clicked(helix::calibration::BeltPath::PATH_B);
     fx.panel().handle_start_clicked();
     UpdateQueue::instance().drain();
@@ -4120,4 +4123,90 @@ TEST_CASE("the peak pairs read in header-slot order", "[belt][panel][names]") {
     INFO("facts after the swap: " << fx.text("bt_facts"));
     CHECK(fx.text("bt_facts").find("101/104") != std::string::npos);
     CHECK(fx.text("bt_facts").find("104/101") == std::string::npos);
+}
+
+namespace {
+
+struct DrawnLabel {
+    std::string text;
+    uint32_t color;
+};
+
+/// The labels a widget draws on one refresh, read from its draw tasks.
+std::vector<DrawnLabel> drawn_labels(lv_obj_t* obj) {
+    std::vector<DrawnLabel> out;
+    lv_obj_add_flag(obj, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+    lv_obj_add_event_cb(
+        obj,
+        [](lv_event_t* e) {
+            auto* labels = static_cast<std::vector<DrawnLabel>*>(lv_event_get_user_data(e));
+            const lv_draw_label_dsc_t* dsc = lv_draw_task_get_label_dsc(lv_event_get_draw_task(e));
+            if (dsc && dsc->text) {
+                labels->push_back({dsc->text, lv_color_to_u32(dsc->color) & 0xFFFFFF});
+            }
+        },
+        LV_EVENT_DRAW_TASK_ADDED, &out);
+    lv_obj_invalidate(obj);
+    lv_refr_now(nullptr);
+    lv_obj_remove_event_cb_with_user_data(obj, nullptr, &out);
+    lv_obj_remove_flag(obj, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("the START sketch labels each diagonal with its path's name and color",
+          "[belt][panel][names]") {
+    BeltPanelFixture fx;
+    set_layout(helix::calibration::BeltLayout::A_LEFT_B_RIGHT);
+    lv_obj_t* sketch = named(fx, "bt_sketch");
+    // Created but never pushed, the overlay is still hidden; show it to draw it.
+    lv_obj_remove_flag(fx.view(), LV_OBJ_FLAG_HIDDEN);
+    lv_obj_update_layout(lv_obj_get_screen(sketch));
+    INFO("sketch " << lv_obj_get_width(sketch) << "x" << lv_obj_get_height(sketch)
+                   << " on active screen " << (lv_obj_get_screen(sketch) == lv_screen_active())
+                   << " visible " << lv_obj_is_visible(sketch));
+    const auto labels = drawn_labels(sketch);
+    const auto color_of = [&](const std::string& text) -> std::optional<uint32_t> {
+        for (const auto& label : labels) {
+            if (label.text == text) {
+                return label.color;
+            }
+        }
+        return std::nullopt;
+    };
+    INFO("labels drawn: " << labels.size());
+    REQUIRE(color_of("BACK"));
+    REQUIRE(color_of("Left belt"));
+    REQUIRE(color_of("Right belt"));
+    CHECK(*color_of("Left belt") ==
+          (lv_color_to_u32(theme_manager_get_color("belt_path_a")) & 0xFFFFFF));
+    CHECK(*color_of("Right belt") ==
+          (lv_color_to_u32(theme_manager_get_color("belt_path_b")) & 0xFFFFFF));
+}
+
+TEST_CASE("the path names are filled in from the moment the subjects exist",
+          "[belt][panel][names]") {
+    BeltPanelFixture fx;
+    set_layout(helix::calibration::BeltLayout::A_UPPER_B_LOWER);
+    // A live panel's subjects can be rebuilt without an activation (the
+    // shutdown registry, a printer switch's re-init).
+    fx.panel().deinit_subjects();
+    fx.panel().init_subjects();
+    CHECK(fx.text("bt_slot_0_name") == "Upper belt");
+    CHECK(fx.text("bt_slot_1_name") == "Lower belt");
+}
+
+TEST_CASE("a panel that has been left stops following the layout", "[belt][panel][names]") {
+    BeltPanelFixture fx;
+    REQUIRE(fx.text("bt_slot_0_name") == "Path A");
+    fx.panel().on_deactivate(DeactivateReason::NavigateAway);
+    UpdateQueue::instance().drain();
+    // A layout change off-screen does no work on a panel nobody sees; the
+    // next activation reads the layout afresh.
+    set_layout(helix::calibration::BeltLayout::A_LEFT_B_RIGHT);
+    CHECK(fx.text("bt_slot_0_name") == "Path A");
+    fx.panel().on_activate();
+    UpdateQueue::instance().drain();
+    CHECK(fx.text("bt_slot_0_name") == "Left belt");
 }

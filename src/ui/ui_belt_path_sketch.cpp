@@ -65,10 +65,12 @@ void draw_arrow(lv_layer_t* layer, lv_point_precise_t from, lv_point_precise_t t
     }
 }
 
-void draw_label(lv_layer_t* layer, const char* text, lv_color_t color, const lv_font_t* font,
-                lv_area_t area, lv_text_align_t align) {
+void draw_label(lv_obj_t* obj, lv_layer_t* layer, const char* text, lv_color_t color,
+                const lv_font_t* font, lv_area_t area, lv_text_align_t align) {
     lv_draw_label_dsc_t dsc;
     lv_draw_label_dsc_init(&dsc);
+    // Owned by the sketch, so LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS can report the label.
+    dsc.base.obj = obj;
     dsc.text = text;
     // The draw task runs after this returns; the text may be a caller's temporary.
     dsc.text_local = 1;
@@ -152,7 +154,7 @@ void on_draw(lv_event_t* e) {
     const char* back = lv_tr("BACK");
     lv_point_t back_size;
     lv_text_get_size(&back_size, back, font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-    draw_label(layer, back, muted, font, top_row, LV_TEXT_ALIGN_LEFT);
+    draw_label(obj, layer, back, muted, font, top_row, LV_TEXT_ALIGN_LEFT);
     // Each name sits at the +X end of its own arrow: B's 1,1 diagonal points
     // up-right, A's 1,-1 diagonal down-right. Each stays on one line.
     const int32_t row_w = lv_area_get_width(&top_row);
@@ -161,8 +163,8 @@ void on_draw(lv_event_t* e) {
                   row_w - back_size.x - pad);
     const std::string a_name =
         fit_width(belt_path_name(calibration::BeltPath::PATH_A).title.c_str(), font, row_w);
-    draw_label(layer, b_name.c_str(), b_color, font, top_row, LV_TEXT_ALIGN_RIGHT);
-    draw_label(layer, a_name.c_str(), a_color, font, bottom_row, LV_TEXT_ALIGN_RIGHT);
+    draw_label(obj, layer, b_name.c_str(), b_color, font, top_row, LV_TEXT_ALIGN_RIGHT);
+    draw_label(obj, layer, a_name.c_str(), a_color, font, bottom_row, LV_TEXT_ALIGN_RIGHT);
 
     // Diagonals through the centre, kept clear of the label rows.
     const float cx = (frame.x1 + frame.x2) / 2.0f;
