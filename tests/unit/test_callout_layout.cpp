@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "src/ui/panel_widgets/callout_layout.h"
+#include "callout_layout.h"
 
 #include "../catch_amalgamated.hpp"
 

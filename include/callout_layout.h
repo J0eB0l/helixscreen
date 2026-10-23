@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
@@ -18,7 +19,19 @@
 
 namespace helix {
 
-enum class CalloutKind { Nozzle = 0, Bed = 1, Chamber = 2, Fan = 3, Light = 4, Toolhead = 5 };
+/// Fan is the part-cooling fan. The ints index per-kind arrays; append only.
+enum class CalloutKind {
+    Nozzle = 0,
+    Bed = 1,
+    Chamber = 2,
+    Fan = 3,
+    Light = 4,
+    Toolhead = 5,
+    HotendFan = 6,
+    AuxFan = 7,
+    SpeedFlow = 8
+};
+inline constexpr size_t kCalloutKindCount = 9;
 
 /// The `printer_callout_mode` subject ints; XML ref_values read these.
 enum class CalloutMode { ImageOnly = 0, Pinned = 1, Docked = 2, BothSides = 3, OneSide = 4 };
@@ -34,6 +47,8 @@ struct CalloutChipIn {
     CalloutKind kind = CalloutKind::Nozzle;
     int w = 0;                       ///< measured width including padding and comfort margin
     std::optional<NormPoint> anchor; ///< tagged point; nullopt when the image has none for it
+    /// Shows an expected value: dropped before anything else when the chips do not fit.
+    bool expendable = false;
 };
 
 struct CalloutChipOut {
@@ -60,6 +75,9 @@ struct CalloutLayoutInput {
     int chip_h = 0;      ///< every chip is one text line tall
     int gap = 0;         ///< between stacked chips, and from the area edge
     int min_line = 0;    ///< shortest leader run worth drawing
+    /// Pinned chips draw a leader only when they land farther than this from their
+    /// point; 0 keeps pinned chips line-free.
+    int leader_min_distance = 0;
     /// Worst-case chips this printer can ever show. Decides the MODE, so the
     /// image never moves when a chip comes or goes. Empty rules out the line
     /// modes: a tagged image then draws Pinned.
@@ -75,6 +93,8 @@ struct CalloutLayout {
     CalloutRect image;
     std::vector<CalloutChipOut> chips;
     bool toolhead_merged = false;
+    /// Expendable chips left off because they did not fit.
+    std::vector<CalloutKind> dropped;
 };
 
 /// Where a tagged image puts `k`'s chip: its part's point, the nozzle for the
@@ -83,6 +103,7 @@ struct CalloutLayout {
     switch (k) {
     case CalloutKind::Nozzle:
     case CalloutKind::Toolhead:
+    case CalloutKind::HotendFan:
         return r.nozzle;
     case CalloutKind::Fan:
         return r.part_fan;
@@ -92,6 +113,9 @@ struct CalloutLayout {
         return r.chamber;
     case CalloutKind::Light:
         return r.light;
+    case CalloutKind::AuxFan:
+    case CalloutKind::SpeedFlow:
+        return std::nullopt;
     }
     return std::nullopt;
 }
@@ -228,8 +252,11 @@ inline std::vector<std::vector<size_t>> x_columns(const std::vector<CalloutChipO
 inline int dock_rank(CalloutKind k) {
     switch (k) {
     case CalloutKind::Light:
+    case CalloutKind::AuxFan:
         return 0;
     case CalloutKind::Fan:
+    case CalloutKind::HotendFan:
+    case CalloutKind::SpeedFlow:
         return 1;
     case CalloutKind::Chamber:
         return 2;
@@ -498,7 +525,7 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
 }
 
 /// Chip widths for review_callout_layout(), indexed by CalloutKind.
-using CalloutChipWidths = std::array<int, 6>;
+using CalloutChipWidths = std::array<int, kCalloutKindCount>;
 
 /// The tagger's review: a chip for every tagged part of `r`, placed over an
 /// `area_w` x `area_h` view of the image the way the home widget pins them

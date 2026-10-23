@@ -411,7 +411,7 @@ Motors Off use the same component; its props are listed in
 `PrinterImageWidget` (`src/ui/panel_widgets/printer_image_widget.{h,cpp}`) runs the pattern
 over live chips on the home printer picture: temperature chips for the nozzle, bed and
 chamber, the part fan's speed, and a light chip (prestonbrown/helixscreen#1397). The pure
-decision is `helix::compute_callout_layout()` (`src/ui/panel_widgets/callout_layout.h`),
+decision is `helix::compute_callout_layout()` (`include/callout_layout.h`),
 which returns a `CalloutMode`, the image rect, and each chip's rect and leader line.
 
 - **The mode ladder.** Image only (one cell on both axes, or an image too short for three
@@ -456,7 +456,7 @@ which returns a `CalloutMode`, the image rect, and each chip's rect and leader l
   computed until the align changes and refuses a scale while CONTAIN is still set.
 - **Pinned chips slide apart.** After the pinned chips are placed on their points (and
   after the toolhead merge and docking), `callout_detail::slide_apart()`
-  (`src/ui/panel_widgets/callout_layout.h#slide_apart`) groups pinned chips whose x-ranges
+  (`include/callout_layout.h#slide_apart`) groups pinned chips whose x-ranges
   intersect into columns and spreads each column vertically with the same `spread_1d()`
   the side bands use, between the top edge and the docked row. A chip moves only within
   its column, only as far as `spread_1d()` needs, and never horizontally; a lone chip
@@ -469,7 +469,7 @@ which returns a `CalloutMode`, the image rect, and each chip's rect and leader l
   chip above or below the image. When 45 degrees would leave less than `min_line` of
   straight run, the diagonal steepens to keep that stub, and it never runs back past the
   point. `callout_detail::leader_elbow()`
-  (`src/ui/panel_widgets/callout_layout.h#leader_elbow`) is the rule;
+  (`include/callout_layout.h#leader_elbow`) is the rule;
   `stack()` records the elbow in `CalloutChipOut::line_xm` / `line_ym`.
 - **Leader lines keep their points alive.** `<leader_line>` (`include/ui_leader_line.h`)
   is a bare `lv_line`, and `lv_line` keeps the pointer it is given, so each line's three

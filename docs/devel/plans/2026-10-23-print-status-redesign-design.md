@@ -158,7 +158,7 @@ tool, name, tool changes N/M), Up next (when the queue has more).
   arrives or a fan stops. It may change once, at the pre-print to printing switch.
 - **Nozzle and hotend fan share the `nozzle` anchor.** The engine has to separate two chips
   on one point. Its Toolhead merge is the existing precedent.
-- **Placement reuses `src/ui/panel_widgets/callout_layout.h`** (`compute_callout_layout`,
+- **Placement reuses `include/callout_layout.h`** (`compute_callout_layout`,
   `CalloutMode`, `leader_elbow`, `spread_1d`). That engine already chooses between
   BothSides / OneSide / Pinned / Docked by measured space, places chips near their anchors
   and suppresses short lines. Extend it (new chip kinds: part fan, hotend fan, aux fan,
