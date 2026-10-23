@@ -921,8 +921,8 @@ class TestRobustness:
         tmp = reader.layer_index_path(gc, "busy.gcode") + ".tmp"
         open(tmp, "w").write("{}\n")
         comp._analyzing = "busy.gcode"
-        assert tmp in [p for p in comp._protected_indexes()] or \
-            reader.layer_index_path(gc, "busy.gcode") in comp._protected_indexes()
+        assert tmp in [p for p in comp.protected_indexes()] or \
+            reader.layer_index_path(gc, "busy.gcode") in comp.protected_indexes()
         await comp.backfill()
         assert os.path.exists(tmp)
         comp._analyzing = None

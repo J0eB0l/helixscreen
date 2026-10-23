@@ -686,7 +686,6 @@
   <translation tag="Clean {}" pt="Limpar {}"/>
   <translation tag="Cleaning Nozzle..." pt="Limpando bocal..."/>
   <translation tag="Cleaning nozzle..." pt="Limpando o bico..."/>
-  <translation tag="Cleanup failed" pt="Falha na limpeza"/>
   <translation tag="Clear" pt="Limpar"/>
   <translation tag="Clear All" pt="Limpar Tudo"/>
   <translation tag="Clear All Events" pt="Limpar Todos os Eventos"/>
@@ -858,6 +857,7 @@
   <translation tag="Could not disconnect from WiFi" pt="Não foi possível desconectar do WiFi"/>
   <translation tag="Could not extract plate {} of {}: {}" pt="Não foi possível extrair a placa {} de {}: {}"/>
   <translation tag="Could not forget device" pt="Não foi possível esquecer o dispositivo"/>
+  <translation tag="Could not free space" pt="Não foi possível liberar espaço"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." pt="Não foi possível inicializar o hardware WiFi. Verifique a configuração do sistema."/>
   <translation tag="Could not load printer database" pt="Não foi possível carregar o banco de dados de impressoras"/>
   <translation tag="Could not move the plate" pt="Não foi possível mover a mesa"/>
@@ -1500,6 +1500,7 @@
   <translation tag="Framerate" pt="Taxa de Quadros"/>
   <translation tag="Free space unknown" pt="Espaço livre desconhecido"/>
   <translation tag="Freed {}" pt="{} liberados"/>
+  <translation tag="Freed {}, but some files could not be deleted" pt="{} liberados, mas alguns arquivos não puderam ser excluídos"/>
   <translation tag="From Buffer" pt="Do buffer"/>
   <translation tag="From Printer" pt="Da impressora"/>
   <translation tag="From SpoolmanDB" pt="Do SpoolmanDB"/>
@@ -2357,6 +2358,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." pt="Nada respondeu a {1} voltas de {0}. Volte {0} {1} voltas e depois verifique a mecânica."/>
   <translation tag="Nothing loaded" pt="Nada carregado"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." pt="Nada marcado ainda. Toque na estrela de um filamento para o adicionar aqui."/>
+  <translation tag="Nothing to clean up" pt="Nada para limpar"/>
   <translation tag="Nothing to remap" pt="Nada para remapear"/>
   <translation tag="Nothing to tune here" pt="Nada a ajustar aqui"/>
   <translation tag="Nothing to unload: no filament at the nozzle" pt="Nada para descarregar: sem filamento no bico"/>

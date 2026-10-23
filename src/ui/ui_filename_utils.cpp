@@ -180,6 +180,10 @@ std::vector<std::string> staging_dirs() {
     return {hidden_staging_dir, visible_staging_dir};
 }
 
+bool is_plugin_link_dir(const std::string& name) {
+    return !name.empty() && (name == default_plugin_link_dir || name == plugin_link_dir_copy());
+}
+
 bool is_app_managed_directory(const std::string& name) {
     return name == visible_staging_dir || (!name.empty() && name == plugin_link_dir_copy());
 }

@@ -795,7 +795,6 @@ translations:
   Clean {}: Очистите {}
   Cleaning Nozzle...: Очистка сопла...
   Cleaning nozzle...: Очистка сопла...
-  Cleanup failed: 'Не удалось выполнить очистку'
   Clear: Очистить
   Clear All: Очистить всё
   Clear All Events: Очистить все события
@@ -1003,6 +1002,7 @@ translations:
   Could not disconnect from WiFi: Не удалось отключиться от WiFi
   'Could not extract plate {} of {}: {}': 'Не удалось извлечь пластину {} из {}: {}'
   Could not forget device: Не удалось забыть устройство
+  Could not free space: 'Не удалось освободить место'
   Could not initialize WiFi hardware. Check system configuration.: Не удалось инициализировать оборудование WiFi. Проверьте конфигурацию системы.
   Could not load printer database: Не удалось загрузить базу данных принтеров
   Could not move the plate: Не удалось переместить стол
@@ -1686,6 +1686,7 @@ translations:
   Framerate: Частота кадров
   Free space unknown: 'Свободное место неизвестно'
   Freed {}: 'Освобождено {}'
+  Freed {}, but some files could not be deleted: 'Освобождено {}, но некоторые файлы удалить не удалось'
   From Buffer: Из буфера
   From Printer: 'С принтера'
   From SpoolmanDB: 'Из SpoolmanDB'
@@ -2620,6 +2621,7 @@ translations:
   Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics.: "{1} оборота {0} ничего не изменили. Поверните {0} на {1} оборота назад и проверьте механику."
   Nothing loaded: Ничего не загружено
   Nothing starred yet. Tap the star on a filament to add it here.: 'Пока ничего не отмечено. Нажмите звезду у филамента, чтобы добавить его сюда.'
+  Nothing to clean up: 'Нечего очищать'
   Nothing to remap: Нечего переназначать
   Nothing to tune here: "Здесь нечего настраивать"
   'Nothing to unload: no filament at the nozzle': 'Выгружать нечего: в сопле нет филамента'

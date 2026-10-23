@@ -750,7 +750,6 @@ translations:
   Clean {}: Limpar {}
   Cleaning Nozzle...: Limpando bocal...
   Cleaning nozzle...: Limpando o bico...
-  Cleanup failed: 'Falha na limpeza'
   Clear: Limpar
   Clear All: Limpar Tudo
   Clear All Events: Limpar Todos os Eventos
@@ -959,6 +958,7 @@ translations:
   Could not disconnect from WiFi: Não foi possível desconectar do WiFi
   'Could not extract plate {} of {}: {}': 'Não foi possível extrair a placa {} de {}: {}'
   Could not forget device: Não foi possível esquecer o dispositivo
+  Could not free space: 'Não foi possível liberar espaço'
   Could not initialize WiFi hardware. Check system configuration.: Não foi possível inicializar o hardware WiFi. Verifique a configuração do sistema.
   Could not load printer database: Não foi possível carregar o banco de dados de impressoras
   Could not move the plate: Não foi possível mover a mesa
@@ -1643,6 +1643,7 @@ translations:
   Framerate: Taxa de Quadros
   Free space unknown: 'Espaço livre desconhecido'
   Freed {}: '{} liberados'
+  Freed {}, but some files could not be deleted: '{} liberados, mas alguns arquivos não puderam ser excluídos'
   From Buffer: Do buffer
   From Printer: 'Da impressora'
   From SpoolmanDB: 'Do SpoolmanDB'
@@ -2583,6 +2584,7 @@ translations:
   Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics.: "Nada respondeu a {1} voltas de {0}. Volte {0} {1} voltas e depois verifique a mecânica."
   Nothing loaded: Nada carregado
   Nothing starred yet. Tap the star on a filament to add it here.: 'Nada marcado ainda. Toque na estrela de um filamento para o adicionar aqui.'
+  Nothing to clean up: 'Nada para limpar'
   Nothing to remap: Nada para remapear
   Nothing to tune here: "Nada a ajustar aqui"
   'Nothing to unload: no filament at the nozzle': 'Nada para descarregar: sem filamento no bico'

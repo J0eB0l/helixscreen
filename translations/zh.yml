@@ -697,7 +697,6 @@ translations:
   Clean {}: 清洁{}
   Cleaning Nozzle...: 正在清洁喷嘴...
   Cleaning nozzle...: 正在清洁喷嘴...
-  Cleanup failed: '清理失败'
   Clear: 清除
   Clear All: 全部清除
   Clear All Events: 清除所有事件
@@ -890,6 +889,7 @@ translations:
   Could not disconnect from WiFi: 无法断开 WiFi 连接
   'Could not extract plate {} of {}: {}': '无法提取第 {} 号板（{}）: {}'
   Could not forget device: 无法忘记设备
+  Could not free space: '无法释放空间'
   Could not initialize WiFi hardware. Check system configuration.: 无法初始化 WiFi 硬件。请检查系统配置。
   Could not load printer database: 无法加载打印机数据库
   Could not move the plate: 无法移动热床
@@ -1552,6 +1552,7 @@ translations:
   Framerate: 帧率
   Free space unknown: '可用空间未知'
   Freed {}: '已释放 {}'
+  Freed {}, but some files could not be deleted: '已释放 {}，但部分文件无法删除'
   From Buffer: 来自缓冲区
   From Printer: '从打印机'
   From SpoolmanDB: '来自 SpoolmanDB'
@@ -2440,6 +2441,7 @@ translations:
   Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics.: "{0} 转了 {1} 圈没有带来变化。请将 {0} 反向转回 {1} 圈,然后检查机械部分。"
   Nothing loaded: 未装载耗材
   Nothing starred yet. Tap the star on a filament to add it here.: '还没有收藏。点击耗材行的星标即可收藏到这里。'
+  Nothing to clean up: '没有可清理的内容'
   Nothing to remap: 没有可重新映射的内容
   Nothing to tune here: "这里没有需要调整的"
   'Nothing to unload: no filament at the nozzle': '没有可卸载的耗材: 喷嘴处没有耗材'

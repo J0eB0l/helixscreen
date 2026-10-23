@@ -732,7 +732,6 @@ translations:
   Clean {}: Clean {}
   Cleaning Nozzle...: Cleaning Nozzle...
   'Cleaning nozzle...': 'Cleaning nozzle...'
-  Cleanup failed: Cleanup failed
   Clear: Clear
   Clear All: Clear All
   Clear All Events: Clear All Events
@@ -932,6 +931,7 @@ translations:
   Could not disconnect from WiFi: Could not disconnect from WiFi
   'Could not extract plate {} of {}: {}': 'Could not extract plate {} of {}: {}'
   Could not forget device: Could not forget device
+  Could not free space: Could not free space
   Could not initialize WiFi hardware. Check system configuration.: Could not initialize WiFi hardware. Check system configuration.
   Could not load printer database: Could not load printer database
   Could not move the plate: Could not move the plate
@@ -1597,6 +1597,7 @@ translations:
   Framerate: Framerate
   Free space unknown: Free space unknown
   Freed {}: Freed {}
+  Freed {}, but some files could not be deleted: Freed {}, but some files could not be deleted
   From Buffer: From Buffer
   From Printer: From Printer
   From SpoolmanDB: From SpoolmanDB
@@ -2519,6 +2520,7 @@ translations:
   Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics.: Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics.
   Nothing loaded: Nothing loaded
   Nothing starred yet. Tap the star on a filament to add it here.: Nothing starred yet. Tap the star on a filament to add it here.
+  Nothing to clean up: Nothing to clean up
   Nothing to remap: Nothing to remap
   Nothing to tune here: Nothing to tune here
   'Nothing to unload: no filament at the nozzle': 'Nothing to unload: no filament at the nozzle'

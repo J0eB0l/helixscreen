@@ -2,17 +2,20 @@
 
 #include "storage_report.h"
 
+#include "ui_filename_utils.h"
+
 #include "json_utils.h"
+#include "print_photos.h"
+
+#include <algorithm>
+#include <cctype>
 
 namespace helix::storage {
 
 namespace {
 
-constexpr std::string_view kDefaultLinkDir = ".helix_print";
 constexpr std::string_view kIndexDir = ".helix_index";
-constexpr std::string_view kPhotosDir = ".helix_photos";
 constexpr std::string_view kThumbsDir = ".thumbs";
-constexpr std::string_view kIndexSuffix = ".layers.jsonl";
 
 std::size_t index_of(std::string_view key) {
     return consumer_index(key).value_or(0);
@@ -71,12 +74,13 @@ std::optional<StorageReport> parse_storage_result(const nlohmann::json& result) 
     return report;
 }
 
-std::size_t classify_gcodes_path(std::string_view rel, std::string_view link_dir) {
+std::size_t classify_gcodes_path(std::string_view rel) {
     const std::size_t slash = rel.find('/');
     if (slash != std::string_view::npos) {
-        const std::string_view top = rel.substr(0, slash);
-        const std::string_view link = link_dir.empty() ? kDefaultLinkDir : link_dir;
-        if (top == ".helix_temp" || top == "helix_staging" || top == link) {
+        const std::string top(rel.substr(0, slash));
+        const std::vector<std::string> staging = gcode::staging_dirs();
+        if (std::find(staging.begin(), staging.end(), top) != staging.end() ||
+            gcode::is_plugin_link_dir(top)) {
             return index_of("helix_temp");
         }
         if (top == kIndexDir) {
@@ -137,26 +141,117 @@ std::optional<DirectoryListing> parse_directory_result(const nlohmann::json& res
     return listing;
 }
 
-bool fallback_removes(std::size_t index, const ListedFile& file, double now, double older_than,
-                      std::string_view printing_file) {
-    if (index >= kConsumers.size() || !kConsumers[index].cleanable) {
+bool fallback_cleanable(std::size_t index) {
+    if (index >= kConsumers.size()) {
+        return false;
+    }
+    return std::string_view(kConsumers[index].key) == "timelapse";
+}
+
+bool fallback_may_clean(bool plugin_installed, const PluginFeatureMap& features) {
+    if (!plugin_installed) {
+        return true;
+    }
+    const auto it = features.find(kStorageFeature);
+    return it == features.end() || it->second.available;
+}
+
+namespace {
+
+std::string trimmed_path(std::string path) {
+    while (path.size() > 1 && path.back() == '/') {
+        path.pop_back();
+    }
+    return path;
+}
+
+/// @p outer is @p inner or a directory above it.
+bool is_or_holds(const std::string& outer, const std::string& inner) {
+    return inner == outer ||
+           (outer == "/" ? !inner.empty() : inner.compare(0, outer.size() + 1, outer + "/") == 0);
+}
+
+} // namespace
+
+bool timelapse_root_safe(const nlohmann::json& roots_result) {
+    if (!roots_result.is_array()) {
+        return false;
+    }
+    std::string timelapse, gcodes, config;
+    for (const nlohmann::json& root : roots_result) {
+        const std::string name = json_util::safe_string(root, "name");
+        const std::string path = trimmed_path(json_util::safe_string(root, "path"));
+        if (name == "timelapse") {
+            timelapse = path;
+        } else if (name == "gcodes") {
+            gcodes = path;
+        } else if (name == "config") {
+            config = path;
+        }
+    }
+    if (timelapse.empty() || gcodes.empty() || config.empty()) {
+        return false;
+    }
+    return !is_or_holds(timelapse, gcodes) && !is_or_holds(timelapse, config);
+}
+
+bool timelapse_listing_is_own(const DirectoryListing& listing) {
+    if (!listing.dirs.empty()) {
+        return false;
+    }
+    const auto timelapse = consumer_index("timelapse");
+    return timelapse &&
+           std::all_of(listing.files.begin(), listing.files.end(), [&](const ListedFile& f) {
+               return fallback_name_allowed(*timelapse, f.name);
+           });
+}
+
+const char* print_start_failure_tag(int rpc_code) {
+    return is_no_space_refusal(rpc_code) ? kNoUploadSpaceMessage
+                                         : TR_NOOP("Failed to start print: {}");
+}
+
+bool fallback_name_allowed(std::size_t index, std::string_view name) {
+    if (index >= kConsumers.size()) {
         return false;
     }
     const std::string_view key = kConsumers[index].key;
-    if (!printing_file.empty() && (key == "helix_temp" || file.name == printing_file)) {
+    if (key == "timelapse") {
+        std::string lower(name);
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        for (std::string_view ext :
+             {".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif", ".jpg", ".png"}) {
+            if (ends_with(lower, ext)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool fallback_removes(std::size_t index, const ListedFile& file, double now, double older_than) {
+    if (!fallback_cleanable(index)) {
         return false;
     }
-    double min_age = older_than;
-    if (key == "helix_temp" && min_age < kScratchMinAgeS) {
-        min_age = kScratchMinAgeS;
+    const std::size_t slash = file.name.rfind('/');
+    const std::string_view base = slash == std::string::npos
+                                      ? std::string_view(file.name)
+                                      : std::string_view(file.name).substr(slash + 1);
+    if (!fallback_name_allowed(index, base)) {
+        return false;
     }
-    if (key == "logs" && ends_with(file.name, ".log")) {
-        return false; // a log a service is still writing
+    return now - file.modified >= std::max(older_than, kFallbackMinAgeS);
+}
+
+CleanupMessage cleanup_message(const CleanupOutcome& outcome) {
+    if (outcome.refused) {
+        return CleanupMessage::NothingFreed;
     }
-    if (key == "analysis_sidecars" && !ends_with(file.name, kIndexSuffix)) {
-        return false; // a worker's partial index
+    if (outcome.errors > 0) {
+        return outcome.freed > 0 ? CleanupMessage::FreedPartly : CleanupMessage::NothingFreed;
     }
-    return now - file.modified >= min_age;
+    return outcome.freed > 0 ? CleanupMessage::Freed : CleanupMessage::NothingToFree;
 }
 
 UploadSpace upload_space(std::optional<uint64_t> free_bytes, uint64_t size) {

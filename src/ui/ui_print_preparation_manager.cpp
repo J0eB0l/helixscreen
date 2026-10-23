@@ -2228,8 +2228,11 @@ void PrintPreparationManager::rewrite_and_print(RewriteRoute route,
                                                                            on_navigate_to_status,
                                                                            on_completion]() {
                 const uint64_t size = text_io::file_size(modified_path).value_or(0);
+                const size_t slash = remote_temp_path.rfind('/');
+                const std::string upload_dir =
+                    slash == std::string::npos ? std::string() : remote_temp_path.substr(0, slash);
                 storage::check_upload_space(
-                    &api_->get_client(), size, token,
+                    &api_->get_client(), upload_dir, size, token,
                     [this, token, job, modified_path, remote_temp_path, on_navigate_to_status,
                      on_completion](storage::UploadSpace space) {
                         if (space == storage::UploadSpace::TooFull) {
@@ -2337,7 +2340,7 @@ void PrintPreparationManager::start_staged_print(std::shared_ptr<const RewriteRo
                            on_completion](const MoonrakerError& error) {
         queue_busy_hide();
 
-        helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
+        helix::ui::notify_error_tr(storage::print_start_failure_tag(error.code), error);
         LOG_ERROR_INTERNAL("[PrintPreparationManager] Print start failed for {}: {}",
                            remote_temp_path, error.message);
 
@@ -2393,7 +2396,7 @@ void PrintPreparationManager::start_staged_print(std::shared_ptr<const RewriteRo
                 break;
             case gcode::EditedPrintFailure::Refused:
                 queue_busy_hide();
-                helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
+                helix::ui::notify_error_tr(storage::print_start_failure_tag(error.code), error);
                 LOG_ERROR_INTERNAL("[PrintPreparationManager] print_edited refused for {}: {}",
                                    job->file_path, error.message);
                 break;

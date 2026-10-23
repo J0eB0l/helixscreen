@@ -78,28 +78,36 @@ void StorageSettingsOverlay::register_callbacks() {
 
 void StorageSettingsOverlay::on_activate() {
     OverlayBase::on_activate();
-    refresh();
+    // A cleanup in flight refreshes the page when it ends, unless the client
+    // it was sent through is gone and its answer with it.
+    if (busy_ && service_client_ != get_moonraker_client()) {
+        busy_ = false;
+    }
+    if (!busy_) {
+        refresh();
+    }
 }
 
 void StorageSettingsOverlay::refresh() {
     const PrinterPluginStatusState& plugin = get_printer_state().plugin_status_state();
     source_ = storage::report_source(
         plugin.plugin_feature(storage::kStorageFeature, storage::kStorageMinVersion));
-    busy_ = false;
     lv_subject_set_int(&state_, kStateLoading);
     IMoonrakerClient* client = get_moonraker_client();
     if (!service_ || service_client_ != client) {
         service_ = std::make_unique<storage::StorageReportService>(client);
         service_client_ = client;
     }
-    const std::string link_dir = plugin.link_dir();
-    service_->fetch(source_, link_dir,
-                    [this, link_dir](storage::ReportSource source,
-                                     std::optional<storage::StorageReport> report) {
+    const bool may_clean =
+        storage::fallback_may_clean(plugin.service_has_helix_plugin(), plugin.features());
+    service_->fetch(source_, may_clean,
+                    [this, may_clean](storage::ReportSource source,
+                                      std::optional<storage::StorageReport> report) {
                         if (!report && source == storage::ReportSource::Plugin) {
-                            // The plugin's report failed: measure over the file API.
+                            // The plugin's report failed: measure over the file API, which
+                            // cleans only what is safe without the plugin.
                             source_ = storage::ReportSource::FileApi;
-                            service_->fetch(source_, link_dir,
+                            service_->fetch(source_, may_clean,
                                             [this](storage::ReportSource s,
                                                    std::optional<storage::StorageReport> r) {
                                                 show_report(s, r);
@@ -170,27 +178,34 @@ void StorageSettingsOverlay::run_cleanup(std::size_t index) {
         return;
     }
     busy_ = true;
-    std::string printing_file;
-    auto& print = get_printer_state().print_state();
-    if (lv_subject_get_int(print.get_print_active_subject()) != 0) {
-        printing_file = lv_subject_get_string(print.get_print_filename_subject());
-    }
     spdlog::info("[{}] Cleaning up {}", get_name(), storage::kConsumers[index].key);
-    service_->cleanup(
-        source_, index, printing_file,
-        [this](std::optional<uint64_t> freed, const std::string& error) {
-            busy_ = false;
-            if (freed) {
-                const std::string text =
-                    fmt::format(fmt::runtime(lv_tr("Freed {}")),
-                                helix::ui::format_file_size(static_cast<size_t>(*freed)));
-                ToastManager::instance().show(ToastSeverity::SUCCESS, text.c_str());
-            } else {
-                spdlog::warn("[{}] Cleanup failed: {}", get_name(), error);
-                ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Cleanup failed"));
-            }
-            refresh();
-        });
+    service_->cleanup(source_, index, [this](const storage::CleanupOutcome& outcome) {
+        busy_ = false;
+        const std::string freed = helix::ui::format_file_size(static_cast<size_t>(outcome.freed));
+        switch (storage::cleanup_message(outcome)) {
+        case storage::CleanupMessage::Freed:
+            ToastManager::instance().show(
+                ToastSeverity::SUCCESS,
+                fmt::format(fmt::runtime(lv_tr("Freed {}")), freed).c_str());
+            break;
+        case storage::CleanupMessage::FreedPartly:
+            ToastManager::instance().show(
+                ToastSeverity::WARNING,
+                fmt::format(fmt::runtime(lv_tr("Freed {}, but some files could not be deleted")),
+                            freed)
+                    .c_str());
+            break;
+        case storage::CleanupMessage::NothingFreed:
+            spdlog::warn("[{}] Cleanup freed nothing ({} errors, refused {})", get_name(),
+                         outcome.errors, outcome.refused);
+            ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Could not free space"));
+            break;
+        case storage::CleanupMessage::NothingToFree:
+            ToastManager::instance().show(ToastSeverity::INFO, lv_tr("Nothing to clean up"));
+            break;
+        }
+        refresh();
+    });
 }
 
 } // namespace helix::settings

@@ -686,7 +686,6 @@
   <translation tag="Clean {}" it="Pulisci {}"/>
   <translation tag="Cleaning Nozzle..." it="Pulizia ugello..."/>
   <translation tag="Cleaning nozzle..." it="Pulizia ugello..."/>
-  <translation tag="Cleanup failed" it="Pulizia non riuscita"/>
   <translation tag="Clear" it="Cancella"/>
   <translation tag="Clear All" it="Cancella tutto"/>
   <translation tag="Clear All Events" it="Cancella tutti gli eventi"/>
@@ -858,6 +857,7 @@
   <translation tag="Could not disconnect from WiFi" it="Impossibile disconnettersi dal WiFi"/>
   <translation tag="Could not extract plate {} of {}: {}" it="Impossibile estrarre il piatto {} da {}: {}"/>
   <translation tag="Could not forget device" it="Impossibile dimenticare il dispositivo"/>
+  <translation tag="Could not free space" it="Impossibile liberare spazio"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." it="Impossibile inizializzare l&apos;hardware WiFi. Controlla la configurazione di sistema."/>
   <translation tag="Could not load printer database" it="Impossibile caricare il database della stampante"/>
   <translation tag="Could not move the plate" it="Impossibile spostare il piano"/>
@@ -1500,6 +1500,7 @@
   <translation tag="Framerate" it="Frequenza fotogrammi"/>
   <translation tag="Free space unknown" it="Spazio libero sconosciuto"/>
   <translation tag="Freed {}" it="{} liberati"/>
+  <translation tag="Freed {}, but some files could not be deleted" it="{} liberati, ma alcuni file non sono stati eliminati"/>
   <translation tag="From Buffer" it="Dal buffer"/>
   <translation tag="From Printer" it="Dalla stampante"/>
   <translation tag="From SpoolmanDB" it="Da SpoolmanDB"/>
@@ -2357,6 +2358,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." it="Nulla ha seguito {1} giri di {0}. Riporta {0} indietro di {1} giri, poi controlla la meccanica."/>
   <translation tag="Nothing loaded" it="Nulla caricato"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." it="Niente ancora tra i preferiti. Tocca la stella di un filamento per aggiungerlo qui."/>
+  <translation tag="Nothing to clean up" it="Niente da pulire"/>
   <translation tag="Nothing to remap" it="Niente da rimappare"/>
   <translation tag="Nothing to tune here" it="Niente da regolare qui"/>
   <translation tag="Nothing to unload: no filament at the nozzle" it="Niente da scaricare: nessun filamento all&apos;ugello"/>

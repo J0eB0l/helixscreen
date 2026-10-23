@@ -686,7 +686,6 @@
   <translation tag="Clean {}" ja="{}を清掃"/>
   <translation tag="Cleaning Nozzle..." ja="ノズル清掃中..."/>
   <translation tag="Cleaning nozzle..." ja="ノズル清掃中..."/>
-  <translation tag="Cleanup failed" ja="クリーンアップに失敗しました"/>
   <translation tag="Clear" ja="クリア"/>
   <translation tag="Clear All" ja="すべてクリア"/>
   <translation tag="Clear All Events" ja="すべてのイベントをクリア"/>
@@ -858,6 +857,7 @@
   <translation tag="Could not disconnect from WiFi" ja="WiFi から切断できませんでした"/>
   <translation tag="Could not extract plate {} of {}: {}" ja="プレート {} を {} から抽出できませんでした: {}"/>
   <translation tag="Could not forget device" ja="デバイスの登録を解除できませんでした"/>
+  <translation tag="Could not free space" ja="空き容量を確保できませんでした"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." ja="WiFi ハードウェアを初期化できませんでした。システム設定を確認してください。"/>
   <translation tag="Could not load printer database" ja="プリンターデータベースを読み込めませんでした"/>
   <translation tag="Could not move the plate" ja="ベッドを動かせませんでした"/>
@@ -1500,6 +1500,7 @@
   <translation tag="Framerate" ja="フレームレート"/>
   <translation tag="Free space unknown" ja="空き容量不明"/>
   <translation tag="Freed {}" ja="{}を解放しました"/>
+  <translation tag="Freed {}, but some files could not be deleted" ja="{}を解放しましたが、一部のファイルは削除できませんでした"/>
   <translation tag="From Buffer" ja="バッファから"/>
   <translation tag="From Printer" ja="プリンターから"/>
   <translation tag="From SpoolmanDB" ja="SpoolmanDB から"/>
@@ -2357,6 +2358,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." ja="{0}を{1}回転しても変化がありませんでした。{0}を{1}回転戻してから機構を確認してください。"/>
   <translation tag="Nothing loaded" ja="装填されていません"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." ja="まだ何も登録されていません。フィラメントの星をタップしてここに追加してください。"/>
+  <translation tag="Nothing to clean up" ja="クリーンアップするものはありません"/>
   <translation tag="Nothing to remap" ja="リマップするものがありません"/>
   <translation tag="Nothing to tune here" ja="ここで調整するものはありません"/>
   <translation tag="Nothing to unload: no filament at the nozzle" ja="取り出すものがありません: ノズルにフィラメントがありません"/>

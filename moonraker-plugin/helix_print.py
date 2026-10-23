@@ -486,6 +486,7 @@ class HelixPrint:
         self.photos: Optional[Any] = None
         self._history_rewrite_lock: Optional[asyncio.Lock] = None
         self.vendor_pushes: List[Any] = []
+        self._link_lock: Optional[asyncio.Lock] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -779,9 +780,6 @@ class HelixPrint:
         # Initialize database table
         await self._init_database()
 
-        # Schedule startup cleanup
-        self.eventloop.register_callback(self._startup_cleanup)
-
         await self._start_3mf_converter()
         self._register_3mf_feature()
         await self._start_isolated("plr", True, self._start_plr)
@@ -800,6 +798,8 @@ class HelixPrint:
         await self._load_job_markers()
         if self.plr is not None:
             await self._start_isolated("plr", True, self.plr.load_job)
+        # After recovery's job is loaded: the cleanup keeps what it names.
+        self.eventloop.register_callback(self._startup_cleanup)
         # Analysis prunes stale layer indexes as it starts, and recovery's job,
         # loaded just above, names the ones it must keep.
         if self.analysis is not None and self.features["file_analysis"].available \
@@ -1003,12 +1003,25 @@ class HelixPrint:
         self.storage.start()
         self.register_feature(
             helix_storage.STORAGE_FEATURE, helix_storage.STORAGE_FEATURE_VERSION,
-            acts=False, switch=always_on,
+            acts=False, switch=always_on, probe=self.storage.availability,
         )
         self.register_feature(
             helix_storage.AUTO_CLEANUP_FEATURE, helix_storage.AUTO_CLEANUP_FEATURE_VERSION,
-            acts=True,
+            acts=True, probe=self.storage.availability,
         )
+
+    def staging_dirs(self) -> Tuple[str, ...]:
+        """Every top-level gcodes directory that holds print copies and their
+        links rather than the user's files: temp_dir, symlink_dir and the
+        app's staging directories."""
+        return tuple(dict.fromkeys((self.temp_dir, self.symlink_dir) + APP_STAGING_DIRS))
+
+    def link_lock(self) -> asyncio.Lock:
+        """Held while a print link's directory is made and the link created,
+        and while a storage cleanup removes files and empty directories."""
+        if self._link_lock is None:
+            self._link_lock = asyncio.Lock()
+        return self._link_lock
 
     def check_free_space(self, incoming_bytes: int) -> None:
         """Refuse (507) a print whose copy would leave the gcodes volume below
@@ -1343,19 +1356,20 @@ class HelixPrint:
                 "Path traversal detected: symlink escapes the symlink directory", 400
             )
 
-        symlink_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Create symlink atomically (handles race condition)
-        try:
-            self._create_symlink_atomic(symlink_path, temp_path)
-            logging.info(
-                f"HelixPrint: Created symlink {symlink_filename} -> {temp_filename}"
-            )
-        except Exception as e:
-            # Clean up temp file and any directories made for the link
-            temp_path.unlink(missing_ok=True)
-            self._remove_symlink(symlink_path)
-            raise self.server.error(f"Failed to create symlink: {e}", 500)
+        # Create symlink atomically (handles race condition). Under the link
+        # lock, so a storage cleanup cannot remove the directory in between.
+        async with self.link_lock():
+            try:
+                symlink_path.parent.mkdir(parents=True, exist_ok=True)
+                self._create_symlink_atomic(symlink_path, temp_path)
+                logging.info(
+                    f"HelixPrint: Created symlink {symlink_filename} -> {temp_filename}"
+                )
+            except Exception as e:
+                # Clean up temp file and any directories made for the link
+                temp_path.unlink(missing_ok=True)
+                self._remove_symlink(symlink_path)
+                raise self.server.error(f"Failed to create symlink: {e}", 500)
 
         # Track this print
         print_info = PrintInfo(
@@ -1695,10 +1709,12 @@ class HelixPrint:
         if self.gc_path is None:
             return
 
-        # Immediately delete symlink (no longer needed)
+        # The link goes now, unless power-loss recovery may still resume
+        # through it (a print that ended in error); then it goes with the copy.
         symlink_path = self.gc_path / print_info.symlink_filename
-        self._remove_symlink(symlink_path)
-        logging.debug(f"HelixPrint: Removed symlink {symlink_path}")
+        if not self.recovery_protects(symlink_path, self.gc_path / print_info.temp_filename):
+            self._remove_symlink(symlink_path)
+            logging.debug(f"HelixPrint: Removed symlink {symlink_path}")
 
         # Also clean up thumbnail symlinks
         await self._cleanup_thumbnail_symlinks(print_info.temp_filename)
@@ -1739,6 +1755,7 @@ class HelixPrint:
             self.cleanup_delay,
             self._cleanup_temp_file,
             print_info.temp_filename,
+            print_info.symlink_filename,
         )
 
         logging.info(
@@ -1765,12 +1782,41 @@ class HelixPrint:
                 thumb.unlink()
                 logging.debug(f"HelixPrint: Removed thumbnail symlink {thumb}")
 
-    async def _cleanup_temp_file(self, temp_filename: str) -> None:
-        """Delete a temp file after cleanup delay."""
+    def recovery_protects(self, *paths: Path) -> bool:
+        """Whether power-loss recovery still needs any of `paths` (print copies
+        and links): its job may resume from it (HelixPlr.protected_paths), or a
+        snapshot waits whose job record could not be read, so any of them may
+        be the one (HelixPlr.resume_unaccounted)."""
+        protected = getattr(self.plr, "protected_paths", None)
+        if protected is None:
+            return False
+        if self.plr.resume_unaccounted():
+            return True
+        needed = set(protected())
+        return any(os.path.abspath(str(p)) in needed or os.path.realpath(str(p)) in needed
+                   for p in paths)
+
+    async def _cleanup_temp_file(
+        self, temp_filename: str, symlink_filename: Optional[str] = None
+    ) -> None:
+        """Delete a temp file, and its link when one is named, after the
+        cleanup delay. While power-loss recovery may resume from either, both
+        stay and the cleanup is tried again a delay later."""
         if self.gc_path is None:
             return
 
         temp_path = self.gc_path / temp_filename
+        symlink_path = self.gc_path / symlink_filename if symlink_filename else None
+        if self.recovery_protects(*[p for p in (temp_path, symlink_path) if p is not None]):
+            logging.info(
+                f"HelixPrint: Keeping {temp_filename}: power-loss recovery may resume from it"
+            )
+            self.eventloop.delay_callback(
+                self.cleanup_delay, self._cleanup_temp_file, temp_filename, symlink_filename
+            )
+            return
+        if symlink_path is not None:
+            self._remove_symlink(symlink_path)
         file_deleted = False
         try:
             if temp_path.exists():
@@ -1914,6 +1960,13 @@ class HelixPrint:
                 # Clean up files
                 temp_path = self.gc_path / temp_filename
                 symlink_path = self.gc_path / symlink_filename
+                if self.recovery_protects(temp_path, symlink_path):
+                    logging.info(f"HelixPrint: Keeping {temp_filename} for power-loss recovery")
+                    self.eventloop.delay_callback(
+                        self.cleanup_delay, self._cleanup_temp_file, temp_filename,
+                        symlink_filename,
+                    )
+                    continue
 
                 if temp_path.exists():
                     temp_path.unlink()

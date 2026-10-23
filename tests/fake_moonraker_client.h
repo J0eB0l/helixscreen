@@ -63,6 +63,8 @@ class FakeMoonrakerClient : public helix::IMoonrakerClient {
         nlohmann::json params;
         std::function<void(const nlohmann::json&)> success_cb;
         std::function<void(const MoonrakerError&)> error_cb;
+        /// The four-argument form's timeout; 0 for the others
+        uint32_t timeout_ms = 0;
     };
 
     /// Live subscriptions keyed by notification method, mirroring the real
@@ -216,10 +218,11 @@ class FakeMoonrakerClient : public helix::IMoonrakerClient {
     helix::RequestId
     send_jsonrpc(const std::string& method, const nlohmann::json& params,
                  std::function<void(const nlohmann::json&)> success_cb,
-                 std::function<void(const MoonrakerError&)> error_cb, uint32_t /*timeout_ms*/,
+                 std::function<void(const MoonrakerError&)> error_cb, uint32_t timeout_ms,
                  bool /*silent*/,
                  std::optional<helix::rpc_error_policy::CallerIntent> /*intent*/) override {
-        rpc_calls.push_back({method, params, std::move(success_cb), std::move(error_cb)});
+        rpc_calls.push_back(
+            {method, params, std::move(success_cb), std::move(error_cb), timeout_ms});
         return ++next_request_id_;
     }
 
