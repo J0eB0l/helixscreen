@@ -93,8 +93,8 @@
         <setting_dropdown_row name="row_display_sleep"
                               label="Display Sleep" icon="clock"
                               description="Screen sleeps after the selected period of inactivity"
-                              options="Never&#10;1 minute&#10;5 minutes&#10;10 minutes&#10;20 minutes&#10;30 minutes"
-                              options_tag="Never&#10;1 minute&#10;5 minutes&#10;10 minutes&#10;20 minutes&#10;30 minutes"
+                              options="Never&#10;1 minute&#10;5 minutes&#10;10 minutes&#10;20 minutes&#10;30 minutes&#10;1 hour"
+                              options_tag="Never&#10;1 minute&#10;5 minutes&#10;10 minutes&#10;20 minutes&#10;30 minutes&#10;1 hour"
                               callback="on_sleep_changed"/>
         <!-- Screensaver: the full list is the translation source; DisplaySettingsOverlay
              rebuilds the options without the savers too heavy for this board. Hidden in

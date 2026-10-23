@@ -56,7 +56,7 @@ On a screen that can't change its brightness, such as a phone or tablet running 
 
 ## Display Sleep
 
-How long the screen waits before it turns off completely: **Never**, **1 minute**, **5 minutes**, **10 minutes**, **20 minutes** (the default) or **30 minutes**. Touch the screen to wake it.
+How long the screen waits before it turns off completely: **Never**, **1 minute**, **5 minutes**, **10 minutes**, **20 minutes** (the default), **30 minutes** or **1 hour**. Touch the screen to wake it.
 
 Opening the HelixScreen screen page in a browser ([Screen Sharing](../screen-sharing.md)) wakes it. While someone has that page open, it dims and runs the screensaver as usual but does not go to sleep; it sleeps once they close the page. Webcam integrations that show the screen (Obico, Home Assistant, timelapse, a view-only webcam tile) never keep it awake.
 

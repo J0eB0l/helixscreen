@@ -292,13 +292,15 @@ TEST_CASE_METHOD(LVGLTestFixture, "DisplaySettingsManager dim seconds to index c
 
 TEST_CASE_METHOD(LVGLTestFixture, "DisplaySettingsManager sleep seconds to index conversion",
                  "[display_settings]") {
-    // sleep_seconds_to_index: 0=Never, 60=1min, 300=5min, 600=10min, 1200=20min, 1800=30min
+    // sleep_seconds_to_index: 0=Never, 60=1min, 300=5min, 600=10min, 1200=20min, 1800=30min,
+    // 3600=60min
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(0) == 0);
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(60) == 1);
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(300) == 2);
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(600) == 3);
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(1200) == 4);
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(1800) == 5);
+    REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(3600) == 6);
 
     // Unknown value defaults to index 4 (20 minutes)
     REQUIRE(DisplaySettingsManager::sleep_seconds_to_index(999) == 4);
@@ -310,6 +312,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "DisplaySettingsManager sleep seconds to index
     REQUIRE(DisplaySettingsManager::index_to_sleep_seconds(3) == 600);
     REQUIRE(DisplaySettingsManager::index_to_sleep_seconds(4) == 1200);
     REQUIRE(DisplaySettingsManager::index_to_sleep_seconds(5) == 1800);
+    REQUIRE(DisplaySettingsManager::index_to_sleep_seconds(6) == 3600);
 
     // Out of range defaults to 1200 (20 minutes)
     REQUIRE(DisplaySettingsManager::index_to_sleep_seconds(-1) == 1200);

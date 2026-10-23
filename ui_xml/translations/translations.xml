@@ -114,6 +114,7 @@
   <translation tag="1 Issue Detected" de="1 Problem erkannt" en="1 Issue Detected" es="1 problema detectado" fr="1 problème détecté" it="1 problema rilevato" ja="問題を 1 件検出" pt="1 problema detectado" ru="Обнаружена 1 проблема" zh="检测到 1 个问题"/>
   <translation tag="1 day ago" de="vor 1 Tag" en="1 day ago" es="hace 1 día" fr="il y a 1 jour" it="1 giorno fa" ja="1日前" pt="há 1 dia" ru="1 день назад" zh="1天前"/>
   <translation tag="1 event queued" de="1 Ereignis in Warteschlange" en="1 event queued" es="1 evento en cola" fr="1 événement en attente" it="1 evento in coda" ja="1件のイベント待機中" pt="1 evento na fila" ru="1 событие в очереди" zh="1 个事件排队中"/>
+  <translation tag="1 hour" de="1 Stunde" en="1 hour" es="1 hora" fr="1 heure" it="1 ora" ja="1時間" pt="1 hora" ru="1 час" zh="1 小时"/>
   <translation tag="1 hour ago" de="vor 1 Stunde" en="1 hour ago" es="hace 1 hora" fr="il y a 1 heure" it="1 ora fa" ja="1時間前" pt="há 1 hora" ru="1 ч. назад" zh="1小时前"/>
   <translation tag="1 layer" de="1 Schicht" en="1 layer" es="1 capa" fr="1 couche" it="1 strato" ja="1レイヤー" pt="1 camada" ru="1 слой" zh="1 层"/>
   <translation tag="1 line in helixscreen.env was ignored" de="1 Zeile in helixscreen.env wurde ignoriert" en="1 line in helixscreen.env was ignored" es="1 línea de helixscreen.env fue ignorada" fr="1 ligne de helixscreen.env a été ignorée" it="1 riga di helixscreen.env è stata ignorata" ja="helixscreen.env の1行が無視されました" pt="1 linha do helixscreen.env foi ignorada" ru="В helixscreen.env проигнорирована 1 строка" zh="helixscreen.env 中有 1 行被忽略"/>

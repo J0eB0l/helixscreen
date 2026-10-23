@@ -65,8 +65,8 @@ static const int kDimOptions[] = {0, 30, 60, 120, 300, 600};
 static const int kDimOptionsCount = sizeof(kDimOptions) / sizeof(kDimOptions[0]);
 
 // Display sleep option values (seconds) - time before screen fully sleeps
-// Index: 0=Never, 1=1min, 2=5min, 3=10min, 4=30min
-static const int kSleepOptions[] = {0, 60, 300, 600, 1200, 1800};
+// Index: 0=Never, 1=1min, 2=5min, 3=10min, 4=20min, 5=30min, 6=60min
+static const int kSleepOptions[] = {0, 60, 300, 600, 1200, 1800, 3600};
 static const int kSleepOptionsCount = sizeof(kSleepOptions) / sizeof(kSleepOptions[0]);
 
 // Timezone options: curated list of IANA timezones with friendly display names
