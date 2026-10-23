@@ -470,11 +470,14 @@ class TestUploadHold:
         component._start_3mf_converter = AsyncMock()
         await _setup(component, record=_record(x_max=400.0))
         assert converter.start_gate == component.fit_check.may_start
+        assert converter.hold_wanted == component.fit_check.hold_wanted
+        assert await converter.hold_wanted() is True
         assert await converter.start_gate("plate_1.gcode") is False
         component.analysis.record_for.return_value = _record()
         assert await converter.start_gate("plate_1.gcode") is True
         await component.close()
         assert converter.start_gate is None
+        assert converter.hold_wanted is None
 
     @pytest.mark.asyncio
     async def test_unavailable_without_file_analysis(self, component, monkeypatch):

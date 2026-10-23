@@ -368,6 +368,7 @@ class FitCheck:
         converter = getattr(self.helix, "converter", None)
         if converter is not None and getattr(converter, "active", False):
             converter.start_gate = self.may_start
+            converter.hold_wanted = self.hold_wanted
             self._converter = converter
         register = getattr(self.server, "register_notification", None)
         if register is not None:
@@ -379,6 +380,7 @@ class FitCheck:
             self._original_finalize = None
         if self._converter is not None:
             self._converter.start_gate = None
+            self._converter.hold_wanted = None
             self._converter = None
 
     async def _limits(self) -> Tuple[Optional[Dict[str, Any]], str]:
@@ -436,6 +438,15 @@ class FitCheck:
         logging.info("HelixPrint: fit check of %s skipped, starting unchecked: %s", path, why)
         return None
 
+    async def hold_wanted(self) -> bool:
+        """Whether an upload-and-print is held now: the user's opt-in, read at
+        the hook's entry. An unreadable switch holds nothing."""
+        try:
+            return await self.helix.feature_enabled(FIT_CHECK_FEATURE)
+        except Exception as e:
+            logging.info("HelixPrint: fit check switch unreadable (%r); upload not held", e)
+            return False
+
     async def may_start(self, path: str, timeout: Optional[float] = None) -> bool:
         """Whether a print the slicer asked for may start `path`, waiting at
         most `timeout` seconds (RECORD_WAIT_S when None) for its analysis. A
@@ -466,12 +477,7 @@ class FitCheck:
         if not holds_upload(form_args, self._print_exts):
             return await original(form_args)
         deadline = asyncio.get_event_loop().time() + RECORD_WAIT_S
-        try:
-            enabled = await self.helix.feature_enabled(FIT_CHECK_FEATURE)
-        except Exception as e:
-            logging.info("HelixPrint: fit check switch unreadable (%r); upload not held", e)
-            enabled = False
-        if not enabled:
+        if not await self.hold_wanted():
             return await original(form_args)
         result, path = await file_queue.store_without_print(original, form_args)
         if not path:
