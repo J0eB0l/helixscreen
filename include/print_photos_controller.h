@@ -22,7 +22,7 @@ namespace helix {
 class PrintPhotosController {
   public:
     /// Fetch @p url on a worker thread and call @p done there with the body,
-    /// empty on failure. nullptr in a build that cannot fetch a snapshot.
+    /// empty on failure. With a null fetch the controller never takes a photo.
     using SnapshotFetch =
         std::function<void(const std::string& url, std::function<void(std::string)> done)>;
 

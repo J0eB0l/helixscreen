@@ -222,7 +222,10 @@ std::optional<double> detail::parse_double_strtod(std::string_view s) {
     char* end = nullptr;
     errno = 0;
     double value = std::strtod(buf.c_str(), &end);
-    if (end != buf.c_str() + buf.size() || (errno == ERANGE && std::isinf(value))) {
+    // ERANGE also flags a subnormal result, which from_chars accepts; from_chars
+    // refuses only a magnitude that overflows or rounds to zero.
+    if (end != buf.c_str() + buf.size() ||
+        (errno == ERANGE && (std::isinf(value) || value == 0.0))) {
         return std::nullopt;
     }
     return value;

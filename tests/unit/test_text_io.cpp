@@ -338,6 +338,10 @@ TEST_CASE("parse_double is strict and locale-independent", "[text_io]") {
     CHECK_FALSE(parse("1,5").has_value());
     CHECK_FALSE(parse("0x1p3").has_value());
     CHECK_FALSE(parse("1e999").has_value());
+    CHECK_FALSE(parse("1e-400").has_value());
+    CHECK_FALSE(parse("-1e-400").has_value());
+    CHECK(parse("1e-310") == 1e-310);
+    CHECK(parse("0e-400") == 0.0);
 
     const char* prev = std::setlocale(LC_NUMERIC, nullptr);
     std::string saved = prev ? prev : "C";
