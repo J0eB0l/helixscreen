@@ -132,6 +132,8 @@ static const IconMapping kIconMap[] = {
     {"filament",           "\xF3\xBE\x80\x81"},  // FE001 spool (custom glyph)
     {"filament_alert",     "\xF3\xBE\x80\x83"},  // FE003 spool-alert (custom glyph)
     {"filament_outline",   "\xF3\xBE\x80\x82"},  // FE002 spool-outline (custom glyph)
+    {"filament_sensor",    "\xF3\xB0\xB9\x9B"},  // F0E5B printer-3d-nozzle
+    {"filament_sensor_alert", "\xF3\xB1\x87\x80"},  // F11C0 printer-3d-nozzle-alert
     {"filter",             "\xF3\xB0\x88\xB2"},  // F0232 filter (funnel)
     {"fine_tune",          "\xF3\xB0\x98\xAE"},  // F062E tune
     {"fire",               "\xF3\xB0\x88\xB8"},  // F0238 fire
