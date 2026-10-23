@@ -17,6 +17,7 @@
  * print, which is exactly when restore runs — so this was not a rare path.
  */
 
+#include "ui_ams_lane_settings.h"
 #include "ui_print_select_detail_view.h"
 #include "ui_print_start_controller.h"
 #include "ui_resume_dispatch.h"
@@ -734,6 +735,20 @@ TEST_CASE("remap restore: a tool unmapped before the print does not hold the rec
         CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller).empty());
         h.controller.set_detail_view(nullptr);
     }
+}
+
+TEST_CASE("remap restore: assigning a tool in lane settings updates the pending record",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_lane_settings_edit"};
+    ScopedCountingBackend be{{1, 2}};
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 0);
+
+    REQUIRE(helix::ui::lane_settings::commit_assigned_tool(*be.backend, 3, 0));
+    REQUIRE(be.backend->calls.size() == 1);
+    CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller) == std::vector<int>{3, 1});
 }
 
 TEST_CASE("remap restore: a hand edit that takes a saved lane releases it",
