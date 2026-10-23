@@ -768,7 +768,61 @@ class TestPlrProtectedPaths:
     async def test_no_job_protects_no_file(self, storage, tree):
         await _init(storage, tree)
         storage.plr.job = None
-        assert all(p.endswith(".layers.jsonl") for p in storage.plr.protected_paths())
+        snapshot = os.path.abspath(str(tree / "helix-plr" / "snapshot.bin"))
+        assert all(p.endswith(".layers.jsonl") or p == snapshot
+                   for p in storage.plr.protected_paths())
+
+
+class TestPlrQidiShapedJob:
+    """A QIDI-new job: Klipper read a copy in printer_data/.cache, the job's
+    gcodes file is the plugin's link to a .helix_temp copy, and QIDI's own
+    resume opens whatever .cache holds."""
+
+    async def _job(self, storage, tree):
+        from helix_gcode_reader import file_identity
+        await _init(storage, tree)
+        gcodes = tree / "gcodes"
+        copy = _write(gcodes / ".helix_temp" / "mod_benchy.gcode", 5, age=OLD)
+        link = gcodes / ".helix_print" / "full" / "benchy.gcode"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(str(copy), str(link))
+        os.utime(str(link), (time.time() - OLD,) * 2, follow_symlinks=False)
+        cache = tree / ".cache"
+        qidi_file = _write(cache / "qidi_resume.gcode", 5, age=OLD)
+        cached = _write(tree / "klipper_copy" / "mod_benchy.gcode", 5, age=OLD)
+        external = _write(gcodes / ".helix_index" / ".external" /
+                          "mod_benchy.gcode.layers.jsonl", 3, age=OLD)
+        live = _write(gcodes / ".helix_index" / "live.gcode.layers.jsonl", 3, age=OLD)
+        storage.plr.qidi = type("Q", (), {"_cache_dir": str(cache)})()
+        storage.plr.follower = type("F", (), {"index_path": str(live)})()
+        storage.plr.job = {"filename": ".helix_print/full/benchy.gcode",
+                           "print_path": str(cached),
+                           "print_identity": file_identity(cached)}
+        storage.klippy_apis.query_objects.return_value = {
+            "print_stats": {"filename": "", "state": "standby"}}
+        return {"print_path": cached, "qidi_cache": qidi_file, "link": link, "target": copy,
+                "external": external,
+                "live": live, "snapshot": tree / "helix-plr" / "snapshot.bin"}
+
+    @pytest.mark.asyncio
+    async def test_protected_paths_names_every_file_a_resume_reads(self, storage, tree):
+        files = await self._job(storage, tree)
+        paths = storage.plr.protected_paths()
+        for what, path in files.items():
+            assert os.path.abspath(str(path)) in paths, what
+        assert os.path.realpath(str(files["link"])) in paths
+
+    @pytest.mark.asyncio
+    async def test_no_cleanup_removes_them_or_touches_the_qidi_cache(self, storage, tree,
+                                                                    mock_server):
+        files = await self._job(storage, tree)
+        cache_before = sorted(os.listdir(str(tree / ".cache")))
+        for consumer in ("helix_temp", "analysis_sidecars", "timelapse", "logs", "photos"):
+            await mock_server.endpoints[CLEANUP](Request({"consumer": consumer,
+                                                          "older_than": 0}))
+        for what, path in files.items():
+            assert os.path.lexists(str(path)), what
+        assert sorted(os.listdir(str(tree / ".cache"))) == cache_before
 
 
 class _RecordingLoop:

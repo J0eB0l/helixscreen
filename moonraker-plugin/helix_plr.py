@@ -1149,13 +1149,18 @@ class HelixPlr:
     # -- layer checkpoints ---------------------------------------------------
 
     def protected_paths(self) -> List[str]:
-        """Every file no cleanup may remove while a job is recorded (printing,
-        or a snapshot waiting to resume): the file Klipper read, the job's
-        file under gcodes (a link) and what it names, and the layer indexes
-        (protected_index_paths). Absolute, each also resolved."""
+        """Every file no cleanup may remove, for a live print and for a
+        snapshot or offer waiting to resume: the file Klipper read (it can lie
+        outside gcodes), the job's file under gcodes, the layer indexes
+        (protected_index_paths, from print_target), the snapshot itself, and
+        on QIDI the file its own resume opens from its cache
+        (qidi_resume_filename). Each is listed as given and resolved, so the
+        job file's resolved form is what _resolve_link names and the read
+        file's is print_target's scan target."""
         gc_path = getattr(self.helix, "gc_path", None)
         job = self.job
         paths = list(self.protected_index_paths())
+        paths.append(str(self.store.path))
         if job is not None:
             printed = job.get("print_path")
             if isinstance(printed, str) and printed:
@@ -1163,6 +1168,10 @@ class HelixPlr:
             name = job.get("filename")
             if gc_path is not None and isinstance(name, str) and name:
                 paths.append(os.path.join(str(gc_path), name))
+        if self.qidi is not None and helix_plr_qidi is not None:
+            cached = helix_plr_qidi.qidi_resume_filename(self.qidi._cache_dir)
+            if cached:
+                paths.append(cached)
         return sorted({q for p in paths for q in (os.path.abspath(p), os.path.realpath(p))})
 
     def protected_index_paths(self) -> List[str]:
