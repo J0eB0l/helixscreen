@@ -86,6 +86,13 @@ namespace webcam {
 [[nodiscard]] std::optional<WebcamInfo> select_webcam(const std::vector<WebcamInfo>& cams,
                                                       const std::string& source);
 
+/// The camera a print's photos are taken with: of the enabled cameras with a
+/// usable snapshot URL (screens excluded), the first MJPEG one, else the
+/// first. The HelixPrint plugin applies the same rule
+/// (moonraker-plugin/helix_photos.py#pick_snapshot_url), so the plugin and
+/// the screen photograph the same camera.
+[[nodiscard]] std::optional<WebcamInfo> photo_pick(const std::vector<WebcamInfo>& cams);
+
 /// True when @p source names a camera that select_webcam() would honor. False
 /// for an empty source and for a fallback to the auto-pick.
 [[nodiscard]] bool source_is_honored(const std::vector<WebcamInfo>& cams,

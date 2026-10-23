@@ -173,6 +173,12 @@ tool.
 Stock Bondtech macros do not, so HelixScreen posts the mounted tool's spool on each mount;
 a macro set that does keeps it.
 
+The one extruder never changes, so `feed_slot_signals()` names
+`save_variables.variables.active_tool` (value `N` is slot `N`) as the field that says which
+tool feeds. The HelixPrint plugin follows it to switch the active spool at every tool change,
+including ones made while no screen is connected (`HELIXPRINT_PLUGIN.md`, filament
+accounting).
+
 ## Mock
 
 `HELIX_MOCK_AMS=indx` is mock hardware with the real backend (it implies `--real-ams`). The

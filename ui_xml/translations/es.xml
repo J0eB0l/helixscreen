@@ -1116,6 +1116,7 @@
   <translation tag="Enclosure" es="Cerramiento"/>
   <translation tag="Encoder" es="Encoder"/>
   <translation tag="Encoder Error" es="Error del encoder"/>
+  <translation tag="End" es="Final"/>
   <translation tag="End K" es="K final"/>
   <translation tag="End Test" es="Terminar prueba"/>
   <translation tag="End calibration" es="Terminar calibración"/>
@@ -1875,6 +1876,7 @@
   <translation tag="Last print failed" es="Última impresión fallida"/>
   <translation tag="Later" es="Más Tarde"/>
   <translation tag="Layer" es="Capa"/>
+  <translation tag="Layer 2" es="Capa 2"/>
   <translation tag="Layer Height" es="Altura de Capa"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." es="Layer Macro captura un fotograma por cada cambio de capa. Lo mejor para la mayoría de impresiones."/>
   <translation tag="Layer Pause" es="Pausa por capa"/>
@@ -1947,6 +1949,7 @@
   <translation tag="Loading filament..." es="Cargando filamento..."/>
   <translation tag="Loading filaments..." es="Cargando filamentos..."/>
   <translation tag="Loading history..." es="Cargando historial..."/>
+  <translation tag="Loading photo" es="Cargando foto"/>
   <translation tag="Loading spools..." es="Cargando bobinas..."/>
   <translation tag="Loading vendors..." es="Cargando proveedores..."/>
   <translation tag="Loading..." es="Cargando..."/>
@@ -2029,6 +2032,7 @@
   <translation tag="Make sure every nozzle is clean." es="Asegúrate de que todas las boquillas estén limpias."/>
   <translation tag="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats." es="Asegúrate de que no haya filamento cargado en el cabezal: puede ablandarse en el extrusor mientras la cama se calienta."/>
   <translation tag="MakeID (Bluetooth)" es="MakeID (Bluetooth)"/>
+  <translation tag="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used." es="Hace que Spoolman descuente de la bobina propia de cada herramienta o carril, en impresoras que no la cambian por sí mismas, y registra por impresión lo que usó cada bobina."/>
   <translation tag="Manage" es="Administrar"/>
   <translation tag="Manage Printers" es="Administrar Impresoras"/>
   <translation tag="Manage configured printers" es="Administrar impresoras configuradas"/>
@@ -2288,6 +2292,7 @@
   <translation tag="No shared peaks" es="Sin picos comunes"/>
   <translation tag="No slot currently matches." es="Actualmente no coincide ninguna ranura."/>
   <translation tag="No spool assigned" es="Sin bobina asignada"/>
+  <translation tag="No spool linked" es="Sin bobina vinculada"/>
   <translation tag="No spools found — tap to retry" es="No se encontraron bobinas — toque para reintentar"/>
   <translation tag="No spools match your search" es="Ninguna bobina coincide con su búsqueda"/>
   <translation tag="No spools placed" es="No coloqué bobinas"/>
@@ -2520,6 +2525,7 @@
   <translation tag="Phomemo M110" es="Phomemo M110"/>
   <translation tag="Phone" es="Teléfono"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" es="Teléfono pone 1 2 3 en la fila superior; calculadora, 7 8 9"/>
+  <translation tag="Photo unavailable" es="Foto no disponible"/>
   <translation tag="Pick" es="Elegir"/>
   <translation tag="Pick Color" es="Elegir Color"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." es="Elige cómo se comporta HelixScreen. Puedes cambiarlo más tarde en Ajustes."/>
@@ -2609,6 +2615,7 @@
   <translation tag="Pressure advance" es="Pressure Advance"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." es="Pressure Advance sube a medida que crece la torre. Observa las esquinas: toca - o + cuando quieras y la rampa se detiene para que juzgues tu propio valor."/>
   <translation tag="Pressure:" es="Presión:"/>
+  <translation tag="Preview" es="Vista previa"/>
   <translation tag="Preview Sounds" es="Vista previa de sonidos"/>
   <translation tag="Previous" es="Anterior"/>
   <translation tag="Price" es="Precio"/>
@@ -3098,6 +3105,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." es="Guardado en {}. Se aplica cada vez que este filamento se activa."/>
   <translation tag="Saved values, and whether to ask before running" es="Valores guardados y si se debe preguntar antes de ejecutar"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." es="Guardado. Spoolman está desconectado, así que el precio, la ubicación, el lote y las notas quedan aquí sin guardar."/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." es="Guarda una foto de la cámara tras la capa 2 y al terminar cada impresión, visible en el historial de impresión."/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." es="Guarda la posición de impresión aproximadamente una vez por segundo para que una impresión pueda reanudarse tras un corte de energía. En una tarjeta SD esto añade desgaste."/>
   <translation tag="Saves to Klipper config and restarts firmware." es="Guarda en la configuración de Klipper y reinicia el firmware."/>
   <translation tag="Saving Configuration..." es="Guardando Configuración..."/>
@@ -3338,6 +3346,7 @@
   <translation tag="Spool menu" es="Menú de bobina"/>
   <translation tag="Spool motor" es="Motor de bobina"/>
   <translation tag="Spool saved" es="Bobina guardada"/>
+  <translation tag="Spool switching per tool and lane" es="Cambio de bobina por herramienta y carril"/>
   <translation tag="Spool wt (g)" es="Peso bobina (g)"/>
   <translation tag="Spoolman" es="Spoolman"/>
   <translation tag="Spoolman Not Available" es="Spoolman no disponible"/>
@@ -3362,6 +3371,7 @@
   <translation tag="Spoolman: %zu/%zu Spool" es="Spoolman: %zu/%zu bobina"/>
   <translation tag="Spoolman: %zu/%zu Spools" es="Spoolman: %zu/%zu bobinas"/>
   <translation tag="SpoolmanDB search failed" es="Falló la búsqueda en SpoolmanDB"/>
+  <translation tag="Spools" es="Bobinas"/>
   <translation tag="Spools are off" es="Bobinas retiradas"/>
   <translation tag="Spools are on the bed: remove them and confirm before moving the printer" es="Hay bobinas sobre la cama: retíralas y confirma antes de mover la impresora"/>
   <translation tag="Spools are on the bed: tap the drying banner to confirm they are off, then restart." es="Hay bobinas en la cama: toca el aviso de secado para confirmar que las has quitado y luego reinicia."/>
@@ -3451,6 +3461,7 @@
   <translation tag="Switch Sensors" es="Sensores de interruptor"/>
   <translation tag="Switch a power device on or off" es="Encender o apagar un dispositivo"/>
   <translation tag="Switch between light and dark themes" es="Cambiar entre temas claro y oscuro"/>
+  <translation tag="Switch spools at each tool change" es="Cambiar de bobina en cada cambio de herramienta"/>
   <translation tag="Switch the active tool or extruder" es="Cambiar la herramienta o extrusor activo"/>
   <translation tag="Switch to a backup slot on runout" es="Cambiar a una ranura de reserva al agotarse"/>
   <translation tag="Switch to a matching slot on runout" es="Cambiar a una ranura coincidente al agotarse"/>

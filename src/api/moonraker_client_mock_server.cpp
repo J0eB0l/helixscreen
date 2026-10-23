@@ -546,6 +546,22 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                 {"available", true},
                 {"enabled", auto_cleanup.is_boolean() && auto_cleanup.get<bool>()},
                 {"reason", nullptr}};
+            // filament_accounting acts on spools: off until opted into, as
+            // the plugin reads helix-screen/plugin_features.
+            const json filament_opt_in =
+                self->mock_db_get("helix-screen", "plugin_features.filament_accounting");
+            response["result"]["features"]["filament_accounting"] = {
+                {"version", 1},
+                {"available", true},
+                {"enabled", filament_opt_in.is_boolean() && filament_opt_in.get<bool>()},
+                {"reason", nullptr}};
+            // photos only observes, so it is on unless opted out.
+            const json photos_opt_in = self->mock_db_get("helix-screen", "plugin_features.photos");
+            response["result"]["features"]["photos"] = {
+                {"version", 1},
+                {"available", true},
+                {"enabled", !(photos_opt_in.is_boolean() && !photos_opt_in.get<bool>())},
+                {"reason", nullptr}};
             // The rest of what the plugin ships, each on and running.
             for (const char* name : {"file_analysis", "server_edits", "config_edit", "storage"}) {
                 response["result"]["features"][name] = {
@@ -572,6 +588,40 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
         }
         if (success_cb) {
             success_cb(json{{"jsonrpc", "2.0"}, {"result", std::move(result)}});
+        }
+        return true;
+    };
+
+    // server.helix.filament_usage - the plugin's per-spool record of a job,
+    // present with the plugin (HELIX_MOCK_HELIX_PLUGIN): every job used two
+    // spools from two tools.
+    registry["server.helix.filament_usage"] =
+        [](MoonrakerClientMock* /*self*/, const json& params,
+           std::function<void(const json&)> success_cb,
+           std::function<void(const MoonrakerError&)> error_cb) -> bool {
+        const char* mode = std::getenv("HELIX_MOCK_HELIX_PLUGIN");
+        if (!(mode && std::string(mode) == "disabled") &&
+            !helix::env_flag("HELIX_MOCK_HELIX_PLUGIN")) {
+            if (error_cb) {
+                error_cb(
+                    MoonrakerError::unknown("Method not found", "server.helix.filament_usage"));
+            }
+            return true;
+        }
+        const std::string job_id = helix::json_util::safe_string(params, "job_id");
+        json spools = json::array({
+            {{"tool", 0}, {"lane", 0}, {"spool_id", 1}, {"mm", 4180.2}, {"grams", 12.47}},
+            {{"tool", 1}, {"lane", 1}, {"spool_id", 2}, {"mm", 1530.0}, {"grams", 4.56}},
+        });
+        json record = {{"schema", 1},
+                       {"job_id", job_id},
+                       {"status", "completed"},
+                       {"continues", nullptr},
+                       {"spools", std::move(spools)}};
+        if (success_cb) {
+            success_cb(
+                json{{"jsonrpc", "2.0"},
+                     {"result", {{"job_id", job_id}, {"enabled", true}, {"record", record}}}});
         }
         return true;
     };

@@ -362,6 +362,28 @@ class AmsBackend {
         return false;
     }
 
+    /// A Klipper status field that says which slot is feeding now: the
+    /// object, the path inside it, and each value (spelled as
+    /// helix::feed_signal_key() spells it) with the slot it names.
+    struct FeedSlotSignal {
+        std::string object;
+        std::vector<std::string> path;
+        std::vector<std::pair<std::string, int>> value_slots;
+    };
+
+    /**
+     * @brief The status fields that say which slot feeds the toolhead now
+     *
+     * Read by whatever switches the Spoolman active spool at a lane or tool
+     * change where this backend does not (manages_active_spool() false): the
+     * HelixPrint plugin follows them with no knowledge of the backend. Empty
+     * when the backend has no such field, or when the extruder that is
+     * printing already says it (each tool its own extruder).
+     */
+    [[nodiscard]] virtual std::vector<FeedSlotSignal> feed_slot_signals() const {
+        return {};
+    }
+
     /**
      * @brief Whether every tool prints through one shared extruder and heater
      *

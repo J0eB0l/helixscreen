@@ -46,6 +46,7 @@
 #include "bed_drying_controller.h"
 #include "bed_mesh_state.h"
 #include "chamber_stall_prompt.h"
+#include "filament_accounting_controller.h"
 #include "filament_catalog.h"
 #include "filament_database.h"
 #include "filament_op_heater.h"
@@ -58,6 +59,7 @@
 #include "preset_materials.h"
 #include "print_completion.h"
 #include "print_control_buttons.h"
+#include "print_photos_controller.h"
 #include "print_start_navigation.h"
 #include "printer_image_manager.h"
 #include "printer_state.h"
@@ -67,6 +69,9 @@
 #include "spoolman_manager.h"
 #include "standard_macros.h"
 #include "standing_print_options_controller.h"
+#if HELIX_HAS_CAMERA
+#include "camera_frame.h"
+#endif
 #include "system/telemetry_manager.h"
 #include "temperature_controller.h"
 #include "temperature_service.h"
@@ -443,6 +448,17 @@ void SubjectInitializer::init_observers() {
     // Standing print options: kept in Moonraker for the plugin's print hooks,
     // and sent by this screen at a foreign job start when the plugin cannot.
     m_standing_print_options = std::make_unique<helix::StandingPrintOptionsController>();
+
+    // Filament accounting: the spool map the plugin switches the active spool
+    // from, and this screen's switch at a tool change when the plugin cannot.
+    m_filament_accounting = std::make_unique<helix::FilamentAccountingController>();
+    // Camera photos in history, taken by this screen when the plugin cannot.
+#if HELIX_HAS_CAMERA
+    m_print_photos =
+        std::make_unique<helix::PrintPhotosController>(helix::live_camera_sources().fetch);
+#else
+    m_print_photos = std::make_unique<helix::PrintPhotosController>(nullptr);
+#endif
 
     // Print outcome telemetry observer (records anonymous print stats when telemetry enabled)
     m_observers.push_back(TelemetryManager::instance().init_print_outcome_observer());

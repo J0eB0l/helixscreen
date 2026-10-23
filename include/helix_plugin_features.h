@@ -127,6 +127,8 @@ enum class PluginFeatureHome {
     None,     ///< no setting: the overview shows its status only
     Printing, ///< Settings > Printing
     Storage,  ///< Settings > System > Storage
+    Spoolman, ///< Settings > Devices > Spoolman
+    Devices,  ///< Settings > Devices
 };
 
 /// What this app knows about a plugin feature. Labels are English; the UI
@@ -144,6 +146,8 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"print_hooks", TR_NOOP("Start options for prints from other apps"), "play_circle",
      PluginFeatureHome::Printing},
     {"plr", TR_NOOP("Power-loss recovery"), "power_plug", PluginFeatureHome::Printing},
+    {"filament_accounting", TR_NOOP("Spool switching per tool and lane"), "swap_horizontal",
+     PluginFeatureHome::Spoolman},
     {"convert_3mf", TR_NOOP("3MF conversion"), "cube_outline", PluginFeatureHome::None},
     {"file_analysis", TR_NOOP("File analysis"), "magnify_scan", PluginFeatureHome::None},
     {"event_journal", TR_NOOP("Printer events"), "bell", PluginFeatureHome::None},
@@ -152,6 +156,7 @@ inline constexpr KnownPluginFeature kKnownPluginFeatures[] = {
     {"storage", TR_NOOP("Storage report"), "sd", PluginFeatureHome::Storage},
     {"storage_auto_cleanup", TR_NOOP("Automatic storage cleanup"), "delete",
      PluginFeatureHome::Storage},
+    {"photos", TR_NOOP("Print photos"), "image_area", PluginFeatureHome::Devices},
 };
 
 /// The icon of a feature this app does not know.

@@ -71,12 +71,14 @@ Tap a job to open its detail view, which shows:
 - Layer count and layer height
 - Nozzle and bed temperatures
 - Filament used and filament type
+- **Spools**: which spool each tool or slot used and how much, for prints counted by the HelixPrint plugin's spool switching (see [Settings > Devices > Spoolman](settings/devices.md#switch-spools-at-each-tool-change))
 - A thumbnail, when one is available
+- Camera photos, when the print has them: one taken after layer 2 and one when it ended. The picture area opens on the end photo; the **Preview**, **Layer 2** and **End** buttons at its top switch between the slicer thumbnail and the photos. See Settings > Devices > [Print photos](settings/devices.md#print-photos) for how they are taken.
 
 From the detail view you can:
 
 - **Reprint** — re-run the job. HelixScreen jumps to the Print Select file detail for that file so you can start it again. Reprint is only available when the original file still exists on the printer; if it's been removed, you'll see a notice instead.
-- **Delete** — remove the job from the history.
+- **Delete** — remove the job from the history, along with its camera photos.
 - **View Timelapse** — shown only when a timelapse is available for that job.
 
 ---

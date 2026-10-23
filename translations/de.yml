@@ -1239,6 +1239,7 @@ translations:
 
   Encoder: Encoder
   Encoder Error: 'Encoder-Fehler'
+  End: 'Ende'
   End K: End-K
   End Test: Test beenden
   End calibration: 'Kalibrierung beenden'
@@ -2079,6 +2080,7 @@ translations:
   Last print failed: Letzter Druck fehlgeschlagen
   Later: Später
   Layer: Schicht
+  Layer 2: 'Schicht 2'
   Layer Height: Schichthöhe
   Layer Macro captures one frame per layer change. Best for most prints.: Layer-Makro
     erfasst ein Bild pro Schichtwechsel. Am besten für die meisten Drucke.
@@ -2154,6 +2156,7 @@ translations:
   Loading filament...: Filament wird geladen...
   Loading filaments...: Filamente werden geladen...
   Loading history...: Lade Verlauf...
+  Loading photo: 'Foto wird geladen'
   Loading spools...: Lade Spulen...
   Loading vendors...: Hersteller werden geladen...
   Loading...: Lade...
@@ -2241,6 +2244,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 'Stelle sicher, dass kein Filament im Werkzeugkopf geladen ist: Es kann im Extruder weich werden, während das Heizbett heizt.'
 
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : 'Lässt Spoolman den Verbrauch von der Spule des jeweiligen Werkzeugs oder der Spur abbuchen, für Drucker, die nicht selbst umschalten, und zeichnet pro Druck auf, was jede Spule verbraucht hat.'
   Manage: Verwalten
   Manage Printers: Drucker verwalten
   Manage configured printers: Konfigurierte Drucker verwalten
@@ -2516,6 +2521,7 @@ translations:
   No shared peaks: "Keine gemeinsamen Spitzen"
   No slot currently matches.: 'Derzeit passt kein Slot.'
   No spool assigned: Keine Spule zugewiesen
+  No spool linked: 'Keine Spule verknüpft'
   No spools found — tap to retry: Keine Spulen gefunden — tippen zum Wiederholen
   No spools match your search: Keine Spulen entsprechen Ihrer Suche
   No spools placed: Keine Spulen eingelegt
@@ -2765,6 +2771,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Telefon
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: 'Telefon: 1 2 3 in der obersten Reihe, Taschenrechner: 7 8 9'
+  Photo unavailable: 'Foto nicht verfügbar'
   Pick: Auswählen
   Pick Color: Farbe wählen
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Wähle, wie sich HelixScreen verhält. Du kannst alles später in den Einstellungen ändern.'
@@ -2864,6 +2871,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'Pressure-Advance-Kalibrierung'
+  Preview: 'Vorschau'
   Preview Sounds: Sounds vorhören
   Previous: Zurück
   Price: Preis
@@ -3387,6 +3395,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Auf {} gespeichert. Der Wert wird angewendet, sobald dieses Filament aktiv wird.
   Saved values, and whether to ask before running: 'Gespeicherte Werte und ob vor dem Ausführen gefragt wird'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Gespeichert. Spoolman ist offline, daher bleiben Preis, Standort, Los und Notizen hier ungespeichert.'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'Speichert nach Schicht 2 und am Ende jedes Drucks ein Kamerafoto, das im Druckverlauf angezeigt wird.'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Speichert die Druckposition etwa einmal pro Sekunde, damit ein Druck nach einem Stromausfall fortgesetzt werden kann. Auf einer SD-Karte erhöht das den Verschleiß.
   Saves to Klipper config and restarts firmware.: Speichert in Klipper-Konfiguration
     und startet Firmware neu.
@@ -3661,6 +3670,7 @@ translations:
   Spool menu: 'Spulenmenü'
   Spool motor: Spulenmotor
   Spool saved: Spule gespeichert
+  Spool switching per tool and lane: 'Spulenwechsel pro Werkzeug und Spur'
   Spool wt (g): Spulengewicht (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman nicht verfügbar'
@@ -3687,6 +3697,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu Spule'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu Spulen'
   SpoolmanDB search failed: 'SpoolmanDB-Suche fehlgeschlagen'
+  Spools: 'Spulen'
   Spools are off: "Spulen sind entnommen"
   'Spools are on the bed: remove them and confirm before moving the printer': 'Spulen liegen auf dem Heizbett: entferne sie und bestätige, bevor der Drucker bewegt wird'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 'Spulen liegen auf dem Heizbett: Tippe auf das Trocknungsbanner, um zu bestätigen, dass sie entnommen sind, und starte dann neu.'
@@ -3785,6 +3796,7 @@ translations:
   Switch a power device on or off: Stromgerät ein- oder ausschalten
   Switch Sensors: Schalter-Sensoren
   Switch between light and dark themes: Zwischen Hell- und Dunkelthemen wechseln
+  Switch spools at each tool change: 'Spulen bei jedem Werkzeugwechsel umschalten'
   Switch the active tool or extruder: Aktives Werkzeug oder Extruder wechseln
   Switch to a backup slot on runout: Bei Filamentende zu einem Ersatz-Slot wechseln
   Switch to a matching slot on runout: Bei Filamentende zu einem passenden Slot wechseln

@@ -223,8 +223,8 @@ modes.
 
 **Which features get a switch.** Only features that act on a print or a spool. Observers
 (file analysis, event journal) and transports (server edits, config edit, vendor push) get no
-switch anywhere. Homes for the rest: print hooks and PLR on Settings > Printing; planned ones
-in the plan doc.
+switch anywhere. Homes for the rest: print hooks and PLR on Settings > Printing, print photos
+on Settings > Devices (`PluginFeatureHome::Devices`); planned ones in the plan doc.
 
 ### The overview
 
@@ -248,8 +248,9 @@ one; `server.extensions.list` lists agents only), so a local HelixScreen announc
 `kLocalScreenPresenceIntervalS` (10 minutes) while connected. A remote instance reads it when it
 would send: younger than two intervals (20 minutes) is present, a missing key is absent,
 anything else is unknown. A crashed local screen keeps the remote standing by for up to 20
-minutes, which fails toward not sending. Future fallbacks that send G-code reuse the same
-function.
+minutes, which fails toward not sending. Every fallback that acts on the printer asks it
+through `resolve_fallback_sender_role()` (`include/fallback_sender.h`), which reads the
+presence record when this screen is remote: print hooks' send and print photos' capture.
 
 ---
 
@@ -589,6 +590,5 @@ Designs live in `docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.
 |-------|---------|
 | 2 | File-fits-printer check: Phase 1 bounds and header against `configfile.settings`, as print-start gates; opt-in refusal of a slicer auto-start |
 | 5 | Filament accounting per lane and tool: the plugin drives Moonraker's active spool for backends that do not; never deducts |
-| 7 | Camera photos in history: snapshots after layer 2 and at job end, linked from the history entry |
 | 8 | Storage report and guard: usage by consumer, cleanup, a free-space floor for `print_modified` / `print_edited` |
 | 11 | Vendor push shims: one module per vendor emitting state changes instead of the app polling |

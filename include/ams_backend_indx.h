@@ -55,6 +55,10 @@ class AmsBackendIndx : public AmsBackendToolChanger {
         return macros_set_active_spool_;
     }
 
+    /// The one extruder never changes; the mounted tool is save_variables'
+    /// active_tool, and tool N is slot N.
+    [[nodiscard]] std::vector<FeedSlotSignal> feed_slot_signals() const override;
+
     /// Every tool prints through the one extruder, so per-extruder usage says
     /// nothing about which tool used it; the tracker charges the mounted slot.
     [[nodiscard]] std::optional<int> slot_for_extruder(int /*extruder_idx*/) const override {

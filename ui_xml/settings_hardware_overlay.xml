@@ -37,6 +37,14 @@
             <bind_flag_if_eq subject="platform_extras_available" flag="hidden" ref_value="0"/>
           </setting_action_row>
         </lv_obj>
+        <!-- PRINT PHOTOS: the plugin's photos feature, or this screen's own (hidden without a webcam) -->
+        <lv_obj name="container_print_photos" width="100%" height="content" style_pad_all="0" scrollable="false">
+          <bind_flag_if_eq subject="printer_has_webcam" flag="hidden" ref_value="0"/>
+          <plugin_feature_toggle_row name="row_print_photos"
+                                     feature="photos" label="Print photos" icon="image_area"
+                                     description="Saves a camera photo after layer 2 and when each print ends, shown in print history."
+                                     subject="plugin_feature_on_photos" callback="on_plugin_feature_switch_changed"/>
+        </lv_obj>
         <!-- ================================================================== -->
         <!-- FANS (hidden until fans are discovered) -->
         <!-- ================================================================== -->

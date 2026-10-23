@@ -1116,6 +1116,7 @@
   <translation tag="Enclosure" de="Gehäuse"/>
   <translation tag="Encoder" de="Encoder"/>
   <translation tag="Encoder Error" de="Encoder-Fehler"/>
+  <translation tag="End" de="Ende"/>
   <translation tag="End K" de="End-K"/>
   <translation tag="End Test" de="Test beenden"/>
   <translation tag="End calibration" de="Kalibrierung beenden"/>
@@ -1875,6 +1876,7 @@
   <translation tag="Last print failed" de="Letzter Druck fehlgeschlagen"/>
   <translation tag="Later" de="Später"/>
   <translation tag="Layer" de="Schicht"/>
+  <translation tag="Layer 2" de="Schicht 2"/>
   <translation tag="Layer Height" de="Schichthöhe"/>
   <translation tag="Layer Macro captures one frame per layer change. Best for most prints." de="Layer-Makro erfasst ein Bild pro Schichtwechsel. Am besten für die meisten Drucke."/>
   <translation tag="Layer Pause" de="Schichtpause"/>
@@ -1947,6 +1949,7 @@
   <translation tag="Loading filament..." de="Filament wird geladen..."/>
   <translation tag="Loading filaments..." de="Filamente werden geladen..."/>
   <translation tag="Loading history..." de="Lade Verlauf..."/>
+  <translation tag="Loading photo" de="Foto wird geladen"/>
   <translation tag="Loading spools..." de="Lade Spulen..."/>
   <translation tag="Loading vendors..." de="Hersteller werden geladen..."/>
   <translation tag="Loading..." de="Lade..."/>
@@ -2029,6 +2032,7 @@
   <translation tag="Make sure every nozzle is clean." de="Stelle sicher, dass alle Düsen sauber sind."/>
   <translation tag="Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats." de="Stelle sicher, dass kein Filament im Werkzeugkopf geladen ist: Es kann im Extruder weich werden, während das Heizbett heizt."/>
   <translation tag="MakeID (Bluetooth)" de="MakeID (Bluetooth)"/>
+  <translation tag="Makes Spoolman charge each tool&apos;s or lane&apos;s own spool, for printers that do not switch it themselves, and records per print what each spool used." de="Lässt Spoolman den Verbrauch von der Spule des jeweiligen Werkzeugs oder der Spur abbuchen, für Drucker, die nicht selbst umschalten, und zeichnet pro Druck auf, was jede Spule verbraucht hat."/>
   <translation tag="Manage" de="Verwalten"/>
   <translation tag="Manage Printers" de="Drucker verwalten"/>
   <translation tag="Manage configured printers" de="Konfigurierte Drucker verwalten"/>
@@ -2288,6 +2292,7 @@
   <translation tag="No shared peaks" de="Keine gemeinsamen Spitzen"/>
   <translation tag="No slot currently matches." de="Derzeit passt kein Slot."/>
   <translation tag="No spool assigned" de="Keine Spule zugewiesen"/>
+  <translation tag="No spool linked" de="Keine Spule verknüpft"/>
   <translation tag="No spools found — tap to retry" de="Keine Spulen gefunden — tippen zum Wiederholen"/>
   <translation tag="No spools match your search" de="Keine Spulen entsprechen Ihrer Suche"/>
   <translation tag="No spools placed" de="Keine Spulen eingelegt"/>
@@ -2520,6 +2525,7 @@
   <translation tag="Phomemo M110" de="Phomemo M110"/>
   <translation tag="Phone" de="Telefon"/>
   <translation tag="Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there" de="Telefon: 1 2 3 in der obersten Reihe, Taschenrechner: 7 8 9"/>
+  <translation tag="Photo unavailable" de="Foto nicht verfügbar"/>
   <translation tag="Pick" de="Auswählen"/>
   <translation tag="Pick Color" de="Farbe wählen"/>
   <translation tag="Pick how HelixScreen behaves. You can change any of these later in Settings." de="Wähle, wie sich HelixScreen verhält. Du kannst alles später in den Einstellungen ändern."/>
@@ -2609,6 +2615,7 @@
   <translation tag="Pressure advance" de="Pressure Advance"/>
   <translation tag="Pressure advance climbs as the tower grows. Watch the corners: tap - or + whenever you like and the ramp stops so you can judge your own value." de="Pressure Advance steigt mit der Turmhöhe. Beobachte die Ecken: Tippe jederzeit - oder +, dann stoppt die Rampe und du kannst deinen eigenen Wert beurteilen."/>
   <translation tag="Pressure:" de="Druck:"/>
+  <translation tag="Preview" de="Vorschau"/>
   <translation tag="Preview Sounds" de="Sounds vorhören"/>
   <translation tag="Previous" de="Zurück"/>
   <translation tag="Price" de="Preis"/>
@@ -3098,6 +3105,7 @@
   <translation tag="Saved to {}. It applies whenever this filament becomes active." de="Auf {} gespeichert. Der Wert wird angewendet, sobald dieses Filament aktiv wird."/>
   <translation tag="Saved values, and whether to ask before running" de="Gespeicherte Werte und ob vor dem Ausführen gefragt wird"/>
   <translation tag="Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved." de="Gespeichert. Spoolman ist offline, daher bleiben Preis, Standort, Los und Notizen hier ungespeichert."/>
+  <translation tag="Saves a camera photo after layer 2 and when each print ends, shown in print history." de="Speichert nach Schicht 2 und am Ende jedes Drucks ein Kamerafoto, das im Druckverlauf angezeigt wird."/>
   <translation tag="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear." de="Speichert die Druckposition etwa einmal pro Sekunde, damit ein Druck nach einem Stromausfall fortgesetzt werden kann. Auf einer SD-Karte erhöht das den Verschleiß."/>
   <translation tag="Saves to Klipper config and restarts firmware." de="Speichert in Klipper-Konfiguration und startet Firmware neu."/>
   <translation tag="Saving Configuration..." de="Konfiguration wird gespeichert..."/>
@@ -3338,6 +3346,7 @@
   <translation tag="Spool menu" de="Spulenmenü"/>
   <translation tag="Spool motor" de="Spulenmotor"/>
   <translation tag="Spool saved" de="Spule gespeichert"/>
+  <translation tag="Spool switching per tool and lane" de="Spulenwechsel pro Werkzeug und Spur"/>
   <translation tag="Spool wt (g)" de="Spulengewicht (g)"/>
   <translation tag="Spoolman" de="Spoolman"/>
   <translation tag="Spoolman Not Available" de="Spoolman nicht verfügbar"/>
@@ -3362,6 +3371,7 @@
   <translation tag="Spoolman: %zu/%zu Spool" de="Spoolman: %zu/%zu Spule"/>
   <translation tag="Spoolman: %zu/%zu Spools" de="Spoolman: %zu/%zu Spulen"/>
   <translation tag="SpoolmanDB search failed" de="SpoolmanDB-Suche fehlgeschlagen"/>
+  <translation tag="Spools" de="Spulen"/>
   <translation tag="Spools are off" de="Spulen sind entnommen"/>
   <translation tag="Spools are on the bed: remove them and confirm before moving the printer" de="Spulen liegen auf dem Heizbett: entferne sie und bestätige, bevor der Drucker bewegt wird"/>
   <translation tag="Spools are on the bed: tap the drying banner to confirm they are off, then restart." de="Spulen liegen auf dem Heizbett: Tippe auf das Trocknungsbanner, um zu bestätigen, dass sie entnommen sind, und starte dann neu."/>
@@ -3451,6 +3461,7 @@
   <translation tag="Switch Sensors" de="Schalter-Sensoren"/>
   <translation tag="Switch a power device on or off" de="Stromgerät ein- oder ausschalten"/>
   <translation tag="Switch between light and dark themes" de="Zwischen Hell- und Dunkelthemen wechseln"/>
+  <translation tag="Switch spools at each tool change" de="Spulen bei jedem Werkzeugwechsel umschalten"/>
   <translation tag="Switch the active tool or extruder" de="Aktives Werkzeug oder Extruder wechseln"/>
   <translation tag="Switch to a backup slot on runout" de="Bei Filamentende zu einem Ersatz-Slot wechseln"/>
   <translation tag="Switch to a matching slot on runout" de="Bei Filamentende zu einem passenden Slot wechseln"/>

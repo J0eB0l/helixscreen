@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "filament_accounting.h"
 #include "helix_plugin_features.h"
 #include "plr_backend.h"
+#include "print_photos.h"
 #include "standing_print_options.h"
 #include "storage_report.h"
 #include "subject_managed_panel.h"
@@ -29,12 +31,16 @@ struct PluginSwitchFeature {
     const char* on_subject;
 };
 
-inline constexpr std::array<PluginSwitchFeature, 3> kPluginSwitchFeatures = {{
+inline constexpr std::array<PluginSwitchFeature, 5> kPluginSwitchFeatures = {{
     {kPlrFeatureName, kPlrFeatureMinVersion, false, true, "plugin_feature_mode_plr", nullptr},
     {kPrintHooksFeature, kPrintHooksMinVersion, true, true, "plugin_feature_mode_print_hooks",
      "plugin_feature_on_print_hooks"},
     {storage::kAutoCleanupFeature, storage::kAutoCleanupMinVersion, false, true,
      "plugin_feature_mode_storage_auto_cleanup", "plugin_feature_on_storage_auto_cleanup"},
+    {kFilamentAccountingFeature, kFilamentAccountingMinVersion, true, true,
+     "plugin_feature_mode_filament_accounting", "plugin_feature_on_filament_accounting"},
+    {kPhotosFeature, kPhotosMinVersion, true, false, "plugin_feature_mode_photos",
+     "plugin_feature_on_photos"},
 }};
 
 /// helix_plugin_installed values once the probe has answered (-1 before). A

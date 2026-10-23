@@ -3,7 +3,9 @@
 
 #include "ui_filename_utils.h"
 
+#include "env_knobs.h"
 #include "moonraker_client_mock_internal.h"
+#include "print_photos.h"
 #include "runtime_config.h"
 #include "text_io.h"
 
@@ -173,6 +175,19 @@ void register_history_handlers(std::unordered_map<std::string, MethodHandler>& r
                                                        {"width", 300},
                                                        {"height", 300},
                                                        {"size", 25000}}})}}}};
+            // HELIX_MOCK_PRINT_PHOTOS=1: the newest job has its camera photos,
+            // linked from auxiliary_data as the HelixPrint plugin links them.
+            if (i == 0 && helix::env_flag("HELIX_MOCK_PRINT_PHOTOS")) {
+                const std::string job_id = job["job_id"].get<std::string>();
+                job["auxiliary_data"] = json::array(
+                    {{{"provider", helix::kPhotosAuxProvider},
+                      {"name", helix::kPhotosAuxName},
+                      {"value",
+                       json::array({helix::photo_path(job_id, start_time, helix::kPhotoKindLayer),
+                                    helix::photo_path(job_id, start_time, helix::kPhotoKindEnd)})},
+                      {"description", "Camera photos"},
+                      {"units", nullptr}}});
+            }
             jobs.push_back(job);
             count++;
         }

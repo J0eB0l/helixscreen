@@ -1196,6 +1196,7 @@ translations:
   Enclosure: Enclosure
   Encoder: Encoder
   Encoder Error: Encoder Error
+  End: End
   End K: End K
   End Test: End Test
   End calibration: End calibration
@@ -2014,6 +2015,7 @@ translations:
   Last print failed: Last print failed
   Later: Later
   Layer: Layer
+  Layer 2: Layer 2
   Layer Height: Layer Height
   Layer Macro captures one frame per layer change. Best for most prints.: Layer Macro
     captures one frame per layer change. Best for most prints.
@@ -2088,6 +2090,7 @@ translations:
   Loading filament...: Loading filament...
   Loading filaments...: Loading filaments...
   Loading history...: Loading history...
+  Loading photo: Loading photo
   Loading spools...: Loading spools...
   Loading vendors...: Loading vendors...
   Loading...: Loading...
@@ -2172,6 +2175,8 @@ translations:
   Make sure every nozzle is clean.: Make sure every nozzle is clean.
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.'
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
   Manage: Manage
   Manage Printers: Manage Printers
   Manage configured printers: Manage configured printers
@@ -2448,6 +2453,7 @@ translations:
   No shared peaks: No shared peaks
   No slot currently matches.: No slot currently matches.
   No spool assigned: No spool assigned
+  No spool linked: No spool linked
   No spools found — tap to retry: No spools found — tap to retry
   No spools match your search: No spools match your search
   No spools placed: No spools placed
@@ -2693,6 +2699,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Phone
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there
+  Photo unavailable: Photo unavailable
   Pick: Pick
   Pick Color: Pick Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: Pick how HelixScreen behaves. You can change any of these later in Settings.
@@ -2790,6 +2797,7 @@ translations:
   Pressure Adv.: Pressure Adv.
   Pressure Advance: Pressure Advance
   Pressure Advance Calibration: Pressure Advance Calibration
+  Preview: Preview
   Preview Sounds: Preview Sounds
   Previous: Previous
   Price: Price
@@ -3307,6 +3315,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Saved to {}. It applies whenever this filament becomes active.
   Saved values, and whether to ask before running: Saved values, and whether to ask before running
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: Saves a camera photo after layer 2 and when each print ends, shown in print history.
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.
   Saves to Klipper config and restarts firmware.: Saves to Klipper config and restarts
     firmware.
@@ -3573,6 +3582,7 @@ translations:
   Spool menu: Spool menu
   Spool motor: Spool motor
   Spool saved: Spool saved
+  Spool switching per tool and lane: Spool switching per tool and lane
   Spool wt (g): Spool wt (g)
   Spoolman: Spoolman
   Spoolman Not Available: Spoolman Not Available
@@ -3598,6 +3608,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu Spool'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu Spools'
   SpoolmanDB search failed: SpoolmanDB search failed
+  Spools: Spools
   Spools are off: Spools are off
   'Spools are on the bed: remove them and confirm before moving the printer': 'Spools are on the bed: remove them and confirm before moving the printer'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 'Spools are on the bed: tap the drying banner to confirm they are off, then restart.'
@@ -3692,6 +3703,7 @@ translations:
   Switch a power device on or off: Switch a power device on or off
   Switch Sensors: Switch Sensors
   Switch between light and dark themes: Switch between light and dark themes
+  Switch spools at each tool change: Switch spools at each tool change
   Switch the active tool or extruder: Switch the active tool or extruder
   Switch to a backup slot on runout: Switch to a backup slot on runout
   Switch to a matching slot on runout: Switch to a matching slot on runout

@@ -1235,6 +1235,7 @@ translations:
 
   Encoder: Encoder
   Encoder Error: 'Error del encoder'
+  End: 'Final'
   End K: K final
   End Test: Terminar prueba
   End calibration: 'Terminar calibración'
@@ -2069,6 +2070,7 @@ translations:
   Last print failed: Última impresión fallida
   Later: Más Tarde
   Layer: Capa
+  Layer 2: 'Capa 2'
   Layer Height: Altura de Capa
   Layer Macro captures one frame per layer change. Best for most prints.: Layer Macro
     captura un fotograma por cada cambio de capa. Lo mejor para la mayoría de impresiones.
@@ -2144,6 +2146,7 @@ translations:
   Loading filament...: Cargando filamento...
   Loading filaments...: Cargando filamentos...
   Loading history...: Cargando historial...
+  Loading photo: 'Cargando foto'
   Loading spools...: Cargando bobinas...
   Loading vendors...: Cargando proveedores...
   Loading...: Cargando...
@@ -2231,6 +2234,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 'Asegúrate de que no haya filamento cargado en el cabezal: puede ablandarse en el extrusor mientras la cama se calienta.'
 
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : 'Hace que Spoolman descuente de la bobina propia de cada herramienta o carril, en impresoras que no la cambian por sí mismas, y registra por impresión lo que usó cada bobina.'
   Manage: Administrar
   Manage Printers: Administrar Impresoras
   Manage configured printers: Administrar impresoras configuradas
@@ -2508,6 +2513,7 @@ translations:
   No shared peaks: "Sin picos comunes"
   No slot currently matches.: 'Actualmente no coincide ninguna ranura.'
   No spool assigned: Sin bobina asignada
+  No spool linked: 'Sin bobina vinculada'
   No spools found — tap to retry: No se encontraron bobinas — toque para reintentar
   No spools match your search: Ninguna bobina coincide con su búsqueda
   No spools placed: No coloqué bobinas
@@ -2757,6 +2763,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: Teléfono
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: Teléfono pone 1 2 3 en la fila superior; calculadora, 7 8 9
+  Photo unavailable: 'Foto no disponible'
   Pick: Elegir
   Pick Color: Elegir Color
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Elige cómo se comporta HelixScreen. Puedes cambiarlo más tarde en Ajustes.'
@@ -2856,6 +2863,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'Calibración de Pressure Advance'
+  Preview: 'Vista previa'
   Preview Sounds: Vista previa de sonidos
   Previous: Anterior
   Price: Precio
@@ -3381,6 +3389,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Guardado en {}. Se aplica cada vez que este filamento se activa.
   Saved values, and whether to ask before running: 'Valores guardados y si se debe preguntar antes de ejecutar'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Guardado. Spoolman está desconectado, así que el precio, la ubicación, el lote y las notas quedan aquí sin guardar.'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'Guarda una foto de la cámara tras la capa 2 y al terminar cada impresión, visible en el historial de impresión.'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Guarda la posición de impresión aproximadamente una vez por segundo para que una impresión pueda reanudarse tras un corte de energía. En una tarjeta SD esto añade desgaste.
   Saves to Klipper config and restarts firmware.: Guarda en la configuración de Klipper
     y reinicia el firmware.
@@ -3652,6 +3661,7 @@ translations:
   Spool menu: 'Menú de bobina'
   Spool motor: Motor de bobina
   Spool saved: Bobina guardada
+  Spool switching per tool and lane: 'Cambio de bobina por herramienta y carril'
   Spool wt (g): Peso bobina (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman no disponible'
@@ -3678,6 +3688,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu bobina'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu bobinas'
   SpoolmanDB search failed: 'Falló la búsqueda en SpoolmanDB'
+  Spools: 'Bobinas'
   Spools are off: "Bobinas retiradas"
   'Spools are on the bed: remove them and confirm before moving the printer': 'Hay bobinas sobre la cama: retíralas y confirma antes de mover la impresora'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 'Hay bobinas en la cama: toca el aviso de secado para confirmar que las has quitado y luego reinicia.'
@@ -3779,6 +3790,7 @@ translations:
   Switch a power device on or off: Encender o apagar un dispositivo
   Switch Sensors: Sensores de interruptor
   Switch between light and dark themes: Cambiar entre temas claro y oscuro
+  Switch spools at each tool change: 'Cambiar de bobina en cada cambio de herramienta'
   Switch the active tool or extruder: Cambiar la herramienta o extrusor activo
   Switch to a backup slot on runout: Cambiar a una ranura de reserva al agotarse
   Switch to a matching slot on runout: Cambiar a una ranura coincidente al agotarse

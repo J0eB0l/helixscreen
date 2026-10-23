@@ -1160,6 +1160,7 @@ translations:
 
   Encoder: 编码器
   Encoder Error: '编码器错误'
+  End: '结束'
   End K: 结束K值
   End Test: 结束测试
   End calibration: '结束校准'
@@ -1949,6 +1950,7 @@ translations:
   Last print failed: 上次打印失败
   Later: 稍后
   Layer: 层
+  Layer 2: '第 2 层'
   Layer Height: 层高
   Layer Macro captures one frame per layer change. Best for most prints.: 层变化宏在每次层变化时捕获一帧。适合大多数打印。
   Layer Pause: '层暂停'
@@ -2020,6 +2022,7 @@ translations:
   Loading filament...: 正在加载耗材...
   Loading filaments...: 正在加载耗材...
   Loading history...: 正在加载历史...
+  Loading photo: '正在加载照片'
   Loading spools...: 正在加载料盘...
   Loading vendors...: 正在加载供应商…
   Loading...: 正在加载...
@@ -2103,6 +2106,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 请确认工具头中没有装入耗材:热床加热时它可能在挤出机中变软。
 
   MakeID (Bluetooth): MakeID（蓝牙）
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : '让 Spoolman 按每个工具或耗材通道各自的料盘计算用量（适用于不会自行切换的打印机），并记录每次打印各料盘的用量。'
   Manage: 管理
   Manage Printers: 管理打印机
   Manage configured printers: 管理已配置的打印机
@@ -2367,6 +2372,7 @@ translations:
   No shared peaks: "无共同峰值"
   No slot currently matches.: '当前没有匹配的槽位。'
   No spool assigned: 未分配料盘
+  No spool linked: '未关联料盘'
   No spools found — tap to retry: 未找到料盘 - 点击重试
   No spools match your search: 没有符合搜索条件的料盘
   No spools placed: 未放置料盘
@@ -2612,6 +2618,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: 电话
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: 电话布局第一行为 1 2 3，计算器布局第一行为 7 8 9
+  Photo unavailable: '照片不可用'
   Pick: 选取
   Pick Color: 选择颜色
   Pick how HelixScreen behaves. You can change any of these later in Settings.: '选择 HelixScreen 的行为方式。以后可在“设置”中更改。'
@@ -2706,6 +2713,7 @@ translations:
   Pressure Adv.: '压力提前'
   Pressure Advance: '压力提前'
   Pressure Advance Calibration: '压力提前校准'
+  Preview: '预览'
   Preview Sounds: 预览声音
   Previous: 上一步
   Price: 价格
@@ -3201,6 +3209,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: 已保存到{}。每当该耗材启用时都会应用。
   Saved values, and whether to ask before running: '保存的值,以及运行前是否询问'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: '已保存。Spoolman 离线，因此价格、位置、批次和备注暂留在此处，尚未保存。'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: '在第 2 层之后和每次打印结束时保存一张摄像头照片，显示在打印历史中。'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: 大约每秒保存一次打印位置，以便断电后可以恢复打印。在 SD 卡上这会增加磨损。
   Saves to Klipper config and restarts firmware.: 保存到 Klipper 配置并重启固件。
   Saving Configuration...: 正在保存配置...
@@ -3449,6 +3458,7 @@ translations:
   Spool menu: '料盘操作'
   Spool motor: 料盘电机
   Spool saved: 料盘已保存
+  Spool switching per tool and lane: '按工具和耗材通道切换料盘'
   Spool wt (g): 料盘重量 (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman 不可用'
@@ -3473,6 +3483,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu 个线轴'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu 个线轴'
   SpoolmanDB search failed: 'SpoolmanDB 搜索失败'
+  Spools: '料盘'
   Spools are off: "料盘已取下"
   'Spools are on the bed: remove them and confirm before moving the printer': 热床上有料盘：请先移除并确认，再移动打印机
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 热床上有料盘:点击烘干横幅确认已取下,然后再重启。
@@ -3568,6 +3579,7 @@ translations:
   Switch a power device on or off: 开启或关闭电源设备
   Switch Sensors: 开关传感器
   Switch between light and dark themes: 切换浅色和深色主题
+  Switch spools at each tool change: '每次换工具时切换料盘'
   Switch the active tool or extruder: 切换当前工具或挤出机
   Switch to a backup slot on runout: 耗材用尽时切换到备用槽位
   Switch to a matching slot on runout: 耗材用尽时切换到匹配的槽位

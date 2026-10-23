@@ -1164,6 +1164,7 @@ translations:
 
   Encoder: エンコーダー
   Encoder Error: 'エンコーダーエラー'
+  End: '終了'
   End K: 終了K
   End Test: テスト終了
   End calibration: 'キャリブレーションを終了'
@@ -1954,6 +1955,7 @@ translations:
   Last print failed: 前回の印刷が失敗しました
   Later: 後で
   Layer: レイヤー
+  Layer 2: 'レイヤー2'
   Layer Height: レイヤー高さ
   Layer Macro captures one frame per layer change. Best for most prints.: レイヤーマクロはレイヤーが変わるごとに
     1 フレームを撮影します。ほとんどの印刷に最適です。
@@ -2026,6 +2028,7 @@ translations:
   Loading filament...: フィラメントを装填中...
   Loading filaments...: フィラメントを読み込み中...
   Loading history...: 履歴を読み込み中...
+  Loading photo: '写真を読み込み中'
   Loading spools...: スプールを読み込み中...
   Loading vendors...: ベンダーを読み込み中...
   Loading...: 読み込み中...
@@ -2109,6 +2112,8 @@ translations:
   'Make sure no filament is loaded at the toolhead: it can soften in the extruder while the bed heats.': 'ツールヘッドにフィラメントがロードされていないことを確認してください: ベッドの加熱中にエクストルーダー内で柔らかくなることがあります。'
 
   MakeID (Bluetooth): MakeID (Bluetooth)
+  ? Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used.
+  : '自分で切り替えないプリンター向けに、各ツールまたはレーンのスプールから Spoolman が使用量を差し引くようにし、印刷ごとに各スプールの使用量を記録します。'
   Manage: 管理
   Manage Printers: プリンター管理
   Manage configured printers: 設定済みプリンターを管理
@@ -2374,6 +2379,7 @@ translations:
   No shared peaks: "共通のピークなし"
   No slot currently matches.: '現在、一致するスロットはありません。'
   No spool assigned: スプール未割当
+  No spool linked: 'スプール未リンク'
   No spools found — tap to retry: スプールが見つかりません — タップして再試行
   No spools match your search: 検索に一致するスプールがありません
   No spools placed: スプールは置いていません
@@ -2619,6 +2625,7 @@ translations:
   Phomemo M110: Phomemo M110
   Phone: 電話
   Phone puts 1 2 3 on the top row, calculator puts 7 8 9 there: 電話は上段が 1 2 3、計算機は上段が 7 8 9
+  Photo unavailable: '写真を表示できません'
   Pick: 選択
   Pick Color: 色を選択
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'HelixScreen の動作を選択します。すべて後で「設定」から変更できます。'
@@ -2714,6 +2721,7 @@ translations:
   Pressure Adv.: 'Pressure Adv.'
   Pressure Advance: 'Pressure Advance'
   Pressure Advance Calibration: 'プレッシャーアドバンスキャリブレーション'
+  Preview: 'プレビュー'
   Preview Sounds: サウンドをプレビュー
   Previous: 前回
   Price: 価格
@@ -3210,6 +3218,7 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: '{}に保存しました。このフィラメントが使用中になるたびに適用されます。'
   Saved values, and whether to ask before running: '保存した値と、実行前に確認するかどうか'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: '保存しました。Spoolmanがオフラインのため、価格、場所、ロット、メモは未保存のままここに残ります。'
+  Saves a camera photo after layer 2 and when each print ends, shown in print history.: 'レイヤー2の後と各印刷の終了時にカメラの写真を保存し、印刷履歴に表示します。'
   Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: 停電後に印刷を再開できるよう、約1秒ごとに印刷位置を保存します。SDカードでは摩耗が多くなります。
   Saves to Klipper config and restarts firmware.: Klipper 設定に保存してファームウェアを再起動します。
   Saving Configuration...: 設定を保存中...
@@ -3458,6 +3467,7 @@ translations:
   Spool menu: 'スプールのメニュー'
   Spool motor: スプールモーター
   Spool saved: スプールを保存しました
+  Spool switching per tool and lane: 'ツールとレーンごとのスプール切り替え'
   Spool wt (g): スプール重量 (g)
   Spoolman: Spoolman
   Spoolman Not Available: 'Spoolman は利用できません'
@@ -3482,6 +3492,7 @@ translations:
   'Spoolman: %zu/%zu Spool': 'Spoolman: %zu/%zu 個のスプール'
   'Spoolman: %zu/%zu Spools': 'Spoolman: %zu/%zu 個のスプール'
   SpoolmanDB search failed: 'SpoolmanDB の検索に失敗しました'
+  Spools: 'スプール'
   Spools are off: "スプールを取り出しました"
   'Spools are on the bed: remove them and confirm before moving the printer': 'ベッドにスプールがあります: 取り除いて確認してからプリンターを動かしてください'
   'Spools are on the bed: tap the drying banner to confirm they are off, then restart.': 'ベッドにスプールがあります: 乾燥のバナーをタップして取り出したことを確認してから、再起動してください。'
@@ -3577,6 +3588,7 @@ translations:
   Switch a power device on or off: 電源デバイスのオン/オフ切り替え
   Switch Sensors: スイッチセンサー
   Switch between light and dark themes: ライトテーマとダークテーマを切り替え
+  Switch spools at each tool change: 'ツール交換ごとにスプールを切り替える'
   Switch the active tool or extruder: アクティブなツールやエクストルーダーを切り替え
   Switch to a backup slot on runout: フィラメント切れ時に予備スロットへ切り替え
   Switch to a matching slot on runout: フィラメント切れ時に一致するスロットへ切り替え
