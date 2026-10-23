@@ -937,12 +937,14 @@ class LiveApiChanger : public AmsBackendToolChanger {
         helix::ui::UpdateQueue::instance().drain();
     }
     [[nodiscard]] bool toolhead_homed() const override {
-        return true;
+        return homed;
     }
     void feed(const json& status) {
         handle_status_update(
             json{{"method", "notify_status_update"}, {"params", json::array({status, 0.0})}});
     }
+    /// Whether every stage may skip the home first.
+    bool homed = true;
 };
 
 } // namespace
@@ -1337,4 +1339,55 @@ TEST_CASE("MedusaHC: a sensor fault left over from before a run does not stop th
     tc.feed(json{{"medusahc", {{"operation", "idle"}}}});
     CHECK(tc.can_cancel_operation());
     CHECK(tc.sent_.back().find("action:prompt_show") != std::string::npos);
+}
+
+TEST_CASE_METHOD(BusyGuardFixture,
+                 "MedusaHC's run is answered while busy even when each stage homes first",
+                 "[toolchanger][mount_feed][medusahc]") {
+    // A printer that lost homing to idle_timeout sends G28 ahead of every stage,
+    // and the stage itself goes out from the G28's answer. The busy-gate bypass
+    // has to survive that hop, or a heater-only cleanup is dropped again.
+    LiveApiChanger tc(api.get(), &mock_client);
+    tc.homed = false;
+    tc.feed(json{{"toolchanger", {{"status", "ready"}, {"tool_number", 2}}}});
+    begin_blocking_episode();
+    const auto drain = []() {
+        for (int i = 0; i < 6; ++i) {
+            helix::ui::UpdateQueue::instance().drain();
+        }
+    };
+
+    REQUIRE(tc.load_filament(2).success()); // already mounted: nothing to restore
+    drain();                                // homed, then the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.cancel().success()); // stopped while homing for the heat
+    drain();                        // homed, then the heater-only cleanup
+    const auto& history = mock_client.gcode_script_history();
+    REQUIRE_FALSE(history.empty());
+    REQUIRE(history.back() == "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
+    CHECK(std::count(history.begin(), history.end(), "G28") >= 3);
+    // The cleanup's answer ended the run.
+    CHECK_FALSE(tc.can_cancel_operation());
+    CHECK(tc.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE("MedusaHC: a frame silent about the carriage leaves a standing sensor fault",
+          "[toolchanger][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"current_tool", 1}}}});
+    tc.feed(json{{"medusahc", {{"current_tool", -2}}}}); // no swap running: a fault
+    REQUIRE(tc.get_system_info().action == AmsAction::ERROR);
+
+    // Moonraker republishes only what changed: a docks-only frame is not the
+    // sensors agreeing again.
+    tc.feed(json{{"medusahc", {{"sensors", {{"t0", 1}, {"t2", 1}}}}}});
+    CHECK(tc.get_system_info().action == AmsAction::ERROR);
+    CHECK(tc.get_system_info().operation_detail == "sensor error");
+    CHECK_FALSE(tc.unload_blocked_reason(1).empty());
+
+    tc.feed(json{{"medusahc", {{"current_tool", 1}}}});
+    CHECK(tc.get_system_info().action == AmsAction::IDLE);
+    CHECK(tc.get_system_info().operation_detail.empty());
+    CHECK(tc.unload_blocked_reason(1).empty());
 }
