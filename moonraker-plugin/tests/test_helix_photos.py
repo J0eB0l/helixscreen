@@ -26,6 +26,8 @@ from helix_photos import (
     PHOTOS_FEATURE,
     PHOTOS_NAMESPACE,
     absolute_url,
+    fetch_snapshot,
+    redirect_allowed,
     newer_record,
     snapshot_candidates,
     history_matches,
@@ -49,6 +51,9 @@ from test_helix_print import (  # noqa: F401  (fixtures are used by name)
 )
 
 T0 = 1700000000.25
+
+# The camera check each job start makes before any photo
+START_CHECKS = 1
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xd9"
 
 
@@ -279,6 +284,9 @@ async def _status(mock_server, status):
 async def _drain(component):
     while component.photos._tasks:
         await asyncio.gather(*list(component.photos._tasks), return_exceptions=True)
+        # A finished task leaves the list from its done callback, which runs
+        # only once the loop gets a turn.
+        await asyncio.sleep(0)
 
 
 @pytest.fixture
@@ -337,7 +345,7 @@ class TestCapture:
             await _status(mock_server, _layer(n))
         await _drain(component)
         await _history(mock_server, _finished())
-        assert len(photos.fetched) == 2
+        assert len(photos.fetched) == START_CHECKS + 2
         assert photos.fetched[0] == "http://127.0.0.1/webcam/?action=snapshot"
         record = _record(component)
         assert [p["kind"] for p in record["photos"]] == [KIND_LAYER, KIND_END]
@@ -361,7 +369,8 @@ class TestCapture:
         component = await photos()
         await _history(mock_server, _added())
         await _history(mock_server, _finished(status="klippy_shutdown"))
-        assert photos.fetched == []
+        await _drain(component)
+        assert len(photos.fetched) == START_CHECKS
         assert _record(component) is None
 
     @pytest.mark.asyncio
@@ -372,7 +381,7 @@ class TestCapture:
         await _status(mock_server, _layer(2))
         await _status(mock_server, _layer(3))
         await _drain(component)
-        assert photos.fetched == []
+        assert len(photos.fetched) == START_CHECKS
         await _history(mock_server, _finished())
         assert [p["kind"] for p in _record(component)["photos"]] == [KIND_END]
 
@@ -383,7 +392,7 @@ class TestCapture:
         await _status(mock_server, _layer(40))
         await _status(mock_server, _layer(41))
         await _drain(component)
-        assert photos.fetched == []
+        assert len(photos.fetched) == START_CHECKS
 
     @pytest.mark.asyncio
     async def test_no_webcam_is_a_no_op(self, photos, mock_server, temp_gcodes_dir):
@@ -434,7 +443,8 @@ class TestCapture:
         monkeypatch.setattr(component.photos, "_free_bytes", lambda d: 1024)
         await _history(mock_server, _added())
         await _history(mock_server, _finished())
-        assert photos.fetched == []
+        await _drain(component)
+        assert len(photos.fetched) == START_CHECKS
 
     @pytest.mark.asyncio
     async def test_reused_job_id_replaces_the_old_record(self, photos, mock_server,
@@ -713,3 +723,110 @@ class TestPruneSafety:
         del history.jobs[0x2A]
         assert await component.photos.prune(check_history=False) == []
         assert await component.photos.prune() == ["00002A"]
+
+
+class TestLinkOwnPhotosOnly:
+    @pytest.mark.asyncio
+    async def test_photos_the_screen_took_are_not_linked(self, photos, mock_server):
+        component = await photos(opt_in=False)
+        history = mock_server.components["history"]
+        sys.modules[type(history).__module__].PrinterJob = PrinterJob
+        await _history(mock_server, _added())
+        await component.database.insert_item(PHOTOS_NAMESPACE, ["00002A"], {
+            "version": 1, "job_id": "00002A", "filename": "part.gcode", "start_time": T0,
+            "photos": [{"kind": "layer2", "path": photo_path("00002A", T0, KIND_LAYER),
+                        "size": 1, "taken_at": 1, "source": "app"}]})
+        await _history(mock_server, _finished())
+        assert history.save_job_calls == []
+
+
+class TestFeaturesChanged:
+    @pytest.mark.asyncio
+    async def test_screens_hear_when_the_camera_is_lost_and_found(self, photos, mock_server):
+        sent = []
+        mock_server.send_event = lambda event, *args: sent.append(event)
+        component = await photos()
+
+        def refuse(url):
+            raise OSError("connection refused")
+
+        component.photos.fetch = refuse
+        await component.photos.check_reachable()
+        await component.photos.check_reachable()
+        assert sent == ["helix_print:helix_features_changed"]
+        component.photos.fetch = lambda url: JPEG
+        await component.photos.check_reachable()
+        assert sent == ["helix_print:helix_features_changed"] * 2
+
+
+class TestRedirects:
+    def test_redirect_allowed_only_within_the_origin(self):
+        assert redirect_allowed("http://127.0.0.1:4408/a", "http://127.0.0.1:4408/b?x")
+        assert not redirect_allowed("http://127.0.0.1:4408/a", "http://127.0.0.1/a")
+        assert not redirect_allowed("http://127.0.0.1/a", "https://127.0.0.1/a")
+        assert not redirect_allowed("http://127.0.0.1/a", "http://evil.example/a")
+
+    def test_fetch_follows_a_same_origin_redirect_and_refuses_another(self):
+        import http.server
+        import threading
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/same":
+                    self.send_response(302)
+                    self.send_header("Location", "/snap.jpg")
+                    self.end_headers()
+                elif self.path == "/away":
+                    self.send_response(302)
+                    # The same server under another name: a different origin.
+                    port = self.server.server_address[1]
+                    self.send_header("Location", f"http://localhost:{port}/snap.jpg")
+                    self.end_headers()
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(JPEG)))
+                    self.end_headers()
+                    self.wfile.write(JPEG)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_address[1]}"
+            assert fetch_snapshot(base + "/same", timeout=5) == JPEG
+            with pytest.raises(Exception):
+                fetch_snapshot(base + "/away", timeout=5)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
+class TestCameraLostAfterConnect:
+    @pytest.mark.asyncio
+    async def test_a_dead_camera_is_found_at_job_start_and_announced(self, photos, mock_server):
+        sent = []
+        mock_server.send_event = lambda event, *args: sent.append(event)
+        component = await photos()
+        await component.photos.check_reachable()
+        assert component.photos.availability() == (True, None)
+
+        def refuse(url):
+            raise OSError("connection refused")
+
+        component.photos.fetch = refuse
+        await _history(mock_server, _added())
+        await _drain(component)
+        assert sent == ["helix_print:helix_features_changed"]
+        status = await component._handle_status(MockWebRequest({}))
+        assert status["features"][PHOTOS_FEATURE]["available"] is False
+
+    @pytest.mark.asyncio
+    async def test_no_check_while_switched_off(self, photos, mock_server):
+        component = await photos(opt_in=False)
+        await component.photos.check_reachable()
+        await _history(mock_server, _added())
+        await _drain(component)
+        assert photos.fetched == []

@@ -272,6 +272,7 @@ src/printer/fallback_sender.cpp
 src/printer/filament_accounting.cpp
 src/printer/filament_accounting_controller.cpp
 src/printer/history_job_events.cpp
+src/printer/plugin_status_refresh.cpp
 src/printer/print_photos.cpp
 src/printer/print_photos_controller.cpp
 src/printer/plr_profile.cpp

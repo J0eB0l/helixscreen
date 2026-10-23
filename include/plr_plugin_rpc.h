@@ -5,6 +5,7 @@
 // Each reads its reply with the plr_wizard.h readers and answers on whatever
 // thread the client delivers on: callers marshal to the main thread.
 
+#include "helix_plugin_features.h"
 #include "moonraker_error.h"
 #include "plr_wizard.h"
 
@@ -61,8 +62,9 @@ void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,
                 ErrorCallback on_error);
 
 /// Re-read the plugin's features map into PrinterState, so a switch or profile
-/// the plugin just read shows up as the `plr` feature's new state.
-void refresh_features(IMoonrakerAPI& api);
+/// the plugin just read shows up as the `plr` feature's new state. @p announce
+/// says whether an unchanged map still counts as a probe.
+void refresh_features(IMoonrakerAPI& api, FeatureAnnounce announce = FeatureAnnounce::Always);
 
 } // namespace plr_rpc
 } // namespace helix

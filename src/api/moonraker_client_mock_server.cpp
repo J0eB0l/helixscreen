@@ -557,11 +557,18 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
                 {"reason", nullptr}};
             // photos only observes, so it is on unless opted out.
             const json photos_opt_in = self->mock_db_get("helix-screen", "plugin_features.photos");
+            // HELIX_MOCK_PHOTOS=unavailable reports it unable to reach the camera.
+            const char* photos_mode = std::getenv("HELIX_MOCK_PHOTOS");
+            const bool photos_unavailable =
+                photos_mode && std::string(photos_mode) == "unavailable";
             response["result"]["features"]["photos"] = {
                 {"version", 1},
-                {"available", true},
-                {"enabled", !(photos_opt_in.is_boolean() && !photos_opt_in.get<bool>())},
-                {"reason", nullptr}};
+                {"available", !photos_unavailable},
+                {"enabled", !photos_unavailable &&
+                                !(photos_opt_in.is_boolean() && !photos_opt_in.get<bool>())},
+                {"reason", photos_unavailable
+                               ? json("snapshot_unreachable: /webcam/?action=snapshot")
+                               : json(nullptr)}};
             // fit_check_blocks_autostart acts on prints the same way: off until
             // opted into.
             const json fit_opt_in =

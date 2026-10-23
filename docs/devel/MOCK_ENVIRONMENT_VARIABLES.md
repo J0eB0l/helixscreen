@@ -419,8 +419,10 @@ writes it; `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false` wi
 `reason: "load_failed"`), `storage_auto_cleanup`, `enabled` from
 `helix-screen`/`plugin_features.storage_auto_cleanup` (off until System > Storage's switch
 writes it), `photos`, on unless the mock database's `helix-screen`/`plugin_features.photos`
-is `false`, and `file_analysis`, `server_edits`, `config_edit` and `storage`, each
-`Ready`. The mock has no `server.helix.config`, so a config edit falls back to the file API.
+is `false` (`HELIX_MOCK_PHOTOS=unavailable` reports it `available: false`, reason
+`snapshot_unreachable: ...`, so the screen takes the photos), and `file_analysis`,
+`server_edits`, `config_edit` and `storage`, each `Ready`. The mock has no
+`server.helix.config`, so a config edit falls back to the file API.
 `server.helix.storage` answers a fixed breakdown on the mock's gcodes disk, and
 `server.helix.storage_cleanup` of `helix_temp` frees its 412 MB of print copies for the
 rest of the run; any other consumer frees nothing.

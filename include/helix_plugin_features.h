@@ -35,9 +35,25 @@ struct PluginFeatureEntry {
     /// from `enabled` (plr: `enabled` also holds while a snapshot waits).
     std::optional<bool> saving;
     std::string reason; ///< why it is unavailable; empty when it is available
+
+    bool operator==(const PluginFeatureEntry& o) const {
+        return version == o.version && available == o.available && enabled == o.enabled &&
+               saving == o.saving && reason == o.reason;
+    }
+    bool operator!=(const PluginFeatureEntry& o) const {
+        return !(*this == o);
+    }
 };
 
 using PluginFeatureMap = std::map<std::string, PluginFeatureEntry>;
+
+/// Whether a features map read again announces itself to the probe observers
+/// when it is the same map: a discovery pass always does (its observers
+/// re-subscribe to the new connection); a periodic re-read only on a change.
+enum class FeatureAnnounce {
+    Always,
+    IfChanged,
+};
 
 /// The `features` map of a server.helix.status result. Empty for a plugin
 /// that predates the map, or when it is not an object; an entry that is not

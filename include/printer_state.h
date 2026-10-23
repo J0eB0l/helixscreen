@@ -685,7 +685,9 @@ class PrinterState {
     void set_helix_plugin_disabled(bool disabled);
 
     /// The plugin's `features` map (empty when it reported none); any thread.
-    void set_helix_plugin_features(helix::PluginFeatureMap features);
+    void
+    set_helix_plugin_features(helix::PluginFeatureMap features,
+                              helix::FeatureAnnounce announce = helix::FeatureAnnounce::Always);
 
     /**
      * @brief Set how many PRINT OPTIONS rows the PRINT_START analysis adds

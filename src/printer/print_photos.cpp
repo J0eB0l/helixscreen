@@ -128,6 +128,27 @@ std::vector<PrintPhoto> parse_photo_aux(const nlohmann::json& auxiliary_data) {
     return photos;
 }
 
+std::vector<PrintPhoto> merge_photo_lists(const std::vector<PrintPhoto>& linked,
+                                          const std::vector<PrintPhoto>& recorded) {
+    std::vector<PrintPhoto> out = recorded;
+    for (const auto& photo : linked) {
+        const bool known = std::any_of(
+            out.begin(), out.end(), [&photo](const PrintPhoto& p) { return p.kind == photo.kind; });
+        if (!known) {
+            out.push_back(photo);
+        }
+    }
+    sort_photos(out);
+    return out;
+}
+
+bool same_photos(const std::vector<PrintPhoto>& a, const std::vector<PrintPhoto>& b) {
+    return a.size() == b.size() &&
+           std::equal(a.begin(), a.end(), b.begin(), [](const PrintPhoto& x, const PrintPhoto& y) {
+               return x.kind == y.kind && x.path == y.path;
+           });
+}
+
 bool photo_record_matches(const nlohmann::json& record, double start_time) {
     if (!record.is_object() || json_util::safe_int(record, "version", 0) != kPhotoRecordVersion) {
         return false;

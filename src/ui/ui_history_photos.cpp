@@ -117,11 +117,12 @@ void HistoryPhotoViewer::show_job(const PrintHistoryJob& job, lv_obj_t* overlay)
     start_time_ = job.start_time;
     apply(job.photos);
 #if HELIX_HAS_CAMERA
-    if (!job.photos.empty() || job.job_id.empty()) {
+    if (job.job_id.empty()) {
         return;
     }
-    // Photos the screen took, or a Moonraker whose history has no
-    // auxiliary_data, are listed only in the record.
+    // The record is where every photo is listed; auxiliary_data only links
+    // what the plugin had when the job finished, and a Moonraker whose
+    // history has none links nothing. Both are shown.
     IMoonrakerAPI* api = get_moonraker_api();
     if (api == nullptr) {
         return;
@@ -130,12 +131,13 @@ void HistoryPhotoViewer::show_job(const PrintHistoryJob& job, lv_obj_t* overlay)
     const double start_time = start_time_;
     api->database_get_item(
         kPhotosNamespace, job.job_id,
-        [this, token = lifetime_.token(), generation, start_time](const nlohmann::json& record) {
+        [this, token = lifetime_.token(), generation, start_time,
+         linked = job.photos](const nlohmann::json& record) {
             if (!photo_record_matches(record, start_time)) {
                 return;
             }
-            std::vector<PrintPhoto> photos = parse_photo_record(record);
-            if (photos.empty()) {
+            std::vector<PrintPhoto> photos = merge_photo_lists(linked, parse_photo_record(record));
+            if (same_photos(photos, linked)) {
                 return;
             }
             token.defer("HistoryPhotos::record", [this, generation, photos = std::move(photos)] {

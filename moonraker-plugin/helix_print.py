@@ -181,6 +181,10 @@ helix_vendor_ace = _load_sibling("helix_vendor_ace")
 HELIX_SCREEN_NAMESPACE = "helix-screen"
 PLUGIN_FEATURES_KEY = "plugin_features"
 
+# Sent when a feature's availability changes after startup, so a screen
+# re-reads the status (clients see notify_helix_features_changed).
+FEATURES_CHANGED_EVENT = "helix_print:helix_features_changed"
+
 # A feature's own switch: answers its `enabled` instead of plugin_features.
 FeatureSwitch = Callable[[], Awaitable[bool]]
 
@@ -551,6 +555,9 @@ class HelixPrint:
         self.server.register_event_handler(
             "server:klippy_ready", self._on_klippy_ready
         )
+        register = getattr(self.server, "register_notification", None)
+        if register is not None:
+            register(FEATURES_CHANGED_EVENT)
 
         logging.info(
             f"HelixPrint v{PLUGIN_VERSION} initialized: temp={self.temp_dir}, "
@@ -639,6 +646,14 @@ class HelixPrint:
         feature = Feature(name, version, acts, available, reason, switch, probe, extra)
         self.features[name] = feature
         return feature
+
+    def notify_features_changed(self) -> None:
+        """Tell the screens a feature's availability changed: they act on the
+        status they last read, so one that would take over for an unavailable
+        feature, or hand back to an available one, must read it again."""
+        send = getattr(self.server, "send_event", None)
+        if send is not None:
+            send(FEATURES_CHANGED_EVENT, {})
 
     async def _plugin_feature_opt_ins(self) -> Dict[str, Any]:
         if self.database is None:

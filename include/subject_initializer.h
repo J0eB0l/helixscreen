@@ -27,6 +27,7 @@ class BedDryingController;
 class StandingPrintOptionsController;
 class FilamentAccountingController;
 class PrintPhotosController;
+class PluginStatusRefresh;
 } // namespace helix
 namespace helix::ui {
 class FilamentOpHeater;
@@ -155,6 +156,7 @@ class SubjectInitializer {
     std::unique_ptr<helix::StandingPrintOptionsController> m_standing_print_options;
     std::unique_ptr<helix::FilamentAccountingController> m_filament_accounting;
     std::unique_ptr<helix::PrintPhotosController> m_print_photos;
+    std::unique_ptr<helix::PluginStatusRefresh> m_plugin_status_refresh;
     std::unique_ptr<helix::TemperatureController> m_temp_controller;
     std::unique_ptr<helix::ui::FilamentOpHeater> m_filament_op_heater;
     std::unique_ptr<helix::BedDryingController> m_bed_drying;

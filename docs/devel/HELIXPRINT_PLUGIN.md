@@ -165,6 +165,12 @@ kind (print hooks' `screen_start`), which `helix_initiated()` never answers.
 | `Disabled` | The same, but switched off |
 | `Absent` | Everything else: no plugin, a plugin without the map, no entry, a contract below `min_version`, `available: false` |
 
+The map is read in discovery, and again by `PluginStatusRefresh`
+(`include/plugin_status_refresh.h`) at each job history adds and whenever the plugin sends
+`notify_helix_features_changed` (`HelixPrint#notify_features_changed`, for a feature whose
+availability changes after startup), so a plugin-or-fallback choice never acts on a
+connection-old map.
+
 Callers gate on a feature and the minimum contract they need, never on the plugin's version
 string. A mismatched plugin keeps serving whatever it reports, so an older plugin degrades
 feature by feature; the version string still drives `PluginSelfHeal`.

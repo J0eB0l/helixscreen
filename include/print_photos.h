@@ -96,6 +96,15 @@ std::vector<PrintPhoto> parse_photo_record(const nlohmann::json& record);
 /// name. Empty when it has no photos entry of ours.
 std::vector<PrintPhoto> parse_photo_aux(const nlohmann::json& auxiliary_data);
 
+/// The photos of a job from both places that list them: the ones its
+/// auxiliary_data @p linked and the ones its record lists, one per kind, the
+/// record's when both have one, layer photo first.
+std::vector<PrintPhoto> merge_photo_lists(const std::vector<PrintPhoto>& linked,
+                                          const std::vector<PrintPhoto>& recorded);
+
+/// Whether @p a and @p b list the same photos in the same order.
+bool same_photos(const std::vector<PrintPhoto>& a, const std::vector<PrintPhoto>& b);
+
 /// Whether @p record was taken for the job that started at @p start_time:
 /// history reuses ids, so the start time must agree too.
 bool photo_record_matches(const nlohmann::json& record, double start_time);

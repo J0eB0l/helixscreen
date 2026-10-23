@@ -56,6 +56,7 @@
 #include "material_settings_manager.h"
 #include "panel_widget_manager.h"
 #include "plr_offer_controller.h"
+#include "plugin_status_refresh.h"
 #include "preset_materials.h"
 #include "print_completion.h"
 #include "print_control_buttons.h"
@@ -452,6 +453,11 @@ void SubjectInitializer::init_observers() {
     // Filament accounting: the spool map the plugin switches the active spool
     // from, and this screen's switch at a tool change when the plugin cannot.
     m_filament_accounting = std::make_unique<helix::FilamentAccountingController>();
+
+    // The plugin's feature map, read again at each job start and on the
+    // plugin's word, so every plugin-or-fallback choice reads it current.
+    m_plugin_status_refresh = std::make_unique<helix::PluginStatusRefresh>();
+
     // Camera photos in history, taken by this screen when the plugin cannot.
 #if HELIX_HAS_CAMERA
     m_print_photos =
