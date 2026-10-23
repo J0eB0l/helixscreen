@@ -3057,6 +3057,7 @@ translations:
   Provide a {}: 'Geben Sie {} an'
   Provide an on/off value: 'Geben Sie einen Ein/Aus-Wert an'
   Provide {}: 'Geben Sie {} an'
+  Pull the filament out of {}: 'Ziehen Sie das Filament aus {} heraus'
   Pulling filament back: Filament wird zurückgezogen
   Purge: Entlüften
   Purge & Wipe: 'Entlüften & Abwischen'
@@ -4396,6 +4397,7 @@ translations:
   Unload Failed: 'Entladen fehlgeschlagen'
   Unload Filament: Filament entladen
   'Unload at end': 'Am Ende entladen'
+  Unload complete: 'Entladen abgeschlossen'
   Unload failed: Entladen fehlgeschlagen
   Unload filament: 'Filament entladen'
   Unload filament?: Filament entladen?

@@ -2980,6 +2980,7 @@ translations:
   Provide a {}: Provide a {}
   Provide an on/off value: Provide an on/off value
   Provide {}: Provide {}
+  Pull the filament out of {}: Pull the filament out of {}
   Pulling filament back: Pulling filament back
   Purge: Purge
   Purge & Wipe: Purge & Wipe
@@ -4289,6 +4290,7 @@ translations:
   Unload Failed: Unload Failed
   Unload Filament: Unload Filament
   'Unload at end': 'Unload at end'
+  Unload complete: Unload complete
   Unload failed: Unload failed
   Unload filament: Unload filament
   Unload filament?: Unload filament?

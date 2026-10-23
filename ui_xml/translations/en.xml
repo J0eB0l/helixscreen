@@ -2792,6 +2792,7 @@
   <translation tag="Provide a {}" en="Provide a {}"/>
   <translation tag="Provide an on/off value" en="Provide an on/off value"/>
   <translation tag="Provide {}" en="Provide {}"/>
+  <translation tag="Pull the filament out of {}" en="Pull the filament out of {}"/>
   <translation tag="Pulling filament back" en="Pulling filament back"/>
   <translation tag="Purge" en="Purge"/>
   <translation tag="Purge &amp; Wipe" en="Purge &amp; Wipe"/>
@@ -3968,6 +3969,7 @@
   <translation tag="Unload Filament" en="Unload Filament"/>
   <translation tag="Unload all stopped" en="Unload all stopped"/>
   <translation tag="Unload at end" en="Unload at end"/>
+  <translation tag="Unload complete" en="Unload complete"/>
   <translation tag="Unload failed" en="Unload failed"/>
   <translation tag="Unload filament" en="Unload filament"/>
   <translation tag="Unload filament?" en="Unload filament?"/>

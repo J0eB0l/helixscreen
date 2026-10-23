@@ -4,6 +4,7 @@
 #pragma once
 
 #include "ui_timer_guard.h"
+#include "ui_toast_manager.h"
 
 #include "ams_subscription_backend.h"
 #include "filament_slot_override_store.h"
@@ -574,8 +575,13 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// read off the run BEFORE its unwind: abort() collapses the stage list
     /// the answer is derived from.
     void toast_partial_run(FeedStopReason why, const std::vector<int>& completed);
-    /// One error toast about a run, with the no-LVGL test guard in one place.
-    void show_feed_toast(const std::string& message);
+    /// A completed Unload leaves the strand in the tube for the operator to
+    /// pull out by hand: say so, naming every tool the run unloaded.
+    void toast_unload_complete();
+    /// @p heads as lane labels joined with ", " ("Tool 2, Tool 4").
+    [[nodiscard]] std::string feed_lane_list(const std::vector<int>& heads) const;
+    /// One toast about a run, with the no-LVGL test guard in one place.
+    void show_feed_toast(const std::string& message, ToastSeverity severity);
     /// Mirror the run onto the published action and step. Caller holds mutex_.
     void publish_feed_state_locked();
     void register_mount_feed_listener();
@@ -598,6 +604,7 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// The last toast a feed run raised, recorded before the LVGL guard so
     /// unit tests can pin the wording without a display.
     std::string feed_last_toast_;
+    ToastSeverity feed_last_toast_severity_ = ToastSeverity::INFO;
 
     /// Z-Mod's Creator 5 row narrates its swaps through gcode-response markers
     /// (toolchanger_addon::parse_zmod_marker) rather than a status object, so

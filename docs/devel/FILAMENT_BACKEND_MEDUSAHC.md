@@ -147,11 +147,15 @@ operation whose step bar is the stage list:
 
 | Load | Gcode | Unload | Gcode |
 |------|-------|--------|-------|
-| Mount tool | `SELECT_TOOL T=<n>` (or the machine's own `T<n>`); skipped when already mounted | Mount tool | same |
-| Heat nozzle | `M109 T<n> S<material temp>` (the target slot's material, else 220) | Heat nozzle | same |
-| Insert filament | an action prompt: "Insert filament into Tool N, then tap Continue", with Continue and Cancel. The extruder grabs the strand itself: nothing is opened and nothing is pushed by hand past it | Retract filament | `M83`, `G1 E-25 F1800`, `G1 E-150 F1200` (until the strand is fully out), `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` |
+| Insert filament | an action prompt: "Insert filament into the hot end of Tool N while it is docked, then tap Continue", with Continue and Cancel. It comes first, while the tool is still in its dock: once the hot end is on the carriage, the extruder's gears stand between the operator and the nozzle. A tool already on the carriage gets "Insert filament into Tool N, then tap Continue" | Mount tool | `SELECT_TOOL T=<n>` (or the machine's own `T<n>`); skipped when already mounted |
+| Mount tool | same as Unload's; it closes the prompt | Heat nozzle | `M109 T<n> S<material temp>` (the target slot's material, else 220) |
+| Heat nozzle | same as Unload's | Retract filament | `M83`, `G1 E-25 F1800`, `G1 E-150 F1200` (until the strand is fully out), `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` |
 | Purge | `M83`, `G1 E5 F60` (slow draw), `G1 E50 F300` twice, `G1 E-10 F1800`, `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` | Restore tool | remount the tool that was on the carriage, or park if none was |
 | Restore tool | same as Unload's | | |
+
+A tool already on the carriage skips Mount and Restore: Insert, Heat, Purge. A completed
+Unload leaves the strand in the tube, so it ends on a success toast naming every tool it
+unloaded: "Unload complete Pull the filament out of Tool 2, Tool 4" (`toast_unload_complete()`).
 
 Neither direction sends `OPEN`: the feeder buttons stay a separate control.
 
@@ -188,14 +192,15 @@ run without waiting for an ack. Both run without `mutex_` held, since the unwind
 and emits; `on_stopping()` runs under it.
 
 **The wait has a ceiling.** Nobody inserting the filament for three minutes
-(`mount_feed::kPromptTimeoutMs`) unwinds the run the same way - a hot nozzle must not sit
-unattended - and raises an error toast. A `LvglTimerGuard` watches the wait while LVGL is
+(`mount_feed::kPromptTimeoutMs`) unwinds the run the same way and raises an error toast:
+a run nobody is attending must not go on to mount and heat a tool. A `LvglTimerGuard` watches the wait while LVGL is
 up; unit tests drive `handle_wait_elapsed()` through `ToolChangerTestAccess` instead.
 
 **Load all / Unload all.** `max_heads_per_filament_op()` answers the tool count, so the
 sidebar's picker accepts several heads on this backend. A Load of several asks **once**, up
-front ("Insert filament into Tools 1, 2, 4 as far as it goes, then tap Continue"), then
-works tool by tool: each tool's opening stage preheats the **next** one to 65% of its
+front, exactly as a Load of one does ("Insert filament into the hot ends of Tools 1, 2, 4
+while they are docked, as far as it goes, then tap Continue"), then works tool by tool
+(Mount, Heat, Purge): each tool's opening stage preheats the **next** one to 65% of its
 material temperature (`SET_HEATER_TEMPERATURE HEATER=extruder<n>`, the Klipper multi-extruder
 naming - `extruder` for tool 0), so its own `M109` starts from heat. A preheat never LOWERS
 a target: a next tool already set hotter than the preheat value is left alone

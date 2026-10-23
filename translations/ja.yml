@@ -2898,6 +2898,7 @@ translations:
   Provide a {}: '{} を入力してください'
   Provide an on/off value: 'オン/オフの値を入力してください'
   Provide {}: '{} を入力してください'
+  Pull the filament out of {}: '{} からフィラメントを引き抜いてください'
   Pulling filament back: フィラメントを引き戻し中
   Purge: パージ
   Purge & Wipe: 'パージとワイプ'
@@ -4146,6 +4147,7 @@ translations:
   Unload Failed: '取り出しに失敗しました'
   Unload Filament: フィラメントを排出
   'Unload at end': '終了時に排出'
+  Unload complete: 'アンロード完了'
   Unload failed: 排出に失敗しました
   Unload filament: 'フィラメントをアンロード'
   Unload filament?: フィラメントを排出しますか?

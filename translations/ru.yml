@@ -3096,6 +3096,7 @@ translations:
   Provide a {}: 'Укажите {}'
   Provide an on/off value: 'Укажите значение вкл/выкл'
   Provide {}: 'Укажите {}'
+  Pull the filament out of {}: 'Вытяните филамент из {}'
   Pulling filament back: Откат филамента
   Purge: Продуть
   Purge & Wipe: 'Продувка и очистка'
@@ -4428,6 +4429,7 @@ translations:
   Unload Failed: 'Не удалось выгрузить'
   Unload Filament: Выгрузить филамент
   'Unload at end': 'Выгружать в конце'
+  Unload complete: 'Выгрузка завершена'
   Unload failed: Ошибка выгрузки
   Unload filament: 'Выгрузка филамента'
   Unload filament?: Выгрузить филамент?

@@ -2889,6 +2889,7 @@ translations:
   Provide a {}: '请提供 {}'
   Provide an on/off value: '请提供开/关值'
   Provide {}: '请提供 {}'
+  Pull the filament out of {}: '从 {} 中抽出耗材'
   Pulling filament back: 正在回抽耗材
   Purge: 排料
   Purge & Wipe: '排料与擦拭'
@@ -4137,6 +4138,7 @@ translations:
   Unload Failed: '卸载失败'
   Unload Filament: 卸载耗材
   'Unload at end': '结束时卸载'
+  Unload complete: '卸载完成'
   Unload failed: 卸载失败
   Unload filament: '卸载耗材'
   Unload filament?: 卸载耗材?

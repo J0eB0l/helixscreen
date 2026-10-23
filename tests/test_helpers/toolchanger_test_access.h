@@ -95,6 +95,11 @@ class ToolChangerTestAccess {
         return b.feed_last_toast_;
     }
 
+    /// The severity of the last toast a feed run raised.
+    static ToastSeverity feed_last_toast_severity(const AmsBackendToolChanger& b) {
+        return b.feed_last_toast_severity_;
+    }
+
     /// Deliver one gcode-response line to the Z-Mod marker handler, the
     /// main-thread half the notify_gcode_response listener drives on a real
     /// client. The listener itself needs a client, which the unit-test helper

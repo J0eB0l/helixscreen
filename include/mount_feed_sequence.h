@@ -8,14 +8,15 @@
  *
  * A hotend changer with one extruder drive (MedusaHC) can only move filament
  * through the tool on the carriage. A Load there is one operation of named
- * stages: mount the tool, heat it, ask the operator to insert the strand (the
- * extruder grabs it), draw it in slowly and purge, then put the carriage back
- * as it was. An Unload mounts, heats, retracts the strand fully out and
- * restores the carriage.
+ * stages: ask the operator to insert the strand into the hot end while the
+ * tool is still docked (on the carriage the extruder's gears are in the way),
+ * mount the tool, heat it, draw the strand in slowly and purge, then put the
+ * carriage back as it was. An Unload mounts, heats, retracts the strand fully
+ * out and restores the carriage.
  *
  * Everything here is plain values and gcode text, so the sequence is testable
  * with no printer. The backend sends each stage, advances on its ack, and
- * waits on the operator's reply between the prompt and the purge. The prompt is
+ * waits on the operator's reply before the first mount. The prompt is
  * Klipper's own action prompt, raised by the stage's RESPOND lines, so it shows
  * on every screen attached to the printer; its buttons answer with a RESPOND
  * line parse_reply() recognises.
@@ -74,8 +75,8 @@ struct Request {
     /// The printer's own LOAD_FILAMENT / UNLOAD_FILAMENT taking T=, run in
     /// place of the built-in feed or retract moves; empty for the built-in ones.
     std::string macro;
-    /// The prompt may not outlive this. A Load of several tools asks once, up
-    /// front, for every strand.
+    /// The prompt may not outlive this. A Load asks once, up front, for every
+    /// strand.
     uint32_t prompt_timeout_ms = kPromptTimeoutMs;
     /// The prompt fields are ENGLISH: they travel inside RESPOND lines, which
     /// every client attached to the printer shows verbatim, so no locale of

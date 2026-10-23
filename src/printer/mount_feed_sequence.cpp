@@ -86,7 +86,7 @@ std::string heater_name(int head) {
 
 std::vector<Step> steps(bool load) {
     if (load) {
-        return {Step::Mount, Step::Heat, Step::Insert, Step::Purge, Step::Restore};
+        return {Step::Insert, Step::Mount, Step::Heat, Step::Purge, Step::Restore};
     }
     return {Step::Mount, Step::Heat, Step::Retract, Step::Restore};
 }
@@ -148,7 +148,6 @@ std::string prompt_end_gcode() {
 
 std::vector<Stage> plan(const Request& r) {
     std::vector<Stage> stages;
-    const bool several = r.heads.size() > 1;
     // Whichever stage follows an operator-wait stage closes the prompt: the
     // reply moved the run on, and the dialog is still up until this lands.
     bool close_prompt = false;
@@ -162,9 +161,10 @@ std::vector<Stage> plan(const Request& r) {
             close_prompt = true;
         }
     };
-    if (several && r.load) {
-        // One prompt for every strand, before anything mounts: the operator
-        // fills every tube once and the run then works tool by tool.
+    if (r.load) {
+        // One prompt for every strand, before anything mounts: a strand goes
+        // into the docked hot end, since on the carriage the extruder's gears
+        // stand in the way. The run then works tool by tool.
         push_stage(Step::Insert, prompt_gcode(r), /*awaits_operator=*/true, 0);
     }
     for (size_t t = 0; t < r.heads.size(); ++t) {
@@ -186,9 +186,6 @@ std::vector<Stage> plan(const Request& r) {
                        false, tool);
         }
         push_stage(Step::Heat, std::move(heat), false, tool);
-        if (r.load && !several) {
-            push_stage(Step::Insert, prompt_gcode(r), /*awaits_operator=*/true, tool);
-        }
         push_stage(r.load ? Step::Purge : Step::Retract,
                    with_heater_off(feed_or_retract_gcode(r, head), head.head), false, tool);
     }

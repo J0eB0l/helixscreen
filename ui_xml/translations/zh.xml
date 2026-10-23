@@ -2792,6 +2792,7 @@
   <translation tag="Provide a {}" zh="请提供 {}"/>
   <translation tag="Provide an on/off value" zh="请提供开/关值"/>
   <translation tag="Provide {}" zh="请提供 {}"/>
+  <translation tag="Pull the filament out of {}" zh="从 {} 中抽出耗材"/>
   <translation tag="Pulling filament back" zh="正在回抽耗材"/>
   <translation tag="Purge" zh="排料"/>
   <translation tag="Purge &amp; Wipe" zh="排料与擦拭"/>
@@ -3968,6 +3969,7 @@
   <translation tag="Unload Filament" zh="卸载耗材"/>
   <translation tag="Unload all stopped" zh="全部卸载已停止"/>
   <translation tag="Unload at end" zh="结束时卸载"/>
+  <translation tag="Unload complete" zh="卸载完成"/>
   <translation tag="Unload failed" zh="卸载失败"/>
   <translation tag="Unload filament" zh="卸载耗材"/>
   <translation tag="Unload filament?" zh="卸载耗材?"/>

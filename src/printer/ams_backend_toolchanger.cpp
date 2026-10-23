@@ -486,8 +486,9 @@ AmsBackendToolChanger::get_operation_step_model(StepOperationType op) const {
             const std::string prefix = tool_label(static_cast<int>(t));
             for (const auto step : stride) {
                 // The first tool may already be mounted; only the last one
-                // puts the carriage back.
+                // puts the carriage back; the one prompt is the first tool's.
                 const bool optional = (step == helix::mount_feed::Step::Mount && t == 0) ||
+                                      (step == helix::mount_feed::Step::Insert && t > 0) ||
                                       step == helix::mount_feed::Step::Restore;
                 model.steps.push_back({prefix + lv_tr(helix::mount_feed::step_label(step)), index++,
                                        optional,
@@ -1549,9 +1550,19 @@ helix::mount_feed::Request AmsBackendToolChanger::build_feed_request(const std::
     }
     // The prompt is the one part of the run every client of the printer sees,
     // so it is English whatever this screen's language is.
+    // The prompt comes before any mount, so a tool it names is still in its
+    // dock unless it started on the carriage.
     req.prompt_title = load ? "Load filament" : "Unload filament";
+    const bool all_docked =
+        std::all_of(req.heads.begin(), req.heads.end(),
+                    [](const mf::HeadRequest& hr) { return !hr.mount_gcode.empty(); });
     if (heads.size() == 1) {
-        req.prompt_text = fmt::format("Insert filament into Tool {}, then tap Continue", first + 1);
+        req.prompt_text =
+            all_docked
+                ? fmt::format("Insert filament into the hot end of Tool {} while it is docked, "
+                              "then tap Continue",
+                              first + 1)
+                : fmt::format("Insert filament into Tool {}, then tap Continue", first + 1);
     } else {
         std::string list;
         for (int head : heads) {
@@ -1561,7 +1572,12 @@ helix::mount_feed::Request AmsBackendToolChanger::build_feed_request(const std::
             list += std::to_string(head + 1);
         }
         req.prompt_text =
-            fmt::format("Insert filament into Tools {} as far as it goes, then tap Continue", list);
+            all_docked ? fmt::format("Insert filament into the hot ends of Tools {} while they are "
+                                     "docked, as far as it goes, then tap Continue",
+                                     list)
+                       : fmt::format("Insert filament into Tools {} as far as it goes, then tap "
+                                     "Continue",
+                                     list);
     }
     req.continue_label = "Continue";
     req.cancel_label = "Cancel";
@@ -1626,6 +1642,9 @@ void AmsBackendToolChanger::send_feed_stage() {
         }
         spdlog::info("[AMS ToolChanger] Mount-to-feed run {}",
                      feed_run_->aborted() ? "cleaned up" : "complete");
+        if (!feed_run_->aborted() && !feed_run_->request().load) {
+            toast_unload_complete();
+        }
         feed_run_.reset();
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -1685,7 +1704,7 @@ void AmsBackendToolChanger::on_feed_stage_failed(uint64_t generation, const std:
         // the run already accounted for itself. What is new is that a nozzle
         // may still be hot, and nothing further this side can do about it.
         spdlog::error("[AMS ToolChanger] Mount-to-feed cleanup failed to send ({})", message);
-        show_feed_toast(lv_tr("Could not turn the heaters off"));
+        show_feed_toast(lv_tr("Could not turn the heaters off"), ToastSeverity::ERROR);
         feed_run_->abort(); // already unwinding: this only ends the run
         ++feed_generation_;
         send_feed_stage();
@@ -1765,26 +1784,46 @@ void AmsBackendToolChanger::toast_partial_run(FeedStopReason why,
         // One tool never was an "all": the toast is about its own load.
         base = feed_run_->request().load ? lv_tr("Load stopped") : lv_tr("Unload stopped");
     }
+    const std::string list = feed_lane_list(completed);
+    if (!list.empty()) {
+        base += " " + fmt::format(fmt::runtime(lv_tr("Completed: {}")), list);
+    }
+    show_feed_toast(base, ToastSeverity::ERROR);
+}
+
+void AmsBackendToolChanger::toast_unload_complete() {
+    if (!feed_run_) {
+        return;
+    }
+    std::vector<int> heads;
+    for (const auto& head : feed_run_->request().heads) {
+        heads.push_back(head.head);
+    }
+    show_feed_toast(
+        std::string(lv_tr("Unload complete")) + " " +
+            fmt::format(fmt::runtime(lv_tr("Pull the filament out of {}")), feed_lane_list(heads)),
+        ToastSeverity::SUCCESS);
+}
+
+std::string AmsBackendToolChanger::feed_lane_list(const std::vector<int>& heads) const {
     std::string list;
-    for (int head : completed) {
+    for (int head : heads) {
         if (!list.empty()) {
             list += ", ";
         }
         list += helix::ui::lane_label(lane_noun(), head);
     }
-    if (!list.empty()) {
-        base += " " + fmt::format(fmt::runtime(lv_tr("Completed: {}")), list);
-    }
-    show_feed_toast(base);
+    return list;
 }
 
-void AmsBackendToolChanger::show_feed_toast(const std::string& message) {
+void AmsBackendToolChanger::show_feed_toast(const std::string& message, ToastSeverity severity) {
     // Recorded before the guard: unit tests pin the wording without a display.
     feed_last_toast_ = message;
+    feed_last_toast_severity_ = severity;
     if (!lv_is_initialized()) {
         return;
     }
-    ToastManager::instance().show(ToastSeverity::ERROR, message.c_str());
+    ToastManager::instance().show(severity, message.c_str());
 }
 
 void AmsBackendToolChanger::abandon_feed_run_after_disconnect() {

@@ -246,7 +246,9 @@ TEST_CASE("Toolchanger mount-to-feed sends the next stage in the queue pass afte
     backend.seat_tool(0);
     printer.client.clear_gcode_script_history();
 
-    REQUIRE(backend.load_filament(2).success());
+    // An Unload: its first stage (the mount) moves on its ack alone, where a
+    // Load's first stage waits on the operator's reply.
+    REQUIRE(backend.unload_filament(2).success());
     const size_t first_stage = printer.client.gcode_script_history().size();
     REQUIRE(first_stage >= 1);
     CHECK(UpdateQueueTestAccess::passes_until(

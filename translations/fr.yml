@@ -3066,6 +3066,7 @@ translations:
   Provide a {}: 'Indiquez {}'
   Provide an on/off value: 'Indiquez une valeur marche/arrêt'
   Provide {}: 'Indiquez {}'
+  Pull the filament out of {}: 'Retirez le filament de {}'
   Pulling filament back: Rétraction du filament
   Purge: Purger
   Purge & Wipe: 'Purge et essuyage'
@@ -4419,6 +4420,7 @@ translations:
   Unload Failed: 'Échec du déchargement'
   Unload Filament: Décharger le filament
   'Unload at end': 'Décharger à la fin'
+  Unload complete: 'Déchargement terminé'
   Unload failed: Échec du déchargement
   Unload filament: 'Décharger le filament'
   Unload filament?: Décharger le filament ?

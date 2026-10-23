@@ -2792,6 +2792,7 @@
   <translation tag="Provide a {}" de="Geben Sie {} an"/>
   <translation tag="Provide an on/off value" de="Geben Sie einen Ein/Aus-Wert an"/>
   <translation tag="Provide {}" de="Geben Sie {} an"/>
+  <translation tag="Pull the filament out of {}" de="Ziehen Sie das Filament aus {} heraus"/>
   <translation tag="Pulling filament back" de="Filament wird zurückgezogen"/>
   <translation tag="Purge" de="Entlüften"/>
   <translation tag="Purge &amp; Wipe" de="Entlüften &amp; Abwischen"/>
@@ -3968,6 +3969,7 @@
   <translation tag="Unload Filament" de="Filament entladen"/>
   <translation tag="Unload all stopped" de="Entladen gestoppt"/>
   <translation tag="Unload at end" de="Am Ende entladen"/>
+  <translation tag="Unload complete" de="Entladen abgeschlossen"/>
   <translation tag="Unload failed" de="Entladen fehlgeschlagen"/>
   <translation tag="Unload filament" de="Filament entladen"/>
   <translation tag="Unload filament?" de="Filament entladen?"/>

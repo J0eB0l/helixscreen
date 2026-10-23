@@ -2792,6 +2792,7 @@
   <translation tag="Provide a {}" ja="{} を入力してください"/>
   <translation tag="Provide an on/off value" ja="オン/オフの値を入力してください"/>
   <translation tag="Provide {}" ja="{} を入力してください"/>
+  <translation tag="Pull the filament out of {}" ja="{} からフィラメントを引き抜いてください"/>
   <translation tag="Pulling filament back" ja="フィラメントを引き戻し中"/>
   <translation tag="Purge" ja="パージ"/>
   <translation tag="Purge &amp; Wipe" ja="パージとワイプ"/>
@@ -3968,6 +3969,7 @@
   <translation tag="Unload Filament" ja="フィラメントを排出"/>
   <translation tag="Unload all stopped" ja="すべてのアンロードを停止しました"/>
   <translation tag="Unload at end" ja="終了時に排出"/>
+  <translation tag="Unload complete" ja="アンロード完了"/>
   <translation tag="Unload failed" ja="排出に失敗しました"/>
   <translation tag="Unload filament" ja="フィラメントをアンロード"/>
   <translation tag="Unload filament?" ja="フィラメントを排出しますか?"/>

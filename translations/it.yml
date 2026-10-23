@@ -3047,6 +3047,7 @@ translations:
   Provide a {}: 'Fornisci {}'
   Provide an on/off value: 'Fornisci un valore on/off'
   Provide {}: 'Fornisci {}'
+  Pull the filament out of {}: 'Estrai il filamento da {}'
   Pulling filament back: Retrazione filamento
   Purge: Spurga
   Purge & Wipe: 'Spurgo e pulizia'
@@ -4388,6 +4389,7 @@ translations:
   Unload Failed: 'Scaricamento non riuscito'
   Unload Filament: Scarica filamento
   'Unload at end': 'Scarica alla fine'
+  Unload complete: 'Scaricamento completato'
   Unload failed: Scarico non riuscito
   Unload filament: 'Scarica il filamento'
   Unload filament?: Scaricare il filamento?
