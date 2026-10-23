@@ -88,8 +88,9 @@ Which slicer starts are held: only an upload that asks for the print in the same
 - the next job in Moonraker's job queue
 
 - A different nozzle size or printer model in the slicer profile never holds a print.
-- The check waits at most 45 seconds for the plugin to read the file. If it can't be made in time, or the printer's configuration can't be read, the print starts as it would without the switch. The printer's Moonraker log says why.
-- While the printer is already printing, nothing waits: the upload starts or queues straight away, as it would without the switch. A file that is already printing or already in the job queue is never started or queued a second time.
+- The slicer waits at most 45 seconds from the moment its upload arrives, including the time a 3MF takes to convert. If the plugin hasn't read the file by then, or can't read the printer's configuration, a G-code upload starts as it would without the switch, and a 3MF upload is converted but not started (the slicer is told so). The printer's Moonraker log says why.
+- While the printer is already printing, nothing waits. A file the plugin has already read is checked and, if it doesn't fit, isn't queued. A file it hasn't read yet is queued unchecked, as it would be without the switch, and starts later without a check.
+- A file that is printing right now, or already waits in the job queue, is never started or queued a second time, even if the slicer sends it twice. Uploading the same name again after its print has finished starts it as usual.
 - The plugin can't see the extra tools a filament system adds, so this switch doesn't hold a print for its tool count. The screen still checks it when you start the file there: a file using a tool past the printer's extruders is blocked, and one past a count only its tool macros give is a warning with **Start Anyway**.
 - Without the HelixPrint plugin the switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button: only the plugin sees a slicer's print. Prints you start from the screen are checked either way; see [Does the file fit this printer?](../printing.md#does-the-file-fit-this-printer).
 

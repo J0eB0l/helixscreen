@@ -233,13 +233,18 @@ opts in; the screen's switch is Settings > Safety & Alerts.
 
 With the feature on, `helix_fitcheck.py` stores an upload of any extension Moonraker prints
 (its `VALID_GCODE_EXTS`: `.gcode`, `.g`, `.gco`, `.ufp`, `.nc`) without Moonraker's print
-flag, waits up to 45 s for its file analysis (moved to the front of the queue), and checks
-it. The cap keeps the hold under nginx's default 60 s proxy timeout, so a slicer behind a
-Mainsail or Fluidd proxy never sees a failed upload whose print then starts. Nothing waits
-while the printer is printing or paused, or while the analysis queue is held: the start or
-queue goes ahead at once, as Moonraker's would. A file already printing (`print_stats.filename`)
-or already in the job queue is never started or queued again. A check that raises starts
-unchecked. Only uploads carrying `print=true` reach the hook: a client that uploads and then
+flag, waits for its file analysis (moved to the front of the queue), and checks it. One
+deadline, `UPLOAD_HOLD_S` = 45 s counted from the hook's entry, covers storing, a .3mf's
+conversion and the analysis wait, which keeps the hold under nginx's default 60 s proxy
+timeout, so a slicer behind a Mainsail or Fluidd proxy never sees a failed upload whose print
+then starts. A G-code upload whose analysis misses the deadline starts unchecked; a .3mf whose
+conversion and check miss it answers "not started" and the conversion finishes without
+starting. While the printer is printing or paused nothing waits: an analysis already there is
+checked (a blocked file is not queued), otherwise the start or queue goes ahead unchecked, as
+Moonraker's would. With the analysis queue held the start goes ahead unchecked. A file printing
+or paused right now (`print_stats.state` and `filename`), already in the job queue, or with a
+start already under way in this process is never started or queued again. A check that raises
+starts unchecked. Only uploads carrying `print=true` reach the hook: a client that uploads and then
 sends `SDCARD_PRINT_FILE` itself (OrcaSlicer's Moonraker printer agent) is not held. With no blocking finding the print starts through Moonraker's own rules (started,
 or queued when the printer is busy and `queue_gcode_uploads` is on); with one, nothing starts,
 the file stays uploaded, the upload response says `print_started: false`, and a

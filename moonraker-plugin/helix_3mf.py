@@ -281,13 +281,25 @@ class _Request:
         self.start_print = False
         self.user: Any = None
         self.waiters: List[asyncio.Future] = []
+        # A held upload's end (event loop time): past it the slicer has had its
+        # answer, so the conversion finishes without starting a print.
+        self.deadline: Optional[float] = None
+        self.abandoned = False
+        # Set once its start call is under way: the hold then waits for it.
+        self.starting = False
+
+    def remaining(self) -> Optional[float]:
+        if self.deadline is None:
+            return None
+        return max(0.0, self.deadline - asyncio.get_event_loop().time())
 
 
 _print_result = file_queue.print_result
 
 # Asked before every print this converter starts, with the output's
-# gcodes-relative path; False keeps the output uploaded and unstarted.
-StartGate = Callable[[str], Awaitable[bool]]
+# gcodes-relative path and the seconds the upload may still be held (None:
+# not held); False keeps the output uploaded and unstarted.
+StartGate = Callable[[str, Optional[float]], Awaitable[bool]]
 
 
 class Helix3mfConverter(file_queue.FileTracker):
@@ -324,6 +336,8 @@ class Helix3mfConverter(file_queue.FileTracker):
             lambda: self.database, DB_NAMESPACE, ".3mf conversion")
         self._original_finalize: Optional[Callable] = None
         self.start_gate: Optional[StartGate] = None
+        # The request being converted, read by _start_print.
+        self._active: Optional[_Request] = None
         # Owned outputs whose delete was refused because a print holds them.
         self._deferred_deletes: List[Conversion] = []
 
@@ -439,20 +453,30 @@ class Helix3mfConverter(file_queue.FileTracker):
         """Queue @p source; the future resolves to _print_result(). With
         @p front it goes ahead of everything waiting (a slicer waiting on its
         upload response should not wait on a startup backfill)."""
+        return self._enqueue(source, start_print, user, front)[1]
+
+    def _enqueue(
+        self, source: str, start_print: bool, user: Any, front: bool,
+        deadline: Optional[float] = None,
+    ) -> Tuple[_Request, asyncio.Future]:
         request = self._queue.put(source, _Request, front=front)
         if start_print:
             request.start_print = True
             request.user = user
+            request.deadline = deadline
         waiter = asyncio.get_event_loop().create_future()
         request.waiters.append(waiter)
-        return waiter
+        return request, waiter
 
     async def _convert_queued(self, source: str, request: _Request) -> None:
         outcome = _print_result()
+        self._active = request
         try:
             outcome = await self.convert(source, request.start_print, request.user)
         except Exception:
             logging.exception(f"HelixPrint: .3mf conversion of {source} failed")
+        finally:
+            self._active = None
         for waiter in request.waiters:
             if not waiter.done():
                 waiter.set_result(outcome)
@@ -685,16 +709,24 @@ class Helix3mfConverter(file_queue.FileTracker):
 
     async def _start_print(self, output: str, user: Any) -> Dict[str, bool]:
         """Start @p output as Moonraker's own upload path would, once the
-        start gate, when one is set, allows it."""
+        start gate, when one is set, allows it. A held upload whose slicer
+        already had its answer starts nothing."""
+        request = self._active
         if self.start_gate is not None:
             try:
-                allowed = await self.start_gate(output)
+                allowed = await self.start_gate(
+                    output, request.remaining() if request is not None else None)
             except Exception as e:
                 logging.info(f"HelixPrint: start check of {output} failed ({e!r}); "
                              "starting unchecked")
                 allowed = True
             if not allowed:
                 return _print_result()
+        if request is not None and request.abandoned:
+            logging.info(f"HelixPrint: not starting {output}: its upload's hold ran out")
+            return _print_result()
+        if request is not None:
+            request.starting = True
         return await file_queue.start_or_queue(
             self.server, self.klippy_apis, self.file_manager, output, user)
 
@@ -809,12 +841,37 @@ class Helix3mfConverter(file_queue.FileTracker):
                                    and request.wants_print):
             return await original(form_args)
 
+        # A gated start (the fit check) holds the upload: one deadline from
+        # here covers storing, conversion and the check.
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + file_queue.UPLOAD_HOLD_S if self.start_gate is not None \
+            else None
         result, source = await file_queue.store_without_print(original, form_args)
         if not source:
             return result
-        outcome = await self.enqueue(
-            source, start_print=True, user=form_args.get("current_user"), front=True
-        )
+        held, waiter = self._enqueue(
+            source, True, form_args.get("current_user"), True, deadline=deadline)
+        if deadline is None:
+            outcome = await waiter
+        else:
+            outcome = await self._await_held(source, held, waiter, deadline)
         result = dict(result)
         result.update(outcome)
         return result
+
+    async def _await_held(self, source: str, request: _Request, waiter: asyncio.Future,
+                          deadline: float) -> Dict[str, bool]:
+        """The outcome of a held upload, or "not started" once its deadline
+        passes; the conversion then finishes without starting. A start call
+        already under way at the deadline is waited for."""
+        remaining = max(0.0, deadline - asyncio.get_event_loop().time())
+        try:
+            return await asyncio.wait_for(asyncio.shield(waiter), remaining)
+        except asyncio.TimeoutError:
+            pass
+        if request.starting:
+            return await waiter
+        request.abandoned = True
+        logging.info(f"HelixPrint: {source} not started: conversion and its start check "
+                     f"took longer than {file_queue.UPLOAD_HOLD_S:.0f} s")
+        return _print_result()

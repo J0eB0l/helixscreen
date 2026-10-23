@@ -29,7 +29,7 @@ import logging
 import os
 from pathlib import Path
 from typing import (
-    Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple, Union,
+    Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Set, Tuple, Union,
 )
 
 # job_state values after which a print no longer holds the printer
@@ -333,6 +333,18 @@ def upload_hook_shape_ok(method: Any) -> bool:
     )
 
 
+# The longest a slicer's upload-and-print request is held open, counted from
+# when the hook takes it: nginx in front of Moonraker (the KIAUH Mainsail and
+# Fluidd configs) answers 504 after 60 s with no proxy_read_timeout set, and a
+# hold that ends first means the slicer never reports a failure for an upload
+# whose print then starts.
+UPLOAD_HOLD_S = 45.0
+
+# Paths whose start or queue call is under way in this process. Checked and
+# claimed with no await between, so two holds of one path start it once.
+_starts_in_flight = set()  # type: Set[str]
+
+
 def print_result(started: bool = False, queued: bool = False) -> Dict[str, bool]:
     """What a hook did about a requested print, in the shape of Moonraker's
     upload response."""
@@ -375,11 +387,12 @@ async def store_without_print(finalize: Callable[[Dict[str, Any]], Awaitable[Any
 async def already_started(server: Any, klippy_apis: Any, path: str) -> bool:
     """Whether @p path is the file Klipper is printing now or is waiting in
     Moonraker's job queue: starting or queueing it again would print it twice.
-    A question that cannot be answered reads as no."""
+    Klipper keeps print_stats.filename after a print ends, so only a printing
+    or paused state counts. A question that cannot be answered reads as no."""
     try:
         status = await klippy_apis.query_objects({"print_stats": None})
         stats = (status or {}).get("print_stats") or {}
-        if stats.get("filename") == path:
+        if stats.get("filename") == path and stats.get("state") in ("printing", "paused"):
             return True
     except Exception:
         pass
@@ -395,8 +408,20 @@ async def start_or_queue(server: Any, klippy_apis: Any, file_manager: Any,
                          path: str, user: Any) -> Dict[str, bool]:
     """Start @p path as Moonraker's own upload path would: start it, and when
     that is refused (a print running) queue it if the file manager queues
-    uploads. Nothing when it already prints or waits in the queue. Returns
-    print_result()."""
+    uploads. Nothing when it already prints or waits in the queue, or when a
+    start of it is already under way here. Returns print_result()."""
+    if path in _starts_in_flight:
+        logging.info(f"HelixPrint: not starting {path}: a start of it is under way")
+        return print_result()
+    _starts_in_flight.add(path)
+    try:
+        return await _start_or_queue(server, klippy_apis, file_manager, path, user)
+    finally:
+        _starts_in_flight.discard(path)
+
+
+async def _start_or_queue(server: Any, klippy_apis: Any, file_manager: Any,
+                          path: str, user: Any) -> Dict[str, bool]:
     if await already_started(server, klippy_apis, path):
         logging.info(f"HelixPrint: not starting {path}: it is already printing or queued")
         return print_result()

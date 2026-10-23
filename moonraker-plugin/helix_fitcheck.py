@@ -32,6 +32,7 @@ Python 3.8, stdlib only.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import re
@@ -45,12 +46,10 @@ FIT_CHECK_FEATURE_VERSION = 1
 
 REFUSED_EVENT = "helix:fit_check_refused"
 
-# How long an upload waits for its file's analysis before starting
-# unchecked. The slicer's upload request is held open meanwhile, and nginx in
-# front of Moonraker (the KIAUH Mainsail and Fluidd configs) answers 504 after
-# 60 s with no proxy_read_timeout set; the hold ends well before that, so the
-# slicer never reports a failure for an upload whose print then starts.
-RECORD_WAIT_S = 45.0
+# The most an upload is held, counted from when the hook takes it: storing,
+# conversion and the wait for its analysis together
+# (helix_file_queue.UPLOAD_HOLD_S says why it is under a minute).
+RECORD_WAIT_S = file_queue.UPLOAD_HOLD_S
 
 # Positions and temperatures within this of a limit are at it: the record
 # rounds to 4 decimals, and a gcode step is 0.001 mm.
@@ -410,48 +409,43 @@ class FitCheck:
         state = ((status or {}).get("print_stats") or {}).get("state")
         return state in ("printing", "paused")
 
-    async def _skip_reason(self) -> Optional[str]:
-        """Why the check is not waited for now, or None. Busy, the start is
-        refused or queued at once, as Moonraker's would be; a held analysis
-        queue cannot answer before the print running ends."""
+    async def findings_for(self, path: str,
+                           timeout: float) -> Optional[List[Dict[str, Any]]]:
+        """The findings for `path`, waiting at most `timeout` seconds for its
+        analysis, or None when it cannot be checked. Every None is logged with
+        its reason: the start then goes ahead unchecked. With the printer busy
+        the start is refused or queued at once, as Moonraker's would be, so
+        only an analysis already there is checked; a held analysis queue
+        cannot answer before the print running ends."""
         analysis = getattr(self.helix, "analysis", None)
         if analysis is None:
-            return "file analysis is not running"
-        if analysis.queue_held():
-            return "file analysis waits for the print running"
-        if await self._printer_busy():
-            return "the printer is not idle"
+            why = "file analysis is not running"
+        elif analysis.queue_held():
+            why = "file analysis waits for the print running"
+        else:
+            busy = await self._printer_busy()
+            wait = 0.0 if busy else max(0.0, timeout)
+            record = await analysis.record_for(path, wait)
+            if record is None:
+                why = "the printer is not idle and no analysis is ready yet" if busy \
+                    else "no analysis within %.0f s (still queued, or failed)" % wait
+            else:
+                limits, why = await self._limits()
+                if limits is not None:
+                    return check_fit(limits, fit_file_from_record(record))
+        logging.info("HelixPrint: fit check of %s skipped, starting unchecked: %s", path, why)
         return None
 
-    async def findings_for(self, path: str) -> Optional[List[Dict[str, Any]]]:
-        """The findings for `path`, or None when it cannot be checked. Every
-        None is logged with its reason: the start then goes ahead unchecked."""
-        why = await self._skip_reason()
-        if why is not None:
-            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: %s",
-                         path, why)
-            return None
-        record = await self.helix.analysis.record_for(path, RECORD_WAIT_S)
-        if record is None:
-            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: no analysis "
-                         "within %.0f s (still queued, failed, or the queue is held)",
-                         path, RECORD_WAIT_S)
-            return None
-        limits, why = await self._limits()
-        if limits is None:
-            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: %s",
-                         path, why)
-            return None
-        return check_fit(limits, fit_file_from_record(record))
-
-    async def may_start(self, path: str) -> bool:
-        """Whether a print the slicer asked for may start `path`. A check that
-        fails is one that could not be made: the start goes ahead."""
+    async def may_start(self, path: str, timeout: Optional[float] = None) -> bool:
+        """Whether a print the slicer asked for may start `path`, waiting at
+        most `timeout` seconds (RECORD_WAIT_S when None) for its analysis. A
+        check that fails is one that could not be made: the start goes ahead."""
         try:
             enabled = await self.helix.feature_enabled(FIT_CHECK_FEATURE)
             if not enabled:
                 return True
-            findings = await self.findings_for(path)
+            findings = await self.findings_for(
+                path, RECORD_WAIT_S if timeout is None else timeout)
         except Exception as e:
             logging.info("HelixPrint: fit check of %s skipped, starting unchecked: "
                          "the check failed (%r)", path, e)
@@ -471,6 +465,7 @@ class FitCheck:
         assert original is not None
         if not holds_upload(form_args, self._print_exts):
             return await original(form_args)
+        deadline = asyncio.get_event_loop().time() + RECORD_WAIT_S
         try:
             enabled = await self.helix.feature_enabled(FIT_CHECK_FEATURE)
         except Exception as e:
@@ -482,7 +477,8 @@ class FitCheck:
         if not path:
             return result
         result = dict(result)
-        if await self.may_start(path):
+        remaining = max(0.0, deadline - asyncio.get_event_loop().time())
+        if await self.may_start(path, remaining):
             result.update(await file_queue.start_or_queue(
                 self.server, self.helix.klippy_apis, self.helix.file_manager, path,
                 form_args.get("current_user")))

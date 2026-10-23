@@ -15,6 +15,7 @@ import hashlib
 import io
 import shutil
 import sys
+import time
 import types
 import zipfile
 from pathlib import Path
@@ -26,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import helix_3mf
 import helix_capabilities
+import helix_file_queue as file_queue
 from helix_3mf import (
     Conversion,
     ConversionError,
@@ -1055,7 +1057,7 @@ class TestStartGate:
         conv = await started(env, start_on_upload=True)
         asked = []
 
-        async def gate(output):
+        async def gate(output, remaining):
             asked.append(output)
             return False
         conv.start_gate = gate
@@ -1071,7 +1073,7 @@ class TestStartGate:
     async def test_an_allowing_gate_starts_the_published_plate(self, env):
         conv = await started(env, start_on_upload=True)
 
-        async def gate(output):
+        async def gate(output, remaining):
             return True
         conv.start_gate = gate
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
@@ -1082,7 +1084,7 @@ class TestStartGate:
     async def test_a_gate_that_raises_starts_unchecked(self, env):
         conv = await started(env, start_on_upload=True)
 
-        async def gate(output):
+        async def gate(output, remaining):
             raise RuntimeError("check broke")
         conv.start_gate = gate
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
@@ -1095,12 +1097,84 @@ class TestStartGate:
         (env.gc / "a.gcode").write_bytes(data)
         conv = await started(env, start_on_upload=True)
 
-        async def gate(output):
+        async def gate(output, remaining):
             return False
         conv.start_gate = gate
         result = await self.upload(env, "a.gcode.3mf", {9: data})
         assert result["print_started"] is False
         assert env.apis.started == []
+
+
+class TestHeldUploadDeadline:
+    """With a start gate the upload is held: one deadline from the hook's entry
+    covers conversion and the check, and past it nothing starts."""
+
+    async def upload(self, env, name, plates):
+        tmp = env.gc / ".helix_temp" / "incoming.mru"
+        make_3mf(tmp, plates)
+        return await env.fm.finalize_upload(
+            {"filename": name, "tmp_file_path": str(tmp), "print": "true",
+             "current_user": "orca"})
+
+    @pytest.mark.asyncio
+    async def test_a_slow_conversion_answers_not_started_and_never_starts(self, env,
+                                                                          monkeypatch):
+        monkeypatch.setattr(file_queue, "UPLOAD_HOLD_S", 0.2)
+        conv = await started(env, start_on_upload=True)
+        real_extract = conv._extract
+
+        def slow_extract(full, plate, dest):
+            time.sleep(0.4)
+            return real_extract(full, plate, dest)
+        monkeypatch.setattr(conv, "_extract", slow_extract)
+        asked = []
+
+        async def gate(output, remaining):
+            asked.append(remaining)
+            return True
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is False and result["print_queued"] is False
+        await conv.wait_idle()
+        assert (env.gc / "a.gcode").exists()      # converted all the same
+        assert env.apis.started == []             # but never started
+        assert asked == [0.0]                     # the check got no time left
+
+    @pytest.mark.asyncio
+    async def test_the_check_gets_what_conversion_left(self, env, monkeypatch):
+        monkeypatch.setattr(file_queue, "UPLOAD_HOLD_S", 5.0)
+        conv = await started(env, start_on_upload=True)
+        asked = []
+
+        async def gate(output, remaining):
+            asked.append(remaining)
+            return True
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is True
+        assert len(asked) == 1 and 0.0 < asked[0] < 5.0
+
+    @pytest.mark.asyncio
+    async def test_a_check_still_running_at_the_deadline_starts_nothing(self, env,
+                                                                        monkeypatch):
+        monkeypatch.setattr(file_queue, "UPLOAD_HOLD_S", 0.2)
+        conv = await started(env, start_on_upload=True)
+
+        async def gate(output, remaining):
+            await asyncio.sleep(0.4)
+            return True
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is False
+        await conv.wait_idle()
+        assert env.apis.started == []
+
+    @pytest.mark.asyncio
+    async def test_without_a_gate_nothing_is_cut_short(self, env, monkeypatch):
+        monkeypatch.setattr(file_queue, "UPLOAD_HOLD_S", 0.0)
+        await started(env, start_on_upload=True)
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is True
 
 
 class FakeJobQueue:
