@@ -30,6 +30,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -277,6 +278,35 @@ static lv_obj_t* create_suffix(lv_obj_t* textarea) {
 }
 
 // ============================================================================
+// Vertical Fit
+// ============================================================================
+
+/**
+ * Shrink the vertical padding of a fixed-height one-line input until one line of
+ * text fits inside it, keeping it centered. When the content box is shorter than
+ * a line, the textarea's keep-the-cursor-visible scroll can satisfy neither its
+ * top nor its bottom edge and ping-pongs between them, so the text bounces.
+ */
+static void fit_pad_to_height_cb(lv_event_t* e) {
+    lv_obj_t* textarea = lv_event_get_target_obj(e);
+    if (!lv_textarea_get_one_line(textarea)) {
+        return;
+    }
+    const int32_t line_h =
+        lv_font_get_line_height(lv_obj_get_style_text_font(textarea, LV_PART_MAIN));
+    const int32_t border = lv_obj_get_style_border_width(textarea, LV_PART_MAIN);
+    const int32_t room = (lv_obj_get_height(textarea) - 2 * border - line_h) / 2;
+    const int32_t pad = std::clamp(room, int32_t{0}, theme_manager_get_spacing("space_md"));
+    if (lv_obj_get_style_pad_top(textarea, LV_PART_MAIN) != pad ||
+        lv_obj_get_style_pad_bottom(textarea, LV_PART_MAIN) != pad) {
+        lv_obj_set_style_pad_ver(textarea, pad, LV_PART_MAIN);
+        // A scroll toward the cursor started while the line did not fit would
+        // otherwise run on and leave the text shifted.
+        lv_obj_scroll_to_y(textarea, 0, LV_ANIM_OFF);
+    }
+}
+
+// ============================================================================
 // XML Widget Callbacks
 // ============================================================================
 
@@ -299,11 +329,8 @@ static void* ui_text_input_create(lv_xml_parser_state_t* state, const char** att
     lv_obj_set_style_text_font(textarea, theme_manager_get_font("font_body"), LV_PART_MAIN);
 
     // Apply responsive padding for consistent height across screen sizes
-    const char* pad_ver = lv_xml_get_const(nullptr, "space_md");
-    if (pad_ver) {
-        int32_t padding = std::atoi(pad_ver);
-        lv_obj_set_style_pad_ver(textarea, padding, 0);
-    }
+    lv_obj_set_style_pad_ver(textarea, theme_manager_get_spacing("space_md"), 0);
+    lv_obj_add_event_cb(textarea, fit_pad_to_height_cb, LV_EVENT_SIZE_CHANGED, nullptr);
 
     // Note: Border and background styling is handled by the theme's apply_cb,
     // which adds the outlined InputBg style to all textareas.

@@ -97,6 +97,24 @@ void save_discovered_network_printer(const DiscoveredPrinter& printer,
     settings.set_ipp_resource_path(is_ipp ? printer.resource_path : "");
 }
 
+DiscoveredPrinterPick pick_discovered_printer(const std::vector<RankedNetworkPrinter>& ranked,
+                                              const std::string& saved_ip,
+                                              const std::string& saved_protocol,
+                                              bool may_auto_pick) {
+    DiscoveredPrinterPick pick;
+    for (size_t i = 0; i < ranked.size(); ++i) {
+        if (ranked[i].ip_address == saved_ip && ranked[i].protocol == saved_protocol) {
+            pick.show = static_cast<int>(i);
+            break;
+        }
+    }
+    if (may_auto_pick && !ranked.empty() && pick.show != 0) {
+        pick.select = 0;
+        pick.show = 0;
+    }
+    return pick;
+}
+
 void apply_ipp_target(IppPrinter& printer) {
     const auto& settings = LabelPrinterSettingsManager::instance();
     printer.set_target(settings.get_printer_address(),

@@ -55,6 +55,7 @@ class LabelPrinterSettingsOverlay : public OverlayBase {
     void handle_bt_connect();
     void handle_bt_forget();
     void handle_label_count_changed(int index);
+    void handle_user_printer_selected(int index);
 
   private:
     /// A discovered network printer with auto-detected protocol
@@ -84,6 +85,9 @@ class LabelPrinterSettingsOverlay : public OverlayBase {
     void update_ipp_selected_subject();
 
     bool inputs_initialized_ = false; ///< Guard against stacking duplicate event callbacks
+    /// The saved network printer was chosen by discovery, not the user, so a
+    /// better-ranked printer found later replaces it.
+    bool auto_picked_ = false;
 
     // mDNS discovery (raw TCP + IPP, merged into single list)
     std::unique_ptr<IMdnsDiscovery> mdns_discovery_;     ///< _pdl-datastream._tcp
