@@ -57,9 +57,8 @@ ChipContent heater_chip(bool present, int current_deci, int target_deci,
     if (heating) {
         const int span = target_deci - start_deci;
         if (span > 0) {
-            // Rounds up so a heater that has begun climbing never shows an empty bar.
-            c.progress_pct =
-                std::clamp(((current_deci - start_deci) * 100 + span - 1) / span, 0, 100);
+            // Whole percent, rounded down.
+            c.progress_pct = std::clamp((current_deci - start_deci) * 100 / span, 0, 100);
         } else {
             c.progress_pct = 0;
         }
