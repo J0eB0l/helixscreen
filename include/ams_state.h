@@ -17,6 +17,7 @@
 #include "lvgl/lvgl.h"
 #include "moonraker_error.h"
 #include "subject_managed_panel.h"
+#include "tag_spool_link.h"
 
 #include <array>
 #include <atomic>
@@ -29,6 +30,8 @@
 #include <vector>
 
 // Forward declarations
+struct SpoolInfo; // NAMESPACE_OK: forward declaration of spoolman_types.h's global type
+
 namespace helix {
 class IMoonrakerAPI;
 class IMoonrakerClient;
@@ -465,7 +468,8 @@ class AmsState {
 
     /// The primary backend's firmware DEFAULT tool -> head map, for the mapper.
     /// Identity when no backend is present, which is also the majority shape.
-    /// NOT the live map - see AmsBackend::firmware_default_routing().
+    /// The routing an unremapped print runs with - see
+    /// AmsBackend::firmware_default_routing() for when that is a live table.
     [[nodiscard]] helix::FirmwareRouting collect_firmware_routing() const;
 
     /**
@@ -694,6 +698,20 @@ class AmsState {
     lv_subject_t* get_is_filament_system_subject() {
         return &ams_is_filament_system_;
     }
+
+    /**
+     * @brief 1 while the backend refuses to let the nozzle be heated
+     *
+     * AmsBackend::nozzle_heat_blocked_reason(), as a subject the nozzle
+     * temperature controls dim on. A tap still reaches TemperatureController,
+     * which refuses with the reason.
+     */
+    lv_subject_t* get_nozzle_heat_blocked_subject() {
+        return &ams_nozzle_heat_blocked_;
+    }
+
+    /// Why the primary backend refuses a nozzle target now, or empty. Main thread.
+    [[nodiscard]] std::string nozzle_heat_blocked_reason() const;
 
     /**
      * @brief Get current action subject
@@ -1279,6 +1297,15 @@ class AmsState {
      * @param pct 0=use computed default, 50-90=override danger zone percentage
      */
     void set_danger_threshold_override(int pct);
+
+    /**
+     * @brief Re-sync the clog meter whenever a filament motion sensor changes
+     *
+     * A plain Klipper filament_motion_sensor is the clog meter's last-priority
+     * source (#1823), and it changes without any AMS backend sync. Call after
+     * FilamentSensorManager::init_subjects(); idempotent.
+     */
+    void install_motion_sensor_observer();
 
     /**
      * @brief Get current modal target temperature
@@ -1921,6 +1948,24 @@ class AmsState {
     AmsError commit_slot_edit(int slot_index, const SlotInfo& original, const SlotInfo& info);
 
     /**
+     * @brief Link a backend slot to a Spoolman spool, the way a person's pick does.
+     *
+     * The slot as the backend shows it now, with @p spool's identity laid over
+     * it (apply_spool_to_slot()), committed through commit_slot_edit(). The one
+     * path for every surface that links a whole spool: the QR scan, and a tag
+     * that names a spool.
+     *
+     * @return the commit's error, and the slot before and after the link so a
+     *         caller can offer the edit's follow-up
+     */
+    struct SpoolLink {
+        AmsError error;
+        SlotInfo original;
+        SlotInfo linked;
+    };
+    SpoolLink link_spool_to_slot(int slot_index, const SpoolInfo& spool);
+
+    /**
      * @brief Commit an external-spool assignment through every backing store.
      *
      * Non-empty (spoolman_id > 0 OR material set) → S5 persist via
@@ -2157,6 +2202,8 @@ class AmsState {
     void sync_system_subjects(const AmsSystemInfo& info);
     /// Push or drop the AMS tool topology in ToolState.
     void sync_tool_topology(AmsBackend* backend, const AmsSystemInfo& info);
+    /// Heat-blocked subject, and the swap preheat latch on a shared-heater swap.
+    void sync_shared_heater(AmsBackend* backend, const AmsSystemInfo& info);
     /// filament_loaded, the runout indicator's edge state, and the unload grace.
     void sync_filament_runout(const AmsSystemInfo& info);
     /// The bypass subjects, the bypass edge, and the external spool subjects.
@@ -2170,6 +2217,11 @@ class AmsState {
     bool sync_tool_spools(AmsBackend* backend, const AmsSystemInfo& info);
     /// Per-unit temperature, humidity and environment-indicator subjects.
     void sync_unit_environment(AmsBackend* backend, const AmsSystemInfo& info);
+    /// Link a primary-backend lane to the Spoolman spool its tag names, when
+    /// TagSpoolLinkTracker says the tag has just appeared there: look the spool
+    /// up, then link it or report that it does not exist.
+    void sync_tag_spool_link(AmsBackend& backend, int slot_index, const SlotInfo& slot);
+    void finish_tag_spool_link(int slot_index, int spool_id, const std::optional<SpoolInfo>& spool);
     /// Reset the slot subjects past @p total_slots.
     /// @return true when a slot subject changed
     bool clear_unused_slot_subjects(int total_slots);
@@ -2256,7 +2308,10 @@ class AmsState {
 
     // Moonraker API for Spoolman integration
     IMoonrakerAPI* api_ = nullptr;
-    int last_synced_spoolman_id_ = 0; ///< Track to avoid duplicate set_active_spool calls
+    int last_synced_spoolman_id_ = 0; ///< Spool sent for the current load; reset on each load
+
+    /// Which primary-backend lanes should be linked to the spool their tag names.
+    helix::ams::TagSpoolLinkTracker tag_link_tracker_;
 
     /// Resolved (slot, loaded) identity behind the "Currently Loaded" card.
     /// Backend status frames arrive several times a second and each one re-runs
@@ -2293,6 +2348,9 @@ class AmsState {
     // System-level subjects
     lv_subject_t ams_type_{};
     lv_subject_t ams_is_tool_changer_{};
+    lv_subject_t ams_nozzle_heat_blocked_{};
+    /// The mounted tool last seen on a shared-heater backend, -2 before any.
+    int shared_heater_tool_ = -2;
     lv_subject_t ams_is_filament_system_{};
     lv_subject_t ams_action_{};
     /// Copy of ams_action_ for readers off the main thread. Every write to the
@@ -2405,6 +2463,32 @@ class AmsState {
     /// print_state_enum is a *static* PrinterState subject, so no
     /// SubjectLifetime token is required.
     ObserverGuard print_state_observer_;
+
+    /// Ends every backend's busy operation when klippy_state enters READY from
+    /// any other state: a Klipper restart ends every firmware-side operation.
+    ObserverGuard klippy_state_observer_;
+    /// The klippy_state the observer last saw; -1 before its first fire.
+    int last_klippy_state_ = -1;
+    /// Whether klippy has been READY since the observer was installed. The
+    /// subject starts at SHUTDOWN, so the session's first READY is the connect,
+    /// not a restart.
+    bool klippy_ready_seen_ = false;
+
+    /// Wire (or rewire) klippy_state_observer_. Idempotent.
+    void install_klippy_state_observer();
+
+    /// Re-syncs the clog meter on FilamentSensorManager's motion signature.
+    ObserverGuard motion_sensor_observer_;
+
+    /// Re-syncs the clog meter when a print starts or ends: a motion sensor's
+    /// empty reading is a jam only while one runs.
+    ObserverGuard print_lifecycle_observer_;
+    /// Wire (or rewire) print_lifecycle_observer_. Idempotent.
+    void install_print_lifecycle_observer();
+
+    /// Re-sync the clog meter from the active backend's snapshot, or from an
+    /// empty one when there is no backend.
+    void resync_clog_meter();
 
     /// Recompute the ams_action_detail subject from current AMS action +
     /// cached operation_detail + PrinterState print state.
@@ -2533,7 +2617,7 @@ class AmsState {
     lv_subject_t clog_meter_danger_pct_{};  // 0-100, where danger zone starts
     lv_subject_t clog_meter_peak_pct_{};    // 0-100, peak-hold marker position
     lv_subject_t clog_meter_center_text_{}; // Enhanced center display
-    char clog_meter_center_text_buf_[16]{};
+    char clog_meter_center_text_buf_[32]{};
     lv_subject_t clog_meter_label_left_{}; // Left endpoint label
     // Endpoint labels render translated: ru "СПУТЫВАНИЕ" is 20 bytes.
     char clog_meter_label_left_buf_[24]{};

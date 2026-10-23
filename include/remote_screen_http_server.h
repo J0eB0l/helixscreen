@@ -17,6 +17,10 @@ namespace helix {
 class ScreenFrameStore;
 struct SnapshotRateCap;
 
+/// snapshot.jpg?viewer=1 is the HelixScreen viewer page's poll (assets/remote_screen/index.html),
+/// the only request that counts as a person watching.
+constexpr const char* kViewerPageParam = "viewer";
+
 struct ScreenServerConfig {
     /// "127.0.0.1" behind an nginx route, "0.0.0.0" when the server faces the LAN.
     std::string bind_host = "127.0.0.1";

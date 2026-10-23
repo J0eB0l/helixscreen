@@ -12,6 +12,9 @@
  * - Message reset when error clears
  */
 
+#include "ui_update_queue.h"
+
+#include "../lvgl_test_fixture.h"
 #include "../ui_test_utils.h"
 #include "action_prompt_manager.h"
 #include "ams_backend_afc.h"
@@ -97,6 +100,9 @@ class AfcErrorHandlingHelper : public AmsBackendAfc {
         nlohmann::json notification;
         notification["params"] = nlohmann::json::array({params, 0.0});
         handle_status_update(notification);
+        // The toast decision runs on the main thread, behind anything queued
+        // ahead of this frame.
+        helix::ui::UpdateQueue::instance().drain();
     }
 
     // Override execute_gcode to prevent null pointer access
@@ -110,7 +116,8 @@ class AfcErrorHandlingHelper : public AmsBackendAfc {
 // Message Deduplication Tests
 // ============================================================================
 
-TEST_CASE("AFC Error Handling: Message deduplication", "[afc][error_handling][dedup]") {
+TEST_CASE_METHOD(LVGLTestFixture, "AFC Error Handling: Message deduplication",
+                 "[afc][error_handling][dedup]") {
     AfcErrorHandlingHelper afc;
 
     SECTION("New error message updates last_seen_message") {
@@ -163,8 +170,8 @@ TEST_CASE("AFC Error Handling: Message deduplication", "[afc][error_handling][de
 // Toast Suppression Tests (AFC prompt active)
 // ============================================================================
 
-TEST_CASE("AFC Error Handling: Toast suppression when AFC prompt is active",
-          "[afc][error_handling][suppression]") {
+TEST_CASE_METHOD(LVGLTestFixture, "AFC Error Handling: Toast suppression when AFC prompt is active",
+                 "[afc][error_handling][suppression]") {
     SECTION("Toast NOT suppressed when no prompt is active") {
         AfcErrorHandlingHelper afc;
         // Ensure no prompt is active
@@ -230,8 +237,8 @@ TEST_CASE("AFC Error Handling: Toast suppression when AFC prompt is active",
 // Message Type to Severity Mapping Tests
 // ============================================================================
 
-TEST_CASE("AFC Error Handling: Message type to severity mapping",
-          "[afc][error_handling][severity]") {
+TEST_CASE_METHOD(LVGLTestFixture, "AFC Error Handling: Message type to severity mapping",
+                 "[afc][error_handling][severity]") {
     AfcErrorHandlingHelper afc;
     // No prompt active
     ActionPromptManager::set_instance(nullptr);
@@ -256,7 +263,7 @@ TEST_CASE("AFC Error Handling: Message type to severity mapping",
 // Edge Cases
 // ============================================================================
 
-TEST_CASE("AFC Error Handling: Edge cases", "[afc][error_handling][edge]") {
+TEST_CASE_METHOD(LVGLTestFixture, "AFC Error Handling: Edge cases", "[afc][error_handling][edge]") {
     AfcErrorHandlingHelper afc;
     ActionPromptManager::set_instance(nullptr);
 
@@ -436,8 +443,9 @@ void require_unwritable_or_skip(const std::string& path) {
 }
 } // namespace
 
-TEST_CASE("AFC Error Handling: a message a previous session surfaced is not re-toasted",
-          "[afc][error_handling][1589]") {
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "AFC Error Handling: a message a previous session surfaced is not re-toasted",
+                 "[afc][error_handling][1589]") {
     ActionPromptManager::set_instance(nullptr);
     const std::string latched =
         "Error getting data from moonraker, check AFC.log for more information";
@@ -582,8 +590,9 @@ TEST_CASE("AFC Error Handling: a message a previous session surfaced is not re-t
 // a toast, and each case here pairs the suppression it removes with a live
 // error that still surfaces.
 
-TEST_CASE("AFC Error Handling: the dedup store fails open when it cannot keep a record",
-          "[afc][error_handling][1589]") {
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "AFC Error Handling: the dedup store fails open when it cannot keep a record",
+                 "[afc][error_handling][1589]") {
     ActionPromptManager::set_instance(nullptr);
     const std::string latched =
         "Error getting data from moonraker, check AFC.log for more information";
@@ -678,4 +687,42 @@ TEST_CASE("AFC Error Handling: the dedup store fails open when it cannot keep a 
         helix::AfcMessageDedup::instance().record_error("Lane 1 load failed");
         REQUIRE(helix::AfcMessageDedup::instance().last_error_text() == "Lane 1 load failed");
     }
+}
+
+// ============================================================================
+// Prompt lines and an AFC error arriving in one burst
+// ============================================================================
+//
+// Prompt lines reach the manager through the UpdateQueue, so an AFC error
+// parsed on the WebSocket thread right behind them can be judged before the
+// prompt they describe is up. The toast decision belongs after them.
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "AFC Error Handling: an error queued behind AFC prompt lines is not toasted",
+                 "[afc][error_handling][suppression]") {
+    DedupSeedDir seed("");
+    ActionPromptManager manager;
+    ActionPromptManager::set_instance(&manager);
+    auto sink = manager.make_line_sink();
+    AfcErrorHandlingHelper afc;
+    ToastCapture toasts;
+
+    SECTION("Behind an AFC prompt: history only, no toast") {
+        sink("// action:prompt_begin AFC Lane Error");
+        sink("// action:prompt_show");
+        REQUIRE_FALSE(ActionPromptManager::is_showing()); // lines still queued
+
+        afc.feed_afc_message("Lane 1 load failed", "error");
+
+        REQUIRE(ActionPromptManager::is_showing());
+        CHECK(toasts.total() == 0);
+    }
+
+    SECTION("With no prompt the same error toasts once the queue drains") {
+        afc.feed_afc_message("Lane 1 load failed", "error");
+
+        CHECK(toasts.count("error") == 1);
+    }
+
+    ActionPromptManager::set_instance(nullptr);
 }

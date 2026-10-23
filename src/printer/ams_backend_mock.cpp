@@ -4266,15 +4266,17 @@ std::vector<int> AmsBackendMock::get_tool_mapping() const {
 }
 
 helix::FirmwareRouting AmsBackendMock::firmware_default_routing() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (snapmaker_mode_) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (snapmaker_mode_) {
 #if HELIX_HAS_SNAPMAKER
-        return AmsBackendSnapmaker::default_routing();
+            return AmsBackendSnapmaker::default_routing();
 #endif
-        // Unreachable: set_snapmaker_mode() refuses the mode when the backend
-        // is compiled out, so fall through to the lane-per-tool answer.
+            // Unreachable: set_snapmaker_mode() refuses the mode when the backend
+            // is compiled out, so fall through to the base answer.
+        }
     }
-    // Every other mode this mock emulates is lane-per-tool.
+    // The base reads get_tool_mapping(), which takes mutex_ itself.
     return AmsBackend::firmware_default_routing();
 }
 

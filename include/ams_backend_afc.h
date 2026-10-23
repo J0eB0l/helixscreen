@@ -200,7 +200,6 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         /// settings was present and an object; only then does a missing
         /// extruder_name mean the config lacks one.
         bool answered = false;
-        bool saw_toolchanger = false;
         /// Lowercased AFC_extruder suffix -> Klipper extruder name.
         std::unordered_map<std::string, std::string> extruder_names;
         /// Lowercased AFC_OpenAMS unit name -> lowercased `oams` option, the
@@ -209,6 +208,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         /// Lowercased AFC_extruder suffix -> whether that section wires a
         /// physical tool_start/tool_end pin.
         std::unordered_map<std::string, bool> extruder_sensor_fitted;
+        /// Lowercased AFC_extruder suffixes that set `toolchanger_unit`. Only
+        /// those get a tool lane, so only those can be mounted by
+        /// AFC_SELECT_TOOL.
+        std::set<std::string> toolchanger_extruders;
     };
 
     /// Whether a unit's toolhead has a sensor. @p unit_extruders are the
@@ -254,6 +257,9 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
         // per-lane answer from the aggregate current_slot pointer, which we resolve
         // from several sources and which goes null mid-toolchange (#1194).
         t.has_per_slot_loaded_authority = true;
+        // load_filament() sends `CHANGE_TOOL LANE={n}`, which unloads the seated
+        // lane and swaps heads itself; change_tool() on a toolchanger only mounts.
+        t.load_swaps_seated_lane = true;
         // AFC refuses LANE_UNLOAD outright while printing, so the affordance must
         // grey out with the rest — see AmsBackend for why this is not the default.
         t.cold_lane_ops_refused_during_print = true;
@@ -413,6 +419,9 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     }
 
     AmsError cancel() override;
+    /// Also drops the optimistic dispatch, whose ack the restart ended, and
+    /// retires its generation so a late ack resolves nothing.
+    void on_klipper_restarted() override;
 
     // Configuration
     AmsError apply_user_edit(int slot_index, const SlotInfo& info,
@@ -838,53 +847,15 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     void query_lane_data();
 
     /**
-     * @brief Whether this machine has an AFC toolchanger.
-     *
-     * The registration gate for AFC_SELECT_TOOL / AFC_UNSELECT_TOOL: both are
-     * registered by AfcToolchanger.__init__ (AFC_Toolchanger.py:47-53) and by
-     * nothing else, and Klipper loads that class only for an
-     * `[AFC_Toolchanger <name>]` section.
-     *
-     * Two INDEPENDENT sufficient signals, OR-ed — each one on its own implies
-     * the section exists, and neither is necessary:
-     *
-     *  1. configfile.settings carries an `afc_toolchanger <name>` section. This
-     *     is literally the registration condition, so it is authoritative.
-     *  2. AFC's `units` array carries a unit whose type is `Toolchanger`. AFC
-     *     publishes units as `"<Type> <name>"` with spaces in the type replaced
-     *     by underscores (AFC.py get_status, v1.2.0:2550-2556), and the type is
-     *     the string AfcToolchanger set on itself
-     *     (`config.get("type", "Toolchanger")`).
-     *
-     * Signal 2 alone is NOT enough: that same loop only emits a unit when
-     * `len(unit.lanes) > 0` (AFC.py v1.2.0:2554). A toolchanger whose toolheads
-     * are all lane-fed (a BoxTurtle feeding several heads on a shuttle) has its
-     * per-toolhead synthetic lane popped back off the unit by
-     * AFCExtruder.check_lanes() (AFC_extruder.py:391-401) once a real lane
-     * exists, so the Toolchanger unit can legitimately end up with zero lanes
-     * and never appear in `units` at all. Signal 1 is what covers that machine.
-     * Conversely signal 2 covers the case where configfile is unreachable.
-     *
-     * Distinct from `num_extruders_ > 1`, which counts `[AFC_extruder]`
-     * sections and is therefore also true on IDEX and standalone-toolhead
-     * machines that have no toolchanger and no AFC_SELECT_TOOL.
-     *
-     * Takes mutex_; callers must NOT hold it.
-     */
-    [[nodiscard]] bool has_toolchanger() const;
-
-    /**
      * @brief Read the AFC topology that only the printer's config file carries.
      *
      * One-shot `printer.objects.query {"configfile": ["settings"]}`, recovering
-     * two things no get_status() publishes:
+     * topology no get_status() publishes, including:
      *
      *  - the AFC_extruder section -> Klipper extruder name map. AFC derives a
      *    toolhead's tool index from `th_extruder_name` (AFC_extruder.py:222-223
      *    = `config.get("extruder_name", <section name>)`, consumed at
      *    AFC_Toolchanger.py:231-232, both v1.2.0).
-     *  - whether an `[AFC_Toolchanger <name>]` section exists at all, which is
-     *    exactly what registers AFC_SELECT_TOOL.
      *
      * Costs one query of the whole resolved config at startup; the same query
      * the bed-mesh and screws-tilt panels already make on demand.
@@ -1105,6 +1076,27 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// @pre mutex_ held.
     void apply_unit_environment();
 
+    /// True when AFC publishes a `Toolchanger` unit: its heads are mounted by
+    /// AFC_SELECT_TOOL, not by T{n}. @pre mutex_ held.
+    [[nodiscard]] bool has_toolchanger_unit_locked() const;
+
+    /// False only when configfile has answered and no AFC_extruder section
+    /// named, or resolving to, @p klipper_name sets `toolchanger_unit`. AFC_SELECT_TOOL on such a
+    /// head logs an error and returns ok without moving, so the operation sits in SELECTING
+    /// until its timeout. @pre mutex_ held.
+    [[nodiscard]] bool head_is_mountable_locked(const std::string& klipper_name) const;
+
+    /// Has AFC registered T@p tool_number? A T number is a lane's, not a
+    /// position: AFC registers T<n> for every tool in every lane's map (the
+    /// extras of a multi-tool lane included), so lane4 may run T7 on a
+    /// four-lane unit, and SET_MAP and T<n> both refuse an unregistered one.
+    /// True for any tool >= 0 until AFC has published its registered set.
+    /// @pre mutex_ held.
+    [[nodiscard]] bool tool_registered_locked(int tool_number) const;
+
+    /// The lane whose map lists T@p tool_number, or -1. @pre mutex_ held.
+    [[nodiscard]] int lane_carrying_tool_locked(int tool_number) const;
+
     /// Commit a configfile.settings answer (UI thread, takes mutex_).
     void apply_configfile_topology(ConfigfileTopology topo);
 
@@ -1281,6 +1273,10 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     // Cleared when the lane is unmapped, and ignored whenever the tool is no longer
     // a member of a present "map".
     std::unordered_map<std::string, int> lane_current_tool_;
+
+    /// Every tool each lane's present "map" lists. SlotRegistry keeps one tool
+    /// per lane, so the extras of a multi-tool lane live only here.
+    std::unordered_map<std::string, std::vector<int>> lane_map_tools_;
 
     // A lane_data payload keyed by T(n) (virtual-tools firmware, #832) that
     // arrived while no tool mapping could resolve its records. Kept whole and
@@ -1530,16 +1526,16 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// suffix; empty until it answers, and units report a toolhead sensor
     /// meanwhile.
     std::unordered_map<std::string, bool> extruder_sensor_fitted_;
-
-    /// True once an `[AFC_Toolchanger …]` section has been seen in
-    /// configfile.settings. Never cleared by a config that lacks one — absence
-    /// in an unanswered/unavailable configfile is not evidence, and the units
-    /// array is the independent second signal. See has_toolchanger().
-    bool configfile_has_toolchanger_{false};
+    /// ConfigfileTopology::toolchanger_extruders; empty until configfile answers.
+    std::set<std::string> toolchanger_extruder_sections_;
 
     /// Section names already reported as unresolvable — dedupes the warning so
     /// it fires once per extruder, not once per status frame.
     mutable std::set<std::string> extruder_tool_index_warned_;
+
+    /// Heads already reported as off the toolchanger, so a mount warns once
+    /// per head rather than on every tool change.
+    std::set<std::string> unmountable_head_warned_;
 
     // Per-extruder toolhead LED state (for multi-extruder mode)
     std::unordered_map<int, bool> toolhead_led_state_; ///< tool_index → LED on/off

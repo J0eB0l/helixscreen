@@ -5,6 +5,7 @@
 
 #include "ams_backend_afc.h"
 #include "ams_backend_happy_hare.h"
+#include "ams_backend_indx.h"
 #include "ams_backend_openams.h"
 #include "ams_state.h"
 #include "settings_manager.h"
@@ -558,37 +559,27 @@ AmsError AmsBackend::commit_user_edit(int slot_index, const SlotInfo& original,
     return kept_by_spool;
 }
 
-std::string AmsBackend::normalize_material(const std::string& material) const {
-    auto supported = get_supported_materials();
-    if (!supported || supported->empty()) {
-        return material;
-    }
-    const auto& list = *supported;
+std::optional<std::string>
+match_material(const std::string& material, const std::vector<std::string>& list,
+               const std::vector<std::pair<std::string, std::string>>& aliases) {
+    const std::string input_lc = helix::text_io::to_lower(material);
 
-    // Case-insensitive lowercase helper.
-    auto lower = [](std::string s) {
-        s = helix::text_io::to_lower(s);
-        return s;
-    };
-
-    // (2) Case-insensitive exact match against the whitelist.
-    const std::string input_lc = lower(material);
+    // Case-insensitive exact match against the whitelist.
     for (const auto& s : list) {
-        if (lower(s) == input_lc) {
+        if (helix::text_io::to_lower(s) == input_lc) {
             return s;
         }
     }
 
-    // (3) Firmware-specific aliases (backends override get_material_aliases()
-    //     to handle names the shared filament DB groups differently than
-    //     firmware does — e.g., "Silk PLA" -> "SILK" on AD5X).
-    for (const auto& [alias, target] : get_material_aliases()) {
-        if (lower(alias) == input_lc) {
+    // Firmware-specific aliases (e.g. "Silk PLA" -> "SILK" on AD5X, which the
+    // shared filament DB groups differently).
+    for (const auto& [alias, target] : aliases) {
+        if (helix::text_io::to_lower(alias) == input_lc) {
             return target;
         }
     }
 
-    // (4) compat_group match via the filament database.
+    // compat_group match via the filament database.
     auto info = filament::find_material(material);
     if (info.has_value() && info->compat_group != nullptr) {
         std::string_view group(info->compat_group);
@@ -600,9 +591,17 @@ std::string AmsBackend::normalize_material(const std::string& material) const {
             }
         }
     }
+    return std::nullopt;
+}
 
-    // (5) Fallback: first whitelist entry (typically the safest / most common).
-    return list.front();
+std::string AmsBackend::normalize_material(const std::string& material) const {
+    auto supported = get_supported_materials();
+    if (!supported || supported->empty()) {
+        return material;
+    }
+    // Fallback: first whitelist entry (typically the safest / most common).
+    return match_material(material, *supported, get_material_aliases())
+        .value_or(supported->front());
 }
 
 #ifdef HELIX_ENABLE_MOCKS
@@ -803,13 +802,14 @@ static std::unique_ptr<AmsBackend> try_create_mock(IMoonrakerClient* mock_client
                      mode);
         return nullptr;
     }
-    // multiACE on a U1: mock hardware the same way. MoonrakerClientMock seeds
-    // the `ace` + `filament_detect` objects and the engine-shaped frames, and
-    // the production AmsBackendMultiAce runs against them (pair with
+    // multiACE on a U1 and INDX: mock hardware the same way. MoonrakerClientMock
+    // seeds their objects and frames, and the production AmsBackendMultiAce /
+    // AmsBackendIndx run against them (multiACE pairs with
     // HELIX_MOCK_PRINTER=snapmaker_u1).
-    if (mode == "multiace") {
-        spdlog::info("[AMS Backend] HELIX_MOCK_AMS=multiace selects mock hardware, not a mock "
-                     "backend - deferring to real discovery");
+    if (mode == "multiace" || mode == "indx") {
+        spdlog::info("[AMS Backend] HELIX_MOCK_AMS={} selects mock hardware, not a mock "
+                     "backend - deferring to real discovery",
+                     mode);
         return nullptr;
     }
     // Personas that model firmware HelixScreen talks to through a production
@@ -856,6 +856,7 @@ bool AmsBackend::sensor_belongs_to_backend(AmsType type, const std::string& bare
 #endif
     case AmsType::ACE:
     case AmsType::TOOL_CHANGER:
+    case AmsType::INDX:
     case AmsType::SNAPMAKER:
     case AmsType::QIDI_BOX:
     case AmsType::OPENAMS:
@@ -876,6 +877,7 @@ nlohmann::json AmsBackend::required_status_objects(const helix::PrinterDiscovery
     merge(AmsBackendAfc::required_status_objects(hw));
     merge(AmsBackendHappyHare::required_status_objects(hw));
     merge(AmsBackendOpenAms::required_status_objects(hw));
+    merge(AmsBackendIndx::required_status_objects(hw));
 #if HELIX_HAS_IFS
     if (hw.mmu_type() == AmsType::AD5X_IFS) {
         for (const auto& name : AmsBackendAd5xIfs::required_status_objects(hw)) {
@@ -956,6 +958,15 @@ std::unique_ptr<AmsBackend> AmsBackend::create(AmsType detected_type, IMoonraker
         spdlog::debug("[AMS Backend] Creating Tool Changer backend");
         // Note: Caller must use set_discovered_tools() after creation to set tool names
         return std::make_unique<AmsBackendToolChanger>(api, client);
+
+    case AmsType::INDX:
+        if (!api || !client) {
+            spdlog::error("[AMS Backend] INDX requires IMoonrakerAPI and MoonrakerClient");
+            return nullptr;
+        }
+        spdlog::debug("[AMS Backend] Creating INDX backend");
+        // Sized and wired by set_discovery() before start()
+        return std::make_unique<AmsBackendIndx>(api, client);
 
     case AmsType::AD5X_IFS:
 #if HELIX_HAS_IFS
@@ -1046,11 +1057,31 @@ AmsError AmsBackend::set_tool_mapping(int tool_number, int slot_index) {
     return result;
 }
 
+bool AmsBackend::firmware_reported_tool_mapping() const {
+    return reports_firmware_tool_mapping() && firmware_tool_mapping_generation() > 0;
+}
+
+helix::FirmwareRouting AmsBackend::firmware_default_routing() const {
+    // Only a table the firmware keeps, and has reported at least once, is what
+    // it routes by. A table no frame has stated yet holds nothing but our own
+    // optimistic writes, and a per-print map is not a standing table at all.
+    if (!firmware_reported_tool_mapping() || get_remap_strategy() != RemapStrategy::Native) {
+        return helix::FirmwareRouting::identity();
+    }
+    helix::FirmwareRouting routing;
+    routing.head_for_tool = get_tool_mapping();
+    if (routing.head_for_tool.empty()) {
+        return helix::FirmwareRouting::identity();
+    }
+    routing.fallback_head = -1; // a tool no lane is mapped to has nowhere to run
+    return routing;
+}
+
 helix::printer::ToolMappingOrigin AmsBackend::tool_mapping_origin() const {
     // A printer that publishes its own live table has already said what will
     // print. Nothing about the shape of that answer makes it less true, so it
     // needs no second opinion from us.
-    if (reports_firmware_tool_mapping() && firmware_tool_mapping_generation() > 0) {
+    if (firmware_reported_tool_mapping()) {
         return helix::printer::ToolMappingOrigin::Deliberate;
     }
 

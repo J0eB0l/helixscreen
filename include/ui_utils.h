@@ -441,9 +441,63 @@ inline void destroy_static_panels() {
     }
 }
 
+/**
+ * @brief Send @p obj the events a quick tap delivers: SHORT_CLICKED, then CLICKED.
+ *
+ * Taps bind CLICKED, but a synthetic tap delivers what a real one does so a
+ * handler on either event sees it. Stops as soon as a handler deletes @p obj
+ * (a tap that closes its screen).
+ *
+ * @return LV_RESULT_INVALID when @p obj was deleted, else LV_RESULT_OK.
+ */
+inline lv_result_t send_tap(lv_obj_t* obj) {
+    if (lv_obj_send_event(obj, LV_EVENT_SHORT_CLICKED, nullptr) == LV_RESULT_INVALID)
+        return LV_RESULT_INVALID;
+    return lv_obj_send_event(obj, LV_EVENT_CLICKED, nullptr);
+}
+
+/**
+ * @brief End the press @p indev is tracking, so its release is not a tap.
+ *
+ * A hold handler that acts calls this. LVGL sends CLICKED on every release, the
+ * one ending a long press included, and starts the long press on time alone, so
+ * the hold handler is the only place that knows whether the hold meant
+ * something. After this the release sends PRESS_LOST in place of RELEASED and
+ * CLICKED (lib/lvgl/src/indev/lv_indev.c#indev_proc_release), and the rest of
+ * the press scrolls and drags nothing. A hold handler that declines does not
+ * call it, so the press still ends in its tap.
+ */
+inline void end_press(lv_indev_t* indev) {
+    if (indev)
+        lv_indev_wait_release(indev);
+}
+
+/// end_press() for the input device that delivered @p e.
+inline void end_press(lv_event_t* e) {
+    lv_indev_t* indev = e ? lv_event_get_indev(e) : nullptr;
+    end_press(indev ? indev : lv_indev_active());
+}
+
 // ============================================================================
 // Recursive Widget Flag Utilities
 // ============================================================================
+
+/**
+ * @brief Recursively set EVENT_BUBBLE on every descendant of obj, so touch
+ * events (long press, tap) on any of them also reach obj.
+ *
+ * The home grid does this to each page so a hold anywhere on a widget reaches
+ * edit mode. A widget under it whose child stops a tap from reaching the
+ * widget's own tap handler must bind both to the same trigger.
+ */
+inline void set_event_bubble_recursive(lv_obj_t* obj) {
+    uint32_t count = lv_obj_get_child_count(obj);
+    for (uint32_t i = 0; i < count; ++i) {
+        lv_obj_t* child = lv_obj_get_child(obj, static_cast<int32_t>(i));
+        lv_obj_add_flag(child, LV_OBJ_FLAG_EVENT_BUBBLE);
+        set_event_bubble_recursive(child);
+    }
+}
 
 /// Marks an object whose CLICKABLE disable_widget_clicks_recursive() removed,
 /// so enable_widget_clicks_recursive() restores exactly those and leaves an

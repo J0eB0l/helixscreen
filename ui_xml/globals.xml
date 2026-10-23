@@ -1013,8 +1013,6 @@
     <!-- Faceted toolhead base color (static - Voron-style red) -->
     <color name="toolhead_body" value="#E53935"/>
     <!-- AMS slot colors (static - 3D visualization) -->
-    <color name="ams_hub" value="#1A1A1A"/>
-    <color name="ams_hub_border" value="#333333"/>
     <color name="ams_badge_bg" value="#505050"/>
     <!-- Spool canvas colors (static - 3D visualization) -->
     <color name="spool_body" value="#666666"/>
@@ -1177,9 +1175,9 @@
     <str name="icon_eye_off" value="󰈉"/>
     <str name="icon_fan" value="󰈐"/>
     <str name="icon_fan_off" value="󰠝"/>
-    <str name="icon_filament" value="󰹛"/>
-    <str name="icon_filament_alert" value="󱇀"/>
-    <str name="icon_filament_outline" value="󰹜"/>
+    <str name="icon_filament" value="󾀁"/>
+    <str name="icon_filament_alert" value="󾀃"/>
+    <str name="icon_filament_outline" value="󾀂"/>
     <str name="icon_filter" value="󰈲"/>
     <str name="icon_fine_tune" value="󰘮"/>
     <str name="icon_fire" value="󰈸"/>

@@ -548,12 +548,9 @@ TEST_CASE_METHOD(HotReloadFixture, "recursive scan finds files in nested subdirs
     REQUIRE(found_ultrawide);
 }
 
-TEST_CASE_METHOD(HotReloadFixture, "recursive scan skips translations and claude-recall dirs",
-                 "[hot-reload]") {
+TEST_CASE_METHOD(HotReloadFixture, "recursive scan skips the translations dir", "[hot-reload]") {
     fs::create_directories(temp_dir_ / "translations");
     std::ofstream(temp_dir_ / "translations" / "en.xml") << "<component/>";
-    fs::create_directories(temp_dir_ / ".claude-recall");
-    std::ofstream(temp_dir_ / ".claude-recall" / "note.xml") << "<component/>";
     create_xml("real_panel.xml");
 
     helix::XmlHotReloader hr;

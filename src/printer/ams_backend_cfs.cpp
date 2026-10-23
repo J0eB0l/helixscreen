@@ -39,12 +39,14 @@
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cctype>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 #include "hv/json.hpp"
@@ -133,6 +135,24 @@ bool is_vender_sentinel(const std::string& v) {
 /// so a non-sentinel value still means "either a tag was read or the user
 /// labeled this bay". That second case is carried by `vender`, which reports
 /// occupancy for any seated spool independently of what the RFID fields say.
+/// A tagged bay's `vender` entry: the tag's whole record, 40 alphanumeric
+/// characters (printer-research/CREALITY_CFS_K2_INTERNALS.md § "RFID tags").
+constexpr std::size_t kTagRecordLength = 40;
+/// The supplier field, chars 6-9 of the record.
+constexpr std::size_t kTagSupplierOffset = 5;
+constexpr std::size_t kTagSupplierLength = 4;
+constexpr std::string_view kCrealitySupplierCode = "0276";
+/// The serial field, chars 29-34 of the record.
+constexpr std::size_t kTagSerialOffset = 28;
+constexpr std::size_t kTagSerialLength = 6;
+/// Creality's factory serial, which every stock spool carries.
+constexpr int kFactoryTagSerial = 1;
+
+bool is_tag_record(std::string_view v) {
+    return v.size() == kTagRecordLength &&
+           std::all_of(v.begin(), v.end(), [](unsigned char c) { return std::isalnum(c) != 0; });
+}
+
 bool is_material_code_sentinel(const std::string& v) {
     return v.empty() || v == "none" || v == "None" || v == "-1" || v == "unknown";
 }
@@ -923,7 +943,7 @@ AmsBackendCfs::parse_stock_box_status(const nlohmann::json& box_json,
             //      ecosystem, so a present-but-unresolved tag is a Creality
             //      spool. A user override still wins over this.
             if (slot.brand.empty() && vender_occupied) {
-                slot.brand = (vender_str == "unknown") ? "Creality" : vender_str;
+                slot.brand = brand_from_vender(vender_str);
             }
 
             // Remaining length
@@ -1493,6 +1513,64 @@ static std::string fingerprint_rgb(const std::string& fingerprint) {
     return color;
 }
 
+std::string AmsBackendCfs::brand_from_vender(const std::string& vender) {
+    if (is_vender_sentinel(vender)) {
+        return {};
+    }
+    const bool record = is_tag_record(vender);
+    const bool creality =
+        vender == "unknown" ||
+        (record && std::string_view(vender).substr(kTagSupplierOffset, kTagSupplierLength) ==
+                       kCrealitySupplierCode);
+    if (creality) {
+        return "Creality"; // i18n: do not translate - brand name
+    }
+    return record ? std::string{} : vender;
+}
+
+std::optional<int> AmsBackendCfs::tag_record_spoolman_id(std::string_view vender) {
+    if (!is_tag_record(vender)) {
+        return std::nullopt;
+    }
+    const std::string_view serial = vender.substr(kTagSerialOffset, kTagSerialLength);
+    if (!std::all_of(serial.begin(), serial.end(),
+                     [](unsigned char c) { return std::isdigit(c) != 0; })) {
+        return std::nullopt;
+    }
+    int id = 0;
+    for (const char c : serial) {
+        id = id * 10 + (c - '0');
+    }
+    if (id <= kFactoryTagSerial) {
+        return std::nullopt;
+    }
+    return id;
+}
+
+bool AmsBackendCfs::tags_name_spoolman_spools() const {
+    return schema_ != CfsSchema::Flat;
+}
+
+namespace {
+
+/// The spool a stock box's tag record for one bay names. A flat-schema state
+/// has no `T<n>` units and names none.
+std::optional<int> stock_tag_spoolman_id(const nlohmann::json& box_state, int global_index) {
+    const auto unit = box_state.find("T" + std::to_string(global_index / 4 + 1));
+    if (unit == box_state.end() || !unit->is_object()) {
+        return std::nullopt;
+    }
+    const auto vender = unit->find("vender");
+    const auto bay = static_cast<std::size_t>(global_index % 4);
+    if (vender == unit->end() || !vender->is_array() || bay >= vender->size() ||
+        !(*vender)[bay].is_string()) {
+        return std::nullopt;
+    }
+    return AmsBackendCfs::tag_record_spoolman_id((*vender)[bay].get<std::string>());
+}
+
+} // namespace
+
 std::optional<CfsSchema> AmsBackendCfs::fingerprint_schema(const std::string& fingerprint) {
     const auto pipe = fingerprint.find('|');
     if (pipe == std::string::npos || fingerprint.find('|', pipe + 1) != std::string::npos) {
@@ -1811,7 +1889,7 @@ void AmsBackendCfs::handle_box_frame(const nlohmann::json& box, bool print_holds
     }
     auto new_info = parse_box_status(state, &own_labels);
 
-    file_box_readings(new_info);
+    file_box_readings(new_info, state);
 
     BoxFrame frame;
     frame.box = &box;
@@ -1893,7 +1971,8 @@ void AmsBackendCfs::handle_box_frame(const nlohmann::json& box, bool print_holds
     apply_box_frame_locked(frame);
 }
 
-void AmsBackendCfs::file_box_readings(const AmsSystemInfo& new_info) {
+void AmsBackendCfs::file_box_readings(const AmsSystemInfo& new_info,
+                                      const nlohmann::json& box_state) {
     // Firmware's own account of every bay this frame described. What
     // makes this correct is the values, not the position: new_info is
     // what the parse just built out of the payload, where the
@@ -1953,6 +2032,12 @@ void AmsBackendCfs::file_box_readings(const AmsSystemInfo& new_info) {
                                              : std::nullopt,
                     slot.nozzle_temp_max > 0 ? std::optional<int>(slot.nozzle_temp_max)
                                              : std::nullopt);
+                // The spool the tag record names. The fold above rebuilds the
+                // reading from this frame alone, and nothing of ours writes the
+                // record's serial back, so the id is this frame's too.
+                if (const auto tag_spool = stock_tag_spoolman_id(box_state, slot.global_index)) {
+                    tag_readings_[slot.global_index].spoolman_id = tag_spool;
+                }
 
                 // Whether the identity declared on this bay still names
                 // what is in it. The id is new_info's, which is the flat
@@ -2695,6 +2780,14 @@ AmsError AmsBackendCfs::recover() {
     if (err.result != AmsResult::SUCCESS)
         return err;
     return execute_gcode(recover_gcode(macro_variant_));
+}
+
+void AmsBackendCfs::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        end_phase_tracking();
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
 }
 
 AmsError AmsBackendCfs::cancel() {
@@ -4504,11 +4597,8 @@ AmsError AmsBackendCfs::apply_endless_spool_enabled(bool enabled) {
     // Recorded only once Klipper has run it: a dispatch proves nothing, and a
     // dialect without the command or a rejected send must leave the cache on
     // the box's last word.
-    auto token = lifetime_.token();
-    return send_endless_spool_switch(setter + (enabled ? "1" : "0"), [this, token, enabled]() {
-        token.defer("AmsBackendCfs::auto_refill_sent",
-                    [this, enabled]() { record_auto_refill_sent(enabled); });
-    });
+    return send_endless_spool_switch(setter + (enabled ? "1" : "0"),
+                                     [this, enabled]() { record_auto_refill_sent(enabled); });
 }
 
 helix::printer::EndlessSpoolConfig AmsBackendCfs::get_endless_spool_config() const {
@@ -4729,16 +4819,14 @@ AmsBackendCfs::calibrate_cutter(std::function<void(bool ok, const std::string& l
     };
 
     auto token = lifetime_.token();
-    auto on_complete = [this, token, on_result, watch, unregister]() {
-        token.defer("AmsBackendCfs::cutcal_done", [this, token, on_result, watch, unregister]() {
-            calibration_in_flight_ = false;
-            unregister();
-            const std::string& line =
-                !watch->found_line.empty() ? watch->found_line : watch->saved_line;
-            if (on_result) {
-                on_result(true, line);
-            }
-        });
+    auto on_complete = [this, on_result, watch, unregister]() {
+        calibration_in_flight_ = false;
+        unregister();
+        const std::string& line =
+            !watch->found_line.empty() ? watch->found_line : watch->saved_line;
+        if (on_result) {
+            on_result(true, line);
+        }
     };
     auto on_error = [this, token, on_result, unregister](const MoonrakerError& err) {
         token.defer("AmsBackendCfs::cutcal_err", [this, token, on_result, unregister, err]() {
@@ -4794,37 +4882,30 @@ AmsError AmsBackendCfs::start_chute_calibration(
     // once the user has left the flow, no further step goes out.
     const AmsError err = execute_gcode(
         "BOX_CUSTOM_COMMAND CMD=XYZ_ZERO",
-        [this, token, on_ready = std::move(on_ready), cancel_requested, prepare_ran, fail]() {
-            token.defer("AmsBackendCfs::chute_home_done", [this, token, on_ready, cancel_requested,
-                                                           prepare_ran, fail]() {
-                if (cancel_requested && cancel_requested->load()) {
-                    // Cancelled during the home: the head sits at the
-                    // homed origin and PREPARE never ran, so there is
-                    // nothing to unwind.
+        [this, on_ready = std::move(on_ready), cancel_requested, prepare_ran, fail]() {
+            if (cancel_requested && cancel_requested->load()) {
+                // Cancelled during the home: the head sits at the homed origin
+                // and PREPARE never ran, so there is nothing to unwind.
+                calibration_in_flight_ = false;
+                return;
+            }
+            *prepare_ran = true;
+            execute_gcode(
+                "BOX_CUSTOM_COMMAND CMD=COORDINATES_ADJUST_PREPARE",
+                [this, on_ready, cancel_requested]() {
+                    if (cancel_requested && cancel_requested->load()) {
+                        // Cancelled while PREPARE ran: the caller is gone, so
+                        // the backend re-parks itself.
+                        calibration_in_flight_ = false;
+                        execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE");
+                        return;
+                    }
                     calibration_in_flight_ = false;
-                    return;
-                }
-                *prepare_ran = true;
-                execute_gcode(
-                    "BOX_CUSTOM_COMMAND CMD=COORDINATES_ADJUST_PREPARE",
-                    [this, token, on_ready, cancel_requested, fail]() {
-                        token.defer("AmsBackendCfs::chute_prepare_done",
-                                    [this, token, on_ready, cancel_requested, fail]() {
-                                        if (cancel_requested && cancel_requested->load()) {
-                                            // Cancelled while PREPARE ran: the caller
-                                            // is gone, so the backend re-parks itself.
-                                            calibration_in_flight_ = false;
-                                            execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE");
-                                            return;
-                                        }
-                                        calibration_in_flight_ = false;
-                                        if (on_ready) {
-                                            on_ready();
-                                        }
-                                    });
-                    },
-                    fail);
-            });
+                    if (on_ready) {
+                        on_ready();
+                    }
+                },
+                fail);
         },
         fail);
     if (err.success()) {
@@ -4903,18 +4984,12 @@ AmsBackendCfs::save_chute_position(std::function<void()> on_saved,
     };
     const AmsError err = execute_gcode(
         "BOX_CUSTOM_COMMAND CMD=COORDINATES_ADJUST_SAVE_POS",
-        [this, token, on_saved = std::move(on_saved), watch, unregister]() {
-            token.defer("AmsBackendCfs::chute_saved", [this, token, on_saved, watch, unregister]() {
-                execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE",
-                              [this, token, on_saved, watch, unregister]() {
-                                  token.defer("AmsBackendCfs::chute_parked",
-                                              [this, on_saved, watch, unregister]() {
-                                                  unregister();
-                                                  last_chute_save_line_ = *watch;
-                                                  if (on_saved)
-                                                      on_saved();
-                                              });
-                              });
+        [this, on_saved = std::move(on_saved), watch, unregister]() {
+            execute_gcode("BOX_CUSTOM_COMMAND CMD=Y_SAFE", [this, on_saved, watch, unregister]() {
+                unregister();
+                last_chute_save_line_ = *watch;
+                if (on_saved)
+                    on_saved();
             });
         },
         fail);

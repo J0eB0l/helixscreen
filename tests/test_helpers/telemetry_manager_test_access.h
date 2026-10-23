@@ -31,6 +31,12 @@
 // lint, L065/L088).
 class TelemetryManagerTestAccess {
   public:
+    /// The hardware profile's `ams` section for @p hw.
+    static nlohmann::json hw_ams_section(const TelemetryManager& t,
+                                         const helix::PrinterDiscovery& hw) {
+        return t.build_hw_ams_section(hw);
+    }
+
     /// Make do_send() a no-op so try_send() can be called without HTTP. Leaves
     /// the send-interval gate, the thread spawn and the queue untouched.
     static void disable_network(TelemetryManager& t) {

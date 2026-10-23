@@ -68,6 +68,7 @@ BackendCaps read_backend_caps(AmsBackend* backend, AmsSystemInfo& info_out, int 
     caps.requires_slot_selection_for_load = backend->requires_slot_selection_for_load();
     caps.needs_unload_before_load = backend->needs_unload_before_load(info_out, target_slot);
     caps.load_feeds_filament = backend->load_feeds_filament();
+    caps.load_swaps_seated_lane = backend->load_swaps_seated_lane();
     // Distinct from !requires_slot_selection_for_load(): plan_load() needs to
     // tell "bypass is suppressing the lane tier" apart from "this backend
     // never wanted a slot", because a named lane wants opposite treatment.
@@ -233,28 +234,33 @@ const char* preheat_skip_name(PreheatSkip reason) {
 // Homing
 // ============================================================================
 
-bool needs_prerequisite_home(const FilamentOpPlan& plan, StandardMacroSlot slot,
-                             AmsBackend* backend, bool toolhead_homed) {
+bool prerequisite_home_needed(FilamentTier tier, bool toolhead_homed, bool backend_delegates_homing,
+                              bool macro_needs_home_first) {
     if (toolhead_homed) {
         return false;
     }
 
-    switch (plan.tier) {
+    switch (tier) {
     case FilamentTier::AmsBackend:
-        return !(backend && backend->delegates_homing_to_printer());
+        return !backend_delegates_homing;
 
     case FilamentTier::Macro:
-        return !filament_macros::macro_homes_if_needed(
-            StandardMacros::instance().get(slot).get_macro());
+        return macro_needs_home_first;
 
     case FilamentTier::RawGcode:
-        // The fallback extrudes and retracts E only, which Klipper runs unhomed.
-        return false;
-
     case FilamentTier::Refused:
         return false;
     }
-    return true;
+    return false;
+}
+
+bool needs_prerequisite_home(const FilamentOpPlan& plan, StandardMacroSlot slot,
+                             AmsBackend* backend, bool toolhead_homed) {
+    const bool delegates = backend && backend->delegates_homing_to_printer();
+    const bool macro_needs_home =
+        plan.tier == FilamentTier::Macro &&
+        filament_macros::macro_needs_home_first(StandardMacros::instance().get(slot).get_macro());
+    return prerequisite_home_needed(plan.tier, toolhead_homed, delegates, macro_needs_home);
 }
 
 // ============================================================================

@@ -3,6 +3,7 @@
 
 #include "ui_ams_detail.h"
 
+#include "ui_ams_edit_follow_up.h"
 #include "ui_ams_lane_spool.h"
 #include "ui_ams_slot.h"
 #include "ui_bypass_spool_widget.h"
@@ -1293,6 +1294,7 @@ bool ams_dispatch_backend_action(AmsContextMenu::MenuAction action, int slot,
         cleared.total_weight_g = -1;
         auto error = AmsState::instance().commit_slot_edit(slot, original, cleared);
         if (error.success() || error.partially_applied) {
+            helix::ui::offer_edit_follow_up(slot, original, cleared);
             // The commit clears what an edit can state - and, unlinked, a
             // colour pick, a typed weight or a colour name never engages as a
             // clear, so the statement leaves the lane's standing user record

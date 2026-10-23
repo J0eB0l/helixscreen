@@ -221,8 +221,8 @@ class DeviceOpsBypassFixture : public LVGLUITestFixture {
     /// operation thread, an AmsState event sync and a deferred observer, so the
     /// number of drains it needs is an implementation detail, not something a
     /// test should hard-code. wait_until() sleeps real time between passes so a
-    /// background thread can run; settle() never does (process_lvgl only sleeps
-    /// above 50ms), so it cannot wait for one.
+    /// background thread can run; settle() never does (process_lvgl never
+    /// sleeps), so it cannot wait for one.
     template <typename Pred> bool settle_until(Pred pred) {
         return wait_until([&] {
             helix::ui::UpdateQueue::instance().drain();

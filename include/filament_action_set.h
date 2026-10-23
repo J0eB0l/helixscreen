@@ -61,12 +61,18 @@ struct FilamentActionSet {
     bool unload_opens_picker = false; ///< Several heads: Unload asks which
 };
 
-enum class HeadPickOp { Load, Unload, Mount };
+/// What the head picker is choosing heads for. SeatByHand claims a tool the
+/// user holds on the head: any tool, none suggested.
+enum class HeadPickOp { Load, Unload, Mount, SeatByHand };
+
+/// Whether @p op acts on exactly one head, naming no slot.
+[[nodiscard]] constexpr bool single_select(HeadPickOp op) {
+    return op == HeadPickOp::Mount || op == HeadPickOp::SeatByHand;
+}
 
 struct HeadPickRow {
     int head = -1;
-    int slot =
-        -1; ///< What the op names: the source for Load, the unload slot for Unload, -1 for Mount
+    int slot = -1; ///< What the op names: the source for Load, the unload slot for Unload, else -1
     bool enabled = false;
     std::string reason; ///< Translated; why a disabled row is disabled
     bool preselected = false;

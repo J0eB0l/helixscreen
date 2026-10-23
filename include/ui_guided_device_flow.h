@@ -44,4 +44,8 @@ void register_cfs_device_flows();
 /// build without Snapmaker support.
 void register_snapmaker_device_flows();
 
+/// Registers the Bondtech INDX flows (`indx_cycle_all`, `indx_heater_calibration`,
+/// `indx_fan_calibration`, `indx_seat_by_hand`).
+void register_indx_device_flows();
+
 } // namespace helix::ui

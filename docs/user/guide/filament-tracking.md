@@ -88,8 +88,24 @@ Once connected, a few things light up:
 
 - **Spool inventory panel** — Reach it from the **Filament** nav tab. A scrollable, searchable list of every spool in your Spoolman database, each shown with a color-coded 3D spool, its weight, and remaining percentage. Search by vendor, material, or color; filter by storage location. Tap a spool for a context menu to **set it active**, edit, print a label, duplicate, or delete.
 - **Assign to the printer** — Setting a spool "active" tells HelixScreen (and Spoolman) that this is the spool currently feeding the printer. The Home panel's Active Spool widget reflects it.
-- **Assign to an AMS slot** - Tap a slot and choose **Select Spool**, or tap the Spoolman button in the spool editor's header, to pick from Spoolman and auto-fill that slot's brand, material, color, and temperatures. See [Editing Filament Properties](filament.md#editing-filament-properties).
+- **Assign to an AMS slot** - Tap a slot and choose **Select Spool**, or tap the Spoolman button in the spool editor's header, to pick from Spoolman and auto-fill that slot's brand, material, color, and temperatures. A spool already linked to another slot is grayed out in the list. See [Editing Filament Properties](filament.md#editing-filament-properties).
 - **Scan to assign** — If you print QR-coded spool labels, scan one to look the spool up in Spoolman and link it, instead of picking from the list. See [Barcode Scanner](barcode-scanner.md) and [Label Printing](label-printing.md).
+
+### Which spool Spoolman charges on a multi-filament system
+
+Moonraker records filament usage against one spool at a time: Spoolman's **active spool**. If no spool is active while a print runs, nothing is deducted from any spool for that print. On a system with lanes (CFS, AFC, Happy Hare, QIDI Box, ACE and the others), HelixScreen sets the active spool for you:
+
+- **When a lane becomes the loaded one** and that lane is linked to a Spoolman spool, HelixScreen makes that spool the active spool. It does this on every load, including reloading the same spool, so a spool that something else cleared in between is set again.
+- **Linking a spool to the lane that is already loaded** makes it the active spool straight away. You don't need to unload and reload.
+- **The link is the only thing that counts.** HelixScreen goes by which Spoolman spool you linked to the lane. Names play no part: a spool whose filament Spoolman calls "RePETG" is charged the same as one called "PETG", whatever your slicer profile is named.
+- **A print started before the lane was linked is not tracked**, and neither is a print from a lane with no spool linked. Link the spool first (see [Editing Filament Properties](filament.md#editing-filament-properties)), then print.
+- **Unloading does not clear the active spool.** The last spool set stays active until another one is set, either by the next load of a linked lane or by you.
+
+Some filament systems set the active spool themselves, and HelixScreen leaves it to them: **AFC**, **Happy Hare** when its own Spoolman support is turned on, and **INDX** when its tool-change macros set the spool. On the **AD5X IFS**, HelixScreen never changes the active spool on its own; it changes only when you set it.
+
+> **Creality CFS:** HelixScreen counts a CFS lane as loaded once the toolhead's filament sensor sees filament from it. While a load is still feeding, the Home panel's Active Spool widget shows no spool. The lane's spool is active by the time the filament reaches the toolhead.
+
+To check which spool is active, look at the Active Spool widget on the Home panel, or at the active spool shown in Mainsail or Fluidd.
 
 ### Adding a spool
 

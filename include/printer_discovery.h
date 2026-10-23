@@ -237,6 +237,17 @@ class PrinterDiscovery {
         return medusahc_object_name_;
     }
 
+    /// The INDX toolboard module is configured: an `indx` object, or an
+    /// `[indx]` configfile section. What it means is helix::indx's business.
+    [[nodiscard]] bool has_indx() const {
+        return has_indx_;
+    }
+
+    /// The `save_variables` object exists.
+    [[nodiscard]] bool has_save_variables() const {
+        return has_save_variables_;
+    }
+
     [[nodiscard]] const std::string& pin_watch_object_name() const {
         return pin_watch_object_name_;
     }
@@ -503,7 +514,7 @@ class PrinterDiscovery {
     /// @brief Klipper object names of every detected ACE unit.
     ///
     /// One of `filament_hub` (native GoKlipper), `ace` (community drivers), or
-    /// one-or-more `ace_instance_N` (Kobra S1 mainline-Python fork, #1107).
+    /// one-or-more `ace_instance_N` (the ACEPRO driver, #1107).
     /// The discovery sequence subscribes each of these so the ACE backend gets
     /// live status. Empty when mmu_type() != AmsType::ACE.
     [[nodiscard]] const std::vector<std::string>& ace_object_names() const {
@@ -1027,6 +1038,8 @@ class PrinterDiscovery {
     std::string pin_watch_object_name_;
     bool has_medusahc_ = false;
     std::string medusahc_object_name_;
+    bool has_indx_ = false;
+    bool has_save_variables_ = false;
     bool has_chamber_heater_ = false;
     bool has_chamber_sensor_ = false;
     std::string chamber_sensor_name_;

@@ -225,14 +225,18 @@ void CameraStream::stop() {
     bool thread_joined = true;
     if (stream_thread_.joinable()) {
         auto joined = std::make_shared<std::atomic<bool>>(false);
+        // The helper owns the worker and nothing of `this`: on timeout only the
+        // helper is detached, so no thread is ever detached while another joins
+        // it (bionic aborts on that), and the helper can outlive this object.
+        auto worker = std::make_shared<std::thread>(std::move(stream_thread_));
         // Under thread exhaustion this constructor can throw
         // std::system_error(EAGAIN). Destructor paths must not let it
         // escape — detach the stream thread and skip the timed join.
         std::thread join_helper;
         bool helper_spawned = false;
         try {
-            join_helper = helix::make_thread([this, joined]() {
-                stream_thread_.join();
+            join_helper = helix::make_thread([worker, joined]() {
+                worker->join();
                 joined->store(true);
             });
             helper_spawned = true;
@@ -240,21 +244,23 @@ void CameraStream::stop() {
             spdlog::warn("[CameraStream] Failed to spawn join_helper ({}) — "
                          "detaching stream thread",
                          e.what());
-            stream_thread_.detach();
+            worker->detach();
             thread_joined = false;
             thread_detached_ = true;
         }
         if (helper_spawned) {
-            constexpr auto kJoinTimeout = std::chrono::seconds(5);
             constexpr auto kCancelInterval = std::chrono::milliseconds(200);
-            auto deadline = std::chrono::steady_clock::now() + kJoinTimeout;
+            auto deadline = std::chrono::steady_clock::now() + join_timeout_;
 
             while (!joined->load()) {
                 if (std::chrono::steady_clock::now() > deadline) {
-                    spdlog::error("[CameraStream] Thread join timed out after 5s, "
-                                  "detaching (lifetime_ guard prevents UAF)");
+                    // The worker still uses `this` (running_, recv_buf_, its
+                    // exit-path ScopeExit) with no lifetime_ check. Every owner
+                    // must see was_detached() and leak this object, never free it.
+                    spdlog::error("[CameraStream] Thread join timed out after {}ms, "
+                                  "detaching (owner must leak this stream)",
+                                  join_timeout_.count());
                     join_helper.detach();
-                    stream_thread_.detach();
                     thread_joined = false;
                     thread_detached_ = true;
                     break;

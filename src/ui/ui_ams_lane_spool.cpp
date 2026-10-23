@@ -37,8 +37,8 @@ using namespace helix;
 // ============================================================================
 // Spool visual construction (file-local)
 //
-// The layered spool graphic the widget renders: pseudo-3D canvas or flat
-// concentric rings per /ams/spool_style, plus the dashed empty-lane
+// The layered spool graphic the widget renders: a spool canvas seen from the
+// side or face-on per /ams/spool_style, plus the dashed empty-lane
 // placeholder and the error dot. Lives here rather than ams_draw because the
 // ams_lane_spool widget is its only consumer; kGhostOpa and the error/lane
 // badges it composes with stay shared in ams_drawing_utils.
@@ -50,10 +50,7 @@ struct SpoolVisual {
     bool use_3d = true;
     int32_t spool_size = 0;
     lv_obj_t* glow = nullptr;              ///< current-lane glow layer, behind the spool (hidden)
-    lv_obj_t* canvas = nullptr;            ///< 3D-only: pseudo-3D spool canvas
-    lv_obj_t* spool_outer = nullptr;       ///< flat-only: outer flange ring
-    lv_obj_t* color_swatch = nullptr;      ///< flat-only: filament color ring
-    lv_obj_t* spool_hub = nullptr;         ///< flat-only: center hub
+    lv_obj_t* canvas = nullptr;            ///< spool canvas: side view (3D) or face-on (flat)
     lv_obj_t* empty_placeholder = nullptr; ///< dashed-circle "empty" placeholder (hidden)
     lv_obj_t* error_indicator = nullptr;   ///< error dot, top-right (hidden)
 };
@@ -129,79 +126,21 @@ static SpoolVisual create_spool_visual(lv_obj_t* container, int32_t spool_size) 
         lv_obj_set_name(sv.glow, "spool_glow");
     }
 
-    if (sv.use_3d) {
-        // ====================================================================
-        // 3D SPOOL CANVAS (Bambu-style pseudo-3D with gradients + AA)
-        // ====================================================================
-        lv_obj_t* canvas = ui_spool_canvas_create(container, spool_size);
-        if (canvas) {
-            lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 0);
-            // Prevent flex layout from resizing the canvas
-            lv_obj_set_style_min_width(canvas, spool_size, LV_PART_MAIN);
-            lv_obj_set_style_min_height(canvas, spool_size, LV_PART_MAIN);
-            lv_obj_set_style_max_width(canvas, spool_size, LV_PART_MAIN);
-            lv_obj_set_style_max_height(canvas, spool_size, LV_PART_MAIN);
-            ui_spool_canvas_set_color(canvas, lv_color_hex(helix::kAmsDefaultSlotColor));
-            ui_spool_canvas_set_fill_level(canvas, 1.0f);
-            lv_obj_add_flag(canvas, LV_OBJ_FLAG_EVENT_BUBBLE);
-            sv.canvas = canvas;
-            lv_obj_set_name(canvas, "spool_graphic");
-        }
-    } else {
-        // ====================================================================
-        // FLAT STYLE (skeuomorphic concentric rings)
-        // ====================================================================
-        int32_t filament_ring_size = spool_size - 8;
-        int32_t hub_size = spool_size / 3;
-
-        lv_obj_set_style_radius(container, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-        lv_obj_set_style_shadow_width(container, 8, LV_PART_MAIN);
-        lv_obj_set_style_shadow_opa(container, LV_OPA_20, LV_PART_MAIN);
-        lv_obj_set_style_shadow_offset_y(container, 2, LV_PART_MAIN);
-        lv_obj_set_style_shadow_color(container, lv_color_black(), LV_PART_MAIN);
-
-        // Layer 1: Outer ring (flange - darker shade of filament color)
-        lv_obj_t* outer_ring = lv_obj_create(container);
-        lv_obj_set_size(outer_ring, spool_size, spool_size);
-        lv_obj_align(outer_ring, LV_ALIGN_CENTER, 0, 0);
-        lv_obj_set_style_radius(outer_ring, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(
-            outer_ring, ams_draw::darken_color(lv_color_hex(helix::kAmsDefaultSlotColor), 50),
-            LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(outer_ring, LV_OPA_COVER, LV_PART_MAIN);
-        lv_obj_set_style_border_width(outer_ring, 2, LV_PART_MAIN);
-        lv_obj_set_style_border_color(outer_ring, theme_manager_get_color("ams_hub"), LV_PART_MAIN);
-        lv_obj_set_style_border_opa(outer_ring, LV_OPA_50, LV_PART_MAIN);
-        lv_obj_remove_flag(outer_ring, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_add_flag(outer_ring, LV_OBJ_FLAG_EVENT_BUBBLE);
-        sv.spool_outer = outer_ring;
-        lv_obj_set_name(outer_ring, "spool_outer");
-
-        // Layer 2: Main filament color ring
-        lv_obj_t* filament_ring = lv_obj_create(container);
-        lv_obj_set_size(filament_ring, filament_ring_size, filament_ring_size);
-        lv_obj_align(filament_ring, LV_ALIGN_CENTER, 0, 0);
-        lv_obj_set_style_radius(filament_ring, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-        lv_obj_set_style_border_width(filament_ring, 0, LV_PART_MAIN);
-        helix::ui::apply_swatch_color(filament_ring, helix::kAmsDefaultSlotColor, "");
-        lv_obj_remove_flag(filament_ring, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_add_flag(filament_ring, LV_OBJ_FLAG_EVENT_BUBBLE);
-        sv.color_swatch = filament_ring;
-        lv_obj_set_name(filament_ring, "spool_graphic");
-
-        // Layer 3: Center hub
-        lv_obj_t* hub = lv_obj_create(container);
-        lv_obj_set_size(hub, hub_size, hub_size);
-        lv_obj_align(hub, LV_ALIGN_CENTER, 0, 0);
-        lv_obj_set_style_radius(hub, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(hub, theme_manager_get_color("ams_hub"), LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(hub, LV_OPA_COVER, LV_PART_MAIN);
-        lv_obj_set_style_border_width(hub, 1, LV_PART_MAIN);
-        lv_obj_set_style_border_color(hub, theme_manager_get_color("ams_hub_border"), LV_PART_MAIN);
-        lv_obj_remove_flag(hub, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_add_flag(hub, LV_OBJ_FLAG_EVENT_BUBBLE);
-        sv.spool_hub = hub;
-        lv_obj_set_name(hub, "spool_hub");
+    lv_obj_t* canvas = ui_spool_canvas_create(container, spool_size);
+    if (canvas) {
+        lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 0);
+        // Prevent flex layout from resizing the canvas
+        lv_obj_set_style_min_width(canvas, spool_size, LV_PART_MAIN);
+        lv_obj_set_style_min_height(canvas, spool_size, LV_PART_MAIN);
+        lv_obj_set_style_max_width(canvas, spool_size, LV_PART_MAIN);
+        lv_obj_set_style_max_height(canvas, spool_size, LV_PART_MAIN);
+        if (!sv.use_3d)
+            helix::ui::spool_canvas_set_view(canvas, helix::ui::SpoolView::Front);
+        ui_spool_canvas_set_color(canvas, lv_color_hex(helix::kAmsDefaultSlotColor));
+        ui_spool_canvas_set_fill_level(canvas, 1.0f);
+        lv_obj_add_flag(canvas, LV_OBJ_FLAG_EVENT_BUBBLE);
+        sv.canvas = canvas;
+        lv_obj_set_name(canvas, "spool_graphic");
     }
 
     // Create empty slot placeholder (circle outline with plus icon, initially hidden)
@@ -256,59 +195,19 @@ static SpoolVisual create_spool_visual(lv_obj_t* container, int32_t spool_size) 
     return sv;
 }
 
-/// Update the spool's filament (3D canvas, or the flat filament disc + darkened
-/// outer flange): its colour, multi-colour split and finish, as every swatch
-/// paints them.
+/// Update the spool's filament: its colour, multi-colour split and finish, as
+/// every swatch paints them.
 static void spool_visual_set_color(const SpoolVisual& sv, uint32_t rgb,
                                    const std::string& multi_color_hexes,
                                    helix::ui::SwatchFinish finish) {
-    if (sv.use_3d) {
-        if (sv.canvas)
-            helix::ui::spool_canvas_set_filament(sv.canvas, rgb, multi_color_hexes, finish);
-    } else if (sv.color_swatch) {
-        helix::ui::apply_swatch_color(sv.color_swatch, rgb, multi_color_hexes, finish);
-        if (sv.spool_outer)
-            lv_obj_set_style_bg_color(sv.spool_outer, ams_draw::darken_color(lv_color_hex(rgb), 50),
-                                      LV_PART_MAIN);
-    }
+    if (sv.canvas)
+        helix::ui::spool_canvas_set_filament(sv.canvas, rgb, multi_color_hexes, finish);
 }
 
-/// Update spool fill level 0.0-1.0 (3D canvas fill or flat concentric ring size)
+/// Update spool fill level 0.0-1.0
 static void spool_visual_set_fill(const SpoolVisual& sv, float fill) {
-    if (fill < 0.0f)
-        fill = 0.0f;
-    if (fill > 1.0f)
-        fill = 1.0f;
-    if (sv.use_3d) {
-        if (sv.canvas)
-            ui_spool_canvas_set_fill_level(sv.canvas, fill);
-    } else if (sv.color_swatch && sv.container && sv.spool_hub) {
-        lv_obj_update_layout(sv.container);
-        int32_t spool_w = lv_obj_get_width(sv.container);
-        int32_t hub_w = lv_obj_get_width(sv.spool_hub);
-        int32_t min_ring = hub_w + 4;
-        int32_t max_ring = spool_w - 8;
-        int32_t ring_size = min_ring + static_cast<int32_t>((max_ring - min_ring) * fill);
-        lv_obj_set_size(sv.color_swatch, ring_size, ring_size);
-        lv_obj_align(sv.color_swatch, LV_ALIGN_CENTER, 0, 0);
-    }
-}
-
-/// Toggle the empty-slot placeholder vs. the spool graphic
-static void spool_visual_set_empty(const SpoolVisual& sv, bool empty) {
-    auto show = [&](lv_obj_t* o, bool visible) {
-        if (!o)
-            return;
-        if (visible)
-            lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
-        else
-            lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-    };
-    show(sv.empty_placeholder, empty);
-    show(sv.canvas, !empty);
-    show(sv.spool_outer, !empty);
-    show(sv.color_swatch, !empty);
-    show(sv.spool_hub, !empty);
+    if (sv.canvas)
+        ui_spool_canvas_set_fill_level(sv.canvas, LV_CLAMP(0.0f, fill, 1.0f));
 }
 
 // ============================================================================
@@ -499,12 +398,7 @@ static void apply_lane_state(LaneSpoolData* d, helix::ui::LaneState state) {
     };
 
     set_visible(d->sv.canvas, show_spool);
-    set_visible(d->sv.spool_outer, show_spool);
-    set_visible(d->sv.color_swatch, show_spool);
-    set_visible(d->sv.spool_hub, show_spool);
     set_opa(d->sv.canvas, spool_opa);
-    set_opa(d->sv.spool_outer, spool_opa);
-    set_opa(d->sv.color_swatch, spool_opa);
     set_visible(d->sv.empty_placeholder, !show_spool);
     apply_highlight(d);
 }

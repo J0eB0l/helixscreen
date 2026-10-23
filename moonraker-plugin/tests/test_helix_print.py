@@ -124,17 +124,26 @@ class MockDatabase:
         self.sql_commands.append((sql, params))
         return MagicMock(lastrowid=1, rowcount=0)
 
-    async def insert_item(self, namespace: str, key: str, value: Any) -> None:
-        self.namespaces.setdefault(namespace, {})[key] = value
+    @staticmethod
+    def _key(key: Any) -> str:
+        # A one-element list names a key whole, as Moonraker takes it.
+        return ".".join(key) if isinstance(key, list) else key
 
-    async def get_item(self, namespace: str, key: str, default: Any = None) -> Any:
-        return self.namespaces.get(namespace, {}).get(key, default)
+    async def insert_item(self, namespace: str, key: Any, value: Any) -> None:
+        self.namespaces.setdefault(namespace, {})[self._key(key)] = value
 
-    async def update_item(self, namespace: str, key: str, value: Any) -> None:
-        self.namespaces.setdefault(namespace, {})[key] = value
+    async def get_item(self, namespace: str, key: Any = None, default: Any = None) -> Any:
+        if key is None:
+            if namespace not in self.namespaces:
+                return default
+            return dict(self.namespaces[namespace])
+        return self.namespaces.get(namespace, {}).get(self._key(key), default)
 
-    async def delete_item(self, namespace: str, key: str) -> None:
-        self.namespaces.get(namespace, {}).pop(key, None)
+    async def update_item(self, namespace: str, key: Any, value: Any) -> None:
+        self.namespaces.setdefault(namespace, {})[self._key(key)] = value
+
+    async def delete_item(self, namespace: str, key: Any) -> None:
+        self.namespaces.get(namespace, {}).pop(self._key(key), None)
 
     async def ns_items(self, namespace: str) -> list:
         return list(self.namespaces.get(namespace, {}).items())
@@ -434,7 +443,7 @@ class TestStatusAPI:
         assert result["temp_dir"] == ".helix_temp"
         assert result["symlink_dir"] == ".helix_print"
         assert result["cleanup_delay"] == 3600
-        assert result["version"] == "1.2.0"
+        assert result["version"] == "1.4.0"
         assert result["active_prints"] == 0
 
 
@@ -752,6 +761,85 @@ class TestPathValidation:
         })
 
         result = await handler(request)
+        assert result["status"] == "printing"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("temp", [
+        "benchy.gcode",
+        "other.gcode",
+        "prints/mod_benchy.gcode",
+        ".helix_temp/nested/mod_benchy.gcode",
+        ".helix_print/mod_benchy.gcode",
+    ])
+    async def test_the_copy_must_sit_in_a_staging_dir(
+        self, helix_print_component, mock_server, temp_gcodes_dir, temp
+    ):
+        """A failed start deletes the copy, so a copy path naming the original
+        or another user file would delete that file."""
+        gcodes = Path(temp_gcodes_dir)
+        for name in ("benchy.gcode", "other.gcode", "prints/mod_benchy.gcode",
+                     ".helix_temp/nested/mod_benchy.gcode", ".helix_print/mod_benchy.gcode"):
+            (gcodes / name).parent.mkdir(parents=True, exist_ok=True)
+            (gcodes / name).write_text("G28\n")
+        await helix_print_component.component_init()
+        apis = mock_server.components["klippy_apis"]
+        apis.run_gcode.side_effect = RuntimeError("klippy down")
+
+        with pytest.raises(Exception, match="400"):
+            await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+                "original_filename": "benchy.gcode", "temp_file_path": temp,
+                "modifications": [],
+            }))
+        assert (gcodes / temp).read_text() == "G28\n"
+        apis.run_gcode.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_staged_link_to_the_original_is_refused(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        gcodes = Path(temp_gcodes_dir)
+        (gcodes / "benchy.gcode").write_text("G28\n")
+        (gcodes / ".helix_temp").mkdir()
+        (gcodes / ".helix_temp" / "mod_benchy.gcode").symlink_to(gcodes / "benchy.gcode")
+        await helix_print_component.component_init()
+        with pytest.raises(Exception, match="400"):
+            await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+                "original_filename": "benchy.gcode",
+                "temp_file_path": ".helix_temp/mod_benchy.gcode", "modifications": [],
+            }))
+        assert (gcodes / "benchy.gcode").read_text() == "G28\n"
+
+    @pytest.mark.asyncio
+    async def test_a_staged_original_is_never_its_own_copy(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        gcodes = Path(temp_gcodes_dir)
+        (gcodes / ".helix_temp").mkdir()
+        (gcodes / ".helix_temp" / "mod_benchy.gcode").write_text("G28\n")
+        await helix_print_component.component_init()
+        mock_server.components["klippy_apis"].run_gcode.side_effect = RuntimeError("down")
+        with pytest.raises(Exception, match="400.*original"):
+            await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+                "original_filename": ".helix_temp/mod_benchy.gcode",
+                "temp_file_path": ".helix_temp/mod_benchy.gcode", "modifications": [],
+            }))
+        assert (gcodes / ".helix_temp" / "mod_benchy.gcode").read_text() == "G28\n"
+
+    @pytest.mark.asyncio
+    async def test_the_visible_staging_dir_is_accepted(
+        self, helix_print_component, mock_server, temp_gcodes_dir
+    ):
+        """Where the link dir is visible, the app stages under helix_staging
+        whatever temp_dir says."""
+        gcodes = Path(temp_gcodes_dir)
+        (gcodes / "benchy.gcode").write_text("G28\n")
+        (gcodes / "helix_staging").mkdir()
+        (gcodes / "helix_staging" / "modified_1_benchy.gcode").write_text("G28\n")
+        await helix_print_component.component_init()
+        result = await mock_server.endpoints["/server/helix/print_modified"](MockWebRequest({
+            "original_filename": "benchy.gcode",
+            "temp_file_path": "helix_staging/modified_1_benchy.gcode", "modifications": [],
+        }))
         assert result["status"] == "printing"
 
     @staticmethod

@@ -74,8 +74,8 @@ lv_opa_t material_opa(lv_obj_t* slot) {
 }
 
 /// The dashed "add filament here" circle that replaces the spool on a lane with
-/// no identity. Created in both the flat and 3D spool branches, so unlike
-/// spool_outer/canvas it is a style-independent handle on the spool visual.
+/// no identity. Every spool style creates it, so it is a style-independent
+/// handle on the spool visual.
 bool placeholder_visible(lv_obj_t* slot) {
     lv_obj_t* ph = lv_obj_find_by_name(slot, "empty_placeholder");
     REQUIRE(ph != nullptr);

@@ -70,6 +70,11 @@ SHARD_RETRIES ?= 3
 # listed, but not re-run.
 TRIAGE_TOTAL_BUDGET ?= 900
 
+# 1 fails a shard that exits on a signal after all its assertions passed (a
+# crash in teardown or at exit). CI fails it, since its step checks only the
+# exit status, so land-gate sets this; the dev-loop sweep warns and triages it.
+SHARD_CRASH_FAILS ?= 0
+
 # Shard count for the [slow] tier in test-all and test-slow. Deliberately far
 # below NPROCS: most [slow] cases wait on wall-clock deadlines, and a busy box
 # stretches those waits into failures. The tier runs after the fast shards
@@ -98,13 +103,16 @@ SHARD_CONCURRENCY ?= $(eval SHARD_CONCURRENCY := $(shell echo $$(($(JOBS_CLAIMED
 # Each shard is wrapped in a timeout to prevent infinite hangs
 # Each shard log starts with a host/nproc/git/ts header so flakes (e.g. #1121)
 # are attributable to a shard/host instead of re-litigated each run.
+# Each shard also records the case it is in to <shard>.progress, which
+# triage_shard.sh reads to say where a killed shard was.
 # Output is prefixed with [shard N] for clarity
 define run_tests_parallel
 	echo "$(CYAN)Running $(or $(2),$(NPROCS)) test shards, at most $(SHARD_CONCURRENCY) at once (timeout=$(SHARD_TIMEOUT)s)...$(RESET)"; \
+	mkdir -p "$(SHARD_ARTIFACT_ROOT)"; \
 	shard_dir=$$(mktemp -d "$(SHARD_ARTIFACT_ROOT)/helix-shards-XXXXXX"); \
 	export shard_dir; \
 	run_shard() { \
-		(echo "=== shard $$1/$(or $(2),$(NPROCS)) host=$$(hostname) nproc=$$(nproc 2>/dev/null || echo '?') git=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) ts=$$(date -Iseconds) order=$(or $(3),decl seed=0)"; $(call timeout_run,$(SHARD_TIMEOUT)) $(TEST_BIN) $(1) $(3) --shard-count $(or $(2),$(NPROCS)) --shard-index $$1 2>&1; echo $$? > "$$shard_dir/$$1.exit") | \
+		(echo "=== shard $$1/$(or $(2),$(NPROCS)) host=$$(hostname) nproc=$$(nproc 2>/dev/null || echo '?') git=$$(git rev-parse --short HEAD 2>/dev/null || echo unknown) ts=$$(date -Iseconds) order=$(or $(3),decl seed=0)"; HELIX_TEST_PROGRESS_FILE="$$shard_dir/$$1.progress" $(call timeout_run,$(SHARD_TIMEOUT)) $(TEST_BIN) $(1) $(3) --shard-count $(or $(2),$(NPROCS)) --shard-index $$1 2>&1; echo $$? > "$$shard_dir/$$1.exit") | \
 			tee "$$shard_dir/$$1.log" | sed "s/^/[shard $$1] /"; \
 	}; \
 	run_batch() { for s in "$$@"; do run_shard "$$s" & done; wait; }; \
@@ -145,7 +153,12 @@ define run_tests_parallel
 					failed=1; suspect="$$suspect $$i"; \
 				elif [ "$$ec" -gt 128 ] 2>/dev/null; then \
 					sig=$$((ec - 128)); \
-					echo "$(YELLOW)⚠ Shard $$i crashed after its assertions passed (signal $$sig)$(RESET)"; \
+					if [ "$(SHARD_CRASH_FAILS)" = 1 ]; then \
+						echo "$(RED)$(BOLD)✗ Shard $$i crashed after its assertions passed (signal $$sig)$(RESET)"; \
+						failed=1; \
+					else \
+						echo "$(YELLOW)⚠ Shard $$i crashed after its assertions passed (signal $$sig)$(RESET)"; \
+					fi; \
 					suspect="$$suspect $$i"; \
 				else \
 					echo "$(RED)$(BOLD)✗ Shard $$i failed (exit $$ec)$(RESET)"; \
@@ -447,9 +460,9 @@ full-test-run:
 	$(Q)TEST_HOST="$(TEST_HOST)" MAKE="$(MAKE)" scripts/full-test-run.sh
 
 # land-gate: the pre-landing gate - what CI will judge the branch on, run before
-# it reaches main. full-test-run's sweep and bats, plus the sweep again in CI's
-# shard layout (CI_SHARDS, build.yml's nproc*2 on its 4-core runners: which tests
-# share a process decides what a use-after-free corrupts), CI's tests/ui slice
+# it reaches main. The C++ suite once, in CI's shard layout only (CI_SHARDS,
+# build.yml's 8 shards across its two test legs: which tests share a process
+# decides what a use-after-free corrupts), bats, CI's tests/ui slice
 # and the moonraker plugin tests, and the generated-artefact freshness checks.
 # The C++ lane goes to the test host as full-test-run's does (TEST_HOST); the
 # rest run here in parallel. Prints a PASS/FAIL table; scripts/land-gate.sh.
@@ -488,7 +501,7 @@ test-run:
 	echo "         the feature is finished."; \
 	echo ""; \
 	echo "  $(CYAN)May this land on main - will CI go green?$(RESET)"; \
-	echo "      make land-gate         full-test-run + CI's shard layout + tests/ui + freshness, ~10m"; \
+	echo "      make land-gate         C++ in CI's shard layout + bats + tests/ui + freshness, ~10m"; \
 	echo ""; \
 	echo "A full run cannot tell you your feature works, only that something else broke."; \
 	echo "Cadence table: tests/CLAUDE.md, 'What to run when'."; \
@@ -1500,7 +1513,7 @@ help-test:
 	echo "  $${G}test$${X}                 - Build tests (does not run)"; \
 	echo "  $${G}unit-sweep$${X}           - C++ unit tests, sharded in PARALLEL"; \
 	echo "  $${G}full-test-run$${X}        - unit-sweep + bats shell suite (the completion gate)"; \
-	echo "  $${G}land-gate$${X}            - full-test-run + CI's 8-shard layout + tests/ui + freshness (before landing)"; \
+	echo "  $${G}land-gate$${X}            - C++ in CI's 8-shard layout + bats + tests/ui + freshness (before landing)"; \
 	echo "  $${G}test-run$${X}             - Signpost only: refuses, names the target that fits"; \
 	echo "  $${G}test-serial$${X}          - Run tests sequentially (for debugging)"; \
 	echo "  $${G}test-smoke$${X}           - Quick smoke test (~30s) for rapid iteration"; \

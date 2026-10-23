@@ -225,6 +225,28 @@ has_update_manager_section() {
     grep -q '^\[update_manager helixscreen\]' "$conf" 2>/dev/null
 }
 
+# Print each file holding [update_manager helixscreen] among moonraker.conf @1
+# and the files its [include] lines reach, one per line; nothing when none does.
+# Some firmware keeps the web UIs' updater stanzas in an included mainsail.conf.
+update_manager_stanza_files() {
+    helix_conf_files_matching "$1" "$(running_moonraker_root)" '^\[update_manager helixscreen\]'
+}
+
+# True, after a warning, when config file @1, which holds section @2, belongs
+# to the firmware mod: the mod's own files are never edited here.
+conf_left_to_mod() {
+    host_path_is_mod_owned "$1" || return 1
+    log_warn "$2 is in $1, which the firmware mod owns - leaving it in place"
+}
+
+# update_manager_stanza_files @1 without the firmware mod's files, each of
+# which is warned about and left out: the stanza files the installer may edit.
+update_manager_editable_stanza_files() {
+    update_manager_stanza_files "$1" | while IFS= read -r _umes_file; do
+        conf_left_to_mod "$_umes_file" "[update_manager helixscreen]" || printf '%s\n' "$_umes_file"
+    done
+}
+
 # The channel Moonraker's type:web updater should follow. Moonraker accepts
 # only stable and beta here; the dev channel has no Moonraker lane and rides
 # beta, the closest published feed.
@@ -769,10 +791,7 @@ _remove_helix_print_inline() {
     # includes. That covers the [update_manager helix_print] a git-clone
     # install of the plugin wrote.
     for section_conf in $(helix_print_owned_files "$conf" "$(running_moonraker_root)"); do
-        if host_path_is_mod_owned "$section_conf"; then
-            log_warn "[helix_print] is in $section_conf, which the firmware mod owns - leaving it in place"
-            continue
-        fi
+        conf_left_to_mod "$section_conf" "[helix_print]" && continue
         local fs
         fs=$(file_sudo "$section_conf")
         $fs cp "$section_conf" "${section_conf}.bak.helixscreen-uninstall" 2>/dev/null || true
@@ -911,7 +930,7 @@ detect_moonraker_integration() {
     conf=$(find_moonraker_conf)
     [ -n "$conf" ] || return 0
 
-    if ! has_update_manager_section "$conf" \
+    if [ -z "$(update_manager_stanza_files "$conf")" ] \
         && [ "$(moonraker_asset_name_support)" != "unsupported" ]; then
         MOONRAKER_ADDS="update-manager"
     fi
@@ -994,6 +1013,15 @@ configure_moonraker_updates() {
 
     log_info "Using moonraker.conf at: $conf"
 
+    # The stanza may sit in a file the conf includes rather than in the conf.
+    # Every check and rewrite below goes to the files Moonraker reads it from;
+    # appending one to the conf would leave two for Moonraker to merge. A
+    # stanza in the firmware mod's files counts as present but is never edited.
+    local stanza_files editable_files stanza_conf
+    stanza_files=$(update_manager_stanza_files "$conf")
+    editable_files=$(update_manager_editable_stanza_files "$conf")
+    stanza_conf=$(printf '%s\n' "$editable_files" | sed -n 1p)
+
     # Gate on Moonraker's asset_name support before arming the one-click
     # updater (prestonbrown/helixscreen#993). On a Moonraker that ignores
     # asset_name, the Update button in Mainsail/Fluidd rmtree()s the install
@@ -1015,9 +1043,14 @@ configure_moonraker_updates() {
         # The gun may already be loaded from an earlier install that ran before
         # this gate existed -- unload it.
         local removed_stale=0
-        if has_update_manager_section "$conf"; then
+        if [ -n "$editable_files" ]; then
             log_warn "Removing the existing [update_manager helixscreen] section."
-            remove_update_manager_section && removed_stale=1
+            local stale_file
+            while IFS= read -r stale_file; do
+                _remove_update_manager_section_from "$stale_file" && removed_stale=1
+            done <<STALE_FILES
+$editable_files
+STALE_FILES
         fi
 
         # These two are orthogonal to the updater and must not regress just
@@ -1047,8 +1080,9 @@ configure_moonraker_updates() {
 
     # Migrate old git_repo or zip config to type: web
     # (type: zip shows perpetual UP-TO-DATE in Mainsail — see mainsail-crew/mainsail#2444)
-    if has_old_git_repo_section "$conf" || has_old_zip_section "$conf"; then
-        migrate_to_web_type "$conf" || true
+    if [ -n "$stanza_conf" ] \
+        && { has_old_git_repo_section "$stanza_conf" || has_old_zip_section "$stanza_conf"; }; then
+        migrate_to_web_type "$stanza_conf" || true
         # Where the OS has no package manager, silence the provider warnings.
         disable_system_updates_on_buildroot "$conf"
         ensure_moonraker_asvc "$conf"
@@ -1056,20 +1090,26 @@ configure_moonraker_updates() {
         return 0
     fi
 
-    if has_update_manager_section "$conf"; then
-        log_info "update_manager section already exists in $conf"
+    if [ -n "$stanza_files" ]; then
         # Set by the sync_* rewrites below; Moonraker reads its config only at
         # startup, so a rewritten stanza needs a restart before Mainsail sees it.
         _UPDATE_MANAGER_SYNCED=""
-        # path: is only ever written when the section is first added, so an
-        # install that has moved leaves it naming the tree we left behind.
-        sync_update_manager_path "$conf"
-        # channel: likewise — rewrite it to whatever this update resolved to.
-        sync_update_manager_channel "$conf"
-        # Remove managed_services and install_script (unread by type: web,
-        # warned about as unparsed) and persistent_files (read, but it matches
-        # top-level names only and cannot preserve our config/ layout).
-        cleanup_unsupported_options "$conf"
+        local stanza_file
+        while IFS= read -r stanza_file; do
+            [ -n "$stanza_file" ] || continue
+            log_info "update_manager section already exists in $stanza_file"
+            # path: is only ever written when the section is first added, so an
+            # install that has moved leaves it naming the tree we left behind.
+            sync_update_manager_path "$stanza_file"
+            # channel: likewise — rewrite it to whatever this update resolved to.
+            sync_update_manager_channel "$stanza_file"
+            # Remove managed_services and install_script (unread by type: web,
+            # warned about as unparsed) and persistent_files (read, but it matches
+            # top-level names only and cannot preserve our config/ layout).
+            cleanup_unsupported_options "$stanza_file"
+        done <<STANZA_FILES
+$editable_files
+STANZA_FILES
         # Where the OS has no package manager, silence the provider warnings.
         disable_system_updates_on_buildroot "$conf"
         # Still ensure asvc is correct even if section already exists
@@ -1087,16 +1127,33 @@ configure_moonraker_updates() {
     restart_moonraker
 }
 
-# Remove update_manager section from moonraker.conf
+# Remove [update_manager helixscreen] from conf @1, or with no argument from
+# every file Moonraker reads it from: find_moonraker_conf and the files its
+# [include] lines reach. A mod-owned file is left in place with a warning.
 # Called during uninstallation
-# Returns: 1 when the file needed the edit and could not take it (left whole)
+# Returns: 1 when a file needed the edit and could not take it (left whole)
 remove_update_manager_section() {
-    local conf
-    conf=$(find_moonraker_conf)
-
-    if [ -z "$conf" ]; then
-        return 0
+    if [ -n "${1:-}" ]; then
+        _remove_update_manager_section_from "$1"
+        return
     fi
+    local conf stanza_file rc=0
+    conf=$(find_moonraker_conf)
+    [ -n "$conf" ] || return 0
+    while IFS= read -r stanza_file; do
+        [ -n "$stanza_file" ] || continue
+        _remove_update_manager_section_from "$stanza_file" || rc=1
+    done <<STANZA_FILES
+$(update_manager_editable_stanza_files "$conf")
+STANZA_FILES
+    return $rc
+}
+
+# Remove [update_manager helixscreen] and the comment block the installer
+# writes above it from conf @1.
+# Returns: 1 when the file needed the edit and could not take it (left whole)
+_remove_update_manager_section_from() {
+    local conf="$1"
 
     if ! has_update_manager_section "$conf"; then
         return 0

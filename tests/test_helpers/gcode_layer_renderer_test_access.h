@@ -129,6 +129,32 @@ class GCodeLayerRendererTestAccess {
         renderer.layers_per_frame_ = layers;
     }
 
+    /// Hand the solid-cache batch box a clock of the test's own.
+    static void set_batch_clock(GCodeLayerRenderer& renderer,
+                                GCodeLayerRenderer::BatchClock clock) {
+        renderer.batch_clock_ = clock;
+    }
+
+    /// Stop the solid-cache batch box's clock, so a batch runs every layer it
+    /// is given however long the host takes to draw them.
+    static void freeze_batch_clock(GCodeLayerRenderer& renderer) {
+        renderer.batch_clock_ = [] { return std::chrono::steady_clock::time_point{}; };
+    }
+
+    static constexpr int solid_batch_budget_ms() {
+        return GCodeLayerRenderer::kSolidBatchBudgetMs;
+    }
+
+    /// Advance the batch box's clock @p StepMs on every read, so where a batch
+    /// stops depends on the reads alone.
+    template <int StepMs> static void step_batch_clock(GCodeLayerRenderer& renderer) {
+        renderer.batch_clock_ = [] {
+            static std::chrono::steady_clock::time_point now{};
+            now += std::chrono::milliseconds(StepMs);
+            return now;
+        };
+    }
+
     /// Layers the ghost worker has drawn and the layers its pass will visit.
     static std::pair<int, int> ghost_layer_progress(const GCodeLayerRenderer& renderer) {
         return {renderer.ghost_layers_done_.load(), renderer.ghost_layers_total_.load()};

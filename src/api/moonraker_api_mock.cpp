@@ -362,6 +362,86 @@ void helix::MoonrakerJobAPIMock::start_modified_print(const std::string& origina
     }
 }
 
+void helix::MoonrakerJobAPIMock::start_edited_print(
+    const std::string& original_filename, const std::string& temp_file_path, const json& edits,
+    const std::vector<std::string>& modifications, uint64_t file_size,
+    ModifiedPrintCallback on_success, ErrorCallback on_error) {
+    if (refused_by_spool_latch("server.helix.print_edited", on_error)) {
+        return;
+    }
+    edited_prints_.push_back({original_filename, temp_file_path, edits, modifications, file_size});
+
+    spdlog::info("[MoonrakerAPIMock] Mock start_edited_print: original='{}', temp='{}', "
+                 "{} edit(s)",
+                 original_filename, temp_file_path, edits.size());
+
+    if (edited_print_error_) {
+        if (on_error) {
+            on_error(*edited_print_error_);
+        }
+        return;
+    }
+    if (fail_modified_prints_) {
+        if (on_error) {
+            on_error(MoonrakerError::unknown("Mock plugin rejected: " + temp_file_path,
+                                             "start_edited_print"));
+        }
+        return;
+    }
+
+    if (on_success) {
+        ModifiedPrintResult result;
+        result.original_filename = original_filename;
+        result.print_filename = original_filename;
+        result.temp_filename = temp_file_path;
+        result.status = "printing";
+        on_success(result);
+    }
+}
+
+namespace {
+
+/// The toolchanger persona's firmware filament tables: the U1's `filament_parameters`
+/// module keeps one per nozzle config under the config root, and the persona advertises
+/// that module, so --test reads them the way a real U1 is read.
+std::optional<std::string> mock_toolchanger_config_file(const std::string& path) {
+    static const std::map<std::string, std::string> kFiles = {
+        {"snapmaker/filament_para_standard_04.json",
+         R"({"version": "1.0.0", "hard_filaments_max_flow_k": 0.4,
+ "generic_PLA_generic_load_temp": 250, "generic_PLA_generic_unload_temp": 250,
+ "generic_PETG_generic_load_temp": 270, "generic_PETG_generic_unload_temp": 270,
+ "generic_ABS_generic_load_temp": 280, "generic_ABS_generic_unload_temp": 280,
+ "generic_TPU_95A HF_load_temp": 250, "generic_TPU_95A HF_unload_temp": 250,
+ "generic_TPU_95A HF_is_soft": true})"},
+        {"snapmaker/filament_para_standard_02.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_PETG_generic_load_temp": 270,
+ "generic_PETG_generic_unload_temp": 270})"},
+        {"snapmaker/filament_para_standard_06.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_ASA_generic_load_temp": 280,
+ "generic_ASA_generic_unload_temp": 280})"},
+        {"snapmaker/filament_para_standard_08.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_PA6-CF_generic_load_temp": 290,
+ "generic_PA6-CF_generic_unload_temp": 290})"},
+        {"snapmaker/filament_para_high_flow_04.json",
+         R"({"version": "1.0.0", "generic_PLA_generic_load_temp": 250,
+ "generic_PLA_generic_unload_temp": 250, "generic_PETG-CF_generic_load_temp": 270,
+ "generic_PETG-CF_generic_unload_temp": 270})"},
+    };
+    if (!MoonrakerClientMock::mock_toolchanger_selected()) {
+        return std::nullopt;
+    }
+    auto it = kFiles.find(path);
+    if (it == kFiles.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+} // namespace
+
 void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const std::string& path,
                                                  StringCallback on_success,
                                                  ErrorCallback on_error) {
@@ -381,6 +461,14 @@ void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const 
                                                     "Mock config file not found: " + path));
         }
         return;
+    }
+    if (root == "config") {
+        if (auto content = mock_toolchanger_config_file(path)) {
+            spdlog::debug("[MoonrakerAPIMock] Serving toolchanger firmware file: {}", path);
+            if (on_success)
+                on_success(*content);
+            return;
+        }
     }
 
     // Strip any leading directory components to get just the filename
@@ -1451,8 +1539,7 @@ void MoonrakerAdvancedAPIMock::calculate_screws_tilt(ScrewTiltCallback on_succes
                  mock_bed_state_.get_probe_count() + 1);
 
     // Feed the simulated console output through the SAME parser the live
-    // collector uses, so --test exercises the line parser and the printer-database
-    // screws_tilt_direction override instead of bypassing both.
+    // collector uses, so --test exercises the line parser instead of bypassing it.
     std::vector<ScrewTiltResult> results;
     for (const auto& line : mock_bed_state_.probe_lines()) {
         ScrewTiltResult result;
@@ -1553,16 +1640,24 @@ void MoonrakerRestAPIMock::call_rest_get(const std::string& endpoint, RestCallba
         }
         return;
     }
+    // A query string the test did not spell answers as the bare path.
+    const std::string path = endpoint.substr(0, endpoint.find('?'));
+    if (auto it = get_responses_.find(path); it != get_responses_.end()) {
+        if (on_complete) {
+            on_complete(it->second);
+        }
+        return;
+    }
 
     RestResponse resp;
     resp.success = true;
     resp.status_code = 200;
 
     // Return mock responses for known ACE endpoints (via ValgACE Moonraker plugin)
-    if (endpoint == "/server/ace/info") {
+    if (path == "/server/ace/info") {
         resp.data = {
             {"result", {{"model", "ACE Pro"}, {"version", "1.0.0-mock"}, {"slot_count", 4}}}};
-    } else if (endpoint == "/server/ace/status") {
+    } else if (path == "/server/ace/status") {
         resp.data = {{"result",
                       {{"loaded_slot", -1},
                        {"action", "idle"},
@@ -1572,7 +1667,7 @@ void MoonrakerRestAPIMock::call_rest_get(const std::string& endpoint, RestCallba
                          {"target_temp", 0.0},
                          {"remaining_minutes", 0},
                          {"duration_minutes", 0}}}}}};
-    } else if (endpoint == "/server/ace/slots") {
+    } else if (path == "/server/ace/slots") {
         resp.data = {{"result",
                       {{"slots",
                         {{{"status", "available"},

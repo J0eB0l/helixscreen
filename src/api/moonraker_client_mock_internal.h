@@ -160,6 +160,17 @@ void register_server_handlers(std::unordered_map<std::string, MethodHandler>& re
 void register_queue_handlers(std::unordered_map<std::string, MethodHandler>& registry);
 
 /**
+ * @brief Register the HelixPrint plugin's power-loss handlers
+ *
+ * server.helix.plr.status / plan / prepare / commit / abort / discard, answered
+ * by MoonrakerClientMock::mock_plr_request() while HELIX_MOCK_PLR is set.
+ *
+ * @param registry Map to register handlers into
+ */
+// NAMESPACE_OK: mock_internal handler registry, alongside its sibling registrars
+void register_plr_handlers(std::unordered_map<std::string, MethodHandler>& registry);
+
+/**
  * @brief Get mock gcode_macro configfile entries
  *
  * Returns a JSON object with gcode_macro entries (lowercase keys) for the
@@ -218,6 +229,20 @@ json get_mock_mmu_status();
 } // namespace mock_internal
 
 namespace helix::sim {
+/**
+ * @brief A filament sensor's status fields as HELIX_MOCK_FILAMENT_STATE sets them
+ *
+ * The variable is comma-separated `name:state` pairs keyed on the sensor's short
+ * name; `state` is `detected` (the default), `empty`, or `disabled` (stood down in
+ * Klipper, `enabled: false`). Both the initial status frame and printer.objects.subscribe
+ * answer from this, so the two cannot disagree.
+ */
+struct MockFilamentSensorEnvState {
+    bool filament_detected = true;
+    bool enabled = true;
+};
+MockFilamentSensorEnvState mock_filament_sensor_env_state(const std::string& short_name);
+
 /**
  * @brief Extra macro names from HELIX_MOCK_MACRO_COUNT=N (MOCK_MACRO_000 ...)
  *

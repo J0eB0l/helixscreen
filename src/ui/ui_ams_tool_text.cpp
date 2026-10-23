@@ -22,11 +22,11 @@ static ObserverGuard s_tool_badge_active_observer;
 static bool s_initialized = false;
 
 static void update_tool_badge(helix::ToolState* ts) {
-    // Gated on physical extruders, not tool count: an AMS expands the
-    // tool list to one entry per filament slot, and annotating the one
-    // hotend those slots share with "0" says nothing. Only a printer
-    // with more than one nozzle needs to name which is which.
-    const auto* tool = ts->has_multiple_extruders() ? ts->active_tool() : nullptr;
+    // Gated on nozzles, not tool count: an AMS expands the tool list to one
+    // entry per filament slot, and annotating the one hotend those slots
+    // share with "0" says nothing. Only a printer with more than one nozzle
+    // needs to name which is which.
+    const auto* tool = ts->names_mounted_nozzle() ? ts->active_tool() : nullptr;
     if (tool) {
         // 1-based number only ("1"), not the full tool name ("T0"). The badge
         // is a bold subscript digit beside the nozzle glyph; digit-only is the

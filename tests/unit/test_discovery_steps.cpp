@@ -12,15 +12,19 @@
  * printer.
  */
 
+#include "ui_update_queue.h"
+
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/breadcrumb_capture.h"
 #include "../test_helpers/config_test_access.h"
 #include "../test_helpers/printer_capture.h"
+#include "../test_helpers/scoped_env.h"
 #include "app_globals.h"
 #include "async_lifetime_guard.h"
 #include "config.h"
 #include "discovery_steps.h"
 #include "filament_sensor_manager.h"
+#include "filament_temperature_source.h"
 #include "hardware_setup_prompter.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
@@ -145,6 +149,7 @@ TEST_CASE("the tail discovery steps run in this order", "[discovery_steps]") {
         "spoolman_sync",
         "auto_update_check",
         "moonraker_update_channel",
+        "filament_temperatures",
         "remote_screen_webcam",
         "manual_probe_autoopen",
     };
@@ -345,4 +350,69 @@ TEST_CASE_METHOD(StepFixture, "a migrated preset sensor block takes effect in th
     }
 
     CHECK(cc1_sensor_is_runout());
+}
+
+TEST_CASE_METHOD(StepFixture, "the filament_temperatures step publishes the firmware's table",
+                 "[discovery_steps][filament-temps]") {
+    helix::filament_temps::clear_filament_temperatures();
+    api.set_config_files({
+        {"snapmaker/filament_para_standard_04.json",
+         R"({"generic_PLA_generic_load_temp": 250, "generic_PLA_generic_unload_temp": 245})"},
+        {"snapmaker/filament_para_standard_02.json", R"({"generic_PETG_generic_load_temp": 270})"},
+        {"snapmaker/filament_para_standard_06.json", "{}"},
+        {"snapmaker/filament_para_standard_08.json", "{}"},
+        {"snapmaker/filament_para_high_flow_04.json", "{}"},
+    });
+    api.hardware().parse_objects(json::array({"extruder", "filament_parameters"}));
+
+    auto ctx = context(/*hw_changed=*/true);
+    bool found = false;
+    for (const DiscoveryStep& step : helix::discovery_tail_steps()) {
+        if (std::string(step.name) == "filament_temperatures") {
+            found = true;
+            step.run(ctx);
+        }
+    }
+    REQUIRE(found);
+
+    helix::SlotInfo pla;
+    pla.brand = "Generic";
+    pla.material = "PLA";
+    auto t = helix::filament_temps::lookup_filament_temperatures(pla);
+    REQUIRE(t.has_value());
+    CHECK(t->load_c.value() == 250);
+    CHECK(t->unload_c.value() == 245);
+    helix::filament_temps::clear_filament_temperatures();
+}
+
+TEST_CASE_METHOD(StepFixture, "the plugin probe publishes the plugin's features map",
+                 "[discovery_steps][plugin_feature]") {
+    auto run_probe = [this]() {
+        auto ctx = context(/*hw_changed=*/false);
+        bool ran = false;
+        for (const DiscoveryStep& step : helix::discovery_core_steps()) {
+            if (std::string(step.name) == "helix_plugin_check") {
+                step.run(ctx);
+                ran = true;
+            }
+        }
+        REQUIRE(ran);
+        helix::ui::UpdateQueue::instance().drain();
+    };
+    const auto& plugin = get_printer_state().plugin_status_state();
+
+    {
+        helix::ScopedEnv installed("HELIX_MOCK_HELIX_PLUGIN", "1");
+        run_probe();
+    }
+    // The installed subject is not initialised in this fixture, so read the map itself.
+    REQUIRE(plugin.features().count("convert_3mf") == 1);
+    CHECK(helix::plugin_feature_state(true, plugin.features(), "convert_3mf", 1) ==
+          helix::PluginFeatureState::Ready);
+
+    {
+        helix::ScopedEnv absent("HELIX_MOCK_HELIX_PLUGIN", nullptr);
+        run_probe();
+    }
+    CHECK(plugin.features().empty());
 }

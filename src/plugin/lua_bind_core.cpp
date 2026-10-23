@@ -403,8 +403,9 @@ void new_locked_metatable(lua_State* L, const char* name) {
 }
 
 void forbid_in_check(lua_State* L, const char* call) {
-    if (LuaRuntime::from(L).in_check())
-        luaL_error(L, "%s is not allowed in a menu check", call);
+    LuaRuntime& rt = LuaRuntime::from(L);
+    if (rt.in_check())
+        luaL_error(L, "%s is not allowed in %s %s", call, rt.check_article(), rt.check_label());
 }
 
 PluginContext& context(lua_State* L) {

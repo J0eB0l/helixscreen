@@ -188,6 +188,16 @@ TEST_CASE_METHOD(InputSettingsFixture,
         input().set_scroll_throw(99);
         CHECK(indev->scroll_throw == 50);
     }
+
+    SECTION("a pointer created after the settings applied gets them on request") {
+        input().set_long_press_time(1000);
+        input().set_scroll_limit(3);
+        helix_test::ScopedPointerIndev late;
+        REQUIRE(late.indev()->long_press_time != 1000);
+        input().apply_to_pointer(late.indev());
+        CHECK(late.indev()->long_press_time == 1000);
+        CHECK(late.indev()->scroll_limit == 3);
+    }
 }
 
 TEST_CASE_METHOD(InputSettingsFixture, "InputSettingsManager subject values match getters",

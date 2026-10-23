@@ -380,9 +380,9 @@ curl -s -X POST http://127.0.0.1:7130/rpc -d '{"jsonrpc":"2.0","id":1,
 | `ls`, `describe_screen` `[target]` | List on-screen widgets: name, `path`, `layer`, type, available actions. With a target, list only that widget's subtree (plus the widget itself); with no target, the working directory. The response also carries `topmost_layer` and `active_screen` — compare an entry's `layer` against `topmost_layer` to tell a frontmost widget from one stacked behind it — and `scope` whenever the listing was confined to a subtree. The REPL's rendering groups widgets by what you can do to them, with a final `(inert)` line for labels, icons and containers that carry no action (repeats collapsed as `name x6`) |
 | `list_components` | List the XML components registered so far (they register on first use): panels, overlays, modals, cards, rows |
 | `list_callbacks` | List every registered event-callback name (overlay/modal open-handlers, button callbacks). Names only — nothing is fired |
-| `click <target> [--force]` | Click a widget (also toggles switches/checkboxes) |
+| `click <target> [--force]` | Tap a widget: `short_clicked` then `clicked` (also toggles switches/checkboxes). A hold is `long_press` |
 | `set_value <target> <v> [--force]` | Set a value (slider, switch, dropdown, textarea) |
-| `scroll <target> [dx dy]` | Scroll a widget into view, or by a delta |
+| `scroll <target> [dx dy]` | Scroll a widget into view, or by a delta. Into view scrolls every scrollable ancestor, then fails naming the ancestor that still clips the widget if it is not visible |
 | `focus <target>` | Focus a widget through its input group. Fires the real `LV_EVENT_FOCUSED`, so a registered textarea raises the on-screen keyboard — `click` does not, and leaves it hidden. Fails if the widget is not in an input group |
 | `text <target>` | Read a widget's text: `lv_label`, `lv_textarea`, or `lv_dropdown` (its selected option). Descends into a composite (e.g. a button wrapping a label) the same way `click` descends to a value-control. Raises rather than returning `""` if the widget has no text concept at all — an empty label and "not a text widget" are different facts |
 | `state <target>` | Read a widget's LVGL states and flags: `checked`/`disabled`/`focused`/`pressed` as booleans plus an active-`states` array, and `hidden`/`clickable`/`scrollable` under `flags`. Descends a composite row to its control, matching what `click`/`set_value` act on; when it descends, a `target` subobject carries the named widget's own `path` + `flags` (a hidden row's inner switch carries no flag of its own). A HIDDEN widget still resolves by name (only `ls` filters hidden subtrees), so `bind_flag_if` and `disabled=`-prop contracts are assertable here |
@@ -393,8 +393,8 @@ curl -s -X POST http://127.0.0.1:7130/rpc -d '{"jsonrpc":"2.0","id":1,
 
 ### Synthetic pointer — testing gestures
 
-`click` is `lv_obj_send_event(obj, LV_EVENT_CLICKED)`: a widget-level event with no
-input device and no coordinates behind it. That is right for "press this button",
+`click` sends `SHORT_CLICKED` then `CLICKED` straight to the widget: widget-level
+events with no input device and no coordinates behind them. That is right for "press this button",
 but it cannot exercise anything gestural. Code that reads `lv_indev_active()` or
 `lv_indev_get_point()` sees nothing, long-press timers never start, and LVGL's
 scroll-versus-click arbitration never runs.
@@ -651,8 +651,13 @@ without this a name present in both would resolve to the one behind — a click
 that reports success and does nothing.
 
 Mutating responses echo `path` (the widget actually hit), `handlers` (its
-registered event count — `0` means the click cannot do anything), and
-`active_screen` (a `panel > overlay > overlay` breadcrumb). Check
+registered event count, of every kind), and
+`active_screen` (a `panel > overlay > overlay` breadcrumb). `click` also reports
+`tap_handled`: whether a `clicked` or `short_clicked` handler sits on the widget
+or on an ancestor its events bubble to. When none does, and the widget is not a
+value control whose class acts on a tap itself, the response carries a `warning`
+saying the tap does nothing there: the case of a widget whose only action is a
+hold, which `ctl long_press <x> <y>` drives. Check
 `active_screen` first when a command appears to do nothing: a first-run wizard
 or an unexpected modal swallows input while every response still reads as
 success.
@@ -698,6 +703,20 @@ exist the container is clicked and they are listed under `candidates`, so you
 can re-issue against a specific `@path`.
 
 
+### `click` delivers a quick tap
+
+`click` sends `SHORT_CLICKED` and then `CLICKED`, the two events a real quick
+tap ends with, so a handler on either one sees it. App taps bind `clicked`
+(`docs/devel/LVGL9_XML_GUIDE.md` § "Tap and hold"). If a handler deletes the
+widget (a tap that closes its screen), nothing more is sent to it. A switch or checkbox is toggled and gets `VALUE_CHANGED` only; any other
+checkable object is toggled, gets `VALUE_CHANGED`, and then the same two tap
+events. `navigate <widget>` sends the same tap.
+
+A hold is not a click: `ctl long_press <x> <y>` holds a real pointer past the
+long-press time. That pointer takes its long-press time, scroll throw and
+scroll limit from the Touch & Input settings when it is created, as the
+touchscreen does, so a hold or a slow tap times the same through it.
+
 ### `click` refuses what a finger could not reach
 
 `lv_obj_send_event(o, LV_EVENT_CLICKED)` lands on any object at all, so a
@@ -727,8 +746,8 @@ Occlusion is NOT checked: a target underneath a modal still clicks. That needs
 hit-testing against the layer stack rather than three flag reads.
 
 The descent is **bounded to scaffolding**, in two ways. A target that already
-carries a click handler of its own is acted on literally — never descended
-into — and the search never tunnels past a descendant that carries one either.
+carries a tap handler of its own (`clicked` or `short_clicked`) is acted on literally, never descended
+into, and the search never tunnels past a descendant that carries one either.
 Without those bounds a full-screen context-menu backdrop resolved onto whatever
 single visible control the menu happened to contain and dispatched its event:
 `click` on the AMS slot menu's backdrop reached the backup-slot dropdown and
@@ -789,8 +808,10 @@ reads the resolved value, so it shows which one is really in effect.
 state, constructed with representative sample data and the real lifecycle:
 `preflight-check`, `color-mismatch`, `runout-modal`, `lock-screen`,
 `print-status`, `print-tune`, `ams`, `camera`, `ams-error-toast`,
+`type-mismatch-toast`, `type-mismatch-toast-model`, `type-mismatch-review`,
 `action-prompt-worst`, `action-prompt-many`, `action-prompt-hex`, `action-prompt-zmod`,
-`action-prompt-afc-cal`,
+`action-prompt-afc-cal`, `recovery-fault-afc`, `recovery-fault-hh` (the filament fault
+dialog, with AFC's position diagram or all four of Happy Hare's recovery buttons),
 `spaghetti-detection`, `bed-check` (the modal a printer bed check raises when it stops a
 print).
 `spaghetti-detection` fetches its camera still from the mock's unreachable webcam, so set
@@ -809,6 +830,14 @@ AFC_CALIBRATION's unit picker on a six-unit AFC.
 `AmsError::suggestion`) using the longest suggestion any backend produces. The
 mock AMS backend has no print gate, so no sequence of clicks reaches that
 refusal — this is how the toast's layout gets checked on a 480x272 panel.
+
+`type-mismatch-toast` raises the printer-type mismatch toast and its history row
+through the session's `HardwareSetupPrompter`, for an AD5M Pro saved as stock and
+detected as its ForgeX variant (the longest base name a variant entry has).
+`type-mismatch-toast-model` shows the two-printers wording (K1 Max detected on an
+AD5M Pro), and `type-mismatch-review` raises the variant toast and opens its review
+modal. Detection never runs this check against a mock printer, so these are the only
+way to see either.
 
 ### Diagnostics & lifecycle
 | Command | Meaning |

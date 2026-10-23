@@ -23,6 +23,8 @@
 #ifdef HELIX_ENABLE_MOCKS
 #include "moonraker_client_mock.h"
 #endif
+#include "ui_utils.h"
+
 #include "panel_factory.h"
 #include "panel_widget_config.h"
 #include "panel_widget_manager.h"
@@ -441,7 +443,7 @@ nlohmann::json RemoteControlServer::handle_navigate(const nlohmann::json& params
         if (!lv_obj_has_flag(widget, LV_OBJ_FLAG_CLICKABLE)) {
             throw std::invalid_argument("Widget '" + target + "' is not clickable");
         }
-        lv_obj_send_event(widget, LV_EVENT_CLICKED, nullptr);
+        helix::ui::send_tap(widget);
         return {{"navigated_to", target}, {"kind", "widget"}};
     });
 }
@@ -1518,6 +1520,8 @@ nlohmann::json RemoteControlServer::handle_click(const nlohmann::json& params) {
         // without this the response is indistinguishable from a real one.
         result["path"] = path_of(widget);
         result["handlers"] = lv_obj_get_event_count(widget);
+        const bool tap_handled = helix::tap_reaches_handler(widget);
+        result["tap_handled"] = tap_handled;
         result["active_screen"] = active_screen_label();
         if (descended) {
             result["descended_to"] = path_of(descended);
@@ -1530,13 +1534,13 @@ nlohmann::json RemoteControlServer::handle_click(const nlohmann::json& params) {
             result["candidates"] = cands; // clicked the container; @path one of these
         }
 
-        // A synthetic CLICKED does not flip a switch/checkbox/checkable object
+        // A synthetic tap does not flip a switch/checkbox/checkable object
         // (LVGL toggles those on the indev press/release). Toggle the state
         // explicitly and notify, so `click <switch>` and
         // `click <option_tile_*>` behave like a real tap. An object that is
-        // only CHECKABLE (a tile, a checkable button) still gets CLICKED after
+        // only CHECKABLE (a tile, a checkable button) still gets the tap after
         // the toggle: a real tap delivers both, and checkable buttons act on
-        // CLICKED (extruder selector, gcode test Travels).
+        // it (extruder selector, gcode test Travels).
         bool toggle_class = lv_obj_check_type(widget, &lv_switch_class) ||
                             lv_obj_check_type(widget, &lv_checkbox_class);
         if (toggle_class || lv_obj_has_flag(widget, LV_OBJ_FLAG_CHECKABLE)) {
@@ -1546,14 +1550,23 @@ nlohmann::json RemoteControlServer::handle_click(const nlohmann::json& params) {
             } else {
                 lv_obj_remove_state(widget, LV_STATE_CHECKED);
             }
-            lv_obj_send_event(widget, LV_EVENT_VALUE_CHANGED, nullptr);
-            if (!toggle_class) {
-                lv_obj_send_event(widget, LV_EVENT_CLICKED, nullptr);
-            }
             result["toggled_to"] = now ? 1 : 0;
+            // A handler may close the screen it sits on; stop once the widget is gone.
+            if (lv_obj_send_event(widget, LV_EVENT_VALUE_CHANGED, nullptr) == LV_RESULT_INVALID) {
+                return result;
+            }
+            if (!toggle_class) {
+                helix::ui::send_tap(widget);
+            }
             return result;
         }
-        lv_obj_send_event(widget, LV_EVENT_CLICKED, nullptr);
+        if (!tap_handled && !helix::is_value_control(widget)) {
+            // Without this a click on a hold-only widget reads like success.
+            result["warning"] = "no clicked or short_clicked handler on this widget or the "
+                                "ancestors its events bubble to, so a tap does nothing here. "
+                                "A hold action takes `ctl long_press <x> <y>`.";
+        }
+        helix::ui::send_tap(widget);
         return result;
     });
 }
@@ -2335,8 +2348,16 @@ nlohmann::json RemoteControlServer::handle_scroll(const nlohmann::json& params) 
             lv_obj_scroll_by(obj, dx, dy, LV_ANIM_OFF);
             return {{"scrolled", target_label(params)}, {"dx", dx}, {"dy", dy}};
         }
-        // Bring the target into its scroll parent's viewport (walks ancestors).
-        lv_obj_scroll_to_view(obj, LV_ANIM_OFF);
+        if (lv_obj_t* clipper = helix::scroll_into_view(obj)) {
+            const bool inactive_screen = lv_obj_get_parent(clipper) == nullptr &&
+                                         clipper != lv_screen_active() &&
+                                         clipper != lv_layer_top() && clipper != lv_layer_sys();
+            const char* why = helix::hidden_ancestor(obj) == clipper ? "hidden by "
+                              : inactive_screen                      ? "on inactive screen "
+                                                                     : "clipped by ";
+            throw std::runtime_error("Widget '" + target_label(params) +
+                                     "' is still out of view: " + why + helix::path_of(clipper));
+        }
         return {{"scrolled_into_view", target_label(params)}};
     });
 }

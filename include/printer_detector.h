@@ -4,6 +4,7 @@
 #pragma once
 
 #include "belt_tension_types.h"
+#include "plr_profile.h"
 #include "pre_print_option.h"
 
 #include <map>
@@ -111,9 +112,20 @@ struct BuildVolume {
     float plate_x_max = 0.0f;
     float plate_y_min = 0.0f;
     float plate_y_max = 0.0f;
+
+    /// Printable size along X and Y, for display and reporting: the declared bed
+    /// where the firmware states one, else printable_axis_span() of the travel.
+    float printable_x() const;
+    float printable_y() const;
 };
 
 namespace helix {
+/// Printable span of one travel range. A negative minimum that is small next to
+/// the maximum is endstop overtravel (a Y endstop 14mm behind the bed homes to -14),
+/// not room to print in, so the span starts at 0. A centre-origin range (a delta's
+/// -100..100) keeps its full extent.
+float printable_axis_span(float min, float max);
+
 /// Klipper's probe x_offset/y_offset: the probe's position relative to the nozzle.
 struct ProbeXYOffset {
     double x = 0.0;
@@ -632,6 +644,10 @@ class PrinterDetector {
     /// copy staged under one fails to open. False when absent or unknown.
     static bool klipper_hides_dot_dirs(const std::string& printer_name);
 
+    /// The database's power-loss recovery `plr` block for @p printer_name;
+    /// nullopt when the printer is unknown or unlisted for it (tier 0).
+    static std::optional<helix::PlrDbBlock> get_plr_block(const std::string& printer_name);
+
     /**
      * @brief Check if connected printer is a Creality K1 series
      * @return true if printer type contains both "creality" and "k1"
@@ -653,29 +669,6 @@ class PrinterDetector {
      * CR_BOX_* primitives). AmsBackendCfs keys its macro variant off this.
      */
     static bool is_creality_hi();
-
-    /**
-     * @brief Declared physical tightening direction for bed screws
-     *
-     * Printer database entries may set `"screws_tilt_direction": "cw"` or
-     * `"ccw"` to declare which rotation, from the user's physical viewpoint,
-     * tightens a bed screw on that printer. This is an explicit override —
-     * independent of whatever Klipper's `screw_thread` is set to — that
-     * describes the printer's own geometry.
-     *
-     * Klipper's own output direction (CW/CCW) is computed using its
-     * configured `screw_thread`. When the DB override disagrees with
-     * Klipper's default CW-M* semantics (value "ccw"), HelixScreen flips
-     * CW↔CCW in the displayed direction so the UI matches the printer's
-     * physical reality.
-     *
-     * Used to override vendors whose shipped `screw_thread` config disagrees
-     * with the physical screw response (e.g. FlashForge Adventurer 5M family:
-     * ships CW-M4 but the physical response requires CCW-M4 semantics).
-     *
-     * @return "cw", "ccw", or empty string if not declared (treat as "cw")
-     */
-    static std::string screws_tilt_direction_override();
 
     /**
      * @brief Resolve a stored printer type name to the name the database uses now.
@@ -783,6 +776,46 @@ class PrinterDetector {
     static MismatchDecision classify_type_mismatch(const std::string& saved_type,
                                                    const PrinterDetectionResult& detected,
                                                    const std::string& flag_value);
+
+    /// The variant fields of one database entry. An entry with "variant_of"
+    /// is the same machine as the entry with that id, differing only by a
+    /// firmware mod or an add-on that "variant_label" names.
+    struct VariantEntry {
+        std::string id;
+        std::string name;
+        std::string variant_of; ///< Base entry's id, empty on a base entry
+        std::string variant_label;
+    };
+
+    /// How a saved type and a contradicting detected type relate.
+    enum class TypeRelation {
+        DifferentModel,  ///< Two machines, or a variant link that does not resolve.
+        DetectedVariant, ///< Detected is a variant of the saved base entry.
+        SavedVariant,    ///< Saved is a variant; the hardware looks like its base.
+        SiblingVariants  ///< Both are different variants of one base.
+    };
+
+    struct TypeRelationResult {
+        TypeRelation relation = TypeRelation::DifferentModel;
+        std::string base;           ///< Base entry's name; empty for DifferentModel
+        std::string saved_label;    ///< Saved entry's variant label, if it is a variant
+        std::string detected_label; ///< Detected entry's variant label, if it is a variant
+    };
+
+    /**
+     * @brief Relate a saved and a detected type through the entries' variant links.
+     *
+     * Pure: decides from @p entries alone. A variant whose "variant_of" names no
+     * entry, or that carries no label, counts as a model of its own, so the
+     * caller falls back to the plain different-model wording.
+     */
+    static TypeRelationResult relate_types(const std::vector<VariantEntry>& entries,
+                                           const std::string& saved_type,
+                                           const std::string& detected_type);
+
+    /// relate_types() against the loaded printer database.
+    static TypeRelationResult relate_types(const std::string& saved_type,
+                                           const std::string& detected_type);
 
     /**
      * @brief Decide whether a detection result is solid enough to persist.

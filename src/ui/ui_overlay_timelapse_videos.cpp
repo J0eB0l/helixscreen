@@ -844,6 +844,8 @@ void TimelapseVideosOverlay::on_card_long_pressed(lv_event_t* e) {
         return;
 
     spdlog::debug("[Timelapse Videos] Card long-pressed: {}", filename);
+    // The hold acts, so its release is not also a tap that plays the video.
+    helix::ui::end_press(e);
     self->confirm_delete(filename);
 }
 

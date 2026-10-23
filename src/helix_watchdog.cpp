@@ -1306,10 +1306,12 @@ static int run_watchdog(WatchdogArgs args) {
         spdlog::warn("[Watchdog] Crash detected, showing recovery dialog{}",
                      crash_loop_detected ? " (loop detected)" : "");
 
-        // standalone_rotation adds the kernel's panel_orientation, which args.rotation
-        // leaves out: forwarding it to the app would override the app's own probe.
+        // standalone_rotation adds the kernel's panel_orientation and the board's
+        // mount, which args.rotation leaves out: forwarding either to the app would
+        // override the app's own first-boot decision.
         DialogChoice choice =
-            show_crash_dialog(args.width, args.height, helix::standalone_rotation(args.rotation),
+            show_crash_dialog(args.width, args.height,
+                              helix::standalone_rotation(args.rotation, args.width, args.height),
                               crash, crash_loop_detected);
 
         if (choice == DialogChoice::RESTART_SYSTEM) {

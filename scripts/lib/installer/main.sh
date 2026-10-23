@@ -927,7 +927,11 @@ main() {
     # An update or reinstall must follow the channel the installed app is on:
     # a beta user updating through KIAUH or a re-run of the installer would
     # otherwise be handed the stable build. No-op on a fresh install.
+    # Taken before anything is written: install-time settings seeding is for a
+    # fresh install only.
+    fresh_install=true
     if [ "$update_mode" = true ] || [ -d "$INSTALL_DIR" ]; then
+        fresh_install=false
         resolve_update_channel
     fi
 
@@ -1017,7 +1021,7 @@ download_step() {
 # a step with nothing to do is skipped only under the same conditions that
 # left it out of the count, or the [n/N] numbering is wrong.
 apply_install() {
-    local uis seed_pid
+    local uis stopping seed_pid
 
     if [ "${platform:-}" = "x86-desktop" ]; then
         apply_desktop_install
@@ -1049,7 +1053,8 @@ apply_install() {
     # names what detection found; without a find the step stays hidden
     # unless the platform half fails.
     uis="${COMPETING_UIS_FOUND:-}"
-    step "Stopping ${uis:-the stock screen}" "Stopped ${uis:-the stock screen}"
+    stopping=$(stop_step_noun)
+    step "Stopping $stopping" "Stopped $stopping"
     configure_platform
     INSTALL_STOPPED="${INSTALL_STOPPED:-}${uis:+ $uis}"
     stop_competing_uis
@@ -1189,11 +1194,9 @@ apply_install() {
     seed_pid=$(detect_printer_model)
     if [ -n "$seed_pid" ]; then
         log_info "Recognized printer model: ${seed_pid} -- applying install-time defaults"
-        seed_settings_for_printer "$seed_pid" || true
         install_klipper_include_for_printer "$seed_pid" || true
-    else
-        seed_from_moonraker_detection || true
     fi
+    seed_install_time_settings "$fresh_install" "$seed_pid"
     seed_update_channel
 
     # The camera, include and seed steps above record their uninstall ledgers

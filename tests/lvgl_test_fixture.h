@@ -129,12 +129,11 @@ class LVGLTestFixture : public HelixTestFixture {
      * — the test binary has no tick source of its own (see below), so this is
      * the only thing that makes LVGL's clock move.
      *
-     * NOT a wall-clock wait, and NOT a way to wait on another thread. Real time
-     * elapsed is roughly `ms / 5` (one 1ms sleep per 5ms step) and exactly zero
-     * for `ms <= 50`, which skips the sleep entirely. A loop that accumulates
-     * the nominal `ms` toward a timeout therefore burns its whole budget in a
-     * fraction of the time and may never yield to the thread it is waiting on;
-     * the test then fails past the end of the fixture's lifetime, so teardown
+     * NOT a wall-clock wait, and NOT a way to wait on another thread: it
+     * never sleeps, so no real time passes beyond the CPU the timers take. A
+     * loop that accumulates the nominal `ms` toward a timeout burns its whole
+     * budget at once and may never yield to the thread it is waiting on; the
+     * test then fails past the end of the fixture's lifetime, so teardown
      * effects look like they happened mid-test. Use wait_until() for that, or
      * better, join the worker (e.g. ThumbnailProcessor::wait_for_completion())
      * and then drain.
@@ -185,7 +184,6 @@ class LVGLTestFixture : public HelixTestFixture {
      */
     static void ensure_lvgl_initialized();
 
-  protected:
     lv_obj_t* m_test_screen; ///< Test screen for this fixture instance
 
     // Static initialization state

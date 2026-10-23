@@ -4,9 +4,11 @@
 #include "ui_observer_guard.h" // SubjectLifetime
 
 #include "../helix_test_fixture.h"
+#include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/printer_state_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
+#include "helix-xml/src/xml/lv_xml.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "src/ui/panel_widgets/print_status_widget.h"
@@ -187,6 +189,49 @@ TEST_CASE_METHOD(HelixTestFixture, "Tool badge: a genuine second extruder still 
     auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label");
     REQUIRE(label != nullptr);
     REQUIRE(std::string(lv_subject_get_string(label)) == "Tool 1");
+
+    // Two heaters: the readout can be pinned to either.
+    auto* pickable = lv_xml_get_subject(nullptr, "print_status_nozzle_pickable");
+    REQUIRE(pickable != nullptr);
+    CHECK(lv_subject_get_int(pickable) == 1);
+}
+
+TEST_CASE_METHOD(HelixTestFixture,
+                 "Tool badge: nozzles on one shared heater name the mounted one, unpickable",
+                 "[print_status][tool_override][indx]") {
+    auto& ts = ToolState::instance();
+    PrinterState& ps = get_printer_state();
+    reset_state_for_tool_gate(ts, ps);
+
+    auto disc = discovery_with({"extruder", "heater_bed", "fan"});
+    ts.init_tools(disc);
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+
+    FormatterScope fs;
+
+    helix::ToolTopology topo;
+    topo.tool_count = 4;
+    topo.active_tool = 2;
+    topo.allows_empty_carriage = true;
+    topo.tool_to_slot = {0, 1, 2, 3};
+    topo.tool_extruder = {"extruder", "extruder", "extruder", "extruder"};
+    topo.heads_share_heater = true;
+    ts.set_ams_topology(topo);
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+
+    auto* multi = lv_xml_get_subject(nullptr, "print_status_multi_tool");
+    REQUIRE(multi != nullptr);
+    CHECK(lv_subject_get_int(multi) == 1);
+    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label");
+    REQUIRE(label != nullptr);
+    CHECK(std::string(lv_subject_get_string(label)) == "Tool 3");
+    // One heater: nothing to pin the readout to.
+    auto* pickable = lv_xml_get_subject(nullptr, "print_status_nozzle_pickable");
+    REQUIRE(pickable != nullptr);
+    CHECK(lv_subject_get_int(pickable) == 0);
+
+    ts.clear_ams_topology();
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
 }
 
 // ============================================================================
@@ -283,4 +328,43 @@ TEST_CASE_METHOD(HelixTestFixture, "Nozzle picker: a rejected override is not pe
     REQUIRE_FALSE(w.apply_nozzle_tool_override("extruder9"));
     REQUIRE(w.nozzle_tool_override_for_test() == "auto");
     REQUIRE(w.config_for_test().value("nozzle_tool_override", std::string{}) == "auto");
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Detailed card: a shared heater names the nozzle but offers no picker chevron",
+                 "[print_status][tool_override][indx]") {
+    auto& ts = ToolState::instance();
+    PrinterState& ps = get_printer_state();
+    reset_state_for_tool_gate(ts, ps);
+    ts.init_tools(discovery_with({"extruder", "heater_bed", "fan"}));
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+    FormatterScope fs;
+
+    helix::ToolTopology topo;
+    topo.tool_count = 4;
+    topo.active_tool = 2;
+    topo.allows_empty_carriage = true;
+    topo.tool_to_slot = {0, 1, 2, 3};
+    topo.tool_extruder = {"extruder", "extruder", "extruder", "extruder"};
+    topo.heads_share_heater = true;
+    ts.set_ams_topology(topo);
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+
+    REQUIRE(lv_xml_register_component_from_file(
+                "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
+    auto* card = static_cast<lv_obj_t*>(
+        lv_xml_create(test_screen(), "print_status_detailed_active", nullptr));
+    REQUIRE(card != nullptr);
+    lv_obj_t* target = lv_obj_find_by_name(card, "detailed_nozzle_click_target");
+    REQUIRE(target != nullptr);
+    const uint32_t children = lv_obj_get_child_count(target);
+    REQUIRE(children >= 3);
+    lv_obj_t* tool_label = lv_obj_get_child(target, 0);
+    lv_obj_t* chevron = lv_obj_get_child(target, static_cast<int32_t>(children) - 1);
+    CHECK_FALSE(lv_obj_has_flag(tool_label, LV_OBJ_FLAG_HIDDEN));
+    CHECK(lv_obj_has_flag(chevron, LV_OBJ_FLAG_HIDDEN));
+
+    lv_obj_delete(card);
+    ts.clear_ams_topology();
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
 }

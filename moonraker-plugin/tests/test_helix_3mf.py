@@ -795,6 +795,52 @@ class TestHiddenPaths:
         assert env.fm.uploads == []
 
 
+    @pytest.mark.asyncio
+    async def test_a_file_moved_out_of_staging_is_converted(self, env):
+        conv = await started(env)
+        make_3mf(env.gc / ".helix_temp" / "x.gcode.3mf", {1: plate_gcode(1)})
+        (env.gc / ".helix_temp" / "x.gcode.3mf").rename(env.gc / "x.gcode.3mf")
+        await notify(conv, "move_file", "x.gcode.3mf", source=".helix_temp/x.gcode.3mf")
+        [entry] = await listing(conv)
+        assert entry["source"] == "x.gcode.3mf"
+
+
+class TestMovedDirectory:
+    @pytest.mark.asyncio
+    async def test_a_moved_directory_moves_its_sources_records(self, env):
+        (env.gc / "d").mkdir()
+        make_3mf(env.gc / "d" / "a.gcode.3mf", {1: plate_gcode(1)})
+        conv = await started(env)
+        (env.gc / "d").rename(env.gc / "e")
+        await notify(conv, "move_dir", "e", source="d")
+        assert [c["source"] for c in await listing(conv)] == ["e/a.gcode.3mf"]
+        assert sorted(env.db.ns["helix_3mf"]) == ["e/a.gcode.3mf"]
+
+
+class TestRecordsLoad:
+    @pytest.mark.asyncio
+    async def test_records_load_where_only_ns_items_reads_a_namespace(self, env):
+        make_3mf(env.gc / "a.gcode.3mf", {1: plate_gcode(1)})
+        await started(env)
+        stored = env.db.ns
+
+        class NsItemsOnly(FakeDatabase):
+            async def get_item(self, namespace, key=None, default=None):
+                if key is None:
+                    raise KeyError(namespace)
+                return await super().get_item(namespace, key, default)
+
+            async def ns_items(self, namespace):
+                return list(self.ns.get(namespace, {}).items())
+
+        env.db = NsItemsOnly()
+        env.db.ns = stored
+        conv = Helix3mfConverter(env.server, env.fm, env.db, env.apis, env.gc, ".helix_temp",
+                                 False, helix_capabilities.prints_3mf_natively)
+        await conv._load_records()
+        assert list(conv.records) == ["a.gcode.3mf"]
+
+
 # ============================================================================
 # Review hardening
 # ============================================================================

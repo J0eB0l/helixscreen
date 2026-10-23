@@ -967,6 +967,8 @@ class PrintSelectDetailView : public OverlayBase {
     // Observes the STATIC AmsState::slots_version subject — no SubjectLifetime
     // token (singleton, not a per-slot dynamic subject).
     ObserverGuard slots_version_observer_;
+    ObserverGuard tool_map_version_observer_; ///< printer tool-table moves (same lifetime)
+    ObserverGuard auto_color_map_observer_;   ///< auto-color-map setting flips
     // The plugin probe completes after first paint and the Moonraker version
     // lands with discovery, so both arrive after the card has already published.
     // Without these the card would sit in its Probing look for the session.
@@ -1114,7 +1116,8 @@ class PrintSelectDetailView : public OverlayBase {
      * preflight readiness, reveal — was identical in the former cached-file
      * and post-download paths; it lives here once now.
      */
-    void begin_viewer_load(const std::string& path);
+    /// @p layer_index_sidecar: the plugin's layer index for the file, or empty.
+    void begin_viewer_load(const std::string& path, std::string layer_index_sidecar = {});
     /// Clear every viewer callback that carries `this`.
     void disarm_viewer_callbacks();
 

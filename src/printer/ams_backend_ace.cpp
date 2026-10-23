@@ -20,6 +20,7 @@
 #include "ams_bypass_policy.h"
 #include "ams_device_action_value.h"
 #include "ams_device_sections.h"
+#include "ams_tool_map_sync.h"
 #include "exception_policy.h"
 #include "helix_thread.h"
 #include "i_moonraker_api.h"
@@ -43,6 +44,7 @@
 #include <cctype>
 #include <chrono>
 #include <map>
+#include <string_view>
 #include <tuple>
 
 namespace helix {
@@ -51,6 +53,56 @@ using json = nlohmann::json;
 
 /// Max consecutive /server/ace/info failures before giving up on REST fallback
 static constexpr int kMaxInfoFetchFailures = 3;
+
+/// The REST bridge's data endpoints, pinned to instance 0. Asked for no
+/// instance, the ACEPRO bridge serves the instance whose number equals
+/// current_index, a tool number, so the unit it serves would follow the seat.
+/// Other bridges ignore the argument.
+static constexpr const char* kRestStatusPath = "/server/ace/status?instance=0";
+static constexpr const char* kRestSlotsPath = "/server/ace/slots?instance=0";
+
+namespace {
+/// Whether a REST data poll answered with data. The ACEPRO bridge answers an
+/// instance it does not have with a result carrying only `error`, which is a
+/// failed poll, not an empty unit.
+bool rest_poll_answered(const RestResponse& resp) {
+    return resp.success && resp.data.contains("result") && resp.data["result"].is_object() &&
+           !resp.data["result"].contains("error");
+}
+} // namespace
+
+namespace {
+
+/// Whether a status object carries real slot data: a non-empty `slots` array,
+/// the exact key parse_ace_object reads.
+bool object_carries_slots(const json& obj) {
+    return obj.is_object() && obj.contains("slots") && obj["slots"].is_array() &&
+           !obj["slots"].empty();
+}
+
+/// The name shown for an ACEPRO unit: the product its `protocol` drives.
+/// Product names, so not translated.
+std::string ace_unit_short_name(const std::string& protocol) {
+    if (protocol == "ace2_proto") {
+        return "ACE Pro 2";
+    }
+    return "ACE Pro";
+}
+
+/// Whether an ACEPRO unit's `connection_state` says it is connected; nullopt for
+/// a state this backend does not know, which leaves the unit as it was.
+std::optional<bool> ace_link_from_state(const std::string& state) {
+    if (state == "connected") {
+        return true;
+    }
+    if (state == "initializing" || state == "connecting" || state == "reconnecting" ||
+        state == "disabled") {
+        return false;
+    }
+    return std::nullopt;
+}
+
+} // namespace
 
 // ============================================================================
 // Construction / Destruction
@@ -79,8 +131,6 @@ AmsBackendAce::AmsBackendAce(IMoonrakerAPI* api, IMoonrakerClient* client)
     system_info_.type = AmsType::ACE;
     system_info_.type_name = "ACE";
     system_info_.supports_bypass = false;
-
-    dryer_info_ = helix::ace::ace_pro_dryer_info();
 }
 
 AmsBackendAce::~AmsBackendAce() {
@@ -106,6 +156,20 @@ void AmsBackendAce::on_started() {
         park_states_.clear();
         last_spool_evidence_.clear();
         pending_insert_reads_.clear();
+        instance_commands_ = false;
+        rest_instance_ = 0;
+        instance_objects_ = false;
+        unit_actions_.clear();
+        unit_links_.clear();
+        feed_assist_slots_.clear();
+        // The bootstrap answer restates every unit's identity.
+        unit_identities_.clear();
+        // The load's ack died with the old session, so nothing would end it.
+        if (own_load_ && (system_info_.action == AmsAction::LOADING ||
+                          system_info_.action == AmsAction::UNLOADING)) {
+            system_info_.action = AmsAction::IDLE;
+        }
+        own_load_ = false;
     }
 
     // Load persisted per-slot overrides from the shared FilamentSlotOverrideStore
@@ -145,15 +209,29 @@ void AmsBackendAce::on_started() {
     // Query all known Klipper object names directly (works if driver has
     // get_status()). Native Anycubic GoKlipper registers the object as
     // `filament_hub`; community ValgACE/BunnyACE/DuckACE register it as `ace`;
-    // the Kobra S1 mainline-Python fork registers each unit as
-    // `ace_instance_N` (#1107). printer.objects.query tolerates unknown
-    // objects (absent from the result) and select_ace_object handles
-    // absent keys, so over-querying is safe.
+    // the ACEPRO driver registers each unit as
+    // `ace_instance_N` (#1107), as many as discovery found: a unit left out
+    // of this query has no slots until its spools next change.
+    // printer.objects.query tolerates unknown objects (absent from the
+    // result) and select_ace_object handles absent keys, so over-querying is
+    // safe.
     json objects_to_query = json::object();
     objects_to_query["filament_hub"] = nullptr;
     objects_to_query["ace"] = nullptr;
-    for (int i = 0; i < 4; ++i) {
-        objects_to_query[fmt::format("ace_instance_{}", i)] = nullptr;
+    std::vector<std::string> instances;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        instances = discovered_instances_;
+    }
+    if (instances.empty()) {
+        // No discovery to go by: the first four, as the subscription falls
+        // back to `ace` without one.
+        for (int i = 0; i < 4; ++i) {
+            instances.push_back(ace_instance_key(i));
+        }
+    }
+    for (const auto& name : instances) {
+        objects_to_query[name] = nullptr;
     }
 
     json params = {{"objects", objects_to_query}};
@@ -169,12 +247,19 @@ void AmsBackendAce::on_started() {
                 // Prefer the native `filament_hub` key; fall back to the
                 // community `ace` key. Commit to the subscription path ONLY
                 // when the matched object actually carries slot data — a
-                // manager-only object (Kobra S1 fork: ace_instances/current_index,
+                // manager-only object (ACEPRO driver: ace_instances/current_index,
                 // no slots) must fall through to the REST bridge (#1069).
                 const json* ace_data = nullptr;
                 std::string matched_key;
                 if (response.contains("result") && response["result"].contains("status")) {
-                    ace_data = select_ace_object(response["result"]["status"], &matched_key);
+                    const json& status = response["result"]["status"];
+                    ace_data = select_ace_object(status, &matched_key);
+                    if (lowest_ace_instance(status)) {
+                        // The ACEPRO driver, whether its instances carry the slots or
+                        // the REST bridge serves them.
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        instance_commands_ = true;
+                    }
                 }
 
                 if (ace_data) {
@@ -182,8 +267,23 @@ void AmsBackendAce::on_started() {
                     spdlog::info("[ACE] Klipper '{}' object has status data — "
                                  "using native WebSocket subscription",
                                  matched_key);
-
-                    parse_ace_object(*ace_data);
+                    if (matched_key.rfind(helix::ace::kInstanceObjectPrefix, 0) == 0) {
+                        // The ACEPRO driver: every instance is a unit of its own.
+                        {
+                            std::lock_guard<std::mutex> lock(mutex_);
+                            instance_objects_ = true;
+                        }
+                        int unit_count = 0;
+                        for (const auto& [unit, instance] :
+                             ace_instance_objects(response["result"]["status"])) {
+                            parse_ace_object(*instance, unit);
+                            unit_count = unit + 1;
+                        }
+                        keep_units(static_cast<size_t>(unit_count));
+                    } else {
+                        parse_ace_object(*ace_data);
+                        keep_units(1);
+                    }
                     // A manager-shaped `ace` can ride the same response and
                     // states the seat (current_index); parse it AFTER the
                     // slot-bearing object so the seat stamps onto populated
@@ -198,6 +298,11 @@ void AmsBackendAce::on_started() {
                     // BunnyACE/DuckACE path: no get_status(), try REST fallback
                     spdlog::info("[ACE] Klipper filament_hub/ace object has no status data — "
                                  "trying REST bridge fallback (/server/ace/*)");
+                    {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        instance_objects_ = false;
+                    }
+                    keep_units(1);
                     start_rest_fallback();
                 }
             });
@@ -207,6 +312,7 @@ void AmsBackendAce::on_started() {
                 spdlog::warn("[ACE] Initial filament_hub/ace query failed: {} — "
                              "trying REST fallback",
                              err.message);
+                keep_units(1);
                 start_rest_fallback();
             });
         });
@@ -226,34 +332,52 @@ void AmsBackendAce::handle_status(const json& status_obj) {
     const json* status = &status_obj;
 
     // Native Anycubic GoKlipper publishes under `filament_hub`; community
-    // ValgACE under `ace`; the Kobra S1 mainline-Python fork under
+    // ValgACE under `ace`; the ACEPRO driver under
     // `ace_instance_N` with a manager-shaped `ace` beside it (#1069, #1107).
     //
-    // A frame carrying any `ace_instance_N` key is the fork: the display is
-    // anchored to the LOWEST instance (the one on_started's slot-bearing pick
-    // populated), so that instance's delta wins even when it carries no slots
-    // array while a higher instance's delta does — otherwise a multi-unit rig
-    // would write another unit's inventory into the displayed one. The manager
-    // is parsed after the primary, so the seat (current_index) lands on slots
-    // that are already populated.
+    // A frame carrying `ace_instance_N` keys comes from the ACEPRO driver: each instance is
+    // unit N, and a notify frame carries only the objects that changed, so it
+    // holds whichever units changed. The manager is parsed after them, so the
+    // seat (current_index) lands on slots that are already populated.
     //
     // Otherwise a slot-bearing object is parsed first; notify frames carry
     // only CHANGED fields, so a delta with no slots array at all falls back to
     // the first non-empty object (the manager is excluded there via `skip`).
     const json* manager = manager_ace_object(*status);
+    const auto instances = ace_instance_objects(*status);
     const json* ace_data = nullptr;
-    if (const std::string* instance_key = lowest_ace_instance_key(*status)) {
-        ace_data = &(*status)[*instance_key];
-    } else {
+    if (instances.empty()) {
         ace_data = select_ace_object(*status, nullptr, /*require_slots=*/true);
         if (!ace_data) {
             ace_data = select_ace_object(*status, nullptr, /*require_slots=*/false, manager);
         }
     }
 
-    if (!ace_data && !manager)
+    if (instances.empty() && !ace_data && !manager)
         return;
 
+    if (!instances.empty()) {
+        // Only an instance that carries slots (or the bootstrap's pick) puts
+        // the backend on the object path. A slotless delta on a rig the REST
+        // bridge serves says nothing about slots, and parsing it would write
+        // the unit the bridge owns.
+        const bool carries_slots =
+            std::any_of(instances.begin(), instances.end(), [](const auto& instance) {
+                return object_carries_slots(*instance.second);
+            });
+        bool object_path = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            instance_commands_ = true;
+            instance_objects_ = instance_objects_ || carries_slots;
+            object_path = instance_objects_;
+        }
+        if (object_path) {
+            for (const auto& [unit, instance] : instances) {
+                parse_ace_object(*instance, unit);
+            }
+        }
+    }
     if (ace_data) {
         parse_ace_object(*ace_data);
     }
@@ -322,16 +446,11 @@ PathSegment AmsBackendAce::get_filament_segment() const {
 PathSegment AmsBackendAce::get_slot_filament_segment(int slot_index) const {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    if (system_info_.units.empty()) {
+    const SlotInfo* found = slot_info_locked(slot_index);
+    if (found == nullptr) {
         return PathSegment::NONE;
     }
-
-    const auto& unit = system_info_.units[0];
-    if (slot_index < 0 || slot_index >= static_cast<int>(unit.slots.size())) {
-        return PathSegment::NONE;
-    }
-
-    const auto& slot = unit.slots[static_cast<size_t>(slot_index)];
+    const auto& slot = *found;
 
     if (system_info_.current_slot == slot_index && seat_at_nozzle_locked()) {
         return PathSegment::NOZZLE;
@@ -409,41 +528,56 @@ AmsError AmsBackendAce::do_load_filament(int slot_index) {
 
     // Set action optimistically so sidebar detects the LOADING → IDLE transition.
     // The ACE Klipper module may not report "status": "loading" during gcode execution,
-    // leaving the sidebar stuck waiting for a transition that never starts.
+    // leaving the sidebar stuck waiting for a transition that never starts. With
+    // another tool seated the driver retracts it first, so the op starts as that.
+    int tool = -1;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        system_info_.action = AmsAction::LOADING;
+        tool = tool_for_slot_locked(slot_index);
+        if (tool < 0) {
+            return AmsErrorHelper::invalid_parameter("ACE slot " + std::to_string(slot_index) +
+                                                     " has no tool from the driver yet");
+        }
+        const int seated = system_info_.current_slot;
+        system_info_.action = (seat_loaded_ && seated >= 0 && seated != slot_index)
+                                  ? AmsAction::UNLOADING
+                                  : AmsAction::LOADING;
+        own_load_ = true;
     }
     emit_event(EVENT_STATE_CHANGED);
 
-    std::string gcode = "ACE_CHANGE_TOOL TOOL=" + std::to_string(slot_index);
+    std::string gcode = "ACE_CHANGE_TOOL TOOL=" + std::to_string(tool);
     auto token = op_lifetime_.token();
 
     return execute_gcode(
         gcode,
         [this, token, slot_index]() {
-            // L081 Mechanism C: marshal member writes (system_info_) to main.
-            token.defer("AmsBackendAce::load_done", [this, slot_index]() {
-                spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+            // The base class already runs this on main. A cancel or stop
+            // since the send invalidated op_lifetime_, and then the answer
+            // must not overwrite the state the cancel left.
+            if (token.expired()) {
+                return;
+            }
+            spdlog::info("[ACE] Load slot {} gcode completed", slot_index);
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                end_own_op_locked();
+                own_load_ = false;
 
-                    // Where firmware states the seat itself, the ack is only
-                    // "the command was accepted" and the seat waits for the
-                    // driver to confirm it moved.
-                    if (!manager_states_seat_) {
-                        seat_from_local_index_locked(slot_index);
+                // Where firmware states the seat itself, the ack is only
+                // "the command was accepted" and the seat waits for the
+                // driver to confirm it moved.
+                if (!manager_states_seat_) {
+                    seat_from_local_index_locked(slot_index);
 
-                        // Same derivation the parse paths use, so the next
-                        // status frame re-applies this stamp instead of
-                        // erasing it.
-                        apply_seated_slot_stamp_locked();
-                    }
+                    // Same derivation the parse paths use, so the next
+                    // status frame re-applies this stamp instead of
+                    // erasing it.
+                    apply_seated_slot_stamp_locked();
                 }
-                PostOpCooldownManager::instance().schedule();
-                emit_event(EVENT_STATE_CHANGED);
-            });
+            }
+            PostOpCooldownManager::instance().schedule();
+            emit_event(EVENT_STATE_CHANGED);
         },
         [this, token](const MoonrakerError&) {
             // The send failed, so the optimistic LOADING has to be unwound or
@@ -451,7 +585,8 @@ AmsError AmsBackendAce::do_load_filament(int slot_index) {
             token.defer("AmsBackendAce::load_err", [this]() {
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+                    end_own_op_locked();
+                    own_load_ = false;
                 }
                 emit_event(EVENT_STATE_CHANGED);
             });
@@ -474,28 +609,31 @@ AmsError AmsBackendAce::do_unload_filament(int /*slot_index*/) {
     return execute_gcode(
         gcode,
         [this, token]() {
-            // L081 Mechanism C: marshal member writes (system_info_) to main.
-            token.defer("AmsBackendAce::unload_done", [this]() {
-                spdlog::info("[ACE] Unload gcode completed");
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+            // The base class already runs this on main. A cancel or stop
+            // since the send invalidated op_lifetime_, and then the answer
+            // must not overwrite the state the cancel left.
+            if (token.expired()) {
+                return;
+            }
+            spdlog::info("[ACE] Unload gcode completed");
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                end_own_op_locked();
 
-                    // Symmetric with the load path: a driver that states the
-                    // seat also clears it, and an unload it declined would
-                    // otherwise read as an empty toolhead.
-                    if (!manager_states_seat_) {
-                        seat_from_local_index_locked(-1);
+                // Symmetric with the load path: a driver that states the
+                // seat also clears it, and an unload it declined would
+                // otherwise read as an empty toolhead.
+                if (!manager_states_seat_) {
+                    seat_from_local_index_locked(-1);
 
-                        // Releases the stamp back to the status the parse
-                        // wrote, rather than assuming AVAILABLE for a slot
-                        // firmware may have called EMPTY.
-                        apply_seated_slot_stamp_locked();
-                    }
+                    // Releases the stamp back to the status the parse
+                    // wrote, rather than assuming AVAILABLE for a slot
+                    // firmware may have called EMPTY.
+                    apply_seated_slot_stamp_locked();
                 }
-                PostOpCooldownManager::instance().schedule();
-                emit_event(EVENT_STATE_CHANGED);
-            });
+            }
+            PostOpCooldownManager::instance().schedule();
+            emit_event(EVENT_STATE_CHANGED);
         },
         [this, token](const MoonrakerError&) {
             // The send failed, so the optimistic UNLOADING has to be unwound or
@@ -503,7 +641,7 @@ AmsError AmsBackendAce::do_unload_filament(int /*slot_index*/) {
             token.defer("AmsBackendAce::unload_err", [this]() {
                 {
                     std::lock_guard<std::mutex> lock(mutex_);
-                    system_info_.action = AmsAction::IDLE;
+                    end_own_op_locked();
                 }
                 emit_event(EVENT_STATE_CHANGED);
             });
@@ -516,7 +654,12 @@ AmsError AmsBackendAce::do_select_slot(int slot_index) {
 }
 
 AmsError AmsBackendAce::do_change_tool(int tool_number) {
-    return do_load_filament(tool_number);
+    int slot = tool_number;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        slot = slot_for_tool_locked(tool_number);
+    }
+    return do_load_filament(slot);
 }
 
 // ============================================================================
@@ -531,6 +674,17 @@ AmsError AmsBackendAce::recover() {
 AmsError AmsBackendAce::reset() {
     spdlog::info("[ACE] Resetting");
     return execute_gcode("ACE_RESET");
+}
+
+void AmsBackendAce::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        target_index_ = -1;
+        driver_action_ = false;
+        swap_hub_cleared_ = false;
+        system_info_.pending_target_slot = -1;
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
 }
 
 AmsError AmsBackendAce::cancel() {
@@ -737,6 +891,13 @@ void AmsBackendAce::set_discovery(const helix::PrinterDiscovery& discovery) {
         bypass_macro_options_ = helix::bypass_macro_options(discovery);
     }
     set_bypass_macros(helix::resolve_bypass_macros_for(discovery));
+    std::lock_guard<std::mutex> lock(mutex_);
+    discovered_instances_.clear();
+    for (const auto& name : discovery.ace_object_names()) {
+        if (name.rfind(helix::ace::kInstanceObjectPrefix, 0) == 0) {
+            discovered_instances_.push_back(name);
+        }
+    }
 }
 
 void AmsBackendAce::set_bypass_macros(helix::BypassMacros macros) {
@@ -818,40 +979,73 @@ bool AmsBackendAce::is_bypass_active() const {
 // ============================================================================
 
 DryerInfo AmsBackendAce::get_dryer_info(int unit) const {
-    (void)unit; // ACE is single-unit
     std::lock_guard<std::mutex> lock(mutex_);
-    return dryer_info_;
+    if (unit >= 0 && static_cast<size_t>(unit) < dryers_.size()) {
+        return dryers_[static_cast<size_t>(unit)];
+    }
+    return helix::ace::ace_pro_dryer_info();
+}
+
+DryerInfo& AmsBackendAce::dryer_locked(int unit) {
+    const auto index = static_cast<size_t>(std::max(unit, 0));
+    if (dryers_.size() <= index) {
+        dryers_.resize(index + 1, helix::ace::ace_pro_dryer_info());
+    }
+    return dryers_[index];
 }
 
 AmsError AmsBackendAce::start_drying(float temp_c, int duration_min, int fan_pct, int unit) {
-    (void)unit;
     auto err = check_preconditions();
     if (!err.success()) {
         return err;
     }
 
-    DryerInfo dryer;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        dryer = dryer_info_;
+    const auto instance = dryer_instance_argument(unit);
+    if (!instance) {
+        return AmsErrorHelper::invalid_parameter("no ACE unit " + std::to_string(unit));
     }
+    const DryerInfo dryer = get_dryer_info(unit);
     if (auto refusal = helix::ace::check_dryer_request(dryer, temp_c, duration_min)) {
         return *refusal;
     }
 
-    spdlog::info("[ACE] Starting drying: {}°C for {} minutes", temp_c, duration_min);
+    spdlog::info("[ACE] Starting drying on unit {}: {}°C for {} minutes", unit, temp_c,
+                 duration_min);
 
     (void)fan_pct;
 
-    std::string gcode = "ACE_START_DRYING TEMP=" + std::to_string(static_cast<int>(temp_c)) +
-                        " DURATION=" + std::to_string(duration_min);
+    std::string gcode = "ACE_START_DRYING" + *instance;
+    gcode += " TEMP=" + std::to_string(static_cast<int>(temp_c)) +
+             " DURATION=" + std::to_string(duration_min);
     return execute_gcode(gcode);
 }
 
 AmsError AmsBackendAce::stop_drying(int unit) {
-    (void)unit;
-    spdlog::info("[ACE] Stopping drying");
-    return execute_gcode("ACE_STOP_DRYING");
+    const auto instance = dryer_instance_argument(unit);
+    if (!instance) {
+        return AmsErrorHelper::invalid_parameter("no ACE unit " + std::to_string(unit));
+    }
+    spdlog::info("[ACE] Stopping drying on unit {}", unit);
+    return execute_gcode("ACE_STOP_DRYING" + *instance);
+}
+
+std::optional<std::string> AmsBackendAce::dryer_instance_argument(int unit) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Without INSTANCE= the ACEPRO driver dries every unit it has; other
+    // drivers have one.
+    if (!instance_commands_) {
+        return std::string();
+    }
+    if (unit < 0 || static_cast<size_t>(unit) >= system_info_.units.size() ||
+        system_info_.units[static_cast<size_t>(unit)].absent) {
+        return std::nullopt;
+    }
+    return " INSTANCE=" + std::to_string(ace_instance_for_unit_locked(unit));
+}
+
+int AmsBackendAce::ace_instance_for_unit_locked(int unit) const {
+    // Caller holds mutex_.
+    return instance_objects_ ? unit : rest_instance_;
 }
 
 AmsError AmsBackendAce::update_drying(float temp_c, int duration_min, int fan_pct, int unit) {
@@ -859,11 +1053,7 @@ AmsError AmsBackendAce::update_drying(float temp_c, int duration_min, int fan_pc
     if (!err.success()) {
         return err;
     }
-    DryerInfo dryer;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        dryer = dryer_info_;
-    }
+    const DryerInfo dryer = get_dryer_info(unit);
     const auto [target_temp, target_duration] =
         helix::ace::restart_request(dryer, temp_c, duration_min);
     return start_drying(target_temp, target_duration, fan_pct, unit);
@@ -879,14 +1069,158 @@ std::vector<DryingPreset> AmsBackendAce::get_drying_presets() const {
 
 SlotInfo* AmsBackendAce::mutable_slot_locked(int slot_index) {
     // Caller holds mutex_.
-    if (system_info_.units.empty() || slot_index < 0) {
+    if (slot_index < 0) {
         return nullptr;
     }
-    auto& slots = system_info_.units[0].slots;
-    if (static_cast<size_t>(slot_index) >= slots.size()) {
-        return nullptr;
+    for (auto& unit : system_info_.units) {
+        const int local = slot_index - unit.first_slot_global_index;
+        if (local >= 0 && local < static_cast<int>(unit.slots.size())) {
+            return &unit.slots[static_cast<size_t>(local)];
+        }
     }
-    return &slots[static_cast<size_t>(slot_index)];
+    return nullptr;
+}
+
+AmsUnit& AmsBackendAce::unit_locked(int unit) {
+    // Caller holds mutex_. A unit below this one that has not reported yet holds
+    // its four slots, disconnected, so the units after it keep their numbers.
+    const auto index = static_cast<size_t>(std::max(unit, 0));
+    while (system_info_.units.size() <= index) {
+        AmsUnit& added = system_info_.units.emplace_back();
+        added.unit_index = static_cast<int>(system_info_.units.size()) - 1;
+        added.name = "ACE Pro";
+        if (system_info_.units.size() <= index) {
+            added.connected = false;
+            added.slots.resize(kSlotsPerUnit);
+        } else {
+            added.connected = true;
+        }
+        if (path_sensors_seen_) {
+            // The manager's sensors watch the one hub every unit feeds, and
+            // its frames restate them only when they change.
+            added.has_hub_sensor = true;
+            added.hub_sensor_triggered = rdm_sensor_;
+            added.has_toolhead_sensor = true;
+        }
+    }
+    return system_info_.units[index];
+}
+
+void AmsBackendAce::publish_tool_map_locked() {
+    // Caller holds mutex_.
+    const bool tools_named =
+        std::any_of(system_info_.units.begin(), system_info_.units.end(), [](const AmsUnit& unit) {
+            return std::any_of(unit.slots.begin(), unit.slots.end(),
+                               [](const SlotInfo& slot) { return slot.mapped_tool >= 0; });
+        });
+    if (tools_named) {
+        helix::printer::sync_tool_map_from_slots(system_info_);
+    } else {
+        system_info_.tool_to_slot_map.clear();
+    }
+}
+
+void AmsBackendAce::keep_units(size_t count) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (system_info_.units.size() > count) {
+        system_info_.units.resize(count);
+    }
+    if (dryers_.size() > count) {
+        dryers_.resize(count);
+    }
+    if (unit_actions_.size() > count) {
+        unit_actions_.resize(count);
+    }
+    unit_links_.erase(unit_links_.lower_bound(static_cast<int>(count)), unit_links_.end());
+    (void)index_units_locked();
+    publish_tool_map_locked();
+    apply_unit_identities_locked();
+    if (system_info_.current_slot >= system_info_.total_slots) {
+        // The seat named a slot on a unit that is gone: state the tool alone.
+        system_info_.current_slot = -1;
+    }
+    apply_seated_slot_stamp_locked();
+}
+
+bool AmsBackendAce::index_units_locked() {
+    // Caller holds mutex_.
+    bool renumbered = false;
+    int next = 0;
+    for (auto& unit : system_info_.units) {
+        renumbered |= unit.first_slot_global_index != next && unit.slot_count > 0;
+        unit.first_slot_global_index = next;
+        unit.slot_count = static_cast<int>(unit.slots.size());
+        for (size_t i = 0; i < unit.slots.size(); ++i) {
+            unit.slots[i].slot_index = static_cast<int>(i);
+            unit.slots[i].global_index = next + static_cast<int>(i);
+        }
+        next += unit.slot_count;
+    }
+    system_info_.total_slots = next;
+    return renumbered;
+}
+
+void AmsBackendAce::apply_unit_identities_locked() {
+    // Caller holds mutex_.
+    std::map<std::string, int> seen;
+    bool tools_cleared = false;
+    for (size_t i = 0; i < system_info_.units.size(); ++i) {
+        auto& unit = system_info_.units[i];
+        const UnitIdentity identity =
+            i < unit_identities_.size() ? unit_identities_[i] : UnitIdentity{};
+        if (!identity.model.empty()) {
+            unit.name = identity.model;
+        }
+        unit.firmware_version = identity.firmware;
+        // A unit no instance has reported is a gap in the chain: nothing may
+        // be sent to it.
+        unit.absent = instance_objects_ && !identity.reported;
+        if (unit.absent) {
+            // A gap names no tool and takes no display number.
+            for (auto& slot : unit.slots) {
+                tools_cleared |= slot.mapped_tool >= 0;
+                slot.mapped_tool = -1;
+            }
+        }
+        if (!instance_objects_ || unit.absent) {
+            unit.display_name.clear();
+            continue;
+        }
+        const std::string base = ace_unit_short_name(identity.protocol);
+        const int count = ++seen[base];
+        unit.display_name = count == 1 ? base : base + " #" + std::to_string(count);
+    }
+    if (tools_cleared) {
+        publish_tool_map_locked();
+    }
+}
+
+void AmsBackendAce::end_own_op_locked() {
+    // Caller holds mutex_. Only the motion this backend set ends with its
+    // command: an ERROR a unit reported meanwhile stands.
+    if (system_info_.action == AmsAction::LOADING || system_info_.action == AmsAction::UNLOADING) {
+        system_info_.action = AmsAction::IDLE;
+    }
+}
+
+void AmsBackendAce::set_unit_action_locked(int unit, AmsAction action) {
+    // Caller holds mutex_.
+    const auto index = static_cast<size_t>(std::max(unit, 0));
+    if (unit_actions_.size() <= index) {
+        unit_actions_.resize(index + 1, AmsAction::IDLE);
+    }
+    unit_actions_[index] = action;
+    const auto busy = std::find_if(unit_actions_.begin(), unit_actions_.end(),
+                                   [](AmsAction a) { return a != AmsAction::IDLE; });
+    const AmsAction resolved = busy == unit_actions_.end() ? AmsAction::IDLE : *busy;
+    // A load sent from here ends with its own ack: the unit reads "busy" or
+    // "ready" while the driver feeds, and both resolve to IDLE.
+    const bool moving =
+        system_info_.action == AmsAction::LOADING || system_info_.action == AmsAction::UNLOADING;
+    if (own_load_ && moving && resolved == AmsAction::IDLE) {
+        return;
+    }
+    system_info_.action = resolved;
 }
 
 void AmsBackendAce::clear_seated_slot_stamp_locked() {
@@ -945,21 +1279,48 @@ void AmsBackendAce::apply_path_sensors_locked(const json& data) {
     }
     path_sensors_seen_ = true;
 
-    // Publish them on the unit so the path canvas knows the hardware is there
-    // and can draw the sensor nodes.
-    if (!system_info_.units.empty()) {
-        auto& unit = system_info_.units[0];
+    // Publish them on the units so the path canvas knows the hardware is
+    // there and can draw the sensor nodes. Every unit feeds the one hub.
+    for (auto& unit : system_info_.units) {
         unit.has_hub_sensor = true;
         unit.hub_sensor_triggered = rdm_sensor_;
         unit.has_toolhead_sensor = true;
     }
 }
 
-int AmsBackendAce::displayed_slot_for_global_index_locked(int global_index) const {
+int AmsBackendAce::slot_for_tool_locked(int tool) const {
     // Caller holds mutex_.
-    const int slot_count =
-        system_info_.units.empty() ? 0 : static_cast<int>(system_info_.units[0].slots.size());
-    return (global_index >= 0 && global_index < slot_count) ? global_index : -1;
+    if (tool < 0) {
+        return -1;
+    }
+    bool any_named = false;
+    for (const auto& unit : system_info_.units) {
+        if (unit.absent) {
+            continue;
+        }
+        for (const auto& slot : unit.slots) {
+            any_named |= slot.mapped_tool >= 0;
+            if (slot.mapped_tool == tool) {
+                return slot.global_index;
+            }
+        }
+    }
+    if (any_named) {
+        return -1;
+    }
+    return tool < system_info_.total_slots ? tool : -1;
+}
+
+int AmsBackendAce::tool_for_slot_locked(int slot_index) const {
+    // Caller holds mutex_.
+    // The ACEPRO driver names every slot's tool; a slot it has not named yet
+    // has none, since slot order need not be tool order. Other drivers number
+    // them alike.
+    const SlotInfo* slot = slot_info_locked(slot_index);
+    if (slot != nullptr && slot->mapped_tool >= 0) {
+        return slot->mapped_tool;
+    }
+    return instance_objects_ ? -1 : slot_index;
 }
 
 bool AmsBackendAce::apply_target_index_locked(const json& data) {
@@ -973,18 +1334,21 @@ bool AmsBackendAce::apply_target_index_locked(const json& data) {
     const AmsAction prev_action = system_info_.action;
 
     if (target_index_ >= 0 && target_index_ != system_info_.current_tool) {
-        system_info_.pending_target_slot = displayed_slot_for_global_index_locked(target_index_);
+        system_info_.pending_target_slot = slot_for_tool_locked(target_index_);
         if (path_sensors_seen_ && !rdm_sensor_) {
             swap_hub_cleared_ = true;
         }
         const bool retracting =
             seat_loaded_ && path_sensors_seen_ && rdm_sensor_ && !swap_hub_cleared_;
         // Only an idle hub, or one this target already moved, is driven: an
-        // error, or a LOADING this backend set for its own command, already
-        // says more than the target does.
+        // error already says more than the target does. A load sent from here
+        // is driven too: its LOADING was set before the driver said anything,
+        // and on a swap the seated tool still has to retract first; left
+        // standing, it would draw the target loaded through the sensors the
+        // outgoing strand still makes.
         const AmsAction action = system_info_.action;
-        if (action == AmsAction::IDLE ||
-            (driver_action_ && (action == AmsAction::LOADING || action == AmsAction::UNLOADING))) {
+        const bool moving = action == AmsAction::LOADING || action == AmsAction::UNLOADING;
+        if (action == AmsAction::IDLE || ((driver_action_ || own_load_) && moving)) {
             system_info_.action = retracting ? AmsAction::UNLOADING : AmsAction::LOADING;
             driver_action_ = true;
         }
@@ -992,7 +1356,8 @@ bool AmsBackendAce::apply_target_index_locked(const json& data) {
         system_info_.pending_target_slot = -1;
         if (driver_action_ && (system_info_.action == AmsAction::LOADING ||
                                system_info_.action == AmsAction::UNLOADING)) {
-            system_info_.action = AmsAction::IDLE;
+            // A load sent from here stays LOADING until its own ack.
+            system_info_.action = own_load_ ? AmsAction::LOADING : AmsAction::IDLE;
         }
         driver_action_ = false;
         swap_hub_cleared_ = false;
@@ -1001,22 +1366,21 @@ bool AmsBackendAce::apply_target_index_locked(const json& data) {
     return system_info_.pending_target_slot != prev_pending || system_info_.action != prev_action;
 }
 
-bool AmsBackendAce::seat_from_global_index_locked(int current_index) {
+bool AmsBackendAce::seat_from_tool_locked(int tool) {
     // Caller holds mutex_.
-    if (current_index >= 0) {
-        if (displayed_slot_for_global_index_locked(current_index) < 0) {
-            // Loaded in a unit this backend does not display: state the tool,
-            // mark no slot. Idempotent — the REST poll restates the index
-            // every cycle.
-            const bool changed = system_info_.current_tool != current_index || !seat_loaded_ ||
-                                 system_info_.current_slot != -1;
-            seat_loaded_ = true;
-            system_info_.current_tool = current_index;
-            system_info_.current_slot = -1;
-            return changed;
-        }
+    if (tool < 0) {
+        return seat_from_local_index_locked(-1);
     }
-    return seat_from_local_index_locked(current_index);
+    // A tool no known slot feeds (its unit has not reported yet) is stated
+    // with no slot marked. Idempotent — the REST poll restates the index
+    // every cycle.
+    const int slot = slot_for_tool_locked(tool);
+    const bool changed =
+        system_info_.current_tool != tool || !seat_loaded_ || system_info_.current_slot != slot;
+    seat_loaded_ = true;
+    system_info_.current_tool = tool;
+    system_info_.current_slot = slot;
+    return changed;
 }
 
 bool AmsBackendAce::seat_from_local_index_locked(int slot_index) {
@@ -1033,33 +1397,54 @@ bool AmsBackendAce::seat_from_local_index_locked(int slot_index) {
            seat_loaded_ != prev_loaded;
 }
 
-void AmsBackendAce::parse_ace_object(const json& data) {
+void AmsBackendAce::parse_ace_object(const json& data, int unit) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const bool from_instance = unit != kNotAnInstance;
+    const int unit_index = std::max(unit, 0);
 
     // Drop the previous frame's derived seat before the slot loop rewrites
     // statuses, so check_hardware_event_clear and prev_slot_status_ compare
     // firmware against firmware. Re-derived at the bottom of this function.
     clear_seated_slot_stamp_locked();
 
-    // Parse system info (model, firmware)
+    // Parse system info (model, protocol, firmware). The first unit's
+    // firmware is the system's version; every unit keeps its own.
     if (data.contains("model") && data["model"].is_string()) {
         system_info_.type_name = "ACE";
-        // Use model string for unit name if we have units
-        auto model = data["model"].get<std::string>();
-        if (!system_info_.units.empty()) {
-            system_info_.units[0].name = model;
-        }
     }
-
-    if (data.contains("firmware") && data["firmware"].is_string()) {
-        system_info_.version = data["firmware"].get<std::string>();
+    {
+        const auto index = static_cast<size_t>(std::max(unit_index, 0));
+        if (unit_identities_.size() <= index) {
+            unit_identities_.resize(index + 1);
+        }
+        UnitIdentity& identity = unit_identities_[index];
+        const UnitIdentity before = identity;
+        identity.reported = identity.reported || from_instance;
+        if (data.contains("model") && data["model"].is_string()) {
+            identity.model = data["model"].get<std::string>();
+        }
+        if (data.contains("protocol") && data["protocol"].is_string()) {
+            identity.protocol = data["protocol"].get<std::string>();
+        }
+        if (data.contains("firmware") && data["firmware"].is_string()) {
+            identity.firmware = data["firmware"].get<std::string>();
+            if (unit_index == 0) {
+                system_info_.version = identity.firmware;
+            }
+        }
+        if (identity.model != before.model || identity.protocol != before.protocol ||
+            identity.firmware != before.firmware || identity.reported != before.reported) {
+            apply_unit_identities_locked();
+        }
     }
 
     // Parse status string -> AmsAction. The shared vocabulary table is the
     // one AFC and Happy Hare read; ACE's own words (loading/unloading/error,
-    // "ready", "drying") resolve to the same actions through it.
+    // "ready", "drying") resolve to the same actions through it. Each unit
+    // states its own, so one unit's "ready" does not end another's load.
     if (data.contains("status") && data["status"].is_string()) {
-        system_info_.action = ams_action_from_string(data["status"].get<std::string>());
+        set_unit_action_locked(unit_index,
+                               ams_action_from_string(data["status"].get<std::string>()));
     }
 
     // Parse slots array
@@ -1071,40 +1456,50 @@ void AmsBackendAce::parse_ace_object(const json& data) {
             spdlog::warn("[ACE] Ignoring excessive slot count from get_status: {}",
                          slots_arr.size());
         } else {
-            int slot_count = static_cast<int>(slots_arr.size());
-
-            // Ensure we have a unit
-            if (system_info_.units.empty()) {
-                system_info_.units.emplace_back();
-                system_info_.units[0].unit_index = 0;
-                system_info_.units[0].connected = true;
-
-                // Use model if available
-                if (data.contains("model") && data["model"].is_string()) {
-                    system_info_.units[0].name = data["model"].get<std::string>();
-                } else {
-                    system_info_.units[0].name = "ACE Pro";
-                }
+            const bool new_unit = static_cast<size_t>(unit_index) >= system_info_.units.size();
+            auto& unit = unit_locked(unit_index);
+            if (new_unit) {
+                apply_unit_identities_locked();
             }
-
-            auto& unit = system_info_.units[0];
-            unit.slot_count = slot_count;
-            system_info_.total_slots = slot_count;
+            if (instance_objects_) {
+                // Every ACEPRO unit feeds the printer's one extruder through the
+                // one hub its rdm_sensor watches.
+                unit.hub_id = "ace";
+            }
 
             // Resize slots
-            if (unit.slots.size() != static_cast<size_t>(slot_count)) {
-                unit.slots.resize(static_cast<size_t>(slot_count));
+            if (unit.slots.size() != slots_arr.size()) {
+                unit.slots.resize(slots_arr.size());
+            }
+            const auto link = unit_links_.find(unit_index);
+            unit.connected = link == unit_links_.end() || link->second;
+            if (index_units_locked()) {
+                // Slots moved: the insert edge compares a bay with itself only,
+                // so it re-baselines as after a restart.
+                prev_slot_status_.clear();
+                pending_insert_reads_.clear();
+                last_spool_evidence_.clear();
             }
 
+            bool tools_changed = false;
             for (size_t i = 0; i < slots_arr.size(); ++i) {
                 const auto& slot_json = slots_arr[i];
                 if (!slot_json.is_object())
                     continue;
 
                 auto& slot = unit.slots[i];
-                slot.slot_index = static_cast<int>(i);
-                slot.global_index = static_cast<int>(i);
-                note_park_state_locked(static_cast<int>(i), slot_json);
+                const int idx = slot.global_index;
+                note_park_state_locked(idx, slot_json);
+                // Published as the slot's tool so a Load with a tool seated is
+                // planned as the toolchange the driver performs, and the step
+                // bar shows its cut and retract. A frame naming none clears it.
+                const int tool =
+                    helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit).value_or(-1);
+                tools_changed |= slot.mapped_tool != tool;
+                slot.mapped_tool = tool;
+                if (instance_objects_) {
+                    slot.extruder_name = "extruder";
+                }
 
                 // Parse status via the shared vocabulary map so the object path
                 // and the REST fallback path can't drift.
@@ -1176,7 +1571,6 @@ void AmsBackendAce::parse_ace_object(const json& data) {
                 // BASELINE and must never fire a clear, matching IFS/Snapmaker
                 // baseline semantics. Only call the helper when a prior status
                 // was already recorded for this slot.
-                int idx = static_cast<int>(i);
                 auto prev_it = prev_slot_status_.find(idx);
                 if (prev_it != prev_slot_status_.end()) {
                     check_hardware_event_clear(slot, idx, prev_it->second, slot.status, evidence);
@@ -1234,44 +1628,68 @@ void AmsBackendAce::parse_ace_object(const json& data) {
                 // kPollIntervalMs, so ACE names no slot to cached_slot_locked().
                 apply_resolved_lane(slot, idx);
             }
+            if (tools_changed) {
+                // The driver names each slot's tool: publish the map in both
+                // directions, so the T badges show only where tool and spool
+                // numbers part.
+                publish_tool_map_locked();
+            }
+        }
+    }
+
+    // The ACEPRO driver states each unit's link; a frame that does not restate it
+    // leaves it as it was.
+    if (instance_objects_ && data.contains("connection_state") &&
+        data["connection_state"].is_string()) {
+        if (const auto linked =
+                ace_link_from_state(data["connection_state"].get_ref<const std::string&>())) {
+            unit_links_[unit_index] = *linked;
+            if (static_cast<size_t>(unit_index) < system_info_.units.size()) {
+                system_info_.units[static_cast<size_t>(unit_index)].connected = *linked;
+            }
         }
     }
 
     // Parse dryer state — either outer-key spelling (`dryer` or
     // `dryer_status`), either nested key set, plus the top-level ambient
     // `temp`. See helix::ace::apply_dryer_state.
-    helix::ace::apply_dryer_state(data, dryer_info_);
+    DryerInfo& dryer = dryer_locked(unit_index);
+    helix::ace::apply_dryer_state(data, dryer);
 
-    // Populate per-unit environment data for the environment overlay.
-    // ACE reports ambient temperature; humidity is not available (left at 0).
-    if (!system_info_.units.empty() && dryer_info_.current_temp_c > 0) {
-        EnvironmentData env;
-        env.temperature_c = dryer_info_.current_temp_c;
-        // humidity_pct stays 0 — ACE doesn't have a humidity sensor
-        system_info_.units[0].environment = env;
-    }
+    AmsUnit* env_unit = static_cast<size_t>(unit_index) < system_info_.units.size()
+                            ? &system_info_.units[static_cast<size_t>(unit_index)]
+                            : nullptr;
 
-    // Also parse top-level humidity if present (future ValgACE versions)
-    if (!system_info_.units.empty() && data.contains("humidity") && data["humidity"].is_number()) {
-        if (!system_info_.units[0].environment.has_value()) {
-            system_info_.units[0].environment = EnvironmentData{};
+    // Populate per-unit environment data for the environment overlay: the
+    // ambient temperature, and humidity where the unit has a sensor (an ACE 2
+    // reports it, an ACE Pro reports null). Updated in place: a notify frame
+    // carries only the fields that changed, so one without `humidity` keeps it.
+    if (env_unit != nullptr && dryer.current_temp_c > 0) {
+        if (!env_unit->environment.has_value()) {
+            env_unit->environment = EnvironmentData{};
         }
-        system_info_.units[0].environment->humidity_pct = data["humidity"].get<float>();
-        system_info_.units[0].environment->has_humidity = true;
+        env_unit->environment->temperature_c = dryer.current_temp_c;
+    }
+    if (env_unit != nullptr && data.contains("humidity") && data["humidity"].is_number()) {
+        if (!env_unit->environment.has_value()) {
+            env_unit->environment = EnvironmentData{};
+        }
+        env_unit->environment->humidity_pct = data["humidity"].get<float>();
+        env_unit->environment->has_humidity = true;
     }
 
     // Derive loaded slot state from slot statuses
     // ValgACE doesn't have a top-level "loaded_slot" — infer from slot status
     // If any slot is "loaded", that's the active one
-    if (!system_info_.units.empty()) {
-        for (int i = 0; i < static_cast<int>(system_info_.units[0].slots.size()); ++i) {
+    if (env_unit != nullptr) {
+        for (int i = 0; i < static_cast<int>(env_unit->slots.size()); ++i) {
             // Check the raw JSON for "loaded" status specifically
             if (data.contains("slots") && data["slots"].is_array() &&
                 i < static_cast<int>(data["slots"].size())) {
                 const auto& sj = data["slots"][static_cast<size_t>(i)];
                 if (sj.contains("status") && sj["status"].is_string() &&
                     sj["status"].get<std::string>() == "loaded") {
-                    seat_from_local_index_locked(i);
+                    seat_from_local_index_locked(env_unit->first_slot_global_index + i);
                     break;
                 }
             }
@@ -1301,14 +1719,20 @@ void AmsBackendAce::parse_ace_object(const json& data) {
         }
     }
 
-    // Kobra S1 fork: the manager object states the seat ONLY as
+    // ACEPRO driver: the manager object states the seat ONLY as
     // `current_index`, the global tool index, and states it even when
     // nothing is loaded (-1) — so it must clear the seat too, or a TR/unload
     // would leave the previous slot reading loaded forever. Fourth and last
     // explicit signal; last one wins (#1069).
     if (data.contains("current_index") && data["current_index"].is_number_integer()) {
         manager_states_seat_ = true;
-        seat_from_global_index_locked(data["current_index"].get<int>());
+        seat_from_tool_locked(data["current_index"].get<int>());
+    } else if (instance_objects_ && manager_states_seat_ && seat_loaded_ &&
+               system_info_.current_tool >= 0) {
+        // An instance frame: the manager can name a tool before the unit
+        // carrying it reports its slots, so the seat is resolved again each
+        // time a unit's slots or tool numbers may have arrived.
+        seat_from_tool_locked(system_info_.current_tool);
     }
 
     apply_path_sensors_locked(data);
@@ -1326,6 +1750,10 @@ void AmsBackendAce::parse_ace_object(const json& data) {
         system_info_.supports_bypass = !bypass_on_macro_.empty() && !bypass_off_macro_.empty();
     }
 
+    if (data.contains("feed_assist_slot") && data["feed_assist_slot"].is_number_integer()) {
+        feed_assist_slots_[unit_index] = data["feed_assist_slot"].get<int>();
+    }
+
     if (data.contains("endless_spool_enabled") && data["endless_spool_enabled"].is_boolean()) {
         endless_spool_seen_ = true;
         endless_spool_on_ = data["endless_spool_enabled"].get<bool>();
@@ -1336,7 +1764,7 @@ void AmsBackendAce::parse_ace_object(const json& data) {
     }
 
     // All four seated signals (the ValgACE "loaded" scan, loaded_slot, native
-    // current_filament, and the fork manager's current_index) have now had
+    // current_filament, and the ACEPRO manager's current_index) have now had
     // their say and arbitrated to one slot; publish that as the slot's own
     // status.
     apply_seated_slot_stamp_locked();
@@ -1347,19 +1775,18 @@ const json* AmsBackendAce::select_ace_object(const json& status, std::string* ma
     // One predicate for both selection passes (see the header doc): the
     // subscription-commit pass requires real slot data (a non-empty "slots"
     // array — the exact key parse_ace_object reads — so a manager-only object,
-    // the Kobra S1 fork's `ace` with ace_instances/current_index and no slots,
+    // the ACEPRO driver's `ace` with ace_instances/current_index and no slots,
     // falls through to the REST bridge, #1069), while a notify delta needs
     // only a non-empty object the caller has not claimed for itself.
     auto matches = [&](const json& obj) {
         if (!obj.is_object() || obj.empty() || &obj == skip) {
             return false;
         }
-        return !require_slots ||
-               (obj.contains("slots") && obj["slots"].is_array() && !obj["slots"].empty());
+        return !require_slots || object_carries_slots(obj);
     };
 
     // Preference order: filament_hub (native GoKlipper), then ace (community
-    // ValgACE/BunnyACE), then ace_instance_N (Kobra S1 mainline-Python fork —
+    // ValgACE/BunnyACE), then ace_instance_N (ACEPRO driver —
     // #1107), so the choice is deterministic.
     if (status.contains("filament_hub") && matches(status["filament_hub"])) {
         if (matched_key)
@@ -1371,28 +1798,46 @@ const json* AmsBackendAce::select_ace_object(const json& status, std::string* ma
             *matched_key = "ace";
         return &status["ace"];
     }
-    if (const std::string* instance_key = lowest_ace_instance_key(status, matches)) {
+    if (const auto instance = lowest_ace_instance(status, matches)) {
         if (matched_key)
-            *matched_key = *instance_key;
-        return &status[*instance_key];
+            *matched_key = ace_instance_key(instance->first);
+        return instance->second;
     }
     return nullptr;
 }
 
-const std::string*
-AmsBackendAce::lowest_ace_instance_key(const json& status,
-                                       const std::function<bool(const json&)>& predicate) {
-    if (!status.is_object()) {
-        return nullptr;
-    }
-    const std::string* best_key = nullptr;
-    for (auto it = status.begin(); it != status.end(); ++it) {
-        if (it.key().rfind("ace_instance", 0) == 0 && predicate(it.value()) &&
-            (best_key == nullptr || it.key() < *best_key)) {
-            best_key = &it.key();
+std::optional<std::pair<int, const json*>>
+AmsBackendAce::lowest_ace_instance(const json& status,
+                                   const std::function<bool(const json&)>& predicate) {
+    for (const auto& instance : ace_instance_objects(status)) {
+        if (predicate(*instance.second)) {
+            return instance;
         }
     }
-    return best_key;
+    return std::nullopt;
+}
+
+std::vector<std::pair<int, const json*>> AmsBackendAce::ace_instance_objects(const json& status) {
+    std::vector<std::pair<int, const json*>> found;
+    if (!status.is_object()) {
+        return found;
+    }
+    for (auto it = status.begin(); it != status.end(); ++it) {
+        if (it.key().rfind(helix::ace::kInstanceObjectPrefix, 0) != 0 || !it.value().is_object() ||
+            it.value().empty()) {
+            continue;
+        }
+        const auto number = helix::text_io::parse_leading<int>(
+            it.key().substr(helix::ace::kInstanceObjectPrefix.size()));
+        if (!number || *number < 0 || *number >= kMaxUnits) {
+            spdlog::debug("[ACE] Ignoring '{}': not an ACE instance this backend shows", it.key());
+            continue;
+        }
+        found.emplace_back(*number, &it.value());
+    }
+    std::sort(found.begin(), found.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+    return found;
 }
 
 const json* AmsBackendAce::manager_ace_object(const json& status) {
@@ -1461,21 +1906,21 @@ void AmsBackendAce::rest_polling_loop() {
 
     while (!rest_stop_requested_.load()) {
         // /server/ace/info is OPTIONAL — best-effort retry until the cap for the
-        // model/version it can supply, but its absence is NOT fatal: the Kobra
-        // S1 fork ships /status + /slots (which carry model + slots) but NOT
-        // /info (#1069). Give up quietly after the cap.
+        // model/version it can supply, but its absence is NOT fatal: the
+        // ACEPRO driver's bridge serves /status + /slots (which carry model +
+        // slots) but NOT /info (#1069). Give up quietly after the cap.
         if (!info_fetched_.load() && info_fetch_failures_.load() < kMaxInfoFetchFailures) {
             poll_info();
         } else if (!info_fetched_.load() && info_fetch_failures_.load() == kMaxInfoFetchFailures) {
             spdlog::info("[ACE] /server/ace/info unavailable after {} attempts — "
-                         "using /status + /slots (this fork has no /info endpoint).",
+                         "using /status + /slots (this driver has no /info endpoint).",
                          kMaxInfoFetchFailures);
             ++info_fetch_failures_;
         }
 
         // Data endpoints are the source of truth for slots (and model, via the
         // /status envelope) — poll them unconditionally, NOT gated on
-        // info_fetched_. Gating here left the fork's backend permanently idle.
+        // info_fetched_. Gated on it, the ACEPRO driver's backend would sit idle.
         poll_status();
         poll_slots();
 
@@ -1546,11 +1991,11 @@ void AmsBackendAce::poll_status() {
 
     auto token = op_lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/status", [this, token](const RestResponse& resp) {
+    api_->rest().call_rest_get(kRestStatusPath, [this, token](const RestResponse& resp) {
         // L081 Mechanism C: defer member access (parse_status_response,
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_status_apply", [this, resp]() {
-            if (resp.success && resp.data.contains("result")) {
+            if (rest_poll_answered(resp)) {
                 rest_data_ok_.store(true);
                 data_fetch_failures_.store(0);
                 if (parse_status_response(resp.data["result"])) {
@@ -1592,11 +2037,11 @@ void AmsBackendAce::poll_slots() {
 
     auto token = op_lifetime_.token();
 
-    api_->rest().call_rest_get("/server/ace/slots", [this, token](const RestResponse& resp) {
+    api_->rest().call_rest_get(kRestSlotsPath, [this, token](const RestResponse& resp) {
         // L081 Mechanism C: defer member access (parse_slots_response,
         // emit_event) to main thread.
         token.defer("AmsBackendAce::poll_slots_apply", [this, resp]() {
-            if (resp.success && resp.data.contains("result")) {
+            if (rest_poll_answered(resp)) {
                 // A working /slots is sufficient data — latch data-ok and reset
                 // the failure counter so the "bridge not found" error only fires
                 // when BOTH data endpoints are down (#1069).
@@ -1668,7 +2113,7 @@ bool AmsBackendAce::parse_status_response(const json& data) {
     std::lock_guard<std::mutex> lock(mutex_);
     bool changed = false;
 
-    // The fork's /server/ace/status envelope carries model + firmware, so the
+    // The ACEPRO driver's /server/ace/status envelope carries model + firmware, so the
     // backend can identify the hardware without /server/ace/info (#1069). Match
     // the object-path key names (`model`, `firmware`).
     if (data.contains("model") && data["model"].is_string()) {
@@ -1686,7 +2131,15 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         changed |= seat_from_local_index_locked(data["loaded_slot"].get<int>());
     }
 
-    // The fork's /status states the seat through the manager's
+    if (data.contains("ace_manager")) {
+        instance_commands_ = true;
+    }
+    if (data.contains("instance_index") && data["instance_index"].is_number_integer() &&
+        data["instance_index"].get<int>() >= 0) {
+        rest_instance_ = data["instance_index"].get<int>();
+    }
+
+    // The ACEPRO driver's /status states the seat through the manager's
     // current_index instead of loaded_slot — same semantics, global tool
     // index with -1 meaning nothing loaded (#1069).
     if (data.contains("ace_manager") && data["ace_manager"].is_object() &&
@@ -1694,10 +2147,10 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         data["ace_manager"]["current_index"].is_number_integer()) {
         manager_states_seat_ = true;
         apply_path_sensors_locked(data["ace_manager"]);
-        changed |= seat_from_global_index_locked(data["ace_manager"]["current_index"].get<int>());
+        changed |= seat_from_tool_locked(data["ace_manager"]["current_index"].get<int>());
     }
 
-    // The ValgACE bridge names the action field `action`; the fork names it
+    // The ValgACE bridge names the action field `action`; the ACEPRO driver names it
     // `status` ("ready"/etc.) with the same loading/unloading/error
     // vocabulary the object path maps (#1069).
     std::string action_str;
@@ -1706,10 +2159,10 @@ bool AmsBackendAce::parse_status_response(const json& data) {
     } else if (data.contains("status") && data["status"].is_string()) {
         action_str = data["status"].get<std::string>();
     }
-    // The ValgACE bridge names the action field `action`; the fork names it
+    // The ValgACE bridge names the action field `action`; the ACEPRO driver names it
     // `status` ("ready"/etc.) with the same loading/unloading/error
     // vocabulary the object path maps (#1069). A bridge `action` is
-    // authoritative; the fork's fallback reads the UNIT's status, which can
+    // authoritative; the ACEPRO driver's fallback reads the UNIT's status, which can
     // stay "ready" through a toolchange (do_load_filament sets LOADING
     // optimistically for exactly that case), so an IDLE resolved from it
     // must not demote an in-flight local load/unload.
@@ -1730,7 +2183,7 @@ bool AmsBackendAce::parse_status_response(const json& data) {
         changed |= apply_target_index_locked(data["ace_manager"]);
     }
 
-    helix::ace::apply_dryer_state(data, dryer_info_);
+    helix::ace::apply_dryer_state(data, dryer_locked(0));
 
     // /status owns loaded_slot but never touches the slot vector; /slots owns
     // the slot vector but carries no seated field. Both ends re-derive the
@@ -1776,6 +2229,7 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
     // STATE_CHANGED event forever.
     clear_seated_slot_stamp_locked();
 
+    bool tools_changed = false;
     for (size_t i = 0; i < slots_data.size(); ++i) {
         const auto& slot_json = slots_data[i];
 
@@ -1789,13 +2243,16 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         slot.global_index = static_cast<int>(i);
 
         changed |= note_park_state_locked(static_cast<int>(i), slot_json);
+        const int tool =
+            helix::ace::read_slot_tool(slot_json, kMaxUnits * kSlotsPerUnit).value_or(-1);
+        tools_changed |= slot.mapped_tool != tool;
+        slot.mapped_tool = tool;
 
         const bool states_status = slot_json.contains("status") && slot_json["status"].is_string();
         std::optional<bool> observed_present;
         if (states_status) {
-            // Mirror the object path exactly via the shared vocabulary map —
-            // this fork emits `ready` (and can emit `unknown`), which the old
-            // empty/available/loaded-only mapping misclassified (#1069).
+            // Mirror the object path exactly via the shared vocabulary map:
+            // this driver emits `ready` (and can emit `unknown`) (#1069).
             SlotStatus status =
                 helix::ace::slot_status_from_string(slot_json["status"].get<std::string>());
             observed_present = slot_status_reports_filament(status);
@@ -1855,6 +2312,16 @@ bool AmsBackendAce::parse_slots_response(const json& data) {
         }
     }
 
+    if (tools_changed) {
+        // The ACEPRO bridge names each slot's tool, as its instances do on
+        // the object path; the seat and ACE_CHANGE_TOOL follow it.
+        changed = true;
+        publish_tool_map_locked();
+        if (manager_states_seat_ && seat_loaded_ && system_info_.current_tool >= 0) {
+            changed |= seat_from_tool_locked(system_info_.current_tool);
+        }
+    }
+
     // /slots carries no seated field, so re-apply what /status last resolved —
     // otherwise this poll would silently demote the loaded slot to AVAILABLE
     // and take can_unload_from_toolhead() with it.
@@ -1890,10 +2357,9 @@ std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() co
         DA::button("ace_manual_retract", "Manual Retract", "filament_control", "",
                    "Retract filament to current slot")
             .with_machine_motion(),
-        DA::toggle("ace_feed_assist_toggle", "Feed Assist", "maintenance", {}, "",
-                   "Enable feed assist for active slot during printing"),
     };
     std::lock_guard<std::mutex> lock(mutex_);
+    actions.push_back(feed_assist_action_locked());
     if (endless_spool_seen_) {
         actions.push_back(DA::dropdown("ace_endless_spool_mode", "Match Mode", "endless_spool",
                                        {"exact", "material", "next"}, endless_spool_mode_, "",
@@ -1917,44 +2383,110 @@ std::vector<helix::printer::DeviceAction> AmsBackendAce::get_device_actions() co
     return actions;
 }
 
+helix::printer::DeviceAction AmsBackendAce::feed_assist_action_locked() const {
+    // Caller holds mutex_.
+    using DA = helix::printer::DeviceAction;
+    std::any value;
+    const int slot = system_info_.current_slot;
+    if (const AmsUnit* unit = slot >= 0 ? system_info_.get_unit_for_slot(slot) : nullptr) {
+        const auto it = feed_assist_slots_.find(unit->unit_index);
+        if (it != feed_assist_slots_.end()) {
+            value = it->second == slot - unit->first_slot_global_index;
+        }
+    }
+    DA action =
+        DA::toggle("ace_feed_assist_toggle", "Feed Assist", "maintenance", std::move(value), "",
+                   "The ACE pushes the loaded filament along with the extruder. The driver turns "
+                   "Feed Assist on after a load");
+    if (slot < 0) {
+        action.enabled = false;
+        // A seated tool whose unit has not reported its slots is loaded, just
+        // not yet placed, which the execute path refuses the same way.
+        action.disable_reason = instance_commands_ && seat_loaded_
+                                    ? TR_NOOP("The loaded slot is not known yet")
+                                    : TR_NOOP("Load filament first");
+    }
+    return action;
+}
+
+std::string AmsBackendAce::slot_command(const std::string& verb, int slot) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!instance_commands_) {
+        return fmt::format("{} INDEX={}", verb, slot);
+    }
+    int instance = ace_instance_for_unit_locked(0);
+    int local = slot;
+    if (const AmsUnit* unit = system_info_.get_unit_for_slot(slot)) {
+        instance = ace_instance_for_unit_locked(unit->unit_index);
+        local = slot - unit->first_slot_global_index;
+    }
+    return fmt::format("{} INSTANCE={} INDEX={}", verb, instance, local);
+}
+
+std::string AmsBackendAce::ace_instance_key(int n) {
+    return std::string(helix::ace::kInstanceObjectPrefix) + std::to_string(n);
+}
+
 AmsError AmsBackendAce::do_execute_device_action(const std::string& action_id,
                                                  const std::any& value) {
+    const bool slot_action = action_id == "ace_manual_feed" || action_id == "ace_manual_retract" ||
+                             action_id == "ace_feed_assist_toggle";
+    const int current_slot = get_current_slot();
+    int slot = std::max(current_slot, 0);
+    if (slot_action) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (current_slot < 0 && instance_commands_ && seat_loaded_) {
+            // A tool is seated whose unit has not reported its slots: the
+            // first unit's slot 0 would feed a second strand into the path
+            // that tool holds. With nothing seated the path is clear and the
+            // first unit present is addressed, as slot 0 is on every driver.
+            return AmsError(AmsResult::WRONG_STATE, "Seated tool has no known slot",
+                            lv_tr("It has not reported its slots yet. Try again in a moment."), "");
+        }
+        if (current_slot < 0) {
+            for (const auto& unit : system_info_.units) {
+                if (!unit.absent && unit.slot_count > 0) {
+                    slot = unit.first_slot_global_index;
+                    break;
+                }
+            }
+        }
+        const AmsUnit* unit = system_info_.get_unit_for_slot(slot);
+        if (unit != nullptr && unit->absent) {
+            // A gap in the chain: no instance answers to that INSTANCE=.
+            return AmsError(AmsResult::WRONG_STATE, "No ACE instance for that slot",
+                            lv_tr("It has not reported its slots yet. Try again in a moment."), "");
+        }
+    }
+
     if (action_id == "ace_manual_feed") {
-        int slot = get_current_slot();
-        if (slot < 0)
-            slot = 0;
         static constexpr int kManualFeedLength = 50;
         static constexpr int kManualFeedSpeed = 50;
-        return execute_gcode("ACE_FEED INDEX=" + std::to_string(slot) +
-                             " LENGTH=" + std::to_string(kManualFeedLength) +
-                             " SPEED=" + std::to_string(kManualFeedSpeed));
+        return execute_gcode(slot_command("ACE_FEED", slot) + fmt::format(" LENGTH={} SPEED={}",
+                                                                          kManualFeedLength,
+                                                                          kManualFeedSpeed));
     }
 
     if (action_id == "ace_manual_retract") {
-        int slot = get_current_slot();
-        if (slot < 0)
-            slot = 0;
         static constexpr int kManualRetractLength = 50;
         static constexpr int kManualRetractSpeed = 50;
-        return execute_gcode("ACE_RETRACT INDEX=" + std::to_string(slot) +
-                             " LENGTH=" + std::to_string(kManualRetractLength) +
-                             " SPEED=" + std::to_string(kManualRetractSpeed));
+        return execute_gcode(slot_command("ACE_RETRACT", slot) + fmt::format(" LENGTH={} SPEED={}",
+                                                                             kManualRetractLength,
+                                                                             kManualRetractSpeed));
     }
 
     if (action_id == "ace_feed_assist_toggle") {
-        int slot = get_current_slot();
-        if (slot < 0)
-            slot = 0;
-
         const auto [enable, err] = printer::device_action_value<bool>(value, "feed assist state");
         if (!err) {
             return err;
         }
-        if (enable) {
-            return execute_gcode("ACE_ENABLE_FEED_ASSIST INDEX=" + std::to_string(slot));
-        } else {
-            return execute_gcode("ACE_DISABLE_FEED_ASSIST INDEX=" + std::to_string(slot));
+        if (current_slot < 0) {
+            spdlog::info("[ACE] Feed assist refused: no filament is loaded");
+            return AmsError(AmsResult::WRONG_STATE, "No filament loaded for feed assist",
+                            lv_tr("Load filament first"), "");
         }
+        return execute_gcode(
+            slot_command(enable ? "ACE_ENABLE_FEED_ASSIST" : "ACE_DISABLE_FEED_ASSIST", slot));
     }
 
     if (action_id == "ace_bypass_on_macro" || action_id == "ace_bypass_off_macro") {
@@ -2038,8 +2570,7 @@ helix::printer::EndlessSpoolConfig AmsBackendAce::endless_spool_config_locked() 
     // Mirrors the driver's find_exact_match: only slots the driver calls
     // "ready" are swap targets, materials compare case- and edge-space-
     // insensitively, and an unknown material never matches in exact or
-    // material mode. The backend parses one ACE instance (unit 0), so slots on
-    // further instances are not offered.
+    // material mode, across every unit's slots.
     if (!endless_spool_seen_ || !endless_spool_on_ || system_info_.units.empty()) {
         return {};
     }
@@ -2055,21 +2586,23 @@ helix::printer::EndlessSpoolConfig AmsBackendAce::endless_spool_config_locked() 
     };
     std::map<std::tuple<std::string, uint32_t>, int> ids;
     std::vector<int> group_ids;
-    for (const auto& slot : system_info_.units[0].slots) {
-        if (slot.global_index < 0 || !driver_ready_slots_.count(slot.global_index)) {
-            continue;
+    for (const auto& unit : system_info_.units) {
+        for (const auto& slot : unit.slots) {
+            if (slot.global_index < 0 || !driver_ready_slots_.count(slot.global_index)) {
+                continue;
+            }
+            const std::string material = normalized(slot.material);
+            if (!by_next && (material.empty() || material == "unknown")) {
+                continue;
+            }
+            if (group_ids.size() <= static_cast<size_t>(slot.global_index)) {
+                group_ids.resize(static_cast<size_t>(slot.global_index) + 1, -1);
+            }
+            auto key = std::make_tuple(by_next ? std::string() : material,
+                                       (by_next || by_material) ? 0u : slot.color_rgb);
+            auto [it, inserted] = ids.try_emplace(key, static_cast<int>(ids.size()));
+            group_ids[static_cast<size_t>(slot.global_index)] = it->second;
         }
-        const std::string material = normalized(slot.material);
-        if (!by_next && (material.empty() || material == "unknown")) {
-            continue;
-        }
-        if (group_ids.size() <= static_cast<size_t>(slot.global_index)) {
-            group_ids.resize(static_cast<size_t>(slot.global_index) + 1, -1);
-        }
-        auto key = std::make_tuple(by_next ? std::string() : material,
-                                   (by_next || by_material) ? 0u : slot.color_rgb);
-        auto [it, inserted] = ids.try_emplace(key, static_cast<int>(ids.size()));
-        group_ids[static_cast<size_t>(slot.global_index)] = it->second;
     }
     return helix::printer::endless_spool_config_from_groups(group_ids);
 }
@@ -2179,8 +2712,7 @@ void AmsBackendAce::judge_insert_locked(SlotInfo& slot, int slot_index,
 void AmsBackendAce::clear_slot_override(int slot_index) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto* slot =
-            system_info_.units.empty() ? nullptr : system_info_.units[0].get_slot(slot_index);
+        auto* slot = mutable_slot_locked(slot_index);
         if (!slot) {
             spdlog::warn("{} clear_slot_override: no slot entry for index {}", backend_log_tag(),
                          slot_index);

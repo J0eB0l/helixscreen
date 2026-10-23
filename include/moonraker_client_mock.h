@@ -161,6 +161,16 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     void set_simulation_speedup(double factor);
 
     /**
+     * @brief Set the pause connect() takes before reporting CONNECTED
+     *
+     * Process-wide, in simulated milliseconds (scaled by sim_speed()). The
+     * --test app keeps the default; the unit-test binary sets 0, because
+     * connect() blocks its caller for the whole pause and no test waits on it.
+     */
+    static void set_connect_delay_ms(int ms);
+    static int connect_delay_ms();
+
+    /**
      * @brief Get current simulation speedup factor
      * @return Current speedup multiplier (1.0 = real-time)
      */
@@ -952,6 +962,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// CANCEL_PRINT clears both schedules, as client.cfg's does.
     void reset_layer_pause();
 
+    /// HELIX_MOCK_PLR with HELIX_MOCK_HELIX_PLUGIN: the plugin's `plr`
+    /// feature entry for server.helix.status; null when the knob is off.
+    /// `enabled` follows a written `helix-screen` / `plr_user`, on by default.
+    [[nodiscard]] json mock_plr_feature_entry();
+    /// A power-loss snapshot is on record: the newest history job reads
+    /// `interrupted` until a discard or a resume clears it.
+    [[nodiscard]] bool mock_plr_interrupted() const;
+    /// The plugin's saving switch: a written `plr_user.enabled`, else on.
+    [[nodiscard]] bool mock_plr_saving();
+    /// Answer one server.helix.plr.* request (moonraker_client_mock_plr.cpp).
+    void mock_plr_request(const std::string& method, const json& params,
+                          std::function<void(const json&)> success_cb,
+                          std::function<void(const MoonrakerError&)> error_cb);
+
     /// A print-start step reaching its wrapper: true, and the flag restored,
     /// when a skip was set for it.
     bool consume_skip(helix::skip_wrappers::Op op);
@@ -1299,6 +1323,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     bool simulate_nozzle_offset_calibration(const std::string& script,
                                             std::function<void(const nlohmann::json&)> success_cb,
                                             std::function<void(const MoonrakerError&)> error_cb);
+
+    /**
+     * @brief Answer an INDX command that blocks for minutes on the real
+     *        printer (INDX_CALIBRATE, INDX_FAN_CALIBRATE, TC_CYCLE_ALL)
+     *
+     * The command runs at once; the rpc is answered later on an lv_timer,
+     * scaled by the simulation speed, so a screen tracking it is observable.
+     * A refusal answers at once.
+     *
+     * @return true if the script was handled here (the callbacks are owned)
+     */
+    bool simulate_indx_blocking(const std::string& script,
+                                std::function<void(const nlohmann::json&)> success_cb,
+                                std::function<void(const MoonrakerError&)> error_cb);
 
     /// The U1 persona's extruder_offset for head @p head (0-3), as the
     /// objects query reports it.
@@ -1818,6 +1856,20 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
         return update_manager_busy_;
     }
 
+    /// Test helper: what server.helix.analysis answers for @p filename (its
+    /// `result`); a null @p result forgets it, and such a file answers pending.
+    void set_mock_file_analysis(const std::string& filename, const json& result) {
+        if (result.is_null()) {
+            mock_file_analysis_.erase(filename);
+        } else {
+            mock_file_analysis_[filename] = result;
+        }
+    }
+    [[nodiscard]] json mock_file_analysis(const std::string& filename) const {
+        const auto it = mock_file_analysis_.find(filename);
+        return it == mock_file_analysis_.end() ? json(nullptr) : it->second;
+    }
+
     /// Test helper: the Moonraker database the server.database.* handlers serve.
     /// Keys are dotted the way Moonraker's are ("a.b" is member b of record a).
     void mock_db_set(const std::string& ns, const std::string& key, const json& value);
@@ -1995,6 +2047,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     // Unlocked: the handlers answer on the calling thread, and every caller of
     // the database and Spoolman routes is on the main thread.
     json mock_db_ = json::object();
+    std::map<std::string, json> mock_file_analysis_;
     MockSpoolmanServer spoolman_;
 
     // One-shot forced error injection for printer.gcode.script (test helper).
@@ -2082,6 +2135,12 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// Last layer announced on the console. Sim thread only.
     int last_console_layer_ = 0;
     int layer_pause_last_layer_ = 0; ///< status thread only
+    /// server.helix.plr.* state: the snapshot is kept until a discard or a
+    /// committed resume, and each plan request issues a new plan id. Main
+    /// thread only, like every mock RPC handler.
+    bool plr_snapshot_cleared_ = false;
+    int plr_plan_seq_ = 0;
+    std::string plr_plan_id_;
     std::atomic<bool> layer_pause_next_{false};
     std::atomic<int> layer_pause_next_armed_at_{0}; ///< layer the request arrived on
     std::atomic<bool> layer_pause_at_enable_{false};
@@ -2288,10 +2347,11 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
 
   public:
     /// Entries added through server.webcams.post_item, listed after the HELIX_MOCK_WEBCAMS
-    /// ones. Keyed by name like Moonraker's own registry.
+    /// ones. Keyed by uid, or by name, like Moonraker's own registry.
     struct PostedWebcams {
         std::mutex mutex;
         std::vector<nlohmann::json> items;
+        int next_uid = 0;
     };
     PostedWebcams& posted_webcams() {
         return posted_webcams_;
@@ -2366,6 +2426,44 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// Arm a swap to `tool` (-1 unmounts whatever is on the head). Opens the
     /// feeder and enters the drop phase; advance_medusa_swap() does the rest.
     void start_medusa_swap(int tool);
+
+    // --- Bondtech INDX mock hardware (moonraker_client_mock_indx.cpp) ----------
+    // The macro state Bondtech's upstream macros publish (save_variables and
+    // gcode_macro variables), driven by T<n> / CHANGE_TOOL / PARK_TOOL.
+    // Written from gcode_script(), read by the RPC handlers and the
+    // simulation thread: all behind indx_mutex_.
+    struct IndxMockState {
+        int tool_count = 6;
+        int active_tool = 0;
+        int toolchange_count = 0;
+        int seat_suspect = -1;
+        int toolhead_state = 0; ///< 0 locked, 2 open
+        bool docks_calibrated = true;
+        std::vector<int> no_heat_tools{5};
+        bool spool_macros = false;   ///< T<n> declares spool_id and sets the active spool
+        bool kalico = false;         ///< [indx] in configfile only, not in the objects list
+        bool unrecognized = false;   ///< CHANGE_TOOL missing
+        std::vector<int> spool_ids;  ///< Per tool, with spool_macros
+        std::string mode = "normal"; ///< _TOOLCHANGE_VARS.mode
+        /// Per tool: the X, Y, Z offset its calibration measured.
+        std::vector<std::array<double, 3>> offsets;
+        double global_z = -0.05; ///< save_variables global_z_offset
+    };
+    mutable std::mutex indx_mutex_;
+    IndxMockState indx_;
+    /// The INDX frame last sent, so a change sends only what moved.
+    nlohmann::json indx_published_;
+
+    /// Read the HELIX_MOCK_INDX_* knobs into indx_.
+    void read_indx_knobs();
+    /// Objects and configfile sections an INDX printer lists.
+    void append_indx_objects(nlohmann::json& objects) const;
+    [[nodiscard]] nlohmann::json indx_config_sections() const;
+    /// Send the INDX objects when they differ from the last frame sent.
+    void publish_indx_if_changed();
+    /// Park the mounted tool, then pick up @p tool (none for -1) and heat it
+    /// to @p target_c when it has a hotend: the end of every change macro.
+    void run_indx_change(int tool, double target_c);
 
     /// Advance the armed swap by one notification interval. No-op when idle.
     void advance_medusa_swap();
@@ -2514,6 +2612,15 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// The `ace` object frame, the engine's get_status() shape.
     [[nodiscard]] nlohmann::json multiace_status_json() const;
 
+    // --- Bondtech INDX mock hardware (public for the mock tests) ---
+    bool is_mock_indx() const;
+    /// The simulated extruder target (0 = off).
+    [[nodiscard]] double extruder_target() const {
+        return extruder_target_.load();
+    }
+    /// Every INDX status object, keyed as Klipper names them.
+    [[nodiscard]] nlohmann::json indx_status_json() const;
+
     /// display_status.message as the mock publishes it now: the last M117 once one was
     /// sent (an empty one included), else the print-start chatter for the current phase,
     /// else null.
@@ -2531,6 +2638,7 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     GcodeResult gcode_layer_pause(const std::string& gcode);
     GcodeResult gcode_ifs_module(const std::string& gcode);
     GcodeResult gcode_medusa(const std::string& gcode);
+    GcodeResult gcode_indx(const std::string& gcode);
     /// RESPOND: echoes MSG on the console the way Klipper's [respond] does, so
     /// an action prompt a script raises reaches the screen.
     GcodeResult gcode_respond(const std::string& gcode);
@@ -2584,6 +2692,9 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     GcodeResult gcode_stop_led_effects(const std::string& gcode);
     /// Lane in the nozzle (1-4, 0 = none) — the module's `ifs_loaded` record.
     std::atomic<int> ifs_module_loaded_{0};
+    /// The module's `ifs_at_hub` record (1-4, 0 = none): the lane holding the
+    /// shared path.
+    std::atomic<int> ifs_module_at_hub_{0};
     /// Whether the toolhead switch reads filament. Separate from ifs_loaded,
     /// which the firmware can lose while filament stays in the head.
     std::atomic<bool> ifs_module_head_loaded_{false};

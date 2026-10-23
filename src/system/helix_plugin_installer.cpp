@@ -60,11 +60,12 @@ struct WaitResult {
  * @brief Log install.sh's output line by line.
  *
  * The script's own messages are the only record of why it failed, so a
- * failure logs them at warn; a success keeps them at debug.
+ * failure logs them at warn; a success keeps them at debug, except its own
+ * [WARN] lines, such as a config edit it could not make.
  */
 static void log_script_output(const std::string& output, bool succeeded) {
     for (const auto& line : script_output_lines(output)) {
-        if (succeeded) {
+        if (succeeded && line.rfind("[WARN]", 0) != 0) {
             spdlog::debug("[PluginInstaller] install.sh: {}", line);
         } else {
             spdlog::warn("[PluginInstaller] install.sh: {}", line);
@@ -112,7 +113,8 @@ static void drain_output(int fd, std::string& out) {
  */
 static WaitResult wait_for_child_with_timeout(pid_t pid, int timeout_seconds,
                                               const char* operation_name, int out_fd) {
-    constexpr int kPollIntervalMs = 100;
+    constexpr int kPollIntervalMs = 10;
+    constexpr auto kTermGrace = std::chrono::milliseconds(500);
     WaitResult result;
 
     int status = 0;
@@ -146,13 +148,20 @@ static WaitResult wait_for_child_with_timeout(pid_t pid, int timeout_seconds,
         if (elapsed > std::chrono::seconds(timeout_seconds)) {
             spdlog::error("[PluginInstaller] {} timed out after {} seconds", operation_name,
                           timeout_seconds);
-            // Kill the child process
+            // SIGTERM, then SIGKILL if it is still running after the grace period
             kill(pid, SIGTERM);
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            kill(pid, SIGKILL); // Force kill if still running
-
-            // Reap the zombie (blocking, but child should be dead)
-            waitpid(pid, &status, 0);
+            // Once reaped, the pid is free for reuse and must not be signalled again.
+            const auto term_deadline = std::chrono::steady_clock::now() + kTermGrace;
+            bool reaped = false;
+            while (!(reaped = waitpid(pid, &status, WNOHANG) == pid) &&
+                   std::chrono::steady_clock::now() < term_deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
+            }
+            if (!reaped) {
+                kill(pid, SIGKILL);
+                // Reap the zombie (blocking, but child should be dead)
+                waitpid(pid, &status, 0);
+            }
 
             result.timed_out = true;
             return result;
@@ -569,7 +578,9 @@ PluginSelfHealStep decide_plugin_self_heal(const PluginSelfHealFacts& facts) {
     const bool needs_restart = facts.link == PluginLinkCheck::Relinked ||
                                (facts.link == PluginLinkCheck::Current && version_differs);
     if (!needs_restart) {
-        return PluginSelfHealStep::Nothing;
+        return facts.link == PluginLinkCheck::NotOurs && version_differs
+                   ? PluginSelfHealStep::ReportOnly
+                   : PluginSelfHealStep::Nothing;
     }
     return facts.job_holds ? PluginSelfHealStep::WaitForJob : PluginSelfHealStep::RestartNow;
 }

@@ -17,12 +17,12 @@
 namespace helix::ui {
 
 /**
- * @brief The head picker: which heads a Load, Unload or Mount acts on.
+ * @brief The head picker: which heads a Load, Unload, Mount or seat-by-hand acts on.
  *
  * One row per head (decide_head_picker_rows()), naming the slot the op will
  * use. A row the backend cannot serve is shown disabled with its reason. The
  * selection is capped at the backend's max_heads_per_filament_op(), one for a
- * Mount. The picker decides nothing itself: its primary button hands the
+ * single_select() op. The picker decides nothing itself: its primary button hands the
  * chosen rows to the caller, which dispatches.
  */
 class BatchFilamentModal : public Modal {

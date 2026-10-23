@@ -70,6 +70,9 @@ static json mock_object_entry(const std::string& name, int index, int total,
 
 namespace {
 
+/// connect()'s pause before CONNECTED, in simulated ms; see set_connect_delay_ms().
+std::atomic<int> g_connect_delay_ms{250};
+
 /// Slicer-style plate names for HELIX_MOCK_EXCLUDE_OBJECTS. Real slicers emit
 /// `<model>_id_<n>_copy_<n>`, so these are long enough to exercise label
 /// truncation/wrapping in the side list rather than flattering it.
@@ -212,6 +215,7 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     mock_internal::register_history_handlers(method_handlers_);
     mock_internal::register_server_handlers(method_handlers_);
     mock_internal::register_queue_handlers(method_handlers_);
+    mock_internal::register_plr_handlers(method_handlers_);
     spdlog::debug("[MoonrakerClientMock] Registered {} RPC method handlers",
                   method_handlers_.size());
 
@@ -258,6 +262,25 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     // loaded-lane record leaves behind.
     if (is_mock_ifs_module() && std::getenv("HELIX_MOCK_IFS_UNACCOUNTED") != nullptr) {
         ifs_module_head_loaded_.store(true);
+    }
+    if (is_mock_ifs_module()) {
+        // Which lanes hold filament ("1,3"; "none" for none), and which lane the
+        // module's ifs_at_hub record names: the states a toolhead unload has to
+        // find its lane from.
+        if (const char* lanes = std::getenv("HELIX_MOCK_IFS_LANES")) {
+            uint8_t mask = 0;
+            for (const char* c = lanes; *c != '\0'; ++c) {
+                if (*c >= '1' && *c <= '4') {
+                    mask |= static_cast<uint8_t>(1u << (*c - '1'));
+                }
+            }
+            ifs_module_presence_.store(mask);
+        }
+        if (const char* at_hub = std::getenv("HELIX_MOCK_IFS_AT_HUB")) {
+            if (at_hub[0] >= '1' && at_hub[0] <= '4' && at_hub[1] == '\0') {
+                ifs_module_at_hub_.store(at_hub[0] - '0');
+            }
+        }
     }
 
     // OpenAMS reads no identity off its spools: color and material come from the
@@ -445,6 +468,14 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
     // Set up bed mesh callback to handle incoming status updates
     // This ensures dispatch_status_update updates the mock's internal bed mesh state
     set_bed_mesh_callback([this](const json& bed_mesh) { parse_incoming_bed_mesh(bed_mesh); });
+}
+
+void MoonrakerClientMock::set_connect_delay_ms(int ms) {
+    g_connect_delay_ms.store(ms);
+}
+
+int MoonrakerClientMock::connect_delay_ms() {
+    return g_connect_delay_ms.load();
 }
 
 void MoonrakerClientMock::set_simulation_speedup(double factor) {
@@ -952,7 +983,7 @@ int MoonrakerClientMock::connect(const char* url, std::function<void()> on_conne
     set_connection_state(ConnectionState::CONNECTING);
 
     // Small delay to simulate a realistic connection
-    auto delay_ms = sim_speed().shorten_wait_ms(250);
+    auto delay_ms = sim_speed().shorten_wait_ms(g_connect_delay_ms.load());
     if (delay_ms > 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
     }
@@ -1323,7 +1354,7 @@ void MoonrakerClientMock::populate_capabilities() {
     // mode and any persona that omits it: "mmu" detects Happy Hare (priority over every
     // other filament system) and would stand the wrong backend up.
     if (mmu_enabled_ && !is_mock_medusahc() && !is_mock_ifs_module() && !is_mock_openams() &&
-        inherits(kHappyHareMmu)) {
+        !is_mock_indx() && inherits(kHappyHareMmu)) {
         mock_objects.push_back("mmu");
     }
 
@@ -1511,6 +1542,14 @@ void MoonrakerClientMock::populate_capabilities() {
         spdlog::info("[MoonrakerClientMock] OpenAMS mock: oams_manager status object");
     }
 
+    // INDX mock hardware (HELIX_MOCK_AMS=indx): Bondtech's macro objects plus
+    // the toolboard module, so real discovery builds AmsBackendIndx (the
+    // MedusaHC rule again: try_create_mock() declines this value).
+    if (is_mock_indx()) {
+        read_indx_knobs();
+        append_indx_objects(mock_objects);
+    }
+
     append_skip_wrapper_objects(mock_objects);
 
     // Parse objects into hardware discovery (unified hardware access)
@@ -1547,6 +1586,9 @@ void MoonrakerClientMock::populate_capabilities() {
     mock_config["stepper_z"] = {{"position_min", 0.0}, {"position_max", axis_max.z}};
     for (const auto& [name, settings] : extra_config_settings_.items()) {
         mock_config[name] = settings;
+    }
+    if (is_mock_indx()) {
+        mock_config.merge_patch(indx_config_sections());
     }
 
     std::unordered_set<std::string> macros_snapshot;
@@ -2338,7 +2380,8 @@ nlohmann::json MoonrakerClientMock::ifs_module_materials_json() const {
 }
 
 nlohmann::json MoonrakerClientMock::ifs_module_vars_json() const {
-    return json{{"variables", json{{"ifs_loaded", ifs_module_loaded_.load()}, {"ifs_at_hub", 0}}}};
+    return json{{"variables", json{{"ifs_loaded", ifs_module_loaded_.load()},
+                                   {"ifs_at_hub", ifs_module_at_hub_.load()}}}};
 }
 
 bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const std::string& gcode) {
@@ -2386,6 +2429,7 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
         const int slot = slot_param();
         if (slot >= 1 && slot <= 4) {
             ifs_module_loaded_.store(slot);
+            ifs_module_at_hub_.store(slot);
             ifs_module_head_loaded_.store(true);
             spdlog::info("[MoonrakerClientMock] IFS module: loaded slot {}", slot);
         }
@@ -2393,8 +2437,15 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
     }
     if (cmd == "IFS_UNLOAD") {
         ifs_module_loaded_.store(0);
+        ifs_module_at_hub_.store(0);
         ifs_module_head_loaded_.store(false);
         spdlog::info("[MoonrakerClientMock] IFS module: unloaded");
+        return true;
+    }
+    if (cmd == "_IFS_CLEAR_EXTRUDER") {
+        // Cut and withdraw the extruder only: no lane moves, no record changes.
+        ifs_module_head_loaded_.store(false);
+        spdlog::info("[MoonrakerClientMock] IFS module: extruder cleared");
         return true;
     }
     if (cmd == "IFS_EJECT") {
@@ -2404,6 +2455,9 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
             if (ifs_module_loaded_.load() == slot) {
                 ifs_module_loaded_.store(0);
                 ifs_module_head_loaded_.store(false);
+            }
+            if (ifs_module_at_hub_.load() == slot) {
+                ifs_module_at_hub_.store(0);
             }
             spdlog::info("[MoonrakerClientMock] IFS module: ejected slot {}", slot);
         }
@@ -2416,6 +2470,7 @@ bool MoonrakerClientMock::apply_ifs_module_gcode(const std::string& cmd, const s
         const int tool = std::stoi(cmd.substr(1));
         if (tool >= 0 && tool < 4) {
             ifs_module_loaded_.store(tool + 1);
+            ifs_module_at_hub_.store(tool + 1);
             ifs_module_head_loaded_.store(true);
             spdlog::info("[MoonrakerClientMock] IFS module: T{} -> slot {}", tool, tool + 1);
         }
@@ -4544,44 +4599,15 @@ void MoonrakerClientMock::dispatch_initial_state() {
     }
 
     // Add filament sensor states
-    // Check HELIX_MOCK_FILAMENT_STATE env var for initial state (default: detected)
-    // Format: "sensor:state,sensor:state" e.g., "fsensor:empty" or "fsensor:detected,encoder:empty"
-    bool default_detected = true;
-    const char* state_env = std::getenv("HELIX_MOCK_FILAMENT_STATE");
-    std::map<std::string, bool> sensor_states;
-
-    if (state_env) {
-        // Parse state overrides
-        std::string states_str(state_env);
-        size_t pos = 0;
-        while ((pos = states_str.find(',')) != std::string::npos || !states_str.empty()) {
-            std::string token = (pos != std::string::npos) ? states_str.substr(0, pos) : states_str;
-            size_t colon = token.find(':');
-            if (colon != std::string::npos) {
-                std::string name = token.substr(0, colon);
-                std::string state = token.substr(colon + 1);
-                sensor_states[name] = (state != "empty" && state != "0" && state != "false");
-            }
-            if (pos == std::string::npos)
-                break;
-            states_str.erase(0, pos + 1);
-        }
-    }
-
     // Add state for each discovered filament sensor
     for (const auto& sensor : discovery_.filament_sensors()) {
         // Extract sensor name from "filament_switch_sensor fsensor" -> "fsensor"
         size_t space = sensor.rfind(' ');
         std::string short_name = (space != std::string::npos) ? sensor.substr(space + 1) : sensor;
 
-        bool detected = default_detected;
-        auto it = sensor_states.find(short_name);
-        if (it != sensor_states.end()) {
-            detected = it->second;
-        }
-
-        // Filament sensor state format from Klipper
-        initial_status[sensor] = {{"filament_detected", detected}, {"enabled", true}};
+        const auto env = helix::sim::mock_filament_sensor_env_state(short_name);
+        initial_status[sensor] = {{"filament_detected", env.filament_detected},
+                                  {"enabled", env.enabled}};
     }
 
     // The chamber and width sensors carry status only where the persona reports them.
@@ -4634,6 +4660,12 @@ void MoonrakerClientMock::dispatch_initial_state() {
     // the leveling-skip objects it never asked for are announced with the rest.
     initial_status.update(skip_wrapper_status());
     initial_status.update(layer_pause_status());
+    if (is_mock_indx()) {
+        const nlohmann::json indx = indx_status_json();
+        initial_status.update(indx);
+        std::lock_guard<std::mutex> lock(indx_mutex_);
+        indx_published_ = indx;
+    }
 
     // multiACE mock: the `ace` object and both filament_feed sides at rest, so
     // the production backend's first parse sees what a booted rig reports.

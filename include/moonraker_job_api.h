@@ -114,6 +114,23 @@ class MoonrakerJobAPI : public helix::IJobAPI {
                               ModifiedPrintCallback on_success, ErrorCallback on_error) override;
 
     /**
+     * @brief Have the helix_print plugin apply @p edits to the original and start the result
+     *
+     * server.helix.print_edited: the plugin rewrites @p original_filename into
+     * @p temp_file_path beside it (gcode_edit_list.h has the edit grammar) and
+     * starts that copy as start_modified_print() would. Nothing is uploaded.
+     * Gate on the plugin's `server_edits` feature (gcode::choose_edit_transport).
+     *
+     * @p file_size (0 when unknown) sizes the wait (gcode::print_edited_timeout_ms):
+     * the plugin answers only once the print has started. What an error means for
+     * the start is gcode::classify_print_edited_failure's to say.
+     */
+    void start_edited_print(const std::string& original_filename, const std::string& temp_file_path,
+                            const json& edits, const std::vector<std::string>& modifications,
+                            uint64_t file_size, ModifiedPrintCallback on_success,
+                            ErrorCallback on_error) override;
+
+    /**
      * @brief Check if helix_print plugin is available
      *
      * Queries /server/helix/status to detect plugin availability.
@@ -150,6 +167,10 @@ class MoonrakerJobAPI : public helix::IJobAPI {
 
   protected:
     /// True, with @p on_error called, while spools lie on the bed.
+    /// Announce a start of @p filename to the plugin's print_hooks, or take
+    /// back the announcement of one that failed.
+    void send_screen_start(const std::string& filename, bool withdraw);
+
     bool refused_by_spool_latch(const char* method, const ErrorCallback& on_error) const;
 
     helix::IMoonrakerClient& client_;

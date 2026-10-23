@@ -46,9 +46,15 @@ inline constexpr const char* kMacro = "CALIBRATE_TOOL_OFFSETS";
 /// adopted the example macro.
 bool supported(const PrinterDiscovery& hw);
 
-/// The guided device flow (ui_guided_device_flow.h) that calibrates this
-/// printer's tool offsets, or an empty string when the macro panel does.
+/// The guided device flow (ui_guided_device_flow.h) the Tool Offsets entry
+/// starts on this printer, or an empty string when the macro panel runs. A
+/// printer's own flow may be a setup step its offsets depend on rather than a
+/// measurement (an INDX seats a tool by hand for its first Z home).
 std::string guided_flow(const PrinterDiscovery& hw);
+
+/// What the Tool Offsets entry does on this printer, untranslated (pass it
+/// through lv_tr()).
+const char* entry_description(const PrinterDiscovery& hw);
 
 /// Gcode that calibrates every tool, or an empty string when the printer has
 /// no such procedure. Blocking on the printer: Moonraker's printer.gcode.script

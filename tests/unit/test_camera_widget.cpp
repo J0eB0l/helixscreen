@@ -21,6 +21,8 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <memory>
+#include <new>
 #include <thread>
 #endif
 
@@ -399,6 +401,60 @@ TEST_CASE_METHOD(HelixTestFixture, "CameraStream: restart after the worker gave 
     stream.stop();
     CHECK_FALSE(stream.is_running());
     CHECK(frames.load() == 0); // nothing is listening on port 9
+
+    helix::ui::UpdateQueue::instance().drain();
+}
+
+TEST_CASE_METHOD(HelixTestFixture,
+                 "CameraStream: a timed-out stop leaves nothing touching the stream object",
+                 "[camera][camera_stop]") {
+    // The stream lives in raw storage so the test can destroy it, poison the
+    // bytes, and see whether anything still writes there once the wedged
+    // worker finally exits.
+    alignas(CameraStream) unsigned char storage[sizeof(CameraStream)];
+    auto* stream = new (storage) CameraStream();
+    CameraStreamTestAccess::set_join_timeout(*stream, std::chrono::milliseconds(50));
+
+    auto release = std::make_shared<std::atomic<bool>>(false);
+    auto exited = std::make_shared<std::atomic<bool>>(false);
+    CameraStreamTestAccess::spawn_wedged_worker(*stream, release, exited);
+
+    REQUIRE_NOTHROW(stream->stop());
+    CHECK(stream->was_detached());
+    CHECK_FALSE(stream->is_running());
+    CHECK_FALSE(CameraStreamTestAccess::worker_joinable(*stream));
+
+    const size_t offset = CameraStreamTestAccess::worker_offset(*stream);
+    stream->~CameraStream();
+    constexpr unsigned char kPoison = 0xA5;
+    std::memset(storage, kPoison, sizeof(storage));
+
+    // Whatever still waits on the worker wakes now. It must own everything it
+    // touches: the CameraStream it came from is gone.
+    release->store(true);
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (!exited->load() && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    REQUIRE(exited->load());
+
+    // The helper's join returns at some point after the worker exits; nothing
+    // signals when. Watch the bytes for a full second and stop at the first write.
+    auto worker_bytes_untouched = [&] {
+        for (size_t i = offset; i < offset + sizeof(std::thread); ++i) {
+            if (storage[i] != kPoison) {
+                return false;
+            }
+        }
+        return true;
+    };
+    bool untouched = true;
+    deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (untouched && std::chrono::steady_clock::now() < deadline) {
+        untouched = worker_bytes_untouched();
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    CHECK(untouched);
 
     helix::ui::UpdateQueue::instance().drain();
 }

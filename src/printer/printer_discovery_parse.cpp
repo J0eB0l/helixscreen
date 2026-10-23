@@ -2,6 +2,7 @@
 
 // Out-of-line PrinterDiscovery members: the object-list scan and config parsers.
 
+#include "ace_vocabulary.h"         // ace::kInstanceObjectPrefix
 #include "chamber_heater_backend.h" // chamber::match, chamber::keyword_confidence
 #include "display_numbering.h"      // helix::ui::tool_label
 #include "json_utils.h"
@@ -323,17 +324,18 @@ void PrinterDiscovery::parse_objects(const nlohmann::json& objects) {
         // (as shipped by Rinkhals firmware) registers the status object as
         // `filament_hub` even though the config section is `[ace]`. The
         // community drivers (ValgACE/BunnyACE/DuckACE) register it as `ace`.
-        // The Anycubic Kobra S1 "mainline-Python ACE fork" registers each
-        // unit as `ace_instance_N` (has get_status()) and exposes NO
-        // top-level `ace`/`filament_hub` object — its config is `[ace]`
-        // with `ace_count`, but only `ace_instance_N` appears in
-        // objects.list (#1107). Match all three forms.
+        // The ACEPRO driver (github.com/Kobra-S1/ACEPRO) registers each unit
+        // as `ace_instance_N` (has get_status()) beside a manager `ace`
+        // object; a build whose manager does not appear in objects.list
+        // still shows its `ace_instance_N` objects (#1107). Match all three
+        // forms.
         //
         // Collect EVERY matched ACE object name (the discovery sequence
         // subscribes the real object names), but only the first ACE match
         // flips has_mmu_/mmu_type_ — with multiple `ace_instance_N` objects
         // the name-collection must NOT be gated behind the !has_mmu_ guard.
-        else if (name == "ace" || name == "filament_hub" || name.rfind("ace_instance", 0) == 0) {
+        else if (name == "ace" || name == "filament_hub" ||
+                 name.rfind(helix::ace::kInstanceObjectPrefix, 0) == 0) {
             ace_object_names_.push_back(name);
             if (!has_mmu_) {
                 has_mmu_ = true;
@@ -478,6 +480,13 @@ void PrinterDiscovery::parse_objects(const nlohmann::json& objects) {
         else if (name == "medusahc" || name.rfind("medusahc ", 0) == 0) {
             has_medusahc_ = true;
             medusahc_object_name_ = name;
+        }
+        // [indx]: Bondtech INDX's toolboard host module (mainline
+        // indx_klipper lists it; Kalico's may not, see parse_config_keys()).
+        else if (name == "indx") {
+            has_indx_ = true;
+        } else if (name == "save_variables") {
+            has_save_variables_ = true;
         }
         // Tool object discovery
         else if (name.rfind("tool ", 0) == 0) {
@@ -781,6 +790,12 @@ void PrinterDiscovery::register_detected_ams_systems() {
         // Native Snapmaker filament system (no aftermarket MMU)
         detected_ams_systems_.push_back({AmsType::SNAPMAKER, "Snapmaker"});
         mmu_type_ = AmsType::SNAPMAKER;
+    } else if (has_indx_) {
+        // Docked passive nozzles on one extruder: never the tool-changer arm
+        // below, which needs several extruders or klipper-toolchanger.
+        // i18n: do not translate - product name
+        detected_ams_systems_.push_back({AmsType::INDX, "INDX"});
+        mmu_type_ = AmsType::INDX;
     } else if (!tool_names_.empty() && (has_tool_changer_ || tool_names_.size() > 1)) {
         // More than one hot end, and no filament system managing them:
         // parallel topology, one slot per tool. Registering it is what gives
@@ -859,6 +874,15 @@ void PrinterDiscovery::parse_config_keys(const nlohmann::json& config) {
             has_snapmaker_auto_screws_tilt_ = true;
             spdlog::debug("[PrinterDiscovery] auto_screws_tilt_adjust detected from config");
         }
+    }
+
+    // [indx] on Kalico may have no get_status(), so the configfile section is
+    // the only sign of it, and it arrives after parse_objects() registered the
+    // filament systems.
+    if (!has_indx_ && config.contains("indx")) {
+        has_indx_ = true;
+        spdlog::debug("[PrinterDiscovery] INDX detected from config");
+        register_detected_ams_systems();
     }
 }
 
@@ -1058,6 +1082,8 @@ void PrinterDiscovery::clear() {
     pin_watch_object_name_.clear();
     has_medusahc_ = false;
     medusahc_object_name_.clear();
+    has_indx_ = false;
+    has_save_variables_ = false;
     has_chamber_heater_ = false;
     has_chamber_sensor_ = false;
     chamber_sensor_name_.clear();

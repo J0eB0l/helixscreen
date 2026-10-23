@@ -219,6 +219,9 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     AmsError reset() override;
     AmsError recover() override;
     AmsError cancel() override;
+    /// Also ends the phase tracking, so a later sensor or heater edge cannot
+    /// synthesize a sub-phase of an operation the restart already ended.
+    void on_klipper_restarted() override;
 
     // Load-vs-swap decision. K1 official CFS upgrade firmware reports a
     // *preloaded* (cassette-staged) slot via current_slot with the nozzle still
@@ -244,6 +247,9 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     /// The box's record of the bay's tag, kept while our own write-back holds
     /// the box record (helix::ams::fold_tag_frame).
     [[nodiscard]] std::optional<helix::ams::TagReading> tag_reading(int slot_index) const override;
+    /// A stock box publishes each bay's whole tag record; the flat schema
+    /// publishes no record to read a spool id from.
+    [[nodiscard]] bool tags_name_spoolman_spools() const override;
     void persist_slot_weight(int slot_index, float remaining_weight_g,
                              float total_weight_g) override;
     void persist_external_identity_impl(int slot_index,
@@ -516,6 +522,22 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
     /// current or a value no build of ours wrote, and is left as found.
     static std::string normalize_legacy_flat_fingerprint(const std::string& stored);
 
+    /// The brand a stock bay's `vender` entry names, for a bay whose material
+    /// code the catalog does not resolve. A tagged bay's entry is the tag's
+    /// whole 40-character record, which names its supplier rather than being
+    /// a brand: Creality's code reads as Creality and any other as no brand.
+    /// `"unknown"` (a seated spool the reader did not resolve) reads as
+    /// Creality, a sentinel as no brand, and anything else is the box's own
+    /// vendor name.
+    [[nodiscard]] static std::string brand_from_vender(const std::string& vender);
+
+    /// The Spoolman spool a stock bay's `vender` tag record names, or nullopt.
+    /// Tag writers such as CFTag put the id in the record's serial field
+    /// (chars 29-34) as six zero-padded decimal digits. Creality writes its
+    /// factory serial 000001 there, so 1 names no spool, and neither does 0,
+    /// a serial that is not all digits, or anything but a whole record.
+    [[nodiscard]] static std::optional<int> tag_record_spoolman_id(std::string_view vender);
+
     /// The schema whose feed builds a fingerprint of this shape, or nullopt
     /// when either could have: stock joins the raw material_type code and
     /// "0RRGGBB" colour_value, flat joins a material name and six hex digits.
@@ -776,7 +798,7 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
                           std::map<int, int>& insert_probes);
     /// Files firmware's own account of every bay the frame described as lane
     /// readings; takes mutex_ itself.
-    void file_box_readings(const AmsSystemInfo& new_info);
+    void file_box_readings(const AmsSystemInfo& new_info, const nlohmann::json& box_state);
     void apply_box_frame_locked(BoxFrame& frame);
     /// Applies the endless-spool enable bit, then replaces the unit list, tool
     /// map and grouping with the parse.

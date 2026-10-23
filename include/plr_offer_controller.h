@@ -5,11 +5,19 @@
 #include "ui_observer_guard.h"
 
 #include "async_lifetime_guard.h"
+#include "json_fwd.h"
 #include "plr_backend.h"
+#include "plr_wizard.h"
+#include "print_lifecycle_state.h"
 
+#include <optional>
 #include <string>
 
 class PlrOfferControllerTestAccess;
+
+namespace helix {
+class IMoonrakerAPI;
+}
 
 namespace helix::ui {
 
@@ -17,7 +25,7 @@ namespace helix::ui {
 /// connect time. Owned by SubjectInitializer (constructed in init_observers,
 /// destroyed with it — the ObserverGuard members auto-reset via RAII).
 ///
-/// Three backends feed ONE normalized "a resumable snapshot exists" signal, which
+/// Four backends feed ONE normalized "a resumable snapshot exists" signal, which
 /// is what keeps the latch / re-arm / wizard logic backend-agnostic. Full
 /// mechanism: docs/devel/POWER_LOSS_RECOVERY.md.
 ///
@@ -31,10 +39,14 @@ namespace helix::ui {
 ///                        side-effectful `check_continue_print_state` probe,
 ///                        ONCE per connection, ONLY while the printer is in
 ///                        STANDBY, and getting both states back true.
+///   Plugin    (ASKED):   with the HelixPrint plugin's `plr` feature Ready,
+///                        server.helix.plr.status names its backend and whether
+///                        it offers a resume. Side-effect free, asked once per
+///                        connection once Klipper is ready.
 ///
-/// Five observers, all on STATIC subjects (singleton lifetime, no
-/// SubjectLifetime token needed). The authoritative account of WHEN the offer
-/// fires and re-fires lives at the plr_should_offer decision site in
+/// The offer observers all watch PrinterState / app-global subjects, each
+/// registered with that owner's SubjectLifetime. The authoritative account of
+/// WHEN the offer fires and re-fires lives at the plr_should_offer decision site in
 /// evaluate_offer (ui_plr_offer_controller.cpp); the observers below are just
 /// the edges that drive it:
 ///   - pl_env_valid (PRIMARY Snapmaker trigger): a genuine 0->1 edge offers.
@@ -51,6 +63,10 @@ namespace helix::ui {
 ///     so an offer that was suppressed only because the wizard owned the
 ///     screen now fires. This is what makes wizard suppression temporary
 ///     instead of permanent.
+///   - print lifecycle: a job that drops straight to Idle retries the Creality
+///     probe and, for the plugin backend only, re-evaluates the offer the dead
+///     job's lifecycle held back. Qidi and Snapmaker flags can lag a normal
+///     end's standby frame, so they never offer from this edge.
 ///
 /// Observer callbacks all run on the main thread — observe<int> defers via
 /// the update queue and plr_should_offer/plr_should_rearm are pure. The one
@@ -73,11 +89,16 @@ class PlrOfferController {
     // resume can be built. Every observer routes here so the decision lives in
     // exactly one place.
     void evaluate_offer();
+    /// The backend the current capability and plugin signals select.
+    helix::PlrBackendType select_backend() const;
     void on_pl_env_valid_changed(int pl_env_valid);
     void on_plr_interrupted_flag_changed(int was_interrupted);
     void on_creality_capable_changed(int capable);
     void on_connection_state_changed(int new_conn_state);
     void on_wizard_active_changed(int wizard_active);
+    /// A held -> Idle edge retries the Creality probe and, for the plugin
+    /// backend only, re-evaluates the offer the dead job's lifecycle held back.
+    void on_print_lifecycle_changed(PrintState next);
 
     /// Fire the Creality probe at most once per connection, and only from
     /// STANDBY. See the header warning on
@@ -85,11 +106,33 @@ class PlrOfferController {
     void probe_creality_once();
     void on_creality_detect_result(const helix::PlrDetectResult& result);
 
+    /// Ask the plugin for its recovery status once per connection, when the
+    /// link is up, Klipper is ready and the `plr` feature is Ready.
+    void request_plugin_status();
+    void on_plugin_status(const helix::PlrPluginStatus& status);
+    /// Listen for helix:plr_status on the current API, once per API. The plugin
+    /// sends it each time its Klippy-ready handling finishes, so an offer that
+    /// becomes available after the first ask still reaches the screen.
+    void listen_for_plugin_status();
+    void on_plugin_status_notify(const nlohmann::json& msg);
+    /// The `plr` feature changed state (Absent / Disabled / Ready): the
+    /// plugin's earlier answer is stale, and its profile may need writing.
+    void on_plr_feature_changed(int state);
+    /// Resolve and write `plr_profile` once per connection and printer type,
+    /// while the feature is available at all: the plugin decides from it
+    /// whether to save, so it has to land even while saving is off.
+    void publish_profile();
+
     ObserverGuard pl_valid_observer_;
     ObserverGuard interrupted_flag_observer_;
     ObserverGuard creality_capable_observer_;
     ObserverGuard conn_observer_;
     ObserverGuard wizard_observer_;
+    ObserverGuard lifecycle_observer_;
+    ObserverGuard plr_feature_observer_;
+    ObserverGuard printer_type_observer_;
+    ObserverGuard plugin_probe_observer_;
+    ObserverGuard klippy_observer_;
 
     /// Guards the probe response, which arrives on the WebSocket thread.
     helix::AsyncLifetimeGuard lifetime_;
@@ -101,6 +144,26 @@ class PlrOfferController {
     helix::PlrDetectResult creality_detect_{};
     std::string creality_recovery_file_;
     int last_conn_state_ = 0;
+    /// Idle holds no job, so the registration fire is never a held -> Idle edge.
+    PrintState last_lifecycle_ = PrintState::Idle;
+    /// Prompts shown over the controller's life.
+    int offers_shown_ = 0;
+
+    /// The plugin's answer this connection; nullopt until it answers.
+    std::optional<helix::PlrPluginStatus> plugin_status_;
+    bool plugin_status_inflight_ = false;
+    int last_plr_feature_state_ = 0;
+    /// The plugin probe of this connection has answered, so the printer type
+    /// discovery resolved for this connection is in place.
+    bool probe_answered_this_connect_ = false;
+    /// The printer type whose profile this connection wrote; empty when none.
+    std::optional<std::string> published_profile_type_;
+    /// Counts connections and pushed statuses, so a status reply from a
+    /// dropped link, or older than a pushed status, is ignored.
+    int connection_generation_ = 0;
+    /// The API the status notification is registered on.
+    helix::IMoonrakerAPI* status_notify_api_ = nullptr;
+    static constexpr const char* kStatusNotifyHandler = "plr_offer";
 };
 
 } // namespace helix::ui

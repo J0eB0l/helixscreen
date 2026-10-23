@@ -364,3 +364,15 @@ print(d)' "$1" "$2"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
+
+# --- detect_printer_via_moonraker() default binary path ---
+
+@test "detect via moonraker: runs the installed bin/helix-screen by default" {
+    unset HELIX_SCREEN_BIN
+    mkdir -p "$INSTALL_DIR/bin"
+    printf '#!/bin/sh\necho %s\n' "'{\"preset\":\"k1c\"}'" > "$INSTALL_DIR/bin/helix-screen"
+    chmod +x "$INSTALL_DIR/bin/helix-screen"
+    run detect_printer_via_moonraker
+    [ "$status" -eq 0 ]
+    [ "$output" = '{"preset":"k1c"}' ]
+}

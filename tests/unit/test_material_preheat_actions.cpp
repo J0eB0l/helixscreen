@@ -9,7 +9,10 @@
 #include "../test_helpers/filament_panel_test_access.h"
 #include "../test_helpers/preheat_widget_test_access.h"
 #include "../test_helpers/scoped_shared_resource.h"
+#include "../test_helpers/toolchanger_test_helper.h"
 #include "../ui_test_utils.h"
+#include "ams_backend_indx.h"
+#include "ams_state.h"
 #include "filament_catalog.h"
 #include "filament_op_heater.h"
 #include "filament_op_router.h"
@@ -18,6 +21,7 @@
 #include "material_settings_manager.h"
 #include "preheat_widget.h"
 #include "preset_materials.h"
+#include "printer_discovery.h"
 #include "safety_settings_manager.h"
 #include "settings_manager.h"
 #include "standard_macros.h"
@@ -601,4 +605,75 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     helix::ui::manual_pull_unload_finished(); // speaks only when armed
     helix::ui::set_test_notification_info_hook(nullptr);
     CHECK(toasts.empty());
+}
+
+namespace {
+
+/// A shared-heater backend with no tool on the head: it refuses nozzle heat.
+std::unique_ptr<helix::AmsBackend> empty_head_indx() {
+    auto indx = std::make_unique<helix::test::GcodeCaptureBackend<helix::AmsBackendIndx>>();
+    helix::PrinterDiscovery hw;
+    hw.parse_objects(nlohmann::json::array(
+        {"indx", "save_variables", "extruder", "gcode_macro TOOL_POSITIONS",
+         "gcode_macro _TOOLCHANGE_VARS", "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL"}));
+    indx->set_discovery(hw);
+    indx->feed(nlohmann::json{{"save_variables", {{"variables", {{"active_tool", -1}}}}}});
+    return indx;
+}
+
+int shown_nozzle_target(Harness& h) {
+    int current = -1;
+    int target = -1;
+    h.panel->get_temp(&current, &target);
+    return target;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "A preset whose nozzle half is refused shows the printer's own target",
+                 "[material_preheat][preheat][indx][heat]") {
+    MaterialSettingsScope settings;
+    Harness h(empty_head_indx());
+    discover_macros(h);
+    helix_test::ScopedSharedResource<helix::TemperatureController> controller(
+        std::make_shared<helix::TemperatureController>(h.state, &h.api));
+    REQUIRE_FALSE(helix::AmsState::instance().nozzle_heat_blocked_reason().empty());
+
+    PanelAccess::handle_preset_button(*h.panel, 0);
+    helix::ui::UpdateQueue::instance().drain();
+
+    // The bed half still applies; the nozzle half never reached the printer.
+    CHECK(h.client.gcode_script_history() ==
+          Scripts{"SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=60"});
+    CHECK(shown_nozzle_target(h) == 0);
+    helix::AmsState::instance().clear_backends();
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "A refused keypad or spool-preset nozzle target is not shown as set",
+                 "[material_preheat][preheat][indx][heat]") {
+    MaterialSettingsScope settings;
+    Harness h(empty_head_indx());
+    discover_macros(h);
+    helix_test::ScopedSharedResource<helix::TemperatureController> controller(
+        std::make_shared<helix::TemperatureController>(h.state, &h.api));
+
+    SECTION("keypad") {
+        PanelAccess::confirm_custom_nozzle(*h.panel, 230.0f);
+    }
+    SECTION("spool preset") {
+        helix::MaterialSettingsManager::instance().set_preset_material(2, "ASA");
+        helix::SlotInfo spool;
+        spool.material = "ABS";
+        helix::AmsState::instance().set_external_spool_info_in_memory(spool);
+        PanelAccess::update_spool_preset(*h.panel);
+        PanelAccess::handle_spool_preset_button(*h.panel);
+    }
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(shown_nozzle_target(h) == 0);
+    for (const auto& line : h.client.gcode_script_history()) {
+        CHECK(line.find("HEATER=extruder") == std::string::npos);
+    }
+    helix::AmsState::instance().clear_backends();
 }

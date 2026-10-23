@@ -201,7 +201,9 @@ wait_for_line() { # <substring> <file>
     run "$SCRIPT" --commit mutate
     [ "$status" -eq 0 ]
     lacks "git config" "$(cat "$MOCK_DOCKER_LOG")"
-    run grep -vF -- "-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=* " \
+    # The ccache settings exec (ccache-shared-config.sh, carried base64) runs no git.
+    grep -qF "base64 -d" "$MOCK_DOCKER_LOG"
+    run sh -c 'grep -vF "base64 -d" "$1" | grep -vF -- "-e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=* "' _ \
         "$MOCK_DOCKER_LOG"
     [ "$status" -eq 1 ]
 }
@@ -379,6 +381,101 @@ exit 0'
     [ "$status" -eq 0 ]
     contains "jobpool ensure failed" "$output"
     contains "using -j" "$output"
+}
+
+# --- mutate yields to every other job ---------------------------------------
+
+# docker exec runs the mutate job's bash -lc script here for real, against a
+# python3 that prints the scheduling it inherited and the jobserver it was handed.
+run_mutate_for_real() {
+    mock_command_script python3 'echo "POLICY: $(chrt -p $$)"; echo "NICE: $(nice)"; echo "MAKEFLAGS=${MAKEFLAGS:-}"'
+    mock_command_script docker '
+case "$1" in
+    ps) echo helix-test ;;
+    inspect) [ -n "${MOCK_MOUNTS:-}" ] && echo "$MOCK_MOUNTS" ;;
+    exec)
+        case "$*" in
+            *pgrep*) exit 1 ;;
+            *mutate_diff*)
+                unset MAKEFLAGS MFLAGS MAKELEVEL
+                shift
+                while [ "$1" != bash ]; do
+                    [ "$1" = -e ] && export "$2"
+                    shift
+                done
+                exec bash -c "$3" ;;
+            *) echo "[docker-exec] $*" >> "$MOCK_DOCKER_LOG" ;;
+        esac ;;
+esac
+exit 0'
+}
+
+@test "mutate beside a jobpool runs outside it, at SCHED_IDLE and nice 19" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run_mutate_for_real
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    contains "background job: SCHED_IDLE, outside the jobpool" "$output"
+    contains "SCHED_IDLE" "$output"
+    contains "NICE: 19" "$output"
+    printf '%s\n' "$output" | grep -qx 'MAKEFLAGS='
+    lacks "could not lower" "$output"
+    [ ! -e "$MOCK_JOBPOOL_LOG" ]
+}
+
+@test "mutate beside a jobpool takes half the -j free memory allows" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run_mutate_for_real
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    full=$(printf '%s\n' "$output" | sed -n 's/.*half of the -j\([0-9]*\) free memory allows.*/\1/p')
+    used=$(printf '%s\n' "$output" | sed -n 's/.*using -j\([0-9]*\)$/\1/p')
+    [ -n "$full" ]
+    [ -n "$used" ]
+    [ "$used" -eq $((full / 2)) ]
+}
+
+@test "a refused chrt still leaves mutate at nice 19, and is named" {
+    run_mutate_for_real
+    mock_command_script chrt 'exit 1'
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    contains "NICE: 19" "$output"
+    contains "could not lower this background job with: chrt;" "$output"
+}
+
+@test "mutate beside a jobpool skips the global lock that sizes unpooled runs" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run_mutate_for_real
+    exec 9>>"$HELIX_TEST_LOCK_DIR/helix-test-host-run.global.lock"
+    flock -n 9
+    run timeout 30 "$SCRIPT" mutate --tests '[x]'
+    exec 9>&-
+    [ "$status" -eq 0 ]
+    lacks "waiting for the run ahead" "$output"
+    contains "SCHED_IDLE" "$output"
+}
+
+@test "mutate on a host without a jobpool still drops to SCHED_IDLE" {
+    run_mutate_for_real
+    run "$SCRIPT" mutate --tests '[x]'
+    [ "$status" -eq 0 ]
+    contains "using -j" "$output"
+    contains "SCHED_IDLE" "$output"
+    contains "NICE: 19" "$output"
+}
+
+@test "only mutate yields: a sweep beside the same pool joins it at its own priority" {
+    fake_jobpool
+    export MOCK_MOUNTS="$BATS_TEST_TMPDIR/mnt /work"
+    run "$SCRIPT" --commit sweep
+    [ "$status" -eq 0 ]
+    lacks "background job" "$output"
+    [ "$(cat "$MOCK_JOBPOOL_LOG")" = "jobpool exec" ]
+    refute_grep "chrt" "$MOCK_DOCKER_LOG"
 }
 
 # --- ZFS: leftover cap marker, zfs_arc_sys_free check ----------------------

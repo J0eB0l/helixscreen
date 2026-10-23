@@ -15,7 +15,8 @@ namespace helix::ui {
 /// Show the one-shot "Resume interrupted print?" modal. Backend-agnostic: it
 /// executes the `plan` it is handed rather than knowing any firmware's gcode.
 /// Button mapping:
-///   - primary "Resume"    -> plan.resume_gcode
+///   - primary "Resume"    -> plan.resume_gcode, or the guided resume wizard
+///                            when the plan carries a plan.resume_rpc
 ///   - secondary "Discard" -> plan.discard_gcode, or plan.discard_rpc_method
 ///   - backdrop / ESC      -> nothing (recovery data left intact, re-offered on
 ///                            the next connect)
@@ -35,6 +36,15 @@ namespace helix::ui {
 /// is allocated, so a backdrop/ESC dismissal (which fires neither callback)
 /// cannot leak. `api` must outlive the modal; the app-global IMoonrakerAPI does.
 void show_plr_recovery_prompt(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& plan);
+
+/// The prompt's Resume button on @p plan: opens the plugin's guided resume when
+/// the plan resumes through the plugin, else sends the plan's resume gcode.
+/// Refuses a plan without an authorized resume.
+void run_plr_resume(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& plan);
+
+/// The prompt's Discard button on @p plan: its discard gcode, the plugin's
+/// discard RPC, or Creality's cancel_continue_print.
+void run_plr_discard(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& plan);
 
 /// Pure, LVGL-free body-text builder (unit-testable). When `file_path` is
 /// non-empty, its display filename (basename, gcode extension stripped) is

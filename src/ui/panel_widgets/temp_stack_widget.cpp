@@ -353,34 +353,16 @@ void TempStackWidget::detach() {
 }
 
 void TempStackWidget::handle_nozzle_clicked() {
-    if (long_pressed_) {
-        long_pressed_ = false;
-        spdlog::debug("[TempStackWidget] Nozzle click suppressed (follows long-press)");
-        return;
-    }
-
     spdlog::info("[TempStackWidget] Nozzle clicked - opening temp graph overlay");
     get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Nozzle, parent_screen_);
 }
 
 void TempStackWidget::handle_bed_clicked() {
-    if (long_pressed_) {
-        long_pressed_ = false;
-        spdlog::debug("[TempStackWidget] Bed click suppressed (follows long-press)");
-        return;
-    }
-
     spdlog::info("[TempStackWidget] Bed clicked - opening temp graph overlay");
     get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Bed, parent_screen_);
 }
 
 void TempStackWidget::handle_chamber_clicked() {
-    if (long_pressed_) {
-        long_pressed_ = false;
-        spdlog::debug("[TempStackWidget] Chamber click suppressed (follows long-press)");
-        return;
-    }
-
     spdlog::info("[TempStackWidget] Chamber clicked - opening temp graph overlay");
     get_global_temp_graph_overlay().open(TempGraphOverlay::Mode::Chamber, parent_screen_);
 }

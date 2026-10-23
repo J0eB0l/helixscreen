@@ -68,6 +68,20 @@ TEST_CASE("DeviceAction factories set every field the control type uses", "[ams]
     }
 }
 
+TEST_CASE("DeviceAction::info is a read-only string row", "[ams][device_actions]") {
+    auto a = DeviceAction::info("id", "Label", "tool_offsets", "X 0.100 mm", "axis_arrow", "hint");
+    CHECK(a.type == ActionType::INFO);
+    const auto* value = std::any_cast<std::string>(&a.current_value);
+    REQUIRE(value != nullptr);
+    CHECK(*value == "X 0.100 mm");
+    CHECK(a.label == "Label");
+    CHECK(a.section == "tool_offsets");
+    CHECK(a.icon == "axis_arrow");
+    CHECK(a.description == "hint");
+    CHECK_FALSE(a.moves_machine);
+    CHECK(a.enabled);
+}
+
 TEST_CASE("AFC default actions keep their shipped field values", "[ams][afc][device_actions]") {
     const auto actions = afc_default_actions();
     CHECK(actions.size() == 27);
@@ -183,6 +197,13 @@ TEST_CASE("every backend's sections come from the shared vocabulary with a real 
     }
     // One word for one kind of section, whichever system declares it.
     CHECK(afc_default_sections()[1].label == hh_default_sections()[1].label);
+}
+
+TEST_CASE("tool_offsets is a section kind", "[ams][sections]") {
+    const auto* kind = helix::printer::find_device_section_kind("tool_offsets");
+    REQUIRE(kind != nullptr);
+    CHECK(std::string(kind->label) == "Tool Offsets");
+    CHECK(std::string(kind->icon) == "axis_arrow");
 }
 
 TEST_CASE("an id outside the section vocabulary still renders",

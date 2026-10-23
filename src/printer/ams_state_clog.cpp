@@ -10,8 +10,14 @@
 
 #include "ams_state.h"
 #include "ams_state_internal.h"
+#include "app_globals.h"
 #include "clog_meter_geometry.h"
+#include "filament_sensor_manager.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "observer_factory.h"
+#include "print_lifecycle_state.h"
+#include "printer_state.h"
+#include "text_io.h"
 
 #include <spdlog/spdlog.h>
 
@@ -19,6 +25,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string_view>
 
 namespace helix {
 using ams_state_detail::assert_main_thread;
@@ -37,15 +44,26 @@ struct ClogReading {
     int danger_pct = 75;
     int peak_pct = 0;
     char mode_text[32] = "";
-    char center[16] = "";
+    char center[32] = "";
     char left[24] = "";
     char right[24] = "";
 };
 
+/// Copy @p src into @p dst, clipped on a codepoint boundary rather than
+/// mid-character the way snprintf would clip a long translation.
+template <size_t N> void copy_utf8(char (&dst)[N], std::string_view src) {
+    const auto clipped = text_io::utf8_prefix(src, N - 1);
+    std::memcpy(dst, clipped.data(), clipped.size());
+    dst[clipped.size()] = '\0';
+}
+
 /// The clog detector's reading. Priority: flowguard > encoder > afc_buffer >
-/// legacy > none. Source override: 0=auto (use priority), 1=encoder,
-/// 2=flowguard, 3=afc; a forced source is used only if this snapshot has it.
-ClogReading detector_reading(const AmsSystemInfo& info, int source_override) {
+/// legacy > motion sensor > none. Source override: 0=auto (use priority),
+/// 1=encoder, 2=flowguard, 3=afc; a forced source is used only if this snapshot
+/// has it. The motion sensor is not a pickable source: it stands in only on a
+/// printer with no detector the backend reports, whatever the override says.
+ClogReading detector_reading(const AmsSystemInfo& info, int source_override,
+                             const std::optional<ClogMotionSensor>& motion, bool print_running) {
     // Every text slot below has exactly one job, and no slot repeats another:
     //   mode_text   what is measuring, and nothing else. It is drawn beside a
     //               15%-wide swatch in ams_loaded_card, where the column is
@@ -173,6 +191,26 @@ ClogReading detector_reading(const AmsSystemInfo& info, int source_override) {
         }
     }
 
+    const bool backend_detector = sources.flowguard || sources.encoder || sources.afc_buffer;
+    if (r.mode == 0 && !backend_detector && motion) {
+        // A state, not a gauge (#1823): Klipper reports only whether the
+        // sensor is armed and whether it has seen filament move.
+        using helix::ui::ClogMeterMode;
+        r.mode = static_cast<int>(ClogMeterMode::Motion);
+        r.danger_pct = 0;
+        r.peak_pct = 0;
+        copy_utf8(r.mode_text, motion->sensor_name);
+        r.value =
+            helix::ui::motion_sensor_value(motion->armed, motion->filament_moving, print_running);
+        if (r.value == helix::ui::kMotionDisarmedValue) {
+            copy_utf8(r.center, lv_tr("Disarmed"));
+        } else if (r.value == helix::ui::kMotionJammedValue) {
+            r.warning = 1;
+            copy_utf8(r.center, lv_tr("Jammed"));
+        }
+        // Moving: the status glyph's check says it, so the centre stays empty.
+    }
+
     return r;
 }
 
@@ -202,8 +240,13 @@ AmsState::ClogMeterSubjects AmsState::clog_meter_subjects() {
 }
 
 void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
-    ClogReading r = detector_reading(info, source_override_);
-    if (danger_threshold_override_ > 0) {
+    const int active_lane = info.current_slot >= 0 ? info.current_slot : info.current_tool;
+    const bool print_running =
+        print_job_running(get_printer_state().print_state().get_print_lifecycle());
+    ClogReading r = detector_reading(
+        info, source_override_, FilamentSensorManager::instance().clog_motion_sensor(active_lane),
+        print_running);
+    if (danger_threshold_override_ > 0 && !helix::ui::clog_meter_is_state(r.mode)) {
         r.danger_pct = danger_threshold_override_;
     }
     publish(clog_meter_subjects(), r);
@@ -221,27 +264,41 @@ void AmsState::sync_clog_meter_from_info(const AmsSystemInfo& info) {
                   r.warning);
 }
 
+void AmsState::resync_clog_meter() {
+    auto* backend = get_backend();
+    sync_clog_meter_from_info(backend ? backend->get_system_info() : AmsSystemInfo{});
+}
+
+void AmsState::install_print_lifecycle_observer() {
+    print_lifecycle_observer_.reset();
+    auto& print = get_printer_state().print_state();
+    print_lifecycle_observer_ = helix::ui::observe<int>(
+        print.get_print_lifecycle_subject(), this,
+        [](AmsState* self, int /*lifecycle*/) { self->resync_clog_meter(); },
+        print.get_static_subjects_lifetime());
+}
+
+void AmsState::install_motion_sensor_observer() {
+    assert_main_thread();
+    motion_sensor_observer_.reset();
+    auto& sensors = FilamentSensorManager::instance();
+    motion_sensor_observer_ = helix::ui::observe<int>(
+        sensors.get_motion_signature_subject(), this,
+        [](AmsState* self, int /*signature*/) { self->resync_clog_meter(); },
+        sensors.get_subjects_lifetime());
+}
+
 void AmsState::set_source_override(int source) {
     assert_main_thread();
     source_override_ = source;
     spdlog::debug("[AMS State] Source override set to {}", source);
-    // Re-sync to apply the override
-    auto* backend = get_backend();
-    if (backend) {
-        auto info = backend->get_system_info();
-        sync_clog_meter_from_info(info);
-    }
+    resync_clog_meter();
 }
 
 void AmsState::set_danger_threshold_override(int pct) {
     assert_main_thread();
     danger_threshold_override_ = pct;
     spdlog::debug("[AMS State] Danger threshold override set to {}", pct);
-    // Re-sync to apply the override
-    auto* backend = get_backend();
-    if (backend) {
-        auto info = backend->get_system_info();
-        sync_clog_meter_from_info(info);
-    }
+    resync_clog_meter();
 }
 } // namespace helix

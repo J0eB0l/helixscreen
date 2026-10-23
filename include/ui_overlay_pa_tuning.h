@@ -160,6 +160,12 @@ class PaTuningOverlay : public OverlayBase {
         extruder_ = extruder;
     }
     /// Tests drive the session without a navigation stack to raise it on.
+    void confirm_and_start_for_test() {
+        confirm_and_start();
+    }
+    [[nodiscard]] std::string error_for_test() {
+        return lv_subject_get_string(&error_);
+    }
     void set_raise_on_start_for_test(bool raise) {
         raise_on_start_ = raise;
     }
@@ -175,6 +181,8 @@ class PaTuningOverlay : public OverlayBase {
     /// Confirm-dialog options whose callbacks die with this object.
     ConfirmOptions owned_confirm();
     void begin_upload();
+    /// Fail the start when the filament system refuses to heat the nozzle.
+    bool refuse_blocked_nozzle();
     void fail_start(const std::string& message);
     helix::pa::TestPrintParams build_params() const;
     /// The printer's own start and end macros, from the discovered macro set.

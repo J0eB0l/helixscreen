@@ -76,6 +76,8 @@ class DisplayManager : public helix::ICalibrationSink {
         bool require_pointer = true;    ///< Fail init if no pointer device (embedded only)
         bool splash_active = false;     ///< External splash owns framebuffer — skip unblank/pan
         bool size_was_explicit = false; ///< True if width/height came from user's -s flag
+        bool first_boot_probe = false;  ///< The first-boot rotation probe owns this boot
+        int kernel_orientation = -1;    ///< Kernel panel_orientation, -1 if absent
     };
 
     DisplayManager();
@@ -197,6 +199,13 @@ class DisplayManager : public helix::ICalibrationSink {
         return m_display ? lv_display_get_vertical_resolution(m_display) : m_height;
     }
 
+    /// On a first boot (Config::first_boot_probe), the orientation init() applied
+    /// without asking: the kernel's panel_orientation, else the board's panel mount.
+    /// -1 when neither applies and the interactive probe has to run.
+    int first_boot_orientation() const {
+        return m_first_boot_orientation;
+    }
+
     // ========================================================================
     // Display Sleep Management
     // ========================================================================
@@ -304,6 +313,12 @@ class DisplayManager : public helix::ICalibrationSink {
      */
     bool is_display_dimmed() const {
         return m_sleep.is_dimmed();
+    }
+
+    /// A pointer that does not pass through the sleep-aware wrapper reports a press. True
+    /// means it is the wake touch, which the caller hides from LVGL until it lifts.
+    bool note_wake_press(int x, int y) {
+        return m_sleep.note_press(x, y);
     }
 
     /**
@@ -586,6 +601,10 @@ class DisplayManager : public helix::ICalibrationSink {
     friend class DisplayManagerTestAccess;
 
     /// Rotates the display through the backend. width()/height() then read whatever it settled on.
+    /// Rotation from the config, the environment and, on a first boot, the board's
+    /// panel mount, applied to the display. init() calls it after creating the
+    /// display and before the input devices.
+    void apply_startup_rotation(const Config& config);
     void settle_display_rotation(lv_display_rotation_t rot, int phys_w, int phys_h);
 
     bool m_initialized = false;
@@ -594,6 +613,7 @@ class DisplayManager : public helix::ICalibrationSink {
     /// width()/height() report the display's actual size.
     int m_width = 0;
     int m_height = 0;
+    int m_first_boot_orientation = -1;
     bool m_size_was_explicit = false;
 
     std::unique_ptr<DisplayBackend> m_backend;

@@ -28,6 +28,8 @@ Solutions to common problems with HelixScreen.
 
 ## Quick Debugging Guide
 
+**First, look at what the printer reported.** Tap the **Notifications** widget on the Home screen, then **Printer Events**. It lists Klipper shutdowns with their reason, lost MCU connections, pauses and what caused them, printer error messages and how each print ended, with times. A shutdown reason such as "Timer too close" or "Lost communication with MCU" often answers the question on its own. See [Printer Events](guide/advanced.md#printer-events).
+
 **Before troubleshooting anything, increase log verbosity. Three taps, no SSH:**
 
 1. **Settings → System → Log Level → Debug** (or Trace for the deepest detail)
@@ -546,6 +548,8 @@ If Klipper shuts down, hits an error, or loses contact with the printer's contro
 > **Note:** When the printer is fully disconnected, HelixScreen can't send restart commands to it, so only **Dismiss** is available. Once the connection comes back, the restart buttons return.
 
 **If Klipper fails to start again.** Whenever Klipper goes away, after a restart or for any other reason, HelixScreen keeps checking for up to two minutes until Klipper reports ready. If Klipper stops at a startup error instead (a mistake in `printer.cfg`, say, or a control board it can't reach), the dialog changes to **Printer Error** and shows Klipper's own message, so you can see what to fix without opening the log. On printers where HelixScreen installed a recovery script for the platform (such as the Creality K2 and the Snapmaker U1), it runs that script once when a restart alone doesn't bring Klipper back.
+
+**When a HelixScreen save is what broke it.** Saving an input shaper result, switching a heater between PID and MPC, or changing a probe setting writes to your Klipper config and restarts the firmware. Before writing, HelixScreen copies each file it changes into a hidden folder named `.helix_backups` inside your config folder, under the same name. If Klipper does not come back within a few seconds of that restart, HelixScreen puts the copy back, restarts again and tells you the change was undone. With the [HelixPrint plugin](guide/helixprint-plugin.md) installed, the plugin writes the change instead and keeps the five most recent copies of each file, named with the date and time (`printer.cfg.helixbak-20261022-101500`), so you can put an older one back by hand. Mainsail and Fluidd hide folders whose name starts with a dot until you turn on hidden files in their file manager.
 
 **Common causes:**
 
@@ -1681,6 +1685,19 @@ Navigate away from and back to the AMS panel to trigger refresh.
 sudo journalctl -u moonraker | grep -i spoolman
 ```
 
+### Spoolman didn't deduct a print (multi-filament systems)
+
+**Symptoms:**
+- A print finished but the spool's remaining weight in Spoolman did not change
+- Mainsail or Fluidd shows no active spool, or a different one
+
+**Check, in order:**
+1. **Was the slot linked before the print started?** Usage is only recorded while a spool is active, and HelixScreen makes a slot's spool active when the slot loads or when you link a spool to the loaded slot. A print that ran before the link is not deducted afterwards.
+2. **Is the right spool linked to that slot?** Open the slot's **Edit Spool** editor: a linked slot shows the Spoolman icon and spool number in its title. Names don't matter; only the link does.
+3. **Does your filament system set the spool itself?** AFC, Happy Hare (with its Spoolman support on) and INDX do, and HelixScreen leaves it to them.
+
+Details: [Which spool Spoolman charges](guide/filament-tracking.md#which-spool-spoolman-charges-on-a-multi-filament-system).
+
 ### Color set on the printer's own screen reverts (AD5X with Spoolman)
 
 **Known limitation.** On an AD5X, once a lane has been assigned a Spoolman spool,
@@ -1753,6 +1770,8 @@ Should return acceleration values, not an error.
 - Bed gets worse after adjustments
 
 **Solutions:**
+
+**Check the turn direction.** Turn one screw the way its arrow points and re-probe. If that corner moves further from the reference, the `screw_thread` in your `[screws_tilt_adjust]` section names the wrong direction for your knobs: switch it between `CW-M3` and `CCW-M3` (or the M4/M5 equivalents). Tighten/Loosen does not depend on this setting; it always comes from the probed heights.
 
 **Verify screw positions** in `printer.cfg`:
 ```ini
@@ -1867,7 +1886,7 @@ max_job_count: 100
 3. Pick your model from the list (Voron 2.4, Voron 0.2, Voron Trident, and Voron Switchwire are all in the database)
 4. The new type applies immediately — name, image, and all the type-driven features follow it
 
-**Let HelixScreen catch it for you.** If you'd rather not hunt through the list, just connect the printer and wait: when detection is confident the saved type is wrong, a **Printer type mismatch** dialog names both models and offers **Choose Model** (opens the model picker from the setup wizard's identity step) or **Keep current** — the right answer for a heavily modified printer that legitimately differs from its stock sibling. Picking **Keep current** is remembered for that type; the prompt won't nag on every boot.
+**Let HelixScreen catch it for you.** If you'd rather not hunt through the list, just connect the printer and wait: when detection is confident the saved type is wrong, a **Printer type mismatch** dialog names both models and offers **Choose Model** (opens the model picker from the setup wizard's identity step) or **Keep current** — the right answer for a heavily modified printer that legitimately differs from its stock sibling. Picking **Keep current** is remembered for that type; the prompt won't nag on every boot. When the two are the same printer with and without a firmware mod or add-on (ForgeX, k2-improvements, CFS), the warning names that difference instead, for example "Your Creality K2 Plus looks like it has k2-improvements".
 
 Re-adding the printer through **Printer Manager > Manage Printers > + Add Printer** (then deleting the old entry) and **Settings > System > Factory Reset** remain as last resorts — the factory reset re-runs the full wizard but wipes all HelixScreen settings, so use it only if you want a clean start anyway.
 
@@ -1987,6 +2006,33 @@ If the item is missing there, HelixScreen did not detect it, and the screens tha
 - A few capabilities (bed mesh, QGL, Z-tilt, nozzle clean, heat soak, speaker) can be turned on or off by hand with a [capability override](CONFIGURATION.md#capability-overrides). An override set to `disable` hides the feature even when the hardware is present
 
 If the detail is wrong (for example **Probe · BLTouch** on a Beacon), include a screenshot of the Capabilities section in your report.
+
+### Mainsail or Fluidd shows an old `helix_print` update
+
+**Symptoms:**
+- The update manager in Mainsail (Machine page) or Fluidd (Settings > Software Updates) lists a `helix_print` row with a version like `v1.1.0-beta.9-461-g...`
+- That row offers an update, or says it is up to date while HelixScreen itself is newer
+
+**Why:** the HelixPrint plugin was installed with the old one-line installer, which downloaded a separate copy of the plugin into `~/helix_print` and added that row so Moonraker could update it. Current HelixScreen loads the plugin it ships with instead, and updating HelixScreen updates the plugin. The old row only tracks the separate copy, which is no longer used.
+
+**Do not click Update on that row.** It downloads unreleased development code into the old copy and restarts Moonraker for nothing.
+
+**Fix:** restart HelixScreen. When it starts, it switches the plugin over and removes the old row (it keeps a backup of each config file it edits next to that file, for example `moonraker.conf.bak.helix.<date>`). The row disappears after Moonraker's next restart. To do it by hand instead, run the plugin installer that came with HelixScreen:
+
+```bash
+# Use your actual install path: ~/helixscreen on most systems,
+# /opt/helixscreen or /usr/data/helixscreen on some printers
+~/helixscreen/moonraker-plugin/install.sh --auto
+```
+
+**Removing the old copy:** check where Moonraker loads the plugin from first:
+
+```bash
+# Moonraker's folder varies by platform too (~/moonraker on most systems)
+readlink -f ~/moonraker/moonraker/components/helix_print.py
+```
+
+If the result points inside your HelixScreen folder and not into `~/helix_print`, the old copy is unused and you can delete it with `rm -rf ~/helix_print`. If it still points into `~/helix_print`, leave the folder alone and run the installer command above first.
 
 ### Reset HelixScreen or re-run the setup wizard
 

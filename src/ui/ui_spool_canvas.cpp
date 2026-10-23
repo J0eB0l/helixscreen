@@ -14,6 +14,7 @@
 #include "lv_draw_buf_guard.h"
 #include "lvgl/lvgl.h"
 #include "lvgl/src/misc/cache/instance/lv_image_cache.h" // not in the lvgl.h umbrella
+#include "spool_vents.h"
 #include "theme_manager.h"
 #include "ui/ams_drawing_utils.h"
 
@@ -38,6 +39,29 @@ static constexpr float kHubRadius = 0.10f; // Center hub hole radius
 static constexpr int32_t kDefaultSize = 64;
 static constexpr uint32_t kDefaultColor = 0xE0E0E0; // Default white/light filament
 
+// The key light comes from above and in front, falling kLightDrop for each
+// unit it travels into the spool along its axis.
+static constexpr float kLightDrop = 1.0f;
+// The flanges' plastic under it: lifted toward white at the top, pressed
+// toward black at the foot.
+static constexpr uint8_t kFlangeLift = 60;
+static constexpr uint8_t kFlangeDrop = 40;
+
+// Vents in the front flange (spool_vents.h). Seen through a slot, wound
+// filament is in the flange's shadow, and an empty spool's far flange darker
+// still. The lip is the shadow the flange's thickness casts along each cut's
+// top, under the key light.
+static constexpr uint8_t kVentFilamentShadeTop = 30;
+static constexpr uint8_t kVentFilamentShadeBottom = 110;
+static constexpr uint8_t kVentInsideShadeTop = 20;
+static constexpr uint8_t kVentInsideShadeBottom = 50;
+static constexpr float kFlangeThickness = 3.0f / 240.0f; // 3 px on a 240 px spool
+static constexpr float kVentLipFraction = kFlangeThickness * kLightDrop;
+static constexpr lv_opa_t kVentLipShade = 115; // 45% toward black
+// Face-on, the flange is smoked plastic over the wound filament.
+static constexpr lv_opa_t kFrontSmokeOpa = 140;   // 55% flange over 45% filament
+static constexpr float kFrontMaxFilament = 0.85f; // a full spool stops short of the rim
+
 // Current-spool glow layer, grown from the spool's silhouette. Capable
 // hardware gets a soft halo and a tight rim; reduced effects a solid outline.
 namespace {
@@ -52,7 +76,6 @@ static constexpr uint8_t kGlowRimLighten = 60;
 static constexpr lv_opa_t kGlowHaloSecondOpa = 153; // 60%
 static constexpr int32_t kGlowMargin = kGlowHaloDilate + kGlowHaloPasses * kGlowHaloBoxR;
 static constexpr int32_t kOutlinePx = 2;
-static constexpr uint8_t kGlowDiscShape = 0xFF; // fill_bucket of a flat-style (disc) glow
 
 // Note: Spool body colors now come from theme tokens in globals.xml:
 // - spool_body: Front flange color
@@ -104,10 +127,11 @@ struct SpoolCacheKey {
     uint8_t fill_bucket; // 0..kFillBuckets
     SpoolGlow glow;
     uint32_t filament_hash = 0; // multi-colour list and finish; 0 for a plain single colour
+    helix::ui::SpoolView view = helix::ui::SpoolView::Side;
 
     bool operator==(const SpoolCacheKey& o) const {
         return color_rgb == o.color_rgb && size == o.size && fill_bucket == o.fill_bucket &&
-               glow == o.glow && filament_hash == o.filament_hash;
+               glow == o.glow && filament_hash == o.filament_hash && view == o.view;
     }
 };
 
@@ -116,7 +140,8 @@ struct SpoolCacheKeyHash {
         // Mix: color is the high-cardinality field, so weight it.
         return (static_cast<size_t>(k.color_rgb) * 0x9E3779B1u) ^
                (static_cast<size_t>(k.size) << 17) ^ (static_cast<size_t>(k.glow) << 8) ^
-               static_cast<size_t>(k.fill_bucket) ^ (static_cast<size_t>(k.filament_hash) << 3);
+               static_cast<size_t>(k.fill_bucket) ^ (static_cast<size_t>(k.filament_hash) << 3) ^
+               (static_cast<size_t>(k.view) << 29);
     }
 };
 
@@ -176,6 +201,7 @@ struct SpoolCanvasData {
     /// is split the way every swatch splits (helix::ui::swatch_split_thresholds).
     std::vector<lv_color_t> colors;
     helix::ui::SwatchFinish finish = helix::ui::SwatchFinish::Plain;
+    helix::ui::SpoolView view = helix::ui::SpoolView::Side;
 
     // Last-rendered key, for dedup (idea #1). Valid only when has_rendered.
     SpoolCacheKey last_key{0, 0, 0, SpoolGlow::None};
@@ -312,6 +338,52 @@ static void draw_gradient_ellipse(SpoolLayer* layer, int32_t cx, int32_t cy, int
             fill_dsc.opa = LV_OPA_COVER;
             lv_area_t line_area = {cx - x_inner, cy + y, cx + x_inner, cy + y};
             spool_fill(layer, &fill_dsc, &line_area);
+        }
+    }
+}
+
+// The vents' see-through colour shades from @p top at the flange's top to
+// @p bottom at its foot, the way the flange itself does.
+namespace {
+struct VentBacking {
+    lv_color_t top;
+    lv_color_t bottom;
+};
+} // namespace
+
+// Cut @p face's vents into what is already drawn: each open pixel shows
+// @p inside(x, y) (what lies behind the flange there), with a darker lip along
+// each cut's upper edge where the flange's thickness shades it.
+template <typename Inside> // VentBacking(float face_radius)
+static void paint_vents(SpoolLayer* layer, const helix::ui::SpoolVentFace& face,
+                        const lv_area_t& bounds, const Inside& inside) {
+    if (face.detail == helix::ui::SpoolVentDetail::None)
+        return;
+    const lv_image_header_t& h = layer->buf->header;
+    const int32_t x1 = LV_MAX(bounds.x1, 0);
+    const int32_t x2 = LV_MIN(bounds.x2, static_cast<int32_t>(h.w) - 1);
+    const int32_t y1 = LV_MAX(bounds.y1, 0);
+    const int32_t y2 = LV_MIN(bounds.y2, static_cast<int32_t>(h.h) - 1);
+    const float height = static_cast<float>(LV_MAX(bounds.y2 - bounds.y1, 1));
+    const float lip = std::max(1.0f, face.size * kVentLipFraction);
+    for (int32_t y = y1; y <= y2; y++) {
+        auto* row = reinterpret_cast<lv_color32_t*>(layer->buf->data + y * h.stride);
+        const float py = static_cast<float>(y) + 0.5f;
+        const float t = static_cast<float>(y - bounds.y1) / height;
+        for (int32_t x = x1; x <= x2; x++) {
+            const float pxc = static_cast<float>(x) + 0.5f;
+            const float cover = helix::ui::spool_vent_coverage(face, pxc, py);
+            if (cover <= 0.0f)
+                continue;
+            const VentBacking back = inside(helix::ui::spool_vent_face_radius(face, pxc, py));
+            lv_color_t seen = ams_draw::blend_color(back.top, back.bottom, t);
+            if (helix::ui::spool_vent_coverage(face, pxc, py - lip) < 1.0f)
+                seen = lv_color_mix(lv_color_black(), seen, kVentLipShade);
+            const lv_color32_t fg =
+                lv_color_to_32(seen, static_cast<lv_opa_t>(cover * 255.0f + 0.5f));
+            const uint8_t alpha = row[x].alpha;
+            row[x] = lv_color_mix32(fg, row[x]);
+            row[x].alpha = alpha;
         }
     }
 }
@@ -471,6 +543,54 @@ static void draw_banded_ellipse(SpoolLayer* layer, int32_t cx, int32_t cy, int32
     }
 }
 
+// Light the center tube's inside, seen through the hub hole at (cx, cy). Each
+// pixel sees the tube's far wall; a wall point is lit when it faces the key
+// light and its ray back toward the light leaves through the hole before
+// meeting the wall above it. So the floor of the tube catches the light,
+// brightest at the bottom, and the hole's top rim shades it at depth.
+static void draw_hub_bore_light(SpoolLayer* layer, int32_t cx, int32_t cy, int32_t rx, int32_t ry,
+                                lv_color_t lit) {
+    if (rx <= 0 || ry <= 0)
+        return;
+    const lv_image_header_t& h = layer->buf->header;
+    const float r = static_cast<float>(ry);
+    const float skew = static_cast<float>(rx) / r;
+    const int32_t y1 = LV_MAX(cy - ry, 0);
+    const int32_t y2 = LV_MIN(cy + ry, static_cast<int32_t>(h.h) - 1);
+    const int32_t x1 = LV_MAX(cx - rx - 1, 0);
+    const int32_t x2 = LV_MIN(cx + rx + 1, static_cast<int32_t>(h.w) - 1);
+    for (int32_t y = y1; y <= y2; y++) {
+        auto* row = reinterpret_cast<lv_color32_t*>(layer->buf->data + y * h.stride);
+        // v: down from the axis; u: across the face, unskewed.
+        const float v = static_cast<float>(y - cy);
+        if (v <= 0.0f)
+            continue;
+        const float half_chord = std::sqrt(std::max(0.0f, r * r - v * v));
+        for (int32_t x = x1; x <= x2; x++) {
+            const float u = static_cast<float>(x - cx) / skew;
+            const float d = std::sqrt(u * u + v * v);
+            const float inside = std::clamp(r - d + 0.5f, 0.0f, 1.0f);
+            if (inside <= 0.0f)
+                continue;
+            // A sight line drifts across the face by 1 / skew for each unit of
+            // depth, so it meets the far wall this deep.
+            const float depth = skew * std::max(0.0f, half_chord - u);
+            // Traced back toward the light, the wall point climbs kLightDrop
+            // per unit of depth and meets the wall again at -v, its mirror
+            // across the axis: deeper than 2v / kLightDrop it is in shadow.
+            const float shadow = std::clamp(2.0f * v - depth * kLightDrop + 0.5f, 0.0f, 1.0f);
+            const float lambert = v / r;
+            const float a = inside * shadow * lambert;
+            if (a <= 0.0f)
+                continue;
+            const lv_color_t seen =
+                lv_color_mix(lit, lv_color_make(row[x].red, row[x].green, row[x].blue),
+                             static_cast<uint8_t>(a * 255.0f + 0.5f));
+            row[x] = lv_color_to_32(seen, row[x].alpha);
+        }
+    }
+}
+
 // Draw a highlight edge along the LEFT side of an ellipse (simulates 3D thickness)
 // width_px: how many pixels wide the highlight band is
 static void draw_ellipse_left_edge(SpoolLayer* layer, int32_t cx, int32_t cy, int32_t rx,
@@ -570,9 +690,143 @@ static void paint_glow(lv_draw_buf_t* buf, const std::vector<uint8_t>& mask, Spo
     }
 }
 
+// The filament's colours as drawn. Matte filament is drawn in its muted
+// colours; the other finishes texture it once it is drawn.
+namespace {
+struct DrawnFilament {
+    lv_color_t color;
+    std::vector<lv_color_t> bands; ///< two or more for a multi-colour filament
+};
+} // namespace
+
+static DrawnFilament drawn_filament(const SpoolCanvasData& d) {
+    const bool matte = d.finish == helix::ui::SwatchFinish::Matte;
+    DrawnFilament out{matte ? helix::ui::swatch_matte_color(d.color) : d.color, d.colors};
+    if (matte) {
+        for (auto& c : out.bands)
+            c = helix::ui::swatch_matte_color(c);
+    }
+    return out;
+}
+
+// The spool face-on: the wound filament, the vented front flange over it
+// smoked so the filament reads through, and the hub. Proportions are the side
+// view's, scaled so the flange fills the canvas.
+static void render_front_pixels(SpoolCanvasData* data) {
+    const int32_t size = data->size;
+    const float c = static_cast<float>(size) / 2.0f;
+    const float flange_r = c - 1.0f;
+    const float face_size = flange_r / helix::ui::tray::kSpoolFlangeRadius;
+    const float hub_r = face_size * kHubRadius;
+    const float fill = LV_CLAMP(0.0f, data->fill_level, 1.0f);
+    const float max_filament_r = flange_r * kFrontMaxFilament;
+    const float filament_r = fill > 0.01f ? hub_r + (max_filament_r - hub_r) * fill : 0.0f;
+
+    const lv_color_t front_color = theme_manager_get_color("spool_body");
+    const lv_color_t back_color = theme_manager_get_color("spool_body_shade");
+    const lv_color_t flange_top = ams_draw::lighten_color(front_color, kFlangeLift);
+    const lv_color_t flange_bottom = ams_draw::darken_color(front_color, kFlangeDrop);
+    const lv_color_t hollow_top = ams_draw::darken_color(back_color, kVentInsideShadeTop);
+    const lv_color_t hollow_bottom = ams_draw::darken_color(back_color, kVentInsideShadeBottom);
+    const lv_color_t hub_top = theme_manager_get_color("spool_hub_top");
+    const lv_color_t hub_bottom = theme_manager_get_color("spool_hub_bottom");
+    const BodyShade shading = BodyShade::of(data->finish);
+    const DrawnFilament drawn = drawn_filament(*data);
+
+    lv_canvas_fill_bg(data->canvas, lv_color_black(), LV_OPA_TRANSP);
+    lv_draw_buf_t* buf = data->draw_buf;
+    const lv_image_header_t& h = buf->header;
+    auto row_of = [&](int32_t y) {
+        return reinterpret_cast<lv_color32_t*>(buf->data + y * h.stride);
+    };
+    auto dist = [c](int32_t x, int32_t y) {
+        const float dx = static_cast<float>(x) + 0.5f - c;
+        const float dy = static_cast<float>(y) + 0.5f - c;
+        return std::sqrt(dx * dx + dy * dy);
+    };
+    const int32_t lim = LV_MIN(size, static_cast<int32_t>(LV_MIN(h.w, h.h)));
+
+    // Pass 1: the wound filament disc, split and shaded the way the side
+    // view's body is, then textured by its finish.
+    const lv_area_t disc = {
+        static_cast<int32_t>(c - filament_r), static_cast<int32_t>(c - filament_r),
+        static_cast<int32_t>(c + filament_r), static_cast<int32_t>(c + filament_r)};
+    if (filament_r > 0.0f) {
+        const std::vector<float> stops =
+            drawn.bands.size() >= 2
+                ? helix::ui::swatch_split_thresholds(disc, LV_RADIUS_CIRCLE, drawn.bands.size())
+                : std::vector<float>{};
+        const float w = static_cast<float>(disc.x2 - disc.x1 + 1);
+        for (int32_t y = 0; y < lim; y++) {
+            auto* row = row_of(y);
+            const float t = (static_cast<float>(y) + 0.5f) / static_cast<float>(size);
+            for (int32_t x = 0; x < lim; x++) {
+                const float a = std::clamp(filament_r - dist(x, y) + 0.5f, 0.0f, 1.0f);
+                if (a <= 0.0f)
+                    continue;
+                lv_color_t base = drawn.color;
+                if (!stops.empty()) {
+                    const float f = ((static_cast<float>(x - disc.x1) + 0.5f) / w +
+                                     (static_cast<float>(y - disc.y1) + 0.5f) / w) /
+                                    2.0f;
+                    size_t band = 0;
+                    while (band < stops.size() && f > stops[band])
+                        ++band;
+                    base = drawn.bands[band];
+                }
+                row[x] = lv_color_to_32(
+                    ams_draw::blend_color(shading.top(base), shading.bottom(base), t),
+                    static_cast<lv_opa_t>(a * 255.0f + 0.5f));
+            }
+        }
+        helix::ui::swatch_paint_finish_pixels(buf, disc, LV_RADIUS_CIRCLE, data->finish);
+    }
+
+    // Pass 2: the flange over it. Solid flange is smoked where filament lies
+    // behind it; a vent shows what is behind at full strength.
+    const helix::ui::SpoolVentFace face{c, c, face_size, 1.0f, helix::ui::spool_vent_detail(size)};
+    const float lip = std::max(1.0f, face_size * kVentLipFraction);
+    for (int32_t y = 0; y < lim; y++) {
+        auto* row = row_of(y);
+        const float py = static_cast<float>(y) + 0.5f;
+        const float t = py / static_cast<float>(size);
+        const lv_color_t flange = ams_draw::blend_color(flange_top, flange_bottom, t);
+        const lv_color_t hollow = ams_draw::blend_color(hollow_top, hollow_bottom, t);
+        for (int32_t x = 0; x < lim; x++) {
+            const float d = dist(x, y);
+            const float a = std::clamp(flange_r - d + 0.5f, 0.0f, 1.0f);
+            if (a <= 0.0f)
+                continue;
+            const float pxc = static_cast<float>(x) + 0.5f;
+            const bool wound = d <= filament_r;
+            const lv_color_t behind =
+                wound ? lv_color_make(row[x].red, row[x].green, row[x].blue) : hollow;
+            const lv_color_t solid = wound ? lv_color_mix(flange, behind, kFrontSmokeOpa) : flange;
+            lv_color_t seen = solid;
+            const float vent = helix::ui::spool_vent_coverage(face, pxc, py);
+            if (vent > 0.0f) {
+                lv_color_t open = behind;
+                if (helix::ui::spool_vent_coverage(face, pxc, py - lip) < 1.0f)
+                    open = lv_color_mix(lv_color_black(), open, kVentLipShade);
+                seen = lv_color_mix(open, solid, static_cast<uint8_t>(vent * 255.0f + 0.5f));
+            }
+            const float hub = std::clamp(hub_r - d + 0.5f, 0.0f, 1.0f);
+            if (hub > 0.0f)
+                seen = lv_color_mix(ams_draw::blend_color(hub_top, hub_bottom, t), seen,
+                                    static_cast<uint8_t>(hub * 255.0f + 0.5f));
+            row[x] = lv_color_to_32(seen, static_cast<lv_opa_t>(a * 255.0f + 0.5f));
+        }
+    }
+    lv_obj_invalidate(data->canvas);
+}
+
 // Actual pixel drawing. Callers should prefer redraw_spool(), which handles
 // dedup and cache. This function unconditionally draws into data->draw_buf.
 static void render_spool_pixels(SpoolCanvasData* data) {
+    if (data->view == helix::ui::SpoolView::Front) {
+        render_front_pixels(data);
+        return;
+    }
     int32_t size = data->size;
     int32_t cy = size / 2; // Vertical center
 
@@ -598,16 +852,10 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     // Colors (from theme tokens)
     lv_color_t back_color = theme_manager_get_color("spool_body_shade");
     lv_color_t front_color = theme_manager_get_color("spool_body");
-    // Matte filament is drawn in its muted colour; the other finishes texture
-    // the body once it is drawn.
-    const bool matte = data->finish == helix::ui::SwatchFinish::Matte;
     const BodyShade shading = BodyShade::of(data->finish);
-    lv_color_t filament_color = matte ? helix::ui::swatch_matte_color(data->color) : data->color;
-    std::vector<lv_color_t> band_colors = data->colors;
-    if (matte) {
-        for (auto& c : band_colors)
-            c = helix::ui::swatch_matte_color(c);
-    }
+    const DrawnFilament drawn = drawn_filament(*data);
+    const lv_color_t filament_color = drawn.color;
+    const std::vector<lv_color_t>& band_colors = drawn.bands;
 
     // Clear canvas
     lv_canvas_fill_bg(data->canvas, lv_color_black(), LV_OPA_TRANSP);
@@ -618,8 +866,8 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     // STEP 1: Draw BACK FLANGE (left side) with gradient + edge highlight
     // ========================================
     {
-        lv_color_t bf_light = ams_draw::lighten_color(back_color, 40);
-        lv_color_t bf_dark = ams_draw::darken_color(back_color, 25);
+        lv_color_t bf_light = ams_draw::lighten_color(back_color, kFlangeLift);
+        lv_color_t bf_dark = ams_draw::darken_color(back_color, kFlangeDrop);
         // Main flange ellipse with gradient
         draw_gradient_ellipse(&layer, left_x, cy, flange_rx, flange_ry, bf_light, bf_dark);
         // Edge highlight on left side (gives 3D thickness illusion)
@@ -689,8 +937,8 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     // STEP 3: Draw FRONT FLANGE (right side) with gradient + edge highlight
     // ========================================
     {
-        lv_color_t ff_light = ams_draw::lighten_color(front_color, 40);
-        lv_color_t ff_dark = ams_draw::darken_color(front_color, 25);
+        lv_color_t ff_light = ams_draw::lighten_color(front_color, kFlangeLift);
+        lv_color_t ff_dark = ams_draw::darken_color(front_color, kFlangeDrop);
         // Main flange ellipse with gradient
         draw_gradient_ellipse(&layer, right_x, cy, flange_rx, flange_ry, ff_light, ff_dark);
         // Edge highlight on left side (gives 3D thickness illusion)
@@ -698,6 +946,21 @@ static void render_spool_pixels(SpoolCanvasData* data) {
         lv_color_t edge_light = ams_draw::lighten_color(front_color, 100);
         lv_color_t edge_dark = ams_draw::darken_color(front_color, 40);
         draw_ellipse_left_edge(&layer, right_x, cy, flange_rx, flange_ry, edge_light, edge_dark, 2);
+
+        // Vents: the filament shows through where it is wound that far out,
+        // the dark far flange where it is not.
+        const helix::ui::SpoolVentFace face{static_cast<float>(right_x) + 0.5f,
+                                            static_cast<float>(cy) + 0.5f, static_cast<float>(size),
+                                            helix::ui::tray::kDepthSkew,
+                                            helix::ui::spool_vent_detail(size)};
+        const VentBacking wound{ams_draw::darken_color(filament_color, kVentFilamentShadeTop),
+                                ams_draw::darken_color(filament_color, kVentFilamentShadeBottom)};
+        const VentBacking hollow{ams_draw::darken_color(back_color, kVentInsideShadeTop),
+                                 ams_draw::darken_color(back_color, kVentInsideShadeBottom)};
+        const float wound_r = static_cast<float>(filament_ry);
+        paint_vents(&layer, face,
+                    {right_x - flange_rx, cy - flange_ry, right_x + flange_rx, cy + flange_ry},
+                    [&](float face_radius) { return face_radius <= wound_r ? wound : hollow; });
     }
 
     // ========================================
@@ -709,6 +972,9 @@ static void render_spool_pixels(SpoolCanvasData* data) {
     lv_color_t hub_bottom =
         theme_manager_get_color("spool_hub_bottom"); // Noticeably lighter at bottom (light hits it)
     draw_gradient_ellipse(&layer, right_x, cy, hub_rx, hub_ry, hub_top, hub_bottom);
+    // The tube is the flange's plastic, lit as the flange's top is.
+    draw_hub_bore_light(&layer, right_x, cy, hub_rx, hub_ry,
+                        ams_draw::lighten_color(front_color, kFlangeLift));
 
     lv_obj_invalidate(data->canvas);
 
@@ -744,8 +1010,12 @@ static bool redraw_spool_pixels(SpoolCanvasData* data) {
     if (!data || !data->canvas || !data->draw_buf)
         return false;
 
-    SpoolCacheKey key{color_to_rgb24(data->color), static_cast<uint16_t>(data->size),
-                      compute_fill_bucket(data->fill_level), SpoolGlow::None, filament_hash(*data)};
+    SpoolCacheKey key{color_to_rgb24(data->color),
+                      static_cast<uint16_t>(data->size),
+                      compute_fill_bucket(data->fill_level),
+                      SpoolGlow::None,
+                      filament_hash(*data),
+                      data->view};
 
     // Dedup: already rendered this bucketed state, nothing to do.
     if (data->has_rendered && data->last_key == key) {
@@ -976,6 +1246,19 @@ void spool_canvas_set_filament(lv_obj_t* canvas, uint32_t rgb, const std::string
     redraw_spool(data);
 }
 
+void spool_canvas_set_view(lv_obj_t* canvas, SpoolView view) {
+    auto* data = get_data(canvas);
+    if (!data || data->view == view)
+        return;
+    data->view = view;
+    redraw_spool(data);
+}
+
+SpoolView spool_canvas_get_view(lv_obj_t* canvas) {
+    auto* data = get_data(canvas);
+    return data ? data->view : SpoolView::Side;
+}
+
 void spool_canvas_set_filament(lv_obj_t* canvas, const SlotInfo& slot) {
     spool_canvas_set_filament(canvas, slot.color_rgb, slot.multi_color_hexes,
                               swatch_finish_of(slot));
@@ -1023,7 +1306,7 @@ struct GlowCacheEntry {
 };
 
 struct SpoolGlowData {
-    lv_obj_t* spool = nullptr; ///< bound 3D spool canvas; null = disc (flat style)
+    lv_obj_t* spool = nullptr; ///< bound spool canvas
     int32_t size = 0;
     bool simple = false;
     bool lit = false; ///< painted, or waiting on the spool's first render
@@ -1078,28 +1361,19 @@ static void set_glow_image(lv_obj_t* glow, SpoolGlowData& g, GlowImage image, in
     helix::ui::refresh_overhang_chain(glow);
 }
 
-// The silhouette, padded by @p m: the 3D canvas's own alpha, or a disc of
-// diameter @p size for the flat style.
+// The silhouette, padded by @p m: the spool canvas's own alpha, in whichever
+// view it draws.
 static std::vector<uint8_t> silhouette_mask(SpoolCanvasData* spool, int32_t size, int32_t m) {
     const int32_t dim = size + 2 * m;
     std::vector<uint8_t> mask(static_cast<size_t>(dim * dim), 0);
-    if (spool && spool->draw_buf) {
-        const lv_image_header_t& h = spool->draw_buf->header;
-        for (int32_t y = 0; y < std::min<int32_t>(h.h, size); y++) {
-            const auto* row =
-                reinterpret_cast<const lv_color32_t*>(spool->draw_buf->data + y * h.stride);
-            for (int32_t x = 0; x < std::min<int32_t>(h.w, size); x++)
-                mask[(y + m) * dim + x + m] = row[x].alpha;
-        }
+    if (!spool || !spool->draw_buf)
         return mask;
-    }
-    const float c = static_cast<float>(dim - 1) / 2.0f;
-    const float r = static_cast<float>(size) / 2.0f;
-    for (int32_t y = 0; y < dim; y++) {
-        for (int32_t x = 0; x < dim; x++) {
-            const float d = sqrtf((x - c) * (x - c) + (y - c) * (y - c));
-            mask[y * dim + x] = static_cast<uint8_t>(LV_CLAMP(0.0f, r - d + 0.5f, 1.0f) * 255.0f);
-        }
+    const lv_image_header_t& h = spool->draw_buf->header;
+    for (int32_t y = 0; y < std::min<int32_t>(h.h, size); y++) {
+        const auto* row =
+            reinterpret_cast<const lv_color32_t*>(spool->draw_buf->data + y * h.stride);
+        for (int32_t x = 0; x < std::min<int32_t>(h.w, size); x++)
+            mask[(y + m) * dim + x + m] = row[x].alpha;
     }
     return mask;
 }
@@ -1108,7 +1382,7 @@ static std::vector<uint8_t> silhouette_mask(SpoolCanvasData* spool, int32_t size
 // yet has no silhouette to read: the layer stays empty until its first render.
 static void paint_glow_layer(lv_obj_t* glow, SpoolGlowData& g) {
     SpoolCanvasData* spool = get_data(g.spool);
-    if (g.spool && (!spool || !spool->has_rendered)) {
+    if (!spool || !spool->has_rendered) {
         set_glow_image(glow, g, nullptr, 0);
         return;
     }
@@ -1117,8 +1391,12 @@ static void paint_glow_layer(lv_obj_t* glow, SpoolGlowData& g) {
     const lv_color_t accent = helix::ui::tube_accent();
     // A glow depends only on the silhouette, never the filament color, so the
     // key carries the accent where a spool render carries its color.
-    const SpoolCacheKey key{color_to_rgb24(accent), static_cast<uint16_t>(g.size),
-                            spool ? spool->last_key.fill_bucket : kGlowDiscShape, mode};
+    // Face-on, the flange covers the filament at every fill, so one glow
+    // serves them all.
+    const helix::ui::SpoolView view = spool->last_key.view;
+    const uint8_t shape = view == helix::ui::SpoolView::Front ? 0 : spool->last_key.fill_bucket;
+    const SpoolCacheKey key{
+        color_to_rgb24(accent), static_cast<uint16_t>(g.size), shape, mode, 0, view};
     GlowImage image = glow_cache_get(key);
     if (!image) {
         image = make_glow_image(g.size + 2 * margin);

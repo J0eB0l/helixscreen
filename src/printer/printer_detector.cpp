@@ -46,6 +46,21 @@ using namespace helix;
 
 namespace hfs = helix::fs;
 
+float helix::printable_axis_span(float min, float max) {
+    if (min < 0.0f && -min * 2.0f < max) {
+        return max;
+    }
+    return max - min;
+}
+
+float BuildVolume::printable_x() const {
+    return declared_bed_x > 0.0f ? declared_bed_x : printable_axis_span(x_min, x_max);
+}
+
+float BuildVolume::printable_y() const {
+    return declared_bed_y > 0.0f ? declared_bed_y : printable_axis_span(y_min, y_max);
+}
+
 // ============================================================================
 // JSON Database Loader with User Extensions Support
 // ============================================================================
@@ -1712,6 +1727,11 @@ bool PrinterDetector::klipper_hides_dot_dirs(const std::string& printer_name) {
     return printer_flag(printer_name, "klipper_hides_dot_dirs");
 }
 
+std::optional<helix::PlrDbBlock> PrinterDetector::get_plr_block(const std::string& printer_name) {
+    const json* printer = find_printer_entry(printer_name);
+    return printer ? helix::plr_parse_db_block(*printer) : std::nullopt;
+}
+
 // ============================================================================
 // Memory Management
 // ============================================================================
@@ -1987,18 +2007,6 @@ nlohmann::json database_rules() {
 
 } // namespace helix::probe_prep
 
-std::string PrinterDetector::screws_tilt_direction_override() {
-    Config* config = Config::get_instance();
-    std::string printer_name =
-        config->get<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "");
-    if (printer_name.empty()) {
-        return "";
-    }
-    const std::string value =
-        helix::text_io::to_lower(printer_field(printer_name, "screws_tilt_direction"));
-    return (value == "cw" || value == "ccw") ? value : "";
-}
-
 bool PrinterDetector::meets_autosave_threshold(const PrinterDetectionResult& result) {
     if (result.type_name.empty() || !result.detected())
         return false;
@@ -2097,4 +2105,74 @@ PrinterDetector::classify_type_mismatch(const std::string& saved_type,
     }
     return classify_type_mismatch(saved_type, detected.type_name, detected.confidence, flag_value,
                                   detected.margin());
+}
+
+PrinterDetector::TypeRelationResult
+PrinterDetector::relate_types(const std::vector<VariantEntry>& entries,
+                              const std::string& saved_type, const std::string& detected_type) {
+    auto by_name = [&](const std::string& name) -> const VariantEntry* {
+        for (const auto& entry : entries) {
+            if (entry.name == name) {
+                return &entry;
+            }
+        }
+        return nullptr;
+    };
+    // The base entry's name for a usable variant, "" for a base entry or a
+    // variant whose link does not resolve or that names nothing to show.
+    auto base_of = [&](const VariantEntry* entry) -> std::string {
+        if (entry == nullptr || entry->variant_of.empty() || entry->variant_label.empty()) {
+            return {};
+        }
+        for (const auto& candidate : entries) {
+            if (candidate.id == entry->variant_of && candidate.variant_of.empty()) {
+                return candidate.name;
+            }
+        }
+        return {};
+    };
+
+    TypeRelationResult result;
+    const VariantEntry* saved = by_name(saved_type);
+    const VariantEntry* detected = by_name(detected_type);
+    if (saved == nullptr || detected == nullptr || saved == detected) {
+        return result;
+    }
+    const std::string saved_base = base_of(saved);
+    const std::string detected_base = base_of(detected);
+
+    if (saved_base.empty() && detected_base == saved->name) {
+        result.relation = TypeRelation::DetectedVariant;
+        result.base = saved->name;
+    } else if (detected_base.empty() && saved_base == detected->name) {
+        result.relation = TypeRelation::SavedVariant;
+        result.base = detected->name;
+    } else if (!saved_base.empty() && saved_base == detected_base) {
+        result.relation = TypeRelation::SiblingVariants;
+        result.base = saved_base;
+    } else {
+        return result;
+    }
+    if (!saved_base.empty()) {
+        result.saved_label = saved->variant_label;
+    }
+    if (!detected_base.empty()) {
+        result.detected_label = detected->variant_label;
+    }
+    return result;
+}
+
+PrinterDetector::TypeRelationResult
+PrinterDetector::relate_types(const std::string& saved_type, const std::string& detected_type) {
+    std::vector<VariantEntry> entries;
+    if (const json* printers = database_printers()) {
+        entries.reserve(printers->size());
+        for (const auto& printer : *printers) {
+            entries.push_back({helix::json_util::safe_string(printer, "id"),
+                               helix::json_util::safe_string(printer, "name"),
+                               helix::json_util::safe_string(printer, "variant_of"),
+                               helix::json_util::safe_string(printer, "variant_label")});
+        }
+    }
+    return relate_types(entries, saved_type, detected_type);
 }

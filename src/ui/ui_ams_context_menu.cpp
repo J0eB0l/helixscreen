@@ -4,6 +4,7 @@
 #include "ui_ams_context_menu.h"
 
 #include "ui_ams_detail.h"
+#include "ui_ams_edit_follow_up.h"
 #include "ui_ams_edit_overlay.h"
 #include "ui_ams_sidebar.h"
 #include "ui_button.h"
@@ -898,6 +899,9 @@ void open_slot_editor(lv_obj_t* parent_screen, IMoonrakerAPI* api, int slot_inde
             SlotInfo original = backend->get_slot_info(result.slot_index);
             AmsError err = AmsState::instance().commit_slot_edit(result.slot_index, original,
                                                                  result.slot_info);
+            if (err.success() || err.partially_applied) {
+                offer_edit_follow_up(result.slot_index, original, result.slot_info);
+            }
             if (!err.success()) {
                 notify_ams_error(err);
                 return;
@@ -915,18 +919,15 @@ void scan_qr_into_slot(const SlotMenuHost& host, int slot) {
     HELIX_PLATFORM_ESP32) // the ESP32 build has no QR scanner overlay; its button stays hidden
     const std::string tag = host.log_tag;
     get_qr_scanner_overlay().show(host.parent_screen, slot, [slot, tag](const SpoolInfo& spool) {
-        AmsBackend* be = AmsState::instance().get_backend();
-        if (!be) {
+        if (!AmsState::instance().get_backend()) {
             return;
         }
-        // Capture the pre-edit slot BEFORE the commit: its unlink arm (clear the
-        // server active spool) needs the old link.
-        SlotInfo original = be->get_slot_info(slot);
-        SlotInfo applied = original;
-        apply_spool_to_slot(applied, spool);
-        AmsError err = AmsState::instance().commit_slot_edit(slot, original, applied);
-        if (!err.success()) {
-            notify_ams_error(err);
+        const auto link = AmsState::instance().link_spool_to_slot(slot, spool);
+        if (link.error.success() || link.error.partially_applied) {
+            helix::ui::offer_edit_follow_up(slot, link.original, link.linked);
+        }
+        if (!link.error.success()) {
+            notify_ams_error(link.error);
             return;
         }
         spdlog::info("{} QR scan assigned spool #{} to slot {}", tag, spool.id, slot);

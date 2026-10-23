@@ -372,7 +372,8 @@ std::string parse_plugin_version(std::string_view helix_print_py);
  */
 enum class PluginSelfHealStep {
     Nothing,    ///< nothing to repair, or nothing this app may repair
-    ReportOnly, ///< a remote Moonraker runs another plugin version: log it, change nothing
+    ReportOnly, ///< another plugin version runs where this app cannot repair it: log it, change
+                ///< nothing
     RestartNow, ///< Moonraker must restart to load the plugin this app ships
     WaitForJob, ///< as RestartNow, once no job holds the machine
     GiveUp,     ///< a restart for this same version pair or link already failed: warn only
@@ -417,8 +418,9 @@ bool plugin_versions_differ(const PluginSelfHealFacts& facts);
  * @brief Decide what the startup check does about the installed plugin
  *
  * Only a plugin the user installed is repaired, never one installed here, and
- * only on this host: a remote Moonraker's plugin is the user's to update with
- * the command the install modal shows. A re-pointed link, or a running plugin
+ * only on this host: a remote Moonraker's plugin, or a local one with no link
+ * of ours, is the user's to update with the command the install modal shows,
+ * so a version mismatch there is only reported. A re-pointed link, or a running plugin
  * whose version is not the one this app ships, takes a Moonraker restart to
  * load the right code, which never interrupts a job. A version mismatch an
  * earlier start already restarted for is not restarted for again: the

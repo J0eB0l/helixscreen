@@ -35,6 +35,7 @@
 #include "helix-xml/src/xml/lv_xml.h"
 #include "led/ui_led_control_overlay.h"
 #include "preflight_validator.h"
+#include "recovery_fault_modal.h"
 
 #include <spdlog/spdlog.h>
 
@@ -50,6 +51,17 @@ void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 #endif
 
 using namespace helix;
+
+namespace {
+helix::TypeMismatchDemo& type_mismatch_demo() {
+    static helix::TypeMismatchDemo demo;
+    return demo;
+}
+} // namespace
+
+void helix::set_type_mismatch_demo(TypeMismatchDemo demo) {
+    type_mismatch_demo() = std::move(demo);
+}
 
 #ifdef HELIX_ENABLE_REMOTE_CONTROL
 namespace helix {
@@ -196,6 +208,37 @@ bool show_demo_overlay(const std::string& name, std::string* error) {
         return true;
     }
 
+    if (name == "recovery-fault-afc" || name == "recovery-fault-hh") {
+        // The dialog RecoveryModalPresenter raises for a filament system fault.
+        // Unreachable in mock mode: AmsBackendMock classifies no `!!` line as its
+        // own fault. The AFC one carries a lane fault, so the position diagram
+        // shows; the Happy Hare one fills all four button slots.
+        const bool afc = name == "recovery-fault-afc";
+        const std::string title = afc ? "Filament System Error" : "Filament runout";
+        const std::string detail =
+            afc ? "lane1 filament failed to trigger pre extruder gear toolhead sensor, "
+                  "CHECK FILAMENT PATH"
+                : "Runout detected on gate 2. Load filament into the gate and resume.";
+        std::vector<helix::RecoveryAction> actions;
+        if (afc) {
+            actions = {{"Resume", "RESUME", "afc::resume", "primary", true},
+                       {"Unload", "TOOL_UNLOAD", "afc::tool_unload", "", true},
+                       {"Recover", "AFC_RESET", "afc::reset", "danger"}};
+        } else {
+            actions = {{"Resume", "RESUME", "hh::resume", "primary", true},
+                       {"Recover", "MMU_RECOVER", "hh::recover", ""},
+                       {"Unload", "MMU_UNLOAD", "hh::unload", "", true},
+                       {"Unlock", "MMU_UNLOCK", "hh::unlock", "danger"}};
+        }
+        auto modal = std::make_unique<helix::ui::RecoveryFaultModal>();
+        // The stack frees the demo instance when the dialog closes.
+        if (modal->show_fault(screen, title, detail, actions)) {
+            lv_obj_t* backdrop = modal->backdrop();
+            ModalStack::instance().assume_ownership(backdrop, std::move(modal));
+        }
+        return true;
+    }
+
     if (name == "action-prompt-worst") {
         // Worst case for action_prompt_modal's chrome budget (#1277). This modal
         // carries MORE pinned chrome than ams_loading_error_modal: the AFC
@@ -310,6 +353,25 @@ bool show_demo_overlay(const std::string& name, std::string* error) {
         // gate — so this is the only way to check the two-line toast against a
         // real 480x272 panel instead of arithmetic on a font table.
         helix::ui::notify_ams_error(AmsErrorHelper::print_active(/*is_paused=*/true));
+        return true;
+    }
+
+    if (name == "type-mismatch-toast" || name == "type-mismatch-toast-model" ||
+        name == "type-mismatch-review") {
+        // The mock never raises this warning: a mock persona's identity says
+        // nothing about real hardware, so detection is skipped. The variant case
+        // uses the longest base name a variant entry has; -model shows the
+        // two-printers wording.
+        const auto& demo = type_mismatch_demo();
+        if (!demo) {
+            if (error) {
+                *error = "no printer session to raise the warning";
+            }
+            return false;
+        }
+        const bool model = name == "type-mismatch-toast-model";
+        demo(model ? "Creality K1 Max" : "FlashForge Adventurer 5M Pro (ForgeX)", 92,
+             "FlashForge Adventurer 5M Pro", name == "type-mismatch-review");
         return true;
     }
 

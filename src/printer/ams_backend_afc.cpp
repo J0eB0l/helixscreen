@@ -1789,13 +1789,8 @@ AmsError AmsBackendAfc::dispatch_operation(std::string gcode, AmsAction action) 
     // ever see one end.
     emit_event(EVENT_STATE_CHANGED);
 
-    auto token = lifetime_.token();
-    AmsError result = ensure_homed_then(std::move(gcode), [this, token, generation]() {
-        // L081 Mechanism C: the gcode ack lands on a background thread and the
-        // handler writes system_info_ under mutex_. Marshal to main.
-        token.defer("AmsBackendAfc::dispatch_macro_complete",
-                    [this, generation]() { finalize_dispatch_after_macro(generation); });
-    });
+    AmsError result = ensure_homed_then(
+        std::move(gcode), [this, generation]() { finalize_dispatch_after_macro(generation); });
 
     if (!result) {
         // The gcode never left: no IMoonrakerAPI, or the send was refused. No ack
@@ -2028,42 +2023,47 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
                     AfcMessageDedup::instance().record_error(msg_text);
                 }
 
-                // Suppress toasts when:
-                // 1. AFC action:prompt modal is already showing (user sees it)
-                // 2. Filament operation is active (load/unload generates noise)
-                bool afc_prompt_active = helix::ActionPromptManager::is_showing() &&
-                                         helix::ActionPromptManager::current_prompt_name().find(
-                                             "AFC") != std::string::npos;
                 // Only suppress during states that actively move filament.
                 // Heating, tip forming, cutting, purging are stationary —
                 // a sensor change there indicates a real problem.
-                bool operation_active = system_info_.action == AmsAction::LOADING ||
-                                        system_info_.action == AmsAction::UNLOADING ||
-                                        system_info_.action == AmsAction::SELECTING;
-                bool suppress_toast = afc_prompt_active || operation_active;
+                const bool operation_active = system_info_.action == AmsAction::LOADING ||
+                                              system_info_.action == AmsAction::UNLOADING ||
+                                              system_info_.action == AmsAction::SELECTING;
 
-                if (suppress_toast) {
-                    // Notification history only (no toast) - operation in progress
-                    spdlog::debug("[AMS AFC] Toast suppressed (prompt={}, op={}): {}",
-                                  afc_prompt_active, operation_active, msg_text);
-                    ui_notification_info_with_action("AFC", msg_text.c_str(), "afc_message");
-                } else if (msg_type == "error" && surfaced_by_previous_session) {
-                    // A previous session already surfaced this text and AFC
-                    // latched it; recorded in operation_detail above, not
-                    // re-toasted.
-                    spdlog::debug("[AMS AFC] Latched message already surfaced by a previous "
-                                  "session, not toasted: {}",
-                                  msg_text);
-                } else {
-                    // Show toast based on message type
-                    if (msg_type == "error") {
-                        NOTIFY_ERROR_T("AFC", "{}", msg_text);
-                    } else if (msg_type == "warning") {
-                        NOTIFY_WARNING_T("AFC", "{}", msg_text);
-                    } else {
-                        NOTIFY_INFO_T("AFC", "{}", msg_text);
-                    }
-                }
+                // Prompt lines apply on the main thread, so whether an AFC prompt
+                // is up is only known after the lines queued ahead of this
+                // message have run. Decide there.
+                helix::ui::queue_update(
+                    "AmsBackendAfc::dispatch_message",
+                    [msg_text, msg_type, operation_active, surfaced_by_previous_session]() {
+                        // An AFC action:prompt on screen already tells the user.
+                        const bool afc_prompt_active =
+                            helix::ActionPromptManager::is_showing() &&
+                            helix::ActionPromptManager::current_prompt_name().find("AFC") !=
+                                std::string::npos;
+
+                        if (afc_prompt_active || operation_active) {
+                            // Notification history only (no toast)
+                            spdlog::debug("[AMS AFC] Toast suppressed (prompt={}, op={}): {}",
+                                          afc_prompt_active, operation_active, msg_text);
+                            ui_notification_info_with_action("AFC", msg_text.c_str(),
+                                                             "afc_message");
+                        } else if (msg_type == "error" && surfaced_by_previous_session) {
+                            // A previous session already surfaced this text and AFC
+                            // latched it; recorded in operation_detail, not
+                            // re-toasted.
+                            spdlog::debug(
+                                "[AMS AFC] Latched message already surfaced by a previous "
+                                "session, not toasted: {}",
+                                msg_text);
+                        } else if (msg_type == "error") {
+                            NOTIFY_ERROR_T("AFC", "{}", msg_text);
+                        } else if (msg_type == "warning") {
+                            NOTIFY_WARNING_T("AFC", "{}", msg_text);
+                        } else {
+                            NOTIFY_INFO_T("AFC", "{}", msg_text);
+                        }
+                    });
             }
         }
     }
@@ -2209,7 +2209,7 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         spdlog::debug("[AMS AFC] Discovered {} extruder names from AFC state",
                       extruder_names_.size());
 
-        // Derive the toolchanger shape from the names, because the status
+        // Derive the extruder list from the names, because the status
         // subscription is the ONLY surface that reaches us and it does not carry
         // AFC.system. Upstream writes str["system"]['num_extruders'] in exactly
         // two places — _webhooks_status() (the /printer/afc/status HTTP endpoint,
@@ -2217,14 +2217,9 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         // get_status() publishes current_load/current_lane/next_lane/
         // current_state/spoolman/error_state/units/lanes and no system key.
         //
-        // Without this, num_extruders_ stayed at its default 1 on every real
-        // printer, so `if (num_extruders_ > 1)` in load_filament() and
-        // select_tool() was never true and AFC_SELECT_TOOL was never dispatched
-        // on an actual AFC toolchanger. extruders_ stayed empty too, which the
-        // bounds checks turned into silence rather than a crash.
-        //
-        // Order is preserved verbatim: extruders_ is indexed POSITIONALLY as a
-        // tool number, and AFC emits the array in tool order.
+        // Order is preserved verbatim: the per-extruder device actions
+        // (bowden_T<i>, led_extruder_T<i>, ...) address extruders_ by position.
+        // That position is not a T number; T numbers belong to lanes.
         if (!extruder_names_.empty()) {
             num_extruders_ = static_cast<int>(extruder_names_.size());
 
@@ -2987,9 +2982,13 @@ void AmsBackendAfc::parse_afc_stepper(int slot_index, const std::string& lane_na
             // Forget the remembered pick too, so a later remap that happens to list
             // the same tool cannot resurrect it without AFC restating current_map.
             lane_current_tool_.erase(lane_name);
+            lane_map_tools_.erase(lane_name);
             slots_.clear_tool_mapping(slot_index);
             firmware_mapped_slots_.erase(slot_index);
         } else {
+            if (has_map) {
+                lane_map_tools_[lane_name] = tools;
+            }
             // One tool per lane is all SlotRegistry can express: set_tool_mapping()
             // drops the slot's previous tool from the forward map, so writing N tools
             // for one lane would leave only the last one reachable. Prefer the tool
@@ -3396,6 +3395,26 @@ bool AmsBackendAfc::parse_oams_environment(const nlohmann::json& params) {
         apply_unit_environment();
     }
     return any;
+}
+
+bool AmsBackendAfc::has_toolchanger_unit_locked() const {
+    return std::any_of(unit_infos_.begin(), unit_infos_.end(),
+                       [](const AfcUnitInfo& u) { return u.type == "Toolchanger"; });
+}
+
+bool AmsBackendAfc::head_is_mountable_locked(const std::string& klipper_name) const {
+    if (!configfile_answered_) {
+        return true;
+    }
+    // A lane parsed before configfile answered still holds the section name,
+    // and AFC_SELECT_TOOL accepts either, so either one matches.
+    const std::string wanted = helix::text_io::to_lower(klipper_name);
+    return std::any_of(toolchanger_extruder_sections_.begin(), toolchanger_extruder_sections_.end(),
+                       [&](const std::string& section) {
+                           return section == wanted ||
+                                  helix::text_io::to_lower(
+                                      klipper_extruder_name_unlocked(section)) == wanted;
+                       });
 }
 
 void AmsBackendAfc::apply_unit_environment() {
@@ -4108,25 +4127,6 @@ void AmsBackendAfc::query_lane_data() {
         });
 }
 
-// ============================================================================
-// Toolchanger identity
-// ============================================================================
-
-bool AmsBackendAfc::has_toolchanger() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    // Signal 1: the config section that registers AFC_SELECT_TOOL.
-    if (configfile_has_toolchanger_) {
-        return true;
-    }
-    // Signal 2: a published Toolchanger unit. Only reachable when that unit
-    // owns at least one lane (AFC.py v1.2.0:2554), which is why signal 1 exists.
-    return std::any_of(unit_infos_.begin(), unit_infos_.end(), [](const AfcUnitInfo& u) {
-        // `type` is user-overridable (`config.get("type", "Toolchanger")`), so
-        // compare case-insensitively rather than pinning the exact spelling.
-        return helix::text_io::to_lower(u.type) == "toolchanger";
-    });
-}
-
 AmsBackendAfc::ConfigfileTopology
 AmsBackendAfc::parse_configfile_topology(const nlohmann::json& response) {
     ConfigfileTopology topo;
@@ -4153,14 +4153,9 @@ AmsBackendAfc::parse_configfile_topology(const nlohmann::json& response) {
     // "afc_extruder t1". The section suffix is matched
     // case-insensitively against the names AFC.extruders publishes.
     static constexpr const char* kExtruderPrefix = "afc_extruder ";
-    static constexpr const char* kToolchangerPrefix = "afc_toolchanger ";
     static constexpr const char* kOpenamsPrefix = "afc_openams ";
     for (auto it = settings->begin(); it != settings->end(); ++it) {
         const std::string key = helix::text_io::to_lower(it.key());
-        if (key.rfind(kToolchangerPrefix, 0) == 0) {
-            topo.saw_toolchanger = true;
-            continue;
-        }
         if (key.rfind(kOpenamsPrefix, 0) == 0 && it.value().is_object()) {
             const auto oams = it.value().find("oams");
             if (oams != it.value().end() && oams->is_string()) {
@@ -4182,6 +4177,11 @@ AmsBackendAfc::parse_configfile_topology(const nlohmann::json& response) {
         };
         topo.extruder_sensor_fitted[key.substr(std::strlen(kExtruderPrefix))] =
             wired("pin_tool_start") || wired("pin_tool_end");
+        // Klipper tracks an option read with a None default only when it is
+        // set, so presence alone says the section joined a toolchanger unit.
+        if (it.value().contains("toolchanger_unit")) {
+            topo.toolchanger_extruders.insert(key.substr(std::strlen(kExtruderPrefix)));
+        }
         const auto name = it.value().find("extruder_name");
         if (name == it.value().end() || !name->is_string()) {
             continue;
@@ -4202,6 +4202,7 @@ void AmsBackendAfc::apply_configfile_topology(ConfigfileTopology topo) {
         std::lock_guard<std::mutex> lock(mutex_);
         extruder_klipper_names_ = std::move(topo.extruder_names);
         unit_oams_names_ = std::move(topo.oams_names);
+        toolchanger_extruder_sections_ = std::move(topo.toolchanger_extruders);
         if (!topo.extruder_sensor_fitted.empty()) {
             extruder_sensor_fitted_ = std::move(topo.extruder_sensor_fitted);
             sensor_changed = refresh_unit_toolhead_sensors_unlocked();
@@ -4213,15 +4214,8 @@ void AmsBackendAfc::apply_configfile_topology(ConfigfileTopology topo) {
         // A newly-arrived mapping can resolve a name that already
         // warned; let it warn again if it still cannot be resolved.
         extruder_tool_index_warned_.clear();
-        // Latch only on presence. A config we could not read, or one
-        // read before a section was added, must not be taken as proof
-        // that no toolchanger exists.
-        if (topo.saw_toolchanger) {
-            configfile_has_toolchanger_ = true;
-        }
-        spdlog::debug("[AMS AFC] configfile: {} AFC_extruder -> Klipper extruder names, "
-                      "toolchanger section {}",
-                      extruder_klipper_names_.size(), topo.saw_toolchanger ? "present" : "absent");
+        spdlog::debug("[AMS AFC] configfile: {} AFC_extruder -> Klipper extruder names",
+                      extruder_klipper_names_.size());
 
         // This query races the first status frames — on the reporter's
         // machine it landed 17ms after the units were first mapped, so
@@ -4326,7 +4320,7 @@ void AmsBackendAfc::query_afc_configfile_topology() {
         },
         [](const MoonrakerError& err) {
             spdlog::debug("[AMS AFC] Failed to query configfile: {} — tool indices stay derived "
-                          "from section names and toolchanger detection falls back to AFC.units",
+                          "from section names",
                           err.message);
         });
 }
@@ -5225,32 +5219,10 @@ AmsError AmsBackendAfc::do_load_filament(int slot_index) {
         }
     }
 
-    // Toolchanger mode: use AFC_SELECT_TOOL with extruder name.
-    //
-    // Gated on a toolchanger EXISTING (see has_toolchanger() for the two
-    // signals), not on the extruder count. AFC_SELECT_TOOL is registered by
-    // AfcToolchanger.__init__ and nowhere else (AFC_Toolchanger.py:47-49), a
-    // file that exists only from v1.2.0 and that Klipper only loads for an
-    // `[AFC_Toolchanger <name>]` section. An IDEX or standalone-toolhead machine
-    // has several [AFC_extruder] sections and no toolchanger, so
-    // `num_extruders_ > 1` was true there and the command came back
-    // `// Unknown command:"AFC_SELECT_TOOL"` with the load never happening.
-    if (has_toolchanger()) {
-        const auto* entry = slots_.get(slot_index);
-        int tool = entry ? entry->info.mapped_tool : slot_index;
-        if (tool >= 0 && tool < static_cast<int>(extruders_.size())) {
-            std::string cmd = "AFC_SELECT_TOOL TOOL=" + extruders_[tool].name;
-            spdlog::info("[AMS AFC] Loading slot {} via toolchanger: {}", slot_index, cmd);
-            return dispatch_operation(std::move(cmd), AmsAction::LOADING);
-        }
-    }
-
-    // Standard mode: CHANGE_TOOL LANE={name}.
-    //
-    // Also the correct fallback for a multi-extruder machine with no toolchanger
-    // unit: CHANGE_TOOL resolves the lane's own extruder object
-    // (cur_lane.extruder_obj) and loads through it, so naming the LANE is
-    // sufficient and needs no per-tool selection verb.
+    // CHANGE_TOOL LANE={name} on every topology. AFC resolves the lane's own
+    // extruder and, on a toolchanger, swaps to that head before loading. A T
+    // number cannot stand in for the lane: T numbers belong to lanes, SET_MAP
+    // moves them, and several lanes can feed one head.
     std::string cmd = "CHANGE_TOOL LANE=" + lane_name;
 
     spdlog::info("[AMS AFC] Loading from lane {} (slot {})", lane_name, slot_index);
@@ -5312,25 +5284,49 @@ AmsError AmsBackendAfc::do_select_slot(int slot_index) {
 }
 
 AmsError AmsBackendAfc::do_change_tool(int tool_number) {
+    bool toolchanger = false;
+    bool warn_unmountable = false;
+    std::string lane_extruder;
     {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        if (tool_number < 0 || tool_number >= slots_.slot_count()) {
+        if (!tool_registered_locked(tool_number)) {
             return AmsErrorHelper::tool_out_of_range(tool_number);
+        }
+        const int lane = lane_carrying_tool_locked(tool_number);
+        if (const auto* entry = lane >= 0 ? slots_.get(lane) : nullptr) {
+            lane_extruder = entry->info.extruder_name;
+        }
+        toolchanger = has_toolchanger_unit_locked();
+        if (toolchanger && !lane_extruder.empty() && !head_is_mountable_locked(lane_extruder)) {
+            warn_unmountable = unmountable_head_warned_.insert(lane_extruder).second;
         }
     }
 
+    // tool_number is a T number, never a head index. On a toolchanger a tool
+    // change mounts the head that T number's lane feeds and moves no filament:
+    // T{n} runs AFC's CHANGE_TOOL, which unloads the current lane and loads
+    // the new one, so selecting a parked head would swap filament. Filament
+    // moves only through load_filament() / unload_filament().
     std::string cmd;
-    if (has_toolchanger() && tool_number < static_cast<int>(extruders_.size())) {
-        // Toolchanger mode: use AFC_SELECT_TOOL with extruder name. See
-        // load_filament() for why the gate is the unit type and not the
-        // extruder count (AFC_Toolchanger.py:47-49, v1.2.0 only).
-        cmd = "AFC_SELECT_TOOL TOOL=" + extruders_[tool_number].name;
+    if (toolchanger) {
+        if (lane_extruder.empty()) {
+            return AmsErrorHelper::invalid_parameter(
+                "T" + std::to_string(tool_number) +
+                " has no lane with a known extruder; cannot choose a toolhead");
+        }
+        // Sent anyway: configfile is the only evidence, and a wrong refusal
+        // would block mounts on a working printer, where a wrong send only
+        // waits out the toolchange budget.
+        if (warn_unmountable) {
+            spdlog::warn("[AMS AFC] T{} feeds {}, whose AFC_extruder sets no toolchanger_unit; "
+                         "AFC will not mount it and HelixScreen will wait for the tool change",
+                         tool_number, lane_extruder);
+        }
+        cmd = "AFC_SELECT_TOOL TOOL=" + lane_extruder;
     } else {
-        // Standard mode: use T{n}. Correct for a multi-extruder machine with no
-        // toolchanger too — AFC's TcmdAssign registers a T-command per lane on
-        // every topology, and cmd_CHANGE_TOOL routes it through the lane's own
-        // extruder object.
+        // AFC registers a T-command per lane; CHANGE_TOOL resolves the lane
+        // from the current map and swaps filament into the shared path.
         cmd = "T" + std::to_string(tool_number);
     }
 
@@ -5805,6 +5801,15 @@ void AmsBackendAfc::on_lane_unload_done() {
     dispatch_lane_unload(next_lane);
 }
 
+void AmsBackendAfc::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending_dispatch_action_.reset();
+        ++dispatch_generation_;
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendAfc::cancel() {
     // Drop any queued LANE_UNLOAD requests — the user wants to abort, not chain
     // through a pile of pending ejects after RESET_FAILURE. We deliberately do
@@ -6113,8 +6118,39 @@ AmsError AmsBackendAfc::can_set_tool_mapping(int tool_number, int slot_index) co
     return can_set_tool_mapping_locked(tool_number, slot_index);
 }
 
+bool AmsBackendAfc::tool_registered_locked(int tool_number) const {
+    if (tool_number < 0) {
+        return false;
+    }
+    if (afc_tool_cmds_.empty()) {
+        return true;
+    }
+    const std::string cmd = "T" + std::to_string(tool_number);
+    return std::any_of(afc_tool_cmds_.begin(), afc_tool_cmds_.end(), [&cmd](const std::string& c) {
+        return c.size() == cmd.size() &&
+               std::equal(c.begin(), c.end(), cmd.begin(), [](char a, char b) {
+                   return std::toupper(static_cast<unsigned char>(a)) == b;
+               });
+    });
+}
+
+int AmsBackendAfc::lane_carrying_tool_locked(int tool_number) const {
+    for (int i = 0; tool_number >= 0 && i < slots_.slot_count(); ++i) {
+        const auto* entry = slots_.get(i);
+        if (entry && entry->info.mapped_tool == tool_number) {
+            return i;
+        }
+    }
+    for (const auto& [lane_name, tools] : lane_map_tools_) {
+        if (std::find(tools.begin(), tools.end(), tool_number) != tools.end()) {
+            return slots_.index_of(lane_name);
+        }
+    }
+    return -1;
+}
+
 AmsError AmsBackendAfc::can_set_tool_mapping_locked(int tool_number, int slot_index) const {
-    if (tool_number < 0 || tool_number >= slots_.slot_count()) {
+    if (!tool_registered_locked(tool_number)) {
         return AmsErrorHelper::tool_out_of_range(tool_number);
     }
     return validate_slot_index_locked(slot_index);
@@ -6129,8 +6165,16 @@ AmsError AmsBackendAfc::set_tool_mapping_impl(int tool_number, int slot_index) {
             return err;
         }
 
-        // Update registry tool mapping (handles clearing old mappings internally)
+        // AFC's SET_MAP swaps the two lanes' maps: the lane giving up the tool
+        // takes the target lane's. Modeled here so a loop moving tools one at a
+        // time finds the displaced tool still on a lane.
+        const int giving_lane = lane_carrying_tool_locked(tool_number);
+        const int displaced_tool = slots_.tool_for_slot(slot_index);
         slots_.set_tool_mapping(slot_index, tool_number);
+        if (giving_lane >= 0 && giving_lane != slot_index && displaced_tool >= 0 &&
+            displaced_tool != tool_number) {
+            slots_.set_tool_mapping(giving_lane, displaced_tool);
+        }
 
         // Get lane name from registry
         lane_name = slots_.name_of(slot_index);
@@ -6236,7 +6280,26 @@ helix::printer::EndlessSpoolCapabilities AmsBackendAfc::get_endless_spool_capabi
 
 std::vector<int> AmsBackendAfc::get_tool_mapping() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return slots_.build_system_info().tool_to_slot_map;
+    std::vector<int> mapping = slots_.build_system_info().tool_to_slot_map;
+    // The extras of a multi-tool lane run that lane too.
+    for (const auto& [lane_name, tools] : lane_map_tools_) {
+        const int slot = slots_.index_of(lane_name);
+        if (slot < 0) {
+            continue;
+        }
+        for (const int tool : tools) {
+            if (tool < 0) {
+                continue;
+            }
+            if (static_cast<size_t>(tool) >= mapping.size()) {
+                mapping.resize(static_cast<size_t>(tool) + 1, -1);
+            }
+            if (mapping[static_cast<size_t>(tool)] < 0) {
+                mapping[static_cast<size_t>(tool)] = slot;
+            }
+        }
+    }
+    return mapping;
 }
 
 uint64_t AmsBackendAfc::firmware_tool_mapping_generation() const {

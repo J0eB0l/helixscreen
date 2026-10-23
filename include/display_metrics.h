@@ -43,6 +43,9 @@ struct PanelSpec {
     int32_t width_px;
     int32_t height_px;
     double diagonal_mm;
+    /// Rotation in degrees that shows the UI upright in the printer's own mount,
+    /// or -1 where that is left to the first-boot rotation probe.
+    int upright_rotation = -1;
 };
 
 /// Where a resolved DPI value came from. Ordered by descending trust.
@@ -142,6 +145,12 @@ class DisplayMetrics {
     /// The integrated panel for a board, or nullopt when the board drives an
     /// arbitrary user-chosen display or its panel is unmeasured.
     static std::optional<PanelSpec> known_panel(board::Board board);
+
+    /// The board's known panel mount (upright_rotation), or -1 when the board has
+    /// none or the live framebuffer (@p native_w x @p native_h, before rotation)
+    /// is not the panel the mount was measured on. Board::K1 is also the mips
+    /// fall-through for unrecognised boxes, so the geometry is what confirms it.
+    static int board_mount_rotation(board::Board board, int native_w, int native_h);
 
     /// DPI implied by a panel's pixel dimensions and physical diagonal.
     static double dpi_of(const PanelSpec& panel);

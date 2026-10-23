@@ -137,6 +137,18 @@ void NozzleTempsWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         },
         printer_state_.get_subjects_lifetime());
 
+    auto& tool_state = ToolState::instance();
+    named_mounted_tool_ = lv_subject_get_int(tool_state.get_active_tool_subject());
+    mounted_tool_observer_ = helix::ui::observe<int>(
+        tool_state.get_active_tool_subject(), this,
+        [](NozzleTempsWidget* self, int tool) {
+            if (tool == self->named_mounted_tool_ || !ToolState::instance().heads_share_heater())
+                return;
+            self->named_mounted_tool_ = tool;
+            self->rebuild_rows();
+        },
+        tool_state.get_subjects_lifetime());
+
     // "off" is formatted into the value labels, and the value width decides the
     // layout, so a new language re-formats and re-measures.
     language_observer_ = helix::ui::observe_language_change(this, [](NozzleTempsWidget* self) {
@@ -158,6 +170,7 @@ void NozzleTempsWidget::detach() {
     lifetime_.invalidate();
     version_observer_.reset();
     language_observer_.reset();
+    mounted_tool_observer_.reset();
     clear_rows();
     uninstall_delete_hook();
     widget_obj_ = nullptr;
@@ -535,7 +548,7 @@ void NozzleTempsWidget::create_extruder_row(lv_obj_t* container, ExtruderRow& ro
     // toolchanger).
     std::string short_name = tool_state.display_label_for_extruder(row.name);
     if (short_name.empty())
-        short_name = row.name;
+        short_name = tool_state.heads_share_heater() ? tool_state.nozzle_label() : row.name;
 
     // Long label: prefer the user-friendly "Nozzle N" from PrinterTemperatureState
     // when the tool's gcode identity is just the default Tn pattern. For
@@ -543,7 +556,11 @@ void NozzleTempsWidget::create_extruder_row(lv_obj_t* container, ExtruderRow& ro
     // configured tool name is already meaningful — keep it.
     std::string gcode_name = tool_state.tool_name_for_extruder(row.name);
     std::string long_name = gcode_name.empty() ? row.name : gcode_name;
-    if (helix::ui::is_generated_tool_name(gcode_name)) {
+    if (tool_state.heads_share_heater()) {
+        // One heater, several nozzles: the row is the mounted nozzle, named
+        // exactly as every other nozzle readout names it.
+        long_name = tool_state.nozzle_label();
+    } else if (helix::ui::is_generated_tool_name(gcode_name)) {
         const auto& exts = printer_state_.temperature_state().extruders();
         auto it = exts.find(row.name);
         if (it != exts.end() && !it->second.display_name.empty())

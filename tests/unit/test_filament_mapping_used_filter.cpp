@@ -34,6 +34,8 @@
 #include "ui_update_queue.h"
 
 #include "../mapping_card_render_fixture.h"
+#include "../test_helpers/mock_bypass.h"
+#include "settings_manager.h"
 #include "theme_manager.h"
 
 #include <optional>
@@ -506,6 +508,137 @@ TEST_CASE_METHOD(MappingCardRenderFixture,
     CHECK(chip_surrounded(rows, 0));
     CHECK_FALSE(chip_surrounded(rows, 1));
 
+    process_lvgl(100);
+}
+
+TEST_CASE_METHOD(MappingCardRenderFixture,
+                 "A mapping the user never picked follows the printer; a picked one stays",
+                 "[filament_mapping][routing]") {
+    // The card seeds once, when the file opens. Lanes that change while it is
+    // open (a table that arrives late, a spool moved on the printer) must move
+    // every tool the user left alone, or print start sends the stale seed as
+    // remaps. A lane the user chose is theirs and stays put.
+    struct AutoColorOn {
+        bool prev;
+        AutoColorOn() {
+            helix::SettingsManager::instance().init_subjects();
+            prev = helix::SettingsManager::instance().get_auto_color_map();
+            helix::SettingsManager::instance().set_auto_color_map(true);
+        }
+        ~AutoColorOn() {
+            helix::SettingsManager::instance().set_auto_color_map(prev);
+        }
+    } auto_color_on;
+
+    load_lane(mock, 0, 0x0000FF, "PLA");
+    load_lane(mock, 1, 0x00FF00, "PLA");
+    load_lane(mock, 2, 0xFF0000, "PLA");
+    helix::ui::UpdateQueue::instance().drain();
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto seeded = card.get_mappings();
+    REQUIRE(seeded.size() == 2);
+    REQUIRE(seeded[0].mapped_slot == 2); // red
+    REQUIRE(seeded[1].mapped_slot == 1); // green
+
+    // The user puts T1 on lane 0; T0 is left to the seed.
+    seeded[1].mapped_slot = 0;
+    seeded[1].user_picked = true;
+    card.set_mappings(seeded);
+
+    // Red moves from lane 2 to lane 1, where green was.
+    load_lane(mock, 2, 0xFFFFFF, "PLA");
+    load_lane(mock, 1, 0xFF0000, "PLA");
+    helix::ui::UpdateQueue::instance().drain();
+    card.refresh_slot_data();
+
+    const auto after = card.get_mappings();
+    REQUIRE(after.size() == 2);
+    CHECK(after[0].mapped_slot == 1);
+    CHECK_FALSE(after[0].user_picked);
+    CHECK(after[1].mapped_slot == 0);
+    CHECK(after[1].user_picked);
+
+    process_lvgl(100);
+}
+
+TEST_CASE_METHOD(MappingCardRenderFixture, "A hidden card keeps nothing from the previous file",
+                 "[filament_mapping][routing]") {
+    // File A gets a pick. File B's card is hidden (no palette), so B has no
+    // mappings of its own, and A's pick must not survive to be sent as B's.
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto picked = card.get_mappings();
+    REQUIRE(picked.size() == 2);
+    picked[1].mapped_slot = 3;
+    picked[1].user_picked = true;
+    card.set_mappings(picked);
+
+    card.update({}, {});
+    REQUIRE_FALSE(card.should_show());
+    CHECK(card.get_mappings().empty());
+    process_lvgl(100);
+}
+
+TEST_CASE_METHOD(MappingCardRenderFixture,
+                 "A palette arriving late for the same file keeps the user's picks",
+                 "[filament_mapping][routing]") {
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto picked = card.get_mappings();
+    REQUIRE(picked.size() == 2);
+    picked[1].mapped_slot = 3;
+    picked[1].user_picked = true;
+    card.set_mappings(picked);
+
+    // The same file's palette re-read (footer or parse backfill).
+    card.refresh_palette({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto kept = card.get_mappings();
+    REQUIRE(kept.size() == 2);
+    CHECK(kept[1].mapped_slot == 3);
+    CHECK(kept[1].user_picked);
+
+    // A different file starts from its own seed.
+    card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+    auto fresh = card.get_mappings();
+    REQUIRE(fresh.size() == 2);
+    CHECK_FALSE(fresh[1].user_picked);
+    process_lvgl(100);
+}
+
+TEST_CASE_METHOD(MappingCardRenderFixture, "A card hidden after it showed keeps no mappings",
+                 "[filament_mapping][routing][bypass]") {
+    // Hidden means print start must find nothing here to send, whichever path
+    // hid the card.
+    SECTION("bypass engaging hides it on a slot refresh") {
+        card.update({"#FF0000"}, {"PLA"});
+        REQUIRE(card.should_show());
+        auto picked = card.get_mappings();
+        REQUIRE(picked.size() == 1);
+        picked[0].mapped_slot = 2;
+        picked[0].user_picked = true;
+        card.set_mappings(picked);
+
+        REQUIRE(helix::test::unload_for_bypass(*mock));
+        REQUIRE(mock->enable_bypass().success());
+        helix::ui::UpdateQueue::instance().drain();
+        card.refresh_slot_data();
+        REQUIRE_FALSE(card.should_show());
+        CHECK(card.get_mappings().empty());
+    }
+
+    SECTION("the used-tool set narrowing a bypassed print hides it") {
+        REQUIRE(helix::test::unload_for_bypass(*mock));
+        REQUIRE(mock->enable_bypass().success());
+        helix::ui::UpdateQueue::instance().drain();
+        card.update({"#FF0000", "#00FF00"}, {"PLA", "PLA"});
+        REQUIRE(card.should_show());
+        auto picked = card.get_mappings();
+        REQUIRE_FALSE(picked.empty());
+        picked[0].user_picked = true;
+        card.set_mappings(picked);
+
+        card.set_used_tools(std::set<int>{0});
+        REQUIRE_FALSE(card.should_show());
+        CHECK(card.get_mappings().empty());
+    }
     process_lvgl(100);
 }
 

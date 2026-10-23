@@ -172,9 +172,13 @@ TEST_CASE("decide_plugin_self_heal: what the startup check does about the plugin
         f.job_holds = true;
         CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::WaitForJob);
     }
-    SECTION("a plugin this app did not find installed is never touched") {
+    SECTION("a plugin this app did not find installed is never touched, only reported") {
         f.link = PluginLinkCheck::NotOurs;
         f.reported_version = "1.1.0";
+        CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::ReportOnly);
+        f.job_holds = true;
+        CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::ReportOnly);
+        f.reported_version = "1.2.0";
         CHECK(decide_plugin_self_heal(f) == PluginSelfHealStep::Nothing);
     }
     SECTION("a failed relink restarts nothing") {
@@ -484,6 +488,12 @@ TEST_CASE("restart_moonraker_for_plugin reads install.sh --restart-moonraker's e
     SECTION("a script that outlives the timeout timed out") {
         sandbox.write_script("exec sleep 30");
         CHECK(helix::restart_moonraker_for_plugin(script, 1) == Outcome::TimedOut);
+    }
+    SECTION("a script that ignores SIGTERM is still killed so the call returns") {
+        sandbox.write_script("trap '' TERM\nwhile :; do sleep 1; done");
+        const auto started = std::chrono::steady_clock::now();
+        CHECK(helix::restart_moonraker_for_plugin(script, 1) == Outcome::TimedOut);
+        CHECK(std::chrono::steady_clock::now() - started < std::chrono::seconds(10));
     }
     SECTION("an inherited HELIX_JOB_STATE never reaches the script, which asks Moonraker") {
         helix::ScopedEnv inherited("HELIX_JOB_STATE", "idle");

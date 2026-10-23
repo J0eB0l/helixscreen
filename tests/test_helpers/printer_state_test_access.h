@@ -269,6 +269,7 @@ class PrinterStateTestAccess {
         PrinterNetworkStateTestAccess::clear_data(ps.network_state_);
         PrinterPrintStateTestAccess::reset_extra(ps.print_domain_);
         ps.versions_state_.clear_data();
+        ps.plugin_status_state_.clear_data();
 
         // --- PrinterState's own members ---------------------------------------
         PrinterProfileStateTestAccess::clear_data(ps.profile_state_);

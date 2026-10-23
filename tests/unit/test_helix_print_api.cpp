@@ -203,6 +203,41 @@ TEST_CASE("a plugin status that names no version reports none", "[print][api][pl
     CHECK_FALSE(versioned.available);
 }
 
+TEST_CASE("a plugin status features map reaches the plugin_feature gate",
+          "[print][api][plugin_feature]") {
+    PrinterState state;
+    state.init_subjects(false);
+    PluginStatusScriptedClient client(
+        json{{"enabled", true},
+             {"version", "1.3.0"},
+             {"api", 2},
+             {"features",
+              {{"plr", {{"version", 1}, {"available", true}, {"enabled", true}}},
+               {"print_hooks", {{"version", 1}, {"available", true}, {"enabled", false}}}}}});
+    MoonrakerAPI api(client, state);
+    std::optional<helix::HelixPluginInfo> info;
+    api.job().check_helix_plugin([&info](const helix::HelixPluginInfo& i) { info = i; },
+                                 [](const MoonrakerError&) {});
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(info.has_value());
+    REQUIRE(info->features.size() == 2);
+
+    auto& plugin = state.plugin_status_state();
+    plugin.set_features(info->features);
+    plugin.set_installed(true);
+    CHECK(plugin.plugin_feature("plr", 1) == helix::PluginFeatureState::Ready);
+    CHECK(plugin.plugin_feature("plr", 2) == helix::PluginFeatureState::Absent);
+    CHECK(plugin.plugin_feature("print_hooks", 1) == helix::PluginFeatureState::Disabled);
+    CHECK(plugin.plugin_feature("event_journal", 1) == helix::PluginFeatureState::Absent);
+
+    plugin.set_installed(false);
+    CHECK(plugin.plugin_feature("plr", 1) == helix::PluginFeatureState::Absent);
+
+    plugin.set_installed(true);
+    plugin.set_features({});
+    CHECK(plugin.plugin_feature("plr", 1) == helix::PluginFeatureState::Absent);
+}
+
 TEST_CASE("HelixPrint API - falls back to printer.print.start when plugin print_modified fails",
           "[print][api]") {
     FallbackScriptedClient client;

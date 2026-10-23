@@ -63,6 +63,23 @@ TEST_CASE("store: wants_frames false before any request, true after, false after
     CHECK_FALSE(store.wants_frames());
 }
 
+TEST_CASE("store: only a viewer page poll makes a page viewer; any request wants frames",
+          "[remote_screen][server_sink][remote_viewer]") {
+    FakeClock clock;
+    ScreenFrameStore store(clock.fn());
+    CHECK_FALSE(store.page_viewer_present());
+    store.note_request();
+    REQUIRE(store.wants_frames());
+    CHECK_FALSE(store.page_viewer_present());
+
+    store.note_page_view();
+    CHECK(store.page_viewer_present());
+    clock.now += std::chrono::milliseconds(kViewerIdleMs - 1);
+    CHECK(store.page_viewer_present());
+    clock.now += 1ms;
+    CHECK_FALSE(store.page_viewer_present());
+}
+
 TEST_CASE("store: release_if_idle frees buffers only after idle", "[remote_screen][server_sink]") {
     FakeClock clock;
     ScreenFrameStore store(clock.fn());

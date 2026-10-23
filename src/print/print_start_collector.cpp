@@ -448,6 +448,7 @@ void PrintStartCollector::reset_run_locked() {
     console_phase_time_ = helix::sim::SimulatedClock::time_point::min();
     mesh_probe_current_ = 0;
     mesh_probe_total_ = 0;
+    mesh_adapted_total_ = 0;
     mesh_points_.reset();
     mesh_first_probe_time_ = {};
     mesh_last_probe_time_ = {};
@@ -1302,7 +1303,7 @@ void PrintStartCollector::on_gcode_response(const json& msg) {
         return;
     }
 
-    // Stock Klipper's bed_mesh.py emits "// Adapted probe count: N,M" once
+    // Stock Klipper's bed_mesh.py emits "// Adapted probe count: (N,M)" once
     // when adaptive meshing reduces the grid (slicer-passed MESH_MIN/MESH_MAX
     // or ADAPTIVE=1). Fires before the first probe — perfect timing to
     // populate the live denominator. NOT emitted by Snapmaker U1's firmware
@@ -1310,6 +1311,7 @@ void PrintStartCollector::on_gcode_response(const json& msg) {
     // total via adaptive_meshing=true in the profile.
     if (auto adapt_total = helix::parse_adapted_probe_count(line)) {
         std::lock_guard<std::mutex> lock(state_mutex_);
+        mesh_adapted_total_ = *adapt_total;
         mesh_probe_total_ = *adapt_total;
         spdlog::info("[PrintStartCollector] Adapted probe count from gcode: {}", *adapt_total);
     }
@@ -1977,6 +1979,7 @@ void PrintStartCollector::maybe_reset_for_mesh_subphase_locked(PrintStartPhase n
     if (next_phase != PrintStartPhase::BED_MESH) {
         if (current_phase_ == PrintStartPhase::BED_MESH) {
             current_mesh_message_.clear();
+            mesh_adapted_total_ = 0;
         }
         return;
     }
@@ -1992,7 +1995,7 @@ void PrintStartCollector::maybe_reset_for_mesh_subphase_locked(PrintStartPhase n
     current_mesh_message_ = next_message;
     mesh_counts_probes_ = counts_probes;
     mesh_probe_current_ = 0;
-    mesh_probe_total_ = 0;
+    mesh_probe_total_ = mesh_adapted_total_;
     mesh_points_.reset();
     mesh_first_probe_time_ = {};
     mesh_last_probe_time_ = {};
@@ -3203,8 +3206,16 @@ void PrintStartCollector::query_mesh_probe_count() {
                 }
             }
 
+            // A count the firmware already reported for this sweep (adapted
+            // grid or "Probing point N/M") is exact; this one is a guess.
             if (total > 0) {
                 std::lock_guard<std::mutex> lock(self->state_mutex_);
+                if (self->mesh_probe_total_ > 0) {
+                    spdlog::debug("[PrintStartCollector] Keeping reported mesh total {} over {} "
+                                  "from {}",
+                                  self->mesh_probe_total_, total, source);
+                    return;
+                }
                 self->mesh_probe_total_ = total;
                 spdlog::info("[PrintStartCollector] Mesh point total from {}: {}", source, total);
             }

@@ -1216,6 +1216,17 @@ AmsError AmsBackendOpenAms::recover() {
     return reset();
 }
 
+void AmsBackendOpenAms::on_klipper_restarted() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending_action_ = AmsAction::IDLE;
+        pending_slot_ = -1;
+        ++operation_generation_;
+        system_info_.pending_target_slot = -1;
+    }
+    AmsSubscriptionBackend::on_klipper_restarted();
+}
+
 AmsError AmsBackendOpenAms::cancel() {
     std::string command;
     {

@@ -25,6 +25,7 @@
 #include "color_utils.h"
 #include "config.h"
 #include "display_settings_manager.h"
+#include "file_analysis.h"
 #include "gcode_footer_summary.h"
 #include "gcode_parser.h"
 #include "gcode_preview_fetcher.h"
@@ -249,6 +250,19 @@ void PrintSelectDetailView::init_subjects() {
         AmsState::instance().get_slots_version_subject(), this,
         [](PrintSelectDetailView* self, int /*version*/) { self->on_ams_state_changed(); },
         AmsState::instance().get_subjects_lifetime());
+    // The printer's tool table moving changes no slot, so it has its own
+    // version. Un-picked mappings follow it.
+    tool_map_version_observer_ = observe<int>(
+        AmsState::instance().get_tool_map_version_subject(), this,
+        [](PrintSelectDetailView* self, int /*version*/) { self->on_ams_state_changed(); },
+        AmsState::instance().get_subjects_lifetime());
+    // The auto-color-map setting picks the seed, so the un-picked rows follow it
+    // as soon as it flips (the remap modal's toggle writes it, and its Cancel
+    // writes it back).
+    auto_color_map_observer_ = observe<int>(
+        helix::SettingsManager::instance().subject_auto_color_map(), this,
+        [](PrintSelectDetailView* self, int /*on*/) { self->on_ams_state_changed(); },
+        helix::SettingsManager::instance().get_subjects_lifetime());
 
     // Both land after the card has already published: the plugin probe completes
     // after first paint, and the Moonraker version arrives with discovery.
@@ -900,6 +914,9 @@ void PrintSelectDetailView::on_activate() {
         prep_manager_->set_cached_file_size(static_cast<size_t>(current_file_version_.size_bytes));
     }
 
+    // The table or the lanes may have moved while the view was away.
+    on_ams_state_changed();
+
     // Ask the active AMS backend to refresh its slot/state view. Lets users
     // self-recover from any drift between cached UI state and printer truth
     // by navigating away and back. AD5X IFS re-reads Adventurer5M.json +
@@ -1515,9 +1532,10 @@ void PrintSelectDetailView::on_ams_state_changed() {
     }
     // Slots landing can change whether the card shows, not only its chips: the
     // multi-tool test reads the slot count, and the availability and bypass
-    // gates read the backend. A shown card refreshes its slots WITHOUT
-    // recomputing mappings, so a remap survives; a hidden one has none to keep
-    // and is decided afresh from the file's palette.
+    // gates read the backend. A shown card refreshes its slots and re-seeds
+    // every mapping the user did not pick, so a pick survives and the rest
+    // follow the printer; a hidden one has none to keep and is decided afresh
+    // from the file's palette.
     if (filament_mapping_card_.should_show()) {
         filament_mapping_card_.refresh_slot_data();
     } else {
@@ -1554,7 +1572,8 @@ void PrintSelectDetailView::try_extract_gcode_colors(lv_obj_t* viewer) {
         // newly-extracted colors (the card uses them when AMS is present). The
         // filament_mismatch_ / empty_tools_warning_ subjects are NOT published
         // here — the pre-flight validator below is the single source of truth.
-        filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
+        filament_mapping_card_.refresh_palette(current_filament_colors_,
+                                               current_filament_materials_);
 
         // Re-push the preview colors now that we finally know them. The earlier
         // apply_preview_colors() ran while current_filament_colors_ was still
@@ -1631,7 +1650,8 @@ void PrintSelectDetailView::render_authoritative_chips(const std::set<int>& tool
     // documents). Also BEFORE the gate, which must validate against the
     // rebuilt mappings.
     if (refresh_card_from_palette) {
-        filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
+        filament_mapping_card_.refresh_palette(current_filament_colors_,
+                                               current_filament_materials_);
     }
 
     // Backend-agnostic pre-flight validation (single source of truth for
@@ -2296,7 +2316,8 @@ void PrintSelectDetailView::apply_footer_summary(const helix::gcode::GcodeFooter
         // still describes the empty palette show() built the card from, and
         // publishing that is how a card that should now appear stays hidden.
         // Mirrors try_extract_gcode_colors()'s ordering.
-        filament_mapping_card_.update(current_filament_colors_, current_filament_materials_);
+        filament_mapping_card_.refresh_palette(current_filament_colors_,
+                                               current_filament_materials_);
         publish_card_visibility();
         palette_arrived = true;
     }
@@ -2491,11 +2512,26 @@ void PrintSelectDetailView::load_gcode_for_preview() {
             temp_gcode_path_ = path;
         }
         spdlog::info("[DetailView] Using G-code file ({} bytes): {}", local_size, path);
-        begin_viewer_load(path);
+        // A current analysis record's layer index spares a streaming load
+        // its own pass over the file.
+        const std::string key = current_file_key();
+        helix::with_layer_index_sidecar(
+            current_local_path_.empty() ? api_ : nullptr,
+            printer_state_ ? printer_state_->plugin_status_state().plugin_feature(
+                                 helix::kFileAnalysisFeature, helix::kFileAnalysisMinVersion)
+                           : helix::PluginFeatureState::Absent,
+            helix::gcode::join_gcode_path(current_path_, current_filename_),
+            helix::ui_gcode_viewer_would_stream(gcode_viewer_, path), tok,
+            [this, key, path](std::string sidecar) {
+                if (key == current_file_key()) {
+                    begin_viewer_load(path, std::move(sidecar));
+                }
+            });
     });
 }
 
-void PrintSelectDetailView::begin_viewer_load(const std::string& path) {
+void PrintSelectDetailView::begin_viewer_load(const std::string& path,
+                                              std::string layer_index_sidecar) {
     // Reached from a download callback, after which the tree may have died.
     if (!gcode_viewer_) {
         return;
@@ -2557,6 +2593,7 @@ void PrintSelectDetailView::begin_viewer_load(const std::string& path) {
             spdlog::debug("[DetailView] G-code preview loaded successfully");
         },
         this);
+    ui_gcode_viewer_set_layer_index_sidecar(gcode_viewer_, std::move(layer_index_sidecar));
     ui_gcode_viewer_load_file(gcode_viewer_, path.c_str());
 }
 

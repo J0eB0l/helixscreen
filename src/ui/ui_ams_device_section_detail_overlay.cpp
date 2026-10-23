@@ -24,6 +24,7 @@
 #include "ams_types.h"
 #include "display_numbering.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "observer_factory.h"
 #include "print_lifecycle_state.h"
 #include "static_panel_registry.h"
 #include "ui/ui_widget_helpers.h"
@@ -103,6 +104,62 @@ void AmsDeviceSectionDetailOverlay::before_show() {
         lv_label_set_text(header_title, lv_tr(section_label_.c_str()));
     }
     refresh();
+}
+
+void AmsDeviceSectionDetailOverlay::on_activate() {
+    OverlayBase::on_activate();
+    // A backend's action values can change without the user touching them (a
+    // driver switching a mode itself), so the section follows every AMS data
+    // tick. observe<int> defers the handler, so the rebuild never runs inside
+    // the subject's notify.
+    auto& ams = AmsState::instance();
+    data_observer_ = observe<int>(
+        ams.get_ams_data_revision_subject(), this,
+        [](AmsDeviceSectionDetailOverlay* self, int) { self->refresh_if_changed(); },
+        ams.get_subjects_lifetime());
+}
+
+void AmsDeviceSectionDetailOverlay::on_deactivating(DeactivateReason) {
+    data_observer_.reset();
+}
+
+void AmsDeviceSectionDetailOverlay::refresh_if_changed() {
+    if (!is_visible()) {
+        return;
+    }
+    AmsBackend* backend = AmsState::instance().get_backend();
+    if (!backend) {
+        return;
+    }
+    // A rebuild under the user's finger would drop a drag or an open dropdown,
+    // so only a change a row shows rebuilds the section.
+    if (device_section_changed(cached_actions_, backend->get_device_actions(), section_id_)) {
+        refresh();
+    }
+}
+
+bool device_section_changed(const std::vector<helix::printer::DeviceAction>& shown,
+                            const std::vector<helix::printer::DeviceAction>& fresh,
+                            const std::string& section) {
+    auto next_in_section = [&section](const auto& actions, size_t i) {
+        while (i < actions.size() && actions[i].section != section) {
+            ++i;
+        }
+        return i;
+    };
+    size_t i = next_in_section(shown, 0);
+    size_t j = next_in_section(fresh, 0);
+    for (; i < shown.size() && j < fresh.size();
+         i = next_in_section(shown, i + 1), j = next_in_section(fresh, j + 1)) {
+        const auto& a = shown[i];
+        const auto& b = fresh[j];
+        if (a.id != b.id || a.enabled != b.enabled || a.disable_reason != b.disable_reason ||
+            a.options != b.options ||
+            !helix::printer::device_action_values_equal(a.current_value, b.current_value)) {
+            return true;
+        }
+    }
+    return i < shown.size() || j < fresh.size();
 }
 
 void AmsDeviceSectionDetailOverlay::refresh() {
@@ -346,14 +403,17 @@ void AmsDeviceSectionDetailOverlay::create_setting_row(lv_obj_t* parent,
         // required-names: setting_dropdown_row
         lv_obj_t* dropdown = helix::ui::find_required(row, "dropdown", get_name());
         const auto* current = std::any_cast<std::string>(&action.current_value);
-        if (dropdown && current) {
-            const auto it = std::find(action.options.begin(), action.options.end(), *current);
-            if (it != action.options.end()) {
-                lv_dropdown_set_selected(dropdown,
-                                         static_cast<uint32_t>(it - action.options.begin()));
-            }
-        } else if (action.current_value.has_value()) {
+        if (current == nullptr && action.current_value.has_value()) {
             spdlog::warn("[{}] Dropdown value for {} is not a string", get_name(), action.id);
+        }
+        const auto it = current ? std::find(action.options.begin(), action.options.end(), *current)
+                                : action.options.end();
+        if (dropdown && it != action.options.end()) {
+            lv_dropdown_set_selected(dropdown, static_cast<uint32_t>(it - action.options.begin()));
+        } else if (dropdown) {
+            // A value the backend cannot prove shows as unknown, not as the first
+            // option it would otherwise read as.
+            lv_dropdown_set_text(dropdown, kUnknownDropdownText);
         }
     }
 }
@@ -429,15 +489,26 @@ lv_obj_t* AmsDeviceSectionDetailOverlay::row_for(const std::string& action_id) c
 }
 
 AmsError AmsDeviceSectionDetailOverlay::execute(const helix::printer::DeviceAction& action,
-                                                std::any value) const {
+                                                std::any value) {
     AmsBackend* backend = AmsState::instance().get_backend();
     if (!backend) {
         spdlog::warn("[{}] No backend available for '{}'", get_name(), action.id);
         return AmsErrorHelper::not_connected("No backend");
     }
-    AmsError result = backend->execute_device_action(action.id, value);
+    const std::string id = action.id;
+    AmsError result = backend->execute_device_action(id, value);
     if (!result.success()) {
         helix::ui::notify_ams_error(result);
+    } else if (value.has_value()) {
+        // The row now shows the sent value. Recording it as shown means a backend
+        // that never takes it up differs from the row on the next data tick, and
+        // the row goes back to what the backend reports.
+        for (auto& cached : cached_actions_) {
+            if (cached.id == id) {
+                cached.current_value = std::move(value);
+                break;
+            }
+        }
     }
     return result;
 }
@@ -639,6 +710,8 @@ void AmsDeviceSectionDetailOverlay::on_dropdown_changed(lv_event_t* e) {
     auto* dropdown = static_cast<lv_obj_t*>(lv_event_get_target(e));
     auto& overlay = get_ams_device_section_detail_overlay();
     if (const auto* action = overlay.action_for_event(e)) {
+        // A pick replaces the unknown placeholder with the option itself.
+        lv_dropdown_set_text(dropdown, nullptr);
         const uint32_t selected = lv_dropdown_get_selected(dropdown);
         if (selected < action->options.size()) {
             const std::string& choice = action->options[selected];

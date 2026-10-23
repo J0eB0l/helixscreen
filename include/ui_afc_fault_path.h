@@ -75,4 +75,39 @@ void afc_fault_path_restore(int published, int previous);
  */
 std::string afc_fault_path_apply(const std::string& message);
 
+/**
+ * @brief One modal's claim on `afc_fault_segment`
+ *
+ * A modal that embeds `<afc_fault_path/>` publishes its own text's stop point
+ * before it is built and hands the strip back to whatever lay underneath when it
+ * closes, so the strip always describes the text on screen. A second publish
+ * while held keeps the value found the first time. Released on release() or
+ * destruction. Main thread only.
+ */
+class AfcFaultPathHold {
+  public:
+    AfcFaultPathHold() = default;
+    ~AfcFaultPathHold() {
+        release();
+    }
+    AfcFaultPathHold(const AfcFaultPathHold&) = delete;
+    AfcFaultPathHold& operator=(const AfcFaultPathHold&) = delete;
+
+    /// afc_fault_path_publish(), remembering what to hand back.
+    std::optional<PathSegment> publish(std::string_view message);
+
+    /// afc_fault_path_apply(), remembering what to hand back.
+    std::string apply(const std::string& message);
+
+    /// Hand the strip back (afc_fault_path_restore()). No-op when not held.
+    void release();
+
+  private:
+    void hold();
+
+    int before_ = 0;    ///< afc_fault_segment when first published
+    int published_ = 0; ///< the value this hold published
+    bool held_ = false; ///< published and not yet handed back
+};
+
 } // namespace helix::ui

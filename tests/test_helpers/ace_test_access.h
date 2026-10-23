@@ -60,14 +60,28 @@ class AceTestAccess {
         b.system_info_.filament_loaded = loaded;
     }
 
+    /// Append a unit of @p slot_count slots after the existing ones, numbered
+    /// as the next unit_index.
+    static void append_unit(AmsBackendAce& b, int slot_count) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        AmsUnit unit;
+        unit.unit_index = static_cast<int>(b.system_info_.units.size());
+        unit.first_slot_global_index = b.system_info_.total_slots;
+        unit.slot_count = slot_count;
+        unit.slots.resize(static_cast<size_t>(slot_count));
+        b.system_info_.units.push_back(unit);
+        b.system_info_.total_slots += slot_count;
+    }
+
     /// Seed a running dry cycle so an update has elapsed time to preserve.
     static void set_dryer_run(AmsBackendAce& b, float target_c, int duration_min,
                               int remaining_min) {
         std::lock_guard<std::mutex> lock(b.mutex_);
-        b.dryer_info_.active = true;
-        b.dryer_info_.target_temp_c = target_c;
-        b.dryer_info_.duration_min = duration_min;
-        b.dryer_info_.remaining_min = remaining_min;
+        DryerInfo& dryer = b.dryer_locked(0);
+        dryer.active = true;
+        dryer.target_temp_c = target_c;
+        dryer.duration_min = duration_min;
+        dryer.remaining_min = remaining_min;
     }
     static std::optional<helix::ams::FilamentSlotOverride> get_override(const AmsBackendAce& b,
                                                                         int slot_index) {

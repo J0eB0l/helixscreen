@@ -66,6 +66,7 @@
 #include "settings_manager.h"
 #include "spoolman_manager.h"
 #include "standard_macros.h"
+#include "standing_print_options_controller.h"
 #include "system/telemetry_manager.h"
 #include "temperature_controller.h"
 #include "temperature_service.h"
@@ -223,6 +224,10 @@ void SubjectInitializer::init_ams_subjects() {
     // Initialize sensor manager subjects BEFORE panels so XML bindings can work
     // Note: Each manager self-registers cleanup with StaticSubjectRegistry in init_subjects()
     helix::sensors::for_each_sensor_manager([](auto& m) { m.init_subjects(); });
+
+    // The clog meter falls back to a filament motion sensor, whose subjects
+    // exist only from here.
+    helix::AmsState::instance().install_motion_sensor_observer();
 }
 
 void SubjectInitializer::init_panel_subjects(helix::IMoonrakerAPI* api) {
@@ -434,6 +439,10 @@ void SubjectInitializer::init_observers() {
     // A print held by a chamber wait while the chamber heater is not heating
     // gets a prompt with a way out; a rejection outside a print gets a toast.
     m_chamber_stall_prompt = std::make_unique<helix::ui::ChamberStallPrompt>();
+
+    // Standing print options: kept in Moonraker for the plugin's print hooks,
+    // and sent by this screen at a foreign job start when the plugin cannot.
+    m_standing_print_options = std::make_unique<helix::StandingPrintOptionsController>();
 
     // Print outcome telemetry observer (records anonymous print stats when telemetry enabled)
     m_observers.push_back(TelemetryManager::instance().init_print_outcome_observer());

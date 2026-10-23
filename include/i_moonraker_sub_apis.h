@@ -128,6 +128,12 @@ class IJobAPI {
                                       const std::vector<std::string>& modifications,
                                       ModifiedPrintCallback on_success, ErrorCallback on_error) = 0;
 
+    virtual void start_edited_print(const std::string& original_filename,
+                                    const std::string& temp_file_path, const json& edits,
+                                    const std::vector<std::string>& modifications,
+                                    uint64_t file_size, ModifiedPrintCallback on_success,
+                                    ErrorCallback on_error) = 0;
+
     using PluginInfoCallback = std::function<void(const HelixPluginInfo&)>;
 
     /// Whether the HelixPrint plugin is installed, and its link directory.
@@ -674,6 +680,7 @@ class ITimelapseAPI {
     using ErrorCallback = std::function<void(const MoonrakerError&)>;
     using TimelapseSettingsCallback = std::function<void(const TimelapseSettings&)>;
     using WebcamListCallback = std::function<void(const std::vector<WebcamInfo>&)>;
+    using WebcamCallback = std::function<void(const WebcamInfo&)>;
 
     virtual ~ITimelapseAPI() = default;
 
@@ -695,12 +702,16 @@ class ITimelapseAPI {
 
     virtual void get_webcam_list(WebcamListCallback on_success, ErrorCallback on_error) = 0;
 
-    /// Add or replace (by name) a webcam in Moonraker's registry: server.webcams.post_item.
-    virtual void post_webcam(const nlohmann::json& item, SuccessCallback on_success,
+    /// Add or update a webcam in Moonraker's registry: server.webcams.post_item. An item
+    /// carrying a `uid` updates that entry (404 when it is gone) and keeps its name unless
+    /// the item names one; otherwise the entry is matched by name. @p on_success gets the
+    /// entry as Moonraker stored it, uid included.
+    virtual void post_webcam(const nlohmann::json& item, WebcamCallback on_success,
                              ErrorCallback on_error) = 0;
 
-    /// Remove the webcam called @p name: server.webcams.delete_item.
-    virtual void delete_webcam(const std::string& name, SuccessCallback on_success,
+    /// Remove @p cam from the registry: server.webcams.delete_item by its uid, or by its
+    /// name when it has none.
+    virtual void delete_webcam(const WebcamInfo& cam, SuccessCallback on_success,
                                ErrorCallback on_error) = 0;
 };
 

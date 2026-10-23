@@ -305,6 +305,23 @@ TEST_CASE("plan_load: a seated machine swaps via change_tool on the MAPPED tool"
     CHECK(plan.ams_arg == 3); // slot 1's mapped_tool, NOT slot 1
 }
 
+TEST_CASE("plan_load: a backend whose load swaps lanes itself gets Load, not change_tool",
+          "[filament][dispatch][swap][1824]") {
+    // AFC's load_filament() is `CHANGE_TOOL LANE={n}`: it unloads the seated
+    // lane and swaps heads itself. Its change_tool() on a toolchanger only
+    // mounts a head, so routing the swap there would move no filament.
+    AmsSystemInfo sys = make_sys(4, /*current_slot=*/0, /*mapped_tools=*/{0, 3, 2, 1});
+    BackendCaps seated = fresh_ams();
+    seated.needs_unload_before_load = true;
+    seated.load_swaps_seated_lane = true;
+
+    auto plan = plan_load(sys, seated, /*target_slot=*/1, /*macro_available=*/true,
+                          /*macro_user_configured=*/false);
+    CHECK(plan.tier == FilamentTier::AmsBackend);
+    CHECK(plan.ams_call == AmsCall::Load);
+    CHECK(plan.ams_arg == 1); // the SLOT, not slot 1's mapped tool
+}
+
 TEST_CASE("plan_load: a seated machine with no tool mapping loads the slot anyway",
           "[filament][dispatch][swap]") {
     // There is no tool number to change to, so the swap arm cannot fire. This
@@ -493,9 +510,13 @@ TEST_CASE("unload_target_is_loaded: the active head counts when the toolhead is 
     // refusal: "no slot resolved" must not dispatch on a guess.
     CHECK_FALSE(unload_target_is_loaded(kActiveHeadSlot, false, false, true, true, false));
 
-    // The unaccounted answer speaks for the active head only; any other
-    // negative slot is still "nothing resolved".
-    CHECK_FALSE(unload_target_is_loaded(-3, true, true, true, true, true));
+    // The "Not sure" clear names the same filament and rides the same answer.
+    CHECK(unload_target_is_loaded(helix::kClearToolheadSlot, false, false, false, false, true));
+    CHECK_FALSE(unload_target_is_loaded(helix::kClearToolheadSlot, true, true, true, true, false));
+
+    // The unaccounted answer speaks for the toolhead only; any other negative
+    // slot is still "nothing resolved".
+    CHECK_FALSE(unload_target_is_loaded(-4, true, true, true, true, true));
 }
 
 TEST_CASE("plan_unload: an unaccounted toolhead unloads from the active head, and only from there",
@@ -518,8 +539,17 @@ TEST_CASE("plan_unload: an unaccounted toolhead unloads from the active head, an
     CHECK(refused.tier == FilamentTier::Refused);
     CHECK(refused.refusal == FilamentRefusal::NothingLoaded);
 
+    // "Not sure" reaches the backend unchanged, under the same condition.
+    auto clear = plan_unload(ams, helix::kClearToolheadSlot, /*target_is_loaded=*/true,
+                             /*macro_available=*/true, /*macro_user_configured=*/false);
+    CHECK(clear.tier == FilamentTier::AmsBackend);
+    CHECK(clear.ams_arg == helix::kClearToolheadSlot);
+    auto clear_silent = plan_unload(silent, helix::kClearToolheadSlot, /*target_is_loaded=*/true,
+                                    /*macro_available=*/true, /*macro_user_configured=*/false);
+    CHECK(clear_silent.tier == FilamentTier::Refused);
+
     // Any other negative slot never dispatches, unaccounted or not.
-    auto other = plan_unload(ams, /*target_slot=*/-3, /*target_is_loaded=*/true,
+    auto other = plan_unload(ams, /*target_slot=*/-4, /*target_is_loaded=*/true,
                              /*macro_available=*/true, /*macro_user_configured=*/false);
     CHECK(other.tier == FilamentTier::Refused);
 }

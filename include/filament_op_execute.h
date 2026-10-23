@@ -165,22 +165,34 @@ enum class PreheatSkip {
 // ============================================================================
 
 /**
+ * @brief The homing decision, from facts already gathered.
+ *
+ * Homes only when something known needs it: on tier 1 a backend that does not
+ * delegate homing to the printer, on tier 2 a macro profile that needs a home
+ * first. An unrecognized macro runs as it is, unhomed (#1819). The raw-gcode
+ * tier moves E only, which Klipper runs unhomed.
+ *
+ * Each claim is read against its own TIER. A backend's claim is about the gcode
+ * that backend emits, so it says nothing once bypass has dropped the op to the
+ * user's macro; a macro's claim is about that macro run alone, so it says
+ * nothing about a backend that merely composes it with moves of its own.
+ *
+ * @param tier                     The tier the op dispatches on.
+ * @param toolhead_homed           Already homed needs nothing.
+ * @param backend_delegates_homing AmsBackend::delegates_homing_to_printer().
+ * @param macro_needs_home_first   filament_macros::macro_needs_home_first().
+ */
+[[nodiscard]] bool prerequisite_home_needed(FilamentTier tier, bool toolhead_homed,
+                                            bool backend_delegates_homing,
+                                            bool macro_needs_home_first);
+
+/**
  * @brief Must the toolhead be homed before this op is dispatched?
  *
  * A surface that gets a yes homes first, with no confirmation: asking for the op
  * is consent to the home it requires. Same shape as preheat_skip_reason(), for
- * the other thing a surface would otherwise do redundantly. Two ways the question is already
- * answered: AmsBackend::delegates_homing_to_printer() on tier 1, and a macro carrying its own
- * conditional home on tier 2.
- *
- * Both are read against the TIER, which is what makes them safe. A backend's
- * claim is about the gcode that backend emits, so it says nothing once bypass
- * has dropped the op to the user's macro; a macro's claim is about that macro
- * run alone, so it says nothing about a backend that merely composes it with
- * unguarded moves of its own.
- *
- * When unsure the answer is yes: an unneeded G28 costs time, while a skipped
- * one moves a toolhead with no reference.
+ * the other thing a surface would otherwise do redundantly. Gathers the facts
+ * for prerequisite_home_needed(), which holds the rule.
  *
  * @param plan           The plan about to be dispatched.
  * @param slot           Which StandardMacros slot @p plan resolves against.

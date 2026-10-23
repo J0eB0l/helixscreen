@@ -124,6 +124,13 @@
           </setting_action_row>
         </lv_obj>
 
+        <!-- HelixPrint Plugin overview: what the installed plugin runs -->
+        <setting_action_row name="row_helix_plugin_overview"
+                            label="HelixPrint Plugin" icon="puzzle_outline"
+                            description="Version and what the plugin runs">
+          <bind_flag_if_not_eq subject="helix_plugin_installed" flag="hidden" ref_value="1"/>
+          <event_cb trigger="clicked" callback="on_helix_plugin_overview_clicked"/>
+        </setting_action_row>
         <!-- HelixPrint Plugin (INSTALLED - show Uninstall row) -->
         <!-- Shows ONLY when value == 1 (installed and enabled), hidden otherwise (-1 or 0) -->
         <lv_obj name="container_helix_plugin_uninstall"
@@ -214,7 +221,7 @@
         <!-- Tool Offsets (printers with a tool offset calibration) -->
         <setting_action_row name="row_tool_offsets"
                             label="Tool Offsets" icon="axis_arrow"
-                            description="Measure every tool's XYZ offset automatically">
+                            bind_description="printer_tool_offset_cal_description">
           <bind_flag_if_eq subject="printer_has_tool_offset_cal" flag="hidden" ref_value="0"/>
           <event_cb trigger="clicked" callback="on_tool_offset_row_clicked"/>
         </setting_action_row>

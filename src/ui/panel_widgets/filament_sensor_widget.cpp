@@ -6,6 +6,7 @@
 #include "ui_event_safety.h"
 #include "ui_resume_dispatch.h"
 #include "ui_settings_sensors.h"
+#include "ui_unload_lane_choice.h"
 
 #include "ams_backend.h"
 #include "ams_state.h"
@@ -339,6 +340,19 @@ void FilamentSensorWidget::dispatch_unload() {
     AmsBackend* backend = AmsState::instance().get_backend();
     const int slot = helix::ui::runout_target_slot(
         backend, helix::FilamentSensorManager::instance().real_runout_lane(), /*load=*/false);
+
+    // A backend that cannot name the lane in the toolhead asks first, the same
+    // question every other Unload asks.
+    if (slot < 0) {
+        lv_obj_t* dialog = tap_modal_.dialog();
+        helix::ui::FilamentOpSurface surface;
+        surface.log_tag = "[FilamentSensorWidget]";
+        if (helix::ui::ask_lane_then_unload(
+                backend, dialog ? lv_obj_find_by_name(dialog, "btn_unload_filament") : nullptr,
+                surface, lifetime_.token())) {
+            return;
+        }
+    }
 
     // unload_target_is_loaded()'s is_current_slot arm is what makes this
     // reachable during a runout: the lane's own sensor clears while filament

@@ -25,6 +25,7 @@
 #include "theme_manager.h"
 #include "tool_state.h"
 
+#include <algorithm>
 #include <lvgl.h>
 #include <memory>
 #include <string>
@@ -353,4 +354,69 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     REQUIRE(spacer != nullptr);
     CHECK(lv_subject_get_int(spacer) == 0);
     REQUIRE(lv_obj_find_by_name(h.root, "portrait_column") == nullptr);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Closed tool dropdown reads None with the carriage empty",
+                 "[filament][ui][tool]") {
+    ManageRowHarness h(*this, {"extruder", "extruder1"}, AmsType::NONE);
+    lv_obj_t* dd = TA::extruder_dropdown(*h.panel);
+    REQUIRE(dd != nullptr);
+    lv_subject_set_int(ToolState::instance().get_active_tool_subject(), 1);
+    h.fx.process_lvgl(30);
+    REQUIRE(std::string(lv_dropdown_get_text(dd)) == "T1");
+
+    // A park leaves no tool on the carriage: the last one is not selected.
+    lv_subject_set_int(ToolState::instance().get_active_tool_subject(), -1);
+    h.fx.process_lvgl(30);
+    CHECK(std::string(lv_dropdown_get_text(dd)) == "None");
+}
+
+namespace {
+
+/// Every descendant of @p root whose name is in @p names, hidden or not.
+void collect_named(lv_obj_t* root, const std::vector<std::string>& names,
+                   std::vector<lv_obj_t*>& out) {
+    for (uint32_t i = 0; i < lv_obj_get_child_count(root); ++i) {
+        lv_obj_t* child = lv_obj_get_child(root, static_cast<int32_t>(i));
+        const char* name = lv_obj_get_name(child);
+        if (name && std::find(names.begin(), names.end(), name) != names.end()) {
+            out.push_back(child);
+        }
+        collect_named(child, names, out);
+    }
+}
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Filament panel nozzle heat controls dim while heat is blocked",
+                 "[filament][ui][indx][heat]") {
+    const int portrait_mode = GENERATE(0, 1);
+    CAPTURE(portrait_mode);
+    lv_subject_t* portrait = lv_xml_get_subject(nullptr, "ui_is_portrait");
+    REQUIRE(portrait != nullptr);
+    lv_subject_set_int(portrait, portrait_mode);
+    ui_ams_mini_status_init();
+    ManageRowHarness h(*this, {"extruder"}, AmsType::NONE);
+    lv_subject_t* blocked = AmsState::instance().get_nozzle_heat_blocked_subject();
+
+    const std::vector<std::string> names = {"preset_pla", "preset_petg",  "preset_abs",
+                                            "preset_tpu", "preset_spool", "nozzle_target_temp"};
+    std::vector<lv_obj_t*> controls;
+    collect_named(h.root, names, controls);
+    // Five presets and the nozzle target, whichever layout this orientation built.
+    REQUIRE(controls.size() >= names.size());
+
+    lv_subject_set_int(blocked, 1);
+    h.fx.process_lvgl(30);
+    for (lv_obj_t* obj : controls) {
+        CAPTURE(lv_obj_get_name(obj));
+        CHECK(lv_obj_get_style_opa(obj, LV_PART_MAIN) < LV_OPA_COVER);
+    }
+    lv_subject_set_int(blocked, 0);
+    h.fx.process_lvgl(30);
+    for (lv_obj_t* obj : controls) {
+        CAPTURE(lv_obj_get_name(obj));
+        CHECK(lv_obj_get_style_opa(obj, LV_PART_MAIN) == LV_OPA_COVER);
+    }
+    lv_subject_set_int(portrait, 0);
 }

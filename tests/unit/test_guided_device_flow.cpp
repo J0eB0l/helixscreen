@@ -300,6 +300,52 @@ TEST_CASE_METHOD(GuidedFlowFixture,
     CHECK_FALSE(*sent);
 }
 
+// A toggle whose value the printer changes on its own (a driver turning feed
+// assist on after a load) follows the backend while the section is open.
+TEST_CASE_METHOD(GuidedFlowFixture, "an open section follows the backend's action values",
+                 "[ams][device-section][1853]") {
+    lv_obj_t* root = open_prefs({DeviceAction::toggle("assist", "Feed Assist", "prefs", false)});
+    lv_obj_t* sw = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+    REQUIRE(sw != nullptr);
+    REQUIRE_FALSE(lv_obj_has_state(sw, LV_STATE_CHECKED));
+
+    SECTION("a tick with nothing changed keeps the controls") {
+        AmsState::instance().bump_data_revision();
+        settle();
+        CHECK(helix::test::find_device_action_control(root, "assist", &lv_switch_class) == sw);
+    }
+    SECTION("a new value is shown") {
+        backend->set_device_actions({DeviceAction::toggle("assist", "Feed Assist", "prefs", true)});
+        AmsState::instance().bump_data_revision();
+        settle();
+        lv_obj_t* now = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+        REQUIRE(now != nullptr);
+        CHECK(lv_obj_has_state(now, LV_STATE_CHECKED));
+    }
+    SECTION("a switch the backend never confirms goes back") {
+        lv_obj_add_state(sw, LV_STATE_CHECKED);
+        lv_obj_send_event(sw, LV_EVENT_VALUE_CHANGED, nullptr);
+        settle();
+        REQUIRE(backend->get_last_executed_action().first == "assist");
+        AmsState::instance().bump_data_revision();
+        settle();
+        lv_obj_t* now = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+        REQUIRE(now != nullptr);
+        CHECK_FALSE(lv_obj_has_state(now, LV_STATE_CHECKED));
+    }
+    SECTION("an action becoming unavailable is locked") {
+        DeviceAction off = DeviceAction::toggle("assist", "Feed Assist", "prefs", false);
+        off.enabled = false;
+        off.disable_reason = "Load filament first";
+        backend->set_device_actions({off});
+        AmsState::instance().bump_data_revision();
+        settle();
+        lv_obj_t* now = helix::test::find_device_action_control(root, "assist", &lv_switch_class);
+        REQUIRE(now != nullptr);
+        CHECK(lv_obj_has_state(now, LV_STATE_DISABLED));
+    }
+}
+
 TEST_CASE_METHOD(GuidedFlowFixture,
                  "a fractional slider moves in its step and sends the real value",
                  "[ams][device-section]") {
@@ -519,4 +565,35 @@ TEST_CASE_METHOD(GuidedFlowFixture, "the device button disable expressions parse
     CHECK(eval(paused_ok) == 0);
     helix::test::set_wire_state(state(), PrintJobState::STANDBY);
     settle();
+}
+
+TEST_CASE_METHOD(GuidedFlowFixture, "a dropdown with no value it lists shows a placeholder",
+                 "[ams][device-section]") {
+    DeviceAction unknown =
+        DeviceAction::dropdown("speed", "Speed", "prefs", {"Stealth", "Normal"}, std::any{});
+    DeviceAction unmatched = DeviceAction::dropdown(
+        "other", "Other", "prefs", {"Stealth", "Normal"}, std::string("ludicrous"));
+    DeviceAction known = DeviceAction::dropdown("known", "Known", "prefs", {"Stealth", "Normal"},
+                                                std::string("Stealth"));
+    lv_obj_t* root = open_prefs({unknown, unmatched, known});
+
+    for (const char* id : {"speed", "other"}) {
+        INFO(id);
+        lv_obj_t* d = helix::test::find_device_action_control(root, id, &lv_dropdown_class);
+        REQUIRE(d != nullptr);
+        REQUIRE(lv_dropdown_get_text(d) != nullptr);
+        CHECK(std::string(lv_dropdown_get_text(d)) == "-");
+    }
+    lv_obj_t* k = helix::test::find_device_action_control(root, "known", &lv_dropdown_class);
+    REQUIRE(k != nullptr);
+    CHECK(lv_dropdown_get_text(k) == nullptr);
+    CHECK(lv_dropdown_get_selected(k) == 0);
+
+    // Picking the first option, which the placeholder had hidden, sends it and shows it.
+    lv_obj_t* d = helix::test::find_device_action_control(root, "speed", &lv_dropdown_class);
+    lv_dropdown_set_selected(d, 0);
+    lv_obj_send_event(d, LV_EVENT_VALUE_CHANGED, nullptr);
+    settle();
+    CHECK(lv_dropdown_get_text(d) == nullptr);
+    CHECK(last_executed() == "speed");
 }

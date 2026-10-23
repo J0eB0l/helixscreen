@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <regex>
 #include <set>
 #include <string>
@@ -179,5 +180,38 @@ TEST_CASE("every bundled image variant names a known condition and an image",
         }
     }
     // The bundled K2 entry carries one, so a walk that finds none is reading the wrong file.
+    CHECK(variants_seen > 0);
+}
+
+// A variant link that does not resolve, or a variant with no label, falls back
+// to the two-printers wording that names one machine twice.
+TEST_CASE("every bundled printer variant names an existing base entry and a label",
+          "[printer_database][schema][type-mismatch]") {
+    const nlohmann::json db = load_database();
+    std::map<std::string, const nlohmann::json*> by_id;
+    for (const auto& printer : db["printers"]) {
+        by_id[printer.value("id", "")] = &printer;
+    }
+    int variants_seen = 0;
+    for (const auto& printer : db["printers"]) {
+        INFO("printer id: '" << printer.value("id", "") << "'");
+        if (!printer.contains("variant_of")) {
+            CHECK_FALSE(printer.contains("variant_label"));
+            continue;
+        }
+        ++variants_seen;
+        REQUIRE(printer["variant_of"].is_string());
+        REQUIRE(printer.contains("variant_label"));
+        REQUIRE(printer["variant_label"].is_string());
+        CHECK_FALSE(printer["variant_label"].get<std::string>().empty());
+
+        const std::string base_id = printer["variant_of"].get<std::string>();
+        INFO("variant_of: '" << base_id << "'");
+        const auto base = by_id.find(base_id);
+        REQUIRE(base != by_id.end());
+        CHECK(base_id != printer.value("id", ""));
+        // One level only: a variant's base is the plain machine.
+        CHECK_FALSE(base->second->contains("variant_of"));
+    }
     CHECK(variants_seen > 0);
 }

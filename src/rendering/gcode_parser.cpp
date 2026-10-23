@@ -1926,8 +1926,27 @@ GCodeHeaderMetadata extract_header_metadata_from_content(const std::string& cont
 // Lightweight tool-change scan (memory-safe; no geometry model)
 // ----------------------------------------------------------------------------
 
-// Declared in gcode_parser.h — the single T-parse the whole tree shares. The
-// layer index used to carry its own looser copy (see the header's note).
+namespace {
+
+// One Klipper macro parameter: KEY=VALUE, KEY of letters, digits and '_', VALUE
+// non-empty. The caller has already split on whitespace.
+bool is_macro_param(std::string_view word) {
+    const size_t eq = word.find('=');
+    if (eq == 0 || eq == std::string_view::npos || eq + 1 == word.length()) {
+        return false;
+    }
+    for (size_t i = 0; i < eq; ++i) {
+        const auto c = static_cast<unsigned char>(word[i]);
+        if (!std::isalnum(c) && c != '_') {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+// Declared in gcode_parser.h: the single T-parse the whole tree shares.
 int tool_index_for_line(const std::string& raw, std::pair<size_t, size_t>* digits) {
     // Strip comment (everything from the first ';').
     std::string_view sv(raw);
@@ -1947,30 +1966,48 @@ int tool_index_for_line(const std::string& raw, std::pair<size_t, size_t>* digit
     }
     sv = sv.substr(start, end - start);
 
-    // Must start with 'T' and have at least one following character.
+    // Must start with 'T' followed by at least one digit.
     if (sv.length() < 2 || sv[0] != 'T') {
         return -1;
     }
 
-    // Every remaining character must be a digit (standalone Tn only — "T0 X1"
-    // and "TURN" are rejected, matching the full parser).
-    for (size_t i = 1; i < sv.length(); ++i) {
-        if (!std::isdigit(static_cast<unsigned char>(sv[i]))) {
+    // Parse the tool number. Guard against overflow on absurd input.
+    long value = 0;
+    size_t number_end = 1;
+    while (number_end < sv.length() && std::isdigit(static_cast<unsigned char>(sv[number_end]))) {
+        value = value * 10 + (sv[number_end] - '0');
+        if (value > 100000) {
+            return -1; // implausible tool index — ignore rather than overflow
+        }
+        ++number_end;
+    }
+    if (number_end == 1) {
+        return -1;
+    }
+
+    // Anything after the number must be whitespace-separated macro parameters
+    // ("T0 PURGE_LENGTH=121.4"). A G-code word ("T0 X1") or a glued suffix
+    // ("T0X1", "TURN") is not a tool change.
+    size_t pos = number_end;
+    if (pos < sv.length() && !std::isspace(static_cast<unsigned char>(sv[pos]))) {
+        return -1;
+    }
+    while (pos < sv.length()) {
+        while (pos < sv.length() && std::isspace(static_cast<unsigned char>(sv[pos]))) {
+            ++pos;
+        }
+        const size_t word_begin = pos;
+        while (pos < sv.length() && !std::isspace(static_cast<unsigned char>(sv[pos]))) {
+            ++pos;
+        }
+        if (!is_macro_param(sv.substr(word_begin, pos - word_begin))) {
             return -1;
         }
     }
 
-    // sv[1..] is all digits; parse it. Guard against overflow on absurd input.
-    long value = 0;
-    for (size_t i = 1; i < sv.length(); ++i) {
-        value = value * 10 + (sv[i] - '0');
-        if (value > 100000) {
-            return -1; // implausible tool index — ignore rather than overflow
-        }
-    }
     if (digits) {
         const size_t begin = static_cast<size_t>(sv.data() - raw.data()) + 1;
-        *digits = {begin, begin + sv.length() - 1};
+        *digits = {begin, begin + number_end - 1};
     }
     return static_cast<int>(value);
 }

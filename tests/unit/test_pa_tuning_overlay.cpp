@@ -5,11 +5,16 @@
 #include "ui_update_queue.h"
 
 #include "../lvgl_test_fixture.h"
+#include "../test_helpers/registered_backend.h"
+#include "../test_helpers/toolchanger_test_helper.h"
+#include "ams_backend_indx.h"
+#include "ams_state.h"
 #include "app_globals.h"
 #include "config.h"
 #include "moonraker_api.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#include "printer_discovery.h"
 #include "printer_state.h"
 #include "spoolman_types.h"
 #include "tool_state.h"
@@ -285,4 +290,19 @@ TEST_CASE_METHOD(TunerMockApiFixture, "the tower file is deleted when its print 
     status({{"print_stats", {{"state", "cancelled"}}}});
     CHECK(api.files_mock().deleted_files() ==
           std::vector<std::string>{std::string("gcodes/") + PaTuningOverlay::TEST_FILENAME});
+}
+
+TEST_CASE_METHOD(TunerFixture, "the tower does not start while the nozzle may not be heated",
+                 "[pa_tune][pa_tuner][indx][heat]") {
+    helix::test::RegisteredBackend<helix::test::GcodeCaptureBackend<helix::AmsBackendIndx>> harness;
+    helix::PrinterDiscovery hw;
+    hw.parse_objects(json::array({"indx", "save_variables", "extruder",
+                                  "gcode_macro TOOL_POSITIONS", "gcode_macro _TOOLCHANGE_VARS",
+                                  "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL"}));
+    harness->set_discovery(hw);
+    harness->feed(json{{"save_variables", {{"variables", {{"active_tool", -1}}}}}});
+    REQUIRE_FALSE(AmsState::instance().nozzle_heat_blocked_reason().empty());
+
+    overlay.confirm_and_start_for_test();
+    CHECK(overlay.error_for_test() == AmsState::instance().nozzle_heat_blocked_reason());
 }

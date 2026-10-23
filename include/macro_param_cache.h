@@ -30,12 +30,20 @@ struct PrinterStopCall {
 /// Find the first action_emergency_stop(...) call in a gcode_macro template.
 [[nodiscard]] PrinterStopCall find_printer_stop_call(std::string_view gcode_template);
 
+/// Whether a gcode_macro template switches the Spoolman active spool: it runs
+/// SET_ACTIVE_SPOOL, or calls Moonraker's spoolman_set_active_spool remote method.
+[[nodiscard]] bool template_sets_active_spool(std::string_view gcode_template);
+
 struct CachedMacroInfo {
     MacroParamKnowledge knowledge = MacroParamKnowledge::UNKNOWN;
     std::vector<MacroParam> params;
-    std::string description;    ///< From Klipper gcode_macro description field
-    bool stops_printer = false; ///< Running the macro shuts the printer down
-    std::string stop_message;   ///< PrinterStopCall::message, when stops_printer
+    std::string description;        ///< From Klipper gcode_macro description field
+    bool stops_printer = false;     ///< Running the macro shuts the printer down
+    std::string stop_message;       ///< PrinterStopCall::message, when stops_printer
+    bool sets_active_spool = false; ///< The template switches the Spoolman active spool
+    /// The macro's `variable_<name>` config values as written, keyed by
+    /// <name>: its state as configured, before any SET_GCODE_VARIABLE.
+    std::map<std::string, std::string> variables;
 };
 
 /// Cache for macro parameter information, populated once during printer discovery.

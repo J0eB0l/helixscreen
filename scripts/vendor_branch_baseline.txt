@@ -2,8 +2,7 @@
 # Lower one by asking the owning module instead, then re-run with --write-baseline.
 2 src/printer/hardware_validator.cpp:amstype-branch
 11 src/printer/printer_discovery_parse.cpp:amstype-branch
-11 src/system/telemetry_manager.cpp:amstype-branch
-1 src/ui/filament_op_execute.cpp:amstype-branch
+3 src/system/telemetry_manager.cpp:amstype-branch
 2 src/ui/modals/buffer_status_modal.cpp:amstype-branch
 1 src/ui/ui_ams_detail.cpp:amstype-branch
 9 src/ui/ui_wizard_ams_identify.cpp:amstype-branch

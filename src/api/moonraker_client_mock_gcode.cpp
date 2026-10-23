@@ -57,8 +57,20 @@ std::string normalize_gcode_command_case(const std::string& raw) {
 // command token exactly — a bare T<n> must not be confused with a temperature
 // parameter elsewhere in a line.
 MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_ifs_module(const std::string& gcode) {
-    const size_t ifs_token_end = gcode.find_first_of(" \t");
-    if (apply_ifs_module_gcode(gcode.substr(0, ifs_token_end), gcode)) {
+    // One script can carry several commands, one per line.
+    bool handled = false;
+    size_t start = 0;
+    while (start < gcode.size()) {
+        size_t end = gcode.find('\n', start);
+        if (end == std::string::npos) {
+            end = gcode.size();
+        }
+        const std::string line = gcode.substr(start, end - start);
+        const size_t ifs_token_end = line.find_first_of(" \t");
+        handled |= apply_ifs_module_gcode(line.substr(0, ifs_token_end), line);
+        start = end + 1;
+    }
+    if (handled) {
         return 0;
     }
     return std::nullopt;
@@ -1218,6 +1230,9 @@ int MoonrakerClientMock::gcode_script(const std::string& raw_gcode) {
         return *r;
     }
     if (is_mock_medusahc() && (r = gcode_medusa(g))) {
+        return *r;
+    }
+    if (is_mock_indx() && (r = gcode_indx(g))) {
         return *r;
     }
     if ((r = gcode_respond(raw_gcode))) {

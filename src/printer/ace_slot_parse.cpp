@@ -3,6 +3,7 @@
 
 #include "ace_slot_parse.h"
 
+#include "json_utils.h"
 #include "lane_translation.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 
@@ -29,12 +30,15 @@ SlotStatus slot_status_from_string(const std::string& status_str) {
     // Native Anycubic GoKlipper uses empty/ready/preload/running/runout;
     // community ValgACE uses available/loaded/ready. "runout" means the slot
     // ran dry mid-print - present-but-empty; map to EMPTY since SlotStatus has
-    // no dedicated RUNOUT value.
+    // no dedicated RUNOUT value. The ACEPRO driver reports the ACE's slot state
+    // machine, whose motion states (an ACE 2 slot under feed assist reads
+    // "shifting" throughout) and tag read all have the spool in the slot.
     if (status_str == "empty" || status_str == "runout") {
         return SlotStatus::EMPTY;
     }
     if (status_str == "available" || status_str == "loaded" || status_str == "ready" ||
-        status_str == "preload" || status_str == "running") {
+        status_str == "preload" || status_str == "running" || status_str == "feeding" ||
+        status_str == "unwinding" || status_str == "shifting" || status_str == "identifying") {
         return SlotStatus::AVAILABLE;
     }
     return SlotStatus::UNKNOWN;
@@ -75,6 +79,18 @@ std::optional<std::string> read_slot_material(const json& slot_json) {
         return material;
     }
     return get_str("type");
+}
+
+std::optional<int> read_slot_tool(const json& slot_json, int tool_limit) {
+    const json* tool = helix::json_util::find_member(slot_json, "tool");
+    if (tool == nullptr || !tool->is_number_integer()) {
+        return std::nullopt;
+    }
+    const int value = helix::json_util::as_int(*tool, -1);
+    if (value < 0 || value >= tool_limit) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 std::optional<uint32_t> parse_slot_color(const json& color_val) {

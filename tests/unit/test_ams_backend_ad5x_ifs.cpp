@@ -9,6 +9,7 @@
 #include "../test_helpers/mock_printer.h"
 #include "../test_helpers/print_state_test_drivers.h"
 #include "../test_helpers/unique_temp_dir.h"
+#include "../test_helpers/update_queue_test_access.h"
 #include "../ui_test_utils.h"
 #include "ams_backend_ad5x_ifs.h"
 #include "ams_backend_afc.h"
@@ -21,6 +22,7 @@
 #include "filament_slot_override.h"
 #include "filament_slot_override_store.h"
 #include "filament_variants.h"
+#include "http_executor.h"
 #include "lane_resolver.h"
 #include "lane_source_store.h"
 #include "lane_translation.h"
@@ -33,6 +35,7 @@
 #include "test_helpers/seeded_override.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -40,6 +43,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -7598,6 +7602,156 @@ TEST_CASE("AD5X IFS unload_filament dispatches the firmware _IFS_REMOVE_CURRENT_
     REQUIRE_FALSE(backend.has_gcode_containing("G28"));
 }
 
+namespace {
+
+/// Native ZMOD with filament at the head, no active slot and no seated channel.
+/// @p file_channel is FFMInfo.channel as Adventurer5M.json last said it; 0 is
+/// the state where _IFS_REMOVE_CURRENT_PRUTOK would find no lane and do nothing.
+void seat_unrecorded_zmod(TestableAd5xIfsBackend& backend, std::array<bool, 4> present,
+                          std::optional<int> file_channel = 0) {
+    Ad5xIfsTestAccess::set_running(backend, true);
+    Ad5xIfsTestAccess::set_zcolor_supported(backend, false);
+    Ad5xIfsTestAccess::set_current_slot(backend, -1, /*filament_loaded=*/false);
+    Ad5xIfsTestAccess::set_head_switch(backend, true, true);
+    Ad5xIfsTestAccess::set_head_filament(backend, true);
+    Ad5xIfsTestAccess::set_ffm_channel(backend, file_channel.value_or(0));
+    Ad5xIfsTestAccess::set_ffm_file_channel(backend, file_channel);
+    Ad5xIfsTestAccess::set_persisted_seated_slot(backend, std::nullopt);
+    for (size_t i = 0; i < present.size(); ++i) {
+        Ad5xIfsTestAccess::set_port_presence(backend, i, present[i]);
+    }
+    REQUIRE(Ad5xIfsTestAccess::seated_chan(backend) == 0);
+    REQUIRE_FALSE(Ad5xIfsTestAccess::module_live(backend));
+}
+
+} // namespace
+
+TEST_CASE("AD5X IFS native ZMOD asks for the unrecorded lane and declares it before unloading",
+          "[ams][ad5x_ifs][1324]") {
+    TestableAd5xIfsBackend backend;
+
+    SECTION("several lanes holding filament are picked from") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        const helix::UnloadLaneQuestion question = backend.unload_lane_question();
+        CHECK(question.lanes == std::vector<int>{0, 2});
+        CHECK_FALSE(question.confirm_clear_toolhead);
+        // A slotless unload would run the macro with no lane: refused instead.
+        CHECK_FALSE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes.empty());
+    }
+    SECTION("one lane holding filament is asked about too") {
+        seat_unrecorded_zmod(backend, {false, true, false, false});
+        CHECK(backend.unload_lane_question().lanes == std::vector<int>{1});
+    }
+    SECTION("the chosen lane is declared, then unloaded, when the file records 0") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        REQUIRE(backend.unload_filament(2).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"SET_EXTRUDER_SLOT SLOT=3\n_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("a channel already on record is left to the macro") {
+        seat_unrecorded_zmod(backend, {true, false, true, false}, /*file_channel=*/3);
+        CHECK_FALSE(backend.unload_lane_question().asks());
+        REQUIRE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes == std::vector<std::string>{"_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("the extruder clear runs ZMOD's no-IFS unload at the clear temperature") {
+        seat_unrecorded_zmod(backend, {true, false, true, false});
+        REQUIRE(backend.unload_filament(helix::kClearToolheadSlot).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"_REMOVE_PRUTOK_IFS PRUTOK=0 TEMP=220"});
+    }
+    SECTION("no lane holding filament asks to confirm the clear first") {
+        seat_unrecorded_zmod(backend, {false, false, false, false});
+        CHECK(backend.unload_lane_question().confirm_clear_toolhead);
+        CHECK_FALSE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes.empty());
+    }
+    SECTION("the clear is refused when the toolhead switch reads empty") {
+        seat_unrecorded_zmod(backend, {false, false, false, false});
+        Ad5xIfsTestAccess::set_head_switch(backend, true, false);
+        Ad5xIfsTestAccess::set_head_filament(backend, false);
+        CHECK_FALSE(backend.unload_filament(helix::kClearToolheadSlot).success());
+        CHECK(backend.captured_gcodes.empty());
+    }
+}
+
+TEST_CASE("AD5X IFS native ZMOD declares a lane only once the file says the record is 0",
+          "[ams][ad5x_ifs][1324]") {
+    TestableAd5xIfsBackend backend;
+
+    SECTION("restarted, before Adventurer5M.json is read: ask, never the remembered lane") {
+        seat_unrecorded_zmod(backend, {true, true, false, false}, /*file_channel=*/std::nullopt);
+        Ad5xIfsTestAccess::set_persisted_seated_slot(backend, 1);
+        CHECK(backend.unload_lane_question().lanes == std::vector<int>{0, 1});
+        CHECK_FALSE(backend.unload_filament(-1).success());
+        // Even an answered lane waits for the file: declaring could overwrite
+        // a lane the firmware records.
+        const helix::AmsError err = backend.unload_filament(1);
+        CHECK_FALSE(err.success());
+        CHECK(err.result == helix::AmsResult::WRONG_STATE);
+        CHECK_FALSE(backend.has_gcode_containing("SET_EXTRUDER_SLOT"));
+        CHECK_FALSE(backend.has_gcode_containing("_IFS_REMOVE_CURRENT_PRUTOK"));
+    }
+    SECTION("once the file says 0, the remembered lane is declared and unloaded") {
+        seat_unrecorded_zmod(backend, {true, true, false, false}, /*file_channel=*/0);
+        Ad5xIfsTestAccess::set_persisted_seated_slot(backend, 1);
+        CHECK_FALSE(backend.unload_lane_question().asks());
+        REQUIRE(backend.unload_filament(-1).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"SET_EXTRUDER_SLOT SLOT=2\n_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("after an eject the file still records the ejected lane") {
+        // Lane 3 recorded, then ejected: Helix zeroes its own copy, the file
+        // keeps 3, and a strand from another lane is at the head.
+        seat_unrecorded_zmod(backend, {true, false, true, false}, /*file_channel=*/3);
+        Ad5xIfsTestAccess::clear_seated_if_ejected(backend, 2);
+        REQUIRE(Ad5xIfsTestAccess::ffm_channel(backend) == 0);
+        CHECK(backend.unload_lane_question().lanes == std::vector<int>{0, 2});
+        // The local zero is not the file's 0: lane 1 cannot be declared over 3.
+        CHECK_FALSE(backend.unload_filament(0).success());
+        CHECK(backend.captured_gcodes.empty());
+        // The lane the file records is unloaded as recorded.
+        REQUIRE(backend.unload_filament(2).success());
+        CHECK(backend.captured_gcodes == std::vector<std::string>{"_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+}
+
+TEST_CASE("AD5X IFS native ZMOD reads the lane record from Adventurer5M.json",
+          "[ams][ad5x_ifs][1324]") {
+    TestableAd5xIfsBackend backend;
+    seat_unrecorded_zmod(backend, {true, false, true, false}, /*file_channel=*/std::nullopt);
+    REQUIRE_FALSE(backend.unload_filament(2).success());
+    backend.captured_gcodes.clear();
+
+    SECTION("a file recording 0 lets the chosen lane be declared") {
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, R"({"FFMInfo": {"channel": 0}})");
+        REQUIRE(backend.unload_filament(2).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"SET_EXTRUDER_SLOT SLOT=3\n_IFS_REMOVE_CURRENT_PRUTOK"});
+    }
+    SECTION("a file with no integer channel is read, with no record to name a lane by") {
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, R"({"FFMInfo": {"channel": "none"}})");
+        const helix::UnloadLaneQuestion question = backend.unload_lane_question();
+        CHECK(question.lanes.empty());
+        CHECK(question.confirm_clear_toolhead);
+        CHECK_FALSE(question.reason.empty());
+        const helix::AmsError err = backend.unload_filament(2);
+        CHECK_FALSE(err.success());
+        CHECK(err.user_msg == question.reason);
+        CHECK(backend.captured_gcodes.empty());
+        REQUIRE(backend.unload_filament(helix::kClearToolheadSlot).success());
+        CHECK(backend.captured_gcodes ==
+              std::vector<std::string>{"_REMOVE_PRUTOK_IFS PRUTOK=0 TEMP=220"});
+    }
+    SECTION("a file with no FFMInfo section is read, with no record") {
+        Ad5xIfsTestAccess::parse_adventurer_json(backend, R"({"other": 1})");
+        CHECK(backend.unload_lane_question().confirm_clear_toolhead);
+        CHECK_FALSE(backend.unload_filament(0).success());
+        CHECK(backend.captured_gcodes.empty());
+    }
+}
+
 TEST_CASE("AD5X IFS unhomed load sends exactly one G28 then the load macro (#1248)",
           "[ams][ad5x_ifs][homing][1248]") {
     // INSERT_PRUTOK_IFS's leading _G28 is conditional, not a second home: its
@@ -7778,6 +7932,48 @@ TEST_CASE("AD5X IFS load finalizes to IDLE on the macro completion ack (raza616 
     Ad5xIfsTestAccess::finalize_op_after_macro(backend, /*is_unload=*/true); // wrong direction
     REQUIRE(Ad5xIfsTestAccess::phase_active(backend));                       // still in flight
     REQUIRE(backend.get_system_info().action != AmsAction::IDLE);
+}
+
+namespace {
+/// AD5X IFS against a real MoonrakerAPI over the mock client, with no
+/// execute_gcode override, so the macro ack reaches the op through the base
+/// class's own single defer.
+class LiveAckAd5xIfsBackend : public AmsBackendAd5xIfs {
+  public:
+    MockPrinter printer;
+
+    LiveAckAd5xIfsBackend() : AmsBackendAd5xIfs(nullptr, nullptr) {
+        api_ = &printer.api;
+        Ad5xIfsTestAccess::set_running(*this, true);
+        Ad5xIfsTestAccess::set_zcolor_supported(*this, false);
+    }
+    ~LiveAckAd5xIfsBackend() override {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+    bool toolhead_homed() const override {
+        return true;
+    }
+};
+} // namespace
+
+TEST_CASE("AD5X IFS load and unload finalize in the queue pass after the macro ack",
+          "[ams][ad5x_ifs][threading][1761]") {
+    using helix::ui::UpdateQueueTestAccess;
+    LiveAckAd5xIfsBackend backend;
+    auto idle = [&] { return backend.get_system_info().action == AmsAction::IDLE; };
+
+    SECTION("load") {
+        REQUIRE(backend.load_filament(2).success());
+        REQUIRE_FALSE(idle());
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
+    SECTION("unload") {
+        Ad5xIfsTestAccess::set_current_slot(backend, 0, /*filament_loaded=*/true);
+        Ad5xIfsTestAccess::set_head_filament(backend, true);
+        REQUIRE(backend.unload_filament(0).success());
+        REQUIRE_FALSE(idle());
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
 }
 
 namespace {
@@ -8032,9 +8228,12 @@ TEST_CASE("AD5X IFS unload_filament clears toolhead when firmware dropped the ac
     Ad5xIfsTestAccess::set_zcolor_supported(backend, false);
     Ad5xIfsTestAccess::set_current_slot(backend, -1, /*filament_loaded=*/false);
     Ad5xIfsTestAccess::set_head_filament(backend, true);
+    Ad5xIfsTestAccess::set_ffm_file_channel(backend, 0);
 
     REQUIRE(backend.unload_filament(2).success());
-    REQUIRE(backend.has_gcode("_IFS_REMOVE_CURRENT_PRUTOK"));
+    // FFMInfo.channel is 0, so the macro would find no lane: the tapped lane is
+    // declared first (#1324).
+    REQUIRE(backend.has_gcode("SET_EXTRUDER_SLOT SLOT=3\n_IFS_REMOVE_CURRENT_PRUTOK"));
     REQUIRE_FALSE(backend.has_gcode("IFS_REMOVE_PRUTOK"));
 }
 
@@ -9339,9 +9538,12 @@ TEST_CASE("AD5X IFS unload publishes busy state + EVENT_STATE_CHANGED on dispatc
     Ad5xIfsTestAccess::set_zcolor_supported(backend, false);
     // Filament seated at the toolhead so unload routes to the heated toolhead
     // unload (not the cold lane-eject early return). current_slot < 0 + head
-    // loaded is the unknown-origin recovery case that falls through.
+    // loaded is the unknown-origin recovery case; the firmware's FFMInfo.channel
+    // record names the lane, so the unload needs no question.
     Ad5xIfsTestAccess::set_head_filament(backend, true);
     Ad5xIfsTestAccess::set_current_slot(backend, -1, true);
+    Ad5xIfsTestAccess::set_ffm_channel(backend, 2);
+    Ad5xIfsTestAccess::set_ffm_file_channel(backend, 2);
 
     int state_changed_events = 0;
     backend.set_event_callback([&](const std::string& event, const std::string&) {
@@ -9630,11 +9832,13 @@ TEST_CASE("AD5X IFS unload of the seated slot still toolhead-cuts when firmware 
 
     Ad5xIfsTestAccess::set_current_slot(backend, -1, /*filament_loaded=*/true);
     Ad5xIfsTestAccess::set_head_filament(backend, true);
+    Ad5xIfsTestAccess::set_ffm_file_channel(backend, 0);
 
-    // User taps Unload on the seated slot 1 -> heated toolhead unload (cut).
+    // User taps Unload on the seated slot 1 -> heated toolhead unload (cut),
+    // declaring the lane because FFMInfo.channel is 0 (#1324).
     REQUIRE(backend.unload_filament(1).success());
 
-    REQUIRE(backend.has_gcode("_IFS_REMOVE_CURRENT_PRUTOK"));
+    REQUIRE(backend.has_gcode("SET_EXTRUDER_SLOT SLOT=2\n_IFS_REMOVE_CURRENT_PRUTOK"));
     REQUIRE_FALSE(backend.has_gcode_containing("IFS_F11"));
     REQUIRE_FALSE(backend.has_gcode_containing("IFS_F24"));
 }
@@ -10013,6 +10217,9 @@ std::unique_ptr<TestableAd5xIfsBackend> make_routing_backend(int current_slot, i
     }
     Ad5xIfsTestAccess::set_current_slot(*backend, current_slot, /*filament_loaded=*/head_loaded);
     Ad5xIfsTestAccess::set_head_filament(*backend, head_loaded);
+    // Adventurer5M.json read and recording no lane, so a toolhead unload of an
+    // explicit lane may declare it.
+    Ad5xIfsTestAccess::set_ffm_file_channel(*backend, 0);
     return backend;
 }
 
@@ -13006,5 +13213,62 @@ TEST_CASE("AD5X IFS boot reads the binding an outside tool left in lane_data",
         CHECK(info.material == "PETG");
         CHECK(info.spool_name == "Blue PETG");
     }
+    helix::ui::UpdateQueue::instance().drain();
+}
+
+TEST_CASE("AD5X IFS debounce workers end with the backend", "[ams][ad5x][ad5x_ifs][threading]") {
+    // Each debounce holds a fast-lane worker for its window. A backend torn
+    // down mid-window has nothing left for that worker to do, so the worker
+    // has to give the lane back at once rather than sleep the window out.
+    using Clock = std::chrono::steady_clock;
+    auto& fast = helix::http::HttpExecutor::fast();
+    const auto settle_deadline = Clock::now() + std::chrono::seconds(3);
+    while (fast.inflight() != 0 && Clock::now() < settle_deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    REQUIRE(fast.inflight() == 0);
+
+    // Each bound sits well under its window, so a worker that sleeps the
+    // window out fails it while a loaded shard still has room to clear one
+    // that wakes on teardown.
+    int bound_ms = 0;
+    MockPrinter mock_printer;
+    {
+        helix::test::RegisteredBackend<AmsBackendAd5xIfs> backend_reg(&mock_printer.api, nullptr);
+        AmsBackendAd5xIfs& backend = *backend_reg;
+        SECTION("Adventurer5M.json re-read") {
+            bound_ms = 1000; // of a 2s window
+            Ad5xIfsTestAccess::schedule_json_reread(backend);
+        }
+        SECTION("lane_data re-read") {
+            bound_ms = 1000; // of a 2s window
+            Ad5xIfsTestAccess::schedule_lane_record_reread(backend);
+        }
+        SECTION("GET_ZCOLOR query") {
+            bound_ms = 400; // of a 500ms window
+            Ad5xIfsTestAccess::schedule_zcolor_query(backend);
+        }
+        SECTION("GET_ZCOLOR response collection") {
+            bound_ms = 400; // of a 500ms window
+            // The window starts in execute_gcode's success callback, which
+            // may arrive on another thread after the call returns.
+            Ad5xIfsTestAccess::query_zcolor_silent(backend);
+            const auto submitted_deadline = Clock::now() + std::chrono::seconds(2);
+            while (fast.inflight() == 0 && Clock::now() < submitted_deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+        REQUIRE(fast.inflight() > 0);
+    }
+
+    const auto destroyed = Clock::now();
+    const auto deadline = destroyed + std::chrono::seconds(3);
+    while (fast.inflight() != 0 && Clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto waited =
+        std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - destroyed);
+    CHECK(fast.inflight() == 0);
+    CHECK(waited.count() < bound_ms);
     helix::ui::UpdateQueue::instance().drain();
 }

@@ -32,6 +32,8 @@
 #include <string>
 #include <vector>
 
+#include "hv/json.hpp"
+
 class PrintPreparationManagerTestAccess;
 
 namespace helix::ui {
@@ -927,6 +929,11 @@ class PrintPreparationManager {
         const char* upload_error = nullptr;   ///< toast format, given the error
         /// The .3mf plate to extract before the rewrite, or 0 for plain G-code.
         int archive_plate = 0;
+        /// The rewrite as the plugin's print_edited edit list, when it can
+        /// travel (gcode::to_server_edits).
+        std::optional<nlohmann::json> server_edits;
+        /// The original's size in bytes, 0 when unknown: sizes the wait for print_edited.
+        uint64_t file_size = 0;
     };
 
     /**
@@ -939,6 +946,14 @@ class PrintPreparationManager {
      */
     void rewrite_and_print(RewriteRoute route, NavigateToStatusCallback on_navigate_to_status,
                            PrintCompletionCallback on_completion);
+
+    /// Starts @p job's copy at @p remote_temp_path: through print_edited when
+    /// @p plugin_edits (the plugin writes the copy), else through
+    /// print_modified or as itself per the route. Main thread.
+    void start_staged_print(std::shared_ptr<const RewriteRoute> job,
+                            const std::string& remote_temp_path, bool plugin_edits,
+                            NavigateToStatusCallback on_navigate_to_status,
+                            PrintCompletionCallback on_completion);
 
     /// Where this printer's staged copies go (StagingRoot): visible when its
     /// Klipper cannot print from a dot-directory.
@@ -1039,15 +1054,17 @@ class PrintPreparationManager {
      * @param with_skip_toggles False leaves out the leveling-skip toggles
      *        (skip_wrappers::option_for()): those set a flag and carry no
      *        START_PRINT skip parameter, so they are no delivery path for one.
-     * @param job_start The START_PRINT call the started file's own scan found,
-     *        whose temps fill {bed_temp}/{extruder_temp} (Moonraker metadata is
-     *        wrong on multi-material files). Null renders them 0, so the
-     *        firmware macro keeps its own default.
+     * @param scan The started file's own scan. Its START_PRINT call's temps
+     *        fill {bed_temp}/{extruder_temp} (Moonraker metadata is wrong on
+     *        multi-material files); without one they render 0, so the firmware
+     *        macro keeps its own default. An enabled option whose line performs
+     *        its step (no off form) is left out when the scan shows the file
+     *        runs that step itself, or the printer would run it twice.
      * @return Vector of rendered gcode lines, e.g. {"LOAD_AI_RUN SWITCH=1"}.
      */
     [[nodiscard]] std::vector<std::string>
     collect_pre_start_gcode_lines(const std::string& filename = {}, bool with_skip_toggles = true,
-                                  const gcode::PrintStartCallInfo* job_start = nullptr) const;
+                                  const gcode::ScanResult* scan = nullptr) const;
 
     /// The block a start sends ahead of START_PRINT: the printer's setup_gcode
     /// (when @p macro_skip_params has any) and every pre-start line, joined.
@@ -1058,7 +1075,7 @@ class PrintPreparationManager {
     };
     [[nodiscard]] PreStartBlock
     pre_start_block(const std::vector<std::pair<std::string, std::string>>& macro_skip_params,
-                    const std::string& filename, const gcode::PrintStartCallInfo* job_start) const;
+                    const std::string& filename, const gcode::ScanResult* scan) const;
 
     /// Whether a start with these choices acts on its file's scan: a step the
     /// user turned off that a file may embed, or a START_PRINT rewrite (skip

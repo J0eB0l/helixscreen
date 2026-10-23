@@ -13,6 +13,7 @@
 
 #include "active_print_media_manager.h"
 #include "app_globals.h"
+#include "gcode_edit_list.h"
 #include "gcode_tool_remapper.h"
 #include "helix_fs.h"
 #include "http_executor.h"
@@ -330,9 +331,7 @@ void PrintPreparationManager::recalculate_estimate(const FileMetadata* file_meta
     const int temp_bucket = helix::PreprintPredictor::temp_bucket_for(bed_temp);
     const gcode::ScanResult* scan = scan_result_for(file_key);
     const helix::PreprintWindow window =
-        pre_start_block(collect_macro_skip_params(), file_key,
-                        scan && scan->print_start.found ? &scan->print_start : nullptr)
-                .gcode.empty()
+        pre_start_block(collect_macro_skip_params(), file_key, scan).gcode.empty()
             ? helix::PreprintWindow::PrinterEdge
             : helix::PreprintWindow::HostPreStart;
     if (!predictor_cached_ || cached_temp_bucket_ != temp_bucket || cached_window_ != window) {
@@ -1101,9 +1100,8 @@ void PrintPreparationManager::start_print(const std::string& filename,
     //
     // Lines are concatenated with newlines; Moonraker forwards the whole
     // block to Klipper as a single gcode_script.
-    const PreStartBlock pre_start = pre_start_block(
-        macro_skip_params, filename_to_print,
-        start_scan_ && start_scan_->print_start.found ? &start_scan_->print_start : nullptr);
+    const PreStartBlock pre_start = pre_start_block(macro_skip_params, filename_to_print,
+                                                    start_scan_ ? &*start_scan_ : nullptr);
     const std::string& combined = pre_start.gcode;
 
     // Without this file's scan nothing can say which disabled steps the file
@@ -1295,6 +1293,22 @@ std::optional<gcode::OperationType> file_embeddable_op_for_id(const std::string&
     if (id == "nozzle_clean")
         return gcode::OperationType::NOZZLE_CLEAN;
     return std::nullopt;
+}
+
+// Whether @p scan holds a call of @p line's own command word under @p option_id's
+// operation, i.e. the file performs that step itself. Only the same command
+// counts: other BED_MESH_* lines load, clear or offset a stored mesh, and a
+// START_PRINT parameter asking for a mesh proves nothing about a macro that may
+// ignore it. A miss sends the line: in doubt the step runs twice rather than
+// not at all.
+bool file_runs_command(const gcode::ScanResult& scan, const std::string& option_id,
+                       const std::string& line) {
+    const std::optional<gcode::OperationType> op = file_embeddable_op_for_id(option_id);
+    if (!op) {
+        return false;
+    }
+    const std::string word = text_io::to_upper(gcode::GCodeOpsDetector::command_word(line));
+    return scan.operation_commands.count({*op, word}) > 0;
 }
 
 // Whether turning this option off may strip its op out of the sliced file. Not
@@ -1623,10 +1637,10 @@ PrintPreparationManager::collect_macro_skip_params() const {
 
 PrintPreparationManager::PreStartBlock PrintPreparationManager::pre_start_block(
     const std::vector<std::pair<std::string, std::string>>& macro_skip_params,
-    const std::string& filename, const gcode::PrintStartCallInfo* job_start) const {
+    const std::string& filename, const gcode::ScanResult* scan) const {
     PreStartBlock block;
     const auto& db_options = get_cached_options();
-    block.lines = collect_pre_start_gcode_lines(filename, true, job_start);
+    block.lines = collect_pre_start_gcode_lines(filename, true, scan);
     // A skip an earlier print left unconsumed must not ride into this one,
     // including for a step whose toggle is hidden now.
     if (printer_state_ && !printer_state_->get_discovery().skip_active().empty()) {
@@ -1655,9 +1669,10 @@ bool PrintPreparationManager::print_waits_on_scan(const std::string& key) const 
 }
 
 std::vector<std::string> PrintPreparationManager::collect_pre_start_gcode_lines(
-    const std::string& filename, bool with_skip_toggles,
-    const gcode::PrintStartCallInfo* job_start) const {
+    const std::string& filename, bool with_skip_toggles, const gcode::ScanResult* scan) const {
     std::vector<std::string> lines;
+    const gcode::PrintStartCallInfo* job_start =
+        scan && scan->print_start.found ? &scan->print_start : nullptr;
 
     const auto& db_options = get_cached_options();
     if (db_options.options.empty()) {
@@ -1710,6 +1725,15 @@ std::vector<std::string> PrintPreparationManager::collect_pre_start_gcode_lines(
         std::string line = render_pre_start_gcode(opt, enabled, ctx);
         if (line.empty()) {
             // render_pre_start_gcode logs its own warning on type mismatch.
+            continue;
+        }
+
+        // A line with no off form IS the step; a file that runs the step
+        // itself would have the printer run it twice.
+        if (enabled && pre && !pre->emit_when_disabled && scan &&
+            file_runs_command(*scan, opt.id, line)) {
+            spdlog::info("[PrintPreparationManager] Not sending pre-start '{}': {} runs it itself",
+                         opt.id, filename);
             continue;
         }
         spdlog::debug("[PrintPreparationManager] Pre-start gcode for option '{}' (enabled={}): {}",
@@ -1978,21 +2002,32 @@ void PrintPreparationManager::modify_and_print(
     route.archive_plate = archive_plate_for(file_path);
     route.download_error = TR_NOOP("Failed to download G-code for modification: {}");
     route.upload_error = TR_NOOP("Failed to upload modified G-code: {}");
-    // Copied for the HTTP thread: every later step reads this file's own scan.
-    route.rewrite = [scan_result = *start_scan_, ops_to_disable,
-                     macro_skip_params](const std::string& local_download_path) {
+
+    gcode::EditList edits;
+    {
         gcode::GCodeFileModifier modifier;
         // Disable file-embedded operations (comment them out)
-        modifier.disable_operations(scan_result, ops_to_disable);
+        modifier.disable_operations(*start_scan_, ops_to_disable);
         // Add skip parameters to PRINT_START call (if any)
         if (!macro_skip_params.empty()) {
-            if (modifier.add_print_start_skip_params(scan_result, macro_skip_params)) {
+            if (modifier.add_print_start_skip_params(*start_scan_, macro_skip_params)) {
                 spdlog::info("[PrintPreparationManager] Added {} skip params to PRINT_START",
                              macro_skip_params.size());
             } else {
                 spdlog::warn("[PrintPreparationManager] Could not add skip params - "
                              "PRINT_START not found in G-code");
             }
+        }
+        edits.modifications = modifier.modifications();
+    }
+    route.server_edits = gcode::to_server_edits(edits);
+    route.file_size = cached_file_size_.value_or(0);
+    // Copied for the HTTP thread: the edits were made against this file's own scan.
+    route.rewrite = [mods =
+                         std::move(edits.modifications)](const std::string& local_download_path) {
+        gcode::GCodeFileModifier modifier;
+        for (const auto& mod : mods) {
+            modifier.add_modification(mod);
         }
         auto result = modifier.apply_streaming(local_download_path);
         if (!hfs::remove(local_download_path) && errno != ENOENT) {
@@ -2058,6 +2093,8 @@ void PrintPreparationManager::modify_and_print_with_remap(
     route.archive_plate = archive_plate_for(file_path);
     route.download_error = TR_NOOP("Failed to download G-code for Filament Mapping: {}");
     route.upload_error = TR_NOOP("Failed to upload the rewritten G-code: {}");
+    route.server_edits = gcode::to_server_edits(gcode::EditList{{}, remap});
+    route.file_size = cached_file_size_.value_or(0);
     route.rewrite = [file_path, remap](const std::string& download_path) {
         // A download that produced nothing is a failed download, not a file
         // whose every line happens to be unchanged, and the two must not
@@ -2119,6 +2156,22 @@ void PrintPreparationManager::rewrite_and_print(RewriteRoute route,
         job->archive_plate > 0
             ? gcode::make_extracted_plate_path(job->file_path, job->archive_plate, staging_root())
             : gcode::make_rewritten_gcode_path(job->file_path, staging_root());
+
+    const PluginFeatureState server_edits =
+        printer_state_ ? printer_state_->plugin_status_state().plugin_feature(
+                             gcode::kServerEditsFeature, gcode::kServerEditsMinVersion)
+                       : PluginFeatureState::Absent;
+    if (gcode::choose_edit_transport(server_edits, job->archive_plate > 0,
+                                     job->server_edits.has_value()) ==
+        gcode::EditTransport::Plugin) {
+        // The plugin rewrites beside the file: nothing is downloaded or uploaded.
+        spdlog::info("[PrintPreparationManager] Server-side edits: {} -> {}", job->file_path,
+                     remote_temp_path);
+        BusyOverlay::show("Preparing print...");
+        start_staged_print(job, remote_temp_path, true, std::move(on_navigate_to_status),
+                           std::move(on_completion));
+        return;
+    }
 
     spdlog::info("[PrintPreparationManager] Streaming modification: downloading {} to {} "
                  "(plugin: {})",
@@ -2190,83 +2243,9 @@ void PrintPreparationManager::rewrite_and_print(RewriteRoute route,
 
                         token.defer(
                             "PrintPreparationManager::start_print_kickoff",
-                            [this, token, job, remote_temp_path, on_navigate_to_status,
-                             on_completion]() {
-                                auto on_print_success = [job, on_navigate_to_status]() {
-                                    spdlog::info("[PrintPreparationManager] Print started with "
-                                                 "modified G-code (original: {})",
-                                                 job->file_path);
-
-                                    // Defer LVGL operations to main thread
-                                    struct PrintStartedData {
-                                        std::string original_path; // Full path for metadata lookup
-                                        NavigateToStatusCallback navigate_cb;
-                                    };
-                                    helix::ui::queue_update<PrintStartedData>(
-                                        std::make_unique<PrintStartedData>(PrintStartedData{
-                                            job->file_path, on_navigate_to_status}),
-                                        [](PrintStartedData* d) {
-                                            BusyOverlay::hide();
-
-                                            // Name this print by the file the user chose, not
-                                            // the rewritten copy print_stats will report. One
-                                            // call: PrinterState is the single authority, so
-                                            // the panel and the media manager can no longer
-                                            // disagree about which print this is.
-                                            get_printer_state()
-                                                .print_state()
-                                                .set_print_identity_override(d->original_path);
-
-                                            if (d->navigate_cb) {
-                                                d->navigate_cb();
-                                            }
-                                        });
-                                };
-
-                                auto on_print_error = [this, token, remote_temp_path,
-                                                       on_completion](const MoonrakerError& error) {
-                                    queue_busy_hide();
-
-                                    helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"),
-                                                               error);
-                                    LOG_ERROR_INTERNAL(
-                                        "[PrintPreparationManager] Print start failed for {}: {}",
-                                        remote_temp_path, error.message);
-
-                                    token.defer(
-                                        "PrintPreparationManager::start_print_error_cleanup",
-                                        [this, remote_temp_path, on_completion]() {
-                                            abandon_start("print_start_failed", on_completion);
-                                            // Moonraker's delete_file takes the root too.
-                                            api_->files().delete_file(
-                                                "gcodes/" + remote_temp_path,
-                                                []() {
-                                                    spdlog::debug(
-                                                        "[PrintPreparationManager] Cleaned up "
-                                                        "remote temp file after print failure");
-                                                },
-                                                // The file may not exist; cleanup is best effort.
-                                                [](const MoonrakerError& /*del_err*/) {});
-                                        });
-                                };
-
-                                if (job->use_plugin) {
-                                    // The plugin symlinks the copy under the original name,
-                                    // patches history, and starts the print.
-                                    api_->job().start_modified_print(
-                                        job->file_path, remote_temp_path, job->mod_names,
-                                        [on_print_success](const ModifiedPrintResult& result) {
-                                            spdlog::info(
-                                                "[PrintPreparationManager] Plugin accepted print: "
-                                                "{} -> {}",
-                                                result.original_filename, result.print_filename);
-                                            on_print_success();
-                                        },
-                                        on_print_error);
-                                } else {
-                                    api_->job().start_print(remote_temp_path, on_print_success,
-                                                            on_print_error);
-                                }
+                            [this, job, remote_temp_path, on_navigate_to_status, on_completion]() {
+                                start_staged_print(job, remote_temp_path, false,
+                                                   on_navigate_to_status, on_completion);
                             });
                     },
                     // Upload error - runs on the HTTP thread.
@@ -2299,6 +2278,122 @@ void PrintPreparationManager::rewrite_and_print(RewriteRoute route,
                 [this, on_completion]() { abandon_start("download_failed", on_completion); });
         },
         download_progress);
+}
+
+void PrintPreparationManager::start_staged_print(std::shared_ptr<const RewriteRoute> job,
+                                                 const std::string& remote_temp_path,
+                                                 bool plugin_edits,
+                                                 NavigateToStatusCallback on_navigate_to_status,
+                                                 PrintCompletionCallback on_completion) {
+    auto token = lifetime_.token();
+    auto on_print_success = [job, on_navigate_to_status]() {
+        spdlog::info("[PrintPreparationManager] Print started with "
+                     "modified G-code (original: {})",
+                     job->file_path);
+
+        // Defer LVGL operations to main thread
+        struct PrintStartedData {
+            std::string original_path; // Full path for metadata lookup
+            NavigateToStatusCallback navigate_cb;
+        };
+        helix::ui::queue_update<PrintStartedData>(
+            std::make_unique<PrintStartedData>(
+                PrintStartedData{job->file_path, on_navigate_to_status}),
+            [](PrintStartedData* d) {
+                BusyOverlay::hide();
+
+                // Name this print by the file the user chose, not the
+                // rewritten copy print_stats will report. PrinterState is
+                // the single authority, so the panel and the media manager
+                // agree about which print this is.
+                get_printer_state().print_state().set_print_identity_override(d->original_path);
+
+                if (d->navigate_cb) {
+                    d->navigate_cb();
+                }
+            });
+    };
+
+    auto on_print_error = [this, token, remote_temp_path,
+                           on_completion](const MoonrakerError& error) {
+        queue_busy_hide();
+
+        helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
+        LOG_ERROR_INTERNAL("[PrintPreparationManager] Print start failed for {}: {}",
+                           remote_temp_path, error.message);
+
+        token.defer("PrintPreparationManager::start_print_error_cleanup",
+                    [this, remote_temp_path, on_completion]() {
+                        abandon_start("print_start_failed", on_completion);
+                        // Moonraker's delete_file takes the root too.
+                        api_->files().delete_file(
+                            "gcodes/" + remote_temp_path,
+                            []() {
+                                spdlog::debug("[PrintPreparationManager] Cleaned up "
+                                              "remote temp file after print failure");
+                            },
+                            // The file may not exist; cleanup is best effort.
+                            [](const MoonrakerError& /*del_err*/) {});
+                    });
+    };
+
+    auto on_plugin_accepted = [on_print_success](const ModifiedPrintResult& result) {
+        spdlog::info("[PrintPreparationManager] Plugin accepted print: {} -> {}",
+                     result.original_filename, result.print_filename);
+        on_print_success();
+    };
+
+    if (plugin_edits) {
+        // The plugin writes the copy itself, and removes it if the start fails, so no
+        // branch here deletes it.
+        auto on_edit_error = [this, token, job, on_navigate_to_status,
+                              on_completion](const MoonrakerError& error) {
+            switch (gcode::classify_print_edited_failure(error)) {
+            case gcode::EditedPrintFailure::Unsupported:
+                spdlog::warn("[PrintPreparationManager] Plugin cannot edit {} ({}); rewriting "
+                             "on the screen",
+                             job->file_path, error.message);
+                token.defer("PrintPreparationManager::edit_fallback",
+                            [this, job, on_navigate_to_status, on_completion]() {
+                                RewriteRoute route = *job;
+                                route.server_edits.reset();
+                                rewrite_and_print(std::move(route), on_navigate_to_status,
+                                                  on_completion);
+                            });
+                return;
+            case gcode::EditedPrintFailure::Unanswered:
+                // The plugin may still start this print: starting it again here would
+                // print the job twice.
+                queue_busy_hide();
+                helix::ui::notify_error_tr(
+                    TR_NOOP("The printer did not confirm the print started ({}). It may still "
+                            "start: check the printer before starting it again."),
+                    error);
+                LOG_ERROR_INTERNAL("[PrintPreparationManager] print_edited unanswered for {}: {}",
+                                   job->file_path, error.message);
+                break;
+            case gcode::EditedPrintFailure::Refused:
+                queue_busy_hide();
+                helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
+                LOG_ERROR_INTERNAL("[PrintPreparationManager] print_edited refused for {}: {}",
+                                   job->file_path, error.message);
+                break;
+            }
+            token.defer("PrintPreparationManager::edit_error_cleanup", [this, on_completion]() {
+                abandon_start("print_edited_failed", on_completion);
+            });
+        };
+        api_->job().start_edited_print(job->file_path, remote_temp_path, *job->server_edits,
+                                       job->mod_names, job->file_size, on_plugin_accepted,
+                                       on_edit_error);
+    } else if (job->use_plugin) {
+        // The plugin symlinks the copy under the original name,
+        // patches history, and starts the print.
+        api_->job().start_modified_print(job->file_path, remote_temp_path, job->mod_names,
+                                         on_plugin_accepted, on_print_error);
+    } else {
+        api_->job().start_print(remote_temp_path, on_print_success, on_print_error);
+    }
 }
 
 void PrintPreparationManager::set_archive_plate(const std::string& file_path, int plate,

@@ -44,6 +44,7 @@ class MoonrakerTimelapseAPI : public helix::ITimelapseAPI {
     using ErrorCallback = std::function<void(const MoonrakerError&)>;
     using TimelapseSettingsCallback = std::function<void(const TimelapseSettings&)>;
     using WebcamListCallback = std::function<void(const std::vector<WebcamInfo>&)>;
+    using WebcamCallback = std::function<void(const WebcamInfo&)>;
 
     /**
      * @brief Constructor
@@ -136,9 +137,9 @@ class MoonrakerTimelapseAPI : public helix::ITimelapseAPI {
      * @param on_error Error callback
      */
     void get_webcam_list(WebcamListCallback on_success, ErrorCallback on_error) override;
-    void post_webcam(const nlohmann::json& item, SuccessCallback on_success,
+    void post_webcam(const nlohmann::json& item, WebcamCallback on_success,
                      ErrorCallback on_error) override;
-    void delete_webcam(const std::string& name, SuccessCallback on_success,
+    void delete_webcam(const WebcamInfo& cam, SuccessCallback on_success,
                        ErrorCallback on_error) override;
 
   protected:

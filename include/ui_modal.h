@@ -595,11 +595,17 @@ class ModalDialogAttrs {
     ModalDialogAttrs(const ModalDialogAttrs&) = delete;
     ModalDialogAttrs& operator=(const ModalDialogAttrs&) = delete;
 
+    /// Style the primary button with @p variant ("primary", "danger").
+    void set_primary_variant(const char* variant) {
+        primary_variant_ = variant;
+    }
+
     /// Null-terminated attr list for Modal::show()
     const char** get();
 
   private:
     std::string title_, message_, primary_, secondary_;
+    const char* primary_variant_ = "primary";
     const char* hide_info_;
     const char* hide_warning_;
     const char* hide_error_;
@@ -660,6 +666,10 @@ struct ConfirmOptions {
     /// something that can die before the dialog does - which is the usual
     /// case, since the dialog outlives its exit animation.
     std::optional<helix::LifetimeToken> owner_token;
+
+    /// The confirm button carries the danger style: what it starts cannot be
+    /// taken back (a tool can drop, a print stops).
+    bool destructive = false;
 };
 
 /**

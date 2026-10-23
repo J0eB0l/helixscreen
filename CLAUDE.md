@@ -68,13 +68,18 @@ make full-test-run                   # unit-sweep + the bats suite (~2m) - the c
 #   quality-checks.sh runs [.] on any staged code change, nightly CI runs [slow].
 #   `make test-run` runs nothing: it prints which of these fits the question
 #   you have and exits non-zero. Cadence table: tests/CLAUDE.md.
-make land-gate                       # THE pre-landing gate (~10m): ONCE per batch, before anything reaches main
-#   full-test-run, plus the sweep in CI's 8-shard layout, CI's tests/ui pytest
-#   slice (headless), the moonraker plugin tests, and the generated-artefact
-#   checks (theme token table, xml schema + lint-xml, lvgl event codes). C++ on
-#   the test host as full-test-run's sweep goes; the rest here in parallel; a
-#   PASS/FAIL table with durations at the end. full-test-run alone is NOT a
-#   landing gate: it skips tests/ui and CI's shard layout, both of which red CI.
+make land-gate                       # THE pre-landing gate: ONCE per batch, before anything reaches main
+#   It prints its ETA from past gates (LAND_GATE_HISTORY); quote that, never a guess.
+#   Running it in the background: watch its log for ": FAIL in|: TIMEOUT in" and
+#   report a failed stage the moment it lands, not when the whole gate ends.
+#   The C++ suite once, in CI's 8-shard layout (not the local sweep's 96: CI
+#   never runs that grouping), bats, CI's tests/ui pytest slice (headless), the
+#   moonraker plugin tests, the generated-artefact checks (theme token table,
+#   xml schema + lint-xml, lvgl event codes), and quality-checks.sh: pushing the
+#   exact commit it passed skips that sweep. C++ on the test host as
+#   full-test-run's sweep goes; the rest here in parallel; a PASS/FAIL table
+#   with durations at the end. full-test-run alone is NOT a landing gate: it
+#   skips tests/ui and CI's shard layout, both of which red CI.
 
 make dev-timing                      # What the dev loop costs, measured (ledger from transcripts)
 #   Medians for every build, suite and test run, so "is this worth running" is
@@ -130,8 +135,8 @@ scripts/test-host-run.sh sweep                   # make unit-sweep on the test h
 scripts/setup-worktree.sh feature/my-branch  # Symlinks shared deps, builds fast
 #   lib/lvgl, lib/libhv, lib/lua and lib/helix-xml get a PRIVATE checkout per worktree
 #   (patches/ is per-branch); everything else in lib/ is a symlink shared with
-#   the main tree. Also writes .claude/settings.local.json with PROJECT_DIR set
-#   to the MAIN tree so claude-recall writes lessons and stats there.
+#   the main tree. Also copies the main tree's .claude/settings.local.json with
+#   its paths rewritten to the worktree.
 #   The directory is named after the branch's LAST segment, so it refuses an
 #   existing .worktrees/<name>: a re-setup needs --setup-only, the same branch,
 #   and no other session's live worktree: claim on it.
@@ -374,7 +379,7 @@ These load automatically when you work on matching files. They are the contract,
 
 | Rule | Loads for | Covers |
 |------|-----------|--------|
-| `.claude/rules/declarative-ui.md` | `src/ui/`, `ui_xml/`, `include/ui_*.h` | DATA in C++, APPEARANCE in XML: the eight declarative rules, the structural exceptions, design tokens |
+| `.claude/rules/declarative-ui.md` | `src/ui/`, `ui_xml/`, `include/ui_*.h` | DATA in C++, APPEARANCE in XML: the nine declarative rules, the structural exceptions, design tokens |
 | `.claude/rules/vendor-abstraction.md` | `src/`, `include/` | A vendor name appears in ONE module per capability; generic code asks capability questions |
 | `.claude/rules/threading.md` | `src/`, `include/`, `tests/unit/` | The five lifecycle invariants; `docs/devel/THREADING.md` is the full text |
 | `.claude/rules/submodules.md` | `lib/`, `patches/`, `mk/patches.mk` | `lib/helix-xml/` is ours and edited directly; everything else goes through `patches/` |

@@ -115,6 +115,22 @@ void RemoteScreenSettingsManager::set_paired_tokens(const std::vector<std::strin
     config->save();
 }
 
+std::string RemoteScreenSettingsManager::get_webcam_uid() const {
+    Config* config = Config::get_instance();
+    return config->get<std::string>(config->df() + "remote_screen_webcam_uid", "");
+}
+
+void RemoteScreenSettingsManager::set_webcam_uid(const std::string& printer,
+                                                 const std::string& uid) {
+    Config* config = Config::get_instance();
+    const std::string key = printer + "remote_screen_webcam_uid";
+    if (config->get<std::string>(key, "") == uid) {
+        return;
+    }
+    config->set<std::string>(key, uid);
+    config->save();
+}
+
 void RemoteScreenSettingsManager::set_lan_mode(bool lan_mode) {
     if (subjects_initialized_) {
         lv_subject_set_int(&lan_mode_subject_, lan_mode ? 1 : 0);

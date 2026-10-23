@@ -35,6 +35,10 @@ class DisplayManagerTestAccess {
         dm.schedule_brightness_reassert();
     }
 
+    static void apply_startup_rotation(DisplayManager& dm, const DisplayManager::Config& config) {
+        dm.apply_startup_rotation(config);
+    }
+
     /// The size width()/height() report while no lv_display_t is attached.
     static void set_size(DisplayManager& dm, int width, int height) {
         dm.m_width = width;

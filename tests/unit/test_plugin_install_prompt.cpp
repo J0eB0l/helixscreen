@@ -479,7 +479,7 @@ struct SelfHealFixture : PromptFixture {
         // An outcome drained here may start the restart, the next script run.
         while (http::HttpExecutor::slow().inflight() > 0 &&
                std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             drain();
         }
         drain();

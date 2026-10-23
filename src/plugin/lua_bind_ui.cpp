@@ -3,11 +3,15 @@
 
 #if HELIX_HAS_PLUGINS
 
+#include "ui_component_keypad.h"
 #include "ui_modal.h"
+#include "ui_text_entry_modal.h"
 #include "ui_toast_manager.h"
 
 #include "helix/ui/text_metrics.h"
 #include "lua_bindings.h"
+#include "lvgl/src/misc/lv_text_private.h"
+#include "lvgl/src/others/translation/lv_translation.h"
 #include "plugin_canvas.h"
 #include "plugin_overlay_host.h"
 #include "plugin_xml_policy.h"
@@ -16,7 +20,10 @@
 
 #include <atomic>
 #include <climits>
+#include <cmath>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 
 namespace helix::plugin {
@@ -29,6 +36,10 @@ constexpr size_t kMaxString = 1024;
 constexpr size_t kMaxSubjects = 128;
 constexpr size_t kMaxOpenConfirms = 1;
 constexpr size_t kMaxDialogs = 1;
+constexpr size_t kMaxEditorTitle = 47; ///< the keypad's title buffer, less its NUL
+constexpr size_t kMaxEditorUnit = 15;
+constexpr size_t kMaxEditorMessage = 256;
+constexpr double kMaxKeypadValue = 99999;
 
 struct ObserverCtx {
     LuaRuntime* rt;
@@ -47,6 +58,16 @@ struct SubjectEntry {
     bool is_string = false;
 };
 
+// The one keypad or text editor a plugin has shown or waiting. Shared by the editor's
+// callbacks, which do nothing once `done` is set: answered, cancelled, or the plugin is
+// unloading.
+struct Editor {
+    bool done = false;
+    bool keypad = false;
+    bool shown = false;
+    lv_obj_t* dialog = nullptr; ///< the text entry dialog while shown
+};
+
 // Everything one runtime registered here. Freed by the runtime's closer.
 struct UiState {
     std::vector<std::unique_ptr<SubjectEntry>> subjects;
@@ -56,6 +77,7 @@ struct UiState {
     /// The dialog behind open_confirms, so the runtime closer can take a plugin's
     /// still-unanswered question off screen. Nulled by every close path.
     lv_obj_t* open_confirm = nullptr;
+    std::shared_ptr<Editor> editor;
 };
 
 UiState& ui_state(lua_State* L) {
@@ -315,6 +337,324 @@ int ui_confirm(lua_State* L) {
     return 0;
 }
 
+// ---- helix.ui.edit_number / helix.ui.edit_text ----
+
+/// The options table of an editor call: only `allowed` keys, each read by type.
+struct EditorOpts {
+    lua_State* L;
+    int idx;
+    const char* fn;
+
+    void check_keys(std::initializer_list<const char*> allowed) const {
+        lua_pushnil(L);
+        while (lua_next(L, idx) != 0) {
+            lua_pop(L, 1);
+            bool ok = lua_type(L, -1) == LUA_TSTRING;
+            if (ok) {
+                ok = false;
+                for (const char* a : allowed)
+                    ok = ok || std::string_view(lua_tostring(L, -1)) == a;
+            }
+            if (!ok) {
+                const char* key = lua_type(L, -1) == LUA_TSTRING ? lua_tostring(L, -1) : "?";
+                luaL_error(L, "%s: unknown option '%s'", fn, key);
+            }
+        }
+    }
+    std::string str(const char* key, const char* def, size_t max_bytes) const {
+        lua_getfield(L, idx, key);
+        std::string v = def;
+        if (!lua_isnil(L, -1)) {
+            if (lua_type(L, -1) != LUA_TSTRING)
+                luaL_error(L, "%s: %s must be a string", fn, key);
+            size_t len = 0;
+            const char* s = lua_tolstring(L, -1, &len);
+            if (len > max_bytes)
+                luaL_error(L, "%s: %s is at most %d bytes", fn, key, static_cast<int>(max_bytes));
+            v.assign(s, len);
+        }
+        lua_pop(L, 1);
+        return v;
+    }
+    std::optional<double> num(const char* key) const {
+        lua_getfield(L, idx, key);
+        std::optional<double> v;
+        if (!lua_isnil(L, -1)) {
+            if (lua_type(L, -1) != LUA_TNUMBER || !std::isfinite(lua_tonumber(L, -1)))
+                luaL_error(L, "%s: %s must be a finite number", fn, key);
+            v = lua_tonumber(L, -1);
+        }
+        lua_pop(L, 1);
+        return v;
+    }
+    bool flag(const char* key) const {
+        lua_getfield(L, idx, key);
+        if (!lua_isnil(L, -1) && !lua_isboolean(L, -1))
+            luaL_error(L, "%s: %s must be true or false", fn, key);
+        const bool v = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        return v;
+    }
+    void check_fn(const char* key, bool required) const {
+        lua_getfield(L, idx, key);
+        const bool missing = lua_isnil(L, -1);
+        const bool bad = !missing && !lua_isfunction(L, -1);
+        lua_pop(L, 1);
+        if (bad || (required && missing))
+            luaL_error(L, "%s: %s must be a function", fn, key);
+    }
+    /// Only after every error path: luaL_error would unwind past the ref.
+    int ref_fn(LuaRuntime& rt, const char* key) const {
+        lua_getfield(L, idx, key);
+        const int ref = lua_isfunction(L, -1) ? rt.ref_value(L, -1) : LUA_NOREF;
+        lua_pop(L, 1);
+        return ref;
+    }
+};
+
+/// The callbacks an editor holds, released once when it ends.
+struct EditorRefs {
+    EditorRefs(LuaRuntime& r, UiState& u, bool keypad)
+        : rt(&r), token(r.token()), editor(std::make_shared<Editor>()), ui(&u) {
+        editor->keypad = keypad;
+    }
+
+    LuaRuntime* rt;
+    LifetimeToken token;
+    std::shared_ptr<Editor> editor;
+    UiState* ui;
+    int accept = LUA_NOREF;
+    int cancel = LUA_NOREF;
+    int validate = LUA_NOREF;
+    /// The keypad's header and unit. The keypad's stored config points into these, and
+    /// keeps this object alive through the hooks it holds.
+    std::string keypad_title;
+    std::string keypad_unit;
+
+    bool live() const {
+        return !editor->done && !token.expired();
+    }
+    /// Ends the editor: frees the plugin's slot and every ref. Returns false when it
+    /// had already ended.
+    bool finish() {
+        if (!live())
+            return false;
+        editor->done = true;
+        editor->dialog = nullptr;
+        if (ui->editor == editor)
+            ui->editor.reset();
+        return true;
+    }
+    void release() {
+        for (int ref : {accept, cancel, validate}) {
+            if (ref != LUA_NOREF)
+                rt->unref(ref);
+        }
+    }
+    void run_accept(const LuaRuntime::PushFn& push) {
+        if (!finish())
+            return;
+        rt->invoke(accept, push);
+        release();
+    }
+    void run_cancel() {
+        if (!finish())
+            return;
+        if (cancel != LUA_NOREF)
+            rt->invoke(cancel);
+        release();
+    }
+    /// The plugin's verdict on a value: empty to accept, else the message to show.
+    std::string judge(const LuaRuntime::PushFn& push) {
+        if (validate == LUA_NOREF || !live())
+            return {};
+        bool ok = false;
+        std::string why;
+        LuaRuntime::CheckLimits limits;
+        limits.label = "editor validator";
+        const bool ran = rt->call_sync(
+            validate, push,
+            [&](lua_State* co, int nres) {
+                ok = nres >= 1 && lua_type(co, -nres) == LUA_TBOOLEAN && lua_toboolean(co, -nres);
+                if (nres >= 2 && lua_type(co, -nres + 1) == LUA_TSTRING) {
+                    size_t len = 0;
+                    const char* s = lua_tolstring(co, -nres + 1, &len);
+                    why.assign(s, std::min(len, kMaxEditorMessage));
+                }
+            },
+            limits);
+        if (ran && ok)
+            return {};
+        return why.empty() ? std::string(lv_tr("Invalid value")) : why;
+    }
+};
+
+/// Queues `present` like a confirm (behind app dialogs, never behind the plugin's own),
+/// or presents it at once where no host queues surfaces.
+void queue_editor(PluginContext& ctx, const std::shared_ptr<EditorRefs>& refs,
+                  std::function<bool()> present) {
+    auto cancelled = [refs] {
+        if (refs->finish())
+            refs->release();
+    };
+    auto run = [refs, present = std::move(present)] {
+        if (!refs->live())
+            return false;
+        if (!present()) {
+            // It never appeared, so the plugin hears the request ended without a value.
+            refs->run_cancel();
+            return false;
+        }
+        refs->editor->shown = true;
+        return true;
+    };
+    if (ctx.ui && ctx.ui->queue_confirm)
+        ctx.ui->queue_confirm(std::move(run), std::move(cancelled));
+    else
+        run();
+}
+
+std::shared_ptr<EditorRefs> start_editor(lua_State* L, const char* fn, bool keypad) {
+    forbid_in_check(L, fn);
+    if (context(L).unloading)
+        luaL_error(L, "%s cannot open during on_unload", fn);
+    luaL_checktype(L, 1, LUA_TTABLE);
+    if (ui_state(L).editor)
+        luaL_error(L, "%s: at most one keypad or text editor shown or waiting per plugin", fn);
+    return std::make_shared<EditorRefs>(LuaRuntime::from(L), ui_state(L), keypad);
+}
+
+void take_editor_refs(lua_State* L, const EditorOpts& o, EditorRefs& refs) {
+    auto& rt = LuaRuntime::from(L);
+    refs.accept = o.ref_fn(rt, "on_accept");
+    refs.cancel = o.ref_fn(rt, "on_cancel");
+    refs.validate = o.ref_fn(rt, "validate");
+    ui_state(L).editor = refs.editor;
+}
+
+int ui_edit_number(lua_State* L) {
+    const char* fn = "helix.ui.edit_number";
+    auto refs = start_editor(L, fn, true);
+    EditorOpts o{L, 1, fn};
+    o.check_keys(
+        {"title", "value", "min", "max", "decimals", "unit", "validate", "on_accept", "on_cancel"});
+    const std::string title = o.str("title", "", kMaxEditorTitle);
+    const std::string unit = o.str("unit", "", kMaxEditorUnit);
+    const auto min = o.num("min");
+    const auto max = o.num("max");
+    const double value = o.num("value").value_or(min.value_or(0));
+    const double decimals = o.num("decimals").value_or(0);
+    if (!min || !max)
+        return luaL_error(L, "%s: min and max are required", fn);
+    if (*min < -kMaxKeypadValue)
+        return luaL_error(L, "%s: min must be at least -%d", fn, static_cast<int>(kMaxKeypadValue));
+    if (*max <= *min || *max > kMaxKeypadValue)
+        return luaL_error(L, "%s: max must be above min and at most %d", fn,
+                          static_cast<int>(kMaxKeypadValue));
+    if (decimals != 0 && decimals != 1 && decimals != 2)
+        return luaL_error(L, "%s: decimals must be 0, 1 or 2", fn);
+    o.check_fn("on_accept", true);
+    o.check_fn("on_cancel", false);
+    o.check_fn("validate", false);
+    // A plugin dialog sits on the top layer, above the keypad's overlay.
+    PluginUi* ui = context(L).ui;
+    if (ui && ui->dialog_count && ui->dialog_count(LuaRuntime::from(L).plugin_id()) > 0)
+        return luaL_error(L, "%s: close the plugin's dialog first; the keypad opens below it", fn);
+    take_editor_refs(L, o, *refs);
+
+    const int places = static_cast<int>(decimals);
+    const double scale = std::pow(10.0, places);
+    auto push_value = [places, scale](float v) {
+        const double rounded = std::round(static_cast<double>(v) * scale) / scale;
+        return LuaRuntime::PushFn([places, rounded](lua_State* co) {
+            if (places == 0)
+                lua_pushinteger(co, static_cast<lua_Integer>(rounded));
+            else
+                lua_pushnumber(co, rounded);
+            return 1;
+        });
+    };
+    queue_editor(
+        context(L), refs, [refs, title, unit, value, min = *min, max = *max, places, push_value] {
+            // The keypad is one widget for the whole app.
+            if (ui_keypad_is_visible())
+                return false;
+            ui_keypad_config_t config{};
+            config.initial_value = static_cast<float>(value);
+            config.min_value = static_cast<float>(min);
+            config.max_value = static_cast<float>(max);
+            refs->keypad_title = title;
+            refs->keypad_unit = unit;
+            config.title_label = refs->keypad_title.c_str();
+            config.unit_label = refs->keypad_unit.c_str();
+            config.allow_decimal = places > 0;
+            // A range reaching below zero gets the keypad's sign key.
+            config.allow_negative = min < 0;
+            config.max_fraction_digits = places > 0 ? places : 1;
+            config.validate = [refs, push_value](float v) { return refs->judge(push_value(v)); };
+            config.on_confirm = [refs, push_value](float v) { refs->run_accept(push_value(v)); };
+            config.on_cancel = [refs] { refs->run_cancel(); };
+            return ui_keypad_show(&config);
+        });
+    return 0;
+}
+
+int ui_edit_text(lua_State* L) {
+    const char* fn = "helix.ui.edit_text";
+    auto refs = start_editor(L, fn, false);
+    EditorOpts o{L, 1, fn};
+    o.check_keys({"title", "value", "placeholder", "max_length", "password", "validate",
+                  "on_accept", "on_cancel"});
+    const std::string title = o.str("title", "", kMaxString);
+    const std::string placeholder = o.str("placeholder", "", kMaxString);
+    const double max_length = o.num("max_length").value_or(256);
+    if (max_length < 1 || max_length > kMaxString - 1 || max_length != std::floor(max_length))
+        return luaL_error(L, "%s: max_length must be a whole number from 1 to %d", fn,
+                          static_cast<int>(kMaxString - 1));
+    const std::string value = o.str("value", "", kMaxString - 1);
+    const bool password = o.flag("password");
+    if (lv_text_get_encoded_length(value.c_str()) > static_cast<uint32_t>(max_length))
+        return luaL_error(L, "%s: value is longer than max_length", fn);
+    o.check_fn("on_accept", true);
+    o.check_fn("on_cancel", false);
+    o.check_fn("validate", false);
+    take_editor_refs(L, o, *refs);
+
+    auto push_text = [](const std::string& s) {
+        return LuaRuntime::PushFn([s](lua_State* co) {
+            lua_pushlstring(co, s.data(), s.size());
+            return 1;
+        });
+    };
+    queue_editor(context(L), refs,
+                 [refs, title, placeholder, value, password, push_text,
+                  max_length = static_cast<uint32_t>(max_length),
+                  plugin_id = LuaRuntime::from(L).plugin_id()] {
+                     helix::ui::TextEntryModal::Config c;
+                     c.title = title;
+                     c.initial = value;
+                     c.placeholder = placeholder;
+                     c.max_length = max_length;
+                     c.password = password;
+                     c.validate = [refs, push_text](const std::string& s) {
+                         return refs->judge(push_text(s));
+                     };
+                     c.on_accept = [refs, push_text](const std::string& s) {
+                         refs->run_accept(push_text(s));
+                     };
+                     c.on_cancel = [refs] { refs->run_cancel(); };
+                     lv_obj_t* dialog = helix::ui::TextEntryModal::show_owned(std::move(c));
+                     if (!dialog)
+                         return false;
+                     // Tagged with its plugin, so it holds other plugins back but never its own.
+                     ModalStack::instance().set_tag(ModalStack::instance().backdrop_for(dialog),
+                                                    plugin_id);
+                     refs->editor->dialog = dialog;
+                     return true;
+                 });
+    return 0;
+}
+
 int surface_handle_close(lua_State* L) {
     forbid_in_check(L, "close");
     auto& ctx = context(L);
@@ -534,6 +874,14 @@ void install_ui_bindings(PluginContext& ctx) {
         // dialog the user already closed cleared the pointer on its close path.
         if (state->open_confirm)
             Modal::hide(state->open_confirm);
+        // Its editor too, with every callback already disarmed.
+        if (auto editor = state->editor) {
+            editor->done = true;
+            if (editor->dialog)
+                Modal::hide(editor->dialog);
+            else if (editor->keypad && editor->shown && ui_keypad_is_visible())
+                ui_keypad_hide();
+        }
         for (auto& o : state->observers) {
             if (o->handle)
                 lv_observer_remove(o->handle);
@@ -567,9 +915,14 @@ void install_ui_bindings(PluginContext& ctx) {
         {"int", [](lua_State* L) { return make_subject(L, false); }},
         {"string", [](lua_State* L) { return make_subject(L, true); }},
         {nullptr, nullptr}};
-    static const luaL_Reg ui_fns[] = {{"on", &ui_on},           {"toast", &ui_toast},
-                                      {"confirm", &ui_confirm}, {"overlay", &ui_overlay},
-                                      {"dialog", &ui_dialog},   {"text_width", &ui_text_width},
+    static const luaL_Reg ui_fns[] = {{"on", &ui_on},
+                                      {"toast", &ui_toast},
+                                      {"confirm", &ui_confirm},
+                                      {"overlay", &ui_overlay},
+                                      {"dialog", &ui_dialog},
+                                      {"text_width", &ui_text_width},
+                                      {"edit_number", &ui_edit_number},
+                                      {"edit_text", &ui_edit_text},
                                       {nullptr, nullptr}};
     lua_getglobal(L, "helix");
     lua_newtable(L);

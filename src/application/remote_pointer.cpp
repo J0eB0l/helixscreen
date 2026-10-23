@@ -3,6 +3,9 @@
 
 #include "remote_pointer.h"
 
+#include "display_manager.h"
+#include "input_settings_manager.h"
+
 #include <spdlog/spdlog.h>
 
 #include <thread>
@@ -34,6 +37,17 @@ void RemotePointer::read_cb(lv_indev_t* /*indev*/, lv_indev_data_t* data) {
     data->point.y = self.y_.load(std::memory_order_acquire);
     data->state = self.pressed_.load(std::memory_order_acquire) ? LV_INDEV_STATE_PRESSED
                                                                 : LV_INDEV_STATE_RELEASED;
+    // This is a separate indev from the physical touchscreen, so its sleep-aware
+    // wrapper never sees these samples. Keep the wake gesture out of LVGL here too.
+    const auto out = self.wake_latch_.filter(
+        {data->state == LV_INDEV_STATE_PRESSED, data->point.x, data->point.y}, lv_tick_get(),
+        [](int32_t x, int32_t y) {
+            auto* dm = DisplayManager::instance();
+            return dm && dm->note_wake_press(x, y);
+        });
+    data->state = out.pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    data->point.x = out.x;
+    data->point.y = out.y;
     // Published last, so a transport-thread waiter that sees this count has
     // necessarily seen the state it was set against.
     self.reads_.fetch_add(1, std::memory_order_release);
@@ -57,8 +71,10 @@ bool RemotePointer::ensure_created() {
     }
 
     lv_indev_set_type(indev_, LV_INDEV_TYPE_POINTER);
+    wake_latch_ = {};
     lv_indev_set_read_cb(indev_, read_cb);
     lv_indev_set_display(indev_, disp);
+    InputSettingsManager::instance().apply_to_pointer(indev_);
 
     spdlog::info("[RemotePointer] Synthetic pointer device created");
     return true;

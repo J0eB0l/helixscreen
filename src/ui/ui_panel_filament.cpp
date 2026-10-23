@@ -103,6 +103,15 @@ using helix::ui::filament_load_fallback_gcode;
 using helix::ui::filament_purge_fallback_gcode;
 using helix::ui::filament_unload_fallback_gcode;
 
+/// A hold on preset @p slot opens its material picker. The hold is still the active
+/// press, so it ends here: its release would otherwise be a tap on the preset, or
+/// land on whatever the picker put under the finger.
+static void preset_hold(lv_event_t* e, int slot) {
+    if (get_global_filament_panel().handle_preset_longpress(slot)) {
+        helix::ui::end_press(e);
+    }
+}
+
 // ============================================================================
 // CONSTRUCTOR
 // ============================================================================
@@ -151,14 +160,10 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, IMoonrakerAPI* api)
         {"on_filament_preset_spool",
          [](lv_event_t*) { get_global_filament_panel().handle_spool_preset_button(); }},
         // Material preset long-press (opens material picker)
-        {"on_filament_preset_pla_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(0); }},
-        {"on_filament_preset_petg_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(1); }},
-        {"on_filament_preset_abs_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(2); }},
-        {"on_filament_preset_tpu_hold",
-         [](lv_event_t*) { get_global_filament_panel().handle_preset_longpress(3); }},
+        {"on_filament_preset_pla_hold", [](lv_event_t* e) { preset_hold(e, 0); }},
+        {"on_filament_preset_petg_hold", [](lv_event_t* e) { preset_hold(e, 1); }},
+        {"on_filament_preset_abs_hold", [](lv_event_t* e) { preset_hold(e, 2); }},
+        {"on_filament_preset_tpu_hold", [](lv_event_t* e) { preset_hold(e, 3); }},
         // Temperature tap targets
         {"on_filament_nozzle_target_tap",
          [](lv_event_t*) { get_global_filament_panel().handle_nozzle_temp_tap(); }},
@@ -240,8 +245,11 @@ FilamentPanel::FilamentPanel(PrinterState& printer_state, IMoonrakerAPI* api)
         helix::ToolState::instance().get_active_tool_subject(), this,
         [](FilamentPanel* self, int tool_idx) {
             self->update_nozzle_label();
-            if (self->extruder_dropdown_ && tool_idx >= 0) {
-                lv_dropdown_set_selected(self->extruder_dropdown_, static_cast<uint32_t>(tool_idx));
+            if (self->extruder_dropdown_) {
+                if (tool_idx >= 0) {
+                    lv_dropdown_set_selected(self->extruder_dropdown_,
+                                             static_cast<uint32_t>(tool_idx));
+                }
                 self->sync_tool_dropdown_text();
             }
             if (self->temp_control_panel_) {
@@ -937,10 +945,15 @@ void FilamentPanel::sync_tool_dropdown_text() {
     // so the two can never disagree.
     if (!extruder_dropdown_)
         return;
-    const auto& tools = helix::ToolState::instance().tools();
+    auto& ts = helix::ToolState::instance();
+    const auto& tools = ts.tools();
     const int selected = static_cast<int>(lv_dropdown_get_selected(extruder_dropdown_));
     std::string label;
-    if (selected >= 0 && selected < static_cast<int>(tools.size())) {
+    if (lv_subject_get_int(ts.get_active_tool_subject()) < 0) {
+        // A tool changer with its carriage empty: no tool is selected, whatever
+        // the list last pointed at.
+        label = lv_tr("None");
+    } else if (selected >= 0 && selected < static_cast<int>(tools.size())) {
         label = helix::ui::tool_label(tools[selected].index);
     }
     lv_dropdown_set_text(extruder_dropdown_, label.c_str());
@@ -1017,11 +1030,8 @@ void FilamentPanel::handle_preset_button(int material_id) {
                     helix::presets::name(material_id)),
                 hw),
             [this]() {
+                send_nozzle_target();
                 if (auto* c = get_temperature_controller()) {
-                    c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
-                                  {.toast = true, .on_success = [target = nozzle_target_]() {
-                                       NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
-                                   }});
                     c->set_target(helix::HeaterType::Bed, static_cast<double>(bed_target_),
                                   {.toast = true, .on_success = [target = bed_target_]() {
                                        NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), target);
@@ -1068,9 +1078,9 @@ void FilamentPanel::reset_presets_to_defaults() {
     spdlog::info("[{}] Presets reset to defaults", get_name());
 }
 
-void FilamentPanel::handle_preset_longpress(int slot) {
+bool FilamentPanel::handle_preset_longpress(int slot) {
     if (slot < 0 || slot >= kPresetCount || !preset_buttons_[slot]) {
-        return;
+        return false;
     }
     lv_obj_t* screen = lv_obj_get_screen(preset_buttons_[slot]);
     // Reset-to-defaults affordance is preset-editing-only — gated purely on whether
@@ -1087,14 +1097,7 @@ void FilamentPanel::handle_preset_longpress(int slot) {
                          [slot](const helix::printer::EffectiveFilament& ef) {
                              get_global_filament_panel().apply_preset_pick(slot, ef);
                          });
-
-    // The long-press that opened the picker is still an active press. Without this, the
-    // eventual release lands on whatever widget now sits under the finger — the Type
-    // dropdown, which appears roughly where the preset button was — and auto-opens it.
-    // Make the input device swallow events until the physical release.
-    if (lv_indev_t* indev = lv_indev_active()) {
-        lv_indev_wait_release(indev);
-    }
+    return true;
 }
 
 void FilamentPanel::apply_preset_pick(int slot, const helix::printer::EffectiveFilament& ef) {
@@ -1205,6 +1208,35 @@ void FilamentPanel::handle_custom_chamber_confirmed(float value) {
     }
 }
 
+void FilamentPanel::send_nozzle_target() {
+    auto* c = get_temperature_controller();
+    if (!c) {
+        return;
+    }
+    // nozzle_target_ already shows the request. A refused or failed send must
+    // not leave it there: the panel would claim a target the printer never got.
+    c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
+                  {.toast = true,
+                   .on_success =
+                       [target = nozzle_target_]() {
+                           NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
+                       },
+                   .on_error =
+                       [this](const MoonrakerError&) {
+                           object_lifetime_.defer("FilamentPanel::nozzle_target_refused",
+                                                  [this]() { show_printer_nozzle_target(); });
+                       }});
+}
+
+void FilamentPanel::show_printer_nozzle_target() {
+    nozzle_target_ = helix::ui::temperature::deci_to_degrees(lv_subject_get_int(
+        printer_state_.temperature_state().get_active_extruder_target_subject()));
+    update_temp_display();
+    update_material_temp_display();
+    update_status();
+    check_and_auto_select_preset();
+}
+
 void FilamentPanel::handle_custom_nozzle_confirmed(float value) {
     spdlog::info("[{}] Custom nozzle temperature confirmed: {}°C", get_name(),
                  static_cast<int>(value));
@@ -1218,13 +1250,7 @@ void FilamentPanel::handle_custom_nozzle_confirmed(float value) {
     update_material_temp_display();
     update_status();
 
-    // Send temperature command to printer
-    if (auto* c = get_temperature_controller()) {
-        c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
-                      {.toast = true, .on_success = [target = nozzle_target_]() {
-                           NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), target);
-                       }});
-    }
+    send_nozzle_target();
 }
 
 void FilamentPanel::handle_custom_bed_confirmed(float value) {
@@ -1517,9 +1543,9 @@ void FilamentPanel::handle_load_button() {
         return;
     }
 
-    // A backend load homes inside its own ensure_homed_then(); only the macro
-    // tier needs us to send the G28, which execute_load() does right before the
-    // macro, after any preheat.
+    // A backend load homes inside its own ensure_homed_then(). On the macro tier
+    // we send the G28 only for a macro profile that needs one, right before the
+    // macro and after any preheat; an unrecognized macro runs as it is.
     const helix::ui::FilamentOpPlan plan = current_load_plan();
     home_before_load_macro_ =
         plan.tier == helix::ui::FilamentTier::Macro &&
@@ -2214,11 +2240,8 @@ void FilamentPanel::handle_spool_preset_button() {
                                   cached_active_material_->material_name),
                               hw),
         [this]() {
+            send_nozzle_target();
             if (auto* c = get_temperature_controller()) {
-                c->set_target(helix::HeaterType::Nozzle, static_cast<double>(nozzle_target_),
-                              {.toast = true, .on_success = [t = nozzle_target_]() {
-                                   NOTIFY_SUCCESS(lv_tr("Nozzle target set to {}°C"), t);
-                               }});
                 c->set_target(helix::HeaterType::Bed, static_cast<double>(bed_target_),
                               {.toast = true, .on_success = [t = bed_target_]() {
                                    NOTIFY_SUCCESS(lv_tr("Bed target set to {}°C"), t);

@@ -1252,8 +1252,8 @@ Located in the `ams` section:
 **Default:** `"3d"`
 **Values:** `"3d"`, `"flat"`
 **Description:** Filament spool visualization style:
-- `3d` - Bambu-style pseudo-3D canvas with gradients
-- `flat` - Simple concentric rings
+- `3d` - Spools drawn from the side, in 3D
+- `flat` - Spools drawn face-on, with the filament showing through the spool's vents
 
 ### Per-printer AMS settings
 
@@ -1267,6 +1267,7 @@ The remaining AMS settings are **per printer**, so they live under the printer's
         "force_bypass_controls": false,
         "always_show_bypass_spool": false,
         "keep_spool_info_on_eject": true,
+        "tag_links_spoolman": true,
         "unload_after_print": false
       }
     }
@@ -1294,6 +1295,11 @@ See [Filament → When Bypass Doesn't Appear](guide/filament.md#when-bypass-does
 **Type:** boolean
 **Default:** `true`
 **Description:** Keep a lane's spool details after it empties, so reloading the same spool after maintenance needs no re-selection. Turn it off to start fresh whenever a lane empties. Applies only to spools selected in HelixScreen; a spool assigned elsewhere (such as Mainsail) clears with the lane. To have every assigned spool remembered no matter where it was picked, use the firmware's own retention instead (AFC: `remember_spool` in AFC.cfg) - HelixScreen follows the spool the firmware reports. When that firmware retention covers every lane, it takes precedence and the matching toggle shows as disabled. The toggle (**Keep Spool Info on Eject**, in the AMS Management overlay) is shown only on systems whose firmware tracks spool ids per lane (AFC, Happy Hare); systems that detect spool swaps by tag always refresh on a swap regardless of this setting.
+
+#### `tag_links_spoolman`
+**Type:** boolean
+**Default:** `true`
+**Description:** When a spool whose tag names a Spoolman spool is put in a slot, link the slot to that spool, the same as picking it by hand. A spool you pick while the same tag stays seated is kept until a spool is put in again. The toggle (**Link Spools from Tags**, in the AMS Management overlay) is shown only on systems whose tags can carry a Spoolman spool number (Creality CFS) when Spoolman is set up.
 
 #### `unload_after_print`
 **Type:** boolean

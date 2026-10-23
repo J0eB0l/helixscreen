@@ -229,33 +229,12 @@ lv_obj_t* LVGLTestFixture::create_test_screen() {
     return m_test_screen;
 }
 
-// Advances LVGL's virtual clock. Real elapsed time is ~ms/5, and zero below the
-// 50ms sleep threshold — never build a wall-clock wait out of this. wait_until()
-// is the helper that also yields to other threads.
+// Advances LVGL's virtual clock only, so it costs CPU and no real time. Another
+// thread gets no guaranteed time slice from it; wait_until() is the helper that
+// yields to other threads.
 void LVGLTestFixture::process_lvgl(int ms) {
-    if (ms <= 0) {
-        return;
-    }
-
-    // Process in small increments for more accurate timing
-    constexpr int tick_interval_ms = 5;
-    int elapsed = 0;
-
-    while (elapsed < ms) {
-        // Advance LVGL tick (needed for animations and time-based logic)
-        lv_tick_inc(tick_interval_ms);
-
-        // Use the safe timer handler which drains the UpdateQueue,
-        // normalizes timer timestamps, and pauses the queue timer
-        // during lv_timer_handler() to prevent infinite loops.
-        lv_timer_handler_safe();
-
-        elapsed += tick_interval_ms;
-
-        // Small sleep to avoid busy-waiting in longer waits
-        if (ms > 50) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
+    if (ms > 0) {
+        UITest::advance_ms(static_cast<uint32_t>(ms));
     }
 }
 

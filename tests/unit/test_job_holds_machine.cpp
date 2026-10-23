@@ -335,6 +335,7 @@ constexpr GuardedFile kGuardedFiles[] = {
     {"ui_xml/controls_panel.xml", 17},
     {"ui_xml/header_bar.xml", 1},
     {"ui_xml/pa_tuning_overlay.xml", 1},
+    {"ui_xml/plr_wizard_overlay.xml", 4},
     {"ui_xml/micro/controls_panel.xml", 17},
     {"ui_xml/micro/header_bar.xml", 1},
     {"ui_xml/motion_panel.xml", 8},
@@ -346,6 +347,8 @@ constexpr GuardedFile kGuardedFiles[] = {
     // Jog keys stay live through a print, as the pad layout's Z column does;
     // the layouts' home keys carry the guards.
     {"ui_xml/components/motion_jog_button.xml", 0},
+    // Recovery actions answer a fault in a paused job, so they stay live.
+    {"ui_xml/recovery_fault_modal.xml", 0},
     {"ui_xml/probe_generic_panel.xml", 2},
     {"ui_xml/probe_eddy_panel.xml", 2},
     {"ui_xml/probe_cartographer_panel.xml", 2},
@@ -559,10 +562,13 @@ constexpr const char* kNoMachineControlFiles[] = {
     "ui_xml/navigation_bar.xml",
     "ui_xml/network_settings_overlay.xml",
     "ui_xml/network_test_modal.xml",
+    "ui_xml/notification_history_item.xml",
+    "ui_xml/notification_history_panel.xml",
     "ui_xml/numeric_keypad_panel.xml",
     "ui_xml/overlay_backdrop.xml",
     "ui_xml/overlay_panel.xml",
     "ui_xml/panel_belt_tension.xml",
+    "ui_xml/plugin_feature_toggle_row.xml",
     "ui_xml/plugin_install_modal.xml",
     "ui_xml/portrait/print_status_panel.xml",
     "ui_xml/portrait/print_tune_panel.xml",
@@ -632,6 +638,7 @@ constexpr const char* kNoMachineControlFiles[] = {
     "ui_xml/spoolman_spool_row.xml",
     "ui_xml/telemetry_data_overlay.xml",
     "ui_xml/telemetry_info_modal.xml",
+    "ui_xml/text_entry_modal.xml",
     "ui_xml/theme_editor_overlay.xml",
     "ui_xml/theme_preview_overlay.xml",
     "ui_xml/theme_save_as_modal.xml",

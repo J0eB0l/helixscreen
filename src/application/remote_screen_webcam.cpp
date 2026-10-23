@@ -3,10 +3,14 @@
 
 #include "remote_screen_webcam.h"
 
+#include "ui_update_queue.h"
+
 #include "app_globals.h"
+#include "config.h"
 #include "data_root_resolver.h"
 #include "host_identity.h"
 #include "i_moonraker_api.h"
+#include "json_utils.h"
 #include "printer_state.h"
 #include "remote_screen_service.h"
 #include "remote_screen_settings_manager.h"
@@ -14,6 +18,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <unistd.h>
 
 namespace helix {
@@ -49,6 +54,7 @@ std::optional<nlohmann::json> remote_screen_webcam_item(const std::string& name,
         {"location", "printer"},
         {"enabled", true},
         {"snapshot_url", snapshot},
+        {"extra_data", {{kRemoteScreenWebcamMarker, true}}},
     };
     if (control) {
         item["service"] = "iframe";
@@ -59,6 +65,109 @@ std::optional<nlohmann::json> remote_screen_webcam_item(const std::string& name,
         item["target_fps"] = 2;
     }
     return item;
+}
+
+namespace {
+
+using StoreUid = std::function<void(const std::string&)>;
+
+void log_webcam_error(const char* what, const MoonrakerError& err) {
+    spdlog::warn("[RemoteScreen] Could not {} the screen webcam: {}", what, err.message);
+}
+
+/// Post @p item as a new entry, or onto the one already named like it.
+void post_by_name(IMoonrakerAPI& api, const nlohmann::json& item, StoreUid store_uid) {
+    api.timelapse().post_webcam(
+        item,
+        [store_uid](const WebcamInfo& cam) {
+            spdlog::info("[RemoteScreen] Registered the screen as a webcam (uid '{}')", cam.uid);
+            store_uid(cam.uid);
+        },
+        [](const MoonrakerError& err) { log_webcam_error("register", err); });
+}
+
+/// Refresh the entry @p uid with @p item's URLs. Only what the screen decides is sent, so
+/// the name, enabled state and frame rate the user gave the entry are kept.
+void post_by_uid(IMoonrakerAPI& api, const nlohmann::json& item, const std::string& uid,
+                 StoreUid store_uid) {
+    nlohmann::json update = {{"uid", uid}};
+    for (const char* key : {"service", "stream_url", "snapshot_url", "extra_data"}) {
+        const auto it = item.find(key);
+        if (it != item.end()) {
+            update[key] = *it;
+        }
+    }
+    api.timelapse().post_webcam(
+        update,
+        [store_uid](const WebcamInfo& cam) {
+            spdlog::info("[RemoteScreen] Refreshed the screen webcam '{}'", cam.name);
+            if (!cam.uid.empty()) {
+                store_uid(cam.uid);
+            }
+        },
+        [](const MoonrakerError& err) {
+            if (err.is_not_found()) {
+                spdlog::info("[RemoteScreen] The screen webcam was removed in Moonraker; "
+                             "not adding it back until sharing is turned on again");
+                return;
+            }
+            // Never re-post by name here: the entry may be renamed, and a new one would
+            // duplicate it. The next connect retries.
+            log_webcam_error("refresh", err);
+        });
+}
+
+} // namespace
+
+void reconcile_remote_screen_webcam(IMoonrakerAPI& api, const std::optional<nlohmann::json>& item,
+                                    const std::string& name, const std::string& known_uid,
+                                    StoreUid store_uid) {
+    if (item && !known_uid.empty()) {
+        post_by_uid(api, *item, known_uid, std::move(store_uid));
+        return;
+    }
+    if (!item && !known_uid.empty()) {
+        WebcamInfo cam;
+        cam.uid = known_uid;
+        api.timelapse().delete_webcam(
+            cam, [] { spdlog::info("[RemoteScreen] Removed the screen webcam"); },
+            [](const MoonrakerError& err) {
+                if (!err.is_not_found()) {
+                    log_webcam_error("remove", err);
+                }
+            });
+        store_uid("");
+        return;
+    }
+    const std::string snapshot =
+        item ? json_util::safe_string(*item, "snapshot_url", "") : std::string();
+    IMoonrakerAPI* api_ptr = &api;
+    api.timelapse().get_webcam_list(
+        [api_ptr, item, name, snapshot, store_uid](const std::vector<WebcamInfo>& cams) {
+            const auto ours = std::find_if(cams.begin(), cams.end(), [&](const WebcamInfo& cam) {
+                return cam.name == name || (!snapshot.empty() && cam.snapshot_url == snapshot);
+            });
+            if (item) {
+                if (ours != cams.end() && !ours->uid.empty()) {
+                    post_by_uid(*api_ptr, *item, ours->uid, store_uid);
+                } else {
+                    post_by_name(*api_ptr, *item, store_uid);
+                }
+                return;
+            }
+            // Deleting a missing entry is an error, so look before deleting.
+            if (ours != cams.end()) {
+                api_ptr->timelapse().delete_webcam(
+                    *ours, [] { spdlog::info("[RemoteScreen] Removed the screen webcam"); },
+                    [](const MoonrakerError& err) { log_webcam_error("remove", err); });
+            }
+        },
+        [api_ptr, item, store_uid](const MoonrakerError& err) {
+            spdlog::debug("[RemoteScreen] Webcam list unavailable: {}", err.message);
+            if (item) {
+                post_by_name(*api_ptr, *item, store_uid);
+            }
+        });
 }
 
 void sync_remote_screen_webcam(IMoonrakerAPI& api, MoonrakerLocality locality) {
@@ -78,33 +187,14 @@ void sync_remote_screen_webcam(IMoonrakerAPI& api, MoonrakerLocality locality) {
     const auto item =
         remote_screen_webcam_item(name, service.running(), settings.get_control(), route,
                                   select_lan_ipv4(local_interface_ips()), service.port());
-    if (item) {
-        api.timelapse().post_webcam(
-            *item, [] { spdlog::info("[RemoteScreen] Registered the screen as a webcam"); },
-            [](const MoonrakerError& err) {
-                spdlog::warn("[RemoteScreen] Could not register the screen webcam: {}",
-                             err.message);
+    // The uid belongs to the printer this reconcile ran against, even if the active
+    // printer changes before Moonraker answers.
+    const std::string printer = Config::get_instance()->df();
+    reconcile_remote_screen_webcam(
+        api, item, name, settings.get_webcam_uid(), [printer](const std::string& uid) {
+            ui::queue_update("remote_screen::webcam_uid", [printer, uid] {
+                RemoteScreenSettingsManager::instance().set_webcam_uid(printer, uid);
             });
-        return;
-    }
-    // Deleting a missing entry is an error, so look before deleting.
-    IMoonrakerAPI* api_ptr = &api;
-    api.timelapse().get_webcam_list(
-        [api_ptr, name](const std::vector<WebcamInfo>& cams) {
-            for (const auto& cam : cams) {
-                if (cam.name == name) {
-                    api_ptr->timelapse().delete_webcam(
-                        name, [] { spdlog::info("[RemoteScreen] Removed the screen webcam"); },
-                        [](const MoonrakerError& err) {
-                            spdlog::warn("[RemoteScreen] Could not remove the screen webcam: {}",
-                                         err.message);
-                        });
-                    return;
-                }
-            }
-        },
-        [](const MoonrakerError& err) {
-            spdlog::debug("[RemoteScreen] Webcam list unavailable: {}", err.message);
         });
 }
 

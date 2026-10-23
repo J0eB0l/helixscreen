@@ -15,6 +15,8 @@
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -68,6 +70,7 @@ class AmsSubscriptionBackend : public AmsBackend {
 
     // --- State queries (final) ---
     [[nodiscard]] AmsAction get_current_action() const final;
+    void on_klipper_restarted() override;
     [[nodiscard]] int get_current_tool() const final;
     [[nodiscard]] int get_current_slot() const final;
     [[nodiscard]] bool is_filament_loaded() const final;
@@ -107,6 +110,19 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// while a print holds the printer (refuse_motion_if_printing(), or refuse_if_printing() for
     /// one allowed_while_paused), so no backend can skip the rule.
     AmsError execute_device_action(const std::string& action_id, const std::any& value = {}) final;
+
+    /// execute_device_action()'s gate, then do_run_device_action().
+    AmsError run_device_action(const std::string& action_id, const std::any& value,
+                               DeviceActionDone on_done) final;
+
+    [[nodiscard]] bool device_action_running() const final {
+        return tracked_run_active_.load();
+    }
+
+    /// Refuses while a print holds the printer, paused included, then
+    /// do_run_edit_follow_up().
+    AmsError run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                const SlotInfo& after) final;
     AmsError unload_filament_batch(const std::vector<int>& slots) final;
 
     /// This backend's echo guard. A store other writers co-author can hold
@@ -135,15 +151,17 @@ class AmsSubscriptionBackend : public AmsBackend {
     virtual AmsError execute_gcode(const std::string& gcode);
     /// Same as execute_gcode(gcode), but invokes @p on_complete when the gcode
     /// command finishes (Klipper acks the script — i.e. a long macro has fully
-    /// run, not merely been queued). The callback fires on a background thread;
-    /// the caller is responsible for hopping to the main thread. Use this when a
-    /// macro's completion is the reliable terminal signal for an operation.
+    /// run, not merely been queued). The callback runs on the main thread,
+    /// queued behind any status frame that arrived before the answer, and is
+    /// dropped if the backend is destroyed first. Use this when a macro's
+    /// completion is the reliable terminal signal for an operation.
     virtual AmsError execute_gcode(const std::string& gcode, std::function<void()> on_complete);
     /// Same as execute_gcode(gcode, on_complete), plus @p on_error for callers
     /// that hold state the failure has to unwind — an optimistic AmsAction set
     /// before the send stays set forever if nothing runs on the error path.
-    /// Both callbacks fire on a background thread; the caller hops to the main
-    /// thread itself.
+    /// Both callbacks run on the main thread, queued the same way. The one
+    /// exception is a send refused for want of an IMoonrakerAPI: @p on_error
+    /// then runs synchronously, on the caller's stack.
     ///
     /// @p silent suppresses the advisory RPC timeout's toast. Leave it true for
     /// a long macro whose completion is owned by a status signal rather than the
@@ -161,8 +179,9 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// Query homing status and auto-home (G28) if needed before executing gcode.
     /// Returns immediately — homing and gcode execution happen asynchronously.
     /// @p on_complete (optional) fires when the final gcode command finishes
-    /// (Klipper acks the script), on a background thread; the caller hops to the
-    /// main thread. Use when the gcode's macro completion is the terminal signal.
+    /// (Klipper acks the script), on the main thread behind any status frame
+    /// that arrived before the answer. Use when the gcode's macro completion is
+    /// the terminal signal.
     /// @param on_error   Fires on G28 or payload failure. When null the failure
     ///                   is logged and the action is reset to IDLE, matching
     ///                   the historical behaviour.
@@ -390,6 +409,34 @@ class AmsSubscriptionBackend : public AmsBackend {
         return AmsErrorHelper::not_supported("Device action " + action_id);
     }
 
+    /// Backend implementation of run_device_action(), reached only after the same
+    /// gate. Default runs do_execute_device_action() and, when that succeeds,
+    /// reports success through @p on_done at once.
+    virtual AmsError do_run_device_action(const std::string& action_id, const std::any& value,
+                                          DeviceActionDone on_done);
+
+    /// Backend implementation of run_edit_follow_up(), reached only when no
+    /// print holds the printer. Default refuses.
+    virtual AmsError do_run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                           const SlotInfo& after) {
+        (void)slot_index;
+        (void)before;
+        (void)after;
+        return AmsErrorHelper::not_supported("Edit follow-up");
+    }
+
+    /// Mark a tracked device action as sent; false when one already is. A
+    /// backend whose do_run_device_action() answers later calls this before
+    /// the send and end_tracked_run() on both of its answers and on a failed
+    /// send.
+    [[nodiscard]] bool begin_tracked_run();
+    void end_tracked_run();
+
+    /// Why @p action_id may not run now (not listed, listed disabled, moving
+    /// the machine while a print holds it or while a tracked run is in flight),
+    /// or success when it may.
+    [[nodiscard]] AmsError device_action_refusal(const std::string& action_id) const;
+
     /// Whether this backend's firmware publishes lane identity of its own,
     /// which it files as a VendorCache reading on every status frame.
     ///
@@ -522,6 +569,21 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// it is not filed as a reading. Under mutex_.
     helix::ams::OwnWriteEchoes own_write_echoes_;
 
+    /// Wakes every debounce worker the moment the backend is destroyed. Each
+    /// debounce sleeps on a fast-lane worker, and a backend that is gone has
+    /// nothing left for the worker to do, so it hands the lane back at once.
+    /// Shared with the workers, which outlive the backend.
+    struct DebounceCancel {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool cancelled = false;
+    };
+    std::shared_ptr<DebounceCancel> debounce_cancel_ = std::make_shared<DebounceCancel>();
+    /// BG THREAD: sleep @p window on a debounce worker. False when the backend
+    /// was destroyed first, and the worker must return without touching it.
+    static bool debounce_wait(const std::shared_ptr<DebounceCancel>& cancel,
+                              std::chrono::milliseconds window);
+
     /// A debounced lane_data re-read is waiting to run.
     std::atomic<bool> lane_reread_pending_{false};
 
@@ -602,6 +664,9 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// the same way an AMS-reported busy state would.
     AmsAction filament_op_claimed_action_ = AmsAction::IDLE;
 
+    /// A tracked device action is on the printer (begin_tracked_run()).
+    std::atomic<bool> tracked_run_active_{false};
+
     EventCallback event_callback_;
     SubscriptionGuard subscription_;
 
@@ -614,10 +679,9 @@ class AmsSubscriptionBackend : public AmsBackend {
     /// referenced above — required for fixture compatibility. Any non-default
     /// combination needs a live @p api_: it talks to IMoonrakerAPI directly (the
     /// hardcoded virtuals can't carry a caller's own error/timeout/toast
-    /// policy), the same way AmsBackendCfs::dispatch_action_script used to
-    /// before this method existed to replace it. On that path @p on_complete
-    /// and @p on_error both run on the main thread, queued behind any status
-    /// frame that arrived before the answer.
+    /// policy). On every path @p on_complete
+    /// runs on the main thread, queued behind any status frame that arrived
+    /// before the answer, and so does @p on_error once the send went out.
     ///
     /// @param caller_surfaces_errors Whether @p on_error shows the user
     ///        something. Left unset it is derived from @p on_error being

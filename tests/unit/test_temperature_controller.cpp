@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "../../include/moonraker_client_mock.h"
 #include "../helix_test_fixture.h"
+#include "../test_helpers/registered_backend.h"
 #include "../test_helpers/scoped_shared_resource.h"
 #include "../test_helpers/temperature_controller_test_access.h"
+#include "../test_helpers/toolchanger_test_helper.h"
+#include "ams_backend_indx.h"
 #include "app_globals.h"
 #include "macro_param_cache.h"
 #include "moonraker_api.h"
@@ -365,4 +368,77 @@ TEST_CASE("get_temperature_controller returns the registered shared resource",
     helix_test::ScopedSharedResource<helix::TemperatureController> scope(
         std::make_shared<helix::TemperatureController>(get_printer_state(), nullptr));
     REQUIRE(get_temperature_controller() == scope.ptr());
+}
+
+namespace {
+
+/// A shared-heater backend that refuses heat with no tool mounted.
+helix::PrinterDiscovery indx_discovery() {
+    helix::PrinterDiscovery hw;
+    hw.parse_objects(nlohmann::json::array(
+        {"indx", "save_variables", "extruder", "heater_bed", "gcode_macro TOOL_POSITIONS",
+         "gcode_macro _TOOLCHANGE_VARS", "gcode_macro CHANGE_TOOL", "gcode_macro PARK_TOOL"}));
+    hw.parse_config_keys(
+        nlohmann::json{{"gcode_macro TOOL_POSITIONS", {{"variable_tool_count", "3"}}}});
+    return hw;
+}
+
+nlohmann::json mounted(int tool) {
+    return {{"save_variables", {{"variables", {{"active_tool", tool}}}}}};
+}
+
+} // namespace
+
+TEST_CASE("TemperatureController refuses nozzle heat the backend blocks",
+          "[temp_controller][indx][heat]") {
+    ControllerFixture f;
+    f.state.temperature_state().init_extruders({"extruder"});
+    helix::test::RegisteredBackend<helix::test::GcodeCaptureBackend<helix::AmsBackendIndx>> harness;
+    harness->set_discovery(indx_discovery());
+    harness->feed(mounted(-1));
+
+    f.client.clear_gcode_script_history();
+    bool refused = false;
+    f.controller.set_target(
+        helix::HeaterType::Nozzle, 210.0,
+        helix::SendOptions{.toast = false,
+                           .on_error = [&](const MoonrakerError&) { refused = true; }});
+    CHECK(refused);
+    CHECK(last_temp_gcode(f.client).empty());
+
+    // Turning the heater off is always allowed.
+    f.controller.set_target(helix::HeaterType::Nozzle, 0.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0");
+
+    // The bed has nothing to do with the nozzle gate.
+    f.controller.set_target(helix::HeaterType::Bed, 60.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client) == "SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=60");
+
+    // A mounted tool heats.
+    harness->feed(mounted(1));
+    f.controller.set_target(helix::HeaterType::Nozzle, 210.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=210");
+}
+
+TEST_CASE("TemperatureController refuses heat on a mounted tool with no hotend",
+          "[temp_controller][indx][heat]") {
+    ControllerFixture f;
+    f.state.temperature_state().init_extruders({"extruder"});
+    helix::test::RegisteredBackend<helix::test::GcodeCaptureBackend<helix::AmsBackendIndx>> harness;
+    harness->set_discovery(indx_discovery());
+    harness->feed(
+        nlohmann::json{{"save_variables", {{"variables", {{"active_tool", 2}}}}},
+                       {"gcode_macro TOOL_POSITIONS",
+                        {{"tool_count", 3}, {"no_heat_tools", nlohmann::json::array({2})}}}});
+    REQUIRE(harness->get_current_tool() == 2);
+
+    f.client.clear_gcode_script_history();
+    f.controller.set_target(helix::HeaterType::Nozzle, 210.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client).empty());
+
+    // The same tool, once it is not listed as a pen or cutter, heats.
+    harness->feed(nlohmann::json{
+        {"gcode_macro TOOL_POSITIONS", {{"no_heat_tools", nlohmann::json::array()}}}});
+    f.controller.set_target(helix::HeaterType::Nozzle, 210.0, helix::SendOptions{.toast = false});
+    CHECK(last_temp_gcode(f.client) == "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=210");
 }

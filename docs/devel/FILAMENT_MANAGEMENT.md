@@ -502,7 +502,7 @@ The detector is a name heuristic. It reports `EXTRUDER=285` on a line where that
 
 Backends are consumers, not implementers: `AmsBackend::get_remap_strategy()` routes (`include/ams_backend.h`). `Native` (Happy Hare, AFC, CFS, AD5X IFS, Tool Changer with klipper-toolchanger, QIDI Box) and `PrePrintSend` (the U1 emits firmware-native `print_task_config` gcode, no file rewrite) never reach the remapper. `GcodeRewrite` is the generic fallback for firmware with no internal routing table. A tool changer driving swaps with its own `T<n>` commands rather than klipper-toolchanger takes it (`AmsBackendToolChanger::get_remap_strategy`), because `ASSIGN_TOOL` does not exist there and Klipper answers an unknown command by logging it and carrying on, so a remap sent to such a machine reads as applied and prints the firmware's own mapping. The MedusaHC fork that drops `[toolchanger]` is the shipping example ([FILAMENT_BACKEND_MEDUSAHC.md](FILAMENT_BACKEND_MEDUSAHC.md#tool-mapping)). ACE will adopt it once its `ACE_CHANGE_TOOL` family is implemented and validated, and until then ACE stays `None` (`include/ams_backend_ace.h`).
 
-When it runs, the production path is `PrintSelectPanel::apply_remap()` -> `PrintPreparationManager::modify_and_print_with_remap()` (`src/ui/ui_print_preparation_manager.cpp`), file to file at every stage: download the original to a temp file, rewrite it to a second temp file through `apply_to_file()`, upload that, and print it via the HelixPrint plugin under the ORIGINAL filename. No stage holds the job in memory. A remap that changes no line prints the original directly, no copy. The staged upload path is built by `helix::gcode::make_rewritten_gcode_path()`, the one spelling of that name, because the post-print cleanup, the startup sweep and `resolve_gcode_filename()` all recognise a staged copy by its prefix, and a path built any other way is invisible to all three at once.
+When it runs, the production path is `PrintSelectPanel::apply_remap()` -> `PrintPreparationManager::modify_and_print_with_remap()` (`src/ui/ui_print_preparation_manager.cpp`), file to file at every stage: download the original to a temp file, rewrite it to a second temp file through `apply_to_file()`, upload that, and print it via the HelixPrint plugin under the ORIGINAL filename. No stage holds the job in memory. A remap that changes no line prints the original directly, no copy. When the plugin reports its `server_edits` feature ready, nothing is downloaded or uploaded: the remap travels as a one-edit `tool_remap` list to `server.helix.print_edited`, and the plugin applies the same per-line rule beside the file (`moonraker-plugin/helix_edits.py`), pinned to `apply_to_file()` byte for byte by `tests/fixtures/gcode_edits/` ([PRINT_START_INTEGRATION.md § How a choice reaches the sliced file](PRINT_START_INTEGRATION.md#how-a-choice-reaches-the-sliced-file)). That copy prints even when it changes nothing. The staged upload path is built by `helix::gcode::make_rewritten_gcode_path()`, the one spelling of that name, because the post-print cleanup, the startup sweep and `resolve_gcode_filename()` all recognise a staged copy by its prefix, and a path built any other way is invisible to all three at once.
 
 The strategy is guarded in `open_remap_modal()` (`include/ui_panel_print_select.h`), which asks `PrintPreparationManager::check_modification_capability()` rather than testing for the plugin itself: rewriting a file before printing is the same act the pre-print options perform, and two copies of "may we modify this file" is how one of them ends up offering a picker the other would refuse. `tests/unit/test_gcode_tool_remapper.cpp` pins the four families, the detector and the swap collision-safety; `tests/unit/test_remap_strategy.cpp` pins the strategy half and the pick rule; `tests/unit/test_start_macro_remap_note.cpp` pins the scan lookup and the note text; `tests/unit/test_filament_mapping_modal_cancel.cpp` pins that the banner tracks the picks and never leaks into a show that set no note (the subjects behind it are process-wide).
 
@@ -1560,6 +1560,22 @@ component) on the summary and on every row whose shown value is the tag's
 (`ams::tag_provenance()` over the form's current values), and Reset to tag
 restores every field the tag states through `ams::reset_to_tag()`.
 
+**Spools in use elsewhere.** The picker list disables (state `DISABLED`, not
+clickable) every spool in `ToolState::assigned_spool_ids(slot_index_)`
+(`src/ui/ui_ams_edit_overlay.cpp#render_spool_list`,
+`src/printer/tool_state.cpp#assigned_spool_ids`): the Spoolman ids assigned to
+any tool other than the one numbered like the slot being edited, because one
+physical spool cannot feed two places. ToolState's per-tool assignments are
+mirrored from lanes through each lane's `mapped_tool` (`AmsState` sync), so a
+spool linked to a lane with no mapped tool is not excluded. The exclusion
+compares a slot index against tool indices; on a lane remapped to another tool
+its own spool can read as "elsewhere". The external spool editor runs with
+`slot_index_ == -2`, which excludes no tool, so every lane-linked spool is
+disabled there. The Home Active Spool widget opens that editor whenever no lane
+is loaded (`src/ui/panel_widgets/active_spool_widget.cpp#handle_clicked`), and the
+loaded lane's editor otherwise. Which spool becomes Moonraker's active spool is
+`architecture/07-filament-ams.md` § "Spoolman without AMS".
+
 **Saving.** Save in the header is dirty-gated, a More-field edit included. A
 spool picked in a picker-entry session (`open_on_picker`) commits at once
 (`commit_and_close()`); one picked from the editor's header button returns to
@@ -1623,13 +1639,30 @@ Per-slot error indicators and per-unit error badges, driven by `SlotInfo.error` 
 
 ### Clog / flow meter
 
-Three sources (encoder, Flowguard, AFC buffer) feed one set of `clog_meter_*`
+Three backend sources (encoder, Flowguard, AFC buffer) feed one set of `clog_meter_*`
 subjects, derived in `AmsState::sync_clog_meter_from_info()`
 (`src/printer/ams_state_clog.cpp`). Source precedence is **flowguard > encoder > AFC
 buffer** (then the legacy `clog_detection` flag), overridable per widget via
 `set_source_override()` (0 auto, 1 encoder, 2 flowguard, 3 AFC). A buffer's
 position is not clog detection and never reaches these subjects; see
 [Filament buffer reading](#filament-buffer-reading).
+
+**Last: a plain Klipper `filament_motion_sensor`** (`ClogMeterMode::Motion`, #1823),
+used only when the backend reports none of the three, whatever the override says,
+so it also covers printers with no AMS at all. `FilamentSensorManager::clog_motion_sensor()`
+picks it among the motion sensors Settings > Filament sensors lists and has enabled (AMS-owned
+sensors, `PrinterHardware::is_ams_sensor()`, are excluded): the one on
+the active lane, else the first armed one reporting no movement (the worst reading: an
+idle encoder keeps reading detected), else the first one Klipper has armed, else the first. It is a state,
+not a gauge (`motion_sensor_value()` -> `kMotion*Value`): moving is OK with an empty fill,
+a jam is the warning flag with a full fill, and a sensor Klipper has disarmed reads
+`ClogMeterStatus::Off`. No movement is a jam only while `print_job_running()` (printing
+or paused): outside a print there is nothing to move, and a backend may run the sensor
+as a presence switch (the U1's heads), so an idle empty sensor reads OK.
+There is no danger band or peak (`clog_meter_is_state()`). Sensor frames reach the meter
+without a backend sync through the manager's `filament_motion_signature` subject, which
+`AmsState::install_motion_sensor_observer()` watches; the meter also re-evaluates on
+every `print_lifecycle` change.
 
 **Two presentations, one model.** `UiClogBar` draws a wide horizontal scale,
 `UiClogMeter` a compact arc. Neither owns any interpretation:
@@ -2270,6 +2303,7 @@ Each backend has its own leaf doc covering the protocol, data sources, G-code co
 | OpenAMS | klipper_openams on its own, through the `oams_manager` UI API (AFC, when present, keeps the printer) | [FILAMENT_BACKEND_OPENAMS.md](FILAMENT_BACKEND_OPENAMS.md) |
 | ACE | Anycubic ACE Pro 4-slot hub (native GoKlipper/Rinkhals; ValgACE REST fallback) | [FILAMENT_BACKEND_ACE.md](FILAMENT_BACKEND_ACE.md) |
 | Tool Changer | viesturz/klipper-toolchanger physical toolheads | [FILAMENT_BACKEND_TOOLCHANGER.md](FILAMENT_BACKEND_TOOLCHANGER.md) |
+| INDX | Bondtech INDX: docked passive nozzles on one extruder and heater | [FILAMENT_BACKEND_INDX.md](FILAMENT_BACKEND_INDX.md) |
 | AD5X IFS | FlashForge Adventurer 5X Intelligent Filament Switching via ZMOD | [FILAMENT_BACKEND_AD5X_IFS.md](FILAMENT_BACKEND_AD5X_IFS.md) |
 | CFS | Creality Filament System (K2 built-in; K1/K1C/K1 Max upgrade) | [FILAMENT_BACKEND_CFS.md](FILAMENT_BACKEND_CFS.md) |
 | QIDI Box | QIDI PLUS4 / Q2 / MAX4 RFID hub, chainable to 4 boxes | [FILAMENT_BACKEND_QIDI_BOX.md](FILAMENT_BACKEND_QIDI_BOX.md) |
@@ -3043,6 +3077,36 @@ The Creality CFS flows (`cfs_purge_chute`, `cfs_cutter`) live in `src/ui/ui_cfs_
 and are registered by `register_cfs_device_flows()` at startup, before any overlay builds
 (`Application::register_xml_components()`, and the ESP32 `app_boot.cpp` boot path). A new
 vendor flow is one new file plus one `guided_flow` string on its backend's action.
+
+#### Tracked device actions
+
+`AmsBackend::run_device_action(id, value, on_done)` is `execute_device_action()` for an action
+that runs for minutes on the printer: the return says whether it was sent, `on_done` how it
+ended, once, on the main thread. `AmsSubscriptionBackend` runs both through one gate,
+`device_action_refusal()` (not listed, listed disabled, moving the machine while a print holds
+it), so a backend cannot skip it. The default `do_run_device_action()` reports success as soon
+as `do_execute_device_action()` sends; a backend overrides it to answer from the macro's own rpc
+(`src/printer/ams_backend_indx.cpp#do_run_device_action`, which reports a
+Moonraker timeout as `AmsResult::TIMEOUT` so the flow can say the printer may still be at it).
+`DeviceAction::info()` is the read-only row: its value is a `std::string`, shown as is.
+
+#### Recovery actions that ask first
+
+A `RecoveryAction` with a non-empty `confirm_message` is not sent on the tap:
+`src/ui/recovery_modal_presenter.cpp#on_recovery_tapped` opens a confirm
+titled with the action's label, and only its primary button continues to the hot-nozzle check
+and the send. Cancel and a dismissal send nothing; the fault stays handled either way, so it
+does not re-present. For a recovery the user does with their hands (holding a tool while a latch
+opens).
+
+#### Edit follow-ups
+
+After a slot edit commits, `helix::ui::offer_edit_follow_up()` (`src/ui/ui_ams_edit_follow_up.cpp`)
+asks the backend's `edit_follow_up(slot, before, after)` whether the edit implies printer state
+it did not write, and offers it as a confirm; yes runs `run_edit_follow_up(slot, after)`, which
+`AmsSubscriptionBackend` refuses while a print holds the printer, paused included. Every
+`commit_slot_edit()` call site calls it on success or a partial apply. The default offers
+nothing. INDX offers its heater-model update after a material edit.
 
 #### Unavailable operations explain themselves
 

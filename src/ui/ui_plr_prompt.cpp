@@ -6,6 +6,7 @@
 #include "ui_error_reporting.h"
 #include "ui_filename_utils.h"
 #include "ui_modal.h"
+#include "ui_plr_wizard_overlay.h"
 #include "ui_update_queue.h"
 
 #include "app_globals.h"
@@ -14,6 +15,7 @@
 #include "moonraker_api.h"
 #include "moonraker_error.h"
 #include "plr_backend.h"
+#include "plr_plugin_rpc.h"
 #include "printer_state.h"
 
 #include <spdlog/fmt/fmt.h>
@@ -77,7 +79,9 @@ void report_action_error(const MoonrakerError& err, const char* fail_fmt_tr, con
     });
 }
 
-void run_plr_resume(IMoonrakerAPI* api) {
+} // namespace
+
+void run_plr_resume(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& plan) {
     if (!api) {
         spdlog::error("[PLR] resume: api is null");
         return;
@@ -86,44 +90,54 @@ void run_plr_resume(IMoonrakerAPI* api) {
     // only ever shown with resume_allowed() true, so reaching this branch means
     // a caller bypassed evaluate_offer — refuse rather than send a command that
     // can crash the toolhead through a tall part.
-    if (!g_active_plan.resume_allowed()) {
+    if (!plan.resume_allowed()) {
         spdlog::error("[PLR] resume REFUSED: no authorized recovery plan "
                       "(backend={}) — see docs/devel/POWER_LOSS_RECOVERY.md",
-                      static_cast<int>(g_active_plan.backend));
+                      static_cast<int>(plan.backend));
         return;
     }
-    spdlog::info("[PLR] User chose Resume — running '{}'", g_active_plan.resume_gcode);
+    if (!plan.resume_rpc.empty()) {
+        // The plugin's resume moves the machine only after the wizard's
+        // confirmations; Resume here just opens it.
+        spdlog::info("[PLR] User chose Resume — opening the guided resume");
+        get_plr_wizard_overlay().open(api);
+        return;
+    }
+    spdlog::info("[PLR] User chose Resume — running '{}'", plan.resume_gcode);
     // kMacroTimeoutMs, not the 60s default: resume macros rebuild and replay
     // the interrupted job (Qidi's RESUME_INTERRUPTED rewrites the gcode via a
     // shell pipeline over the whole file before printing it), so a big file can
     // legitimately run past a minute. A timeout toast here would be a lie - the
     // firmware keeps executing the resume.
-    run_recovery_gcode(api, g_active_plan.resume_gcode, lv_tr("Recovery failed: {}"), "Resume",
+    run_recovery_gcode(api, plan.resume_gcode, lv_tr("Recovery failed: {}"), "Resume",
                        IMoonrakerAPI::kMacroTimeoutMs);
 }
 
-void run_plr_discard(IMoonrakerAPI* api) {
+void run_plr_discard(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& plan) {
     if (!api) {
         spdlog::error("[PLR] discard: api is null");
         return;
     }
-    if (!g_active_plan.discard_gcode.empty()) {
-        spdlog::info("[PLR] User chose Discard — running '{}'", g_active_plan.discard_gcode);
-        run_recovery_gcode(api, g_active_plan.discard_gcode,
-                           lv_tr("Failed to discard recovery data: {}"), "Discard");
-    } else if (!g_active_plan.discard_rpc_method.empty()) {
-        spdlog::info("[PLR] User chose Discard — calling '{}'", g_active_plan.discard_rpc_method);
+    if (!plan.discard_gcode.empty()) {
+        spdlog::info("[PLR] User chose Discard — running '{}'", plan.discard_gcode);
+        run_recovery_gcode(api, plan.discard_gcode, lv_tr("Failed to discard recovery data: {}"),
+                           "Discard");
+    } else if (!plan.discard_rpc_method.empty()) {
+        spdlog::info("[PLR] User chose Discard — calling '{}'", plan.discard_rpc_method);
         const char* fail_fmt = lv_tr("Failed to discard recovery data: {}");
-        api->cancel_continue_print([]() { spdlog::info("[PLR] Discard accepted by firmware"); },
-                                   [fail_fmt](const MoonrakerError& err) {
-                                       report_action_error(err, fail_fmt, "Discard");
-                                   });
+        auto on_ok = []() { spdlog::info("[PLR] Discard accepted"); };
+        auto on_error = [fail_fmt](const MoonrakerError& err) {
+            report_action_error(err, fail_fmt, "Discard");
+        };
+        if (plan.discard_rpc_method == kPlrDiscardRpc) {
+            plr_rpc::discard(*api, on_ok, on_error);
+        } else {
+            api->cancel_continue_print(on_ok, on_error);
+        }
     } else {
         spdlog::warn("[PLR] discard: plan carries no discard action");
     }
 }
-
-} // namespace
 
 std::string plr_prompt_body(const std::string& file_path, const char* with_file_fmt,
                             const char* generic_body) {
@@ -178,7 +192,7 @@ void show_plr_recovery_prompt(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& 
     std::string body = plr_prompt_body(plan.recovery_file, chosen.with_file, chosen.generic);
 
     ConfirmOptions opts;
-    opts.on_cancel = [api] { run_plr_discard(api); };
+    opts.on_cancel = [api] { run_plr_discard(api, g_active_plan); };
     opts.cancel_text = lv_tr("Discard");
 
     // Resume = primary/confirm, Discard = secondary/cancel. modal_confirm closes
@@ -188,7 +202,7 @@ void show_plr_recovery_prompt(IMoonrakerAPI* api, const helix::PlrRecoveryPlan& 
     // outlive the modal (they do).
     lv_obj_t* dialog = modal_confirm(
         lv_tr("Resume interrupted print?"), body.c_str(), ModalSeverity::Info, lv_tr("Resume"),
-        [api] { run_plr_resume(api); }, opts);
+        [api] { run_plr_resume(api, g_active_plan); }, opts);
     if (!dialog) {
         spdlog::error("[PLR] Failed to create recovery prompt modal");
         return;

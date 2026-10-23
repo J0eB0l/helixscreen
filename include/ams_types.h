@@ -51,6 +51,30 @@ constexpr int kAmsMaxUnits = 16;
 /// past it keeps working in the backend and shows unbound in the UI.
 constexpr int kAmsMaxSlots = 64;
 
+/// unload_filament() slot meaning "clear the toolhead and retract no lane":
+/// cut and withdraw what the extruder holds, for filament no lane can be named
+/// for. Only a backend that asks an UnloadLaneQuestion accepts it.
+inline constexpr int kClearToolheadSlot = -3;
+
+/**
+ * @brief What the user must answer before a slotless toolhead unload, when the
+ *        backend cannot name the lane in the toolhead itself.
+ */
+struct UnloadLaneQuestion {
+    /// 0-based lanes to offer, alongside an extruder-only clear
+    /// (kClearToolheadSlot) and a cancel.
+    std::vector<int> lanes;
+    /// No lane to offer: ask to confirm the extruder-only clear.
+    bool confirm_clear_toolhead = false;
+    /// Why the clear is the only answer, shown in its confirmation in place
+    /// of the default explanation; empty for the default.
+    std::string reason;
+
+    [[nodiscard]] bool asks() const {
+        return !lanes.empty() || confirm_clear_toolhead;
+    }
+};
+
 /**
  * @brief Type of AMS system detected
  *
@@ -69,7 +93,8 @@ enum class AmsType {
     SNAPMAKER = 7,    ///< Snapmaker U1 SnapSwap toolchanger
     QIDI_BOX =
         8, ///< QIDI Box filament changer (PLUS4, Q2, MAX4 — hub AMS, 4 slots chainable to 16)
-    OPENAMS = 9 ///< klipper_openams through its own versioned oams_manager API
+    OPENAMS = 9, ///< klipper_openams through its own versioned oams_manager API
+    INDX = 10    ///< Bondtech INDX: docked passive nozzles, one extruder and heater
 };
 
 /**
@@ -97,8 +122,43 @@ inline const char* ams_type_to_string(AmsType type) {
         return "QIDI Box"; // i18n: do not translate - product name
     case AmsType::OPENAMS:
         return "OpenAMS"; // i18n: do not translate - product name
+    case AmsType::INDX:
+        return "INDX"; // i18n: do not translate - product name
     default:
         return "None";
+    }
+}
+
+/**
+ * @brief The type's name in the telemetry hardware profile (`ams.type`)
+ *
+ * The values are a published schema the telemetry dashboard groups by: never
+ * rename one. "unknown" when there is no filament system.
+ */
+inline const char* ams_type_telemetry_slug(AmsType type) {
+    switch (type) {
+    case AmsType::HAPPY_HARE:
+        return "happy_hare";
+    case AmsType::AFC:
+        return "afc";
+    case AmsType::ACE:
+        return "ace";
+    case AmsType::TOOL_CHANGER:
+        return "tool_changer";
+    case AmsType::AD5X_IFS:
+        return "ifs";
+    case AmsType::CFS:
+        return "cfs";
+    case AmsType::SNAPMAKER:
+        return "snapmaker";
+    case AmsType::QIDI_BOX:
+        return "qidi_box";
+    case AmsType::OPENAMS:
+        return "openams";
+    case AmsType::INDX:
+        return "indx";
+    default:
+        return "unknown";
     }
 }
 
@@ -140,6 +200,9 @@ inline AmsType ams_type_from_string(std::string_view str) {
     if (str == "openams" || str == "OpenAMS" || str == "oams_manager") {
         return AmsType::OPENAMS;
     }
+    if (str == "indx" || str == "INDX") {
+        return AmsType::INDX;
+    }
     return AmsType::NONE;
 }
 
@@ -147,7 +210,8 @@ inline AmsType ams_type_from_string(std::string_view str) {
  * @brief Check if AMS type is a physical tool changer
  *
  * Tool changers have fundamentally different behavior than filament systems:
- * - Each "slot" is a complete toolhead with its own extruder
+ * - Each "slot" is a tool with its own nozzle and filament (its own extruder,
+ *   except on INDX, where every docked nozzle shares the head's one extruder)
  * - Path topology is PARALLEL (not converging to a single nozzle)
  * - "Loading" means mounting the tool, not feeding filament
  *
@@ -155,7 +219,7 @@ inline AmsType ams_type_from_string(std::string_view str) {
  * @return true if this is a physical tool changer
  */
 inline bool is_tool_changer(AmsType type) {
-    return type == AmsType::TOOL_CHANGER || type == AmsType::SNAPMAKER;
+    return type == AmsType::TOOL_CHANGER || type == AmsType::SNAPMAKER || type == AmsType::INDX;
 }
 
 /**
@@ -2598,7 +2662,7 @@ struct DeviceAction {
     /// executing the action directly. Empty for an ordinary action.
     std::string guided_flow;
 
-    // Factories for the four control types. Argument order is fixed: id, label, section, the
+    // Factories for the five control types. Argument order is fixed: id, label, section, the
     // type-specific fields, then optional icon and description. scripts/translations/
     // cpp_tables.py reads the label and description positions of each call, so keep them literal.
 
@@ -2644,6 +2708,17 @@ struct DeviceAction {
                                 std::move(value), std::move(icon), std::move(description));
         a.type = ActionType::DROPDOWN;
         a.options = std::move(options);
+        return a;
+    }
+
+    /// A read-only row showing @p value as text.
+    static DeviceAction info(std::string id, std::string label, std::string section,
+                             std::string value, std::string icon = {},
+                             std::string description = {}) {
+        DeviceAction a =
+            toggle(std::move(id), std::move(label), std::move(section), std::any(std::move(value)),
+                   std::move(icon), std::move(description));
+        a.type = ActionType::INFO;
         return a;
     }
 

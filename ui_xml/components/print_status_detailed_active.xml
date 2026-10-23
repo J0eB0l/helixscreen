@@ -92,7 +92,7 @@
           </text_tiny>
           <nozzle_icon size="sm" badge_subject="" clickable="false" event_bubble="true"/>
           <icon src="chevron_down" size="sm" clickable="false" event_bubble="true">
-            <bind_flag_if_eq subject="print_status_multi_tool" flag="hidden" ref_value="0"/>
+            <bind_flag_if_eq subject="print_status_nozzle_pickable" flag="hidden" ref_value="0"/>
           </icon>
         </lv_obj>
         <!-- Bound to formatter-driven proxy subjects so pinning to a specific tool

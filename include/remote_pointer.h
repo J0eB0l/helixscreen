@@ -4,6 +4,7 @@
 #pragma once
 
 #include "lvgl.h"
+#include "wake_touch_latch.h"
 
 #include <atomic>
 #include <chrono>
@@ -24,8 +25,9 @@ namespace helix::remote {
  * It is compiled into every build: the built-in screen server drives it from a
  * browser on release builds, which have no ctl.
  *
- * This exists because `ctl click` is `lv_obj_send_event(obj, LV_EVENT_CLICKED)` — a
- * synthesized widget-level event with no input device and no coordinates behind it.
+ * This exists because `ctl click` is SHORT_CLICKED then CLICKED sent straight to the
+ * widget (helix::ui::send_tap): synthesized widget-level events with no input
+ * device and no coordinates behind them.
  * That is fine for "press this button", but it cannot exercise anything gestural:
  * a drag, a long-press, a slide onto a popover, or a tap that must not fire while a
  * list is scrolling. Code reading `lv_indev_active()` sees nothing at all.
@@ -121,6 +123,8 @@ class RemotePointer {
     [[nodiscard]] bool pressed() const;
 
   private:
+    friend struct RemotePointerTestAccess;
+
     RemotePointer() = default;
 
     static void read_cb(lv_indev_t* indev, lv_indev_data_t* data);
@@ -134,6 +138,8 @@ class RemotePointer {
     std::atomic<int32_t> logical_y_{0};
     std::atomic<bool> pressed_{false};
     std::atomic<uint64_t> reads_{0};
+    /// UI thread only: swallow the complete gesture that wakes the display.
+    WakeTouchLatch wake_latch_;
 };
 
 } // namespace helix::remote

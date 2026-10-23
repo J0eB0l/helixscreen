@@ -222,19 +222,63 @@ TEST_CASE_METHOD(PreheatSkipFixture, "preheat_skip_reason: a refused plan heats 
 // needs_prerequisite_home
 // ============================================================================
 
+TEST_CASE("prerequisite_home_needed: homes only for a backend or profile that needs it",
+          "[filament][homing]") {
+    struct Row {
+        const char* what;
+        FilamentTier tier;
+        bool toolhead_homed;
+        bool backend_delegates_homing;
+        bool macro_needs_home_first;
+        bool expect_home;
+    };
+    // An unrecognized macro is the user's own and runs as it is (#1819): its
+    // body may only extrude, and a G28 in front of it leaves the head low.
+    const Row row = GENERATE(values<Row>({
+        {"unrecognized macro, unhomed", FilamentTier::Macro, false, false, false, false},
+        {"profile needing a home, unhomed", FilamentTier::Macro, false, false, true, true},
+        {"profile needing a home, already homed", FilamentTier::Macro, true, false, true, false},
+        {"backend homing for itself, unhomed", FilamentTier::AmsBackend, false, false, false, true},
+        {"backend delegating to the printer, unhomed", FilamentTier::AmsBackend, false, true, false,
+         false},
+        {"backend, already homed", FilamentTier::AmsBackend, true, false, false, false},
+        {"profile claim does not reach the backend tier", FilamentTier::AmsBackend, false, true,
+         true, false},
+        {"backend claim does not reach the macro tier", FilamentTier::Macro, false, true, true,
+         true},
+        {"raw gcode, unhomed", FilamentTier::RawGcode, false, false, true, false},
+        {"refused, unhomed", FilamentTier::Refused, false, false, true, false},
+    }));
+    INFO(row.what);
+    CHECK(helix::ui::prerequisite_home_needed(row.tier, row.toolhead_homed,
+                                              row.backend_delegates_homing,
+                                              row.macro_needs_home_first) == row.expect_home);
+}
+
 TEST_CASE_METHOD(PreheatSkipFixture,
-                 "needs_prerequisite_home: an already-homed toolhead needs nothing",
+                 "needs_prerequisite_home: an unrecognized load macro runs unhomed as it is",
                  "[filament][preheat][homing]") {
     detect_with({"LOAD_FILAMENT"});
+    REQUIRE_FALSE(helix::filament_macros::macro_needs_home_first("LOAD_FILAMENT"));
     REQUIRE_FALSE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::Macro),
                                                      StandardMacroSlot::LoadFilament, nullptr,
-                                                     /*toolhead_homed=*/true));
+                                                     /*toolhead_homed=*/false));
+}
+
+TEST_CASE_METHOD(PreheatSkipFixture,
+                 "needs_prerequisite_home: an unrecognized unload macro runs unhomed as it is",
+                 "[filament][preheat][homing]") {
+    detect_with({"UNLOAD_FILAMENT"});
+    REQUIRE_FALSE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::Macro),
+                                                     StandardMacroSlot::UnloadFilament, nullptr,
+                                                     /*toolhead_homed=*/false));
 }
 
 TEST_CASE_METHOD(PreheatSkipFixture, "needs_prerequisite_home: a macro carrying its own home",
                  "[filament][preheat][homing]") {
     // M604 opens with _CG28, so a G28 of ours in front of it adds nothing.
     detect_with({"M604"});
+    REQUIRE_FALSE(helix::filament_macros::macro_needs_home_first("M604"));
     REQUIRE_FALSE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::Macro),
                                                      StandardMacroSlot::LoadFilament, nullptr,
                                                      /*toolhead_homed=*/false));
@@ -247,25 +291,6 @@ TEST_CASE_METHOD(PreheatSkipFixture, "needs_prerequisite_home: a macro carrying 
                                                /*toolhead_homed=*/false));
 }
 
-TEST_CASE_METHOD(PreheatSkipFixture,
-                 "needs_prerequisite_home: an ordinary macro still needs a home",
-                 "[filament][preheat][homing]") {
-    detect_with({"LOAD_FILAMENT"});
-    REQUIRE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::Macro),
-                                               StandardMacroSlot::LoadFilament, nullptr,
-                                               /*toolhead_homed=*/false));
-}
-
-TEST_CASE_METHOD(PreheatSkipFixture,
-                 "needs_prerequisite_home: the raw-gcode tier never needs a home",
-                 "[filament][preheat][homing]") {
-    // The fallback extrudes and retracts E only, which Klipper runs unhomed.
-    detect_with({"M604"});
-    REQUIRE_FALSE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::RawGcode),
-                                                     StandardMacroSlot::LoadFilament, nullptr,
-                                                     /*toolhead_homed=*/false));
-}
-
 TEST_CASE_METHOD(PreheatSkipFixture, "needs_prerequisite_home: a backend that does not delegate",
                  "[filament][preheat][homing]") {
     // Happy Hare and QIDI Box both answer delegates_homing_to_printer() false;
@@ -276,6 +301,9 @@ TEST_CASE_METHOD(PreheatSkipFixture, "needs_prerequisite_home: a backend that do
     REQUIRE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::AmsBackend),
                                                StandardMacroSlot::LoadFilament, &backend,
                                                /*toolhead_homed=*/false));
+    REQUIRE_FALSE(helix::ui::needs_prerequisite_home(plan_at(FilamentTier::AmsBackend),
+                                                     StandardMacroSlot::LoadFilament, &backend,
+                                                     /*toolhead_homed=*/true));
 }
 
 TEST_CASE_METHOD(PreheatSkipFixture, "preheat_skip_reason: an unload answers to the unload claim",

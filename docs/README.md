@@ -16,7 +16,7 @@ Welcome to the HelixScreen documentation. Choose your path:
 | [**Troubleshooting**](user/TROUBLESHOOTING.md) | Solutions to common problems |
 | [**FAQ**](user/FAQ.md) | Quick answers to common questions |
 | [**Telemetry**](user/TELEMETRY.md) | What telemetry collects, privacy controls, opt-in/out |
-| [**Feature Guides**](user/guide/) | 33 guides: per-feature (printing, calibration, filament, sensors, camera, and more) plus per-platform install guides (K1C, K2, AD5M, AD5X, CC1, Sonic Pad, U1, K-Touch, Linux desktop window) |
+| [**Feature Guides**](user/guide/) | 39 guides: per-feature (printing, calibration, filament, sensors, camera, the HelixPrint plugin, and more) plus per-platform install guides (K1C, K2, AD5M, AD5X, CC1, Sonic Pad, U1, K-Touch, Linux desktop window) |
 
 ---
 
@@ -71,7 +71,7 @@ Welcome to the HelixScreen documentation. Choose your path:
 |----------|-------------|
 | [**Label Printer System**](devel/LABEL_PRINTER_SYSTEM.md) | Brother QL, Phomemo, Niimbot, MakeID; USB/TCP/Bluetooth |
 | [**Filament Management**](devel/FILAMENT_MANAGEMENT.md) | Shared filament-system architecture: multi-backend, dispatch ladder, slot metadata, endless spool, dryer, device ops |
-| **Filament Backend Leaves** | Per-backend docs: [AFC](devel/FILAMENT_BACKEND_AFC.md), [Happy Hare](devel/FILAMENT_BACKEND_HAPPY_HARE.md), [ACE](devel/FILAMENT_BACKEND_ACE.md), [Tool Changer](devel/FILAMENT_BACKEND_TOOLCHANGER.md), [AD5X IFS](devel/FILAMENT_BACKEND_AD5X_IFS.md), [CFS](devel/FILAMENT_BACKEND_CFS.md), [QIDI Box](devel/FILAMENT_BACKEND_QIDI_BOX.md), [Snapmaker U1](devel/FILAMENT_BACKEND_SNAPMAKER_U1.md), [multiACE](devel/FILAMENT_BACKEND_MULTIACE.md), [MedusaHC](devel/FILAMENT_BACKEND_MEDUSAHC.md) |
+| **Filament Backend Leaves** | Per-backend docs: [AFC](devel/FILAMENT_BACKEND_AFC.md), [Happy Hare](devel/FILAMENT_BACKEND_HAPPY_HARE.md), [ACE](devel/FILAMENT_BACKEND_ACE.md), [Tool Changer](devel/FILAMENT_BACKEND_TOOLCHANGER.md), [AD5X IFS](devel/FILAMENT_BACKEND_AD5X_IFS.md), [CFS](devel/FILAMENT_BACKEND_CFS.md), [QIDI Box](devel/FILAMENT_BACKEND_QIDI_BOX.md), [Snapmaker U1](devel/FILAMENT_BACKEND_SNAPMAKER_U1.md), [multiACE](devel/FILAMENT_BACKEND_MULTIACE.md), [INDX](devel/FILAMENT_BACKEND_INDX.md), [MedusaHC](devel/FILAMENT_BACKEND_MEDUSAHC.md) |
 | [**Filament Slot Metadata (internal)**](devel/FILAMENT_SLOT_METADATA.md) | `FilamentSlotOverrideStore` implementation: per-backend hooks, hardware-event clearing, cache, migration |
 | [**Creality CFS Internals (K1)**](devel/printer-research/CREALITY_CFS_K1_INTERNALS.md) | K1-family CFS box-wrapper RE reference: `BOX_*` semantics, the printer-side tn_data.json userdata, deferred-failure/resume traps |
 | [**Creality CFS Internals (K2)**](devel/printer-research/CREALITY_CFS_K2_INTERNALS.md) | K2 CFS module RE reference: `box` schema variants, command surface, error codes, runout, the community Kalico port |
@@ -97,7 +97,8 @@ Welcome to the HelixScreen documentation. Choose your path:
 | [**Printer Manager**](devel/PRINTER_MANAGER.md) | Printer overlay, custom images, inline editing |
 | [**Timelapse**](devel/TIMELAPSE.md) | Moonraker timelapse plugin integration |
 | [**Crash Reporter**](devel/CRASH_REPORTER.md) | Crash detection, delivery pipeline, CF Worker |
-| [**HelixPrint Plugin**](../moonraker-plugin/README.md) | Print attribution Moonraker plugin (server/helix/print_modified + server/helix/status) |
+| [**HelixPrint Plugin**](devel/HELIXPRINT_PLUGIN.md) | The Moonraker plugin and the app: feature framework, plugin-vs-fallback decisions, settings placement, the Lua allowlist, file analysis, print hooks, server edits, event journal, config edit |
+| [**HelixPrint Plugin API**](../moonraker-plugin/README.md) | Plugin reference: install, configuration, every server/helix endpoint and record |
 
 ### Platform Support
 
@@ -160,7 +161,7 @@ docs/
 │   ├── CONFIGURATION.md      # Settings reference
 │   ├── TROUBLESHOOTING.md    # Common problems
 │   ├── FAQ.md                # Frequently asked questions
-│   └── guide/                # 33 guides: per-feature + per-platform install (+ guide/settings/)
+│   └── guide/                # 39 guides: per-feature + per-platform install (+ guide/settings/)
 │
 ├── devel/                    # DEVELOPER DOCUMENTATION
 │   ├── CLAUDE.md             # Full developer doc index

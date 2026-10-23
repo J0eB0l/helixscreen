@@ -1347,14 +1347,17 @@ bool Application::init_display() {
     DisplayManager::Config config;
     config.width = m_screen_width;
     config.height = m_screen_height;
-    // The first-boot probe's kernel panel_orientation is applied here, as the
-    // configured rotation, so it is in place before the backends create their
-    // input devices and gate the stored touch range on it (#1428).
+    // The first-boot orientation is applied by display init, as the configured
+    // rotation, so it is in place before the backends create their input devices
+    // and gate the stored touch range on it (#1428): the kernel's
+    // panel_orientation here, the board's mount once init knows the framebuffer.
     m_rotation_probe_wanted = rotation_probe_wanted();
-    m_kernel_orientation =
+    const int kernel_orientation =
         m_rotation_probe_wanted ? DisplayBackend::detect_panel_orientation() : -1;
     config.rotation =
-        helix::startup_rotation(m_args.rotation, m_rotation_probe_wanted, m_kernel_orientation);
+        helix::startup_rotation(m_args.rotation, m_rotation_probe_wanted, kernel_orientation);
+    config.first_boot_probe = m_rotation_probe_wanted;
+    config.kernel_orientation = kernel_orientation;
     config.size_was_explicit = m_args.size_was_explicit;
 
     // Get scroll config from settings.json
@@ -1628,7 +1631,7 @@ bool Application::rotation_probe_wanted() const {
     // Skip if: CLI rotation set, env var set, already probed, or config already
     // has a /display/rotate key (even if 0 — means user already configured it).
     // HELIX_FORCE_ROTATION_PROBE=1 bypasses all guards (for testing on SDL).
-    if (std::getenv("HELIX_FORCE_ROTATION_PROBE") != nullptr) {
+    if (helix::rotation_probe_forced()) {
         spdlog::info("[Application] Rotation probe forced via HELIX_FORCE_ROTATION_PROBE");
         return true;
     }
@@ -1661,25 +1664,26 @@ void Application::run_rotation_probe_and_layout() {
             int32_t pre_w = m_screen_width;
             int32_t pre_h = m_screen_height;
 
-            // Kernel panel_orientation first. It is informational — the kernel
-            // does NOT rotate the framebuffer — and init_display() has already
-            // applied it, so only the config write remains.
-            const int kernel_orientation = m_kernel_orientation;
-            if (kernel_orientation >= 0) {
+            // A known orientation first: the kernel's panel_orientation (which
+            // is informational, the kernel does NOT rotate the framebuffer) or
+            // the board's mount. init_display() has already applied it, so only
+            // the config write remains.
+            const int known_orientation = m_display->first_boot_orientation();
+            if (known_orientation >= 0) {
                 // Orientation detected (0=Normal, 90, 180, 270).
-                if (kernel_orientation > 0) {
+                if (known_orientation > 0) {
                     spdlog::info("[Application] Auto-detected panel orientation: {}° — "
                                  "applied at display init, saving to config",
-                                 kernel_orientation);
+                                 known_orientation);
                 } else {
                     spdlog::info("[Application] Auto-detected panel orientation: Normal (0°) — "
                                  "no rotation needed, saving to config");
                 }
-                m_config->set("/display/rotate", kernel_orientation);
+                m_config->set("/display/rotate", known_orientation);
                 m_config->set("/display/rotation_probed", true);
                 m_config->save();
             } else {
-                // kernel_orientation == -1: not detected, run interactive probe.
+                // known_orientation == -1: not known, run interactive probe.
                 // Dismiss splash first — the probe renders full-screen UI to the
                 // framebuffer, which is invisible while the splash process is
                 // painting over it and the flush callback is suppressed.
@@ -1767,6 +1771,7 @@ bool Application::register_xml_components() {
     // flow is refused rather than executed.
     helix::ui::register_cfs_device_flows();
     helix::ui::register_snapmaker_device_flows();
+    helix::ui::register_indx_device_flows();
 
     // Start XML hot reloader if enabled. Default ON for native (non-release)
     // builds so editing XML during dev Just Works; OFF for cross-compiled

@@ -26,6 +26,8 @@ class FilamentSlotPicker {
         int slot_index = -1;
         int backend_index = -1;
         bool is_auto = false;
+        /// The row Options::extra_choice added was tapped, not a slot.
+        bool is_extra = false;
     };
 
     using SelectCallback = std::function<void(const Selection&)>;
@@ -58,6 +60,12 @@ class FilamentSlotPicker {
         /// Outline the trigger while open. Meant for a swatch trigger, whose
         /// resting border hide() restores; leave it off for a button.
         bool highlight_trigger = true;
+        /// Text of one more row after the slots, an answer that names no
+        /// slot (Selection::is_extra); empty adds none.
+        std::string extra_choice;
+        /// Text of a last row that closes the picker like a backdrop tap,
+        /// answering nothing; empty adds none.
+        std::string cancel_choice;
     };
 
     /// @copydoc show(lv_obj_t*, lv_obj_t*, int, const std::string&, const
@@ -73,6 +81,8 @@ class FilamentSlotPicker {
 
   private:
     void create_slot_row(lv_obj_t* list, int index, const helix::AvailableSlot& slot);
+    void create_extra_row(lv_obj_t* list, const std::string& text);
+    void create_cancel_row(lv_obj_t* list, const std::string& text);
     void select(const Selection& sel);
     void position_card(lv_obj_t* card);
     void scroll_to_selected(lv_obj_t* card);

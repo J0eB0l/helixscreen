@@ -169,7 +169,7 @@ On small portrait screens there is room for the steps only as a row of dots, so 
 |--------|--------|
 | **Bypass** (toggle) | Feed filament directly to the extruder, bypassing the AMS. Shown when your hardware supports bypass, or when you turn on **Enable Bypass Controls** - see [When Bypass Doesn't Appear](#when-bypass-doesnt-appear). The toggle is guarded: it can't be changed while a job holds the machine (a "Bypass cannot be changed while printing" warning appears), if a lane's filament is loaded it is unloaded first before bypass engages, and where a hardware sensor owns the bypass the toggle only reports that the sensor is in control. |
 | **Load...** | Opens a picker naming each tool and the slot it loads from - the slot set as its **Assigned Tool**. Pick the tool and confirm. To load any other slot, tap that slot in the slot view and choose **Load** |
-| **Unload** | Retract the currently loaded filament back to its slot. It also works when filament is stuck in the toolhead and no slot claims it, on systems that can tell. If your system needs to know which slot that filament came from and cannot tell, Unload first asks **Which lane is in the toolhead?** - pick the lane, or tap outside the list to cancel. On a printer with several toolheads it reads **Unload...** and opens the picker instead - see below |
+| **Unload** | Retract the currently loaded filament back to its slot. It also works when filament is stuck in the toolhead and no slot claims it, on systems that can tell. If your system needs to know which slot that filament came from and cannot tell, Unload first asks **Which lane is in the toolhead?** and lists the lanes that hold filament, even when there is only one. Pick the lane, tap **Clear extruder only** to cut and clear the extruder without pulling any lane back (the rest of that strand stays in its tube, near the toolhead), or tap **Cancel**. When no lane holds filament it asks **Clear the extruder?** instead. On the FlashForge AD5X, a lane whose load failed partway is remembered and unloaded without asking. On a printer with several toolheads it reads **Unload...** and opens the picker instead - see below |
 | **Mount...** / **Park** | Tool changers. **Mount...** picks a tool and puts it on the carriage; **Park** puts the mounted tool back in its dock. On a tool changer that cannot feed filament itself, these stand where Load and Unload would be |
 | **Reset** | Reset the AMS system state (useful after jams or errors) |
 | **Check slots** | Happy Hare only: checks every slot's sensor. The printer parks the toolhead and moves each lane's filament to test it, so the button is grayed out while a print is running |
@@ -288,6 +288,8 @@ Tap a slot and choose **Edit Spool** to open the spool editor. This tells HelixS
 
 - The two round buttons in the header, left of **Save**, open your **Spoolman spool list** and **Scan QR Code** (scan a spool label to look the spool up). In the list, search for a spool and tap it: the editor comes back with that spool's brand, material, color and temperatures filled in, ready to save. The list ends in **Not in your spools? Set it up**, which goes back to the editor so you can describe the spool by hand.
 - **Select Spool** in the slot's menu opens the same list directly. Tapping a spool there links it to the slot and saves straight away.
+- **Grayed-out spools** in the list are already linked to another slot (or tool) and can't be picked: one physical spool can't sit in two places. Unlink it from the other slot first, or pick a different spool. The External Spool editor grays out every spool that is linked to a slot, so to link a spool to a CFS or AMS slot, edit that slot rather than the external spool.
+- Linking a spool to a slot also decides which spool Spoolman deducts usage from when that slot is loaded. See [Which spool Spoolman charges](filament-tracking.md#which-spool-spoolman-charges-on-a-multi-filament-system).
 - **More** (only on a slot linked to a Spoolman spool) opens the spool's **Price**, **Location**, **Lot/Batch Nr** and **Notes**, plus **Print Label** when a label printer is set up. These are saved to the spool in Spoolman.
 - **Add to Spoolman + label** (only on a slot that isn't linked) creates the spool in Spoolman from what you've entered, links it to the slot, and prints its label when a label printer is set up.
 
@@ -330,7 +332,7 @@ Every piece of information on a lane - color, material, brand, spool name, remai
 - **Your edits are marked as yours in the record the printer shares with other tools**, so Mainsail, OrcaSlicer or a macro refreshing that record does not wipe what you entered.
 - **A reading that leaves a field out leaves it standing.** A status frame that says nothing about, say, brand keeps whatever another source already knew.
 
-**Swapping a spool is noticed, even with the screen off.** Each lane remembers a fingerprint of the spool it held, so a spool swapped while HelixScreen was not running clears the old spool's edits instead of painting them onto the new one. This works on the QIDI Box, on the Creality CFS (including community Kalico-based CFS setups), and - by RFID tag - on the Snapmaker U1.
+**Swapping a spool is noticed, even with the screen off.** Each lane remembers a fingerprint of the spool it held, so a spool swapped while HelixScreen was not running clears the old spool's edits instead of painting them onto the new one. This works on the QIDI Box, on the Creality CFS (including community Kalico-based CFS setups; see [RFID Detection](#rfid-detection) for the swaps it can't see), and - by RFID tag - on the Snapmaker U1.
 
 ### Filament Mapping
 
@@ -358,7 +360,7 @@ Tap **Done** to keep your mapping, or **Cancel** to discard it.
 
 Most filament systems carry out your mapping themselves: HelixScreen tells the printer "tool 0 comes from slot 2" and the printer does the rest. A few can't, because their firmware has no mapping table. On those, HelixScreen rewrites a copy of the G-code with the new tool numbers and prints that copy. Today that means a tool changer running without klipper-toolchanger, such as the [MedusaHC fork](#medusahc-hotend-changer) that drops `[toolchanger]`.
 
-This needs the **HelixPrint plugin** on your printer. Without it the mapping card offers to install it instead. With it, the finished job is listed in print history under its original name ([details](print-history.md)).
+This needs the **HelixPrint plugin** on your printer. Without it the mapping card offers to install it instead. A current plugin makes the rewritten copy on the printer itself; with an older one, the screen downloads the file, rewrites it and uploads the copy. With it, the finished job is listed in print history under its original name ([details](print-history.md)).
 
 **What the rewrite changes:**
 
@@ -421,6 +423,7 @@ Tap **Settings** in the sidebar to open the AMS Management overlay with advanced
 - **Bypass Mode** — Toggle direct-feed mode (if supported by hardware). The toggle refuses while a filament operation is running, and on systems that require it, while filament is still loaded - unload first. When a hardware sensor owns the bypass, this row becomes a read-only "Controlled by hardware sensor" indicator instead of a toggle. If your machine has no bypass according to its firmware, an **Enable Bypass Controls** toggle appears here instead - see [When Bypass Doesn't Appear](#when-bypass-doesnt-appear)
 - **Always Show Bypass Spool** — Keep the external spool visible on the filament path even while bypass is disengaged (AFC systems only)
 - **Keep Spool Info on Eject** — When a lane is emptied, keep its spool details so reloading the same spool after maintenance needs no re-selection (on by default). Turn it off to start fresh when a lane empties. This applies only to spools you selected in HelixScreen: a spool assigned elsewhere (such as Mainsail) clears with the lane. To have every assigned spool remembered no matter where it was picked, use the firmware's own retention instead (AFC: `remember_spool` in AFC.cfg) - HelixScreen follows the spool the firmware reports. Note that when the firmware's own retention is switched on for every lane, it takes precedence: this toggle then has no effect and shows as disabled with a note explaining why. Shown on systems whose firmware tracks spool ids per lane (such as AFC and Happy Hare); systems that detect spool swaps by tag always refresh on a swap regardless of this setting.
+- **Link Spools from Tags** - When a spool whose tag names a Spoolman spool is put in a slot, link the slot to that spool (on by default). Shown on systems whose tags can carry a Spoolman spool number (Creality CFS) when Spoolman is set up. See [Tags and Spoolman](#rfid-detection).
 - **Reset Endless Spool** — Clear every slot's backup at once, so a runout stops the print until you set up Endless Spool again. Only appears on systems whose Endless Spool backups you can edit here (AFC, single-unit Happy Hare); hidden on CFS and AD5X, which manage it in firmware. Asks you to confirm before clearing. See [Endless Spool / Backup Slot](#slot-context-menu) above.
 - **System status** — Current system state and firmware version
 
@@ -515,6 +518,21 @@ CFS units have built-in RFID readers that automatically detect Creality filament
 - Supported materials include Hyper PLA, Hyper PETG, Hyper ABS, CR-PLA, CR-Silk, and more
 - Remaining filament length is tracked automatically
 - If a spool isn't recognized, a generic entry is shown — you can identify it manually
+
+**What HelixScreen gets from a tag.** The CFS reads the tag itself and reports a material code, a color and the remaining length; HelixScreen turns the code into the material, brand and nozzle temperature range from Creality's filament list. You can change any of these in the slot's **Edit Spool** editor, and **Reset to tag** puts the tag's values back. A change you make goes to the CFS's own record of the slot, so Creality's screen shows it too; HelixScreen has no way to write to the tag itself. Only what the CFS reports reaches HelixScreen, so extra data stored on a tag (in its spare bytes, for example) is not shown.
+
+**Tags and Spoolman.** A tag written with a phone app such as CFTag can carry a Spoolman spool number in its serial number. When you put a spool with such a tag in a slot, HelixScreen links the slot to that Spoolman spool, just as if you had picked it with **Select Spool**, and a short notice says so. A few things to know:
+
+- If the number doesn't match a spool in your Spoolman, a notice says so and the slot is left as it was.
+- If you pick a different spool for the slot while the same spool stays in it, your pick is kept. The tag is read again only when a spool is put in.
+- After HelixScreen restarts, a spool already sitting in a slot links only a slot that isn't linked to anything. So if you unlinked such a slot by hand, a restart links it again; turn **Link Spools from Tags** off to keep it unlinked.
+- A stock Creality spool has serial number 000001 on every tag, so it names no Spoolman spool. For the same reason, spool #1 in Spoolman can't be linked from a tag; pick it by hand.
+- To turn this off, use **Link Spools from Tags** in the CFS settings (see [AMS Management](#ams-management-settings-overlay)).
+
+**Putting a different spool in a slot.** HelixScreen recognizes a new spool by a change in the tag's material code or color. When either changes, it drops what it remembered about the old spool on that slot (your edits, the Spoolman link, the remaining weight), so they don't follow the wrong spool. Two cases are not noticed, and in both the slot keeps the old spool's Spoolman link and details until you change them yourself:
+
+- **Same material and same color.** Swapping one Creality spool for another of the identical filament and color looks unchanged. Pick the new spool for that slot with **Select Spool**. A tag that carries a Spoolman spool number is the exception: the new tag's number links the slot to the new spool.
+- **Spools without a tag.** There is nothing to compare, so a swap is not noticed. Update the slot by hand.
 
 > **Tip:** If a slot shows incorrect info, remove and re-seat the spool to trigger a fresh RFID read.
 

@@ -1547,8 +1547,8 @@ nlohmann::json TelemetryManager::build_session_event() const {
         const auto& bv = hw.build_volume();
         if (bv.x_max > 0 && bv.y_max > 0) {
             // Format as "XxYxZ" using integer dimensions
-            std::string vol = std::to_string(static_cast<int>(bv.x_max - bv.x_min)) + "x" +
-                              std::to_string(static_cast<int>(bv.y_max - bv.y_min));
+            std::string vol = std::to_string(static_cast<int>(bv.printable_x())) + "x" +
+                              std::to_string(static_cast<int>(bv.printable_y()));
             if (bv.z_max > 0) {
                 vol += "x" + std::to_string(static_cast<int>(bv.z_max));
             }
@@ -1941,35 +1941,7 @@ nlohmann::json TelemetryManager::build_hw_capabilities_section(const helix::Prin
 
 nlohmann::json TelemetryManager::build_hw_ams_section(const helix::PrinterDiscovery& hw) const {
     json ams;
-    switch (hw.mmu_type()) {
-    case AmsType::HAPPY_HARE:
-        ams["type"] = "happy_hare";
-        break;
-    case AmsType::AFC:
-        ams["type"] = "afc";
-        break;
-    case AmsType::ACE:
-        ams["type"] = "ace";
-        break;
-    case AmsType::TOOL_CHANGER:
-        ams["type"] = "tool_changer";
-        break;
-    case AmsType::AD5X_IFS:
-        ams["type"] = "ifs";
-        break;
-    case AmsType::CFS:
-        ams["type"] = "cfs";
-        break;
-    case AmsType::QIDI_BOX:
-        ams["type"] = "qidi_box";
-        break;
-    case AmsType::OPENAMS:
-        ams["type"] = "openams";
-        break;
-    default:
-        ams["type"] = "unknown";
-        break;
-    }
+    ams["type"] = ams_type_telemetry_slug(hw.mmu_type());
     ams["unit_count"] = lv_subject_get_int(AmsState::instance().get_backend_count_subject());
     // Bays that exist: the slot-count subject is the index span, which counts a
     // box held at its address while off the bus.
@@ -2060,8 +2032,8 @@ nlohmann::json TelemetryManager::build_hardware_profile_event() const {
             const auto& bv = api ? api->hardware().build_volume() : hw.build_volume();
             if (bv.x_max > 0 && bv.y_max > 0) {
                 json build_volume;
-                build_volume["x_mm"] = static_cast<int>(bv.x_max - bv.x_min);
-                build_volume["y_mm"] = static_cast<int>(bv.y_max - bv.y_min);
+                build_volume["x_mm"] = static_cast<int>(bv.printable_x());
+                build_volume["y_mm"] = static_cast<int>(bv.printable_y());
                 build_volume["z_mm"] = static_cast<int>(bv.z_max);
                 event["build_volume"] = build_volume;
             }

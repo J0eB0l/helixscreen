@@ -15,18 +15,22 @@
  */
 
 #include "ui_print_tune_overlay.h"
+#include "ui_utils.h"
 
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/panel_widget_size_harness.h"
 #include "../test_helpers/scoped_breakpoint.h"
+#include "../test_helpers/scoped_pointer_indev.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
 #include "display_settings_manager.h"
+#include "home_edit_mode_test_helpers.h"
 #include "moonraker_api.h"
 #include "moonraker_client_mock.h"
 #include "panel_widget_manager.h"
 #include "printer_state.h"
 #include "src/ui/panel_widgets/speed_flow_widget.h"
+#include "static_panel_registry.h"
 #include "tune_controller.h"
 
 #include "../catch_amalgamated.hpp"
@@ -323,7 +327,7 @@ struct SpeedFlowActionFixture : public SpeedFlowFixture {
         return mock.last_send_script();
     }
     void tap(lv_obj_t* obj) {
-        lv_obj_send_event(obj, LV_EVENT_CLICKED, nullptr);
+        helix::ui::send_tap(obj);
     }
 
     MoonrakerClientMock mock;
@@ -333,7 +337,8 @@ struct SpeedFlowActionFixture : public SpeedFlowFixture {
 
 } // namespace
 
-TEST_CASE_METHOD(SpeedFlowActionFixture, "speed_flow: steppers send 5 percent steps, clamped",
+TEST_CASE_METHOD(SpeedFlowActionFixture,
+                 "speed_flow: speed steppers step 5 percent, flow 1 percent, clamped",
                  "[widget_size][speed_flow][actions]") {
     PanelWidgetHarness<SpeedFlowWidget> h(test_screen(), state());
     h.resize(1, 1, 234, 232);
@@ -345,9 +350,9 @@ TEST_CASE_METHOD(SpeedFlowActionFixture, "speed_flow: steppers send 5 percent st
     tap(part(h, "speed", "speed_flow_minus"));
     CHECK(last_sent() == "M220 S95");
     tap(part(h, "flow", "speed_flow_plus"));
-    CHECK(last_sent() == "M221 S105");
+    CHECK(last_sent() == "M221 S101");
     tap(part(h, "flow", "speed_flow_minus"));
-    CHECK(last_sent() == "M221 S95");
+    CHECK(last_sent() == "M221 S99");
 
     set_percentages(helix::tune::kSpeedMaxPct, helix::tune::kFlowMaxPct);
     tap(part(h, "speed", "speed_flow_plus"));
@@ -404,6 +409,105 @@ TEST_CASE_METHOD(SpeedFlowActionFixture,
     tap(h.root());
     process_lvgl(500);
     CHECK(get_print_tune_overlay().is_visible());
+}
+
+TEST_CASE_METHOD(SpeedFlowActionFixture,
+                 "speed_flow: a held value resets its axis and its release opens nothing",
+                 "[widget_size][speed_flow][actions][tap_hold]") {
+    // The overlay is a lazily created singleton an earlier case may have left
+    // open; drop it so this case starts with none.
+    StaticPanelRegistry::instance().destroy_all();
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE_FALSE(get_print_tune_overlay().is_visible());
+
+    PanelWidgetHarness<SpeedFlowWidget> h(test_screen(), state());
+    h.resize(1, 1, 234, 232);
+    set_percentages(130, 100);
+    helix::ui::set_event_bubble_recursive(h.root());
+    lv_obj_update_layout(test_screen());
+
+    const auto centre = [](lv_obj_t* obj) {
+        lv_area_t a;
+        lv_obj_get_coords(obj, &a);
+        return lv_point_t{(a.x1 + a.x2) / 2, (a.y1 + a.y2) / 2};
+    };
+    helix_test::ScopedPointerIndev finger;
+
+    lv_obj_t* value = part(h, "speed", "speed_flow_full_value");
+    lv_point_t p = centre(value);
+    REQUIRE(lv_indev_search_obj(test_screen(), &p) == value);
+    finger.press(p.x, p.y);
+    finger.hold(finger.long_press_hold_ms());
+    finger.release(p.x, p.y);
+    process_lvgl(500);
+    CHECK(last_sent() == "M220 S100");
+    CHECK_FALSE(get_print_tune_overlay().is_visible());
+
+    // A quick tap on a stepper steps, and stops short of the tile's tap.
+    set_percentages(100, 100);
+    lv_obj_t* plus = part(h, "speed", "speed_flow_plus");
+    p = centre(plus);
+    REQUIRE(lv_indev_search_obj(test_screen(), &p) == plus);
+    finger.press(p.x, p.y);
+    finger.release(p.x, p.y);
+    process_lvgl(500);
+    CHECK(last_sent() == "M220 S105");
+    CHECK_FALSE(get_print_tune_overlay().is_visible());
+}
+
+TEST_CASE_METHOD(SpeedFlowActionFixture,
+                 "speed_flow: a slow tap on a stepper steps unless the home grid takes the hold",
+                 "[widget_size][speed_flow][actions][tap_hold][home][grid_edit]") {
+    helix_test::ScopedLockState lock_state;
+    HomePanel& panel = get_global_home_panel();
+    lv_obj_t* page_container = helix_test::make_long_press_container(test_screen());
+    helix_test::ScopedHomePanelPage page(panel, page_container);
+
+    PanelWidgetHarness<SpeedFlowWidget> h(page_container, state());
+    h.resize(1, 1, 234, 232);
+    set_percentages(100, 100);
+    helix::ui::set_event_bubble_recursive(page_container);
+    lv_obj_update_layout(test_screen());
+
+    lv_obj_t* plus = part(h, "speed", "speed_flow_plus");
+    lv_area_t a;
+    lv_obj_get_coords(plus, &a);
+    lv_point_t p{(a.x1 + a.x2) / 2, (a.y1 + a.y2) / 2};
+    REQUIRE(lv_indev_search_obj(test_screen(), &p) == plus);
+    helix_test::ScopedPointerIndev finger;
+    const auto slow_tap = [&] {
+        finger.press(p.x, p.y);
+        finger.hold(finger.long_press_hold_ms());
+        finger.release(p.x, p.y);
+    };
+
+    SECTION("edit mode off: the grid declines the hold and the stepper steps") {
+        helix_test::ScopedInputSettings input_settings(false);
+        slow_tap();
+        CHECK_FALSE(HomePanelTestAccess::edit_mode_active(panel));
+        CHECK(last_sent() == "M220 S105");
+    }
+
+    SECTION("edit mode on: the hold enters edit mode and the stepper does not step") {
+        helix_test::ScopedInputSettings input_settings(true);
+        slow_tap();
+        CHECK(HomePanelTestAccess::edit_mode_active(panel));
+        CHECK(last_sent() == "M220 S77");
+    }
+
+    SECTION("edit mode on: the entry hold kept down longer never becomes a second hold") {
+        helix_test::ScopedInputSettings input_settings(true);
+        int holds = 0;
+        lv_obj_add_event_cb(
+            page_container, [](lv_event_t* e) { ++*static_cast<int*>(lv_event_get_user_data(e)); },
+            LV_EVENT_LONG_PRESSED, &holds);
+        finger.press(p.x, p.y);
+        finger.hold(3 * finger.long_press_hold_ms());
+        finger.release(p.x, p.y);
+        CHECK(HomePanelTestAccess::edit_mode_active(panel));
+        // A second hold inside edit mode would grab the widget the entry only selected.
+        CHECK(holds == 1);
+    }
 }
 
 TEST_CASE_METHOD(SpeedFlowFixture, "speed_flow: an override off 100 draws amber at every rung",

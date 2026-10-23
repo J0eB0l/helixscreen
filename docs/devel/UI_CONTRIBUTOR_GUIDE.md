@@ -539,6 +539,12 @@ Severities: `info`, `success`, `warning`, `error`
 </ui_severity_card>
 ```
 
+`severity` is fixed when the card is created, so a severity card cannot sit in a `<repeat>` whose
+rows change. For a list of history-style rows use `notification_history_item`
+(`ui_xml/notification_history_item.xml`): every field, severity included (0 info, 1 success,
+2 warning, 3 error), is bound to a per-row subject, and the notification history and the Printer
+Events view both build it from `IndexedSubjectPool`s.
+
 ### ui_switch
 
 Responsive toggle switch. Sizes scale with the current breakpoint.

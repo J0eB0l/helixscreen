@@ -74,6 +74,7 @@ namespace helix {
  */
 struct BackendTraits {
     bool load_feeds_filament = false;
+    bool load_swaps_seated_lane = false;
     bool tracks_consumption_natively = false;
     bool hub_on_toolhead = false;
     bool has_per_slot_loaded_authority = false;
@@ -136,6 +137,17 @@ struct HeadFilamentOps {
     std::string load_reason;   ///< Translated; empty when load is Automatic
     std::string unload_reason; ///< Translated; empty when unload is Automatic
 };
+
+/**
+ * @brief The entry of @p list that @p material names, or nullopt
+ *
+ * Case-insensitive exact match, then @p aliases, then the filament database's
+ * compat_group (e.g. "Wood PLA" -> "PLA"). No fallback: an unmatched material
+ * stays unmatched. AmsBackend::normalize_material() adds its own.
+ */
+[[nodiscard]] std::optional<std::string>
+match_material(const std::string& material, const std::vector<std::string>& list,
+               const std::vector<std::pair<std::string, std::string>>& aliases = {});
 
 /**
  * @brief Abstract interface for AMS/MMU backend implementations
@@ -351,6 +363,27 @@ class AmsBackend {
     }
 
     /**
+     * @brief Whether every tool prints through one shared extruder and heater
+     *
+     * The tools are separate nozzles (separate heads to the UI), but the one
+     * heater only ever heats the mounted nozzle, so heater surfaces show one
+     * temperature that follows the mounted tool.
+     */
+    [[nodiscard]] virtual bool heads_share_heater() const {
+        return false;
+    }
+
+    /**
+     * @brief Why the nozzle heater must not be given a target now
+     *
+     * Non-empty refuses any nozzle target above 0 (e.g. no tool mounted on a
+     * shared-heater changer). Empty when heating is allowed.
+     */
+    [[nodiscard]] virtual std::string nozzle_heat_blocked_reason() const {
+        return {};
+    }
+
+    /**
      * @brief Toolhead style this backend implies when the printer database has none
      *
      * Same vocabulary as the database's toolhead_style field (e.g. "creality_k2");
@@ -378,6 +411,17 @@ class AmsBackend {
     [[nodiscard]] virtual std::optional<helix::ams::TagReading> tag_reading(int slot_index) const {
         (void)slot_index;
         return std::nullopt;
+    }
+
+    /**
+     * @brief Whether this backend's tag readings can name a Spoolman spool
+     *
+     * True when tag_reading() fills TagReading::spoolman_id for tags that
+     * carry one. Gates the setting that links a lane to the spool its tag
+     * names; the linking itself reads only tag_reading().
+     */
+    [[nodiscard]] virtual bool tags_name_spoolman_spools() const {
+        return false;
     }
 
     /**
@@ -426,22 +470,27 @@ class AmsBackend {
     /**
      * @brief The firmware's DEFAULT tool -> physical head map.
      *
-     * What the printer would do with a file if nobody remapped anything. NOT the
-     * live map (AmsSystemInfo::tool_to_slot_map carries that, and it is not even
-     * uniformly available - an AFC tracks it, a U1 freezes it at 1:1 while its
-     * real map lives in print_task_config.extruder_map_table).
+     * What the printer would do with a file if nobody remapped anything at print
+     * time. A firmware that routes by a standing table the user edits on the
+     * printer (an AFC lane map, a Happy Hare TTG map, a CFS tool table) routes an
+     * unremapped print by that table, so the default answers it: a backend with
+     * a Native remap route whose printer has stated its table
+     * (firmware_reported_tool_mapping()) reports get_tool_mapping(). Every other
+     * backend is lane-per-tool: tool N owns lane N, with no upper bound.
      *
-     * The default is lane-per-tool, which is every backend except two: tool N
-     * owns lane N, with no upper bound. Override only when the hardware genuinely
-     * disagrees - a bounded-head machine (Snapmaker U1) or one that publishes an
-     * arbitrary table (FlashForge AD5X IFS).
+     * Not every live map is a default: a U1 freezes get_tool_mapping() at 1:1
+     * while its real map lives in print_task_config.extruder_map_table, and a
+     * per-print map sent before the job is gone once it ends. Override when the
+     * hardware disagrees - a bounded-head machine (Snapmaker U1) or one that
+     * publishes a table through another surface (FlashForge AD5X IFS).
      *
      * Adding a third shape must touch only the new backend. A constant in shared
      * code instead of this question is what sent every AFC tool above 3 to lane 0.
+     *
+     * @note Calls get_tool_mapping(), which takes the backend's mutex_ on most
+     *       backends: never call this with mutex_ held.
      */
-    [[nodiscard]] virtual helix::FirmwareRouting firmware_default_routing() const {
-        return helix::FirmwareRouting::identity();
-    }
+    [[nodiscard]] virtual helix::FirmwareRouting firmware_default_routing() const;
 
     /**
      * @brief Channel A: backend-specific classification of one gcode-response
@@ -711,6 +760,19 @@ class AmsBackend {
     }
 
     /**
+     * @brief True when load_filament() itself clears whatever lane is seated in
+     *        the target's path before feeding the target.
+     *
+     * The planner then sends Load even when needs_unload_before_load() answers
+     * true, instead of routing the swap through change_tool(). A tool change on
+     * a machine whose heads dock only mounts a head, so it cannot stand in for a
+     * lane swap there.
+     */
+    [[nodiscard]] bool load_swaps_seated_lane() const {
+        return traits().load_swaps_seated_lane;
+    }
+
+    /**
      * @brief Why this slot's unload is unavailable, in one line, or empty.
      *
      * A disabled button with no explanation reads as a bug. This is for the case
@@ -765,16 +827,15 @@ class AmsBackend {
     }
 
     /**
-     * @brief Lanes the user must choose from before a slotless toolhead unload.
+     * @brief The question to ask before a slotless toolhead unload.
      *
-     * Non-empty only when filament sits in the toolhead, the backend cannot name
+     * Has lanes only when filament sits in the toolhead, the backend cannot name
      * the lane it came from, and its unload command needs one. The caller asks
-     * which lane is in the head and passes it to unload_filament(); an empty
-     * list means unload_filament(-1) resolves the lane itself.
-     *
-     * @return 0-based slot indices to offer, empty when no choice is needed
+     * which lane is in the head and passes it to unload_filament(), or passes
+     * kClearToolheadSlot for "Not sure" when the question offers it. No lanes
+     * means unload_filament(-1) resolves the lane itself.
      */
-    [[nodiscard]] virtual std::vector<int> unload_lane_candidates() const {
+    [[nodiscard]] virtual UnloadLaneQuestion unload_lane_question() const {
         return {};
     }
 
@@ -1924,6 +1985,18 @@ class AmsBackend {
     virtual AmsError cancel() = 0;
 
     /**
+     * @brief Klipper came back ready after a restart, which ended every
+     *        firmware-side filament operation
+     *
+     * Drops a busy action (ams_action_is_busy()) back to IDLE locally, along
+     * with any per-operation tracking the backend keeps, so tool changes and
+     * filament ops are accepted again. Sends no G-code and reports no load or
+     * unload outcome; ERROR and PAUSED stay, since those wait on the user.
+     * Main thread, from AmsState's klippy_state observer. Default: nothing to end.
+     */
+    virtual void on_klipper_restarted() {}
+
+    /**
      * @brief Whether cancel() can reach what is running now
      *
      * False while the running operation holds something cancel() would queue
@@ -2833,6 +2906,15 @@ class AmsBackend {
         return 0;
     }
 
+    /**
+     * @brief Has the printer itself stated this backend's tool table?
+     *
+     * True once an echoing backend has parsed at least one firmware-sourced
+     * table. Before that, get_tool_mapping() holds only defaults and our own
+     * optimistic writes, which say nothing about what the printer routes by.
+     */
+    [[nodiscard]] bool firmware_reported_tool_mapping() const;
+
     // ========================================================================
     // Device-Specific Actions
     // ========================================================================
@@ -2897,6 +2979,78 @@ class AmsBackend {
         (void)action_id;
         (void)value;
         return AmsErrorHelper::not_supported("Device actions");
+    }
+
+    /// Called once with the outcome of a tracked device action, on the main thread.
+    using DeviceActionDone = std::function<void(const AmsError& result)>;
+
+    /**
+     * @brief Execute a device action and report when it ends
+     *
+     * For an action that runs long on the printer (a calibration, a tool cycle):
+     * the returned AmsError says whether it was sent, @p on_done how it ended.
+     * @p on_done is not called when the send itself is refused.
+     *
+     * @param action_id The action ID from get_device_actions()
+     * @param value Optional value for toggles/sliders/dropdowns
+     * @param on_done Called once with the result, on the main thread
+     * @return AmsError indicating whether the action was sent
+     */
+    virtual AmsError run_device_action(const std::string& action_id, const std::any& value,
+                                       DeviceActionDone on_done) {
+        (void)action_id;
+        (void)value;
+        (void)on_done;
+        return AmsErrorHelper::not_supported("Device actions");
+    }
+
+    /// A run_device_action() has been sent and has not reported its end. While
+    /// it holds, filament ops and other machine-moving actions are refused.
+    [[nodiscard]] virtual bool device_action_running() const {
+        return false;
+    }
+
+    /// A question the UI asks after a slot edit commits, for printer state the
+    /// edit implies but did not write. Strings are translated.
+    struct EditFollowUp {
+        std::string title;
+        std::string message;
+        std::string confirm_label;
+    };
+
+    /**
+     * @brief What to offer after a slot edit, if anything
+     *
+     * @param slot_index The edited slot
+     * @param before The slot as it was before the edit
+     * @param after The slot as committed
+     * @return The question to ask, or nullopt for none
+     */
+    [[nodiscard]] virtual std::optional<EditFollowUp>
+    edit_follow_up(int slot_index, const SlotInfo& before, const SlotInfo& after) const {
+        (void)slot_index;
+        (void)before;
+        (void)after;
+        return std::nullopt;
+    }
+
+    /**
+     * @brief Apply the follow-up edit_follow_up() offered, once the user agrees
+     *
+     * Re-asks the offer's question first: the printer may have moved on while
+     * the dialog was up.
+     *
+     * @param slot_index The edited slot
+     * @param before The slot as it was before the edit
+     * @param after The slot as committed
+     * @return AmsError indicating success/failure
+     */
+    virtual AmsError run_edit_follow_up(int slot_index, const SlotInfo& before,
+                                        const SlotInfo& after) {
+        (void)slot_index;
+        (void)before;
+        (void)after;
+        return AmsErrorHelper::not_supported("Edit follow-up");
     }
 
     // ========================================================================
@@ -3260,6 +3414,23 @@ class AmsBackend {
                                                            const std::map<int, int>& remap) const {
         (void)tools_used;
         (void)remap;
+        return "";
+    }
+
+    /**
+     * @brief The user's standing per-print choices, for a print already running.
+     *
+     * A print some other client started (Mainsail, a slicer, Moonraker's job
+     * queue) skips this screen's pre-print step. This is the part of that step
+     * that still applies once the print is running, rendered by the same
+     * functions build_preprint_gcode() uses: no routing (it is refused or too
+     * late mid-print), only choices that act later in the print. It is sent
+     * right after such a start, by the HelixPrint plugin or by this screen.
+     * Default "" (nothing to send).
+     *
+     * @return Newline-joined gcode (no trailing newline), or "" when none
+     */
+    [[nodiscard]] virtual std::string standing_print_gcode() const {
         return "";
     }
 

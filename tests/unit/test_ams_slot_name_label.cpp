@@ -26,6 +26,7 @@
 #include "ams_state.h"
 #include "filament_display_name.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "utf8_validation.h"
 
 #include <memory>
 #include <string>
@@ -41,32 +42,7 @@ using helix::SpoolIdentity;
 
 namespace {
 
-/// Every byte sequence in @p s is a complete UTF-8 codepoint.
-bool is_valid_utf8(const std::string& s) {
-    size_t i = 0;
-    while (i < s.size()) {
-        const auto c = static_cast<unsigned char>(s[i]);
-        size_t len = 0;
-        if (c < 0x80)
-            len = 1;
-        else if ((c & 0xE0) == 0xC0)
-            len = 2;
-        else if ((c & 0xF0) == 0xE0)
-            len = 3;
-        else if ((c & 0xF8) == 0xF0)
-            len = 4;
-        else
-            return false;
-        if (i + len > s.size())
-            return false;
-        for (size_t k = 1; k < len; ++k) {
-            if ((static_cast<unsigned char>(s[i + k]) & 0xC0) != 0x80)
-                return false;
-        }
-        i += len;
-    }
-    return true;
-}
+using helix::text_io::is_valid_utf8;
 
 lv_obj_t* create_ams_slot(lv_obj_t* parent, int slot_index) {
     const std::string index_str = std::to_string(slot_index);

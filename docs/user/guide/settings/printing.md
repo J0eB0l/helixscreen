@@ -4,7 +4,7 @@
 
 - **MACHINE**: Machine Limits, Motion, Retraction Settings and Enclosure
 - **FILAMENT**: Multi-Filament System Management, Material Temperatures, Allow cold load/unload, Cool nozzle after filament ops, Edit filament on insert and Confirm tool changes
-- **EXTRAS**: Timelapse and Macro Buttons
+- **EXTRAS**: Timelapse, Power-loss recovery, Apply start options to prints from other apps, and Macro Buttons
 
 Looking for how the printer is *drawn* (toolhead picture, G-code preview, Z button labels, bed mesh view)? That's in [Appearance](appearance.md#printer-visuals).
 
@@ -80,6 +80,7 @@ Opens quick actions, calibration and speed settings for your filament system: AF
 |--------|-----------------|--------------|
 | **Endless Spool** | Systems whose firmware takes an on/off switch (Creality CFS, Anycubic ACE, Snapmaker U1, single-unit Happy Hare) | Switches to a matching spool when one runs out mid-print. The firmware picks which spool |
 | **Keep Spool Info on Eject** | Systems that track a spool per lane (AFC, Happy Hare) | Remembers a lane's spool when you eject it, so putting the same spool back after maintenance needs no new selection. On by default. Only applies to spools chosen in HelixScreen: spools assigned elsewhere clear with the lane (for those, use your firmware's own option, such as AFC's `remember_spool`). If your firmware's option already covers every lane, it takes over and this switch is grayed out |
+| **Link Spools from Tags** | Creality CFS, with Spoolman set up | When a spool whose tag names a Spoolman spool is put in a slot, links the slot to that spool. On by default |
 | **Always Show Bypass Spool** | AFC only | Keeps the external spool on the filament path even while bypass is off. AFC reports a bypass sensor whether or not one is wired, so the spool is hidden until you actually use bypass |
 | **Enable Bypass Controls** | Only when your firmware reports **no** bypass | Shows the bypass controls and external spool anyway, for printers where you feed filament straight to the extruder. Applies to the Anycubic ACE Pro, Snapmaker U1, tool changers, QIDI Box and any Happy Hare setup with `has_bypass: 0` |
 
@@ -217,6 +218,24 @@ Sets up how HelixScreen records timelapse videos of your prints.
 Changes are saved straight away and sent to Moonraker. The print status screen also has a timelapse switch, so you can turn recording on or off without leaving the print.
 
 If the plugin isn't installed yet, HelixScreen shows an **Install Wizard** that walks you through the commands. See [Advanced > Timelapse](../advanced.md#timelapse). To watch recorded videos, use **Advanced > Timelapse Videos**.
+
+---
+
+## Power-loss recovery and start options for other apps
+
+These two switches come from the **HelixPrint plugin** on your printer. See [HelixPrint Plugin](../helixprint-plugin.md) for installing it and everything else it adds.
+
+| Setting | What it does |
+|---------|--------------|
+| **Power-loss recovery** | Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear |
+| **Apply start options to prints from other apps** | When a print starts from Mainsail, Fluidd, your slicer or the job queue, sends your standing print options too, such as which toolheads unload at the end. Off until you turn it on |
+
+Without the plugin on the printer:
+
+- **Power-loss recovery** is greyed out with **Requires the HelixPrint plugin** and an **Install** button (or asks for a newer plugin when yours is too old). If your printer cannot use it at all, the switch is not shown.
+- **Apply start options to prints from other apps** still works: HelixScreen sends the options itself when it sees a print start, as long as the HelixScreen app is running and connected to the printer. A screen attached to the printer covers almost every print (only a print that starts while the printer is booting or HelixScreen is restarting is missed), so it shows no note. A phone, tablet or other remote screen covers prints only while it is connected, so there the switch says **Only while this app is connected** and offers **Install**: with the plugin, the printer applies the options to every print itself.
+
+If several HelixScreens are connected to one printer, only one of them sends the options: the one attached to the printer, or a remote one when none is attached.
 
 ---
 

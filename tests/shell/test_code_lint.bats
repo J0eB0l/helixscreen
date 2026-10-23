@@ -3514,3 +3514,73 @@ CPP
         done
     done
 }
+
+# A tap binds clicked; a hold handler that acts ends its press with
+# helix::ui::end_press() (docs/devel/LVGL9_XML_GUIDE.md § "Tap and hold").
+# short_clicked is never a tap's trigger: LVGL skips it after any press that ran
+# past the long-press time, whether or not a hold handler acted, so a slow tap on
+# a short_clicked widget does nothing. Names every XML trigger and C++ registration.
+short_clicked_taps() {
+    grep -rnE 'trigger="short_clicked"' "$1" --include='*.xml' 2>/dev/null
+    grep -rnE 'lv_obj_add_event_cb\([^;]*LV_EVENT_SHORT_CLICKED' "$2" --include='*.cpp' \
+        --include='*.h' 2>/dev/null
+    return 0
+}
+
+@test "no tap binds short_clicked" {
+    run short_clicked_taps ui_xml/ src/
+    [ "$status" -eq 0 ]
+    [ -z "$output" ] || fail "$output"
+}
+
+@test "the short_clicked gate fires on an XML trigger and a C++ registration" {
+    local d="${BATS_TEST_TMPDIR}/short_clicked"
+    mkdir -p "$d/xml" "$d/src"
+    printf '%s\n' '<lv_obj><event_cb trigger="short_clicked" callback="on_tap"/></lv_obj>' \
+        > "$d/xml/offender.xml"
+    printf '%s\n' 'void f(lv_obj_t* o) { lv_obj_add_event_cb(o, cb, LV_EVENT_SHORT_CLICKED, nullptr); }' \
+        > "$d/src/offender.cpp"
+    run short_clicked_taps "$d/xml" "$d/src"
+    [ "$status" -eq 0 ]
+    contains "offender.xml" "$output"
+    contains "offender.cpp" "$output"
+}
+
+# --- A test that needs the built app skips through require_app ---
+# build.yml's compile job finds the files to run against its fresh binary by
+# their require_app calls (tests/shell/helpers.bash). A file that skips on a
+# missing app with its own `skip` is skipped by the Shell Tests job and never
+# picked up by the compile job, so it runs nowhere in CI.
+app_skip_offenders() { # <bats files...>
+    grep -nE '(^|[|&;[:space:]])skip([[:space:]]|$)' "$@" | grep -E 'helix-screen|build/bin/' || true
+}
+
+@test "a shell test that needs the built app skips through require_app" {
+    local files offenders
+    files=$(ls tests/shell/*.bats | grep -v '/test_code_lint\.bats$')
+    # shellcheck disable=SC2086  # paths have no spaces
+    offenders=$(app_skip_offenders $files)
+    if [ -n "$offenders" ]; then
+        echo "These skip on a missing app without require_app, so CI runs them nowhere:"
+        echo "$offenders"
+        return 1
+    fi
+    # shellcheck disable=SC2086
+    [ -n "$(grep -lE '^[[:space:]]*require_app[[:space:]]' $files)" ]
+}
+
+@test "the app-skip lint catches a hand-rolled skip and passes require_app" {
+    local f="$BATS_TEST_TMPDIR/shapes.bats"
+    cat >"$f" <<'SHAPES'
+    [ -x "$BIN" ] || skip "helix-screen missing"
+    [ -x ./build/bin/helix-screen ] || skip "no app"
+    require_app "$BIN"
+    [ -x "$PY" ] || skip "translations venv not set up"
+    # the skip_count of helix-screen frames
+    ./build/bin/helix-screen --test --skip-wizard
+SHAPES
+    run app_skip_offenders "$f"
+    [ "${#lines[@]}" -eq 2 ]
+    lacks "require_app" "$output"
+    lacks "venv" "$output"
+}

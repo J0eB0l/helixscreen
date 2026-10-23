@@ -15,6 +15,7 @@
 #include "app_globals.h"
 #include "fault_modal_registry.h"
 #include "gcode_error_router.h"
+#include "helix_psram_attr.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "print_lifecycle_state.h"
@@ -100,12 +101,21 @@ constexpr uint32_t kRecoveryRecheckRetryMs = 2000;
 /// recovery_suppression::kRestartFlagTimeout, which expires inside this budget.
 constexpr int kRecoveryRecheckMaxRetries = 15;
 
+/// Whether a restart that answered with @p err may still be under way. Klipper
+/// going down fails every pending request with CONNECTION_LOST, the restart's
+/// own reply among them, and a TIMEOUT says nothing either way; only an answer
+/// that proves the command never reached Klipper ends the restart.
+bool restart_may_be_running(const MoonrakerError& err) {
+    return err.type == MoonrakerErrorType::CONNECTION_LOST ||
+           err.type == MoonrakerErrorType::TIMEOUT;
+}
+
 } // namespace
 
 using helix::ui::observe;
 
 EmergencyStopOverlay& EmergencyStopOverlay::instance() {
-    static EmergencyStopOverlay instance;
+    static HELIX_PSRAM_BSS EmergencyStopOverlay instance;
     return instance;
 }
 
@@ -299,11 +309,21 @@ void EmergencyStopOverlay::create() {
                 return;
             }
 
-            if (klippy_state == KlippyState::SHUTDOWN) {
+            if (klippy_state == KlippyState::STARTUP) {
+                if (self->restart_in_progress()) {
+                    self->restart_saw_startup_.store(true, std::memory_order_relaxed);
+                }
+            } else if (klippy_state == KlippyState::SHUTDOWN ||
+                       klippy_state == KlippyState::ERROR) {
+                // A restart that came back up into a fault is over: the user
+                // needs the recovery dialog and the Firmware Restart it offers.
+                if (self->restart_saw_startup_.load(std::memory_order_relaxed)) {
+                    self->end_restart_window();
+                }
                 // Unified recovery path - all suppression checks are in show_recovery_for()
-                self->show_recovery_for(RecoveryReason::SHUTDOWN);
-            } else if (klippy_state == KlippyState::ERROR) {
-                self->show_recovery_for(RecoveryReason::ERROR);
+                self->show_recovery_for(klippy_state == KlippyState::SHUTDOWN
+                                            ? RecoveryReason::SHUTDOWN
+                                            : RecoveryReason::ERROR);
             } else if (klippy_state == KlippyState::READY) {
                 // Auto-dismiss recovery dialog when Klipper is back to READY
                 // NOTE: Must defer to main thread - observer may fire from WebSocket thread
@@ -328,7 +348,7 @@ void EmergencyStopOverlay::create() {
                     // behind it is only a backstop for the restart that
                     // never gets here; a READY still ends the window
                     // immediately.
-                    inst.restart_expires_at_.store(0, std::memory_order_relaxed);
+                    inst.end_restart_window();
 
                     // Klippy came back, so anything the suppression window
                     // was holding describes a state that no longer exists.
@@ -745,6 +765,7 @@ bool EmergencyStopOverlay::is_recovery_suppressed() const {
 void EmergencyStopOverlay::begin_restart_window() {
     // Callable from any thread for the same reason suppress_recovery_dialog()
     // is: one atomic store of a deadline.
+    restart_saw_startup_.store(false, std::memory_order_relaxed);
     restart_expires_at_.store(lv_tick_get() + recovery_suppression::kRestartFlagTimeout,
                               std::memory_order_relaxed);
     spdlog::debug("[KlipperRecovery] Restart in flight for up to {}ms",
@@ -753,6 +774,11 @@ void EmergencyStopOverlay::begin_restart_window() {
 
 bool EmergencyStopOverlay::restart_in_progress() const {
     return deadline_pending(restart_expires_at_);
+}
+
+void EmergencyStopOverlay::end_restart_window() {
+    restart_expires_at_.store(0, std::memory_order_relaxed);
+    restart_saw_startup_.store(false, std::memory_order_relaxed);
 }
 
 bool EmergencyStopOverlay::is_expected_restart() const {
@@ -810,11 +836,26 @@ void EmergencyStopOverlay::update_recovery_dialog_content() {
     lv_subject_set_int(&recovery_has_code_, code.empty() ? 0 : 1);
 }
 
+// A second restart sent while Klipper is still coming up from the first can
+// leave it halted on a serial port the first one still holds.
+bool EmergencyStopOverlay::refuse_restart_in_flight() {
+    if (!restart_in_progress()) {
+        return false;
+    }
+    spdlog::warn("[KlipperRecovery] Restart refused: one is already in flight");
+    ToastManager::instance().show(ToastSeverity::WARNING, lv_tr("A restart is already in progress"),
+                                  3000);
+    return true;
+}
+
 void EmergencyStopOverlay::restart_klipper() {
     if (!api_) {
         spdlog::error("[KlipperRecovery] Cannot restart: API not available");
         ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Restart failed: not connected"),
                                       4000);
+        return;
+    }
+    if (refuse_restart_in_flight()) {
         return;
     }
 
@@ -831,6 +872,9 @@ void EmergencyStopOverlay::restart_klipper() {
         },
         [](const MoonrakerError& err) {
             spdlog::error("[KlipperRecovery] Klipper restart failed: {}", err.message);
+            if (!restart_may_be_running(err)) {
+                EmergencyStopOverlay::instance().end_restart_window();
+            }
             // The callback can run on the WebSocket thread; the toast is main-thread only.
             helix::ui::run_on_main("error_toast", [err]() {
                 ToastManager::instance().show(
@@ -847,6 +891,9 @@ void EmergencyStopOverlay::firmware_restart() {
         spdlog::error("[KlipperRecovery] Cannot firmware restart: API not available");
         ToastManager::instance().show(ToastSeverity::ERROR, lv_tr("Restart failed: not connected"),
                                       4000);
+        return;
+    }
+    if (refuse_restart_in_flight()) {
         return;
     }
 
@@ -869,6 +916,9 @@ void EmergencyStopOverlay::firmware_restart() {
         },
         [](const MoonrakerError& err) {
             spdlog::error("[KlipperRecovery] Recovery failed: {}", err.message);
+            if (!restart_may_be_running(err)) {
+                EmergencyStopOverlay::instance().end_restart_window();
+            }
             // The callback can run on the WebSocket thread; the toast is main-thread only.
             helix::ui::run_on_main("error_toast", [err]() {
                 ToastManager::instance().show(
@@ -912,6 +962,10 @@ void EmergencyStopOverlay::recovery_restart_klipper_clicked(lv_event_t* e) {
     LV_UNUSED(e);
     spdlog::debug("[KlipperRecovery] Restart Klipper clicked");
     auto& instance = EmergencyStopOverlay::instance();
+    // A refused tap keeps the dialog, the user's only way to retry.
+    if (instance.refuse_restart_in_flight()) {
+        return;
+    }
     instance.dismiss_recovery_dialog();
     instance.restart_klipper();
 }
@@ -920,6 +974,10 @@ void EmergencyStopOverlay::recovery_firmware_restart_clicked(lv_event_t* e) {
     LV_UNUSED(e);
     spdlog::debug("[KlipperRecovery] Firmware Restart clicked");
     auto& instance = EmergencyStopOverlay::instance();
+    // A refused tap keeps the dialog, the user's only way to retry.
+    if (instance.refuse_restart_in_flight()) {
+        return;
+    }
     instance.dismiss_recovery_dialog();
     instance.firmware_restart();
 }

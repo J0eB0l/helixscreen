@@ -422,6 +422,10 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     AmsError recover() override;
     AmsError reset() override;
     AmsError cancel() override;
+    /// Also drops the optimistic dispatch, which would otherwise read the
+    /// first idle frame after the restart as the middle of an operation, and
+    /// retires its generation so a late ack resolves nothing.
+    void on_klipper_restarted() override;
 
     // Configuration
     AmsError apply_user_edit(int slot_index, const SlotInfo& info,
@@ -522,6 +526,17 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     }
     void on_stopping() override;
     [[nodiscard]] bool needs_mount_to_feed(int head) const override;
+
+    /// Apply an add-on dock-sensor reading over the toolchanger's own claim.
+    /// Caller holds mutex_.
+    void apply_tool_sensor_locked(const helix::toolchanger_addon::ToolReading& reading);
+
+    /// Send a tool operation: set @p action optimistically, dispatch @p gcode
+    /// through ensure_homed_then(), and resolve on the macro's ack, waiting up
+    /// to @p timeout_ms for it. Caller must NOT hold mutex_ and must have
+    /// passed check_preconditions().
+    AmsError dispatch_operation(std::string gcode, AmsAction action,
+                                uint32_t timeout_ms = IMoonrakerAPI::kAmsOperationTimeoutMs);
 
   private:
     // --- Mount-to-feed (mount_feed_sequence.h) ---------------------------------
@@ -734,10 +749,6 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
      */
     void parse_toolchanger_state(const nlohmann::json& tc_data);
 
-    /// Apply an add-on dock-sensor reading over the toolchanger's own claim.
-    /// Caller holds mutex_.
-    void apply_tool_sensor_locked(const helix::toolchanger_addon::ToolReading& reading);
-
     /// Latch one firmware material reading: the types and palette it carried,
     /// and each slot's material and colour filed as vendor-cache observations.
     /// Caller holds mutex_.
@@ -864,11 +875,6 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// toolchanger never took the operation over. Main thread; must NOT hold
     /// mutex_.
     void finalize_dispatch_after_macro(uint64_t generation);
-
-    /// Send a tool operation: set @p action optimistically, dispatch @p gcode
-    /// through ensure_homed_then(), and resolve on the macro's ack. Caller must
-    /// NOT hold mutex_ and must have passed check_preconditions().
-    AmsError dispatch_operation(std::string gcode, AmsAction action);
 
     // Tool changer specific state
     std::vector<std::string> tool_names_; ///< Tool names from discovery

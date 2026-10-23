@@ -1268,3 +1268,30 @@ TEST_CASE("build_ams_topology's 1:1 fallback counts the slots in the snapshot it
     CHECK(topo->tool_to_slot == std::vector<int>{0, 1, 2});
     CHECK(topo->tool_extruder == std::vector<std::string>{"extruder", "extruder", "extruder1"});
 }
+
+TEST_CASE_METHOD(ToolBadgeFixture, "tool badge names the mounted nozzle on a shared heater",
+                 "[tool-state][ams][tool-badge][indx]") {
+    auto& ts = helix::ToolState::instance();
+    ts.init_tools(make_single_extruder_discovery());
+    UpdateQueue::instance().drain();
+
+    helix::ToolTopology topo;
+    topo.tool_count = 4;
+    topo.active_tool = 2;
+    topo.allows_empty_carriage = true;
+    topo.tool_to_slot = {0, 1, 2, 3};
+    topo.tool_extruder = {"extruder", "extruder", "extruder", "extruder"};
+    topo.heads_share_heater = true;
+    ts.set_ams_topology(topo);
+    UpdateQueue::instance().drain();
+    CHECK(badge_shown() == 1);
+    CHECK(badge_text() == "3");
+
+    topo.active_tool = -1;
+    ts.set_ams_topology(topo);
+    UpdateQueue::instance().drain();
+    CHECK(badge_shown() == 0);
+
+    ts.clear_ams_topology();
+    UpdateQueue::instance().drain();
+}

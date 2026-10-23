@@ -101,9 +101,10 @@ using FileClickCallback = std::function<void(size_t file_index)>;
  * @param file_index Index into file list
  *
  * Only fires for regular files (not directories or ".."). The card view
- * plays the `button_tap` sound before invoking the callback, and suppresses
- * the next LV_EVENT_CLICKED on the same card so the file is not also
- * selected when the user lifts their finger.
+ * plays the `button_tap` sound before invoking the callback, and ends the
+ * press (helix::ui::end_press) so the file is not also selected when the user
+ * lifts their finger. A hold on a directory or ".." declines and ends in the
+ * card's tap.
  */
 using FileLongPressCallback = std::function<void(size_t file_index)>;
 
@@ -338,10 +339,6 @@ class PrintSelectCardView : public ContainerDeleteNet {
     FileLongPressCallback on_file_long_press_;
     MetadataFetchCallback on_metadata_fetch_;
 
-    /// Set to true when a long-press fires; next CLICKED event on any card is skipped.
-    /// Single-shot: cleared the next time on_card_clicked() runs.
-    bool suppress_next_click_ = false;
-
     // === Internal Methods ===
 
     /**
@@ -395,7 +392,6 @@ class PrintSelectCardView : public ContainerDeleteNet {
     // === Static Callbacks ===
     static void on_card_clicked(lv_event_t* e);
     static void on_card_long_pressed(lv_event_t* e);
-    static void on_card_press_lost(lv_event_t* e);
 
     /// Drop every cached pointer/counter WITHOUT touching any widget. Safe to
     /// run while the tree those pointers refer to is mid-deletion.

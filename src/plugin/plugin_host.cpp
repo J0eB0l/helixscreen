@@ -6,6 +6,7 @@
 #include "plugin_host.h"
 
 #include "ui_callback_helpers.h"
+#include "ui_icon_image.h"
 #include "ui_nav.h"
 #include "ui_toast_manager.h"
 #include "ui_utils.h"
@@ -20,6 +21,7 @@
 #include "panel_widget_registry.h"
 #include "plugin_canvas.h"
 #include "plugin_settings_overlay.h"
+#include "plugin_table.h"
 #include "plugin_xml_policy.h"
 #include "text_io.h"
 #include "translation_loader.h"
@@ -92,6 +94,7 @@ void register_plugin_event_callback() {
     });
     register_plugin_settings_callbacks();
     register_plugin_canvas_widget();
+    register_plugin_table_widget();
     registered = true;
 }
 
@@ -317,6 +320,20 @@ void register_plugin_translations(const std::filesystem::path& root) {
     }
 }
 
+/// `rel` (already a checked plugin-relative path) inside `root`, or empty when a symlink
+/// resolves it outside the plugin folder.
+std::string path_inside(const std::filesystem::path& root, const std::string& rel) {
+    std::error_code ec;
+    const auto base = std::filesystem::weakly_canonical(root, ec);
+    if (ec)
+        return {};
+    const auto full = std::filesystem::weakly_canonical(root / rel, ec);
+    if (ec)
+        return {};
+    auto mismatch = std::mismatch(base.begin(), base.end(), full.begin(), full.end());
+    return mismatch.first == base.end() ? full.string() : std::string();
+}
+
 } // namespace
 
 bool PluginHost::load(PluginInfo& info) {
@@ -403,6 +420,21 @@ bool PluginHost::load(PluginInfo& info) {
         l.components.emplace_back(stems[i], lv_xml_component_get_scope(stems[i].c_str()));
     }
 
+    // An icon that cannot draw its image draws its fallback; the plugin still loads.
+    for (const IconDecl& d : m.icons) {
+        const std::string path = path_inside(root, d.src);
+        const auto status = helix::ui::icon::register_image_icon(d.name, path, d.fallback);
+        l.icons.push_back(d.name);
+        if (status != helix::ui::icon::ImageIconStatus::Ok)
+            spdlog::warn("[plugin {}] icon '{}' ({}) {}; drawing '{}' instead", id, d.name, d.src,
+                         path.empty() ? "is outside the plugin folder"
+                         : status == helix::ui::icon::ImageIconStatus::Missing ? "is missing"
+                         : status == helix::ui::icon::ImageIconStatus::TooLarge
+                             ? "is over 64 KB or 256x256"
+                             : "is not a readable PNG",
+                         d.fallback);
+    }
+
     json block = deps_.read_block();
     if (block.is_object()) {
         if (auto s = block.find("settings"); s != block.end() && s->is_object()) {
@@ -455,7 +487,7 @@ bool PluginHost::load(PluginInfo& info) {
     for (Installer install :
          {&install_core_bindings, &install_ui_bindings, &install_printer_bindings,
           &install_moonraker_bindings, &install_io_bindings, &install_widget_bindings,
-          &install_canvas_bindings})
+          &install_canvas_bindings, &install_sound_bindings, &install_table_bindings})
         install(*l.ctx);
 
     if (!l.rt->run_file("main.lua")) {
@@ -469,7 +501,7 @@ bool PluginHost::load(PluginInfo& info) {
         helix::RuntimeWidgetDef def;
         def.id = d.id;
         def.display_name = d.name;
-        def.icon = d.icon.empty() ? "puzzle_outline" : d.icon;
+        def.icon = d.icon.empty() ? kDefaultPluginIcon : d.icon;
         def.description = d.description;
         def.colspan = d.colspan;
         def.rowspan = d.rowspan;
@@ -536,6 +568,8 @@ void PluginHost::unload(const std::string& id) {
         }
     }
     l.rt.reset();
+    for (const auto& name : l.icons)
+        helix::ui::icon::unregister_image_icon(name);
     for (const auto& [name, scope] : l.components) {
         if (lv_xml_component_find_scope(name.c_str()) == scope)
             lv_xml_component_unregister(name.c_str());

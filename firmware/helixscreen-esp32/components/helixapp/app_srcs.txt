@@ -151,6 +151,7 @@ src/printer/ams_backend_ad5x_ifs.cpp
 src/printer/ams_backend_afc.cpp
 src/printer/ams_backend_cfs.cpp
 src/printer/ams_backend_happy_hare.cpp
+src/printer/ams_backend_indx.cpp
 src/printer/ams_backend_multiace.cpp
 src/printer/ams_backend_openams.cpp
 src/printer/ams_bypass_policy.cpp
@@ -161,6 +162,7 @@ src/printer/ams_endless_spool.cpp
 src/printer/ams_environment_zone.cpp
 src/printer/ams_runout_grace.cpp
 src/printer/ams_tag_reading.cpp
+src/printer/tag_spool_link.cpp
 src/printer/ams_state.cpp
 src/printer/ams_state_buffer.cpp
 src/printer/ams_state_clog.cpp
@@ -204,6 +206,7 @@ src/printer/hardware_role_registry.cpp
 src/printer/hardware_validator.cpp
 src/printer/happy_hare_status_parse.cpp
 src/printer/hh_defaults.cpp
+src/printer/indx_contract.cpp
 src/printer/klipper_error_table.cpp
 src/printer/macro_executor.cpp
 src/printer/macro_param_cache.cpp
@@ -234,6 +237,9 @@ src/printer/printer_image_variants.cpp
 src/printer/printer_motion_state.cpp
 src/printer/printer_network_state.cpp
 src/printer/printer_plugin_status_state.cpp
+src/printer/file_analysis.cpp
+src/printer/helix_plugin_features.cpp
+src/printer/printer_event_journal.cpp
 src/printer/printer_print_state.cpp
 src/printer/printer_profile_state.cpp
 src/printer/printer_recovery_service.cpp
@@ -255,6 +261,11 @@ src/printer/layer_pause.cpp
 src/printer/fixed_tool_topology.cpp
 src/printer/plr_backend.cpp
 src/printer/plr_offer.cpp
+src/printer/plr_plugin_rpc.cpp
+src/printer/standing_print_options.cpp
+src/printer/standing_print_options_controller.cpp
+src/printer/plr_profile.cpp
+src/printer/plr_wizard.cpp
 src/printer/standard_macros.cpp
 src/printer/toolchanger_addon.cpp
 src/printer/zmod_color_status.cpp
@@ -462,13 +473,16 @@ src/ui/ui_ams_device_operations_overlay.cpp
 src/ui/ui_ams_device_section_detail_overlay.cpp
 src/ui/ui_cfs_chute_calibration_overlay.cpp
 src/ui/ui_cfs_device_flows.cpp
+src/ui/ui_indx_device_flows.cpp
 src/ui/ui_snapmaker_device_flows.cpp
 src/ui/ui_snapmaker_nozzle_offset_overlay.cpp
 src/ui/ui_guided_device_flow.cpp
+src/ui/ui_ams_edit_follow_up.cpp
 src/ui/ui_ams_edit_overlay.cpp
 src/ui/ui_ams_lane_settings.cpp
 src/ui/ui_ams_environment_overlay.cpp
 src/ui/ui_ams_zone_overview_overlay.cpp
+src/ui/ui_printer_events_overlay.cpp
 src/ui/ui_ams_lane_bar.cpp
 src/ui/ui_ams_lane_spool.cpp
 src/ui/ui_ams_loading_error_modal.cpp
@@ -567,6 +581,8 @@ src/ui/ui_overlay_printer_type.cpp
 src/ui/ui_overlay_retraction_settings.cpp
 src/ui/ui_overlay_temp_graph.cpp
 src/ui/ui_panel_advanced.cpp
+src/ui/ui_plugin_overview_overlay.cpp
+src/ui/ui_plugin_feature_row.cpp
 src/ui/ui_panel_ams.cpp
 src/ui/ui_panel_ams_overview.cpp
 src/ui/ui_panel_base.cpp
@@ -593,6 +609,7 @@ src/ui/print_select_button_view.cpp
 src/ui/ui_plr_offer_controller.cpp
 src/ui/ui_chamber_stall_prompt.cpp
 src/ui/ui_plr_prompt.cpp
+src/ui/ui_plr_wizard_overlay.cpp
 src/ui/ui_pin_entry_modal.cpp
 src/ui/ui_pin_utils.cpp
 src/ui/ui_plugin_install_modal.cpp
@@ -652,6 +669,7 @@ src/ui/ui_snake_game.cpp
 src/ui/ui_sound_preview_overlay.cpp
 src/ui/ui_spinner.cpp
 src/ui/ui_split_button.cpp
+src/ui/spool_vents.cpp
 src/ui/ui_spool_canvas.cpp
 src/ui/ui_spool_drawing.cpp
 src/ui/ui_spool_wizard.cpp
@@ -740,6 +758,7 @@ src/api/moonraker_advanced_api.cpp
 src/api/moonraker_file_api.cpp
 src/api/moonraker_history_api.cpp
 src/api/moonraker_job_api.cpp
+src/api/moonraker_db_item.cpp
 src/api/moonraker_motion_api.cpp
 src/api/moonraker_queue_api.cpp
 src/api/rpc_error_correlation.cpp
@@ -771,6 +790,7 @@ src/rendering/nozzle_renderer_stealthburner.cpp
 src/rendering/gcode_parser.cpp
 src/rendering/gcode_ops_detector.cpp
 src/rendering/gcode_footer_summary.cpp
+src/rendering/gcode_edit_list.cpp
 src/rendering/gcode_file_modifier.cpp
 src/rendering/gcode_tool_remapper.cpp
 src/rendering/gcode_color_metadata.cpp
@@ -847,6 +867,7 @@ src/calibration/shaper_csv_parser.cpp
 # MOCK: src/api/moonraker_client_mock_server.cpp
 # MOCK: src/api/moonraker_client_mock_skips.cpp
 # MOCK: src/api/moonraker_client_mock_layer_pause.cpp
+# MOCK: src/api/moonraker_client_mock_plr.cpp
 # MOCK: src/printer/ams_backend_mock.cpp
 src/system/host_identity.cpp
 src/system/env_refusal_notice.cpp

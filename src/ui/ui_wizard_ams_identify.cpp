@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 
 // Static buffer definitions for subject strings
 char WizardAmsIdentifyStep::ams_type_buffer_[64] = {};
@@ -175,6 +176,10 @@ std::string WizardAmsIdentifyStep::get_ams_type_name() const {
     case helix::AmsType::OPENAMS:
         return "OpenAMS"; // i18n: do not translate - product name
     default:
+        // A type with no wizard wording of its own shows its display name.
+        if (std::string_view(helix::ams_type_to_string(type)) != "None") {
+            return helix::ams_type_to_string(type);
+        }
         return lv_tr("Unknown");
     }
 }

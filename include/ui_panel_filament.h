@@ -348,8 +348,9 @@ class FilamentPanel : public PanelBase {
     /**
      * @brief Handle a long-press on a preset button: opens the material picker
      * @param slot Preset slot index that was long-pressed
+     * @return true when the picker opened, so the hold ends its press
      */
-    void handle_preset_longpress(int slot);
+    bool handle_preset_longpress(int slot);
 
   private:
     //
@@ -685,6 +686,11 @@ class FilamentPanel : public PanelBase {
     void handle_chamber_temp_tap();
     void handle_custom_chamber_confirmed(float value);
     void handle_custom_nozzle_confirmed(float value);
+    /// Send nozzle_target_ through TemperatureController; a refusal or failure
+    /// puts the printer's real target back on screen.
+    void send_nozzle_target();
+    /// Show the printer's own nozzle target in place of a request it did not take.
+    void show_printer_nozzle_target();
     void handle_custom_bed_confirmed(float value);
     void handle_load_button();
     /// @param chosen_lane the lane the user named as the one in the toolhead,

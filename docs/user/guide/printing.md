@@ -72,6 +72,16 @@ Tap a file to see the preview panel:
 - **Pre-print steps**: Shows which calibration steps will run before printing (e.g., bed mesh)
 - **Timelapse toggle**: Enable recording if you have the timelapse plugin installed
 
+### With the HelixPrint plugin
+
+When the [HelixPrint plugin](helixprint-plugin.md) is installed on your printer (the **Install** row on the **Advanced** screen; on a screen that is not attached to the printer it shows a command to run on the printer instead), it reads every G-code file once, in the background, right after you upload it. You don't need to do anything, and the file prints exactly as it would without it. What you get:
+
+- **A thumbnail for every file.** A file your slicer saved without a picture gets one: a top-down view of the print, colored by filament. It shows in the file list here and in Mainsail and Fluidd too.
+- **Faster previews of large files.** The 2D layer preview of a big file appears as soon as the file has downloaded, instead of after HelixScreen has read through it.
+- **Filament per tool, sooner.** The filament amounts and colors for each tool come straight from the plugin, so the filament checks before a print have them without HelixScreen reading the file.
+
+A file uploaded a moment ago may not be read yet; HelixScreen then works it out itself, as it does without the plugin. Reading a file never slows a print down: on a printer with a single-core processor it waits until no print is running.
+
 ---
 
 ## Pre-Print Options
@@ -89,7 +99,13 @@ These options modify the G-code on-the-fly — if you disable "Auto Bed Mesh" bu
 
 > **Note:** This only works for operations in the sliced file itself. If a step like bed mesh or QGL lives *inside* your `PRINT_START` macro, HelixScreen can't comment it out. The toggle can only skip it if your macro accepts a skip parameter for that step (for example `SKIP_BED_MESH=1`).
 
+HelixScreen prints a changed copy of the file and leaves your original untouched. The copy keeps every other line of the file, including its last command. With the [HelixPrint plugin](helixprint-plugin.md) installed, the copy is made on the printer itself, so a large file starts without first being copied to the screen and back. Without the plugin, the screen downloads the file, changes it and uploads the copy, which takes longer for big files and needs free space on the screen.
+
 > **Tip:** Pre-print options remember your preferences per slicer. If you always run bed mesh before PrusaSlicer prints, that preference persists.
+
+**Creality K2, K2 Plus and K2 Pro (stock firmware): Auto Bed Mesh.** Creality's start sequence has no setting HelixScreen can switch, so with **Auto Bed Mesh** on, HelixScreen sends the printer's own mesh-before-print command (`BED_MESH_CALIBRATE_START_PRINT`) just before the print starts. Auto Bed Mesh is on by default on these printers. With it off, HelixScreen sends nothing and the printer does whatever its own start sequence does. If the file's own start G-code already calls `BED_MESH_CALIBRATE_START_PRINT` itself, HelixScreen does not send it, so the bed is meshed once, not twice. Only that exact command counts: other bed mesh lines (such as `BED_MESH_PROFILE LOAD` or `BED_MESH_CLEAR`) and `START_PRINT` settings that ask for a mesh do not, and HelixScreen still sends its mesh command then. HelixScreen checks only the start of the file (the first 500 lines or 50 KB, thumbnails included, and nothing past the first extruding move); a call further in is not seen, and the mesh is sent.
+
+This applies to every print started from the screen, including a queued job started from the screen. A print started from your slicer, Mainsail, Fluidd, or by Moonraker's queue on its own never gets HelixScreen's pre-print options.
 
 ---
 
@@ -226,6 +242,7 @@ During printing, frame captures happen automatically based on your timelapse set
 You don't have to wait for a print to end before picking the next one. While a print is running - or still preparing, before its first layer - open any file and its **Print** button becomes **Add to Queue**, marked with a clock icon. A toast confirms the job's position ("Added to queue (position 2)").
 
 - The pre-print options you set on that screen (bed mesh, nozzle cleaning and so on) are saved with the queued job and come back when the job starts.
+- A job added to the queue from somewhere else (Mainsail, Fluidd, your slicer) has no saved options. Started from the screen, it uses each option's default, so on a Creality K2 **Auto Bed Mesh** is on (see [Pre-Print Options](#pre-print-options)).
 - Filament Mapping is not saved with the job: it is worked out again when the job actually starts, against the filament loaded at that moment.
 
 **Where to see the queue:**

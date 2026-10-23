@@ -337,13 +337,19 @@ Not yet verified on hardware; both script shapes and both recovery paths are sou
 
 ### Per-Filament Load/Unload Temperatures
 
-The firmware can answer load and unload temperatures per spool identity. The provider table has
-one row for the U1: detect object `filament_parameters`, query `FILAMENT_PARA_GET_ALL_INFO`
-(`include/filament_temperature_source.h`). The response arrives as `// `-prefixed console lines
-carrying flat Python dict literals keyed `{vendor}_{main_type}_{sub_type}_{field}`;
-`helix::filament_temps` parses them into `FilamentTemperatures{load_c, unload_c}`.
-`capture_on_connect()` runs from the discovery sequence, and
-`lookup_filament_temperatures()` feeds the result into
+The firmware keeps load and unload temperatures per spool identity. The provider table has
+one row for the U1: detect object `filament_parameters`, files under the `config` root
+(`include/filament_temperature_source.h`). The firmware's `filament_parameters` module writes
+one JSON file per nozzle config into its snapmaker config dir, `snapmaker/filament_para_<nozzle>.json`
+for `standard_02`, `standard_04`, `standard_06`, `standard_08` and `high_flow_04`, once Klipper
+is ready, each a flat object keyed
+`{vendor}_{main_type}_{sub_type}_{field}`. `capture_on_connect()` runs as the
+`filament_temperatures` discovery step, downloads every file through `ITransfersAPI::download_file`,
+and publishes the merge of the files that parse as `FilamentTemperatures{load_c, unload_c}`;
+the 0.4 standard file leads, so its values win a leaf several files list. A missing or
+unparseable file is skipped, and with none readable nothing is published. It never sends
+`FILAMENT_PARA_GET_ALL_INFO`: that prints the same tables, about 43 KB, into every client's
+console. `lookup_filament_temperatures()` feeds the result into
 `ActiveMaterialProvider` as `result.firmware_temps`
 (`src/printer/active_material_provider.cpp`). The load temperature wins over the
 database-derived preheat when the firmware publishes one
@@ -897,9 +903,12 @@ neither can be the record of the user's choice. The record is the per-printer se
 (`include/settings_manager.h#get_end_of_print_unload_tools`). The toggles read it, and a toggle
 writes it first and then sends the whole `END_UNLOAD_FILAMENT` list built from it
 (`src/printer/ams_backend_snapmaker.cpp#execute_device_action`). While printing or paused the
-firmware refuses that list without `FORCE=1`, which we never pass, so the send is skipped and the
-saved choice goes out with the next start. Every print start carries the list through
-`build_preprint_gcode()` (above).
+firmware refuses that list without `FORCE=1`, which a toggle never passes, so the send is skipped and the
+saved choice goes out with the next start. Every print start from this screen carries the list through
+`build_preprint_gcode()` (above). A print some other client started gets it through
+`standing_print_gcode()`, the same list with `FORCE=1`, sent just after the job starts by the
+HelixPrint plugin's `print_hooks` feature or by the screen (`include/standing_print_options.h`).
+That forced write mid-print has not been checked on hardware.
 
 A head whose `filament_soft` is set (TPU and the like) is never unloaded: the firmware's
 `SM_PRINT_END_AUTO_UNLOAD_FILAMENT` skips it, as the stock screen does. Its toggle is disabled

@@ -117,7 +117,7 @@ Each CFS unit (T1=unit 1, T2=unit 2, etc.) has:
 | `remain_len` | array[4] | `["35","57","52","52"]` | Remaining filament length (meters) per slot |
 | `color_value` | array[4] | `["0000000","0FFFFFF","00A2989","0C12E1F"]` | Filament color hex per slot |
 | `material_type` | array[4] | `["101001","101001","101001","101001"]` | Material type code per slot |
-| `uuid` | array | ints | RFID UUID bytes |
+| `uuid` | array \| `"None"` | `[19, 103]` | Per **unit**, not per slot (the example frame these rows come from carries two ints for a four-bay unit; `"None"` on a disconnected unit). Meaning unconfirmed; HelixScreen does not read it |
 | `change_color_num` | array[4] | `["-1","-1","-1","-1"]` | Color change count per slot |
 
 #### Slot Addressing
@@ -153,6 +153,32 @@ Colors are 7-character hex strings with a leading `0`: `"0RRGGBB"`. Examples:
 - `"0FFFFFF"` = white
 - `"00A2989"` = teal
 - `"0C12E1F"` = orange-red
+
+#### RFID tags
+
+A tagged bay's `vender` entry is the tag's whole 40-character record, not just a vendor code. Two reads from two independent stock Creality Hyper PLA spools, split by field: a white one on a K2 Pro (debug bundle, 2026-10-22) and an orange one on our K2 Plus:
+
+| Chars | White (K2 Pro) | Orange (K2 Plus) | Field |
+|-------|----------------|------------------|-------|
+| 1-5 | `BB525` | `3C525` | Production date |
+| 6-9 | `0276` | `0276` | Supplier (Creality) |
+| 10-11 | `A2` | `A2` | Batch |
+| 12-17 | `101001` | `101001` | Material code, the same value as the bay's `material_type` |
+| 18-24 | `0FFFFFF` | `0C12E1F` | Color, the same value as the bay's `color_value` |
+| 25-28 | `0165` | `0165` | Length |
+| 29-34 | `000001` | `000001` | Serial number |
+| 35-40 | `000000` | `000000` | Reserved |
+
+Whole records: `BB5250276A21010010FFFFFF0165000001000000` and `3C5250276A21010010C12E1F0165000001000000`. Both stock spools carry serial `000001`, the same value CFTag uses as its default.
+
+The material and color fields lining up with the bay's own `material_type` and `color_value` is what pins the offsets; the other field names follow Creality's tag layout and are not otherwise verified. `"unknown"` means a spool with no tag, `"none"` an empty bay.
+
+So the serial and reserved fields do reach Klipper's `box` object, and every Moonraker client can read them. The firmware also stores each bay's tag data in material_box_info.json on the printer (`serialNum` per slot), which tools such as CFSync read over SSH. Third-party tag writers put a Spoolman spool id in the serial field: CFTag ([koen01/cftag](https://github.com/koen01/cftag), `GetSpoolmanSerialNum()` in MainActivity.java) writes `String.format("%06d", id)` for ids 1 to 999999, and its default serial (`def_ser` in strings.xml) is `000001` with reserve `000000`. A stock spool's serial is `000001` too, so a serial that parses as a number is not by itself a Spoolman id, and 1 never is.
+
+- **Reading** is `BOX_GET_RFID` / `BOX_INFO_REFRESH` (see [Refresh Spool Info](#refresh-spool-info)); the RS-485 command set names an RFID read and no write.
+- **Writing a tag:** the printer has no known command for it, in the G-code list above or on the serial link as documented here. Tags are written off the printer, e.g. with a phone. `BOX_MODIFY_TN_DATA` edits the box's record of a bay, not the tag.
+- **Open question:** whether the CFS writes consumption (remaining length) back to a stock tag. Not verified either way.
+- HelixScreen uses `material_type|color_value` as each bay's swap fingerprint (`FILAMENT_BACKEND_CFS.md`, "Swap detection"); the serial stays out of it. It reads the serial only as a Spoolman spool id (`FILAMENT_BACKEND_CFS.md`, "Spoolman link").
 
 #### Disconnected Units
 

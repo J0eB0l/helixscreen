@@ -17,6 +17,9 @@ setup() {
     FETCH_LOG="$BATS_TEST_TMPDIR/fetch.log"
     GIT_LOG="$BATS_TEST_TMPDIR/git.log"
     export RELEASE_ROOT FETCH_LOG GIT_LOG
+    # The stub wget answers every Moonraker probe yet no plugin ever loads, so
+    # the post-restart wait runs to its limit. Nothing here tests that wait.
+    export HELIX_MOONRAKER_UP_SECS=1
     publish_release v1.2.3
     mkdir -p "$BATS_TEST_TMPDIR/bin"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
@@ -27,13 +30,17 @@ setup() {
     stub service 'exit 0'
 }
 
+# The file list remote-install.sh fetches, read from the script itself.
+plugin_files() {
+    sed -n 's/^PLUGIN_FILES="\(.*\)"$/\1/p' "$REPO_ROOT/moonraker-plugin/remote-install.sh"
+}
+
 # Lay out release $1's plugin files the way raw.githubusercontent.com serves a
 # tag: <ref>/moonraker-plugin/<file>.
 publish_release() {
     local dir="$RELEASE_ROOT/$1/moonraker-plugin"
     mkdir -p "$dir"
-    for f in install.sh helix_print_conf.sh helix_print.py helix_3mf.py helix_capabilities.py \
-        strip_phase_tracking.py; do
+    for f in $(plugin_files); do
         cp "$REPO_ROOT/moonraker-plugin/$f" "$dir/$f"
     done
 }
@@ -88,6 +95,18 @@ run_wrapper() {
     local home="$1"
     shift
     run env HOME="$home" HELIX_PLUGIN_BASE_URL="$BASE_URL" sh "$WRAPPER" "$@"
+}
+
+@test "remote-install.sh fetches every plugin module the plugin ships" {
+    local listed f name
+    listed=" $(plugin_files) "
+    for f in "$REPO_ROOT"/moonraker-plugin/*.py; do
+        name=$(basename "$f")
+        case "$listed" in
+            *" $name "*) ;;
+            *) echo "missing from PLUGIN_FILES: $name"; return 1 ;;
+        esac
+    done
 }
 
 @test "remote-install.sh passes POSIX syntax check" {

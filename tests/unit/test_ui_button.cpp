@@ -1240,3 +1240,35 @@ TEST_CASE_METHOD(UiButtonTestFixture,
     CHECK(std::abs((left - box.x1) - (box.x2 - right)) <= 1);
     lv_obj_delete(btn);
 }
+
+// A bound style (bind_style) dims an enabled button: the contrast pass keeps a
+// local opacity only for the disabled look, which would otherwise outrank it.
+TEST_CASE_METHOD(UiButtonTestFixture, "ui_button honors a style's opacity while enabled",
+                 "[ui_button][contrast][quick]") {
+    const char* attrs[] = {"text", "PLA", nullptr};
+    lv_obj_t* btn = create_button(attrs);
+    REQUIRE(btn != nullptr);
+
+    static lv_style_t dim;
+    static bool dim_ready = false;
+    if (!dim_ready) {
+        lv_style_init(&dim);
+        lv_style_set_opa(&dim, LV_OPA_40);
+        dim_ready = true;
+    }
+    lv_obj_add_style(btn, &dim, LV_PART_MAIN);
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    process_lvgl(10);
+    CHECK(lv_obj_get_style_opa(btn, LV_PART_MAIN) == LV_OPA_40);
+
+    // Disabled still reads as disabled, and enabling hands opacity back.
+    lv_obj_add_state(btn, LV_STATE_DISABLED);
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    process_lvgl(10);
+    CHECK(lv_obj_get_style_opa(btn, LV_PART_MAIN) == LV_OPA_50);
+    lv_obj_remove_state(btn, LV_STATE_DISABLED);
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    process_lvgl(10);
+    CHECK(lv_obj_get_style_opa(btn, LV_PART_MAIN) == LV_OPA_40);
+    lv_obj_remove_style(btn, &dim, LV_PART_MAIN);
+}

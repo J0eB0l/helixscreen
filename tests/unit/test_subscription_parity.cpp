@@ -116,7 +116,7 @@ TEST_CASE("subscription objects are unchanged for every backend fixture", "[subs
 
     SECTION("ACE with named instances") {
         Printer p;
-        p.obj("ace_instance0").obj("ace_instance1");
+        p.obj("ace_instance_0").obj("ace_instance_1");
         check_against_golden("ace_named", p.build());
     }
 
@@ -192,6 +192,20 @@ TEST_CASE("subscription objects are unchanged for every backend fixture", "[subs
         p.obj("toolchanger").obj("tool T0").obj("tool T1").obj("extruder1");
         p.heaters.push_back("extruder1");
         check_against_golden("toolchanger", p.build());
+    }
+
+    SECTION("Bondtech INDX") {
+        Printer p;
+        p.obj("indx")
+            .obj("save_variables")
+            .obj("gcode_macro TOOL_POSITIONS")
+            .obj("gcode_macro _TOOLCHANGE_VARS")
+            .obj("gcode_macro CHANGE_TOOL")
+            .obj("gcode_macro PARK_TOOL")
+            .obj("gcode_macro LOAD_FILAMENT")
+            .obj("gcode_macro T0")
+            .obj("gcode_macro T1");
+        check_against_golden("indx", p.build());
     }
 }
 

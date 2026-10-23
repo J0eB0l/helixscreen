@@ -107,6 +107,7 @@ void on_fan_long_pressed(lv_event_t* e) {
         return;
     }
     spdlog::debug("[FanControlOverlay] Long press on '{}'", data->object_name);
+    helix::ui::end_press(e);
     helix::settings::get_fan_settings_overlay().handle_fan_rename(data->object_name,
                                                                   data->display_name);
 }

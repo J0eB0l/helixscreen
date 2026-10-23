@@ -90,7 +90,7 @@ jobs:
     needs: gate
     runs-on: ubuntu-22.04
     # Covers the three build/check step budgets below (80 + 45 + 85 = 210)
-    # plus setup: apt, caches, npm install, venv, artifact upload.
+    # plus setup: apt, caches, venv, artifact upload.
     timeout-minutes: 225
     # Matches build.yml's DBGLEVEL, which is part of every ccache key: at the
     # default -g2 no object in the restored build.yml cache can hit.
@@ -154,21 +154,6 @@ jobs:
         key: ccache-ubuntu-22.04-${{ github.sha }}
         restore-keys: |
           ccache-ubuntu-22.04-
-
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
 
     # Hygiene, not the timeout fix: the restore step downloads the 1.8 GB
     # `ccache-ubuntu-22.04-` entry -- now the only entry it looks for -- and a
@@ -284,8 +269,8 @@ jobs:
         echo '/tmp/cores/core.%e.%p.%t' | sudo tee /proc/sys/kernel/core_pattern
         cat /proc/sys/kernel/core_pattern
 
-    # Budget: build.yml's identical 8-shard pass ends its slowest shard at 7-8
-    # minutes on this runner (459s measured), so each shard gets 840s and
+    # Budget: all 8 shards on one 4-core runner end the slowest at 7-8
+    # minutes (459s measured), so each shard gets 840s and
     # the step 15 minutes around them.
     - name: Run fast tests in parallel shards
       timeout-minutes: 15
@@ -546,21 +531,6 @@ jobs:
     # policy at the top of this file exists to protect. This job builds cold, and
     # the step split below is what keeps that affordable.
 
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
-
     - name: Configure ccache
       run: |
         ccache --set-config=max_size=1G
@@ -647,21 +617,6 @@ jobs:
     # saving this job's own family would cost ~3 GB of the 10 GB repo budget the
     # policy at the top of this file exists to protect. This job builds cold, and
     # the step split below is what keeps that affordable.
-
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
 
     - name: Configure ccache
       run: |
@@ -784,21 +739,6 @@ jobs:
         key: ccache-macos-14-${{ github.sha }}
         restore-keys: |
           ccache-macos-14-
-
-    - name: Cache npm downloads
-      uses: actions/cache@v5
-      with:
-        path: ~/.npm
-        key: npm-${{ runner.os }}-${{ hashFiles('package.json') }}
-        restore-keys: |
-          npm-${{ runner.os }}-
-
-    - name: Install Node.js dependencies
-      uses: nick-fields/retry@v4
-      with:
-        timeout_minutes: 6
-        max_attempts: 3
-        command: npm install
 
     - name: Configure ccache
       run: |

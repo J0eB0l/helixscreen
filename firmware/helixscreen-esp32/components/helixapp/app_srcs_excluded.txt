@@ -54,7 +54,9 @@ src/api/moonraker_client_mock_gcode.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_gcode_calibration.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_files.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_history.cpp  # not in the v1 Core+AMS cut
+src/api/moonraker_client_mock_plr.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_layer_pause.cpp  # not in the v1 Core+AMS cut
+src/api/moonraker_client_mock_indx.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_objects.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_print.cpp  # not in the v1 Core+AMS cut
 src/api/moonraker_client_mock_queue.cpp  # not in the v1 Core+AMS cut
@@ -105,6 +107,7 @@ src/application/fault_surface_correlation.cpp  # not in the v1 Core+AMS cut
 src/application/gcode_error_router.cpp  # not in the v1 Core+AMS cut
 src/application/gcode_narration_router.cpp  # not in the v1 Core+AMS cut
 src/application/gcode_response_routing.cpp  # not in the v1 Core+AMS cut
+src/application/event_journal_recorder.cpp  # owned by gcode_response_routing; reads klippy.log through the debug bundle
 src/application/hardware_setup_prompter.cpp  # not in the v1 Core+AMS cut
 src/application/lan_client_auth_router.cpp  # not in the v1 Core+AMS cut
 src/application/main_loop_handler.cpp  # not in the v1 Core+AMS cut
@@ -260,6 +263,7 @@ src/ui/gcode_viewer_input.cpp  # G-code viewer touch input, compiled out with th
 src/ui/ipp_print_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/modals/ui_spaghetti_detection_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/pid_progress_tracker.cpp  # not in the v1 Core+AMS cut
+src/ui/recovery_fault_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/recovery_modal_presenter.cpp  # not in the v1 Core+AMS cut
 src/ui/screensaver_aqua.cpp  # not in the v1 Core+AMS cut
 src/ui/screensaver_aqua_sim.cpp  # not in the v1 Core+AMS cut
@@ -386,3 +390,8 @@ src/system/http_listen_socket.cpp  # only the screen server and the mock file se
 src/system/random_bytes.cpp  # its callers (telemetry, screen server pairing) are not in the firmware
 src/system/android_lan_route.cpp  # Android only
 src/utils/lan_host.cpp  # only the Android LAN routing uses it
+src/plugin/lua_bind_sound.cpp  # not in the v1 Core+AMS cut
+src/ui/ui_icon_image.cpp  # not in the v1 Core+AMS cut
+src/ui/ui_text_entry_modal.cpp  # not in the v1 Core+AMS cut
+src/plugin/plugin_table.cpp  # not in the v1 Core+AMS cut
+src/plugin/lua_bind_table.cpp  # not in the v1 Core+AMS cut

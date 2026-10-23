@@ -37,6 +37,10 @@
          panel-local style; the dotted styles.invisible form crosses that
          boundary. -->
     <style name="invisible" opa="0"/>
+    <!-- A control the printer will refuse right now (a nozzle with no tool on
+         the head). Dimmed, not disabled: the tap still reaches the handler,
+         which says why. -->
+    <style name="heat_blocked" opa="45%"/>
     <!-- Widget catalog on a portrait screen, over its inline 70% width: a narrow
          panel takes the whole screen, a wider one keeps at least the
          #catalog_min_width an 800x480 landscape panel gets. -->

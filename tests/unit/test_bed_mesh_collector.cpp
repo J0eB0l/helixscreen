@@ -433,6 +433,18 @@ TEST_CASE("parse_adapted_probe_count extracts N*M from Klipper line",
         REQUIRE(*n == 16);
     }
 
+    SECTION("Stock Klipper bed_mesh.py form, parenthesized") {
+        auto n = helix::parse_adapted_probe_count("// Adapted probe count: (7,7)");
+        REQUIRE(n.has_value());
+        REQUIRE(*n == 49);
+    }
+
+    SECTION("KAMP verbose macro form, trailing period") {
+        auto n = helix::parse_adapted_probe_count("// Adapted probe count: 5,4.");
+        REQUIRE(n.has_value());
+        REQUIRE(*n == 20);
+    }
+
     SECTION("With gcode_response // prefix") {
         auto n = helix::parse_adapted_probe_count("// Adapted probe count: 5,3");
         REQUIRE(n.has_value());

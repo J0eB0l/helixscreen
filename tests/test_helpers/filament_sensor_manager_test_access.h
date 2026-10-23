@@ -42,7 +42,19 @@ class FilamentSensorManagerTestAccess {
             lv_subject_set_int(&mgr.probe_triggered_, -1);
             lv_subject_set_int(&mgr.any_runout_, 0);
             lv_subject_set_int(&mgr.motion_active_, 0);
+            lv_subject_set_int(&mgr.motion_signature_, 0);
             lv_subject_set_int(&mgr.master_enabled_subject_, 1);
+            lv_subject_set_int(&mgr.sensor_count_, 0);
+        }
+    }
+
+    /// Forget every discovered sensor and turn the master switch back on,
+    /// touching no subject's observer list, so it is safe from any fixture.
+    static void clear_sensors(FilamentSensorManager& mgr) {
+        std::lock_guard<std::recursive_mutex> lock(mgr.mutex_);
+        mgr.sensors_.clear();
+        mgr.master_enabled_ = true;
+        if (mgr.subjects_initialized_) {
             lv_subject_set_int(&mgr.sensor_count_, 0);
         }
     }

@@ -1849,6 +1849,12 @@ lv_obj_t* ui_gcode_viewer_create(lv_obj_t* parent) {
 
 void ui_gcode_viewer_load_file(lv_obj_t*, const char*) {}
 
+void helix::ui_gcode_viewer_set_layer_index_sidecar(lv_obj_t*, std::string) {}
+
+bool helix::ui_gcode_viewer_would_stream(lv_obj_t*, const std::string&) {
+    return false;
+}
+
 void ui_gcode_viewer_set_load_callback(lv_obj_t*, gcode_viewer_load_callback_t, void*) {}
 
 void ui_gcode_viewer_set_first_frame_callback(lv_obj_t*, gcode_viewer_load_callback_t, void*) {}

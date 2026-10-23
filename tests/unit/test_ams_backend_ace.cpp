@@ -7,6 +7,7 @@
 
 #include "../test_helpers/filament_slot_override_store_test_access.h"
 #include "../test_helpers/mock_printer.h"
+#include "../test_helpers/update_queue_test_access.h"
 #include "ams_backend_ace.h"
 #include "ams_bypass_policy.h"
 #include "ams_types.h"
@@ -23,18 +24,21 @@
 #include "printer_discovery.h"
 #include "printer_state.h"
 #include "settings_manager.h"
+#include "test_helpers/ace_backend_test_helper.h"
 #include "test_helpers/ace_test_access.h"
 #include "test_helpers/backend_user_edit.h"
 #include "test_helpers/registered_backend.h"
 #include "test_helpers/seeded_override.h"
 
 #include <algorithm>
+#include <any>
 #include <filesystem>
 #include <json.hpp> // nlohmann/json from libhv
 #include <memory>
 #include <optional>
 #include <string>
 #include <unistd.h>
+#include <vector>
 
 #include "../catch_amalgamated.hpp"
 
@@ -51,6 +55,7 @@ using helix::SlotInfo;
 using helix::SlotStatus;
 
 using json = nlohmann::json;
+using namespace ace_fixtures;
 
 namespace {
 // Per-test tmp cache dir — same idiom as IFS/Snapmaker tests.
@@ -93,94 +98,8 @@ json make_ace_slot_payload(const std::string& status_str, uint32_t color_rgb,
 // FLAT, single-hub schema Rinkhals firmware exposes): 4 slots, one "ready"
 // PLA slot with an RGB color, the rest "empty"; a live "dryer" object in the
 // "drying" state; and current_filament "0-1" (local slot 1 loaded).
-// --- #1069 live-capture builders (Kobra S1 mainline-Python fork / "ACEPRO"
-// driver, 1x ACE Pro, fw V1.3.856). Field-for-field the user's captures: the
-// `ace` object is a MANAGER (no slots) whose `current_index` is the ONLY
-// loaded-tool signal (-1 = nothing loaded); `ace_instance_0` carries the four
-// slots with `material` (no `type`) and the dryer nested under `dryer_status`.
-
-json make_kobra_manager_object(int current_index) {
-    return json{
-        {"ace_instances", 1},
-        {"current_index", current_index},
-        {"target_index", -1},
-        {"endless_spool_enabled", false},
-        {"endless_spool_match_mode", "exact"},
-        {"ace_pro_enabled", true},
-        {"toolhead_sensor", true},
-        {"rdm_sensor", true},
-    };
-}
-
-json make_kobra_slots_array() {
-    return json::array({
-        json{{"index", 0},
-             {"tool", 0},
-             {"status", "ready"},
-             {"color", json::array({0, 230, 118})},
-             {"material", "PLA"},
-             {"temp", 225},
-             {"rfid", false}},
-        json{{"index", 1},
-             {"tool", 1},
-             {"status", "ready"},
-             {"color", json::array({255, 255, 255})},
-             {"material", "PETG"},
-             {"temp", 245},
-             {"rfid", false}},
-        json{{"index", 2},
-             {"tool", 2},
-             {"status", "ready"},
-             {"color", json::array({229, 57, 53})},
-             {"material", "PETG"},
-             {"temp", 255},
-             {"rfid", false}},
-        json{{"index", 3},
-             {"tool", 3},
-             {"status", "ready"},
-             {"color", json::array({255, 255, 255})},
-             {"material", "PLA"},
-             {"temp", 225},
-             {"rfid", false}},
-    });
-}
-
-json make_kobra_instance_object() {
-    return json{
-        {"status", "ready"},
-        {"dryer_status",
-         json{{"status", "stop"}, {"target_temp", 0}, {"duration", 0}, {"remain_time", 0}}},
-        {"temp", 34},
-        {"enable_rfid", 1},
-        {"fan_speed", 7000},
-        {"feed_assist_count", 0},
-        {"cont_assist_time", 0.0},
-        {"slots", make_kobra_slots_array()},
-        {"instance", 0},
-        {"protocol", "ace1_json"},
-        {"rfid_sync_enabled", true},
-        {"feed_assist_slot", -1},
-        {"model", "Anycubic Color Engine Pro"},
-        {"firmware", "V1.3.856"},
-        {"boot_firmware", "V1.0.1"},
-        {"structure_version", "3"},
-        {"usb_port", "/dev/ttyACM2"},
-        {"usb_path", "1-1.3.4.3"},
-        {"connection_state", "connected"},
-    };
-}
-
-// printer.objects.query answer carrying both the manager and the slot-bearing
-// instance, as the fork's initial query does.
-json make_kobra_objects_query_response(int current_index) {
-    json status = json::object();
-    status["ace"] = make_kobra_manager_object(current_index);
-    status["ace_instance_0"] = make_kobra_instance_object();
-    return json{{"result", {{"eventtime", 33117.349534149}, {"status", status}}}};
-}
-
 // GET /server/ace/status result: instance 0's get_status() verbatim plus the
-// fork's envelope keys (instance_index, instances[], ace_manager,
+// ACEPRO bridge's envelope keys (instance_index, instances[], ace_manager,
 // ace_instance_count).
 json make_kobra_rest_status_result() {
     json result = make_kobra_instance_object();
@@ -233,103 +152,6 @@ json make_native_filament_hub_payload() {
 }
 
 } // namespace
-
-/**
- * @brief Test helper class providing access to AmsBackendAce internals
- *
- * This class provides controlled access to private members for unit testing.
- * It does NOT start the backend (no Moonraker connection needed).
- */
-class AmsBackendAceTestHelper : public AmsBackendAce {
-  public:
-    using AmsSubscriptionBackend::send_endless_spool_switch;
-    AmsBackendAceTestHelper() : AmsBackendAce(nullptr, nullptr) {}
-    explicit AmsBackendAceTestHelper(helix::IMoonrakerClient* client)
-        : AmsBackendAce(nullptr, client) {}
-
-    // Parse response helpers - call the protected parsing methods
-    void test_parse_info_response(const json& data) {
-        parse_info_response(data);
-    }
-
-    bool test_parse_status_response(const json& data) {
-        return parse_status_response(data);
-    }
-
-    bool test_parse_slots_response(const json& data) {
-        return parse_slots_response(data);
-    }
-
-    // Drive the WebSocket status-update path (protected hook) so tests can
-    // exercise the filament_hub/ace key-picking logic, not just parse_ace_object.
-    void test_handle_status_update(const json& notification) {
-        handle_status_update(notification);
-    }
-
-    // Drive the subscription bootstrap (initial printer.objects.query). The
-    // parse lands on the UpdateQueue — drain after calling.
-    void test_on_started() {
-        on_started();
-    }
-
-    // State accessors for verification
-    AmsSystemInfo get_test_system_info() const {
-        return get_system_info();
-    }
-
-    DryerInfo get_test_dryer_info() const {
-        return get_dryer_info();
-    }
-
-    // Filament ops refuse unless the backend is started; these tests drive the
-    // op hooks without a Moonraker connection.
-    void set_running(bool state) {
-        running_ = state;
-    }
-
-    // parse_slots_response resizes units[0].slots without touching slot_count
-    // when the size is unchanged, so the two can disagree.
-    void set_stale_slot_count(int count) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        system_info_.units[0].slot_count = count;
-    }
-
-    void set_test_action(AmsAction action) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        system_info_.action = action;
-    }
-
-    // Load and unload resolve through this seam, so a test can assert what was
-    // sent and fire the driver's ack when it chooses. A driver that ignores a
-    // toolchange still acks it, which is the case worth reproducing.
-    std::vector<std::string> captured_gcodes;
-    std::function<void()> pending_ack;
-
-    // Fire-and-forget sends (bypass) take this form; the completion form below
-    // is for ops whose ack matters. Both capture, so a test reads one list.
-    helix::AmsError execute_gcode(const std::string& gcode) override {
-        captured_gcodes.push_back(gcode);
-        return helix::AmsErrorHelper::success();
-    }
-
-    helix::AmsError execute_gcode(const std::string& gcode, std::function<void()> on_complete,
-                                  std::function<void(const MoonrakerError&)> on_error,
-                                  bool silent) override {
-        if (dispatch_via_base) {
-            return AmsSubscriptionBackend::execute_gcode(gcode, std::move(on_complete),
-                                                         std::move(on_error), silent);
-        }
-        captured_gcodes.push_back(gcode);
-        pending_ack = std::move(on_complete);
-        return helix::AmsErrorHelper::success();
-    }
-
-  public:
-    // Routes the completion-form dispatch to the REAL AmsSubscriptionBackend
-    // implementation (api_ is null here) instead of the capture seam, so a
-    // test can exercise the dispatch's own refusal legs.
-    bool dispatch_via_base = false;
-};
 
 // ============================================================================
 // Type and Topology Tests
@@ -1011,6 +833,29 @@ TEST_CASE("ACE driver-started toolchange shows its target lane before it seats",
     CHECK(helper.get_filament_segment() == PathSegment::NOZZLE);
 }
 
+TEST_CASE("ACE forgets a driver-started toolchange on a Klipper restart",
+          "[ams][ace][klipper_restart_expiry]") {
+    AmsBackendAceTestHelper helper;
+    helper.set_running(true);
+    AceTestAccess::parse_ace(helper, make_kobra_instance_object());
+    json idle = make_kobra_manager_object(-1);
+    idle["rdm_sensor"] = false;
+    idle["toolhead_sensor"] = false;
+    AceTestAccess::parse_ace(helper, idle);
+
+    notify_ace(helper, {{"current_index", -1}, {"target_index", 0}});
+    REQUIRE(helper.get_test_system_info().action == AmsAction::LOADING);
+
+    helper.on_klipper_restarted();
+    auto info = helper.get_test_system_info();
+    CHECK(info.action == AmsAction::IDLE);
+    CHECK(info.pending_target_slot == -1);
+
+    // A delta that does not restate target_index must not re-raise it.
+    notify_ace(helper, {{"rdm_sensor", true}});
+    CHECK(helper.get_test_system_info().action == AmsAction::IDLE);
+}
+
 // A swap from a seated tool retracts the old strand past the hub before the
 // new one feeds. The hub sensor is made, clears, then is made again; only the
 // clear tells the two phases apart.
@@ -1337,11 +1182,61 @@ TEST_CASE("ACE send refused with no on_error leaves the action alone", "[ams][ac
 // nothing arrives to contradict a stamp taken from the ack.
 // ============================================================================
 
+namespace {
+/// ACE against a real MoonrakerAPI over the mock client: the ack reaches the
+/// op through the base class's own single defer.
+class AceLiveAckHelper : public AmsBackendAceTestHelper {
+  public:
+    MockPrinter printer;
+
+    AceLiveAckHelper() {
+        api_ = &printer.api;
+        dispatch_via_base = true;
+        set_running(true);
+        AceTestAccess::parse_ace(*this, make_kobra_instance_object());
+    }
+    ~AceLiveAckHelper() override {
+        helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+    }
+};
+} // namespace
+
+TEST_CASE("ACE load and unload resolve in the queue pass after the ack",
+          "[ams][ace][threading][1761][1847]") {
+    using helix::ui::UpdateQueueTestAccess;
+    AceLiveAckHelper helper;
+    auto idle = [&] { return helper.get_test_system_info().action == AmsAction::IDLE; };
+
+    SECTION("load") {
+        REQUIRE(helper.load_filament(2).success());
+        REQUIRE(helper.get_test_system_info().action == AmsAction::LOADING);
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+        CHECK(helper.get_test_system_info().current_slot == 2);
+    }
+    SECTION("unload") {
+        REQUIRE(helper.unload_filament(0).success());
+        REQUIRE(helper.get_test_system_info().action == AmsAction::UNLOADING);
+        CHECK(UpdateQueueTestAccess::passes_until(idle) == 1);
+    }
+}
+
+TEST_CASE("ACE load answered after a cancel leaves the cancelled state alone",
+          "[ams][ace][threading][1847]") {
+    AceLiveAckHelper helper;
+
+    REQUIRE(helper.load_filament(2).success());
+    // The ack is queued; the user cancels before it runs.
+    REQUIRE(helper.cancel().success());
+    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
+
+    CHECK(helper.get_test_system_info().current_slot != 2);
+}
+
 TEST_CASE("ACE load does not seat a slot the driver never moved to", "[ams][ace][1676]") {
     AmsBackendAceTestHelper helper;
     helper.set_running(true);
 
-    // Fork rig with nothing loaded: four ready slots, manager seat -1.
+    // ACEPRO rig with nothing loaded: four ready slots, manager seat -1.
     AceTestAccess::parse_ace(helper, make_kobra_instance_object());
     AceTestAccess::parse_ace(helper, make_kobra_manager_object(-1));
     REQUIRE_FALSE(helper.get_test_system_info().filament_loaded);
@@ -2351,10 +2246,10 @@ TEST_CASE("ACE maps native runout slot status to EMPTY", "[ams][ace][native][par
 }
 
 // ============================================================================
-// #1069: Kobra S1 mainline-Python Klipper fork REST path.
+// #1069: ACEPRO driver REST path.
 //
-// The fork ships a custom ace_status.py Moonraker component that exposes ACE
-// state through /server/ace/status + /server/ace/slots (but NOT /info). The
+// The ACEPRO driver ships a custom ace_status.py Moonraker component that
+// exposes ACE state through /server/ace/status + /server/ace/slots (but NOT /info). The
 // underlying `ace` Klipper object is a MANAGER (ace_instances/current_index,
 // no slots), so the WebSocket subscription path parses zero slots and the REST
 // bridge must take over. These tests lock the four fixes for that path.
@@ -2364,7 +2259,7 @@ TEST_CASE("ACE maps native runout slot status to EMPTY", "[ams][ace][native][par
 
 TEST_CASE("ACE manager-only ace object (no slots) selects REST fallback",
           "[ams][ace][rest_fallback][kobra]") {
-    // Kobra S1 fork: `ace` is a manager with ace_instances/current_index and NO
+    // ACEPRO driver: `ace` is a manager with ace_instances/current_index and NO
     // slots array. select_ace_object must return nullptr so on_started
     // commits to REST polling instead of parsing zero slots off the manager.
     json status = json::object();
@@ -2416,11 +2311,11 @@ TEST_CASE("ACE object WITH slots array still selects subscription path",
     }
 }
 
-// --- #1107: Kobra S1 mainline-Python fork registers `ace_instance_N` ---------
+// --- #1107: the ACEPRO driver registers `ace_instance_N` ---------------------
 //
-// The fork exposes each ACE unit as its own `ace_instance_N` Klipper object
-// (has get_status()), NOT a top-level `ace`/`filament_hub`. If a future build
-// of that fork carries a `slots` array on ace_instance_N, the object path must
+// The ACEPRO driver exposes each ACE unit as its own `ace_instance_N` Klipper
+// object (has get_status()), NOT a top-level `ace`/`filament_hub`. When a build
+// of that driver carries a `slots` array on ace_instance_N, the object path must
 // engage; if not, it falls through to the REST bridge like the manager case.
 
 TEST_CASE("ACE ace_instance_0 WITH slots selects subscription path",
@@ -2438,7 +2333,7 @@ TEST_CASE("ACE ace_instance_0 WITH slots selects subscription path",
 
 TEST_CASE("ACE ace_instance_0 manager-shaped (no slots) selects REST fallback",
           "[ams][ace][rest_fallback][kobra]") {
-    // The verified Kobra S1 fork exposes ace_instance_0 without a slots array
+    // The verified ACEPRO driver exposes ace_instance_0 without a slots array
     // (has_get_status=True but manager-shaped). Must fall through to REST.
     json status = json::object();
     status["ace_instance_0"] = json{{"current_index", 0}, {"ace_count", 1}};
@@ -2501,7 +2396,7 @@ TEST_CASE("ACE status-update path parses ace_instance_0 with slots",
 // ============================================================================
 // #1069 live capture: loaded-slot and live-shape support.
 //
-// On this fork no slot is ever "loaded" — the manager's current_index is the
+// On this driver no slot is ever "loaded" — the manager's current_index is the
 // only seat signal, slots carry `material` (not `type`), the dryer nests
 // under `dryer_status`, and REST /status carries the seat as
 // ace_manager.current_index.
@@ -2708,12 +2603,12 @@ TEST_CASE("ACE manager delta without current_index keeps the instance delta", "[
     CHECK(helper.get_slot_info(0).material == "PLA");
 }
 
-TEST_CASE("ACE lowest instance wins over a higher instance's slots", "[ams][ace][1069]") {
+TEST_CASE("ACE higher instance's slots do not overwrite the first unit's", "[ams][ace][1069]") {
     AmsBackendAceTestHelper helper;
     AceTestAccess::parse_ace(helper, make_kobra_instance_object());
 
     // Unit 1's delta carries a whole slots array; unit 0's carries only a
-    // temp delta. The display stays anchored to unit 0's inventory.
+    // temp delta. Unit 0 keeps its own inventory and takes its own temp.
     json unit1 = make_kobra_instance_object();
     unit1["instance"] = 1;
     unit1["slots"][0]["material"] = "ABS";
@@ -2727,6 +2622,49 @@ TEST_CASE("ACE lowest instance wins over a higher instance's slots", "[ams][ace]
     CHECK(helper.get_slot_info(0).material == "PLA");
     CHECK(helper.get_slot_info(0).color_rgb == 0x00E676u);
     CHECK(helper.get_test_dryer_info().current_temp_c == 35.2f);
+    CHECK(helper.get_slot_info(4).material == "ABS");
+}
+
+TEST_CASE("ACE instance delta updates only the unit it names", "[ams][ace][1835]") {
+    AmsBackendAceTestHelper helper;
+
+    json unit1 = make_kobra_instance_object();
+    unit1["instance"] = 1;
+    unit1["slots"][0]["material"] = "ABS";
+    unit1["slots"][0]["color"] = json::array({63, 81, 181});
+
+    SECTION("a delta naming only instance 1 leaves unit 0 alone") {
+        json first = json::object();
+        first["ace_instance_0"] = make_kobra_instance_object();
+        helper.test_handle_status_update({{"params", json::array({first, 4240.0})}});
+        REQUIRE(helper.get_slot_info(0).material == "PLA");
+
+        json frame = json::object();
+        frame["ace_instance_1"] = unit1;
+        helper.test_handle_status_update({{"params", json::array({frame, 4241.0})}});
+
+        CHECK(helper.get_slot_info(0).material == "PLA");
+        CHECK(helper.get_slot_info(0).color_rgb == 0x00E676u);
+        CHECK(helper.get_slot_info(4).material == "ABS");
+    }
+
+    SECTION("a frame naming two instances lands each on its own unit") {
+        json first = json::object();
+        first["ace_instance_1"] = make_kobra_instance_object();
+        helper.test_handle_status_update({{"params", json::array({first, 4240.0})}});
+        REQUIRE(helper.get_slot_info(4).material == "PLA");
+
+        json unit0 = unit1;
+        unit0["instance"] = 0;
+        json frame = json::object();
+        frame["ace_instance_0"] = unit0;
+        frame["ace_instance_1"] = json{{"temp", 35.2}};
+        helper.test_handle_status_update({{"params", json::array({frame, 4241.0})}});
+
+        CHECK(helper.get_slot_info(0).material == "ABS");
+        CHECK(helper.get_slot_info(4).material == "PLA");
+        CHECK(helper.get_dryer_info(1).current_temp_c == 35.2f);
+    }
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "ACE REST unit-status idle keeps an in-flight load",
@@ -2747,7 +2685,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "ACE REST unit-status idle keeps an in-flight 
     AceTestAccess::parse_ace(backend, json{{"status", "loading"}});
     REQUIRE(backend.get_system_info().action == AmsAction::LOADING);
 
-    // The fork's /status states the UNIT's status ("ready"), which resolves
+    // The ACEPRO driver's /status states the UNIT's status ("ready"), which resolves
     // to IDLE — it must not demote the in-flight op.
     AceTestAccess::poll_status(backend);
     helix::ui::UpdateQueue::instance().drain();
@@ -2873,7 +2811,7 @@ TEST_CASE("ACE parse_slots_response maps unknown to UNKNOWN like the object path
 TEST_CASE("ACE parse_status_response derives model and firmware", "[ams][ace][parse][kobra]") {
     AmsBackendAceTestHelper helper;
 
-    // The fork's /server/ace/status envelope carries model + firmware, so the
+    // The ACEPRO driver's /server/ace/status envelope carries model + firmware, so the
     // backend no longer needs /server/ace/info to identify the hardware.
     json data = {{"model", "ACE Pro"}, {"firmware", "2.5.1"}, {"loaded_slot", -1}};
 
@@ -2892,7 +2830,7 @@ TEST_CASE_METHOD(LVGLTestFixture,
     MockPrinter mock_printer;
     auto& api = mock_printer.api;
 
-    // Fork surface: /info 404s, /status + /slots succeed. /status carries model.
+    // ACEPRO surface: /info 404s, /status + /slots succeed. /status carries model.
     RestResponse info_404;
     info_404.success = false;
     info_404.status_code = 404;
@@ -2934,6 +2872,153 @@ TEST_CASE_METHOD(LVGLTestFixture,
     CHECK(info.version == "2.5.1");
     REQUIRE(info.units.size() == 1);
     CHECK(info.units[0].slots.size() == 4);
+}
+
+// Two units behind the ACEPRO bridge with T1 loaded. Asked for no instance the
+// bridge serves the instance whose number equals current_index, so the second
+// unit; the backend pins instance 0 and takes each slot's tool from the slot.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE REST bridge serves instance 0 with its own tool numbers",
+                 "[ams][ace][rest_fallback][kobra]") {
+    MockPrinter mock_printer;
+    auto& api = mock_printer.api;
+
+    auto ok = [](json result) {
+        RestResponse resp;
+        resp.success = true;
+        resp.status_code = 200;
+        resp.data = {{"result", std::move(result)}};
+        return resp;
+    };
+    auto slots_with_tools = [](int first_tool, const char* material) {
+        json slots = json::array();
+        for (int i = 0; i < 4; ++i) {
+            slots.push_back(json{{"index", i},
+                                 {"tool", first_tool + i},
+                                 {"status", "ready"},
+                                 {"material", material},
+                                 {"color", json::array({255, 0, 0})}});
+        }
+        return slots;
+    };
+    const json manager = {{"current_index", 1}, {"target_index", -1}, {"ace_instances", 2}};
+    api.rest_mock().mock_set_get_response("/server/ace/status?instance=0",
+                                          ok({{"model", "ACE Pro"},
+                                              {"status", "ready"},
+                                              {"instance_index", 0},
+                                              {"ace_manager", manager}}));
+    api.rest_mock().mock_set_get_response("/server/ace/slots?instance=0",
+                                          ok({{"slots", slots_with_tools(0, "PLA")}}));
+    api.rest_mock().mock_set_get_response("/server/ace/status", ok({{"model", "ACE Pro"},
+                                                                    {"status", "ready"},
+                                                                    {"instance_index", 1},
+                                                                    {"ace_manager", manager}}));
+    api.rest_mock().mock_set_get_response("/server/ace/slots",
+                                          ok({{"slots", slots_with_tools(4, "ABS")}}));
+
+    AmsBackendAceTestHelper backend(&api, nullptr);
+    for (int i = 0; i < 2; ++i) {
+        AceTestAccess::poll_status(backend);
+        AceTestAccess::poll_slots(backend);
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
+    const auto info = backend.get_system_info();
+    CHECK(backend.get_slot_info(0).material == "PLA");
+    CHECK(info.current_tool == 1);
+    CHECK(info.current_slot == 1);
+    backend.set_running(true);
+    backend.captured_gcodes.clear();
+    REQUIRE(backend.load_filament(2).success());
+    REQUIRE_FALSE(backend.captured_gcodes.empty());
+    CHECK(backend.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=2");
+}
+
+// The REST slots carry each slot's `tool`, read rather than assumed from the
+// slot's position: the seat and ACE_CHANGE_TOOL follow it.
+TEST_CASE("ACE REST slots take the tool each slot names", "[ams][ace][rest_fallback][kobra]") {
+    AmsBackendAceTestHelper b;
+    json slots = make_kobra_slots_array();
+    const int tools[] = {6, 5, 4, 7};
+    for (int i = 0; i < 4; ++i) {
+        slots[i]["tool"] = tools[i];
+    }
+    // The seat arrives before the slots name their tools: T5 is no slot yet.
+    b.test_parse_slots_response(json{{"slots", make_kobra_slots_array()}});
+    for (int i = 0; i < 4; ++i) {
+        REQUIRE(b.get_slot_info(i).mapped_tool == i);
+    }
+    json untooled = make_kobra_slots_array();
+    for (auto& slot : untooled) {
+        slot.erase("tool");
+    }
+    b.test_parse_slots_response(json{{"slots", untooled}});
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
+    REQUIRE(b.get_test_system_info().current_slot == -1);
+
+    // The slots naming them re-seat T5 and publish the map.
+    REQUIRE(b.test_parse_slots_response(json{{"slots", slots}}));
+    const auto info = b.get_test_system_info();
+    CHECK(info.current_slot == 1);
+    REQUIRE(info.tool_to_slot_map.size() > 7);
+    CHECK(info.tool_to_slot_map[6] == 0);
+    CHECK(info.tool_to_slot_map[7] == 3);
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
+    b.set_running(true);
+    b.captured_gcodes.clear();
+    REQUIRE(b.load_filament(0).success());
+    CHECK(b.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=6");
+}
+
+// The ACEPRO bridge answers an instance it does not have (?instance=0 on a
+// chain with no instance 0) with HTTP 200 and a result carrying only `error`.
+// That is a failed poll: it keeps the inventory and counts toward the
+// missing-bridge error, never an empty unit 0.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE REST error result is a failed poll",
+                 "[ams][ace][rest_fallback][kobra]") {
+    MockPrinter mock_printer;
+    auto& api = mock_printer.api;
+    RestResponse error_result;
+    error_result.success = true;
+    error_result.status_code = 200;
+    error_result.data = {{"result",
+                          {{"error", "Requested ACE instance 0 is unavailable"},
+                           {"instance_index", 0},
+                           {"available_instances", json::array({1})},
+                           {"ace_instance_count", 2}}}};
+
+    AmsBackendAceTestHelper backend(&api, nullptr);
+    int error_events = 0;
+    backend.set_event_callback([&error_events](const std::string& ev, const std::string&) {
+        if (ev == AmsBackend::kEventError)
+            ++error_events;
+    });
+
+    SECTION("an inventory already shown stays") {
+        AceTestAccess::poll_status(backend);
+        AceTestAccess::poll_slots(backend);
+        helix::ui::UpdateQueue::instance().drain();
+        REQUIRE(backend.get_slot_info(0).material == "PLA");
+        api.rest_mock().mock_set_get_response("/server/ace/status", error_result);
+        api.rest_mock().mock_set_get_response("/server/ace/slots", error_result);
+        AceTestAccess::poll_status(backend);
+        AceTestAccess::poll_slots(backend);
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(backend.get_slot_info(0).material == "PLA");
+        CHECK(backend.get_system_info().total_slots == 4);
+    }
+    SECTION("nothing but error results surfaces the missing bridge") {
+        api.rest_mock().mock_set_get_response("/server/ace/status", error_result);
+        api.rest_mock().mock_set_get_response("/server/ace/slots", error_result);
+        for (int i = 0; i < 4; ++i) {
+            AceTestAccess::poll_status(backend);
+            AceTestAccess::poll_slots(backend);
+            helix::ui::UpdateQueue::instance().drain();
+        }
+        CHECK(backend.get_system_info().units.empty());
+        CHECK(error_events == 1);
+    }
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "ACE surfaces an error when the data endpoints are all missing",
@@ -3496,4 +3581,519 @@ TEST_CASE("ACE REST slots bridge carries park_state", "[ams][ace][segment][park]
     CHECK(helper.get_slot_filament_segment(2) == PathSegment::OUTPUT);
     CHECK(helper.get_slot_filament_segment(3) == PathSegment::SPOOL);
     CHECK(helper.get_slot_filament_segment(0) == PathSegment::SPOOL);
+}
+
+// ============================================================================
+// Device actions: unit + slot addressing per driver (prestonbrown/helixscreen#1821)
+// ============================================================================
+
+namespace {
+json four_slot_array() {
+    return json::array({json{{"status", "ready"}}, json{{"status", "ready"}},
+                        json{{"status", "ready"}}, json{{"status", "ready"}}});
+}
+
+json status_notification(const std::string& key, const json& obj) {
+    json status = json::object();
+    status[key] = obj;
+    return json{{"params", json::array({status, 1.0})}};
+}
+
+// Feed the backend one driver's status surface with a four-slot unit.
+void present_driver_surface(AmsBackendAceTestHelper& b, const std::string& surface) {
+    if (surface == "rest") {
+        b.test_parse_slots_response(json{{"slots", four_slot_array()}});
+        b.test_parse_status_response(json{{"model", "ACE Pro"}});
+    } else if (surface == "rest+ace_manager") {
+        b.test_parse_slots_response(json{{"slots", four_slot_array()}});
+        b.test_parse_status_response(
+            json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
+    } else {
+        b.test_handle_status_update(
+            status_notification(surface, json{{"slots", four_slot_array()}}));
+    }
+}
+
+// Every gcode the three slot-addressed actions send for the current slot, in
+// order: feed, retract, feed assist on, feed assist off.
+std::vector<std::string> run_slot_actions(AmsBackendAceTestHelper& b) {
+    b.captured_gcodes.clear();
+    REQUIRE(b.execute_device_action("ace_manual_feed", {}).success());
+    REQUIRE(b.execute_device_action("ace_manual_retract", {}).success());
+    REQUIRE(b.execute_device_action("ace_feed_assist_toggle", std::any(true)).success());
+    REQUIRE(b.execute_device_action("ace_feed_assist_toggle", std::any(false)).success());
+    return b.captured_gcodes;
+}
+} // namespace
+
+TEST_CASE("ACE slot actions address the hub by INDEX= on single-hub drivers",
+          "[ams][ace][device_actions]") {
+    const std::string surface = GENERATE(as<std::string>{}, "filament_hub", "ace", "rest");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    AceTestAccess::set_seat(b, 2, true);
+
+    CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                     "ACE_FEED INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_RETRACT INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_ENABLE_FEED_ASSIST INDEX=2",
+                                     "ACE_DISABLE_FEED_ASSIST INDEX=2",
+                                 });
+}
+
+TEST_CASE("ACE slot actions name INSTANCE= and the local INDEX= on the ACEPRO driver",
+          "[ams][ace][device_actions][kobra]") {
+    const std::string surface = GENERATE(as<std::string>{}, "ace_instance_0", "rest+ace_manager");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+
+    SECTION("one unit") {
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                         "ACE_FEED INSTANCE=0 INDEX=2 LENGTH=50 SPEED=50",
+                                         "ACE_RETRACT INSTANCE=0 INDEX=2 LENGTH=50 SPEED=50",
+                                         "ACE_ENABLE_FEED_ASSIST INSTANCE=0 INDEX=2",
+                                         "ACE_DISABLE_FEED_ASSIST INSTANCE=0 INDEX=2",
+                                     });
+    }
+    // The REST bridge serves one unit, so only the object path has a second.
+    if (surface == "ace_instance_0") {
+        SECTION("two units: global slot 5 is the second unit's slot 1") {
+            AceTestAccess::append_unit(b, 4);
+            AceTestAccess::set_seat(b, 5, true);
+            CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                             "ACE_FEED INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                             "ACE_RETRACT INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                             "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                             "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                         });
+        }
+    }
+}
+
+TEST_CASE("ACE slot actions take INSTANCE= from the driver's own instance number",
+          "[ams][ace][device_actions][kobra]") {
+    AmsBackendAceTestHelper b;
+    b.test_handle_status_update(
+        status_notification("ace_instance_1", json{{"slots", four_slot_array()}}));
+    // Unit 1 is ace_instance_1, after unit 0's four slots: its slot 2 is global 6.
+    AceTestAccess::set_seat(b, 6, true);
+
+    CHECK(run_slot_actions(b) == std::vector<std::string>{
+                                     "ACE_FEED INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_RETRACT INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50",
+                                     "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=2",
+                                     "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=2",
+                                 });
+}
+
+namespace {
+// Answer the backend's startup printer.objects.query with @p status.
+void answer_initial_query(helix::test::FakeMoonrakerClient& client, const json& status) {
+    REQUIRE_FALSE(client.rpc_calls.empty());
+    const auto& call = client.rpc_calls.back();
+    REQUIRE(call.method == "printer.objects.query");
+    REQUIRE(call.success_cb);
+    call.success_cb(json{{"result", json{{"status", status}}}});
+    helix::ui::UpdateQueue::instance().drain();
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "ACE delta for one instance after the startup query",
+                 "[ams][ace][1835]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+
+    json other = make_kobra_instance_object();
+    other["slots"][0]["material"] = "ABS";
+
+    SECTION("a delta for instance 1 updates unit 1 and leaves unit 0") {
+        answer_initial_query(client, json{{"ace_instance_0", make_kobra_instance_object()},
+                                          {"ace_instance_1", make_kobra_instance_object()}});
+        REQUIRE(b.get_slot_info(0).material == "PLA");
+        REQUIRE(b.get_slot_info(4).material == "PLA");
+        b.test_handle_status_update(status_notification("ace_instance_1", other));
+        CHECK(b.get_slot_info(0).material == "PLA");
+        CHECK(b.get_slot_info(4).material == "ABS");
+    }
+    SECTION("a delta for instance 0 updates unit 0 and leaves unit 1") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"status", "ready"}}},
+                                          {"ace_instance_1", make_kobra_instance_object()}});
+        REQUIRE(b.get_slot_info(4).material == "PLA");
+        b.test_handle_status_update(status_notification("ace_instance_0", other));
+        CHECK(b.get_slot_info(0).material == "ABS");
+        CHECK(b.get_slot_info(4).material == "PLA");
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "ACE INSTANCE= follows the unit a slot belongs to, not a delta",
+                 "[ams][ace][device_actions][kobra]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+
+    SECTION("a delta naming only a higher instance leaves unit 0 on INSTANCE=0") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()}}},
+                                          {"ace_instance_1", json{{"slots", four_slot_array()}}}});
+        b.test_handle_status_update(
+            status_notification("ace_instance_1", json{{"status", "ready"}}));
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=0 INDEX=2 LENGTH=50 SPEED=50");
+    }
+    SECTION("a slotless ace_instance_0 still numbers unit 1 as INSTANCE=1") {
+        answer_initial_query(client, json{{"ace_instance_0", json{{"status", "ready"}}},
+                                          {"ace_instance_1", json{{"slots", four_slot_array()}}}});
+        AceTestAccess::set_seat(b, 6, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50");
+    }
+    SECTION("a restart onto a single-hub driver drops INSTANCE=") {
+        answer_initial_query(client, json{{"ace_instance_1", json{{"slots", four_slot_array()}}}});
+        b.test_on_started();
+        answer_initial_query(client, json{{"ace", json{{"slots", four_slot_array()}}}});
+        const auto info = b.get_test_system_info();
+        CHECK(info.units.size() == 1);
+        CHECK(info.total_slots == 4);
+        CHECK_FALSE(info.units[0].absent);
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INDEX=2 LENGTH=50 SPEED=50");
+    }
+}
+
+namespace {
+// Every slot-addressed action, each expected to be refused.
+void expect_slot_actions_refused(AmsBackendAceTestHelper& b) {
+    b.captured_gcodes.clear();
+    CHECK_FALSE(b.execute_device_action("ace_manual_feed", {}).success());
+    CHECK_FALSE(b.execute_device_action("ace_manual_retract", {}).success());
+    CHECK_FALSE(b.execute_device_action("ace_feed_assist_toggle", std::any(true)).success());
+    CHECK_FALSE(b.execute_device_action("ace_feed_assist_toggle", std::any(false)).success());
+    CHECK(b.captured_gcodes.empty());
+}
+} // namespace
+
+// A seated tool whose unit has not reported its slots has no slot to
+// address: the first unit's slot 0 would feed a second strand into the path
+// that tool holds. With nothing seated the path is clear, so a manual feed
+// addresses slot 0 on the first unit.
+TEST_CASE("ACE slot actions on the ACEPRO driver while no slot is current",
+          "[ams][ace][device_actions][kobra]") {
+    AmsBackendAceTestHelper b;
+
+    SECTION("nothing loaded: the first unit's slot 0") {
+        const std::string surface =
+            GENERATE(as<std::string>{}, "ace_instance_0", "rest+ace_manager");
+        CAPTURE(surface);
+        present_driver_surface(b, surface);
+        REQUIRE(b.get_current_slot() == -1);
+        b.captured_gcodes.clear();
+        REQUIRE(b.execute_device_action("ace_manual_feed", {}).success());
+        CHECK(b.captured_gcodes ==
+              std::vector<std::string>{"ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50"});
+    }
+    SECTION("a tool whose unit has not reported is loaded: refused") {
+        present_driver_surface(b, "rest+ace_manager");
+        b.test_parse_status_response(
+            json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
+        REQUIRE(b.get_current_slot() == -1);
+        REQUIRE(b.get_test_system_info().current_tool == 5);
+        expect_slot_actions_refused(b);
+    }
+}
+
+TEST_CASE("ACE slot actions keep slot 0 on single-hub drivers with nothing loaded",
+          "[ams][ace][device_actions]") {
+    const std::string surface = GENERATE(as<std::string>{}, "filament_hub", "ace", "rest");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    REQUIRE(b.get_current_slot() == -1);
+
+    b.captured_gcodes.clear();
+    REQUIRE(b.execute_device_action("ace_manual_feed", {}).success());
+    CHECK(b.captured_gcodes == std::vector<std::string>{"ACE_FEED INDEX=0 LENGTH=50 SPEED=50"});
+}
+
+namespace {
+helix::printer::DeviceAction feed_assist_action(const AmsBackendAceTestHelper& b) {
+    for (const auto& action : b.get_device_actions()) {
+        if (action.id == "ace_feed_assist_toggle") {
+            return action;
+        }
+    }
+    FAIL("no ace_feed_assist_toggle action");
+    return {};
+}
+
+/// The toggle's value: nullopt when it carries none.
+std::optional<bool> feed_assist_shown(const AmsBackendAceTestHelper& b) {
+    const auto action = feed_assist_action(b);
+    if (const bool* on = std::any_cast<bool>(&action.current_value)) {
+        return *on;
+    }
+    return std::nullopt;
+}
+
+void report_feed_assist(AmsBackendAceTestHelper& b, int instance, int local_slot) {
+    b.test_handle_status_update(status_notification("ace_instance_" + std::to_string(instance),
+                                                    json{{"feed_assist_slot", local_slot}}));
+}
+} // namespace
+
+// ace_instance_N.feed_assist_slot names the unit-local slot the driver is
+// assisting, -1 for none; the toggle is on only when that is the loaded slot.
+TEST_CASE("ACE Feed Assist shows the driver's feed_assist_slot for the loaded slot",
+          "[ams][ace][device_actions][kobra][1853]") {
+    AmsBackendAceTestHelper b;
+    b.test_handle_status_update(status_notification(
+        "ace_instance_0", json{{"slots", four_slot_array()}, {"feed_assist_slot", -1}}));
+    AceTestAccess::set_seat(b, 2, true);
+
+    SECTION("-1 is off") {
+        CHECK(feed_assist_shown(b) == false);
+        CHECK(feed_assist_action(b).enabled);
+    }
+    SECTION("the loaded slot is on") {
+        report_feed_assist(b, 0, 2);
+        CHECK(feed_assist_shown(b) == true);
+    }
+    SECTION("another slot is off") {
+        report_feed_assist(b, 0, 1);
+        CHECK(feed_assist_shown(b) == false);
+    }
+    SECTION("a frame without the field keeps the last report") {
+        report_feed_assist(b, 0, 2);
+        b.test_handle_status_update(
+            status_notification("ace_instance_0", json{{"status", "ready"}}));
+        CHECK(feed_assist_shown(b) == true);
+        report_feed_assist(b, 0, -1);
+        CHECK(feed_assist_shown(b) == false);
+    }
+    SECTION("the unit holding the loaded slot answers, not unit 0") {
+        b.test_handle_status_update(status_notification(
+            "ace_instance_1", json{{"slots", four_slot_array()}, {"feed_assist_slot", -1}}));
+        AceTestAccess::set_seat(b, 5, true);
+        report_feed_assist(b, 0, 1);
+        CHECK(feed_assist_shown(b) == false);
+        report_feed_assist(b, 1, 1);
+        CHECK(feed_assist_shown(b) == true);
+    }
+}
+
+TEST_CASE("ACE Feed Assist says the loaded slot is unknown when a tool's unit has not reported",
+          "[ams][ace][device_actions][kobra][1853]") {
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, "rest+ace_manager");
+    b.test_parse_status_response(
+        json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", 5}}}});
+    REQUIRE(b.get_current_slot() == -1);
+
+    const auto action = feed_assist_action(b);
+    CHECK_FALSE(action.enabled);
+    CHECK(action.disable_reason == "The loaded slot is not known yet");
+}
+
+TEST_CASE("ACE Feed Assist carries no value until the driver reports one",
+          "[ams][ace][device_actions][1853]") {
+    AmsBackendAceTestHelper b;
+    b.test_handle_status_update(
+        status_notification("ace_instance_0", json{{"slots", four_slot_array()}}));
+    AceTestAccess::set_seat(b, 2, true);
+    CHECK_FALSE(feed_assist_shown(b).has_value());
+}
+
+// Feed assist pushes the loaded slot's strand toward the head; with nothing
+// loaded there is no slot it could mean.
+TEST_CASE("ACE Feed Assist is disabled and refused with nothing loaded",
+          "[ams][ace][device_actions][1853]") {
+    const std::string surface =
+        GENERATE(as<std::string>{}, "filament_hub", "ace", "rest", "ace_instance_0");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    REQUIRE(b.get_current_slot() == -1);
+
+    const auto action = feed_assist_action(b);
+    CHECK_FALSE(action.enabled);
+    CHECK_FALSE(action.disable_reason.empty());
+
+    b.captured_gcodes.clear();
+    CHECK(b.execute_device_action("ace_feed_assist_toggle", std::any(true)).result ==
+          helix::AmsResult::WRONG_STATE);
+    CHECK(b.execute_device_action("ace_feed_assist_toggle", std::any(false)).result ==
+          helix::AmsResult::WRONG_STATE);
+    CHECK(b.captured_gcodes.empty());
+}
+
+// The backend refuses on its own, not only behind the offered action's
+// enabled flag: a caller that read the list while a slot was loaded can still
+// reach execute after the unload.
+TEST_CASE("ACE Feed Assist execute refuses with nothing loaded",
+          "[ams][ace][device_actions][1853]") {
+    const std::string surface =
+        GENERATE(as<std::string>{}, "filament_hub", "ace", "rest", "ace_instance_0");
+    CAPTURE(surface);
+    AmsBackendAceTestHelper b;
+    present_driver_surface(b, surface);
+    REQUIRE(b.get_current_slot() == -1);
+
+    b.captured_gcodes.clear();
+    for (const bool on : {true, false}) {
+        CAPTURE(on);
+        const auto err = b.do_execute_device_action("ace_feed_assist_toggle", std::any(on));
+        CHECK(err.result == helix::AmsResult::WRONG_STATE);
+        CHECK(err.technical_msg == "No filament loaded for feed assist");
+    }
+    CHECK(b.captured_gcodes.empty());
+}
+
+// A restart re-reads every unit from the bootstrap answer, so a
+// feed_assist_slot from the old session says nothing about the new one.
+TEST_CASE_METHOD(LVGLTestFixture, "ACE Feed Assist forgets the driver's report on a restart",
+                 "[ams][ace][device_actions][kobra][1853]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper b(&client);
+    b.test_on_started();
+    answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()},
+                                                              {"feed_assist_slot", 2}}}});
+    AceTestAccess::set_seat(b, 2, true);
+    REQUIRE(feed_assist_shown(b) == true);
+
+    b.test_on_started();
+    answer_initial_query(client, json{{"ace_instance_0", json{{"slots", four_slot_array()}}}});
+    AceTestAccess::set_seat(b, 2, true);
+    CHECK_FALSE(feed_assist_shown(b).has_value());
+}
+
+// A slotless ace_instance_N delta (a notify frame that beat the bootstrap
+// answer onto a REST rig) says nothing about slots, so it must not move the
+// backend onto the object path, where a slot with no published tool refuses a
+// load, nor write the unit the REST bridge owns.
+TEST_CASE("ACE slotless instance delta leaves a REST rig on the REST path", "[ams][ace][kobra]") {
+    AmsBackendAceTestHelper b;
+    b.set_running(true);
+    present_driver_surface(b, "rest+ace_manager");
+    b.test_handle_status_update(
+        status_notification("ace_instance_0", json{{"status", "loading"}, {"temp", 44}}));
+
+    CHECK(b.get_test_system_info().action == AmsAction::IDLE);
+    b.captured_gcodes.clear();
+    REQUIRE(b.start_drying(50.0f, 60, -1, 0).success());
+    CHECK(b.captured_gcodes.back() == "ACE_START_DRYING INSTANCE=0 TEMP=50 DURATION=60");
+    b.captured_gcodes.clear();
+    REQUIRE(b.load_filament(1).success());
+    REQUIRE_FALSE(b.captured_gcodes.empty());
+    CHECK(b.captured_gcodes.back() == "ACE_CHANGE_TOOL TOOL=1");
+}
+
+// The REST bridge serves one unit: the instance its /status names in
+// instance_index, which it picks from current_index when asked for none. Slot
+// and dryer commands address that instance; a dryer command without INSTANCE=
+// would dry every unit on the chain.
+TEST_CASE("ACE REST bridge commands name the instance its /status serves",
+          "[ams][ace][device_actions][kobra]") {
+    AmsBackendAceTestHelper b;
+    b.set_running(true);
+    b.test_parse_slots_response(json{{"slots", four_slot_array()}});
+
+    SECTION("instance 0 by default") {
+        b.test_parse_status_response(
+            json{{"model", "ACE Pro"}, {"ace_manager", json{{"current_index", -1}}}});
+        b.captured_gcodes.clear();
+        REQUIRE(b.start_drying(50.0f, 60, -1, 0).success());
+        REQUIRE(b.stop_drying(0).success());
+        CHECK(b.captured_gcodes == std::vector<std::string>{
+                                       "ACE_START_DRYING INSTANCE=0 TEMP=50 DURATION=60",
+                                       "ACE_STOP_DRYING INSTANCE=0",
+                                   });
+    }
+    SECTION("the instance the bridge reports serving") {
+        b.test_parse_status_response(json{{"model", "ACE Pro"},
+                                          {"instance_index", 1},
+                                          {"ace_manager", json{{"current_index", -1}}}});
+        b.captured_gcodes.clear();
+        REQUIRE(b.start_drying(50.0f, 60, -1, 0).success());
+        CHECK(b.captured_gcodes.back() == "ACE_START_DRYING INSTANCE=1 TEMP=50 DURATION=60");
+        AceTestAccess::set_seat(b, 2, true);
+        CHECK(run_slot_actions(b).front() == "ACE_FEED INSTANCE=1 INDEX=2 LENGTH=50 SPEED=50");
+    }
+}
+
+// ============================================================================
+// Two-unit ACEPRO rig: each ace_instance_N is unit N, so INSTANCE= names the unit
+// ============================================================================
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ACE slot actions address the seated tool's unit on a two-unit ACEPRO rig",
+                 "[ams][ace][device_actions][kobra]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_two_unit_backend(helper, client, 5);
+    REQUIRE(helper.get_test_system_info().current_tool == 5);
+
+    CHECK(run_slot_actions(helper) == std::vector<std::string>{
+                                          "ACE_FEED INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                          "ACE_RETRACT INSTANCE=1 INDEX=1 LENGTH=50 SPEED=50",
+                                          "ACE_ENABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                          "ACE_DISABLE_FEED_ASSIST INSTANCE=1 INDEX=1",
+                                      });
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "ACE slot actions address the first unit with no tool loaded on two units",
+                 "[ams][ace][device_actions][kobra]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper helper(&client);
+    start_two_unit_backend(helper, client, -1);
+
+    helper.captured_gcodes.clear();
+    REQUIRE(helper.execute_device_action("ace_manual_feed", {}).success());
+    CHECK(helper.captured_gcodes ==
+          std::vector<std::string>{"ACE_FEED INSTANCE=0 INDEX=0 LENGTH=50 SPEED=50"});
+}
+
+// Only the ACEPRO driver's per-unit objects state a link; another driver's
+// object carrying the same field leaves its unit connected.
+TEST_CASE("ACE reads connection_state from the ACEPRO driver only", "[ams][ace]") {
+    AmsBackendAceTestHelper helper;
+    json payload = make_ace_slot_payload("ready", 0xFF5500, "PLA");
+    payload["connection_state"] = "reconnecting";
+    AceTestAccess::parse_ace(helper, payload);
+    REQUIRE_FALSE(helper.get_test_system_info().units.empty());
+    CHECK(helper.get_test_system_info().units[0].connected);
+}
+
+// ValgACE names no tool per slot: its slots map none, and a Load stays a load.
+TEST_CASE("ACE slots without a driver tool number map no tool", "[ams][ace]") {
+    AmsBackendAceTestHelper helper;
+    AceTestAccess::parse_ace(helper, make_ace_slot_payload("ready", 0xFF5500, "PLA"));
+    CHECK(helper.get_slot_info(0).mapped_tool == -1);
+}
+
+// The ACEPRO driver reports a slot's motion state as its status (feeding, unwinding,
+// shifting - which an ACE 2 slot under feed assist reports throughout - and
+// identifying while the tag is read). The spool is in the slot in all of them.
+TEST_CASE("ACE slot in motion keeps its spool", "[ams][ace][slot-status]") {
+    for (const char* word : {"feeding", "unwinding", "shifting", "identifying"}) {
+        DYNAMIC_SECTION("status " << word) {
+            AmsBackendAceTestHelper helper;
+            json unit = make_kobra_instance_object();
+            unit["slots"][0]["status"] = word;
+            AceTestAccess::parse_ace(helper, unit);
+
+            CHECK(helper.get_slot_info(0).status == SlotStatus::AVAILABLE);
+            CHECK(helper.get_slot_info(0).material == "PLA");
+        }
+    }
+
+    SECTION("empty stays empty") {
+        AmsBackendAceTestHelper helper;
+        json unit = make_kobra_instance_object();
+        unit["slots"][0]["status"] = "empty";
+        AceTestAccess::parse_ace(helper, unit);
+
+        CHECK(helper.get_slot_info(0).status == SlotStatus::EMPTY);
+    }
 }

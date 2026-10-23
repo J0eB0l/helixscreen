@@ -75,7 +75,7 @@ translations:
   '%lu min ago': '%lu мин. назад'
   '%s Filament': '%s: Филамент'
   '%s has about %.0fg but %s needs about %.0fg. Start anyway?': '%s: осталось около %.0fг, но для %s нужно около %.0fг. Всё равно начать?'
-  '%s has no filament loaded — this print will run out.': 'В %s не загружен филамент — печати не хватит филамента.'
+  '%s has no lane assigned. Pick one before printing.': 'Для %s не назначен канал. Выберите его перед печатью.'
   '%s needs filament in %s, which is empty — this print will run out.': 'Для %s нужен филамент, но %s пуст — печати не хватит филамента.'
   '%s unsaved': '%s не сохранено'
   '%s uses %s, which has filament but no material set — the printer will not start until you set it.': '%s использует %s, где есть филамент, но не задан материал — принтер не начнёт печать, пока вы его не зададите.'
@@ -97,6 +97,8 @@ translations:
   (incompatible): (несовместимо)
   (multi-tool): (мультиинструмент)
   (none detected): (не обнаружено)
+  (recovered): '(восстановлено)'
+  (repeated {} times): '(повторено {} раз)'
   (unnamed): (без имени)
   + Add: + Добавить
   + Add Preset: + Добавить пресет
@@ -173,6 +175,7 @@ translations:
   3D Maze: 3D лабиринт
   3D Pipes: 3D трубы
   3D View: 3D вид
+  3MF conversion: 'Преобразование 3MF'
   4. Paper should move but with resistance: 4. Бумага должна двигаться, но с сопротивлением
   4. Repeat until bed is level: 4. Повторяйте, пока стол не выровняется
   5 min: '5 мин'
@@ -182,6 +185,8 @@ translations:
   60 seconds: 60 секунд
   90°: 90°
   90° Clockwise: 90° по часовой стрелке
+  = Clockwise: = По часовой стрелке
+  = Counterclockwise: = Против часовой стрелки
   = Loosen: = Ослабить
   = Tighten: = Затянуть
   A: A
@@ -203,6 +208,7 @@ translations:
   A print is running on this gate. HelixScreen cleared its own copy; clear it again once the print finishes.: На этом шлюзе идёт печать. HelixScreen очистил свою копию; после окончания печати очистите его снова.
   A print is running. Apply the result after it ends.: Идёт печать. Примените результат после её завершения.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: "Печать началась, когда катушки отмечены как лежащие на столе. Если они всё ещё там, немедленно остановите принтер аварийной остановкой."
+  A restart is already in progress: Перезапуск уже выполняется
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : 'Датчик, измеряющий расстояние до стола. HelixScreen использует его для калибровки Z Offset и тестов зонда на экране «Зонд».'
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: 'Датчик, измеряющий температуру воздуха внутри камеры. Следите за ней на экране температуры камеры.'
@@ -288,6 +294,7 @@ translations:
   Adjusts individual characteristics of your heaters for optimal control: Настраивает
     индивидуальные характеристики нагревателей для оптимального контроля
   Advanced: Дополнительно
+  After an error: После ошибки
   After running the commands, tap Check Again below.: После выполнения команд нажмите
     «Проверить снова» ниже.
   Alert: Оповещение
@@ -349,6 +356,7 @@ translations:
   : 'Применено к {}. Klipper забудет значение после перезапуска: укажите {} как Pressure Advance в профиле филамента в слайсере или сохраните его на катушку.'
   Applies to: Применяется к
   Apply: Применить
+  Apply start options to prints from other apps: 'Применять параметры запуска к печати из других приложений'
   Aqua Surface: 'Водная гладь'
   Archive: Архивировать
   Archive Spool?: Архивировать катушку?
@@ -459,6 +467,7 @@ translations:
   'Bed cooling, spools still on the bed:': 'Стол остывает, катушки всё ещё на нём:'
 
   Bed is Level!: Стол выровнен!
+  Bed is at {:.0f}°C, the print needs {:.0f}°C.: Стол нагрет до {:.0f}°C, печати нужно {:.0f}°C.
   'Bed mesh calibration failed: {}': 'Ошибка калибровки сетки стола: {}'
   Bed mesh operation timed out: Сетка стола — время ожидания истекло
   Bed mesh...: Сетка стола...
@@ -467,6 +476,8 @@ translations:
   Bed target set to {}°C: Целевая температура стола {}°C
   Bed temp must be 0-%d°C: Температура стола должна быть 0-%d°C
   Bed warming timed out: Нагрев стола — время ожидания истекло
+  Bed {:.0f} / {:.0f}°C: Стол {:.0f} / {:.0f}°C
+  Bed {:.0f}°C: Стол {:.0f}°C
   Before starting: 'Перед началом'
   Below target: Ниже цели
   Belt Tension: Натяжение ремня
@@ -577,8 +588,10 @@ translations:
   Calibrate X: Калибровать X
   Calibrate Y: Калибровать Y
   Calibrate All Tools: Калибровать все инструменты
+  Calibrate heater: Калибровать нагреватель
   Calibrate input shaping to reduce ringing artifacts in prints: Калибровка компенсации
     вибраций для уменьшения артефактов звона
+  Calibrate part fan: Калибровать обдув модели
   Calibrate tool offsets?: Калибровать смещения инструментов?
   Calibrate your touchscreen for accurate input: Калибровка сенсорного экрана для
     точного ввода
@@ -588,6 +601,7 @@ translations:
   Calibrating {} axis...: 'Калибровка оси {}...'
   Calibrating...: Калибровка...
   Calibrating... (about 1 minute): 'Калибровка... (около 1 минуты)'
+  Calibrating... (several minutes): Калибровка... (несколько минут)
   Calibration: Калибровка
   Calibration & Tools: Калибровка и инструменты
   Calibration Complete!: Калибровка завершена!
@@ -603,11 +617,14 @@ translations:
   Calibration failed: Калибровка не удалась
   Calibration failed - touch targets more precisely.: Калибровка не удалась – нажимайте
     на цели точнее.
+  'Calibration failed: {}': 'Ошибка калибровки: {}'
+  Calibration finished, not saved yet: Калибровка завершена, ещё не сохранена
   Calibration in progress: "Идёт калибровка"
   Calibration kept timing out. Your previous settings were kept.: Калибровка постоянно завершалась по тайм-ауту. Прежние настройки сохранены.
   Calibration may still be running — printer connection was interrupted: 'Калибровка может ещё выполняться — соединение с принтером прервано'
   Calibration may still be running — response timed out: 'Калибровка может ещё выполняться — время ожидания истекло'
   Calibration move may still be running — printer connection was interrupted: 'Движение калибровки может ещё выполняться — соединение с принтером прервано'
+  Calibration saved: Калибровка сохранена
   Calibration saved but cannot apply on SDL display: Калибровка сохранена, но не может
     быть применена на SDL дисплее
   Calibration succeeded, but the frequency chart data couldn't be read.: Калибровка завершена
@@ -706,6 +723,7 @@ translations:
   Check AFC configuration: 'Проверьте конфигурацию AFC'
   Check Again: Проверить снова
   Check Klipper console for details: Подробности смотрите в консоли Klipper
+  Check every dock: Проверить каждый док
   Check extruder temperature and try again. Manual removal may be required.: Проверьте температуру экструдера и повторите попытку. Может потребоваться удалить филамент вручную.
   Check failed: Ошибка проверки
   Check filament: Проверьте филамент
@@ -776,11 +794,13 @@ translations:
   Clear Console?: Очистить консоль?
   Clear Spool: Убрать катушку
   Clear every Endless Spool backup: Очистить все резервы бесконечной катушки
+  Clear extruder only: 'Только очистить экструдер'
   Clear failed: Ошибка очистки
   ? Clear the area above and below the plate. Lay the spools on the plate, cover them with a box (a printed lid or the filament's packaging) and close the door.
 
   : Освободите место над столом и под ним. Положите катушки на стол, накройте их коробкой (напечатанной крышкой или упаковкой филамента) и закройте дверцу.
 
+  Clear the extruder?: 'Очистить экструдер?'
   Clear the plate and load {}. The tower prints in the middle of the bed.: Освободите стол и загрузите {}. Башня печатается в центре стола.
   Cleared from settings — system unpair failed, may need OS Bluetooth: Удалено из
     настроек; не удалось отменить сопряжение в системе, возможно нужен Bluetooth ОС
@@ -834,6 +854,7 @@ translations:
   Computing calibration...: Вычисление калибровки...
   Config Dir: Директория конфигурации
   Config Edit Failed: 'Не удалось изменить конфигурацию'
+  Config editing: 'Редактирование конфигурации'
   Config-defined (read-only): Определено в конфигурации (только чтение)
   Configuration added successfully.: Конфигурация успешно добавлена.
   Configuration already present.: Конфигурация уже присутствует.
@@ -864,6 +885,7 @@ translations:
   Confirm (full, ~{} min): "Подтвердить (полный, ~{} мин)"
   Confirm PIN: Подтвердите PIN
   Confirm before running macros: Подтверждать перед запуском макросов
+  Confirm clearing the extruder to unload it: 'Подтвердите очистку экструдера, чтобы выгрузить'
   Confirm tool changes: 'Подтверждать смену инструмента'
   Connect: Подключить
   Connect a USB label printer first: Сначала подключите USB-принтер этикеток
@@ -930,6 +952,7 @@ translations:
   Cooling Tube Length: 'Длина трубки охлаждения'
   Cooling Tube Retraction: 'Ретракция в трубке охлаждения'
   Cooling for probing...: Охлаждение перед зондированием...
+  "Cooling the nozzle to standby while you check the print": "Охлаждение сопла до режима ожидания, пока вы проверяете печать"
   Cooling {}...: 'Охлаждение: {}...'
   Copied to clipboard!: Скопировано в буфер обмена!
   Copy: "Копировать"
@@ -942,6 +965,7 @@ translations:
   Copying from USB stopped responding: 'Копирование с USB перестало отвечать'
   Copying from USB...: 'Копирование с USB...'
   Corner roundness: Скругление углов
+  Corners differ by {} mm: "Разница углов {} мм"
   Correction (Ki): Коррекция (Ki)
   Could not add to queue: Не удалось добавить в очередь
   Could not analyze PRINT_START macro. Some print options may be unavailable.: Не
@@ -949,6 +973,9 @@ translations:
     быть недоступны.
   Could not answer the connection request: 'Не удалось ответить на запрос подключения'
   'Could not check {} - it stays in the queue': 'Не удалось проверить {} – остаётся в очереди'
+  "Every screen and setting explained": "Описание всех экранов и настроек"
+  "Getting Started": "Начало работы"
+  "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Основы: мастер настройки, переход между экранами и жесты касания."
   Load all stopped: 'Загрузка всех остановлена'
   Load stopped: 'Загрузка остановлена'
   No filament was inserted in time. The heater is off and the carriage is restored: 'Филамент не был вставлен вовремя. Нагреватель выключен, каретка возвращена'
@@ -956,7 +983,9 @@ translations:
   Print hours between nozzle changes. Off hides this meter.: 'Часы печати между заменами сопла. «Выкл» скрывает этот счётчик.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Часы печати между чисткой и смазкой направляющих. «Выкл» скрывает этот счётчик.'
   Print hours this week and lifetime totals: 'Часы печати за неделю и общие итоги'
+  "Setup, navigation and gestures": "Настройка, навигация и жесты"
   Unload stopped: 'Выгрузка остановлена'
+  "User Guide": "Руководство пользователя"
   '{} could not be checked from Home - review it and tap Print': 'Не удалось проверить {} с главного экрана – проверьте файл и нажмите «Печать»'
   ? "Could not check webcam status.\nCheck printer connection."
   : "Не удалось проверить статус веб-камеры.\nПроверьте подключение принтера."
@@ -1043,6 +1072,8 @@ translations:
   Cutter jam: Замятие резака
   Cutting: Резка
   Cutting filament...: Обрезка филамента...
+  Cycle every tool: Перебрать все инструменты
+  Cycling tools...: Перебор инструментов...
   DETECTED USB PRINTERS: ОБНАРУЖЕННЫЕ USB-ПРИНТЕРЫ
   DEVICES: УСТРОЙСТВА
   DISABLED: ОТКЛЮЧЕНО
@@ -1105,6 +1136,7 @@ translations:
   Disable Motors?: Отключить моторы?
   Disable the security PIN: Отключить PIN-код
   Disabling motors...: Отключение моторов...
+  Disarmed: 'Отключён'
   Discard: Отменить
   Discard Changes?: Отменить изменения?
   Disconnected: Отключено
@@ -1134,7 +1166,6 @@ translations:
   Dock sensors disagree: Противоречие датчиков стыковки
   Dock tool: Состыковать инструмент
   Docking tool: Парковка инструмента
-  Documentation: Документация
   Don't Save: Не сохранять
   Don't ask again: Больше не спрашивать
   Done: Готово
@@ -1222,7 +1253,6 @@ translations:
   Enable assisted retraction at hub: 'Включить ретракцию с поддержкой на хабе'
   Enable audio feedback: Включить звуковую обратную связь
   Enable brush wipe after purging: 'Включить очистку щёткой после продувки'
-  Enable feed assist for active slot during printing: 'Включить помощь подачи для активного слота во время печати'
   Enable or disable the hub cutter: 'Включить или выключить резак хаба'
   Enable plugin?: 'Включить плагин?'
   Enable purging during tool changes: 'Включить продувку при смене инструмента'
@@ -1301,6 +1331,7 @@ translations:
   Everything else was saved. Change them in Spoolman.: Всё остальное сохранено. Измените их в Spoolman.
   Everything else was saved. Rename the material using letters, digits, spaces, and + - _ . ( ) /: 'Всё остальное сохранено. Переименуйте материал, используя буквы, цифры, пробелы и + - _ . ( ) /'
   Every object is set to skip, so there is nothing to print: 'Все объекты отмечены для пропуска, печатать нечего'
+  Every tool is picked up and parked in turn. The head ends empty. This takes a few minutes.: Каждый инструмент по очереди берётся и ставится на место. В конце головка остаётся пустой. Это займёт несколько минут.
   Every tool's offsets are measured again and replace the current ones. Save afterwards to keep the result.: Смещения всех инструментов измеряются заново и заменяют текущие. После этого сохраните, чтобы оставить результат.
   Excellent Accuracy: Отличная точность
   'Exception: {}': 'Исключение: {}'
@@ -1571,10 +1602,12 @@ translations:
   File: Файл
   File Size: Размер файла
   File Will Stop the Printer: 'Файл остановит принтер'
+  File analysis: 'Анализ файлов'
   File not found on printer.: Файл не найден на принтере.
   'File not found: {}': 'Файл не найден: {}'
   Filename: Имя файла
   Filter Fan: 'Вентилятор фильтра'
+  Finding where the print stopped...: Поиск места, где остановилась печать...
   Fine: Точно
   Fine Inner: Точно (внутренний)
   Fine Outer: Точно (внешний)
@@ -1588,9 +1621,13 @@ translations:
   Fireworks: Фейерверк
   Firmware Restart: Перезапуск прошивки
   Firmware reports no bypass. Enable if you feed filament straight to the extruder: Прошивка не сообщает о байпасе. Включите, если филамент подаётся прямо в экструдер.
+  Firmware restart: Перезапуск прошивки
   'Firmware restart failed: {}': 'Ошибка перезапуска прошивки: {}'
   Firmware restarting...: Перезапуск прошивки...
   Firmware saved X = Y's value; the measured X result was discarded: Прошивка сохранила для X значение Y; результат измерения X был отброшен
+  Fit how the part fan cools the nozzle: Определить, как обдув охлаждает сопло
+  Fit the heater model with the part fan off: Определить модель нагревателя при выключенном обдуве
+  Fit the induction heater's safety model: Определить модель безопасности индукционного нагревателя
   'Fix: chmod 644 {}, then restart': 'Исправление: chmod 644 {}, затем перезапустите'
   'Fix: chown {} {}, then restart': 'Исправление: chown {} {}, затем перезапустите'
   FlashForge Adventurer 5M: FlashForge Adventurer 5M
@@ -1611,6 +1648,7 @@ translations:
   Focused: 'Сосредоточенный'
   Follow active tool: Следовать активному инструменту
   Follow graph screen: Следовать экрану графика
+  'For a first Z home: claim the tool you put on the head': 'Для первой парковки Z: закрепить инструмент, установленный на головку'
   Force/weight sensors: 'Датчики силы/веса'
   Forget: Забыть
   Forget Network?: Забыть сеть?
@@ -1654,6 +1692,7 @@ translations:
   Generic: Общий
   Get help and share feedback: Получить помощь и поделиться отзывом
   Global: Общий
+  Global Z offset: Общее смещение Z
   Good: Хорошо
   Good Accuracy: Хорошая точность
   Good Enough: "Достаточно"
@@ -1664,7 +1703,6 @@ translations:
   Grip the filament: Зажать филамент
   Guide the toolhead to the chute's extrude position: Подведите печатающую головку к позиции экструзии жёлоба
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Пошаговая калибровка: датчик до сопла, выгрузка и ретракция резака'
-  Guides and reference: Руководства и справка
   H: Х
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
@@ -1700,6 +1738,7 @@ translations:
   Heat Capacity: Теплоёмкость
   Heat Soak: Прогрев
   Heat Soaking...: Прогрев...
+  Heat and Home: Нагреть и запарковать
   Heat bed before calibrating for accurate offset with thermal expansion.: Нагрейте
     стол перед калибровкой для точного смещения с учётом теплового расширения.
   Heat nozzle: Нагреть сопло
@@ -1736,6 +1775,9 @@ translations:
   Heating nozzle: 'Нагрев сопла'
   Heating nozzle to $1°C...: Нагрев сопла до $1°C...
   Heating nozzle...: Нагрев сопла...
+  Heating the bed: Нагрев стола
+  "Heating the bed and nozzle so the print re-grips and the nozzle lets go of it": "Нагрев стола и сопла, чтобы печать снова прилипла, а сопло отделилось от неё"
+  Heating the nozzle: Нагрев сопла
   Heating to %d°C... %.0f°C: Нагрев до %d°C... %.0f°C
   Heating to {}°C before {}...: Нагрев до {}°C перед «{}»...
   Heating to {}°C for {}...: Нагрев до {}°C в течение {}...
@@ -1770,6 +1812,7 @@ translations:
   High Fly: 'Над облаками'
   High Water Mark: Пиковое значение
   Hold anywhere to cancel: Удерживайте в любом месте для отмены
+  Hold {} fully on the head. The latch locks onto it and it becomes the mounted tool.: Удерживайте {} плотно на головке. Защелка зафиксирует его, и он станет установленным инструментом.
   Holding nozzle at {}°C to purge previous filament.: Удержание сопла при {}°C для очистки от предыдущего филамента.
   Home: Главная
   Home & Continue: Запарковать и продолжить
@@ -1782,6 +1825,7 @@ translations:
   Home Selector: Парковать селектор
   Homing AFC system...: Парковка системы AFC...
   Homing Failed: 'Ошибка парковки'
+  Homing X and Y: Парковка X и Y
   Homing X...: Парковка X...
   Homing XY...: Парковка XY...
   Homing Y...: Парковка Y...
@@ -1800,6 +1844,7 @@ translations:
   Homing timed out: Парковка — время ожидания истекло
   Homing timed out — printer may still be homing: Тайм-аут парковки — принтер может
     всё ещё выполнять парковку
+  Homing, then probing...: "Парковка, затем измерение..."
   Homing...: Парковка...
   Horizontal: Горизонтально
   Host: Хост
@@ -1815,6 +1860,7 @@ translations:
   How far filament is pushed back into the box on eject (mm): Насколько глубоко филамент
     задвигается обратно в коробку при извлечении (мм)
   How fast filament is pushed back on eject: "Как быстро филамент задвигается обратно при извлечении"
+  How fast the head moves while changing tools: Скорость головки при смене инструмента
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Сколько удерживать, чтобы нажатие считалось долгим, в мс (увеличьте, если режим редактирования срабатывает случайно)'
   How many labels to print: Сколько этикеток напечатать
@@ -1837,6 +1883,8 @@ translations:
 
   ID (optional): ID (необязательно)
   IMPORT FROM USB: ИМПОРТ С USB
+  INDX dock positions are not calibrated: "Позиции доков INDX не откалиброваны"
+  INDX macros not recognized: "Макросы INDX не распознаны"
   IP Address / Hostname: IP-адрес / Имя хоста
   'IP:': 'IP:'
   'IPP error: {}': 'Ошибка IPP: {}'
@@ -1916,6 +1964,7 @@ translations:
   Interface size. Applies after restart.: Размер интерфейса. Применяется после перезапуска.
   'Internal error: API not available': 'Внутренняя ошибка: API недоступен'
   'Internal error: no scan result': 'Внутренняя ошибка: нет результата сканирования'
+  Interrupted: Прервано
   Invalid Slot: 'Неверный слот'
   Invalid Tool: 'Неверный инструмент'
   Invalid duration: 'Неверная длительность'
@@ -1980,6 +2029,7 @@ translations:
   : 'На принтере установлены макросы Klippain Shake&Tune. HelixScreen обнаруживает их, но не использует; запускайте их из Mainsail или Fluidd.'
   Klipper: Klipper
   Klipper Error: Ошибка Klipper
+  Klipper disconnected: Klipper отключён
   Klipper failed to start with the skip macros, so they were removed: 'Klipper не запустился с макросами пропуска, поэтому они удалены'
   Klipper failed to start. Remove the helix_skips.cfg include from printer.cfg.: 'Klipper не запустился. Удалите include helix_skips.cfg из printer.cfg.'
   Klipper firmware has disconnected from the host. Try restarting Klipper or performing a firmware restart.: Прошивка
@@ -1996,8 +2046,10 @@ translations:
     перешёл в состояние остановки. Это может быть вызвано аварийной остановкой, тепловым
     разгоном или ошибкой конфигурации.
   Klipper is halted — restart firmware to continue: Klipper остановлен — перезапустите прошивку, чтобы продолжить
+  Klipper ready: Klipper готов
   Klipper reserves 'default' for new calibrations. Choose another name.: "Klipper резервирует 'default' для новых калибровок. Выберите другое имя."
   Klipper restarting - macros activating: 'Перезапуск Klipper - активация макросов'
+  Klipper shut down: Klipper остановлен
   ? Klipper stopped reporting progress. Its analysis can run out of memory on small printers and leave Klipper stuck, where a firmware restart cannot reach it. Power-cycle the printer (or restart Klipper over SSH), then try again.
   : "Klipper перестал сообщать о ходе. На небольших принтерах его анализу может не хватить памяти, и Klipper зависнет так, что перезапуск прошивки до него не дойдёт. Выключите и снова включите принтер (или перезапустите Klipper по SSH), затем повторите попытку."
   Klipper stopped reporting progress. Its analysis can run out of memory on small printers; restart Klipper, then try again.: "Klipper перестал сообщать о ходе. На небольших принтерах его анализу может не хватить памяти; перезапустите Klipper и повторите попытку."
@@ -2052,6 +2104,7 @@ translations:
     печатей.
   Layer {} of {} · {:.2f} mm: Слой {} из {} · {:.2f} мм
   Layer {} of {}.: 'Слой {} из {}.'
+  Layer {}, Z {:.2f} mm: Слой {}, Z {:.2f} мм
   Layers: Слои
   Layout: Раскладка
   Layout changes are off in safe mode. Restart to edit.: 'Изменение раскладки отключено в безопасном режиме. Перезапустите, чтобы редактировать.'
@@ -2067,6 +2120,7 @@ translations:
   Level: Уровень
   Leveling Gantry...: Выравнивание портала...
   Library: Библиотека
+  Lifting the nozzle clear of the print: Подъём сопла над печатью
   Light: Подсветка
   Light Mode: Светлый режим
   Light will switch when the current operation finishes: Подсветка переключится после
@@ -2078,6 +2132,8 @@ translations:
   Line {} calls {}, which this printer treats as an emergency stop. Re-slice the file with a profile made for this printer.: 'Строка {} вызывает {}, что этот принтер считает аварийной остановкой. Нарежьте файл заново с профилем для этого принтера.'
   Linear rails: 'Линейные направляющие'
   Linear rails interval: 'Интервал линейных направляющих'
+  Link Spools from Tags: 'Привязывать катушки по меткам'
+  Link a slot to the Spoolman spool its tag names: 'Привязывать слот к катушке Spoolman, указанной в его метке'
   Listen to all theme sounds: Прослушать все звуки темы
   Live Z-offset, with baby steps and Save: Z-смещение в реальном времени, с подстройкой и сохранением
   Live view from your webcam: Прямая трансляция с веб-камеры
@@ -2141,9 +2197,12 @@ translations:
   Lost connection during print — try again: Потеряно соединение во время печати —
     попробуйте снова
   Lost connection to CFS unit: Потеряна связь с блоком CFS
+  Lost the connection to the printer.: Связь с принтером потеряна.
   'Lot # (optional)': 'Партия # (необязательно)'
   Lot/Batch Nr: Nr. партии/серии
   Low Memory: Мало памяти
+  Lower: Опустить
+  Lower the nozzle until it just touches the top of the print, then resume.: Опустите сопло, пока оно едва не коснётся верха печати, затем продолжите.
   Lowest notification level that interrupts with a toast: 'Минимальный уровень уведомления, прерывающий всплывающим сообщением'
   M to toggle: M для переключения
   'MAC:': 'MAC:'
@@ -2154,6 +2213,7 @@ translations:
   MB RAM: МБ ОЗУ
   MCU: MCU
   MCU bridge daemon is shut down: Служба моста MCU остановлена
+  MCU disconnected: MCU отключён
   MCU, host, and auxiliary temperature monitoring: Мониторинг температуры MCU, хоста
     и вспомогательных датчиков
   'MCU: ': 'MCU: '
@@ -2249,6 +2309,7 @@ translations:
   : Отсчитывайте высоту от стола. Острые углы без наплывов и пропусков означают верный K. Каждая строка - диапазон высот и K, который принтер сообщал во время его печати.
   Measured (shaper off): Измерено (шейпер выключен)
   Measured filament diameter: Измеренный диаметр филамента
+  Measured offsets, read-only: Измеренные смещения, только чтение
   Measured pressure advance: 'Измеренный Pressure Advance'
   Measurement incomplete. Try again.: Измерение не завершено. Повторите попытку.
   Measures each toolhead's X, Y and Z offset so every head prints in the same place. Takes about 20 minutes.: Измеряет смещение X, Y и Z каждой головки, чтобы все печатали в одной точке. Занимает около 20 минут.
@@ -2314,7 +2375,9 @@ translations:
     minutes. The printer will make noise — this is normal.
   : Перемещает печатающую головку для измерения частот вибрации по каждой оси. Занимает
     2-3 минуты. Принтер будет шуметь — это нормально.
+  Moving back to the print: Возврат к печати
   Moving lane: Перемещение канала
+  Moving over the resume point: Перемещение к точке продолжения
   Moving the plate...: Перемещение стола...
 
   Moving {} to the front...: 'Перемещение вперёд: {}...'
@@ -2397,6 +2460,7 @@ translations:
   No USB printers found: USB-принтеры не найдены
   No actions right now: 'Сейчас нет действий'
   No active Spoolman spool.: Нет активной катушки Spoolman.
+  No answer from the printer; it may still be calibrating: Принтер не отвечает; возможно, калибровка ещё идёт
   "No answer: check the IP address and that this device is on the printer's Wi-Fi, not mobile data.": "Нет ответа: проверьте IP-адрес и что это устройство в Wi-Fi принтера, а не в мобильной сети."
   "No answer: check the IP address and that this device is on the printer's network.": "Нет ответа: проверьте IP-адрес и что это устройство в сети принтера."
   No buffer data available: Данные буфера недоступны
@@ -2422,10 +2486,12 @@ translations:
   No file loaded: Файл не загружен
   No file to reprint: Нет файла для повторной печати
   No files available for printing: Нет файлов для печати
+  No hotend: Нет хотэнда
   No hub configured: 'Hub не настроен'
   No humidity sensor detected: 'Датчик влажности не обнаружен'
   No images found on USB drive: Изображения на USB-накопителе не найдены
   No jobs in queue: Очередь пуста
+  No lane holds filament, so none can be pulled back. Clearing cuts the filament in the extruder and withdraws it.: 'Ни в одном канале нет филамента, поэтому втянуть нечего. Очистка обрезает филамент в экструдере и извлекает его.'
   No macro devices configured: Макро-устройства не настроены
   No macros available: Нет доступных макросов
   No matches in SpoolmanDB: 'Нет совпадений в SpoolmanDB'
@@ -2453,6 +2519,7 @@ translations:
   No printer configured — check printer settings: Принтер не настроен — проверьте
     настройки принтера
   No printer connection: Нет подключения к принтеру
+  No printer events yet: Событий принтера пока нет
   No printers found: Принтеры не найдены
   No prints this week: Нет печатей за неделю
   No prints yet: Нет печатей
@@ -2470,6 +2537,7 @@ translations:
   No target printer configured: Целевой принтер не настроен
   No temperature sensors detected: 'Датчики температуры не обнаружены'
   No timelapse videos found: Таймлапс-видео не найдены
+  No tool on the head: "На печатающей головке нет инструмента"
   No tools to calibrate: Нет инструментов для калибровки
   'No turn: the gap moved {:.1f} Hz': "Без поворота: разница сдвинулась на {:.1f} Гц"
   No unit has a filament buffer: "Ни у одного блока нет буфера филамента"
@@ -2571,6 +2639,7 @@ translations:
   'Off:': 'Выкл:'
   'Off: runs with these values without asking': 'Выкл.: запуск с этими значениями без запроса'
   Offer to save Z-offset changes to the printer config: 'Предлагать сохранить изменения Z-Offset в конфигурации принтера'
+  Offset: Смещение
   Offsets Saved: Смещения сохранены
   Offsets saved: Смещения сохранены
   "Old setting on today's data: {} residual - now: {}": 'Прежняя настройка на сегодняшних данных: остаточная вибрация {} — сейчас: {}'
@@ -2583,6 +2652,8 @@ translations:
   One tap runs this macro. Dangerous macros still ask.: 'Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение.'
   'Only on A: {} Hz': "Только на A: {} Гц"
   'Only on B: {} Hz': "Только на B: {} Гц"
+  Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Только пока это приложение подключено. Установите плагин HelixPrint, чтобы охватить всю печать.'
+  Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Только пока это приложение подключено. Обновите плагин HelixPrint, чтобы охватить всю печать.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
   : "Свободно всего {} МБ памяти, а анализу Klipper нужно около {} МБ. Тест оставит принтер зависшим, пока его не выключат и снова не включат."
   Ooze Reduction: 'Снижение подтекания'
@@ -2686,6 +2757,7 @@ translations:
   Pause, resume, or stop the print: Пауза, продолжение или остановка
   Paused: Приостановлено
   Paused (attention needed): Приостановлено (требует внимания)
+  Paused by a command: Приостановлено командой
   ? Pauses a print at a chosen layer, for a filament swap or an insert. During a print, set the layer from the preview card on the print status screen.
   : 'Ставит печать на паузу на выбранном слое для смены филамента или закладной детали. Во время печати задайте слой в карточке предпросмотра на экране состояния печати.'
   Pausing at layer {}.: 'Пауза на слое {}.'
@@ -2704,6 +2776,8 @@ translations:
   Pick Color: Выбрать цвет
   Pick how HelixScreen behaves. You can change any of these later in Settings.: 'Выберите, как будет вести себя HelixScreen. Всё это можно изменить позже в Настройках.'
   Pick the best band: Выберите лучшую полосу
+  Pick up and park each tool in turn: Взять и поставить на место каждый инструмент по очереди
+  Pick up the tool, heat it, and pull the filament out: "Возьмите инструмент, нагрейте его и вытяните филамент"
   Pick up tool: Забрать инструмент
   Picking up tool: Захват инструмента
   Pill: Овал
@@ -2754,7 +2828,11 @@ translations:
   Power Devices: Устройства питания
   Power devices Moonraker can switch. Turn them on and off on the Power screen.: 'Устройства питания, которые может переключать Moonraker. Включаются и выключаются на экране «Питание».'
   Power off the printer or screen: Выключить принтер или экран
+  Power was lost about {} hours ago.: Питание пропало примерно {} ч назад.
+  Power was lost about {} minutes ago.: Питание пропало примерно {} мин назад.
   'Power was lost during the print; the printer stopped and saved its progress': 'Во время печати пропало питание; принтер остановился и сохранил прогресс'
+  Power was lost less than a minute ago.: Питание пропало меньше минуты назад.
+  Power-loss recovery: Восстановление после отключения питания
   Pre-heat the extruder first: Сначала прогрейте экструдер
   'Pre-print command failed: {}': 'Ошибка команды перед печатью: {}'
   Pre-print homing...: Парковка перед печатью...
@@ -2778,6 +2856,7 @@ translations:
   Preparing: Подготовка
   Preparing Print: Подготовка печати
   Preparing Print...: Подготовка печати...
+  Preparing the printer: Подготовка принтера
   Preparing to Print...: Подготовка к печати...
   Preparing to clean...: Подготовка к очистке...
   Preparing...: Подготовка...
@@ -2828,6 +2907,7 @@ translations:
   Print Tuning: Настройка печати
   Print Was Terminated: Печать была прекращена
   Print a test tower and tune K by eye: Напечатать тестовую башню и подобрать K на глаз
+  Print completed: Печать завершена
   Print details: 'Сведения о печати'
   Print did not start: Печать не началась
   Print canceled: Печать отменена
@@ -2841,7 +2921,9 @@ translations:
   Print history will show the rewritten name: История печати покажет изменённое имя
   Print issue detected: Обнаружена проблема печати
   Print jobs waiting to run: Задания печати в очереди
+  Print paused: Печать приостановлена
   'Print preparation failed: {}': 'Ошибка подготовки печати: {}'
+  Print resumed: Печать продолжена
   Print server rejected the job — check printer status: Сервер печати отклонил задание
     — проверьте статус принтера
   Print setup failed: Не удалось подготовить печать
@@ -2858,6 +2940,7 @@ translations:
     other: 'Напечатано %d раза'
   Printer: Принтер
   Printer Error: Ошибка принтера
+  Printer Events: События принтера
   Printer Firmware Disconnected: Прошивка принтера отключена
   Printer Image: Изображение принтера
   Printer Manager: Менеджер принтеров
@@ -2889,6 +2972,10 @@ translations:
     что он включён и в зоне доступа
   Printer doesn't expose the expected service — wrong device?: Принтер не предоставляет
     ожидаемый сервис — не то устройство?
+  Printer error: Ошибка принтера
+  Printer event: Событие принтера
+  Printer events: 'События принтера'
+  Printer events need the HelixPrint plugin on this screen: 'Для событий принтера на этом экране нужен плагин HelixPrint'
   Printer hardware detected: Обнаружено оборудование принтера
   Printer image set to auto-detect: Изображение принтера — автоопределение
   Printer is busy - {} stays in the queue: 'Принтер занят – {} остаётся в очереди'
@@ -3013,6 +3100,7 @@ translations:
   RSS: RSS
   'RSS:': 'RSS:'
   Rails: 'Направл.'
+  Raise: Поднять
   Ramming Volume: 'Объём рэмминга'
   'Ramp: band {} of {}': 'Рампа: полоса {} из {}'
   'Ramp: base layers': 'Рампа: базовые слои'
@@ -3052,6 +3140,8 @@ translations:
   Reconnect: Переподключиться
   Record Timelapse: Записать таймлапс
   Record timelapses of your prints: Записывайте таймлапсы ваших печатей
+  Recorded by the HelixPrint plugin: Записано плагином HelixPrint
+  Recorded by this screen while connected: Записано этим экраном во время подключения
   Recorded timelapses will appear here: Записанные таймлапсы появятся здесь
   Recording Mode: Режим записи
   Recover: Восстановить
@@ -3097,6 +3187,7 @@ translations:
 
   Remove the spools now?: Снять катушки сейчас?
 
+  Remove tool: Снять инструмент
   Remove your tags for this image?: Удалить ваши отметки для этого изображения?
   Remove your tags for this image? Its chips go back to the shipped positions.: Удалить ваши отметки для этого изображения? Метки вернутся на исходные места.
   Rename: Переименовать
@@ -3124,7 +3215,9 @@ translations:
   Requires Multi-Filament System or MMU hardware: 'Требуется мультифиламентная система или оборудование MMU'
   Requires a filament system with bypass: Требуется система филамента с байпасом
   Requires a filament pressure sensor or sync feedback: 'Требуется датчик давления филамента или обратная связь синхронизации'
-  Requires clog detection hardware: 'Требуется оборудование для обнаружения засора'
+  Requires a clog detector or filament motion sensor: 'Требуется датчик засора или датчик движения филамента'
+  Requires a newer HelixPrint plugin: 'Требуется более новый плагин HelixPrint'
+  Requires the HelixPrint plugin: 'Требуется плагин HelixPrint'
   Resend write failed at chunk {}: Не удалось повторно отправить запись в блоке {}
   Reset: Сброс
   Reset Blade Counter: 'Сбросить счётчик лезвия'
@@ -3179,13 +3272,21 @@ translations:
   Restore Defaults: Восстановить по умолчанию
   Restore tool: 'Вернуть инструмент'
   Restoring position: Восстановление позиции
+  Restoring the print settings: Восстановление настроек печати
   Resume: Продолжить
   Resume Print: Продолжить печать
   Resume Requires Restart: 'Для возобновления нужен перезапуск'
+  Resume canceled: Продолжение отменено
+  Resume even though the bed cooled down: Продолжить, хотя стол остыл
+  Resume failed: Не удалось продолжить
   Resume interrupted print?: Продолжить прерванную печать?
   Resume macro not configured: Макрос возобновления не настроен
   Resume preparation failed: Не удалось подготовиться к возобновлению
+  Resume without the bed mesh this print used: Продолжить без сетки стола этой печати
+  Resuming is not set up for this printer.: Продолжение не настроено для этого принтера.
   Resuming print...: Возобновление печати...
+  Resuming the print: Продолжение печати
+  Resuming would print with a different nozzle. Change tools after the print.: "При продолжении печать пойдёт другим соплом. Меняйте инструмент после печати."
   Resuming...: Возобновление...
   Retract: Ретракция
   Retract Distance: Расстояние ретракта
@@ -3284,11 +3385,13 @@ translations:
   Save Z-Offset: Сохранить Z-Offset
   Save Z-Offset Buttons: 'Кнопки сохранения Z-Offset'
   Save Z-Offset?: Сохранить Z-Offset?
+  Save calibration: Сохранить калибровку
   Save changes to persist them across restarts?: Сохранить изменения, чтобы они сохранились
     после перезапуска?
   'Save failed: {}': 'Ошибка сохранения: {}'
   Save Offsets: Сохранить смещения
   Save offsets?: Сохранить смещения?
+  Save the new heater values to printer.cfg? Klipper restarts.: Сохранить новые значения нагревателя в printer.cfg? Klipper перезапустится.
   Save to Spool: Сохранить на катушку
   Save to Spoolman: Сохранить в Spoolman
   Saved Z-Offset: Сохранённый Z-Offset
@@ -3298,11 +3401,14 @@ translations:
   Saved to {}. It applies whenever this filament becomes active.: Сохранено в {}. Применяется каждый раз, когда этот филамент становится активным.
   Saved values, and whether to ask before running: 'Сохранённые значения и запрос перед запуском'
   Saved. Spoolman is offline, so price, location, lot and notes stay here unsaved.: 'Сохранено. Spoolman не в сети, поэтому цена, расположение, партия и заметки остаются здесь несохранёнными.'
+  Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear.: Сохраняет позицию печати примерно раз в секунду, чтобы печать можно было продолжить после отключения питания. На SD-карте это увеличивает износ.
   Saves to Klipper config and restarts firmware.: Сохраняет в конфигурацию Klipper
     и перезапускает прошивку.
   Saving Configuration...: Сохранение конфигурации...
   Saving Z-offset...: Сохранение Z-offset...
   Saving and finishing...: Сохранение и завершение...
+  Saving calibration: Сохранение калибровки
+  Saving calibration...: Сохранение калибровки...
   Saving config... Klipper will restart.: Сохранение конфигурации... Klipper перезапустится.
   Saving offsets...: Сохранение смещений...
   Saving the position and parking the toolhead.: Сохранение позиции и парковка печатающей головки.
@@ -3355,6 +3461,11 @@ translations:
   Search vendors...: Поиск производителей...
   Search widgets...: Поиск виджетов...
   Searching...: Поиск...
+  Seat: Установить
+  Seat a tool by hand: Установить инструмент вручную
+  Seat a tool by hand for the first Z home: Установить инструмент вручную для первой парковки Z
+  Seat which tool by hand?: Какой инструмент установить вручную?
+  Seating {}...: Установка {}...
   Secondary: Вторичный
   Section Detail: Детали раздела
   Security: Безопасность
@@ -3407,6 +3518,7 @@ translations:
   Send this crash report to help improve HelixScreen.: Отправьте этот отчёт об ошибке,
     чтобы помочь улучшить HelixScreen.
   Sending...: Отправка...
+  Sends your standing print options, such as unload at end, when a print starts from another app or the job queue.: 'Отправляет ваши постоянные параметры печати, например выгрузку в конце, когда печать запускается из другого приложения или из очереди заданий.'
   Sensor: Датчик
   Sensor Error: 'Ошибка датчика'
   Sensor Response: Отклик датчика
@@ -3420,6 +3532,7 @@ translations:
   Separate on/off macros. HelixScreen tracks the state.: Отдельные макросы вкл/выкл.
     HelixScreen отслеживает состояние.
   Server Setup: Настройка сервера
+  Server-side edits: 'Правка на сервере'
   Service hours for the filter, nozzle, and rails: 'Моточасы фильтра, сопла и направляющих'
   Servo: Сервопривод
   Servo Down: 'Сервопривод вниз'
@@ -3443,6 +3556,7 @@ translations:
   Set up: Настроить
   Set up your label printer in Settings: Настройте принтер этикеток в Настройках
   Set what is really selected and loaded. Nothing moves.: 'Укажите, что на самом деле выбрано и загружено. Ничего не двигается.'
+  Setting the nozzle height: Установка высоты сопла
   Settings: Настройки
   Settings Snapshot: Снимок настроек
   Settings reset to defaults. Restarting...: Настройки сброшены к значениям по умолчанию.
@@ -3497,6 +3611,7 @@ translations:
   Size: Размер
   Skip: Пропустить
   Skip Objects...: 'Пропустить объекты...'
+  Skip the rest of this layer and resume at the next one: Пропустить остаток этого слоя и продолжить со следующего
   Skipped: 'Пропущено'
   Sleep While Printing: Спящий режим при печати
   Sleep adjusted to match dim timeout: Таймаут сна изменён
@@ -3599,6 +3714,7 @@ translations:
 
   Spools removed: Катушки сняты
 
+  Sport: Спорт
   Square Corner Velocity: Скорость прохождения углов
   Stable: Стабильная
   Stall detection setup failed for the Z motor — power-cycle to retry: Не удалась настройка детектирования заклинивания двигателя Z. Выключите и включите питание
@@ -3610,6 +3726,7 @@ translations:
   Start Anyway: Начать всё равно
   Start Calibration: Начать калибровку
   Start Drying: Начать сушку
+  Start Heating: "Начать нагрев"
   Start K: Начальный K
   Start Print: Начать печать
   Start Probing: Начать зондирование
@@ -3622,12 +3739,14 @@ translations:
   Start failed: Ошибка запуска
   Start next: 'Запустить следующую'
   'Start next: {}': 'Запустить следующую: {}'
+  Start options for prints from other apps: 'Параметры запуска для печати из других приложений'
   Start print anyway?: Всё равно начать печать?
   Started: Начато
   Starting Print...: Запуск печати...
   Starting download...: Начало загрузки...
   Starting nozzle clean...: Запуск очистки сопла...
   Starting print...: Запуск печати...
+  Starting the print: Запуск печати
   Starting {}…: 'Запуск {}…'
   Starting...: Запуск...
   Starts after the current print: Начнётся после текущей печати
@@ -3638,9 +3757,12 @@ translations:
   Status: Статус
   Status icons: Иконки статуса
   Std Deviation: Станд. отклонение
+  Stealth: Тихий
+  Stealth is quiet, Sport is fastest: Тихий самый тихий, Спорт самый быстрый
   Step: Шаг
   Step 1 of 3: Шаг 1 из 3
   Step {} of {}: Шаг {} из {}
+  Still reading the printer's lane record. Try again in a moment.: 'Запись каналов принтера ещё читается. Повторите попытку через мгновение.'
   Still saving this spool…: 'Эта катушка ещё сохраняется…'
   Still working... taking longer than usual: Всё ещё выполняется... дольше обычного
   Stop: Стоп
@@ -3798,6 +3920,7 @@ translations:
   That turn didn't register yet. Loosen {0} one more full turn.: "Этот поворот ещё не отразился. Ослабьте {0} ещё на один полный оборот."
   That turn didn't register yet. Tighten {0} a little more.: "Этот поворот ещё не отразился. Натяните {0} ещё немного."
   That turn didn't register yet. Tighten {0} one more full turn.: "Этот поворот ещё не отразился. Натяните {0} ещё на один полный оборот."
+  The ACE pushes the loaded filament along with the extruder. The driver turns Feed Assist on after a load: "ACE проталкивает загруженный филамент вместе с экструдером. Драйвер включает помощь подачи после загрузки"
   The CFS odometer hardware is faulty and needs repair or replacement: Оборудование одометра CFS неисправно и требует ремонта или замены
   The CFS ran out of filament in {}. Printing continues on what is left in the tube.: 'В CFS закончился филамент в {}. Печать продолжается остатком в трубке.'
   The CFS ran out of filament. Printing continues on what is left in the tube.: 'В CFS закончился филамент. Печать продолжается остатком в трубке.'
@@ -3812,6 +3935,7 @@ translations:
     interfering with prints. You can re-enable it in Settings > Display.
   : Анимированная заставка была отключена на данном устройстве, чтобы она не мешала
     печати. Вы можете снова включить её в Настройки > Дисплей.
+  "The bed and nozzle heat together before anything moves, so the print re-grips and the nozzle lets go of it.": "Стол и сопло нагреваются вместе до любого движения, чтобы печать снова прилипла, а сопло отделилось от неё."
   The bed has cooled. Take the spools off the plate, then confirm.: Стол остыл. Снимите катушки со стола, затем подтвердите.
 
   The bed is too small for settling laps.: 'Стол слишком мал для кругов приработки.'
@@ -3829,6 +3953,8 @@ translations:
   The controller boards Klipper runs on. See their load in the system settings.: 'Платы контроллеров, на которых работает Klipper. Их загрузку можно посмотреть в системных настройках.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: Лезвие не вернулось. Проверьте, не намотался ли филамент на режущий механизм
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: Резак смещён. Выполните повторную калибровку командой CALIBRATE_CUT_POS
+  ? The exact stopping point could not be found. The print resumes at the start of the next layer and skips the rest of this one.
+  : Точное место остановки не найдено. Печать продолжится с начала следующего слоя, остаток этого слоя будет пропущен.
   The extruder cannot pull it smoothly. Check the spool for a tangle or knot, and the PTFE tube for a severe bend: Экструдер не может тянуть равномерно. Проверьте катушку на запутывание или узел, а трубку PTFE на резкий изгиб
   ? The filament did not reach the nozzle. The CFS reported no error, but the toolhead sensor still sees no filament. Check that the spool is seated and the path is clear, then try again.
   : Филамент не дошёл до сопла. CFS не сообщила об ошибке, но датчик печатающей головки по-прежнему не видит филамент. Проверьте, что катушка установлена правильно и путь свободен, затем повторите попытку.
@@ -3852,13 +3978,22 @@ translations:
   The heater will cycle on and off several times.: Нагреватель будет несколько раз
     включаться и выключаться.
   The helper macros are installed and activate after Klipper restarts.: 'Вспомогательные макросы установлены и активируются после перезапуска Klipper.'
+  The latch opens and {} can drop. Hold it before you continue, then put it in its dock.: Защелка откроется, и {} может упасть. Придержите его, прежде чем продолжить, затем поставьте в док.
   The left RFID reader in this CFS unit may need service: Левому RFID-считывателю этого блока CFS может требоваться обслуживание
+  The loaded slot is not known yet: "Загруженный слот пока неизвестен"
   ? The loaded spool is {}, but this file was sliced for {}. Filled filament runs at a lower flow rate and needs a hardened nozzle.
   : Загружена катушка {}, но файл нарезан для {}. Филамент с наполнителем печатается с меньшим потоком и требует закалённого сопла.
   The message your printer's macros show (M117): 'Сообщение, которое показывают макросы принтера (M117)'
+  ? The mounted nozzle heats to 200°C and cools again while the heater's safety model is fitted. Keep the part fan off and flammable material away from the head. This takes several minutes.
+  : Установленное сопло нагреется до 200°C и снова остынет, пока определяется модель безопасности нагревателя. Держите обдув выключенным, а горючие материалы подальше от головки. Это займёт несколько минут.
   The nozzle extrudes a few short test moves in a corner, away from the print area, and repeats until it agrees with itself.: 'Сопло делает несколько коротких тестовых перемещений в углу, в стороне от зоны печати, и повторяет их до сходимости.'
+  "The nozzle hasn't moved since the power went out. Check that it sits just above the top of the print, then resume.": "Сопло не двигалось с момента отключения питания. Убедитесь, что оно чуть выше верха печати, затем продолжите."
+  ? The nozzle heats to 200°C while the part fan steps through its speeds. For an accurate fit, fit the duct as you print with it. This takes several minutes.
+  : Сопло нагреется до 200°C, пока обдув перебирает скорости. Для точного результата установите воздуховод так же, как при печати. Это займёт несколько минут.
+  The nozzle is clear of the print: Сопло не касается печати
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее».
+  The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "Сопло поднято над печатью, X и Y запаркованы. При продолжении оно опустится на высоту, где остановилось."
   The plate and the spools are still hot. Use gloves.: Стол и катушки ещё горячие. Используйте перчатки.
 
   The plate finishes its current move, but drying will not start.: 'Стол завершит текущее перемещение, но сушка не начнётся.'
@@ -3867,6 +4002,7 @@ translations:
   The print is on its last layer.: 'Печатается последний слой.'
   ? The print is paused. Changing tools now moves the toolhead and swaps the filament at the nozzle. Resume the print once the change finishes.
   : Печать на паузе. Смена инструмента сейчас переместит печатающую головку и заменит филамент в сопле. Возобновите печать после завершения смены.
+  The print is still stuck to the bed: Модель всё ещё держится на столе
   The print is waiting for the chamber to reach {}°C, but the heater is not heating.: 'Печать ждёт, пока камера нагреется до {}°C, но нагреватель не греет.'
   The print is waiting for the chamber, but the heater is not heating.: 'Печать ждёт камеру, но нагреватель не греет.'
   The printable size in millimeters (X × Y × Z), from the axis limits in the printer's Klipper config.: 'Размер области печати в миллиметрах (X × Y × Z) по пределам осей в конфигурации Klipper принтера.'
@@ -3875,8 +4011,10 @@ translations:
   The printer can measure each tool's offset automatically. Run it on the tool offset calibration screen.: 'Принтер может автоматически измерить смещение каждого инструмента. Запустите это на экране калибровки смещений инструментов.'
   The printer can measure pressure advance on its own. Run it on the PA calibration screen.: 'Принтер может сам измерить pressure advance. Запускается на экране «Калибровка PA».'
   The printer can pause at a chosen layer, for a filament swap or an insert. Set the layer from the print preview.: 'Принтер может встать на паузу на выбранном слое, для смены филамента или вставки детали. Слой задается в предпросмотре печати.'
+  The printer could not work out where to resume.: Принтер не смог определить, откуда продолжить.
   The printer did not change its bed check: 'Принтер не изменил проверку стола'
   'The printer did not change its bed check: {}': 'Принтер не изменил проверку стола: {}'
+  'The printer did not confirm the print started ({}). It may still start: check the printer before starting it again.': 'Принтер не подтвердил начало печати ({}). Печать ещё может начаться: проверьте принтер, прежде чем запускать её снова.'
   The printer extrudes in a corner and repeats until the readings agree. You do not judge anything by eye.: 'Принтер выдавливает пластик в углу и повторяет, пока показания не сойдутся. Ничего не нужно оценивать на глаз.'
   The printer finishes this measurement on its own.: 'Принтер завершит это измерение сам.'
   The printer halted this print and cannot resume it. Restart from the beginning?: Принтер
@@ -3890,6 +4028,7 @@ translations:
 
   : Принтер выполнит парковку, затем отведёт стол как можно дальше от сопла. Некоторые катушки недостаточно термостойкие и могут деформироваться. С этого экрана ничего не будет двигаться, пока вы не подтвердите, что катушки сняты со стола; Mainsail, макросы и печать, отправленная из слайсера, не блокируются.
 
+  The printer homes, then probes each screw position.: "Принтер выполняет парковку, затем измеряет каждую позицию винта."
   The printer is not homed. Continuing will home all axes, moving the toolhead. Make sure the bed is clear.: Принтер не запаркован. Продолжение выполнит парковку всех осей, печатающая головка переместится. Убедитесь, что стол свободен.
   The printer is shut down.: 'Принтер выключен.'
   ? The printer is waiting for the chamber to reach a temperature, and only an emergency stop and a firmware restart end that wait. The print stops at once and cannot be resumed.
@@ -3899,16 +4038,21 @@ translations:
   The printer lost power during a print. The resumed layer may not line up exactly.: Принтер потерял питание во время печати. Возобновлённый слой может не совпасть точно.
   The printer lost power while printing {}. Resume where it left off?: Принтер потерял питание при печати {}. Продолжить с места остановки?
   The printer lost power while printing {}. The resumed layer may not line up exactly.: Принтер потерял питание при печати {}. Возобновлённый слой может не совпасть точно.
+  The printer no longer has a print to resume.: У принтера больше нет печати для продолжения.
+  The printer reads the file up to the last saved position. A large file can take a minute.: Принтер читает файл до последней сохранённой позиции. Большой файл может занять минуту.
+  The printer records lane {} in the toolhead, not this one: 'По записи принтера в печатающей головке канал {}, а не этот'
   'The printer refused that port: check the port (Moonraker is usually 7125).': "Принтер отклонил этот порт: проверьте порт (Moonraker обычно использует 7125)."
   The printer rejected the filament configuration. The print was not started.: Принтер
     отклонил конфигурацию филамента. Печать не была запущена.
   The printer reports measured fan speeds. HelixScreen shows them on the Fans screen.: 'Принтер сообщает измеренные скорости вентиляторов. HelixScreen показывает их на экране «Вентиляторы».'
+  The printer reports no lane record, so only clearing the extruder can unload it.: 'Принтер не сообщает запись канала, поэтому выгрузить можно только очисткой экструдера.'
   The printer swaps between several toolheads. Manage the tools on the filament system screen.: 'Принтер переключается между несколькими печатающими головками. Инструментами можно управлять на экране системы филамента.'
   The printer's firmware chooses where to switch on runout: Прошивка принтера сама выбирает, на что переключиться при обрыве
   The requested position is outside the printer's bounds: 'Запрошенная позиция находится за пределами рабочей области принтера'
   The right RFID reader in this CFS unit may need service: Правому RFID-считывателю этого блока CFS может требоваться обслуживание
   The runout sensor indicates no filament is loaded. Start print anyway?: Датчик окончания
     филамента показывает, что филамент не загружен. Всё равно начать печать?
+  The saved position is kept. Reconnect or restart the screen to be offered the resume again.: Сохранённая позиция остаётся. Переподключитесь или перезапустите экран, чтобы снова получить предложение продолжить.
   The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service: Не удаётся считать датчик этого блока CFS. Проверьте подключение, иначе блоку требуется обслуживание
   The speed of one fan you choose: Скорость выбранного вентилятора
   The time, date, and system uptime: Время, дата и время работы системы
@@ -3988,9 +4132,11 @@ translations:
   This printer cannot calibrate tool offsets automatically: Этот принтер не может калибровать смещения инструментов автоматически
   This printer fills its gates from Spoolman. HelixScreen cleared its own copy; remove the spool in Spoolman.: Этот принтер берёт данные шлюзов из Spoolman. HelixScreen очистил свою копию; удалите катушку в Spoolman.
   This printer fills its gates from Spoolman. Make color, material and spool changes in Spoolman.: Этот принтер берёт данные шлюзов из Spoolman. Меняйте цвет, материал и катушку в Spoolman.
+  This printer has no INDX LOAD_FILAMENT macro: "На этом принтере нет макроса INDX LOAD_FILAMENT"
   This printer has no automatic unload. Cut the filament at the head and pull it out by hand.: У этого принтера нет автоматической выгрузки. Отрежьте филамент у головки и вытащите его вручную.
   ? This printer looks like a {} ({}% confidence), but it is set up as a {}. A wrong type applies incorrect pre-print options and presets.
   : Этот принтер похож на {} (уверенность {}%), но настроен как {}. Неверный тип применяет неправильные параметры перед печатью и пресеты.
+  "This printer's INDX macros are missing: {}": "В макросах INDX этого принтера отсутствует: {}"
   This printer's network service controls the WiFi radio: WiFi-модулем управляет сетевая служба этого принтера
   This printer's network service manages saved WiFi networks: Сохранёнными сетями WiFi управляет сетевая служба этого принтера
   This printer's screen has not shared a layout: "Экран этого принтера не поделился раскладкой"
@@ -4000,6 +4146,7 @@ translations:
   ? This replaces the printer's helper macros with the current version. A print is running, so Klipper restarts after it finishes.
   : 'Это заменит вспомогательные макросы принтера текущей версией. Идёт печать, поэтому Klipper перезапустится после её завершения.'
   This replaces this screen's home layout for this printer with the one on the printer's own screen.: "Раскладка главного экрана этого экрана для данного принтера будет заменена раскладкой с экрана самого принтера."
+  This resume needs a newer version of HelixScreen.: Для этого продолжения нужна более новая версия HelixScreen.
   This slot feeds no tool: 'Этот слот не подаёт филамент ни в один инструмент'
   This spool's details haven't loaded from Spoolman yet. Try Save again.: 'Данные этой катушки ещё не загружены из Spoolman. Нажмите «Сохранить» ещё раз.'
   This system does not support bypass mode: 'Эта система не поддерживает режим обхода'
@@ -4035,6 +4182,12 @@ translations:
   This will save the Z-offset and restart Klipper to write the configuration. The printer will briefly disconnect.: Z-offset будет сохранён, и Klipper перезапустится для записи конфигурации. Принтер ненадолго отключится.
   ? This writes the tool offsets to the printer's config and restarts Klipper, which takes a few seconds. Until then they apply only to this session.
   : Смещения инструментов будут записаны в конфигурацию принтера, и Klipper перезапустится, это займёт несколько секунд. До этого они действуют только в текущем сеансе.
+  ? This {0} is set up for {1}, but it looks stock ({2}% confidence). A wrong profile applies incorrect pre-print options and presets.
+  : 'Этот {0} настроен для {1}, но выглядит стоковым (уверенность {2}%). Неверный профиль применяет неправильные параметры перед печатью и пресеты.'
+  ? This {0} looks like it has {1} ({2}% confidence), but it is set up as stock. A wrong profile applies incorrect pre-print options and presets.
+  : 'Похоже, на этом {0} есть {1} (уверенность {2}%), но он настроен как стоковый. Неверный профиль применяет неправильные параметры перед печатью и пресеты.'
+  ? This {0} looks like it has {1} ({2}% confidence), but it is set up for {3}. A wrong profile applies incorrect pre-print options and presets.
+  : 'Похоже, на этом {0} есть {1} (уверенность {2}%), но он настроен для {3}. Неверный профиль применяет неправильные параметры перед печатью и пресеты.'
   Thorough: Тщательно
   Thumbnail Only: Только миниатюра
   'Thumbnail: ': 'Миниатюра: '
@@ -4087,7 +4240,12 @@ translations:
   Tool Offsets: Смещения инструментов
   Tool Switcher: 'Переключатель инструментов'
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
+  Tool change speed: Скорость смены инструмента
   Tool change to T{}: 'Смена инструмента на T{}'
+  'Tool cycle failed: {}': 'Ошибка перебора инструментов: {}'
+  Tool cycle finished: Перебор инструментов завершён
+  Tool is seated: Инструмент установлен
+  Tool may be half seated: "Инструмент может быть установлен не полностью"
   Tool offsets (mm): Смещения инструментов (мм)
   Tool offsets saved: Смещения инструментов сохранены
   Tool swap: Смена инструмента
@@ -4147,6 +4305,7 @@ translations:
   Turn off detection: Отключить обнаружение
   Turn on the lights your light buttons control: Включает свет, которым управляют кнопки света
   Turn the extruder heater off after a load or unload finishes: Выключать нагреватель экструдера после загрузки или выгрузки
+  Turn the nozzle heater off first: Сначала выключите нагреватель сопла
   Turn the picture to match how the screen is mounted. Applies after restart.: Поворачивает изображение в соответствии с положением экрана. Применяется после перезапуска.
   Turn the printer's lights on or off: Включить или выключить подсветку
   Type: Тип
@@ -4167,6 +4326,7 @@ translations:
   Unable to reach printer. Check power and network connection.: Не удаётся связаться с принтером. Проверьте питание и сетевое подключение.
   Unavailable: Недоступно
   Unavailable on this printer: Недоступно на этом принтере
+  'Unavailable: {}': 'Недоступно: {}'
   Undo: Шаг назад
   Uninstall: Удалить
   Uninstall HelixPrint Plugin: Удалить плагин HelixPrint
@@ -4230,6 +4390,7 @@ translations:
   Update Success: Обновление успешно
   Update from a Terminal: Обновление через терминал
   Update installed!: Обновление установлено!
+  'Update the INDX heater model too? {} now holds {}: density {:.2f}, heat capacity {:.2f}.': 'Обновить и модель нагревателя INDX? В {} теперь {}: плотность {:.2f}, теплоёмкость {:.2f}.'
   Update your security PIN: Обновите ваш PIN-код
   Updates: Обновления
   Updating Configuration...: Обновление конфигурации...
@@ -4268,6 +4429,7 @@ translations:
   Verifying...: Проверка...
   Version: Версия
   Version and printer info: Версия и сведения о принтере
+  Version and what the plugin runs: 'Версия и что выполняет плагин'
   Version {}: Версия {}
   Vertical: Вертикально
   Vibration: Вибрация
@@ -4296,6 +4458,8 @@ translations:
   Wait for the current filament operation to finish: Дождитесь завершения текущей операции с филаментом
   Wait for the current operation to complete: Дождитесь завершения текущей операции
   Wait for the current operation to complete or cancel it first: Дождитесь завершения текущей операции или сначала отмените её
+  Wait for the nozzle to stop moving: Дождитесь остановки сопла
+  Wait for the running INDX operation to finish: Дождитесь завершения текущей операции INDX
   Wait until the print finishes: Дождитесь завершения печати
   Waiting for Moonraker...: Ожидание Moonraker...
   Waiting for %s to finish. One heater at a time.: Ожидание завершения %s. Только один нагреватель одновременно.
@@ -4304,7 +4468,9 @@ translations:
     стола для точной калибровки.
   Waiting for chamber {} / {}°C: 'Ожидание камеры {} / {}°C'
   Waiting for chamber {}°C: 'Ожидание камеры {}°C'
+  Waiting for the chamber to heat: Ожидание нагрева камеры
   Waiting for the filament system to report its state: Ожидание состояния системы филамента
+  Waiting for the printer: Ожидание принтера
   Warm: Тёплый
   Warm Bed: Прогреть стол
   Warm up for a material in one tap: Преднагрев под материал одним нажатием
@@ -4404,6 +4570,9 @@ translations:
   Your printer has an automatic filament changer: Ваш принтер оснащён автоматическим
     сменщиком филамента
   Your printer was offline during setup, so hardware options were skipped. Set them up now?: Принтер был не в сети во время настройки, поэтому параметры оборудования пропущены. Настроить их сейчас?
+  Your {0} is set up for {1}, but it looks stock.: 'Ваш {0} настроен для {1}, но выглядит стоковым.'
+  Your {0} looks like it has {1}, but it is set up for {2}.: 'Похоже, на вашем {0} есть {1}, но он настроен для {2}.'
+  Your {0} looks like it has {1}, but it is set up as stock.: 'Похоже, на вашем {0} есть {1}, но он настроен как стоковый.'
   ? Your {} line passes per-tool settings that Filament Mapping does not change ({}). A tool you map filament to may not be heated. See Filament Mapping in the user guide.
   : Строка {} передаёт настройки для отдельных инструментов, которые сопоставление филамента не меняет ({}). Инструмент, с которым вы сопоставите филамент, может не нагреться. См. раздел «Filament Mapping» в руководстве пользователя.
   Z: Z
@@ -4417,6 +4586,7 @@ translations:
   Z motor calibration failed: Не удалась калибровка двигателя Z
   Z probes for bed leveling and mesh generation: Z-зонды для выравнивания стола и
     создания сетки
+  Z {:.2f} mm: Z {:.2f} мм
   Z {}, will lift to {}mm: 'Z {}, подъём до {}мм'
   'Z-Off:': 'Z-Off:'
   Z-Offset: Z-Offset
@@ -4589,6 +4759,7 @@ translations:
   '{} firmware': 'Прошивка {}'
   '{} h': '{} ч'
   '{} h of {} h': '{} ч из {} ч'
+  '{} has no hotend': "У {} нет хотэнда"
   '{} heater turned off': Нагреватель {} выключен
   '{} is asking to connect to this printer.': '{} запрашивает подключение к этому принтеру.'
   '{} is blocked — manual intervention required': '{}: блокировка — требуется ручное вмешательство'
@@ -4604,10 +4775,12 @@ translations:
   '{} kept crashing the panel; switched back to {}': '{} постоянно вызывал сбой экрана; возврат к {}'
   "{} isn't loaded. The print will pause when it needs it.": '{}: филамент не загружен. Печать приостановится, когда он понадобится.'
   '{} kept crashing the panel; pick a printer to connect': '{} постоянно вызывал сбой экрана; выберите принтер для подключения'
+  '{} linked to Spoolman spool #{} from its tag': '{}: привязано к катушке Spoolman #{} по метке'
   '{} looser than {}': "{} слабее, чем {}"
   '{} m': '{} м'
   '{} macro not configured': Макрос {} не настроен
   '{} matches.': '{} подходит.'
+  '{} may be half seated on the head. Check it by hand.': "{} может быть установлен на печатающую головку не полностью. Проверьте вручную."
   '{} may cause unintended changes. Are you sure?': '{} может привести к непреднамеренным
     изменениям. Вы уверены?'
   '{} meter reset': 'Счётчик «{}» сброшен'
@@ -4658,6 +4831,7 @@ translations:
   '{} — response timed out': '{} — время ожидания ответа истекло'
   '{} → {}: no filament loaded.': '{} → {}: филамент не загружен.'
   "{}'s peak moved out of the zone. Widening it.": "Пик {} вышел из зоны. Расширяем её."
+  "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: метка указывает катушку Spoolman #{}, которой не существует'
   '{}:{:02} elapsed': прошло {}:{:02}
   '{}% left': 'Осталось {}%'
   'Basic': 'Базовый'
@@ -4672,6 +4846,7 @@ translations:
   'This doesn''t match the linked Spoolman spool. Update it in Spoolman, or unlink and keep it on this slot?': 'Не совпадает со связанной катушкой Spoolman. Обновить в Spoolman или отвязать и оставить на этом слоте?'
   'Unlink, keep on this slot': 'Отвязать, оставить на этом слоте'
   'Unsaved changes': 'Несохранённые изменения'
+  Update heater model?: Обновить модель нагревателя?
   'Update in Spoolman': 'Обновить в Spoolman'
   'Variant': 'Вариант'
   'from tag': 'с метки'

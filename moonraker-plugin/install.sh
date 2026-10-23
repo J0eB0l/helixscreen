@@ -135,6 +135,30 @@ path_for_moonraker() {
     printf '%s' "$1"
 }
 
+# Print path @1 as the running Moonraker names it (path_for_moonraker), or
+# fail when nothing exists there from Moonraker's root: a path outside its
+# chroot that no bind mount brings in.
+moonraker_visible_path() {
+    seen=$(path_for_moonraker "$1")
+    [ -e "$(running_moonraker_root)$seen" ] || return 1
+    printf '%s' "$seen"
+}
+
+# Print the python3 inside the running Moonraker's chroot, as the chroot
+# names it. Fails when Moonraker runs in no chroot, when chroot(8) is not
+# here to enter it, or when the chroot holds no python3.
+chroot_python3() {
+    mroot=$(running_moonraker_root)
+    [ -n "$mroot" ] && command -v chroot > /dev/null 2>&1 || return 1
+    for py in /usr/bin/python3 /bin/python3 /usr/local/bin/python3; do
+        if [ -x "$mroot$py" ]; then
+            printf '%s' "$py"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Whether a process with ids @1 (uid, then groups) holds permission @2 (r
 # or x) on @3, by its mode bits: the owner's, else a group's, else other's.
 # uid 0 holds both.
@@ -216,10 +240,9 @@ can_link_in() {
 # runs in a chroot. Stops through error() when one fails.
 check_plugin_link() {
     can_link_in "$1" || error "Cannot write to components directory: $1"
-    link_to=$(path_for_moonraker "$PLUGIN_FILE")
-    if [ ! -f "$(running_moonraker_root)$link_to" ]; then
+    # shellcheck disable=SC2034  # read by the caller that makes the link
+    link_to=$(moonraker_visible_path "$PLUGIN_FILE") ||
         error "Moonraker cannot see $PLUGIN_FILE from its root ($(running_moonraker_root))"
-    fi
     require_moonraker_can_read "$PLUGIN_FILE"
 }
 
@@ -409,6 +432,18 @@ remove_helix_section() {
     return 0
 }
 
+# Remove [update_manager helix_print] from every file Moonraker reads its
+# config from, config directory @1 included, each with a backup. That entry
+# updates a git checkout of the plugin, which Moonraker no longer loads once
+# the link names this tree. Returns 1 when any file could not be edited.
+remove_plugin_updater_entries() {
+    _rpu_status=0
+    for _rpu_file in $(helix_conf_files_matching "$1/moonraker.conf" "$(running_moonraker_root)" "$HELIX_PRINT_UPDATER_RE"); do
+        remove_helix_section "$_rpu_file" "$HELIX_PRINT_UPDATER_RE" "$HELIX_PRINT_UPDATER_STRIP_AWK" || _rpu_status=1
+    done
+    return "$_rpu_status"
+}
+
 # Main installation
 main() {
     info "HelixPrint Moonraker Plugin Installer"
@@ -542,10 +577,12 @@ finish_with_restart() {
 # strip_phase_tracking.py, which owns the marker format and the safety
 # contract around editing a printer's config (matched blocks only, a
 # verified backup, symlinks and modes preserved). python3 is what Moonraker
-# itself runs on; its absence here means something else on this printer is
-# already broken. Either way this never aborts the rest of uninstall - it
-# reports the outcome and returns it, so the caller can fold it into its own
-# exit status instead of claiming success it cannot back up.
+# itself runs on: here, or inside the chroot a Moonraker like Forge-X's runs
+# in, which is the only python3 such a printer has. Its absence from both
+# means something else on this printer is already broken. Either way this
+# never aborts the rest of uninstall - it reports the outcome and returns it,
+# so the caller can fold it into its own exit status instead of claiming
+# success it cannot back up.
 #
 # Returns strip_phase_tracking.py's own exit status unchanged (0 clean, 2
 # needs attention, 1 failed) so a caller can wire it straight through; a
@@ -553,16 +590,21 @@ finish_with_restart() {
 # PRINT_START could not be checked at all.
 strip_phase_tracking_instrumentation() {
     scan_dir="$1"
+    strip_py="$SCRIPT_DIR/strip_phase_tracking.py"
 
-    if ! command -v python3 > /dev/null 2>&1; then
+    strip_status=$EXIT_UNINSTALL_OK
+    if command -v python3 > /dev/null 2>&1; then
+        python3 "$strip_py" "$scan_dir" || strip_status=$?
+    elif chroot_py=$(chroot_python3) &&
+        chroot_strip_py=$(moonraker_visible_path "$strip_py") &&
+        chroot_scan_dir=$(moonraker_visible_path "$scan_dir"); then
+        chroot "$(running_moonraker_root)" "$chroot_py" "$chroot_strip_py" "$chroot_scan_dir" || strip_status=$?
+    else
         warn "python3 not found - could not check PRINT_START for phase-tracking instrumentation"
         warn "If a previous HelixScreen instrumented PRINT_START, remove any block between"
         warn "'# <<< HELIX_TRACKING v2 >>>' and '# <<< /HELIX_TRACKING >>>' by hand, then restart Klipper"
         return "$EXIT_UNINSTALL_NEEDS_ATTENTION"
     fi
-
-    strip_status=$EXIT_UNINSTALL_OK
-    python3 "$SCRIPT_DIR/strip_phase_tracking.py" "$scan_dir" || strip_status=$?
     if [ "$strip_status" -ne 0 ]; then
         warn "Phase-tracking strip reported a failure - see the output above"
     fi
@@ -651,8 +693,11 @@ auto_uninstall() {
 # Re-point an installed plugin's link at this tree (--relink): what the app
 # runs at startup, so a plugin installed from an install directory that has
 # since moved, or been replaced, loads from the tree beside the running app.
-# Touches the link only, never the config, and never creates a link that is
-# not there: an install is the user's choice. Returns an EXIT_RELINK_* code.
+# Never creates a link that is not there: an install is the user's choice.
+# Where the link is ours it also removes [update_manager helix_print], with a
+# backup: that entry updates a git checkout Moonraker no longer loads. Nothing
+# else in the config is touched, and the checkout itself is left on disk.
+# Returns an EXIT_RELINK_* code; a config edit that fails only warns.
 relink() {
     components_dir=$(find_moonraker_components "")
     [ -n "$components_dir" ] || error "Could not auto-detect Moonraker installation."
@@ -689,12 +734,17 @@ relink() {
     # shellcheck disable=SC3013
     if [ -e "$seen" ] && [ "$seen" -ef "$PLUGIN_FILE" ]; then
         info "The plugin link already names $PLUGIN_FILE"
+        remove_plugin_updater_entries "$config_dir" ||
+            warn "Left [update_manager helix_print] in place - see the warnings above"
         return "$EXIT_RELINK_CURRENT"
     fi
 
     check_plugin_link "$components_dir"
     ln -sf "$link_to" "$target" || error "Could not re-point $target"
     info "Re-pointed $target -> $link_to (was $current)"
+    remove_plugin_updater_entries "$config_dir" ||
+        warn "Left [update_manager helix_print] in place - see the warnings above"
+    info "Moonraker no longer loads the plugin from $(dirname "$current"); a copy there that nothing else uses can be removed"
     return "$EXIT_RELINK_DONE"
 }
 
@@ -779,12 +829,8 @@ auto_install() {
             ensure_visible_symlink_dir "$section_holder"
         fi
 
-        # An updater entry for a git checkout of the plugin follows a tree
-        # Moonraker no longer loads once the link points here.
-        for file in $(helix_conf_files_matching "$config_dir/moonraker.conf" "$(running_moonraker_root)" "$HELIX_PRINT_UPDATER_RE"); do
-            remove_helix_section "$file" "$HELIX_PRINT_UPDATER_RE" "$HELIX_PRINT_UPDATER_STRIP_AWK" ||
-                error "Could not remove [update_manager helix_print] from $file"
-        done
+        remove_plugin_updater_entries "$config_dir" ||
+            error "Could not remove [update_manager helix_print] - see the warnings above"
     else
         warn "Could not find moonraker.conf - manual config required"
     fi
@@ -850,7 +896,8 @@ show_help() {
     printf '%s\n' "                          Moonraker"
     printf '%s\n' "  --relink                Re-point an installed plugin's link at this copy;"
     printf '%s\n' "                          exit 0 already current, 3 re-pointed, 4 nothing of"
-    printf '%s\n' "                          ours to repair, 1 failed. Never restarts Moonraker"
+    printf '%s\n' "                          ours to repair, 1 failed. Drops a git checkout's"
+    printf '%s\n' "                          [update_manager helix_print]. Never restarts Moonraker"
     printf '%s\n' "  --restart-moonraker     Restart Moonraker over its API so it loads the plugin"
     printf '%s\n' "                          on disk; exit 0 restarted, 3 needs a manual"
     printf '%s\n' "                          restart, 4 held off by a print, 6 print state unknown,"

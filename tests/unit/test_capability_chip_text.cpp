@@ -61,9 +61,28 @@ TEST_CASE("capability_chip_text: build volume", "[capability_chip_text]") {
     CapabilityChipFacts f;
     f.build_volume = volume(350, 350, 340);
     CHECK(capability_chip_text(CapChip::BuildVolume, f) == "350×350×340");
-    f.build_volume.x_min = -2.4f;
+    f.build_volume.x_min = 5.0f;
     f.build_volume.x_max = 300.0f;
-    CHECK(capability_chip_text(CapChip::BuildVolume, f) == "302×350×340");
+    CHECK(capability_chip_text(CapChip::BuildVolume, f) == "295×350×340");
+
+    // Endstop overtravel behind the bed is not printable room.
+    f.build_volume = volume(461, 433.65f, 400);
+    f.build_volume.y_min = -14.35f;
+    CHECK(capability_chip_text(CapChip::BuildVolume, f) == "461×434×400");
+
+    // A centre-origin range (delta) spans both sides of 0.
+    f.build_volume = volume(100, 100, 300);
+    f.build_volume.x_min = -100.0f;
+    f.build_volume.y_min = -100.0f;
+    CHECK(capability_chip_text(CapChip::BuildVolume, f) == "200×200×300");
+
+    // A bed the firmware declares wins over the travel.
+    f.build_volume = volume(352.5f, 400, 350);
+    f.build_volume.x_min = -10.0f;
+    f.build_volume.declared_bed_x = 350.0f;
+    f.build_volume.declared_bed_y = 350.0f;
+    CHECK(capability_chip_text(CapChip::BuildVolume, f) == "350×350×350");
+
     f.build_volume = volume(350, 350, 0);
     CHECK(capability_chip_text(CapChip::BuildVolume, f).empty());
 }

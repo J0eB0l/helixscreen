@@ -5537,6 +5537,40 @@ TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
     }
 }
 
+TEST_CASE_METHOD(PrintStartCollectorHeaterFixture,
+                 "Adapted probe count outranks the configured grid when it precedes the mesh",
+                 "[print][collector][bed_mesh][adapted]") {
+    // Klipper prints the adapted grid inside BED_MESH_CALIBRATE, which can be
+    // before the collector enters BED_MESH; entry then asks Moonraker for the
+    // configured 6x6 grid.
+    client().set_config_bed_mesh_probe_count(6, 6);
+    client().gcode_script("BED_MESH_CLEAR");
+    collector().start();
+    drain_async_updates();
+
+    SECTION("Without an adapted line the configured grid is the total") {
+        enter_mesh_via_markers(*this);
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() == PrintStartPhase::BED_MESH);
+        CHECK(PrintStartCollectorTestAccess::get_mesh_probe_total(collector()) == 36);
+    }
+
+    SECTION("The adapted grid survives mesh entry and the configfile answer") {
+        send_gcode_response("G28");
+        send_gcode_response("// Adapted probe count: (5,5)");
+        send_gcode_response("BED_MESH_CALIBRATE");
+        drain_async_updates();
+        drain_async_updates();
+        REQUIRE(get_current_phase() == PrintStartPhase::BED_MESH);
+        CHECK(PrintStartCollectorTestAccess::get_mesh_probe_total(collector()) == 25);
+
+        send_gcode_response("// probe at 10.000,10.000 is z=0.100000");
+        drain_async_updates();
+        CHECK(get_current_message().find("(1/25)") != std::string::npos);
+    }
+}
+
 TEST_CASE_METHOD(PrintStartCollectorHeaterFixture, "PrintStartCollector - layer advance latch",
                  "[print_start][regression]") {
     // The pre-print phase can only end once layer data is proven to belong to

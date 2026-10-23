@@ -91,7 +91,8 @@
       setStatus("Waiting for the printer screen…");
       schedule(kRetryMs);
     };
-    probe.src = "snapshot.jpg?t=" + Date.now();
+    // viewer=1 marks a person watching, which keeps the printer's screen from sleeping.
+    probe.src = "snapshot.jpg?viewer=1&t=" + Date.now();
   }
 
   document.addEventListener("visibilitychange", function () {

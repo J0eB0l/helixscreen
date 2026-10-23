@@ -69,6 +69,8 @@ void AmsState::init_subjects(bool register_xml) {
         // register_xml_subject_names() must mirror the first-init registration
         // list below — a name added there must be added here too.
         install_print_state_observer();
+        install_klippy_state_observer();
+        install_print_lifecycle_observer();
         if (register_xml) {
             register_xml_subject_names();
         }
@@ -85,6 +87,7 @@ void AmsState::init_subjects(bool register_xml) {
     // System-level subjects
     INIT_SUBJECT_INT(ams_type, static_cast<int>(AmsType::NONE), subjects_, register_xml);
     INIT_SUBJECT_INT(ams_is_tool_changer, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(ams_nozzle_heat_blocked, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(ams_is_filament_system, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(ams_action, static_cast<int>(AmsAction::IDLE), subjects_, register_xml);
     action_mirror_.store(AmsAction::IDLE, std::memory_order_relaxed);
@@ -623,6 +626,44 @@ void AmsState::init_subjects(bool register_xml) {
     // PrinterState::init_subjects() must run before this point; tests/main
     // do so during fixture setup / app boot.
     install_print_state_observer();
+    install_klippy_state_observer();
+    install_print_lifecycle_observer();
+}
+
+void AmsState::install_klippy_state_observer() {
+    // on_klipper_restarted() must run before the first status frame after the
+    // resubscribe, since backends clear per-channel history that frame then
+    // rebuilds. That holds because Moonraker drops every subscription when
+    // Klippy's socket closes, and the READY update is queued on UpdateQueue
+    // ahead of rediscovery's subscribe, which UpdateQueue runs in order.
+    //
+    // Installed once per session (app start, printer switch), so the first
+    // READY it sees is that session's connect: the firmware may be mid-operation
+    // with backends already built, and nothing it is doing has ended.
+    klippy_state_observer_.reset();
+    last_klippy_state_ = -1;
+    klippy_ready_seen_ = false;
+    klippy_state_observer_ = helix::ui::observe<int>(
+        get_printer_state().network_state().get_klippy_state_subject(), this,
+        [](AmsState* self, int state) {
+            const int prev = self->last_klippy_state_;
+            self->last_klippy_state_ = state;
+            constexpr int kReady = static_cast<int>(KlippyState::READY);
+            if (state != kReady) {
+                return;
+            }
+            const bool restarted = self->klippy_ready_seen_ && prev != -1 && prev != kReady;
+            self->klippy_ready_seen_ = true;
+            if (!restarted) {
+                return;
+            }
+            for (int i = 0; i < self->backend_count(); ++i) {
+                if (AmsBackend* backend = self->get_backend(i)) {
+                    backend->on_klipper_restarted();
+                }
+            }
+        },
+        get_printer_state().get_subjects_lifetime());
 }
 
 void AmsState::install_print_state_observer() {
@@ -660,6 +701,8 @@ void AmsState::register_xml_subject_names() {
     // System-level subjects
     helix::xml::register_subject_in_current_scope("ams_type", &ams_type_);
     helix::xml::register_subject_in_current_scope("ams_is_tool_changer", &ams_is_tool_changer_);
+    helix::xml::register_subject_in_current_scope("ams_nozzle_heat_blocked",
+                                                  &ams_nozzle_heat_blocked_);
     helix::xml::register_subject_in_current_scope("ams_is_filament_system",
                                                   &ams_is_filament_system_);
     helix::xml::register_subject_in_current_scope("ams_action", &ams_action_);
@@ -917,6 +960,9 @@ void AmsState::deinit_subjects() {
     // LVGL observer is removed cleanly (reset(), not release() — see project
     // CLAUDE.md § "ObserverGuard::reset() is the default").
     print_state_observer_.reset();
+    klippy_state_observer_.reset();
+    motion_sensor_observer_.reset();
+    print_lifecycle_observer_.reset();
 
     // IMPORTANT: clear_backends() MUST precede subjects_.deinit_all() because
     // BackendSlotSubjects are managed outside SubjectManager for lifetime reasons
