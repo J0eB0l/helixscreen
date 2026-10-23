@@ -88,6 +88,9 @@ bool busybox_fallback(const char* path) {
 // logind's verdict, then systemctl, then busybox. A logind refusal for lack
 // of authorization is what gets reported when the fallbacks fail too: on a
 // systemd host they go through logind and meet the same polkit answer.
+// systemctl is skipped where systemd is not init: inside a chroot it prints
+// "Running in chroot, ignoring request" and exits 0, which would report a
+// power-off that never happens.
 PowerResult power_local(const char* logind_method, const char* systemctl_cmd,
                         const char* busybox_path) {
     PowerResult logind = PowerResult::Failed;
@@ -98,7 +101,7 @@ PowerResult power_local(const char* logind_method, const char* systemctl_cmd,
 #else
     (void)logind_method;
 #endif
-    if (exec_fallback(systemctl_cmd, systemctl_cmd))
+    if (host_runs_systemd() && exec_fallback(systemctl_cmd, systemctl_cmd))
         return PowerResult::Dispatched;
     if (busybox_fallback(busybox_path))
         return PowerResult::Dispatched;

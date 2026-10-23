@@ -433,7 +433,6 @@ void AmsState::reset_backend_subjects() {
     lv_subject_copy_string(&ams_action_detail_, "");
     last_operation_detail_.clear();
     lv_subject_set_int(&toolchange_step_, -1);
-    lv_subject_copy_string(&ams_current_tool_text_, "---");
 
     lv_subject_set_int(&filament_loaded_, 0);
     lv_subject_set_int(&filament_runout_, 0);

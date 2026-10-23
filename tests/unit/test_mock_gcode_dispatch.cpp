@@ -1414,3 +1414,26 @@ TEST_CASE_METHOD(LVGLTestFixture, "gcode_script dispatch is pinned per command",
         CHECK(snapshot(rows[i]) == std::string(rows[i].expected));
     }
 }
+
+TEST_CASE_METHOD(LVGLTestFixture, "a single-tool print keeps the simulated active tool",
+                 "[mock][gcode_dispatch]") {
+    // A file with no per-tool weights names no tool, and a real printer keeps
+    // printing on whichever head is active, so the simulator must not report
+    // "no tool" for it.
+    MoonrakerClientMock mock(PT::VORON_24);
+    std::vector<int> published;
+    mock.add_active_gcode_tool_observer(
+        [&published](int tool, uint32_t) { published.push_back(tool); });
+
+    REQUIRE(mock.gcode_script("SDCARD_PRINT_FILE FILENAME=3DBenchy.gcode") == 0);
+    REQUIRE(static_cast<int>(mock.get_print_phase()) == 1);
+    CHECK(published.empty());
+
+    // The same path does publish when the file names its tools.
+    MoonrakerClientMock multi(PT::VORON_24);
+    std::vector<int> multi_published;
+    multi.add_active_gcode_tool_observer(
+        [&multi_published](int tool, uint32_t) { multi_published.push_back(tool); });
+    REQUIRE(multi.gcode_script("SDCARD_PRINT_FILE FILENAME=Benchbin_MK4_MMU3.gcode") == 0);
+    CHECK(multi_published == std::vector<int>{1});
+}

@@ -43,25 +43,21 @@ std::string format_filament_weight(float grams);
 std::string format_layer_count(uint32_t layer_count);
 
 /**
- * @brief Format live layer progress for the print-status displays
+ * @brief Format the commanded Z height that trails a layer count
  *
- * The single renderer behind every "Layer N / M" string. Omits the total when
- * it is unknown, marks counts that were guessed from the progress fraction with
- * a leading "~", and appends the commanded Z height when one is available.
- * Examples: "Layer 42 / 213", "Layer ~42 / 213 (24.0mm)", "Layer 7"
+ * Examples: "· 24.0mm", or "" when no Z height is available.
  *
- * @param current Current layer number
- * @param total Total layers, or 0/negative when unknown
- * @param accurate False when the layer was estimated from the progress fraction
  * @param z_centimm Commanded Z in centimillimeters, or 0/negative to omit
- * @return Formatted layer string
+ * @return The Z suffix, without a leading space
  */
-std::string format_layer_progress(int current, int total, bool accurate, int z_centimm);
+std::string format_layer_z(int z_centimm);
 
 /**
  * @brief Format layer progress for the metadata strip's icon cluster
  *
- * Same inputs and semantics as format_layer_progress(), without the prose:
+ * The single renderer behind every live "N / M" layer string. Omits the total
+ * when it is unknown, marks counts guessed from the progress fraction with a
+ * leading "~", and appends format_layer_z() when a Z height is available:
  * a layers icon carries the "Layer" word, so the string is bare counts and a
  * " · " separated Z height. Translation-neutral — the width of this string
  * does not change with the UI language.

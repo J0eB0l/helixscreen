@@ -173,8 +173,6 @@ void AmsState::init_subjects(bool register_xml) {
     INIT_SUBJECT_INT(ams_system_has_logo, 0, subjects_, register_xml);
     INIT_SUBJECT_INT(ams_system_logo_color, 0, subjects_, register_xml);
 
-    INIT_SUBJECT_STRING(ams_current_tool_text, "---", subjects_, register_xml);
-
     // Endless-spool status. Starts Hidden with no text so a printer whose
     // backend never reports the feature renders nothing rather than flashing a
     // default sentence before the first sync.
@@ -748,7 +746,6 @@ void AmsState::register_xml_subject_names() {
     helix::xml::register_subject_in_current_scope("ams_system_logo", &ams_system_logo_);
     helix::xml::register_subject_in_current_scope("ams_system_has_logo", &ams_system_has_logo_);
     helix::xml::register_subject_in_current_scope("ams_system_logo_color", &ams_system_logo_color_);
-    helix::xml::register_subject_in_current_scope("ams_current_tool_text", &ams_current_tool_text_);
     helix::xml::register_subject_in_current_scope("ams_endless_state", &ams_endless_state_);
     helix::xml::register_subject_in_current_scope("ams_endless_text", &ams_endless_text_);
     helix::xml::register_subject_in_current_scope("ams_endless_spool_switchable",

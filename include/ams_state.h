@@ -931,15 +931,6 @@ class AmsState {
     }
 
     /**
-     * @brief Get current tool text subject
-     * @return Subject holding the physical position label (e.g., "Lane 2",
-     *         "Slot 1", "Tool 3", or "---")
-     */
-    lv_subject_t* get_current_tool_text_subject() {
-        return &ams_current_tool_text_;
-    }
-
-    /**
      * @brief Get toolchange visibility subject (1=visible, 0=hidden)
      * Non-zero when the filament backend (AFC, Happy Hare) reports expected tool changes.
      */
@@ -2589,11 +2580,6 @@ class AmsState {
     char system_logo_buf_[64];
     lv_subject_t ams_system_has_logo_{};
     lv_subject_t ams_system_logo_color_{};
-    lv_subject_t ams_current_tool_text_{};
-    // Holds a translated position label ("Tool 1", "Инструмент 16", "Печатающая
-    // головка 16") or "---". Sized like current_slot_text_buf_/system_logo_buf_:
-    // a translated noun plus a two-digit number can run well past ASCII length.
-    char ams_current_tool_text_buf_[64];
 
     /// Endless-spool status: kind as int, sentence as string. See the accessors.
     /// The buffer holds two translated lines; German and Russian restriction

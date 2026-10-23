@@ -5,6 +5,7 @@
 
 #include "../helix_test_fixture.h"
 #include "../lvgl_ui_test_fixture.h"
+#include "../test_helpers/print_status_widget_test_access.h"
 #include "../test_helpers/printer_state_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
@@ -115,6 +116,13 @@ helix::PrinterDiscovery discovery_with(const std::vector<std::string>& objects) 
     return disc;
 }
 
+// The chevron is the click target's last child, after the numbered nozzle icon.
+lv_obj_t* nozzle_chevron(lv_obj_t* target) {
+    const uint32_t children = lv_obj_get_child_count(target);
+    REQUIRE(children == 2);
+    return lv_obj_get_child(target, 1);
+}
+
 /// Reset ToolState + PrinterState and destroy any formatter left bound to the
 /// subjects we are about to replace.
 void reset_state_for_tool_gate(helix::ToolState& ts, PrinterState& ps) {
@@ -159,7 +167,7 @@ TEST_CASE_METHOD(HelixTestFixture, "Tool badge: many AMS lanes on one hotend are
     REQUIRE(multi != nullptr);
     REQUIRE(lv_subject_get_int(multi) == 0);
 
-    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label");
+    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_badge_text");
     REQUIRE(label != nullptr);
     REQUIRE(std::string(lv_subject_get_string(label)).empty());
 
@@ -186,9 +194,9 @@ TEST_CASE_METHOD(HelixTestFixture, "Tool badge: a genuine second extruder still 
     REQUIRE(multi != nullptr);
     REQUIRE(lv_subject_get_int(multi) == 1);
 
-    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label");
+    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_badge_text");
     REQUIRE(label != nullptr);
-    REQUIRE(std::string(lv_subject_get_string(label)) == "Tool 1");
+    REQUIRE(std::string(lv_subject_get_string(label)) == "1");
 
     // Two heaters: the readout can be pinned to either.
     auto* pickable = lv_xml_get_subject(nullptr, "print_status_nozzle_pickable");
@@ -222,9 +230,9 @@ TEST_CASE_METHOD(HelixTestFixture,
     auto* multi = lv_xml_get_subject(nullptr, "print_status_multi_tool");
     REQUIRE(multi != nullptr);
     CHECK(lv_subject_get_int(multi) == 1);
-    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label");
+    auto* label = lv_xml_get_subject(nullptr, "print_status_nozzle_badge_text");
     REQUIRE(label != nullptr);
-    CHECK(std::string(lv_subject_get_string(label)) == "Tool 3");
+    CHECK(std::string(lv_subject_get_string(label)) == "3");
     // One heater: nothing to pin the readout to.
     auto* pickable = lv_xml_get_subject(nullptr, "print_status_nozzle_pickable");
     REQUIRE(pickable != nullptr);
@@ -357,14 +365,159 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     REQUIRE(card != nullptr);
     lv_obj_t* target = lv_obj_find_by_name(card, "detailed_nozzle_click_target");
     REQUIRE(target != nullptr);
-    const uint32_t children = lv_obj_get_child_count(target);
-    REQUIRE(children >= 3);
-    lv_obj_t* tool_label = lv_obj_get_child(target, 0);
-    lv_obj_t* chevron = lv_obj_get_child(target, static_cast<int32_t>(children) - 1);
-    CHECK_FALSE(lv_obj_has_flag(tool_label, LV_OBJ_FLAG_HIDDEN));
-    CHECK(lv_obj_has_flag(chevron, LV_OBJ_FLAG_HIDDEN));
+    lv_obj_t* number = lv_obj_find_by_name(target, "tool_badge");
+    REQUIRE(number != nullptr);
+    CHECK_FALSE(lv_obj_has_flag(number, LV_OBJ_FLAG_HIDDEN));
+    CHECK(std::string(lv_label_get_text(number)) == "3");
+    CHECK(lv_obj_has_flag(nozzle_chevron(target), LV_OBJ_FLAG_HIDDEN));
 
     lv_obj_delete(card);
     ts.clear_ams_topology();
     UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Detailed card: the picker goes where the row has no room",
+                 "[print_status][tool_override]") {
+    auto& ts = ToolState::instance();
+    PrinterState& ps = get_printer_state();
+    reset_state_for_tool_gate(ts, ps);
+    ts.init_tools(discovery_with({"extruder", "extruder1", "heater_bed", "fan"}));
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+    FormatterScope fs;
+
+    REQUIRE(lv_xml_register_component_from_file(
+                "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_height(host, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(host, 0, LV_PART_MAIN);
+    auto* card =
+        static_cast<lv_obj_t*>(lv_xml_create(host, "print_status_detailed_active", nullptr));
+    REQUIRE(card != nullptr);
+    lv_obj_t* target = lv_obj_find_by_name(card, "detailed_nozzle_click_target");
+    REQUIRE(target != nullptr);
+    lv_obj_t* chevron = nozzle_chevron(target);
+    auto* fits = lv_xml_get_subject(nullptr, "print_status_nozzle_picker_fits");
+    REQUIRE(fits != nullptr);
+
+    PrintStatusWidget w;
+    lv_obj_set_width(host, 600);
+    PrintStatusWidgetTestAccess::fit_nozzle_picker(w, host);
+    CHECK(lv_subject_get_int(fits) == 1);
+    CHECK_FALSE(lv_obj_has_flag(chevron, LV_OBJ_FLAG_HIDDEN));
+    CHECK(PrintStatusWidgetTestAccess::nozzle_picker_available(w));
+
+    lv_obj_set_width(host, 120);
+    PrintStatusWidgetTestAccess::fit_nozzle_picker(w, host);
+    CHECK(lv_subject_get_int(fits) == 0);
+    CHECK(lv_obj_has_flag(chevron, LV_OBJ_FLAG_HIDDEN));
+    CHECK_FALSE(PrintStatusWidgetTestAccess::nozzle_picker_available(w));
+
+    // Room for every reading but not the chevron: hiding the chevron must not
+    // read as room for it.
+    lv_obj_t* row = lv_obj_find_by_name(card, "detailed_temp_row");
+    REQUIRE(row != nullptr);
+    lv_obj_update_layout(host);
+    int without_chevron = 0;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(row); ++i) {
+        without_chevron += lv_obj_get_width(lv_obj_get_child(row, static_cast<int32_t>(i)));
+    }
+    without_chevron += lv_obj_get_style_pad_column(row, LV_PART_MAIN) *
+                       (static_cast<int>(lv_obj_get_child_count(row)) - 1);
+    const int frame = lv_obj_get_width(host) - lv_obj_get_content_width(row);
+    lv_obj_set_width(host, without_chevron + frame + 1);
+    lv_obj_update_layout(host);
+    REQUIRE(lv_obj_get_content_width(row) > without_chevron);
+    PrintStatusWidgetTestAccess::fit_nozzle_picker(w, host);
+    CHECK(lv_subject_get_int(fits) == 0);
+
+    lv_obj_delete(host);
+}
+
+namespace {
+
+// Builds the detailed card with the given texts and checks that the named row
+// drops its optional piece exactly when the row is one pixel short of it.
+void check_row_drops_piece(lv_obj_t* screen, const char* row_name, const char* piece_name,
+                           const char* fits_name) {
+    REQUIRE(lv_xml_register_component_from_file(
+                "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
+    lv_obj_t* host = lv_obj_create(screen);
+    lv_obj_set_size(host, 600, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(host, 0, LV_PART_MAIN);
+    auto* card =
+        static_cast<lv_obj_t*>(lv_xml_create(host, "print_status_detailed_active", nullptr));
+    REQUIRE(card != nullptr);
+    lv_obj_t* row = lv_obj_find_by_name(card, row_name);
+    REQUIRE(row != nullptr);
+    lv_obj_t* piece = lv_obj_find_by_name(row, piece_name);
+    REQUIRE(piece != nullptr);
+    auto* fits = lv_xml_get_subject(nullptr, fits_name);
+    REQUIRE(fits != nullptr);
+
+    PrintStatusWidget w;
+    lv_obj_set_width(row, 400);
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 1);
+    CHECK_FALSE(lv_obj_has_flag(piece, LV_OBJ_FLAG_HIDDEN));
+
+    // The row as laid out with every piece shown.
+    lv_obj_update_layout(row);
+    int whole = 0;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(row); ++i) {
+        whole += lv_obj_get_width(lv_obj_get_child(row, static_cast<int32_t>(i)));
+    }
+    whole += lv_obj_get_style_pad_column(row, LV_PART_MAIN) *
+             (static_cast<int>(lv_obj_get_child_count(row)) - 1);
+
+    lv_obj_set_width(row, whole - 1);
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 0);
+    CHECK(lv_obj_has_flag(piece, LV_OBJ_FLAG_HIDDEN));
+
+    // Hiding the piece must not read as room for it.
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 0);
+
+    lv_obj_set_width(row, whole);
+    PrintStatusWidgetTestAccess::fit_row(w, host, row_name, fits);
+    CHECK(lv_subject_get_int(fits) == 1);
+
+    lv_obj_delete(host);
+}
+
+struct FormatterTexts {
+    FormatterTexts() {
+        PrintStatusWidget::destroy_formatter_for_test();
+        PrinterState& ps = get_printer_state();
+        PrinterStateTestAccess::reset(ps);
+        ps.init_subjects(false);
+        PrintStatusWidget::ensure_formatter_for_test();
+    }
+    ~FormatterTexts() {
+        PrintStatusWidget::release_formatter_for_test();
+    }
+    static void set(const char* subject, const char* text) {
+        lv_subject_copy_string(lv_xml_get_subject(nullptr, subject), text);
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Detailed card: the layer Z goes where the row has no room",
+                 "[print_status][formatter]") {
+    FormatterTexts texts;
+    FormatterTexts::set("print_status_layer_text", "120 / 240");
+    FormatterTexts::set("print_status_layer_z_text", "· 24.0mm");
+    check_row_drops_piece(test_screen(), "detailed_layer_row", "detailed_layer_z",
+                          "print_status_layer_z_fits");
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Detailed card: the elapsed time goes where the row has no room",
+                 "[print_status][formatter]") {
+    FormatterTexts texts;
+    FormatterTexts::set("print_status_elapsed_text", "1h 14m");
+    FormatterTexts::set("print_status_remaining_text", "35m");
+    check_row_drops_piece(test_screen(), "detailed_time_row", "detailed_elapsed_group",
+                          "print_status_elapsed_fits");
 }

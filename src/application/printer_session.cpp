@@ -145,11 +145,9 @@ bool PrinterSession::init_core_subjects() {
     // These must exist before MoonrakerManager::init() can create the API
     m_subjects->init_core_and_state();
 
-    // Register the ams_current_tool_text formatter (a translated position
-    // label, e.g. "Tool 1", or "---") now that AmsState's subjects are live.
-    // The print status panel embeds <ams_current_tool> and binds
-    // ams_current_tool_text — without this observer the lane label stays at
-    // its default "---" until a user navigates into an AMS panel.
+    // Register the AMS tool text formatters (toolchange progress, the nozzle
+    // badge) now that AmsState's subjects are live, so the print status panel
+    // shows them before a user navigates into an AMS panel.
     helix::ui::init_ams_tool_text_observers();
 
     // Tool and extruder names are translated where the printer layer discovers

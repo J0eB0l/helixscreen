@@ -690,8 +690,10 @@ void DisplaySleepController::restore_on_shutdown() {
     }
 
     // Clear framebuffer to black so the last rendered frame doesn't persist
-    // after the process exits (SIGTERM/SIGINT graceful shutdown)
-    if (backend) {
+    // after the process exits (SIGTERM/SIGINT graceful shutdown). A power-off
+    // hold has already painted opaque black, which this transparent clear
+    // would undo on panels that read the X byte as alpha.
+    if (backend && !m_flush_held_for_power_off) {
         backend->clear_framebuffer(0x00000000);
     }
 

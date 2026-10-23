@@ -59,7 +59,7 @@ TEST_CASE_METHOD(HelixTestFixture, "Re-created DetailedFormatter keeps its XML s
     lv_subject_set_int(ps.print_state().get_print_layer_current_subject(), 7);
     lv_subject_set_int(ps.print_state().get_print_layer_total_subject(), 9);
     UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
-    CHECK(std::string(lv_subject_get_string(layer_text)) == "Layer 7 / 9");
+    CHECK(std::string(lv_subject_get_string(layer_text)) == "7 / 9");
 }
 
 TEST_CASE_METHOD(HelixTestFixture, "release_formatter_for_test does not underflow the refcount",
