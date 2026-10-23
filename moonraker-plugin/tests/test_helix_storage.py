@@ -636,8 +636,21 @@ class TestRootProblem:
         outside = tmp_path / "elsewhere"
         outside.mkdir()
         os.symlink(str(outside), os.path.join(roots["gcodes"], ".helix_temp"))
-        with pytest.raises(StorageError, match="outside its root"):
+        with pytest.raises(StorageError, match="is a link"):
             cleanup_tops(CONSUMERS_BY_NAME["helix_temp"], roots["gcodes"], TEMP_DIRS)
+
+    def test_a_staging_dir_linked_into_a_user_folder_is_refused(self, tmp_path):
+        roots = _safe_roots(tmp_path)
+        user = os.path.join(roots["gcodes"], "Prints")
+        os.mkdir(user)
+        os.symlink(user, os.path.join(roots["gcodes"], ".helix_temp"))
+        with pytest.raises(StorageError, match="is a link"):
+            cleanup_tops(CONSUMERS_BY_NAME["helix_temp"], roots["gcodes"], TEMP_DIRS)
+
+    @pytest.mark.parametrize("name", [".helix_photos", ".thumbs", ".helix_index"])
+    def test_a_staging_dir_named_after_another_consumer_is_unsafe(self, tmp_path, name):
+        assert "unsafe staging directory" in root_problem(
+            _safe_roots(tmp_path), (".helix_temp", name))
 
     def test_a_gcodes_consumer_never_walks_the_whole_root(self, tmp_path):
         roots = _safe_roots(tmp_path)
@@ -722,6 +735,31 @@ class TestPhotosCleanup:
             helix_photos.PHOTOS_NAMESPACE, ["00002A"], None) is None
         saved, _job_id = storage.history.save_job_calls[-1]
         assert saved.auxiliary_data == [{"provider": "other", "name": "x", "value": 1}]
+
+    @pytest.mark.asyncio
+    async def test_a_failed_history_unlink_keeps_the_record(self, storage, tree,
+                                                           mock_server):
+        import helix_photos
+        await _init(storage, tree)
+        _write(tree / "gcodes" / helix_photos.PHOTOS_DIR / "2A_end.jpg", 40, age=OLD)
+        start = time.time() - OLD
+        record = helix_photos.with_photo(
+            helix_photos.new_record("00002A", "benchy.gcode", start),
+            helix_photos.KIND_END, helix_photos.PHOTOS_DIR + "/2A_end.jpg", 40, start, "cam")
+        await storage.database.insert_item(helix_photos.PHOTOS_NAMESPACE, ["00002A"], record)
+        storage.history.add_job("00002A", start_time=start, auxiliary_data=[
+            {"provider": helix_photos.AUX_PROVIDER, "name": helix_photos.AUX_NAME,
+             "value": [helix_photos.PHOTOS_DIR + "/2A_end.jpg"]}])
+
+        async def broken_save(job, job_id=None):
+            raise RuntimeError("database locked")
+
+        storage.history.save_job = broken_save
+        result = await mock_server.endpoints[CLEANUP](Request({"consumer": "photos",
+                                                               "older_than": 0}))
+        assert result["errors"] == 1
+        assert await storage.database.get_item(
+            helix_photos.PHOTOS_NAMESPACE, ["00002A"], None) is not None
 
     @pytest.mark.asyncio
     async def test_without_the_photos_module_photos_are_not_cleanable(
@@ -851,3 +889,56 @@ class TestAutoCleanupSchedule:
         await storage.storage.auto_cleanup()
         assert loop.delays == [helix_storage.AUTO_CLEANUP_BUSY_RETRY_S,
                                helix_storage.AUTO_CLEANUP_INTERVAL_S]
+
+
+# ============================================================================
+# helix_print's own copy cleanup asks power-loss recovery
+# ============================================================================
+
+class TestScheduledCopyCleanup:
+
+    @pytest.mark.asyncio
+    async def test_an_error_ended_job_with_a_pending_snapshot_keeps_link_and_copy(
+            self, storage, tree):
+        await _init(storage, tree)
+        loop = _RecordingLoop()
+        storage.eventloop = loop
+        gcodes = tree / "gcodes"
+        copy = _write(gcodes / ".helix_temp" / "mod_benchy.gcode", 5, age=OLD)
+        link = gcodes / ".helix_print" / "full" / "benchy.gcode"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(str(copy), str(link))
+        name = ".helix_print/full/benchy.gcode"
+        storage.active_prints[name] = PrintInfo(
+            "benchy.gcode", ".helix_temp/mod_benchy.gcode", name, [], 0.0)
+        storage.plr.job = {"filename": name, "print_path": str(copy)}
+
+        await storage._on_job_state_changed(None, {}, {"state": "error", "filename": name})
+        assert os.path.islink(str(link))
+        # A day later the snapshot still waits: both stay, tried again later.
+        await storage._cleanup_temp_file(".helix_temp/mod_benchy.gcode", name)
+        assert copy.exists() and os.path.islink(str(link))
+        assert len(loop.delays) == 2
+
+        storage.plr.job = None
+        await storage._cleanup_temp_file(".helix_temp/mod_benchy.gcode", name)
+        assert not copy.exists() and not os.path.lexists(str(link))
+
+    @pytest.mark.asyncio
+    async def test_the_startup_cleanup_keeps_what_recovery_needs(self, storage, tree):
+        from helix_print import HELIX_NAMESPACE, _ns_key
+        await _init(storage, tree)
+        loop = _RecordingLoop()
+        storage.eventloop = loop
+        gcodes = tree / "gcodes"
+        copy = _write(gcodes / ".helix_temp" / "mod_benchy.gcode", 5, age=OLD)
+        name = ".helix_print/full/benchy.gcode"
+        await storage.database.insert_item(HELIX_NAMESPACE, _ns_key(".helix_temp/mod_benchy.gcode"), {
+            "temp_filename": ".helix_temp/mod_benchy.gcode", "symlink_filename": name,
+            "status": "pending_cleanup", "cleanup_scheduled_at": 1.0, "created_at": time.time()})
+        storage.plr.job = {"filename": name, "print_path": str(copy)}
+
+        await storage._startup_cleanup()
+
+        assert copy.exists()
+        assert loop.delays == [storage.cleanup_delay]

@@ -739,8 +739,14 @@ index cleanup first drops the stale ones (`prune_layer_indexes`).
 directory (`temp_dir`, `symlink_dir`) must be one plain name (not empty, `.` or `..`);
 the timelapse and logs roots must not be, or hold, the gcodes, config, `database` or data
 directory; every walked directory is resolved through links and must lie inside its root.
-Anything else makes `storage` and `storage_auto_cleanup` unavailable, with the reason in
-the status, and every cleanup answers 409.
+A staging directory named like another consumer's (`.helix_photos`, `.thumbs`,
+`.helix_index`) or that is a link is refused too. Anything else makes `storage` and
+`storage_auto_cleanup` unavailable, with the reason in the status, and every cleanup answers
+409; the screen then cleans nothing itself either.
+
+The plugin's own copy cleanup (the link right after a print, the copy `cleanup_delay` later,
+and pending records at startup) asks power-loss recovery the same question: a copy or link
+`HelixPlr.protected_paths()` names stays, and its cleanup is tried again a delay later.
 
 **Automatic cleanup** runs 10 minutes after Moonraker starts and every 24 hours after, only
 while no print runs (a run that finds one tries again an hour later), and removes print copies older than 7 days and rotated logs older than

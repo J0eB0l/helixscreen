@@ -27,8 +27,8 @@ inline constexpr int kAutoCleanupMinVersion = 1;
 /// the plugin's FREE_SPACE_FLOOR_BYTES, which the app's own uploads keep too.
 inline constexpr uint64_t kFreeSpaceFloorBytes = 100ULL * 1024 * 1024;
 
-/// A timelapse render or a rotated log younger than this may still be being
-/// written; the fallback cleanup leaves it.
+/// A timelapse render younger than this may still be being written; the
+/// fallback cleanup leaves it.
 inline constexpr double kFallbackMinAgeS = 300.0;
 
 /// Where a consumer's files live.
@@ -134,14 +134,28 @@ struct DirectoryListing {
 std::optional<DirectoryListing> parse_directory_result(const nlohmann::json& result);
 
 /// Whether consumer @p index can be cleaned up without the plugin. Only
-/// timelapse and logs: the app cannot ask which print copy, layer index or
-/// file a waiting power-loss snapshot needs, and photos belong to their
-/// records, which only the plugin keeps.
+/// timelapse: the app cannot ask which print copy, layer index or file a
+/// waiting power-loss snapshot needs, photos belong to records only the
+/// plugin keeps, and Moonraker's logs root takes no deletes.
 bool fallback_cleanable(std::size_t index);
 
-/// Whether a timelapse render or rotated-log name passes its consumer's name
-/// rule (the plugin's name_allowed): render outputs by extension, logs only
-/// rotated ones (`klippy.log.1`, never `klippy.log`).
+/// Whether the app may clean anything itself: not while an installed plugin
+/// reports its storage feature unavailable, since that is the plugin refusing
+/// this printer's directories, and that refusal is final.
+bool fallback_may_clean(bool plugin_installed, const PluginFeatureMap& features);
+
+/// Whether the timelapse root in a server.files.roots result may be cleaned:
+/// it exists and is neither the gcodes or config root nor above either. A
+/// result that does not name all three is not safe.
+bool timelapse_root_safe(const nlohmann::json& roots_result);
+
+/// How long a cleanup request may wait for its answer before the page stops
+/// waiting and calls it failed.
+inline constexpr uint32_t kCleanupRpcTimeoutMs = 120000;
+
+/// Whether a file name passes its consumer's fallback name rule (the
+/// plugin's name_allowed): timelapse render outputs by extension; nothing
+/// for any other consumer.
 bool fallback_name_allowed(std::size_t index, std::string_view name);
 
 /// Whether the fallback cleanup of consumer @p index removes a listed file
@@ -185,6 +199,11 @@ inline constexpr int kNoSpaceRpcCode = 507;
 constexpr bool is_no_space_refusal(int rpc_code) {
     return rpc_code == kNoSpaceRpcCode;
 }
+
+/// The message tag for a print start that failed with @p rpc_code: the space
+/// message for the plugin's out-of-space refusal, else "Failed to start
+/// print: {}" with the error.
+const char* print_start_failure_tag(int rpc_code);
 
 /// What the app says when the printer has no room for a print's copy.
 inline constexpr const char* kNoUploadSpaceMessage =

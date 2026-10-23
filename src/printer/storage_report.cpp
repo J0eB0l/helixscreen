@@ -145,8 +145,59 @@ bool fallback_cleanable(std::size_t index) {
     if (index >= kConsumers.size()) {
         return false;
     }
-    const std::string_view key = kConsumers[index].key;
-    return key == "timelapse" || key == "logs";
+    return std::string_view(kConsumers[index].key) == "timelapse";
+}
+
+bool fallback_may_clean(bool plugin_installed, const PluginFeatureMap& features) {
+    if (!plugin_installed) {
+        return true;
+    }
+    const auto it = features.find(kStorageFeature);
+    return it == features.end() || it->second.available;
+}
+
+namespace {
+
+std::string trimmed_path(std::string path) {
+    while (path.size() > 1 && path.back() == '/') {
+        path.pop_back();
+    }
+    return path;
+}
+
+/// @p outer is @p inner or a directory above it.
+bool is_or_holds(const std::string& outer, const std::string& inner) {
+    return inner == outer ||
+           (outer == "/" ? !inner.empty() : inner.compare(0, outer.size() + 1, outer + "/") == 0);
+}
+
+} // namespace
+
+bool timelapse_root_safe(const nlohmann::json& roots_result) {
+    if (!roots_result.is_array()) {
+        return false;
+    }
+    std::string timelapse, gcodes, config;
+    for (const nlohmann::json& root : roots_result) {
+        const std::string name = json_util::safe_string(root, "name");
+        const std::string path = trimmed_path(json_util::safe_string(root, "path"));
+        if (name == "timelapse") {
+            timelapse = path;
+        } else if (name == "gcodes") {
+            gcodes = path;
+        } else if (name == "config") {
+            config = path;
+        }
+    }
+    if (timelapse.empty() || gcodes.empty() || config.empty()) {
+        return false;
+    }
+    return !is_or_holds(timelapse, gcodes) && !is_or_holds(timelapse, config);
+}
+
+const char* print_start_failure_tag(int rpc_code) {
+    return is_no_space_refusal(rpc_code) ? kNoUploadSpaceMessage
+                                         : TR_NOOP("Failed to start print: {}");
 }
 
 bool fallback_name_allowed(std::size_t index, std::string_view name) {
@@ -154,10 +205,6 @@ bool fallback_name_allowed(std::size_t index, std::string_view name) {
         return false;
     }
     const std::string_view key = kConsumers[index].key;
-    if (key == "logs") {
-        const std::size_t at = name.find(".log.");
-        return at != std::string_view::npos && at > 0 && at + 5 < name.size();
-    }
     if (key == "timelapse") {
         std::string lower(name);
         std::transform(lower.begin(), lower.end(), lower.begin(),

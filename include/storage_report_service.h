@@ -30,7 +30,10 @@ class StorageReportService {
 
     explicit StorageReportService(IMoonrakerClient* client) : client_(client) {}
 
-    void fetch(ReportSource source, ReportCallback done);
+    /// @p may_clean is fallback_may_clean() for this printer. The FileApi
+    /// fetch also reads server.files.roots, and offers the timelapse cleanup
+    /// only when @p may_clean and timelapse_root_safe() both hold.
+    void fetch(ReportSource source, bool may_clean, ReportCallback done);
 
     /// Remove consumer @p index's files. The fallback removes only what
     /// fallback_removes() allows of the files the last FileApi fetch listed.
@@ -46,6 +49,7 @@ class StorageReportService {
         ListedFile file;
     };
 
+    void start_listing();
     void list_next();
     void on_listing(const Pending& dir, const std::optional<DirectoryListing>& listing);
     void finish_scan();
@@ -60,6 +64,8 @@ class StorageReportService {
     std::deque<Pending> pending_;
     std::size_t listed_dirs_ = 0;
     StorageReport scan_;
+    /// The last FileApi fetch found the timelapse root safe to clean
+    bool timelapse_cleanable_ = false;
 
     /// Files the last fallback scan found, per fallback-cleanable consumer
     std::array<std::vector<Known>, kConsumerCount> known_{};

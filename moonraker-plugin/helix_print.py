@@ -771,9 +771,6 @@ class HelixPrint:
         # Initialize database table
         await self._init_database()
 
-        # Schedule startup cleanup
-        self.eventloop.register_callback(self._startup_cleanup)
-
         await self._start_3mf_converter()
         self._register_3mf_feature()
         await self._start_isolated("plr", True, self._start_plr)
@@ -788,6 +785,8 @@ class HelixPrint:
         await self._load_job_markers()
         if self.plr is not None:
             await self._start_isolated("plr", True, self.plr.load_job)
+        # After recovery's job is loaded: the cleanup keeps what it names.
+        self.eventloop.register_callback(self._startup_cleanup)
         # Analysis prunes stale layer indexes as it starts, and recovery's job,
         # loaded just above, names the ones it must keep.
         if self.analysis is not None and self.features["file_analysis"].available \
@@ -1630,10 +1629,12 @@ class HelixPrint:
         if self.gc_path is None:
             return
 
-        # Immediately delete symlink (no longer needed)
+        # The link goes now, unless power-loss recovery may still resume
+        # through it (a print that ended in error); then it goes with the copy.
         symlink_path = self.gc_path / print_info.symlink_filename
-        self._remove_symlink(symlink_path)
-        logging.debug(f"HelixPrint: Removed symlink {symlink_path}")
+        if not self.recovery_protects(symlink_path, self.gc_path / print_info.temp_filename):
+            self._remove_symlink(symlink_path)
+            logging.debug(f"HelixPrint: Removed symlink {symlink_path}")
 
         # Also clean up thumbnail symlinks
         await self._cleanup_thumbnail_symlinks(print_info.temp_filename)
@@ -1674,6 +1675,7 @@ class HelixPrint:
             self.cleanup_delay,
             self._cleanup_temp_file,
             print_info.temp_filename,
+            print_info.symlink_filename,
         )
 
         logging.info(
@@ -1700,12 +1702,37 @@ class HelixPrint:
                 thumb.unlink()
                 logging.debug(f"HelixPrint: Removed thumbnail symlink {thumb}")
 
-    async def _cleanup_temp_file(self, temp_filename: str) -> None:
-        """Delete a temp file after cleanup delay."""
+    def recovery_protects(self, *paths: Path) -> bool:
+        """Whether power-loss recovery still needs any of `paths`: its job may
+        resume from it (HelixPlr.protected_paths)."""
+        protected = getattr(self.plr, "protected_paths", None)
+        if protected is None:
+            return False
+        needed = set(protected())
+        return any(os.path.abspath(str(p)) in needed or os.path.realpath(str(p)) in needed
+                   for p in paths)
+
+    async def _cleanup_temp_file(
+        self, temp_filename: str, symlink_filename: Optional[str] = None
+    ) -> None:
+        """Delete a temp file, and its link when one is named, after the
+        cleanup delay. While power-loss recovery may resume from either, both
+        stay and the cleanup is tried again a delay later."""
         if self.gc_path is None:
             return
 
         temp_path = self.gc_path / temp_filename
+        symlink_path = self.gc_path / symlink_filename if symlink_filename else None
+        if self.recovery_protects(*[p for p in (temp_path, symlink_path) if p is not None]):
+            logging.info(
+                f"HelixPrint: Keeping {temp_filename}: power-loss recovery may resume from it"
+            )
+            self.eventloop.delay_callback(
+                self.cleanup_delay, self._cleanup_temp_file, temp_filename, symlink_filename
+            )
+            return
+        if symlink_path is not None:
+            self._remove_symlink(symlink_path)
         file_deleted = False
         try:
             if temp_path.exists():
@@ -1849,6 +1876,13 @@ class HelixPrint:
                 # Clean up files
                 temp_path = self.gc_path / temp_filename
                 symlink_path = self.gc_path / symlink_filename
+                if self.recovery_protects(temp_path, symlink_path):
+                    logging.info(f"HelixPrint: Keeping {temp_filename} for power-loss recovery")
+                    self.eventloop.delay_callback(
+                        self.cleanup_delay, self._cleanup_temp_file, temp_filename,
+                        symlink_filename,
+                    )
+                    continue
 
                 if temp_path.exists():
                     temp_path.unlink()

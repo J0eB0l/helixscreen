@@ -258,6 +258,7 @@ void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
             if (helix::storage::is_no_space_refusal(err.code)) {
                 spdlog::warn("[Moonraker API] helix_print refused '{}' for space: {}",
                              temp_file_path, err.message);
+                helix::screen_start_ledger().withdraw_any();
                 on_error(err);
                 return;
             }

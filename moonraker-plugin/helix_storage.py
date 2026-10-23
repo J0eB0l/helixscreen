@@ -65,6 +65,10 @@ ROOT_LOGS = "logs"
 ROOT_DATA = "data"
 ROOT_CONFIG = "config"
 
+# Directories of other consumers under gcodes: a staging directory named like
+# one would hand its files to the print-copy cleanup.
+OTHER_CONSUMER_DIRS = (reader.LAYER_INDEX_DIR, PHOTOS_DIR, THUMBS_DIR)
+
 # What moonraker-timelapse writes: renders and their preview frames.
 TIMELAPSE_EXTENSIONS = (".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif", ".jpg", ".png")
 
@@ -184,7 +188,7 @@ def root_problem(roots: Dict[str, Optional[str]], staging_dirs: Tuple[str, ...])
     or holds, the gcodes, config, database or data directory would delete
     the user's files."""
     for name in staging_dirs:
-        if not valid_dir_name(name):
+        if not valid_dir_name(name) or name in OTHER_CONSUMER_DIRS:
             return "unsafe staging directory %r" % (name,)
     data = roots.get(ROOT_DATA)
     guarded = {
@@ -222,6 +226,10 @@ def cleanup_tops(consumer: Consumer, root: str, staging_dirs: Tuple[str, ...]) -
     for d in dirs:
         if not valid_dir_name(d):
             raise StorageError("unsafe directory %r" % (d,))
+        if os.path.islink(os.path.join(root, d)):
+            # The plugin makes these as real directories; a link may lead
+            # into a user folder.
+            raise StorageError("%s is a link" % d)
         top = os.path.realpath(os.path.join(root, d))
         if not is_within(top, resolved_root):
             raise StorageError("%s resolves outside its root" % d)

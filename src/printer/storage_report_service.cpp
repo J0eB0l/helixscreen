@@ -43,7 +43,7 @@ const nlohmann::json& result_of(const nlohmann::json& response) {
 
 } // namespace
 
-void StorageReportService::fetch(ReportSource source, ReportCallback done) {
+void StorageReportService::fetch(ReportSource source, bool may_clean, ReportCallback done) {
     fetch_lifetime_.invalidate();
     if (client_ == nullptr) {
         done(source, std::nullopt);
@@ -70,9 +70,32 @@ void StorageReportService::fetch(ReportSource source, ReportCallback done) {
     report_done_ = std::move(done);
     scan_ = StorageReport{};
     listed_dirs_ = 0;
+    timelapse_cleanable_ = false;
     for (auto& known : known_) {
         known.clear();
     }
+    if (!may_clean) {
+        start_listing();
+        return;
+    }
+    client_->send_jsonrpc(
+        "server.files.roots", nlohmann::json::object(),
+        fetch_lifetime_.bg_cb("StorageReportService::roots",
+                              [this](const nlohmann::json& response) {
+                                  timelapse_cleanable_ = timelapse_root_safe(result_of(response));
+                                  start_listing();
+                              }),
+        fetch_lifetime_.bg_cb("StorageReportService::roots_error",
+                              [this](const MoonrakerError& err) {
+                                  spdlog::debug("[Storage] Roots unreadable ({}); timelapse "
+                                                "stays report-only",
+                                                err.message);
+                                  start_listing();
+                              }),
+        0, /*silent=*/true);
+}
+
+void StorageReportService::start_listing() {
     pending_ = {{Root::Gcodes, ""}, {Root::Timelapse, ""}, {Root::Logs, ""}};
     list_next();
 }
@@ -120,7 +143,7 @@ void StorageReportService::on_listing(const Pending& dir,
                     info.root == dir.root && std::string_view(info.key) != "3mf_outputs";
                 if (measured) {
                     scan_.consumers[i].available = true;
-                    scan_.consumers[i].cleanable = fallback_cleanable(i);
+                    scan_.consumers[i].cleanable = fallback_cleanable(i) && timelapse_cleanable_;
                 }
             }
             if (dir.root == Root::Gcodes) {
@@ -140,7 +163,7 @@ void StorageReportService::on_listing(const Pending& dir,
             ConsumerUsage& usage = scan_.consumers[index];
             usage.bytes += f.size;
             usage.files += 1;
-            if (fallback_cleanable(index)) {
+            if (fallback_cleanable(index) && timelapse_cleanable_) {
                 ListedFile file = f;
                 file.name = rel;
                 known_[index].push_back({join_path(root_name(dir.root), rel), std::move(file)});
@@ -189,10 +212,10 @@ void StorageReportService::cleanup(ReportSource source, std::size_t index, Clean
                                                      err.message);
                                         done(refused);
                                     }),
-            0, /*silent=*/true);
+            kCleanupRpcTimeoutMs, /*silent=*/true);
         return;
     }
-    if (!fallback_cleanable(index)) {
+    if (!fallback_cleanable(index) || !timelapse_cleanable_) {
         done(refused);
         return;
     }
@@ -235,7 +258,7 @@ void StorageReportService::delete_next() {
                                     outcome_.errors += 1;
                                     delete_next();
                                 }),
-        0, /*silent=*/true);
+        kCleanupRpcTimeoutMs, /*silent=*/true);
 }
 
 namespace {

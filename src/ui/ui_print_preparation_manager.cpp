@@ -2339,11 +2339,7 @@ void PrintPreparationManager::start_staged_print(std::shared_ptr<const RewriteRo
                            on_completion](const MoonrakerError& error) {
         queue_busy_hide();
 
-        if (storage::is_no_space_refusal(error.code)) {
-            helix::ui::notify_error_tr(storage::kNoUploadSpaceMessage);
-        } else {
-            helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
-        }
+        helix::ui::notify_error_tr(storage::print_start_failure_tag(error.code), error);
         LOG_ERROR_INTERNAL("[PrintPreparationManager] Print start failed for {}: {}",
                            remote_temp_path, error.message);
 
@@ -2399,11 +2395,7 @@ void PrintPreparationManager::start_staged_print(std::shared_ptr<const RewriteRo
                 break;
             case gcode::EditedPrintFailure::Refused:
                 queue_busy_hide();
-                if (storage::is_no_space_refusal(error.code)) {
-                    helix::ui::notify_error_tr(storage::kNoUploadSpaceMessage);
-                } else {
-                    helix::ui::notify_error_tr(TR_NOOP("Failed to start print: {}"), error);
-                }
+                helix::ui::notify_error_tr(storage::print_start_failure_tag(error.code), error);
                 LOG_ERROR_INTERNAL("[PrintPreparationManager] print_edited refused for {}: {}",
                                    job->file_path, error.message);
                 break;

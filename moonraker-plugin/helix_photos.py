@@ -626,29 +626,47 @@ class HelixPhotos:
                     continue
                 result["removed"] += len(paths)
                 result["freed"] += sum(sizes[p] for p in paths)
-                await self._unlink_in_history(key, record)
+                if not await self._unlink_in_history(key, record):
+                    # The record is how a later cleanup or prune finds the
+                    # history entry still naming these photos.
+                    result["errors"] += 1
+                    continue
                 try:
                     await self.database.delete_item(PHOTOS_NAMESPACE, [key])
                 except Exception as e:
                     logging.info("HelixPrint: could not drop photo record %s: %s", key, e)
         return result
 
-    async def _unlink_in_history(self, job_id: str, record: Dict[str, Any]) -> None:
-        """Take our photos entry out of the job's auxiliary_data."""
+    async def _unlink_in_history(self, job_id: str, record: Dict[str, Any]) -> bool:
+        """Take our photos entry out of the job's auxiliary_data. False only
+        when the rewrite was attempted and failed: no history, a history that
+        cannot be rewritten, a job no longer there or one that never listed
+        our photos all leave nothing pointing at them."""
         patch = getattr(self.helix, "patch_history_job", None)
         if self.helix.history is None or patch is None:
-            return
+            return True
+        attempted = []  # type: List[bool]
 
         def update(row: Dict[str, Any]) -> bool:
             if not history_matches(record, row):
                 return False
-            row["auxiliary_data"] = without_aux(row.get("auxiliary_data"))
+            entries = row.get("auxiliary_data")
+            kept = without_aux(entries)
+            if isinstance(entries, list) and len(kept) == len(entries):
+                return False
+            row["auxiliary_data"] = kept
+            attempted.append(True)
             return True
 
         try:
-            await patch(job_id, update)
+            saved = await patch(job_id, update)
         except Exception as e:
             logging.info("HelixPrint: could not unlink photos of job %s: %s", job_id, e)
+            return False
+        if attempted and not saved:
+            logging.info("HelixPrint: could not unlink photos of job %s", job_id)
+            return False
+        return True
 
     async def prune(self) -> List[str]:
         """Drop records, with their photos, whose history job is gone or that

@@ -78,7 +78,11 @@ void StorageSettingsOverlay::register_callbacks() {
 
 void StorageSettingsOverlay::on_activate() {
     OverlayBase::on_activate();
-    // A cleanup in flight refreshes the page when it ends.
+    // A cleanup in flight refreshes the page when it ends, unless the client
+    // it was sent through is gone and its answer with it.
+    if (busy_ && service_client_ != get_moonraker_client()) {
+        busy_ = false;
+    }
     if (!busy_) {
         refresh();
     }
@@ -94,19 +98,24 @@ void StorageSettingsOverlay::refresh() {
         service_ = std::make_unique<storage::StorageReportService>(client);
         service_client_ = client;
     }
-    service_->fetch(source_, [this](storage::ReportSource source,
-                                    std::optional<storage::StorageReport> report) {
-        if (!report && source == storage::ReportSource::Plugin) {
-            // The plugin's report failed: measure over the file API, which
-            // cleans only what is safe without the plugin.
-            source_ = storage::ReportSource::FileApi;
-            service_->fetch(source_,
-                            [this](storage::ReportSource s,
-                                   std::optional<storage::StorageReport> r) { show_report(s, r); });
-            return;
-        }
-        show_report(source, report);
-    });
+    const bool may_clean =
+        storage::fallback_may_clean(plugin.service_has_helix_plugin(), plugin.features());
+    service_->fetch(source_, may_clean,
+                    [this, may_clean](storage::ReportSource source,
+                                      std::optional<storage::StorageReport> report) {
+                        if (!report && source == storage::ReportSource::Plugin) {
+                            // The plugin's report failed: measure over the file API, which
+                            // cleans only what is safe without the plugin.
+                            source_ = storage::ReportSource::FileApi;
+                            service_->fetch(source_, may_clean,
+                                            [this](storage::ReportSource s,
+                                                   std::optional<storage::StorageReport> r) {
+                                                show_report(s, r);
+                                            });
+                            return;
+                        }
+                        show_report(source, report);
+                    });
 }
 
 void StorageSettingsOverlay::show_report(storage::ReportSource source,

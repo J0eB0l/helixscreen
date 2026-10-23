@@ -6,6 +6,7 @@
 #include "../../include/moonraker_job_api.h"
 #include "../../include/moonraker_request_tracker.h"
 #include "../../include/printer_state.h"
+#include "../../include/standing_print_options.h"
 #include "../../include/storage_report.h"
 #include "../../include/ui_update_queue.h"
 #include "../../lvgl/lvgl.h"
@@ -349,6 +350,8 @@ TEST_CASE("a print_modified refused for space is final: no stock start replaces 
     // The plugin deletes the copy and answers 507 when the print would leave
     // less than its free-space floor. A stock start would aim at the deleted
     // copy, or print below the floor, and hide the space message.
+    while (helix::screen_start_ledger().withdraw_any()) {
+    }
     FallbackScriptedClient client;
     client.print_modified_code = helix::storage::kNoSpaceRpcCode;
     PrinterState state;
@@ -367,6 +370,9 @@ TEST_CASE("a print_modified refused for space is final: no stock start replaces 
     CHECK(client.print_start_calls == 0);
     CHECK_FALSE(success_called);
     CHECK(error_code == helix::storage::kNoSpaceRpcCode);
+    // Nothing started, so the screen's start note is withdrawn: a print some
+    // other client starts next is not taken for this one.
+    CHECK_FALSE(helix::screen_start_ledger().withdraw_any());
 }
 
 // ============================================================================

@@ -41,7 +41,7 @@ The top of the page shows how much space is free, with a bar for how full the st
 | **File analysis** | Indexes that make print previews faster | With the HelixPrint plugin. Previews then read each file in full until it is analyzed again |
 | **Print photos** | Camera photos kept with your print history | With the HelixPrint plugin. The photos also leave the print history |
 | **Timelapse videos** | Finished timelapse videos | Yes. Only video and preview files older than 5 minutes |
-| **Old logs** | Older Klipper and Moonraker logs. The logs in use are kept | Yes. Only older log files, not other files in the logs folder |
+| **Old logs** | Older Klipper and Moonraker logs. The logs in use are kept | With the HelixPrint plugin. Only older log files, not other files in the logs folder |
 | **Thumbnails** | The preview pictures of your files | No |
 | **Your files** | Everything you uploaded | No, delete them from the file list |
 | **Power-loss recovery** | The saved print position and bed mesh for resuming after a power cut | No |
@@ -50,7 +50,7 @@ The top of the page shows how much space is free, with a bar for how full the st
 
 **Automatic cleanup**: once a day, while nothing is printing, deletes print copies older than a week and old logs older than a month. Photos, timelapse videos and your files are never deleted automatically. **Off** until you turn it on.
 
-**With the [HelixPrint plugin](../helixprint-plugin.md)** the printer measures its own storage, so every line is shown, and Automatic cleanup is available. **Without it**, HelixScreen measures by listing the printer's folders, which takes longer on a printer with many files. 3MF conversions and Power-loss recovery are not shown then, conversions count under Your files, only Timelapse videos and Old logs can be cleaned (HelixScreen cannot tell on its own which print copy or index a power-loss resume still needs), and Automatic cleanup shows "Requires the HelixPrint plugin" with an **Install** button. This works the same whether HelixScreen runs on the printer's own screen or on a tablet or another computer.
+**With the [HelixPrint plugin](../helixprint-plugin.md)** the printer measures its own storage, so every line is shown, and Automatic cleanup is available. **Without it**, HelixScreen measures by listing the printer's folders, which takes longer on a printer with many files. 3MF conversions and Power-loss recovery are not shown then, conversions count under Your files, only Timelapse videos can be cleaned, and only when the timelapse folder is a folder of its own rather than your files or config folder (HelixScreen cannot tell on its own which print copy or index a power-loss resume still needs, and the printer does not let it delete logs). If the plugin is installed but refuses to clean up because a folder is set up unsafely, nothing can be cleaned from this page until that is fixed, and Automatic cleanup shows "Requires the HelixPrint plugin" with an **Install** button. This works the same whether HelixScreen runs on the printer's own screen or on a tablet or another computer.
 
 HelixScreen also checks for space before it uploads a file to the printer, a print copy or a file from a USB stick: if the upload would leave less than 100 MB free, it does not start and says so.
 

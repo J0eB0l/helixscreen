@@ -184,17 +184,18 @@ TEST_CASE("A get_directory listing parses in both shapes", "[plugin_storage]") {
     CHECK_FALSE(parse_directory_result(json{{"dirs", json::array()}}).has_value());
 }
 
-TEST_CASE("Without the plugin only timelapse and rotated logs can be cleaned", "[plugin_storage]") {
+TEST_CASE("Without the plugin only timelapse can be cleaned", "[plugin_storage]") {
     // The app cannot ask which copy, index or file a waiting power-loss
-    // snapshot needs, and photos belong to records only the plugin keeps.
+    // snapshot needs, photos belong to records only the plugin keeps, and
+    // Moonraker's logs root refuses deletes.
     for (std::size_t i = 0; i < kConsumerCount; ++i) {
         const std::string key = kConsumers[i].key;
         CAPTURE(key);
-        CHECK(fallback_cleanable(i) == (key == "timelapse" || key == "logs"));
+        CHECK(fallback_cleanable(i) == (key == "timelapse"));
     }
     const double now = 100000.0;
     for (const char* kept : {"helix_temp", "analysis_sidecars", "photos", "user_gcode",
-                             "thumbnails", "3mf_outputs", "plr"}) {
+                             "thumbnails", "3mf_outputs", "plr", "logs"}) {
         CAPTURE(kept);
         CHECK_FALSE(fallback_removes(consumer_at(kept), {"old.mp4", 1, 0.0}, now, 0.0));
     }
@@ -203,23 +204,55 @@ TEST_CASE("Without the plugin only timelapse and rotated logs can be cleaned", "
 
 TEST_CASE("The fallback deletes only names its consumer owns, old enough", "[plugin_storage]") {
     const double now = 100000.0;
-    const std::size_t logs = consumer_at("logs");
     const std::size_t timelapse = consumer_at("timelapse");
-    CHECK(fallback_removes(logs, {"klippy.log.2026-09-01", 5, 0.0}, now, 0.0));
-    CHECK(fallback_removes(logs, {"sub/moonraker.log.1", 5, 0.0}, now, 0.0));
-    CHECK_FALSE(fallback_removes(logs, {"klippy.log", 5, 0.0}, now, 0.0));
-    CHECK_FALSE(fallback_removes(logs, {"notes.txt", 5, 0.0}, now, 0.0));
-    CHECK_FALSE(fallback_removes(logs, {".log.1", 5, 0.0}, now, 0.0));
-    CHECK_FALSE(fallback_removes(logs, {"klippy.log.", 5, 0.0}, now, 0.0));
-    CHECK_FALSE(fallback_removes(logs, {"klippy.log.1", 5, now - 10}, now, 60.0));
-    CHECK_FALSE(fallback_removes(logs, {"klippy.log.1", 5, now - kFallbackMinAgeS + 1}, now, 0.0));
-
+    CHECK_FALSE(fallback_removes(timelapse, {"benchy.mp4", 5, now - 10}, now, 60.0));
     CHECK(fallback_removes(timelapse, {"benchy.MP4", 5, 0.0}, now, 0.0));
     CHECK(fallback_removes(timelapse, {"benchy.jpg", 5, 0.0}, now, 0.0));
     CHECK_FALSE(fallback_removes(timelapse, {"stray.gcode", 5, 0.0}, now, 0.0));
     CHECK_FALSE(fallback_removes(timelapse, {"printer.cfg", 5, 0.0}, now, 0.0));
     CHECK_FALSE(
         fallback_removes(timelapse, {"rendering.mp4", 5, now - kFallbackMinAgeS + 1}, now, 0.0));
+}
+
+TEST_CASE("The app cleans nothing while the plugin refuses this printer's directories",
+          "[plugin_storage]") {
+    json unavailable = kReady;
+    unavailable["available"] = false;
+    unavailable["reason"] = "unsafe timelapse root: it holds the gcodes directory";
+    CHECK_FALSE(fallback_may_clean(true, parse_plugin_features(status_with(unavailable))));
+    CHECK(fallback_may_clean(false, parse_plugin_features(status_with(unavailable))));
+    CHECK(fallback_may_clean(true, PluginFeatureMap{}));
+    CHECK(fallback_may_clean(true, parse_plugin_features(status_with(kReady))));
+}
+
+TEST_CASE("Timelapse is cleaned only from a root of its own", "[plugin_storage]") {
+    const auto roots = [](const char* timelapse) {
+        json r = json::array({{{"name", "gcodes"}, {"path", "/home/pi/printer_data/gcodes"}},
+                              {{"name", "config"}, {"path", "/home/pi/printer_data/config/"}}});
+        if (timelapse != nullptr) {
+            r.push_back({{"name", "timelapse"}, {"path", timelapse}});
+        }
+        return r;
+    };
+    CHECK(timelapse_root_safe(roots("/home/pi/timelapse")));
+    CHECK(timelapse_root_safe(roots("/home/pi/printer_data/gcodes/timelapse")));
+    CHECK(timelapse_root_safe(roots("/home/pi/printer_data/gcodesx")));
+    CHECK_FALSE(timelapse_root_safe(roots("/home/pi/printer_data/gcodes")));
+    CHECK_FALSE(timelapse_root_safe(roots("/home/pi/printer_data/gcodes/")));
+    CHECK_FALSE(timelapse_root_safe(roots("/home/pi/printer_data/config")));
+    CHECK_FALSE(timelapse_root_safe(roots("/home/pi/printer_data")));
+    CHECK_FALSE(timelapse_root_safe(roots("/home/pi")));
+    CHECK_FALSE(timelapse_root_safe(roots("/")));
+    CHECK_FALSE(timelapse_root_safe(roots(nullptr)));
+    CHECK_FALSE(timelapse_root_safe(json::object()));
+    CHECK_FALSE(timelapse_root_safe(
+        json::array({{{"name", "timelapse"}, {"path", "/home/pi/timelapse"}}})));
+}
+
+TEST_CASE("A start refused for space shows the space message", "[plugin_storage]") {
+    CHECK(std::string(print_start_failure_tag(kNoSpaceRpcCode)) == kNoUploadSpaceMessage);
+    CHECK(std::string(print_start_failure_tag(500)) == "Failed to start print: {}");
+    CHECK(std::string(print_start_failure_tag(0)) == "Failed to start print: {}");
 }
 
 TEST_CASE("A cleanup says what it freed and what failed", "[plugin_storage]") {
@@ -269,6 +302,15 @@ json listing(json files, json dirs = json::array()) {
     return json{{"result", {{"files", std::move(files)}, {"dirs", std::move(dirs)}}}};
 }
 
+/// Answer the fallback's server.files.roots with the timelapse root at @p path.
+void answer_roots(test::FakeMoonrakerClient& client, const char* path) {
+    take_call(client, "server.files.roots")
+        .success_cb(json{{"result", json::array({{{"name", "gcodes"}, {"path", "/pd/gcodes"}},
+                                                 {{"name", "config"}, {"path", "/pd/config"}},
+                                                 {{"name", "timelapse"}, {"path", path}}})}});
+    helix::ui::UpdateQueue::instance().drain();
+}
+
 } // namespace
 
 TEST_CASE_METHOD(LVGLTestFixture, "The fallback lists the known roots and sums them",
@@ -277,11 +319,12 @@ TEST_CASE_METHOD(LVGLTestFixture, "The fallback lists the known roots and sums t
     StorageReportService service(&client);
     std::optional<StorageReport> got;
     std::optional<ReportSource> from;
-    service.fetch(ReportSource::FileApi, [&](ReportSource s, std::optional<StorageReport> r) {
+    service.fetch(ReportSource::FileApi, true, [&](ReportSource s, std::optional<StorageReport> r) {
         from = s;
         got = r;
     });
     const auto pump = [] { helix::ui::UpdateQueue::instance().drain(); };
+    answer_roots(client, "/home/pi/timelapse");
 
     // gcodes root: one file, two folders; the volume rides along.
     auto root = take_call(client, "server.files.get_directory");
@@ -327,7 +370,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "The fallback lists the known roots and sums t
     CHECK(got->consumers[consumer_at("user_gcode")].files == 2);
     CHECK(got->consumers[consumer_at("helix_temp")].bytes == 300);
     CHECK_FALSE(got->consumers[consumer_at("helix_temp")].cleanable);
-    CHECK(got->consumers[consumer_at("logs")].cleanable);
+    CHECK_FALSE(got->consumers[consumer_at("logs")].cleanable);
     CHECK(got->consumers[consumer_at("thumbnails")].bytes == 2);
     CHECK(got->consumers[consumer_at("logs")].bytes == 55);
     CHECK_FALSE(got->consumers[consumer_at("timelapse")].available);
@@ -336,29 +379,48 @@ TEST_CASE_METHOD(LVGLTestFixture, "The fallback lists the known roots and sums t
     CHECK_FALSE(got->partial);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "The fallback cleanup deletes only old rotated logs",
+namespace {
+
+/// A FileApi fetch whose timelapse root is at @p timelapse_path and holds
+/// @p files; gcodes and logs are empty.
+std::optional<StorageReport> fallback_fetch(test::FakeMoonrakerClient& client,
+                                            StorageReportService& service, bool may_clean,
+                                            const char* timelapse_path, json files) {
+    std::optional<StorageReport> got;
+    service.fetch(ReportSource::FileApi, may_clean,
+                  [&](ReportSource, std::optional<StorageReport> r) { got = r; });
+    if (may_clean) {
+        answer_roots(client, timelapse_path);
+    }
+    take_call(client, "server.files.get_directory").success_cb(listing(json::array()));
+    helix::ui::UpdateQueue::instance().drain();
+    take_call(client, "server.files.get_directory").success_cb(listing(std::move(files)));
+    helix::ui::UpdateQueue::instance().drain();
+    take_call(client, "server.files.get_directory").success_cb(listing(json::array()));
+    helix::ui::UpdateQueue::instance().drain();
+    return got;
+}
+
+const json kOldVideos = json::array(
+    {{{"filename", "benchy.mp4"}, {"size", 5}}, {{"filename", "stray.gcode"}, {"size", 50}}});
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "The fallback cleanup deletes only old timelapse renders",
                  "[plugin_storage]") {
     test::FakeMoonrakerClient client;
     StorageReportService service(&client);
     const auto pump = [] { helix::ui::UpdateQueue::instance().drain(); };
-    bool reported = false;
-    service.fetch(ReportSource::FileApi,
-                  [&](ReportSource, std::optional<StorageReport>) { reported = true; });
-    take_call(client, "server.files.get_directory").success_cb(listing(json::array()));
-    pump();
-    take_call(client, "server.files.get_directory").success_cb(listing(json::array()));
-    pump();
-    take_call(client, "server.files.get_directory")
-        .success_cb(listing(json::array({{{"filename", "klippy.log"}, {"size", 50}},
-                                         {{"filename", "klippy.log.1"}, {"size", 5}}})));
-    pump();
-    REQUIRE(reported);
+    const auto got = fallback_fetch(client, service, true, "/home/pi/timelapse", kOldVideos);
+    REQUIRE(got.has_value());
+    CHECK(got->consumers[consumer_at("timelapse")].cleanable);
 
     std::optional<CleanupOutcome> outcome;
-    service.cleanup(ReportSource::FileApi, consumer_at("logs"),
+    service.cleanup(ReportSource::FileApi, consumer_at("timelapse"),
                     [&](const CleanupOutcome& o) { outcome = o; });
     auto del = take_call(client, "server.files.delete_file");
-    CHECK(del.params["path"] == "logs/klippy.log.1");
+    CHECK(del.params["path"] == "timelapse/benchy.mp4");
+    CHECK(del.timeout_ms == kCleanupRpcTimeoutMs);
     del.success_cb(json{{"result", json::object()}});
     pump();
     CHECK(client.rpc_calls.empty());
@@ -372,17 +434,10 @@ TEST_CASE_METHOD(LVGLTestFixture, "A fallback delete that fails is counted, not 
     test::FakeMoonrakerClient client;
     StorageReportService service(&client);
     const auto pump = [] { helix::ui::UpdateQueue::instance().drain(); };
-    service.fetch(ReportSource::FileApi, [](ReportSource, std::optional<StorageReport>) {});
-    take_call(client, "server.files.get_directory").success_cb(listing(json::array()));
-    pump();
-    take_call(client, "server.files.get_directory").success_cb(listing(json::array()));
-    pump();
-    take_call(client, "server.files.get_directory")
-        .success_cb(listing(json::array({{{"filename", "klippy.log.1"}, {"size", 5}}})));
-    pump();
+    fallback_fetch(client, service, true, "/home/pi/timelapse", kOldVideos);
 
     std::optional<CleanupOutcome> outcome;
-    service.cleanup(ReportSource::FileApi, consumer_at("logs"),
+    service.cleanup(ReportSource::FileApi, consumer_at("timelapse"),
                     [&](const CleanupOutcome& o) { outcome = o; });
     take_call(client, "server.files.delete_file")
         .error_cb(MoonrakerError::unknown("Method Not Allowed", "server.files.delete_file"));
@@ -398,7 +453,8 @@ TEST_CASE_METHOD(LVGLTestFixture, "Without the plugin print copies are never del
     test::FakeMoonrakerClient client;
     StorageReportService service(&client);
     const auto pump = [] { helix::ui::UpdateQueue::instance().drain(); };
-    service.fetch(ReportSource::FileApi, [](ReportSource, std::optional<StorageReport>) {});
+    service.fetch(ReportSource::FileApi, true, [](ReportSource, std::optional<StorageReport>) {});
+    answer_roots(client, "/home/pi/timelapse");
     take_call(client, "server.files.get_directory")
         .success_cb(listing(json::array(), json::array({{{"dirname", ".helix_temp"}}})));
     pump();
@@ -434,6 +490,8 @@ TEST_CASE_METHOD(LVGLTestFixture, "The plugin path asks the plugin and cleans th
                     [&](const CleanupOutcome& o) { outcome = o; });
     auto call = take_call(client, "server.helix.storage_cleanup");
     CHECK(call.params == json{{"consumer", "timelapse"}, {"older_than", 0}});
+    // A reply that never comes ends in the tracker's timeout, which clears the page.
+    CHECK(call.timeout_ms == kCleanupRpcTimeoutMs);
     call.success_cb(json{{"result", {{"freed", 77}, {"errors", 3}}}});
     pump();
     REQUIRE(outcome.has_value());
@@ -456,7 +514,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "A page refresh does not cancel a cleanup in f
     service.cleanup(ReportSource::Plugin, consumer_at("timelapse"),
                     [&](const CleanupOutcome& o) { outcome = o; });
     auto call = take_call(client, "server.helix.storage_cleanup");
-    service.fetch(ReportSource::Plugin, [](ReportSource, std::optional<StorageReport>) {});
+    service.fetch(ReportSource::Plugin, true, [](ReportSource, std::optional<StorageReport>) {});
     call.success_cb(json{{"result", {{"freed", 5}}}});
     helix::ui::UpdateQueue::instance().drain();
     REQUIRE(outcome.has_value());
@@ -498,4 +556,39 @@ TEST_CASE_METHOD(LVGLTestFixture, "An upload check falls back to the root for a 
     root.success_cb(reply);
     helix::ui::UpdateQueue::instance().drain();
     CHECK(verdict == UploadSpace::Ok);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "The fallback never cleans a timelapse root over gcodes",
+                 "[plugin_storage]") {
+    test::FakeMoonrakerClient client;
+    StorageReportService service(&client);
+    const auto got = fallback_fetch(client, service, true, "/pd/gcodes", kOldVideos);
+    REQUIRE(got.has_value());
+    CHECK(got->consumers[consumer_at("timelapse")].available);
+    CHECK_FALSE(got->consumers[consumer_at("timelapse")].cleanable);
+    std::optional<CleanupOutcome> outcome;
+    service.cleanup(ReportSource::FileApi, consumer_at("timelapse"),
+                    [&](const CleanupOutcome& o) { outcome = o; });
+    CHECK(client.rpc_calls.empty());
+    REQUIRE(outcome.has_value());
+    CHECK(outcome->refused);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "The fallback cleans nothing when the plugin refused",
+                 "[plugin_storage]") {
+    test::FakeMoonrakerClient client;
+    StorageReportService service(&client);
+    // may_clean false: no roots read, the report only.
+    const auto got = fallback_fetch(client, service, false, "/home/pi/timelapse", kOldVideos);
+    REQUIRE(got.has_value());
+    for (std::size_t i = 0; i < kConsumerCount; ++i) {
+        CAPTURE(kConsumers[i].key);
+        CHECK_FALSE(got->consumers[i].cleanable);
+    }
+    std::optional<CleanupOutcome> outcome;
+    service.cleanup(ReportSource::FileApi, consumer_at("timelapse"),
+                    [&](const CleanupOutcome& o) { outcome = o; });
+    CHECK(client.rpc_calls.empty());
+    REQUIRE(outcome.has_value());
+    CHECK(outcome->refused);
 }
