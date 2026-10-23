@@ -10,8 +10,8 @@
     - history_detail_status: Status text (Completed/Failed/Cancelled)
     - history_detail_status_icon: MDI icon name (check-circle/alert-circle/cancel)
     - history_detail_status_variant: Theme variant (success/error/warning)
-    - history_detail_start_time: Formatted start timestamp
-    - history_detail_end_time: Formatted end timestamp
+    - history_detail_start_date / history_detail_start_time: Start date and time of day
+    - history_detail_end_date / history_detail_end_time: End date and time of day ("-" and "" when unrecorded)
     - history_detail_duration: Formatted duration
     - history_detail_layers: Layer count string
     - history_detail_layer_height: Layer height string
@@ -151,16 +151,25 @@
         <lv_obj name="metadata_grid"
                 width="100%" height="content" style_pad_all="0" flex_flow="column" style_pad_gap="#space_xs"
                 scrollable="false">
-          <!-- Row 1: Started | Ended | Duration -->
+          <!-- Row 1: Started | Ended | Duration. Date and time stack: a column is
+               narrower than "Oct 21 11:10 PM" from 800x480 down. -->
           <lv_obj width="100%"
                   height="content" style_pad_all="0" flex_flow="row" style_pad_gap="#space_sm" scrollable="false">
             <lv_obj flex_grow="1" style_pad_all="0" flex_flow="column" scrollable="false">
               <text_small text="Started"/>
-              <text_body name="start_time_label" bind_text="history_detail_start_time"/>
+              <lv_obj width="100%"
+                      height="content" style_pad_all="0" style_pad_gap="0" flex_flow="column" scrollable="false">
+                <text_body name="start_date_label" bind_text="history_detail_start_date"/>
+                <text_body name="start_time_label" bind_text="history_detail_start_time"/>
+              </lv_obj>
             </lv_obj>
             <lv_obj flex_grow="1" style_pad_all="0" flex_flow="column" scrollable="false">
               <text_small text="Ended"/>
-              <text_body name="end_time_label" bind_text="history_detail_end_time"/>
+              <lv_obj width="100%"
+                      height="content" style_pad_all="0" style_pad_gap="0" flex_flow="column" scrollable="false">
+                <text_body name="end_date_label" bind_text="history_detail_end_date"/>
+                <text_body name="end_time_label" bind_text="history_detail_end_time"/>
+              </lv_obj>
             </lv_obj>
             <lv_obj flex_grow="1" style_pad_all="0" flex_flow="column" scrollable="false">
               <text_small text="Duration"/>

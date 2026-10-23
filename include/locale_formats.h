@@ -38,6 +38,10 @@ std::string format_localized_date(const struct tm* tm_info);
 /// Examples: "Feb 28 2:30 PM" (en), "28 févr. 14:30" (fr)
 std::string format_localized_modified_date(const struct tm* tm_info);
 
+/// The date half of format_localized_modified_date(), without the time.
+/// Examples: "Feb 28" (en), "28. Feb." (de), "28 févr." (fr), "2/28" (ja)
+std::string format_localized_month_day(const struct tm* tm_info);
+
 /// Format a short date (no time) for compact displays like card metadata.
 /// Examples: "Mar 09" (en), "09. Mär." (de), "3/9" (ja)
 std::string format_localized_short_date(const struct tm* tm_info);

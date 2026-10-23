@@ -139,10 +139,10 @@ enum class DatePatternGroup {
 };
 
 enum class ModifiedDatePatternGroup {
-    EN,         // "{mon} {dd} {time}"
-    DE,         // "{dd}. {mon} {time}"
-    ROMANCE_RU, // "{dd} {mon} {time}"
-    CJK,        // "{mm}/{dd} {time}"
+    EN,         // "{mon} {dd}"
+    DE,         // "{dd}. {mon}"
+    ROMANCE_RU, // "{dd} {mon}"
+    CJK,        // "{mm}/{dd}"
 };
 
 static DatePatternGroup get_date_pattern(const std::string& lang) {
@@ -377,38 +377,44 @@ std::string format_localized_date(const struct tm* tm_info) {
     return buf;
 }
 
-std::string format_localized_modified_date(const struct tm* tm_info) {
+std::string format_localized_month_day(const struct tm* tm_info) {
     if (!tm_info) {
         return helix::format::UNAVAILABLE;
     }
 
     std::string mon = get_month_name(tm_info);
-    std::string time_str = format_time(tm_info);
     int dd = tm_info->tm_mday;
     int mm = tm_info->tm_mon + 1;
 
-    char buf[64];
+    char buf[48];
 
     switch (get_modified_date_pattern(s_current_lang)) {
     case ModifiedDatePatternGroup::EN:
-        // "Feb 28 2:30 PM"
-        snprintf(buf, sizeof(buf), "%s %d %s", mon.c_str(), dd, time_str.c_str());
+        // "Feb 28"
+        snprintf(buf, sizeof(buf), "%s %d", mon.c_str(), dd);
         break;
     case ModifiedDatePatternGroup::DE:
-        // "28. Feb. 14:30"
-        snprintf(buf, sizeof(buf), "%d. %s %s", dd, mon.c_str(), time_str.c_str());
+        // "28. Feb."
+        snprintf(buf, sizeof(buf), "%d. %s", dd, mon.c_str());
         break;
     case ModifiedDatePatternGroup::ROMANCE_RU:
-        // "28 févr. 14:30"
-        snprintf(buf, sizeof(buf), "%d %s %s", dd, mon.c_str(), time_str.c_str());
+        // "28 févr."
+        snprintf(buf, sizeof(buf), "%d %s", dd, mon.c_str());
         break;
     case ModifiedDatePatternGroup::CJK:
-        // "2/28 14:30"
-        snprintf(buf, sizeof(buf), "%d/%d %s", mm, dd, time_str.c_str());
+        // "2/28"
+        snprintf(buf, sizeof(buf), "%d/%d", mm, dd);
         break;
     }
 
     return buf;
+}
+
+std::string format_localized_modified_date(const struct tm* tm_info) {
+    if (!tm_info) {
+        return helix::format::UNAVAILABLE;
+    }
+    return format_localized_month_day(tm_info) + " " + format_time(tm_info);
 }
 
 std::string format_localized_short_date(const struct tm* tm_info) {
