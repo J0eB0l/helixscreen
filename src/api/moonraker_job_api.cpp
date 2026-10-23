@@ -10,6 +10,7 @@
 #include "moonraker_gcode_guards.h"
 #include "spdlog/spdlog.h"
 #include "standing_print_options.h"
+#include "storage_report.h"
 
 using namespace moonraker_internal;
 
@@ -249,6 +250,14 @@ void MoonrakerJobAPI::start_modified_print(const std::string& original_filename,
                              "({}); NOT falling back to printer.print.start - the plugin starts "
                              "the print before it replies, so '{}' may already be printing.",
                              err.message, temp_file_path);
+                on_error(err);
+                return;
+            }
+            // Out of space is the plugin's answer, not its failure: the copy is
+            // deleted and no start may replace it.
+            if (helix::storage::is_no_space_refusal(err.code)) {
+                spdlog::warn("[Moonraker API] helix_print refused '{}' for space: {}",
+                             temp_file_path, err.message);
                 on_error(err);
                 return;
             }

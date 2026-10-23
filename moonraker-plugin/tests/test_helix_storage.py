@@ -7,6 +7,7 @@ cleanup, which refuses unknown consumers and never touches the user's files.
 Run with: pytest tests/test_helix_storage.py -v
 """
 
+import asyncio
 import os
 import sys
 import time
@@ -27,6 +28,8 @@ from helix_storage import (
     StorageError,
     classify_gcodes_path,
     cleanup_candidates,
+    cleanup_tops,
+    root_problem,
     free_space_refusal,
     parse_older_than,
     resolve_consumer,
@@ -82,6 +85,10 @@ def tree(tmp_path):
     _write(data / "logs" / "klippy.log.2026-09-01", 80)
     _write(data / "helix-plr" / "snapshot.bin", 11)
     _write(data / "helix-plr" / "mesh.cfg", 22)
+    t = time.time() - OLD
+    for p in data.rglob("*"):
+        if p.is_file():
+            os.utime(str(p), (t, t))
     return data
 
 
@@ -422,38 +429,103 @@ class TestEndpoints:
     @pytest.mark.asyncio
     async def test_cleanup_keeps_what_klipper_is_printing(self, storage, tree, mock_server):
         await _init(storage, tree)
-        held = _write(tree / "gcodes" / ".helix_photos" / "job" / "p.jpg", 5, age=OLD)
+        held = _write(tree / "gcodes" / ".helix_temp" / "held.gcode", 5, age=OLD)
         storage.klippy_apis.query_objects.return_value = {
-            "print_stats": {"filename": ".helix_photos/job/p.jpg", "state": "paused"}}
+            "print_stats": {"filename": ".helix_temp/held.gcode", "state": "paused"}}
 
-        await mock_server.endpoints[CLEANUP](Request({"consumer": "photos",
+        await mock_server.endpoints[CLEANUP](Request({"consumer": "helix_temp",
                                                       "older_than": 0}))
 
         assert held.exists()
 
     @pytest.mark.asyncio
+    async def test_cleanup_removes_nothing_when_klipper_cannot_say_what_prints(
+            self, storage, tree, mock_server):
+        await _init(storage, tree)
+        copy = tree / "gcodes" / ".helix_temp" / "modified_benchy.gcode"
+        storage.klippy_apis.query_objects.side_effect = RuntimeError("klippy gone")
+
+        result = await mock_server.endpoints[CLEANUP](Request({"consumer": "helix_temp",
+                                                               "older_than": 0}))
+
+        assert copy.exists()
+        assert result["removed"] == 0 and result["errors"] == 1
+
+    @pytest.mark.asyncio
     async def test_cleanup_removes_emptied_subdirectories_only(self, storage, tree,
                                                               mock_server):
         await _init(storage, tree)
-        result = await mock_server.endpoints[CLEANUP](Request({"consumer": "photos",
+        (tree / "timelapse" / "benchy.mp4").unlink()
+        _write(tree / "timelapse" / "frames" / "frame1.jpg", 3, age=OLD)
+        result = await mock_server.endpoints[CLEANUP](Request({"consumer": "timelapse",
                                                                "older_than": 0}))
         assert result["removed"] == 1
-        assert (tree / "gcodes" / ".helix_photos").is_dir()
-        assert not (tree / "gcodes" / ".helix_photos" / "00002A").exists()
+        assert (tree / "timelapse").is_dir()
+        assert not (tree / "timelapse" / "frames").exists()
 
     @pytest.mark.asyncio
-    async def test_log_cleanup_keeps_live_logs(self, storage, tree, mock_server):
+    async def test_log_cleanup_removes_only_rotated_logs(self, storage, tree, mock_server):
         await _init(storage, tree)
+        other = _write(tree / "logs" / "notes.txt", 3, age=OLD)
+        fresh = _write(tree / "logs" / "moonraker.log.1", 3)
         await mock_server.endpoints[CLEANUP](Request({"consumer": "logs", "older_than": 0}))
         assert (tree / "logs" / "klippy.log").exists()
+        assert other.exists() and fresh.exists()
         assert not (tree / "logs" / "klippy.log.2026-09-01").exists()
+
+    @pytest.mark.asyncio
+    async def test_timelapse_cleanup_removes_only_render_outputs(self, storage, tree,
+                                                                mock_server):
+        await _init(storage, tree)
+        gcode = _write(tree / "timelapse" / "stray.gcode", 3, age=OLD)
+        cfg = _write(tree / "timelapse" / "printer.cfg", 3, age=OLD)
+        fresh = _write(tree / "timelapse" / "rendering.mp4", 3)
+        await mock_server.endpoints[CLEANUP](Request({"consumer": "timelapse",
+                                                      "older_than": 0}))
+        assert gcode.exists() and cfg.exists() and fresh.exists()
+        assert not (tree / "timelapse" / "benchy.mp4").exists()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_keeps_the_file_a_waiting_snapshot_resumes_from(
+            self, storage, tree, mock_server):
+        await _init(storage, tree)
+        gcodes = tree / "gcodes"
+        copy = _write(gcodes / ".helix_temp" / "mod_benchy.gcode", 5, age=OLD)
+        link = gcodes / ".helix_print" / "full" / "benchy.gcode"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(str(copy), str(link))
+        os.utime(str(link), (time.time() - OLD,) * 2, follow_symlinks=False)
+        other = _write(gcodes / ".helix_temp" / "other.gcode", 5, age=OLD)
+        # A power loss: no active print in memory, Klipper idle, PLR holds the job.
+        storage.klippy_apis.query_objects.return_value = {
+            "print_stats": {"filename": "", "state": "standby"}}
+        storage.plr.job = {"filename": ".helix_print/full/benchy.gcode",
+                           "print_path": str(copy)}
+
+        await mock_server.endpoints[CLEANUP](Request({"consumer": "helix_temp",
+                                                      "older_than": 0}))
+
+        assert copy.exists() and os.path.islink(str(link))
+        assert not other.exists()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_waits_for_a_link_being_made(self, storage, tree, mock_server):
+        await _init(storage, tree)
+        copy = tree / "gcodes" / ".helix_temp" / "modified_benchy.gcode"
+        async with storage.link_lock():
+            task = asyncio.ensure_future(mock_server.endpoints[CLEANUP](
+                Request({"consumer": "helix_temp", "older_than": 0})))
+            await asyncio.sleep(0.2)
+            assert copy.exists()
+        await task
+        assert not copy.exists()
 
     @pytest.mark.asyncio
     async def test_sidecar_cleanup_keeps_the_index_recovery_uses(self, storage, tree,
                                                                 mock_server):
         await _init(storage, tree)
         kept = tree / "gcodes" / ".helix_index" / "benchy.gcode.layers.jsonl"
-        storage.analysis = type("A", (), {"_protected_indexes": lambda self: [str(kept)]})()
+        storage.analysis = type("A", (), {"protected_indexes": lambda self: [str(kept)]})()
 
         await mock_server.endpoints[CLEANUP](Request({"consumer": "analysis_sidecars",
                                                       "older_than": 0}))
@@ -509,3 +581,219 @@ class TestAutoCleanup:
 
         assert await storage.storage.auto_cleanup() is None
         assert (tree / "logs" / "klippy.log.2026-09-01").exists()
+
+
+# ============================================================================
+# Unsafe roots
+# ============================================================================
+
+def _safe_roots(tmp_path):
+    data = tmp_path / "printer_data"
+    roots = {"gcodes": data / "gcodes", "timelapse": data / "timelapse",
+             "logs": data / "logs", "data": data, "config": data / "config"}
+    for p in list(roots.values()) + [data / "database"]:
+        p.mkdir(parents=True, exist_ok=True)
+    return {k: str(v) for k, v in roots.items()}
+
+
+class TestRootProblem:
+
+    def test_a_normal_layout_is_safe(self, tmp_path):
+        assert root_problem(_safe_roots(tmp_path), TEMP_DIRS) is None
+
+    @pytest.mark.parametrize("name", ["", ".", "..", "a/b", " .helix_temp"])
+    def test_a_staging_name_that_is_not_one_segment_is_unsafe(self, tmp_path, name):
+        assert "unsafe staging directory" in root_problem(
+            _safe_roots(tmp_path), (".helix_temp", name))
+
+    @pytest.mark.parametrize("root,target,what", [
+        ("timelapse", "gcodes", "gcodes"),
+        ("timelapse", "data", "gcodes"),
+        ("logs", "config", "config"),
+        ("logs", "database", "database"),
+    ])
+    def test_a_timelapse_or_logs_root_holding_user_data_is_unsafe(
+            self, tmp_path, root, target, what):
+        roots = _safe_roots(tmp_path)
+        roots[root] = (os.path.join(roots["data"], "database") if target == "database"
+                       else roots[target])
+        assert root_problem(roots, TEMP_DIRS) == \
+            "unsafe %s root: it holds the %s directory" % (root, what)
+
+    def test_a_root_above_the_data_directory_is_unsafe(self, tmp_path):
+        roots = _safe_roots(tmp_path)
+        roots["timelapse"] = str(tmp_path)
+        assert "unsafe timelapse root" in root_problem(roots, TEMP_DIRS)
+
+    def test_a_root_reached_through_a_link_is_resolved(self, tmp_path):
+        roots = _safe_roots(tmp_path)
+        os.symlink(roots["gcodes"], str(tmp_path / "videos"))
+        roots["timelapse"] = str(tmp_path / "videos")
+        assert "holds the gcodes directory" in root_problem(roots, TEMP_DIRS)
+
+    def test_a_staging_dir_linked_outside_gcodes_is_refused(self, tmp_path):
+        roots = _safe_roots(tmp_path)
+        outside = tmp_path / "elsewhere"
+        outside.mkdir()
+        os.symlink(str(outside), os.path.join(roots["gcodes"], ".helix_temp"))
+        with pytest.raises(StorageError, match="outside its root"):
+            cleanup_tops(CONSUMERS_BY_NAME["helix_temp"], roots["gcodes"], TEMP_DIRS)
+
+    def test_a_gcodes_consumer_never_walks_the_whole_root(self, tmp_path):
+        roots = _safe_roots(tmp_path)
+        with pytest.raises(StorageError):
+            cleanup_tops(CONSUMERS_BY_NAME["helix_temp"], roots["gcodes"], ())
+
+
+class TestUnsafeConfig:
+
+    @pytest.mark.asyncio
+    async def test_a_dot_temp_dir_makes_the_features_unavailable(
+            self, mock_server, tree, monkeypatch):
+        from test_helix_print import MockConfigHelper, MockDatabase, MockFileManager, \
+            MockKlippyApis, MockHistory
+        from helix_print import load_component
+        fm = MockFileManager(str(tree / "gcodes"))
+        mock_server.components.update({
+            "file_manager": fm, "database": MockDatabase(),
+            "klippy_apis": MockKlippyApis(), "history": MockHistory()})
+        helix = load_component(MockConfigHelper(mock_server, {
+            "temp_dir": ".", "symlink_dir": ".helix_print", "cleanup_delay": 3600,
+            "enabled": True}))
+        monkeypatch.setattr(helix, "_data_dir", lambda: tree)
+        await helix.component_init()
+        before = sorted(str(p) for p in tree.rglob("*"))
+
+        status = await mock_server.endpoints["/server/helix/status"](MockWebRequest({}))
+        for name in (STORAGE_FEATURE, AUTO_CLEANUP_FEATURE):
+            assert status["features"][name]["available"] is False
+            assert "unsafe staging directory" in status["features"][name]["reason"]
+        with pytest.raises(Exception, match="409"):
+            await mock_server.endpoints[CLEANUP](Request({"consumer": "helix_temp",
+                                                          "older_than": 0}))
+        report = await mock_server.endpoints[STORAGE](Request({}))
+        assert not any(c["cleanable"] for c in report["consumers"])
+        assert sorted(str(p) for p in tree.rglob("*")) == before
+
+    @pytest.mark.asyncio
+    async def test_a_timelapse_root_on_gcodes_refuses_cleanup(self, storage, tree,
+                                                             mock_server):
+        mock_server.components["file_manager"].get_directory = lambda name: {
+            "gcodes": str(tree / "gcodes"), "timelapse": str(tree / "gcodes"),
+            "logs": str(tree / "logs")}.get(name, "")
+        await _init(storage, tree)
+        with pytest.raises(Exception, match="409: unsafe timelapse root"):
+            await mock_server.endpoints[CLEANUP](Request({"consumer": "timelapse",
+                                                          "older_than": 0}))
+        assert (tree / "gcodes" / "benchy.gcode").exists()
+
+
+# ============================================================================
+# Photos go through the photos module
+# ============================================================================
+
+class TestPhotosCleanup:
+
+    @pytest.mark.asyncio
+    async def test_photos_are_deleted_with_their_record_and_history_link(
+            self, storage, tree, mock_server):
+        import helix_photos
+        await _init(storage, tree)
+        gcodes = tree / "gcodes"
+        photo = _write(gcodes / helix_photos.PHOTOS_DIR / "2A_end.jpg", 40, age=OLD)
+        stray = _write(gcodes / helix_photos.PHOTOS_DIR / "2B_end.jpg", 4, age=OLD)
+        start = time.time() - OLD
+        record = helix_photos.with_photo(
+            helix_photos.new_record("00002A", "benchy.gcode", start),
+            helix_photos.KIND_END, helix_photos.PHOTOS_DIR + "/2A_end.jpg", 40, start, "cam")
+        await storage.database.insert_item(helix_photos.PHOTOS_NAMESPACE, ["00002A"], record)
+        storage.history.add_job("00002A", start_time=start, auxiliary_data=[
+            {"provider": "other", "name": "x", "value": 1},
+            {"provider": helix_photos.AUX_PROVIDER, "name": helix_photos.AUX_NAME,
+             "value": [helix_photos.PHOTOS_DIR + "/2A_end.jpg"]}])
+
+        result = await mock_server.endpoints[CLEANUP](Request({"consumer": "photos",
+                                                               "older_than": 0}))
+
+        assert result == {"consumer": "photos", "removed": 1, "freed": 40, "errors": 0}
+        assert not photo.exists()
+        assert stray.exists()
+        assert await storage.database.get_item(
+            helix_photos.PHOTOS_NAMESPACE, ["00002A"], None) is None
+        saved, _job_id = storage.history.save_job_calls[-1]
+        assert saved.auxiliary_data == [{"provider": "other", "name": "x", "value": 1}]
+
+    @pytest.mark.asyncio
+    async def test_without_the_photos_module_photos_are_not_cleanable(
+            self, storage, tree, mock_server):
+        await _init(storage, tree)
+        storage.photos = None
+        report = await mock_server.endpoints[STORAGE](Request({}))
+        assert {c["name"]: c for c in report["consumers"]}["photos"]["cleanable"] is False
+        with pytest.raises(Exception, match="409"):
+            await mock_server.endpoints[CLEANUP](Request({"consumer": "photos",
+                                                          "older_than": 0}))
+
+
+# ============================================================================
+# Power-loss recovery's protected files
+# ============================================================================
+
+class TestPlrProtectedPaths:
+
+    @pytest.mark.asyncio
+    async def test_a_recorded_job_protects_its_file_link_and_target(self, storage, tree):
+        await _init(storage, tree)
+        gcodes = tree / "gcodes"
+        copy = _write(gcodes / ".helix_temp" / "mod.gcode", 5)
+        link = gcodes / ".helix_print" / "full" / "benchy.gcode"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(str(copy), str(link))
+        storage.plr.job = {"filename": ".helix_print/full/benchy.gcode"}
+        paths = storage.plr.protected_paths()
+        assert os.path.abspath(str(link)) in paths
+        assert os.path.realpath(str(copy)) in paths
+
+    @pytest.mark.asyncio
+    async def test_the_file_klipper_read_is_protected_even_unlinked(self, storage, tree,
+                                                                   mock_server):
+        await _init(storage, tree)
+        copy = _write(tree / "gcodes" / ".helix_temp" / "cache_benchy.gcode", 5, age=OLD)
+        storage.plr.job = {"filename": "benchy.gcode", "print_path": str(copy)}
+        await mock_server.endpoints[CLEANUP](Request({"consumer": "helix_temp",
+                                                      "older_than": 0}))
+        assert copy.exists()
+
+    @pytest.mark.asyncio
+    async def test_no_job_protects_no_file(self, storage, tree):
+        await _init(storage, tree)
+        storage.plr.job = None
+        assert all(p.endswith(".layers.jsonl") for p in storage.plr.protected_paths())
+
+
+class _RecordingLoop:
+    def __init__(self):
+        self.delays = []
+
+    def delay_callback(self, delay, callback, *args):
+        self.delays.append(delay)
+
+    def run_in_thread(self, callback, *args):
+        return asyncio.get_event_loop().run_in_executor(None, callback, *args)
+
+
+class TestAutoCleanupSchedule:
+
+    @pytest.mark.asyncio
+    async def test_a_busy_printer_is_tried_again_within_the_hour(self, storage, tree):
+        await _init(storage, tree)
+        await storage.database.insert_item(
+            HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, {AUTO_CLEANUP_FEATURE: True})
+        loop = _RecordingLoop()
+        storage.storage.eventloop = loop
+        storage.klippy_apis.query_objects.return_value = {"print_stats": {"state": "printing"}}
+        await storage.storage.auto_cleanup()
+        storage.klippy_apis.query_objects.return_value = {"print_stats": {"state": "standby"}}
+        await storage.storage.auto_cleanup()
+        assert loop.delays == [helix_storage.AUTO_CLEANUP_BUSY_RETRY_S,
+                               helix_storage.AUTO_CLEANUP_INTERVAL_S]

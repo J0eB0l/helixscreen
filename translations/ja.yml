@@ -697,7 +697,6 @@ translations:
   Clean {}: '{}を清掃'
   Cleaning Nozzle...: ノズル清掃中...
   Cleaning nozzle...: ノズル清掃中...
-  Cleanup failed: 'クリーンアップに失敗しました'
   Clear: クリア
   Clear All: すべてクリア
   Clear All Events: すべてのイベントをクリア
@@ -891,6 +890,7 @@ translations:
   Could not disconnect from WiFi: WiFi から切断できませんでした
   'Could not extract plate {} of {}: {}': 'プレート {} を {} から抽出できませんでした: {}'
   Could not forget device: デバイスの登録を解除できませんでした
+  Could not free space: '空き容量を確保できませんでした'
   Could not initialize WiFi hardware. Check system configuration.: WiFi ハードウェアを初期化できませんでした。システム設定を確認してください。
   Could not load printer database: プリンターデータベースを読み込めませんでした
   Could not move the plate: ベッドを動かせませんでした
@@ -1554,6 +1554,7 @@ translations:
   Framerate: フレームレート
   Free space unknown: '空き容量不明'
   Freed {}: '{}を解放しました'
+  Freed {}, but some files could not be deleted: '{}を解放しましたが、一部のファイルは削除できませんでした'
   From Buffer: バッファから
   From Printer: 'プリンターから'
   From SpoolmanDB: 'SpoolmanDB から'
@@ -2436,6 +2437,7 @@ translations:
   Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics.: "{0}を{1}回転しても変化がありませんでした。{0}を{1}回転戻してから機構を確認してください。"
   Nothing loaded: 装填されていません
   Nothing starred yet. Tap the star on a filament to add it here.: 'まだ何も登録されていません。フィラメントの星をタップしてここに追加してください。'
+  Nothing to clean up: 'クリーンアップするものはありません'
   Nothing to remap: リマップするものがありません
   Nothing to tune here: "ここで調整するものはありません"
   'Nothing to unload: no filament at the nozzle': '取り出すものがありません: ノズルにフィラメントがありません'

@@ -477,6 +477,7 @@ class HelixPrint:
         self.storage: Optional[Any] = None
         self.photos: Optional[Any] = None
         self._history_rewrite_lock: Optional[asyncio.Lock] = None
+        self._link_lock: Optional[asyncio.Lock] = None
 
         # Validate directory names don't contain path separators
         if "/" in self.temp_dir:
@@ -990,12 +991,25 @@ class HelixPrint:
         self.storage.start()
         self.register_feature(
             helix_storage.STORAGE_FEATURE, helix_storage.STORAGE_FEATURE_VERSION,
-            acts=False, switch=always_on,
+            acts=False, switch=always_on, probe=self.storage.availability,
         )
         self.register_feature(
             helix_storage.AUTO_CLEANUP_FEATURE, helix_storage.AUTO_CLEANUP_FEATURE_VERSION,
-            acts=True,
+            acts=True, probe=self.storage.availability,
         )
+
+    def staging_dirs(self) -> Tuple[str, ...]:
+        """Every top-level gcodes directory that holds print copies and their
+        links rather than the user's files: temp_dir, symlink_dir and the
+        app's staging directories."""
+        return tuple(dict.fromkeys((self.temp_dir, self.symlink_dir) + APP_STAGING_DIRS))
+
+    def link_lock(self) -> asyncio.Lock:
+        """Held while a print link's directory is made and the link created,
+        and while a storage cleanup removes files and empty directories."""
+        if self._link_lock is None:
+            self._link_lock = asyncio.Lock()
+        return self._link_lock
 
     def check_free_space(self, incoming_bytes: int) -> None:
         """Refuse (507) a print whose copy would leave the gcodes volume below
@@ -1255,19 +1269,20 @@ class HelixPrint:
                 "Path traversal detected: symlink escapes the symlink directory", 400
             )
 
-        symlink_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Create symlink atomically (handles race condition)
-        try:
-            self._create_symlink_atomic(symlink_path, temp_path)
-            logging.info(
-                f"HelixPrint: Created symlink {symlink_filename} -> {temp_filename}"
-            )
-        except Exception as e:
-            # Clean up temp file and any directories made for the link
-            temp_path.unlink(missing_ok=True)
-            self._remove_symlink(symlink_path)
-            raise self.server.error(f"Failed to create symlink: {e}", 500)
+        # Create symlink atomically (handles race condition). Under the link
+        # lock, so a storage cleanup cannot remove the directory in between.
+        async with self.link_lock():
+            try:
+                symlink_path.parent.mkdir(parents=True, exist_ok=True)
+                self._create_symlink_atomic(symlink_path, temp_path)
+                logging.info(
+                    f"HelixPrint: Created symlink {symlink_filename} -> {temp_filename}"
+                )
+            except Exception as e:
+                # Clean up temp file and any directories made for the link
+                temp_path.unlink(missing_ok=True)
+                self._remove_symlink(symlink_path)
+                raise self.server.error(f"Failed to create symlink: {e}", 500)
 
         # Track this print
         print_info = PrintInfo(

@@ -685,7 +685,6 @@
   <translation tag="Clean {}" en="Clean {}"/>
   <translation tag="Cleaning Nozzle..." en="Cleaning Nozzle..."/>
   <translation tag="Cleaning nozzle..." en="Cleaning nozzle..."/>
-  <translation tag="Cleanup failed" en="Cleanup failed"/>
   <translation tag="Clear" en="Clear"/>
   <translation tag="Clear All" en="Clear All"/>
   <translation tag="Clear All Events" en="Clear All Events"/>
@@ -857,6 +856,7 @@
   <translation tag="Could not disconnect from WiFi" en="Could not disconnect from WiFi"/>
   <translation tag="Could not extract plate {} of {}: {}" en="Could not extract plate {} of {}: {}"/>
   <translation tag="Could not forget device" en="Could not forget device"/>
+  <translation tag="Could not free space" en="Could not free space"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." en="Could not initialize WiFi hardware. Check system configuration."/>
   <translation tag="Could not load printer database" en="Could not load printer database"/>
   <translation tag="Could not move the plate" en="Could not move the plate"/>
@@ -1498,6 +1498,7 @@
   <translation tag="Framerate" en="Framerate"/>
   <translation tag="Free space unknown" en="Free space unknown"/>
   <translation tag="Freed {}" en="Freed {}"/>
+  <translation tag="Freed {}, but some files could not be deleted" en="Freed {}, but some files could not be deleted"/>
   <translation tag="From Buffer" en="From Buffer"/>
   <translation tag="From Printer" en="From Printer"/>
   <translation tag="From SpoolmanDB" en="From SpoolmanDB"/>
@@ -2347,6 +2348,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." en="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics."/>
   <translation tag="Nothing loaded" en="Nothing loaded"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." en="Nothing starred yet. Tap the star on a filament to add it here."/>
+  <translation tag="Nothing to clean up" en="Nothing to clean up"/>
   <translation tag="Nothing to remap" en="Nothing to remap"/>
   <translation tag="Nothing to tune here" en="Nothing to tune here"/>
   <translation tag="Nothing to unload: no filament at the nozzle" en="Nothing to unload: no filament at the nozzle"/>

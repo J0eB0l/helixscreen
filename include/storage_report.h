@@ -27,9 +27,9 @@ inline constexpr int kAutoCleanupMinVersion = 1;
 /// the plugin's FREE_SPACE_FLOOR_BYTES, which the app's own uploads keep too.
 inline constexpr uint64_t kFreeSpaceFloorBytes = 100ULL * 1024 * 1024;
 
-/// A plugin scratch file younger than this may still be on its way to a
-/// print; no cleanup removes it.
-inline constexpr double kScratchMinAgeS = 600.0;
+/// A timelapse render or a rotated log younger than this may still be being
+/// written; the fallback cleanup leaves it.
+inline constexpr double kFallbackMinAgeS = 300.0;
 
 /// Where a consumer's files live.
 enum class Root {
@@ -112,10 +112,9 @@ std::optional<StorageReport> parse_storage_result(const nlohmann::json& result);
 inline constexpr std::size_t kMaxFallbackDirectories = 256;
 
 /// The consumer a file under the gcodes root belongs to (the plugin's
-/// classify_gcodes_path). @p link_dir is the plugin's link directory, empty
-/// for the default `.helix_print`. Without the plugin no file is a .3mf
-/// output.
-std::size_t classify_gcodes_path(std::string_view rel, std::string_view link_dir);
+/// classify_gcodes_path): print copies sit in gcode::staging_dirs() and the
+/// plugin's link directory. Without the plugin no file is a .3mf output.
+std::size_t classify_gcodes_path(std::string_view rel);
 
 /// A file of a server.files.get_directory listing.
 struct ListedFile {
@@ -134,14 +133,39 @@ struct DirectoryListing {
 
 std::optional<DirectoryListing> parse_directory_result(const nlohmann::json& result);
 
+/// Whether consumer @p index can be cleaned up without the plugin. Only
+/// timelapse and logs: the app cannot ask which print copy, layer index or
+/// file a waiting power-loss snapshot needs, and photos belong to their
+/// records, which only the plugin keeps.
+bool fallback_cleanable(std::size_t index);
+
+/// Whether a timelapse render or rotated-log name passes its consumer's name
+/// rule (the plugin's name_allowed): render outputs by extension, logs only
+/// rotated ones (`klippy.log.1`, never `klippy.log`).
+bool fallback_name_allowed(std::size_t index, std::string_view name);
+
 /// Whether the fallback cleanup of consumer @p index removes a listed file
-/// (its name relative to the consumer's root): a cleanable consumer, the file
-/// at least @p older_than seconds old (and kScratchMinAgeS for print copies),
-/// not a live log, not @p printing_file. While anything prints no print copy
-/// is removed: which copy a print's link names only the plugin can tell.
-/// Mirrors the plugin's cleanup_candidates.
-bool fallback_removes(std::size_t index, const ListedFile& file, double now, double older_than,
-                      std::string_view printing_file);
+/// (its name relative to the consumer's root): fallback_cleanable, the name
+/// rule, and at least @p older_than seconds old (never under
+/// kFallbackMinAgeS).
+bool fallback_removes(std::size_t index, const ListedFile& file, double now, double older_than);
+
+/// How a cleanup went, for its message.
+struct CleanupOutcome {
+    uint64_t freed = 0;
+    uint64_t errors = 0;  ///< files that could not be deleted
+    bool refused = false; ///< the request itself failed; nothing is known
+};
+
+/// What the page says after a cleanup.
+enum class CleanupMessage {
+    Freed,         ///< "Freed {}"
+    FreedPartly,   ///< "Freed {}, some files could not be deleted"
+    NothingFreed,  ///< "Could not free space"
+    NothingToFree, ///< "Nothing to clean up"
+};
+
+CleanupMessage cleanup_message(const CleanupOutcome& outcome);
 
 /// Whether an upload of @p size bytes may go to the gcodes volume.
 enum class UploadSpace {
@@ -152,7 +176,17 @@ enum class UploadSpace {
 
 UploadSpace upload_space(std::optional<uint64_t> free_bytes, uint64_t size);
 
-/// What the app says when it refuses one of its own uploads for space.
+/// The HTTP code the plugin's print_modified / print_edited answer when the
+/// print would leave less than the floor free. It is final: the copy is gone
+/// (print_modified deletes it) or was never written (print_edited), and no
+/// other start may be tried in its place.
+inline constexpr int kNoSpaceRpcCode = 507;
+
+constexpr bool is_no_space_refusal(int rpc_code) {
+    return rpc_code == kNoSpaceRpcCode;
+}
+
+/// What the app says when the printer has no room for a print's copy.
 inline constexpr const char* kNoUploadSpaceMessage =
     TR_NOOP("Not enough free space on the printer for this file. Free some in Settings > "
             "System > Storage.");

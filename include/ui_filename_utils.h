@@ -162,6 +162,10 @@ std::vector<std::string> staging_dirs();
 /// directory), which the file list leaves out as it does dot-directories.
 bool is_app_managed_directory(const std::string& name);
 
+/// Whether gcodes-root directory @p name is the plugin's link directory: its
+/// default `.helix_print` or the one its status names. Any thread.
+bool is_plugin_link_dir(const std::string& name);
+
 /// The HelixPrint plugin's link directory, as its status reports it: a print
 /// it starts runs `<dir>/full/<original>`, which resolves back to the original
 /// alongside the default `.helix_print`. Empty forgets it. Any thread.

@@ -685,7 +685,6 @@
   <translation tag="Clean {}" fr="Nettoyer {}"/>
   <translation tag="Cleaning Nozzle..." fr="Nettoyage de la buse..."/>
   <translation tag="Cleaning nozzle..." fr="Nettoyage de la buse..."/>
-  <translation tag="Cleanup failed" fr="Échec du nettoyage"/>
   <translation tag="Clear" fr="Effacer"/>
   <translation tag="Clear All" fr="Tout effacer"/>
   <translation tag="Clear All Events" fr="Effacer tous les événements"/>
@@ -857,6 +856,7 @@
   <translation tag="Could not disconnect from WiFi" fr="Impossible de se déconnecter du WiFi"/>
   <translation tag="Could not extract plate {} of {}: {}" fr="Impossible d&apos;extraire le plateau {} de {} : {}"/>
   <translation tag="Could not forget device" fr="Impossible d&apos;oublier l&apos;appareil"/>
+  <translation tag="Could not free space" fr="Impossible de libérer de l&apos;espace"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." fr="Impossible d&apos;initialiser le matériel WiFi. Vérifiez la configuration du système."/>
   <translation tag="Could not load printer database" fr="Impossible de charger la base de données d&apos;imprimantes"/>
   <translation tag="Could not move the plate" fr="Impossible de déplacer le plateau"/>
@@ -1498,6 +1498,7 @@
   <translation tag="Framerate" fr="Fréquence d&apos;images"/>
   <translation tag="Free space unknown" fr="Espace libre inconnu"/>
   <translation tag="Freed {}" fr="{} libérés"/>
+  <translation tag="Freed {}, but some files could not be deleted" fr="{} libérés, mais certains fichiers n&apos;ont pas pu être supprimés"/>
   <translation tag="From Buffer" fr="Depuis tampon"/>
   <translation tag="From Printer" fr="Depuis l&apos;imprimante"/>
   <translation tag="From SpoolmanDB" fr="Depuis SpoolmanDB"/>
@@ -2347,6 +2348,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." fr="Rien n&apos;a suivi {1} tours de {0}. Ramenez {0} de {1} tours, puis vérifiez la mécanique."/>
   <translation tag="Nothing loaded" fr="Rien de chargé"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." fr="Rien d&apos;étoilé pour le moment. Touchez l&apos;étoile d&apos;un filament pour l&apos;ajouter ici."/>
+  <translation tag="Nothing to clean up" fr="Rien à nettoyer"/>
   <translation tag="Nothing to remap" fr="Rien à réaffecter"/>
   <translation tag="Nothing to tune here" fr="Rien à régler ici"/>
   <translation tag="Nothing to unload: no filament at the nozzle" fr="Rien à décharger : pas de filament à la buse"/>

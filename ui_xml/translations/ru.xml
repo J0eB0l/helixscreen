@@ -724,7 +724,6 @@
   <translation tag="Clean {}" ru="Очистите {}"/>
   <translation tag="Cleaning Nozzle..." ru="Очистка сопла..."/>
   <translation tag="Cleaning nozzle..." ru="Очистка сопла..."/>
-  <translation tag="Cleanup failed" ru="Не удалось выполнить очистку"/>
   <translation tag="Clear" ru="Очистить"/>
   <translation tag="Clear All" ru="Очистить всё"/>
   <translation tag="Clear All Events" ru="Очистить все события"/>
@@ -899,6 +898,7 @@
   <translation tag="Could not disconnect from WiFi" ru="Не удалось отключиться от WiFi"/>
   <translation tag="Could not extract plate {} of {}: {}" ru="Не удалось извлечь пластину {} из {}: {}"/>
   <translation tag="Could not forget device" ru="Не удалось забыть устройство"/>
+  <translation tag="Could not free space" ru="Не удалось освободить место"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." ru="Не удалось инициализировать оборудование WiFi. Проверьте конфигурацию системы."/>
   <translation tag="Could not load printer database" ru="Не удалось загрузить базу данных принтеров"/>
   <translation tag="Could not move the plate" ru="Не удалось переместить стол"/>
@@ -1543,6 +1543,7 @@
   <translation tag="Framerate" ru="Частота кадров"/>
   <translation tag="Free space unknown" ru="Свободное место неизвестно"/>
   <translation tag="Freed {}" ru="Освобождено {}"/>
+  <translation tag="Freed {}, but some files could not be deleted" ru="Освобождено {}, но некоторые файлы удалить не удалось"/>
   <translation tag="From Buffer" ru="Из буфера"/>
   <translation tag="From Printer" ru="С принтера"/>
   <translation tag="From SpoolmanDB" ru="Из SpoolmanDB"/>
@@ -2392,6 +2393,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." ru="{1} оборота {0} ничего не изменили. Поверните {0} на {1} оборота назад и проверьте механику."/>
   <translation tag="Nothing loaded" ru="Ничего не загружено"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." ru="Пока ничего не отмечено. Нажмите звезду у филамента, чтобы добавить его сюда."/>
+  <translation tag="Nothing to clean up" ru="Нечего очищать"/>
   <translation tag="Nothing to remap" ru="Нечего переназначать"/>
   <translation tag="Nothing to tune here" ru="Здесь нечего настраивать"/>
   <translation tag="Nothing to unload: no filament at the nozzle" ru="Выгружать нечего: в сопле нет филамента"/>

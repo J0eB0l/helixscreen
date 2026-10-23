@@ -20,26 +20,21 @@ namespace helix::storage {
 /// Fetches the storage report from the plugin or, without it, lists the
 /// known directories over the file API and sums them; runs a consumer's
 /// cleanup either way. Callbacks run on the main thread, and never after the
-/// service is destroyed. One request at a time: a new fetch or cleanup
-/// abandons the one in flight.
+/// service is destroyed. A new fetch abandons the fetch in flight and a new
+/// cleanup the cleanup in flight; a fetch never cancels a cleanup.
 class StorageReportService {
   public:
     using ReportCallback =
         std::function<void(ReportSource source, std::optional<StorageReport> report)>;
-    /// Bytes freed, or the error message of a cleanup that failed.
-    using CleanupCallback =
-        std::function<void(std::optional<uint64_t> freed, const std::string& error)>;
+    using CleanupCallback = std::function<void(const CleanupOutcome& outcome)>;
 
     explicit StorageReportService(IMoonrakerClient* client) : client_(client) {}
 
-    /// @p link_dir is the plugin's link directory (empty for its default).
-    void fetch(ReportSource source, const std::string& link_dir, ReportCallback done);
+    void fetch(ReportSource source, ReportCallback done);
 
-    /// Remove consumer @p index's files. The fallback removes only files the
-    /// last FileApi fetch listed, and never @p printing_file (gcodes-relative,
-    /// empty while nothing prints).
-    void cleanup(ReportSource source, std::size_t index, const std::string& printing_file,
-                 CleanupCallback done);
+    /// Remove consumer @p index's files. The fallback removes only what
+    /// fallback_removes() allows of the files the last FileApi fetch listed.
+    void cleanup(ReportSource source, std::size_t index, CleanupCallback done);
 
   private:
     struct Pending {
@@ -57,29 +52,31 @@ class StorageReportService {
     void delete_next();
 
     IMoonrakerClient* client_;
-    AsyncLifetimeGuard lifetime_;
+    AsyncLifetimeGuard fetch_lifetime_;
+    AsyncLifetimeGuard cleanup_lifetime_;
 
     // Fallback scan in flight
     ReportCallback report_done_;
-    std::string link_dir_;
     std::deque<Pending> pending_;
     std::size_t listed_dirs_ = 0;
     StorageReport scan_;
 
-    /// Files the last fallback scan found, per consumer
+    /// Files the last fallback scan found, per fallback-cleanable consumer
     std::array<std::vector<Known>, kConsumerCount> known_{};
 
     // Fallback cleanup in flight
     std::vector<Known> to_delete_;
-    uint64_t freed_ = 0;
+    CleanupOutcome outcome_;
     CleanupCallback cleanup_done_;
 };
 
-/// Read the gcodes volume's free space and answer whether an upload of
-/// @p size bytes may go ahead (upload_space). @p done runs on the main thread
-/// while @p token is live. Unknown free space answers Unknown, which callers
-/// treat as Ok.
-void check_upload_space(IMoonrakerClient* client, uint64_t size, LifetimeToken token,
-                        std::function<void(UploadSpace)> done);
+/// Read the free space of the volume holding gcodes directory @p dir (the
+/// directory the upload goes to; the gcodes root when it does not exist yet)
+/// and answer whether an upload of @p size bytes may go ahead (upload_space).
+/// Listing @p dir rather than the root keeps the request small. @p done runs
+/// on the main thread while @p token is live. Unknown free space answers
+/// Unknown, which callers treat as Ok.
+void check_upload_space(IMoonrakerClient* client, const std::string& dir, uint64_t size,
+                        LifetimeToken token, std::function<void(UploadSpace)> done);
 
 } // namespace helix::storage

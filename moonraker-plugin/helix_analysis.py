@@ -1232,7 +1232,7 @@ class HelixAnalysis(file_queue.FileTracker):
         if self.gc_path is None:
             return
         await self._run_in_thread(reader.prune_layer_indexes, self.gc_path,
-                                  self._protected_indexes())
+                                  self.protected_indexes())
         found = await self._run_in_thread(
             file_queue.scan_files, self.gc_path, is_analyzable)
         for name in [n for n in set(self.records) | set(self._failures) if n not in found]:
@@ -1242,7 +1242,7 @@ class HelixAnalysis(file_queue.FileTracker):
                     and not self._gave_up(name, size, mtime):
                 self.enqueue(name)
 
-    def _protected_indexes(self) -> List[str]:
+    def protected_indexes(self) -> List[str]:
         """Indexes power-loss recovery is using, which no prune may remove."""
         plr = getattr(self.helix, "plr", None)
         protected = getattr(plr, "protected_index_paths", None)

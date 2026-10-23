@@ -43,32 +43,31 @@ const nlohmann::json& result_of(const nlohmann::json& response) {
 
 } // namespace
 
-void StorageReportService::fetch(ReportSource source, const std::string& link_dir,
-                                 ReportCallback done) {
-    lifetime_.invalidate();
+void StorageReportService::fetch(ReportSource source, ReportCallback done) {
+    fetch_lifetime_.invalidate();
     if (client_ == nullptr) {
         done(source, std::nullopt);
         return;
     }
     if (source == ReportSource::Plugin) {
-        client_->send_jsonrpc("server.helix.storage", nlohmann::json::object(),
-                              lifetime_.bg_cb("StorageReportService::report",
-                                              [done](const nlohmann::json& response) {
-                                                  done(ReportSource::Plugin,
-                                                       parse_storage_result(result_of(response)));
-                                              }),
-                              lifetime_.bg_cb("StorageReportService::report_error",
-                                              [done](const MoonrakerError& err) {
-                                                  spdlog::warn("[Storage] Plugin report failed: {}",
-                                                               err.message);
-                                                  done(ReportSource::Plugin, std::nullopt);
-                                              }),
-                              0, /*silent=*/true);
+        client_->send_jsonrpc(
+            "server.helix.storage", nlohmann::json::object(),
+            fetch_lifetime_.bg_cb("StorageReportService::report",
+                                  [done](const nlohmann::json& response) {
+                                      done(ReportSource::Plugin,
+                                           parse_storage_result(result_of(response)));
+                                  }),
+            fetch_lifetime_.bg_cb("StorageReportService::report_error",
+                                  [done](const MoonrakerError& err) {
+                                      spdlog::warn("[Storage] Plugin report failed: {}",
+                                                   err.message);
+                                      done(ReportSource::Plugin, std::nullopt);
+                                  }),
+            0, /*silent=*/true);
         return;
     }
 
     report_done_ = std::move(done);
-    link_dir_ = link_dir;
     scan_ = StorageReport{};
     listed_dirs_ = 0;
     for (auto& known : known_) {
@@ -95,15 +94,16 @@ void StorageReportService::list_next() {
     const std::string path = join_path(root_name(dir.root), dir.rel);
     client_->send_jsonrpc(
         "server.files.get_directory", nlohmann::json{{"path", path}},
-        lifetime_.bg_cb("StorageReportService::listing",
-                        [this, dir](const nlohmann::json& response) {
-                            on_listing(dir, parse_directory_result(result_of(response)));
-                        }),
-        lifetime_.bg_cb("StorageReportService::listing_error",
-                        [this, dir, path](const MoonrakerError& err) {
-                            spdlog::debug("[Storage] Listing {} failed: {}", path, err.message);
-                            on_listing(dir, std::nullopt);
-                        }),
+        fetch_lifetime_.bg_cb("StorageReportService::listing",
+                              [this, dir](const nlohmann::json& response) {
+                                  on_listing(dir, parse_directory_result(result_of(response)));
+                              }),
+        fetch_lifetime_.bg_cb("StorageReportService::listing_error",
+                              [this, dir, path](const MoonrakerError& err) {
+                                  spdlog::debug("[Storage] Listing {} failed: {}", path,
+                                                err.message);
+                                  on_listing(dir, std::nullopt);
+                              }),
         0, /*silent=*/true);
 }
 
@@ -120,7 +120,7 @@ void StorageReportService::on_listing(const Pending& dir,
                     info.root == dir.root && std::string_view(info.key) != "3mf_outputs";
                 if (measured) {
                     scan_.consumers[i].available = true;
-                    scan_.consumers[i].cleanable = info.cleanable;
+                    scan_.consumers[i].cleanable = fallback_cleanable(i);
                 }
             }
             if (dir.root == Root::Gcodes) {
@@ -132,7 +132,7 @@ void StorageReportService::on_listing(const Pending& dir,
             const std::string rel = join_path(dir.rel, f.name);
             std::size_t index = 0;
             if (dir.root == Root::Gcodes) {
-                index = classify_gcodes_path(rel, link_dir_);
+                index = classify_gcodes_path(rel);
             } else {
                 index =
                     consumer_index(dir.root == Root::Timelapse ? "timelapse" : "logs").value_or(0);
@@ -140,7 +140,7 @@ void StorageReportService::on_listing(const Pending& dir,
             ConsumerUsage& usage = scan_.consumers[index];
             usage.bytes += f.size;
             usage.files += 1;
-            if (kConsumers[index].cleanable) {
+            if (fallback_cleanable(index)) {
                 ListedFile file = f;
                 file.name = rel;
                 known_[index].push_back({join_path(root_name(dir.root), rel), std::move(file)});
@@ -163,38 +163,49 @@ void StorageReportService::finish_scan() {
     }
 }
 
-void StorageReportService::cleanup(ReportSource source, std::size_t index,
-                                   const std::string& printing_file, CleanupCallback done) {
-    lifetime_.invalidate();
+void StorageReportService::cleanup(ReportSource source, std::size_t index, CleanupCallback done) {
+    cleanup_lifetime_.invalidate();
+    CleanupOutcome refused;
+    refused.refused = true;
     if (client_ == nullptr || index >= kConsumerCount || !kConsumers[index].cleanable) {
-        done(std::nullopt, "not cleanable");
+        done(refused);
         return;
     }
     if (source == ReportSource::Plugin) {
         client_->send_jsonrpc(
             "server.helix.storage_cleanup",
             nlohmann::json{{"consumer", kConsumers[index].key}, {"older_than", 0}},
-            lifetime_.bg_cb("StorageReportService::cleanup",
-                            [done](const nlohmann::json& response) {
-                                done(json_util::safe_uint64(result_of(response), "freed"), "");
-                            }),
-            lifetime_.bg_cb("StorageReportService::cleanup_error",
-                            [done](const MoonrakerError& err) { done(std::nullopt, err.message); }),
+            cleanup_lifetime_.bg_cb("StorageReportService::cleanup",
+                                    [done](const nlohmann::json& response) {
+                                        const nlohmann::json& result = result_of(response);
+                                        CleanupOutcome outcome;
+                                        outcome.freed = json_util::safe_uint64(result, "freed");
+                                        outcome.errors = json_util::safe_uint64(result, "errors");
+                                        done(outcome);
+                                    }),
+            cleanup_lifetime_.bg_cb("StorageReportService::cleanup_error",
+                                    [done, refused](const MoonrakerError& err) {
+                                        spdlog::warn("[Storage] Plugin cleanup failed: {}",
+                                                     err.message);
+                                        done(refused);
+                                    }),
             0, /*silent=*/true);
+        return;
+    }
+    if (!fallback_cleanable(index)) {
+        done(refused);
         return;
     }
 
     const double now = static_cast<double>(std::time(nullptr));
     to_delete_.clear();
-    const std::string_view held =
-        kConsumers[index].root == Root::Gcodes ? std::string_view(printing_file) : "";
     for (const Known& k : known_[index]) {
-        if (fallback_removes(index, k.file, now, 0.0, held)) {
+        if (fallback_removes(index, k.file, now, 0.0)) {
             to_delete_.push_back(k);
         }
     }
     known_[index].clear();
-    freed_ = 0;
+    outcome_ = CleanupOutcome{};
     cleanup_done_ = std::move(done);
     delete_next();
 }
@@ -204,46 +215,66 @@ void StorageReportService::delete_next() {
         CleanupCallback done = std::move(cleanup_done_);
         cleanup_done_ = nullptr;
         if (done) {
-            done(freed_, "");
+            done(outcome_);
         }
         return;
     }
     const Known k = to_delete_.back();
     to_delete_.pop_back();
-    client_->send_jsonrpc("server.files.delete_file", nlohmann::json{{"path", k.path}},
-                          lifetime_.bg_cb("StorageReportService::deleted",
-                                          [this, size = k.file.size](const nlohmann::json&) {
-                                              freed_ += size;
-                                              delete_next();
-                                          }),
-                          lifetime_.bg_cb("StorageReportService::delete_error",
-                                          [this, path = k.path](const MoonrakerError& err) {
-                                              spdlog::warn("[Storage] Could not delete {}: {}",
-                                                           path, err.message);
-                                              delete_next();
-                                          }),
-                          0, /*silent=*/true);
+    client_->send_jsonrpc(
+        "server.files.delete_file", nlohmann::json{{"path", k.path}},
+        cleanup_lifetime_.bg_cb("StorageReportService::deleted",
+                                [this, size = k.file.size](const nlohmann::json&) {
+                                    outcome_.freed += size;
+                                    delete_next();
+                                }),
+        cleanup_lifetime_.bg_cb("StorageReportService::delete_error",
+                                [this, path = k.path](const MoonrakerError& err) {
+                                    spdlog::warn("[Storage] Could not delete {}: {}", path,
+                                                 err.message);
+                                    outcome_.errors += 1;
+                                    delete_next();
+                                }),
+        0, /*silent=*/true);
 }
 
-void check_upload_space(IMoonrakerClient* client, uint64_t size, LifetimeToken token,
-                        std::function<void(UploadSpace)> done) {
-    if (client == nullptr) {
-        done(UploadSpace::Unknown);
-        return;
-    }
+namespace {
+
+void read_free_space(IMoonrakerClient* client, const std::string& path, bool fall_back_to_root,
+                     uint64_t size, LifetimeToken token, std::function<void(UploadSpace)> done) {
     client->send_jsonrpc(
-        "server.files.get_directory", nlohmann::json{{"path", "gcodes"}},
+        "server.files.get_directory", nlohmann::json{{"path", path}},
         [token, size, done](const nlohmann::json& response) {
             const auto listing = parse_directory_result(result_of(response));
             const UploadSpace verdict = upload_space(listing ? listing->free : std::nullopt, size);
             token.defer("storage::check_upload_space", [done, verdict]() { done(verdict); });
         },
-        [token, done](const MoonrakerError& err) {
+        [client, fall_back_to_root, size, token, done](const MoonrakerError& err) {
+            if (fall_back_to_root) {
+                // The directory is not there yet: the gcodes root is on the same volume.
+                token.defer("storage::check_upload_space_root", [client, size, token, done]() {
+                    read_free_space(client, "gcodes", false, size, token, done);
+                });
+                return;
+            }
             spdlog::debug("[Storage] Free space unreadable before upload: {}", err.message);
             token.defer("storage::check_upload_space_error",
                         [done]() { done(UploadSpace::Unknown); });
         },
         0, /*silent=*/true);
+}
+
+} // namespace
+
+void check_upload_space(IMoonrakerClient* client, const std::string& dir, uint64_t size,
+                        LifetimeToken token, std::function<void(UploadSpace)> done) {
+    if (client == nullptr) {
+        done(UploadSpace::Unknown);
+        return;
+    }
+    const bool in_root = dir.empty();
+    read_free_space(client, in_root ? "gcodes" : join_path("gcodes", dir), !in_root, size,
+                    std::move(token), std::move(done));
 }
 
 } // namespace helix::storage

@@ -224,10 +224,7 @@ def merge_aux(existing: Any, record: Dict[str, Any]) -> List[Any]:
     """A job's auxiliary_data with our photos entry set: every other entry
     kept, an earlier photos entry of ours replaced. A value that is not a
     list is dropped rather than walked."""
-    entries = existing if isinstance(existing, list) else []
-    kept = [e for e in entries
-            if not (isinstance(e, dict) and e.get("provider") == AUX_PROVIDER
-                    and e.get("name") == AUX_NAME)]
+    kept = without_aux(existing)
     kept.append({
         "provider": AUX_PROVIDER,
         "name": AUX_NAME,
@@ -236,6 +233,31 @@ def merge_aux(existing: Any, record: Dict[str, Any]) -> List[Any]:
         "units": None,
     })
     return kept
+
+
+def without_aux(existing: Any) -> List[Any]:
+    """A job's auxiliary_data with our photos entry removed, every other
+    entry kept."""
+    entries = existing if isinstance(existing, list) else []
+    return [e for e in entries
+            if not (isinstance(e, dict) and e.get("provider") == AUX_PROVIDER
+                    and e.get("name") == AUX_NAME)]
+
+
+def records_older_than(items: List[Tuple[str, Any]], now: float, older_than: float) -> List[str]:
+    """The keys of the records whose job started at least `older_than`
+    seconds before `now`. A malformed record is left to prune()."""
+    keys = []
+    for key, record in items:
+        if not valid_record(record):
+            continue
+        try:
+            start = float(record.get("start_time") or 0.0)
+        except (TypeError, ValueError):
+            start = 0.0
+        if now - start >= older_than:
+            keys.append(key)
+    return keys
 
 
 def history_matches(record: Dict[str, Any], job: Any) -> bool:
@@ -564,10 +586,12 @@ class HelixPhotos:
                 pass
         return sizes
 
-    async def _delete_files(self, paths: List[str]) -> None:
+    async def _delete_files(self, paths: List[str]) -> int:
+        """Delete photos inside PHOTOS_DIR; the number that could not be."""
         gc_path = self.helix.gc_path
         if gc_path is None:
-            return
+            return 0
+        failed = 0
         for path in paths:
             if not _inside_photos_dir(path):
                 continue
@@ -577,6 +601,54 @@ class HelixPhotos:
                 pass
             except OSError as e:
                 logging.info("HelixPrint: could not delete photo %s: %s", path, e)
+                failed += 1
+        return failed
+
+    async def delete_older_than(self, older_than: float) -> Dict[str, int]:
+        """Delete the photos of every job that started at least `older_than`
+        seconds ago, with their records and their history link, so nothing
+        is left pointing at a deleted photo. Returns {removed, freed,
+        errors}; a record whose photos could not all be deleted is kept."""
+        result = {"removed": 0, "freed": 0, "errors": 0}
+        directory = self.photos_dir()
+        if self.database is None or directory is None:
+            return result
+        async with self._lock():
+            items = await self.helix._namespace_items(PHOTOS_NAMESPACE)
+            sizes = self._sizes(directory)
+            by_key = dict(items)
+            for key in records_older_than(items, self.clock(), older_than):
+                record = by_key[key]
+                paths = [p for p in record_paths(record) if p in sizes]
+                failed = await self._delete_files(paths)
+                result["errors"] += failed
+                if failed:
+                    continue
+                result["removed"] += len(paths)
+                result["freed"] += sum(sizes[p] for p in paths)
+                await self._unlink_in_history(key, record)
+                try:
+                    await self.database.delete_item(PHOTOS_NAMESPACE, [key])
+                except Exception as e:
+                    logging.info("HelixPrint: could not drop photo record %s: %s", key, e)
+        return result
+
+    async def _unlink_in_history(self, job_id: str, record: Dict[str, Any]) -> None:
+        """Take our photos entry out of the job's auxiliary_data."""
+        patch = getattr(self.helix, "patch_history_job", None)
+        if self.helix.history is None or patch is None:
+            return
+
+        def update(row: Dict[str, Any]) -> bool:
+            if not history_matches(record, row):
+                return False
+            row["auxiliary_data"] = without_aux(row.get("auxiliary_data"))
+            return True
+
+        try:
+            await patch(job_id, update)
+        except Exception as e:
+            logging.info("HelixPrint: could not unlink photos of job %s: %s", job_id, e)
 
     async def prune(self) -> List[str]:
         """Drop records, with their photos, whose history job is gone or that

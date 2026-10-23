@@ -707,9 +707,9 @@ and `cleanable` says whether `storage_cleanup` takes them:
 | `helix_temp` | gcodes | `temp_dir`, `symlink_dir`, and the app's staging directories (`.helix_temp`, `helix_staging`) | yes, files at least 10 minutes old |
 | `3mf_outputs` | gcodes | G-code the .3mf converter wrote itself | no |
 | `analysis_sidecars` | gcodes | `.helix_index/` layer indexes | yes |
-| `photos` | gcodes | `.helix_photos/` | yes |
-| `timelapse` | timelapse | Moonraker timelapse renders | yes |
-| `logs` | logs | rotated logs; a name ending `.log` is in use and kept | yes |
+| `photos` | gcodes | `.helix_photos/` | yes, through the `photos` feature (with its records and history links); not while that feature is off |
+| `timelapse` | timelapse | Moonraker timelapse renders | yes, only `.mp4 .mkv .webm .avi .mov .gif .jpg .png` at least 5 minutes old |
+| `logs` | logs | rotated logs (`<name>.log.<suffix>`); a log in use and any other file are kept | yes, at least 5 minutes old |
 | `thumbnails` | gcodes | every `.thumbs/` directory | no |
 | `user_gcode` | gcodes | everything else under gcodes | no |
 | `plr` | data | `helix-plr/`: power-loss recovery's snapshot and mesh | no |
@@ -723,16 +723,27 @@ POST /server/helix/storage_cleanup
 ```
 
 JSON-RPC: `server.helix.storage_cleanup`. Removes the consumer's files at least
-`older_than` seconds old (default 0), then the directories that leaves empty below the
-consumer's own. Returns `{"consumer", "removed", "freed", "errors"}`. 400 for an unknown
-consumer, one that is not cleanable (your files are never touched), or an `older_than` that
-is not zero or more seconds. A cleanup never removes the copy and link of a linked print in
-progress, the file Klipper is printing or holding paused, or a layer index power-loss
-recovery or a running analysis uses; a layer index cleanup first drops the stale ones
-(`prune_layer_indexes`).
+`older_than` seconds old (default 0) that its name rule accepts, then the directories that
+leaves empty below the consumer's own. Returns `{"consumer", "removed", "freed", "errors"}`;
+`errors` counts files that could not be removed. 400 for an unknown consumer, one that is not
+cleanable (your files are never touched), or an `older_than` that is not zero or more
+seconds; 409 when cleanup is unsafe here (below) or photos are asked for with the `photos`
+feature off. A cleanup never removes the copy and link of a linked print in progress, the
+file Klipper is printing or holding paused, or any file power-loss recovery's recorded job
+uses (the file Klipper read, its link and what that names, its layer indexes: one list,
+`HelixPlr.protected_paths()`), or the layer index a running analysis writes. When Klipper
+cannot be asked what it prints, a cleanup removes nothing and reports one error. A layer
+index cleanup first drops the stale ones (`prune_layer_indexes`).
+
+**Unsafe directories.** Cleanup walks only directories it can vouch for. A staging
+directory (`temp_dir`, `symlink_dir`) must be one plain name (not empty, `.` or `..`);
+the timelapse and logs roots must not be, or hold, the gcodes, config, `database` or data
+directory; every walked directory is resolved through links and must lie inside its root.
+Anything else makes `storage` and `storage_auto_cleanup` unavailable, with the reason in
+the status, and every cleanup answers 409.
 
 **Automatic cleanup** runs 10 minutes after Moonraker starts and every 24 hours after, only
-while no print runs, and removes print copies older than 7 days and rotated logs older than
+while no print runs (a run that finds one tries again an hour later), and removes print copies older than 7 days and rotated logs older than
 30 days. It never removes photos, timelapse videos or anything else.
 
 **Free-space floor.** `print_modified` and `print_edited` refuse with 507 when the print

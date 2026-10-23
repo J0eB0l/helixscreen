@@ -685,7 +685,6 @@
   <translation tag="Clean {}" zh="清洁{}"/>
   <translation tag="Cleaning Nozzle..." zh="正在清洁喷嘴..."/>
   <translation tag="Cleaning nozzle..." zh="正在清洁喷嘴..."/>
-  <translation tag="Cleanup failed" zh="清理失败"/>
   <translation tag="Clear" zh="清除"/>
   <translation tag="Clear All" zh="全部清除"/>
   <translation tag="Clear All Events" zh="清除所有事件"/>
@@ -857,6 +856,7 @@
   <translation tag="Could not disconnect from WiFi" zh="无法断开 WiFi 连接"/>
   <translation tag="Could not extract plate {} of {}: {}" zh="无法提取第 {} 号板（{}）: {}"/>
   <translation tag="Could not forget device" zh="无法忘记设备"/>
+  <translation tag="Could not free space" zh="无法释放空间"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." zh="无法初始化 WiFi 硬件。请检查系统配置。"/>
   <translation tag="Could not load printer database" zh="无法加载打印机数据库"/>
   <translation tag="Could not move the plate" zh="无法移动热床"/>
@@ -1498,6 +1498,7 @@
   <translation tag="Framerate" zh="帧率"/>
   <translation tag="Free space unknown" zh="可用空间未知"/>
   <translation tag="Freed {}" zh="已释放 {}"/>
+  <translation tag="Freed {}, but some files could not be deleted" zh="已释放 {}，但部分文件无法删除"/>
   <translation tag="From Buffer" zh="来自缓冲区"/>
   <translation tag="From Printer" zh="从打印机"/>
   <translation tag="From SpoolmanDB" zh="来自 SpoolmanDB"/>
@@ -2347,6 +2348,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." zh="{0} 转了 {1} 圈没有带来变化。请将 {0} 反向转回 {1} 圈,然后检查机械部分。"/>
   <translation tag="Nothing loaded" zh="未装载耗材"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." zh="还没有收藏。点击耗材行的星标即可收藏到这里。"/>
+  <translation tag="Nothing to clean up" zh="没有可清理的内容"/>
   <translation tag="Nothing to remap" zh="没有可重新映射的内容"/>
   <translation tag="Nothing to tune here" zh="这里没有需要调整的"/>
   <translation tag="Nothing to unload: no filament at the nozzle" zh="没有可卸载的耗材: 喷嘴处没有耗材"/>

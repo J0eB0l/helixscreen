@@ -3221,7 +3221,7 @@ void PrintSelectPanel::upload_usb_copy(UsbCopyRequest req,
 
     const uint64_t size = req.size;
     storage::check_upload_space(
-        &api_->get_client(), size, object_lifetime_.token(),
+        &api_->get_client(), kUsbCopyDir, size, object_lifetime_.token(),
         [this, req = std::move(req), dest](storage::UploadSpace space) mutable {
             if (!usb_copy_current(req.generation)) {
                 return;

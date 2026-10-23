@@ -1148,6 +1148,23 @@ class HelixPlr:
 
     # -- layer checkpoints ---------------------------------------------------
 
+    def protected_paths(self) -> List[str]:
+        """Every file no cleanup may remove while a job is recorded (printing,
+        or a snapshot waiting to resume): the file Klipper read, the job's
+        file under gcodes (a link) and what it names, and the layer indexes
+        (protected_index_paths). Absolute, each also resolved."""
+        gc_path = getattr(self.helix, "gc_path", None)
+        job = self.job
+        paths = list(self.protected_index_paths())
+        if job is not None:
+            printed = job.get("print_path")
+            if isinstance(printed, str) and printed:
+                paths.append(printed)
+            name = job.get("filename")
+            if gc_path is not None and isinstance(name, str) and name:
+                paths.append(os.path.join(str(gc_path), name))
+        return sorted({q for p in paths for q in (os.path.abspath(p), os.path.realpath(p))})
+
     def protected_index_paths(self) -> List[str]:
         """The layer indexes no prune may remove: the one the follower is
         writing during a print, and the one the job's snapshot resumes from."""

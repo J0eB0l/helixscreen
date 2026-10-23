@@ -6,6 +6,7 @@
 #include "../../include/moonraker_job_api.h"
 #include "../../include/moonraker_request_tracker.h"
 #include "../../include/printer_state.h"
+#include "../../include/storage_report.h"
 #include "../../include/ui_update_queue.h"
 #include "../../lvgl/lvgl.h"
 #include "../ui_test_utils.h"
@@ -129,6 +130,7 @@ class FallbackScriptedClient : public helix::MoonrakerClient {
             if (error_cb) {
                 MoonrakerError err;
                 err.type = print_modified_error;
+                err.code = print_modified_code;
                 err.message = "helix_print v1.0.0 print_modified bug";
                 err.method = method;
                 error_cb(err);
@@ -149,6 +151,7 @@ class FallbackScriptedClient : public helix::MoonrakerClient {
     // Defaults to the shipped v1.0.0 endpoint bug — a prompt refusal from a
     // plugin that did answer. Cases needing "no answer at all" set it.
     MoonrakerErrorType print_modified_error = MoonrakerErrorType::VALIDATION_ERROR;
+    int print_modified_code = 0;
     uint32_t print_modified_timeout_ms = 0;
     int print_modified_calls = 0;
     int print_start_calls = 0;
@@ -339,6 +342,31 @@ TEST_CASE("a print_modified that never answered does not start a second print",
     // print started, and no second start is fired.
     CHECK(error_called);
     CHECK_FALSE(success_called);
+}
+
+TEST_CASE("a print_modified refused for space is final: no stock start replaces it",
+          "[print][api][plugin_storage]") {
+    // The plugin deletes the copy and answers 507 when the print would leave
+    // less than its free-space floor. A stock start would aim at the deleted
+    // copy, or print below the floor, and hide the space message.
+    FallbackScriptedClient client;
+    client.print_modified_code = helix::storage::kNoSpaceRpcCode;
+    PrinterState state;
+    state.init_subjects(false);
+    MoonrakerAPI api(client, state);
+
+    bool success_called = false;
+    int error_code = 0;
+    api.job().start_modified_print(
+        "benchy.gcode", ".helix_temp/mod_benchy.gcode", {},
+        [&](const ModifiedPrintResult&) { success_called = true; },
+        [&](const MoonrakerError& err) { error_code = err.code; });
+    helix::ui::UpdateQueue::instance().drain();
+
+    REQUIRE(client.print_modified_calls == 1);
+    CHECK(client.print_start_calls == 0);
+    CHECK_FALSE(success_called);
+    CHECK(error_code == helix::storage::kNoSpaceRpcCode);
 }
 
 // ============================================================================

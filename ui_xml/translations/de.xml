@@ -685,7 +685,6 @@
   <translation tag="Clean {}" de="{} reinigen"/>
   <translation tag="Cleaning Nozzle..." de="Düse reinigen..."/>
   <translation tag="Cleaning nozzle..." de="Düse reinigen..."/>
-  <translation tag="Cleanup failed" de="Bereinigung fehlgeschlagen"/>
   <translation tag="Clear" de="Löschen"/>
   <translation tag="Clear All" de="Alles löschen"/>
   <translation tag="Clear All Events" de="Alle Ereignisse löschen"/>
@@ -857,6 +856,7 @@
   <translation tag="Could not disconnect from WiFi" de="WiFi-Verbindung konnte nicht getrennt werden"/>
   <translation tag="Could not extract plate {} of {}: {}" de="Platte {} von {} konnte nicht extrahiert werden: {}"/>
   <translation tag="Could not forget device" de="Gerät konnte nicht vergessen werden"/>
+  <translation tag="Could not free space" de="Speicher konnte nicht freigegeben werden"/>
   <translation tag="Could not initialize WiFi hardware. Check system configuration." de="WiFi-Hardware konnte nicht initialisiert werden. Prüfe die Systemkonfiguration."/>
   <translation tag="Could not load printer database" de="Druckerdatenbank konnte nicht geladen werden"/>
   <translation tag="Could not move the plate" de="Heizbett konnte nicht bewegt werden"/>
@@ -1498,6 +1498,7 @@
   <translation tag="Framerate" de="Bildrate"/>
   <translation tag="Free space unknown" de="Freier Speicher unbekannt"/>
   <translation tag="Freed {}" de="{} freigegeben"/>
+  <translation tag="Freed {}, but some files could not be deleted" de="{} freigegeben, aber einige Dateien konnten nicht gelöscht werden"/>
   <translation tag="From Buffer" de="Aus Puffer"/>
   <translation tag="From Printer" de="Vom Drucker"/>
   <translation tag="From SpoolmanDB" de="Aus SpoolmanDB"/>
@@ -2347,6 +2348,7 @@
   <translation tag="Nothing followed {1} turns of {0}. Turn {0} back {1} turns, then check the mechanics." de="Auf {1} Umdrehungen an {0} folgte nichts. Drehe {0} um {1} Umdrehungen zurück und prüfe dann die Mechanik."/>
   <translation tag="Nothing loaded" de="Nichts geladen"/>
   <translation tag="Nothing starred yet. Tap the star on a filament to add it here." de="Noch nichts markiert. Tippe auf den Stern eines Filaments, um es hier hinzuzufügen."/>
+  <translation tag="Nothing to clean up" de="Nichts zu bereinigen"/>
   <translation tag="Nothing to remap" de="Nichts neu zuzuordnen"/>
   <translation tag="Nothing to tune here" de="Hier gibt es nichts einzustellen"/>
   <translation tag="Nothing to unload: no filament at the nozzle" de="Nichts zu entladen: kein Filament an der Düse"/>
