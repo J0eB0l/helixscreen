@@ -9,6 +9,8 @@
 #include "helix_callback.h"
 
 #include <array>
+#include <atomic>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -42,6 +44,31 @@ struct AddressReporter {
     const void** seen;
     void operator()() const {
         *seen = this;
+    }
+};
+
+/// A small callable with a user move constructor, so relocating it must go
+/// through the Inline manager rather than a buffer copy.
+struct MovingAddressReporter {
+    const void** seen;
+    bool* moved;
+    std::string payload = "payload";
+    MovingAddressReporter(const void** s, bool* m) : seen(s), moved(m) {}
+    MovingAddressReporter(MovingAddressReporter&& o) noexcept
+        : seen(o.seen), moved(o.moved), payload(std::move(o.payload)) {
+        *moved = true;
+    }
+    void operator()() const {
+        *seen = this;
+    }
+};
+
+/// Over-aligned past the inline buffer, so it must take the heap path.
+struct alignas(32) OverAligned {
+    DtorCounter counter;
+    int* runs;
+    void operator()() const {
+        ++*runs;
     }
 };
 
@@ -81,6 +108,45 @@ TEST_CASE("Callback: storage path follows the callable's shape", "[helix_callbac
     STATIC_REQUIRE(callback_storage<decltype(with_string)>() == CallbackStorage::Inline);
     STATIC_REQUIRE(callback_storage<decltype(with_token)>() == CallbackStorage::Inline);
     STATIC_REQUIRE(callback_storage<decltype(oversized)>() == CallbackStorage::Heap);
+    STATIC_REQUIRE(callback_storage<OverAligned>() == CallbackStorage::Heap);
+    STATIC_REQUIRE(callback_storage<MovingAddressReporter>() == CallbackStorage::Inline);
+}
+
+TEST_CASE("Callback: LifetimeToken::defer's wrapper is stored inline", "[helix_callback]") {
+    // The tagged defer wrapper: generation counter, uint64 snapshot, tag, and
+    // a body capturing `this`. Every deferred UI update has this shape.
+    struct Owner {
+        int value = 0;
+    } owner;
+    auto gen = std::make_shared<std::atomic<uint64_t>>(0);
+    uint64_t snapshot = 0;
+    const char* tag = "tag";
+    auto body = [self = &owner]() { ++self->value; };
+    auto wrapper = [gen, snapshot, tag, f = body]() mutable {
+        if (gen->load(std::memory_order_acquire) != snapshot || tag == nullptr) {
+            return;
+        }
+        f();
+    };
+    STATIC_REQUIRE(callback_storage<decltype(wrapper)>() != CallbackStorage::Heap);
+
+    Callback<void()> cb = std::move(wrapper);
+    cb();
+    REQUIRE(owner.value == 1);
+}
+
+TEST_CASE("Callback: an over-aligned callable lives on the heap", "[helix_callback]") {
+    int dtors = 0;
+    int runs = 0;
+    {
+        Callback<void()> a = OverAligned{DtorCounter(&dtors), &runs};
+        Callback<void()> b = std::move(a);
+        REQUIRE_FALSE(a);
+        b();
+        REQUIRE(runs == 1);
+        REQUIRE(dtors == 0);
+    }
+    REQUIRE(dtors == 1);
 }
 
 TEST_CASE("Callback: a trivially copyable callable moves with its state", "[helix_callback]") {
@@ -96,11 +162,24 @@ TEST_CASE("Callback: a trivially copyable callable moves with its state", "[heli
 TEST_CASE("Callback: inline storage relocates, heap storage stays put", "[helix_callback]") {
     const void* seen = nullptr;
 
-    SECTION("inline") {
+    SECTION("trivial") {
         Callback<void()> a = AddressReporter{&seen};
         a();
         const void* before = seen;
         Callback<void()> b = std::move(a);
+        b();
+        REQUIRE(seen != before);
+    }
+
+    SECTION("inline, through the manager") {
+        bool moved = false;
+        Callback<void()> a = MovingAddressReporter(&seen, &moved);
+        a();
+        const void* before = seen;
+        moved = false;
+        Callback<void()> b = std::move(a);
+        REQUIRE(moved);
+        REQUIRE_FALSE(a);
         b();
         REQUIRE(seen != before);
     }
@@ -110,6 +189,7 @@ TEST_CASE("Callback: inline storage relocates, heap storage stays put", "[helix_
         a();
         const void* before = seen;
         Callback<void()> b = std::move(a);
+        REQUIRE_FALSE(a);
         b();
         REQUIRE(seen == before);
     }
@@ -147,6 +227,18 @@ TEST_CASE("Callback: a non-trivial callable is destroyed exactly once", "[helix_
         REQUIRE(dtors == 1);
     }
 
+    SECTION("move-assigned over") {
+        int newer = 0;
+        Callback<void()> a = [c = DtorCounter(&dtors)]() {};
+        Callback<void()> b = [c = DtorCounter(&newer)]() {};
+        a = std::move(b);
+        REQUIRE(dtors == 1);
+        REQUIRE(newer == 0);
+        a = nullptr;
+        REQUIRE(dtors == 1);
+        REQUIRE(newer == 1);
+    }
+
     SECTION("oversized, on the heap") {
         {
             Callback<void()> a = [c = DtorCounter(&dtors),
@@ -156,6 +248,38 @@ TEST_CASE("Callback: a non-trivial callable is destroyed exactly once", "[helix_
             Callback<void()> b = std::move(a);
             REQUIRE(dtors == 0);
         }
+        REQUIRE(dtors == 1);
+    }
+}
+
+TEST_CASE("Callback: move-assign is safe when the held callable owns the source",
+          "[helix_callback]") {
+    int dtors = 0;
+    int runs = 0;
+
+    SECTION("source owned by the held callable") {
+        auto inner =
+            std::make_unique<Callback<void()>>([c = DtorCounter(&dtors), &runs]() { ++runs; });
+        Callback<void()>* source = inner.get();
+        Callback<void()> holder = [owned = std::move(inner)]() {};
+        holder = std::move(*source);
+        REQUIRE(dtors == 0);
+        REQUIRE(holder);
+        holder();
+        REQUIRE(runs == 1);
+        holder = nullptr;
+        REQUIRE(dtors == 1);
+    }
+
+    SECTION("self-move") {
+        Callback<void()> cb = [c = DtorCounter(&dtors), &runs]() { ++runs; };
+        Callback<void()>& alias = cb;
+        cb = std::move(alias);
+        REQUIRE(cb);
+        REQUIRE(dtors == 0);
+        cb();
+        REQUIRE(runs == 1);
+        cb = nullptr;
         REQUIRE(dtors == 1);
     }
 }
@@ -173,6 +297,14 @@ TEST_CASE("Callback: a const call keeps a mutable callable's state", "[helix_cal
     const Callback<int()> counter = [n = 0]() mutable { return ++n; };
     REQUIRE(counter() == 1);
     REQUIRE(counter() == 2);
+}
+
+TEST_CASE("Callback: wraps a non-empty std::function", "[helix_callback]") {
+    int runs = 0;
+    Callback<void()> wrapped = std::function<void()>([&runs]() { ++runs; });
+    REQUIRE(wrapped);
+    wrapped();
+    REQUIRE(runs == 1);
 }
 
 TEST_CASE("Callback: empty states", "[helix_callback]") {

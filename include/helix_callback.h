@@ -11,6 +11,8 @@
 //   - a trivially copyable callable that fits the inline buffer has NO
 //     per-type manager: moving it copies the buffer, destroying it is nothing;
 //   - any other callable that fits gets a per-type move+destroy manager;
+//     moving it runs its move constructor, which UpdateQueue does under its
+//     mutex, so a callable's move constructor must not queue work;
 //   - an oversized callable lives on the heap behind a destroy-only manager,
 //     since moving it moves only the pointer.
 // The invoker is per type in every case; it is the callable's own body.
@@ -109,11 +111,12 @@ template <typename R, typename... Args> class Callback<R(Args...)> {
         take(other);
     }
 
+    /// Takes `other` before destroying the held callable, since that callable
+    /// may own `other`. Self-move leaves the callable in place.
     Callback& operator=(Callback&& other) noexcept {
-        if (this != &other) {
-            reset();
-            take(other);
-        }
+        Callback tmp(std::move(other));
+        reset();
+        take(tmp);
         return *this;
     }
 
