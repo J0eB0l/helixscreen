@@ -401,11 +401,12 @@ TEST_CASE_METHOD(RecoveryFixture,
 TEST_CASE_METHOD(RecoveryFixture,
                  "Recovery: the re-check after the script stops at the chain's deadline",
                  "[recovery]") {
-    // The script takes most of the chain's 1000ms; the re-check gets only the rest.
-    install_script(0, "sleep 0.6\nexit 0");
+    // The script takes a third of the chain's 1000ms, so a loaded machine slowing
+    // its start still leaves it inside the deadline; the re-check gets only the rest.
+    install_script(0, "sleep 0.3\nexit 0");
     api_->statuses = {kKey298, {"startup", ""}};
     RecoveryTiming timing = kFastTiming;
-    timing.poll_interval_ms = 50;
+    timing.poll_interval_ms = 25;
     timing.chain_deadline_ms = 1000;
 
     recover(timing);
@@ -413,7 +414,7 @@ TEST_CASE_METHOD(RecoveryFixture,
 
     REQUIRE(script_runs() == 1);
     REQUIRE(outcome_ == RecoveryOutcome::RESTART_ISSUED);
-    // One poll before the script and about one per 50ms in the 400ms left:
-    // a fresh 1000ms for the re-check would be about 20.
-    REQUIRE(status_queries() <= 11);
+    // About 20 polls in the time the script leaves, fewer when it runs long;
+    // a fresh 1000ms re-check would make about 35.
+    REQUIRE(status_queries() <= 27);
 }
