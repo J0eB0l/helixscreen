@@ -17,6 +17,7 @@
 #include "printer_state.h"
 #include "webcam_selection.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -97,8 +98,11 @@ TEST_CASE("one taker of a job's photos per plugin state", "[plugin_photos]") {
 TEST_CASE("photos are on unless opted out: they only observe", "[plugin_photos]") {
     CHECK(plugin_feature_opted_in(json::object(), kPhotosFeature, false));
     CHECK_FALSE(plugin_feature_opted_in(json{{kPhotosFeature, false}}, kPhotosFeature, false));
-    const auto& row = kPluginSwitchFeatures.back();
-    CHECK(std::string(row.name) == kPhotosFeature);
+    const auto it = std::find_if(
+        kPluginSwitchFeatures.begin(), kPluginSwitchFeatures.end(),
+        [](const PluginSwitchFeature& f) { return std::string(f.name) == kPhotosFeature; });
+    REQUIRE(it != kPluginSwitchFeatures.end());
+    const auto& row = *it;
     CHECK(row.has_fallback);
     CHECK_FALSE(row.acts);
 }
