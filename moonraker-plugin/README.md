@@ -363,7 +363,8 @@ conversion and the analysis wait, which keeps the hold under nginx's default 60 
 timeout, so a slicer behind a Mainsail or Fluidd proxy never sees a failed upload whose print
 then starts. A G-code upload whose analysis misses the deadline starts unchecked; a .3mf whose
 conversion and check miss it answers "not started" and the conversion finishes without
-starting. While the printer is printing or paused nothing waits: an analysis already there is
+starting. With the opt-in off nothing is held: a .3mf starts after its conversion however long
+that takes, as it does without this feature. While the printer is printing or paused nothing waits: an analysis already there is
 checked (a blocked file is not queued), otherwise the start or queue goes ahead unchecked, as
 Moonraker's would. With the analysis queue held the start goes ahead unchecked. A file printing
 or paused right now (`print_stats.state` and `filename`), already in the job queue, or with a
@@ -955,8 +956,9 @@ beside it, so Moonraker's metadata, thumbnails and every client work.
   printer is busy and `[file_manager] queue_gcode_uploads` is on, it is queued, and
   the upload response says `print_queued`. The upload's own conversion goes ahead
   of any queued backfill. A multi-plate file is converted but not started. With
-  `fit_check_blocks_autostart` opted into, the plate is published first and started only
-  when the file-fits-printer check allows it. This hooks Moonraker's upload
+  `fit_check_blocks_autostart` opted into (read when the upload arrives), the plate is
+  published first and started only when the file-fits-printer check allows it, within the
+  45 s hold. This hooks Moonraker's upload
   method; on a Moonraker whose method does not have the expected shape the hook
   stays off with a log line, and conversion still works.
 

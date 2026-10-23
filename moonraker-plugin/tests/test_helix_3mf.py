@@ -1042,6 +1042,14 @@ class TestDeferredDelete:
         assert (env.gc / "a.gcode").read_bytes() == b"; edited\n"
 
 
+async def opted_in():
+    return True
+
+
+async def opted_out():
+    return False
+
+
 class TestStartGate:
     """A start gate (the fit check's) decides every print the converter starts."""
 
@@ -1061,6 +1069,7 @@ class TestStartGate:
             asked.append(output)
             return False
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
         assert asked == ["a.gcode"]
         assert result["print_started"] is False and result["print_queued"] is False
@@ -1076,6 +1085,7 @@ class TestStartGate:
         async def gate(output, remaining):
             return True
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
         assert result["print_started"] is True
         assert env.apis.started == ["a.gcode"]
@@ -1087,6 +1097,7 @@ class TestStartGate:
         async def gate(output, remaining):
             raise RuntimeError("check broke")
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
         assert result["print_started"] is True
         assert env.apis.started == ["a.gcode"]
@@ -1100,6 +1111,7 @@ class TestStartGate:
         async def gate(output, remaining):
             return False
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: data})
         assert result["print_started"] is False
         assert env.apis.started == []
@@ -1133,6 +1145,7 @@ class TestHeldUploadDeadline:
             asked.append(remaining)
             return True
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
         assert result["print_started"] is False and result["print_queued"] is False
         await conv.wait_idle()
@@ -1150,6 +1163,7 @@ class TestHeldUploadDeadline:
             asked.append(remaining)
             return True
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
         assert result["print_started"] is True
         assert len(asked) == 1 and 0.0 < asked[0] < 5.0
@@ -1164,10 +1178,45 @@ class TestHeldUploadDeadline:
             await asyncio.sleep(0.4)
             return True
         conv.start_gate = gate
+        conv.hold_wanted = opted_in
         result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
         assert result["print_started"] is False
         await conv.wait_idle()
         assert env.apis.started == []
+
+    @pytest.mark.asyncio
+    async def test_opted_out_a_slow_conversion_still_starts_as_before(self, env, monkeypatch):
+        monkeypatch.setattr(file_queue, "UPLOAD_HOLD_S", 0.2)
+        conv = await started(env, start_on_upload=True)
+        real_extract = conv._extract
+
+        def slow_extract(full, plate, dest):
+            time.sleep(0.4)
+            return real_extract(full, plate, dest)
+        monkeypatch.setattr(conv, "_extract", slow_extract)
+        asked = []
+
+        async def gate(output, remaining):
+            asked.append(output)
+            return False
+        conv.start_gate = gate
+        conv.hold_wanted = opted_out
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is True
+        assert asked == []                          # no gate without the opt-in
+        assert env.fm.uploads[-1]["print"] == "true"  # Moonraker's own start, as before
+
+    @pytest.mark.asyncio
+    async def test_a_resend_joining_a_hold_that_gave_up_gets_its_own_chance(self, env):
+        conv = env.make(True)
+        shared = helix_3mf._Request()
+        conv._queue.put = lambda key, make, front=False: shared  # still queued: one request
+        request, _w = conv._enqueue("a.gcode.3mf", True, "orca", True, deadline=1.0)
+        request.abandoned = True
+        again, _w2 = conv._enqueue("a.gcode.3mf", True, "orca", True, deadline=2.0)
+        assert again is request
+        assert again.abandoned is False
+        assert again.deadline == 2.0
 
     @pytest.mark.asyncio
     async def test_without_a_gate_nothing_is_cut_short(self, env, monkeypatch):

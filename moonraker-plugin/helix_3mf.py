@@ -336,6 +336,9 @@ class Helix3mfConverter(file_queue.FileTracker):
             lambda: self.database, DB_NAMESPACE, ".3mf conversion")
         self._original_finalize: Optional[Callable] = None
         self.start_gate: Optional[StartGate] = None
+        # Whether an upload-and-print is held for the start gate now (the
+        # gate's owner reads its opt-in); no hold, no gate and no deadline.
+        self.hold_wanted: Optional[Callable[[], Awaitable[bool]]] = None
         # The request being converted, read by _start_print.
         self._active: Optional[_Request] = None
         # Owned outputs whose delete was refused because a print holds them.
@@ -464,6 +467,8 @@ class Helix3mfConverter(file_queue.FileTracker):
             request.start_print = True
             request.user = user
             request.deadline = deadline
+            # A re-send joining a request whose hold gave up gets its own chance.
+            request.abandoned = False
         waiter = asyncio.get_event_loop().create_future()
         request.waiters.append(waiter)
         return request, waiter
@@ -569,8 +574,8 @@ class Helix3mfConverter(file_queue.FileTracker):
                     outcome = await self._start_print(output, user)
             else:
                 want_start = start_print and not multi
-                # A gated start publishes the output first, then asks the gate.
-                gated = want_start and self.start_gate is not None
+                # A held start publishes the output first, then asks the gate.
+                gated = want_start and self._held()
                 wrote = await self._write_output(
                     conv, full, output, usize, want_start and not gated, user, plan_args
                 )
@@ -709,10 +714,10 @@ class Helix3mfConverter(file_queue.FileTracker):
 
     async def _start_print(self, output: str, user: Any) -> Dict[str, bool]:
         """Start @p output as Moonraker's own upload path would, once the
-        start gate, when one is set, allows it. A held upload whose slicer
-        already had its answer starts nothing."""
+        start gate allows it when the upload is held. A held upload whose
+        slicer already had its answer starts nothing."""
         request = self._active
-        if self.start_gate is not None:
+        if self._held():
             try:
                 allowed = await self.start_gate(
                     output, request.remaining() if request is not None else None)
@@ -841,11 +846,13 @@ class Helix3mfConverter(file_queue.FileTracker):
                                    and request.wants_print):
             return await original(form_args)
 
-        # A gated start (the fit check) holds the upload: one deadline from
-        # here covers storing, conversion and the check.
-        loop = asyncio.get_event_loop()
-        deadline = loop.time() + file_queue.UPLOAD_HOLD_S if self.start_gate is not None \
-            else None
+        # A held upload (the start gate's owner opted in) gets one deadline
+        # from here covering storing, conversion and the check. Without the
+        # opt-in the print starts at whatever conversion time, as Moonraker's
+        # own upload would.
+        deadline = asyncio.get_event_loop().time() + file_queue.UPLOAD_HOLD_S
+        if self.start_gate is None or self.hold_wanted is None or not await self.hold_wanted():
+            deadline = None
         result, source = await file_queue.store_without_print(original, form_args)
         if not source:
             return result
@@ -858,6 +865,11 @@ class Helix3mfConverter(file_queue.FileTracker):
         result = dict(result)
         result.update(outcome)
         return result
+
+    def _held(self) -> bool:
+        """Whether the request being converted is a held upload-and-print."""
+        return self.start_gate is not None and self._active is not None \
+            and self._active.deadline is not None
 
     async def _await_held(self, source: str, request: _Request, waiter: asyncio.Future,
                           deadline: float) -> Dict[str, bool]:
