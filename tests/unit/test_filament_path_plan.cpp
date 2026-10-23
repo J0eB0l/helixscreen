@@ -16,6 +16,7 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_fixtures.h"
 #include "ams_backend_mock.h"
+#include "ams_state.h"
 #include "ams_types.h"
 #include "filament_path_test_helpers.h"
 #include "lvgl/lvgl.h"
@@ -2067,4 +2068,21 @@ TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: a unit view ends where the over
     // The all-units view always ends at a toolhead.
     ams_detail_setup_path_canvas(w, nullptr, -1, &backend, info);
     CHECK(ui_filament_path_canvas_get_feeds_toolhead(w));
+
+    SECTION("the bypass spool stays off a path that ends at its hub") {
+        auto& ams = helix::AmsState::instance();
+        ams.init_subjects(true);
+        info.supports_bypass = true;
+        helix::SlotInfo spool;
+        spool.color_rgb = 0x3366CC;
+        spool.material = "PETG";
+        ams.set_external_spool_info_in_memory(spool);
+
+        ams_detail_setup_path_canvas(w, nullptr, 1, &backend, info);
+        REQUIRE(get_data(w)->bypass_has_spool);
+        ams_detail_setup_path_canvas(w, nullptr, 0, &backend, info);
+        CHECK_FALSE(get_data(w)->bypass_has_spool);
+
+        ams.clear_external_spool_info();
+    }
 }
