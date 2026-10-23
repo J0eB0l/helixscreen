@@ -361,6 +361,14 @@ class PrintStatusWidget : public PanelWidget {
     static inline lv_subject_t actions_hidden_subject_;
     static inline bool visibility_subjects_initialized_ = false;
 
+    // The library actions' measured fit (decide_library_actions_layout): 1 = every
+    // label hidden; 1 = two rows of buttons instead of one column; and in two
+    // rows, the action cell (0 files, 1 last, 2 recent, 3 queue) that starts the
+    // second row, -1 otherwise.
+    static inline lv_subject_t library_icon_only_subject_;
+    static inline lv_subject_t library_grid_subject_;
+    static inline lv_subject_t library_wrap_at_subject_;
+
     // Detailed-layout subjects (static inline — shared across all widget instances)
     static inline lv_subject_t layout_effective_subject_{}; // after width gating
     // Combined gate: (width band == wide) AND (filament_used > 0). Avoids the
@@ -418,7 +426,8 @@ class PrintStatusWidget : public PanelWidget {
     ObserverGuard job_queue_count_observer_;
     ObserverGuard connection_observer_;
     ObserverGuard breakpoint_observer_;
-    ObserverGuard view_observer_; ///< Rebinds the active views after any card rebuilds them
+    ObserverGuard view_observer_;     ///< Rebinds the active views after any card rebuilds them
+    ObserverGuard language_observer_; ///< Re-fits the library actions to the new labels
 
     // Guards async thumbnail callbacks and history observer from use-after-free
     helix::AsyncLifetimeGuard lifetime_;
@@ -451,6 +460,9 @@ class PrintStatusWidget : public PanelWidget {
     helix::ui::CoalescedTimer idle_reset_timer_{0};
     // Same coalescing for the active-print thumbnail write.
     helix::ui::CoalescedTimer active_apply_timer_{0};
+    // Re-fits the library actions on the next tick, once the layout that asked
+    // for it has settled.
+    helix::ui::CoalescedTimer library_fit_timer_{0};
 
     // Thermal tint for the detailed-active heater icons. Plain by-value members
     // of THIS instance — never on the shared/refcounted s_formatter_ below.
@@ -673,6 +685,10 @@ class PrintStatusWidget : public PanelWidget {
     void show_configure_picker();
     void apply_visibility_config();
     void recompute_actions_visibility();
+    /// Measure the library action buttons on the next tick and publish whether
+    /// they drop their labels and re-flow into two rows.
+    void schedule_library_fit();
+    void fit_library_actions();
     // Re-run width gating against the last granted size, so a layout_style change
     // made in the configure picker reaches the visible widget the moment the card
     // closes.
