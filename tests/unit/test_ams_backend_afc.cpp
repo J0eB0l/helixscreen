@@ -2062,6 +2062,39 @@ TEST_CASE("AFC print start leaves a printer-side lane remap alone",
     }
 }
 
+TEST_CASE("AFC print start sends no SET_MAP for a free-lane guess",
+          "[ams][afc][tool_mapping][routing][print_start]") {
+    // T3 is routed to lane2, which is empty, and its file states no colour, so
+    // auto color mapping has nothing to match it on (prestonbrown/helixscreen#1862).
+    AfcPrintStartHarness h{{tool_of_unknown_color(3)}};
+    auto& ams = AmsState::instance();
+
+    SECTION("the seed keeps T3 on its routed lane and preflight sees it empty") {
+        h.view.set_filament_mappings(
+            ams.seed_tool_mappings(h.tools, ams.collect_available_slots(), true));
+        const auto seeded = h.view.get_filament_mappings();
+        REQUIRE(seeded.size() == 1);
+        CHECK(seeded[0].mapped_slot == 1);
+        CHECK(seeded[0].reason == helix::ToolMapping::MatchReason::FIRMWARE_MAPPING);
+        CHECK(h.preflight().has_block());
+
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) == std::vector<std::string>{});
+    }
+
+    SECTION("a fallback row that reaches print start is not sent") {
+        helix::ToolMapping guess;
+        guess.tool_index = 3;
+        guess.mapped_slot = 0;
+        guess.mapped_backend = 0;
+        guess.reason = helix::ToolMapping::MatchReason::FREE_LANE_FALLBACK;
+        h.view.set_filament_mappings({guess});
+
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(set_map_commands(h.reg->captured_gcodes) == std::vector<std::string>{});
+    }
+}
+
 namespace {
 // An open print detail view over a registered four-lane AFC (lane N on T N),
 // with a PrintStartController reading its card. The auto-color-map setting is

@@ -155,7 +155,8 @@ SlotKey FilamentMapper::find_closest_color_slot(uint32_t target_color,
 
 std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<GcodeToolInfo>& tools,
                                                           const std::vector<AvailableSlot>& slots,
-                                                          const FirmwareRouting& routing) {
+                                                          const FirmwareRouting& routing,
+                                                          FreeLaneGuess guess) {
     std::vector<ToolMapping> mappings;
     mappings.reserve(tools.size());
 
@@ -233,10 +234,22 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
         {
             const int head = routing.head(tool.tool_index);
             for (const auto& slot : slots) {
+                if (head < 0 || slot.slot_index != head || slot.backend_index != 0) {
+                    continue;
+                }
+                // With guessing refused the tool prints from this lane whatever
+                // it holds, so the seed says so and preflight judges it.
+                if (guess == FreeLaneGuess::Refused) {
+                    mapping.mapped_slot = slot.slot_index;
+                    mapping.mapped_backend = slot.backend_index;
+                    mapping.reason = ToolMapping::MatchReason::FIRMWARE_MAPPING;
+                    mapping.set_mismatches(classify_mismatches(tool, slot));
+                    used_slots.push_back(slot.key());
+                    break;
+                }
                 // Only a LOADED lane can serve as a substitute — an empty lane has
                 // no filament to route the tool to.
-                if (head >= 0 && slot.slot_index == head && slot.backend_index == 0 &&
-                    !slot.is_empty) {
+                if (!slot.is_empty) {
                     auto key = slot.key();
                     if (std::find(used_slots.begin(), used_slots.end(), key) == used_slots.end()) {
                         mapping.mapped_slot = slot.slot_index;
@@ -259,7 +272,7 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
             // incompatible. Unknown/empty materials can't be proven incompatible, so
             // they stay eligible (backends that don't publish material keep this
             // fallback). If none qualifies the tool stays unmatched for preflight.
-            if (mapping.mapped_slot < 0) {
+            if (mapping.mapped_slot < 0 && guess == FreeLaneGuess::Allowed) {
                 for (const auto& slot : slots) {
                     auto key = slot.key();
                     if (slot.is_empty ||
@@ -277,7 +290,7 @@ std::vector<ToolMapping> FilamentMapper::compute_defaults(const std::vector<Gcod
                     }
                     mapping.mapped_slot = slot.slot_index;
                     mapping.mapped_backend = slot.backend_index;
-                    mapping.reason = ToolMapping::MatchReason::COLOR_MATCH;
+                    mapping.reason = ToolMapping::MatchReason::FREE_LANE_FALLBACK;
                     mapping.set_mismatches(flags);
                     used_slots.push_back(key);
                     break;
@@ -325,7 +338,8 @@ FilamentMapper::resolve_display_colors(const std::vector<GcodeToolInfo>& tools,
 std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<GcodeToolInfo>& tools,
                                                             const std::vector<AvailableSlot>& slots,
                                                             bool auto_color_map,
-                                                            const FirmwareRouting& routing) {
+                                                            const FirmwareRouting& routing,
+                                                            FreeLaneGuess guess) {
     if (auto_color_map) {
         // Color/type matching: clear firmware mappings so they don't pre-empt
         // color matches (mirrors FilamentMappingCard's auto-match seeding).
@@ -333,7 +347,7 @@ std::vector<ToolMapping> FilamentMapper::effective_mappings(const std::vector<Gc
         for (auto& s : slots_for_matching) {
             s.current_tool_mapping = -1;
         }
-        return compute_defaults(tools, slots_for_matching, routing);
+        return compute_defaults(tools, slots_for_matching, routing, guess);
     }
     return use_current_assignments(tools, slots, routing);
 }

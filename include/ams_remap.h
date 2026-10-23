@@ -55,6 +55,21 @@ namespace printer {
 }
 
 /**
+ * @brief Does this strategy carry out every lane a seed names, guesses included?
+ *
+ * GcodeRewrite and PrePrintSend send each mapped tool that leaves its routed
+ * head, so a seed's free-lane guess (MatchReason::FREE_LANE_FALLBACK) prints as
+ * shown. Native writes only the user's picks and real colour matches to the
+ * printer's table, and None writes nothing, so a guess shown there would name a
+ * lane the print never uses. Seeds for those refuse the guess
+ * (FreeLaneGuess::Refused) and keep the tool on its routed lane.
+ */
+[[nodiscard]] inline bool remap_carries_out_seed(AmsBackend::RemapStrategy strategy) {
+    return strategy == AmsBackend::RemapStrategy::GcodeRewrite ||
+           strategy == AmsBackend::RemapStrategy::PrePrintSend;
+}
+
+/**
  * @brief Can this backend carry out an explicit user tool->lane choice, now?
  *
  * THE question generic code should ask. Both halves matter: a backend built to

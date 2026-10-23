@@ -1934,11 +1934,8 @@ TEST_CASE("routed_tool_colors: provenance cannot conjure a colour out of nothing
 
 TEST_CASE("compute_defaults: an unknown color never takes a color match",
           "[filament_mapper][compute][color_known]") {
-    // NOTE ON THE ASSERTION: reason cannot discriminate here — the positional
-    // fallback below stamps MatchReason::COLOR_MATCH too (it has since before
-    // this change), so both outcomes report COLOR_MATCH. The slot actually
-    // chosen is the only honest observable, so the fixture is built to make the
-    // two paths pick DIFFERENT slots:
+    // The slot actually chosen is the observable, so the fixture is built to
+    // make the two paths pick DIFFERENT slots:
     //
     //   tool 0, stand-in colour 0x808080  ->  color match wants slot 1 (exact)
     //                                     ->  positional wants slot 0 (index 0)
@@ -2133,4 +2130,93 @@ TEST_CASE("mapped_lane_display_number: an empty lane still reports its number",
     m.mapped_backend = 0;
 
     CHECK(FilamentMapper::mapped_lane_display_number(m, slots) == 3);
+}
+
+// =============================================================================
+// compute_defaults - the free-lane fallback is a guess, not a colour match
+// (prestonbrown/helixscreen#1862)
+// =============================================================================
+
+namespace {
+// T1 (red) colour-matches lane 0, which is T0's routed lane; T0 states no colour.
+std::vector<GcodeToolInfo> claimed_route_tools() {
+    GcodeToolInfo t0{0, 0x808080, "PLA"};
+    t0.color_known = false;
+    return {t0, {1, 0xFF0000, "PLA"}};
+}
+
+std::vector<AvailableSlot> claimed_route_slots() {
+    return {
+        {0, 0, 0xFF0000, "PLA", false, -1}, // red, T0's routed lane
+        {1, 0, 0x00FF00, "PLA", false, -1}, // green, free
+    };
+}
+} // namespace
+
+TEST_CASE("compute_defaults: a free-lane fallback is not labelled a colour match",
+          "[filament_mapper][compute][fallback]") {
+    // Tools are seeded in list order, so T1 goes first: its colour match claims
+    // lane 0 before T0 asks for its routed lane.
+    auto tools = claimed_route_tools();
+    std::swap(tools[0], tools[1]);
+
+    auto result = FilamentMapper::compute_defaults(tools, claimed_route_slots());
+    REQUIRE(result.size() == 2);
+    CHECK(result[0].tool_index == 1);
+    CHECK(result[0].mapped_slot == 0);
+    CHECK(result[0].reason == ToolMapping::MatchReason::COLOR_MATCH);
+    CHECK(result[1].tool_index == 0);
+    CHECK(result[1].mapped_slot == 1); // the guess, still made where it is allowed
+    CHECK(result[1].reason == ToolMapping::MatchReason::FREE_LANE_FALLBACK);
+}
+
+TEST_CASE("compute_defaults: a refused guess keeps the tool on its routed lane",
+          "[filament_mapper][compute][fallback]") {
+    SECTION("routed lane claimed by another tool's colour match") {
+        auto tools = claimed_route_tools();
+        std::swap(tools[0], tools[1]);
+        auto result = FilamentMapper::compute_defaults(tools, claimed_route_slots(), {},
+                                                       FreeLaneGuess::Refused);
+        REQUIRE(result.size() == 2);
+        CHECK(result[0].reason == ToolMapping::MatchReason::COLOR_MATCH);
+        CHECK(result[1].tool_index == 0);
+        CHECK(result[1].mapped_slot == 0);
+        CHECK(result[1].reason == ToolMapping::MatchReason::FIRMWARE_MAPPING);
+    }
+
+    SECTION("routed lane empty: the seed names it, so preflight sees it empty") {
+        std::vector<GcodeToolInfo> tools = {{0, 0x0000FF, "PLA"}};
+        std::vector<AvailableSlot> slots = {
+            {0, 0, 0xFF0000, "PLA", true, -1},  // routed lane, empty
+            {1, 0, 0x00FF00, "PLA", false, -1}, // loaded, would be the guess
+        };
+        auto allowed = FilamentMapper::compute_defaults(tools, slots);
+        REQUIRE(allowed.size() == 1);
+        CHECK(allowed[0].mapped_slot == 1);
+        CHECK(allowed[0].reason == ToolMapping::MatchReason::FREE_LANE_FALLBACK);
+
+        auto refused = FilamentMapper::compute_defaults(tools, slots, {}, FreeLaneGuess::Refused);
+        REQUIRE(refused.size() == 1);
+        CHECK(refused[0].mapped_slot == 0);
+        CHECK(refused[0].reason == ToolMapping::MatchReason::FIRMWARE_MAPPING);
+        CHECK_FALSE(refused[0].is_auto);
+    }
+
+    SECTION("no routed lane at all leaves the tool unresolved") {
+        std::vector<GcodeToolInfo> tools = {{3, 0x0000FF, "PLA"}};
+        auto result = FilamentMapper::compute_defaults(tools, claimed_route_slots(), {},
+                                                       FreeLaneGuess::Refused);
+        REQUIRE(result.size() == 1);
+        CHECK(result[0].is_auto);
+        CHECK(result[0].reason == ToolMapping::MatchReason::AUTO);
+    }
+
+    SECTION("a real colour match is unaffected") {
+        std::vector<GcodeToolInfo> tools = {{0, 0x00FF00, "PLA"}};
+        auto result = FilamentMapper::compute_defaults(tools, claimed_route_slots(), {},
+                                                       FreeLaneGuess::Refused);
+        REQUIRE(result.size() == 1);
+        CHECK(result[0].mapped_slot == 1);
+        CHECK(result[0].reason == ToolMapping::MatchReason::COLOR_MATCH);
+    }
 }

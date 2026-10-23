@@ -116,6 +116,12 @@ struct ToolMapping {
         FIRMWARE_MAPPING, ///< Matched via current firmware tool-to-slot mapping
         COLOR_MATCH,      ///< Matched by closest color
         AUTO,             ///< No explicit mapping, let firmware decide
+        /// No colour matched and the routed lane was empty or taken, so the
+        /// seed settled on some other free loaded lane. A guess, not a match:
+        /// it is carried out only where every seeded lane is
+        /// (helix::printer::remap_carries_out_seed()), never written to a
+        /// printer's mapping table.
+        FREE_LANE_FALLBACK,
     };
     MatchReason reason = MatchReason::AUTO;
 
@@ -149,6 +155,15 @@ struct ToolMapping {
     bool user_picked = false;
 };
 
+/// Whether a seed may put a tool with no colour match and no usable routed lane
+/// on some other free loaded lane (MatchReason::FREE_LANE_FALLBACK). Refused, the
+/// tool stays on the lane the firmware routes it to, empty or shared, so
+/// preflight judges the lane that will actually print.
+enum class FreeLaneGuess {
+    Allowed,
+    Refused,
+};
+
 /// Pure logic class for computing filament-to-tool mappings.
 /// No LVGL dependency — takes data in, returns mappings out.
 /// All methods are static and thread-safe.
@@ -156,10 +171,11 @@ class FilamentMapper {
   public:
     /// Compute default mappings for all tools.
     /// Priority: firmware mapping -> color match -> the lane @p routing sends the
-    /// tool to -> any free loaded lane -> auto
+    /// tool to -> any free loaded lane (only when @p guess allows it) -> auto
     static std::vector<ToolMapping> compute_defaults(const std::vector<GcodeToolInfo>& tools,
                                                      const std::vector<AvailableSlot>& slots,
-                                                     const FirmwareRouting& routing = {});
+                                                     const FirmwareRouting& routing = {},
+                                                     FreeLaneGuess guess = FreeLaneGuess::Allowed);
 
     /// Replace every entry of @p current the user did not pick with @p seed's
     /// entry for the same tool. True when anything changed.
@@ -232,10 +248,11 @@ class FilamentMapper {
     /// so the card, the print-file swatch/preflight, and the live render all
     /// resolve the same way. Pure; no LVGL/AMS/Settings dependency (caller
     /// passes the resolved bool).
-    static std::vector<ToolMapping> effective_mappings(const std::vector<GcodeToolInfo>& tools,
-                                                       const std::vector<AvailableSlot>& slots,
-                                                       bool auto_color_map,
-                                                       const FirmwareRouting& routing = {});
+    static std::vector<ToolMapping>
+    effective_mappings(const std::vector<GcodeToolInfo>& tools,
+                       const std::vector<AvailableSlot>& slots, bool auto_color_map,
+                       const FirmwareRouting& routing = {},
+                       FreeLaneGuess guess = FreeLaneGuess::Allowed);
 
     /// Render convenience: effective_mappings + resolve_display_colors, scattered
     /// into a DENSE vector indexed by logical tool number (size = max

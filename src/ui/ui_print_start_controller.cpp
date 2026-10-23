@@ -876,7 +876,8 @@ namespace {
 // Only a lane the user picked, or one auto color matching chose, asks the
 // printer to change. Every other entry is a seed that means "follow the
 // printer", and a seed taken before the printer's table last moved would
-// overwrite it.
+// overwrite it. A free-lane fallback is a guess with no colour behind it, so it
+// never overwrites the printer's table either (prestonbrown/helixscreen#1862).
 bool sends_remap(const helix::ToolMapping& m) {
     return !m.is_auto && m.mapped_slot >= 0 &&
            (m.user_picked || m.reason == helix::ToolMapping::MatchReason::COLOR_MATCH);
