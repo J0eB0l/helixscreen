@@ -873,7 +873,7 @@ void BeltTensionPanel::refresh_names() {
     refresh_notes();
 
     if (last_cmp_.valid) {
-        refresh_unpaired(last_cmp_);
+        refresh_peak_lines(last_cmp_);
     }
     refresh_run_title();
     refresh_tune();
@@ -1292,21 +1292,7 @@ void BeltTensionPanel::populate_results(const helix::calibration::BeltComparison
     lv_subject_copy_string(&similarity_subject_, similarity_buf_);
     similarity_percent_ = cmp.similarity_percent;
 
-    // Paired peaks, strongest first: "Peaks 35/36 · 133/132 Hz" (A/B).
-    const auto& pairs = cmp.peaks.pairs;
-    std::string pair_list;
-    for (size_t i = 0; i < pairs.size() && i < kMaxListedPeaks; ++i) {
-        pair_list += fmt::format("{}{:.0f}/{:.0f}", i == 0 ? "" : " · ", pairs[i].a.freq_hz,
-                                 pairs[i].b.freq_hz);
-    }
-    const std::string facts =
-        (pair_list.empty() ? std::string(lv_tr("No shared peaks"))
-                           : fmt::format(fmt::runtime(lv_tr("Peaks {} Hz")), pair_list)) +
-        tune_facts_suffix_;
-    snprintf(facts_buf_, sizeof(facts_buf_), "%s", facts.c_str());
-    lv_subject_copy_string(&facts_subject_, facts_buf_);
-
-    refresh_unpaired(cmp);
+    refresh_peak_lines(cmp);
 
     lv_subject_copy_string(&tune_cta_subject_,
                            cmp.verdict == helix::calibration::BeltVerdict::MATCHED
@@ -1319,7 +1305,24 @@ void BeltTensionPanel::populate_results(const helix::calibration::BeltComparison
     push_chart_data();
 }
 
-void BeltTensionPanel::refresh_unpaired(const helix::calibration::BeltComparison& cmp) {
+void BeltTensionPanel::refresh_peak_lines(const helix::calibration::BeltComparison& cmp) {
+    // Paired peaks, strongest first, each pair in header-slot order:
+    // "Peaks 35/36 · 133/132 Hz".
+    const bool b_first = helix::ui::belt_path_in_slot(0) == BeltPath::PATH_B;
+    const auto& pairs = cmp.peaks.pairs;
+    std::string pair_list;
+    for (size_t i = 0; i < pairs.size() && i < kMaxListedPeaks; ++i) {
+        const float left = b_first ? pairs[i].b.freq_hz : pairs[i].a.freq_hz;
+        const float right = b_first ? pairs[i].a.freq_hz : pairs[i].b.freq_hz;
+        pair_list += fmt::format("{}{:.0f}/{:.0f}", i == 0 ? "" : " · ", left, right);
+    }
+    const std::string facts =
+        (pair_list.empty() ? std::string(lv_tr("No shared peaks"))
+                           : fmt::format(fmt::runtime(lv_tr("Peaks {} Hz")), pair_list)) +
+        tune_facts_suffix_;
+    snprintf(facts_buf_, sizeof(facts_buf_), "%s", facts.c_str());
+    lv_subject_copy_string(&facts_subject_, facts_buf_);
+
     // Unpaired peaks, the strongest few per path, in frequency order:
     // "Only on Path A: 120, 129 Hz".
     const auto listed = [](std::vector<helix::calibration::BeltPeak> peaks) {

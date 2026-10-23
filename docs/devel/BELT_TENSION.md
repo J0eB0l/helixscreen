@@ -333,7 +333,7 @@ correlates only the swept band.
 - Sides: two header slots, left then right, each a path name (`bt_slot_0_name` /
   `bt_slot_1_name`; tapping one opens "Which belt is which?") over its status
   (`bt_slot_0_note` / `bt_slot_1_note`). Path A is on the left unless the layout names A the
-  right belt: then B takes the left slot (`bt_slots_swapped`, which swaps the name colors too)
+  right belt: then B takes the left slot (`bt_slots_swapped`, which swaps the name colors too, and each "Peaks" pair reads in the same order)
   so the screen matches the printer. The Re-test buttons and the compact Re-test menu follow
   the same order. One function decides it, `include/ui_belt_path_names.h#belt_path_in_slot`;
   the chart keeps its colors. The status: "sweeping" for the

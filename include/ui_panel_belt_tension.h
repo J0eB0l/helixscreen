@@ -296,8 +296,9 @@ class BeltTensionPanel : public OverlayBase {
     /// the headers and Re-test buttons, the unpaired-peak line, run title, the
     /// tuning strings and the START sketch.
     void refresh_names();
-    /// bt_unpaired from a comparison, under the current path names.
-    void refresh_unpaired(const helix::calibration::BeltComparison& cmp);
+    /// bt_facts and bt_unpaired from a comparison, in header-slot order and
+    /// under the current path names.
+    void refresh_peak_lines(const helix::calibration::BeltComparison& cmp);
     void set_identify_status(int state, const std::string& text);
     void hide_names_dialog();
     /// RESULTS keeps the notes' ages current on this timer.

@@ -4106,3 +4106,18 @@ TEST_CASE("compact tuning's pencil opens the names dialog instead of swapping",
     CHECK(fx.panel_session() == session);
     CHECK(fx.state_int("belt_tension_state") == kTuning);
 }
+
+TEST_CASE("the peak pairs read in header-slot order", "[belt][panel][names]") {
+    BeltPanelFixture fx;
+    fx.mock().set_belt_peaks_hz(104.0f, 101.0f);
+    REQUIRE(fx.wait_gate_open());
+    fx.panel().handle_start_clicked();
+    REQUIRE(fx.pump_until_state(kResults));
+    INFO("facts: " << fx.text("bt_facts"));
+    REQUIRE(fx.text("bt_facts").find("104/101") != std::string::npos);
+
+    set_layout(helix::calibration::BeltLayout::A_RIGHT_B_LEFT);
+    INFO("facts after the swap: " << fx.text("bt_facts"));
+    CHECK(fx.text("bt_facts").find("101/104") != std::string::npos);
+    CHECK(fx.text("bt_facts").find("104/101") == std::string::npos);
+}
