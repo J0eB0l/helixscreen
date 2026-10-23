@@ -3877,11 +3877,15 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
             }
         }
 
-        active_gcode_tool_.store(dominant);
-        spdlog::debug(
-            "[MoonrakerClientMock] Active gcode tool: T{} (from per-tool weights, max {:.2f}g)",
-            dominant, max_w);
-        notify_active_gcode_tool_observers(dominant);
+        // A file with no per-tool weights names no tool: a real printer keeps
+        // printing on whichever head is already active, so the active tool stays.
+        if (dominant >= 0) {
+            active_gcode_tool_.store(dominant);
+            spdlog::debug(
+                "[MoonrakerClientMock] Active gcode tool: T{} (from per-tool weights, max {:.2f}g)",
+                dominant, max_w);
+            notify_active_gcode_tool_observers(dominant);
+        }
     }
 
     // Set temperature targets for preheat
