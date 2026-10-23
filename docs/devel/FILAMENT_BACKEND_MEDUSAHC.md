@@ -173,6 +173,11 @@ gate's move refusal changes nothing for the run (the purge and retract open with
 A stage that times out (`kAmsOperationTimeoutMs`) or errors unwinds the run like any
 failed stage.
 
+`TEMPERATURE_WAIT` holds Klipper's gcode queue until the temperature is reached. A Cancel
+during Heat takes effect only after the wait ends: its cleanup queues behind it. If
+another client zeroes that heater mid-wait, the run's 300 s timeout fires and the run
+unwinds, but Klipper itself stays in the wait until `M112` or a restart.
+
 **The dock sensors confirm every swap.** A Mount or planned Restore that acks is not done
 until the sensors place the expected tool on the carriage (`-1` after a park). The answer
 can lead the frame that reports the finished swap, so the run waits up to
@@ -181,7 +186,15 @@ or a different tool stops the run WITHOUT a restore - the carriage is unknown, a
 goes out against it - with heaters off by name and the toast "Load stopped. Dock sensors
 cannot tell which tool is mounted". Outside a swap, any sensor fault under a live run stops
 it the same way, and once the run is over the fault shows as the backend's `ERROR`. A
-cleanup counts as a swap only when it actually puts the carriage back.
+cleanup counts as a swap only when it actually puts the carriage back. The operator
+prompt tolerates a transient unreported `-2` too, since pushing a strand into a docked hot
+end can jostle a dock switch; one that outlasts the prompt fails the Mount's confirmation.
+
+Every other way a run stops - a failed stage, Cancel, a lost connection - asks
+`carriage_trusted_for_restore()` before sending the restore: with dock sensors, a swap in
+flight or waiting on its confirmation, or a fault they report, leaves the carriage
+unknown, and the cleanup turns the heaters off without it. A machine with no dock sensors
+always restores.
 
 The prompt is Klipper's own action prompt, raised with `RESPOND TYPE=command` lines, so it
 shows on this screen and on Mainsail/Fluidd alike, and it needs `[respond]`. Its payload is

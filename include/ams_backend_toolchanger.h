@@ -580,6 +580,12 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// The dock sensors cannot vouch for the carriage under a live run: stop it
     /// without sending any swap, and say why.
     void on_feed_sensor_fault();
+    /// Whether an unwinding run may send its restore swap. With dock sensors,
+    /// only when no swap is in flight or waiting on them and they report no
+    /// fault: a swap that failed partway leaves the carriage unknown. Without
+    /// sensors there is nothing to consult, and the restore goes out. Main
+    /// thread; takes mutex_.
+    [[nodiscard]] bool carriage_trusted_for_restore() const;
     void set_swap_watchdog(bool armed);
     /// The operator wait outlived its timeout: unwind the run and say so.
     void handle_wait_elapsed(uint32_t elapsed_ms);
@@ -627,6 +633,8 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     ToastSeverity feed_last_toast_severity_ = ToastSeverity::INFO;
     /// The stage in flight swaps the carriage. Guarded by mutex_.
     bool feed_swap_in_flight_ = false;
+    /// The stage in flight is the operator prompt. Guarded by mutex_.
+    bool feed_prompt_up_ = false;
     /// A sensor fault arrived under a live run. Set under mutex_ by the frame,
     /// acted on (main thread) once the frame is applied.
     bool feed_sensor_fault_ = false;

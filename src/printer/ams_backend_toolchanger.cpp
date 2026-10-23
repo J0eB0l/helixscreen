@@ -820,7 +820,10 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     // swap a stage sends, so a stage that swaps counts as a swap on its own.
     // Only for the fault rule: the run republishes the action, phase and step
     // after every frame, so nothing else here decides what it shows.
-    const bool feed_swap_in_flight = feed_active_ && feed_swap_in_flight_;
+    // The prompt stage tolerates the same transient: the operator is pushing a
+    // strand into a docked hot end, which can jostle a dock switch. A -2 that
+    // outlasts it is caught when the Mount is confirmed.
+    const bool feed_swap_in_flight = feed_active_ && (feed_swap_in_flight_ || feed_prompt_up_);
 
     if (reading.current_tool.has_value()) {
         sensor_tool_reading_ = reading.current_tool;
@@ -1657,6 +1660,9 @@ AmsError AmsBackendToolChanger::start_mount_feed(const std::vector<int>& heads, 
         std::lock_guard<std::mutex> lock(mutex_);
         feed_active_ = true;
         feed_action_ = load ? AmsAction::LOADING : AmsAction::UNLOADING;
+        // A fault flagged with no run to stop (another path applies readings
+        // too) must not stop this one on its first frame.
+        feed_sensor_fault_ = false;
     }
     send_feed_stage();
     return AmsErrorHelper::success();
@@ -1699,6 +1705,8 @@ void AmsBackendToolChanger::send_feed_stage() {
             std::lock_guard<std::mutex> lock(mutex_);
             feed_active_ = false;
             feed_swap_in_flight_ = false;
+            feed_prompt_up_ = false;
+            feed_sensor_fault_ = false;
             feed_phase_ = -1;
             feed_step_action_.reset();
             system_info_.action = AmsAction::IDLE;
@@ -1722,6 +1730,7 @@ void AmsBackendToolChanger::send_feed_stage() {
         feed_step_action_ = mf::step_action(feed_run_->current_step());
         const mf::Stage* stage = feed_run_->current_stage();
         feed_swap_in_flight_ = stage != nullptr && stage->swaps;
+        feed_prompt_up_ = stage != nullptr && stage->awaits_operator;
         publish_feed_state_locked();
     }
     emit_event(EVENT_STATE_CHANGED);
@@ -1828,6 +1837,17 @@ void AmsBackendToolChanger::handle_swap_check_elapsed() {
     on_feed_sensor_fault();
 }
 
+bool AmsBackendToolChanger::carriage_trusted_for_restore() const {
+    if (!tool_sensor_.present) {
+        return true;
+    }
+    if (feed_swap_check_) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    return !feed_swap_in_flight_ && !raw_sensor_fault_locked();
+}
+
 void AmsBackendToolChanger::on_feed_sensor_fault() {
     feed_swap_check_.reset();
     set_swap_watchdog(false);
@@ -1877,7 +1897,7 @@ void AmsBackendToolChanger::on_feed_stage_failed(uint64_t generation, const std:
     // failure inside the cleanup ends the run where it stands.
     spdlog::warn("[AMS ToolChanger] Mount-to-feed stage failed ({}); cleaning up", message);
     toast_partial_run(FeedStopReason::Failed, feed_run_->completed_heads());
-    feed_run_->abort();
+    feed_run_->abort(carriage_trusted_for_restore());
     ++feed_generation_;
     send_feed_stage();
 }
@@ -2001,7 +2021,7 @@ void AmsBackendToolChanger::abandon_feed_run_after_disconnect() {
     // reset the run now, rather than leaving a hot nozzle behind bookkeeping.
     spdlog::warn("[AMS ToolChanger] Connection lost under a mount-to-feed run; sending the "
                  "cleanup and resetting the run");
-    feed_run_->abort();
+    feed_run_->abort(carriage_trusted_for_restore());
     const std::optional<std::string> cleanup = feed_run_->current_gcode();
     feed_run_.reset();
     feed_swap_check_.reset();
@@ -2011,6 +2031,8 @@ void AmsBackendToolChanger::abandon_feed_run_after_disconnect() {
         std::lock_guard<std::mutex> lock(mutex_);
         feed_active_ = false;
         feed_swap_in_flight_ = false;
+        feed_prompt_up_ = false;
+        feed_sensor_fault_ = false;
         feed_phase_ = -1;
         feed_step_action_.reset();
         system_info_.action = AmsAction::IDLE;
@@ -2286,9 +2308,9 @@ void AmsBackendToolChanger::on_klipper_restarted() {
 
 AmsError AmsBackendToolChanger::cancel() {
     if (feed_run_ && !feed_run_->aborted()) {
-        spdlog::info("[AMS ToolChanger] Cancel: heater off and the carriage restored");
+        spdlog::info("[AMS ToolChanger] Cancel: unwinding the mount-to-feed run");
         toast_partial_run(FeedStopReason::Cancelled, feed_run_->completed_heads());
-        feed_run_->abort();
+        feed_run_->abort(carriage_trusted_for_restore());
         // An ack still in flight belongs to the stage being dropped. Klipper
         // queues the cleanup behind it, so the heater goes off once it is done.
         ++feed_generation_;

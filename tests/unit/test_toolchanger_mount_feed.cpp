@@ -1254,3 +1254,87 @@ TEST_CASE("MedusaHC words a mixed load's prompt for the mounted tool and the doc
                                "goes, and into the hot end of Tool 3 while it is docked, then "
                                "tap Continue") != std::string::npos);
 }
+
+// ============================================================================
+// A carriage nothing can vouch for is never restored
+// ============================================================================
+
+TEST_CASE("MedusaHC: a Mount stage that fails sends no restore swap",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(-2)); // the swap stopped partway
+    tc.fail();                    // the machine's T1 reported `!!`
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+}
+
+TEST_CASE("MedusaHC: a Cancel while a swap waits on the sensors sends no restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.ack(); // acked, waiting on the frame that confirms it
+    REQUIRE(tc.cancel().success());
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+}
+
+TEST_CASE("MedusaHC: losing the connection mid-Mount sends no restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    ToolChangerTestAccess::feed_disconnect_stopping(tc);
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+}
+
+TEST_CASE("MedusaHC: a Cancel after a confirmed Mount still restores the carriage",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(1));
+    tc.ack(); // mounted and confirmed; heating
+    REQUIRE(tc.cancel().success());
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0\n"
+                             "SELECT_TOOL T=0");
+}
+
+TEST_CASE("MedusaHC: a dock sensor jostled while the operator inserts is no fault",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    const size_t sent_before = tc.sent_.size();
+    tc.feed(pin_watch_frame(-2));
+    tc.feed(pin_watch_frame(0));
+    CHECK(tc.sent_.size() == sent_before);
+    CHECK(tc.can_cancel_operation());
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode() + "\nSELECT_TOOL T=1");
+}
+
+TEST_CASE("MedusaHC: a fault the controller reports at the prompt still stops the run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"current_tool", 0}, {"sensor_error", false}}}});
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    tc.feed(json{{"medusahc", {{"sensor_error", true}}}});
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode());
+}
+
+TEST_CASE("MedusaHC: a sensor fault left over from before a run does not stop the next one",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    ToolChangerTestAccess::set_feed_sensor_fault(tc);
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    tc.feed(json{{"medusahc", {{"operation", "idle"}}}});
+    CHECK(tc.can_cancel_operation());
+    CHECK(tc.sent_.back().find("action:prompt_show") != std::string::npos);
+}
