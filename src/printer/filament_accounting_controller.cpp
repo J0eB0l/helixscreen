@@ -76,6 +76,13 @@ bool helix_sets_active_spool(const AmsBackend* backend) {
            ActiveSpoolOwner::Helix;
 }
 
+bool helix_sets_active_spool_on_edit(const AmsBackend* backend, bool external_spool) {
+    const bool manages = backend != nullptr && backend->manages_active_spool();
+    return app_sets_spool_on_edit(active_spool_owner_now(/*spoolman=*/true, manages),
+                                  !external_spool && backend != nullptr &&
+                                      backend->sets_active_spool_on_link());
+}
+
 FilamentAccountingController::FilamentAccountingController() {
     auto& ps = get_printer_state();
     probe_observer_ = observe<int>(

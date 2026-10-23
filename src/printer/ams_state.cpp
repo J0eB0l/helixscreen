@@ -2324,11 +2324,11 @@ AmsError AmsState::commit_slot_edit(int slot_index, const SlotInfo& original,
 
     // S1 — server-side active spool (fire-and-forget, warn on failure). The
     // active spool is the one feeding the toolhead, so only an edit on the
-    // loaded lane sets or clears it. It sets one only where nothing else
-    // switches it; an unlink always clears, since no firmware drops a link
-    // Moonraker holds.
+    // loaded lane sets or clears it. It sets one unless the printer takes the
+    // link itself (helix_sets_active_spool_on_edit); an unlink always clears,
+    // since no firmware drops a link Moonraker holds.
     if (api_ && backend->slot_is_actively_loaded(slot_index)) {
-        if (info.spoolman_id > 0 && helix_sets_active_spool(backend)) {
+        if (info.spoolman_id > 0 && helix_sets_active_spool_on_edit(backend)) {
             api_->spoolman().set_active_spool(
                 info.spoolman_id, []() {},
                 [](const MoonrakerError& err) {

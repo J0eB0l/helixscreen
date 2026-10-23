@@ -63,6 +63,15 @@ ActiveSpoolOwner active_spool_owner(bool spoolman, bool manages_active_spool,
 /// with Spoolman configured).
 bool printer_switches_active_spool(const PrinterDiscovery& hw);
 
+/// Whether this app sets the active spool for the user's explicit link of the
+/// loaded lane (or the external spool). The automatic switches stand down for
+/// any owner but Helix; an edit is different, because a switcher that acts on
+/// a load or a tool change never sees it. So: Helix sets; Backend sets unless
+/// the backend sets it itself on a link (@p backend_sets_on_link); Macros
+/// sets, since the macros run only at the next tool change; Printer leaves it
+/// to firmware that keeps its own assignment (SpoolLink); NoSpoolman has none.
+bool app_sets_spool_on_edit(ActiveSpoolOwner owner, bool backend_sets_on_link);
+
 /// The record spelling of an owner, as the case table names it.
 const char* active_spool_owner_name(ActiveSpoolOwner owner);
 

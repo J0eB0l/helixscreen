@@ -303,3 +303,17 @@ TEST_CASE("filament accounting: its switch lives on the Spoolman page", "[plugin
     INFO("acts on spools: off until opted into");
     CHECK_FALSE(plugin_feature_opted_in(json::object(), kFilamentAccountingFeature, true));
 }
+
+TEST_CASE("filament accounting: who sets the spool for an explicit link of the loaded lane",
+          "[plugin_filament]") {
+    CHECK(app_sets_spool_on_edit(ActiveSpoolOwner::Helix, false));
+    INFO("a backend that switches only on a load never sees the edit");
+    CHECK(app_sets_spool_on_edit(ActiveSpoolOwner::Backend, false));
+    INFO("one that takes the link itself (AFC) is left to it");
+    CHECK_FALSE(app_sets_spool_on_edit(ActiveSpoolOwner::Backend, true));
+    INFO("T<n> macros run only at the next tool change");
+    CHECK(app_sets_spool_on_edit(ActiveSpoolOwner::Macros, false));
+    INFO("firmware keeping its own assignment (SpoolLink) is left to it");
+    CHECK_FALSE(app_sets_spool_on_edit(ActiveSpoolOwner::Printer, false));
+    CHECK_FALSE(app_sets_spool_on_edit(ActiveSpoolOwner::NoSpoolman, false));
+}

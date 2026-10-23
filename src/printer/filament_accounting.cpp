@@ -39,6 +39,20 @@ ActiveSpoolOwner active_spool_owner(bool spoolman, bool manages_active_spool,
     return ActiveSpoolOwner::Helix;
 }
 
+bool app_sets_spool_on_edit(ActiveSpoolOwner owner, bool backend_sets_on_link) {
+    switch (owner) {
+    case ActiveSpoolOwner::Helix:
+    case ActiveSpoolOwner::Macros:
+        return true;
+    case ActiveSpoolOwner::Backend:
+        return !backend_sets_on_link;
+    case ActiveSpoolOwner::Printer:
+    case ActiveSpoolOwner::NoSpoolman:
+        return false;
+    }
+    return false;
+}
+
 const char* active_spool_owner_name(ActiveSpoolOwner owner) {
     switch (owner) {
     case ActiveSpoolOwner::NoSpoolman:

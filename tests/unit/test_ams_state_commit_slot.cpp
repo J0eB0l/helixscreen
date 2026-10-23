@@ -57,6 +57,19 @@ class ManagesActiveSpoolMock : public AmsBackendMock {
     [[nodiscard]] bool manages_active_spool() const override {
         return true;
     }
+    [[nodiscard]] bool sets_active_spool_on_link() const override {
+        return true;
+    }
+};
+
+/// Happy-Hare-shaped: switches the active spool on a gate load only, so a link
+/// edit of the loaded gate is never seen as one.
+class ActivatesOnLoadOnlyMock : public AmsBackendMock {
+  public:
+    using AmsBackendMock::AmsBackendMock;
+    [[nodiscard]] bool manages_active_spool() const override {
+        return true;
+    }
 };
 
 /// A Spoolman record the identity cache will accept (mirrors the helper in
@@ -177,6 +190,11 @@ struct CommitFixture : LVGLTestFixture {
         auto owned = std::make_unique<ManagesActiveSpoolMock>(4);
         owned->set_afc_mode(true);
         return install(std::move(owned), spoolman_id);
+    }
+
+    /// Same, with a backend that switches the spool only on a load.
+    MoonrakerAPIMock* setup_activates_on_load_only(int spoolman_id) {
+        return install(std::make_unique<ActivatesOnLoadOnlyMock>(4), spoolman_id);
     }
 
   private:
@@ -438,9 +456,9 @@ TEST_CASE("commit_slot_edit makes the spool active when linking the loaded lane"
     CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 147);
 }
 
-TEST_CASE("commit_slot_edit leaves the active spool to a backend that switches it",
+TEST_CASE("commit_slot_edit leaves the active spool to a backend that takes the link itself",
           "[ams][spoolman][commit][plugin_filament]") {
-    // AFC sets the active spool itself once its lane carries the new id.
+    // AFC sets the active spool itself when SET_SPOOL_ID names the loaded lane.
     CommitFixture f;
     f.setup_manages_active_spool(0);
     REQUIRE(f.backend->slot_is_actively_loaded(0));
@@ -452,6 +470,23 @@ TEST_CASE("commit_slot_edit leaves the active spool to a backend that switches i
     REQUIRE(AmsState::instance().commit_slot_edit(0, original, linked).success());
 
     CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 5);
+}
+
+TEST_CASE("commit_slot_edit sets the spool for a backend that switches only on a load",
+          "[ams][spoolman][commit][plugin_filament]") {
+    // Happy Hare activates a gate's spool when the gate loads; a link of the
+    // gate already loaded never reaches that, so the edit sets it.
+    CommitFixture f;
+    f.setup_activates_on_load_only(0);
+    REQUIRE(f.backend->slot_is_actively_loaded(0));
+    f.client.spoolman_mock().set_active_spool_id(5);
+
+    SlotInfo original = f.backend->get_slot_info(0);
+    SlotInfo linked = original;
+    linked.spoolman_id = 147;
+    REQUIRE(AmsState::instance().commit_slot_edit(0, original, linked).success());
+
+    CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 147);
 }
 
 TEST_CASE("commit_slot_edit leaves server active spool alone on a no-link clear",

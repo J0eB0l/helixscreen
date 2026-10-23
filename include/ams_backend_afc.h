@@ -294,6 +294,11 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     [[nodiscard]] bool manages_active_spool() const override {
         return true;
     }
+    /// SET_SPOOL_ID on the lane loaded to the toolhead calls its own
+    /// set_active_spool (AFC_spool.py#cmd_SET_SPOOL_ID).
+    [[nodiscard]] bool sets_active_spool_on_link() const override {
+        return true;
+    }
 
     /**
      * @brief Does this lane status payload prove AFC publishes the v1.2.0 field set?

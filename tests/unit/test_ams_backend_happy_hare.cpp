@@ -2822,6 +2822,16 @@ TEST_CASE("Happy Hare manages_active_spool=false when spoolman off (default)",
     REQUIRE(helper.manages_active_spool() == false);
 }
 
+TEST_CASE("Happy Hare activates a spool only on a gate load, not on a link",
+          "[ams][happy_hare][spoolman][plugin_filament]") {
+    helix::test::RegisteredBackend<AmsBackendHappyHareTestHelper> helper_reg;
+    AmsBackendHappyHareTestHelper& helper = *helper_reg;
+    helper.initialize_test_gates(4);
+    helper.test_parse_mmu_state({{"spoolman_support", "push"}});
+    REQUIRE(helper.manages_active_spool());
+    CHECK_FALSE(helper.sets_active_spool_on_link());
+}
+
 TEST_CASE("Happy Hare reports the manages_active_spool the shared case table claims",
           "[ams][happy_hare][spoolman][plugin_filament]") {
     const auto rows = helix::test::ownership_rows_for("Happy Hare");

@@ -161,9 +161,10 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info) {
     assert_main_thread();
 
     // S1 — match the server active spool to what we are committing: set it
-    // only where nothing else switches it; a clear always goes out
+    // unless the printer keeps its own assignment; a clear always goes out
     if (api_) {
-        if (info.spoolman_id > 0 && helix_sets_active_spool(get_backend())) {
+        if (info.spoolman_id > 0 &&
+            helix_sets_active_spool_on_edit(get_backend(), /*external_spool=*/true)) {
             api_->spoolman().set_active_spool(
                 info.spoolman_id, []() {},
                 [](const MoonrakerError& err) {
@@ -194,7 +195,8 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info, std::function<vo
 
     invalidate_stale_external_identity(info);
 
-    if (api_ && info.spoolman_id > 0 && helix_sets_active_spool(get_backend())) {
+    if (api_ && info.spoolman_id > 0 &&
+        helix_sets_active_spool_on_edit(get_backend(), /*external_spool=*/true)) {
         // Server-first: the store subset waits for the server round-trip. The
         // API callbacks fire on a background thread, so both the store write
         // and the caller's completion are marshalled to the main thread.

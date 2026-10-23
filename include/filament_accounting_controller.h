@@ -35,6 +35,12 @@ ActiveSpoolOwner active_spool_owner_now(bool spoolman, bool backend_manages_acti
 /// Every path that sets it from a lane or spool edit asks this.
 bool helix_sets_active_spool(const AmsBackend* backend);
 
+/// Whether HelixScreen sets the active spool for the user's explicit link of
+/// the loaded lane of @p backend, or of the external spool (@p
+/// external_spool: no lane of the backend's carries it):
+/// app_sets_spool_on_edit() over active_spool_owner_now().
+bool helix_sets_active_spool_on_edit(const AmsBackend* backend, bool external_spool = false);
+
 class FilamentAccountingController {
   public:
     FilamentAccountingController();

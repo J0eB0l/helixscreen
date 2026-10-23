@@ -5447,6 +5447,12 @@ TEST_CASE("AFC backend reports manages_active_spool=true", "[ams][afc][spoolman]
     REQUIRE(helper.manages_active_spool() == true);
 }
 
+TEST_CASE("AFC sets the active spool itself on a link of the loaded lane",
+          "[ams][afc][spoolman][plugin_filament]") {
+    AmsBackendAfcTestHelper helper;
+    CHECK(helper.sets_active_spool_on_link());
+}
+
 TEST_CASE("AFC reports the manages_active_spool the shared case table claims",
           "[ams][afc][spoolman][plugin_filament]") {
     const auto rows = helix::test::ownership_rows_for("AFC");
