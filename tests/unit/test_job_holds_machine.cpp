@@ -386,6 +386,8 @@ constexpr const char* kNoMachineControlFiles[] = {
     // (gate_allows_sweep, which closes on an active print) rather than
     // moves_machine, the same as panel_belt_tension.xml.
     "ui_xml/belt_retest_menu.xml",
+    // Identify buzzes a motor: refused by the same Start gate in C++.
+    "ui_xml/belt_names_modal.xml",
     "ui_xml/calibration_pid_panel.xml",
     "ui_xml/calibration_zoffset_panel.xml",
     "ui_xml/change_host_modal.xml",

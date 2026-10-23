@@ -11,8 +11,8 @@ namespace helix::ui {
 
 void BeltRetestMenu::register_callbacks() {
     register_xml_callbacks({
-        {"belt_retest_menu_a_cb", [](lv_event_t*) { pick(kActionPathA); }},
-        {"belt_retest_menu_b_cb", [](lv_event_t*) { pick(kActionPathB); }},
+        {"belt_retest_menu_a_cb", [](lv_event_t*) { pick(kActionSlot0); }},
+        {"belt_retest_menu_b_cb", [](lv_event_t*) { pick(kActionSlot1); }},
     });
 }
 

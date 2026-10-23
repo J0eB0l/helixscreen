@@ -875,6 +875,22 @@ class SettingsManager {
     }
 
     // =========================================================================
+    // BELT NAMES (per-printer; the names live in helix::ui::belt_path_name)
+    // =========================================================================
+
+    /// Which physical belt each Belt Tension path is, as a
+    /// helix::calibration::BeltLayout (0 = not set).
+    int get_belt_layout() const {
+        return settings_.get(Key::BeltLayout);
+    }
+    void set_belt_layout(int layout) {
+        settings_.set(Key::BeltLayout, layout);
+    }
+    lv_subject_t* subject_belt_layout() {
+        return settings_.subject(Key::BeltLayout);
+    }
+
+    // =========================================================================
     // BARCODE SCANNER (owned by SettingsManager — manual device selection)
     // =========================================================================
 
@@ -948,6 +964,7 @@ class SettingsManager {
         DetectionPauseOnDetect,
         DetectionPolicyU1,
         ZOffsetSaveMode,
+        BeltLayout,
         COUNT
     };
     settings::PersistedSettings<Key, static_cast<size_t>(Key::COUNT)> settings_;

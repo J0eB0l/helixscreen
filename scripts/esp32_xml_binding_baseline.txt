@@ -1,12 +1,15 @@
 # XML bindings the desktop registers and the ESP32 firmware does not.
 # Accepted debt, shrink-only: register the name on the firmware, then
 # re-run scripts/check_esp32_xml_bindings.py with --write-baseline.
+callback:belt_names_layout_cb
 callback:belt_retest_menu_a_cb
 callback:belt_retest_menu_b_cb
 callback:belt_tension_help_cb
-callback:belt_tension_retest_a_cb
-callback:belt_tension_retest_b_cb
+callback:belt_tension_identify_a_cb
+callback:belt_tension_identify_b_cb
+callback:belt_tension_names_cb
 callback:belt_tension_retest_menu_cb
+callback:belt_tension_retest_slot_cb
 callback:belt_tension_retry_cb
 callback:belt_tension_start_cb
 callback:belt_tension_stop_cb
@@ -131,6 +134,7 @@ callback:on_pa_tune_step
 callback:on_pa_tune_tool
 callback:on_part_fan_dropdown_changed
 callback:on_pid_abort
+callback:on_pid_cal_tool
 callback:on_pid_done
 callback:on_pid_heater_bed
 callback:on_pid_heater_extruder
@@ -231,14 +235,19 @@ subject:bt_has_unpaired
 subject:bt_hw_accel
 subject:bt_hw_kinematics
 subject:bt_hw_sweep
-subject:bt_note_a
-subject:bt_note_b
+subject:bt_identify_state
+subject:bt_identify_status
 subject:bt_run_detail
 subject:bt_run_title
 subject:bt_running_path
 subject:bt_scanning
 subject:bt_similarity
 subject:bt_similarity_was
+subject:bt_slot_0_name
+subject:bt_slot_0_note
+subject:bt_slot_1_name
+subject:bt_slot_1_note
+subject:bt_slots_swapped
 subject:bt_tune_amount
 subject:bt_tune_baseline
 subject:bt_tune_can_swap
@@ -267,7 +276,7 @@ subject:bt_tune_rate
 subject:bt_tune_round
 subject:bt_tune_severity
 subject:bt_tune_shape_warning
-subject:bt_tune_swap_label
+subject:bt_tune_tensioner
 subject:bt_tune_unrepeatable
 subject:bt_tune_zone
 subject:bt_unpaired

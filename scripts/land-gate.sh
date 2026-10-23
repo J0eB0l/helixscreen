@@ -16,7 +16,8 @@
 #                     runs past the sweep's 300s SHARD_TIMEOUT on a slower host
 #                     without hanging. SHARD_CRASH_FAILS=1 fails a shard that
 #                     crashes after its assertions passed, as CI's step does.
-#   bats              make test-shell BATS_REQUIRED=1 (a missing bats fails the row)
+#   bats              make test-shell BATS_REQUIRED=1 (a missing bats fails the row),
+#                     after app-build: its ctl tests run the binary that build links
 #   ui                make test-ui-ci: CI's exact tests/ui pytest slice, headless
 #   plugin            make test-plugin: the moonraker plugin pytest, also in CI's job
 #   python            make test-python: quality.yml's tests/python pytest step
@@ -226,17 +227,16 @@ if [ "$SWEEP_WHERE" = remote ]; then
 else
     echo "→ every step runs here (logs: $LAND_GATE_LOGDIR)"
 fi
-start_lane bats
 start_lane fresh
 start_lane app
 app_pid=${PIDS[-1]}
 
-# A local C++ run waits for the app build: two makes compiling one tree's objects
-# at once race on the same files.
-if [ "$SWEEP_WHERE" = local ]; then
-    while [ ! -f "$ROWS_DIR/app-build" ] && kill -0 "$app_pid" 2>/dev/null; do sleep 1; done
-    start_lane unit
-fi
+# bats and a local C++ run wait for the app build. Two makes in one tree race on
+# its objects and stamps, and bats drives build/bin/helix-screen, which the app
+# build relinks under a running ctl test. A failed build still lets bats run.
+while [ ! -f "$ROWS_DIR/app-build" ] && kill -0 "$app_pid" 2>/dev/null; do sleep 1; done
+start_lane bats
+[ "$SWEEP_WHERE" = local ] && start_lane unit
 
 for p in "${PIDS[@]}"; do wait "$p"; done
 trap - INT TERM HUP

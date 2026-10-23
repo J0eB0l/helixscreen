@@ -199,6 +199,8 @@ translations:
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: 'На принтере настроен макрос прогрева (heat soak). HelixScreen обнаруживает его, но не запускает.'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: 'Нагреватель, который греет воздух внутри камеры. Температура задается на экране температуры камеры.'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Карта высот стола, по которой Klipper компенсирует неровности поверхности. Просмотр и калибровка на экране «Сетка стола».'
+  A left, B right: "A слева, B справа"
+  A lower, B upper: "A снизу, B сверху"
   "A macro printed stray template text '{}': check its Jinja tags": 'Макрос вывел лишний текст шаблона «{}»: проверьте его теги Jinja'
   A macro that wipes the nozzle. HelixScreen can run it before a print from the pre-print options.: 'Макрос для очистки сопла. HelixScreen может запускать его перед печатью из параметров подготовки к печати.'
   A motor IO pin couldn't be restored. Power-cycle the printer to recover: Не удалось восстановить вывод ввода-вывода двигателя. Выключите и включите принтер
@@ -211,6 +213,7 @@ translations:
   A print is running. Apply the result after it ends.: Идёт печать. Примените результат после её завершения.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: "Печать началась, когда катушки отмечены как лежащие на столе. Если они всё ещё там, немедленно остановите принтер аварийной остановкой."
   A restart is already in progress: Перезапуск уже выполняется
+  A right, B left: "A справа, B слева"
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : 'Датчик, измеряющий расстояние до стола. HelixScreen использует его для калибровки Z Offset и тестов зонда на экране «Зонд».'
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: 'Датчик, измеряющий температуру воздуха внутри камеры. Следите за ней на экране температуры камеры.'
@@ -218,7 +221,7 @@ translations:
   ? A system that feeds several filaments to the toolhead, shown with its slot count. Manage the slots on the filament system screen.
   : 'Система, подающая несколько филаментов на печатающую головку, отображается с числом слотов. Слотами можно управлять на экране системы филамента.'
   A toolhead offset calibration is in progress, possibly from another screen. End it now?: 'Идёт калибровка смещений головок, возможно, с другого экрана. Завершить её сейчас?'
-  A · 1,-1: "A · 1,-1"
+  A upper, B lower: "A сверху, B снизу"
   ABS: ABS
   ACCELEROMETERS: АКСЕЛЕРОМЕТРЫ
   'ACCEPT failed: {}': 'Ошибка ACCEPT: {}'
@@ -291,7 +294,7 @@ translations:
   'Adds to:': 'Добавляет в:'
   Adjust screen brightness level: Настроить уровень яркости экрана
   Adjust screws, then re-probe.: Отрегулируйте винты, затем перепроверьте.
-  Adjust {} instead: "Регулировать {}"
+  Adjust the other belt: "Другой ремень"
   Adjustments stay active until restart. Save after print completes.: Настройки активны
     до перезагрузки. Сохраните после завершения печати.
   Adjusts individual characteristics of your heaters for optimal control: Настраивает
@@ -417,7 +420,6 @@ translations:
   Average: Среднее
   Axis Rows: 'Ряды по осям'
   Axis limits unknown: Границы оси неизвестны
-  B · 1,1: "B · 1,1"
   BACK: ЗАД
   BEACON: BEACON
   BETA: БЕТА
@@ -542,6 +544,7 @@ translations:
   Busy: 'Занят'
   Button taps and navigation sounds: Звуки нажатий и навигации
   Buzz Servo: 'Дёрнуть сервопривод'
+  Buzzing the motor of {}: "Двигатель жужжит: {}"
   Bypass: Обход
   Bypass Is Active: Байпас активен
   Bypass Mode: Режим обхода
@@ -1912,6 +1915,8 @@ translations:
   'IP:': 'IP:'
   'IPP error: {}': 'Ошибка IPP: {}'
   Icon: Иконка
+  Identify: "Определить"
+  'Identify failed: {}': "Не удалось определить: {}"
   Idle: Ожидание
   If Moonraker is local or your screen is attached to the printer directly, we'll connect automatically: Если
     Moonraker локальный или экран подключён к принтеру напрямую, подключение произойдёт
@@ -2138,6 +2143,7 @@ translations:
   Leave it: 'Оставить'
   LedSelect: Выбрать LED
   Left: 'Слева'
+  Left belt: "Левый ремень"
   Length of filament to purge: 'Длина продуваемого филамента'
   Length of the cooling tube section: 'Длина участка трубки охлаждения'
   'Length:': 'Длина:'
@@ -2229,6 +2235,7 @@ translations:
   Lot/Batch Nr: Nr. партии/серии
   Low Memory: Мало памяти
   Lower: Опустить
+  Lower belt: "Нижний ремень"
   Lower the nozzle until it just touches the top of the print, then resume.: Опустите сопло, пока оно едва не коснётся верха печати, затем продолжите.
   Lowest notification level that interrupts with a toast: 'Минимальный уровень уведомления, прерывающий всплывающим сообщением'
   M to toggle: M для переключения
@@ -2347,10 +2354,10 @@ translations:
   Measures the bed at each adjustment screw and says how far to turn it. Run it on the Screws Tilt screen.: 'Измеряет стол у каждого регулировочного винта и показывает, насколько его повернуть. Запускается на экране «Наклон винтов».'
   Measures vibration for input shaping. Run resonance tests on the Input Shaper screen.: 'Измеряет вибрацию для input shaping. Тесты резонанса запускаются на экране Input Shaper.'
   Measuring: 'Измерение'
-  Measuring Path {}: Измерение Пути {}
   Measuring accelerometer noise...: 'Измерение шума акселерометра...'
   Measuring vibrations... {}%: 'Измерение вибраций... {}%'
   Measuring wheel error: Ошибка измерительного колеса
+  Measuring {}: "Измерение: {}"
   Measuring {}...: 'Измерение: {}...'
   Measuring...: 'Измерение...'
   Memory: Память
@@ -2630,6 +2637,8 @@ translations:
   Nothing to remap: Нечего переназначать
   Nothing to tune here: "Здесь нечего настраивать"
   'Nothing to unload: no filament at the nozzle': 'Выгружать нечего: в сопле нет филамента'
+  Which belt is each path?: "Какой ремень у каждого пути?"
+  Which belt is which?: "Где какой ремень?"
   'Which lane is in the toolhead?': 'Какая дорожка в печатающей головке?'
   'Choose which lane is in the toolhead to unload it': 'Выберите, какая дорожка в печатающей головке, чтобы выгрузить её'
   Nothing was changed. Temperature and material are kept, so a retry is one tap.: 'Ничего не изменилось. Температура и материал сохранены, повторить можно одним нажатием.'
@@ -2693,8 +2702,7 @@ translations:
   ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
   : 'Раз в день удаляет копии для печати старше недели и журналы старше месяца. Ваши файлы, фото и видео таймлапса сохраняются.'
   One tap runs this macro. Dangerous macros still ask.: 'Один тап запускает этот макрос. Опасные макросы всё равно запрашивают подтверждение.'
-  'Only on A: {} Hz': "Только на A: {} Гц"
-  'Only on B: {} Hz': "Только на B: {} Гц"
+  'Only on {0}: {1} Hz': "Только {0}: {1} Гц"
   Only while this app is connected. Install the HelixPrint plugin to cover every print.: 'Только пока это приложение подключено. Установите плагин HelixPrint, чтобы охватить всю печать.'
   Only while this app is connected. Update the HelixPrint plugin to cover every print.: 'Только пока это приложение подключено. Обновите плагин HelixPrint, чтобы охватить всю печать.'
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
@@ -2737,8 +2745,6 @@ translations:
   P: Д
   PA: PA
   PA Calibration: 'Калибровка PA'
-  PATH A · 1,-1: "ПУТЬ A · 1,-1"
-  PATH B · 1,1: "ПУТЬ B · 1,1"
   PAUSED: ПАУЗА
   PETG: PETG
   PID: PID
@@ -2784,14 +2790,8 @@ translations:
   Password: Пароль
   Password cannot be empty: Пароль не может быть пустым
   Password is required for secured networks: Для защищённых сетей требуется пароль
-  Path A tensioner: "Натяжитель Пути A"
-  Path B tensioner: "Натяжитель Пути B"
-  ? Path {0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.
-  : "Путь {0} резонирует на {2:.0f} Гц намного сильнее, чем {1}. Это указывает на механическое различие (установочные винты шкивов, подшипники роликов, ход ремня), а не на натяжение."
-  Path {0}'s peak left the zone. Check that only Path {1}'s tensioner was turned.: "Пик Пути {0} вышел из зоны. Проверьте, что крутили только натяжитель Пути {1}."
-  Path {}: Путь {}
-  Path {} before: Путь {} раньше
-  Path {} earlier round: "Путь {} прошлый раунд"
+  Path A: "Путь A"
+  Path B: "Путь B"
   Pause: Пауза
   Pause Layer: 'Слой паузы'
   Pause at Layer: 'Пауза на слое'
@@ -3159,7 +3159,7 @@ translations:
   Re-identify: Определить снова
   Re-measure: 'Измерить снова'
   Re-measure (~{} min): "Замер (~{} мин)"
-  Re-measuring Path {}: Повторное измерение Пути {}
+  Re-measuring {}: "Повторное измерение: {}"
   Re-probe: Перепроверить
   Re-read spool RFID tags and remaining length: 'Перечитать RFID-метки катушек и остаток'
   Re-seat the Bowden tube connector on the CFS unit: Переустановите разъём трубки Боудена на блоке CFS
@@ -3167,8 +3167,6 @@ translations:
   Re-syncs Happy Hare's tracked state with the hardware.: Повторно синхронизирует
     отслеживаемое состояние Happy Hare с оборудованием.
   Re-test: Повторить тест
-  Re-test A: Тест A
-  Re-test B: Тест B
   Reaches {:g} mm from the center, past this printer's {:g} mm radius.: 'Достигает {:g} мм от центра, за пределами радиуса {:g} мм этого принтера.'
   Readings don't repeat: "Показания не повторяются"
   Readings from extra temperature sensors: Показания доп. датчиков температуры
@@ -3369,6 +3367,7 @@ translations:
     ниже, затем нажмите «Готово» для сохранения
   Rewinding: Перемотка
   Right: 'Справа'
+  Right belt: "Правый ремень"
   'Role:': 'Тип:'
   Rotate: Вращать
   Rotating tips for using your printer: Сменяющиеся советы по печати
@@ -3951,6 +3950,7 @@ translations:
   Temporary adjustment for this print, unless saved on Controls panel: Временная настройка
     для этой печати, если не сохранена в панели управления
   Temporary for this print; a tool change resets it: "Временно для этой печати; смена инструмента сбрасывает её"
+  'Tensioner: {}': "Натяжитель: {}"
   Tertiary: Третичный
   Test All Lanes: 'Проверить все каналы'
   Test Connection: Тест соединения
@@ -4025,8 +4025,8 @@ translations:
   The filament system needs attention: 'Системе подачи филамента требуется внимание'
   The filament system reported an error: Система филамента сообщила об ошибке
   The gap didn't close (moved {:.1f} Hz). Try a bigger turn.: "Разница не сократилась (сдвиг {:.1f} Гц). Поверните сильнее."
-  The gap grew after loosening {0}. Check you turned Path {0}'s tensioner.: "Разница выросла после ослабления {0}. Проверьте, что вы крутили натяжитель Пути {0}."
-  The gap grew after tightening {0}. Check you turned Path {0}'s tensioner.: "Разница выросла после натяжения {0}. Проверьте, что вы крутили натяжитель Пути {0}."
+  The gap grew after loosening {0}. Check you turned {0}'s tensioner.: "Разница выросла после ослабления ({0}). Проверьте, что крутили натяжитель: {0}."
+  The gap grew after tightening {0}. Check you turned {0}'s tensioner.: "Разница выросла после натяжения ({0}). Проверьте, что крутили натяжитель: {0}."
   The gap is not closing. Something besides tension may be shaping it.: "Разница не сокращается. Возможно, влияет что-то помимо натяжения."
   The heated bed and enclosure can dry spools placed on the bed. Start a cycle from the bed drying dialog.: 'Подогреваемый стол и корпус могут сушить катушки, лежащие на столе. Запустите цикл из диалога сушки на столе.'
   The heater can't be changed while the printer is waiting.: 'Нагреватель нельзя изменить, пока принтер ожидает.'
@@ -4057,6 +4057,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее».
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "Сопло поднято над печатью, X и Y запаркованы. При продолжении оно опустится на высоту, где остановилось."
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts.
+  : "Пик ({0}) вышел из зоны. Проверьте, что крутили только натяжитель: {1}. Не знаете, где какой? Коснитесь значка карандаша, чтобы определить ремни."
+  The peak of {} moved out of the zone. Widening it.: "Пик ({}) вышел из зоны. Расширяем её."
   The plate and the spools are still hot. Use gloves.: Стол и катушки ещё горячие. Используйте перчатки.
 
   The plate finishes its current move, but drying will not start.: 'Стол завершит текущее перемещение, но сушка не начнётся.'
@@ -4473,6 +4476,7 @@ translations:
   Upload Failed: Ошибка отправки
   Upload gcode files to get started: Загрузите gcode-файлы для начала
   Upload unavailable in this build: Отправка недоступна в этой сборке
+  Upper belt: "Верхний ремень"
   Uptime: Время работы
   Use Android native keyboard for text input: Использовать нативную клавиатуру Android
     для ввода текста
@@ -4532,6 +4536,7 @@ translations:
   Wait for the current filament operation to finish: Дождитесь завершения текущей операции с филаментом
   Wait for the current operation to complete: Дождитесь завершения текущей операции
   Wait for the current operation to complete or cancel it first: Дождитесь завершения текущей операции или сначала отмените её
+  Wait for the motor to stop: "Дождитесь остановки двигателя"
   Wait for the nozzle to stop moving: Дождитесь остановки сопла
   Wait for the running INDX operation to finish: Дождитесь завершения текущей операции INDX
   Wait until the print finishes: Дождитесь завершения печати
@@ -4553,6 +4558,7 @@ translations:
   Warning: Предупреждение
   Warnings & errors: 'Предупреждения и ошибки'
   Watch the camera during a print for failed prints: Следит за камерой во время печати, выявляя неудачные печати
+  Watch which motor turns: "Смотрите, какой двигатель вращается"
   Weak battery: Слабый заряд
   Webcam: Веб-камера
   Website (optional): Веб-сайт (необязательно)
@@ -4786,6 +4792,10 @@ translations:
   target {}%: 'цель {}%'
   target {}°: 'цель {}°'
   the extruder: экструдер
+  the left belt: "левый ремень"
+  the lower belt: "нижний ремень"
+  the right belt: "правый ремень"
+  the upper belt: "верхний ремень"
   this week: за неделю
   too slow: слишком медленно
   tool(s): инструмент(ы)
@@ -4799,6 +4809,8 @@ translations:
   within one bin: "в пределах одного бина"
   wpa_supplicant is not running. WiFi features unavailable.: wpa_supplicant не запущен. Функции WiFi недоступны.
   you have: у вас
+  ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
+  : "{0} резонирует на {2:.0f} Гц намного сильнее, чем {1}. Это указывает на механическое различие (установочные винты шкивов, подшипники роликов, ход ремня), а не на натяжение."
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Гц · примерно {} мин'
   '{} ({})': '{} ({})'
   '{} Extruders': 'Экструдеров: {}'
@@ -4847,15 +4859,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} установлен, но его настройка бесконечной катушки выключена, поэтому при обрыве ничего не переключится.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} установлен, но прочитать его настройку бесконечной катушки не удалось - не рассчитывайте на бесконечную катушку.'
   '{} is still printing. The print keeps running after you switch.': '{} ещё печатает. Печать продолжится после переключения.'
+  '{} is looser': "{} слабее"
   '{} is not available on this device. Printing original file.': '{} недоступно на этом устройстве. Будет напечатан исходный файл.'
   '{} is not set up on this printer': '{} не настроен на этом принтере'
   '{} left': 'осталось {}'
   '{} lines in helixscreen.env were ignored': 'В helixscreen.env проигнорировано строк: {}'
   '{} kept crashing the panel; switched back to {}': '{} постоянно вызывал сбой экрана; возврат к {}'
+  '{} is tighter': "{} туже"
   "{} isn't loaded. The print will pause when it needs it.": '{}: филамент не загружен. Печать приостановится, когда он понадобится.'
   '{} kept crashing the panel; pick a printer to connect': '{} постоянно вызывал сбой экрана; выберите принтер для подключения'
   '{} linked to Spoolman spool #{} from its tag': '{}: привязано к катушке Spoolman #{} по метке'
-  '{} looser than {}': "{} слабее, чем {}"
   '{} m': '{} м'
   '{} macro not configured': Макрос {} не настроен
   '{} matches.': '{} подходит.'
@@ -4898,7 +4911,6 @@ translations:
   '{} spool cleared': '{}: катушка удалена'
   '{} started': '{} запущено'
   '{} target set to {}°C': Целевая температура {} — {}°C
-  '{} tighter than {}': "{} туже, чем {}"
   '{} turn': "{} об."
   '{} turns': "{} об."
   '{} updated': '{}: обновлено'
@@ -4909,7 +4921,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — время ожидания ответа истекло'
   '{} → {}: no filament loaded.': '{} → {}: филамент не загружен.'
-  "{}'s peak moved out of the zone. Widening it.": "Пик {} вышел из зоны. Расширяем её."
   "{}: the tag names Spoolman spool #{}, which doesn't exist": '{}: метка указывает катушку Spoolman #{}, которой не существует'
   '{}:{:02} elapsed': прошло {}:{:02}
   '{}% left': 'Осталось {}%'

@@ -150,6 +150,8 @@ translations:
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.
+  A left, B right: A left, B right
+  A lower, B upper: A lower, B upper
   "A macro printed stray template text '{}': check its Jinja tags": "A macro printed stray template text '{}': check its Jinja tags"
   A macro that wipes the nozzle. HelixScreen can run it before a print from the pre-print options.: A macro that wipes the nozzle. HelixScreen can run it before a print from the pre-print options.
   A motor IO pin couldn't be restored. Power-cycle the printer to recover: A motor IO pin couldn't be restored. Power-cycle the printer to recover
@@ -162,6 +164,7 @@ translations:
   A print is running. Apply the result after it ends.: A print is running. Apply the result after it ends.
   A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.: A print started while spools are marked as on the bed. If they are still there, stop the printer now with the E-stop.
   A restart is already in progress: A restart is already in progress
+  A right, B left: A right, B left
   ? A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   : A sensor that measures the distance to the bed. HelixScreen uses it for Z offset calibration and probe tests on the Probe screen.
   A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.: A sensor that reads the air temperature inside the enclosure. Watch it on the chamber temperature screen.
@@ -169,7 +172,7 @@ translations:
   ? A system that feeds several filaments to the toolhead, shown with its slot count. Manage the slots on the filament system screen.
   : A system that feeds several filaments to the toolhead, shown with its slot count. Manage the slots on the filament system screen.
   A toolhead offset calibration is in progress, possibly from another screen. End it now?: A toolhead offset calibration is in progress, possibly from another screen. End it now?
-  A · 1,-1: A · 1,-1
+  A upper, B lower: A upper, B lower
   ABS: ABS
   ACCELEROMETERS: ACCELEROMETERS
   'ACCEPT failed: {}': 'ACCEPT failed: {}'
@@ -245,7 +248,7 @@ translations:
   'Adds to:': 'Adds to:'
   Adjust screen brightness level: Adjust screen brightness level
   Adjust screws, then re-probe.: Adjust screws, then re-probe.
-  Adjust {} instead: Adjust {} instead
+  Adjust the other belt: Adjust the other belt
   Adjustments stay active until restart. Save after print completes.: Adjustments
     stay active until restart. Save after print completes.
   Adjusts individual characteristics of your heaters for optimal control: Adjusts
@@ -364,7 +367,6 @@ translations:
   Average: Average
   Axis Rows: Axis Rows
   Axis limits unknown: Axis limits unknown
-  B · 1,1: B · 1,1
   BACK: BACK
   BEACON: BEACON
   BETA: BETA
@@ -485,6 +487,7 @@ translations:
   Busy: Busy
   Button taps and navigation sounds: Button taps and navigation sounds
   Buzz Servo: Buzz Servo
+  Buzzing the motor of {}: Buzzing the motor of {}
   Bypass: Bypass
   Bypass Is Active: Bypass Is Active
   Bypass Mode: Bypass Mode
@@ -1820,6 +1823,8 @@ translations:
   'IP:': 'IP:'
   'IPP error: {}': 'IPP error: {}'
   Icon: Icon
+  Identify: Identify
+  'Identify failed: {}': 'Identify failed: {}'
   Idle: Idle
   If Moonraker is local or your screen is attached to the printer directly, we'll connect automatically: If
     Moonraker is local or your screen is attached to the printer directly, we'll connect
@@ -2041,6 +2046,7 @@ translations:
   Leave it: Leave it
   LedSelect: LedSelect
   Left: Left
+  Left belt: Left belt
   Length of filament to purge: Length of filament to purge
   Length of the cooling tube section: Length of the cooling tube section
   'Length:': 'Length:'
@@ -2130,6 +2136,7 @@ translations:
   Lot/Batch Nr: Lot/Batch Nr
   Low Memory: Low Memory
   Lower: Lower
+  Lower belt: Lower belt
   Lower the nozzle until it just touches the top of the print, then resume.: Lower the nozzle until it just touches the top of the print, then resume.
   Lowest notification level that interrupts with a toast: Lowest notification level that interrupts with a toast
   M to toggle: M to toggle
@@ -2245,10 +2252,10 @@ translations:
   Measures the bed at each adjustment screw and says how far to turn it. Run it on the Screws Tilt screen.: Measures the bed at each adjustment screw and says how far to turn it. Run it on the Screws Tilt screen.
   Measures vibration for input shaping. Run resonance tests on the Input Shaper screen.: Measures vibration for input shaping. Run resonance tests on the Input Shaper screen.
   Measuring: Measuring
-  Measuring Path {}: Measuring Path {}
   Measuring accelerometer noise...: Measuring accelerometer noise...
   Measuring vibrations... {}%: Measuring vibrations... {}%
   Measuring wheel error: Measuring wheel error
+  Measuring {}: Measuring {}
   Measuring {}...: Measuring {}...
   Measuring...: Measuring...
   Memory: Memory
@@ -2529,6 +2536,8 @@ translations:
   Nothing to remap: Nothing to remap
   Nothing to tune here: Nothing to tune here
   'Nothing to unload: no filament at the nozzle': 'Nothing to unload: no filament at the nozzle'
+  Which belt is each path?: Which belt is each path?
+  Which belt is which?: Which belt is which?
   'Which lane is in the toolhead?': 'Which lane is in the toolhead?'
   'Choose which lane is in the toolhead to unload it': 'Choose which lane is in the toolhead to unload it'
   Nothing was changed. Temperature and material are kept, so a retry is one tap.: Nothing was changed. Temperature and material are kept, so a retry is one tap.
@@ -2592,8 +2601,7 @@ translations:
   ? Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
   : Once a day, deletes print copies older than a week and logs older than a month. Your files, photos and timelapse videos are kept.
   One tap runs this macro. Dangerous macros still ask.: One tap runs this macro. Dangerous macros still ask.
-  'Only on A: {} Hz': 'Only on A: {} Hz'
-  'Only on B: {} Hz': 'Only on B: {} Hz'
+  'Only on {0}: {1} Hz': 'Only on {0}: {1} Hz'
   Only while this app is connected. Install the HelixPrint plugin to cover every print.: Only while this app is connected. Install the HelixPrint plugin to cover every print.
   Only while this app is connected. Update the HelixPrint plugin to cover every print.: Only while this app is connected. Update the HelixPrint plugin to cover every print.
   ? Only {} MB of memory is free, and Klipper's analysis needs about {} MB. Running the test would leave the printer stuck until it is power-cycled.
@@ -2635,8 +2643,6 @@ translations:
   P: P
   PA: PA
   PA Calibration: PA Calibration
-  PATH A · 1,-1: PATH A · 1,-1
-  PATH B · 1,1: PATH B · 1,1
   PAUSED: PAUSED
   PETG: PETG
   PID: PID
@@ -2682,14 +2688,8 @@ translations:
   Password: Password
   Password cannot be empty: Password cannot be empty
   Password is required for secured networks: Password is required for secured networks
-  Path A tensioner: Path A tensioner
-  Path B tensioner: Path B tensioner
-  ? Path {0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.
-  : Path {0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.
-  Path {0}'s peak left the zone. Check that only Path {1}'s tensioner was turned.: Path {0}'s peak left the zone. Check that only Path {1}'s tensioner was turned.
-  Path {}: Path {}
-  Path {} before: Path {} before
-  Path {} earlier round: Path {} earlier round
+  Path A: Path A
+  Path B: Path B
   Pause: Pause
   Pause Layer: Pause Layer
   Pause at Layer: Pause at Layer
@@ -3042,7 +3042,7 @@ translations:
   Re-identify: Re-identify
   Re-measure: Re-measure
   Re-measure (~{} min): Re-measure (~{} min)
-  Re-measuring Path {}: Re-measuring Path {}
+  Re-measuring {}: Re-measuring {}
   Re-probe: Re-probe
   Re-read spool RFID tags and remaining length: Re-read spool RFID tags and remaining length
   Re-seat the Bowden tube connector on the CFS unit: Re-seat the Bowden tube connector on the CFS unit
@@ -3050,8 +3050,6 @@ translations:
   Re-syncs Happy Hare's tracked state with the hardware.: Re-syncs Happy Hare's tracked
     state with the hardware.
   Re-test: Re-test
-  Re-test A: Re-test A
-  Re-test B: Re-test B
   Reaches {:g} mm from the center, past this printer's {:g} mm radius.: Reaches {:g} mm from the center, past this printer's {:g} mm radius.
   Readings don't repeat: Readings don't repeat
   Readings from extra temperature sensors: Readings from extra temperature sensors
@@ -3251,6 +3249,7 @@ translations:
     below, then click Finish to save
   Rewinding: Rewinding
   Right: Right
+  Right belt: Right belt
   'Role:': 'Role:'
   Rotate: Rotate
   Rotating tips for using your printer: Rotating tips for using your printer
@@ -3815,6 +3814,7 @@ translations:
   Temporary adjustment for this print, unless saved on Controls panel: Temporary adjustment
     for this print, unless saved on Controls panel
   Temporary for this print; a tool change resets it: Temporary for this print; a tool change resets it
+  'Tensioner: {}': 'Tensioner: {}'
   Tertiary: Tertiary
   Test All Lanes: Test All Lanes
   Test Connection: Test Connection
@@ -3887,8 +3887,8 @@ translations:
   The filament system needs attention: The filament system needs attention
   The filament system reported an error: The filament system reported an error
   The gap didn't close (moved {:.1f} Hz). Try a bigger turn.: The gap didn't close (moved {:.1f} Hz). Try a bigger turn.
-  The gap grew after loosening {0}. Check you turned Path {0}'s tensioner.: The gap grew after loosening {0}. Check you turned Path {0}'s tensioner.
-  The gap grew after tightening {0}. Check you turned Path {0}'s tensioner.: The gap grew after tightening {0}. Check you turned Path {0}'s tensioner.
+  The gap grew after loosening {0}. Check you turned {0}'s tensioner.: The gap grew after loosening {0}. Check you turned {0}'s tensioner.
+  The gap grew after tightening {0}. Check you turned {0}'s tensioner.: The gap grew after tightening {0}. Check you turned {0}'s tensioner.
   The gap is not closing. Something besides tension may be shaping it.: The gap is not closing. Something besides tension may be shaping it.
   The heated bed and enclosure can dry spools placed on the bed. Start a cycle from the bed drying dialog.: The heated bed and enclosure can dry spools placed on the bed. Start a cycle from the bed drying dialog.
   The heater can't be changed while the printer is waiting.: The heater can't be changed while the printer is waiting.
@@ -3919,6 +3919,9 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts.
+  : The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts.
+  The peak of {} moved out of the zone. Widening it.: The peak of {} moved out of the zone. Widening it.
   The plate and the spools are still hot. Use gloves.: The plate and the spools are still hot. Use gloves.
   The plate finishes its current move, but drying will not start.: The plate finishes its current move, but drying will not start.
   The plugin can't reach the camera, so this screen takes the photos.: The plugin can't reach the camera, so this screen takes the photos.
@@ -4336,6 +4339,7 @@ translations:
   Upload Failed: Upload Failed
   Upload gcode files to get started: Upload gcode files to get started
   Upload unavailable in this build: Upload unavailable in this build
+  Upper belt: Upper belt
   Uptime: Uptime
   Use Android native keyboard for text input: Use Android native keyboard for text
     input
@@ -4397,6 +4401,7 @@ translations:
     operation to finish
   Wait for the current operation to complete: Wait for the current operation to complete
   Wait for the current operation to complete or cancel it first: Wait for the current operation to complete or cancel it first
+  Wait for the motor to stop: Wait for the motor to stop
   Wait for the nozzle to stop moving: Wait for the nozzle to stop moving
   Wait for the running INDX operation to finish: Wait for the running INDX operation to finish
   Wait until the print finishes: Wait until the print finishes
@@ -4418,6 +4423,7 @@ translations:
   Warning: Warning
   Warnings & errors: Warnings & errors
   Watch the camera during a print for failed prints: Watch the camera during a print for failed prints
+  Watch which motor turns: Watch which motor turns
   Weak battery: Weak battery
   Webcam: Webcam
   Website (optional): Website (optional)
@@ -4641,6 +4647,10 @@ translations:
   target {}%: target {}%
   target {}°: target {}°
   the extruder: the extruder
+  the left belt: the left belt
+  the lower belt: the lower belt
+  the right belt: the right belt
+  the upper belt: the upper belt
   this week: this week
   too slow: too slow
   tool(s): tool(s)
@@ -4654,6 +4664,8 @@ translations:
   within one bin: within one bin
   wpa_supplicant is not running. WiFi features unavailable.: wpa_supplicant is not running. WiFi features unavailable.
   you have: you have
+  ? '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
+  : '{0} resonates much more than {1} at {2:.0f} Hz. That points at a mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension.'
   '{:.0f}-{:.0f} Hz · about {} min': '{:.0f}-{:.0f} Hz · about {} min'
   '{} ({})': '{} ({})'
   '{} Extruders': '{} Extruders'
@@ -4694,15 +4706,16 @@ translations:
   '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.': '{} is installed but its Endless Spool setting is turned off, so nothing will switch on runout.'
   '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.': '{} is installed, but its Endless Spool setting could not be read - do not count on Endless Spool.'
   '{} is still printing. The print keeps running after you switch.': '{} is still printing. The print keeps running after you switch.'
+  '{} is looser': '{} is looser'
   '{} is not available on this device. Printing original file.': '{} is not available on this device. Printing original file.'
   '{} is not set up on this printer': '{} is not set up on this printer'
   '{} left': '{} left'
   '{} lines in helixscreen.env were ignored': '{} lines in helixscreen.env were ignored'
   '{} kept crashing the panel; switched back to {}': '{} kept crashing the panel; switched back to {}'
+  '{} is tighter': '{} is tighter'
   "{} isn't loaded. The print will pause when it needs it.": "{} isn't loaded. The print will pause when it needs it."
   '{} kept crashing the panel; pick a printer to connect': '{} kept crashing the panel; pick a printer to connect'
   '{} linked to Spoolman spool #{} from its tag': '{} linked to Spoolman spool #{} from its tag'
-  '{} looser than {}': '{} looser than {}'
   '{} m': '{} m'
   '{} macro not configured': '{} macro not configured'
   '{} matches.': '{} matches.'
@@ -4729,7 +4742,6 @@ translations:
   '{} spool cleared': '{} spool cleared'
   '{} started': '{} started'
   '{} target set to {}°C': '{} target set to {}°C'
-  '{} tighter than {}': '{} tighter than {}'
   '{} turn': '{} turn'
   '{} turns': '{} turns'
   '{} updated': '{} updated'
@@ -4740,7 +4752,6 @@ translations:
   '{} · {} · {}': '{} · {} · {}'
   '{} — response timed out': '{} — response timed out'
   '{} → {}: no filament loaded.': '{} → {}: no filament loaded.'
-  "{}'s peak moved out of the zone. Widening it.": "{}'s peak moved out of the zone. Widening it."
   "{}: the tag names Spoolman spool #{}, which doesn't exist": "{}: the tag names Spoolman spool #{}, which doesn't exist"
   '{}:{:02} elapsed': '{}:{:02} elapsed'
   '{}% left': '{}% left'

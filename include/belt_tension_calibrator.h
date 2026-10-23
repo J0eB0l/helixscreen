@@ -38,6 +38,7 @@ class BeltTensionCalibrator {
         HOMING,             ///< Homing printer axes
         SETTLING,           ///< Running the settling laps
         MEASURING,          ///< Running the resonance sweep on one path
+        BUZZING,            ///< STEPPER_BUZZ on one path's motor
         ERROR,              ///< An error occurred
     };
 
@@ -130,6 +131,19 @@ class BeltTensionCalibrator {
      */
     void settle(const BeltSettleInputs& inputs, std::function<void()> on_done,
                 std::function<void(BeltSettleRefusal)> on_refused, BeltErrorCallback on_error);
+
+    /**
+     * @brief Buzz the motor that drives one path's belt
+     *
+     * Sends STEPPER_BUZZ for belt_path_stepper(path): the motor moves 1 mm
+     * back and forth ten times, so the user can see and hear which belt the
+     * path is. Klipper's force_move module is always loaded and the buzz
+     * needs no homing. The state reads BUZZING until the command answers;
+     * either answer returns it to IDLE, since a refused buzz leaves nothing
+     * half done. Both callbacks run on the LVGL thread, and cancel() silences
+     * them.
+     */
+    void buzz_path(BeltPath path, std::function<void()> on_done, BeltErrorCallback on_error);
 
     // ========================================================================
     // Control

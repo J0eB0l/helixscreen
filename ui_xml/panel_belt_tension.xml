@@ -97,13 +97,23 @@
                 style_flex_cross_place="center" scrollable="false">
           <bind_flag_if cond="belt_tension_state eq 0 or belt_tension_state eq 3 or belt_tension_state eq 4"
                         flag="hidden"/>
-          <!-- Path A -->
+          <!-- Left slot: Path A, or Path B when the layout names A the right belt -->
+          <!-- (bt_slots_swapped). Its name opens "Which belt is which?" -->
           <lv_obj width="28%" height="content" style_pad_all="0" flex_flow="column" scrollable="false">
-            <text_small text="PATH A · 1,-1">
-              <style name="path_a_text"/>
+            <lv_obj name="bt_slot_0_header"
+                    width="100%" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"
+                    style_pad_gap="#space_xxs" clickable="true" scrollable="false">
               <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
-            </text_small>
-            <text_small width="100%" bind_text="bt_note_a" style_text_color="#text_muted" long_mode="dots"/>
+              <event_cb trigger="clicked" callback="belt_tension_names_cb"/>
+              <text_small name="bt_slot_0_label"
+                          bind_text="bt_slot_0_name" style_max_width="85%" long_mode="dots" clickable="false"
+                          event_bubble="true">
+                <bind_style_if_eq name="path_a_text" subject="bt_slots_swapped" ref_value="0"/>
+                <bind_style_if_eq name="path_b_text" subject="bt_slots_swapped" ref_value="1"/>
+              </text_small>
+              <icon src="pencil" size="xs" variant="muted" clickable="false" event_bubble="true"/>
+            </lv_obj>
+            <text_small width="100%" bind_text="bt_slot_0_note" style_text_color="#text_muted" long_mode="dots"/>
           </lv_obj>
           <!-- Centre: run status while measuring, similarity once both paths are in -->
           <lv_obj width="44%"
@@ -148,15 +158,25 @@
               </text_body>
             </lv_obj>
           </lv_obj>
-          <!-- Path B -->
+          <!-- Right slot: the other path -->
           <lv_obj width="28%"
                   height="content" style_pad_all="0" flex_flow="column" style_flex_cross_place="end" scrollable="false">
-            <text_small text="PATH B · 1,1">
-              <style name="path_b_text"/>
+            <lv_obj name="bt_slot_1_header"
+                    width="100%" height="content" style_pad_all="0" flex_flow="row" style_flex_main_place="end"
+                    style_flex_cross_place="center" style_pad_gap="#space_xxs" clickable="true" scrollable="false">
               <bind_flag_if_eq subject="ui_breakpoint" flag="hidden" ref_value="0"/>
-            </text_small>
+              <event_cb trigger="clicked" callback="belt_tension_names_cb"/>
+              <icon src="pencil" size="xs" variant="muted" clickable="false" event_bubble="true"/>
+              <text_small name="bt_slot_1_label"
+                          bind_text="bt_slot_1_name" style_max_width="85%" long_mode="dots" clickable="false"
+                          event_bubble="true">
+                <bind_style_if_eq name="path_b_text" subject="bt_slots_swapped" ref_value="0"/>
+                <bind_style_if_eq name="path_a_text" subject="bt_slots_swapped" ref_value="1"/>
+              </text_small>
+            </lv_obj>
             <text_small width="100%"
-                        bind_text="bt_note_b" style_text_align="right" style_text_color="#text_muted" long_mode="dots"/>
+                        bind_text="bt_slot_1_note" style_text_align="right" style_text_color="#text_muted"
+                        long_mode="dots"/>
           </lv_obj>
         </lv_obj>
         <!-- ============================================================ -->
@@ -219,6 +239,11 @@
                   <text_body bind_text="bt_hw_sweep"/>
                 </lv_obj>
               </lv_obj>
+              <ui_button name="btn_belt_names"
+                         width="100%" height="#button_height_sm" icon="vibrate" text="Which belt is which?"
+                         variant="secondary" long_mode="dots">
+                <event_cb trigger="clicked" callback="belt_tension_names_cb"/>
+              </ui_button>
               <!-- Why Start is refused, shown only when it is -->
               <lv_obj width="100%"
                       height="content" style_pad_all="0" style_pad_top="#space_xs" flex_flow="row"
@@ -291,17 +316,17 @@
                   scrollable="false">
             <bind_style_if name="bt_flow_row" cond="ui_is_portrait eq 0"/>
             <bind_style_if name="bt_flow_row_wrap" cond="ui_is_portrait eq 1"/>
-            <ui_button name="btn_retest_a"
-                       width="0" height="#button_height" flex_grow="1" icon="refresh" text="Re-test A"
+            <ui_button name="btn_retest_slot_0"
+                       width="0" height="#button_height" flex_grow="1" icon="refresh" bind_text="bt_slot_0_name"
                        variant="secondary" long_mode="dots">
               <bind_flag_if cond="(ui_breakpoint le 2 or ui_is_portrait eq 1) and ui_is_ultrawide eq 0" flag="hidden"/>
-              <event_cb trigger="clicked" callback="belt_tension_retest_a_cb"/>
+              <event_cb trigger="clicked" callback="belt_tension_retest_slot_cb" user_data="0"/>
             </ui_button>
-            <ui_button name="btn_retest_b"
-                       width="0" height="#button_height" flex_grow="1" icon="refresh" text="Re-test B"
+            <ui_button name="btn_retest_slot_1"
+                       width="0" height="#button_height" flex_grow="1" icon="refresh" bind_text="bt_slot_1_name"
                        variant="secondary" long_mode="dots">
               <bind_flag_if cond="(ui_breakpoint le 2 or ui_is_portrait eq 1) and ui_is_ultrawide eq 0" flag="hidden"/>
-              <event_cb trigger="clicked" callback="belt_tension_retest_b_cb"/>
+              <event_cb trigger="clicked" callback="belt_tension_retest_slot_cb" user_data="1"/>
             </ui_button>
             <!-- Compact layouts (below medium, or portrait, but not ultrawide) fit three buttons: -->
             <!-- Re-test A/B fold into a menu -->
@@ -385,6 +410,12 @@
               <bind_style name="gap_matched" subject="bt_tune_phase" ref_value="2"/>
               <bind_style name="gap_matched" subject="bt_tune_phase" ref_value="4"/>
             </text_body>
+            <!-- Opens "Which belt is which?"; it does not bubble, so the line's swap stays a separate tap -->
+            <icon name="bt_tune_line_names"
+                  src="pencil" size="xs" variant="muted" style_pad_all="#space_xs" clickable="true">
+              <bind_flag_if cond="bt_tune_phase eq 2 or bt_tune_phase eq 4 or bt_tune_unrepeatable eq 1" flag="hidden"/>
+              <event_cb trigger="clicked" callback="belt_tension_names_cb"/>
+            </icon>
             <text_body name="bt_tune_line_gap"
                        bind_text="bt_tune_gap" style_text_font="#font_body_bold" clickable="false" event_bubble="true">
               <bind_style name="gap_matched" subject="bt_tune_severity" ref_value="0"/>
@@ -447,15 +478,16 @@
                   <bind_style name="gap_matched" subject="bt_tune_phase" ref_value="4"/>
                 </text_body>
               </lv_obj>
-              <lv_obj width="100%" height="content" style_pad_all="0" flex_flow="column" scrollable="false">
-                <bind_flag_if cond="bt_tune_phase eq 2 or bt_tune_phase eq 4 or bt_tune_kind eq 2 or bt_tune_unrepeatable eq 1"
-                              flag="hidden"/>
-                <text_xs text="Path A tensioner" style_text_color="#text_muted">
-                  <bind_flag_if_not_eq subject="bt_tune_path" flag="hidden" ref_value="0"/>
-                </text_xs>
-                <text_xs text="Path B tensioner" style_text_color="#text_muted">
-                  <bind_flag_if_not_eq subject="bt_tune_path" flag="hidden" ref_value="1"/>
-                </text_xs>
+              <!-- Which tensioner to turn; tapping it opens "Which belt is which?" -->
+              <lv_obj name="bt_tune_tensioner_row"
+                      width="100%" height="content" style_pad_all="0" flex_flow="row" style_flex_cross_place="center"
+                      style_pad_gap="#space_xxs" clickable="true" scrollable="false">
+                <bind_flag_if cond="bt_tune_phase eq 2 or bt_tune_phase eq 4 or bt_tune_unrepeatable eq 1" flag="hidden"/>
+                <event_cb trigger="clicked" callback="belt_tension_names_cb"/>
+                <text_xs name="bt_tune_tensioner"
+                         bind_text="bt_tune_tensioner" style_max_width="90%" long_mode="dots"
+                         style_text_color="#text_muted" clickable="false" event_bubble="true"/>
+                <icon src="pencil" size="xs" variant="muted" clickable="false" event_bubble="true"/>
               </lv_obj>
               <!-- SCREW only, while tuning: what you turned, a quarter at a time -->
               <lv_obj name="bt_tune_stepper"
@@ -492,9 +524,9 @@
                 <bind_style name="gap_near" subject="bt_tune_severity" ref_value="1"/>
                 <bind_style name="gap_far" subject="bt_tune_severity" ref_value="2"/>
               </lv_label>
-              <text_small width="100%"
-                          bind_text="bt_tune_gap_caption" style_text_align="center" style_text_color="#text_muted"
-                          long_mode="dots"/>
+              <text_small name="bt_tune_gap_caption_label"
+                          width="100%" bind_text="bt_tune_gap_caption" style_text_align="center"
+                          style_text_color="#text_muted" long_mode="dots"/>
               <belt_gap_gauge name="bt_tune_gauge" width="100%" height="#space_xl">
                 <bind_flag_if cond="bt_tune_baseline eq 1 or bt_tune_has_gap eq 0" flag="hidden"/>
               </belt_gap_gauge>
@@ -612,8 +644,8 @@
               <event_cb trigger="clicked" callback="belt_tension_tune_done_cb"/>
             </ui_button>
             <ui_button name="btn_tune_swap"
-                       width="0" height="#button_height" flex_grow="1" bind_text="bt_tune_swap_label"
-                       variant="secondary" long_mode="dots">
+                       width="0" height="#button_height" flex_grow="1" text="Adjust the other belt" variant="secondary"
+                       long_mode="dots">
               <bind_flag_if cond="(ui_breakpoint le 2 or ui_is_portrait eq 1) and ui_is_ultrawide eq 0 and (ui_is_portrait eq 0 or ui_breakpoint eq 0) or bt_tune_phase eq 4 or bt_tune_can_swap eq 0"
                             flag="hidden"/>
               <event_cb trigger="clicked" callback="belt_tension_tune_swap_cb"/>

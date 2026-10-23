@@ -1351,6 +1351,10 @@ int MoonrakerClientMock::gcode_script(const std::string& raw_gcode) {
     if (has_token(g, "TEST_RESONANCES")) {
         gcode_test_resonances(g);
     }
+    if (has_token(g, "STEPPER_BUZZ")) {
+        // force_move is always loaded; the buzz moves nothing the mock tracks.
+        spdlog::info("[MoonrakerClientMock] STEPPER_BUZZ: {}", g);
+    }
     if (has_token(g, "SET_INPUT_SHAPER")) {
         spdlog::info("[MoonrakerClientMock] SET_INPUT_SHAPER: {}", g);
     }

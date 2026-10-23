@@ -9,6 +9,7 @@
 #include "ams_state.h"
 #include "app_globals.h"
 #include "audio_settings_manager.h"
+#include "belt_tension_types.h"
 #include "config.h"
 #include "display_settings_manager.h"
 #include "helix_psram_attr.h"
@@ -194,6 +195,10 @@ static constexpr settings::PersistedSetting SETTINGS[] = {
     // offset), 1=Show, 2=Hide. #1766
     {"settings_z_offset_save_mode", "z_offset/save_mode", Scope::PerPrinter, false, 0, 0, 2,
      "z_offset_save_mode"},
+    // helix::calibration::BeltLayout: 0=not set, 1=A left, 2=A right, 3=A upper,
+    // 4=A lower. Per-printer: belt routing is the machine's.
+    {"settings_belt_layout", "belt_tension/layout", Scope::PerPrinter, false, 0, 0,
+     helix::calibration::kBeltLayoutCount - 1, "belt_layout"},
 };
 
 SettingsManager& SettingsManager::instance() {

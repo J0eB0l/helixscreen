@@ -314,11 +314,14 @@ src/ui/ui_panel_bed_mesh.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_belt_path_sketch.cpp  # only the Belt Tension panel draws it; not in the v1 Core+AMS cut
 src/ui/ui_belt_gap_gauge.cpp  # only the Belt Tension panel draws it; not in the v1 Core+AMS cut
 src/ui/ui_belt_retest_menu.cpp  # only the Belt Tension panel raises it; not in the v1 Core+AMS cut
+src/ui/ui_belt_names_modal.cpp  # only the Belt Tension panel raises it; not in the v1 Core+AMS cut
+src/ui/ui_belt_path_names.cpp  # only the Belt Tension screens name paths; not in the v1 Core+AMS cut
 src/ui/ui_panel_belt_tension.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_panel_calibration_pid.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_panel_calibration_tool_offset.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_panel_calibration_pa.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_overlay_pa_tuning.cpp  # not in the v1 Core+AMS cut
+src/ui/ui_head_picker.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_panel_calibration_zoffset.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_panel_glyphs.cpp  # not in the v1 Core+AMS cut
 src/ui/ui_panel_input_shaper.cpp  # not in the v1 Core+AMS cut

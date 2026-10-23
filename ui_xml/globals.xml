@@ -1178,6 +1178,8 @@
     <str name="icon_filament" value="󾀁"/>
     <str name="icon_filament_alert" value="󾀃"/>
     <str name="icon_filament_outline" value="󾀂"/>
+    <str name="icon_filament_sensor" value="󰹛"/>
+    <str name="icon_filament_sensor_alert" value="󱇀"/>
     <str name="icon_filter" value="󰈲"/>
     <str name="icon_fine_tune" value="󰘮"/>
     <str name="icon_fire" value="󰈸"/>
@@ -1241,6 +1243,9 @@
     <str name="icon_move" value="󰁌"/>
     <str name="icon_network" value="󰈀"/>
     <str name="icon_notifications" value="󰂚"/>
+    <str name="icon_nozzle" value="󰹛"/>
+    <str name="icon_nozzle_alert" value="󱇀"/>
+    <str name="icon_nozzle_outline" value="󰹜"/>
     <str name="icon_palette" value="󰏘"/>
     <str name="icon_pause" value="󰏤"/>
     <str name="icon_pencil" value="󰏫"/>
@@ -1278,6 +1283,7 @@
     <str name="icon_radiator" value="󰐸"/>
     <str name="icon_redo" value="󰑎"/>
     <str name="icon_refresh" value="󰑐"/>
+    <str name="icon_remote_desktop" value="󰢹"/>
     <str name="icon_restart" value="󰜉"/>
     <str name="icon_resume" value="󰐌"/>
     <str name="icon_robot" value="󰚩"/>

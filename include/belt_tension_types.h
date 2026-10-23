@@ -34,6 +34,25 @@ enum class BeltPath {
     PATH_B, ///< CoreXY diagonal B (1,1)
 };
 
+/// The Klipper stepper whose motor drives a path's belt loop. CoreXY moves
+/// stepper_x by x+y and stepper_y by x-y, so a 1,1 move turns only stepper_x
+/// and a 1,-1 move only stepper_y, on every CoreXY whatever its belt routing.
+[[nodiscard]] const char* belt_path_stepper(BeltPath path);
+
+/// Which physical belt the user says each path is. Paired so the two names
+/// can never contradict; persisted per printer as this int.
+enum class BeltLayout {
+    UNSET = 0,           ///< "Path A" / "Path B"
+    A_LEFT_B_RIGHT = 1,  ///< A is the left belt, B the right
+    A_RIGHT_B_LEFT = 2,  ///< A is the right belt, B the left
+    A_UPPER_B_LOWER = 3, ///< A is the upper belt, B the lower
+    A_LOWER_B_UPPER = 4, ///< A is the lower belt, B the upper
+};
+inline constexpr int kBeltLayoutCount = 5;
+
+/// A stored layout value; anything out of range reads as UNSET.
+[[nodiscard]] BeltLayout belt_layout_from_int(int value);
+
 /// What kind of tensioner a belt path uses.
 enum class BeltTensionerKind {
     UNKNOWN,

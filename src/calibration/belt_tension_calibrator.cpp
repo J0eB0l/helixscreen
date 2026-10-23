@@ -223,6 +223,48 @@ void BeltTensionCalibrator::settle(const BeltSettleInputs& inputs, std::function
 }
 
 // ============================================================================
+// buzz_path() - identify a path's motor
+// ============================================================================
+
+void BeltTensionCalibrator::buzz_path(BeltPath path, std::function<void()> on_done,
+                                      BeltErrorCallback on_error) {
+    if (!api_) {
+        spdlog::warn("[BeltTension] buzz_path called without API");
+        if (on_error) {
+            on_error("No printer connection");
+        }
+        return;
+    }
+
+    cancel();
+    const uint32_t generation = ++run_generation_;
+    const std::string gcode = std::string("STEPPER_BUZZ STEPPER=") + belt_path_stepper(path);
+    state_.store(State::BUZZING);
+    spdlog::info("[BeltTension] Identifying path {}: {}", output_name(path), gcode);
+
+    auto done = [this, generation, on_done]() {
+        if (generation != run_generation_)
+            return;
+        state_.store(State::IDLE);
+        if (on_done)
+            on_done();
+    };
+    api_->execute_gcode(gcode, lifetime_.bg_cb("BeltTensionCalibrator::buzz_done", done),
+                        lifetime_.bg_cb("BeltTensionCalibrator::buzz_error",
+                                        [this, generation, on_error](const MoonrakerError& err) {
+                                            if (generation != run_generation_)
+                                                return;
+                                            state_.store(State::IDLE);
+                                            spdlog::warn("[BeltTension] Buzz failed: {}",
+                                                         err.message);
+                                            if (on_error)
+                                                on_error(err.message);
+                                        }),
+                        /*timeout_ms=*/0, /*silent=*/false, /*on_queued=*/nullptr,
+                        /*caller_surfaces_errors=*/true);
+}
+
+// ============================================================================
 // cancel() / emergency_abort() / reset()
 // ============================================================================
 

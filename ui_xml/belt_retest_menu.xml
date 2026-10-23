@@ -2,16 +2,16 @@
 <!-- Copyright (C) 2025-2026 356C LLC -->
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <component>
-  <!-- Belt Tension RESULTS on the smallest screens: which path to re-test -->
+  <!-- Belt Tension RESULTS on the smallest screens: which path to re-test, in header-slot order -->
   <view name="belt_retest_menu" extends="context_menu_backdrop">
     <context_menu_card title="Re-test" pad_gap="#space_xs">
-      <ui_button name="btn_retest_path_a"
-                 height="#button_height_sm" icon="refresh" text="Re-test A" variant="ghost"
+      <ui_button name="btn_retest_menu_slot_0"
+                 height="#button_height_sm" icon="refresh" bind_text="bt_slot_0_name" variant="ghost"
                  style_flex_main_place="start">
         <event_cb trigger="clicked" callback="belt_retest_menu_a_cb"/>
       </ui_button>
-      <ui_button name="btn_retest_path_b"
-                 height="#button_height_sm" icon="refresh" text="Re-test B" variant="ghost"
+      <ui_button name="btn_retest_menu_slot_1"
+                 height="#button_height_sm" icon="refresh" bind_text="bt_slot_1_name" variant="ghost"
                  style_flex_main_place="start">
         <event_cb trigger="clicked" callback="belt_retest_menu_b_cb"/>
       </ui_button>

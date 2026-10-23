@@ -258,10 +258,16 @@ The check always uses Klipper's plain pulse test, even on printers set up for th
 - **Similarity**, the large number in the middle: how closely the two response curves match in shape, from 0 to 100%. Balanced belts give curves of the same shape
 - A verdict of **Good match** (90% and up), **Fair match** (75% and up) or **Poor match**. The verdict is provisional: the thresholds come from a handful of printers so far, so treat it as a starting point and read the curves yourself
 - **Peaks both paths share**, listed under the chart as pairs of frequencies, Path A first ("Peaks 35/36 · 133/132 Hz"), strongest first. Each pair carries the same number on both curves
-- **Peaks only one path has** ("Only on A: 120, 129 Hz"), shown as hollow rings on the chart. A strong peak one path has and the other lacks is usually the clearest sign the two belts differ
+- **Peaks only one path has** ("Only on Path A: 120, 129 Hz"), shown as hollow rings on the chart. A strong peak one path has and the other lacks is usually the clearest sign the two belts differ
 - The chart's height is **relative**: both curves are scaled to the taller one, so the highest point reads 100%
 
-The check reports **paths, not belts**. Path A is the 1,-1 diagonal and Path B the 1,1 diagonal, the same naming Shake&Tune and the Voron documentation use. Which physical belt each diagonal loads depends on your printer's layout, so check your printer's documentation before turning anything.
+The check measures **paths**: Path A is the 1,-1 diagonal and Path B the 1,1 diagonal, the same naming Shake&Tune and the Voron documentation use. Which physical belt each path is depends on your printer, so name them before you turn anything:
+
+1. Tap **Which belt is which?** on the start screen, a path name above the results chart, or the pencil while tuning
+2. Tap **Identify** next to Path A. Path A's motor buzzes back and forth for about 10 seconds; watch which motor and belt move. Do the same for Path B. Identify is unavailable while a check runs or a print is active
+3. Pick the layout that matches: A left and B right, A right and B left, A upper and B lower, or A lower and B upper
+
+From then on every screen and instruction uses those names ("Tighten the left belt one full turn"). The choice is saved for each printer separately; **Not set** goes back to Path A and Path B.
 
 HelixScreen's similarity reads lower than Shake&Tune's for the same printer. Shake&Tune compares the curves up to 200 Hz, where both are nearly flat and so agree; HelixScreen compares only the range the printer actually swept.
 

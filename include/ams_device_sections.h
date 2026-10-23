@@ -32,7 +32,7 @@ inline constexpr DeviceSectionKind kDeviceSectionKinds[] = {
     {"setup", TR_NOOP("Setup"), "cog"},
     {"calibration", TR_NOOP("Calibration"), "target"},
     {"speed", TR_NOOP("Speed"), "speed_up"},
-    {"toolhead", TR_NOOP("Toolhead"), "filament"},
+    {"toolhead", TR_NOOP("Toolhead"), "nozzle"},
     {"filament_control", TR_NOOP("Filament Control"), "swap_vertical"},
     {"feeder", TR_NOOP("Filament Feeder"), "lock_open"},
     {"accessories", TR_NOOP("Accessories"), "puzzle_outline"},

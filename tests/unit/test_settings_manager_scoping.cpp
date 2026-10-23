@@ -312,6 +312,20 @@ TEST_CASE_METHOD(SettingsScopeFixture,
     CHECK_FALSE(cfg->exists(a("console/filter_temps")));
 }
 
+TEST_CASE_METHOD(SettingsScopeFixture, "SettingsManager: belt names are per printer",
+                 "[settings][multi-printer][belt]") {
+    // Belt routing is the machine's: naming A the left belt on one printer
+    // says nothing about another's.
+    sm.set_belt_layout(3);
+    switch_to(kPrinterB);
+    CHECK(sm.get_belt_layout() == 0);
+    sm.set_belt_layout(2);
+    switch_to(kPrinterA);
+    CHECK(sm.get_belt_layout() == 3);
+    CHECK(cfg->get<int>(a("belt_tension/layout"), -1) == 3);
+    CHECK(cfg->get<int>(b("belt_tension/layout"), -1) == 2);
+}
+
 TEST_CASE_METHOD(SettingsScopeFixture,
                  "SettingsManager: cached chamber strings are per-printer, scanner strings global",
                  "[settings][multi-printer]") {

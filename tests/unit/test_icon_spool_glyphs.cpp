@@ -3,8 +3,10 @@
 
 // The filament icons are the custom vented-reel glyphs; the nozzle keeps MDI's
 // printer-3d-nozzle under its own names, and every site that means the nozzle
-// or extruder (not filament) asks for it by those names.
+// or extruder (not filament) asks for it by those names. Filament sensors have
+// names of their own, so a sensor state never reads as a spool of material.
 
+#include "../../include/ams_device_sections.h"
 #include "../../include/ui_icon_codepoints.h"
 #include "data_root_resolver.h"
 
@@ -82,4 +84,29 @@ TEST_CASE("icon: the globals' filament glyph strings match the icon table", "[ui
     CHECK(value_of("icon_filament") == codepoint("filament"));
     CHECK(value_of("icon_filament_outline") == codepoint("filament_outline"));
     CHECK(value_of("icon_filament_alert") == codepoint("filament_alert"));
+    CHECK(value_of("icon_filament_sensor_alert") == codepoint("filament_sensor_alert"));
+}
+
+TEST_CASE("icon: filament sensor sites use the sensor names, not the spool", "[ui_icon][icon]") {
+    CHECK(codepoint("filament_sensor") == codepoint("nozzle"));
+    CHECK(codepoint("filament_sensor_alert") == codepoint("nozzle_alert"));
+
+    const std::string indicator = read_xml("filament_sensor_indicator.xml");
+    CHECK(icon_near(indicator, "variant=\"success\"", true) == "filament_sensor");
+    CHECK(icon_near(indicator, "variant=\"danger\"", true) == "filament_sensor_alert");
+    CHECK(icon_near(indicator, "variant=\"disabled\"", true) == "filament_sensor");
+    CHECK(icon_near(read_xml("filament_sensor_row.xml"), "<icon") == "filament_sensor");
+    CHECK(icon_near(read_xml("printer_manager_overlay.xml"), "name=\"pm_chip_filament_sensors\"") ==
+          "filament_sensor_alert");
+    CHECK(read_xml("components/clog_bar_body.xml").find("text=\"#icon_filament_sensor_alert\"") !=
+          std::string::npos);
+    // The Sensors row opens every sensor type, not only filament ones.
+    CHECK(icon_near(read_xml("settings_hardware_overlay.xml"), "name=\"row_filament_sensors\"") ==
+          "sensor");
+}
+
+TEST_CASE("icon: the AMS Toolhead section shows the nozzle", "[ui_icon][icon]") {
+    const auto* kind = helix::printer::find_device_section_kind("toolhead");
+    REQUIRE(kind != nullptr);
+    CHECK(std::string(kind->icon) == "nozzle");
 }

@@ -21,6 +21,41 @@ Voron motor names Shake&Tune uses: a 1,1 move turns only `stepper_x`, which on a
 the B motor, so a user comparing this screen with Shake&Tune or the Voron documentation
 sees the same letters on the same belts.
 
+### Which belt is which
+
+CoreXY moves `stepper_x` by x+y and `stepper_y` by x-y, so Path A's sweep turns only the
+`stepper_y` motor and Path B's only `stepper_x`, on every CoreXY whatever its belt routing
+(`include/belt_tension_types.h#belt_path_stepper`). Which physical belt that motor drives
+depends on the printer, so the user names the paths rather than the app guessing:
+
+- **Identify** (`BeltTensionPanel::handle_identify_clicked`) buzzes a path's motor with
+  `STEPPER_BUZZ STEPPER=<stepper>` through `BeltTensionCalibrator::buzz_path`. Klipper's
+  `force_move` is always loaded and the buzz needs no homing: the motor moves 1 mm back and
+  forth ten times (about 10 s). On an AWD CoreXY it moves only the named motor of the pair on
+  that belt, which still moves the belt and so still identifies it. The calibrator reads `BUZZING` until Klipper answers, which
+  closes Start's gate (`bt_can_start`), so a buzz is allowed exactly when Start is, never
+  during a sweep and never two at once. A refusal shows Klipper's message in the dialog
+  (`bt_identify_status`, `bt_identify_state` 2) and leaves the view where it was.
+- **The layout** is one choice of pairs, so the two names can never contradict: not set
+  ("Path A" / "Path B"), A left B right, A right B left, A upper B lower, A lower B upper.
+  It is stored per printer as a `BeltLayout` int (`settings_belt_layout`,
+  `belt_tension/layout` under the printer's config node) and saved the moment it is tapped.
+- **Every visible name** comes from `include/ui_belt_path_names.h#belt_path_name`, which
+  returns a `title` ("Left belt", for labels and the start of a sentence) and a `phrase`
+  ("the left belt", inside a sentence). The panel observes the setting and the language and
+  re-renders every name (`BeltTensionPanel::refresh_names`): the RESULTS headers and Re-test
+  buttons, the unpaired-peak line, the run title, the tuning strings and the START sketch,
+  which asks `belt_path_name` as it draws. Log lines keep the letter.
+
+The dialog (`ui_xml/belt_names_modal.xml`, `helix::ui::BeltNamesModal`) opens from START's
+"Which belt is which?" button, the RESULTS path headers, and in the tuning view the pencil
+beside the tensioner line ("Tensioner: Left belt") or, on compact layouts, beside the one-line
+instruction; it leaves the session as it was. The reference-lost hint says "Tap the pencil",
+which names a target in every layout. A title stands only where it
+reads as a label (a header, a button, after a colon, at the start of an English sentence whose
+translations also start with it); everywhere else the phrase form goes inside the sentence, so
+no locale gets a capitalised name mid-sentence.
+
 Start is gated, in `src/calibration/belt_gating.cpp#evaluate_belt_gate`:
 
 | Gate leg | Meaning |
@@ -50,12 +85,14 @@ Z belts are deliberately unsupported; see the header comment on
 | File | Role |
 |------|------|
 | `src/ui/ui_panel_belt_tension.cpp`, `include/ui_panel_belt_tension.h`, `ui_xml/panel_belt_tension.xml` | The panel: five view states (START, RUNNING, RESULTS, ERROR, TUNING), subjects, gate wiring, run queue, re-test and ghost bookkeeping |
-| `src/ui/ui_belt_path_sketch.cpp` | The START-screen sketch widget drawing the two diagonals |
+| `src/ui/ui_belt_path_sketch.cpp` | The START-screen sketch widget drawing the two diagonals, labelled with the path names |
+| `src/ui/ui_belt_path_names.cpp`, `include/ui_belt_path_names.h` | `belt_path_name`: every visible path name, from the saved layout |
+| `src/ui/ui_belt_names_modal.cpp`, `ui_xml/belt_names_modal.xml` | "Which belt is which?": Identify and the layout choice |
 | `src/calibration/belt_tune_session.cpp`, `include/belt_tune_session.h` | `BeltTuneSession`: the tuning loop's pure logic (zone candidates, already-matched entry, calibration, baseline pair and repeatability, centroid tracking, outcomes, advice, power hint) and the `belt_tune` thresholds |
 | `src/calibration/belt_settle.cpp`, `include/belt_settle.h` | `plan_belt_settle`: the settling laps' plan and script |
 | `src/ui/ui_belt_gap_gauge.cpp`, `include/ui_belt_gap_gauge.h` | The `<belt_gap_gauge>` widget and its pure helpers `belt_gap_gauge_x` / `belt_gap_severity` |
 | `src/printer/printer_detector.cpp#get_belt_tensioner` | The `belt_tensioner` printer-database field as a `BeltTensionerKind` |
-| `src/calibration/belt_tension_calibrator.cpp` | Measures one path per call (full, or over a window): home if needed, sweep, cancel, `emergency_abort()`; `settle()` runs the laps |
+| `src/calibration/belt_tension_calibrator.cpp` | Measures one path per call (full, or over a window): home if needed, sweep, cancel, `emergency_abort()`; `settle()` runs the laps; `buzz_path()` identifies a path's motor |
 | `src/calibration/belt_tension_types.cpp` | `compare_belt_paths` (band similarity, paired peaks) with `band_similarity` / `detect_belt_peaks` / `pair_belt_peaks` / `verdict_for_similarity` |
 | `src/calibration/resonance_console.cpp` | `[resonance_tester]` config query and console-line parsing shared with input shaper |
 | `src/calibration/shaper_csv_parser.cpp` | `parse_resonance_csv`: reads the CSV, returns `(freq, psd_xyz)` pairs plus the in-plane `psd_x + psd_y` curve, or a classified error |
@@ -213,8 +250,11 @@ until it lands.
 ## Klipper facts the implementation leans on
 
 - `TEST_RESONANCES AXIS=1,-1` and `AXIS=1,1` excite the two CoreXY diagonals. Which
-  physical belt each diagonal loads depends on the printer's geometry, which is why the UI
-  reports paths A and B, never belt names.
+  physical belt each diagonal loads depends on the printer's geometry, so the app never
+  guesses a belt name: the paths are "Path A" and "Path B" until the user names them,
+  having identified each by buzzing its motor (§ Which belt is which).
+- `STEPPER_BUZZ STEPPER=<name>` (Klipper's `force_move`, always loaded) moves one stepper
+  1 mm and back ten times. It needs no homing and no `enable_force_move`.
 - `SWEEPING_PERIOD=0` forces the pulse-only excitation. Mainline Klipper's
   `[resonance_tester]` defaults to the sweeping test (1.2 s), Kalico's to pulse-only, and
   firmware older than the sweeping test has no such parameter and ignores it. Shake&Tune's
@@ -290,12 +330,18 @@ correlates only the swept band.
 - Centre: `bt_similarity` ("48%") and the verdict chip; after a re-test or Confirm,
   `bt_similarity_was` under the number carries the similarity the comparison showed before
   ("was 48%").
-- Sides: the path labels with their `bt_note_a` / `bt_note_b` status: "sweeping" for the
+- Sides: two header slots, left then right, each a path name (`bt_slot_0_name` /
+  `bt_slot_1_name`; tapping one opens "Which belt is which?") over its status
+  (`bt_slot_0_note` / `bt_slot_1_note`). Path A is on the left unless the layout names A the
+  right belt: then B takes the left slot (`bt_slots_swapped`, which swaps the name colors too, and each "Peaks" pair reads in the same order)
+  so the screen matches the printer. The Re-test buttons and the compact Re-test menu follow
+  the same order. One function decides it, `include/ui_belt_path_names.h#belt_path_in_slot`;
+  the chart keeps its colors. The status: "sweeping" for the
   running path and "done" for one this run already measured; on RESULTS an age ("just now",
   "N min ago") that a 30 s timer keeps current. Ghost curves are drawn on their own scale;
   the two current curves share one.
 - Under the chart: `bt_facts`, up to `MAX_LISTED_PEAKS` pairs strongest first as A/B
-  ("Peaks 36/35 · 132/133 Hz"), and `bt_unpaired` ("Only on B: 120, 129 Hz"), hidden by
+  ("Peaks 36/35 · 132/133 Hz"), and `bt_unpaired` ("Only on Path B: 120, 129 Hz"), hidden by
   `bt_has_unpaired` when empty.
 - Chart: the listed pairs carry the same number on both curves; the listed unpaired peaks
   are hollow rings. Both curves (and the re-test ghosts) are trimmed to the sweep band and
@@ -359,7 +405,7 @@ Tune Belts
 ALREADY_MATCHED --Good Enough--> RESULTS (no sweep)
   | Calibrate Anyway
   v
-CALIBRATE  "Tighten B one full turn" -> Measure: settle + full sweep of A and B
+CALIBRATE  "Tighten Path B one full turn" -> Measure: settle + full sweep of A and B
   |  not registered -> CALIBRATE again ("didn't register yet"), up to kCalibrationMaxSteps
   |  gave up        -> NO_ZONE ("Turn B back 2 turns, then check the mechanics")
   v registered
@@ -430,7 +476,7 @@ calibration turns so far, and counts only a move the advised way (the turned bel
 the gap rising for a tightening turn, falling for a loosening one) of at least
 `kCalibrationMinMoveHz` (1.5 Hz).
 
-**Adjust X instead** at CALIBRATE is offered only before the first step
+**Adjust the other belt** at CALIBRATE is offered only before the first step
 (`can_swap_adjusted_path`, `bt_tune_can_swap`): every step is measured against round 0 on the
 same belt, so a swap after one would mix two belts' turns into one move and one turn count.
 Before it, the swap makes the turn loosen the tighter belt ("Loosen A one full turn"), which
@@ -440,7 +486,7 @@ closes the gap from the other side.
   the best one is entered with the calibration sweep's centroids, and on SCREW printers its move
   per calibration turn seeds Hz per turn. The panel chains the baseline with no laps
   (`start_tune_round(false)`);
-- **not registered**: "That turn didn't register yet. Tighten B one more full turn." (UNKNOWN:
+- **not registered**: "That turn didn't register yet. Tighten Path B one more full turn." (UNKNOWN:
   "a little more"; after a swap, "Loosen A ...");
 - **gave up** after `kCalibrationMaxSteps` (2) steps: NO_ZONE, "Nothing followed 2 turns of B.
   Turn B back 2 turns, then check the mechanics." (UNKNOWN: "Undo them"). That line is the
@@ -513,9 +559,9 @@ widens it once until a round measures again. Chart rings mark the centroids
 | `MATCHED` | `|gap|` within the matched tolerance (`matched_tolerance_hz`: the mean bin spacing, at least `kMatchedMinHz`) | "Matched at N Hz" (instruction) |
 | `CLOSER` | the gap shrank and kept its sign | "last turn: N Hz closer" |
 | `OVERSHOT` | the gap changed sign | "Went past X by N Hz. Back it off a little." |
-| `WRONG_WAY` | the gap moved against the advice by `kMinMoveHz` (0.8 Hz) or more | "The gap grew after tightening X. Check you turned Path X's tensioner." |
+| `WRONG_WAY` | the gap moved against the advice by `kMinMoveHz` (0.8 Hz) or more | "The gap grew after tightening X. Check you turned X's tensioner." |
 | `NO_MOVEMENT` | the gap moved under `kMinMoveHz`, or nothing was turned | "The gap didn't close (moved N Hz). Try a bigger turn.", or for a no-turn round "No turn: the gap moved N Hz" |
-| `NO_PEAK` | a path's zone holds no clear peak, the reference left the zone, or the adjusted peak is still past the edge after one widening | "No clear peak in this zone", or with `reference_lost` "Path R's peak left the zone. Check that only Path X's tensioner was turned." |
+| `NO_PEAK` | a path's zone holds no clear peak, the reference left the zone, or the adjusted peak is still past the edge after one widening | "No clear peak in this zone", or with `reference_lost` "R's peak left the zone. Check that only X's tensioner was turned.", plus how to identify the belts |
 | `OUT_OF_WINDOW` | the adjusted path's maximum sits on the zone edge | "X's peak moved out of the zone. Widening it." |
 | `IMPLAUSIBLE` | the gap moved past the sanity bound | "That reading jumped too far to trust. Re-measure without turning." |
 | `BASELINE` / `UNREPEATABLE` | a round of the baseline pair | none / the repeatability line |
@@ -537,7 +583,7 @@ doubles the turn that did nothing. The rate line shows one decimal ("~1.7 Hz / t
 Voron one full turn moved the gap 2-3 Hz once settled, so ⅛ and ¼ steps (0.3-0.7 Hz) cannot
 be seen.
 
-The instruction carries the advised amount ("Tighten B 1 turn"); the stepper records what was
+The instruction carries the advised amount ("Tighten Path B 1 turn"); the stepper records what was
 actually turned, in quarters up to 2, and starts at "Not turned" after every round, a swap,
 Next Zone and Calibrate Anyway. A round with nothing turned since the last measured round is a
 no-turn round: it adopts the reading, reads `NO_MOVEMENT` unless `MATCHED`, `NO_PEAK`,
@@ -549,7 +595,7 @@ Amounts are formatted by `format_belt_turns`, rounded to quarters.
 
 When the zone's in-plane power differs by more than `kPowerHintRatio` (3x) between the paths
 (`power_hint`, over the latest curves measured across the zone), TUNING shows a second warning
-row under the shape warning: "Path B resonates much more than A at N Hz. That points at a
+row under the shape warning: "Path B resonates much more than Path A at N Hz. That points at a
 mechanical difference (pulley grub screws, idler bearings, belt tracking), not tension." It
 opens the same Why modal. Peak height is not tension: the Voron's B path has a 120-133 Hz mode
 with 3-15x A's in-plane power, which also caps Pearson similarity well below 100% however well
@@ -688,7 +734,7 @@ Read this before tuning any threshold. The captures are fixtures in
 
 | Voron 2.4 (Kalico, max_freq 135) | Finding | Fixture |
 |----------------------------------|---------|---------|
-| Round 0, settled | two candidates: 118.6-135 Hz (centroids A 129.12 / B 127.17, gap 1.95: not matched, "Tighten B one full turn") and the 27.8-47.8 Hz frame mode | `voron24_settled_*` |
+| Round 0, settled | two candidates: 118.6-135 Hz (centroids A 129.12 / B 127.17, gap 1.95: not matched, "Tighten Path B one full turn") and the 27.8-47.8 Hz frame mode | `voron24_settled_*` |
 | Calibration, one turn | the 118.6-135 gap moved 1.17 Hz the wrong way: not registered | `voron24_turn1_*` |
 | Calibration, two turns | moved +3.43 Hz the advised way: registered, 1.715 Hz per turn | `voron24_turn2_*` |
 | No-turn repeat as a calibration | moved 1.96 Hz the wrong way: not registered | `voron24_settled_repeat_*` |
