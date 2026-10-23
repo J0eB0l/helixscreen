@@ -533,13 +533,16 @@ void render_linear_hub(lv_obj_t* obj, lv_layer_t* layer, FilamentPathData* data)
     draw_offpage_stubs(ctx, f);
 
     draw_hub_section(ctx, f);
-    if (f.has_buffer)
+    // A hub that feeds no toolhead ends at the hub: nothing below it is drawn.
+    const bool feeds = data->feeds_toolhead;
+    if (feeds && f.has_buffer)
         draw_buffer_section(ctx, f, plan);
     // Bands on the hub/selector edges clamp the tube where it enters the box.
     paint_box_bands(layer, plan, pal);
-    if (data->show_bypass)
+    if (feeds && data->show_bypass)
         record_bypass_hit(ctx, f);
-    draw_nozzle_glyph(ctx, f);
+    if (feeds)
+        draw_nozzle_glyph(ctx, f);
 
     data->path_cache.path = (plan.active_route >= 0) ? filled_prefix(plan.routes[plan.active_route])
                                                      : pg::FilamentPath{};
@@ -573,7 +576,7 @@ void draw_animation_linear_hub(lv_layer_t* layer, FilamentPathData* data) {
     }
 
     // Heat glow halo around the nozzle tip.
-    if (data->anim.heat_active) {
+    if (data->anim.heat_active && data->feeds_toolhead) {
         int32_t tip_y = toolhead_tip_y(nozzle_y, data->theme.extruder_scale);
         draw_heat_glow(layer, center_x, tip_y, sensor_r, data->anim.heat_pulse_opa);
     }

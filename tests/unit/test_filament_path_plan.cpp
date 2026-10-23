@@ -15,6 +15,8 @@
 
 #include "../lvgl_test_fixture.h"
 #include "../test_fixtures.h"
+#include "ams_backend_mock.h"
+#include "ams_state.h"
 #include "ams_types.h"
 #include "filament_path_test_helpers.h"
 #include "lvgl/lvgl.h"
@@ -25,6 +27,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "../catch_amalgamated.hpp"
@@ -1919,4 +1922,167 @@ TEST_CASE("FilamentPath offpage: the edge columns bind only on the rows a contro
     const LinearHubFrame level = frame_with_offpage(*d, 1, false, 1, false);
     CHECK_FALSE(level.stubs[0].labeled);
     CHECK_FALSE(level.stubs[1].labeled);
+}
+
+// ============================================================================
+// A hub that feeds no toolhead
+// ============================================================================
+
+namespace {
+
+// The lowest point any route reaches.
+float deepest_route_y(const PathPlan& plan) {
+    float y = -1e9f;
+    for (int ri = 0; ri < plan.route_count; ri++) {
+        const pg::FilamentPath& p = plan.routes[ri].path;
+        for (int i = 0; i < p.count; i++)
+            y = std::max({y, seg_start(p.segs[i]).y, seg_end(p.segs[i]).y});
+    }
+    return y;
+}
+
+} // namespace
+
+TEST_CASE("FilamentPath plan: a hub that feeds no toolhead ends at the hub",
+          "[filament-path][plan]") {
+    auto d = make_data(helix::PathTopology::HUB);
+    d->buffer_present = true;
+    d->show_bypass = true;
+    load_active(*d, 1, PathSegment::HUB);
+
+    SECTION("feeding a toolhead, the trunk and the bypass run below the hub") {
+        const PathPlan& plan = plan_for(*d);
+        CHECK(deepest_route_y(plan) > 140.5f);
+        CHECK(plan.bypass_route >= 0);
+        CHECK(band_at(plan, 200, 272) != nullptr);
+    }
+
+    SECTION("feeding none, nothing is drawn below the hub output") {
+        d->feeds_toolhead = false;
+        const PathPlan& plan = plan_for(*d);
+        REQUIRE(plan.active_route >= 0);
+        const Route& r = plan.routes[plan.active_route];
+        REQUIRE(r.path.count > 0);
+        CHECK(near(seg_end(r.path.segs[r.path.count - 1]), 200, 140));
+        CHECK(deepest_route_y(plan) <= 140.01f);
+        CHECK(plan.trunk_route == -1);
+        CHECK(plan.bypass_route == -1);
+        // The hub's own output sensor stays on the box edge; the toolhead's is gone.
+        const SensorBand* out = band_at(plan, 200, 140);
+        REQUIRE(out != nullptr);
+        CHECK(out->on_box_edge);
+        CHECK(band_at(plan, 200, 272) == nullptr);
+        CHECK(band_at(plan, 200, 232) == nullptr);
+    }
+
+    SECTION("feeding none with no lane loaded, there is no idle trunk") {
+        d->feeds_toolhead = false;
+        d->active_slot = -1;
+        const PathPlan& plan = plan_for(*d);
+        CHECK(plan.trunk_route == -1);
+        CHECK(plan.bypass_route == -1);
+        CHECK(deepest_route_y(plan) <= 140.01f);
+        CHECK(band_at(plan, 200, 140) != nullptr);
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: a hub that feeds no toolhead has no toolhead",
+                 "[filament-path][plan][hits]") {
+    lv_obj_t* w = make_canvas(test_screen(), static_cast<int>(helix::PathTopology::HUB));
+    ui_filament_path_canvas_set_buffer_info(w, true, 0);
+    ui_filament_path_canvas_set_show_bypass(w, true);
+    ui_filament_path_canvas_set_bypass_callback(w, [](void*) {}, nullptr);
+    render(*this, w);
+
+    lv_area_t box{};
+    int32_t mx = 0;
+    int32_t my = 0;
+    REQUIRE(ui_filament_path_canvas_get_toolhead_box(w, &box));
+    REQUIRE(ui_filament_path_canvas_get_bypass_merge_pos(w, &mx, &my));
+    REQUIRE(get_data(w)->hits.bypass_valid);
+    REQUIRE(get_data(w)->hits.buffer_valid);
+    CHECK(ui_filament_path_canvas_get_feeds_toolhead(w));
+
+    ui_filament_path_canvas_set_feeds_toolhead(w, false);
+    render(*this, w);
+
+    const FilamentPathData* d = get_data(w);
+    CHECK_FALSE(ui_filament_path_canvas_get_feeds_toolhead(w));
+    CHECK_FALSE(ui_filament_path_canvas_get_toolhead_box(w, &box));
+    CHECK_FALSE(ui_filament_path_canvas_get_bypass_merge_pos(w, &mx, &my));
+    CHECK_FALSE(d->hits.bypass_valid);
+    CHECK_FALSE(d->hits.buffer_valid);
+    CHECK(d->hits.hub_valid);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: PARALLEL ignores whether a hub feeds a toolhead",
+                 "[filament-path][plan][hits]") {
+    lv_obj_t* w = make_canvas(test_screen(), static_cast<int>(helix::PathTopology::PARALLEL));
+    ui_filament_path_canvas_set_show_bypass(w, true);
+    ui_filament_path_canvas_set_feeds_toolhead(w, false);
+    render(*this, w);
+
+    int32_t mx = 0;
+    int32_t my = 0;
+    CHECK(ui_filament_path_canvas_get_bypass_merge_pos(w, &mx, &my));
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: a unit view ends where the overview ends it",
+                 "[filament-path][plan]") {
+    // Unit 0 names no tool, extruder or hub label: on a printer with two
+    // nozzles the overview joins it to neither. Units 1 and 2 feed extruder1
+    // and extruder2.
+    helix::AmsSystemInfo info;
+    info.type = helix::AmsType::ACE;
+    for (int u = 0; u < 3; ++u) {
+        helix::AmsUnit unit;
+        unit.unit_index = u;
+        unit.slot_count = 4;
+        unit.first_slot_global_index = 4 * u;
+        unit.topology = helix::PathTopology::HUB;
+        for (int s = 0; s < 4; ++s) {
+            helix::SlotInfo slot;
+            slot.slot_index = s;
+            slot.global_index = 4 * u + s;
+            slot.mapped_tool = u == 0 ? -1 : u;
+            slot.extruder_name = u == 0 ? "" : "extruder" + std::to_string(u);
+            unit.slots.push_back(slot);
+        }
+        info.units.push_back(unit);
+    }
+    info.total_slots = 12;
+
+    helix::AmsBackendMock backend(12);
+    REQUIRE(backend.get_unit_topology(0) == helix::PathTopology::LINEAR);
+    REQUIRE_FALSE(backend.hub_on_toolhead());
+    lv_obj_t* w = make_canvas(test_screen(), static_cast<int>(helix::PathTopology::HUB));
+
+    ams_detail_setup_path_canvas(w, nullptr, 0, &backend, info);
+    CHECK_FALSE(ui_filament_path_canvas_get_feeds_toolhead(w));
+
+    ams_detail_setup_path_canvas(w, nullptr, 1, &backend, info);
+    CHECK(ui_filament_path_canvas_get_feeds_toolhead(w));
+
+    ams_detail_setup_path_canvas(w, nullptr, 0, &backend, info);
+    REQUIRE_FALSE(ui_filament_path_canvas_get_feeds_toolhead(w));
+    // The all-units view always ends at a toolhead.
+    ams_detail_setup_path_canvas(w, nullptr, -1, &backend, info);
+    CHECK(ui_filament_path_canvas_get_feeds_toolhead(w));
+
+    SECTION("the bypass spool stays off a path that ends at its hub") {
+        auto& ams = helix::AmsState::instance();
+        ams.init_subjects(true);
+        info.supports_bypass = true;
+        helix::SlotInfo spool;
+        spool.color_rgb = 0x3366CC;
+        spool.material = "PETG";
+        ams.set_external_spool_info_in_memory(spool);
+
+        ams_detail_setup_path_canvas(w, nullptr, 1, &backend, info);
+        REQUIRE(get_data(w)->bypass_has_spool);
+        ams_detail_setup_path_canvas(w, nullptr, 0, &backend, info);
+        CHECK_FALSE(get_data(w)->bypass_has_spool);
+
+        ams.clear_external_spool_info();
+    }
 }

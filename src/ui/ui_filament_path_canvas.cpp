@@ -85,6 +85,12 @@ bool refresh_theme_colors(FilamentPathData* data) {
 
 } // namespace helix::ui::fpath
 
+// The LINEAR and HUB layouts share one renderer: lanes into a hub, then on to a toolhead.
+static bool is_linear_hub(const FilamentPathData& data) {
+    return data.topology == static_cast<int>(helix::PathTopology::HUB) ||
+           data.topology == static_cast<int>(helix::PathTopology::LINEAR);
+}
+
 // Sizes and the label font are bound to the breakpoint, not the theme, so a
 // theme switch leaves them as read at creation.
 static void load_theme_sizes(FilamentPathData* data) {
@@ -488,6 +494,22 @@ void ui_filament_path_canvas_set_hub_on_toolhead(lv_obj_t* obj, bool on_toolhead
         return;
     data->hub_on_toolhead = on_toolhead;
     layered_mark_dirty(obj);
+}
+
+// NAMESPACE_OK: the widget's C setter API, beside its siblings
+void ui_filament_path_canvas_set_feeds_toolhead(lv_obj_t* obj, bool feeds) {
+    auto* data = get_data(obj);
+    if (!data || data->feeds_toolhead == feeds)
+        return;
+    data->feeds_toolhead = feeds;
+    spdlog::debug("[FilamentPath] Feeds toolhead: {}", feeds ? "yes" : "no");
+    layered_mark_dirty(obj);
+}
+
+// NAMESPACE_OK: the widget's C getter API, beside its siblings
+bool ui_filament_path_canvas_get_feeds_toolhead(lv_obj_t* obj) {
+    const auto* data = get_data(obj);
+    return !data || data->feeds_toolhead;
 }
 
 void ui_filament_path_canvas_set_slot_count(lv_obj_t* obj, int count) {
@@ -1134,8 +1156,7 @@ bool ui_filament_path_canvas_get_toolhead_box(lv_obj_t* obj, lv_area_t* area_out
     auto* data = get_data(obj);
     if (!data || !area_out)
         return false;
-    if (data->topology != static_cast<int>(helix::PathTopology::HUB) &&
-        data->topology != static_cast<int>(helix::PathTopology::LINEAR))
+    if (!is_linear_hub(*data) || !data->feeds_toolhead)
         return false;
     lv_obj_update_layout(obj);
     const BaseGeometry g = compute_base_geometry(obj, data);
@@ -1156,8 +1177,7 @@ bool ui_filament_path_canvas_get_hub_box(lv_obj_t* obj, lv_area_t* area_out) {
     auto* data = get_data(obj);
     if (!data || !area_out)
         return false;
-    if (data->topology != static_cast<int>(helix::PathTopology::HUB) &&
-        data->topology != static_cast<int>(helix::PathTopology::LINEAR))
+    if (!is_linear_hub(*data))
         return false;
     lv_obj_update_layout(obj);
     const BaseGeometry g = compute_base_geometry(obj, data);
@@ -1177,7 +1197,7 @@ bool ui_filament_path_canvas_get_hub_box(lv_obj_t* obj, lv_area_t* area_out) {
 
 bool ui_filament_path_canvas_get_bypass_merge_pos(lv_obj_t* obj, int32_t* cx_out, int32_t* cy_out) {
     auto* data = get_data(obj);
-    if (!data || !data->show_bypass) {
+    if (!data || !data->show_bypass || (is_linear_hub(*data) && !data->feeds_toolhead)) {
         return false;
     }
     lv_obj_update_layout(obj);
