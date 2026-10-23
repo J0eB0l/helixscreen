@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "fit_check.h"
 
+#include "gcode_wait_line.h"
 #include "json_utils.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "text_io.h"
@@ -115,22 +116,6 @@ void raise(std::optional<double>& target, double value) {
     }
 }
 
-/// The S (or TARGET=) value of a heater command word list.
-std::optional<double> target_of(const std::vector<std::string_view>& words, bool klipper_style) {
-    for (size_t i = 1; i < words.size(); ++i) {
-        std::string_view w = words[i];
-        if (klipper_style) {
-            const std::string upper = text_io::to_upper(w);
-            if (upper.rfind("TARGET=", 0) == 0) {
-                return text_io::parse_double(w.substr(7));
-            }
-        } else if (!w.empty() && (w[0] == 'S' || w[0] == 's')) {
-            return text_io::parse_double(w.substr(1));
-        }
-    }
-    return std::nullopt;
-}
-
 } // namespace
 
 FitMachine fit_machine_from_settings(const json& settings) {
@@ -201,6 +186,7 @@ FitMachine fit_machine_from_settings(const json& settings) {
     if (tools > 0) {
         m.tool_count = tools;
     }
+    m.tool_count_confirmed = !extruders.empty() && static_cast<int>(extruders.size()) >= tools;
     return m;
 }
 
@@ -280,7 +266,9 @@ std::vector<FitFinding> check_fit(const FitMachine& machine, const FitFile& file
     if (machine.tool_count && !file.tools.empty()) {
         const int highest = *file.tools.rbegin();
         if (highest >= *machine.tool_count) {
-            FitFinding f = finding(FitKind::TooManyTools, FitSeverity::Block);
+            FitFinding f =
+                finding(FitKind::TooManyTools,
+                        machine.tool_count_confirmed ? FitSeverity::Block : FitSeverity::Warn);
             f.tool = highest;
             f.limit = *machine.tool_count;
             out.push_back(std::move(f));
@@ -315,6 +303,16 @@ std::vector<FitFinding> check_fit(const FitMachine& machine, const FitFile& file
 bool fit_blocks(const std::vector<FitFinding>& findings) {
     return std::any_of(findings.begin(), findings.end(),
                        [](const FitFinding& f) { return f.severity == FitSeverity::Block; });
+}
+
+std::optional<FitSeverity> fit_worst(const std::vector<FitFinding>& findings) {
+    std::optional<FitSeverity> worst;
+    for (const FitFinding& f : findings) {
+        if (!worst || static_cast<int>(f.severity) > static_cast<int>(*worst)) {
+            worst = f.severity;
+        }
+    }
+    return worst;
 }
 
 bool fit_warns(const std::vector<FitFinding>& findings) {
@@ -353,6 +351,7 @@ json fit_machine_json(const FitMachine& m) {
                 {"max_extruder_temp", opt(m.max_extruder_temp)},
                 {"max_bed_temp", opt(m.max_bed_temp)},
                 {"tool_count", opt(m.tool_count)},
+                {"tool_count_confirmed", m.tool_count_confirmed},
                 {"nozzle_diameters", nozzles},
                 {"model", m.model}};
 }
@@ -469,32 +468,16 @@ FitHeadFacts fit_head_facts(std::string_view head) {
             }
             continue;
         }
-        std::string_view code = line.substr(0, line.find(';'));
-        const auto words = text_io::split_ws(code);
-        if (words.empty()) {
+        const HeaterTargetLine set = heater_target_line(line);
+        if (!set.target) {
             continue;
         }
-        const std::string cmd = text_io::to_upper(words[0]);
-        if (cmd == "M104" || cmd == "M109") {
-            if (auto t = target_of(words, false)) {
-                raise(facts.max_hotend_temp, *t);
-            }
-        } else if (cmd == "M140" || cmd == "M190") {
-            if (auto t = target_of(words, false)) {
-                raise(facts.max_bed_temp, *t);
-            }
-        } else if (cmd == "SET_HEATER_TEMPERATURE") {
-            const std::string upper = text_io::to_upper(code);
-            const auto t = target_of(words, true);
-            if (t && upper.find("HEATER=HEATER_BED") != std::string::npos) {
-                raise(facts.max_bed_temp, *t);
-            } else if (t && upper.find("HEATER=EXTRUDER") != std::string::npos) {
-                raise(facts.max_hotend_temp, *t);
-            }
+        if (set.heater == "heater_bed") {
+            raise(facts.max_bed_temp, *set.target);
+        } else if (set.heater.rfind("extruder", 0) == 0) {
+            raise(facts.max_hotend_temp, *set.target);
         }
     }
-    // The slicer's printer model only, never a preset name (printer_settings_id),
-    // which is the user's label for a profile.
     for (const char* key : {"printer_model", "TARGET_MACHINE.NAME", "MACHINE_NAME"}) {
         if (auto it = config.find(key); it != config.end() && !it->second.empty()) {
             facts.printer_model = it->second;

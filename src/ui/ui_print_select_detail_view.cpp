@@ -2096,7 +2096,9 @@ void PrintSelectDetailView::refresh_fit_check() {
     const std::vector<helix::FitFinding> findings = machine && !current_filename_.empty()
                                                         ? helix::check_fit(*machine, get_fit_file())
                                                         : std::vector<helix::FitFinding>{};
-    const int severity = findings.empty() ? 0 : helix::fit_blocks(findings) ? 2 : 1;
+    // 0 nothing, then one past the worst FitSeverity: 1 note, 2 warn, 3 block.
+    const auto worst = helix::fit_worst(findings);
+    const int severity = worst ? static_cast<int>(*worst) + 1 : 0;
     lv_subject_copy_string(&detail_fit_text_,
                            helix::fit_findings_text(findings, helix::FitSeverity::Note).c_str());
     lv_subject_set_int(&detail_fit_severity_, severity);

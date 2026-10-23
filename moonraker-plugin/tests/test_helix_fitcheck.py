@@ -7,11 +7,13 @@ slicer's upload-and-print.
 Run with: pytest tests/test_helix_fitcheck.py -v
 """
 
+import asyncio
 import json
 import logging
 import shutil
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -92,6 +94,20 @@ def test_the_table_covers_every_kind_and_both_kinematics_families():
                      "printer_model_mismatch"}
     kinematics = {c["machine"]["kinematics"] for c in CASES["machines"]}
     assert {"delta", "corexy", "cartesian"} <= kinematics
+
+
+@pytest.mark.parametrize("form,held", [
+    ({"root": "gcodes", "filename": "a.gcode", "print": "true"}, True),
+    ({"filename": "a.UFP", "print": "true"}, True),
+    ({"root": "gcodes", "filename": "a.gcode", "print": "false"}, False),
+    ({"root": "config", "filename": "a.gcode", "print": "true"}, False),
+    ({"root": "gcodes", "filename": "a.gcode.3mf", "print": "true"}, False),
+    ({"root": "gcodes", "filename": "notes.txt", "print": "true"}, False),
+    ("not a form", False),
+])
+def test_which_uploads_are_held(form, held):
+    exts = (".gcode", ".g", ".gco", ".ufp", ".nc", ".3mf")
+    assert helix_fitcheck.holds_upload(form, exts) is held
 
 
 def test_limits_of_something_that_is_not_settings_are_unknown():
@@ -185,8 +201,21 @@ def component(mock_server, temp_gcodes_dir):
     mock_server.components["klippy_connection"] = MockKlippy()
     mock_server.components["klippy_apis"] = MockKlippyApis()
     mock_server.components["history"] = MockHistory()
-    mock_server.components["klippy_apis"].query_objects.return_value = {
-        "configfile": {"settings": SETTINGS}}
+    apis = mock_server.components["klippy_apis"]
+    apis.printer_state = "standby"
+    apis.printing_file = ""
+    apis.settings_error = None
+
+    async def query_objects(objects):
+        out = {}
+        if "configfile" in objects:
+            if apis.settings_error is not None:
+                raise apis.settings_error
+            out["configfile"] = {"settings": SETTINGS}
+        if "print_stats" in objects:
+            out["print_stats"] = {"state": apis.printer_state, "filename": apis.printing_file}
+        return out
+    apis.query_objects = AsyncMock(side_effect=query_objects)
     mock_server.send_event = MagicMock()
     return load_component(MockConfigHelper(mock_server, {
         "temp_dir": ".helix_temp", "symlink_dir": ".helix_print",
@@ -270,15 +299,17 @@ class TestUploadHold:
         await _setup(component, record=None)
         with caplog.at_level(logging.INFO):
             result = await _upload(component)
-        assert "starting unchecked: no analysis within 120 s" in caplog.text
+        assert "starting unchecked: no analysis within" in caplog.text
         assert result["print_started"] is True
-        component.analysis.record_for.assert_awaited_once_with(
-            "part.gcode", helix_fitcheck.RECORD_WAIT_S)
+        (path, wait), _ = component.analysis.record_for.await_args
+        assert path == "part.gcode"
+        # The deadline counts from the hook's entry, so storing the file used some of it.
+        assert 40.0 < wait <= helix_fitcheck.RECORD_WAIT_S
 
     @pytest.mark.asyncio
     async def test_unreadable_printer_limits_start_unchecked(self, component, caplog):
         await _setup(component, record=_record(x_max=400.0))
-        component.klippy_apis.query_objects.side_effect = RuntimeError("klippy down")
+        component.klippy_apis.settings_error = RuntimeError("klippy down")
         with caplog.at_level(logging.INFO):
             result = await _upload(component)
         assert result["print_started"] is True
@@ -292,6 +323,136 @@ class TestUploadHold:
         assert component.file_manager.calls[0]["print"] == "false"
         assert component.file_manager.calls[1]["print"] == "true"
         component.analysis.record_for.assert_not_awaited()
+
+    def test_the_hold_ends_before_a_proxy_gives_up(self):
+        # nginx's default proxy_read_timeout is 60 s
+        assert helix_fitcheck.RECORD_WAIT_S <= 45.0
+
+    @pytest.mark.asyncio
+    async def test_a_busy_printer_without_an_analysis_starts_or_queues_at_once(self, component):
+        await _setup(component, record=None)
+        component.klippy_apis.printer_state = "printing"
+        component.klippy_apis.printing_file = "other.gcode"
+        await _upload(component)
+        component.analysis.record_for.assert_awaited_once_with("part.gcode", 0.0)
+        component.klippy_apis.start_print.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_busy_printer_checks_an_analysis_already_there(self, component,
+                                                                   mock_server):
+        job_queue = MagicMock(queued_jobs={})
+        job_queue.queue_job = AsyncMock()
+        mock_server.components["job_queue"] = job_queue
+        mock_server.components["file_manager"].queue_gcodes = True
+        await _setup(component, record=_record(x_max=400.0))
+        component.klippy_apis.printer_state = "printing"
+        component.klippy_apis.printing_file = "other.gcode"
+        result = await _upload(component)
+        component.analysis.record_for.assert_awaited_once_with("part.gcode", 0.0)
+        component.klippy_apis.start_print.assert_not_awaited()
+        job_queue.queue_job.assert_not_awaited()
+        assert result["print_queued"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_held_analysis_queue_starts_at_once(self, component):
+        await _setup(component, record=_record(x_max=400.0))
+        component.analysis.queue_held = lambda: True
+        result = await _upload(component)
+        component.analysis.record_for.assert_not_awaited()
+        assert result["print_started"] is True
+
+    @pytest.mark.asyncio
+    async def test_a_file_already_printing_is_not_started_again(self, component):
+        await _setup(component, record=_record())
+        component.klippy_apis.printer_state = "printing"
+        component.klippy_apis.printing_file = "part.gcode"
+        result = await _upload(component)
+        component.klippy_apis.start_print.assert_not_awaited()
+        assert result["print_started"] is False and result["print_queued"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_file_already_queued_is_not_started_or_queued_again(self, component,
+                                                                       mock_server):
+        job_queue = MagicMock(queued_jobs={"0001": SimpleNamespace(filename="part.gcode")})
+        job_queue.queue_job = AsyncMock()
+        mock_server.components["job_queue"] = job_queue
+        mock_server.components["file_manager"].queue_gcodes = True
+        await _setup(component, record=_record())
+        result = await _upload(component)
+        component.klippy_apis.start_print.assert_not_awaited()
+        job_queue.queue_job.assert_not_awaited()
+        assert result["print_started"] is False and result["print_queued"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("name", ["part.ufp", "part.nc", "part.GCO"])
+    async def test_every_extension_moonraker_prints_is_held(self, component, name):
+        await _setup(component, record=_record(x_max=400.0))
+        result = await _upload(component, filename=name)
+        assert "print" not in component.file_manager.calls[-1]
+        component.analysis.record_for.assert_awaited_once()
+        assert result["print_started"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_check_that_raises_starts_unchecked(self, component, caplog):
+        await _setup(component)
+        component.analysis.record_for = AsyncMock(side_effect=RuntimeError("db gone"))
+        with caplog.at_level(logging.INFO):
+            result = await _upload(component)
+        assert result["print_started"] is True
+        assert "the check failed (RuntimeError('db gone'))" in caplog.text
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("state", ["complete", "cancelled", "standby", "error"])
+    async def test_a_reupload_of_a_finished_print_starts(self, component, state):
+        """Klipper keeps print_stats.filename after a print ends."""
+        await _setup(component, record=_record())
+        component.klippy_apis.printer_state = state
+        component.klippy_apis.printing_file = "part.gcode"
+        result = await _upload(component)
+        component.klippy_apis.start_print.assert_awaited_once()
+        assert result["print_started"] is True
+
+    @pytest.mark.asyncio
+    async def test_two_uploads_of_one_path_start_it_once(self, component):
+        await _setup(component, record=_record())
+        apis = component.klippy_apis
+
+        async def start_print(path, user=None):
+            await asyncio.sleep(0)
+            apis.printer_state, apis.printing_file = "printing", path
+        apis.start_print = AsyncMock(side_effect=start_print)
+        first, second = await asyncio.gather(_upload(component), _upload(component))
+        apis.start_print.assert_awaited_once()
+        assert sorted([first["print_started"], second["print_started"]]) == [False, True]
+        assert not first["print_queued"] and not second["print_queued"]
+
+    @pytest.mark.asyncio
+    async def test_the_hold_counts_from_the_hooks_entry(self, component, monkeypatch):
+        monkeypatch.setattr(helix_fitcheck, "RECORD_WAIT_S", 1.0)
+        await _setup(component, record=None)
+        fm = component.file_manager
+        real = fm.calls
+
+        async def slow_finalize(form_args):
+            real.append(dict(form_args))
+            await asyncio.sleep(0.3)
+            return {"item": {"path": form_args["filename"], "root": "gcodes"},
+                    "action": "create_file", "print_started": False, "print_queued": False}
+        component.fit_check._original_finalize = slow_finalize
+        await _upload(component)
+        (_path, wait), _ = component.analysis.record_for.await_args
+        assert wait <= 0.75
+
+    @pytest.mark.asyncio
+    async def test_a_cancelled_check_never_starts(self, component):
+        """A cancellation (Moonraker shutting down) is not a failed check that
+        starts the print. CancelledError is a BaseException from Python 3.8 on,
+        so the fail-open `except Exception` handlers let it through."""
+        await _setup(component)
+        component.analysis.record_for = AsyncMock(side_effect=asyncio.CancelledError())
+        with pytest.raises(asyncio.CancelledError):
+            await _upload(component)
+        component.klippy_apis.start_print.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_close_puts_moonrakers_upload_back(self, component, mock_server):

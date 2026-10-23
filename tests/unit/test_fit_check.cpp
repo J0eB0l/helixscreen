@@ -75,6 +75,7 @@ FitMachine machine_of(const json& j) {
     if (j["tool_count"].is_number()) {
         m.tool_count = j["tool_count"].get<int>();
     }
+    m.tool_count_confirmed = j["tool_count_confirmed"].get<bool>();
     m.nozzle_diameters = j["nozzle_diameters"].get<std::vector<double>>();
     m.model = j["model"].get<std::string>();
     return m;
@@ -359,12 +360,21 @@ TEST_CASE("another printer model is shown, never asked about at Print", "[plugin
     CHECK(findings[0].severity == FitSeverity::Note);
     CHECK(gate_fit_check(ctx).verdict == CheckResult::Verdict::Pass);
     CHECK_FALSE(fit_findings_text(findings, FitSeverity::Note).empty());
+    CHECK(fit_worst(findings) == std::optional<FitSeverity>(FitSeverity::Note));
 
     INFO("beside a warning, the dialog names only the warning");
     ctx.fit_file.nozzle_diameters = {0.6};
     const CheckResult r = gate_fit_check(ctx);
     CHECK(r.verdict == CheckResult::Verdict::Warn);
     CHECK(r.body.find("Prusa MK4") == std::string::npos);
+    CHECK(fit_worst(check_fit(*ctx.fit_machine, ctx.fit_file)) ==
+          std::optional<FitSeverity>(FitSeverity::Warn));
+    CHECK_FALSE(fit_worst({}).has_value());
+    FitFinding note;
+    note.severity = FitSeverity::Note;
+    FitFinding block;
+    block.severity = FitSeverity::Block;
+    CHECK(fit_worst({note, block}) == std::optional<FitSeverity>(FitSeverity::Block));
 }
 
 TEST_CASE("a file that fits, or a printer whose config is unread, passes", "[plugin_fitcheck]") {
@@ -456,7 +466,7 @@ class FitDetailFixture : private PrintSelectGlobalStateReset, public PrintSelect
 
 TEST_CASE_METHOD(FitDetailFixture, "the detail view shows a blocking finding and the gate stops it",
                  "[plugin_fitcheck][print_select]") {
-    CHECK(severity() == 2);
+    CHECK(severity() == 3);
     CHECK(text().find("320") != std::string::npos);
     CHECK(detail->get_fit_file().max_hotend_temp == std::optional<double>(320.0));
 

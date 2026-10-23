@@ -74,16 +74,24 @@ See [Print Monitoring](../print-monitoring.md) for what the detection dialog off
 
 ## Hold slicer prints that do not fit
 
-When your slicer uploads a file with "print" (OrcaSlicer's **Print** button, for example), the printer starts it without HelixScreen ever seeing it. This switch lets the **HelixPrint plugin** on your printer check the file first. If the file would move past the printer's travel, heat the nozzle or bed past their limits, or use a tool the printer doesn't have, the file is still uploaded but the print isn't started. Start it from the screen once you have re-sliced it, or ignore it.
+When your slicer uploads a file and asks the printer to print it, the printer starts it without HelixScreen ever seeing it. This switch lets the **HelixPrint plugin** on your printer check the file first. If the file would move past the printer's travel, heat the nozzle or bed past their limits, or use a tool the printer doesn't have, the file is still uploaded but the print isn't started. Start it from the screen once you have re-sliced it, or ignore it.
 
 | Setting | What happens |
 |---------|--------------|
 | **On** | A slicer's upload-and-print waits for the check, and a file that doesn't fit stays in the file list unstarted |
 | **Off** (default) | The slicer's print starts as soon as the upload finishes |
 
+Which slicer starts are held: only an upload that asks for the print in the same request. That is a slicer set up with an **OctoPrint**-style host upload and its **Upload and Print** (or **Print**) button, such as PrusaSlicer, SuperSlicer and OrcaSlicer's host upload. Every file type Moonraker prints is held (`.gcode`, `.g`, `.gco`, `.nc`, Cura's `.ufp`), and so is a `.gcode.3mf` when the plugin is set to start converted 3MF uploads. These are **not** held, because the plugin never sees a request to print them:
+
+- OrcaSlicer's own Moonraker printer connection when it uploads the file first and then sends a separate start command
+- a print started from Mainsail, Fluidd or another app after the upload
+- the next job in Moonraker's job queue
+
 - A different nozzle size or printer model in the slicer profile never holds a print.
-- If the check can't be made (for example, the plugin hasn't finished reading a very large file within two minutes, or can't read the printer's configuration), the print starts as it would without the switch. The printer's Moonraker log says why.
-- The plugin can't see the extra tools a filament system adds, so this switch doesn't hold a print for its tool count. The screen still checks it when you start the file there.
+- The slicer waits at most 45 seconds from the moment its upload arrives, including the time a 3MF takes to convert. If the plugin hasn't read the file by then, or can't read the printer's configuration, a G-code upload starts as it would without the switch, and a 3MF upload is converted but not started (the slicer is told so). The printer's Moonraker log says why.
+- While the printer is already printing, nothing waits. A file the plugin has already read is checked and, if it doesn't fit, isn't queued. A file it hasn't read yet is queued unchecked, as it would be without the switch, and starts later without a check.
+- A file that is printing right now, or already waits in the job queue, is never started or queued a second time, even if the slicer sends it twice. Uploading the same name again after its print has finished starts it as usual.
+- The plugin can't see the extra tools a filament system adds, so this switch doesn't hold a print for its tool count. The screen still checks it when you start the file there: a file using a tool past the printer's extruders is blocked, and one past a count only its tool macros give is a warning with **Start Anyway**.
 - Without the HelixPrint plugin the switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button: only the plugin sees a slicer's print. Prints you start from the screen are checked either way; see [Does the file fit this printer?](../printing.md#does-the-file-fit-this-printer).
 
 ---

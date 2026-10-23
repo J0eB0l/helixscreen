@@ -955,8 +955,8 @@ class PrintSelectDetailView : public OverlayBase {
     // the copy is chosen when the icon is tapped, not when it is published.
     lv_subject_t color_card_remap_help_visible_{};
     lv_subject_t empty_tools_warning_{}; // 1 = at least one used tool's slot is empty
-    // The fit check's verdict for the shown file: 0 none, 1 warnings, 2 a block,
-    // and one line per finding.
+    // The fit check's verdict for the shown file: 0 none, 1 notes only,
+    // 2 warnings, 3 a block, and one line per finding.
     lv_subject_t detail_fit_severity_{};
     lv_subject_t detail_fit_text_{};
     char detail_fit_text_buf_[512]{};

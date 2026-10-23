@@ -134,6 +134,47 @@ WaitLine classify_wait_line(std::string_view line) {
     return out;
 }
 
+HeaterTargetLine heater_target_line(std::string_view line) {
+    if (const size_t comment = line.find(';'); comment != std::string_view::npos) {
+        line = line.substr(0, comment);
+    }
+    const std::vector<std::string_view> words = split_words(line);
+    HeaterTargetLine out;
+    if (words.empty()) {
+        return out;
+    }
+    const std::string command = text_io::to_upper(words[0]);
+    if (command == "M104" || command == "M109" || command == "M140" || command == "M190") {
+        WaitLine params;
+        read_heater_params(words, params);
+        out.target = params.target;
+        if (command == "M140" || command == "M190") {
+            out.heater = "heater_bed";
+        } else {
+            out.heater = params.tool && *params.tool > 0 ? "extruder" + std::to_string(*params.tool)
+                                                         : std::string("extruder");
+        }
+        return out;
+    }
+    if (command != "SET_HEATER_TEMPERATURE") {
+        return out;
+    }
+    for (size_t i = 1; i < words.size(); ++i) {
+        const size_t eq = words[i].find('=');
+        if (eq == std::string_view::npos) {
+            continue;
+        }
+        const std::string key = text_io::to_upper(words[i].substr(0, eq));
+        const std::string_view value = unquote(words[i].substr(eq + 1));
+        if (key == "HEATER") {
+            out.heater = text_io::to_lower(value);
+        } else if (key == "TARGET") {
+            out.target = text_io::parse_leading<double>(value);
+        }
+    }
+    return out;
+}
+
 std::optional<std::string_view> first_line_at_position(std::string_view bytes, size_t requested) {
     if (bytes.empty()) {
         return std::nullopt;

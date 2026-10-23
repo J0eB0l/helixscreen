@@ -43,6 +43,9 @@ struct FitMachine {
     std::optional<double> max_extruder_temp;
     std::optional<double> max_bed_temp;
     std::optional<int> tool_count;
+    /// The extruders alone give tool_count. A count T macros raised is
+    /// inferred, and a file past it only warns.
+    bool tool_count_confirmed = false;
     std::vector<double> nozzle_diameters; ///< by extruder number
     std::string model;                    ///< empty when the printer's model is not known
 };
@@ -95,6 +98,9 @@ struct FitFinding {
 
 /// Whether any finding blocks a start.
 [[nodiscard]] bool fit_blocks(const std::vector<FitFinding>& findings);
+
+/// The most severe of @p findings; nullopt when there are none.
+[[nodiscard]] std::optional<FitSeverity> fit_worst(const std::vector<FitFinding>& findings);
 
 /// Whether any finding is a warning to ask about before a start (blocks aside).
 [[nodiscard]] bool fit_warns(const std::vector<FitFinding>& findings);

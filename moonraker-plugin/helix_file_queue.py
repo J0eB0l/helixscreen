@@ -13,8 +13,10 @@ Each such feature
   - and finds every file at startup (scan_files).
 
 The features that take over a slicer's "upload and print" (helix_3mf,
-helix_fitcheck) share the upload-hook shape test and the start that stands in
-for Moonraker's own (upload_hook_shape_ok, start_or_queue).
+helix_fitcheck) share the upload-hook shape test, the reading of an upload
+form, storing it without its print flag, and the start that stands in for
+Moonraker's own (upload_hook_shape_ok, upload_print_request,
+store_without_print, start_or_queue).
 
 No Moonraker object is imported. Python 3.8, stdlib only.
 """
@@ -27,7 +29,7 @@ import logging
 import os
 from pathlib import Path
 from typing import (
-    Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple, Union,
+    Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Set, Tuple, Union,
 )
 
 # job_state values after which a print no longer holds the printer
@@ -331,17 +333,98 @@ def upload_hook_shape_ok(method: Any) -> bool:
     )
 
 
+# The longest a slicer's upload-and-print request is held open, counted from
+# when the hook takes it: nginx in front of Moonraker (the KIAUH Mainsail and
+# Fluidd configs) answers 504 after 60 s with no proxy_read_timeout set, and a
+# hold that ends first means the slicer never reports a failure for an upload
+# whose print then starts.
+UPLOAD_HOLD_S = 45.0
+
+# Paths whose start or queue call is under way in this process. Checked and
+# claimed with no await between, so two holds of one path start it once.
+_starts_in_flight = set()  # type: Set[str]
+
+
 def print_result(started: bool = False, queued: bool = False) -> Dict[str, bool]:
     """What a hook did about a requested print, in the shape of Moonraker's
     upload response."""
     return {"print_started": started, "print_queued": queued}
 
 
+class UploadRequest(NamedTuple):
+    """What an upload form asks: its root, file name (lower-cased) and whether
+    it asks for a print (OctoPrint-style `print=true`)."""
+
+    root: str
+    filename: str
+    wants_print: bool
+
+
+def upload_print_request(form_args: Any) -> Optional[UploadRequest]:
+    """The upload form @p form_args as an UploadRequest; None for a form that
+    is not a dict."""
+    if not isinstance(form_args, dict):
+        return None
+    return UploadRequest(
+        root=str(form_args.get("root", "gcodes")).lower(),
+        filename=str(form_args.get("filename", "")).lower(),
+        wants_print=str(form_args.get("print", "false")) == "true",
+    )
+
+
+async def store_without_print(finalize: Callable[[Dict[str, Any]], Awaitable[Any]],
+                              form_args: Dict[str, Any]) -> Tuple[Any, str]:
+    """Moonraker's upload of @p form_args with its print flag removed: its
+    response, and the gcodes-relative path it stored the file at ("" when it
+    names none)."""
+    stored_args = dict(form_args)
+    stored_args.pop("print", None)
+    result = await finalize(stored_args)
+    item = (result or {}).get("item") or {}
+    return result, str(item.get("path", "")).lstrip("/")
+
+
+async def already_started(server: Any, klippy_apis: Any, path: str) -> bool:
+    """Whether @p path is the file Klipper is printing now or is waiting in
+    Moonraker's job queue: starting or queueing it again would print it twice.
+    Klipper keeps print_stats.filename after a print ends, so only a printing
+    or paused state counts. A question that cannot be answered reads as no."""
+    try:
+        status = await klippy_apis.query_objects({"print_stats": None})
+        stats = (status or {}).get("print_stats") or {}
+        if stats.get("filename") == path and stats.get("state") in ("printing", "paused"):
+            return True
+    except Exception:
+        pass
+    lookup = getattr(server, "lookup_component", None)
+    job_queue = lookup("job_queue", None) if lookup is not None else None
+    jobs = getattr(job_queue, "queued_jobs", None)
+    if isinstance(jobs, dict):
+        return any(getattr(job, "filename", None) == path for job in jobs.values())
+    return False
+
+
 async def start_or_queue(server: Any, klippy_apis: Any, file_manager: Any,
                          path: str, user: Any) -> Dict[str, bool]:
     """Start @p path as Moonraker's own upload path would: start it, and when
     that is refused (a print running) queue it if the file manager queues
-    uploads. Returns print_result()."""
+    uploads. Nothing when it already prints or waits in the queue, or when a
+    start of it is already under way here. Returns print_result()."""
+    if path in _starts_in_flight:
+        logging.info(f"HelixPrint: not starting {path}: a start of it is under way")
+        return print_result()
+    _starts_in_flight.add(path)
+    try:
+        return await _start_or_queue(server, klippy_apis, file_manager, path, user)
+    finally:
+        _starts_in_flight.discard(path)
+
+
+async def _start_or_queue(server: Any, klippy_apis: Any, file_manager: Any,
+                          path: str, user: Any) -> Dict[str, bool]:
+    if await already_started(server, klippy_apis, path):
+        logging.info(f"HelixPrint: not starting {path}: it is already printing or queued")
+        return print_result()
     try:
         await klippy_apis.start_print(path, user=user)
         return print_result(started=True)

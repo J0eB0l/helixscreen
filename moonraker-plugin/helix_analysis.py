@@ -1205,7 +1205,7 @@ class HelixAnalysis(file_queue.FileTracker):
         it has none. None when no record arrives within `timeout` seconds: the
         file is gone, its analysis failed, or the queue is held (switched off,
         or a print running on a one-core host)."""
-        if self.gc_path is None:
+        if self.gc_path is None or not is_analyzable(path):
             return None
         try:
             st = os.stat(str(self.gc_path / path))
@@ -1229,6 +1229,11 @@ class HelixAnalysis(file_queue.FileTracker):
                 waiting.remove(waiter)
             if not waiting:
                 self._waiters.pop(path, None)
+
+    def queue_held(self) -> bool:
+        """Whether analysis waits now (a print running on a one-core host), so a
+        record asked for cannot arrive until it ends."""
+        return self._resume is not None and not self._resume.is_set()
 
     def _answer_waiters(self, path: str, record: Optional[Dict[str, Any]]) -> None:
         for waiter in self._waiters.pop(path, []):
