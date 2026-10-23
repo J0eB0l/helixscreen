@@ -19,8 +19,9 @@ using namespace helix;
 /**
  * MoonrakerClient Robustness Tests
  *
- * Comprehensive tests for production readiness addressing testing gaps
- * identified in the Moonraker security audit.
+ * The client under concurrent use, malformed input, request timeouts, connection
+ * state changes and callback lifetimes, against a loopback MockWebSocketServer
+ * or an unroutable address (TEST-NET-1).
  *
  * Test Categories:
  * 1. Priority 1: Concurrent Access Testing - Thread-safe operations
@@ -144,14 +145,10 @@ class MoonrakerRobustnessFixture {
 // Priority 1: Concurrent Access Testing
 // ============================================================================
 
-// Fixed: Now uses MockWebSocketServer to provide real responses
-// FIXME: SIGSEGVs on Linux CI immediately after client_->connect() in the
-// first SECTION. Passes locally on macOS and never actually ran on Linux CI
-// before the ephemeral-port fix (e68e4a81a) because start() always failed.
-// Hidden via [.] AND [eventloop] tag removed: Catch2's [.] only hides from
-// default runs, not when the tag is explicitly requested (the eventloop job
-// runs "[eventloop]" as a filter). Can still be invoked explicitly with
-// helix-tests "MoonrakerClient handles concurrent send_jsonrpc calls".
+// FIXME: SIGSEGVs on Linux immediately after client_->connect() in the first
+// SECTION. Hidden with [.] and kept out of [eventloop], because [.] hides a case
+// only from default runs and the eventloop job filters on "[eventloop]". Run it
+// by name: helix-tests "MoonrakerClient handles concurrent send_jsonrpc calls".
 TEST_CASE_METHOD(MoonrakerRobustnessFixture,
                  "MoonrakerClient handles concurrent send_jsonrpc calls",
                  "[.][connection][edge][concurrent][priority1]") {
@@ -266,15 +263,11 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
     }
 }
 
-// WAS flaky on Linux CI: concurrent connect()/disconnect() from multiple
-// threads intermittently triggered SIGABRT (heap corruption) inside libhv.
-// Root cause: WebSocketClient::open() reassigned its onConnection/onMessage
-// std::function members from the CALLER's thread while the event loop could
-// be mid-invoke on the previous attempt's closures — freed the function
-// storage under the running lambda. Fixed by
-// patches/libhv-websocket-open-install-once.patch (callbacks installed once
-// in the constructor, b153c5f57). Re-enlisted 2026-08-17: 4 consecutive green
-// local runs plus the [eventloop] suite after the fix.
+// connect() and disconnect() racing from several threads must not corrupt
+// libhv's WebSocketClient. It relies on
+// patches/libhv-websocket-open-install-once.patch: open() never reassigns the
+// std::function callbacks the event loop may be running, because they are
+// installed once in the constructor.
 TEST_CASE_METHOD(MoonrakerRobustnessFixture,
                  "MoonrakerClient handles concurrent connect/disconnect",
                  "[connection][edge][concurrent][priority1][eventloop]") {
@@ -351,9 +344,7 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
     }
 }
 
-// 6ms measured — the [slow] tag was folklore (it presumably predates the
-// ephemeral-port fix and used to sit in connect-timeout waits). Still
-// [.]-hidden for the event-loop concurrency itself, matching the siblings.
+// [.]-hidden for its event-loop concurrency, like the concurrent send case.
 TEST_CASE_METHOD(MoonrakerRobustnessFixture,
                  "MoonrakerClient handles concurrent callback registration",
                  "[.][connection][edge][concurrent][priority1][eventloop]") {
@@ -415,10 +406,9 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
 // Klipper object lacks. nlohmann::json::value("k", default) and unguarded
 // .get<T>() throw type_error.302 on null. dispatch_status_update is the
 // initial-subscription apply path that runs synchronously on the main thread
-// (Application::on_discovery_complete); a throwing callback there used to
-// unwind into main()'s top-level catch, exiting 134 (#filament_motion_sensor,
-// f75b961d8). The dispatch path now wraps each callback in try/catch so a
-// single rogue parser doesn't crash the whole app.
+// (Application::on_discovery_complete), where a throwing callback would unwind
+// into main()'s top-level catch and exit 134. The dispatch path wraps each
+// callback in try/catch so a single rogue parser cannot crash the app.
 
 TEST_CASE("MoonrakerClient::dispatch_status_update absorbs throwing callbacks",
           "[connection][regression][subscription-null]") {
@@ -653,13 +643,9 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture, "MoonrakerClient state machine tran
         client_->set_connection_timeout(kBlackHoleConnectTimeoutMs);
         client_->connect("ws://192.0.2.1:7125/websocket", []() {}, []() {});
 
-        // Poll for the connection to fail rather than assuming a fixed 2s is
-        // enough. The connect targets 192.0.2.1 (TEST-NET-1, a guaranteed black
-        // hole), and on a loaded CI runner the TCP connect can take well over 2s
-        // to surface DISCONNECTED. The old fixed `sleep_for(2000ms)` occasionally
-        // observed only CONNECTING and tripped `REQUIRE(states.size() >= 2)`,
-        // flaking the nightly [slow] job. Adaptive polling keeps the same intent
-        // (CONNECTING -> DISCONNECTED) without racing the connect timeout.
+        // 192.0.2.1 (TEST-NET-1) never answers, and on a loaded runner the
+        // timeout can surface DISCONNECTED well after it is due, so this polls
+        // for CONNECTING -> DISCONNECTED instead of sleeping a fixed time.
         auto reached_disconnected = [&]() {
             std::lock_guard<std::mutex> lock(states_mutex);
             return !states.empty() && states.back() == ConnectionState::DISCONNECTED;
@@ -789,9 +775,9 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture, "MoonrakerClient handles exceptions
                  "[connection][edge][lifecycle][priority5][eventloop][slow]") {
     SECTION("Exception in success callback is caught") {
         // Not covered. Reaching a success callback needs a connected server, and
-        // this suite has none, so the claim that libhv's event loop swallows a
-        // throwing user callback was only ever asserted by reading the code. The
-        // error-callback path below is the one with real runtime coverage.
+        // this suite has none, so nothing here shows that libhv's event loop
+        // swallows a throwing user callback. The error-callback path below is
+        // the one with runtime coverage.
         SKIP("needs a connected Moonraker server to drive a success callback");
     }
 
@@ -935,12 +921,10 @@ TEST_CASE("MoonrakerClient memory safety", "[connection][edge][memory][eventloop
         // AVOIDS that window, so this section cannot exercise it. Reversing the
         // ordering would not restore coverage either: the defect is in libhv's
         // destruction order, it has no fix on our side, and a test written to hit
-        // it would simply be a crash we deliberately schedule. What actually
-        // closed the hole in the product was removing external loops from the
-        // construction path - MoonrakerManager::create_client default-constructs,
-        // and 28 test sites were converted to match (commit 2882c912e). The
-        // remaining fixtures that legitimately own a loop, this one included, use
-        // this ordering.
+        // it would simply be a crash we deliberately schedule. Production stays
+        // out of the window by never handing a client an external loop:
+        // MoonrakerManager::create_client default-constructs. The fixtures that
+        // own a loop, this one included, use this ordering.
         //
         // What IS asserted here is that all 50 cycles reach production code:
         // every client is unconnected, so ready_to_send() rejects each send and
