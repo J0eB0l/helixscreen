@@ -9,6 +9,7 @@
 #include "helix-xml/src/xml/lv_xml_parser.h"
 #include "helix-xml/src/xml/lv_xml_widget.h"
 #include "helix-xml/src/xml/parsers/lv_xml_obj_parser.h"
+#include "lvgl/src/indev/lv_indev_private.h" // scroll_limit: no public getter
 #include "theme_manager.h"
 
 #include <algorithm>
@@ -36,6 +37,13 @@ struct Slot {
     bool has_model = false;
     TableActivate on_activate;
     std::vector<lv_obj_t*> instances;
+};
+
+/// One live widget's state, freed with it.
+struct Instance {
+    std::string name;
+    lv_point_t press_point{0, 0};
+    bool dragged = false; ///< the pointer left the press point by a scroll limit or more
 };
 
 std::map<std::string, Slot>& slots() {
@@ -101,16 +109,45 @@ void invalidate_all(const std::string& name) {
         lv_obj_invalidate(obj);
 }
 
+Instance* instance_of(lv_event_t* e) {
+    return static_cast<Instance*>(lv_event_get_user_data(e));
+}
+
 void table_on_size(lv_event_t* e) {
-    auto* name = static_cast<const std::string*>(lv_event_get_user_data(e));
-    auto it = slots().find(*name);
+    auto it = slots().find(instance_of(e)->name);
     if (it != slots().end() && it->second.has_model)
         apply_widths(lv_event_get_current_target_obj(e), it->second.model);
 }
 
+// lv_table suppresses its release activation only when the drag scrolled it, so a table
+// whose rows all fit would activate the last row a drag crossed.
+void table_on_press(lv_event_t* e) {
+    lv_indev_t* indev = lv_indev_active();
+    if (!indev || lv_indev_get_type(indev) != LV_INDEV_TYPE_POINTER)
+        return;
+    Instance* inst = instance_of(e);
+    lv_point_t p;
+    lv_indev_get_point(indev, &p);
+    if (lv_event_get_code(e) == LV_EVENT_PRESSED) {
+        inst->press_point = p;
+        inst->dragged = false;
+        return;
+    }
+    const int32_t limit = indev->scroll_limit;
+    if (LV_ABS(p.x - inst->press_point.x) >= limit || LV_ABS(p.y - inst->press_point.y) >= limit)
+        inst->dragged = true;
+}
+
+bool pointer_dragged(lv_event_t* e) {
+    lv_indev_t* indev = lv_indev_active();
+    return indev && lv_indev_get_type(indev) == LV_INDEV_TYPE_POINTER && instance_of(e)->dragged;
+}
+
 void table_on_value_changed(lv_event_t* e) {
-    auto* name = static_cast<const std::string*>(lv_event_get_user_data(e));
-    auto it = slots().find(*name);
+    if (pointer_dragged(e))
+        return;
+    const std::string& name = instance_of(e)->name;
+    auto it = slots().find(name);
     if (it == slots().end() || !it->second.has_model)
         return;
     uint32_t row = 0;
@@ -122,7 +159,7 @@ void table_on_value_changed(lv_event_t* e) {
         return;
     const std::string key = s.model.rows[static_cast<size_t>(data_row)].key;
     s.model.selected = key;
-    invalidate_all(*name);
+    invalidate_all(name);
     // Copied first: the handler may replace the model, the handler or drop the table.
     TableActivate fn = s.on_activate;
     if (fn)
@@ -136,8 +173,7 @@ void table_on_draw_task(lv_event_t* e) {
     if (!base || base->part != LV_PART_ITEMS)
         return;
     const uint32_t row = base->id1;
-    auto* name = static_cast<const std::string*>(lv_event_get_user_data(e));
-    auto it = slots().find(*name);
+    auto it = slots().find(instance_of(e)->name);
     const int selected = it != slots().end() ? selected_index(it->second.model) : -1;
     switch (lv_draw_task_get_type(task)) {
     case LV_DRAW_TASK_TYPE_LABEL: {
@@ -163,16 +199,16 @@ void table_on_draw_task(lv_event_t* e) {
 }
 
 void table_on_delete(lv_event_t* e) {
-    auto* name = static_cast<const std::string*>(lv_event_get_user_data(e));
+    Instance* self = instance_of(e);
     lv_obj_t* obj = lv_event_get_current_target_obj(e);
-    auto it = slots().find(*name);
+    auto it = slots().find(self->name);
     if (it != slots().end()) {
         auto& inst = it->second.instances;
         inst.erase(std::remove(inst.begin(), inst.end(), obj), inst.end());
         if (slot_is_empty(it->second))
             slots().erase(it);
     }
-    delete name;
+    delete self;
 }
 
 void* table_xml_create(lv_xml_parser_state_t* state, const char** attrs) {
@@ -200,19 +236,20 @@ void* table_xml_create(lv_xml_parser_state_t* state, const char** attrs) {
     lv_obj_add_flag(obj, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
     lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLL_ELASTIC);
 
-    // The heap name is the per-instance state, freed with the instance. An unnamed
-    // table never joins a slot and stays empty.
-    auto* name = new std::string(name_attr ? name_attr : "");
+    // An unnamed table never joins a slot and stays empty.
+    auto* inst = new Instance{name_attr ? name_attr : ""};
     Slot* slot = nullptr;
-    if (!name->empty()) {
-        slot = &slots()[*name];
+    if (!inst->name.empty()) {
+        slot = &slots()[inst->name];
         slot->instances.push_back(obj);
     }
     render(obj, slot);
-    lv_obj_add_event_cb(obj, table_on_size, LV_EVENT_SIZE_CHANGED, name);
-    lv_obj_add_event_cb(obj, table_on_value_changed, LV_EVENT_VALUE_CHANGED, name);
-    lv_obj_add_event_cb(obj, table_on_draw_task, LV_EVENT_DRAW_TASK_ADDED, name);
-    lv_obj_add_event_cb(obj, table_on_delete, LV_EVENT_DELETE, name);
+    lv_obj_add_event_cb(obj, table_on_size, LV_EVENT_SIZE_CHANGED, inst);
+    lv_obj_add_event_cb(obj, table_on_press, LV_EVENT_PRESSED, inst);
+    lv_obj_add_event_cb(obj, table_on_press, LV_EVENT_PRESSING, inst);
+    lv_obj_add_event_cb(obj, table_on_value_changed, LV_EVENT_VALUE_CHANGED, inst);
+    lv_obj_add_event_cb(obj, table_on_draw_task, LV_EVENT_DRAW_TASK_ADDED, inst);
+    lv_obj_add_event_cb(obj, table_on_delete, LV_EVENT_DELETE, inst);
     return obj;
 }
 
