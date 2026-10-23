@@ -547,6 +547,17 @@ TEST_CASE("the overview hides a vendor push row only while its vendor is absent"
     REQUIRE(lines.size() == 2);
     CHECK(lines[1].name == "vendor_ad5x");
     CHECK(lines[1].status == PluginFeatureStatus::Off);
+
+    INFO("a vendor module that failed to load still shows why");
+    features["vendor_ace"] = entry(1, false, false, "load_failed: SyntaxError");
+    features["vendor_ad5x"] = entry(1, false, false, "no_ace_bridge");
+    lines = plugin_feature_lines(features);
+    REQUIRE(lines.size() == 3);
+    CHECK(lines[1].name == "vendor_ad5x");
+    CHECK(lines[1].reason == "no_ace_bridge");
+    CHECK(lines[2].name == "vendor_ace");
+    CHECK(lines[2].status == PluginFeatureStatus::Unavailable);
+    CHECK(lines[2].reason == "load_failed: SyntaxError");
 }
 
 TEST_CASE("the overview names every batch feature and gives the switchless ones no home",

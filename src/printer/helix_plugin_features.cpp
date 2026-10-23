@@ -115,6 +115,22 @@ std::optional<bool> local_screen_present(const nlohmann::json& record, int64_t n
     return now - seen->get<int64_t>() <= 2 * kLocalScreenPresenceIntervalS;
 }
 
+namespace {
+
+bool hidden_on_overview(const KnownPluginFeature& known, const PluginFeatureEntry& entry) {
+    if (entry.available || known.hidden_reasons == nullptr) {
+        return false;
+    }
+    for (const char* const* reason = known.hidden_reasons; *reason != nullptr; ++reason) {
+        if (entry.reason == *reason) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
 std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& features) {
     std::vector<PluginFeatureLine> lines;
     auto line_for = [](const std::string& name, const PluginFeatureEntry& entry) {
@@ -130,7 +146,7 @@ std::vector<PluginFeatureLine> plugin_feature_lines(const PluginFeatureMap& feat
     };
     for (const KnownPluginFeature& known : kKnownPluginFeatures) {
         const auto it = features.find(known.name);
-        if (it == features.end() || (known.hide_when_unavailable && !it->second.available)) {
+        if (it == features.end() || hidden_on_overview(known, it->second)) {
             continue;
         }
         PluginFeatureLine line = line_for(it->first, it->second);
