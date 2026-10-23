@@ -635,12 +635,19 @@ class MoonrakerJobAPIMock : public MoonrakerJobAPI {
         edited_print_error_ = std::move(error);
     }
 
+    /// Make every later start_modified_print() call on_error with @p error (nullopt: answer
+    /// as fail_modified_prints says). The call is still recorded.
+    void mock_modified_print_error(std::optional<MoonrakerError> error) {
+        modified_print_error_ = std::move(error);
+    }
+
   private:
     std::vector<std::string> started_prints_;
     std::vector<ModifiedPrintRecord> modified_prints_;
     std::vector<EditedPrintRecord> edited_prints_;
     bool fail_modified_prints_ = false;
     std::optional<MoonrakerError> edited_print_error_;
+    std::optional<MoonrakerError> modified_print_error_;
 };
 
 } // namespace helix

@@ -11,6 +11,7 @@
 #include "../lvgl_test_fixture.h"
 #include "../mocks/mock_websocket_server.h"
 #include "../test_helpers/mock_printer.h"
+#include "../test_helpers/moonraker_client_mock_test_access.h"
 #include "../test_helpers/moonraker_manager_test_access.h"
 #include "../test_helpers/planted_gcode.h"
 #include "../test_helpers/preprint_config_scope.h"
@@ -41,6 +42,7 @@
 #include "printer_detector.h"
 #include "printer_discovery.h"
 #include "printer_state.h"
+#include "storage_report.h"
 
 #include <spdlog/sinks/null_sink.h>
 #include <spdlog/spdlog.h>
@@ -4006,6 +4008,48 @@ TEST_CASE_METHOD(HelixTestFixture,
 }
 
 TEST_CASE_METHOD(HelixTestFixture,
+                 "PrintPreparationManager: a print_edited refused for space says so",
+                 "[print_preparation][remap][plugin_server_edits][plugin_storage]") {
+    lv_init_safe();
+    PrinterStateTestAccess::reset(get_printer_state());
+    get_printer_state().init_subjects(false);
+
+    MockPrinter mock_printer;
+    auto& state = mock_printer.state;
+    auto& api = mock_printer.api;
+    state.set_helix_plugin_installed(true);
+    PluginFeatureEntry entry;
+    entry.version = gcode::kServerEditsMinVersion;
+    entry.available = true;
+    entry.enabled = true;
+    state.plugin_status_state().set_features({{gcode::kServerEditsFeature, entry}});
+    drain_until_quiet();
+
+    const int code = GENERATE(storage::kNoSpaceRpcCode, 409);
+    CAPTURE(code);
+    api.job_mock().mock_edited_print_error(MoonrakerError::from_json_rpc(
+        {{"code", code}, {"message", "Refused"}}, "server.helix.print_edited"));
+    std::vector<std::string> errors;
+    helix::ui::set_test_notification_error_hook(
+        [&errors](const std::string& msg) { errors.push_back(msg); });
+
+    PrintPreparationManager manager;
+    manager.set_dependencies(&api, &state);
+    state.print_state().begin_preparing(PrintJobRef{kRemapFixture, "gcodes", ""});
+    manager.modify_and_print_with_remap(kRemapFixture, {{1, 2}}, nullptr);
+    drain_until_quiet();
+    helix::ui::set_test_notification_error_hook(nullptr);
+
+    REQUIRE(api.job_mock().edited_prints().size() == 1);
+    REQUIRE(errors.size() == 1);
+    if (code == storage::kNoSpaceRpcCode) {
+        CHECK(errors[0] == storage::kNoUploadSpaceMessage);
+    } else {
+        CHECK(errors[0].rfind("Failed to start print: ", 0) == 0);
+    }
+}
+
+TEST_CASE_METHOD(HelixTestFixture,
                  "PrintPreparationManager: a failed print_edited falls back only when the "
                  "plugin cannot do the edit",
                  "[print_preparation][remap][plugin_server_edits]") {
@@ -4339,6 +4383,48 @@ TEST_CASE_METHOD(HelixTestFixture,
         const auto& deleted = api.files_mock().deleted_files();
         REQUIRE(deleted.size() == 1);
         CHECK(deleted[0] == "gcodes/" + api.transfers_mock().path_uploads()[0].dest_path);
+        expect_job_retired();
+    }
+
+    SECTION("the printer has no room for the rewritten copy") {
+        MoonrakerClientMockTestAccess::report_full_disk(mock_printer.client);
+        std::vector<std::string> errors;
+        helix::ui::set_test_notification_error_hook(
+            [&errors](const std::string& msg) { errors.push_back(msg); });
+        manager.set_dependencies(&api, &state);
+        state.print_state().begin_preparing(PrintJobRef{kRemapFixture, "gcodes", ""});
+        REQUIRE(state.print_state().has_preparing_job());
+
+        manager.modify_and_print_with_remap(kRemapFixture, {{1, 2}}, nullptr);
+        drain_until_quiet();
+        helix::ui::set_test_notification_error_hook(nullptr);
+
+        // Nothing is sent that would fill the disk mid-upload.
+        CHECK(api.transfers_mock().path_uploads().empty());
+        CHECK(api.job_mock().modified_prints().empty());
+        CHECK(errors == std::vector<std::string>{storage::kNoUploadSpaceMessage});
+        expect_job_retired();
+    }
+
+    SECTION("the plugin refuses the start for space") {
+        std::vector<std::string> errors;
+        helix::ui::set_test_notification_error_hook(
+            [&errors](const std::string& msg) { errors.push_back(msg); });
+        manager.set_dependencies(&api, &state);
+        api.job_mock().mock_modified_print_error(MoonrakerError::from_json_rpc(
+            {{"code", storage::kNoSpaceRpcCode}, {"message", "Not enough free space"}},
+            "server.helix.print_modified"));
+        state.print_state().begin_preparing(PrintJobRef{kRemapFixture, "gcodes", ""});
+        REQUIRE(state.print_state().has_preparing_job());
+
+        manager.modify_and_print_with_remap(kRemapFixture, {{1, 2}}, nullptr);
+        drain_until_quiet();
+        helix::ui::set_test_notification_error_hook(nullptr);
+        api.job_mock().mock_modified_print_error(std::nullopt);
+
+        REQUIRE(api.job_mock().modified_prints().size() == 1);
+        // The space message, which says where to free some, not a bare failure.
+        CHECK(errors == std::vector<std::string>{storage::kNoUploadSpaceMessage});
         expect_job_retired();
     }
 }

@@ -76,6 +76,26 @@ class MoonrakerClientMockTestAccess {
                                    mock_internal::MethodHandler handler) {
         c.method_handlers_[method] = std::move(handler);
     }
+
+    // Answer every directory listing with a disk that has no free space, as
+    // Moonraker reports disk_usage beside any gcodes directory's entries.
+    static void report_full_disk(MoonrakerClientMock& c) {
+        set_method_handler(
+            c, "server.files.get_directory",
+            [](MoonrakerClientMock*, const nlohmann::json&,
+               std::function<void(const nlohmann::json&)> success_cb,
+               std::function<void(const MoonrakerError&)>) -> bool {
+                if (success_cb) {
+                    success_cb(nlohmann::json{
+                        {"result",
+                         {{"dirs", nlohmann::json::array()},
+                          {"files", nlohmann::json::array()},
+                          {"disk_usage",
+                           {{"total", 1ULL << 30}, {"used", 1ULL << 30}, {"free", 0}}}}}});
+                }
+                return true;
+            });
+    }
 };
 
 } // namespace helix

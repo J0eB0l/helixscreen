@@ -345,6 +345,12 @@ void helix::MoonrakerJobAPIMock::start_modified_print(const std::string& origina
                  "{} modification(s)",
                  original_filename, temp_file_path, modifications.size());
 
+    if (modified_print_error_) {
+        if (on_error) {
+            on_error(*modified_print_error_);
+        }
+        return;
+    }
     if (fail_modified_prints_) {
         if (on_error) {
             on_error(MoonrakerError::unknown("Mock plugin rejected: " + temp_file_path,
