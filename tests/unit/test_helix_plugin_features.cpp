@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "ui_plugin_overview_overlay.h"
+
 #include "helix_plugin_features.h"
 
+#include <algorithm>
 #include <iterator>
 #include <string>
 
 #include "../catch_amalgamated.hpp"
 
 using namespace helix;
+using helix::ui::plugin_feature_reason_text;
+using helix::ui::plugin_feature_status_text;
 using json = nlohmann::json;
 
 namespace {
@@ -114,4 +119,39 @@ TEST_CASE("every plugin reason code is listed once", "[plugin_feature]") {
             CHECK(std::string(kPluginReasonTexts[i].code) != kPluginReasonTexts[j].code);
         }
     }
+}
+
+TEST_CASE("an overview line keeps its status short and its reason apart", "[plugin_feature]") {
+    PluginFeatureMap features;
+    auto entry = [](bool available, bool enabled, std::string reason) {
+        PluginFeatureEntry e;
+        e.version = 1;
+        e.available = available;
+        e.enabled = enabled;
+        e.reason = std::move(reason);
+        return e;
+    };
+    features["photos"] = entry(false, false, "snapshot_unreachable: /webcam/?action=snapshot");
+    features["print_hooks"] = entry(true, false, "");
+    features["file_analysis"] = entry(true, true, "");
+    features["mystery"] = entry(false, false, "");
+
+    const std::vector<PluginFeatureLine> lines = plugin_feature_lines(features);
+    auto line = [&](const std::string& name) {
+        const auto it = std::find_if(lines.begin(), lines.end(),
+                                     [&](const PluginFeatureLine& l) { return l.name == name; });
+        REQUIRE(it != lines.end());
+        return *it;
+    };
+
+    CHECK(plugin_feature_status_text(line("photos")) == "Unavailable");
+    CHECK(plugin_feature_reason_text(line("photos")) ==
+          "The plugin can't reach the camera, so this screen takes the photos.");
+    CHECK(plugin_feature_status_text(line("print_hooks")) == "Off");
+    CHECK(plugin_feature_reason_text(line("print_hooks")).empty());
+    CHECK(plugin_feature_status_text(line("file_analysis")) == "Active");
+    CHECK(plugin_feature_reason_text(line("file_analysis")).empty());
+    // Unavailable with no reason given: the status alone.
+    CHECK(plugin_feature_status_text(line("mystery")) == "Unavailable");
+    CHECK(plugin_feature_reason_text(line("mystery")).empty());
 }

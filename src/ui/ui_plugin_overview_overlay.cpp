@@ -17,7 +17,6 @@
 #include "printer_state.h"
 #include "ui/ui_widget_helpers.h"
 
-#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
 #include <cstring>
@@ -61,10 +60,14 @@ std::string plugin_feature_status_text(const PluginFeatureLine& line) {
     case PluginFeatureStatus::Unavailable:
         break;
     }
-    if (line.reason.empty()) {
-        return lv_tr("Unavailable");
+    return lv_tr("Unavailable");
+}
+
+std::string plugin_feature_reason_text(const PluginFeatureLine& line) {
+    if (line.status != PluginFeatureStatus::Unavailable || line.reason.empty()) {
+        return "";
     }
-    return fmt::format(lv_tr("Unavailable: {}"), plugin_reason_text(line.reason));
+    return plugin_reason_text(line.reason);
 }
 
 void PluginOverviewOverlay::refresh() {
@@ -97,14 +100,18 @@ void PluginOverviewOverlay::create_line(const PluginFeatureLine& line) {
     const bool known = line.label != line.name;
     const std::string label = known ? lv_tr(line.label.c_str()) : line.label;
     const std::string status = plugin_feature_status_text(line);
+    const std::string reason = plugin_feature_reason_text(line);
     const std::string name = std::string(kLinePrefix) + line.name;
-    // One row shape for every line, status at the right; a line with a
+    // One row shape for every line: the short status at the right, why a
+    // feature is unavailable under its name, where it can wrap. A line with a
     // setting leads to it, one without takes no tap.
     const bool leads = line.home != PluginFeatureHome::None;
     std::vector<std::pair<std::string, std::string>> attrs = {
         {"label", label},
         {"label_tag", known ? line.label : ""},
         {"icon", line.icon},
+        {"description", reason},
+        {"description_min_bp", "0"},
         {"value", status},
         {"chevron", leads ? "true" : "false"},
         {"clickable", leads ? "true" : "false"}};

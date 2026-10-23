@@ -56,8 +56,13 @@ class PluginOverviewOverlay : public OverlayBase {
     ObserverGuard probe_observer_;
 };
 
-/// A feature line's status as the overview shows it.
+/// A feature line's short status as the overview shows it at the right:
+/// Active, Off or Unavailable.
 std::string plugin_feature_status_text(const PluginFeatureLine& line);
+
+/// Why an unavailable line's feature cannot run, shown under its name
+/// (plugin_reason_text); empty for an available line or one with no reason.
+std::string plugin_feature_reason_text(const PluginFeatureLine& line);
 
 inline PluginOverviewOverlay& get_plugin_overview_overlay() {
     return lazy_global<PluginOverviewOverlay>("PluginOverviewOverlay");
