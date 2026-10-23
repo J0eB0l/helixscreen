@@ -9,10 +9,13 @@ ACEPRO manager-only shape) is read through a Moonraker bridge component,
 500 ms. This module asks the same bridge in-process, through the endpoints
 it registered, and broadcasts the answers as the vendor `ace` payload,
 {"status": <the /status result>, "slots": <the /slots result>}, only when
-they changed. The app parses each exactly as the poll's answer.
+they changed. The app handles each exactly as the poll's answer, an `error`
+answer included; a failed read is sent as {"error": ...} with the run of
+failed reads in "failures", so each one reaches the app as a poll's would.
 
 A printer whose ACE object carries slots is read by subscription and has
-nothing to push, so the feature reports itself unavailable there.
+nothing to push, so the feature reports itself unavailable there, and no
+read is made until Klipper's objects say which kind of printer this is.
 
 Design: docs/devel/plans/2026-10-20-helixprint-plugin-expansion-design.md,
 Phase 11. Python 3.8, stdlib only.
@@ -24,7 +27,7 @@ import logging
 import sys
 from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 
-from helix_vendor_push import VendorPush, Watcher, websocket_clients
+from helix_vendor_push import ReadHealth, VendorPush, Watcher, websocket_clients
 
 ACE_VENDOR = "ace"
 ACE_FEATURE = "vendor_ace"
@@ -44,6 +47,7 @@ ACE_OBJECTS = ("filament_hub", "ace", "ace_instance_0")
 
 NO_BRIDGE_REASON = "no_ace_bridge"
 OBJECTS_REASON = "ace_objects_carry_slots"
+UNREADABLE_REASON = "bridge_unreadable"
 
 BridgeCall = Callable[[Dict[str, Any]], Awaitable[Any]]
 
@@ -66,15 +70,27 @@ def objects_carry_slots(status: Any) -> bool:
     return False
 
 
-def ace_payload(status: Any, slots: Any) -> Optional[Dict[str, Any]]:
-    """The payload for the bridge's answers, holding only those that carry
-    data; None when neither does."""
-    payload: Dict[str, Any] = {}
-    if bridge_answered(status):
-        payload["status"] = status
-    if bridge_answered(slots):
-        payload["slots"] = slots
-    return payload or None
+def _as_answer(result: Any) -> Dict[str, Any]:
+    """A bridge answer as the app's poll would see it: the object, or an
+    `error` object for a read that returned none."""
+    if isinstance(result, dict):
+        return result
+    return {"error": "unreadable"}
+
+
+def read_succeeded(status: Any, slots: Any) -> bool:
+    """Whether a read of both endpoints returned data: either one is enough,
+    as either one is for the app's poll."""
+    return bridge_answered(status) or bridge_answered(slots)
+
+
+def ace_payload(status: Any, slots: Any, failures: int) -> Dict[str, Any]:
+    """The payload for one read of both endpoints. `failures` is the run of
+    failed reads up to this one, sent while it is not zero."""
+    payload: Dict[str, Any] = {"status": _as_answer(status), "slots": _as_answer(slots)}
+    if failures:
+        payload["failures"] = failures
+    return payload
 
 
 class _LocalRequest:
@@ -159,8 +175,9 @@ class HelixVendorAce:
         self.server = helix.server
         self.push = VendorPush(self.server, ACE_VENDOR)
         self.watcher = Watcher("vendor_ace", POLL_INTERVAL_S, self.check)
-        # Unknown until Klipper is ready; until then the bridge is read
-        self.objects_serve = False
+        # Unknown (None) until Klipper is ready; nothing is read until then
+        self.objects_serve: Optional[bool] = None
+        self.health = ReadHealth()
 
     def _bridge(self) -> Tuple[Optional[BridgeCall], Optional[BridgeCall]]:
         return (find_endpoint(self.server, ACE_STATUS_ENDPOINT),
@@ -172,6 +189,8 @@ class HelixVendorAce:
             return False, NO_BRIDGE_REASON
         if self.objects_serve:
             return False, OBJECTS_REASON
+        if not self.health.ok():
+            return False, UNREADABLE_REASON
         return True, None
 
     def start(self) -> None:
@@ -204,11 +223,15 @@ class HelixVendorAce:
             return None
 
     async def check(self) -> None:
-        """Read the bridge and push what changed. Skipped while no client is
+        """Read the bridge and push what changed. Skipped until Klipper's
+        objects show the bridge is the source, and while no client is
         connected to hear it."""
-        if not self.availability()[0] or websocket_clients(self.server) == 0:
+        if self.objects_serve is not False or websocket_clients(self.server) == 0:
             return
         status_call, slots_call = self._bridge()
-        payload = ace_payload(await self._ask(status_call), await self._ask(slots_call))
-        if payload is not None:
-            self.push.emit_if_changed(payload)
+        if status_call is None and slots_call is None:
+            return
+        status = await self._ask(status_call)
+        slots = await self._ask(slots_call)
+        self.health.note(read_succeeded(status, slots))
+        self.push.emit_if_changed(ace_payload(status, slots, self.health.failures))

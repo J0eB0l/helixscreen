@@ -15,12 +15,14 @@
 #include "vendor_state_push.h"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -339,6 +341,15 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     void apply_rest_status(const nlohmann::json& result);
     void apply_rest_slots(const nlohmann::json& result);
 
+    /// What a poll does with a /status read that returned no data, and what
+    /// a pushed error answer gets: count it, and surface a bridge that never
+    /// answered. Main thread.
+    void note_rest_status_failure(const std::string& error);
+
+    /// Whether the REST thread polls /status and /slots on this pass: every
+    /// pass while polling, every kVendorPushBackstop while the plugin pushes.
+    static bool rest_data_poll_due(bool pushing, std::chrono::steady_clock::duration since_last);
+
     /// The bridge's /status and /slots answers pushed by the HelixPrint
     /// plugin. Main thread.
     void on_vendor_state(const nlohmann::json& payload);
@@ -602,6 +613,8 @@ class AmsBackendAce : public AmsSubscriptionBackend {
     static constexpr const char* kVendorPushFeature = "vendor_ace";
     static constexpr const char* kVendorPushVendor = "ace";
     static constexpr int kVendorPushMinVersion = 1;
+    /// Passes on which the REST thread polled /status and /slots.
+    std::atomic<int> rest_data_polls_{0};
     std::thread rest_polling_thread_;
     std::atomic<bool> rest_stop_requested_{false};
     std::condition_variable rest_stop_cv_;

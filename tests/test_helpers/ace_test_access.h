@@ -8,6 +8,7 @@
 #include "filament_slot_override_store.h"
 #include "test_helpers/seeded_override.h"
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -153,6 +154,18 @@ class AceTestAccess {
     }
     static bool vendor_pushing(const AmsBackendAce& b) {
         return b.vendor_push_.pushing();
+    }
+    static int data_fetch_failures(const AmsBackendAce& b) {
+        return b.data_fetch_failures_.load();
+    }
+    static bool rest_data_poll_due(bool pushing, std::chrono::steady_clock::duration since_last) {
+        return AmsBackendAce::rest_data_poll_due(pushing, since_last);
+    }
+    static int rest_data_polls(const AmsBackendAce& b) {
+        return b.rest_data_polls_.load();
+    }
+    static void on_stopping(AmsBackendAce& b) {
+        b.on_stopping();
     }
 };
 } // namespace helix

@@ -264,12 +264,16 @@ inventory stands, and with no data ever the missing-bridge error surfaces.
 **Pushed by the HelixPrint plugin.** Where the plugin's `vendor_ace` feature is ready
 (`moonraker-plugin/helix_vendor_ace.py`), the plugin calls the same two endpoints in-process
 and broadcasts their answers as `notify_helix_vendor_state` (vendor `ace`, payload
-`{"status": ..., "slots": ...}`) only when they changed. The polling thread then skips its
-data polls, and `#on_vendor_state` hands each answer to `#apply_rest_status` /
-`#apply_rest_slots`, the same functions a poll's answer goes through. Status frames are the
-tick that re-reads the plugin's state (`#refresh_vendor_push`): a probe that finds the
-feature ready owes one poll of both endpoints, and one that does not puts the thread back
-on its 500 ms cadence. The rule is `vendor_state_source()` (`include/vendor_state_push.h`),
+`{"status": ..., "slots": ...}`, `error` answers included) only when they changed. The
+plugin reports the feature ready only after a read returned data, and unavailable again
+after three failed reads in a row. While it pushes, the polling thread drops to a 30 s
+backstop (`#rest_data_poll_due`, `kVendorPushBackstop`), and `#on_vendor_state` hands each
+answer where a poll's would go: data to `#apply_rest_status` / `#apply_rest_slots`, a status
+error to `#note_rest_status_failure` (the failure count and the missing-bridge toast).
+Status frames are the tick that re-reads the plugin's state (`#refresh_vendor_push`): a
+probe on the current connection that finds the feature ready owes one poll of both
+endpoints, and anything else (no probe since a reconnect, the feature gone) puts the thread
+back on its 500 ms cadence. `on_started` / `on_stopping` reset the tracker. The rule is `vendor_state_source()` (`include/vendor_state_push.h`),
 shared with the AD5X IFS backend; the plugin side is in
 [HELIXPRINT_PLUGIN.md](HELIXPRINT_PLUGIN.md).
 
@@ -352,7 +356,7 @@ These belong to ValgACE's Moonraker component (`ace_status.py`) and are used **o
 ### Threading
 
 - **Native path (`filament_hub`):** WebSocket query + subscription. State is held under `mutex_`; updates arriving on the WebSocket background thread are deferred to the main thread via `token.defer(...)` (L081-safe — never mutate UI state directly from the WS callback).
-- **Community fallback path (`ace`):** a background polling thread runs at ~500ms intervals when the backend is active, caching state under mutex protection. While the HelixPrint plugin pushes the bridge's state, the thread keeps running but skips the `/status` and `/slots` polls (`VendorStateTracker::pushing()` is atomic); pushes arrive on the WebSocket thread and are deferred to the main thread like every other callback.
+- **Community fallback path (`ace`):** a background polling thread runs at ~500ms intervals when the backend is active, caching state under mutex protection. While the HelixPrint plugin pushes the bridge's state, the thread keeps running but polls `/status` and `/slots` only every 30 s (`VendorStateTracker::pushing()` is atomic); pushes arrive on the WebSocket thread and are deferred to the main thread like every other callback.
 
 ### Tag reading
 

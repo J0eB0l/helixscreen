@@ -3,6 +3,7 @@
 // every plugin state, the tracker's resync and fallback, and the AD5X IFS and
 // ACE backends applying a push through the same function as their poll.
 
+#include "../fake_moonraker_client.h"
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/ace_backend_test_helper.h"
 #include "../test_helpers/ace_test_access.h"
@@ -17,6 +18,7 @@
 
 #include <chrono>
 #include <string>
+#include <thread>
 
 #include "../catch_amalgamated.hpp"
 
@@ -112,26 +114,66 @@ TEST_CASE("vendor state: the tracker owes a read on each start of a push", "[plu
     VendorStateTracker tracker;
     CHECK_FALSE(tracker.pushing());
 
-    CHECK_FALSE(tracker.update(PluginFeatureState::Absent, 1));
+    CHECK_FALSE(tracker.update(PluginFeatureState::Absent, 1, 7));
     CHECK_FALSE(tracker.pushing());
 
     // The push starts: one read now, then none while nothing changes
-    CHECK(tracker.update(PluginFeatureState::Ready, 1));
+    CHECK(tracker.update(PluginFeatureState::Ready, 1, 7));
     CHECK(tracker.pushing());
-    CHECK_FALSE(tracker.update(PluginFeatureState::Ready, 1));
+    CHECK_FALSE(tracker.update(PluginFeatureState::Ready, 1, 7));
 
     // A later probe (a reconnect, a restarted plugin) may have missed a change
-    CHECK(tracker.update(PluginFeatureState::Ready, 2));
-    CHECK_FALSE(tracker.update(PluginFeatureState::Ready, 2));
+    CHECK(tracker.update(PluginFeatureState::Ready, 2, 7));
+    CHECK_FALSE(tracker.update(PluginFeatureState::Ready, 2, 7));
 
     // The plugin is gone: back to polling, nothing owed
-    CHECK_FALSE(tracker.update(PluginFeatureState::Absent, 3));
+    CHECK_FALSE(tracker.update(PluginFeatureState::Absent, 3, 7));
     CHECK_FALSE(tracker.pushing());
-    CHECK_FALSE(tracker.update(PluginFeatureState::Disabled, 3));
+    CHECK_FALSE(tracker.update(PluginFeatureState::Disabled, 3, 7));
     CHECK_FALSE(tracker.pushing());
 
-    CHECK(tracker.update(PluginFeatureState::Ready, 3));
+    CHECK(tracker.update(PluginFeatureState::Ready, 3, 7));
     CHECK(tracker.pushing());
+}
+
+TEST_CASE("vendor state: a Ready from before a reconnect waits for the next probe",
+          "[plugin_vendor]") {
+    VendorStateTracker tracker;
+    REQUIRE(tracker.update(PluginFeatureState::Ready, 4, 1));
+
+    // Reconnected; the feature map is still the old connection's
+    CHECK_FALSE(tracker.update(PluginFeatureState::Ready, 4, 2));
+    CHECK_FALSE(tracker.pushing());
+
+    // Discovery probes on the new connection
+    CHECK(tracker.update(PluginFeatureState::Ready, 5, 2));
+    CHECK(tracker.pushing());
+}
+
+TEST_CASE("vendor state: reset goes back to polling", "[plugin_vendor]") {
+    VendorStateTracker tracker;
+    REQUIRE(tracker.update(PluginFeatureState::Ready, 1, 0));
+    tracker.reset();
+    CHECK_FALSE(tracker.pushing());
+    // Nothing remembered: the same probe starts a push and owes a read again
+    CHECK(tracker.update(PluginFeatureState::Ready, 1, 0));
+}
+
+TEST_CASE("vendor state: the backends keep a slow backstop poll while pushing", "[plugin_vendor]") {
+    using std::chrono::seconds;
+    CHECK(kVendorPushBackstop == seconds(30));
+    SECTION("AD5X IFS") {
+        CHECK_FALSE(AmsBackendAd5xIfs::should_poll_json(false, false, seconds(29), true));
+        CHECK(AmsBackendAd5xIfs::should_poll_json(false, false, seconds(30), true));
+        // The printing edge does not shortcut it: the plugin pushes the revert
+        CHECK_FALSE(AmsBackendAd5xIfs::should_poll_json(false, true, seconds(1), true));
+        CHECK(AmsBackendAd5xIfs::should_poll_json(false, false, seconds(5), false));
+    }
+    SECTION("ACE") {
+        CHECK(AceTestAccess::rest_data_poll_due(false, seconds(0)));
+        CHECK_FALSE(AceTestAccess::rest_data_poll_due(true, seconds(29)));
+        CHECK(AceTestAccess::rest_data_poll_due(true, seconds(30)));
+    }
 }
 
 // ============================================================================
@@ -161,8 +203,14 @@ TEST_CASE_METHOD(PluginStateFixture,
     Ad5xIfsTestAccess::set_last_json_poll_kick(backend, long_ago);
     Ad5xIfsTestAccess::handle_status(backend, frame);
     REQUIRE(Ad5xIfsTestAccess::vendor_pushing(backend));
-    // The periodic poll stood down although its interval had long elapsed
-    CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) == long_ago);
+    // Starting the push read the file once
+    CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) > long_ago);
+
+    // Past the idle cadence but inside the backstop: no poll while pushing
+    const auto ten_s_ago = std::chrono::steady_clock::now() - std::chrono::seconds(10);
+    Ad5xIfsTestAccess::set_last_json_poll_kick(backend, ten_s_ago);
+    Ad5xIfsTestAccess::handle_status(backend, frame);
+    CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) == ten_s_ago);
 
     SECTION("a push lands through the poll's apply: parse, then the GET_ZCOLOR follow-up") {
         const uint32_t before = Ad5xIfsTestAccess::zcolor_schedule_count(backend);
@@ -186,11 +234,23 @@ TEST_CASE_METHOD(PluginStateFixture,
         CHECK(Ad5xIfsTestAccess::note_json_content(backend, kJsonA));
     }
 
+    SECTION("the backstop polls once its interval passes") {
+        Ad5xIfsTestAccess::set_last_json_poll_kick(backend, long_ago);
+        Ad5xIfsTestAccess::handle_status(backend, frame);
+        CHECK(Ad5xIfsTestAccess::vendor_pushing(backend));
+        CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) > long_ago);
+    }
+
+    SECTION("stopping the backend forgets the push") {
+        Ad5xIfsTestAccess::on_stopping(backend);
+        CHECK_FALSE(Ad5xIfsTestAccess::vendor_pushing(backend));
+    }
+
     SECTION("losing the plugin brings the poll back on the next frame") {
         set_plugin(false, {});
         Ad5xIfsTestAccess::handle_status(backend, frame);
         CHECK_FALSE(Ad5xIfsTestAccess::vendor_pushing(backend));
-        CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) > long_ago);
+        CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) > ten_s_ago);
 
         // A push arriving late is ignored once the backend polls
         Ad5xIfsTestAccess::on_vendor_state(backend, {{"content", kJsonA}});
@@ -201,7 +261,7 @@ TEST_CASE_METHOD(PluginStateFixture,
         set_plugin(true, {});
         Ad5xIfsTestAccess::handle_status(backend, frame);
         CHECK_FALSE(Ad5xIfsTestAccess::vendor_pushing(backend));
-        CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) > long_ago);
+        CHECK(Ad5xIfsTestAccess::last_json_poll_kick(backend) > ten_s_ago);
     }
 }
 
@@ -237,6 +297,22 @@ TEST_CASE_METHOD(PluginStateFixture,
             CHECK(backend.get_slot_info(0).material == "PLA");
         }
 
+        SECTION("a pushed status error counts as a failed poll would") {
+            const json failed = {{"status", {{"error", "unreadable"}}},
+                                 {"slots", {{"error", "unreadable"}}}};
+            AceTestAccess::on_vendor_state(backend, failed);
+            AceTestAccess::on_vendor_state(backend, failed);
+            CHECK(AceTestAccess::data_fetch_failures(backend) == 2);
+            // Data again resets the count, as for the poll
+            AceTestAccess::on_vendor_state(backend, {{"slots", ace_slots("PLA")}});
+            CHECK(AceTestAccess::data_fetch_failures(backend) == 0);
+        }
+
+        SECTION("stopping the backend forgets the push") {
+            AceTestAccess::on_stopping(backend);
+            CHECK_FALSE(AceTestAccess::vendor_pushing(backend));
+        }
+
         SECTION("losing the plugin brings the REST poll back") {
             set_plugin(false, {});
             AceTestAccess::handle_status(backend, frame);
@@ -254,5 +330,49 @@ TEST_CASE_METHOD(PluginStateFixture,
         CHECK_FALSE(AceTestAccess::vendor_pushing(backend));
         AceTestAccess::on_vendor_state(backend, {{"slots", ace_slots("PLA")}});
         CHECK(backend.get_slot_info(0).material.empty());
+    }
+}
+
+TEST_CASE_METHOD(PluginStateFixture,
+                 "ACE takes a push through the client and its REST thread skips polls meanwhile",
+                 "[plugin_vendor][ace]") {
+    helix::test::FakeMoonrakerClient client;
+    AmsBackendAceTestHelper backend(&client);
+    backend.test_parse_info_response(json{{"slot_count", 4}});
+    backend.test_on_started();
+    // No ACE object carries slots: the backend takes the REST bridge path
+    REQUIRE_FALSE(client.rpc_calls.empty());
+    client.rpc_calls.back().success_cb(json{{"result", json{{"status", json::object()}}}});
+    helix::ui::UpdateQueue::instance().drain();
+
+    SECTION("polling: every pass polls") {
+        REQUIRE(wait_until([&] { return AceTestAccess::rest_data_polls(backend) >= 2; }, 3000));
+    }
+
+    SECTION("pushing") {
+        set_plugin(true, {{"vendor_ace", entry(1, true, true)}});
+        AceTestAccess::handle_status(backend, {{"extruder", {{"temperature", 25.0}}}});
+        REQUIRE(AceTestAccess::vendor_pushing(backend));
+
+        const int polls = AceTestAccess::rest_data_polls(backend);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+        // The thread passed twice more; at most the pass already under way polled
+        CHECK(AceTestAccess::rest_data_polls(backend) <= polls + 1);
+
+        const json frame =
+            notification({{"vendor", "ace"}, {"payload", {{"slots", ace_slots("PETG")}}}});
+        REQUIRE(client.fire_notification(kVendorStateNotifyMethod, frame));
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(backend.get_slot_info(0).material == "PETG");
+
+        // Another vendor's payload is not this backend's
+        client.fire_notification(
+            kVendorStateNotifyMethod,
+            notification({{"vendor", "ad5x"}, {"payload", {{"content", "{}"}}}}));
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(backend.get_slot_info(0).material == "PETG");
+
+        AceTestAccess::on_stopping(backend);
+        CHECK_FALSE(client.fire_notification(kVendorStateNotifyMethod, frame));
     }
 }

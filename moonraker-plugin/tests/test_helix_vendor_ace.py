@@ -25,12 +25,13 @@ from helix_vendor_ace import (
     ACE_VENDOR,
     NO_BRIDGE_REASON,
     OBJECTS_REASON,
+    UNREADABLE_REASON,
     ace_payload,
     bridge_answered,
     find_endpoint,
     objects_carry_slots,
 )
-from helix_vendor_push import VENDOR_STATE_EVENT
+from helix_vendor_push import MAX_READ_FAILURES, VENDOR_STATE_EVENT
 from test_helix_print import (  # noqa: F401  (fixtures are used by name)
     MockConfigHelper,
     MockDatabase,
@@ -100,6 +101,8 @@ async def ace(helix_print_component, mock_server):
     vendor = next(v for v in helix_print_component.vendor_pushes if v.push.vendor == ACE_VENDOR)
     vendor.sent = sent
     vendor.bridge = bridge
+    # Klipper ready, with ACE objects that carry no slots: the bridge is the source
+    await vendor.on_klippy_ready()
     return vendor
 
 
@@ -128,11 +131,13 @@ class TestDecisions:
         assert not objects_carry_slots({"other": {"slots": [{}]}})
         assert not objects_carry_slots(None)
 
-    def test_payload_holds_only_answers_with_data(self):
-        assert ace_payload(STATUS, SLOTS) == {"status": STATUS, "slots": SLOTS}
-        assert ace_payload({"error": "x"}, SLOTS) == {"slots": SLOTS}
-        assert ace_payload(STATUS, None) == {"status": STATUS}
-        assert ace_payload({"error": "x"}, {"error": "x"}) is None
+    def test_payload_carries_every_answer_and_the_run_of_failures(self):
+        assert ace_payload(STATUS, SLOTS, 0) == {"status": STATUS, "slots": SLOTS}
+        assert ace_payload({"error": "x"}, SLOTS, 0) == {"status": {"error": "x"},
+                                                         "slots": SLOTS}
+        assert ace_payload(None, None, 2) == {"status": {"error": "unreadable"},
+                                              "slots": {"error": "unreadable"},
+                                              "failures": 2}
 
 
 class TestEndpointLookup:
@@ -187,9 +192,31 @@ class TestAce:
         assert entry["reason"] == NO_BRIDGE_REASON
 
     @pytest.mark.asyncio
-    async def test_available_and_on_with_a_bridge(self, ace, mock_server):
+    async def test_ready_only_once_a_read_answered(self, ace, mock_server):
+        entry = await feature(mock_server)
+        assert entry["available"] is False
+        assert entry["reason"] == UNREADABLE_REASON
+
+        await ace.check()
         assert await feature(mock_server) == {
             "version": 1, "available": True, "enabled": True, "reason": None}
+
+    @pytest.mark.asyncio
+    async def test_failed_reads_make_it_unavailable_until_one_answers(self, ace, mock_server):
+        await ace.check()
+        ace.bridge.status = {"error": "unavailable"}
+        ace.bridge.slots = {"error": "unavailable"}
+        for _ in range(MAX_READ_FAILURES - 1):
+            await ace.check()
+        assert (await feature(mock_server))["available"] is True
+        await ace.check()
+        entry = await feature(mock_server)
+        assert entry["available"] is False
+        assert entry["reason"] == UNREADABLE_REASON
+
+        ace.bridge.slots = dict(SLOTS)
+        await ace.check()
+        assert (await feature(mock_server))["available"] is True
 
     @pytest.mark.asyncio
     async def test_pushes_both_answers_once_per_change(self, ace):
@@ -207,11 +234,17 @@ class TestAce:
         assert pushes(ace)[-1]["payload"]["slots"] == ace.bridge.slots
 
     @pytest.mark.asyncio
-    async def test_an_error_answer_pushes_nothing(self, ace):
+    async def test_each_failed_read_reaches_the_app(self, ace):
         ace.bridge.status = {"error": "unavailable"}
         ace.bridge.slots = {"error": "unavailable"}
         await ace.check()
-        assert pushes(ace) == []
+        await ace.check()
+        assert [p["payload"] for p in pushes(ace)] == [
+            {"status": {"error": "unavailable"}, "slots": {"error": "unavailable"},
+             "failures": 1},
+            {"status": {"error": "unavailable"}, "slots": {"error": "unavailable"},
+             "failures": 2},
+        ]
 
     @pytest.mark.asyncio
     async def test_a_raising_bridge_pushes_nothing(self, ace):
@@ -222,7 +255,9 @@ class TestAce:
         app.api_cache[ACE_STATUS_ENDPOINT] = Definition(broken)
         app.api_cache[ACE_SLOTS_ENDPOINT] = Definition(broken)
         await ace.check()
-        assert pushes(ace) == []
+        assert pushes(ace)[-1]["payload"] == {"status": {"error": "unreadable"},
+                                              "slots": {"error": "unreadable"},
+                                              "failures": 1}
 
     @pytest.mark.asyncio
     async def test_stands_down_where_the_objects_carry_slots(self, ace, mock_server):
@@ -240,6 +275,17 @@ class TestAce:
         await ace.on_klippy_ready()
         await ace.check()
         assert len(pushes(ace)) == 1
+
+    @pytest.mark.asyncio
+    async def test_reads_nothing_before_klipper_says_which_printer(self, helix_print_component,
+                                                                   mock_server):
+        bridge = Bridge()
+        mock_server.components["application"] = Application(bridge)
+        await helix_print_component.component_init()
+        vendor = next(v for v in helix_print_component.vendor_pushes
+                      if v.push.vendor == ACE_VENDOR)
+        await vendor.check()
+        assert bridge.asked == []
 
     @pytest.mark.asyncio
     async def test_reads_nothing_while_no_client_is_connected(self, ace, mock_server):

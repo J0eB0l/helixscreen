@@ -34,12 +34,22 @@ std::optional<json> vendor_state_payload(const json& notification, const std::st
     return *payload;
 }
 
-bool VendorStateTracker::update(PluginFeatureState feature, int probe_seq) {
-    const bool push = vendor_state_source(feature) == VendorStateSource::Push;
-    const bool was_pushing = pushing_.exchange(push);
+bool VendorStateTracker::update(PluginFeatureState feature, int probe_seq, uint64_t connection) {
     const bool new_probe = probe_seq != probe_seq_;
-    probe_seq_ = probe_seq;
+    if (new_probe) {
+        probe_seq_ = probe_seq;
+        probe_connection_ = connection;
+    }
+    const bool push =
+        vendor_state_source(feature) == VendorStateSource::Push && probe_connection_ == connection;
+    const bool was_pushing = pushing_.exchange(push);
     return push && (!was_pushing || new_probe);
+}
+
+void VendorStateTracker::reset() {
+    pushing_.store(false);
+    probe_seq_ = -1;
+    probe_connection_ = 0;
 }
 
 PluginFeatureProbe current_plugin_feature(const std::string& feature, int min_version) {

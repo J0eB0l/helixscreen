@@ -488,6 +488,9 @@ class Ad5xIfsTestAccess {
     static bool vendor_pushing(const AmsBackendAd5xIfs& b) {
         return b.vendor_push_.pushing();
     }
+    static void on_stopping(AmsBackendAd5xIfs& b) {
+        b.on_stopping();
+    }
     static std::chrono::steady_clock::time_point last_json_poll_kick(const AmsBackendAd5xIfs& b) {
         return b.last_json_poll_kick_;
     }

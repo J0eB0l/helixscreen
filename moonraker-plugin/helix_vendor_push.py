@@ -84,6 +84,31 @@ class VendorPush:
         return True
 
 
+# Consecutive failed reads after which a feature reports itself unavailable
+MAX_READ_FAILURES = 3
+
+
+class ReadHealth:
+    """Whether a module's reads of its vendor state work. A feature is only
+    worth the app's trust once a read has returned data, and stops being so
+    after MAX_READ_FAILURES failed reads in a row: the app stops polling while
+    the feature is ready, so a push that cannot read must not look ready."""
+
+    def __init__(self) -> None:
+        self.succeeded = False
+        self.failures = 0
+
+    def note(self, success: bool) -> None:
+        if success:
+            self.succeeded = True
+            self.failures = 0
+        else:
+            self.failures += 1
+
+    def ok(self) -> bool:
+        return self.succeeded and self.failures < MAX_READ_FAILURES
+
+
 class Watcher:
     """Runs `check` every `interval` seconds until closed. A check that raises
     is logged and the next one runs on time."""

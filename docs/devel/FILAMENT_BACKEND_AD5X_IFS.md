@@ -191,8 +191,11 @@ actually swaps a spool and relabels it.
 Where the HelixPrint Moonraker plugin's `vendor_ad5x` feature is ready
 (`moonraker-plugin/helix_vendor_ad5x.py`), the plugin stats the file once a second on the
 printer and broadcasts its text as `notify_helix_vendor_state` (vendor `ad5x`, payload
-`{"file", "content"}`) only when it changed. The periodic poll then stands down
-entirely, which removes the loopback GET the caution above is about.
+`{"file", "content"}`) only when it changed and parses as JSON; the feature is ready only
+once a read has parsed. The periodic poll then drops to a 30 s backstop
+(`kVendorPushBackstop`, `should_poll_json(..., pushing)`), which removes most of the
+loopback GETs the caution above is about while bounding how long a silent push can leave
+the colours stale.
 
 - One function applies a body either way: `apply_json_content(content, reason)` runs
   `note_json_content()`, then `parse_adventurer_json()` and `schedule_zcolor_query()` on a
@@ -201,9 +204,10 @@ entirely, which removes the loopback GET the caution above is about.
 - The poll's stand-downs hold for a push too: nothing is applied while the standalone module
   is live, or while the backend polls.
 - `handle_status` re-reads the plugin's state each frame (`#refresh_vendor_push`). A plugin
-  probe that finds the feature ready owes one read of the file (a reconnect can have missed
-  a change); one that does not, a plugin uninstalled or too old for the contract, puts the
-  poll back on its cadence at once. The rule is `vendor_state_source()`
+  probe on the current connection that finds the feature ready owes one read of the file (a
+  reconnect can have missed a change); anything else, no probe yet since a reconnect, a
+  plugin uninstalled or too old for the contract, puts the poll back on its cadence at once.
+  `on_started` / `on_stopping` reset the tracker. The rule is `vendor_state_source()`
   (`include/vendor_state_push.h`), shared with the ACE backend.
 - The event-driven re-reads (`schedule_json_reread()` on sensor edges and klippy ready)
   are unchanged: they are rare, and they answer "did that edit land" sooner than any push.

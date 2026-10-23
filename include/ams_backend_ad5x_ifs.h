@@ -171,8 +171,11 @@ class AmsBackendAd5xIfs : public AmsSubscriptionBackend {
     /// True when the printing->not-printing edge was just crossed — so the
     /// firmware's post-print FFMInfo revert (#965) is seen without waiting out
     /// the slow interval — or when the cadence for the current state elapsed.
+    /// While the HelixPrint plugin pushes the file (@p pushing), only the
+    /// kVendorPushBackstop interval counts.
     static bool should_poll_json(bool printing_now, bool was_printing,
-                                 std::chrono::steady_clock::duration since_last);
+                                 std::chrono::steady_clock::duration since_last,
+                                 bool pushing = false);
 
     /**
      * @brief Stock AD5X firmware material whitelist.

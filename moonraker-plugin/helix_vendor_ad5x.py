@@ -16,12 +16,13 @@ Phase 11. Python 3.8, stdlib only.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import stat
 from typing import Any, Dict, Optional, Tuple
 
-from helix_vendor_push import VendorPush, Watcher
+from helix_vendor_push import ReadHealth, VendorPush, Watcher
 
 AD5X_VENDOR = "ad5x"
 AD5X_FEATURE = "vendor_ad5x"
@@ -38,6 +39,7 @@ CHECK_INTERVAL_S = 1.0
 MAX_CONTENT_BYTES = 256 * 1024
 
 NO_FILE_REASON = "no_adventurer_json"
+UNREADABLE_REASON = "adventurer_json_unreadable"
 
 
 def file_signature(path: str) -> Optional[Tuple[int, int]]:
@@ -75,6 +77,7 @@ class HelixVendorAd5x:
         self.push = VendorPush(self.server, AD5X_VENDOR)
         self.watcher = Watcher("vendor_ad5x", CHECK_INTERVAL_S, self.check)
         self._signature: Optional[Tuple[int, int]] = None
+        self.health = ReadHealth()
         config_dir = ""
         file_manager = helix.file_manager
         if file_manager is not None:
@@ -82,11 +85,13 @@ class HelixVendorAd5x:
         self.path = os.path.join(config_dir, ADVENTURER_JSON) if config_dir else ""
 
     def availability(self) -> Tuple[bool, Optional[str]]:
-        """Available while the file exists: a printer without it is not an
-        AD5X on ZMOD."""
-        if self.path and file_signature(self.path) is not None:
-            return True, None
-        return False, NO_FILE_REASON
+        """Available while the file exists and reads as JSON: a printer
+        without it is not an AD5X on ZMOD."""
+        if not self.path or file_signature(self.path) is None:
+            return False, NO_FILE_REASON
+        if not self.health.ok():
+            return False, UNREADABLE_REASON
+        return True, None
 
     def start(self) -> None:
         self.server.register_event_handler(
@@ -102,7 +107,9 @@ class HelixVendorAd5x:
             await self.check()
 
     async def check(self) -> None:
-        """Push the file's text when its stat moved and the text changed."""
+        """Push the file's text when its stat moved and the text changed. Text
+        that is not JSON (a read that landed mid-write) is not pushed, and the
+        file is read again on the next check."""
         if not self.path:
             return
         signature = file_signature(self.path)
@@ -111,12 +118,16 @@ class HelixVendorAd5x:
             return
         self._signature = signature
         if signature[1] > MAX_CONTENT_BYTES:
+            self.health.note(False)
             return
         try:
             with open(self.path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read()
-        except OSError as e:
+            json.loads(content)
+        except (OSError, ValueError) as e:
             logging.debug("HelixPrint: %s unreadable: %s", ADVENTURER_JSON, e)
+            self.health.note(False)
             self._signature = None
             return
+        self.health.note(True)
         self.push.emit_if_changed(ad5x_payload(content))

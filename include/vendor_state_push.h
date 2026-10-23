@@ -12,6 +12,8 @@
 #include "helix_plugin_features.h"
 
 #include <atomic>
+#include <chrono>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -44,11 +46,18 @@ std::optional<nlohmann::json> vendor_state_payload(const nlohmann::json& notific
 /// A backend's source across the plugin's probes.
 class VendorStateTracker {
   public:
-    /// Fold the plugin's answer as of probe number @p probe_seq. True when the
-    /// backend owes one read of its vendor state now: on switching to Push,
-    /// and on each later probe while pushing, since the reconnect or plugin
-    /// restart behind a probe can have missed a change. Main thread.
-    bool update(PluginFeatureState feature, int probe_seq);
+    /// Fold the plugin's answer as of probe number @p probe_seq, read while
+    /// the client is on connection @p connection. A Ready counts only from a
+    /// probe first seen on the current connection: after a reconnect the
+    /// feature map is the previous connection's until discovery probes again.
+    /// True when the backend owes one read of its vendor state now: on
+    /// switching to Push, and on each later probe while pushing, since the
+    /// reconnect or plugin restart behind a probe can have missed a change.
+    /// Main thread.
+    bool update(PluginFeatureState feature, int probe_seq, uint64_t connection);
+
+    /// Back to polling, with every probe seen so far forgotten. Main thread.
+    void reset();
 
     /// Whether the backend takes its state from the push. Any thread.
     bool pushing() const {
@@ -58,7 +67,12 @@ class VendorStateTracker {
   private:
     std::atomic<bool> pushing_{false};
     int probe_seq_ = -1;
+    uint64_t probe_connection_ = 0;
 };
+
+/// While pushing, a backend still polls this often, so a push that stops
+/// arriving mid-session costs at most this long.
+inline constexpr std::chrono::seconds kVendorPushBackstop{30};
 
 /// What PrinterState holds for plugin feature @p feature at contract
 /// @p min_version, and how many plugin probes it has applied. Absent and 0

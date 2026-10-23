@@ -24,6 +24,7 @@ from helix_vendor_ad5x import (
     AD5X_VENDOR,
     ADVENTURER_JSON,
     NO_FILE_REASON,
+    UNREADABLE_REASON,
     names_adventurer_json,
 )
 from helix_vendor_push import (
@@ -192,7 +193,10 @@ class TestAd5x:
         vendor = await start()
         await vendor.helix.database.insert_item(
             HELIX_SCREEN_NAMESPACE, PLUGIN_FEATURES_KEY, {AD5X_FEATURE: False})
+        assert (await status(mock_server))["features"][AD5X_FEATURE]["reason"] == \
+            UNREADABLE_REASON
 
+        await vendor.check()
         entry = (await status(mock_server))["features"][AD5X_FEATURE]
         assert entry == {"version": 1, "available": True, "enabled": True, "reason": None}
 
@@ -217,6 +221,22 @@ class TestAd5x:
         await vendor.check()
         assert pushes(server)[-1]["payload"]["content"] == EDITED
         assert len(pushes(server)) == 2
+
+    @pytest.mark.asyncio
+    async def test_text_that_is_not_json_is_not_pushed(self, started, mock_server, config_dir):
+        write(config_dir, SAMPLE[:20])
+        start, server = started
+        vendor = await start()
+        await vendor.check()
+        assert pushes(server) == []
+        assert (await status(mock_server))["features"][AD5X_FEATURE]["reason"] == \
+            UNREADABLE_REASON
+
+        # Same stat, now complete: read again, since the half-written read was dropped
+        write(config_dir, SAMPLE)
+        await vendor.check()
+        assert pushes(server)[-1]["payload"]["content"] == SAMPLE
+        assert (await status(mock_server))["features"][AD5X_FEATURE]["available"] is True
 
     @pytest.mark.asyncio
     async def test_unchanged_stat_skips_the_read(self, started, config_dir, monkeypatch):

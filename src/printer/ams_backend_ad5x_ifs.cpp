@@ -251,6 +251,7 @@ AmsBackendAd5xIfs::required_status_objects(const helix::PrinterDiscovery& hw) {
 // --- Lifecycle ---
 
 void AmsBackendAd5xIfs::on_started() {
+    vendor_push_.reset();
     // Load persisted per-slot overrides (brand, spool name, spoolman IDs, etc.)
     // BEFORE issuing the initial status query — otherwise the first
     // handle_status() callback may fire (on the websocket thread) and
@@ -601,6 +602,7 @@ void AmsBackendAd5xIfs::release_held_lane_saves(const std::unordered_set<int>& t
 
 void AmsBackendAd5xIfs::on_stopping() {
     unregister_moonraker_listeners();
+    vendor_push_.reset();
 }
 
 void AmsBackendAd5xIfs::request_resync() {
@@ -891,11 +893,12 @@ void AmsBackendAd5xIfs::handle_status(const json& status_obj) {
                        helix::PrintJobState::PRINTING;
     }
 
-    // While the HelixPrint plugin pushes the file, the poll stands down.
+    // While the HelixPrint plugin pushes the file, the poll drops to a slow
+    // backstop.
     refresh_vendor_push();
     auto now = std::chrono::steady_clock::now();
-    if (!vendor_push_.pushing() &&
-        should_poll_json(printing_now, json_poll_was_printing_, now - last_json_poll_kick_)) {
+    if (should_poll_json(printing_now, json_poll_was_printing_, now - last_json_poll_kick_,
+                         vendor_push_.pushing())) {
         last_json_poll_kick_ = now;
         poll_adventurer_json();
     }
@@ -905,7 +908,9 @@ void AmsBackendAd5xIfs::handle_status(const json& status_obj) {
 void AmsBackendAd5xIfs::refresh_vendor_push() {
     const helix::PluginFeatureProbe probe =
         helix::current_plugin_feature(kVendorPushFeature, kVendorPushMinVersion);
-    if (vendor_push_.update(probe.state, probe.seq)) {
+    const uint64_t connection = client_ ? client_->connection_generation() : 0;
+    if (vendor_push_.update(probe.state, probe.seq, connection)) {
+        last_json_poll_kick_ = std::chrono::steady_clock::now();
         spdlog::debug("{} Adventurer5M.json pushed by the HelixPrint plugin; reading it once",
                       backend_log_tag());
         poll_adventurer_json();
@@ -925,7 +930,11 @@ void AmsBackendAd5xIfs::on_vendor_state(const json& payload) {
 }
 
 bool AmsBackendAd5xIfs::should_poll_json(bool printing_now, bool was_printing,
-                                         std::chrono::steady_clock::duration since_last) {
+                                         std::chrono::steady_clock::duration since_last,
+                                         bool pushing) {
+    if (pushing) {
+        return since_last >= helix::kVendorPushBackstop;
+    }
     // printing->anything else: poll immediately rather than waiting out the slow
     // interval, so the firmware's post-print FFMInfo revert is seen as promptly
     // as it was before the backoff existed.
