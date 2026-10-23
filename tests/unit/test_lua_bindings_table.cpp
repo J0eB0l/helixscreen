@@ -6,10 +6,12 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/log_capture.h"
 #include "../test_helpers/plugin_test_support.h"
+#include "../test_helpers/scoped_pointer_indev.h"
 #include "lua_bindings.h"
 #include "plugin_host.h"
 #include "plugin_table.h"
 #include "theme_manager.h"
+#include "widgets/table/lv_table_private.h" // row_h: lv_table has no cell-area getter
 
 #include <string>
 #include <vector>
@@ -49,6 +51,17 @@ void tap(lv_obj_t* t, uint16_t row, uint16_t col) {
         lv_obj_send_event(t, LV_EVENT_VALUE_CHANGED, nullptr);
     else
         lv_table_set_selected_cell(t, row, col);
+}
+
+/// The screen point at the center of table row @p row, first column.
+lv_point_t row_center(lv_obj_t* t, uint32_t row) {
+    lv_area_t a;
+    lv_obj_get_content_coords(t, &a);
+    const auto* tbl = reinterpret_cast<const lv_table_t*>(t);
+    int32_t y = a.y1;
+    for (uint32_t r = 0; r < row; ++r)
+        y += tbl->row_h[r];
+    return {a.x1 + tbl->col_w[0] / 2, y + tbl->row_h[row] / 2};
 }
 
 const char* kTasks = R"(
@@ -237,6 +250,52 @@ TEST_CASE_METHOD(LVGLTestFixture, "table changes are refused in a check",
         visible = n >= 1 && lua_toboolean(co, -n);
     }));
     CHECK(visible);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "a drag across rows of a table that fits activates nothing",
+                 "[plugin][lua_bindings_table]") {
+    BoundRuntime b(table_installers());
+    lv_obj_t* t = make_table(test_screen(), "test-plugin__tasks");
+    REQUIRE(b.t.run(kTasks));
+    lv_obj_update_layout(t);
+    const lv_point_t a = row_center(t, 1);
+    const lv_point_t c = row_center(t, 2);
+    lv_area_t box;
+    lv_obj_get_coords(t, &box);
+    const lv_point_t blank = {a.x, box.y2 - 4};
+    REQUIRE(blank.y > row_center(t, 3).y + 20); // below the last row: blank table space
+    REQUIRE(lv_obj_get_scroll_bottom(t) <= 0);  // every row fits, so nothing scrolls
+
+    helix_test::ScopedPointerIndev indev;
+    indev.press(a.x, a.y);
+    // Steps shorter than the scroll limit, so no single read counts as a move.
+    for (int32_t y = a.y + 4; y < blank.y; y += 4)
+        indev.move(a.x, y);
+    REQUIRE(c.y < blank.y); // the drag crossed row 2 on its way down
+    indev.release(blank.x, blank.y);
+    CHECK(lv_indev_get_scroll_obj(indev.indev()) == nullptr);
+
+    REQUIRE(b.t.run("n = #activated; sel = tasks:selected()"));
+    CHECK(b.t.global("n") == "0");
+    CHECK(b.t.global("sel") == "nil");
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "a pointer tap on a table row activates it",
+                 "[plugin][lua_bindings_table]") {
+    BoundRuntime b(table_installers());
+    lv_obj_t* t = make_table(test_screen(), "test-plugin__tasks");
+    REQUIRE(b.t.run(kTasks));
+    lv_obj_update_layout(t);
+    const lv_point_t p = row_center(t, 2);
+
+    helix_test::ScopedPointerIndev indev;
+    indev.press(p.x, p.y);
+    indev.move(p.x + 2, p.y + 2); // finger jitter well inside the scroll limit
+    indev.release(p.x + 2, p.y + 2);
+
+    REQUIRE(b.t.run("got = activated[1]; n = #activated"));
+    CHECK(b.t.global("n") == "1");
+    CHECK(b.t.global("got") == "belts");
 }
 
 #endif // HELIX_HAS_PLUGINS
