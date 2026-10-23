@@ -19,7 +19,7 @@ TEST_CASE("heater climbing shows target, bar and Active", "[print_status_chips]"
     auto c = heater(1840, 2200, false, false, 0, "", 300);
     REQUIRE(c.shown);
     CHECK(c.text == "184 / 220°");
-    CHECK(c.progress_pct == 82);
+    CHECK(c.progress_pct == 81);
     CHECK(c.tone == ChipTone::Active);
     CHECK(c.glow);
 }

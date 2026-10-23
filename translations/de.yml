@@ -1695,6 +1695,7 @@ translations:
   Guide the toolhead to the chute's extrude position: Werkzeugkopf zur Extrusionsposition der Rinne führen
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Geführte Kalibrierung: Sensor zur Düse, Entladeweg und Einzug des Schneiders'
   H: H
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
   HEPA filter: 'HEPA-Filter'

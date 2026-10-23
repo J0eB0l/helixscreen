@@ -1543,6 +1543,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" ja="ツールヘッドをシュートの押出し位置へ誘導します"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" ja="ガイド付きキャリブレーション：センサーからノズルまで、アンロード、カッターの引き戻し"/>
   <translation tag="H" ja="H"/>
+  <translation tag="HE" ja="HE"/>
   <translation tag="HELIXSCREEN" ja="HELIXSCREEN"/>
   <translation tag="HEPA" ja="HEPA"/>
   <translation tag="HEPA filter" ja="HEPAフィルター"/>

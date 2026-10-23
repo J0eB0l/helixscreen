@@ -1588,6 +1588,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" ru="Подведите печатающую головку к позиции экструзии жёлоба"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" ru="Пошаговая калибровка: датчик до сопла, выгрузка и ретракция резака"/>
   <translation tag="H" ru="Х"/>
+  <translation tag="HE" ru="HE"/>
   <translation tag="HELIXSCREEN" ru="HELIXSCREEN"/>
   <translation tag="HEPA" ru="HEPA"/>
   <translation tag="HEPA filter" ru="HEPA-фильтр"/>

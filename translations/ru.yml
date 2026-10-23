@@ -1729,6 +1729,7 @@ translations:
   Guide the toolhead to the chute's extrude position: Подведите печатающую головку к позиции экструзии жёлоба
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Пошаговая калибровка: датчик до сопла, выгрузка и ретракция резака'
   H: Х
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
   HEPA filter: 'HEPA-фильтр'

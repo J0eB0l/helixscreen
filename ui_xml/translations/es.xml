@@ -1543,6 +1543,7 @@
   <translation tag="Guide the toolhead to the chute&apos;s extrude position" es="Guíe el cabezal hasta la posición de extrusión del conducto"/>
   <translation tag="Guided sensor-to-nozzle, unload and cutter retract calibration" es="Calibración guiada: sensor a boquilla, descarga y retracción del cortador"/>
   <translation tag="H" es="H"/>
+  <translation tag="HE" es="HE"/>
   <translation tag="HELIXSCREEN" es="HELIXSCREEN"/>
   <translation tag="HEPA" es="HEPA"/>
   <translation tag="HEPA filter" es="Filtro HEPA"/>

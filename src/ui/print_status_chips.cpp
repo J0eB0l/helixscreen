@@ -2,6 +2,8 @@
 
 #include "print_status_chips.h"
 
+#include "lvgl/src/others/translation/lv_translation.h"
+
 #include <algorithm>
 
 namespace helix {
@@ -74,13 +76,13 @@ ChipContent fan_chip(FanRole role, bool present, int pct, bool automatic, bool l
     if (labeled) {
         switch (role) {
         case FanRole::Part:
-            text = "Part ";
+            text = std::string(lv_tr("Part")) + " ";
             break;
         case FanRole::Hotend:
-            text = "HE ";
+            text = std::string(lv_tr("HE")) + " ";
             break;
         case FanRole::Aux:
-            text = "Aux ";
+            text = std::string(lv_tr("Aux")) + " ";
             break;
         }
     }

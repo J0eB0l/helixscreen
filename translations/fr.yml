@@ -1700,6 +1700,7 @@ translations:
   Guide the toolhead to the chute's extrude position: Guidez la tête d'outil vers la position d'extrusion de la goulotte
   Guided sensor-to-nozzle, unload and cutter retract calibration: 'Calibration guidée : capteur à la buse, déchargement et rétraction du coupeur'
   H: H
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: 'HEPA'
   HEPA filter: 'Filtre HEPA'

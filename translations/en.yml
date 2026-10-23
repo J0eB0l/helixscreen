@@ -1640,6 +1640,7 @@ translations:
   Guide the toolhead to the chute's extrude position: Guide the toolhead to the chute's extrude position
   Guided sensor-to-nozzle, unload and cutter retract calibration: Guided sensor-to-nozzle, unload and cutter retract calibration
   H: H
+  HE: HE
   HELIXSCREEN: HELIXSCREEN
   HEPA: HEPA
   HEPA filter: HEPA filter
