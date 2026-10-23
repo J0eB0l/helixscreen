@@ -2313,6 +2313,57 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
 // Slot edit commit (single authority for spool assignment changes)
 // ============================================================================
 
+void AmsState::clear_active_spool_if(int spool_id) {
+    if (api_ == nullptr || spool_id <= 0) {
+        return;
+    }
+    api_->spoolman().get_spoolman_status(
+        [spool_id](bool /*connected*/, int active) {
+            if (active != spool_id) {
+                return;
+            }
+            helix::ui::queue_update("AmsState::clear_active_spool_if", [spool_id]() {
+                if (ams_state_detail::shutting_down()) {
+                    return;
+                }
+                IMoonrakerAPI* api = AmsState::instance().api_;
+                if (api == nullptr) {
+                    return;
+                }
+                api->spoolman().set_active_spool(
+                    0, []() {},
+                    [spool_id](const MoonrakerError& err) {
+                        spdlog::warn("[AmsState] Failed to clear active spool {}: {}", spool_id,
+                                     err.message);
+                    });
+            });
+        },
+        [](const MoonrakerError& err) {
+            spdlog::debug("[AmsState] Spoolman status unavailable: {}", err.message);
+        },
+        /*silent=*/true);
+}
+
+bool AmsState::external_spool_feeds() const {
+    const AmsBackend* primary = get_backend();
+    if (primary == nullptr) {
+        return true;
+    }
+    for (int i = 0; i < backend_count(); ++i) {
+        const AmsBackend* b = get_backend(i);
+        if (b == nullptr) {
+            continue;
+        }
+        if (b->is_bypass_active()) {
+            return true;
+        }
+        if (b->is_filament_loaded() && b->get_current_slot() >= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
 AmsError AmsState::commit_slot_edit(int slot_index, const SlotInfo& original,
                                     const SlotInfo& info) {
     assert_main_thread();
@@ -2325,8 +2376,9 @@ AmsError AmsState::commit_slot_edit(int slot_index, const SlotInfo& original,
     // S1 — server-side active spool (fire-and-forget, warn on failure). The
     // active spool is the one feeding the toolhead, so only an edit on the
     // loaded lane sets or clears it. It sets one unless the printer takes the
-    // link itself (helix_sets_active_spool_on_edit); an unlink always clears,
-    // since no firmware drops a link Moonraker holds.
+    // link itself (helix_sets_active_spool_on_edit). An unlink clears the
+    // spool it unlinked whoever switches spools, since no firmware drops a
+    // link Moonraker holds.
     if (api_ && backend->slot_is_actively_loaded(slot_index)) {
         if (info.spoolman_id > 0 && helix_sets_active_spool_on_edit(backend)) {
             api_->spoolman().set_active_spool(
@@ -2334,12 +2386,8 @@ AmsError AmsState::commit_slot_edit(int slot_index, const SlotInfo& original,
                 [](const MoonrakerError& err) {
                     spdlog::warn("[AmsState] Failed to set active spool: {}", err.message);
                 });
-        } else if (original.spoolman_id > 0) {
-            api_->spoolman().set_active_spool(
-                0, []() {},
-                [](const MoonrakerError& err) {
-                    spdlog::warn("[AmsState] Failed to clear active spool: {}", err.message);
-                });
+        } else if (info.spoolman_id == 0) {
+            clear_active_spool_if(original.spoolman_id);
         }
     }
 

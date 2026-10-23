@@ -709,3 +709,25 @@ class TestQidiResume:
         record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000034")
         assert record["continues"] is None
         assert [s["mm"] for s in record["spools"]] == [1.0]
+
+    @pytest.mark.asyncio
+    async def test_a_resume_of_a_job_this_module_never_saw_starts_fresh(
+            self, helix_print_component, mock_server):
+        """The interrupted job's start was missed (Moonraker restarting, plugin
+        off): the last job seen is an older one, but PLR names the job it
+        resumed, so the older record is not continued."""
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        db = helix_print_component.database
+        await _history(mock_server, _added("000040", filename="benchy.gcode"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 9.0]}})
+        # Job 000041 printed while this module was not running; PLR snapshotted it.
+        helix_print_component.plr.job = {"job_id": "000041", "filename": "benchy.gcode"}
+        helix_print_component.mark_helix_initiated("benchy.gcode", "plr_resume")
+        await _history(mock_server, _added("000042", filename="benchy.gcode",
+                                           start_time=T0 + 9000))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 12.0]}})
+        await _history(mock_server, _finished("000042", filename="benchy.gcode",
+                                              start_time=T0 + 9000))
+        record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000042")
+        assert record["continues"] is None
+        assert [s["mm"] for s in record["spools"]] == [3.0]

@@ -390,6 +390,7 @@ TEST_CASE("commit_slot_edit clears server active spool on unlink", "[ams][spoolm
 
     AmsError err = AmsState::instance().commit_slot_edit(0, original, edited);
     REQUIRE(err.success());
+    helix::ui::UpdateQueue::instance().drain();
 
     // REQUIRED: the server-side active spool was cleared.
     REQUIRE(f.client.spoolman_mock().get_mock_active_spool_id() == 0);
@@ -598,6 +599,7 @@ TEST_CASE("context-menu clear wipes slot and clears server active spool",
     // Drive the actual context-menu dispatch the way both AMS panels do.
     REQUIRE(
         ui::ams_dispatch_backend_action(ui::AmsContextMenu::MenuAction::CLEAR_SPOOL, 0, nullptr));
+    helix::ui::UpdateQueue::instance().drain();
 
     // REQUIRED: the backend slot was wiped...
     const SlotInfo after = f.backend->get_slot_info(0);
@@ -787,6 +789,7 @@ TEST_CASE("commit_slot_edit clears active spool even when backend manages it",
 
     AmsError err = AmsState::instance().commit_slot_edit(0, original, edited);
     REQUIRE(err.success());
+    helix::ui::UpdateQueue::instance().drain();
 
     // REQUIRED: the clear fired anyway.
     REQUIRE(f.client.spoolman_mock().get_mock_active_spool_id() == 0);
@@ -1938,5 +1941,23 @@ TEST_CASE("linking the loaded lane leaves the active spool to SpoolLink firmware
     SlotInfo unlinked = linked;
     unlinked.spoolman_id = 0;
     REQUIRE(AmsState::instance().commit_slot_edit(0, linked, unlinked).success());
+    helix::ui::UpdateQueue::instance().drain();
     CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 0);
+}
+
+TEST_CASE("unlinking the loaded lane clears only its own spool, not one made active since",
+          "[ams][spoolman][commit][plugin_filament]") {
+    CommitFixture f;
+    f.setup_manages_active_spool(169);
+    REQUIRE(f.backend->slot_is_actively_loaded(0));
+    // Something else (a macro, the user in Spoolman) made another spool active.
+    f.client.spoolman_mock().set_active_spool_id(55);
+
+    SlotInfo original = f.backend->get_slot_info(0);
+    SlotInfo unlinked = original;
+    unlinked.spoolman_id = 0;
+    REQUIRE(AmsState::instance().commit_slot_edit(0, original, unlinked).success());
+    helix::ui::UpdateQueue::instance().drain();
+
+    CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 55);
 }

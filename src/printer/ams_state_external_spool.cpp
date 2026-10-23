@@ -160,9 +160,11 @@ void AmsState::invalidate_stale_external_identity(const SlotInfo& info) {
 void AmsState::commit_external_spool_edit(const SlotInfo& info) {
     assert_main_thread();
 
-    // S1 — match the server active spool to what we are committing: set it
-    // unless the printer keeps its own assignment; a clear always goes out
-    if (api_) {
+    // S1 — match the server active spool to what we are committing, only
+    // while the external spool is what feeds: set it unless the printer keeps
+    // its own assignment; an unlink clears the spool it unlinked.
+    if (api_ && external_spool_feeds()) {
+        const int previous_id = get_external_spool_info().value_or(SlotInfo{}).spoolman_id;
         if (info.spoolman_id > 0 &&
             helix_sets_active_spool_on_edit(get_backend(), /*external_spool=*/true)) {
             api_->spoolman().set_active_spool(
@@ -170,16 +172,10 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info) {
                 [](const MoonrakerError& err) {
                     spdlog::warn("[AmsState] Failed to set active spool: {}", err.message);
                 });
-        } else if (info.spoolman_id == 0 &&
-                   get_external_spool_info().value_or(SlotInfo{}).spoolman_id > 0) {
-            // Committing a manual entry (id=0, material set) over a linked
-            // spool intentionally clears the server link — the UI no longer
-            // shows that spool as in use, so the server must not either.
-            api_->spoolman().set_active_spool(
-                0, []() {},
-                [](const MoonrakerError& err) {
-                    spdlog::warn("[AmsState] Failed to clear active spool: {}", err.message);
-                });
+        } else if (info.spoolman_id == 0) {
+            // A manual entry (id=0, material set) over a linked spool takes
+            // the server link back too: the UI no longer shows it in use.
+            clear_active_spool_if(previous_id);
         }
     }
 
@@ -195,7 +191,8 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info, std::function<vo
 
     invalidate_stale_external_identity(info);
 
-    if (api_ && info.spoolman_id > 0 &&
+    const bool feeds = api_ && external_spool_feeds();
+    if (feeds && info.spoolman_id > 0 &&
         helix_sets_active_spool_on_edit(get_backend(), /*external_spool=*/true)) {
         // Server-first: the store subset waits for the server round-trip. The
         // API callbacks fire on a background thread, so both the store write
@@ -224,16 +221,12 @@ void AmsState::commit_external_spool_edit(const SlotInfo& info, std::function<vo
         return;
     }
 
-    // Manual entry, clear, or a spool something else makes active: no server
-    // identity gates the store write. The clear arm (replacing a linked spool with an empty record)
-    // still tells the server, fire-and-forget, exactly like the sync commit.
-    if (api_ && info.spoolman_id == 0 &&
-        get_external_spool_info().value_or(SlotInfo{}).spoolman_id > 0) {
-        api_->spoolman().set_active_spool(
-            0, []() {},
-            [](const MoonrakerError& err) {
-                spdlog::warn("[AmsState] Failed to clear active spool: {}", err.message);
-            });
+    // Manual entry, clear, a spool something else makes active, or one that is
+    // not feeding: no server identity gates the store write. The clear arm
+    // (replacing a linked spool with an empty record) still tells the server,
+    // fire-and-forget, exactly like the sync commit.
+    if (feeds && info.spoolman_id == 0) {
+        clear_active_spool_if(get_external_spool_info().value_or(SlotInfo{}).spoolman_id);
     }
 
     apply_external_spool_store(info);

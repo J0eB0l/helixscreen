@@ -891,3 +891,85 @@ TEST_CASE_METHOD(OverlayCommitFixture,
     CHECK(client.spoolman_mock().get_mock_active_spool_id() == 5);
     CHECK(AmsState::instance().get_external_spool_info().value_or(SlotInfo{}).spoolman_id == 43);
 }
+
+// ============================================================================
+// Tests: the external spool sets or clears the active spool only while it is
+// what feeds (no lane loaded, or the bypass engaged)
+// ============================================================================
+
+namespace {
+
+/// A filament system feeding from @p lane, or from its bypass.
+class FeedingMock : public AmsBackendMock {
+  public:
+    FeedingMock(int lane, bool bypass) : AmsBackendMock(4), lane_(lane), bypass_(bypass) {}
+    [[nodiscard]] bool is_bypass_active() const override {
+        return bypass_;
+    }
+    [[nodiscard]] bool is_filament_loaded() const override {
+        return true;
+    }
+    [[nodiscard]] int get_current_slot() const override {
+        return bypass_ ? -2 : lane_;
+    }
+
+  private:
+    int lane_;
+    bool bypass_;
+};
+
+void link_external(int spool_id, bool server_first) {
+    SlotInfo info;
+    info.spoolman_id = spool_id;
+    if (server_first) {
+        AmsState::instance().commit_external_spool_edit(info, [] {}, [](const MoonrakerError&) {});
+    } else {
+        AmsState::instance().commit_external_spool_edit(info);
+    }
+    UpdateQueue::instance().drain();
+}
+
+} // namespace
+
+TEST_CASE_METHOD(OverlayCommitFixture,
+                 "an external spool edit leaves the active spool alone while a lane feeds",
+                 "[ams_edit_overlay][spoolman][active_spool][plugin_filament]") {
+    AmsState::instance().set_backend(std::make_unique<FeedingMock>(2, /*bypass=*/false));
+    client.spoolman_mock().set_active_spool_id(7);
+
+    for (const bool server_first : {false, true}) {
+        INFO("server-first form: " << server_first);
+        link_external(42, server_first);
+        CHECK(client.spoolman_mock().get_mock_active_spool_id() == 7);
+        CHECK(AmsState::instance().get_external_spool_info().value_or(SlotInfo{}).spoolman_id ==
+              42);
+        INFO("and its unlink does not clear the lane's spool");
+        client.spoolman_mock().set_active_spool_id(42);
+        link_external(0, server_first);
+        CHECK(client.spoolman_mock().get_mock_active_spool_id() == 42);
+        client.spoolman_mock().set_active_spool_id(7);
+    }
+}
+
+TEST_CASE_METHOD(OverlayCommitFixture,
+                 "an external spool edit sets and clears the active spool while the bypass feeds",
+                 "[ams_edit_overlay][spoolman][active_spool][plugin_filament]") {
+    AmsState::instance().set_backend(std::make_unique<FeedingMock>(2, /*bypass=*/true));
+    client.spoolman_mock().set_active_spool_id(7);
+
+    link_external(42, /*server_first=*/false);
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 42);
+    link_external(0, /*server_first=*/false);
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 0);
+}
+
+TEST_CASE_METHOD(OverlayCommitFixture,
+                 "an external unlink clears only its own spool, not one made active since",
+                 "[ams_edit_overlay][spoolman][active_spool][plugin_filament]") {
+    // No filament system: the external spool is the feed.
+    link_external(42, /*server_first=*/false);
+    REQUIRE(client.spoolman_mock().get_mock_active_spool_id() == 42);
+    client.spoolman_mock().set_active_spool_id(55);
+    link_external(0, /*server_first=*/false);
+    CHECK(client.spoolman_mock().get_mock_active_spool_id() == 55);
+}

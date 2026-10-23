@@ -723,10 +723,12 @@ class FilamentAccounting:
         # job before it awaits.
         start_time = job.get("start_time")
         kind = self.helix.helix_initiated(job_id, filename, start_time)
-        # PLR resumes only the newest job, so the job history added before this
-        # one is the job a resume continues, whatever file name either has (a
-        # QIDI resume prints QIDI's .cache copy under its absolute path).
-        interrupted = self._last_added
+        # The job a resume continues: the one PLR says it resumed, else (PLR
+        # resumes only the newest job) the job history added before this one.
+        # Either works whatever file name the jobs have (a QIDI resume prints
+        # QIDI's .cache copy under its absolute path).
+        resumed = getattr(self.helix, "helix_resumed_job", None)
+        interrupted = (resumed(job_id) if resumed is not None else None) or self._last_added
         self._last_added = job_id
         previous = self.job
         if previous is not None and previous.job_id == job_id:
