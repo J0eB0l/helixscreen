@@ -265,24 +265,17 @@ void AmsPanel::init_subjects() {
             self->update_path_canvas_from_backend();
 
             // Auto-set active Spoolman spool when slot becomes active, unless
-            // something else switches it (helix_sets_active_spool()).
-            if (slot >= 0 && self->api_) {
-                auto* backend = AmsState::instance().get_backend();
-                if (backend && helix_sets_active_spool(backend)) {
-                    SlotInfo slot_info = backend->get_slot_info(slot);
-                    if (slot_info.spoolman_id > 0) {
-                        spdlog::info(
-                            "[AmsPanel] Slot {} has Spoolman ID {}, setting as active spool", slot,
-                            slot_info.spoolman_id);
-                        self->api_->spoolman().set_active_spool(
-                            slot_info.spoolman_id,
-                            []() { spdlog::debug("[AmsPanel] Active spool set successfully"); },
-                            [](const MoonrakerError& err) {
-                                spdlog::warn("[AmsPanel] Failed to set active spool: {}",
-                                             err.message);
-                            });
-                    }
-                }
+            // something else switches it (spool_to_activate()).
+            const int spool =
+                self->api_ ? spool_to_activate(AmsState::instance().get_backend(), slot) : 0;
+            if (spool > 0) {
+                spdlog::info("[AmsPanel] Slot {} has Spoolman ID {}, setting as active spool", slot,
+                             spool);
+                self->api_->spoolman().set_active_spool(
+                    spool, []() { spdlog::debug("[AmsPanel] Active spool set successfully"); },
+                    [](const MoonrakerError& err) {
+                        spdlog::warn("[AmsPanel] Failed to set active spool: {}", err.message);
+                    });
             }
         },
         AmsState::instance().get_subjects_lifetime());
@@ -555,17 +548,12 @@ void AmsPanel::sync_spoolman_active_spool() {
         return; // No active slot
     }
 
-    auto* backend = AmsState::instance().get_backend();
-    if (!backend || !helix_sets_active_spool(backend)) {
-        return;
-    }
-
-    SlotInfo slot_info = backend->get_slot_info(current_slot);
-    if (slot_info.spoolman_id > 0) {
+    const int spool = spool_to_activate(AmsState::instance().get_backend(), current_slot);
+    if (spool > 0) {
         spdlog::debug("[{}] Syncing Spoolman: slot {} → spool ID {}", get_name(), current_slot,
-                      slot_info.spoolman_id);
+                      spool);
         api_->spoolman().set_active_spool(
-            slot_info.spoolman_id, []() {},
+            spool, []() {},
             [](const MoonrakerError& err) {
                 spdlog::warn("[AmsPanel] Failed to sync active spool: {}", err.message);
             });

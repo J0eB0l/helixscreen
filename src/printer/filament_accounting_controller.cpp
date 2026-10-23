@@ -76,6 +76,13 @@ bool helix_sets_active_spool(const AmsBackend* backend) {
            ActiveSpoolOwner::Helix;
 }
 
+int spool_to_activate(const AmsBackend* backend, int slot) {
+    if (backend == nullptr || slot < 0 || !helix_sets_active_spool(backend)) {
+        return 0;
+    }
+    return std::max(backend->get_slot_info(slot).spoolman_id, 0);
+}
+
 bool helix_sets_active_spool_on_edit(const AmsBackend* backend, bool external_spool) {
     const bool manages = backend != nullptr && backend->manages_active_spool();
     return app_sets_spool_on_edit(active_spool_owner_now(/*spoolman=*/true, manages),

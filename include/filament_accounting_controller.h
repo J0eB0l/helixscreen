@@ -35,6 +35,11 @@ ActiveSpoolOwner active_spool_owner_now(bool spoolman, bool backend_manages_acti
 /// Every path that sets it from a lane or spool edit asks this.
 bool helix_sets_active_spool(const AmsBackend* backend);
 
+/// The Spoolman spool HelixScreen makes active when lane @p slot of @p backend
+/// is the loaded one: the lane's linked spool when helix_sets_active_spool(),
+/// else 0 (no lane, no linked spool, or something else switches it).
+int spool_to_activate(const AmsBackend* backend, int slot);
+
 /// Whether HelixScreen sets the active spool for the user's explicit link of
 /// the loaded lane of @p backend, or of the external spool (@p
 /// external_spool: no lane of the backend's carries it):

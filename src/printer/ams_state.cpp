@@ -2246,14 +2246,12 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
         // unless something else switches it (the backend, as AFC does on tool
         // load, the printer's firmware, or its T<n> macros). A linked spool
         // means Spoolman is in use.
-        if (api_ && slot_info.spoolman_id > 0 &&
-            slot_info.spoolman_id != last_synced_spoolman_id_ &&
-            helix_sets_active_spool(loaded_backend)) {
-            last_synced_spoolman_id_ = slot_info.spoolman_id;
-            spdlog::info("[AMS State] Setting active Spoolman spool to {} (slot {})",
-                         slot_info.spoolman_id, slot_index);
-            api_->spoolman().set_active_spool(
-                slot_info.spoolman_id, []() {}, [](const MoonrakerError&) {});
+        const int spool = spool_to_activate(loaded_backend, slot_index);
+        if (api_ && spool > 0 && spool != last_synced_spoolman_id_) {
+            last_synced_spoolman_id_ = spool;
+            spdlog::info("[AMS State] Setting active Spoolman spool to {} (slot {})", spool,
+                         slot_index);
+            api_->spoolman().set_active_spool(spool, []() {}, [](const MoonrakerError&) {});
         }
 
         // Set color
