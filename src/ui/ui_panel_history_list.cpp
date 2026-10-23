@@ -26,7 +26,6 @@
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
 #include "json_utils.h"
-#include "locale_formats.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "print_history_manager.h"
@@ -43,7 +42,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <ctime>
 #include <lvgl.h>
 #include <map>
 
@@ -1042,15 +1040,14 @@ void HistoryListPanel::show_detail_overlay(const PrintHistoryJob& job) {
 
 // A timestamp of 0 or below is "not recorded": the date reads "-" with no time.
 static void set_date_time_subjects(double timestamp, lv_subject_t* date, lv_subject_t* time) {
-    struct tm tm_buf;
-    const time_t ts = static_cast<time_t>(timestamp);
-    if (timestamp <= 0 || !localtime_r(&ts, &tm_buf)) {
+    if (timestamp <= 0) {
         lv_subject_copy_string(date, "-");
         lv_subject_copy_string(time, "");
         return;
     }
-    lv_subject_copy_string(date, helix::ui::format_localized_month_day(&tm_buf).c_str());
-    lv_subject_copy_string(time, helix::ui::format_time(&tm_buf).c_str());
+    const time_t ts = static_cast<time_t>(timestamp);
+    lv_subject_copy_string(date, helix::ui::format_month_day(ts).c_str());
+    lv_subject_copy_string(time, helix::ui::format_time(ts).c_str());
 }
 
 void HistoryListPanel::update_detail_subjects(const PrintHistoryJob& job) {

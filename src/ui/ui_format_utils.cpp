@@ -173,22 +173,33 @@ std::string format_time_with_seconds(const struct tm* tm_info) {
     return result;
 }
 
-std::string format_modified_date(time_t timestamp) {
+// Applies a struct-tm formatter to a timestamp in local time; "Unknown" when
+// the timestamp cannot be converted.
+template <typename Formatter>
+static std::string format_local_time(time_t timestamp, Formatter format) {
     struct tm tm_buf;
-    struct tm* timeinfo = localtime_r(&timestamp, &tm_buf);
+    const struct tm* timeinfo = localtime_r(&timestamp, &tm_buf);
     if (!timeinfo) {
         return "Unknown";
     }
-    return format_localized_modified_date(timeinfo);
+    return format(timeinfo);
+}
+
+std::string format_modified_date(time_t timestamp) {
+    return format_local_time(timestamp, format_localized_modified_date);
 }
 
 std::string format_short_date(time_t timestamp) {
-    struct tm tm_buf;
-    struct tm* timeinfo = localtime_r(&timestamp, &tm_buf);
-    if (!timeinfo) {
-        return "Unknown";
-    }
-    return format_localized_short_date(timeinfo);
+    return format_local_time(timestamp, format_localized_short_date);
+}
+
+std::string format_month_day(time_t timestamp) {
+    return format_local_time(timestamp, format_localized_month_day);
+}
+
+std::string format_time(time_t timestamp) {
+    return format_local_time(timestamp,
+                             [](const struct tm* tm_info) { return format_time(tm_info); });
 }
 
 std::string format_relative_time(uint64_t elapsed_ms) {
