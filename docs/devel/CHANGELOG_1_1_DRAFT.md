@@ -428,6 +428,10 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
   automatic unload, so Unload shows a notice telling you to cut and pull the filament at the
   head, and sends nothing; to mount a head without feeding it, use Select slot in the slot
   menu. A fault from Z-Mod opens a dialog in the firmware's own words.
+- **Creator 5 on Z-Mod: a spool bound from outside shows up without a reboot** (#1833) - when
+  another tool sets a head's spool (an NFC tag reader through `CHANGE_ZCOLOR`, or
+  zmod_afclite's `SET_SPOOL_ID`), the screen reads the record it wrote and shows the new
+  spool, name and colour within a couple of seconds. (thanks @DIEHARDave)
 - **A new Edit Spool editor** - tap a slot and choose Edit Spool for one screen that shows
   the filament in words with its colour and remaining weight, the temperatures for what you
   picked, and Material, Variant, Brand and Product lists that narrow each other down, with
