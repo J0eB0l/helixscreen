@@ -4,6 +4,7 @@
 #include "hv/HttpMessage.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -107,10 +108,12 @@ TransferFailure classify_send_failure(int rc, const SendTrace& trace, bool host_
 HttpResponsePtr trusted_request(const HttpRequestPtr& req, void* ssl_ctx,
                                 TransferFailure* failure = nullptr);
 
-/// trusted_download() with an explicit context, for tests.
+/// trusted_download() with an explicit context, for tests. @p retry_delay_ms is
+/// how long libhv waits before re-sending a request whose connection dropped.
 size_t trusted_download(const std::string& url, const std::string& path,
                         const std::function<void(size_t received, size_t total)>& progress,
-                        void* ssl_ctx, TransferFailure* failure);
+                        void* ssl_ctx, TransferFailure* failure,
+                        uint32_t retry_delay_ms = DEFAULT_HTTP_FAIL_RETRY_DELAY);
 } // namespace detail
 
 } // namespace helix::tls

@@ -44,6 +44,9 @@ ExitLeft s_pending_kind = ExitLeft::NeverSent;
 /// The Runner most recently gone live. Main thread only.
 Runner* s_live_runner = nullptr;
 
+/// leave_live_run()'s wait for EXIT's reply. Main thread only.
+uint32_t s_teardown_exit_wait_ms = kTeardownExitWaitMs;
+
 bool phase_is_live(Runner::Phase phase) {
     return phase == Runner::Phase::Running || phase == Runner::Phase::AwaitingUser ||
            phase == Runner::Phase::Finishing;
@@ -317,6 +320,10 @@ bool send_exit_and_wait(helix::IMoonrakerClient& client, uint32_t timeout_ms) {
 
 } // namespace
 
+void set_teardown_exit_wait_ms(uint32_t ms) {
+    s_teardown_exit_wait_ms = ms;
+}
+
 void leave_live_run(helix::IMoonrakerClient* client) {
     Runner* runner = s_live_runner;
     // Finishing already has its EXIT in flight.
@@ -337,9 +344,9 @@ void leave_live_run(helix::IMoonrakerClient* client) {
     if (probing) {
         send_probe_abort(*client);
     }
-    if (!send_exit_and_wait(*client, kTeardownExitWaitMs)) {
+    if (!send_exit_and_wait(*client, s_teardown_exit_wait_ms)) {
         spdlog::warn("[NozzleOffsetCal] No reply to {} within {}ms", kExitGcode,
-                     kTeardownExitWaitMs);
+                     s_teardown_exit_wait_ms);
         mark_exit_unconfirmed();
     }
 }

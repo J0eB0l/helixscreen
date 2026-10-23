@@ -228,6 +228,9 @@ class TlsServer {
     std::thread thread_;
 };
 
+/// libhv's re-send delay for the downloads here; the retry itself is unchanged.
+constexpr uint32_t kRetryDelayMs = 10;
+
 std::string ok_response(const std::string& body) {
     return "HTTP/1.1 200 OK\r\nContent-Length: " + std::to_string(body.size()) +
            "\r\nConnection: close\r\n\r\n" + body;
@@ -531,7 +534,7 @@ int closed_port() {
 
 TransferFailure download_failure(const std::string& url, const std::string& dest, void* ctx) {
     TransferFailure failure;
-    CHECK(detail::trusted_download(url, dest, nullptr, ctx, &failure) == 0);
+    CHECK(detail::trusted_download(url, dest, nullptr, ctx, &failure, kRetryDelayMs) == 0);
     return failure;
 }
 
@@ -660,7 +663,8 @@ TEST_CASE("trusted_download restarts the file when libhv retries a dropped body"
     });
     const std::string dest = (dir.path / "retried.bin").string();
     TransferFailure failure;
-    CHECK(detail::trusted_download(server.url("/f"), dest, nullptr, ctx, &failure) == 10);
+    CHECK(detail::trusted_download(server.url("/f"), dest, nullptr, ctx, &failure, kRetryDelayMs) ==
+          10);
     CHECK(failure.kind == FailureKind::None);
     CHECK(calls == 2);
     std::ifstream in(dest);

@@ -157,6 +157,21 @@ class LVGLTestFixture : public HelixTestFixture {
                     uint32_t poll_ms = 5);
 
     /**
+     * @brief Advance VIRTUAL time until @p condition holds, never sleeping
+     * @param condition Predicate, re-evaluated after every pump
+     * @param budget_ms Virtual budget: how far LVGL's clock may move
+     * @param step_ms Virtual tick step per iteration
+     * @return true if the condition held within the budget
+     *
+     * For waits that only LVGL timers and the UpdateQueue can end. Nothing
+     * sleeps, so a 2s virtual timer costs microseconds, and no other thread
+     * gets a time slice from it: when a real thread has to publish the result,
+     * use wait_until(). The condition is evaluated at least once.
+     */
+    bool advance_until(const std::function<bool()>& condition, uint32_t budget_ms,
+                       uint32_t step_ms = 5);
+
+    /**
      * @brief Get the test screen for this fixture
      * @return Test screen object (created fresh for each test)
      *

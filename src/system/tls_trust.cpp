@@ -353,12 +353,13 @@ namespace detail {
 
 size_t trusted_download(const std::string& url, const std::string& path,
                         const std::function<void(size_t received, size_t total)>& progress,
-                        void* ssl_ctx, TransferFailure* failure) {
+                        void* ssl_ctx, TransferFailure* failure, uint32_t retry_delay_ms) {
     const std::string partial = path + ".download";
     auto req = std::make_shared<HttpRequest>();
     req->method = HTTP_GET;
     req->url = url;
     req->timeout = 3600;
+    req->retry_delay = retry_delay_ms;
     FILE* file = std::fopen(partial.c_str(), "wb");
     if (!file) {
         const int open_errno = errno;
