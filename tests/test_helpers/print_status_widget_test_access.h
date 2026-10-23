@@ -30,6 +30,18 @@ class PrintStatusWidgetTestAccess {
         return &PrintStatusWidget::idle_thumb_path_subject_;
     }
 
+    static bool nozzle_picker_available(const PrintStatusWidget& widget) {
+        return widget.nozzle_picker_available();
+    }
+
+    // The nozzle fit over a detailed card built straight from its XML, which a
+    // live dashboard would otherwise have to host.
+    static void fit_nozzle_picker(PrintStatusWidget& widget, lv_obj_t* root) {
+        widget.widget_obj_ = root;
+        widget.fit_nozzle_picker();
+        widget.widget_obj_ = nullptr;
+    }
+
     static void dispatch_load(PrintStatusWidget& widget) {
         widget.dispatch_load();
     }

@@ -274,7 +274,7 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter multi-extruder label and g
     REQUIRE(ts.extruder_count() == 1);
     REQUIRE(lv_subject_get_int(lv_xml_get_subject(nullptr, "print_status_multi_tool")) == 0);
     REQUIRE(std::string(lv_subject_get_string(
-                lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label"))) == "");
+                lv_xml_get_subject(nullptr, "print_status_nozzle_badge_text"))) == "");
 
     // Two extruders — gate=1, label tracks active (default index = 0)
     auto dual = discovery_with({"extruder", "extruder1", "heater_bed", "fan"});
@@ -283,14 +283,14 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter multi-extruder label and g
     REQUIRE(ts.extruder_count() == 2);
     REQUIRE(lv_subject_get_int(lv_xml_get_subject(nullptr, "print_status_multi_tool")) == 1);
     REQUIRE(std::string(lv_subject_get_string(
-                lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label"))) == "Tool 1");
+                lv_xml_get_subject(nullptr, "print_status_nozzle_badge_text"))) == "1");
 
     // Back to single — gate=0, label cleared
     ts.init_tools(single);
     UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
     REQUIRE(lv_subject_get_int(lv_xml_get_subject(nullptr, "print_status_multi_tool")) == 0);
     REQUIRE(std::string(lv_subject_get_string(
-                lv_xml_get_subject(nullptr, "print_status_nozzle_tool_label"))) == "");
+                lv_xml_get_subject(nullptr, "print_status_nozzle_badge_text"))) == "");
 }
 
 // =============================================================================

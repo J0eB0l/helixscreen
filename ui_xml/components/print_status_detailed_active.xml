@@ -74,7 +74,7 @@
             style_flex_main_place="space_evenly" style_flex_cross_place="center" scrollable="false" clickable="false"
             event_bubble="true">
       <!-- Nozzle group: split into two click targets.
-           Left = picker (T0 + nozzle_icon + chevron) → tool picker.
+           Left = picker (numbered nozzle_icon + chevron) → tool picker.
            Right = temp_display → temp graph overlay (Mode::Nozzle).
            The named picker obj is matched by print_card_clicked_cb so the
            print-card click handler skips when the click originated there. -->
@@ -87,12 +87,12 @@
                 style_radius="#border_radius">
           <style name="styles.press_wash" selector="pressed"/>
           <event_cb trigger="clicked" callback="print_status_nozzle_chevron_cb"/>
-          <text_tiny bind_text="print_status_nozzle_tool_label" clickable="false" event_bubble="true">
-            <bind_flag_if_eq subject="print_status_multi_tool" flag="hidden" ref_value="0"/>
-          </text_tiny>
-          <nozzle_icon size="sm" badge_subject="" clickable="false" event_bubble="true"/>
+          <nozzle_icon size="sm"
+                       badge_subject="print_status_multi_tool" badge_text_subject="print_status_nozzle_badge_text"
+                       clickable="false" event_bubble="true"/>
+          <!-- Where the row has no room for it, the chevron and its picker go. -->
           <icon src="chevron_down" size="sm" clickable="false" event_bubble="true">
-            <bind_flag_if_eq subject="print_status_nozzle_pickable" flag="hidden" ref_value="0"/>
+            <bind_flag_if cond="print_status_nozzle_pickable eq 0 or print_status_nozzle_picker_fits eq 0" flag="hidden"/>
           </icon>
         </lv_obj>
         <!-- Bound to formatter-driven proxy subjects so pinning to a specific tool

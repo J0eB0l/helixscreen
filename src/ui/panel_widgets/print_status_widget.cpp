@@ -156,6 +156,8 @@ void PrintStatusWidget::init_static_subjects() {
     s_static_subjects.publish("print_status_multi_tool", &multi_tool_subject_);
     lv_subject_init_int(&nozzle_pickable_subject_, 0);
     s_static_subjects.publish("print_status_nozzle_pickable", &nozzle_pickable_subject_);
+    lv_subject_init_int(&nozzle_picker_fits_subject_, 1);
+    s_static_subjects.publish("print_status_nozzle_picker_fits", &nozzle_picker_fits_subject_);
     // Initial value 0 = idle_library_full — matches the default ref_value=0
     // on print_card_idle's bind_flag_if_not_eq so it shows by default
     // before any state events fire.
@@ -719,6 +721,7 @@ void PrintStatusWidget::bind_active_branch() {
     print_card_thumb_wrap_ = lv_obj_find_by_name(widget_obj_, "print_card_thumb_wrap");
     print_card_info_ = lv_obj_find_by_name(widget_obj_, "print_card_info");
     print_card_preparing_info_ = lv_obj_find_by_name(widget_obj_, "print_card_preparing_info");
+    schedule_library_fit();
 
     lv_obj_t* detailed_arc = lv_obj_find_by_name(widget_obj_, "detailed_progress_arc");
     if (s_formatter_) {
@@ -1482,6 +1485,7 @@ void PrintStatusWidget::schedule_library_fit() {
     library_fit_timer_.schedule_once([this]() {
         if (widget_obj_) {
             fit_library_actions();
+            fit_nozzle_picker();
         }
     });
 }
@@ -1799,16 +1803,66 @@ void PrintStatusWidget::print_status_layout_detailed_cb(lv_event_t* /*e*/) {
 // Nozzle Tool Picker
 // ============================================================================
 
+bool PrintStatusWidget::nozzle_picker_available() const {
+    // One heater: the picker has nothing to pin the readout to. Counts heaters,
+    // matching the print_status_nozzle_pickable gate that hides the chevron:
+    // AMS lanes and nozzles sharing one heater both have a single readout.
+    // Where the temperature row has no room for the chevron, the picker goes
+    // with it and the readout follows its current tool.
+    return ToolState::instance().has_multiple_extruders() &&
+           lv_subject_get_int(&nozzle_picker_fits_subject_) != 0;
+}
+
+void PrintStatusWidget::fit_nozzle_picker() {
+    lv_obj_t* row = lv_obj_find_by_name(widget_obj_, "detailed_temp_row");
+    lv_obj_t* target = row ? lv_obj_find_by_name(row, "detailed_nozzle_click_target") : nullptr;
+    const uint32_t target_children = target ? lv_obj_get_child_count(target) : 0;
+    // Off-screen trees may be awaiting deletion: laying one out walks freed grids.
+    if (target_children == 0 || !helix::ui::is_on_active_screen(row)) {
+        return;
+    }
+    lv_obj_update_layout(row);
+
+    lv_obj_t* chevron = lv_obj_get_child(target, static_cast<int32_t>(target_children) - 1);
+    // Measured from the glyph, whether or not it is shown now, so the verdict
+    // never depends on the one it last published.
+    const int chevron_need =
+        helix::ui::text_width(lv_label_get_text(chevron),
+                              lv_obj_get_style_text_font(chevron, LV_PART_MAIN),
+                              lv_obj_get_style_text_letter_space(chevron, LV_PART_MAIN)) +
+        lv_obj_get_style_pad_column(target, LV_PART_MAIN);
+
+    int need = 0;
+    int shown = 0;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(row); ++i) {
+        lv_obj_t* child = lv_obj_get_child(row, static_cast<int32_t>(i));
+        if (!lv_obj_has_flag(child, LV_OBJ_FLAG_HIDDEN)) {
+            need += lv_obj_get_width(child);
+            ++shown;
+        }
+    }
+    need += lv_obj_get_style_pad_column(row, LV_PART_MAIN) * std::max(0, shown - 1);
+    if (lv_obj_has_flag(chevron, LV_OBJ_FLAG_HIDDEN)) {
+        need += chevron_need;
+    }
+
+    const int avail = lv_obj_get_content_width(row);
+    const int fits = need <= avail ? 1 : 0;
+    if (lv_subject_get_int(&nozzle_picker_fits_subject_) != fits) {
+        spdlog::debug("[PrintStatusWidget] nozzle picker needs {}px of {}px: fits={}", need, avail,
+                      fits);
+        lv_subject_set_int(&nozzle_picker_fits_subject_, fits);
+    }
+}
+
 void PrintStatusWidget::show_nozzle_tool_picker(lv_obj_t* anchor) {
     if (nozzle_picker_.is_visible() || !parent_screen_ || !anchor)
         return;
 
-    // One heater: the picker has nothing to pin the readout to. The whole
-    // nozzle group is the click target (the chevron is visual-only), so this
-    // can fire on a regular print and must be a clean no-op. Counts heaters,
-    // matching the print_status_nozzle_pickable gate that hides the chevron:
-    // AMS lanes and nozzles sharing one heater both have a single readout.
-    if (!ToolState::instance().has_multiple_extruders()) {
+    // The whole nozzle group is the click target (the chevron is visual-only),
+    // so this fires whenever it is tapped and must be a clean no-op when the
+    // picker is not on offer.
+    if (!nozzle_picker_available()) {
         return;
     }
 
@@ -2224,9 +2278,9 @@ void PrintStatusWidget::DetailedFormatter::update_multi_tool() {
 void PrintStatusWidget::DetailedFormatter::update_tool_label() {
     auto& tools = ToolState::instance();
     if (!tools.names_mounted_nozzle()) {
-        nozzle_tool_label_buf_[0] = '\0';
+        nozzle_badge_text_buf_[0] = '\0';
     } else {
-        // Label tracks what the user is VIEWING — the pinned tool when one
+        // The number tracks what the user is VIEWING — the pinned tool when one
         // is set, otherwise the currently active tool. Anything else looks
         // broken right after a pin ("I picked Nozzle 2 but it still says Tool 1").
         int idx = -1;
@@ -2243,13 +2297,13 @@ void PrintStatusWidget::DetailedFormatter::update_tool_label() {
         }
         const auto& tool_list = tools.tools();
         if (idx >= 0 && idx < static_cast<int>(tool_list.size())) {
-            snprintf(nozzle_tool_label_buf_, sizeof(nozzle_tool_label_buf_), "%s",
-                     tool_list[idx].display_label.c_str());
+            snprintf(nozzle_badge_text_buf_, sizeof(nozzle_badge_text_buf_), "%s",
+                     helix::ui::lane_number_text(tool_list[idx].index).c_str());
         } else {
-            nozzle_tool_label_buf_[0] = '\0';
+            nozzle_badge_text_buf_[0] = '\0';
         }
     }
-    lv_subject_copy_string(&nozzle_tool_label_subject_, nozzle_tool_label_buf_);
+    lv_subject_copy_string(&nozzle_badge_text_subject_, nozzle_badge_text_buf_);
 }
 
 namespace helix {
@@ -2343,8 +2397,8 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
                               "print_status_filament_text", subjects_);
     UI_MANAGED_SUBJECT_STRING(nozzle_text_subject_, nozzle_text_buf_, "0 / 0°C",
                               "print_status_nozzle_text", subjects_);
-    UI_MANAGED_SUBJECT_STRING(nozzle_tool_label_subject_, nozzle_tool_label_buf_, "",
-                              "print_status_nozzle_tool_label", subjects_);
+    UI_MANAGED_SUBJECT_STRING(nozzle_badge_text_subject_, nozzle_badge_text_buf_, "",
+                              "print_status_nozzle_badge_text", subjects_);
     UI_MANAGED_SUBJECT_INT(nozzle_current_subject_, 0, "print_status_nozzle_current", subjects_);
     UI_MANAGED_SUBJECT_INT(nozzle_target_subject_, 0, "print_status_nozzle_target", subjects_);
     UI_MANAGED_SUBJECT_STRING(idle_filename_subject_, idle_filename_buf_, "",
