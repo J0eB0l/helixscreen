@@ -8,6 +8,7 @@
 
 #include "async_lifetime_guard.h"
 #include "callout_layout.h"
+#include "callout_presenter.h"
 #include "panel_widget.h"
 
 #include <array>
@@ -137,9 +138,7 @@ class PrinterImageWidget : public PanelWidget {
     int callout_rowspan_ = 0;
     int callout_spin_pct_ = -1; ///< speed the fan icons spin at; -1 = not yet applied
     bool callout_glow_pulsing_ = false;
-    /// lv_line keeps the pointer it is given, so each leader line's points
-    /// (point, elbow, chip edge) live here, one set per CalloutKind from Nozzle to Light.
-    std::array<std::array<lv_point_precise_t, 3>, 5> callout_line_pts_{};
+    helix::ui::CalloutPresenter presenter_;
     std::vector<ObserverGuard> callout_observers_;
     /// Each text chip's full text, indexed by CalloutKind. Its subject carries the
     /// compact form while the chips are pinned; measuring reads this.

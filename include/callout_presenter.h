@@ -27,6 +27,13 @@ class CalloutPresenter {
         bool active = false;      ///< showing now
         bool expendable = false;  ///< ChipContent::expendable
         bool glowing = false;     ///< ChipContent::glow
+        /// Widths the caller measured in the fonts the chip renders, including padding and
+        /// comfort margin: the worst case it can show (decides the mode), what it shows now,
+        /// and its compact form for pinned mode.
+        int w_budget = 0;
+        int w_full = 0;
+        int w_compact = 0;
+        int icons = 0; ///< pixels its icons take in the chip row; bounds the label
     };
 
     struct Parts {
@@ -39,17 +46,36 @@ class CalloutPresenter {
 
     struct Config {
         bool single_cell = false;
+        int chip_h = 0;              ///< a full-size chip's height
+        int compact_chip_h = 0;      ///< a pinned (compact) chip's height
+        int gap = 0;                 ///< CalloutLayoutInput::gap
         int min_line = 0;            ///< CalloutLayoutInput::min_line
         int leader_min_distance = 0; ///< CalloutLayoutInput::leader_min_distance
     };
 
-    /// Measure, decide, position. `regions` is nullptr for an untagged image.
-    /// Returns the layout so the owner can publish the mode subject.
+    /// Decide, then position. `regions` is nullptr for an untagged image. Returns the
+    /// layout so the owner can publish the mode subject. Chip texts are the caller's
+    /// to publish, so the widths in `parts` are for the text as it stands.
     CalloutLayout apply(const Parts& parts, const ImageRegions* regions, int natural_w,
                         int natural_h, const Config& config);
 
+    /// Moves and sizes `image` to `moved`, or back to filling its container when null.
+    /// True when the rect changed, so the owner can refresh the image for its new size.
+    bool place_image(lv_obj_t* image, const CalloutRect* moved);
+
+    /// Whether the last apply() moved the image.
+    [[nodiscard]] bool image_changed() const {
+        return image_changed_;
+    }
+
   private:
+    void place_chip(const CalloutChipOut& c, const Chip& part, bool compact);
+    void place_line(const CalloutChipOut& c, const Chip& part);
+    void place_glow(const Chip& part, const ImageRegions& r, const CalloutRect& image);
+
+    /// lv_line keeps the pointer it is given, so each kind's points live here.
     std::array<std::array<lv_point_precise_t, 3>, kCalloutKindCount> line_pts_{};
+    bool image_changed_ = false;
 };
 
 } // namespace helix::ui

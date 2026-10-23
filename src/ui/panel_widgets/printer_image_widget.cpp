@@ -15,6 +15,7 @@
 #include "ams_state.h"
 #include "app_globals.h"
 #include "callout_chip.h"
+#include "callout_presenter.h"
 #include "config.h"
 #include "display_settings_manager.h"
 #include "grid_layout.h"
@@ -975,12 +976,10 @@ void PrinterImageWidget::apply_callout_layout() {
         place_printer_image(nullptr);
     };
 
-    CalloutLayoutInput in;
-    in.area_w = lv_obj_get_content_width(container);
-    in.area_h = lv_obj_get_content_height(container);
-    in.single_cell = callout_colspan_ <= GridLayout::TRACKS_PER_CELL &&
-                     callout_rowspan_ <= GridLayout::TRACKS_PER_CELL;
-    if (in.area_w <= 0 || in.area_h <= 0) {
+    helix::ui::CalloutPresenter::Config cfg;
+    cfg.single_cell = callout_colspan_ <= GridLayout::TRACKS_PER_CELL &&
+                      callout_rowspan_ <= GridLayout::TRACKS_PER_CELL;
+    if (lv_obj_get_content_width(container) <= 0 || lv_obj_get_content_height(container) <= 0) {
         image_only(); // the next size change reschedules
         return;
     }
@@ -998,9 +997,6 @@ void PrinterImageWidget::apply_callout_layout() {
     }
     const ImageRegions* r = lookup_image_regions(printer_image_region_key(current_source_path_),
                                                  natural_w_, natural_h_);
-    in.tagged = r != nullptr;
-    in.image_w = r ? r->src_w : natural_w_;
-    in.image_h = r ? r->src_h : natural_h_;
 
     // Measure in the fonts the chips render: chip_text is a text_small
     // (font_small) and every chip icon is size="xs" (icon_font_xs). Padding and
@@ -1033,15 +1029,13 @@ void PrinterImageWidget::apply_callout_layout() {
     const auto compact_w = [&](int icons, const std::string& text) {
         return helix::ui::compact_callout_chip_w(probe, text, icons);
     };
-    in.chip_h = std::max(lv_font_get_line_height(text_font), lv_font_get_line_height(icon_font)) +
-                lv_obj_get_style_pad_top(probe, LV_PART_MAIN) +
-                lv_obj_get_style_pad_bottom(probe, LV_PART_MAIN) + 2 * border;
-    in.gap = theme_manager_get_spacing("space_xs");
-    in.min_line = theme_manager_get_spacing("space_md");
-
-    const auto anchor = [&](CalloutKind k) -> std::optional<NormPoint> {
-        return r ? region_anchor(*r, k) : std::nullopt;
-    };
+    cfg.chip_h = std::max(lv_font_get_line_height(text_font), lv_font_get_line_height(icon_font)) +
+                 lv_obj_get_style_pad_top(probe, LV_PART_MAIN) +
+                 lv_obj_get_style_pad_bottom(probe, LV_PART_MAIN) + 2 * border;
+    cfg.compact_chip_h =
+        helix::ui::compact_callout_chip_h(probe, lv_subject_get_int(&s_callout_light_shown));
+    cfg.gap = theme_manager_get_spacing("space_xs");
+    cfg.min_line = theme_manager_get_spacing("space_md");
 
     const std::string widest_heater = helix::ui::temperature::heater_display(9990, 9990).temp;
     // The tool badge sits in the nozzle glyph's own row, after its column gap,
@@ -1086,143 +1080,49 @@ void PrinterImageWidget::apply_callout_layout() {
          {},
          light_chip_capable()},
     };
+    helix::ui::CalloutPresenter::Parts parts;
+    parts.area = container;
+    parts.image = lv_obj_find_by_name(widget_obj_, "printer_image");
     for (const Chip& c : chips) {
-        if (c.capable)
-            in.budget.push_back({c.kind, chip_w(c.icons, c.worst), anchor(c.kind)});
-        if (lv_subject_get_int(c.shown))
-            in.active.push_back({c.kind, chip_w(c.icons, c.now), anchor(c.kind)});
+        const auto k = static_cast<size_t>(c.kind);
+        helix::ui::CalloutPresenter::Chip part;
+        part.kind = c.kind;
+        part.chip = lv_obj_find_by_name(widget_obj_, c.name);
+        part.line =
+            k < std::size(kLineNames) ? lv_obj_find_by_name(widget_obj_, kLineNames[k]) : nullptr;
+        if (c.kind == CalloutKind::Bed)
+            part.glow = lv_obj_find_by_name(widget_obj_, "callout_bed_glow");
+        part.in_budget = c.capable;
+        part.active = lv_subject_get_int(c.shown) != 0;
+        part.icons = c.icons;
+        part.w_budget = c.capable ? chip_w(c.icons, c.worst) : 0;
+        part.w_full = part.active ? chip_w(c.icons, c.now) : 0;
+        part.w_compact = part.active ? compact_w(c.icons, c.now) : 0;
+        parts.chips.push_back(part);
     }
-    CalloutLayout out = compute_callout_layout(in);
-    if (spdlog::should_log(spdlog::level::trace)) {
-        int widest = 0;
-        for (const auto& c : in.budget)
-            widest = std::max(widest, c.w);
-        spdlog::trace("[PrinterImageWidget] callouts: area {}x{}, image {}x{} at {},{}, widest "
-                      "budget chip {}, mode {}",
-                      in.area_w, in.area_h, out.image.w, out.image.h, out.image.x, out.image.y,
-                      widest, static_cast<int>(out.mode));
+    {
+        helix::ui::CalloutPresenter::Chip th;
+        th.kind = CalloutKind::Toolhead;
+        th.chip = lv_obj_find_by_name(widget_obj_, "callout_chip_toolhead");
+        th.w_compact = compact_w(0, text(CalloutKind::Toolhead));
+        parts.toolhead = th;
     }
-    if (out.mode == CalloutMode::Pinned) {
-        // The budget decided the mode; the chips placed on the picture are
-        // compact. Without the budget the second pass cannot pick another mode.
-        in.budget.clear();
-        in.chip_h =
-            helix::ui::compact_callout_chip_h(probe, lv_subject_get_int(&s_callout_light_shown));
-        in.active.clear();
-        for (const Chip& c : chips)
-            if (lv_subject_get_int(c.shown))
-                in.active.push_back({c.kind, compact_w(c.icons, c.now), anchor(c.kind)});
-        in.toolhead =
-            CalloutChipIn{CalloutKind::Toolhead, compact_w(0, text(CalloutKind::Toolhead)),
-                          anchor(CalloutKind::Toolhead)};
-        out = compute_callout_layout(in);
-    }
-    spdlog::trace("[PrinterImageWidget] callouts: placed {} chips, chip_h {}", out.chips.size(),
-                  in.chip_h);
-    const bool compact = out.mode == CalloutMode::Pinned;
+    const CalloutLayout out = presenter_.apply(parts, r, natural_w_, natural_h_, cfg);
+
     lv_subject_set_int(&s_callout_toolhead_merged, out.toolhead_merged ? 1 : 0);
     lv_subject_set_int(&s_printer_callout_mode, static_cast<int>(out.mode));
     for (const auto& t : kCalloutTexts)
         publish_callout_text(t.subject, callout_full_text_[static_cast<size_t>(t.kind)]);
-    // A one-side or shrunk image leaves the container's contain-fit rect.
-    const bool fitted = out.image.w == fit_image(in.area_w, in.area_h, in.image_w, in.image_h).w;
-    place_printer_image(out.mode == CalloutMode::OneSide || !fitted ? &out.image : nullptr);
-
-    // The glow is an ellipse over the bed's near edge, as wide as the edge.
-    lv_obj_t* glow = lv_obj_find_by_name(widget_obj_, "callout_bed_glow");
-    if (r && glow) {
-        using callout_detail::px;
-        const int x0 = px(std::min(r->bed_left.x, r->bed_right.x), out.image.x, out.image.w);
-        const int w = px(std::max(r->bed_left.x, r->bed_right.x), out.image.x, out.image.w) - x0;
-        const int h = w / 4;
-        const int y = px((r->bed_left.y + r->bed_right.y) / 2, out.image.y, out.image.h) - h / 2;
-        if (lv_obj_get_style_x(glow, LV_PART_MAIN) != x0 ||
-            lv_obj_get_style_y(glow, LV_PART_MAIN) != y) {
-            // DECLARATIVE_OK: measured callout layout
-            lv_obj_set_pos(glow, x0, y);
-        }
-        if (lv_obj_get_style_width(glow, LV_PART_MAIN) != w ||
-            lv_obj_get_style_height(glow, LV_PART_MAIN) != h) {
-            // DECLARATIVE_OK: measured callout layout
-            lv_obj_set_size(glow, w, h);
-        }
-    }
-    static_assert(std::size(kLineNames) == std::tuple_size_v<decltype(callout_line_pts_)>,
-                  "one leader line and one point set per CalloutKind that draws a line");
-    for (const CalloutChipOut& c : out.chips) {
-        const char* name = "callout_chip_toolhead";
-        int icons = 0;
-        for (const Chip& k : chips) {
-            if (k.kind == c.kind) {
-                name = k.name;
-                icons = k.icons;
-            }
-        }
-        const auto k = static_cast<size_t>(c.kind);
-        lv_obj_t* line = c.has_line && k < std::size(kLineNames)
-                             ? lv_obj_find_by_name(widget_obj_, kLineNames[k])
-                             : nullptr;
-        if (line) {
-            auto& pts = callout_line_pts_[k];
-            const auto v = [](int n) { return static_cast<lv_value_precise_t>(n); };
-            const std::array<lv_point_precise_t, 3> want = {{{v(c.line_x0), v(c.line_y0)},
-                                                             {v(c.line_xm), v(c.line_ym)},
-                                                             {v(c.line_x1), v(c.line_y1)}}};
-            const bool same =
-                lv_line_get_points(line) == pts.data() &&
-                std::equal(pts.begin(), pts.end(), want.begin(),
-                           [](const auto& p, const auto& q) { return p.x == q.x && p.y == q.y; });
-            if (!same) {
-                pts = want;
-                // DECLARATIVE_OK: measured callout layout
-                lv_line_set_points(line, pts.data(), pts.size());
-            }
-        }
-        lv_obj_t* obj = lv_obj_find_by_name(widget_obj_, name);
-        if (!obj)
-            continue;
-        // Temperatures relayout every tick while heating; an unchanged chip is
-        // not rewritten, since every style write invalidates it.
-        if (lv_obj_get_style_x(obj, LV_PART_MAIN) != c.rect.x ||
-            lv_obj_get_style_y(obj, LV_PART_MAIN) != c.rect.y) {
-            // DECLARATIVE_OK: measured callout layout
-            lv_obj_set_pos(obj, c.rect.x, c.rect.y);
-        }
-        if (lv_obj_get_style_width(obj, LV_PART_MAIN) != c.rect.w) {
-            // DECLARATIVE_OK: measured callout layout
-            lv_obj_set_width(obj, c.rect.w);
-        }
-        // The label keeps its content width up to what the icons leave, so a
-        // chip clamped narrower than its text ends in dots instead of spilling.
-        lv_obj_t* label = lv_obj_find_by_name(obj, "chip_text");
-        const int label_max = std::max(0, c.rect.w - (compact ? chrome_w : around_text(icons)));
-        if (label && lv_obj_get_style_max_width(label, LV_PART_MAIN) != label_max) {
-            // DECLARATIVE_OK: measured callout layout
-            lv_obj_set_style_max_width(label, label_max, 0);
-        }
-    }
+    if (presenter_.image_changed())
+        schedule_image_refresh();
 }
 
 void PrinterImageWidget::place_printer_image(const CalloutRect* moved) {
     lv_obj_t* img = widget_obj_ ? lv_obj_find_by_name(widget_obj_, "printer_image") : nullptr;
-    if (!img)
-        return;
-    const int32_t x = moved ? moved->x : 0;
-    const int32_t y = moved ? moved->y : 0;
-    const int32_t w = moved ? moved->w : LV_PCT(100);
-    const int32_t h = moved ? moved->h : LV_PCT(100);
-    if (lv_obj_get_style_x(img, LV_PART_MAIN) == x && lv_obj_get_style_y(img, LV_PART_MAIN) == y &&
-        lv_obj_get_style_width(img, LV_PART_MAIN) == w &&
-        lv_obj_get_style_height(img, LV_PART_MAIN) == h)
-        return;
-    // DECLARATIVE_OK: measured callout layout
-    lv_obj_set_pos(img, x, y);
-    // DECLARATIVE_OK: measured callout layout
-    lv_obj_set_size(img, w, h);
     // The exact-size copy on screen was cut for the old rect. The refresh
-    // relayouts, and that relayout finds the rect unchanged and returns above,
-    // so this cannot loop.
-    schedule_image_refresh();
+    // relayouts, and that relayout finds the rect unchanged, so this cannot loop.
+    if (presenter_.place_image(img, moved))
+        schedule_image_refresh();
 }
 
 void PrinterImageWidget::set_glow_pulse(bool on) {
