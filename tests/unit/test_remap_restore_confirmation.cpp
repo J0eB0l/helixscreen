@@ -675,6 +675,110 @@ TEST_CASE("remap restore: a printer switch drops the record", "[remap-restore][1
     CHECK(be.backend->calls.empty());
 }
 
+TEST_CASE("remap restore: an unreadable record file is left as it is", "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_torn_file"};
+    ScopedCountingBackend be{{1, 2}};
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    const auto record = std::filesystem::path(helix::get_user_config_dir()) / "pending_remap.json";
+    std::filesystem::create_directories(record.parent_path());
+    const std::string torn = "{\"printers\":{\"other\":{\"backend_ind";
+    {
+        std::ofstream ofs(record);
+        ofs << torn;
+    }
+    const auto contents = [&record] {
+        std::ifstream ifs(record);
+        return std::string((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    };
+
+    // A print start with a remap would persist; it must not rebuild the file.
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 0);
+    helix::ui::PrintSelectDetailView view;
+    h.controller.set_detail_view(&view);
+    view.set_filament_mappings({row(1, 3, true)});
+    REQUIRE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+    CHECK(contents() == torn);
+
+    // Nor may a restore landing clear it.
+    PrintStartControllerTestAccess::restore(h.controller);
+    CHECK(contents() == torn);
+    h.controller.set_detail_view(nullptr);
+}
+
+TEST_CASE("remap restore: a tool unmapped before the print does not hold the record open",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_unmapped_confirm"};
+    ScopedCountingBackend be{{1, 0}}; // the print mapped T1, which had no lane
+    be.backend->echoes_firmware = true;
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, -1}, 0);
+
+    SECTION("the firmware confirming T0 ends it") {
+        PrintStartControllerTestAccess::restore(h.controller);
+        REQUIRE(be.backend->calls.size() == 1);
+        be.backend->firmware_reports({2, 0});
+        Harness::ams_data_tick();
+        CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller).empty());
+    }
+
+    SECTION("a print start finding T0 already back ends it") {
+        be.backend->firmware_reports({2, 0});
+        helix::ui::PrintSelectDetailView view;
+        h.controller.set_detail_view(&view);
+        view.set_filament_mappings({row(0, 2, true)});
+        CHECK_FALSE(PrintStartControllerTestAccess::apply_remaps(h.controller));
+        CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller).empty());
+        h.controller.set_detail_view(nullptr);
+    }
+}
+
+TEST_CASE("remap restore: a hand edit that takes a saved lane releases it",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_hand_takes_lane"};
+    ScopedCountingBackend be{{0, 3, 1}};
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    // The printer's own map had T1 on lane 2 and T2 on lane 1.
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {0, 2, 1}, 0);
+
+    // The user puts T0 on lane 2 by hand; a lane-keyed table unmaps T1 there.
+    be.backend->locally_assume({2, -1, 0});
+    helix::ui::adopt_hand_tool_mapping(0, 0, 2);
+    CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller) ==
+          std::vector<int>{2, -1, 1});
+
+    PrintStartControllerTestAccess::restore(h.controller);
+    REQUIRE(be.backend->calls.size() == 1); // T2 back on lane 1; nothing takes lane 2
+    CHECK(be.backend->calls[0].tool == 2);
+    CHECK(be.backend->calls[0].slot == 1);
+}
+
+TEST_CASE("remap restore: a print that names no backend keeps another backend's record",
+          "[remap-restore][1859]") {
+    LVGLTestFixture fx;
+    ConfigDirGuard config_dir{"remap_other_backend"};
+    ScopedCountingBackend be{{1, 2}};
+    Harness h;
+    h.set_klippy(KlippyState::READY);
+    PrintStartControllerTestAccess::seed_saved_mapping(h.controller, {2, 1}, 1);
+
+    helix::ToolMapping auto_row;
+    auto_row.tool_index = 0;
+    auto_row.is_auto = true;
+    helix::ui::PrintSelectDetailView view;
+    h.controller.set_detail_view(&view);
+    view.set_filament_mappings({auto_row});
+    PrintStartControllerTestAccess::apply_remaps(h.controller);
+    CHECK(PrintStartControllerTestAccess::saved_mapping(h.controller) == std::vector<int>{2, 1});
+    CHECK(PrintStartControllerTestAccess::saved_backend_index(h.controller) == 1);
+    h.controller.set_detail_view(nullptr);
+}
+
 TEST_CASE("remap restore: startup replays only the active printer's record",
           "[remap-restore][1859]") {
     LVGLTestFixture fx;
