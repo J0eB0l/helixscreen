@@ -129,6 +129,26 @@ std::string format_modified_date(time_t timestamp);
 std::string format_short_date(time_t timestamp);
 
 /**
+ * @brief The date half of format_modified_date(), without the time
+ *
+ * Examples: "Jan 15" (EN), "15. Jan." (DE), "1/15" (CJK)
+ *
+ * @param timestamp Unix timestamp (time_t)
+ * @return Formatted month and day
+ */
+std::string format_month_day(time_t timestamp);
+
+/**
+ * @brief The time half of format_modified_date(), in local time
+ *
+ * Examples: "2:30 PM" (12H) or "14:30" (24H)
+ *
+ * @param timestamp Unix timestamp (time_t)
+ * @return Formatted time string
+ */
+std::string format_time(time_t timestamp);
+
+/**
  * @brief Format time portion only (no date)
  *
  * Returns time in user's preferred format.
