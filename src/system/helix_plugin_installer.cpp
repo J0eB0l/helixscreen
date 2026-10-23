@@ -9,6 +9,7 @@
 #include "host_identity.h"
 #include "i_moonraker_api.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "system/child_process.h"
 #include "text_io.h"
 
 #include <spdlog/spdlog.h>
@@ -17,12 +18,9 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
-#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
-#include <sys/wait.h>
-#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -99,10 +97,7 @@ static void drain_output(int fd, std::string& out) {
 }
 
 /**
- * @brief Wait for child process with timeout, handling EINTR
- *
- * Uses non-blocking waitpid with polling to implement timeout.
- * Properly handles EINTR interruptions from signals.
+ * @brief Wait for the child, draining its output, and end it at the timeout.
  *
  * @param pid Child process ID to wait for
  * @param timeout_seconds Maximum time to wait
@@ -113,63 +108,35 @@ static void drain_output(int fd, std::string& out) {
  */
 static WaitResult wait_for_child_with_timeout(pid_t pid, int timeout_seconds,
                                               const char* operation_name, int out_fd) {
-    constexpr int kPollIntervalMs = 10;
+    constexpr auto kPollInterval = std::chrono::milliseconds(10);
     constexpr auto kTermGrace = std::chrono::milliseconds(500);
     WaitResult result;
 
-    int status = 0;
-    auto start_time = std::chrono::steady_clock::now();
-
-    while (true) {
-        drain_output(out_fd, result.output);
-        pid_t wait_result = waitpid(pid, &status, WNOHANG);
-
-        if (wait_result == pid) {
-            // Child exited
+    const ChildWaitResult wait = terminate_and_reap(
+        pid, std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds), kTermGrace,
+        kPollInterval, [&] {
             drain_output(out_fd, result.output);
-            result.exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-            return result;
-        }
+            return true;
+        });
+    drain_output(out_fd, result.output);
 
-        if (wait_result < 0) {
-            // Handle EINTR - signal interrupted waitpid, just retry
-            if (errno == EINTR) {
-                continue;
-            }
-            // Actual error
-            result.error = true;
-            result.error_message = strerror(errno);
-            spdlog::error("[PluginInstaller] waitpid error: {}", result.error_message);
-            return result;
-        }
-
-        // Check timeout
-        auto elapsed = std::chrono::steady_clock::now() - start_time;
-        if (elapsed > std::chrono::seconds(timeout_seconds)) {
-            spdlog::error("[PluginInstaller] {} timed out after {} seconds", operation_name,
-                          timeout_seconds);
-            // SIGTERM, then SIGKILL if it is still running after the grace period
-            kill(pid, SIGTERM);
-            // Once reaped, the pid is free for reuse and must not be signalled again.
-            const auto term_deadline = std::chrono::steady_clock::now() + kTermGrace;
-            bool reaped = false;
-            while (!(reaped = waitpid(pid, &status, WNOHANG) == pid) &&
-                   std::chrono::steady_clock::now() < term_deadline) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
-            }
-            if (!reaped) {
-                kill(pid, SIGKILL);
-                // Reap the zombie (blocking, but child should be dead)
-                waitpid(pid, &status, 0);
-            }
-
-            result.timed_out = true;
-            return result;
-        }
-
-        // Sleep before next poll
-        std::this_thread::sleep_for(std::chrono::milliseconds(kPollIntervalMs));
+    switch (wait.outcome) {
+    case ChildWaitOutcome::Exited:
+        result.exit_code = wait.exit_code();
+        break;
+    case ChildWaitOutcome::TimedOut:
+    case ChildWaitOutcome::Cancelled:
+        spdlog::error("[PluginInstaller] {} timed out after {} seconds", operation_name,
+                      timeout_seconds);
+        result.timed_out = true;
+        break;
+    case ChildWaitOutcome::WaitFailed:
+        result.error = true;
+        result.error_message = strerror(wait.wait_errno);
+        spdlog::error("[PluginInstaller] waitpid error: {}", result.error_message);
+        break;
     }
+    return result;
 }
 
 #endif // !ESP_PLATFORM

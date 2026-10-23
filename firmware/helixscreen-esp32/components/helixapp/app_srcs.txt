@@ -299,6 +299,7 @@ src/system/async_lifetime_guard.cpp
 src/system/board_identity.cpp
 src/system/audio_settings_manager.cpp
 src/system/capability_overrides.cpp
+src/system/child_process.cpp
 src/system/cjk_font_manager.cpp
 src/system/config.cpp
 src/system/config_migrations.cpp

@@ -19,6 +19,7 @@
 #include "moonraker_client_mock.h"
 #include "printer_state.h"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -335,6 +336,7 @@ struct EditorRun {
 void run_multi_edit(LVGLTestFixture& fixture, KlipperConfigEditor& editor, MoonrakerAPIMock& api,
                     const std::string& section, const std::vector<ConfigEdit>& edits,
                     EditorRun& run, int restart_timeout_ms = 300) {
+    editor.set_restart_poll_interval(std::chrono::milliseconds(1));
     editor.safe_multi_edit(
         api, section, edits, [&run]() { run.succeeded = true; },
         [&run](const std::string& err) { run.error = err; }, restart_timeout_ms);
@@ -484,6 +486,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "safe_edit_value takes the plugin path when it
 
     KlipperConfigEditor editor;
     editor.set_feature_state_source([]() { return PluginFeatureState::Ready; });
+    editor.set_restart_poll_interval(std::chrono::milliseconds(1));
     bool succeeded = false;
     editor.safe_edit_value(
         api, "probe", "z_offset", "1.3", [&]() { succeeded = true; }, [](const std::string&) {},

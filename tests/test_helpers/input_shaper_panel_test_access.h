@@ -4,6 +4,7 @@
 
 #include "ui_panel_input_shaper.h"
 
+#include <chrono>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,6 +37,10 @@ class InputShaperPanelTestAccess {
     /// reaches the terminal callback in about a second instead of 30.
     static void set_save_restart_timeout_ms(InputShaperPanel& p, uint32_t ms) {
         p.save_restart_timeout_ms_ = ms;
+    }
+
+    static void set_restart_poll_interval(InputShaperPanel& p, std::chrono::milliseconds interval) {
+        p.config_editor_.set_restart_poll_interval(interval);
     }
 
     /// Seed one axis exactly as a finished calibration would leave it: the

@@ -10,18 +10,16 @@
 #include "i_moonraker_api.h"
 #include "printer_state.h"
 #include "spool_latch_gate.h"
+#include "system/child_process.h"
 #include "translation_loader.h"
 
 #include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <chrono>
-#include <csignal>
 #include <cstdlib>
 #include <memory>
 #include <string>
-#include <sys/wait.h>
-#include <thread>
 #include <unistd.h>
 
 namespace helix {
@@ -235,17 +233,12 @@ void PrinterRecoveryService::run_local_recovery(uint32_t timeout_ms, SuccessCall
         // Parent: wait on the slow-lane worker, bounded. A script that never
         // exits would hold the recovery chain, and with it every later
         // recovery, for the life of the process.
-        int status = 0;
-        const auto deadline =
-            std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-        pid_t waited = 0;
-        while ((waited = ::waitpid(pid, &status, WNOHANG)) == 0 &&
-               std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-        if (waited == 0) {
-            ::kill(pid, SIGKILL);
-            ::waitpid(pid, &status, 0);
+        constexpr auto kPollInterval = std::chrono::milliseconds(100);
+        constexpr auto kTermGrace = std::chrono::milliseconds(500);
+        const ChildWaitResult wait = terminate_and_reap(
+            pid, std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms),
+            kTermGrace, kPollInterval);
+        if (wait.outcome == ChildWaitOutcome::TimedOut) {
             spdlog::error("[Recovery] helix-recover.sh still running after {}ms — killed it",
                           timeout_ms);
             ui::queue_update(
@@ -259,8 +252,8 @@ void PrinterRecoveryService::run_local_recovery(uint32_t timeout_ms, SuccessCall
                 });
             return;
         }
-        if (waited < 0) {
-            const int e = errno;
+        if (wait.outcome == ChildWaitOutcome::WaitFailed) {
+            const int e = wait.wait_errno;
             spdlog::error("[Recovery] waitpid() failed: {}", strerror(e));
             ui::queue_update("PrinterRecoveryService::run_local_recovery(wait-fail)", [on_error,
                                                                                        e]() {
@@ -273,8 +266,8 @@ void PrinterRecoveryService::run_local_recovery(uint32_t timeout_ms, SuccessCall
             return;
         }
 
-        const bool ok = WIFEXITED(status) && WEXITSTATUS(status) == 0;
-        const int rc = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        const int rc = wait.exit_code();
+        const bool ok = rc == 0;
         spdlog::info("[Recovery] helix-recover.sh exit: status={} (rc={})", ok ? "ok" : "FAILED",
                      rc);
         ui::queue_update(

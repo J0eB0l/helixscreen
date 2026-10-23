@@ -8,16 +8,19 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/scripted_recovery_api.h"
 #include "app_globals.h"
+#include "http_executor.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
 #include "printer_recovery_service.h"
 #include "printer_state.h"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
 #include <sys/stat.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -82,10 +85,27 @@ class RecoveryFixture : public LVGLTestFixture {
         return outcome_.has_value() || error_.has_value();
     }
 
-    /// Run the chain to its end on the virtual clock (and real time for the
-    /// script's worker thread).
+    /// Run the chain to its end. The virtual clock runs ahead while only the
+    /// chain's timers are pending, and moves with real time while
+    /// helix-recover.sh runs on the slow lane, so a script's real duration still
+    /// counts against the chain's virtual deadline.
     void run_to_end() {
-        REQUIRE(wait_until([this]() { return finished(); }, 10000, 20));
+        using Clock = std::chrono::steady_clock;
+        constexpr int kVirtualStepMs = 20;
+        const auto give_up = Clock::now() + std::chrono::seconds(10);
+        auto last = Clock::now();
+        while (!finished()) {
+            REQUIRE(Clock::now() < give_up);
+            if (http::HttpExecutor::slow().inflight() > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                const auto now = Clock::now();
+                process_lvgl(static_cast<int>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count()));
+            } else {
+                process_lvgl(kVirtualStepMs);
+            }
+            last = Clock::now();
+        }
     }
 
     int status_queries() const {
@@ -381,16 +401,19 @@ TEST_CASE_METHOD(RecoveryFixture,
 TEST_CASE_METHOD(RecoveryFixture,
                  "Recovery: the re-check after the script stops at the chain's deadline",
                  "[recovery]") {
-    // The script takes most of the chain's 3000ms; the re-check gets only the rest.
-    install_script(0, "sleep 2\nexit 0");
+    // The script takes most of the chain's 1000ms; the re-check gets only the rest.
+    install_script(0, "sleep 0.6\nexit 0");
     api_->statuses = {kKey298, {"startup", ""}};
+    RecoveryTiming timing = kFastTiming;
+    timing.poll_interval_ms = 50;
+    timing.chain_deadline_ms = 1000;
 
-    recover();
+    recover(timing);
     run_to_end();
 
     REQUIRE(script_runs() == 1);
     REQUIRE(outcome_ == RecoveryOutcome::RESTART_ISSUED);
-    // One poll before the script and about one per 100ms in the second left:
-    // a fresh 3000ms for the re-check would be about 30.
-    REQUIRE(status_queries() <= 18);
+    // One poll before the script and about one per 50ms in the 400ms left:
+    // a fresh 1000ms for the re-check would be about 20.
+    REQUIRE(status_queries() <= 11);
 }

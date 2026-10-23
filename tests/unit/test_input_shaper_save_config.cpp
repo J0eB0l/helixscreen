@@ -163,6 +163,7 @@ class SaveConfigFixture : public LVGLTestFixture {
         panel_.init_subjects();
         panel_.set_api(&client_, &api_);
         ::InputShaperPanelTestAccess::set_save_restart_timeout_ms(panel_, kRestartTimeoutMs);
+        ::InputShaperPanelTestAccess::set_restart_poll_interval(panel_, kRestartPollInterval);
         ::InputShaperPanelTestAccess::clear_results(panel_);
         UpdateQueue::instance().drain();
     }
@@ -208,11 +209,12 @@ class SaveConfigFixture : public LVGLTestFixture {
     InputShaperPanel& panel_;
 
   private:
-    /// Phase 1 of the health monitor checks the connection, sleeps its 500ms
+    /// Phase 1 of the health monitor checks the connection, sleeps one poll
     /// interval, and only then sees the timeout, so 1ms is one poll there. The
     /// revert case also polls once in Phase 2, whose timeout counts from the
     /// same start. The join budget clears that with room for a loaded CI box.
     static constexpr uint32_t kRestartTimeoutMs = 1;
+    static constexpr std::chrono::milliseconds kRestartPollInterval{1};
     static constexpr uint32_t kJoinTimeoutMs = 20000;
 
     bool join_worker(uint32_t timeout_ms) {
