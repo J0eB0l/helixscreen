@@ -46,6 +46,10 @@ FeedEntry feed_for_slot(const AmsBackend& backend, int slot) {
     return {info.mapped_tool, slot, std::max(info.spoolman_id, 0), grams_per_mm(info.material)};
 }
 
+bool printer_switches() {
+    return printer_switches_active_spool(get_printer_state().get_discovery());
+}
+
 std::vector<int> mapped_spools(const std::vector<FeedSignal>& signals) {
     std::vector<int> spools;
     for (const FeedSignal& sig : signals) {
@@ -192,9 +196,10 @@ void FilamentAccountingController::refresh_record() {
     if (api == nullptr || !api->is_connected()) {
         return;
     }
-    const std::string rendered = filament_spools_record(backends_manage_active_spool(),
-                                                        macros_set_active_spool(), signals_now())
-                                     .dump();
+    const std::string rendered =
+        filament_spools_record(backends_manage_active_spool(), printer_switches(),
+                               macros_set_active_spool(), signals_now())
+            .dump();
     // The inputs tick on every backend report; a rendering already weighed is
     // not weighed again.
     if (considered_ && *considered_ == rendered) {
@@ -210,8 +215,8 @@ void FilamentAccountingController::write_record(FallbackSenderRole role) {
         return;
     }
     const std::vector<FeedSignal> signals = signals_now();
-    const nlohmann::json record =
-        filament_spools_record(backends_manage_active_spool(), macros_set_active_spool(), signals);
+    const nlohmann::json record = filament_spools_record(
+        backends_manage_active_spool(), printer_switches(), macros_set_active_spool(), signals);
     std::string rendered = record.dump();
     considered_ = rendered;
     if (!writes_filament_spools_record(role, signals)) {
@@ -260,8 +265,9 @@ void FilamentAccountingController::on_active_tool_changed(int tool_index) {
         status.plugin_feature(kFilamentAccountingFeature, kFilamentAccountingMinVersion);
     const bool opted_in =
         plugin_feature_opted_in(status.stored_opt_ins(), kFilamentAccountingFeature, /*acts=*/true);
-    const ActiveSpoolOwner owner = active_spool_owner(
-        ps.is_spoolman_available(), backends_manage_active_spool(), macros_set_active_spool());
+    const ActiveSpoolOwner owner =
+        active_spool_owner(ps.is_spoolman_available(), backends_manage_active_spool(),
+                           printer_switches(), macros_set_active_spool());
     // Only a switch this instance would make needs to know who else is here.
     if (filament_accounting_sender(state, opted_in, owner, FallbackSenderRole::Sender) !=
         FilamentAccountingSender::App) {

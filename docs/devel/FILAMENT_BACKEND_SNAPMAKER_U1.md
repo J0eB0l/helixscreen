@@ -623,7 +623,26 @@ later drops to `NONE` is written back from it while the spool stays in the lane.
 | Path visualization | Yes | NOZZLE when the latch is set or the toolhead switch reads filament, PREP when only the feeder's port sensor does (it is each lane's entry sensor, `slot_has_prep_sensor()`), OUTPUT when only an unreported toolhead switch's default says so, NONE otherwise (`src/printer/ams_backend_snapmaker.cpp#slot_segment_locked`). The system segment is the mounted tool's own lane, NONE with no tool on the carriage |
 | RFID | Yes | Per-channel tag read; UID change clears the slot override |
 | Spoolman | Fields only | `spoolman_id`/`spoolman_vendor_id` persist in slot overrides; no Snapmaker-specific Spoolman wiring exists in the backend |
+| Active spool switching | Firmware with SpoolLink, else HelixPrint | See below |
 | Mock mode | Yes | `HELIX_MOCK_AMS=snapmaker` (aliases `snapswap`, `u1`): 4 slots, PARALLEL, non-editable mapping ([MOCK_ENVIRONMENT_VARIABLES.md](MOCK_ENVIRONMENT_VARIABLES.md)) |
+
+### Active Spool and SpoolLink
+
+Moonraker charges filament to one active spool, so a four-head print is right only when the
+active spool follows the extruder. The paxx extended firmware's SpoolLink feature
+(`overlays/firmware-extended/38-feature-spoollink` in paxx12/SnapmakerU1-Extended-Firmware)
+does that itself: a Moonraker component `[spoollink]` plus a Klipper extra `[spoollink]`
+(webhook `spoollink/set`, macro `SET_SPOOL_ID`) that sets Moonraker's active spool on every
+extruder change. It is installed only while Spoolman is configured.
+
+HelixScreen reads a `spoollink` object in `printer.objects.list`, or a `[spoollink]` section in
+`configfile.settings`, as "the printer already switches spools"
+(`include/filament_accounting.h#printer_switches_active_spool`, from
+`PrinterDiscovery::has_spoollink()`). The filament accounting ownership rule then answers
+`printer`, and neither the HelixPrint plugin nor the app's fallback switches anything. On stock
+firmware the owner is `helix`: the plugin switches the active spool from `toolhead.extruder`
+with the spools linked to each head, when the user opted in (`HELIXPRINT_PLUGIN.md`, filament
+accounting). Either way the plugin's per-job spool record still counts what Moonraker charged.
 
 ### Toolhead Offset Calibration
 

@@ -56,6 +56,7 @@ AUX_NAME = "filament_spools"
 # Who switches the active spool (active_spool_owner).
 OWNER_NO_SPOOLMAN = "no_spoolman"
 OWNER_BACKEND = "backend"
+OWNER_PRINTER = "printer"
 OWNER_MACROS = "macros"
 OWNER_HELIX = "helix"
 
@@ -66,15 +67,20 @@ _RUNNING_STATES = ("printing", "paused")
 
 
 def active_spool_owner(
-    spoolman: bool, manages_active_spool: bool, macros_set_active_spool: bool
+    spoolman: bool, manages_active_spool: bool, printer_switches_active_spool: bool,
+    macros_set_active_spool: bool
 ) -> str:
     """Who switches Moonraker's active spool on this printer. Only OWNER_HELIX
     lets this module (or the app's fallback) act; anything else would race the
-    switcher that is already there."""
+    switcher that is already there: the filament system, the printer's
+    firmware (the U1 extended firmware's SpoolLink switches it at every
+    extruder change), or T<n> macros."""
     if not spoolman:
         return OWNER_NO_SPOOLMAN
     if manages_active_spool:
         return OWNER_BACKEND
+    if printer_switches_active_spool:
+        return OWNER_PRINTER
     if macros_set_active_spool:
         return OWNER_MACROS
     return OWNER_HELIX
@@ -159,10 +165,13 @@ class Signal:
 class SpoolMap:
     """The screen's filament_spools record, parsed."""
 
-    __slots__ = ("manages_active_spool", "macros_set_active_spool", "signals")
+    __slots__ = ("manages_active_spool", "printer_switches_active_spool",
+                 "macros_set_active_spool", "signals")
 
-    def __init__(self, manages: bool, macros: bool, signals: List[Signal]) -> None:
+    def __init__(self, manages: bool, printer: bool, macros: bool,
+                 signals: List[Signal]) -> None:
         self.manages_active_spool = manages
+        self.printer_switches_active_spool = printer
         self.macros_set_active_spool = macros
         self.signals = signals
 
@@ -209,6 +218,7 @@ def parse_spool_map(record: Any) -> Optional[SpoolMap]:
                 feeds[str(key)] = feed
         signals.append(Signal(obj, tuple(path), feeds))
     return SpoolMap(record.get("manages_active_spool") is True,
+                    record.get("printer_switches_active_spool") is True,
                     record.get("macros_set_active_spool") is True, signals)
 
 
@@ -511,6 +521,7 @@ class FilamentAccounting:
         """Switch the active spool for `feed` when this module owns it."""
         spoolman = self._spoolman()
         owner = active_spool_owner(spoolman is not None, spool_map.manages_active_spool,
+                                   spool_map.printer_switches_active_spool,
                                    spool_map.macros_set_active_spool)
         if owner != OWNER_HELIX:
             return

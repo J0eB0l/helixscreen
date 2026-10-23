@@ -25,6 +25,8 @@
 
 namespace helix {
 
+class PrinterDiscovery;
+
 /// The plugin feature and the contract this app reads.
 inline constexpr const char* kFilamentAccountingFeature = "filament_accounting";
 inline constexpr int kFilamentAccountingMinVersion = 1;
@@ -40,15 +42,25 @@ inline constexpr const char* kFilamentUsageRpc = "server.helix.filament_usage";
 enum class ActiveSpoolOwner {
     NoSpoolman, ///< no Spoolman: there is no active spool to switch
     Backend,    ///< the filament system does it (AFC, Happy Hare with spoolman on)
+    Printer,    ///< the printer's firmware does it at every extruder change
     Macros,     ///< the printer's T<n> macros call SET_ACTIVE_SPOOL
     Helix,      ///< nobody: the plugin, or this app's fallback, does it
 };
 
 /// The one ownership rule. @p manages_active_spool is what the filament
 /// backends report (AmsBackend::manages_active_spool()), @p
-/// macros_set_active_spool whether a T<n> macro switches it.
+/// printer_switches_active_spool whether the firmware switches it itself
+/// (printer_switches_active_spool()), @p macros_set_active_spool whether a
+/// T<n> macro switches it.
 ActiveSpoolOwner active_spool_owner(bool spoolman, bool manages_active_spool,
+                                    bool printer_switches_active_spool,
                                     bool macros_set_active_spool);
+
+/// Whether the printer's firmware switches Moonraker's active spool at every
+/// extruder change by itself: the Snapmaker U1 extended firmware's SpoolLink
+/// (a `spoollink` Klipper object or `[spoollink]` section, installed only
+/// with Spoolman configured).
+bool printer_switches_active_spool(const PrinterDiscovery& hw);
 
 /// The record spelling of an owner, as the case table names it.
 const char* active_spool_owner_name(ActiveSpoolOwner owner);
@@ -74,8 +86,10 @@ struct FeedSignal {
 };
 
 /// The database record: {"version", "manages_active_spool",
-/// "macros_set_active_spool", "signals": [{"object", "path", "values"}]}.
-nlohmann::json filament_spools_record(bool manages_active_spool, bool macros_set_active_spool,
+/// "printer_switches_active_spool", "macros_set_active_spool",
+/// "signals": [{"object", "path", "values"}]}.
+nlohmann::json filament_spools_record(bool manages_active_spool, bool printer_switches_active_spool,
+                                      bool macros_set_active_spool,
                                       const std::vector<FeedSignal>& signals);
 
 /// The toolhead.extruder signal of a printer whose tools each have their own

@@ -248,6 +248,12 @@ class PrinterDiscovery {
         return has_save_variables_;
     }
 
+    /// A `spoollink` object, or a `[spoollink]` configfile section. What it
+    /// means is helix::printer_switches_active_spool()'s business.
+    [[nodiscard]] bool has_spoollink() const {
+        return has_spoollink_;
+    }
+
     [[nodiscard]] const std::string& pin_watch_object_name() const {
         return pin_watch_object_name_;
     }
@@ -1040,6 +1046,7 @@ class PrinterDiscovery {
     std::string medusahc_object_name_;
     bool has_indx_ = false;
     bool has_save_variables_ = false;
+    bool has_spoollink_ = false;
     bool has_chamber_heater_ = false;
     bool has_chamber_sensor_ = false;
     std::string chamber_sensor_name_;

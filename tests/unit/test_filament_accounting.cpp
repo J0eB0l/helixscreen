@@ -7,6 +7,7 @@
 
 #include "filament_accounting.h"
 #include "helix_plugin_features.h"
+#include "printer_discovery.h"
 #include "printer_plugin_status_state.h"
 
 #include <algorithm>
@@ -59,6 +60,7 @@ TEST_CASE("filament accounting: ownership follows the shared case table", "[plug
         INFO(row["name"].get<std::string>());
         const ActiveSpoolOwner owner =
             active_spool_owner(row["spoolman"].get<bool>(), row["manages_active_spool"].get<bool>(),
+                               row["printer_switches_active_spool"].get<bool>(),
                                row["macros_set_active_spool"].get<bool>());
         CHECK(std::string(active_spool_owner_name(owner)) == row["owner"].get<std::string>());
     }
@@ -169,9 +171,10 @@ TEST_CASE("filament accounting: the spool map record", "[plugin_filament]") {
     FeedSignal sig{"save_variables",
                    {"variables", "active_tool"},
                    {{"0", feed(0, 0, 21, 0.003f)}, {"1", feed(1, 1, 0)}}};
-    const json record = filament_spools_record(false, true, {sig});
+    const json record = filament_spools_record(false, true, true, {sig});
     CHECK(record["version"] == kFilamentSpoolsVersion);
     CHECK(record["manages_active_spool"] == false);
+    CHECK(record["printer_switches_active_spool"] == true);
     CHECK(record["macros_set_active_spool"] == true);
     REQUIRE(record["signals"].size() == 1);
     const json& s = record["signals"][0];
@@ -187,6 +190,27 @@ TEST_CASE("filament accounting: the spool map record", "[plugin_filament]") {
     CHECK(writes_filament_spools_record(FallbackSenderRole::Sender, {sig}));
     CHECK_FALSE(writes_filament_spools_record(FallbackSenderRole::Standby, {sig}));
     CHECK_FALSE(writes_filament_spools_record(FallbackSenderRole::Sender, {}));
+}
+
+TEST_CASE("filament accounting: SpoolLink firmware switches the spool itself",
+          "[plugin_filament]") {
+    PrinterDiscovery stock;
+    stock.parse_objects(json::array({"toolhead", "extruder", "extruder1", "print_stats"}));
+    CHECK_FALSE(printer_switches_active_spool(stock));
+
+    PrinterDiscovery listed;
+    listed.parse_objects(json::array({"toolhead", "extruder", "spoollink", "print_stats"}));
+    CHECK(printer_switches_active_spool(listed));
+
+    INFO("a [spoollink] section the object list does not show still counts");
+    PrinterDiscovery configured;
+    configured.parse_objects(json::array({"toolhead", "extruder"}));
+    configured.parse_config_keys(json{{"spoollink", json::object()}});
+    CHECK(printer_switches_active_spool(configured));
+
+    INFO("a later object list without it forgets it");
+    listed.parse_objects(json::array({"toolhead", "extruder"}));
+    CHECK_FALSE(printer_switches_active_spool(listed));
 }
 
 TEST_CASE("filament accounting: tool-select macros", "[plugin_filament]") {

@@ -69,11 +69,12 @@ def _feed(tool, spool, lane=None, gpm=2.98):
             "grams_per_mm": gpm}
 
 
-def _extruder_map(manages=False, macros=False, spools=(11, 12)):
+def _extruder_map(manages=False, macros=False, spools=(11, 12), printer=False):
     """A two-tool toolchanger: each tool its own extruder."""
     return {
         "version": 1,
         "manages_active_spool": manages,
+        "printer_switches_active_spool": printer,
         "macros_set_active_spool": macros,
         "signals": [{
             "object": "toolhead", "path": ["extruder"],
@@ -140,6 +141,7 @@ async def _setup(component, mock_server, *, opt_in=True, spool_map=None, active=
 @pytest.mark.parametrize("case", CASES["ownership"], ids=lambda c: c["name"])
 def test_ownership_table(case):
     assert active_spool_owner(case["spoolman"], case["manages_active_spool"],
+                              case["printer_switches_active_spool"],
                               case["macros_set_active_spool"]) == case["owner"]
 
 
@@ -293,12 +295,15 @@ class TestFilamentAccounting:
             FILAMENT_NAMESPACE, ACTIVE_KEY) is None
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("manages,macros", [(True, False), (False, True)],
-                             ids=["backend switches (AFC, Happy Hare push)", "macros switch"])
+    @pytest.mark.parametrize("manages,macros,printer",
+                             [(True, False, False), (False, True, False), (False, False, True)],
+                             ids=["backend switches (AFC, Happy Hare push)", "macros switch",
+                                  "firmware switches (U1 SpoolLink)"])
     async def test_a_printer_that_switches_itself_sees_no_call(
-            self, helix_print_component, mock_server, manages, macros):
+            self, helix_print_component, mock_server, manages, macros, printer):
         spoolman = await _setup(helix_print_component, mock_server,
-                                spool_map=_extruder_map(manages, macros), active=40)
+                                spool_map=_extruder_map(manages, macros, printer=printer),
+                                active=40)
         await _history(mock_server, _added("000002"))
         await _update(mock_server, {"toolhead": {"extruder": "extruder1",
                                                  "position": [0, 0, 0, 5.0]}})
@@ -523,15 +528,12 @@ class TestHistoryAuxiliaryData:
         history.add_job("00002A", filename=".helix_print/x.gcode", start_time=T0,
                         auxiliary_data=[spoolman_entry])
 
-        # The photos feature links its end photo.
-        photo_record = {"photos": [{"path": ".helix_photos/00002A_end.jpg"}]}
-
-        def link_photos(row):
-            row["auxiliary_data"] = helix_photos.merge_aux(row.get("auxiliary_data"),
-                                                           photo_record)
-            return True
-
-        assert await helix_print_component.patch_history_job("00002A", link_photos)
+        # The photos feature links its end photo, through its own path.
+        photo_record = helix_photos.with_photo(
+            helix_photos.new_record("00002A", ".helix_print/x.gcode", T0),
+            helix_photos.KIND_END, ".helix_photos/00002A_end.jpg", 1, T0, "plugin")
+        job_row = {"job_id": "00002A", "start_time": T0}
+        await helix_print_component.photos._link_in_history(job_row, photo_record)
         # This feature records the job's spools when history finishes it.
         await _history(mock_server, _added("00002A", filename=".helix_print/x.gcode"))
         await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 5.0]}})
@@ -542,7 +544,7 @@ class TestHistoryAuxiliaryData:
         info.job_id = "00002A"
         await helix_print_component._patch_history_entry(info, "complete")
         # Each feature again: its own entry is replaced, never stacked.
-        assert await helix_print_component.patch_history_job("00002A", link_photos)
+        await helix_print_component.photos._link_in_history(job_row, photo_record)
 
         aux = history.jobs[history._key("00002A")]["auxiliary_data"]
         names = [(e["provider"], e["name"]) for e in aux]

@@ -241,6 +241,7 @@ The screen keeps the map in Moonraker's database, namespace `helix-screen`, key
 {
   "version": 1,
   "manages_active_spool": false,
+  "printer_switches_active_spool": false,
   "macros_set_active_spool": false,
   "signals": [
     {"object": "toolhead", "path": ["extruder"],
@@ -253,8 +254,10 @@ The screen keeps the map in Moonraker's database, namespace `helix-screen`, key
 ```
 
 - `manages_active_spool`: the filament system switches the spool itself (AFC, Happy Hare with
-  its Spoolman mode on). `macros_set_active_spool`: a `T<n>` macro calls `SET_ACTIVE_SPOOL`.
-  Either one, or no `[spoolman]` component, and the plugin never switches anything.
+  its Spoolman mode on). `printer_switches_active_spool`: the printer's firmware does it at
+  every extruder change (the Snapmaker U1 extended firmware's SpoolLink, a `spoollink` Klipper
+  object). `macros_set_active_spool`: a `T<n>` macro calls `SET_ACTIVE_SPOOL`. Any one of
+  them, or no `[spoolman]` component, and the plugin never switches anything.
 - `signals`: status fields that say what feeds now. The plugin subscribes each object's first
   path field, reads the value at `path`, spells it as a key (an integer as its digits, a
   string as itself; anything else is no key) and looks it up in `values`. The first signal

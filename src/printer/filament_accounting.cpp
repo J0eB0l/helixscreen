@@ -8,6 +8,7 @@
 #include "format_utils.h"
 #include "json_utils.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "printer_discovery.h"
 
 #include <spdlog/fmt/fmt.h>
 
@@ -21,12 +22,16 @@ namespace helix {
 using nlohmann::json;
 
 ActiveSpoolOwner active_spool_owner(bool spoolman, bool manages_active_spool,
+                                    bool printer_switches_active_spool,
                                     bool macros_set_active_spool) {
     if (!spoolman) {
         return ActiveSpoolOwner::NoSpoolman;
     }
     if (manages_active_spool) {
         return ActiveSpoolOwner::Backend;
+    }
+    if (printer_switches_active_spool) {
+        return ActiveSpoolOwner::Printer;
     }
     if (macros_set_active_spool) {
         return ActiveSpoolOwner::Macros;
@@ -40,6 +45,8 @@ const char* active_spool_owner_name(ActiveSpoolOwner owner) {
         return "no_spoolman";
     case ActiveSpoolOwner::Backend:
         return "backend";
+    case ActiveSpoolOwner::Printer:
+        return "printer";
     case ActiveSpoolOwner::Macros:
         return "macros";
     case ActiveSpoolOwner::Helix:
@@ -79,8 +86,12 @@ json feed_json(const FeedEntry& feed) {
 
 } // namespace
 
-json filament_spools_record(bool manages_active_spool, bool macros_set_active_spool,
-                            const std::vector<FeedSignal>& signals) {
+bool printer_switches_active_spool(const PrinterDiscovery& hw) {
+    return hw.has_spoollink();
+}
+
+json filament_spools_record(bool manages_active_spool, bool printer_switches_active_spool,
+                            bool macros_set_active_spool, const std::vector<FeedSignal>& signals) {
     json list = json::array();
     for (const FeedSignal& sig : signals) {
         json values = json::object();
@@ -91,6 +102,7 @@ json filament_spools_record(bool manages_active_spool, bool macros_set_active_sp
     }
     return {{"version", kFilamentSpoolsVersion},
             {"manages_active_spool", manages_active_spool},
+            {"printer_switches_active_spool", printer_switches_active_spool},
             {"macros_set_active_spool", macros_set_active_spool},
             {"signals", list}};
 }
