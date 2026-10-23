@@ -26,6 +26,8 @@ from helix_photos import (
     PHOTOS_FEATURE,
     PHOTOS_NAMESPACE,
     absolute_url,
+    fetch_snapshot,
+    redirect_allowed,
     newer_record,
     snapshot_candidates,
     history_matches,
@@ -712,3 +714,82 @@ class TestPruneSafety:
         del history.jobs[0x2A]
         assert await component.photos.prune(check_history=False) == []
         assert await component.photos.prune() == ["00002A"]
+
+
+class TestLinkOwnPhotosOnly:
+    @pytest.mark.asyncio
+    async def test_photos_the_screen_took_are_not_linked(self, photos, mock_server):
+        component = await photos(opt_in=False)
+        history = mock_server.components["history"]
+        sys.modules[type(history).__module__].PrinterJob = PrinterJob
+        await _history(mock_server, _added())
+        await component.database.insert_item(PHOTOS_NAMESPACE, ["00002A"], {
+            "version": 1, "job_id": "00002A", "filename": "part.gcode", "start_time": T0,
+            "photos": [{"kind": "layer2", "path": photo_path("00002A", T0, KIND_LAYER),
+                        "size": 1, "taken_at": 1, "source": "app"}]})
+        await _history(mock_server, _finished())
+        assert history.save_job_calls == []
+
+
+class TestFeaturesChanged:
+    @pytest.mark.asyncio
+    async def test_screens_hear_when_the_camera_is_lost_and_found(self, photos, mock_server):
+        sent = []
+        mock_server.send_event = lambda event, *args: sent.append(event)
+        component = await photos()
+
+        def refuse(url):
+            raise OSError("connection refused")
+
+        component.photos.fetch = refuse
+        await component.photos.check_reachable()
+        await component.photos.check_reachable()
+        assert sent == ["helix_print:helix_features_changed"]
+        component.photos.fetch = lambda url: JPEG
+        await component.photos.check_reachable()
+        assert sent == ["helix_print:helix_features_changed"] * 2
+
+
+class TestRedirects:
+    def test_redirect_allowed_only_within_the_origin(self):
+        assert redirect_allowed("http://127.0.0.1:4408/a", "http://127.0.0.1:4408/b?x")
+        assert not redirect_allowed("http://127.0.0.1:4408/a", "http://127.0.0.1/a")
+        assert not redirect_allowed("http://127.0.0.1/a", "https://127.0.0.1/a")
+        assert not redirect_allowed("http://127.0.0.1/a", "http://evil.example/a")
+
+    def test_fetch_follows_a_same_origin_redirect_and_refuses_another(self):
+        import http.server
+        import threading
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/same":
+                    self.send_response(302)
+                    self.send_header("Location", "/snap.jpg")
+                    self.end_headers()
+                elif self.path == "/away":
+                    self.send_response(302)
+                    # The same server under another name: a different origin.
+                    port = self.server.server_address[1]
+                    self.send_header("Location", f"http://localhost:{port}/snap.jpg")
+                    self.end_headers()
+                else:
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(JPEG)))
+                    self.end_headers()
+                    self.wfile.write(JPEG)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_address[1]}"
+            assert fetch_snapshot(base + "/same", timeout=5) == JPEG
+            with pytest.raises(Exception):
+                fetch_snapshot(base + "/away", timeout=5)
+        finally:
+            server.shutdown()
+            server.server_close()

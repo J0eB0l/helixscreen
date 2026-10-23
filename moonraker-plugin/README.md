@@ -244,7 +244,10 @@ and the files.
   none does, the feature reports `available: false` with reason
   `snapshot_unreachable: <url>`, so a screen (which knows its frontend's port) takes the
   photos instead; the plugin tries again at Klipper ready and at each job start. An absolute
-  URL that fails is a camera problem and leaves the feature available.
+  URL that fails is a camera problem and leaves the feature available. A change either way
+  is broadcast as `notify_helix_features_changed` (no payload; any feature may send it), and
+  the screen reads `server.helix.status` again. Snapshots are fetched without a proxy, and a
+  redirect is followed only within the origin asked.
 - **What is kept.** The bytes, unchanged, when they start like a JPEG and are at most 8 MB, as
   `gcodes/.helix_photos/<job id>_<start time>_<layer2|end>.jpg`. No photo is taken while the
   volume has less than 256 MB free.
@@ -262,7 +265,8 @@ and the files.
   History reuses job ids, so a record answers only for the job whose `start_time` matches.
 - **History link.** Where history has `get_job`/`save_job` (Moonraker 0.9 and newer), the job's
   `auxiliary_data` gets `{"provider": "helix_print", "name": "photos", "value": [<paths>]}`,
-  written once history has finished the job (any status). A row still `in_progress` is never
+  written once history has finished the job (any status), and only for a job the plugin took
+  a photo of: the screen reads the record, which lists every photo. A row still `in_progress` is never
   rewritten: history saves the running job over it, and a rewrite racing the finish would
   put the running row back.
   Every rewrite of a history row by the plugin goes through one lock, so it never saves over

@@ -27,6 +27,7 @@ import logging
 import os
 import shutil
 import time
+import urllib.error
 import urllib.request
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -350,12 +351,31 @@ def orphan_files(names: List[Tuple[str, float]], referenced: List[str], now: flo
     return [n for n, mtime in names if n not in keep and now - mtime > grace]
 
 
+def redirect_allowed(old_url: str, new_url: str) -> bool:
+    """A snapshot may redirect within the origin it was asked of, never to
+    another host, port or scheme."""
+    origin = url_origin(old_url)
+    return origin is not None and url_origin(new_url) == origin
+
+
+class _SameOriginRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any,
+                         newurl: str) -> Any:
+        if not redirect_allowed(req.full_url, newurl):
+            raise urllib.error.HTTPError(
+                req.full_url, code, f"redirect off {url_origin(req.full_url)} refused",
+                headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def fetch_snapshot(url: str, timeout: float = FETCH_TIMEOUT_S,
                    max_bytes: int = MAX_PHOTO_BYTES) -> bytes:
-    """GET `url`, refusing a body over `max_bytes`. Blocking: run it in a
-    thread."""
+    """GET `url`, refusing a body over `max_bytes` and a redirect to another
+    origin. No proxy: the camera is on this host or its own network. Blocking:
+    run it in a thread."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _SameOriginRedirect)
     request = urllib.request.Request(url, headers={"User-Agent": "HelixPrint"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310
+    with opener.open(request, timeout=timeout) as response:  # nosec B310
         data = response.read(max_bytes + 1)
     if len(data) > max_bytes:
         raise ValueError(f"snapshot over {max_bytes} bytes")
@@ -558,24 +578,33 @@ class HelixPhotos:
                 self._resolved[snapshot] = url
                 if self.unreachable:
                     logging.info("HelixPrint: photos reach the camera again at %s", url)
-                self.unreachable = None
+                    self._set_unreachable(None)
                 return data
         if is_relative_url(snapshot):
             if not self.unreachable:
                 logging.warning(
                     "HelixPrint: camera snapshot %s answers on none of %s (%s); photos are "
                     "left to the screen", snapshot, ", ".join(candidates), why)
-            self.unreachable = f"snapshot_unreachable: {snapshot}"
+            self._set_unreachable(f"snapshot_unreachable: {snapshot}")
         else:
             logging.info("HelixPrint: snapshot %s not taken: %s", snapshot, why)
         return None
+
+    def _set_unreachable(self, reason: Optional[str]) -> None:
+        """Change the feature's availability, and tell the screens, which
+        decide from the status they last read who takes the photos."""
+        changed = bool(reason) != bool(self.unreachable)
+        self.unreachable = reason
+        notify = getattr(self.helix, "notify_features_changed", None)
+        if changed and notify is not None:
+            notify()
 
     async def check_reachable(self) -> None:
         """Try the camera once, so an unreachable one is reported before a
         print needs it and a reachable one again is noticed."""
         cam = pick_webcam(await self._webcams())
         if cam is None:
-            self.unreachable = None
+            self._set_unreachable(None)
             return
         await self.snapshot(cam)
 
@@ -651,7 +680,10 @@ class HelixPhotos:
             record = await self.database.get_item(PHOTOS_NAMESPACE, [job["job_id"]], None)
         except Exception:
             return
-        if not valid_record(record) or not record["photos"]:
+        # Photos the screen took are linked by nobody: the screen reads the
+        # record, and a link made here could miss the ones still on their way.
+        if not valid_record(record) or not any(
+                isinstance(p, dict) and p.get("source") == "plugin" for p in record["photos"]):
             return
 
         def update(row: Dict[str, Any]) -> bool:

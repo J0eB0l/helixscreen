@@ -8,11 +8,13 @@
 #include "ui_update_queue.h"
 
 #include "../lvgl_test_fixture.h"
+#include "../lvgl_ui_test_fixture.h"
 #include "app_globals.h"
 #include "helix_plugin_features.h"
 #include "history_job_events.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#include "plugin_status_refresh.h"
 #include "print_history_parse.h"
 #include "print_photos.h"
 #include "print_photos_controller.h"
@@ -22,6 +24,7 @@
 
 #include <spdlog/fmt/fmt.h>
 
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -230,6 +233,26 @@ TEST_CASE("a photo record lists its photos, layer first, nothing outside", "[plu
                                                               ".helix_photos/w.jpg"});
 }
 
+TEST_CASE("the detail view shows the record and the history link together", "[plugin_photos]") {
+    const std::vector<PrintPhoto> linked = {{kPhotoKindLayer, ".helix_photos/l_aux.jpg"}};
+    const std::vector<PrintPhoto> recorded = {{kPhotoKindLayer, ".helix_photos/l_rec.jpg"},
+                                              {kPhotoKindEnd, ".helix_photos/e_rec.jpg"}};
+    const auto both = merge_photo_lists(linked, recorded);
+    REQUIRE(both.size() == 2);
+    CHECK(both[0].path == ".helix_photos/l_rec.jpg");
+    CHECK(both[1].path == ".helix_photos/e_rec.jpg");
+
+    const std::vector<PrintPhoto> end_only = {{kPhotoKindEnd, ".helix_photos/e.jpg"}};
+    const auto from_aux = merge_photo_lists(end_only, {{kPhotoKindLayer, ".helix_photos/l.jpg"}});
+    REQUIRE(from_aux.size() == 2);
+    CHECK(from_aux[0].kind == kPhotoKindLayer);
+    CHECK(from_aux[1].path == ".helix_photos/e.jpg");
+
+    CHECK(same_photos(both, recorded));
+    CHECK_FALSE(same_photos(linked, recorded));
+    CHECK(merge_photo_lists({}, {}).empty());
+}
+
 TEST_CASE("a record answers only for its own job's start", "[plugin_photos]") {
     const json rec = record(kT0, json::array());
     CHECK(photo_record_matches(rec, kT0 + 0.5));
@@ -425,8 +448,10 @@ TEST_CASE_METHOD(PhotosFx, "the screen takes nothing when opted out or without a
 namespace {
 
 /// The fallback against a mock Moonraker published as the app's: uploads and
-/// database writes land in the mock, fetches answer a JPEG at once.
-struct PhotosApiFx : LVGLTestFixture {
+/// database writes land in the mock, fetches answer a JPEG at once. The UI
+/// fixture initializes the global PrinterState's subjects, so a plugin probe
+/// reaches the observers that subscribe to history.
+struct PhotosApiFx : LVGLUITestFixture {
     MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
     std::unique_ptr<MoonrakerAPIMock> api;
     IMoonrakerAPI* previous_api = nullptr;
@@ -552,4 +577,80 @@ TEST_CASE_METHOD(PhotosApiFx, "deleting a job here deletes its photos, not a lat
     CHECK(api->files_mock().deleted_files() ==
           std::vector<std::string>{"gcodes/.helix_photos/2A_layer2.jpg"});
     CHECK(stored("00002A").is_null());
+}
+
+namespace {
+
+/// The fallback with the plugin installed, its status read through the mock,
+/// and the app's status refresh running.
+struct PhotosStatusFx : PhotosApiFx {
+    std::unique_ptr<PluginStatusRefresh> refresh;
+
+    PhotosStatusFx() {
+        setenv("HELIX_MOCK_HELIX_PLUGIN", "1", 1);
+        unsetenv("HELIX_MOCK_PHOTOS");
+        get_printer_state().set_helix_plugin_installed(true);
+        drain();
+        refresh = std::make_unique<PluginStatusRefresh>();
+        refresh->refresh();
+        drain();
+    }
+    ~PhotosStatusFx() override {
+        refresh.reset();
+        unsetenv("HELIX_MOCK_HELIX_PLUGIN");
+        unsetenv("HELIX_MOCK_PHOTOS");
+        get_printer_state().set_helix_plugin_features({});
+        get_printer_state().set_helix_plugin_installed(false);
+        drain();
+    }
+
+    PluginFeatureState photos_state() {
+        return get_printer_state().plugin_status_state().plugin_feature(kPhotosFeature,
+                                                                        kPhotosMinVersion);
+    }
+
+    void history(const std::string& action) {
+        client.dispatch_method_callback(
+            "notify_history_changed",
+            json{{"method", "notify_history_changed"},
+                 {"params", json::array({{{"action", action},
+                                          {"job",
+                                           {{"job_id", kJob.job_id},
+                                            {"filename", kJob.filename},
+                                            {"start_time", kJob.start_time},
+                                            {"status", "completed"}}}}})}});
+        drain();
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(PhotosStatusFx,
+                 "a plugin that loses the camera after connect hands photos over at the next job",
+                 "[plugin_photos]") {
+    REQUIRE(photos_state() == PluginFeatureState::Ready);
+
+    setenv("HELIX_MOCK_PHOTOS", "unavailable", 1);
+    history("added");
+    CHECK(photos_state() == PluginFeatureState::Absent);
+    history("finished");
+    CHECK(api->transfers_mock().named_uploads().size() == 1);
+}
+
+TEST_CASE_METHOD(PhotosStatusFx, "the plugin's change notice hands photos back to it",
+                 "[plugin_photos]") {
+    setenv("HELIX_MOCK_PHOTOS", "unavailable", 1);
+    refresh->refresh();
+    drain();
+    REQUIRE(photos_state() == PluginFeatureState::Absent);
+
+    unsetenv("HELIX_MOCK_PHOTOS");
+    client.dispatch_method_callback("notify_helix_features_changed",
+                                    json{{"method", "notify_helix_features_changed"},
+                                         {"params", json::array({json::object()})}});
+    drain();
+    CHECK(photos_state() == PluginFeatureState::Ready);
+    controller->on_job_finished(kJob, "completed");
+    drain();
+    CHECK(api->transfers_mock().named_uploads().empty());
 }

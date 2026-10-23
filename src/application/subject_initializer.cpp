@@ -55,6 +55,7 @@
 #include "material_settings_manager.h"
 #include "panel_widget_manager.h"
 #include "plr_offer_controller.h"
+#include "plugin_status_refresh.h"
 #include "preset_materials.h"
 #include "print_completion.h"
 #include "print_control_buttons.h"
@@ -447,6 +448,10 @@ void SubjectInitializer::init_observers() {
     // Standing print options: kept in Moonraker for the plugin's print hooks,
     // and sent by this screen at a foreign job start when the plugin cannot.
     m_standing_print_options = std::make_unique<helix::StandingPrintOptionsController>();
+
+    // The plugin's feature map, read again at each job start and on the
+    // plugin's word, so every plugin-or-fallback choice reads it current.
+    m_plugin_status_refresh = std::make_unique<helix::PluginStatusRefresh>();
 
     // Camera photos in history, taken by this screen when the plugin cannot.
 #if HELIX_HAS_CAMERA

@@ -417,7 +417,8 @@ also reports `print_hooks`, `enabled` from the mock database's
 `helix-screen`/`plugin_features.print_hooks` (off until the Printing page's switch
 writes it; `HELIX_MOCK_PRINT_HOOKS=unavailable` reports it `available: false` with
 `reason: "load_failed"`), `photos`, on unless the mock database's
-`helix-screen`/`plugin_features.photos` is `false`, and `file_analysis`, `server_edits`
+`helix-screen`/`plugin_features.photos` is `false` (`HELIX_MOCK_PHOTOS=unavailable` reports
+it `available: false`, reason `snapshot_unreachable: ...`, so the screen takes the photos), and `file_analysis`, `server_edits`
 and `config_edit`, each `Ready`. The mock has no `server.helix.config`, so a config edit falls back to the file API.
 `HELIX_MOCK_PLR` adds the `plr` entry (below); no other feature is reported.
 

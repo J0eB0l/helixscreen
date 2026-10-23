@@ -266,6 +266,7 @@ src/printer/standing_print_options.cpp
 src/printer/standing_print_options_controller.cpp
 src/printer/fallback_sender.cpp
 src/printer/history_job_events.cpp
+src/printer/plugin_status_refresh.cpp
 src/printer/print_photos.cpp
 src/printer/print_photos_controller.cpp
 src/printer/plr_profile.cpp
