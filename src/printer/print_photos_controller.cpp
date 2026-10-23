@@ -5,10 +5,10 @@
 #include "app_globals.h"
 #include "fallback_sender.h"
 #include "i_moonraker_api.h"
-#include "i_moonraker_client.h"
 #include "json_utils.h"
 #include "observer_factory.h"
 #include "printer_state.h"
+#include "thumbnail_rules.h"
 #include "webcam_selection.h"
 
 #include <spdlog/spdlog.h>
@@ -23,14 +23,6 @@ using ui::observe;
 
 namespace {
 constexpr const char* kHandlerName = "PrintPhotos";
-
-PrintPhotosController::Job job_from(const nlohmann::json& job) {
-    PrintPhotosController::Job out;
-    out.job_id = json_util::safe_string(job, "job_id");
-    out.filename = json_util::safe_string(job, "filename");
-    out.start_time = json_util::safe_double(job, "start_time");
-    return out;
-}
 } // namespace
 
 PrintPhotosController::PrintPhotosController(SnapshotFetch fetch) : fetch_(std::move(fetch)) {
@@ -67,39 +59,15 @@ void PrintPhotosController::subscribe_history() {
     if (api == nullptr) {
         return;
     }
-    IMoonrakerClient& client = api->get_client();
-    if (subscribed_client_ == &client) {
-        return;
-    }
-    subscribed_client_ = &client;
-    client.register_method_callback(
-        "notify_history_changed", kHandlerName,
-        [this, token = lifetime_.token()](const nlohmann::json& data) {
-            // bg thread: parse only.
-            const nlohmann::json* payload = json_util::notification_payload(data);
-            if (payload == nullptr) {
-                return;
-            }
-            const std::string action = json_util::safe_string(*payload, "action");
-            const nlohmann::json* job = json_util::find_member(*payload, "job");
-            if (job == nullptr || !job->is_object() ||
-                (action != "added" && action != "finished")) {
-                return;
-            }
-            Job parsed = job_from(*job);
-            if (parsed.job_id.empty()) {
-                return;
-            }
-            std::string status = json_util::safe_string(*job, "status");
-            token.defer("PrintPhotos::history",
-                        [this, action, parsed = std::move(parsed), status = std::move(status)] {
-                            if (action == "added") {
-                                on_job_added(parsed);
-                            } else {
-                                on_job_finished(parsed, status);
-                            }
-                        });
-        });
+    history_events_.subscribe(*api, kHandlerName, lifetime_.token(),
+                              [this](const HistoryJobEvent& event) {
+                                  const Job job{event.job_id, event.filename, event.start_time};
+                                  if (event.action == "added") {
+                                      on_job_added(job);
+                                  } else {
+                                      on_job_finished(job, event.status);
+                                  }
+                              });
 }
 
 void PrintPhotosController::on_job_added(const Job& job) {
@@ -165,7 +133,7 @@ void PrintPhotosController::fetch_and_store(const Job& job, const std::string& k
     spdlog::info("[PrintPhotos] Taking the {} photo of job {} from {}", kind, job.job_id, url);
     fetch_(url, [this, token = lifetime_.token(), job, kind](std::string body) {
         // Worker thread: check the bytes, hand them to the main thread.
-        if (!is_jpeg(body) || body.size() > kMaxPhotoBytes) {
+        if (sniff_image_format(body) != ImageFormat::Jpeg || body.size() > kMaxPhotoBytes) {
             spdlog::info("[PrintPhotos] No {} photo for job {}: the snapshot is {}", kind,
                          job.job_id, body.empty() ? "unavailable" : "not a usable JPEG");
             return;
@@ -191,44 +159,75 @@ void PrintPhotosController::upload(const Job& job, const std::string& kind, std:
         },
         [path](const MoonrakerError& err) {
             spdlog::warn("[PrintPhotos] Uploading {} failed: {}", path, err.message);
-        });
+        },
+        ITransfersAPI::UploadLane::Bulk);
 }
 
 void PrintPhotosController::write_record(const Job& job, const std::string& kind,
                                          const std::string& path, size_t size) {
-    IMoonrakerAPI* api = get_moonraker_api();
-    if (api == nullptr) {
+    pending_records_.push_back({job, kind, path, size});
+    next_record();
+}
+
+void PrintPhotosController::next_record() {
+    if (record_busy_ || pending_records_.empty()) {
         return;
     }
-    // Read, add this photo, write back: the record keeps the job's other one.
-    auto store = [this, token = lifetime_.token(), job, kind, path,
-                  size](const nlohmann::json& existing) {
-        nlohmann::json record =
-            photo_record_with(existing, job.job_id, job.filename, job.start_time, kind, path, size,
-                              static_cast<int64_t>(std::time(nullptr)));
-        token.defer("PrintPhotos::store", [this, job, record = std::move(record)] {
+    IMoonrakerAPI* api = get_moonraker_api();
+    if (api == nullptr) {
+        pending_records_.clear();
+        return;
+    }
+    // One read-add-write at a time: two photos of one job written at once
+    // would both read the record without the other.
+    record_busy_ = true;
+    PendingRecord pending = std::move(pending_records_.front());
+    pending_records_.pop_front();
+    auto done = [this, token = lifetime_.token()](bool written) {
+        token.defer("PrintPhotos::record_done", [this, written] {
+            record_busy_ = false;
+            if (written && pending_records_.empty()) {
+                prune();
+            }
+            next_record();
+        });
+    };
+    auto store = [this, token = lifetime_.token(), pending, done](const nlohmann::json& existing) {
+        if (photo_record_is_newer(existing)) {
+            spdlog::info("[PrintPhotos] The record of job {} is a newer version, left as it is",
+                         pending.job.job_id);
+            done(false);
+            return;
+        }
+        nlohmann::json record = photo_record_with(
+            existing, pending.job.job_id, pending.job.filename, pending.job.start_time,
+            pending.kind, pending.path, pending.size, static_cast<int64_t>(std::time(nullptr)));
+        token.defer("PrintPhotos::store", [job = pending.job, record = std::move(record), done] {
             IMoonrakerAPI* api = get_moonraker_api();
             if (api == nullptr) {
+                done(false);
                 return;
             }
             api->database_post_item(
                 kPhotosNamespace, job.job_id, record,
-                [this, token = lifetime_.token(), job] {
+                [job, done] {
                     spdlog::info("[PrintPhotos] Photo record of job {} written", job.job_id);
-                    token.defer("PrintPhotos::prune", [this] { prune(); });
+                    done(true);
                 },
-                [job](const MoonrakerError& err) {
+                [job, done](const MoonrakerError& err) {
                     spdlog::warn("[PrintPhotos] Writing the record of job {} failed: {}",
                                  job.job_id, err.message);
+                    done(false);
                 });
         });
     };
-    api->database_get_item(kPhotosNamespace, job.job_id, store,
-                           [store, job](const MoonrakerError& err) {
+    api->database_get_item(kPhotosNamespace, pending.job.job_id, store,
+                           [store, done, job_id = pending.job.job_id](const MoonrakerError& err) {
                                if (!err.is_not_found()) {
                                    spdlog::warn("[PrintPhotos] Reading the record of job {} "
                                                 "failed: {}",
-                                                job.job_id, err.message);
+                                                job_id, err.message);
+                                   done(false);
                                    return;
                                }
                                store(nlohmann::json());

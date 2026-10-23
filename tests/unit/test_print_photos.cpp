@@ -10,12 +10,17 @@
 #include "../lvgl_test_fixture.h"
 #include "app_globals.h"
 #include "helix_plugin_features.h"
+#include "history_job_events.h"
+#include "moonraker_api_mock.h"
+#include "moonraker_client_mock.h"
 #include "print_history_parse.h"
 #include "print_photos.h"
 #include "print_photos_controller.h"
 #include "printer_plugin_status_state.h"
 #include "printer_state.h"
 #include "webcam_selection.h"
+
+#include <spdlog/fmt/fmt.h>
 
 #include <string>
 #include <vector>
@@ -143,11 +148,52 @@ TEST_CASE("an end photo for completed, cancelled and failed jobs only", "[plugin
     CHECK_FALSE(ends_with_photo(""));
 }
 
-TEST_CASE("a snapshot is kept only when it is a JPEG", "[plugin_photos]") {
-    CHECK(is_jpeg(kJpeg));
-    CHECK_FALSE(is_jpeg("<html>"));
-    CHECK_FALSE(is_jpeg(""));
-    CHECK_FALSE(is_jpeg(std::string("\xFF\xD8", 2)));
+TEST_CASE("a photo's kind is read from its file name", "[plugin_photos]") {
+    CHECK(photo_kind_from_path(".helix_photos/2A_1_layer2.jpg") == kPhotoKindLayer);
+    CHECK(photo_kind_from_path(".helix_photos/2A_1_end.jpg") == kPhotoKindEnd);
+    CHECK(photo_kind_from_path(".helix_photos/_end.png").empty());
+    CHECK(photo_kind_from_path("_end.jpg").empty());
+}
+
+TEST_CASE("a newer version's record is left alone with its files", "[plugin_photos]") {
+    json newer = record(5, json::array({{{"kind", "end"}, {"path", ".helix_photos/v2.jpg"}}}));
+    newer["version"] = 2;
+    CHECK(photo_record_is_newer(newer));
+    CHECK_FALSE(photo_record_is_newer(record(5, json::array())));
+    CHECK_FALSE(photo_record_is_newer(json{{"version", "2"}}));
+    CHECK(photo_record_paths(newer).empty());
+    const json records = {{"A", newer}, {"B", record(10, json::array())}};
+    CHECK(photo_records_to_prune(records, 0) == std::vector<std::string>{"B"});
+}
+
+TEST_CASE("a still of a camera turns the way the camera widget turns it",
+          "[plugin_photos][webcam]") {
+    const json widget = {{"rotation", 180}, {"flip_h", true}};
+    auto shown = cam("main", "mjpegstreamer", "/s.jpg");
+    CHECK(webcam::view_config_for("main", shown, widget) == widget);
+    CHECK(webcam::view_config_for("other", shown, widget) == json::object());
+    CHECK(webcam::view_config_for("main", std::nullopt, widget) == json::object());
+}
+
+TEST_CASE("history's notifications read as job events", "[plugin_photos]") {
+    auto msg = [](json payload) {
+        return json{{"method", "notify_history_changed"}, {"params", json::array({payload})}};
+    };
+    auto added = parse_history_job_event(
+        msg({{"action", "added"},
+             {"job", {{"job_id", "00002A"}, {"filename", "a.gcode"}, {"start_time", kT0}}}}));
+    REQUIRE(added);
+    CHECK(added->action == "added");
+    CHECK(added->job_id == "00002A");
+    CHECK(added->filename == "a.gcode");
+    CHECK(added->start_time == kT0);
+    auto finished = parse_history_job_event(
+        msg({{"action", "finished"}, {"job", {{"job_id", "00002A"}, {"status", "cancelled"}}}}));
+    REQUIRE(finished);
+    CHECK(finished->status == "cancelled");
+    CHECK_FALSE(parse_history_job_event(msg({{"action", "deleted"}, {"job", {{"job_id", "1"}}}})));
+    CHECK_FALSE(parse_history_job_event(msg({{"action", "added"}, {"job", {{"filename", "a"}}}})));
+    CHECK_FALSE(parse_history_job_event(msg({{"action", "added"}})));
 }
 
 TEST_CASE("photo paths carry the job and its start, and stay in the photos dir",
@@ -374,4 +420,136 @@ TEST_CASE_METHOD(PhotosFx, "the screen takes nothing when opted out or without a
         blind.on_job_finished(kJob, "completed");
         CHECK(fetched.empty());
     }
+}
+
+namespace {
+
+/// The fallback against a mock Moonraker published as the app's: uploads and
+/// database writes land in the mock, fetches answer a JPEG at once.
+struct PhotosApiFx : LVGLTestFixture {
+    MoonrakerClientMock client{MoonrakerClientMock::PrinterType::VORON_24};
+    std::unique_ptr<MoonrakerAPIMock> api;
+    IMoonrakerAPI* previous_api = nullptr;
+    std::unique_ptr<PrintPhotosController> controller;
+
+    PhotosApiFx() {
+        client.connect("ws://mock/websocket", []() {}, []() {});
+        api = std::make_unique<MoonrakerAPIMock>(client, get_printer_state());
+        previous_api = get_moonraker_api();
+        set_moonraker_api(api.get());
+        auto& ps = get_printer_state();
+        ps.capabilities_state().set_webcams({cam("main", "mjpegstreamer", "http://cam/snap.jpg")});
+        ps.plugin_status_state().set_locality_source([] { return true; });
+        ps.plugin_status_state().set_stored_opt_ins(json::object());
+        drain();
+        controller = std::make_unique<PrintPhotosController>(
+            [](const std::string&, std::function<void(std::string)> done) { done(kJpeg); });
+    }
+    ~PhotosApiFx() override {
+        controller.reset();
+        drain();
+        set_moonraker_api(previous_api);
+        auto& ps = get_printer_state();
+        ps.capabilities_state().set_webcam_available(false);
+        ps.plugin_status_state().set_locality_source(nullptr);
+        drain();
+        client.stop_temperature_simulation();
+        client.disconnect();
+    }
+
+    static void drain() {
+        for (int i = 0; i < 20; ++i) {
+            ui::UpdateQueue::instance().drain();
+        }
+    }
+
+    json stored(const std::string& key) {
+        return client.mock_db_get(kPhotosNamespace, key);
+    }
+};
+
+} // namespace
+
+TEST_CASE_METHOD(PhotosApiFx, "the screen uploads the photo on the bulk lane and records it",
+                 "[plugin_photos]") {
+    controller->on_job_finished(kJob, "completed");
+    drain();
+    const auto& uploads = api->transfers_mock().named_uploads();
+    REQUIRE(uploads.size() == 1);
+    CHECK(uploads[0].root == "gcodes");
+    CHECK(uploads[0].path == ".helix_photos/00002A_1700000000_end.jpg");
+    CHECK(uploads[0].filename == "00002A_1700000000_end.jpg");
+    CHECK(uploads[0].content == kJpeg);
+    CHECK(uploads[0].lane == ITransfersAPI::UploadLane::Bulk);
+
+    const json rec = stored("00002A");
+    REQUIRE(parse_photo_record(rec).size() == 1);
+    CHECK(rec["photos"][0]["source"] == "app");
+    CHECK(rec["start_time"] == kT0);
+}
+
+TEST_CASE_METHOD(PhotosApiFx, "two photos landing together both reach the record",
+                 "[plugin_photos]") {
+    controller->on_job_added(kJob);
+    controller->on_slicer_layer(2);
+    controller->on_slicer_layer(3);
+    controller->on_job_finished(kJob, "completed");
+    drain();
+    REQUIRE(api->transfers_mock().named_uploads().size() == 2);
+    const auto photos = parse_photo_record(stored("00002A"));
+    REQUIRE(photos.size() == 2);
+    CHECK(photos[0].kind == kPhotoKindLayer);
+    CHECK(photos[1].kind == kPhotoKindEnd);
+}
+
+TEST_CASE_METHOD(PhotosApiFx,
+                 "the screen keeps photos of at most 500 jobs, deleting only its own files",
+                 "[plugin_photos]") {
+    for (size_t i = 0; i < kMaxPhotoJobs; ++i) {
+        const std::string key = fmt::format("{:06X}", 0x100 + i);
+        client.mock_db_set(kPhotosNamespace, key,
+                           record(static_cast<double>(i + 1),
+                                  json::array({{{"kind", "end"},
+                                                {"path", ".helix_photos/" + key + "_end.jpg"}}})));
+    }
+    json newer = record(0.5, json::array({{{"kind", "end"}, {"path", ".helix_photos/v2.jpg"}}}));
+    newer["version"] = 2;
+    client.mock_db_set(kPhotosNamespace, "NEWER", newer);
+    client.mock_db_set(kPhotosNamespace, "JUNK",
+                       json{{"version", 1}, {"photos", json::array({{{"path", "../x.gcode"}}})}});
+
+    controller->on_job_finished(kJob, "completed");
+    drain();
+
+    const auto& deleted = api->files_mock().deleted_files();
+    CHECK(deleted == std::vector<std::string>{"gcodes/.helix_photos/000100_end.jpg"});
+    CHECK(stored("000100").is_null());
+    CHECK(stored("JUNK").is_null());
+    CHECK_FALSE(stored("NEWER").is_null());
+    CHECK_FALSE(stored("000101").is_null());
+    CHECK_FALSE(stored("00002A").is_null());
+}
+
+TEST_CASE_METHOD(PhotosApiFx, "deleting a job here deletes its photos, not a later job's",
+                 "[plugin_photos]") {
+    client.mock_db_set(
+        kPhotosNamespace, "00002A",
+        record(kT0, json::array({{{"kind", "layer2"}, {"path", ".helix_photos/2A_layer2.jpg"}},
+                                 {{"kind", "end"}, {"path", "../printer.cfg"}}})));
+    PrintHistoryJob later;
+    later.job_id = "00002A";
+    later.start_time = kT0 + 5000;
+    ui::HistoryPhotoViewer::delete_photos(later);
+    drain();
+    CHECK(api->files_mock().deleted_files().empty());
+    CHECK_FALSE(stored("00002A").is_null());
+
+    PrintHistoryJob job;
+    job.job_id = "00002A";
+    job.start_time = kT0;
+    ui::HistoryPhotoViewer::delete_photos(job);
+    drain();
+    CHECK(api->files_mock().deleted_files() ==
+          std::vector<std::string>{"gcodes/.helix_photos/2A_layer2.jpg"});
+    CHECK(stored("00002A").is_null());
 }

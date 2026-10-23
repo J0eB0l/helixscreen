@@ -26,6 +26,8 @@ from helix_photos import (
     PHOTOS_FEATURE,
     PHOTOS_NAMESPACE,
     absolute_url,
+    newer_record,
+    snapshot_candidates,
     history_matches,
     is_jpeg,
     layer_two_done,
@@ -127,6 +129,24 @@ class TestPickSnapshotUrl:
         assert absolute_url("http://cam:8080/s.jpg") == "http://cam:8080/s.jpg"
 
 
+class TestSnapshotCandidates:
+    def test_absolute_url_is_the_only_candidate(self):
+        assert snapshot_candidates(_cam(snapshot="http://cam:8080/s.jpg")) == \
+            ["http://cam:8080/s.jpg"]
+
+    def test_relative_url_tries_the_stream_origin_then_frontend_ports(self):
+        cam = _cam(snapshot="/webcam/?action=snapshot", stream="http://10.0.0.5:4408/webcam/")
+        assert snapshot_candidates(cam) == [
+            "http://10.0.0.5:4408/webcam/?action=snapshot",
+            "http://127.0.0.1/webcam/?action=snapshot",
+            "http://127.0.0.1:4408/webcam/?action=snapshot",
+            "http://127.0.0.1:4409/webcam/?action=snapshot",
+        ]
+
+    def test_relative_stream_adds_no_origin(self):
+        assert snapshot_candidates(_cam())[0] == "http://127.0.0.1/webcam/?action=snapshot"
+
+
 class TestRecords:
     def test_photo_path_carries_start_time(self):
         assert photo_path("00002A", T0, KIND_END) == f"{PHOTOS_DIR}/00002A_1700000000_end.jpg"
@@ -172,6 +192,15 @@ class TestRecords:
                          ("helix_print", "photos")]
         assert merged[-1]["value"] == [f"{PHOTOS_DIR}/e.jpg"]
         assert merge_aux({"not": "a list"}, record)[0]["name"] == "photos"
+
+
+class TestPrunePlanVersions:
+    def test_a_newer_record_is_never_touched(self):
+        newer = {"version": 2, "job_id": "A", "start_time": 1, "shots": []}
+        assert newer_record(newer)
+        assert not newer_record({"version": True})
+        records = [("A", newer, False), ("B", {"version": 1}, True)]
+        assert prune_plan(records, {}, max_jobs=0) == ["B"]
 
 
 class TestPrunePlan:
@@ -230,7 +259,13 @@ async def _history(mock_server, payload):
     history = mock_server.components.get("history")
     job = payload["job"]
     if payload["action"] == "added" and history is not None:
-        history.add_job(job["job_id"], filename=job["filename"], start_time=job["start_time"])
+        history.add_job(job["job_id"], filename=job["filename"], start_time=job["start_time"],
+                        status="in_progress", end_time=None, total_duration=0.0)
+    if payload["action"] == "finished" and history is not None:
+        row = history.jobs.get(int(job["job_id"], 16))
+        if row is not None and row.get("status") == "in_progress":
+            row.update(status=job["status"], end_time=job["start_time"] + 3600.0,
+                       total_duration=3600.0, filament_used=812.5)
     await asyncio.gather(
         *(h(payload) for h in mock_server.event_handlers["history:history_changed"]))
 
@@ -513,3 +548,167 @@ class TestRestart:
         assert photos.fetched == []
         await _history(mock_server, _finished())
         assert [p["kind"] for p in _record(component)["photos"]] == [KIND_END]
+
+
+class TestFinishedRowsOnly:
+    @pytest.mark.asyncio
+    async def test_layer_photo_never_rewrites_the_running_row(self, photos, mock_server):
+        component = await photos()
+        history = mock_server.components["history"]
+        sys.modules[type(history).__module__].PrinterJob = PrinterJob
+        await _history(mock_server, _added())
+        for n in (1, 2, 3):
+            await _status(mock_server, _layer(n))
+        await _drain(component)
+        assert [p["kind"] for p in _record(component)["photos"]] == [KIND_LAYER]
+        assert history.save_job_calls == []
+
+    @pytest.mark.asyncio
+    async def test_a_running_row_is_refused_even_when_asked(self, photos, mock_server):
+        component = await photos()
+        history = mock_server.components["history"]
+        sys.modules[type(history).__module__].PrinterJob = PrinterJob
+        await _history(mock_server, _added())
+        await component.photos.capture(dict(_added()["job"]), KIND_END)
+        await component.photos._link_in_history(dict(_added()["job"]))
+        assert history.save_job_calls == []
+
+    @pytest.mark.asyncio
+    async def test_the_finished_row_keeps_its_status_and_end_stats(self, photos, mock_server):
+        component = await photos()
+        history = mock_server.components["history"]
+        sys.modules[type(history).__module__].PrinterJob = PrinterJob
+        await _history(mock_server, _added())
+        for n in (1, 2, 3):
+            await _status(mock_server, _layer(n))
+        await _drain(component)
+        await _history(mock_server, _finished(status="cancelled"))
+        assert len(history.save_job_calls) == 1
+        saved, _ = history.save_job_calls[0]
+        assert saved.status == "cancelled"
+        assert saved.end_time == T0 + 3600.0
+        assert saved.total_duration == 3600.0
+        assert saved.filament_used == 812.5
+        assert saved.auxiliary_data[-1]["value"] == [photo_path("00002A", T0, KIND_LAYER),
+                                                     photo_path("00002A", T0, KIND_END)]
+
+    @pytest.mark.asyncio
+    async def test_a_job_ending_without_an_end_photo_still_links_its_layer_photo(
+            self, photos, mock_server):
+        component = await photos()
+        history = mock_server.components["history"]
+        sys.modules[type(history).__module__].PrinterJob = PrinterJob
+        await _history(mock_server, _added())
+        for n in (1, 2, 3):
+            await _status(mock_server, _layer(n))
+        await _drain(component)
+        await _history(mock_server, _finished(status="klippy_shutdown"))
+        saved, _ = history.save_job_calls[-1]
+        assert saved.status == "klippy_shutdown"
+        assert saved.auxiliary_data[-1]["value"] == [photo_path("00002A", T0, KIND_LAYER)]
+
+
+class TestFrontendPort:
+    @pytest.mark.asyncio
+    async def test_a_relative_url_found_on_the_frontend_port(self, photos, mock_server):
+        component = await photos()
+        tried = []
+
+        def fetch(url):
+            tried.append(url)
+            if ":4408/" not in url:
+                raise OSError("connection refused")
+            return JPEG
+
+        component.photos.fetch = fetch
+        await _history(mock_server, _added())
+        await _history(mock_server, _finished())
+        assert _record(component) is not None
+        assert tried[-1] == "http://127.0.0.1:4408/webcam/?action=snapshot"
+        tried.clear()
+        await component.photos.capture(dict(_added()["job"]), KIND_LAYER)
+        assert tried == ["http://127.0.0.1:4408/webcam/?action=snapshot"]
+        status = await component._handle_status(MockWebRequest({}))
+        assert status["features"][PHOTOS_FEATURE]["available"] is True
+
+    @pytest.mark.asyncio
+    async def test_an_unreachable_relative_url_hands_photos_to_the_screen(
+            self, photos, mock_server, temp_gcodes_dir):
+        component = await photos()
+
+        def refuse(url):
+            raise OSError("connection refused")
+
+        component.photos.fetch = refuse
+        await component.photos.check_reachable()
+        status = await component._handle_status(MockWebRequest({}))
+        entry = status["features"][PHOTOS_FEATURE]
+        assert entry["available"] is False
+        assert entry["enabled"] is False
+        assert entry["reason"] == "snapshot_unreachable: /webcam/?action=snapshot"
+        await _history(mock_server, _added())
+        await _history(mock_server, _finished())
+        assert _record(component) is None
+
+        component.photos.fetch = lambda url: JPEG
+        await _history(mock_server, _added("00002B"))
+        await _drain(component)
+        status = await component._handle_status(MockWebRequest({}))
+        assert status["features"][PHOTOS_FEATURE]["available"] is True
+
+    @pytest.mark.asyncio
+    async def test_an_absolute_url_that_fails_stays_available(self, photos, mock_server):
+        mock_server.components["webcam"] = FakeWebcams([_cam(snapshot="http://cam/s.jpg")])
+        component = await photos()
+
+        def refuse(url):
+            raise OSError("timed out")
+
+        component.photos.fetch = refuse
+        await component.photos.check_reachable()
+        status = await component._handle_status(MockWebRequest({}))
+        assert status["features"][PHOTOS_FEATURE]["available"] is True
+
+
+class TestPruneSafety:
+    @pytest.mark.asyncio
+    async def test_files_of_an_unreadable_or_newer_record_stay(self, photos, mock_server,
+                                                               temp_gcodes_dir):
+        component = await photos()
+        d = os.path.join(temp_gcodes_dir, PHOTOS_DIR)
+        os.makedirs(d)
+        for name in ("bad.jpg", "v2.jpg", "stray.jpg"):
+            with open(os.path.join(d, name), "wb") as f:
+                f.write(JPEG)
+            os.utime(os.path.join(d, name), (T0 - 7200, T0 - 7200))
+        db = component.database
+        await db.insert_item(PHOTOS_NAMESPACE, ["00000A"], {
+            "version": 1, "job_id": 10, "photos": [{"path": f"{PHOTOS_DIR}/bad.jpg"}]})
+        await db.insert_item(PHOTOS_NAMESPACE, ["00000B"], {
+            "version": 2, "job_id": "00000B", "shots": [f"{PHOTOS_DIR}/v2.jpg"]})
+        assert await component.photos.prune() == ["00000A"]
+        assert _record(component, "00000B") is not None
+        assert _files(temp_gcodes_dir) == ["bad.jpg", "stray.jpg", "v2.jpg"]
+
+    @pytest.mark.asyncio
+    async def test_a_linked_photos_dir_is_not_swept(self, photos, mock_server, temp_gcodes_dir,
+                                                    tmp_path):
+        component = await photos()
+        outside = tmp_path / "elsewhere"
+        outside.mkdir()
+        victim = outside / "keep.jpg"
+        victim.write_bytes(JPEG)
+        os.utime(str(victim), (T0 - 7200, T0 - 7200))
+        os.symlink(str(outside), os.path.join(temp_gcodes_dir, PHOTOS_DIR))
+        await component.photos.prune()
+        assert victim.exists()
+
+    @pytest.mark.asyncio
+    async def test_a_quick_prune_does_not_ask_history(self, photos, mock_server):
+        component = await photos()
+        history = mock_server.components["history"]
+        await _history(mock_server, _added())
+        await _history(mock_server, _finished())
+        del history.jobs[0x2A]
+        assert await component.photos.prune(check_history=False) == []
+        assert await component.photos.prune() == ["00002A"]

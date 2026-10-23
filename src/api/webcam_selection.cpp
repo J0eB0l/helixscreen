@@ -118,6 +118,15 @@ std::optional<WebcamInfo> auto_pick(const std::vector<WebcamInfo>& cams) {
     return feed_for(cams[*idx]);
 }
 
+nlohmann::json view_config_for(const std::string& cam_name,
+                               const std::optional<WebcamInfo>& widget_feed,
+                               const nlohmann::json& widget_config) {
+    if (widget_feed && widget_feed->name == cam_name && widget_config.is_object()) {
+        return widget_config;
+    }
+    return nlohmann::json::object();
+}
+
 std::optional<WebcamInfo> photo_pick(const std::vector<WebcamInfo>& cams) {
     const WebcamInfo* first = nullptr;
     for (const auto& cam : cams) {

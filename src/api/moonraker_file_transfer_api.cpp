@@ -400,9 +400,12 @@ void MoonrakerFileTransferAPI::upload_file(const std::string& root, const std::s
     upload_file_with_name(root, path, path, content, on_success, on_error);
 }
 
-void MoonrakerFileTransferAPI::upload_file_with_name(
-    const std::string& root, const std::string& path, const std::string& filename,
-    const std::string& content, SuccessCallback on_success, ErrorCallback on_error) {
+void MoonrakerFileTransferAPI::upload_file_with_name(const std::string& root,
+                                                     const std::string& path,
+                                                     const std::string& filename,
+                                                     const std::string& content,
+                                                     SuccessCallback on_success,
+                                                     ErrorCallback on_error, UploadLane lane) {
     // `path` only supplies the destination DIRECTORY here - the name written on
     // the printer comes from the separate `filename` parameter, and the form
     // field below is only set when `path` actually contains a directory
@@ -434,12 +437,14 @@ void MoonrakerFileTransferAPI::upload_file_with_name(
 
     spdlog::debug("[Moonraker API] Uploading {} bytes to {}/{}", content.size(), root, path);
 
-    // Memory-buffer uploads are small (config edits, PRINT_START shim,
-    // macro files). Fast lane so they don't queue behind large gcode
-    // uploads on the slow lane. Use upload_file_from_path for large
-    // streaming uploads.
-    helix::http::HttpExecutor::fast().submit([url, root, path, filename, content, on_success,
-                                              on_error]() {
+    // A small buffer (config edits, PRINT_START shim, macro files) takes the
+    // fast lane so it does not queue behind large gcode uploads on the slow
+    // one; a buffer of megabytes (a camera photo) takes the slow lane so it
+    // does not hold up small REST work. upload_file_from_path streams large
+    // files from disk.
+    auto& executor = lane == UploadLane::Bulk ? helix::http::HttpExecutor::slow()
+                                              : helix::http::HttpExecutor::fast();
+    executor.submit([url, root, path, filename, content, on_success, on_error]() {
         // Create multipart form request
         auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_POST;

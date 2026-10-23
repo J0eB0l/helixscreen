@@ -67,8 +67,9 @@ bool layer_two_done(std::optional<int> previous, int current);
 /// status string: completed, cancelled or error.
 bool ends_with_photo(const std::string& history_status);
 
-/// Whether @p bytes start like a JPEG; an HTML error page does not.
-bool is_jpeg(const std::string& bytes);
+/// The kind a photo's file name ends in ("..._layer2.jpg", "..._end.jpg"),
+/// empty for any other name.
+std::string photo_kind_from_path(const std::string& path);
 
 /// Who takes the photos of a job.
 enum class PhotoTaker {
@@ -107,12 +108,18 @@ nlohmann::json photo_record_with(const nlohmann::json& record, const std::string
                                  const std::string& kind, const std::string& path, size_t size,
                                  int64_t taken_at);
 
+/// Whether @p record is of a later version than this app writes: another
+/// plugin's or app's, left untouched with its files.
+bool photo_record_is_newer(const nlohmann::json& record);
+
 /// The keys of the records to drop from @p records (the whole namespace as
 /// Moonraker returns it, key -> record) so at most @p max_jobs remain: the
-/// malformed ones, then the oldest by start time.
+/// malformed ones, then the oldest by start time. A newer version's record is
+/// never dropped, nor counted.
 std::vector<std::string> photo_records_to_prune(const nlohmann::json& records, size_t max_jobs);
 
-/// Every photo path @p record lists.
+/// Every photo path @p record lists, inside kPhotosDir; none for a record of
+/// another version, whose files are not this app's to trust or delete.
 std::vector<std::string> photo_record_paths(const nlohmann::json& record);
 
 } // namespace helix

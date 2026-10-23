@@ -988,6 +988,7 @@ class HelixPrint:
         self.photos.start()
         self.register_feature(
             helix_photos.PHOTOS_FEATURE, helix_photos.PHOTOS_FEATURE_VERSION, acts=False,
+            probe=self.photos.availability,
         )
         await self.photos.load()
         self.eventloop.register_callback(self.photos.prune)

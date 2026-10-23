@@ -10,6 +10,7 @@
 
 #include "async_lifetime_guard.h"
 #include "helix_plugin_features.h"
+#include "history_job_events.h"
 
 #include <functional>
 #include <optional>
@@ -18,7 +19,6 @@
 namespace helix {
 
 class IMoonrakerAPI;
-class IMoonrakerClient;
 
 class StandingPrintOptionsController {
   public:
@@ -68,8 +68,7 @@ class StandingPrintOptionsController {
     std::optional<std::string> considered_;
     /// Rewrites the presence record while this screen is on the printer's host.
     ui::LvglTimerGuard presence_timer_;
-    /// The client the history notification is registered on.
-    const IMoonrakerClient* subscribed_client_ = nullptr;
+    HistoryJobEvents history_events_;
 };
 
 } // namespace helix

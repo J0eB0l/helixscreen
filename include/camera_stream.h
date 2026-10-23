@@ -342,6 +342,11 @@ class CameraStream {
     TjGetScalingFactors_t fn_get_scaling_factors_ = nullptr;
 };
 
+/// How a camera view turns @p cam: the camera widget's rotation and flips
+/// when it shows that camera, else Moonraker's own flips. Main thread.
+/// Defined in camera_frame.cpp, beside the widget config it reads.
+CameraStream::Transform camera_view_transform(const WebcamInfo& cam);
+
 } // namespace helix
 
 #endif // HELIX_HAS_CAMERA

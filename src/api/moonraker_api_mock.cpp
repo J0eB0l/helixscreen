@@ -476,11 +476,9 @@ void MoonrakerFileTransferAPIMock::download_file(const std::string& root, const 
     std::string filename = helix::gcode::get_filename_basename(path);
     // A print photo (HELIX_MOCK_PRINT_PHOTOS) is one of two stock pictures.
     if (root == "gcodes" && helix::is_photo_path(path)) {
-        const std::string layer_suffix = std::string("_") + helix::kPhotoKindLayer + ".jpg";
-        const bool layer = filename.size() > layer_suffix.size() &&
-                           filename.compare(filename.size() - layer_suffix.size(),
-                                            layer_suffix.size(), layer_suffix) == 0;
-        filename = layer ? "mock_print_photo_layer2.jpg" : "mock_print_photo_end.jpg";
+        filename = helix::photo_kind_from_path(path) == helix::kPhotoKindLayer
+                       ? "mock_print_photo_layer2.jpg"
+                       : "mock_print_photo_end.jpg";
     }
 
     spdlog::debug("[MoonrakerAPIMock] download_file: root='{}', path='{}' -> filename='{}'", root,
@@ -888,10 +886,14 @@ void MoonrakerFileTransferAPIMock::upload_file(const std::string& root, const st
     }
 }
 
-void MoonrakerFileTransferAPIMock::upload_file_with_name(
-    const std::string& root, const std::string& path, const std::string& filename,
-    const std::string& content, SuccessCallback on_success, ErrorCallback on_error) {
+void MoonrakerFileTransferAPIMock::upload_file_with_name(const std::string& root,
+                                                         const std::string& path,
+                                                         const std::string& filename,
+                                                         const std::string& content,
+                                                         SuccessCallback on_success,
+                                                         ErrorCallback on_error, UploadLane lane) {
     (void)on_error; // Unused - mock always succeeds
+    named_uploads_.push_back({root, path, filename, content, lane});
 
     spdlog::info(
         "[MoonrakerAPIMock] Mock upload_file_with_name: root='{}', path='{}', filename='{}', "
