@@ -302,7 +302,9 @@ class HistoryListPanel : public OverlayBase {
     lv_subject_t detail_status_{};
     lv_subject_t detail_status_icon_{};
     lv_subject_t detail_status_variant_{};
+    lv_subject_t detail_start_date_{};
     lv_subject_t detail_start_time_{};
+    lv_subject_t detail_end_date_{};
     lv_subject_t detail_end_time_{};
     lv_subject_t detail_duration_{};
     lv_subject_t detail_layers_{};
@@ -329,7 +331,9 @@ class HistoryListPanel : public OverlayBase {
     char detail_status_buf_[kSmallBufSize] = {};
     char detail_status_icon_buf_[kSmallBufSize] = {};
     char detail_status_variant_buf_[kSmallBufSize] = {};
+    char detail_start_date_buf_[kSmallBufSize] = {};
     char detail_start_time_buf_[kSmallBufSize] = {};
+    char detail_end_date_buf_[kSmallBufSize] = {};
     char detail_end_time_buf_[kSmallBufSize] = {};
     char detail_duration_buf_[kSmallBufSize] = {};
     char detail_layers_buf_[kSmallBufSize] = {};

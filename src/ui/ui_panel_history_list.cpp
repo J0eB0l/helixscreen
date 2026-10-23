@@ -26,6 +26,7 @@
 #include "i_moonraker_api.h"
 #include "i_moonraker_client.h"
 #include "json_utils.h"
+#include "locale_formats.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
 #include "print_history_manager.h"
@@ -42,6 +43,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <lvgl.h>
 #include <map>
 
@@ -881,8 +883,12 @@ void HistoryListPanel::init_detail_subjects() {
                               "history_detail_status_icon", subjects_);
     UI_MANAGED_SUBJECT_STRING(detail_status_variant_, detail_status_variant_buf_, "secondary",
                               "history_detail_status_variant", subjects_);
+    UI_MANAGED_SUBJECT_STRING(detail_start_date_, detail_start_date_buf_, "",
+                              "history_detail_start_date", subjects_);
     UI_MANAGED_SUBJECT_STRING(detail_start_time_, detail_start_time_buf_, "",
                               "history_detail_start_time", subjects_);
+    UI_MANAGED_SUBJECT_STRING(detail_end_date_, detail_end_date_buf_, "", "history_detail_end_date",
+                              subjects_);
     UI_MANAGED_SUBJECT_STRING(detail_end_time_, detail_end_time_buf_, "", "history_detail_end_time",
                               subjects_);
     UI_MANAGED_SUBJECT_STRING(detail_duration_, detail_duration_buf_, "", "history_detail_duration",
@@ -1034,6 +1040,19 @@ void HistoryListPanel::show_detail_overlay(const PrintHistoryJob& job) {
     spdlog::info("[{}] Showing detail overlay for: {}", get_name(), job.filename);
 }
 
+// A timestamp of 0 or below is "not recorded": the date reads "-" with no time.
+static void set_date_time_subjects(double timestamp, lv_subject_t* date, lv_subject_t* time) {
+    struct tm tm_buf;
+    const time_t ts = static_cast<time_t>(timestamp);
+    if (timestamp <= 0 || !localtime_r(&ts, &tm_buf)) {
+        lv_subject_copy_string(date, "-");
+        lv_subject_copy_string(time, "");
+        return;
+    }
+    lv_subject_copy_string(date, helix::ui::format_localized_month_day(&tm_buf).c_str());
+    lv_subject_copy_string(time, helix::ui::format_time(&tm_buf).c_str());
+}
+
 void HistoryListPanel::update_detail_subjects(const PrintHistoryJob& job) {
     // Update string subjects using lv_subject_copy_string (LVGL 9.4 API)
     lv_subject_copy_string(&detail_filename_, job.filename.c_str());
@@ -1041,17 +1060,10 @@ void HistoryListPanel::update_detail_subjects(const PrintHistoryJob& job) {
     lv_subject_copy_string(&detail_status_icon_, status_to_icon(job.status));
     lv_subject_copy_string(&detail_status_variant_, status_to_variant(job.status));
 
-    // Format timestamps
-    lv_subject_copy_string(&detail_start_time_, job.date_str.c_str());
-
-    // Format end time from end_time timestamp
-    if (job.end_time > 0) {
-        time_t end_ts = static_cast<time_t>(job.end_time);
-        std::string end_str = helix::ui::format_modified_date(end_ts);
-        lv_subject_copy_string(&detail_end_time_, end_str.c_str());
-    } else {
-        lv_subject_copy_string(&detail_end_time_, "-");
-    }
+    // Date and time are separate subjects: the overlay stacks them, since one
+    // line is wider than a metadata column.
+    set_date_time_subjects(job.start_time, &detail_start_date_, &detail_start_time_);
+    set_date_time_subjects(job.end_time, &detail_end_date_, &detail_end_time_);
 
     lv_subject_copy_string(&detail_duration_,
                            helix::format::duration(static_cast<int>(job.print_duration)).c_str());
