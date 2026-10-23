@@ -272,20 +272,8 @@ bool LVGLTestFixture::wait_until(const std::function<bool()>& condition, uint32_
 
 bool LVGLTestFixture::advance_until(const std::function<bool()>& condition, uint32_t budget_ms,
                                     uint32_t step_ms) {
-    if (step_ms == 0) {
-        step_ms = 1;
-    }
-    uint32_t elapsed = 0;
-    for (;;) {
-        lv_tick_inc(step_ms);
-        elapsed += step_ms;
-        lv_timer_handler_safe();
-        if (condition()) {
-            return true;
-        }
-        if (elapsed >= budget_ms) {
-            break;
-        }
+    if (UITest::advance_until(condition, budget_ms, step_ms)) {
+        return true;
     }
     spdlog::warn("[LVGLTestFixture] advance_until() ran {}ms of virtual time without the "
                  "condition holding",
