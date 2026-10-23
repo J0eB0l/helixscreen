@@ -214,7 +214,8 @@ class MoonrakerFileTransferAPI : public helix::ITransfersAPI {
      */
     void upload_file_with_name(const std::string& root, const std::string& path,
                                const std::string& filename, const std::string& content,
-                               SuccessCallback on_success, ErrorCallback on_error) override;
+                               SuccessCallback on_success, ErrorCallback on_error,
+                               UploadLane lane = UploadLane::Fast) override;
 
     /**
      * @brief Upload file from local filesystem path (streaming, low memory)

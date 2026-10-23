@@ -20,6 +20,8 @@
 #if HELIX_HAS_CAMERA
 #include "camera_frame.h"
 #include "camera_stream.h"
+#include "printer_state.h"
+#include "webcam_selection.h"
 #endif
 
 namespace helix::ui {
@@ -183,27 +185,36 @@ void HistoryPhotoViewer::load(const PrintPhoto& photo) {
         return;
     }
     // Decoded to the box it is shown in, so a large photo never sits in
-    // memory at full size.
+    // memory at full size. The image itself is hidden while it loads, so the
+    // card's photo layer is measured.
     int max_w = 0;
     int max_h = 0;
-    if (lv_obj_t* img = image()) {
-        lv_obj_update_layout(img);
-        max_w = lv_obj_get_width(img);
-        max_h = lv_obj_get_height(img);
+    if (lv_obj_t* box =
+            overlay_ != nullptr ? lv_obj_find_by_name(overlay_, "photo_layer") : nullptr) {
+        lv_obj_update_layout(box);
+        max_w = lv_obj_get_width(box);
+        max_h = lv_obj_get_height(box);
     }
     if (max_w <= 0 || max_h <= 0) {
         lv_display_t* disp = lv_display_get_default();
         max_w = lv_display_get_horizontal_resolution(disp) / 2;
         max_h = lv_display_get_vertical_resolution(disp) / 2;
     }
+    // Shown the way the camera view shows that camera: an upside-down camera
+    // is turned upright here too. The bytes on the printer stay as taken.
+    const std::optional<WebcamInfo> cam =
+        webcam::photo_pick(get_printer_state().capabilities_state().get_webcams());
+    const CameraStream::Transform transform =
+        cam ? camera_view_transform(*cam) : CameraStream::Transform{};
     const uint32_t generation = generation_;
     const std::string path = photo.path;
     api->transfers().download_file(
         "gcodes", path,
-        [this, token = lifetime_.token(), generation, max_w, max_h, path](const std::string& jpeg) {
+        [this, token = lifetime_.token(), generation, max_w, max_h, path,
+         transform](const std::string& jpeg) {
             // Worker thread: decode here, hand pixels to the main thread.
             auto frame = std::make_shared<CameraFrame>(
-                CameraStream::decode_snapshot(jpeg, max_w, max_h, CameraStream::Transform{}));
+                CameraStream::decode_snapshot(jpeg, max_w, max_h, transform));
             token.defer("HistoryPhotos::decoded", [this, generation, frame, path] {
                 if (generation != generation_) {
                     return;

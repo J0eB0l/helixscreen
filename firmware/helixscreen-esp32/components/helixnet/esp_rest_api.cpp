@@ -324,7 +324,8 @@ void MoonrakerFileTransferAPI::upload_file(const std::string&, const std::string
 
 void MoonrakerFileTransferAPI::upload_file_with_name(const std::string&, const std::string&,
                                                      const std::string&, const std::string&,
-                                                     SuccessCallback, ErrorCallback on_error) {
+                                                     SuccessCallback, ErrorCallback on_error,
+                                                     UploadLane) {
     esp_rest_unimplemented_err("MoonrakerFileTransferAPI::upload_file_with_name", on_error);
 }
 

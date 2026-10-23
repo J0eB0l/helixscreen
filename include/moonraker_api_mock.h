@@ -362,7 +362,22 @@ class MoonrakerFileTransferAPIMock : public MoonrakerFileTransferAPI {
 
     void upload_file_with_name(const std::string& root, const std::string& path,
                                const std::string& filename, const std::string& content,
-                               SuccessCallback on_success, ErrorCallback on_error) override;
+                               SuccessCallback on_success, ErrorCallback on_error,
+                               UploadLane lane = UploadLane::Fast) override;
+
+    /// One upload_file_with_name() call, as served.
+    struct NamedUploadRecord {
+        std::string root;
+        std::string path;
+        std::string filename;
+        std::string content;
+        UploadLane lane = UploadLane::Fast;
+    };
+
+    /// Every upload_file_with_name() the mock has served, in call order.
+    [[nodiscard]] const std::vector<NamedUploadRecord>& named_uploads() const {
+        return named_uploads_;
+    }
 
     void upload_file_from_path(const std::string& root, const std::string& dest_path,
                                const std::string& local_path, SuccessCallback on_success,
@@ -496,6 +511,7 @@ class MoonrakerFileTransferAPIMock : public MoonrakerFileTransferAPI {
 
     /// Recorded upload_file_from_path() calls (test spy)
     std::vector<PathUploadRecord> path_uploads_;
+    std::vector<NamedUploadRecord> named_uploads_;
     /// Recorded download_file_to_path() destinations (test spy)
     std::vector<std::string> download_destinations_;
     /// When set, upload_file_from_path() reports failure instead of success

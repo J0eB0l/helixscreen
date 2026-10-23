@@ -569,9 +569,15 @@ class ITransfersAPI {
                              const std::string& content, SuccessCallback on_success,
                              ErrorCallback on_error) = 0;
 
+    /// Which HTTP lane an in-memory upload takes: Fast for a few KB (config,
+    /// macros), Bulk for anything up to megabytes, so it never queues
+    /// small REST work behind it.
+    enum class UploadLane { Fast, Bulk };
+
     virtual void upload_file_with_name(const std::string& root, const std::string& path,
                                        const std::string& filename, const std::string& content,
-                                       SuccessCallback on_success, ErrorCallback on_error) = 0;
+                                       SuccessCallback on_success, ErrorCallback on_error,
+                                       UploadLane lane = UploadLane::Fast) = 0;
 
     virtual void upload_file_from_path(const std::string& root, const std::string& dest_path,
                                        const std::string& local_path, SuccessCallback on_success,

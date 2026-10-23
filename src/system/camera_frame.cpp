@@ -14,6 +14,7 @@
 #include "camera_stream.h"
 #include "hv/requests.h"
 #include "panel_widget_manager.h"
+#include "webcam_selection.h"
 #endif
 
 namespace helix {
@@ -99,6 +100,12 @@ ConfiguredFeed configured_feed() {
 }
 
 } // namespace
+
+CameraStream::Transform camera_view_transform(const WebcamInfo& cam) {
+    auto c = configured_feed();
+    return CameraStream::transform_from_config(webcam::view_config_for(cam.name, c.feed, c.config),
+                                               cam);
+}
 
 CameraFrameSources live_camera_sources() {
     CameraFrameSources s;

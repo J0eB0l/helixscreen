@@ -93,6 +93,14 @@ namespace webcam {
 /// the screen photograph the same camera.
 [[nodiscard]] std::optional<WebcamInfo> photo_pick(const std::vector<WebcamInfo>& cams);
 
+/// The per-view config (rotation, flip_h, flip_v) that applies to a still of
+/// the camera named @p cam_name: the camera widget's own @p widget_config when
+/// the widget shows that camera (@p widget_feed), else none, which leaves
+/// Moonraker's flips alone.
+[[nodiscard]] nlohmann::json view_config_for(const std::string& cam_name,
+                                             const std::optional<WebcamInfo>& widget_feed,
+                                             const nlohmann::json& widget_config);
+
 /// True when @p source names a camera that select_webcam() would honor. False
 /// for an empty source and for a fallback to the auto-pick.
 [[nodiscard]] bool source_is_honored(const std::vector<WebcamInfo>& cams,

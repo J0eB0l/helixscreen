@@ -66,8 +66,16 @@ FETCH_TIMEOUT_S = 10.0
 AUX_PROVIDER = "helix_print"
 AUX_NAME = "photos"
 
-# Where a relative snapshot URL is served on the printer's own host
+# Where a relative snapshot URL is served on the printer's own host: the web
+# frontend, on port 80 or on a frontend port of its own (Creality's 4408 and
+# 4409). The webcam's absolute stream URL, when it has one, names the right
+# one first.
 LOCAL_WEB_HOST = "http://127.0.0.1"
+FRONTEND_PORTS = ("", ":4408", ":4409")
+
+# The full dead-record check asks history once per record; after a job ends it
+# runs at most this often.
+FULL_PRUNE_INTERVAL_S = 86400.0
 
 # The webcam a HelixScreen's built-in screen server registers: a screen, not
 # a view of the printer.
@@ -146,26 +154,64 @@ def is_screen_webcam(cam: Dict[str, Any]) -> bool:
     return name == SCREEN_WEBCAM_NAME or name.startswith(SCREEN_WEBCAM_NAME + " (")
 
 
-def pick_snapshot_url(webcams: List[Any]) -> Optional[str]:
-    """The snapshot URL of the camera a screen shows by default: the first
-    enabled MJPEG camera, else the first enabled camera, in Moonraker's order,
-    each only with a usable snapshot URL. Mirrors webcam::photo_pick in the
-    app, so the plugin and the screen photograph the same camera."""
+def pick_webcam(webcams: List[Any]) -> Optional[Dict[str, Any]]:
+    """The camera the photos are taken with: of the enabled cameras with a
+    usable snapshot URL, the first MJPEG one, else the first, in Moonraker's
+    order. Mirrors webcam::photo_pick in the app, so the plugin and the screen
+    photograph the same camera."""
     cams = [c for c in (normalize_webcam(w) for w in webcams or []) if c is not None]
     cams = [c for c in cams if c["enabled"] and not is_screen_webcam(c)
             and is_usable_snapshot_url(c["snapshot_url"])]
     for cam in cams:
         if is_mjpeg_service(cam["service"]) and cam["stream_url"]:
-            return cam["snapshot_url"]
-    return cams[0]["snapshot_url"] if cams else None
+            return cam
+    return cams[0] if cams else None
+
+
+def pick_snapshot_url(webcams: List[Any]) -> Optional[str]:
+    cam = pick_webcam(webcams)
+    return cam["snapshot_url"] if cam is not None else None
 
 
 def absolute_url(url: str, host: str = LOCAL_WEB_HOST) -> str:
-    """A relative snapshot URL ("/webcam/?action=snapshot") is served by the
-    web frontend on this host."""
+    """`url` made absolute against `host` when it is relative."""
     if "://" in url:
         return url
     return f"{host}/{url.lstrip('/')}"
+
+
+def is_relative_url(url: str) -> bool:
+    return "://" not in url
+
+
+def url_origin(url: Any) -> Optional[str]:
+    """scheme://host[:port] of an absolute URL, None for anything else."""
+    if not isinstance(url, str) or "://" not in url:
+        return None
+    scheme, rest = url.split("://", 1)
+    host = rest.split("/", 1)[0].split("?", 1)[0]
+    return f"{scheme}://{host}" if scheme and host else None
+
+
+def snapshot_candidates(cam: Dict[str, Any]) -> List[str]:
+    """The URLs to try for a camera's snapshot, in order. An absolute
+    snapshot URL is the only one. A relative one is served by the web
+    frontend, whose port the plugin cannot know: the origin of the camera's
+    absolute stream URL first, then this host's frontend ports."""
+    snapshot = cam.get("snapshot_url", "")
+    if not is_relative_url(snapshot):
+        return [snapshot]
+    hosts = []
+    origin = url_origin(cam.get("stream_url"))
+    if origin is not None:
+        hosts.append(origin)
+    hosts.extend(LOCAL_WEB_HOST + port for port in FRONTEND_PORTS)
+    out: List[str] = []
+    for host in hosts:
+        url = absolute_url(snapshot, host)
+        if url not in out:
+            out.append(url)
+    return out
 
 
 def new_record(job_id: str, filename: str, start_time: Any) -> Dict[str, Any]:
@@ -176,6 +222,16 @@ def new_record(job_id: str, filename: str, start_time: Any) -> Dict[str, Any]:
         "start_time": start_time,
         "photos": [],
     }
+
+
+def newer_record(record: Any) -> bool:
+    """A record of a later version than this plugin writes: another plugin's,
+    left untouched, its files included."""
+    if not isinstance(record, dict):
+        return False
+    version = record.get("version")
+    return isinstance(version, int) and not isinstance(version, bool) \
+        and version > RECORD_VERSION
 
 
 def valid_record(record: Any) -> bool:
@@ -259,13 +315,15 @@ def prune_plan(
 
     `records` holds (key, record, alive): alive is whether history still has
     that job (False: gone; None: cannot be told, so kept). `sizes` maps a
-    photo path to its size on disk. A malformed record or a dead one goes;
-    then the oldest by start time until at most `max_jobs` remain and their
-    photos fit in `max_bytes`.
+    photo path to its size on disk. A newer version's record is never
+    touched. A malformed record or a dead one goes; then the oldest by start
+    time until at most `max_jobs` remain and their photos fit in `max_bytes`.
     """
     drop: List[str] = []
     live: List[Tuple[float, str, int]] = []
     for key, record, alive in records:
+        if newer_record(record):
+            continue
         if not valid_record(record) or alive is False:
             drop.append(key)
             continue
@@ -324,6 +382,12 @@ class HelixPhotos:
         self.layer_photo_due = False
         self._record_lock: Optional[asyncio.Lock] = None
         self._tasks: List[Any] = []
+        # Why the camera cannot be reached from here; None while it can. The
+        # feature then reports itself unavailable, and the screen takes over.
+        self.unreachable: Optional[str] = None
+        # The URL that last answered for a relative snapshot URL
+        self._resolved: Dict[str, str] = {}
+        self._last_full_prune = 0.0
 
     def start(self) -> None:
         self.server.register_event_handler("history:history_changed", self.on_history_changed)
@@ -337,6 +401,9 @@ class HelixPhotos:
     def photos_dir(self) -> Optional[str]:
         gc_path = self.helix.gc_path
         return None if gc_path is None else os.path.join(str(gc_path), PHOTOS_DIR)
+
+    def availability(self) -> Tuple[bool, Optional[str]]:
+        return (False, self.unreachable) if self.unreachable else (True, None)
 
     def _lock(self) -> asyncio.Lock:
         # Made inside the running loop: Python 3.8 binds a Lock to the loop
@@ -372,6 +439,7 @@ class HelixPhotos:
             return
         if isinstance(status, dict):
             self._layer_from(status)
+        await self.check_reachable()
 
     def _layer_from(self, status: Dict[str, Any]) -> Optional[int]:
         stats = status.get("print_stats")
@@ -408,13 +476,20 @@ class HelixPhotos:
             self.job = ref
             self.layer = None
             self.layer_photo_due = kind != PLR_RESUME_KIND
+            if self.unreachable:
+                self._spawn(self.check_reachable())
         elif action == "finished":
             if self.job is not None and self.job["job_id"] == ref["job_id"]:
                 self.job = None
             self.layer_photo_due = False
             if job.get("status") in END_STATUSES:
                 await self.capture(ref, KIND_END)
-            await self.prune()
+            # Linked once history has finished the row: a rewrite of the
+            # running job's row would be overwritten when it finishes.
+            await self._link_in_history(ref)
+            now = self.clock()
+            full = now - self._last_full_prune >= FULL_PRUNE_INTERVAL_S
+            await self.prune(check_history=full)
 
     def _spawn(self, coro: Any) -> None:
         task = asyncio.ensure_future(coro)
@@ -457,17 +532,64 @@ class HelixPhotos:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, fn, *args)
 
+    async def _fetch(self, url: str) -> Tuple[Optional[bytes], str]:
+        try:
+            data = await self._run_in_thread(self.fetch, url)
+        except Exception as e:
+            return None, str(e)
+        if not is_jpeg(data):
+            return None, "not a JPEG"
+        return data, ""
+
+    async def snapshot(self, cam: Dict[str, Any]) -> Optional[bytes]:
+        """The camera's snapshot, or None. A relative snapshot URL that no
+        candidate serves marks the feature unavailable (`unreachable`), so the
+        screen, which knows its frontend's port, takes the photos instead."""
+        snapshot = cam["snapshot_url"]
+        candidates = snapshot_candidates(cam)
+        known = self._resolved.get(snapshot)
+        if known in candidates:
+            candidates.remove(known)
+            candidates.insert(0, known)
+        why = ""
+        for url in candidates:
+            data, why = await self._fetch(url)
+            if data is not None:
+                self._resolved[snapshot] = url
+                if self.unreachable:
+                    logging.info("HelixPrint: photos reach the camera again at %s", url)
+                self.unreachable = None
+                return data
+        if is_relative_url(snapshot):
+            if not self.unreachable:
+                logging.warning(
+                    "HelixPrint: camera snapshot %s answers on none of %s (%s); photos are "
+                    "left to the screen", snapshot, ", ".join(candidates), why)
+            self.unreachable = f"snapshot_unreachable: {snapshot}"
+        else:
+            logging.info("HelixPrint: snapshot %s not taken: %s", snapshot, why)
+        return None
+
+    async def check_reachable(self) -> None:
+        """Try the camera once, so an unreachable one is reported before a
+        print needs it and a reachable one again is noticed."""
+        cam = pick_webcam(await self._webcams())
+        if cam is None:
+            self.unreachable = None
+            return
+        await self.snapshot(cam)
+
     async def capture(self, job: Dict[str, Any], kind: str) -> Optional[str]:
-        """Save one photo for `job`, and list it in the job's record and
-        auxiliary_data. Returns the photo's path, or None when nothing was
-        saved: the feature is off, there is no webcam, or the fetch failed."""
+        """Save one photo for `job` and list it in the job's record. Returns
+        the photo's path, or None when nothing was saved: the feature is off
+        or cannot reach the camera, there is no webcam, or the fetch failed."""
         if not await self.helix.feature_enabled(PHOTOS_FEATURE):
             return None
         directory = self.photos_dir()
         if directory is None:
             return None
-        url = pick_snapshot_url(await self._webcams())
-        if url is None:
+        cam = pick_webcam(await self._webcams())
+        if cam is None:
             logging.debug("HelixPrint: no webcam, no %s photo for job %s", kind, job["job_id"])
             return None
         free = self._free_bytes(os.path.dirname(directory))
@@ -475,13 +597,8 @@ class HelixPhotos:
             logging.info("HelixPrint: %d bytes free, no %s photo for job %s",
                          free, kind, job["job_id"])
             return None
-        try:
-            data = await self._run_in_thread(self.fetch, absolute_url(url))
-        except Exception as e:
-            logging.info("HelixPrint: %s photo for job %s not taken: %s", kind, job["job_id"], e)
-            return None
-        if not is_jpeg(data):
-            logging.info("HelixPrint: snapshot for job %s is not a JPEG", job["job_id"])
+        data = await self.snapshot(cam)
+        if data is None:
             return None
         path = photo_path(job["job_id"], job.get("start_time"), kind)
         try:
@@ -491,9 +608,7 @@ class HelixPhotos:
         except Exception as e:
             logging.warning("HelixPrint: could not save photo %s: %s", path, e)
             return None
-        record = await self._add_to_record(job, kind, path, len(data))
-        if record is not None:
-            await self._link_in_history(job, record)
+        await self._add_to_record(job, kind, path, len(data))
         logging.info("HelixPrint: %s photo for job %s saved as %s", kind, job["job_id"], path)
         return path
 
@@ -506,6 +621,10 @@ class HelixPhotos:
                 record = await self.database.get_item(PHOTOS_NAMESPACE, [job["job_id"]], None)
             except Exception:
                 record = None
+            if newer_record(record):
+                logging.info("HelixPrint: photo record of job %s is a newer version, left as it is",
+                             job["job_id"])
+                return None
             if not valid_record(record) or not history_matches(record, job):
                 if valid_record(record):
                     await self._delete_files(record_paths(record))
@@ -518,16 +637,25 @@ class HelixPhotos:
                 return None
             return record
 
-    async def _link_in_history(self, job: Dict[str, Any], record: Dict[str, Any]) -> None:
-        """List the photos in the job's auxiliary_data, where this Moonraker's
-        history can rewrite a job (get_job/save_job, v0.9 and newer)."""
+    async def _link_in_history(self, job: Dict[str, Any]) -> None:
+        """List the job's photos in its auxiliary_data, where this Moonraker's
+        history can rewrite a job (get_job/save_job, v0.9 and newer). Only a
+        finished row is rewritten: history saves the running job's row over
+        anything written to it, and a rewrite racing the finish would put the
+        running row back."""
         history = self.helix.history
         patch = getattr(self.helix, "patch_history_job", None)
-        if history is None or patch is None:
+        if history is None or patch is None or self.database is None:
+            return
+        try:
+            record = await self.database.get_item(PHOTOS_NAMESPACE, [job["job_id"]], None)
+        except Exception:
+            return
+        if not valid_record(record) or not record["photos"]:
             return
 
         def update(row: Dict[str, Any]) -> bool:
-            if not history_matches(record, row):
+            if not history_matches(record, row) or row.get("status") == "in_progress":
                 return False
             row["auxiliary_data"] = merge_aux(row.get("auxiliary_data"), record)
             return True
@@ -578,28 +706,40 @@ class HelixPhotos:
             except OSError as e:
                 logging.info("HelixPrint: could not delete photo %s: %s", path, e)
 
-    async def prune(self) -> List[str]:
-        """Drop records, with their photos, whose history job is gone or that
-        fall outside the storage bounds; then photos no record lists. Returns
-        the record keys dropped."""
+    async def prune(self, check_history: bool = True) -> List[str]:
+        """Drop records, with their photos, that fall outside the storage
+        bounds or (with `check_history`) whose history job is gone; then
+        photos no record lists. Returns the record keys dropped."""
         directory = self.photos_dir()
         if self.database is None or directory is None:
             return []
         async with self._lock():
+            if check_history:
+                self._last_full_prune = self.clock()
             items = await self.helix._namespace_items(PHOTOS_NAMESPACE)
-            records = [(key, record, await self._history_alive(key, record))
-                       for key, record in items]
+            records = []
+            for key, record in items:
+                alive = await self._history_alive(key, record) if check_history \
+                    else (None if valid_record(record) else False)
+                records.append((key, record, alive))
             drop = prune_plan(records, self._sizes(directory))
             by_key = dict(items)
             for key in drop:
-                await self._delete_files(record_paths(by_key.get(key)))
+                # A record that cannot be read names no files to trust.
+                if valid_record(by_key.get(key)):
+                    await self._delete_files(record_paths(by_key.get(key)))
                 try:
                     await self.database.delete_item(PHOTOS_NAMESPACE, [key])
                 except Exception as e:
                     logging.info("HelixPrint: could not drop photo record %s: %s", key, e)
             kept = [p for key, record in items if key not in drop for p in record_paths(record)]
+            # A newer version's record may list files this one cannot read,
+            # and a linked directory leads outside gcodes: no sweep then.
+            sweep = not os.path.islink(directory) and \
+                not any(newer_record(record) for _, record in items)
             try:
-                names = [(e.name, e.stat().st_mtime) for e in os.scandir(directory)]
+                names = [(e.name, e.stat().st_mtime) for e in os.scandir(directory)] \
+                    if sweep else []
             except OSError:
                 names = []
             orphans = orphan_files(names, kept, self.clock())

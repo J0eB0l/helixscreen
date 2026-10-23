@@ -9,15 +9,15 @@
 #include "ui_observer_guard.h"
 
 #include "async_lifetime_guard.h"
+#include "history_job_events.h"
 #include "print_photos.h"
 
+#include <deque>
 #include <functional>
 #include <optional>
 #include <string>
 
 namespace helix {
-
-class IMoonrakerClient;
 
 class PrintPhotosController {
   public:
@@ -53,8 +53,10 @@ class PrintPhotosController {
     void capture(const Job& job, const std::string& kind);
     void fetch_and_store(const Job& job, const std::string& kind, const std::string& url);
     void upload(const Job& job, const std::string& kind, std::string bytes);
+    /// Add a photo to its job's record, after any write still in flight.
     void write_record(const Job& job, const std::string& kind, const std::string& path,
                       size_t size);
+    void next_record();
     /// Keep at most kMaxPhotoJobs records, deleting the photos of the rest.
     void prune();
 
@@ -71,8 +73,17 @@ class PrintPhotosController {
     /// Guards the notification, fetch and database replies, which arrive off
     /// the main thread.
     AsyncLifetimeGuard lifetime_;
-    /// The client the history notification is registered on.
-    const IMoonrakerClient* subscribed_client_ = nullptr;
+    HistoryJobEvents history_events_;
+
+    struct PendingRecord {
+        Job job;
+        std::string kind;
+        std::string path;
+        size_t size = 0;
+    };
+    /// Photos uploaded and waiting for their record write, oldest first.
+    std::deque<PendingRecord> pending_records_;
+    bool record_busy_ = false;
 };
 
 } // namespace helix

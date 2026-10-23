@@ -165,27 +165,12 @@ void StandingPrintOptionsController::load_opt_ins(IMoonrakerAPI& api) {
 }
 
 void StandingPrintOptionsController::subscribe_history(IMoonrakerAPI& api) {
-    IMoonrakerClient& client = api.get_client();
-    if (subscribed_client_ == &client) {
-        return;
-    }
-    subscribed_client_ = &client;
-    client.register_method_callback(
-        "notify_history_changed", kHandlerName,
-        [this, token = lifetime_.token()](const nlohmann::json& data) {
-            // bg thread: parse only.
-            const nlohmann::json* payload = json_util::notification_payload(data);
-            if (payload == nullptr || json_util::safe_string(*payload, "action") != "added") {
-                return;
-            }
-            const nlohmann::json* job = json_util::find_member(*payload, "job");
-            if (job == nullptr || !job->is_object()) {
-                return;
-            }
-            std::string filename = json_util::safe_string(*job, "filename");
-            token.defer("StandingPrintOptions::job_added",
-                        [this, filename = std::move(filename)] { on_job_added(filename); });
-        });
+    history_events_.subscribe(api, kHandlerName, lifetime_.token(),
+                              [this](const HistoryJobEvent& event) {
+                                  if (event.action == "added") {
+                                      on_job_added(event.filename);
+                                  }
+                              });
 }
 
 void StandingPrintOptionsController::on_job_added(const std::string& filename) {

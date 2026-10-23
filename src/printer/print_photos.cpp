@@ -25,8 +25,9 @@ void sort_photos(std::vector<PrintPhoto>& photos) {
     });
 }
 
-// The kind a photo file name ends in: "<job>_<start>_<kind>.jpg".
-std::string kind_from_path(const std::string& path) {
+} // namespace
+
+std::string photo_kind_from_path(const std::string& path) {
     for (const char* kind : {kPhotoKindLayer, kPhotoKindEnd}) {
         const std::string suffix = std::string("_") + kind + ".jpg";
         if (path.size() > suffix.size() &&
@@ -36,8 +37,6 @@ std::string kind_from_path(const std::string& path) {
     }
     return "";
 }
-
-} // namespace
 
 std::string photo_file_name(const std::string& job_id, double start_time, const std::string& kind) {
     const long long start = std::isfinite(start_time) ? static_cast<long long>(start_time) : 0;
@@ -64,12 +63,6 @@ bool layer_two_done(std::optional<int> previous, int current) {
 bool ends_with_photo(const std::string& history_status) {
     return history_status == "completed" || history_status == "cancelled" ||
            history_status == "error";
-}
-
-bool is_jpeg(const std::string& bytes) {
-    return bytes.size() > 3 && static_cast<unsigned char>(bytes[0]) == 0xFF &&
-           static_cast<unsigned char>(bytes[1]) == 0xD8 &&
-           static_cast<unsigned char>(bytes[2]) == 0xFF;
 }
 
 PhotoTaker photo_taker(PluginFeatureState photos, bool opted_in, bool can_capture,
@@ -125,7 +118,7 @@ std::vector<PrintPhoto> parse_photo_aux(const nlohmann::json& auxiliary_data) {
         for (const auto& item : *value) {
             PrintPhoto photo;
             photo.path = json_util::as_string(item, "");
-            photo.kind = kind_from_path(photo.path);
+            photo.kind = photo_kind_from_path(photo.path);
             if (known_kind(photo.kind) && is_photo_path(photo.path)) {
                 photos.push_back(std::move(photo));
             }
@@ -180,6 +173,12 @@ nlohmann::json photo_record_with(const nlohmann::json& record, const std::string
     return out;
 }
 
+bool photo_record_is_newer(const nlohmann::json& record) {
+    const nlohmann::json* version = json_util::find_member(record, "version");
+    return version != nullptr && version->is_number_integer() &&
+           json_util::as_int(*version) > kPhotoRecordVersion;
+}
+
 std::vector<std::string> photo_records_to_prune(const nlohmann::json& records, size_t max_jobs) {
     std::vector<std::string> drop;
     if (!records.is_object()) {
@@ -188,6 +187,9 @@ std::vector<std::string> photo_records_to_prune(const nlohmann::json& records, s
     std::vector<std::pair<double, std::string>> live;
     for (auto it = records.begin(); it != records.end(); ++it) {
         const nlohmann::json& record = it.value();
+        if (photo_record_is_newer(record)) {
+            continue;
+        }
         const nlohmann::json* start =
             record.is_object() ? json_util::find_member(record, "start_time") : nullptr;
         if (json_util::safe_int(record, "version", 0) != kPhotoRecordVersion || start == nullptr ||
@@ -206,7 +208,7 @@ std::vector<std::string> photo_records_to_prune(const nlohmann::json& records, s
 
 std::vector<std::string> photo_record_paths(const nlohmann::json& record) {
     std::vector<std::string> paths;
-    if (!record.is_object()) {
+    if (!record.is_object() || json_util::safe_int(record, "version", 0) != kPhotoRecordVersion) {
         return paths;
     }
     const nlohmann::json* list = json_util::find_member(record, "photos");

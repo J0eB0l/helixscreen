@@ -310,8 +310,14 @@ and the files.
   job first seen past layer 2 (a restart mid-print) and a job marked `plr_resume` get no
   layer photo. The end photo is taken on history's `finished` event.
 - **Which camera.** Of the enabled webcams with a snapshot URL that is not an HTML page
-  (HelixScreen's own screen-server entry excluded), the first MJPEG one, else the first. A
-  relative URL is fetched from `http://127.0.0.1`. No webcam: nothing happens.
+  (HelixScreen's own screen-server entry excluded), the first MJPEG one, else the first. No
+  webcam: nothing happens. A relative snapshot URL is served by the web frontend, whose port
+  the plugin cannot know: it tries the origin of the camera's absolute stream URL, then
+  `http://127.0.0.1` on ports 80, 4408 and 4409, and remembers the one that answered. When
+  none does, the feature reports `available: false` with reason
+  `snapshot_unreachable: <url>`, so a screen (which knows its frontend's port) takes the
+  photos instead; the plugin tries again at Klipper ready and at each job start. An absolute
+  URL that fails is a camera problem and leaves the feature available.
 - **What is kept.** The bytes, unchanged, when they start like a JPEG and are at most 8 MB, as
   `gcodes/.helix_photos/<job id>_<start time>_<layer2|end>.jpg`. No photo is taken while the
   volume has less than 256 MB free.
@@ -328,14 +334,21 @@ and the files.
   The screen writes the same record with `"source": "app"` when it takes the photos itself.
   History reuses job ids, so a record answers only for the job whose `start_time` matches.
 - **History link.** Where history has `get_job`/`save_job` (Moonraker 0.9 and newer), the job's
-  `auxiliary_data` gets `{"provider": "helix_print", "name": "photos", "value": [<paths>]}`.
+  `auxiliary_data` gets `{"provider": "helix_print", "name": "photos", "value": [<paths>]}`,
+  written once history has finished the job (any status). A row still `in_progress` is never
+  rewritten: history saves the running job over it, and a rewrite racing the finish would
+  put the running row back.
   Every rewrite of a history row by the plugin goes through one lock, so it never saves over
   the `modifications` entry of a linked print, or the other way round.
-- **Pruning.** At startup and after each job ends: a record whose history job is gone, or
-  whose id history now uses for a later job, is deleted with its files; then the oldest jobs
-  go until at most 500 remain and their photos fit in 128 MB; then files in `.helix_photos`
-  that no record lists and that are over an hour old. A Moonraker whose history cannot be
-  asked keeps every record (the bounds still apply).
+- **Pruning.** After each job ends, the oldest jobs go until at most 500 remain and their
+  photos fit in 128 MB. At startup, and at most daily after a job ends, a record whose history
+  job is gone, or whose id history now uses for a later job, is deleted with its files too.
+  Then files in `.helix_photos` that no record lists and that are over an hour old. A
+  Moonraker whose history cannot be asked keeps every record (the bounds still apply). A
+  record of a newer version is never touched, and while one exists, or when `.helix_photos`
+  is a link, no unlisted file is removed. An unreadable record is dropped without deleting
+  any file it names.
+
 ### File-fits-printer check (`fit_check_blocks_autostart`)
 
 Holds a slicer's upload-and-print (an upload carrying `print=true`, as OrcaSlicer's
