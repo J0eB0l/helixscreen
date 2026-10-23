@@ -951,14 +951,12 @@ void ams_detail_setup_path_canvas(lv_obj_t* canvas, lv_obj_t* slot_grid, int uni
         topo = helix::PathTopology::HUB;
     ui_filament_path_canvas_set_topology(canvas, static_cast<int>(topo));
     ui_filament_path_canvas_set_hub_on_toolhead(canvas, backend->hub_on_toolhead());
-    // A unit the overview places on no nozzle (an unwired hub) ends at its hub
-    // here too: the same layout decides both. A hub mounted on the head feeds
+    // A unit the overview joins to no nozzle (an unwired hub) ends at its hub
+    // here too: the overview's own rule decides both. A hub mounted on the head feeds
     // it by construction, and the all-units view always reaches a toolhead.
     const bool linear_hub = topo == helix::PathTopology::HUB || topo == helix::PathTopology::LINEAR;
-    const bool feeds_toolhead =
-        !linear_hub || unit_index < 0 || backend->hub_on_toolhead() ||
-        helix::ui::unit_feeds_toolhead(ams_draw::compute_system_tool_layout(info, backend),
-                                       unit_index);
+    const bool feeds_toolhead = !linear_hub || unit_index < 0 || backend->hub_on_toolhead() ||
+                                helix::ui::unit_feeds_toolhead(info, backend, unit_index);
     ui_filament_path_canvas_set_feeds_toolhead(canvas, feeds_toolhead);
 
     // A unit-scoped view asks its own unit; the all-units view asks whether any has one.

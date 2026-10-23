@@ -1442,14 +1442,41 @@ TEST_CASE("SystemToolLayout: an unwired hub unit feeds no toolhead and a wired o
     info.units.push_back(absent);
     info.total_slots = 12;
 
-    const auto layout = compute_system_tool_layout(info, nullptr);
-    REQUIRE(layout.units.size() == 3);
-    CHECK(layout.units[0].tool_count == 0);
-    CHECK(layout.units[1].tool_count == 1);
+    SECTION("one nozzle: the overview joins every present unit to it") {
+        const auto layout = compute_system_tool_layout(info, nullptr);
+        REQUIRE(layout.total_physical_tools == 1);
+        REQUIRE(layout.units[0].tool_count == 0);
 
-    CHECK_FALSE(helix::ui::unit_feeds_toolhead(layout, 0));
-    CHECK(helix::ui::unit_feeds_toolhead(layout, 1));
-    CHECK_FALSE(helix::ui::unit_feeds_toolhead(layout, 2));
-    // The all-units view always ends at a toolhead.
-    CHECK(helix::ui::unit_feeds_toolhead(layout, -1));
+        CHECK(helix::ui::unit_feeds_toolhead(info, nullptr, 0));
+        CHECK(helix::ui::unit_feeds_toolhead(info, nullptr, 1));
+        CHECK_FALSE(helix::ui::unit_feeds_toolhead(info, nullptr, 2));
+    }
+
+    SECTION("several nozzles: the unwired hub joins none") {
+        // Unit 3: a hub feeding extruder2.
+        AmsUnit second = wired;
+        second.unit_index = 3;
+        second.first_slot_global_index = 12;
+        for (int s = 0; s < 4; ++s) {
+            second.slots[static_cast<size_t>(s)].global_index = 12 + s;
+            second.slots[static_cast<size_t>(s)].mapped_tool = 2;
+            second.slots[static_cast<size_t>(s)].extruder_name = "extruder2";
+        }
+        info.units.push_back(second);
+        info.total_slots = 16;
+
+        const auto layout = compute_system_tool_layout(info, nullptr);
+        REQUIRE(layout.total_physical_tools == 2);
+        CHECK(layout.units[0].tool_count == 0);
+        CHECK(layout.units[1].tool_count == 1);
+
+        CHECK_FALSE(helix::ui::unit_feeds_toolhead(info, nullptr, 0));
+        CHECK(helix::ui::unit_feeds_toolhead(info, nullptr, 1));
+        CHECK_FALSE(helix::ui::unit_feeds_toolhead(info, nullptr, 2));
+        CHECK(helix::ui::unit_feeds_toolhead(info, nullptr, 3));
+    }
+
+    // The all-units view, and an index past the system, always end at a toolhead.
+    CHECK(helix::ui::unit_feeds_toolhead(info, nullptr, -1));
+    CHECK(helix::ui::unit_feeds_toolhead(info, nullptr, 99));
 }

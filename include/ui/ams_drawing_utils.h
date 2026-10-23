@@ -353,10 +353,13 @@ namespace helix::ui {
 /**
  * @brief Whether the view of @p unit_index draws its path on to a toolhead
  *
- * A unit the layout places on no nozzle (an unwired hub, an absent box) feeds
- * none, so its view ends at the hub, as the overview draws it. The all-units
- * view (@p unit_index < 0) and an index past the layout always feed one.
+ * The overview's own rule. With one nozzle or none, the overview joins every
+ * present unit to the one toolhead. With several, a unit the layout places on
+ * no nozzle (an unwired hub) feeds none, so its view ends at the hub. An absent
+ * box never feeds one. The all-units view (@p unit_index < 0) and an index past
+ * the system always do.
  */
-[[nodiscard]] bool unit_feeds_toolhead(const ams_draw::SystemToolLayout& layout, int unit_index);
+[[nodiscard]] bool unit_feeds_toolhead(const helix::AmsSystemInfo& info,
+                                       const helix::AmsBackend* backend, int unit_index);
 
 } // namespace helix::ui

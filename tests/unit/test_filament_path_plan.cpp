@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "../catch_amalgamated.hpp"
@@ -2027,11 +2028,12 @@ TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: PARALLEL ignores whether a hub 
 
 TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: a unit view ends where the overview ends it",
                  "[filament-path][plan]") {
-    // Unit 0 names no tool, extruder or hub label: the overview gives it no nozzle.
-    // Unit 1 feeds extruder1.
+    // Unit 0 names no tool, extruder or hub label: on a printer with two
+    // nozzles the overview joins it to neither. Units 1 and 2 feed extruder1
+    // and extruder2.
     helix::AmsSystemInfo info;
     info.type = helix::AmsType::ACE;
-    for (int u = 0; u < 2; ++u) {
+    for (int u = 0; u < 3; ++u) {
         helix::AmsUnit unit;
         unit.unit_index = u;
         unit.slot_count = 4;
@@ -2041,15 +2043,15 @@ TEST_CASE_METHOD(LVGLTestFixture, "FilamentPath: a unit view ends where the over
             helix::SlotInfo slot;
             slot.slot_index = s;
             slot.global_index = 4 * u + s;
-            slot.mapped_tool = u == 0 ? -1 : 1;
-            slot.extruder_name = u == 0 ? "" : "extruder1";
+            slot.mapped_tool = u == 0 ? -1 : u;
+            slot.extruder_name = u == 0 ? "" : "extruder" + std::to_string(u);
             unit.slots.push_back(slot);
         }
         info.units.push_back(unit);
     }
-    info.total_slots = 8;
+    info.total_slots = 12;
 
-    helix::AmsBackendMock backend(8);
+    helix::AmsBackendMock backend(12);
     REQUIRE(backend.get_unit_topology(0) == helix::PathTopology::LINEAR);
     REQUIRE_FALSE(backend.hub_on_toolhead());
     lv_obj_t* w = make_canvas(test_screen(), static_cast<int>(helix::PathTopology::HUB));
