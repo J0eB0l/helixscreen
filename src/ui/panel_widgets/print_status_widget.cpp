@@ -60,6 +60,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <string_view>
 #include <unordered_set>
 
@@ -2196,12 +2197,20 @@ void PrintStatusWidget::DetailedFormatter::update_time_text() {
     auto& ps = get_printer_state();
     int elapsed = lv_subject_get_int(ps.print_state().get_print_elapsed_subject());
     int remain = lv_subject_get_int(ps.print_state().get_print_time_left_subject());
+    const size_t old_len = strlen(elapsed_text_buf_) + strlen(remaining_text_buf_);
     snprintf(elapsed_text_buf_, sizeof(elapsed_text_buf_), "%s",
              helix::format::duration_padded(elapsed).c_str());
     lv_subject_copy_string(&elapsed_text_subject_, elapsed_text_buf_);
     snprintf(remaining_text_buf_, sizeof(remaining_text_buf_), "%s",
              helix::format::duration_padded(remain).c_str());
     lv_subject_copy_string(&remaining_text_subject_, remaining_text_buf_);
+    // A time that gains or loses a field ("59m" to "1h 00m") changes what the
+    // time row needs; ticks within one length do not.
+    if (strlen(elapsed_text_buf_) + strlen(remaining_text_buf_) != old_len) {
+        for (auto* widget : live_instances()) {
+            widget->schedule_library_fit();
+        }
+    }
 }
 
 void PrintStatusWidget::DetailedFormatter::update_filament_text() {
