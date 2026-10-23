@@ -778,6 +778,10 @@ void PrinterImageWidget::handle_callout_clicked(CalloutKind kind) {
             flash_light_icon(lv_obj_find_by_name(widget_obj_, "callout_light_dark"));
         break;
     }
+    case CalloutKind::HotendFan:
+    case CalloutKind::AuxFan:
+    case CalloutKind::SpeedFlow:
+        break; // the home widget has no such chips
     }
 }
 

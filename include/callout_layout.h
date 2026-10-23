@@ -272,10 +272,15 @@ inline int dock_rank(CalloutKind k) {
 /// Pinned chips (the first `pinned` of `chips`) sit on their points and can land
 /// on each other. Each x-column is moved apart vertically by spread_1d, above the
 /// docked row (the rest of `chips`); a lone chip moves only to clear that row.
+/// `src` holds the pinned chips' inputs, in the order of the first chips.size() entries.
 /// Returns the index of the chip a column too tall to stack gives up to the
 /// docked row, before moving anything, or nullopt once every column fits.
 inline std::optional<size_t> slide_apart(const CalloutLayoutInput& in,
-                                         std::vector<CalloutChipOut>& chips, size_t pinned) {
+                                         std::vector<CalloutChipOut>& chips,
+                                         const std::vector<CalloutChipIn>& src) {
+    const size_t pinned = src.size();
+    // An expendable chip gives way before any other; the rest go by dock_rank.
+    const auto rank = [&](size_t i) { return src[i].expendable ? -1 : dock_rank(chips[i].kind); };
     int hi = in.area_h - in.gap;
     for (size_t i = pinned; i < chips.size(); ++i)
         hi = std::min(hi, chips[i].rect.y - in.gap);
@@ -288,8 +293,7 @@ inline std::optional<size_t> slide_apart(const CalloutLayoutInput& in,
             continue;
         std::optional<size_t> victim;
         for (size_t i : col)
-            if (dock_rank(chips[i].kind) < 4 &&
-                (!victim || dock_rank(chips[i].kind) < dock_rank(chips[*victim].kind)))
+            if (rank(i) < 4 && (!victim || rank(i) < rank(*victim)))
                 victim = i;
         if (victim)
             return victim;
@@ -312,6 +316,79 @@ inline std::optional<size_t> slide_apart(const CalloutLayoutInput& in,
             chips[i].rect = clamp_into(chips[i].rect, in.area_w, in.area_h);
     }
     return std::nullopt;
+}
+
+inline bool rects_near(const CalloutRect& a, const CalloutRect& b, int margin) {
+    return a.x < b.x + b.w + margin && b.x < a.x + a.w + margin && a.y < b.y + b.h + margin &&
+           b.y < a.y + a.h + margin;
+}
+
+/// Chips with no tagged point, placed in whatever the line modes leave free: the
+/// right and left strips beside the image, else the bottom and top strips, each
+/// hugging the area edge and clear of the image and of everything already in `out`.
+/// A chip that fits nowhere falls back to place_docked and the result is false.
+inline bool dock_free(const CalloutLayoutInput& in, const CalloutRect& img,
+                      const std::vector<CalloutChipIn>& chips, std::vector<CalloutChipOut>& out) {
+    bool all_fit = true;
+    for (const auto& c : chips) {
+        const auto free_at = [&](const CalloutRect& r) {
+            if (r.x < in.gap || r.y < in.gap || r.x + r.w > in.area_w - in.gap ||
+                r.y + r.h > in.area_h - in.gap || rects_near(r, img, 0))
+                return false;
+            return std::none_of(out.begin(), out.end(), [&](const CalloutChipOut& o) {
+                return rects_near(r, o.rect, in.gap);
+            });
+        };
+        std::optional<CalloutRect> spot;
+        for (const int x : {in.area_w - in.gap - c.w, in.gap}) {
+            for (int y = in.gap; !spot && y + in.chip_h <= in.area_h - in.gap; ++y)
+                if (free_at({x, y, c.w, in.chip_h}))
+                    spot = CalloutRect{x, y, c.w, in.chip_h};
+            if (spot)
+                break;
+        }
+        for (const int y : {in.area_h - in.gap - in.chip_h, in.gap}) {
+            if (spot)
+                break;
+            for (int x = in.area_w - in.gap - c.w; !spot && x >= in.gap; --x)
+                if (free_at({x, y, c.w, in.chip_h}))
+                    spot = CalloutRect{x, y, c.w, in.chip_h};
+        }
+        if (spot) {
+            out.push_back({c.kind, *spot});
+        } else {
+            place_docked(in, img, {c}, out);
+            all_fit = false;
+        }
+    }
+    return all_fit;
+}
+
+/// Gives a pinned chip a leader when it sits farther than leader_min_distance from
+/// its point: 45 degrees toward the chip, then straight into the nearest edge.
+inline void add_pinned_leader(const CalloutLayoutInput& in, CalloutChipOut& o,
+                              const CalloutPoint& pt) {
+    if (in.leader_min_distance <= 0)
+        return;
+    const int cx = o.rect.x + o.rect.w / 2, cy = o.rect.y + o.rect.h / 2;
+    const int64_t dx = cx - pt.x, dy = cy - pt.y;
+    const int64_t m = in.leader_min_distance;
+    if (dx * dx + dy * dy <= m * m)
+        return;
+    const bool horizontal = std::abs(dx) > std::abs(dy);
+    if (horizontal) {
+        o.line_x1 = dx > 0 ? o.rect.x : o.rect.x + o.rect.w;
+        o.line_y1 = cy;
+    } else {
+        o.line_x1 = cx;
+        o.line_y1 = dy > 0 ? o.rect.y : o.rect.y + o.rect.h;
+    }
+    const CalloutPoint e = leader_elbow(pt, {o.line_x1, o.line_y1}, in.min_line, horizontal);
+    o.has_line = true;
+    o.line_x0 = pt.x;
+    o.line_y0 = pt.y;
+    o.line_xm = e.x;
+    o.line_ym = e.y;
 }
 
 inline CalloutChipOut chip_at(const CalloutChipIn& c, int x, int y, int h, int ax, int ay) {
@@ -387,9 +464,11 @@ inline std::pair<bool, int> line_column(const CalloutLayoutInput& in, const Call
     return {horiz, (horiz ? widest : in.chip_h) + in.gap + in.min_line};
 }
 
-/// Both sides, else one side, with the image centred at `centred`.
+/// Both sides, else one side, with the image centred at `centred`. `in` holds only
+/// chips with points; the `loose_` chips have none and dock in the space left.
 inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& centred,
-                              CalloutLayout& out) {
+                              const std::vector<CalloutChipIn>& loose_budget,
+                              const std::vector<CalloutChipIn>& loose_active, CalloutLayout& out) {
     // Plain locals, not a structured binding: clang before 16 rejects a lambda
     // capturing a binding.
     const auto column = line_column(in, centred);
@@ -407,11 +486,13 @@ inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& c
     std::vector<CalloutChipOut> scratch;
     const int band = horiz ? centred.x : centred.y;
     if (band >= col && stack(in, centred, horiz, true, in.gap, split(in.budget, true), scratch) &&
-        stack(in, centred, horiz, false, far_edge, split(in.budget, false), scratch)) {
+        stack(in, centred, horiz, false, far_edge, split(in.budget, false), scratch) &&
+        dock_free(in, centred, loose_budget, scratch)) {
         out.image = centred;
         out.chips.clear();
         stack(in, centred, horiz, true, in.gap, split(in.active, true), out.chips);
         stack(in, centred, horiz, false, far_edge, split(in.active, false), out.chips);
+        dock_free(in, centred, loose_active, out.chips);
         out.mode = CalloutMode::BothSides;
         return true;
     }
@@ -420,10 +501,12 @@ inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& c
     CalloutRect moved = centred;
     (horiz ? moved.x : moved.y) = 0;
     scratch.clear();
-    if (free_extent >= col && stack(in, moved, horiz, false, far_edge, in.budget, scratch)) {
+    if (free_extent >= col && stack(in, moved, horiz, false, far_edge, in.budget, scratch) &&
+        dock_free(in, moved, loose_budget, scratch)) {
         out.image = moved;
         out.chips.clear();
         stack(in, moved, horiz, false, far_edge, in.active, out.chips);
+        dock_free(in, moved, loose_active, out.chips);
         out.mode = CalloutMode::OneSide;
         return true;
     }
@@ -433,20 +516,27 @@ inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& c
 /// Line modes at the contain-fit size, else with the image shrunk by up to
 /// kMaxImageShrinkPct: just enough for one side, then for both. Fit is tested
 /// against the BUDGET and only the ACTIVE chips are placed, so the image never
-/// moves as chips come and go. A part with no tagged point cannot have a line:
-/// the pinned path docks it.
+/// moves as chips come and go. Chips with no tagged point have no line; they dock
+/// in the space the line modes leave, and must fit there too.
 inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
-    if (in.budget.empty())
+    CalloutLayoutInput lined = in;
+    std::vector<CalloutChipIn> loose_budget, loose_active;
+    const auto split_loose = [](const std::vector<CalloutChipIn>& all,
+                                std::vector<CalloutChipIn>& tied,
+                                std::vector<CalloutChipIn>& loose) {
+        tied.clear();
+        for (const auto& c : all)
+            (c.anchor ? tied : loose).push_back(c);
+    };
+    split_loose(in.budget, lined.budget, loose_budget);
+    split_loose(in.active, lined.active, loose_active);
+    if (lined.budget.empty())
         return false;
-    for (const auto* v : {&in.budget, &in.active})
-        for (const auto& c : *v)
-            if (!c.anchor)
-                return false;
 
     const CalloutRect fitted = out.image;
-    if (try_line_modes_at(in, fitted, out))
+    if (try_line_modes_at(lined, fitted, loose_budget, loose_active, out))
         return true;
-    const auto [horiz, col] = line_column(in, fitted);
+    const auto [horiz, col] = line_column(lined, fitted);
     const int area = horiz ? in.area_w : in.area_h;
     const int full = horiz ? fitted.w : fitted.h;
     const int min_extent = full - full * kMaxImageShrinkPct / 100;
@@ -459,7 +549,7 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
         shrunk.h = horiz ? int(int64_t(fitted.h) * extent / full) : extent;
         shrunk.x = (in.area_w - shrunk.w) / 2;
         shrunk.y = (in.area_h - shrunk.h) / 2;
-        if (try_line_modes_at(in, shrunk, out))
+        if (try_line_modes_at(lined, shrunk, loose_budget, loose_active, out))
             return true;
     }
     return false;
@@ -480,6 +570,19 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
     if (in.tagged) {
         if (try_line_modes(in, out))
             return out;
+        // Expendable chips go before the image gives up its lines.
+        const auto expendable = [](const CalloutChipIn& c) { return c.expendable; };
+        if (std::any_of(in.budget.begin(), in.budget.end(), expendable)) {
+            CalloutLayoutInput lean = in;
+            for (auto* v : {&lean.budget, &lean.active})
+                v->erase(std::remove_if(v->begin(), v->end(), expendable), v->end());
+            if (try_line_modes(lean, out)) {
+                for (const auto& c : in.active)
+                    if (c.expendable)
+                        out.dropped.push_back(c.kind);
+                return out;
+            }
+        }
         const auto has = [&](CalloutKind k) {
             return std::any_of(chips.begin(), chips.end(),
                                [k](const CalloutChipIn& c) { return c.kind == k; });
@@ -511,10 +614,18 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
             }
             // The docked row is the bottom edge: the side bands belong to the image here.
             place_docked(in, CalloutRect{0, 0, in.area_w, 0}, docked, out.chips);
-            const auto victim = slide_apart(in, out.chips, pinned.size());
-            if (!victim)
+            const auto victim = slide_apart(in, out.chips, pinned);
+            if (!victim) {
+                for (size_t i = 0; i < pinned.size(); ++i)
+                    add_pinned_leader(in, out.chips[i],
+                                      {px(pinned[i].anchor->x, out.image.x, out.image.w),
+                                       px(pinned[i].anchor->y, out.image.y, out.image.h)});
                 return out;
-            docked.push_back(pinned[*victim]);
+            }
+            if (pinned[*victim].expendable)
+                out.dropped.push_back(pinned[*victim].kind);
+            else
+                docked.push_back(pinned[*victim]);
             pinned.erase(pinned.begin() + long(*victim));
         }
     }
