@@ -670,7 +670,7 @@ TEST_CASE_METHOD(AbortManagerTestFixture,
     AbortManagerTestAccess::send_firmware_restart(AbortManager::instance());
     REQUIRE(AbortManager::instance().get_state() == AbortManager::State::SENT_RESTART);
 
-    REQUIRE(wait_until(
+    REQUIRE(advance_until(
         []() { return AbortManager::instance().get_state() != AbortManager::State::SENT_RESTART; },
         10000, 20));
     REQUIRE(api.firmware_restarts == 1);
