@@ -243,7 +243,8 @@ and the files.
   `http://127.0.0.1` on ports 80, 4408 and 4409, and remembers the one that answered. When
   none does, the feature reports `available: false` with reason
   `snapshot_unreachable: <url>`, so a screen (which knows its frontend's port) takes the
-  photos instead; the plugin tries again at Klipper ready and at each job start. An absolute
+  photos instead; the plugin checks the camera at Klipper ready and at each job start
+  (while the feature is switched on), so a camera lost or found is known before layer 2. An absolute
   URL that fails is a camera problem and leaves the feature available. A change either way
   is broadcast as `notify_helix_features_changed` (no payload; any feature may send it), and
   the screen reads `server.helix.status` again. Snapshots are fetched without a proxy, and a

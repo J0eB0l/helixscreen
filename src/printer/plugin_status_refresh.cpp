@@ -60,7 +60,8 @@ void PluginStatusRefresh::refresh() {
         return;
     }
     spdlog::debug("[PluginStatusRefresh] Reading the plugin's status again");
-    plr_rpc::refresh_features(*api);
+    // A job start that changes nothing re-runs no probe observer.
+    plr_rpc::refresh_features(*api, FeatureAnnounce::IfChanged);
 }
 
 } // namespace helix

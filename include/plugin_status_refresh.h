@@ -25,7 +25,8 @@ class PluginStatusRefresh {
     PluginStatusRefresh(const PluginStatusRefresh&) = delete;
     PluginStatusRefresh& operator=(const PluginStatusRefresh&) = delete;
 
-    /// Read the plugin's status again, when a plugin is installed. Main thread.
+    /// Read the plugin's status again, when a plugin is installed; an
+    /// unchanged map touches nothing. Main thread.
     void refresh();
 
   private:

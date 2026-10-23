@@ -496,8 +496,9 @@ class HelixPhotos:
             self.job = ref
             self.layer = None
             self.layer_photo_due = kind != PLR_RESUME_KIND
-            if self.unreachable:
-                self._spawn(self.check_reachable())
+            # A camera lost since the last check is found now, long before
+            # layer 2, so the screen takes over in time for both photos.
+            self._spawn(self.check_reachable())
         elif action == "finished":
             if self.job is not None and self.job["job_id"] == ref["job_id"]:
                 self.job = None
@@ -602,11 +603,19 @@ class HelixPhotos:
     async def check_reachable(self) -> None:
         """Try the camera once, so an unreachable one is reported before a
         print needs it and a reachable one again is noticed."""
+        if not await self._switched_on():
+            return
         cam = pick_webcam(await self._webcams())
         if cam is None:
             self._set_unreachable(None)
             return
         await self.snapshot(cam)
+
+    async def _switched_on(self) -> bool:
+        """The user's choice alone, available or not: a camera found again
+        must be noticed while the feature reports itself unavailable."""
+        feature = self.helix.features.get(PHOTOS_FEATURE)
+        return feature is not None and await self.helix._feature_switch_value(feature, None)
 
     async def capture(self, job: Dict[str, Any], kind: str) -> Optional[str]:
         """Save one photo for `job` and list it in the job's record. Returns

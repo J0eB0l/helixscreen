@@ -654,3 +654,44 @@ TEST_CASE_METHOD(PhotosStatusFx, "the plugin's change notice hands photos back t
     drain();
     CHECK(api->transfers_mock().named_uploads().empty());
 }
+
+TEST_CASE_METHOD(LVGLTestFixture, "a re-read that changes nothing announces nothing",
+                 "[plugin_photos][plugin_feature]") {
+    PrinterPluginStatusState status;
+    status.init_subjects(false);
+    auto seq = [&status] {
+        return lv_subject_get_int(status.get_helix_plugin_probe_seq_subject());
+    };
+    PluginFeatureMap ready;
+    ready[kPhotosFeature] = entry(1, true, true);
+    PluginFeatureMap lost = ready;
+    lost[kPhotosFeature].available = false;
+    lost[kPhotosFeature].enabled = false;
+    lost[kPhotosFeature].reason = "snapshot_unreachable: /webcam/?action=snapshot";
+
+    status.set_features(ready);
+    const int first = seq();
+    status.set_features(ready, FeatureAnnounce::IfChanged);
+    CHECK(seq() == first);
+    status.set_features(lost, FeatureAnnounce::IfChanged);
+    CHECK(seq() == first + 1);
+    CHECK(status.features().at(kPhotosFeature).reason == lost[kPhotosFeature].reason);
+    status.set_features(lost);
+    CHECK(seq() == first + 2);
+    status.deinit_subjects();
+}
+
+TEST_CASE_METHOD(PhotosStatusFx,
+                 "a job start that changes nothing in the plugin's status touches nothing",
+                 "[plugin_photos]") {
+    auto seq = [] {
+        return lv_subject_get_int(
+            get_printer_state().plugin_status_state().get_helix_plugin_probe_seq_subject());
+    };
+    const int before = seq();
+    history("added");
+    CHECK(seq() == before);
+    setenv("HELIX_MOCK_PHOTOS", "unavailable", 1);
+    history("added");
+    CHECK(seq() == before + 1);
+}

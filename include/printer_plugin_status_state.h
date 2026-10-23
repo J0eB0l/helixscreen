@@ -138,8 +138,13 @@ class PrinterPluginStatusState {
         return disabled_;
     }
 
-    /// The features map the plugin's status reported; empty when it reported none.
-    void set_features(PluginFeatureMap features) {
+    /// The features map the plugin's status reported; empty when it reported
+    /// none. With FeatureAnnounce::IfChanged, the same map touches nothing.
+    void set_features(PluginFeatureMap features,
+                      FeatureAnnounce announce = FeatureAnnounce::Always) {
+        if (announce == FeatureAnnounce::IfChanged && features == features_) {
+            return;
+        }
         features_ = std::move(features);
         publish_features();
         if (subjects_initialized_) {

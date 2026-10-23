@@ -114,12 +114,12 @@ void write_user(IMoonrakerAPI& api, bool enabled, std::function<void()> on_ok,
                            std::move(on_error));
 }
 
-void refresh_features(IMoonrakerAPI& api) {
+void refresh_features(IMoonrakerAPI& api, FeatureAnnounce announce) {
     // set_helix_plugin_features defers to the main thread itself. An absent
     // plugin answers with an empty map, which reads as Absent.
     api.job().check_helix_plugin(
-        [](const HelixPluginInfo& info) {
-            get_printer_state().set_helix_plugin_features(info.features);
+        [announce](const HelixPluginInfo& info) {
+            get_printer_state().set_helix_plugin_features(info.features, announce);
         },
         [](const MoonrakerError&) {});
 }

@@ -673,10 +673,11 @@ void PrinterState::set_helix_plugin_disabled(bool disabled) {
                           [this, disabled]() { plugin_status_state_.set_disabled(disabled); });
 }
 
-void PrinterState::set_helix_plugin_features(helix::PluginFeatureMap features) {
+void PrinterState::set_helix_plugin_features(helix::PluginFeatureMap features,
+                                             helix::FeatureAnnounce announce) {
     async_lifetime_.defer("PrinterState::set_helix_plugin_features",
-                          [this, features = std::move(features)]() mutable {
-                              plugin_status_state_.set_features(std::move(features));
+                          [this, features = std::move(features), announce]() mutable {
+                              plugin_status_state_.set_features(std::move(features), announce);
                           });
 }
 
