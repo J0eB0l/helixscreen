@@ -149,6 +149,19 @@ order_of() { grep -nx "$1" "$CALLS.order" | head -n 1 | cut -d: -f1; }
     [ "$(order_of "end unit-sweep")" -lt "$(order_of "start quality")" ]
 }
 
+@test "bats starts after the app build, which relinks the binary its ctl tests run" {
+    run "$GATE"
+    [ "$status" -eq 0 ]
+    row PASS bats
+    [ "$(order_of "end app")" -lt "$(order_of "start test-shell")" ]
+}
+
+@test "bats still runs when the app build fails" {
+    RC_app=2 run "$GATE"
+    [ "$status" -eq 1 ]
+    row PASS bats
+}
+
 @test "a local C++ run after a failed app build still skips quality" {
     RC_app=2 run "$GATE"
     [ "$status" -eq 1 ]
