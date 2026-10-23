@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -38,6 +39,48 @@ using namespace helix;
  */
 
 using namespace std::chrono;
+
+namespace {
+
+/// Connect timeout for dials to TEST-NET-1 (192.0.2.1), which never answers.
+constexpr uint32_t kBlackHoleConnectTimeoutMs = 200;
+
+/// When @p client last started a dial and where its state last went. Shared,
+/// because the client keeps the callback until the fixture destroys it.
+struct DialLog {
+    std::atomic<steady_clock::rep> dialed_at{0};
+    std::atomic<ConnectionState> last{ConnectionState::DISCONNECTED};
+};
+
+std::shared_ptr<DialLog> log_dials(MoonrakerClient& client) {
+    auto log = std::make_shared<DialLog>();
+    client.set_state_change_callback([log](ConnectionState, ConnectionState new_state) {
+        if (new_state == ConnectionState::CONNECTING) {
+            log->dialed_at = steady_clock::now().time_since_epoch().count();
+        }
+        log->last = new_state;
+    });
+    return log;
+}
+
+/// Waits on the real clock until the latest dial has run out its connect
+/// timeout and the client is DISCONNECTED. Closing a superseded dial reports
+/// DISCONNECTED while the next one is still in flight, so that alone does not
+/// mean the dials have failed.
+bool wait_for_failed_dial(const DialLog& log) {
+    const auto deadline = steady_clock::now() + milliseconds(15000);
+    while (steady_clock::now() < deadline) {
+        const steady_clock::time_point dialed{steady_clock::duration{log.dialed_at.load()}};
+        if (log.dialed_at != 0 && log.last == ConnectionState::DISCONNECTED &&
+            steady_clock::now() - dialed >= milliseconds(kBlackHoleConnectTimeoutMs)) {
+            return true;
+        }
+        std::this_thread::sleep_for(milliseconds(10));
+    }
+    return false;
+}
+
+} // namespace
 
 // ============================================================================
 // Test Fixture
@@ -231,9 +274,7 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
 // storage under the running lambda. Fixed by
 // patches/libhv-websocket-open-install-once.patch (callbacks installed once
 // in the constructor, b153c5f57). Re-enlisted 2026-08-17: 4 consecutive green
-// local runs plus the [eventloop] suite after the fix; measured 2.56s
-// (2.01s SECTION 1 connect-timeout window + 0.55s SECTION 2 churn), so no
-// [slow] tag — comparable to the job's existing 3-9s cases.
+// local runs plus the [eventloop] suite after the fix.
 TEST_CASE_METHOD(MoonrakerRobustnessFixture,
                  "MoonrakerClient handles concurrent connect/disconnect",
                  "[connection][edge][concurrent][priority1][eventloop]") {
@@ -256,6 +297,10 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
                 [disconnects]() { (*disconnects)++; });
         };
 
+        // TEST-NET-1 never answers, so every attempt ends at the connect timeout.
+        client_->set_connection_timeout(kBlackHoleConnectTimeoutMs);
+        const auto dials = log_dials(*client_);
+
         std::vector<std::thread> threads;
         for (int i = 0; i < NUM_THREADS; i++) {
             threads.emplace_back(attempt_connect);
@@ -265,8 +310,8 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture,
             thread.join();
         }
 
-        // Wait for connections to fail
-        std::this_thread::sleep_for(milliseconds(2000));
+        // Wait for the connections to fail.
+        REQUIRE(wait_for_failed_dial(*dials));
 
         // Key: no crashes with concurrent connects
         CHECK(connect_attempts == NUM_THREADS);
@@ -605,6 +650,7 @@ TEST_CASE_METHOD(MoonrakerRobustnessFixture, "MoonrakerClient state machine tran
                 log->states.push_back(new_state);
             });
 
+        client_->set_connection_timeout(kBlackHoleConnectTimeoutMs);
         client_->connect("ws://192.0.2.1:7125/websocket", []() {}, []() {});
 
         // Poll for the connection to fail rather than assuming a fixed 2s is
