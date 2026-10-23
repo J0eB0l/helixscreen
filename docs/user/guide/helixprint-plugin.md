@@ -175,7 +175,8 @@ heating the bed and nozzle together, checking the nozzle height, then continuing
 
 Saving is on by default when the printer keeps its data on eMMC or similar storage, and off on
 a printer that runs from an SD card, since it adds wear to the card. The switch is
-**Settings > Printing > Power-loss recovery**; without the plugin it is greyed out. See
+**Settings > Printing > Power-loss recovery**; without the plugin it is greyed out, and on
+other printers it does not appear. See
 [Settings > Printing](settings/printing.md#power-loss-recovery-and-start-options-for-other-apps)
 for the switch and [Recovering After a Power Loss](printing.md#resuming-with-the-helixprint-plugin)
 for the step-by-step resume.

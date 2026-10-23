@@ -240,8 +240,9 @@ from test_helix_print import (  # noqa: E402
 from helix_print import load_component  # noqa: E402
 
 
-@pytest.fixture
-def helix(tmp_path, fake_sys):
+def make_helix(tmp_path, records=None):
+    """A started component whose database holds `records`
+    ({(namespace, key): value}) before component_init."""
     server = MockServer()
     gcodes = tmp_path / "printer_data" / "gcodes"
     gcodes.mkdir(parents=True)
@@ -250,6 +251,8 @@ def helix(tmp_path, fake_sys):
     server.components["klippy_apis"] = MockKlippyApis()
     server.components["history"] = MockHistory()
     server.get_app_args = lambda: {"data_path": str(tmp_path / "printer_data")}
+    for (namespace, key), value in (records or {}).items():
+        run(server.components["database"].insert_item(namespace, key, value))
     component = load_component(MockConfigHelper(server, {
         "temp_dir": ".helix_temp", "symlink_dir": ".helix_print", "cleanup_delay": 3600,
         "enabled": True,
@@ -258,10 +261,46 @@ def helix(tmp_path, fake_sys):
     return component
 
 
-def test_plr_feature_entry_defaults_off_without_a_profile(helix):
+@pytest.fixture
+def helix(tmp_path, fake_sys):
+    return make_helix(tmp_path)
+
+
+def test_plr_feature_is_unavailable_without_a_profile(helix):
+    status = run(helix._handle_status(None))
+    assert status["features"]["plr"] == {
+        "version": 1, "available": False, "enabled": False, "reason": "not_listed",
+        "saving": False}
+
+
+def test_plr_feature_is_unavailable_at_tier_0(helix):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 0}))
+    entry = run(helix._handle_status(None))["features"]["plr"]
+    assert (entry["available"], entry["reason"]) == (False, "not_listed")
+    assert run(helix.feature_enabled("plr")) is False
+
+
+def test_plr_feature_defaults_off_on_a_listed_printer(helix):
+    run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 1}))
     status = run(helix._handle_status(None))
     assert status["features"]["plr"] == {
         "version": 1, "available": True, "enabled": False, "reason": None, "saving": False}
+
+
+def test_plr_feature_follows_a_profile_written_after_start(helix):
+    db = helix.database
+    assert run(helix._handle_status(None))["features"]["plr"]["available"] is False
+    run(db.insert_item("helix-screen", "plr_profile", {"tier": 2}))
+    assert run(helix._handle_status(None))["features"]["plr"]["available"] is True
+    run(db.insert_item("helix-screen", "plr_profile", {"tier": 0}))
+    entry = run(helix._handle_status(None))["features"]["plr"]
+    assert (entry["available"], entry["reason"]) == (False, "not_listed")
+
+
+def test_plr_profile_tier_is_read_at_init(tmp_path, fake_sys):
+    component = make_helix(tmp_path, {("helix-screen", "plr_profile"): {"tier": 1}})
+    # The sync probe alone, with no status read since init.
+    assert component.plr.availability() == (True, None)
 
 
 def test_plr_feature_follows_storage_tier_and_switch(helix, fake_sys):

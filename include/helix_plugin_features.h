@@ -44,6 +44,12 @@ using PluginFeatureMap = std::map<std::string, PluginFeatureEntry>;
 /// an object is skipped.
 PluginFeatureMap parse_plugin_features(const nlohmann::json& status_result);
 
+/// Whether the plugin reports feature @p name at contract @p min_version or
+/// newer, available or not. An unavailable entry still means the plugin reads
+/// whatever the app writes for that feature.
+bool plugin_feature_reported(bool plugin_available, const PluginFeatureMap& features,
+                             const std::string& name, int min_version);
+
 /// The state of feature @p name for a caller that needs contract
 /// @p min_version or newer. @p plugin_available is the plugin itself being
 /// installed and enabled: without it every feature is Absent.

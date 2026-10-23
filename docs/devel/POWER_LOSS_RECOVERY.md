@@ -197,14 +197,17 @@ in the `helix-screen` namespace, so it has them with the screen off:
   "storage_hint", "z_holds_unpowered", "xy_home_gcode", "z_lift_mm",
   "purge_gcode", "resume_skip_fraction", "macro_vars"}`. `plr_resolve_profile()`
   resolves the printer database's `plr` block
-  (`PrinterDetector::get_plr_block()`). A printer with no block is tier 0, which
-  offers nothing. Tier 2 needs the database's `z_holds_unpowered`, so without it
+  (`PrinterDetector::get_plr_block()`). A printer with no block is tier 0: the
+  plugin reports the `plr` feature `available: false`, reason `not_listed`, and
+  saves and offers nothing. Tier 2 needs the database's `z_holds_unpowered`, so without it
   the tier is at most 1. The function also takes user overrides (tier, XY homing,
   purge, skip fraction), but no UI provides them: the caller passes an empty
   `PlrUserOverride`, so the record is the database block as is. `PlrOfferController::publish_profile()` writes
-  the record once per connection and printer type while the `plr` feature is
-  available at all (Disabled counts: a missing profile is what keeps saving off),
-  and only after this connection's plugin probe has answered: discovery resolves
+  the record once per connection and printer type whenever the plugin reports a
+  `plr` entry at version 1 or newer, available or not
+  (`plugin_feature_reported()`): until a profile of tier 1 or more lands, the
+  plugin reports the feature unavailable, so the write cannot wait for it. It
+  writes only after this connection's plugin probe has answered: discovery resolves
   the printer type before that probe, so the type is this printer's, never the
   previous one's. It reads the stored record first and writes only when it
   differs, so several screens on one printer do not rewrite it in turn. After a
@@ -217,10 +220,9 @@ in the `helix-screen` namespace, so it has them with the screen off:
   the feature is Ready or Disabled, greyed with Install without a plugin, greyed
   asking for an update when the plugin reports no `plr`, and hidden when the
   plugin reports it `available: false` (`python_too_old`, `no_virtual_sdcard`,
-  `store_unwritable`). Availability ignores the profile and tier, so the switch
-  shows whenever the plugin's `plr` feature is present, unlisted printers
-  included; an unlisted printer never gets a resume offer (`not_supported`). Its
-  switch follows `plr_saving_enabled`, the
+  `store_unwritable`, `not_listed`). An unlisted printer (no `plr_profile`, or
+  tier 0) is `not_listed`, so it gets no switch; the plugin overview shows the
+  feature unavailable with that reason. Its switch follows `plr_saving_enabled`, the
   plugin's own report re-read after each write: the `plr` entry's `saving`, or
   its `enabled` from a plugin that reports no `saving`. The entry's `enabled`
   also holds while a saved snapshot waits, so the offer (gated on Ready) survives
@@ -402,7 +404,17 @@ says and a listed eMMC model booted from an SD card does not; `unknown` falls ba
 the hint. `emmc` and `ssd` are wear-tolerant; raw NAND only when the database says the
 model has it. `saving_enabled` is the user's `plr_user.enabled` when set, else
 wear-tolerant storage on a printer listed at tier 1 or above. The settings switch is
-always offered where the feature is available.
+offered wherever the feature is available, which needs the profile's tier to be 1 or
+more.
+
+`HelixPlr.availability()` is the feature's probe, read synchronously on every status
+call: Python 3.8 or newer, a `[virtual_sdcard]`, a writable snapshot store, and a
+profile tier of 1 or more (`not_listed` otherwise, a missing record included). The
+probe cannot read the database, so it answers from `listed_tier`, which every
+`profile()` read updates. The plugin reads the profile at component init, and a
+features status reads the switch (`feature_enabled()`, which reads the profile) before
+the probe, so a profile the app writes shows in the next status; the app re-reads the
+features map after each write.
 
 ### Tiers and the printer database `plr` block
 
@@ -602,7 +614,7 @@ with, so a second outage can load it again.
 is on, or a saved snapshot is waiting", so switching saving off does not withdraw an
 offer already saved; `saving` is the switch as applied and is what the settings row
 shows. `reason` when unavailable: `python_too_old`, `no_virtual_sdcard`,
-`store_unwritable`.
+`store_unwritable`, `not_listed`.
 
 | Method (JSON-RPC / HTTP) | Params | Reply |
 |---|---|---|

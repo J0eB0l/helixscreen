@@ -543,6 +543,15 @@ TEST_CASE("the overview names every batch feature and gives the switchless ones 
     }
 }
 
+TEST_CASE("plugin_feature_reported counts an unavailable entry", "[plugin_feature][plr]") {
+    PluginFeatureMap features;
+    features["plr"] = entry(1, false, false, "not_listed");
+    CHECK(plugin_feature_reported(true, features, "plr", 1));
+    CHECK_FALSE(plugin_feature_reported(false, features, "plr", 1));
+    CHECK_FALSE(plugin_feature_reported(true, features, "plr", 2));
+    CHECK_FALSE(plugin_feature_reported(true, features, "file_analysis", 1));
+}
+
 #if HELIX_HAS_SNAPMAKER
 
 namespace {

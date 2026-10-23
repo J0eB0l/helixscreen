@@ -165,6 +165,13 @@ class PrinterPluginStatusState {
         return plugin_feature_state(service_has_helix_plugin(), features_, name, min_version);
     }
 
+    /// Whether the plugin reports feature @p name at @p min_version or newer,
+    /// even one it cannot run here.
+    bool plugin_feature_reported(const std::string& name, int min_version) const {
+        return helix::plugin_feature_reported(service_has_helix_plugin(), features_, name,
+                                              min_version);
+    }
+
     /**
      * @brief Set the discovery-derived helper-macro install status
      *

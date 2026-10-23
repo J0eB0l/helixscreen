@@ -404,8 +404,9 @@ void PlrOfferController::publish_profile() {
         static_cast<int>(ConnectionState::CONNECTED)) {
         return;
     }
-    if (ps.plugin_status_state().plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion) ==
-        PluginFeatureState::Absent) {
+    // An unavailable plr feature still takes the profile: the plugin reports
+    // an unlisted printer unavailable until a profile of tier 1 or more lands.
+    if (!ps.plugin_status_state().plugin_feature_reported(kPlrFeatureName, kPlrFeatureMinVersion)) {
         return;
     }
     // Until this connection's discovery has run, printer_type() can still be

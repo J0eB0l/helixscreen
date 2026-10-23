@@ -419,7 +419,7 @@ With the plugin installed, the printer saves the print's position about once a s
 **What it needs**
 
 - The [HelixPrint plugin](helixprint-plugin.md) installed on the printer.
-- A printer HelixScreen supports for it (today, the QIDI Q2). On other printers no resume is offered, even if you turn the switch on.
+- A printer HelixScreen supports for it (today, the QIDI Q2). On other printers the **Power-loss recovery** switch does not appear, and the plugin's overview page lists power-loss recovery as unavailable.
 - Saving switched on. It is on by default only when the printer stores its data on eMMC or similar storage that tolerates constant small writes. On a printer that runs from an SD card it starts off, because saving once a second adds wear to the card; turn it on at **Settings > Printing > Power-loss recovery** if you accept that.
 
 **When the offer appears**

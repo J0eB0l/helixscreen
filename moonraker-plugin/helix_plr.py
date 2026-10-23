@@ -845,6 +845,9 @@ class HelixPlr:
         self.status = {}  # type: Dict[str, Any]
         self.job = None  # type: Optional[Dict[str, Any]]
         self._switch = (False, float("-inf"))  # (value, read at)
+        # The profile's tier as last read, for availability(): a sync probe
+        # cannot read the database itself.
+        self.listed_tier = 0
         self._writing = False
         self._macro_vars = {}  # type: Dict[str, Tuple[str, ...]]
         self.follower = None  # type: Optional[LayerFollower]
@@ -896,7 +899,13 @@ class HelixPlr:
             return None
 
     async def profile(self) -> PlrProfile:
-        return parse_profile(await self._setting(PLR_PROFILE_KEY))
+        """The app's plr_profile record, read afresh. Every read also updates
+        the tier availability() answers with; the features status reads it
+        through the switch before the probe, so a profile the app writes shows
+        on the next status."""
+        profile = parse_profile(await self._setting(PLR_PROFILE_KEY))
+        self.listed_tier = profile.tier
+        return profile
 
     async def verdict(self, profile: Optional[PlrProfile] = None) -> StorageVerdict:
         if profile is None:
@@ -933,6 +942,9 @@ class HelixPlr:
             return False, "no_virtual_sdcard"
         if self.store_error is not None:
             return False, "store_unwritable"
+        if self.listed_tier < 1:
+            # A printer the app's database does not list has no PLR profile.
+            return False, "not_listed"
         return True, None
 
     def start(self) -> None:
@@ -950,7 +962,8 @@ class HelixPlr:
         self.register_endpoints()
 
     async def load_job(self) -> None:
-        """Read the job record back after a restart."""
+        """Read the job record, and the profile's tier, back after a restart."""
+        await self.profile()
         record = await self._ns_get(JOB_KEY)
         self.job = record if isinstance(record, dict) else None
 
