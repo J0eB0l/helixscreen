@@ -50,9 +50,9 @@ inline constexpr float kPipesYrotStepDeg = 9.73156f; ///< view turn per new scre
 inline constexpr int kPipesSlices = 16;              ///< facets round a pipe; a multiple of 4
 inline constexpr uint32_t kPipesStepMs = 100;        ///< one growth step per pipe
 inline constexpr uint32_t kPipesMaxStepsPerTick = 3;
-inline constexpr int kPipesMinActive = 2;
-inline constexpr int kPipesMaxActive = 4;
-inline constexpr int kPipesPerScreen = 7; ///< NORMAL_PIPE_COUNT 5 x 1.5
+inline constexpr int kPipesActive =
+    1; ///< pipes growing at once: the original's single-pipe default
+inline constexpr int kPipesPerScreen = 5; ///< NORMAL_PIPE_COUNT
 inline constexpr int kPipesMaxWeightStraight = 100;
 inline constexpr int kPipesTeapotOdds = 1000;
 inline constexpr int kPipesTurnLookahead = 2;
@@ -280,10 +280,10 @@ void pipes_emit_end(PipeNode node, PipeGridDims dims, uint8_t material,
 /**
  * @brief One screen of pipes, without pixels
  *
- * begin() starts min(kPipesPerScreen, rand[2, 4]) pipes. Each step first replaces the pipes
- * that got stuck (a new pipe while fewer than kPipesPerScreen have been counted, else the slot
- * dies; a start with no empty node left caps the count there), then grows every live pipe one
- * node. The screen is finished once no slot is live.
+ * begin() starts kPipesActive pipes: one grows at a time, as in the original's default. Each step
+ * first replaces the pipes that got stuck (a new pipe at a random empty node while fewer than
+ * kPipesPerScreen have been counted, else the slot dies; a start with no empty node left caps the
+ * count there), then grows every live pipe one node. The screen is finished once no slot is live.
  */
 class PipesScreen {
   public:
@@ -299,7 +299,7 @@ class PipesScreen {
     PipesGrid& grid() {
         return grid_;
     }
-    const std::array<PipeState, kPipesMaxActive>& pipes() const {
+    const std::array<PipeState, kPipesActive>& pipes() const {
         return pipes_;
     }
     /// Pipes counted toward kPipesPerScreen, the starting ones included.
@@ -325,7 +325,7 @@ class PipesScreen {
     void grow_pipe(PipeState& p, std::minstd_rand& rng, std::vector<PipePiece>& out);
 
     PipesGrid grid_;
-    std::array<PipeState, kPipesMaxActive> pipes_{};
+    std::array<PipeState, kPipesActive> pipes_{};
     int counted_ = 0;
     int started_ = 0;
     int max_pipes_ = kPipesPerScreen;

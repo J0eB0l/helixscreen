@@ -525,9 +525,8 @@ TEST_CASE_METHOD(LVGLTestFixture,
     lv_tick_inc(5000);
     ss.start();
     REQUIRE(ss.is_active());
-    // The seed replays the two starting pipes. A dead pipe's fields are never read.
+    // The seed replays the starting pipe.
     CHECK(PipesAccess::pipes(ss)[0] == at_start[0]);
-    CHECK(PipesAccess::pipes(ss)[1] == at_start[1]);
 
     // Neither the 50 ms left from the first run nor the time spent stopped counts.
     advance_saver(ss, 60);
@@ -567,7 +566,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "PipesScreensaver with the same seed replays t
     for (const auto& pipe : PipesAccess::pipes(a)) {
         grown += pipe.segment_count;
     }
-    REQUIRE(grown > 20);
+    REQUIRE(grown >= 20);
     CHECK(PipesAccess::same_scene(a, b));
 }
 
