@@ -170,8 +170,8 @@ alike.
 On printers HelixScreen supports for it (today, the QIDI Q2), the plugin saves the print's
 position about once a second, whichever app started the print, so a print can resume after a
 power cut. After the power comes back, HelixScreen offers the resume and walks you through it
-one confirmed step at a time: heating the bed and nozzle together, checking the part is still
-on the bed, checking the nozzle height, then continuing.
+one confirmed step at a time: checking the part is still on the bed,
+heating the bed and nozzle together, checking the nozzle height, then continuing.
 
 Saving is on by default when the printer keeps its data on eMMC or similar storage, and off on
 a printer that runs from an SD card, since it adds wear to the card. The switch is

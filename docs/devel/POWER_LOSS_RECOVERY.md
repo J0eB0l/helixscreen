@@ -184,7 +184,7 @@ features map), the Klipper state and the connection state each trigger the check
 so whichever arrives last asks. An answer blocked by `klippy_not_ready` is not
 kept, so the next Klipper-ready edge asks again. The disconnect edge drops the
 answer with the other latches. The plugin also pushes its status as
-`helix:plr_status` (delivered as `notify_plr_status`, payload = the `status`
+`helix_print:plr_status` (delivered as `notify_plr_status`, payload = the `status`
 reply) each time its own Klippy-ready handling finishes; the controller takes it
 in place of its answer, so an offer that turns available after the first ask
 still reaches the screen. The one-prompt-per-connection latch still applies, and
@@ -196,14 +196,12 @@ in the `helix-screen` namespace, so it has them with the screen off:
 - `plr_profile`, which the app resolves and writes: `{"tier", "backend",
   "storage_hint", "z_holds_unpowered", "xy_home_gcode", "z_lift_mm",
   "purge_gcode", "resume_skip_fraction", "macro_vars"}`. `plr_resolve_profile()`
-  folds the user's overrides into the printer database's `plr` block
+  resolves the printer database's `plr` block
   (`PrinterDetector::get_plr_block()`). A printer with no block is tier 0, which
-  offers nothing. Tier 2 needs the database's `z_holds_unpowered`
-  whoever asks for it, so without it the tier is at most 1, a user override
-  included. A user may lower the tier, or raise it only where X/Y homing is known
-  safe or overridden; the app does not read `homing_override`, so it passes the
-  homing check as unknown and no raise passes it (the plugin checks the database
-  tier against configfile itself). `PlrOfferController::publish_profile()` writes
+  offers nothing. Tier 2 needs the database's `z_holds_unpowered`, so without it
+  the tier is at most 1. The function also takes user overrides (tier, XY homing,
+  purge, skip fraction), but no UI provides them: the caller passes an empty
+  `PlrUserOverride`, so the record is the database block as is. `PlrOfferController::publish_profile()` writes
   the record once per connection and printer type while the `plr` feature is
   available at all (Disabled counts: a missing profile is what keeps saving off),
   and only after this connection's plugin probe has answered: discovery resolves
@@ -218,7 +216,10 @@ in the `helix-screen` namespace, so it has them with the screen off:
   (`plugin_feature_mode_plr`, from `plugin_switch_mode()`) makes it a switch while
   the feature is Ready or Disabled, greyed with Install without a plugin, greyed
   asking for an update when the plugin reports no `plr`, and hidden when the
-  plugin reports it `available: false` (a printer with no `plr_profile`). Its
+  plugin reports it `available: false` (`python_too_old`, `no_virtual_sdcard`,
+  `store_unwritable`). Availability ignores the profile and tier, so the switch
+  shows whenever the plugin's `plr` feature is present, unlisted printers
+  included; an unlisted printer never gets a resume offer (`not_supported`). Its
   switch follows `plr_saving_enabled`, the
   plugin's own report re-read after each write: the `plr` entry's `saving`, or
   its `enabled` from a plugin that reports no `saving`. The entry's `enabled`
@@ -261,11 +262,11 @@ analysis (`helix_analysis.py`) writes for every G-code file on upload, in the fo
 
 | Step | What happens |
 |------|-------------|
-| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then. A `plan_ready` carrying `error`, or a plan still `pending` after `plan_ready`, fails the wizard with that message instead of starting the scan over |
+| Offer | `status`, then `plan`. A long scan answers `pending` and follows with `helix_print:plr_plan_ready` (delivered as `notify_plr_plan_ready`); the wizard asks `plan` again then. A `plan_ready` carrying `error`, or a plan still `pending` after `plan_ready`, fails the wizard with that message instead of starting the scan over |
 | Checks | File (its display name, as Print Status shows it), layer, Z, outage age and bed reading from the plan; the confirmations asked before anything moves: `part_attached`, plus `nozzle_clear` at tier 1, `accept_no_mesh` for a `mesh_unavailable` warning, `accept_next_layer` for a `layer_start` warning, `accept_cold_bed` when the bed has cooled more than `kPlrColdBedDiffC` below target, and anything else in the plan's `requires` |
-| Preparing | `prepare`: steps `bed_wait`, `chamber_wait`, `nozzle_in_place` (bed and nozzle heat together where the nozzle stopped, so the print re-grips and the nozzle lets go of it before anything moves), then on the generic backend `lift`, `nozzle_standby` (the nozzle drops to standby until commit re-heats it), `home_xy`, and at tier 1 `position` (over the resume point); the QIDI backend's prepare runs `nozzle_standby` after the heat and moves nothing, and the Checks button reads Start Heating there instead of Heat and Home (`plr_prepare_moves_head()`). `helix:plr_progress` (`notify_plr_progress`, `{plan_id, step, state}` with state `running` / `done` / `failed`) names each; the wizard shows the `running` step and the live bed temperature |
+| Preparing | `prepare`: steps `bed_wait`, `chamber_wait`, `nozzle_in_place` (bed and nozzle heat together where the nozzle stopped, so the print re-grips and the nozzle lets go of it before anything moves), then on the generic backend `lift`, `nozzle_standby` (the nozzle drops to standby until commit re-heats it), `home_xy`, and at tier 1 `position` (over the resume point); the QIDI backend's prepare runs `nozzle_standby` after the heat and moves nothing, and the Checks button reads Start Heating there instead of Heat and Home (`plr_prepare_moves_head()`). `helix_print:plr_progress` (`notify_plr_progress`, `{plan_id, step, state}` with state `running` / `done` / `failed`) names each; the wizard shows the `running` step and the live bed temperature |
 | ZStep | Tier 2 confirms the height the steppers held (`z_confirmed`); the text follows `plr_z_step_kind()`: lifted and homed on the generic backend, not moved since the outage on QIDI. Tier 1 jogs the nozzle down to touch the part (`z_jogged`), 0.05 / 0.1 / 1 mm steps through the motion panel's coalesced relative move; Resume stays disabled until a downward jog has landed (the part top is where the user lowered the nozzle to), and waits while a jog is still moving |
-| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): steps `z_reference`, `restore`, `heat_nozzle`, `move_to_resume`, `start`, with `bed_wait` / `chamber_wait` again when it re-heats; the print starts at the resume offset |
+| Committing | `commit` with every confirmation given and `z_reference` `part_top` (tier 1) or `trusted` (tier 2): steps `bed_wait`, `chamber_wait`, `nozzle_in_place` (back to print temperature where the nozzle stands), then on the generic backend `z_reference` (tier 1), `restore`, `heat_nozzle`, `purge`, `move_to_resume`, `start`; the QIDI backend's commit runs its heat steps inside `start`; the print starts at the resume offset |
 | Done / Failed / Aborted | While prepare or commit runs, Cancel is a full-width danger button; once the plugin reports `start`, Cancel hides and an abort is refused. Leaving the wizard after `prepare` started (Cancel, back, closing it, a failed RPC) sends `abort`: the plugin stops, turns the heaters off and keeps the snapshot. A screensaver, display sleep or a view pushed on top (Print Status opens as the print starts) is not leaving: the sequence keeps running. While the wizard is open it holds `display_awake_hold()`, so neither the screensaver nor display sleep starts over a step that waits on the user; the hold ends when the print starts, or on Done, Failed or Aborted. Entering any step drops queued jogs, and a jog ack after the Z step sends nothing more |
 
 Two safety properties are pinned by the tests: the wizard never commits on its
@@ -463,8 +464,8 @@ The app adds its idle, one-prompt and wizard rules on top (`plr_should_offer()`)
 ### Where it resumes
 
 `virtual_sdcard` advances `file_position` when a line's move enters the toolhead's
-lookahead, so the dispatch head leads the nozzle by about 2 s of motion and up to about
-4 s (Klipper's `BUFFER_TIME_HIGH`). In bytes that ranges from a few hundred on long
+lookahead, so the dispatch head leads the nozzle by up to a few seconds of motion
+(Klipper's `BUFFER_TIME_HIGH`, 1-2 s by version, plus the lookahead queue). In bytes that ranges from a few hundred on long
 infill lines to over 100 KB on fine curved walls, so no byte constant is right. Klipper
 publishes both ends in one status frame, `toolhead.position` and
 `motion_report.live_position`, and `helix_plr_scan.resume_point` uses the difference:
@@ -486,7 +487,7 @@ publishes both ends in one status frame, `toolhead.position` and
    after the snapshot. The resume starts at the beginning of the line that lands in.
    **The default is 0.0, re-trace:** a resume reprints up to one interval rather than
    risk skipping plastic, since a ridge bonds and a gap does not. The plan reports
-   `retrace_estimate_mm` and `skip_estimate_mm`.
+   `retrace_estimate_mm`.
 4. **Fallback** (`next_layer_start`). When the walk finds nothing, the start of the next
    layer, with the `layer_start` warning and the `accept_next_layer` confirmation.
    Printing the rest of the current layer again over itself at the same Z risks a
@@ -509,7 +510,7 @@ be placed in a command (`_check_renders`; refused as `unsafe_value`).
 ### The resume sequence (generic)
 
 `prepare` and `commit` run around the app's confirmations; the steps are their
-`helix:plr_progress` names.
+`helix_print:plr_progress` names.
 
 **prepare**
 
@@ -521,10 +522,10 @@ be placed in a command (`_check_renders`; refused as `unsafe_value`).
    as it cooled to grip again. The nozzle temperature is the snapshot's extruder target,
    or the file's own target at the resume point when that is higher (a snapshot taken
    with the heater off still resumes at the temperature the resume line prints at).
-2. `lift`: with Z homed, nothing is declared and the nozzle lifts by what fits under the
-   top of travel. With Z unhomed, the first prepare declares the snapshot's
-   `live_pos.z` (`SET_KINEMATIC_POSITION Z=... SET_HOMED=Z`) and lifts by `z_lift_mm`,
-   clamped to 1 mm under the top; a later prepare of the same snapshot declares the
+2. `lift`: the nozzle lifts by `z_lift_mm`, or less when that does not fit under the
+   top of travel. With Z homed, nothing is declared first. With Z unhomed, the first
+   prepare declares the snapshot's `live_pos.z`
+   (`SET_KINEMATIC_POSITION Z=... SET_HOMED=Z`); a later prepare of the same snapshot declares the
    recorded lifted Z when nothing has moved the nozzle since, and is refused otherwise
    (`plr_stale_plan: position_unknown`). The lift record is invalidated when a tier-1
    prepare ends and when a commit starts.

@@ -228,8 +228,7 @@ POST /server/helix/print_hooks/screen_start
 ### Power-loss recovery (`plr`)
 
 `helix_plr.py` (with `helix_plr_scan.py`, `helix_plr_render.py` and the optional
-`helix_plr_qidi.py`) saves a snapshot during every print on a printer whose screen has
-written a `plr_profile`, and resumes an interrupted print in two confirmed steps:
+`helix_plr_qidi.py`) saves a snapshot during every print while its saving switch is on, and resumes an interrupted print in two confirmed steps:
 `server.helix.plr.status`, `.plan`, `.prepare`, `.commit`, `.abort` and `.discard`
 (`/server/helix/plr/...`), with progress as `notify_plr_progress`. Reply shapes, errors,
 confirmations and the resume sequence:
