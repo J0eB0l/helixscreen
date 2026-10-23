@@ -1079,6 +1079,17 @@ class TestStartGate:
         assert env.apis.started == ["a.gcode"]
 
     @pytest.mark.asyncio
+    async def test_a_gate_that_raises_starts_unchecked(self, env):
+        conv = await started(env, start_on_upload=True)
+
+        async def gate(output):
+            raise RuntimeError("check broke")
+        conv.start_gate = gate
+        result = await self.upload(env, "a.gcode.3mf", {9: plate_gcode(9)})
+        assert result["print_started"] is True
+        assert env.apis.started == ["a.gcode"]
+
+    @pytest.mark.asyncio
     async def test_a_reused_output_asks_the_gate_too(self, env):
         data = plate_gcode(9)
         (env.gc / "a.gcode").write_bytes(data)

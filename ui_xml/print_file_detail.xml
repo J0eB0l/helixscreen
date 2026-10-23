@@ -326,17 +326,20 @@
 
             <!-- File-fits-printer findings, one line each: a move past the
                  travel, a heater past its limit or a missing tool blocks (danger),
-                 a nozzle or model mismatch warns. Text and severity come from
-                 PrintSelectDetailView::refresh_fit_check(). -->
+                 a nozzle mismatch warns, another printer model is a note (info).
+                 Text and severity come from PrintSelectDetailView::refresh_fit_check(). -->
             <ui_card name="fit_check_card"
                      width="100%" style_pad_hor="0" style_pad_ver="#space_xs" style_pad_gap="#space_xs"
                      style_border_width="0" style_bg_color="#elevated_bg" flex_flow="row" style_flex_cross_place="start"
                      scrollable="false" clickable="false">
               <bind_flag_if_eq subject="detail_fit_check_severity" flag="hidden" ref_value="0"/>
               <icon name="fit_check_block_icon" src="alert_octagon" size="sm" variant="danger" clickable="false">
-                <bind_flag_if_not_eq subject="detail_fit_check_severity" flag="hidden" ref_value="2"/>
+                <bind_flag_if_not_eq subject="detail_fit_check_severity" flag="hidden" ref_value="3"/>
               </icon>
               <icon name="fit_check_warn_icon" src="alert" size="sm" variant="warning" clickable="false">
+                <bind_flag_if_not_eq subject="detail_fit_check_severity" flag="hidden" ref_value="2"/>
+              </icon>
+              <icon name="fit_check_note_icon" src="info_circle" size="sm" variant="info" clickable="false">
                 <bind_flag_if_not_eq subject="detail_fit_check_severity" flag="hidden" ref_value="1"/>
               </icon>
               <text_small name="fit_check_label"

@@ -686,8 +686,15 @@ class Helix3mfConverter(file_queue.FileTracker):
     async def _start_print(self, output: str, user: Any) -> Dict[str, bool]:
         """Start @p output as Moonraker's own upload path would, once the
         start gate, when one is set, allows it."""
-        if self.start_gate is not None and not await self.start_gate(output):
-            return _print_result()
+        if self.start_gate is not None:
+            try:
+                allowed = await self.start_gate(output)
+            except Exception as e:
+                logging.info(f"HelixPrint: start check of {output} failed ({e!r}); "
+                             "starting unchecked")
+                allowed = True
+            if not allowed:
+                return _print_result()
         return await file_queue.start_or_queue(
             self.server, self.klippy_apis, self.file_manager, output, user)
 
@@ -797,19 +804,12 @@ class Helix3mfConverter(file_queue.FileTracker):
     async def _finalize_upload_hook(self, form_args: Dict[str, Any]) -> Dict[str, Any]:
         original = self._original_finalize
         assert original is not None
-        if not isinstance(form_args, dict):
-            return await original(form_args)
-        filename = str(form_args.get("filename", ""))
-        root = str(form_args.get("root", "gcodes")).lower()
-        wants_print = str(form_args.get("print", "false")) == "true"
-        if not (root == "gcodes" and is_3mf(filename) and wants_print):
+        request = file_queue.upload_print_request(form_args)
+        if request is None or not (request.root == "gcodes" and is_3mf(request.filename)
+                                   and request.wants_print):
             return await original(form_args)
 
-        stored_args = dict(form_args)
-        stored_args.pop("print", None)
-        result = await original(stored_args)
-        item = (result or {}).get("item") or {}
-        source = str(item.get("path", "")).lstrip("/")
+        result, source = await file_queue.store_without_print(original, form_args)
         if not source:
             return result
         outcome = await self.enqueue(

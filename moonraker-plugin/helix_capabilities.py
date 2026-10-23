@@ -29,6 +29,19 @@ def _file_manager_module(file_manager: Any) -> Any:
     return sys.modules.get(type(file_manager).__module__)
 
 
+# Moonraker's VALID_GCODE_EXTS where its module cannot be read.
+DEFAULT_PRINT_EXTS = (".gcode", ".g", ".gco", ".ufp", ".nc")
+
+
+def print_extensions(file_manager: Any) -> tuple:
+    """The extensions Moonraker lists as G-code and starts on an upload's
+    print=true: its file manager module's VALID_GCODE_EXTS, lower-cased."""
+    exts = getattr(_file_manager_module(file_manager), "VALID_GCODE_EXTS", None)
+    if not exts:
+        return DEFAULT_PRINT_EXTS
+    return tuple(str(e).lower() for e in exts)
+
+
 def valid_gcode_exts_probe(file_manager: Any) -> ProbeAnswer:
     """Generic: the file manager module's VALID_GCODE_EXTS, which decides what
     Moonraker scans, lists as G-code and lets Klipper start."""

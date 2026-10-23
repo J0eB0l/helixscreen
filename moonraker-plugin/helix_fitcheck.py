@@ -9,7 +9,8 @@ gives findings {kind, severity, detail}:
 
     out_of_bounds           block  a move outside an axis' travel, or a delta's radius
     temp_over_max           block  a heater target above its max_temp
-    too_many_tools          block  a tool number past the printer's last tool
+    too_many_tools          block  a tool number past the printer's last extruder
+                            warn   ... past a count raised by T macros
     nozzle_mismatch         warn   the slicer's nozzle differs from the extruder's
     printer_model_mismatch  note   the slicer's printer is not this printer
 
@@ -36,6 +37,7 @@ import math
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import helix_capabilities
 import helix_file_queue as file_queue
 
 FIT_CHECK_FEATURE = "fit_check_blocks_autostart"
@@ -44,8 +46,11 @@ FIT_CHECK_FEATURE_VERSION = 1
 REFUSED_EVENT = "helix:fit_check_refused"
 
 # How long an upload waits for its file's analysis before starting
-# unchecked. The slicer's upload request is held open meanwhile.
-RECORD_WAIT_S = 120.0
+# unchecked. The slicer's upload request is held open meanwhile, and nginx in
+# front of Moonraker (the KIAUH Mainsail and Fluidd configs) answers 504 after
+# 60 s with no proxy_read_timeout set; the hold ends well before that, so the
+# slicer never reports a failure for an upload whose print then starts.
+RECORD_WAIT_S = 45.0
 
 # Positions and temperatures within this of a limit are at it: the record
 # rounds to 4 decimals, and a gcode step is 0.001 mm.
@@ -107,7 +112,9 @@ def machine_limits(settings: Any) -> Dict[str, Any]:
     dual carriage widens the axis it moves on. `tool_count` counts the
     extruders and the T<n> macros the config defines; a filament system's
     own T commands are not in the config, so callers that may have one
-    replace it. `model` is never in the config."""
+    replace it. `tool_count_confirmed` holds when the extruders alone give
+    the count: a count raised by T macros is inferred, and a file past it
+    only warns. `model` is never in the config."""
     if not isinstance(settings, dict):
         settings = {}
     printer = _section(settings, "printer") or {}
@@ -167,6 +174,7 @@ def machine_limits(settings: Any) -> Dict[str, Any]:
         "max_extruder_temp": max(max_temps) if max_temps else None,
         "max_bed_temp": _option(_section(settings, "heater_bed"), "max_temp"),
         "tool_count": tool_count or None,
+        "tool_count_confirmed": bool(extruders) and len(extruders) >= tool_count,
         "nozzle_diameters": nozzles,
         "model": "",
     }
@@ -212,9 +220,17 @@ def _box_axis(box: Any, end: str, i: int) -> Optional[float]:
     return _number(values[i])
 
 
+def _usable_box(box: Any) -> bool:
+    return isinstance(box, dict) and isinstance(box.get("min"), list) \
+        and isinstance(box.get("max"), list)
+
+
 def _model_key(name: Any) -> str:
-    """A printer name compared without case, spaces or punctuation."""
-    return "".join(c for c in name.lower() if c.isalnum()) if isinstance(name, str) else ""
+    """A printer name compared without case, spaces or punctuation; only
+    ASCII letters and digits count, as the screen's checker reads bytes."""
+    if not isinstance(name, str):
+        return ""
+    return "".join(c for c in name.lower() if c.isascii() and c.isalnum())
 
 
 def check_fit(machine: Dict[str, Any], facts: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -224,7 +240,7 @@ def check_fit(machine: Dict[str, Any], facts: Dict[str, Any]) -> List[Dict[str, 
     checks nothing."""
     findings = []  # type: List[Dict[str, Any]]
 
-    box = facts.get("travel") if isinstance(facts.get("travel"), dict) else facts.get("print")
+    box = facts.get("travel") if _usable_box(facts.get("travel")) else facts.get("print")
     axis_min = machine.get("axis_min") or [None, None, None]
     axis_max = machine.get("axis_max") or [None, None, None]
     for i, axis in enumerate(AXES):
@@ -259,7 +275,9 @@ def check_fit(machine: Dict[str, Any], facts: Dict[str, Any]) -> List[Dict[str, 
     if isinstance(tool_count, int) and not isinstance(tool_count, bool) and tools:
         highest = max(tools)
         if highest >= tool_count:
-            findings.append(_finding(KIND_TOO_MANY_TOOLS, SEVERITY_BLOCK,
+            severity = SEVERITY_BLOCK if machine.get("tool_count_confirmed") is True \
+                else SEVERITY_WARN
+            findings.append(_finding(KIND_TOO_MANY_TOOLS, severity,
                                      tool=highest, limit=tool_count))
 
     file_nozzles = facts.get("nozzle_diameters") or []
@@ -310,13 +328,14 @@ def describe(finding: Dict[str, Any]) -> str:
 # ============================================================================
 
 
-def _wants_gcode_print(form_args: Any) -> bool:
-    if not isinstance(form_args, dict):
+def holds_upload(form_args: Any, print_exts: tuple) -> bool:
+    """Whether the fit check holds this upload: one into gcodes, asking for a
+    print, of a file Moonraker would print (`print_exts`). A .3mf is the
+    converter's, whose own start asks the check."""
+    request = file_queue.upload_print_request(form_args)
+    if request is None or request.root != "gcodes" or not request.wants_print:
         return False
-    filename = str(form_args.get("filename", "")).lower()
-    root = str(form_args.get("root", "gcodes")).lower()
-    wants_print = str(form_args.get("print", "false")) == "true"
-    return root == "gcodes" and wants_print and filename.endswith((".gcode", ".g", ".gco"))
+    return request.filename.endswith(print_exts) and not request.filename.endswith(".3mf")
 
 
 class FitCheck:
@@ -327,6 +346,8 @@ class FitCheck:
         self.server = helix.server
         self._original_finalize = None  # type: Optional[Callable]
         self._converter = None  # type: Optional[Any]
+        self._print_exts = helix_capabilities.print_extensions(
+            getattr(helix, "file_manager", None))
 
     def availability(self) -> tuple:
         analysis = getattr(self.helix, "analysis", None)
@@ -379,15 +400,38 @@ class FitCheck:
         limits["tool_count"] = None
         return limits, ""
 
+    async def _printer_busy(self) -> bool:
+        """Whether Klipper is printing or paused; unknown reads as busy."""
+        apis = getattr(self.helix, "klippy_apis", None)
+        try:
+            status = await apis.query_objects({"print_stats": None})
+        except Exception:
+            return True
+        state = ((status or {}).get("print_stats") or {}).get("state")
+        return state in ("printing", "paused")
+
+    async def _skip_reason(self) -> Optional[str]:
+        """Why the check is not waited for now, or None. Busy, the start is
+        refused or queued at once, as Moonraker's would be; a held analysis
+        queue cannot answer before the print running ends."""
+        analysis = getattr(self.helix, "analysis", None)
+        if analysis is None:
+            return "file analysis is not running"
+        if analysis.queue_held():
+            return "file analysis waits for the print running"
+        if await self._printer_busy():
+            return "the printer is not idle"
+        return None
+
     async def findings_for(self, path: str) -> Optional[List[Dict[str, Any]]]:
         """The findings for `path`, or None when it cannot be checked. Every
         None is logged with its reason: the start then goes ahead unchecked."""
-        analysis = getattr(self.helix, "analysis", None)
-        if analysis is None:
-            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: "
-                         "file analysis is not running", path)
+        why = await self._skip_reason()
+        if why is not None:
+            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: %s",
+                         path, why)
             return None
-        record = await analysis.record_for(path, RECORD_WAIT_S)
+        record = await self.helix.analysis.record_for(path, RECORD_WAIT_S)
         if record is None:
             logging.info("HelixPrint: fit check of %s skipped, starting unchecked: no analysis "
                          "within %.0f s (still queued, failed, or the queue is held)",
@@ -401,11 +445,17 @@ class FitCheck:
         return check_fit(limits, fit_file_from_record(record))
 
     async def may_start(self, path: str) -> bool:
-        """Whether a print the slicer asked for may start `path`."""
-        enabled = await self.helix.feature_enabled(FIT_CHECK_FEATURE)
-        if not enabled:
+        """Whether a print the slicer asked for may start `path`. A check that
+        fails is one that could not be made: the start goes ahead."""
+        try:
+            enabled = await self.helix.feature_enabled(FIT_CHECK_FEATURE)
+            if not enabled:
+                return True
+            findings = await self.findings_for(path)
+        except Exception as e:
+            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: "
+                         "the check failed (%r)", path, e)
             return True
-        findings = await self.findings_for(path)
         if may_autostart(enabled, findings):
             return True
         refused = blocking(findings or [])
@@ -419,14 +469,16 @@ class FitCheck:
     async def _finalize_upload_hook(self, form_args: Dict[str, Any]) -> Dict[str, Any]:
         original = self._original_finalize
         assert original is not None
-        if not _wants_gcode_print(form_args) \
-                or not await self.helix.feature_enabled(FIT_CHECK_FEATURE):
+        if not holds_upload(form_args, self._print_exts):
             return await original(form_args)
-        stored_args = dict(form_args)
-        stored_args.pop("print", None)
-        result = await original(stored_args)
-        item = (result or {}).get("item") or {}
-        path = str(item.get("path", "")).lstrip("/")
+        try:
+            enabled = await self.helix.feature_enabled(FIT_CHECK_FEATURE)
+        except Exception as e:
+            logging.info("HelixPrint: fit check switch unreadable (%r); upload not held", e)
+            enabled = False
+        if not enabled:
+            return await original(form_args)
+        result, path = await file_queue.store_without_print(original, form_args)
         if not path:
             return result
         result = dict(result)

@@ -210,3 +210,22 @@ TEST_CASE("the reader fetches the window at the position and classifies its firs
     CHECK(failed);
     CHECK_FALSE(got);
 }
+
+TEST_CASE("a heater target line names its heater and target, waiting or not",
+          "[wait_line][plugin_fitcheck]") {
+    using helix::heater_target_line;
+    CHECK(heater_target_line("M104 S215").heater == "extruder");
+    CHECK(heater_target_line("m109 s230 ; wait").target == std::optional<double>(230.0));
+    CHECK(heater_target_line("M104 T1 S200").heater == "extruder1");
+    CHECK(heater_target_line("M140 S60").heater == "heater_bed");
+    CHECK(heater_target_line("M190 S65").target == std::optional<double>(65.0));
+    const auto bed = heater_target_line("SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=70");
+    CHECK(bed.heater == "heater_bed");
+    CHECK(bed.target == std::optional<double>(70.0));
+    const auto quoted = heater_target_line("SET_HEATER_TEMPERATURE HEATER=\"Extruder\" TARGET=240");
+    CHECK(quoted.heater == "extruder");
+    CHECK(quoted.target == std::optional<double>(240.0));
+    CHECK_FALSE(heater_target_line("M104").target.has_value());
+    CHECK(heater_target_line("G1 X10 S500").heater.empty());
+    CHECK(heater_target_line("; M104 S999").heater.empty());
+}

@@ -31,6 +31,19 @@ struct WaitLine {
 /// such as a macro whose body holds the wait, is Other.
 WaitLine classify_wait_line(std::string_view line);
 
+/// A heater target a gcode line sets, waiting or not.
+struct HeaterTargetLine {
+    /// The heater, lower-cased: "extruder" (M104/M109, extruderN with T),
+    /// "heater_bed" (M140/M190), or SET_HEATER_TEMPERATURE's HEATER; "" for a
+    /// line that sets no heater.
+    std::string heater;
+    std::optional<double> target; ///< S or TARGET; nullopt when the line names none
+};
+
+/// The heater target @p line sets: M104, M109, M140, M190 and
+/// SET_HEATER_TEMPERATURE, read the way classify_wait_line() reads its waits.
+HeaterTargetLine heater_target_line(std::string_view line);
+
 /// Bytes read from virtual_sdcard.file_position to find the line there.
 inline constexpr size_t kWaitLineWindow = 256;
 

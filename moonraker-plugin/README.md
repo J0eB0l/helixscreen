@@ -231,9 +231,16 @@ Holds a slicer's upload-and-print (an upload carrying `print=true`, as OrcaSlice
 **Print** button sends) while the file breaks a limit of this printer. Off until the user
 opts in; the screen's switch is Settings > Safety & Alerts.
 
-With the feature on, `helix_fitcheck.py` stores a plain G-code upload without Moonraker's
-print flag, waits up to 120 s for its file analysis (moved to the front of the queue), and
-checks it. With no blocking finding the print starts through Moonraker's own rules (started,
+With the feature on, `helix_fitcheck.py` stores an upload of any extension Moonraker prints
+(its `VALID_GCODE_EXTS`: `.gcode`, `.g`, `.gco`, `.ufp`, `.nc`) without Moonraker's print
+flag, waits up to 45 s for its file analysis (moved to the front of the queue), and checks
+it. The cap keeps the hold under nginx's default 60 s proxy timeout, so a slicer behind a
+Mainsail or Fluidd proxy never sees a failed upload whose print then starts. Nothing waits
+while the printer is printing or paused, or while the analysis queue is held: the start or
+queue goes ahead at once, as Moonraker's would. A file already printing (`print_stats.filename`)
+or already in the job queue is never started or queued again. A check that raises starts
+unchecked. Only uploads carrying `print=true` reach the hook: a client that uploads and then
+sends `SDCARD_PRINT_FILE` itself (OrcaSlicer's Moonraker printer agent) is not held. With no blocking finding the print starts through Moonraker's own rules (started,
 or queued when the printer is busy and `queue_gcode_uploads` is on); with one, nothing starts,
 the file stays uploaded, the upload response says `print_started: false`, and a
 `helix:fit_check_refused` notification (`notify_fit_check_refused` to clients) names the file
@@ -256,7 +263,7 @@ The checker compares a file analysis record (`bounds`, `header`, tools) with Kli
 |--------|------------|----------|------|
 | `out_of_bounds` | block | `axis` (`x`, `y`, `z`, `radius`), `side` (`min`, `max`), `value`, `limit` | A move outside `stepper_[xyz]` `position_min`/`position_max` (a `dual_carriage` widens its axis), or on a delta a box edge farther from the centre than `print_radius` (else `delta_radius`), or above the lowest tower `position_endstop` / below `minimum_z_position`. Travel moves are checked, else printing moves; exactly at a limit passes |
 | `temp_over_max` | block | `heater` (`extruder`, `heater_bed`), `value`, `limit` | A target above the hottest `extruder*` `max_temp`, or above `heater_bed` `max_temp` |
-| `too_many_tools` | block | `tool`, `limit` | A tool number at or past the count of extruders and `T<n>` macros. The plugin's hold never uses this one: a filament system's T commands are not in the config |
+| `too_many_tools` | block, or warn | `tool`, `limit` | A tool number at or past the count of extruders and `T<n>` macros; warn when the macros raised the count past the extruders (`tool_count_confirmed` false). The plugin's hold never uses this one: a filament system's T commands are not in the config |
 | `nozzle_mismatch` | warn | `tool`, `file`, `printer` | The slicer's nozzle for an extruder differs from that extruder's `nozzle_diameter` by more than 0.005 mm |
 | `printer_model_mismatch` | note | `file`, `printer` | Neither model name contains the other, ignoring case and punctuation. The file's model is the slicer's `printer_model` (Cura: its machine name), never a preset name; the printer's comes from the screen, so the plugin never reports this one |
 
