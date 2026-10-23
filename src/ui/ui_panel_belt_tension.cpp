@@ -174,13 +174,11 @@ void ui_panel_belt_tension_register_callbacks() {
          [](lv_event_t* /*e*/) { get_global_belt_tension_panel().handle_stop_clicked(); }},
         {"belt_tension_retry_cb",
          [](lv_event_t* /*e*/) { get_global_belt_tension_panel().handle_retry_clicked(); }},
-        {"belt_tension_retest_a_cb",
-         [](lv_event_t* /*e*/) {
-             get_global_belt_tension_panel().handle_retest_clicked(calibration::BeltPath::PATH_A);
-         }},
-        {"belt_tension_retest_b_cb",
-         [](lv_event_t* /*e*/) {
-             get_global_belt_tension_panel().handle_retest_clicked(calibration::BeltPath::PATH_B);
+        {"belt_tension_retest_slot_cb",
+         [](lv_event_t* e) {
+             const char* slot = static_cast<const char*>(lv_event_get_user_data(e));
+             get_global_belt_tension_panel().handle_retest_slot_clicked(slot && slot[0] == '1' ? 1
+                                                                                               : 0);
          }},
         {"belt_tension_retest_menu_cb",
          [](lv_event_t* e) {
@@ -290,17 +288,20 @@ void BeltTensionPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(running_path_subject_, 0, "bt_running_path", subjects_);
 
     // Path names
-    UI_MANAGED_SUBJECT_STRING(path_a_name_subject_, path_a_name_buf_, "", "bt_path_a_name",
-                              subjects_);
-    UI_MANAGED_SUBJECT_STRING(path_b_name_subject_, path_b_name_buf_, "", "bt_path_b_name",
-                              subjects_);
     UI_MANAGED_SUBJECT_INT(identify_state_subject_, 0, "bt_identify_state", subjects_);
     UI_MANAGED_SUBJECT_STRING(identify_status_subject_, identify_status_buf_, "",
                               "bt_identify_status", subjects_);
 
     // Results
-    UI_MANAGED_SUBJECT_STRING(note_a_subject_, note_a_buf_, "", "bt_note_a", subjects_);
-    UI_MANAGED_SUBJECT_STRING(note_b_subject_, note_b_buf_, "", "bt_note_b", subjects_);
+    UI_MANAGED_SUBJECT_STRING(slot_note_subject_[0], slot_note_buf_[0], "", "bt_slot_0_note",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(slot_note_subject_[1], slot_note_buf_[1], "", "bt_slot_1_note",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(slot_name_subject_[0], slot_name_buf_[0], "", "bt_slot_0_name",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(slot_name_subject_[1], slot_name_buf_[1], "", "bt_slot_1_name",
+                              subjects_);
+    UI_MANAGED_SUBJECT_INT(slots_swapped_subject_, 0, "bt_slots_swapped", subjects_);
     UI_MANAGED_SUBJECT_INT(verdict_subject_, 0, "bt_verdict", subjects_);
     UI_MANAGED_SUBJECT_STRING(verdict_text_subject_, verdict_text_buf_, "", "bt_verdict_text",
                               subjects_);
@@ -779,15 +780,18 @@ void BeltTensionPanel::handle_retest_clicked(helix::calibration::BeltPath path) 
     });
 }
 
+void BeltTensionPanel::handle_retest_slot_clicked(int slot) {
+    handle_retest_clicked(helix::ui::belt_path_in_slot(slot));
+}
+
 void BeltTensionPanel::handle_retest_menu_clicked(lv_obj_t* anchor) {
     if (!anchor || retest_menu_.is_visible()) {
         return;
     }
     retest_menu_.set_action_callback([this](int action, int /*item*/) {
-        if (action == helix::ui::BeltRetestMenu::kActionPathA) {
-            handle_retest_clicked(BeltPath::PATH_A);
-        } else if (action == helix::ui::BeltRetestMenu::kActionPathB) {
-            handle_retest_clicked(BeltPath::PATH_B);
+        if (action == helix::ui::BeltRetestMenu::kActionSlot0 ||
+            action == helix::ui::BeltRetestMenu::kActionSlot1) {
+            handle_retest_slot_clicked(action);
         }
     });
     retest_menu_.show_below_widget(lv_obj_get_screen(anchor), anchor);
@@ -859,10 +863,14 @@ void BeltTensionPanel::refresh_names() {
     if (!subjects_initialized_) {
         return;
     }
-    const auto a = helix::ui::belt_path_name(BeltPath::PATH_A);
-    const auto b = helix::ui::belt_path_name(BeltPath::PATH_B);
-    lv_subject_copy_string(&path_a_name_subject_, a.title.c_str());
-    lv_subject_copy_string(&path_b_name_subject_, b.title.c_str());
+    for (int slot = 0; slot < 2; ++slot) {
+        lv_subject_copy_string(
+            &slot_name_subject_[slot],
+            helix::ui::belt_path_name(helix::ui::belt_path_in_slot(slot)).title.c_str());
+    }
+    lv_subject_set_int(&slots_swapped_subject_,
+                       helix::ui::belt_path_in_slot(0) == BeltPath::PATH_B ? 1 : 0);
+    refresh_notes();
 
     if (last_cmp_.valid) {
         refresh_unpaired(last_cmp_);
@@ -870,7 +878,7 @@ void BeltTensionPanel::refresh_names() {
     refresh_run_title();
     refresh_tune();
     if (overlay_root_) {
-        // The sketch is drawn, not bound: it reads bt_path_*_name as it draws.
+        // The sketch is drawn, not bound: it asks belt_path_name() as it draws.
         if (lv_obj_t* sketch = lv_obj_find_by_name(overlay_root_, "bt_sketch")) {
             lv_obj_invalidate(sketch);
         }
@@ -1331,17 +1339,18 @@ void BeltTensionPanel::refresh_unpaired(const helix::calibration::BeltComparison
         }
         return out;
     };
-    const auto only_a = listed(cmp.peaks.unpaired_a);
-    const auto only_b = listed(cmp.peaks.unpaired_b);
+    // In header-slot order, so the line reads in the same order as the headers.
     std::string unpaired;
-    if (!only_a.empty()) {
-        unpaired = fmt::format(fmt::runtime(lv_tr("Only on {0}: {1} Hz")),
-                               path_phrase(BeltPath::PATH_A), join_freqs(only_a));
-    }
-    if (!only_b.empty()) {
+    for (int slot = 0; slot < 2; ++slot) {
+        const BeltPath path = helix::ui::belt_path_in_slot(slot);
+        const auto only =
+            listed(path == BeltPath::PATH_A ? cmp.peaks.unpaired_a : cmp.peaks.unpaired_b);
+        if (only.empty()) {
+            continue;
+        }
         unpaired += (unpaired.empty() ? "" : " · ") +
-                    fmt::format(fmt::runtime(lv_tr("Only on {0}: {1} Hz")),
-                                path_phrase(BeltPath::PATH_B), join_freqs(only_b));
+                    fmt::format(fmt::runtime(lv_tr("Only on {0}: {1} Hz")), path_phrase(path),
+                                join_freqs(only));
     }
     snprintf(unpaired_buf_, sizeof(unpaired_buf_), "%s", unpaired.c_str());
     lv_subject_copy_string(&unpaired_subject_, unpaired_buf_);
@@ -1417,10 +1426,9 @@ void BeltTensionPanel::refresh_notes() {
     const bool running =
         static_cast<ViewState>(lv_subject_get_int(&s_belt_tension_state)) == ViewState::RUNNING;
 
-    for (int idx = 0; idx < 2; ++idx) {
+    for (int slot = 0; slot < 2; ++slot) {
+        const int idx = path_index(helix::ui::belt_path_in_slot(slot));
         const auto& run = runs_[idx];
-        auto& note_subject = idx == 0 ? note_a_subject_ : note_b_subject_;
-        auto& note_buf = idx == 0 ? note_a_buf_ : note_b_buf_;
 
         std::string note = "--";
         if (running && !settling_ && !queue_.empty() && queue_.front() == path_at(idx)) {
@@ -1433,9 +1441,8 @@ void BeltTensionPanel::refresh_notes() {
                               : fmt::format(fmt::runtime(lv_tr("{} min ago")), age_s / 60);
         }
 
-        snprintf(note_buf, idx == 0 ? sizeof(note_a_buf_) : sizeof(note_b_buf_), "%s",
-                 note.c_str());
-        lv_subject_copy_string(&note_subject, note_buf);
+        snprintf(slot_note_buf_[slot], sizeof(slot_note_buf_[slot]), "%s", note.c_str());
+        lv_subject_copy_string(&slot_note_subject_[slot], slot_note_buf_[slot]);
     }
 }
 

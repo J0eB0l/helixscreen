@@ -51,6 +51,16 @@ BeltPathName belt_path_name(BeltPath path, BeltLayout layout) {
     return {lv_tr("Lower belt"), lv_tr("the lower belt")};
 }
 
+BeltPath belt_path_in_slot(int slot, BeltLayout layout) {
+    const bool b_first = layout == BeltLayout::A_RIGHT_B_LEFT;
+    return (slot == 0) != b_first ? BeltPath::PATH_A : BeltPath::PATH_B;
+}
+
+BeltPath belt_path_in_slot(int slot) {
+    return belt_path_in_slot(slot, helix::calibration::belt_layout_from_int(
+                                       SettingsManager::instance().get_belt_layout()));
+}
+
 BeltPathName belt_path_name(BeltPath path) {
     return belt_path_name(path, helix::calibration::belt_layout_from_int(
                                     SettingsManager::instance().get_belt_layout()));

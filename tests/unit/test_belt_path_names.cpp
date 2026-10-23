@@ -17,6 +17,7 @@
 using helix::calibration::belt_layout_from_int;
 using helix::calibration::BeltLayout;
 using helix::calibration::BeltPath;
+using helix::ui::belt_path_in_slot;
 using helix::ui::belt_path_name;
 
 namespace {
@@ -58,4 +59,17 @@ TEST_CASE("a stored belt layout out of range reads as not set", "[belt][names]")
     CHECK(belt_layout_from_int(4) == BeltLayout::A_LOWER_B_UPPER);
     CHECK(belt_layout_from_int(helix::calibration::kBeltLayoutCount) == BeltLayout::UNSET);
     CHECK(belt_layout_from_int(-1) == BeltLayout::UNSET);
+}
+
+TEST_CASE("RESULTS puts the paths in physical order only when A is the right belt",
+          "[belt][names]") {
+    // A_RIGHT_B_LEFT is the one layout where A-then-B would read backwards.
+    CHECK(belt_path_in_slot(0, BeltLayout::A_RIGHT_B_LEFT) == BeltPath::PATH_B);
+    CHECK(belt_path_in_slot(1, BeltLayout::A_RIGHT_B_LEFT) == BeltPath::PATH_A);
+    for (const auto layout : {BeltLayout::UNSET, BeltLayout::A_LEFT_B_RIGHT,
+                              BeltLayout::A_UPPER_B_LOWER, BeltLayout::A_LOWER_B_UPPER}) {
+        INFO("layout " << static_cast<int>(layout));
+        CHECK(belt_path_in_slot(0, layout) == BeltPath::PATH_A);
+        CHECK(belt_path_in_slot(1, layout) == BeltPath::PATH_B);
+    }
 }

@@ -45,7 +45,7 @@ depends on the printer, so the user names the paths rather than the app guessing
   ("the left belt", inside a sentence). The panel observes the setting and the language and
   re-renders every name (`BeltTensionPanel::refresh_names`): the RESULTS headers and Re-test
   buttons, the unpaired-peak line, the run title, the tuning strings and the START sketch,
-  which reads `bt_path_a_name` / `bt_path_b_name` as it draws. Log lines keep the letter.
+  which asks `belt_path_name` as it draws. Log lines keep the letter.
 
 The dialog (`ui_xml/belt_names_modal.xml`, `helix::ui::BeltNamesModal`) opens from START's
 "Which belt is which?" button, the RESULTS path headers, and the tuning view's tensioner line
@@ -328,8 +328,13 @@ correlates only the swept band.
 - Centre: `bt_similarity` ("48%") and the verdict chip; after a re-test or Confirm,
   `bt_similarity_was` under the number carries the similarity the comparison showed before
   ("was 48%").
-- Sides: the path names (`bt_path_a_name` / `bt_path_b_name`; tapping one opens "Which belt
-  is which?") with their `bt_note_a` / `bt_note_b` status: "sweeping" for the
+- Sides: two header slots, left then right, each a path name (`bt_slot_0_name` /
+  `bt_slot_1_name`; tapping one opens "Which belt is which?") over its status
+  (`bt_slot_0_note` / `bt_slot_1_note`). Path A is on the left unless the layout names A the
+  right belt: then B takes the left slot (`bt_slots_swapped`, which swaps the name colors too)
+  so the screen matches the printer. The Re-test buttons and the compact Re-test menu follow
+  the same order. One function decides it, `include/ui_belt_path_names.h#belt_path_in_slot`;
+  the chart keeps its colors. The status: "sweeping" for the
   running path and "done" for one this run already measured; on RESULTS an age ("just now",
   "N min ago") that a 30 s timer keeps current. Ghost curves are drawn on their own scale;
   the two current curves share one.

@@ -11,15 +11,16 @@ namespace helix::ui {
  * @brief Belt Tension's "Re-test" menu: which path to measure again
  *
  * On the smallest screens RESULTS has room for three buttons, not four, so
- * Re-test A and Re-test B fold into one button that raises this menu. The
- * action id is the path index (0 = A, 1 = B), or kActionCancelled.
+ * the two Re-test buttons fold into one button that raises this menu. The
+ * action id is the RESULTS header slot of the row's path (0 = left, see
+ * helix::ui::belt_path_in_slot), or kActionCancelled.
  */
 class BeltRetestMenu : public ContextMenu {
     HELIX_CONTEXT_MENU_KIND(BeltRetestMenu)
 
   public:
-    static constexpr int kActionPathA = 0;
-    static constexpr int kActionPathB = 1;
+    static constexpr int kActionSlot0 = 0;
+    static constexpr int kActionSlot1 = 1;
 
     /// Register the menu's row callbacks. Idempotent.
     static void register_callbacks();

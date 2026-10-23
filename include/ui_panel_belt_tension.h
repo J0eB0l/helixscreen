@@ -161,6 +161,8 @@ class BeltTensionPanel : public OverlayBase {
     void handle_stop_clicked();
     void handle_retry_clicked();
     void handle_retest_clicked(helix::calibration::BeltPath path);
+    /// Re-test the path RESULTS shows in header slot @p slot (0 = left).
+    void handle_retest_slot_clicked(int slot);
     /// The compact layouts' single Re-test button: a menu of the two paths.
     void handle_retest_menu_clicked(lv_obj_t* anchor);
 
@@ -284,9 +286,9 @@ class BeltTensionPanel : public OverlayBase {
     // === Subject refresh ===
     //
 
-    /// bt_note_* from the runs: "sweeping" for the running path, "done" for a
-    /// path this run already measured, else an age ("just now", "3 min ago").
-    /// Touches no chart.
+    /// bt_slot_*_note from the runs, in header-slot order: "sweeping" for the running path, "done"
+    /// for a path this run already measured, else an age ("just now", "3 min ago"). Touches no
+    /// chart.
     void refresh_notes();
     /// bt_similarity_was: "was N%" after a re-test or Confirm, else empty.
     void refresh_similarity_was();
@@ -397,20 +399,19 @@ class BeltTensionPanel : public OverlayBase {
     char run_detail_buf_[96] = {};
     lv_subject_t running_path_subject_{};
 
-    // Path names, from the saved layout (helix::ui::belt_path_name)
-    lv_subject_t path_a_name_subject_{};
-    char path_a_name_buf_[48] = {};
-    lv_subject_t path_b_name_subject_{};
-    char path_b_name_buf_[48] = {};
+    // Which belt is which: the Identify status in the names dialog
     /// 0 idle, 1 a motor is buzzing, 2 the buzz failed
     lv_subject_t identify_state_subject_{};
     lv_subject_t identify_status_subject_{};
     char identify_status_buf_[192] = {};
 
-    lv_subject_t note_a_subject_{};
-    char note_a_buf_[64] = {};
-    lv_subject_t note_b_subject_{};
-    char note_b_buf_[64] = {};
+    // RESULTS header slots, left then right (helix::ui::belt_path_in_slot)
+    lv_subject_t slot_note_subject_[2]{};
+    char slot_note_buf_[2][64] = {};
+    lv_subject_t slot_name_subject_[2]{};
+    char slot_name_buf_[2][48] = {};
+    /// 1 when the left slot shows Path B
+    lv_subject_t slots_swapped_subject_{};
 
     lv_subject_t verdict_subject_{};
     lv_subject_t verdict_text_subject_{};

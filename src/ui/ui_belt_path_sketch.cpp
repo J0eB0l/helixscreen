@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "ui_belt_path_sketch.h"
 
+#include "ui_belt_path_names.h"
+
 #include "helix-xml/src/xml/lv_xml.h"
 #include "helix-xml/src/xml/lv_xml_parser.h"
 #include "helix-xml/src/xml/lv_xml_widget.h"
@@ -103,14 +105,6 @@ std::string fit_width(const char* text, const lv_font_t* font, int32_t max_w) {
     return "...";
 }
 
-/// A path's name as the panel publishes it, or the untranslated-key fallback
-/// before the panel has registered its subjects.
-const char* path_name(const char* subject_name, const char* fallback) {
-    lv_subject_t* subject = lv_xml_get_subject(nullptr, subject_name);
-    const char* name = subject ? lv_subject_get_string(subject) : nullptr;
-    return name && name[0] ? name : lv_tr(fallback);
-}
-
 void on_draw(lv_event_t* e) {
     lv_obj_t* obj = lv_event_get_target_obj(e);
     lv_layer_t* layer = lv_event_get_layer(e);
@@ -163,8 +157,10 @@ void on_draw(lv_event_t* e) {
     // up-right, A's 1,-1 diagonal down-right. Each stays on one line.
     const int32_t row_w = lv_area_get_width(&top_row);
     const std::string b_name =
-        fit_width(path_name("bt_path_b_name", "Path B"), font, row_w - back_size.x - pad);
-    const std::string a_name = fit_width(path_name("bt_path_a_name", "Path A"), font, row_w);
+        fit_width(belt_path_name(calibration::BeltPath::PATH_B).title.c_str(), font,
+                  row_w - back_size.x - pad);
+    const std::string a_name =
+        fit_width(belt_path_name(calibration::BeltPath::PATH_A).title.c_str(), font, row_w);
     draw_label(layer, b_name.c_str(), b_color, font, top_row, LV_TEXT_ALIGN_RIGHT);
     draw_label(layer, a_name.c_str(), a_color, font, bottom_row, LV_TEXT_ALIGN_RIGHT);
 

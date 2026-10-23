@@ -22,4 +22,13 @@ struct BeltPathName {
 /// belt_path_name() under the active printer's saved layout.
 [[nodiscard]] BeltPathName belt_path_name(helix::calibration::BeltPath path);
 
+/// Which path RESULTS shows in header slot @p slot (0 = left, 1 = right). A
+/// layout naming A the right belt puts B on the left, so the screen matches
+/// the printer; every other layout, and none, keeps A on the left.
+[[nodiscard]] helix::calibration::BeltPath belt_path_in_slot(int slot,
+                                                             helix::calibration::BeltLayout layout);
+
+/// belt_path_in_slot() under the active printer's saved layout.
+[[nodiscard]] helix::calibration::BeltPath belt_path_in_slot(int slot);
+
 } // namespace helix::ui
