@@ -19,6 +19,10 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # float, and one reference links all of libstdc++'s facets. No format string here
 # uses {:L}.
 idf_build_set_property(COMPILE_DEFINITIONS "FMT_USE_LOCALE=0" APPEND)
+# __FILE__ is stored in the image (the subject debug registry keeps one per
+# registration); repo-relative, it is the same name in ~7KB less flash.
+get_filename_component(HELIX_REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+idf_build_set_property(COMPILE_OPTIONS "-fmacro-prefix-map=${HELIX_REPO_ROOT}/=" APPEND)
 
 # The app version is VERSION.txt, the same file the Makefile reads, so a firmware image
 # reports the version a Linux build of the same commit does. The numeric fields come from

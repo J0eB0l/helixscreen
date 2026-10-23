@@ -459,11 +459,11 @@ void SubjectInitializer::init_observers() {
     m_plugin_status_refresh = std::make_unique<helix::PluginStatusRefresh>();
 
     // Camera photos in history, taken by this screen when the plugin cannot.
+    // A build without a camera has no snapshot to take, so the plugin takes
+    // every photo and there is nothing for a controller here to do.
 #if HELIX_HAS_CAMERA
     m_print_photos =
         std::make_unique<helix::PrintPhotosController>(helix::live_camera_sources().fetch);
-#else
-    m_print_photos = std::make_unique<helix::PrintPhotosController>(nullptr);
 #endif
 
     // Print outcome telemetry observer (records anonymous print stats when telemetry enabled)

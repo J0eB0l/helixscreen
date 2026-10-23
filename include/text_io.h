@@ -315,6 +315,13 @@ template <typename T = long long> std::optional<T> parse_int(std::string_view s,
 /// empty input, trailing characters or out-of-range magnitude.
 std::optional<double> parse_double(std::string_view s);
 
+namespace detail {
+/// parse_double's contract read through strtod. It is parse_double wherever the
+/// standard library has no floating-point from_chars, and on the ESP32, where
+/// libstdc++'s from_chars links about 20KB of tables the image has no room for.
+std::optional<double> parse_double_strtod(std::string_view s);
+} // namespace detail
+
 // ---------------------------------------------------------------------------
 // Numbers by std::sto* rules: leading whitespace skipped, the number read up to
 // the first character that cannot continue it, the rest ignored ("12abc" is 12,

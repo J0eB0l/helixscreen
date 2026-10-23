@@ -11,6 +11,7 @@
 #include "panel_widget_size.h"
 #include "subject_debug_registry.h"
 #include "subject_managed_panel.h"
+#include "text_io.h"
 #include "theme_manager.h"
 #include "widget_subjects.h"
 
@@ -19,6 +20,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
+#include <optional>
+#include <string>
 
 // Clock update interval (1 second)
 static constexpr uint32_t kClockUpdateIntervalMs = 1000;
@@ -39,19 +42,14 @@ static helix::WidgetSubjects s_subjects{"ClockWidgetSubjects"};
 
 /// Read system uptime from /proc/uptime and format as human-readable string
 static void format_uptime(char* buf, size_t buf_size) {
-    FILE* f = fopen("/proc/uptime", "r");
-    if (!f) {
+    const std::optional<std::string> line = helix::text_io::read_first_line("/proc/uptime");
+    const std::optional<double> parsed =
+        line ? helix::text_io::parse_leading<double>(*line) : std::nullopt;
+    if (!parsed) {
         std::snprintf(buf, buf_size, "Up: --");
         return;
     }
-
-    double uptime_secs = 0;
-    if (fscanf(f, "%lf", &uptime_secs) != 1) {
-        fclose(f);
-        std::snprintf(buf, buf_size, "Up: --");
-        return;
-    }
-    fclose(f);
+    const double uptime_secs = *parsed;
 
     auto total_minutes = static_cast<int>(uptime_secs / 60.0);
     int days = total_minutes / (60 * 24);

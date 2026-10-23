@@ -318,20 +318,26 @@ TEST_CASE("parse_int is strict", "[text_io]") {
 }
 
 TEST_CASE("parse_double is strict and locale-independent", "[text_io]") {
-    CHECK(tio::parse_double("1.5") == 1.5);
-    CHECK(tio::parse_double("-2e3") == -2000.0);
-    CHECK(tio::parse_double("+0.25") == 0.25);
-    CHECK(tio::parse_double("7") == 7.0);
-    CHECK(tio::parse_double(".5") == 0.5);
-    CHECK(std::isinf(*tio::parse_double("inf")));
-    CHECK(std::isnan(*tio::parse_double("nan")));
-    CHECK_FALSE(tio::parse_double("").has_value());
-    CHECK_FALSE(tio::parse_double(" 1.5").has_value());
-    CHECK_FALSE(tio::parse_double("1.5 ").has_value());
-    CHECK_FALSE(tio::parse_double("1.5mm").has_value());
-    CHECK_FALSE(tio::parse_double("1,5").has_value());
-    CHECK_FALSE(tio::parse_double("0x1p3").has_value());
-    CHECK_FALSE(tio::parse_double("1e999").has_value());
+    // The from_chars form and the strtod form (the ESP32's, and libc++'s) hold one contract.
+    using Parse = std::optional<double> (*)(std::string_view);
+    const Parse parse =
+        GENERATE(as<Parse>{}, &tio::parse_double, &tio::detail::parse_double_strtod);
+    CHECK(parse("1.5") == 1.5);
+    CHECK(parse("-2e3") == -2000.0);
+    CHECK(parse("+0.25") == 0.25);
+    CHECK(parse("7") == 7.0);
+    CHECK(parse(".5") == 0.5);
+    CHECK_FALSE(parse("+-1").has_value());
+    CHECK_FALSE(parse("++1").has_value());
+    CHECK(std::isinf(*parse("inf")));
+    CHECK(std::isnan(*parse("nan")));
+    CHECK_FALSE(parse("").has_value());
+    CHECK_FALSE(parse(" 1.5").has_value());
+    CHECK_FALSE(parse("1.5 ").has_value());
+    CHECK_FALSE(parse("1.5mm").has_value());
+    CHECK_FALSE(parse("1,5").has_value());
+    CHECK_FALSE(parse("0x1p3").has_value());
+    CHECK_FALSE(parse("1e999").has_value());
 
     const char* prev = std::setlocale(LC_NUMERIC, nullptr);
     std::string saved = prev ? prev : "C";
@@ -339,8 +345,8 @@ TEST_CASE("parse_double is strict and locale-independent", "[text_io]") {
         SUCCEED("de_DE.UTF-8 not installed; the '.' checks above still ran in C");
         return;
     }
-    CHECK(tio::parse_double("1.5") == 1.5);
-    CHECK_FALSE(tio::parse_double("1,5").has_value());
+    CHECK(parse("1.5") == 1.5);
+    CHECK_FALSE(parse("1,5").has_value());
     std::setlocale(LC_NUMERIC, saved.c_str());
 }
 
