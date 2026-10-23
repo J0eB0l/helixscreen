@@ -127,7 +127,6 @@
           <bind_flag_if_eq subject="printer_has_spoolman" flag="hidden" ref_value="0"/>
           <plugin_feature_toggle_row name="row_filament_accounting"
                                      feature="filament_accounting" label="Switch spools at each tool change"
-                                     icon="swap_horizontal"
                                      description="Makes Spoolman charge each tool's or lane's own spool, for printers that do not switch it themselves, and records per print what each spool used."
                                      subject="plugin_feature_on_filament_accounting"
                                      callback="on_plugin_feature_switch_changed"/>
