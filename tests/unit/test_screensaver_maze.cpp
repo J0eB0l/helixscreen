@@ -21,6 +21,7 @@
 #include <cstring>
 #include <deque>
 #include <filesystem>
+#include <limits>
 #include <map>
 #include <random>
 #include <string>
@@ -1568,9 +1569,13 @@ TEST_CASE("maze art mixes recent prints, other files and the printer", "[screens
 namespace {
 
 /// Starts a maze saver whose art comes from `sources`; returns the pictures it hung.
-size_t pictures_hung(const helix::ui::MazeArtSources& sources) {
+/// Pictures hung from @p sources. The budget defaults to unbounded so the count
+/// does not depend on how fast this machine decodes.
+size_t pictures_hung(const helix::ui::MazeArtSources& sources,
+                     uint32_t budget_ms = std::numeric_limits<uint32_t>::max()) {
     MazeScreensaver saver;
     saver.set_art_source([sources]() { return sources; });
+    saver.set_art_decode_budget_ms(budget_ms);
     saver.start();
     REQUIRE(saver.is_active());
     const size_t count = saver.sim().renderer().picture_count();
@@ -1588,6 +1593,14 @@ TEST_CASE_METHOD(LVGLTestFixture, "the maze saver hangs the art its source gives
     sources.files = {"A:assets/images/folder.png"};
     sources.printer = "A:assets/images/printer_200.png";
     CHECK(pictures_hung(sources) == 4);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "the maze saver starts no decode past its art budget",
+                 "[screensaver][maze]") {
+    helix::ui::MazeArtSources sources;
+    sources.recent = {"A:assets/images/helix-icon-64.png"};
+    sources.printer = "A:assets/images/printer_200.png";
+    CHECK(pictures_hung(sources, 0) == 0);
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "the maze saver skips missing and oversized thumbnails",

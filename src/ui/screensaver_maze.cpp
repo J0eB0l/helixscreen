@@ -266,7 +266,7 @@ bool MazeScreensaver::on_start() {
         art_source_ ? art_source_() : maze_art_sources_from_app(screen_w(), rng());
     // Each decode is reduced before the next starts, so at most one full-size image is held.
     for (const std::string& path : mix_maze_art(sources, kMazeMaxPictures)) {
-        if (elapsed_ms() >= kMazeArtDecodeBudgetMs) {
+        if (elapsed_ms() >= art_decode_budget_ms_) {
             break;
         }
         // The printer picture too: its prerendered variants are 150 or 300 px, and only a raw

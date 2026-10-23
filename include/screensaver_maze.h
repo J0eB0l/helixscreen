@@ -95,6 +95,11 @@ class MazeScreensaver : public SimSaver<MazeSim> {
     void set_art_source(std::function<MazeArtSources()> source) {
         art_source_ = std::move(source);
     }
+    /// Replaces how long on_start() may spend decoding art; for tests, which must not
+    /// depend on how fast the machine decodes.
+    void set_art_decode_budget_ms(uint32_t budget_ms) {
+        art_decode_budget_ms_ = budget_ms;
+    }
 
   protected:
     std::optional<lv_color_format_t> canvas_format() const override {
@@ -105,6 +110,7 @@ class MazeScreensaver : public SimSaver<MazeSim> {
 
   private:
     std::function<MazeArtSources()> art_source_;
+    uint32_t art_decode_budget_ms_ = kMazeArtDecodeBudgetMs;
 };
 
 } // namespace helix::ui
