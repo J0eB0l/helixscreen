@@ -2266,7 +2266,7 @@
   <translation tag="No filament environment sensors" zh="无耗材环境传感器"/>
   <translation tag="No filament loaded to unload" zh="没有已加载的耗材可卸载"/>
   <translation tag="No filament sensor detected" zh="未检测到耗材传感器"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" zh="未及时插入耗材。加热已关闭，滑架已复位"/>
+  <translation tag="No filament was inserted in time" zh="未及时插入耗材"/>
   <translation tag="No filament. Load filament and retry." zh="无耗材。请装载耗材后重试。"/>
   <translation tag="No filaments found" zh="未找到耗材"/>
   <translation tag="No file loaded" zh="未加载文件"/>
@@ -2792,7 +2792,6 @@
   <translation tag="Provide a {}" zh="请提供 {}"/>
   <translation tag="Provide an on/off value" zh="请提供开/关值"/>
   <translation tag="Provide {}" zh="请提供 {}"/>
-  <translation tag="Pull the filament out of {}" zh="从 {} 中抽出耗材"/>
   <translation tag="Pulling filament back" zh="正在回抽耗材"/>
   <translation tag="Purge" zh="排料"/>
   <translation tag="Purge &amp; Wipe" zh="排料与擦拭"/>
@@ -3969,7 +3968,7 @@
   <translation tag="Unload Filament" zh="卸载耗材"/>
   <translation tag="Unload all stopped" zh="全部卸载已停止"/>
   <translation tag="Unload at end" zh="结束时卸载"/>
-  <translation tag="Unload complete" zh="卸载完成"/>
+  <translation tag="Unload complete. Pull the filament out of {}." zh="卸载完成。请从 {} 中抽出耗材。"/>
   <translation tag="Unload failed" zh="卸载失败"/>
   <translation tag="Unload filament" zh="卸载耗材"/>
   <translation tag="Unload filament?" zh="卸载耗材?"/>

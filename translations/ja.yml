@@ -877,7 +877,7 @@ translations:
   "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "基本：セットアップウィザード、画面の移動、タッチ操作。"
   Load all stopped: 'すべてのロードを停止しました'
   Load stopped: 'ロードを停止しました'
-  No filament was inserted in time. The heater is off and the carriage is restored: '時間内にフィラメントが挿入されませんでした。ヒーターを切り、キャリッジを元に戻しました'
+  No filament was inserted in time: '時間内にフィラメントが挿入されませんでした'
   Print hours between filter changes. Off hides this meter.: 'フィルター交換までの印刷時間。オフにするとこのメーターを非表示にします。'
   Print hours between nozzle changes. Off hides this meter.: 'ノズル交換までの印刷時間。オフにするとこのメーターを非表示にします。'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'レールの清掃と給油までの印刷時間。オフにするとこのメーターを非表示にします。'
@@ -2898,7 +2898,6 @@ translations:
   Provide a {}: '{} を入力してください'
   Provide an on/off value: 'オン/オフの値を入力してください'
   Provide {}: '{} を入力してください'
-  Pull the filament out of {}: '{} からフィラメントを引き抜いてください'
   Pulling filament back: フィラメントを引き戻し中
   Purge: パージ
   Purge & Wipe: 'パージとワイプ'
@@ -4147,7 +4146,7 @@ translations:
   Unload Failed: '取り出しに失敗しました'
   Unload Filament: フィラメントを排出
   'Unload at end': '終了時に排出'
-  Unload complete: 'アンロード完了'
+  Unload complete. Pull the filament out of {}.: 'アンロード完了。{} からフィラメントを引き抜いてください。'
   Unload failed: 排出に失敗しました
   Unload filament: 'フィラメントをアンロード'
   Unload filament?: フィラメントを排出しますか?

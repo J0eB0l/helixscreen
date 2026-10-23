@@ -949,7 +949,7 @@ translations:
   "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Les bases : l'assistant de configuration, la navigation entre les écrans et les gestes tactiles."
   Load all stopped: 'Chargement global arrêté'
   Load stopped: 'Chargement arrêté'
-  No filament was inserted in time. The heater is off and the carriage is restored: 'Aucun filament n''a été inséré à temps. La chauffe est coupée et le chariot est rétabli'
+  No filament was inserted in time: 'Aucun filament n''a été inséré à temps'
   Print hours between filter changes. Off hides this meter.: 'Heures d’impression entre deux changements de filtre. Désactivé masque ce compteur.'
   Print hours between nozzle changes. Off hides this meter.: 'Heures d’impression entre deux changements de buse. Désactivé masque ce compteur.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Heures d’impression entre deux nettoyages et graissages des rails. Désactivé masque ce compteur.'
@@ -3066,7 +3066,6 @@ translations:
   Provide a {}: 'Indiquez {}'
   Provide an on/off value: 'Indiquez une valeur marche/arrêt'
   Provide {}: 'Indiquez {}'
-  Pull the filament out of {}: 'Retirez le filament de {}'
   Pulling filament back: Rétraction du filament
   Purge: Purger
   Purge & Wipe: 'Purge et essuyage'
@@ -4420,7 +4419,7 @@ translations:
   Unload Failed: 'Échec du déchargement'
   Unload Filament: Décharger le filament
   'Unload at end': 'Décharger à la fin'
-  Unload complete: 'Déchargement terminé'
+  Unload complete. Pull the filament out of {}.: 'Déchargement terminé. Retirez le filament : {}.'
   Unload failed: Échec du déchargement
   Unload filament: 'Décharger le filament'
   Unload filament?: Décharger le filament ?

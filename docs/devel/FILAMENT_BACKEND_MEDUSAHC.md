@@ -147,28 +147,41 @@ operation whose step bar is the stage list:
 
 | Load | Gcode | Unload | Gcode |
 |------|-------|--------|-------|
-| Insert filament | an action prompt: "Insert filament into the hot end of Tool N while it is docked, then tap Continue", with Continue and Cancel. It comes first, while the tool is still in its dock: once the hot end is on the carriage, the extruder's gears stand between the operator and the nozzle. A tool already on the carriage gets "Insert filament into Tool N, then tap Continue" | Mount tool | `SELECT_TOOL T=<n>` (or the machine's own `T<n>`); skipped when already mounted |
-| Mount tool | same as Unload's; it closes the prompt | Heat nozzle | `M109 T<n> S<material temp>` (the target slot's material, else 220) |
+| Insert filament | an action prompt: "Insert filament into the hot end of Tool N while it is docked, then tap Continue", with Continue and Cancel. It comes first, while the tool is still in its dock: once the hot end is on the carriage, the extruder's gears stand between the operator and the nozzle. A tool already on the carriage gets "Insert filament into Tool N, then tap Continue", and a Load of several with the first one mounted names both cases in one sentence | Mount tool | `SELECT_TOOL T=<n>` (or the machine's own `T<n>`); skipped when already mounted |
+| Mount tool | same as Unload's; it closes the prompt | Heat nozzle | `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=<t>`, then `TEMPERATURE_WAIT SENSOR=<tool's extruder> MINIMUM=<t-2>` (`t` is the target slot's material temperature, else 220) |
 | Heat nozzle | same as Unload's | Retract filament | `M83`, `G1 E-25 F1800`, `G1 E-150 F1200` (until the strand is fully out), `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` |
 | Purge | `M83`, `G1 E5 F60` (slow draw), `G1 E50 F300` twice, `G1 E-10 F1800`, `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` | Restore tool | remount the tool that was on the carriage, or park if none was |
 | Restore tool | same as Unload's | | |
 
 A tool already on the carriage skips Mount and Restore: Insert, Heat, Purge. A completed
 Unload leaves the strand in the tube, so it ends on a success toast naming every tool it
-unloaded: "Unload complete Pull the filament out of Tool 2, Tool 4" (`toast_unload_complete()`).
+unloaded: "Unload complete. Pull the filament out of Tool 2, Tool 4." (`toast_unload_complete()`).
 
 Neither direction sends `OPEN`: the feeder buttons stay a separate control.
 
-Every temperature command names the tool's own heater (`T<n>`, or `extruder` / `extruder<n>`
-by name). The swap does not run `ACTIVATE_EXTRUDER`, so Klipper's active extruder stays
-where it was and a bare `M109` or `M104` would act on that one.
+Every temperature command names the tool's own heater by name (`extruder` / `extruder<n>`).
+The swap does not run `ACTIVATE_EXTRUDER`, so Klipper's active extruder stays where it was
+and a bare `M109` or `M104` would act on that one; a printer's own `M109` override may also
+wait on a different heater than it set.
 
-Each stage goes out with `bypass_busy_gate` (`AmsSubscriptionBackend::execute_gcode()` sets
-it for every send that waits on its answer). A swap leaves `idle_timeout` reading
-`Printing` for a while, and the API's busy gate sends a discretionary script such as
-`M109` fire-and-forget then, dropping its answer: the run would wait at Heat forever.
+Each stage goes out through `ensure_homed_then(..., bypass_busy_gate=true)`, which only this
+run passes: every other backend send keeps IMoonrakerAPI's busy gate. A swap leaves
+`idle_timeout` reading `Printing` for a while, and the gate sends a script made only of
+heater commands (a cleanup with nothing to restore) fire-and-forget then, dropping its
+answer: the run would wait forever. No stage carries a bare `G0`/`G1`, so skipping the
+gate's move refusal changes nothing for the run (the purge and retract open with `M83`).
 A stage that times out (`kAmsOperationTimeoutMs`) or errors unwinds the run like any
 failed stage.
+
+**The dock sensors confirm every swap.** A Mount or planned Restore that acks is not done
+until the sensors place the expected tool on the carriage (`-1` after a park). The answer
+can lead the frame that reports the finished swap, so the run waits up to
+`kSwapConfirmGraceMs` for that frame. A reading still `-2`, a fault the controller reports,
+or a different tool stops the run WITHOUT a restore - the carriage is unknown, and no swap
+goes out against it - with heaters off by name and the toast "Load stopped. Dock sensors
+cannot tell which tool is mounted". Outside a swap, any sensor fault under a live run stops
+it the same way, and once the run is over the fault shows as the backend's `ERROR`. A
+cleanup counts as a swap only when it actually puts the carriage back.
 
 The prompt is Klipper's own action prompt, raised with `RESPOND TYPE=command` lines, so it
 shows on this screen and on Mainsail/Fluidd alike, and it needs `[respond]`. Its payload is
@@ -178,10 +191,11 @@ answer with `RESPOND TYPE=command MSG=HELIX_MOUNT_FEED_CONTINUE` / `..._CANCEL`;
 watches the console for that exact echo (`mount_feed::parse_console()`). The sidebar's Cancel
 (`AmsBackendToolChanger::cancel()`), the prompt's Cancel, and a prompt **dismissed** anywhere
 (the screen's own dismiss sends `action:prompt_end`, whose echo is the only trace) all turn
-the rest of the run into the cleanup: prompt closed, the plan's heaters turned off BY NAME
-(`SET_HEATER_TEMPERATURE ... TARGET=0`, never a blanket `M104 S0` - the active extruder
-before the first mount is the PREVIOUS tool's, and its user-set target must survive), and
-the carriage restored. A stage that fails does the same; Klipper's own error line reports
+the rest of the run into the cleanup: prompt closed and, once anything past the prompt has
+gone out, the plan's heaters turned off BY NAME (`SET_HEATER_TEMPERATURE ... TARGET=0`,
+never a blanket `M104 S0` - the active extruder before the first mount is the PREVIOUS
+tool's, and its user-set target must survive) and the carriage restored. A stop at the
+prompt itself, before anything moved or heated, only closes the prompt. A stage that fails does the same; Klipper's own error line reports
 the failure. A cleanup that cannot be sent at all ends the run and says
 `Could not turn the heaters off`.
 
@@ -192,9 +206,11 @@ run without waiting for an ack. Both run without `mutex_` held, since the unwind
 and emits; `on_stopping()` runs under it.
 
 **The wait has a ceiling.** Nobody inserting the filament for three minutes
-(`mount_feed::kPromptTimeoutMs`) unwinds the run the same way and raises an error toast:
-a run nobody is attending must not go on to mount and heat a tool. A `LvglTimerGuard` watches the wait while LVGL is
-up; unit tests drive `handle_wait_elapsed()` through `ToolChangerTestAccess` instead.
+(`mount_feed::kPromptTimeoutMs`) unwinds the run the same way and raises the error toast
+"No filament was inserted in time": a run nobody is attending must not go on to mount and
+heat a tool. A `LvglTimerGuard` watches the wait while LVGL is up; unit tests drive
+`handle_wait_elapsed()` through `ToolChangerTestAccess` instead, and the swap confirmation's
+grace through `handle_swap_check_elapsed()` the same way.
 
 **Load all / Unload all.** `max_heads_per_filament_op()` answers the tool count, so the
 sidebar's picker accepts several heads on this backend. A Load of several asks **once**, up
@@ -202,7 +218,7 @@ front, exactly as a Load of one does ("Insert filament into the hot ends of Tool
 while they are docked, as far as it goes, then tap Continue"), then works tool by tool
 (Mount, Heat, Purge): each tool's opening stage preheats the **next** one to 65% of its
 material temperature (`SET_HEATER_TEMPERATURE HEATER=extruder<n>`, the Klipper multi-extruder
-naming - `extruder` for tool 0), so its own `M109` starts from heat. A preheat never LOWERS
+naming - `extruder` for tool 0), so its own heat stage starts from heat. A preheat never LOWERS
 a target: a next tool already set hotter than the preheat value is left alone
 (`HeadRequest::heater_target_c`, read off the live extruder targets at dispatch). An Unload of several
 runs the same sequence with no prompt. At the end the carriage is restored to the tool the

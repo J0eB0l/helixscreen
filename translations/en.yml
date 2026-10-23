@@ -917,7 +917,7 @@ translations:
   "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Learn the basics: the setup wizard, moving around the screens, and touch gestures."
   Load all stopped: Load all stopped
   Load stopped: Load stopped
-  No filament was inserted in time. The heater is off and the carriage is restored: No filament was inserted in time. The heater is off and the carriage is restored
+  No filament was inserted in time: No filament was inserted in time
   Print hours between filter changes. Off hides this meter.: Print hours between filter changes. Off hides this meter.
   Print hours between nozzle changes. Off hides this meter.: Print hours between nozzle changes. Off hides this meter.
   Print hours between rail cleaning and lubrication. Off hides this meter.: Print hours between rail cleaning and lubrication. Off hides this meter.
@@ -2980,7 +2980,6 @@ translations:
   Provide a {}: Provide a {}
   Provide an on/off value: Provide an on/off value
   Provide {}: Provide {}
-  Pull the filament out of {}: Pull the filament out of {}
   Pulling filament back: Pulling filament back
   Purge: Purge
   Purge & Wipe: Purge & Wipe
@@ -4290,7 +4289,7 @@ translations:
   Unload Failed: Unload Failed
   Unload Filament: Unload Filament
   'Unload at end': 'Unload at end'
-  Unload complete: Unload complete
+  Unload complete. Pull the filament out of {}.: Unload complete. Pull the filament out of {}.
   Unload failed: Unload failed
   Unload filament: Unload filament
   Unload filament?: Unload filament?

@@ -2311,7 +2311,7 @@
   <translation tag="No filament environment sensors" ru="Нет датчиков среды филамента"/>
   <translation tag="No filament loaded to unload" ru="Нет загруженного филамента для выгрузки"/>
   <translation tag="No filament sensor detected" ru="Датчик филамента не обнаружен"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" ru="Филамент не был вставлен вовремя. Нагреватель выключен, каретка возвращена"/>
+  <translation tag="No filament was inserted in time" ru="Филамент не был вставлен вовремя"/>
   <translation tag="No filament. Load filament and retry." ru="Нет филамента. Загрузите филамент и повторите попытку."/>
   <translation tag="No filaments found" ru="Филаменты не найдены"/>
   <translation tag="No file loaded" ru="Файл не загружен"/>
@@ -2846,7 +2846,6 @@
   <translation tag="Provide a {}" ru="Укажите {}"/>
   <translation tag="Provide an on/off value" ru="Укажите значение вкл/выкл"/>
   <translation tag="Provide {}" ru="Укажите {}"/>
-  <translation tag="Pull the filament out of {}" ru="Вытяните филамент из {}"/>
   <translation tag="Pulling filament back" ru="Откат филамента"/>
   <translation tag="Purge" ru="Продуть"/>
   <translation tag="Purge &amp; Wipe" ru="Продувка и очистка"/>
@@ -4029,7 +4028,7 @@
   <translation tag="Unload Filament" ru="Выгрузить филамент"/>
   <translation tag="Unload all stopped" ru="Выгрузка всех остановлена"/>
   <translation tag="Unload at end" ru="Выгружать в конце"/>
-  <translation tag="Unload complete" ru="Выгрузка завершена"/>
+  <translation tag="Unload complete. Pull the filament out of {}." ru="Выгрузка завершена. Вытяните филамент: {}."/>
   <translation tag="Unload failed" ru="Ошибка выгрузки"/>
   <translation tag="Unload filament" ru="Выгрузка филамента"/>
   <translation tag="Unload filament?" ru="Выгрузить филамент?"/>

@@ -2266,7 +2266,7 @@
   <translation tag="No filament environment sensors" de="Keine Filament-Umgebungssensoren"/>
   <translation tag="No filament loaded to unload" de="Kein Filament zum Entladen geladen"/>
   <translation tag="No filament sensor detected" de="Kein Filamentsensor erkannt"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" de="Kein Filament wurde rechtzeitig eingeführt. Die Heizung ist aus und der Schlitten ist zurückgestellt"/>
+  <translation tag="No filament was inserted in time" de="Kein Filament wurde rechtzeitig eingeführt"/>
   <translation tag="No filament. Load filament and retry." de="Kein Filament. Filament laden und erneut versuchen."/>
   <translation tag="No filaments found" de="Keine Filamente gefunden"/>
   <translation tag="No file loaded" de="Keine Datei geladen"/>
@@ -2792,7 +2792,6 @@
   <translation tag="Provide a {}" de="Geben Sie {} an"/>
   <translation tag="Provide an on/off value" de="Geben Sie einen Ein/Aus-Wert an"/>
   <translation tag="Provide {}" de="Geben Sie {} an"/>
-  <translation tag="Pull the filament out of {}" de="Ziehen Sie das Filament aus {} heraus"/>
   <translation tag="Pulling filament back" de="Filament wird zurückgezogen"/>
   <translation tag="Purge" de="Entlüften"/>
   <translation tag="Purge &amp; Wipe" de="Entlüften &amp; Abwischen"/>
@@ -3969,7 +3968,7 @@
   <translation tag="Unload Filament" de="Filament entladen"/>
   <translation tag="Unload all stopped" de="Entladen gestoppt"/>
   <translation tag="Unload at end" de="Am Ende entladen"/>
-  <translation tag="Unload complete" de="Entladen abgeschlossen"/>
+  <translation tag="Unload complete. Pull the filament out of {}." de="Entladen abgeschlossen. Ziehen Sie das Filament heraus: {}."/>
   <translation tag="Unload failed" de="Entladen fehlgeschlagen"/>
   <translation tag="Unload filament" de="Filament entladen"/>
   <translation tag="Unload filament?" de="Filament entladen?"/>

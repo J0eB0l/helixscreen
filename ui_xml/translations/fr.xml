@@ -2266,7 +2266,7 @@
   <translation tag="No filament environment sensors" fr="Aucun capteur d&apos;environnement de filament"/>
   <translation tag="No filament loaded to unload" fr="Aucun filament chargé à décharger"/>
   <translation tag="No filament sensor detected" fr="Aucun capteur de filament détecté"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" fr="Aucun filament n&apos;a été inséré à temps. La chauffe est coupée et le chariot est rétabli"/>
+  <translation tag="No filament was inserted in time" fr="Aucun filament n&apos;a été inséré à temps"/>
   <translation tag="No filament. Load filament and retry." fr="Pas de filament. Chargez du filament et réessayez."/>
   <translation tag="No filaments found" fr="Aucun filament trouvé"/>
   <translation tag="No file loaded" fr="Aucun fichier chargé"/>
@@ -2792,7 +2792,6 @@
   <translation tag="Provide a {}" fr="Indiquez {}"/>
   <translation tag="Provide an on/off value" fr="Indiquez une valeur marche/arrêt"/>
   <translation tag="Provide {}" fr="Indiquez {}"/>
-  <translation tag="Pull the filament out of {}" fr="Retirez le filament de {}"/>
   <translation tag="Pulling filament back" fr="Rétraction du filament"/>
   <translation tag="Purge" fr="Purger"/>
   <translation tag="Purge &amp; Wipe" fr="Purge et essuyage"/>
@@ -3969,7 +3968,7 @@
   <translation tag="Unload Filament" fr="Décharger le filament"/>
   <translation tag="Unload all stopped" fr="Déchargement global arrêté"/>
   <translation tag="Unload at end" fr="Décharger à la fin"/>
-  <translation tag="Unload complete" fr="Déchargement terminé"/>
+  <translation tag="Unload complete. Pull the filament out of {}." fr="Déchargement terminé. Retirez le filament : {}."/>
   <translation tag="Unload failed" fr="Échec du déchargement"/>
   <translation tag="Unload filament" fr="Décharger le filament"/>
   <translation tag="Unload filament?" fr="Décharger le filament ?"/>

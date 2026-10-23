@@ -988,7 +988,7 @@ translations:
   "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Основы: мастер настройки, переход между экранами и жесты касания."
   Load all stopped: 'Загрузка всех остановлена'
   Load stopped: 'Загрузка остановлена'
-  No filament was inserted in time. The heater is off and the carriage is restored: 'Филамент не был вставлен вовремя. Нагреватель выключен, каретка возвращена'
+  No filament was inserted in time: 'Филамент не был вставлен вовремя'
   Print hours between filter changes. Off hides this meter.: 'Часы печати между заменами фильтра. «Выкл» скрывает этот счётчик.'
   Print hours between nozzle changes. Off hides this meter.: 'Часы печати между заменами сопла. «Выкл» скрывает этот счётчик.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Часы печати между чисткой и смазкой направляющих. «Выкл» скрывает этот счётчик.'
@@ -3096,7 +3096,6 @@ translations:
   Provide a {}: 'Укажите {}'
   Provide an on/off value: 'Укажите значение вкл/выкл'
   Provide {}: 'Укажите {}'
-  Pull the filament out of {}: 'Вытяните филамент из {}'
   Pulling filament back: Откат филамента
   Purge: Продуть
   Purge & Wipe: 'Продувка и очистка'
@@ -4429,7 +4428,7 @@ translations:
   Unload Failed: 'Не удалось выгрузить'
   Unload Filament: Выгрузить филамент
   'Unload at end': 'Выгружать в конце'
-  Unload complete: 'Выгрузка завершена'
+  Unload complete. Pull the filament out of {}.: 'Выгрузка завершена. Вытяните филамент: {}.'
   Unload failed: Ошибка выгрузки
   Unload filament: 'Выгрузка филамента'
   Unload filament?: Выгрузить филамент?

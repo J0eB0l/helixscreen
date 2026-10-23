@@ -61,8 +61,8 @@ struct HeadRequest {
     int heater_target_c = 0;
 };
 
-/// How long the operator prompt may wait before the run unwinds itself. A hot
-/// nozzle must not sit unattended.
+/// How long the operator prompt may wait before the run unwinds itself: a run
+/// nobody is attending must not go on to mount and heat a tool.
 constexpr uint32_t kPromptTimeoutMs = 180'000;
 
 /// What one Load or Unload needs to know, read off the backend at dispatch.
@@ -72,6 +72,8 @@ struct Request {
     /// Unload; several for Load all / Unload all.
     std::vector<HeadRequest> heads;
     std::string restore_gcode; ///< Puts the carriage back; empty when nothing changes
+    /// The tool restore_gcode puts on the carriage, or -1 when it parks.
+    int restore_head = -1;
     /// The printer's own LOAD_FILAMENT / UNLOAD_FILAMENT taking T=, run in
     /// place of the built-in feed or retract moves; empty for the built-in ones.
     std::string macro;
@@ -96,6 +98,9 @@ struct Stage {
     /// Position of this stage's tool in Request::heads; the shared prompt
     /// counts as the first tool's and Restore as the last one's.
     int tool_index = 0;
+    /// The stage swaps the carriage: a Mount, a Restore, or a cleanup that puts
+    /// the carriage back. The dock sensors read -2 for a moment mid-swap.
+    bool swaps = false;
 };
 
 /// The stages @p request runs, in order.
@@ -139,8 +144,9 @@ enum class ConsoleSignal : uint8_t { None, Continue, Cancel, Dismissed };
  * @brief One Load or Unload in progress.
  *
  * Advances on the backend's acks and the operator's reply. Any failure, or a
- * Cancel, turns the rest of the run into the cleanup: heater off, carriage
- * restored. The cleanup runs once; a failure inside it ends the run.
+ * Cancel, turns the rest of the run into the cleanup: prompt closed and, once
+ * anything past the prompt has gone out, heaters off and carriage restored.
+ * The cleanup runs once; a failure inside it ends the run.
  */
 class Run {
   public:
@@ -159,6 +165,8 @@ class Run {
     /// one strides'-worth of the bar, so the index never restarts mid-run.
     [[nodiscard]] int phase_index() const;
     [[nodiscard]] Step current_step() const;
+    /// The stage in flight, or nullptr once the run is over.
+    [[nodiscard]] const Stage* current_stage() const;
 
     /// The prompt is up and the run is waiting for the operator.
     [[nodiscard]] bool awaiting_operator() const {
@@ -178,10 +186,11 @@ class Run {
     void stage_done();
     /// The operator answered the prompt. Ignored unless the run is waiting.
     void operator_reply(Reply reply);
-    /// The current stage failed, or the user cancelled.
-    void abort();
+    /// The current stage failed, or the user cancelled. @p restore_carriage
+    /// false leaves the carriage alone, for a carriage nothing can vouch for.
+    void abort(bool restore_carriage = true);
     /// What advancing the operator wait by @p elapsed_ms did. Expired also
-    /// aborts the run into its cleanup: the heaters must not wait for anyone.
+    /// aborts the run into its cleanup.
     enum class WaitResult : uint8_t { Waiting, NotWaiting, Expired };
     [[nodiscard]] WaitResult advance_wait(uint32_t elapsed_ms);
 

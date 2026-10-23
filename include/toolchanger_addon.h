@@ -80,6 +80,9 @@ struct ToolReading {
     /// pattern matches no settled configuration". A swap in flight is always the
     /// second, because the tool is between its dock and the head.
     bool sensor_error_reported = false;
+    /// The frame carried the controller's `sensor_error` flag at all, true or
+    /// false. Without it, sensor_error_reported = false says nothing.
+    bool sensor_error_named = false;
     /// The machine's phase word, or empty when the frame did not say.
     ///
     /// The two controllers do NOT share a vocabulary, and this is deliberately

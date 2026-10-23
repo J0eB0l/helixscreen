@@ -207,6 +207,12 @@ class AmsSubscriptionBackend : public AmsBackend {
     ///                   second error toast beside the real one. Null (the
     ///                   default) means "use @p on_error for both", which is
     ///                   every caller that has no such unwind.
+    /// @param bypass_busy_gate Send the payload past IMoonrakerAPI's busy gate,
+    ///                   which sends a discretionary script (heater, fan)
+    ///                   fire-and-forget while a blocking operation runs and
+    ///                   drops both callbacks. Only for a caller whose sequence
+    ///                   cannot go on without the answer; every other caller
+    ///                   keeps the gate.
     ///
     /// @warning Call from the main thread only — checks toolhead_homed(),
     /// which (in the production override) reads an LVGL subject.
@@ -216,7 +222,8 @@ class AmsSubscriptionBackend : public AmsBackend {
                       uint32_t timeout_ms = IMoonrakerAPI::kAmsOperationTimeoutMs,
                       bool skip_homing = false, bool silent = true,
                       std::optional<bool> caller_surfaces_errors = std::nullopt,
-                      std::function<void(const MoonrakerError&)> on_predispatch_error = nullptr);
+                      std::function<void(const MoonrakerError&)> on_predispatch_error = nullptr,
+                      bool bypass_busy_gate = false);
 
     /// Repaints the SlotInfo cached_slot_locked() names from its lane, under
     /// mutex_. Call without holding mutex_.
@@ -694,11 +701,14 @@ class AmsSubscriptionBackend : public AmsBackend {
     ///        non-null, which is right for the callers that pass none. Set it
     ///        explicitly to false when the callback exists but only logs and
     ///        unwinds state — see include/rpc_error_policy.h.
+    /// @param bypass_busy_gate See ensure_homed_then(). With a live @p api_ it
+    ///        takes the direct path, since the virtuals carry no such flag.
     AmsError dispatch_payload(std::string gcode, std::function<void()> on_complete,
                               std::function<void(const MoonrakerError&)> on_error = nullptr,
                               uint32_t timeout_ms = IMoonrakerAPI::kAmsOperationTimeoutMs,
                               bool silent = true,
-                              std::optional<bool> caller_surfaces_errors = std::nullopt);
+                              std::optional<bool> caller_surfaces_errors = std::nullopt,
+                              bool bypass_busy_gate = false);
 
     /// Report a gcode failure through @p on_error when set, else fall back to
     /// the historical behaviour: log at error level and reset the action to

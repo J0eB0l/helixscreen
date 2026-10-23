@@ -792,7 +792,7 @@ AmsError AmsSubscriptionBackend::ensure_homed_then(
     std::string gcode, std::function<void()> on_complete,
     std::function<void(const MoonrakerError&)> on_error, uint32_t timeout_ms, bool skip_homing,
     bool silent, std::optional<bool> caller_surfaces_errors,
-    std::function<void(const MoonrakerError&)> on_predispatch_error) {
+    std::function<void(const MoonrakerError&)> on_predispatch_error, bool bypass_busy_gate) {
     // The homed answer comes from the live homed_axes subject, not an RPC:
     // toolhead is in the standing objects.subscribe set, so querying it again
     // was a redundant round trip. skip_homing short-circuits the check
@@ -802,7 +802,7 @@ AmsError AmsSubscriptionBackend::ensure_homed_then(
     // auto_home) — no G28 from us.
     if (skip_homing || delegates_homing_to_printer() || toolhead_homed()) {
         return dispatch_payload(std::move(gcode), std::move(on_complete), std::move(on_error),
-                                timeout_ms, silent, caller_surfaces_errors);
+                                timeout_ms, silent, caller_surfaces_errors, bypass_busy_gate);
     }
 
     // An operation that needs a home just homes first, with no confirmation:
@@ -831,7 +831,7 @@ AmsError AmsSubscriptionBackend::ensure_homed_then(
             return AmsErrorHelper::success();
         }
         dispatch_payload(std::move(gcode), std::move(on_complete), std::move(on_error), timeout_ms,
-                         silent, caller_surfaces_errors);
+                         silent, caller_surfaces_errors, bypass_busy_gate);
         return AmsErrorHelper::success();
     }
 
@@ -839,15 +839,15 @@ AmsError AmsSubscriptionBackend::ensure_homed_then(
     api_->execute_gcode(
         "G28",
         [this, token, gcode = std::move(gcode), on_complete, on_error, timeout_ms, silent,
-         caller_surfaces_errors]() {
+         caller_surfaces_errors, bypass_busy_gate]() {
             // L081 Mechanism C: the ack lands on a bg thread and dispatch_payload
             // touches api_/members. Marshal to main.
-            token.defer(
-                "AmsSubscriptionBackend::ensure_homed_then_g28_success",
-                [this, gcode, on_complete, on_error, timeout_ms, silent, caller_surfaces_errors]() {
-                    dispatch_payload(gcode, on_complete, on_error, timeout_ms, silent,
-                                     caller_surfaces_errors);
-                });
+            token.defer("AmsSubscriptionBackend::ensure_homed_then_g28_success",
+                        [this, gcode, on_complete, on_error, timeout_ms, silent,
+                         caller_surfaces_errors, bypass_busy_gate]() {
+                            dispatch_payload(gcode, on_complete, on_error, timeout_ms, silent,
+                                             caller_surfaces_errors, bypass_busy_gate);
+                        });
         },
         [this, token, pre_err](const MoonrakerError& err) {
             token.defer("AmsSubscriptionBackend::ensure_homed_then_g28_error",
@@ -886,11 +886,10 @@ AmsError AmsSubscriptionBackend::refuse_dispatch_no_api(
     return AmsErrorHelper::not_connected("IMoonrakerAPI not available");
 }
 
-AmsError
-AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()> on_complete,
-                                         std::function<void(const MoonrakerError&)> on_error,
-                                         uint32_t timeout_ms, bool silent,
-                                         std::optional<bool> caller_surfaces_errors) {
+AmsError AmsSubscriptionBackend::dispatch_payload(
+    std::string gcode, std::function<void()> on_complete,
+    std::function<void(const MoonrakerError&)> on_error, uint32_t timeout_ms, bool silent,
+    std::optional<bool> caller_surfaces_errors, bool bypass_busy_gate) {
     // Default shape: dispatch through the 1-arg and 2-arg execute_gcode()
     // virtuals. ~20 fixtures override ONLY those two (see the
     // dispatch_payload() doc comment in the header); a payload with no
@@ -910,8 +909,10 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
     // above. That virtual already runs the completion on main; the error leg
     // still hops here because a refusal for want of an IMoonrakerAPI arrives
     // synchronously, and handle_dispatch_error() takes mutex_.
+    // A busy-gate bypass with a live API needs the direct path below: the
+    // virtual carries no such flag. Fixtures (no API) still capture through it.
     if (timeout_ms == IMoonrakerAPI::kAmsOperationTimeoutMs &&
-        !caller_surfaces_errors.value_or(on_error != nullptr)) {
+        !caller_surfaces_errors.value_or(on_error != nullptr) && !(bypass_busy_gate && api_)) {
         return execute_gcode(
             gcode, std::move(on_complete),
             [this, token, on_error](const MoonrakerError& err) {
@@ -936,8 +937,6 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
     // own on_error also only logs overrides this explicitly (CFS does). See
     // include/rpc_error_policy.h.
     const bool caller_surfaces = caller_surfaces_errors.value_or(on_error != nullptr);
-    const bool on_complete_given = on_complete != nullptr;
-    const bool on_error_given = on_error != nullptr;
 
     api_->execute_gcode(
         gcode,
@@ -961,10 +960,7 @@ AmsSubscriptionBackend::dispatch_payload(std::string gcode, std::function<void()
             token.defer("AmsSubscriptionBackend::dispatch_payload_error",
                         [this, err, on_error]() { handle_dispatch_error(err, on_error); });
         },
-        timeout_ms, silent, /*on_queued=*/nullptr, caller_surfaces,
-        // A caller that waits on the answer cannot take the busy gate's
-        // fire-and-forget path, which drops both callbacks.
-        /*bypass_busy_gate=*/on_complete_given || on_error_given);
+        timeout_ms, silent, /*on_queued=*/nullptr, caller_surfaces, bypass_busy_gate);
     return AmsErrorHelper::success();
 }
 
@@ -1072,12 +1068,7 @@ AmsError AmsSubscriptionBackend::execute_gcode(const std::string& gcode,
         // not put anything on screen, so declaring otherwise would silence
         // GcodeErrorRouter and a real macro rejection would reach nobody.
         // See include/rpc_error_policy.h.
-        /*caller_surfaces_errors=*/false,
-        // The caller waits on this answer. The busy gate sends a discretionary
-        // script (a bare M109, a heater target) fire-and-forget while
-        // idle_timeout reads "Printing", dropping both callbacks, and a tool
-        // swap the backend just sent is exactly what leaves it reading that.
-        /*bypass_busy_gate=*/true);
+        /*caller_surfaces_errors=*/false);
     return AmsErrorHelper::success();
 }
 

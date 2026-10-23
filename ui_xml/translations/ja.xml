@@ -2266,7 +2266,7 @@
   <translation tag="No filament environment sensors" ja="フィラメント環境センサーがありません"/>
   <translation tag="No filament loaded to unload" ja="取出すフィラメントが装填されていません"/>
   <translation tag="No filament sensor detected" ja="フィラメントセンサーが検出されません"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" ja="時間内にフィラメントが挿入されませんでした。ヒーターを切り、キャリッジを元に戻しました"/>
+  <translation tag="No filament was inserted in time" ja="時間内にフィラメントが挿入されませんでした"/>
   <translation tag="No filament. Load filament and retry." ja="フィラメントがありません。フィラメントを装填して再試行してください。"/>
   <translation tag="No filaments found" ja="フィラメントが見つかりません"/>
   <translation tag="No file loaded" ja="ファイルが読み込まれていません"/>
@@ -2792,7 +2792,6 @@
   <translation tag="Provide a {}" ja="{} を入力してください"/>
   <translation tag="Provide an on/off value" ja="オン/オフの値を入力してください"/>
   <translation tag="Provide {}" ja="{} を入力してください"/>
-  <translation tag="Pull the filament out of {}" ja="{} からフィラメントを引き抜いてください"/>
   <translation tag="Pulling filament back" ja="フィラメントを引き戻し中"/>
   <translation tag="Purge" ja="パージ"/>
   <translation tag="Purge &amp; Wipe" ja="パージとワイプ"/>
@@ -3969,7 +3968,7 @@
   <translation tag="Unload Filament" ja="フィラメントを排出"/>
   <translation tag="Unload all stopped" ja="すべてのアンロードを停止しました"/>
   <translation tag="Unload at end" ja="終了時に排出"/>
-  <translation tag="Unload complete" ja="アンロード完了"/>
+  <translation tag="Unload complete. Pull the filament out of {}." ja="アンロード完了。{} からフィラメントを引き抜いてください。"/>
   <translation tag="Unload failed" ja="排出に失敗しました"/>
   <translation tag="Unload filament" ja="フィラメントをアンロード"/>
   <translation tag="Unload filament?" ja="フィラメントを排出しますか?"/>

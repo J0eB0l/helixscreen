@@ -2266,7 +2266,7 @@
   <translation tag="No filament environment sensors" es="Sin sensores ambientales de filamento"/>
   <translation tag="No filament loaded to unload" es="No hay filamento cargado para descargar"/>
   <translation tag="No filament sensor detected" es="No se detectó sensor de filamento"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" es="No se introdujo filamento a tiempo. El calentador está apagado y el carro está restaurado"/>
+  <translation tag="No filament was inserted in time" es="No se introdujo filamento a tiempo"/>
   <translation tag="No filament. Load filament and retry." es="Sin filamento. Cargue filamento y reintente."/>
   <translation tag="No filaments found" es="No se encontraron filamentos"/>
   <translation tag="No file loaded" es="Sin archivo cargado"/>
@@ -2792,7 +2792,6 @@
   <translation tag="Provide a {}" es="Proporcione {}"/>
   <translation tag="Provide an on/off value" es="Proporcione un valor de encendido/apagado"/>
   <translation tag="Provide {}" es="Proporcione {}"/>
-  <translation tag="Pull the filament out of {}" es="Saca el filamento de {}"/>
   <translation tag="Pulling filament back" es="Retrayendo filamento"/>
   <translation tag="Purge" es="Purgar"/>
   <translation tag="Purge &amp; Wipe" es="Purgar y limpiar"/>
@@ -3969,7 +3968,7 @@
   <translation tag="Unload Filament" es="Descargar Filamento"/>
   <translation tag="Unload all stopped" es="Descarga de todo detenida"/>
   <translation tag="Unload at end" es="Descargar al terminar"/>
-  <translation tag="Unload complete" es="Descarga completa"/>
+  <translation tag="Unload complete. Pull the filament out of {}." es="Descarga completa. Saca el filamento de {}."/>
   <translation tag="Unload failed" es="Error al descargar"/>
   <translation tag="Unload filament" es="Descargar filamento"/>
   <translation tag="Unload filament?" es="¿Descargar filamento?"/>

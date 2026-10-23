@@ -2266,7 +2266,7 @@
   <translation tag="No filament environment sensors" pt="Nenhum sensor ambiental de filamento"/>
   <translation tag="No filament loaded to unload" pt="Nenhum filamento carregado para descarregar"/>
   <translation tag="No filament sensor detected" pt="Nenhum sensor de filamento detectado"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" pt="Nenhum filamento foi inserido a tempo. O aquecedor está desligado e o carrinho foi restaurado"/>
+  <translation tag="No filament was inserted in time" pt="Nenhum filamento foi inserido a tempo"/>
   <translation tag="No filament. Load filament and retry." pt="Sem filamento. Carregue filamento e tente novamente."/>
   <translation tag="No filaments found" pt="Nenhum filamento encontrado"/>
   <translation tag="No file loaded" pt="Nenhum arquivo carregado"/>
@@ -2792,7 +2792,6 @@
   <translation tag="Provide a {}" pt="Forneça {}"/>
   <translation tag="Provide an on/off value" pt="Forneça um valor ligado/desligado"/>
   <translation tag="Provide {}" pt="Forneça {}"/>
-  <translation tag="Pull the filament out of {}" pt="Puxe o filamento para fora de {}"/>
   <translation tag="Pulling filament back" pt="Retraindo filamento"/>
   <translation tag="Purge" pt="Purgar"/>
   <translation tag="Purge &amp; Wipe" pt="Purgar e limpar"/>
@@ -3969,7 +3968,7 @@
   <translation tag="Unload Filament" pt="Descarregar Filamento"/>
   <translation tag="Unload all stopped" pt="Descarregamento de todos interrompido"/>
   <translation tag="Unload at end" pt="Descarregar ao terminar"/>
-  <translation tag="Unload complete" pt="Descarregamento concluído"/>
+  <translation tag="Unload complete. Pull the filament out of {}." pt="Descarregamento concluído. Puxe o filamento para fora: {}."/>
   <translation tag="Unload failed" pt="Falha ao descarregar"/>
   <translation tag="Unload filament" pt="Descarregar filamento"/>
   <translation tag="Unload filament?" pt="Descarregar filamento?"/>

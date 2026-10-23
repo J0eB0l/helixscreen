@@ -698,6 +698,7 @@ PathSegment AmsBackendToolChanger::infer_error_segment() const {
 
 void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
     bool state_changed = false;
+    bool sensor_fault = false;
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -774,6 +775,15 @@ void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
         if (feed_active_) {
             publish_feed_state_locked();
         }
+        sensor_fault = std::exchange(feed_sensor_fault_, false);
+    }
+
+    // The run reacts to the frame once it is applied: a fault stops it, and a
+    // swap waiting on the sensors may now be confirmed.
+    if (sensor_fault) {
+        on_feed_sensor_fault();
+    } else if (feed_swap_check_) {
+        recheck_swap();
     }
 
     // Emit event OUTSIDE the lock to avoid deadlock if the callback
@@ -781,6 +791,20 @@ void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
     if (state_changed) {
         emit_event(EVENT_STATE_CHANGED);
     }
+}
+
+int AmsBackendToolChanger::slot_for_tool_locked(int tool) const {
+    if (tool < 0) {
+        return -1;
+    }
+    const int mapped = tool < static_cast<int>(system_info_.tool_to_slot_map.size())
+                           ? system_info_.tool_to_slot_map[static_cast<size_t>(tool)]
+                           : -1;
+    return mapped < 0 ? tool : mapped;
+}
+
+bool AmsBackendToolChanger::raw_sensor_fault_locked() const {
+    return sensor_fault_reported_ || sensor_tool_reading_ == -2;
 }
 
 void AmsBackendToolChanger::apply_tool_sensor_locked(
@@ -793,10 +817,17 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
                                    system_info_.action == AmsAction::SELECTING ||
                                    system_info_.action == AmsAction::UNLOADING;
     // A mount-to-feed run publishes its own action (LOADING/UNLOADING) over the
-    // swap its Mount and Restore stages send, so those stages count as a swap on
-    // their own. Only for the fault rule: the run republishes the action, phase
-    // and step after every frame, so nothing else here decides what it shows.
-    const bool feed_swap_in_flight = feed_active_ && feed_step_action_ == AmsAction::SELECTING;
+    // swap a stage sends, so a stage that swaps counts as a swap on its own.
+    // Only for the fault rule: the run republishes the action, phase and step
+    // after every frame, so nothing else here decides what it shows.
+    const bool feed_swap_in_flight = feed_active_ && feed_swap_in_flight_;
+
+    if (reading.current_tool.has_value()) {
+        sensor_tool_reading_ = reading.current_tool;
+    }
+    if (reading.sensor_error_named) {
+        sensor_fault_reported_ = reading.sensor_error_reported;
+    }
 
     // -2 means the sensors cannot tell, which is NOT "no tool". Reporting -1
     // would invite a tool change against an unknown carriage state, so hold the
@@ -810,6 +841,11 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
         sensor_error_ = true;
         system_info_.action = AmsAction::ERROR;
         system_info_.operation_detail = "sensor error";
+        // A run can no longer trust the carriage. It stops once this frame is
+        // applied, outside mutex_.
+        if (feed_active_) {
+            feed_sensor_fault_ = true;
+        }
         // Returns WITHOUT touching current_tool/current_slot: holding the last
         // known tool is the point. Nothing downstream may infer the fault from
         // those fields, because they still name a perfectly plausible tool.
@@ -817,12 +853,16 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     }
     // The fault this function raised is withdrawn once the sensors agree again.
     // A changer that publishes no phase word (Z-Mod) has nothing else to end it.
-    if (sensor_error_ && system_info_.action == AmsAction::ERROR &&
-        system_info_.operation_detail == "sensor error") {
-        system_info_.action = AmsAction::IDLE;
-        system_info_.operation_detail.clear();
+    // A frame silent about the carriage is not the sensors agreeing: the last
+    // reading they gave still stands.
+    if (!(sensor_error_ && raw_sensor_fault_locked())) {
+        if (sensor_error_ && system_info_.action == AmsAction::ERROR &&
+            system_info_.operation_detail == "sensor error") {
+            system_info_.action = AmsAction::IDLE;
+            system_info_.operation_detail.clear();
+        }
+        sensor_error_ = false;
     }
-    sensor_error_ = false;
 
     // Only when the frame named the carriage. A delta carrying just the gripper
     // or the phase says nothing about which tool is on the head, and answering
@@ -835,16 +875,7 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
                          tool, system_info_.current_tool);
         }
         system_info_.current_tool = tool;
-        int seated_slot = -1;
-        if (tool >= 0) {
-            seated_slot = tool < static_cast<int>(system_info_.tool_to_slot_map.size())
-                              ? system_info_.tool_to_slot_map[static_cast<size_t>(tool)]
-                              : -1;
-            if (seated_slot < 0) {
-                seated_slot = tool;
-            }
-        }
-        system_info_.current_slot = seated_slot;
+        system_info_.current_slot = slot_for_tool_locked(tool);
         system_info_.filament_loaded = (tool >= 0);
     }
 
@@ -1541,6 +1572,7 @@ helix::mount_feed::Request AmsBackendToolChanger::build_feed_request(const std::
         } else if (mounted != first || heads.size() > 1) {
             req.restore_gcode = mount_gcode(mounted);
         }
+        req.restore_head = mounted;
     }
     // The printer's own macro, when it takes the tool, does the feed or the
     // retract in place of the built-in moves.
@@ -1551,33 +1583,48 @@ helix::mount_feed::Request AmsBackendToolChanger::build_feed_request(const std::
     // The prompt is the one part of the run every client of the printer sees,
     // so it is English whatever this screen's language is.
     // The prompt comes before any mount, so a tool it names is still in its
-    // dock unless it started on the carriage.
+    // dock unless it started on the carriage. A docked strand goes into the
+    // hot end; a mounted one in through the extruder.
     req.prompt_title = load ? "Load filament" : "Unload filament";
-    const bool all_docked =
-        std::all_of(req.heads.begin(), req.heads.end(),
-                    [](const mf::HeadRequest& hr) { return !hr.mount_gcode.empty(); });
-    if (heads.size() == 1) {
-        req.prompt_text =
-            all_docked
-                ? fmt::format("Insert filament into the hot end of Tool {} while it is docked, "
-                              "then tap Continue",
-                              first + 1)
-                : fmt::format("Insert filament into Tool {}, then tap Continue", first + 1);
-    } else {
+    std::vector<int> docked;
+    std::vector<int> on_carriage;
+    for (const mf::HeadRequest& hr : req.heads) {
+        (hr.mount_gcode.empty() ? on_carriage : docked).push_back(hr.head + 1);
+    }
+    const auto numbers = [](const std::vector<int>& tools) {
         std::string list;
-        for (int head : heads) {
+        for (int tool : tools) {
             if (!list.empty()) {
                 list += ", ";
             }
-            list += std::to_string(head + 1);
+            list += std::to_string(tool);
         }
+        return list;
+    };
+    const auto docked_phrase = [&]() {
+        return docked.size() == 1
+                   ? fmt::format("the hot end of Tool {} while it is docked", docked.front())
+                   : fmt::format("the hot ends of Tools {} while they are docked", numbers(docked));
+    };
+    if (on_carriage.empty()) {
         req.prompt_text =
-            all_docked ? fmt::format("Insert filament into the hot ends of Tools {} while they are "
-                                     "docked, as far as it goes, then tap Continue",
-                                     list)
-                       : fmt::format("Insert filament into Tools {} as far as it goes, then tap "
-                                     "Continue",
-                                     list);
+            docked.size() == 1
+                ? fmt::format("Insert filament into {}, then tap Continue", docked_phrase())
+                : fmt::format("Insert filament into {}, as far as it goes, then tap "
+                              "Continue",
+                              docked_phrase());
+    } else if (docked.empty()) {
+        req.prompt_text =
+            on_carriage.size() == 1
+                ? fmt::format("Insert filament into Tool {}, then tap Continue",
+                              on_carriage.front())
+                : fmt::format("Insert filament into Tools {} as far as it goes, then tap Continue",
+                              numbers(on_carriage));
+    } else {
+        req.prompt_text =
+            fmt::format("Insert filament into Tool{} {} as far as it goes, and into "
+                        "{}, then tap Continue",
+                        on_carriage.size() == 1 ? "" : "s", numbers(on_carriage), docked_phrase());
     }
     req.continue_label = "Continue";
     req.cancel_label = "Cancel";
@@ -1646,14 +1693,24 @@ void AmsBackendToolChanger::send_feed_stage() {
             toast_unload_complete();
         }
         feed_run_.reset();
+        feed_swap_check_.reset();
+        set_swap_watchdog(false);
         {
             std::lock_guard<std::mutex> lock(mutex_);
             feed_active_ = false;
+            feed_swap_in_flight_ = false;
             feed_phase_ = -1;
             feed_step_action_.reset();
             system_info_.action = AmsAction::IDLE;
             system_info_.operation_phase = -1;
             step_action_.reset();
+            // The run held the published state through a sensor fault; once it
+            // is over, a fault the sensors still report is what shows.
+            if (tool_sensor_.present && raw_sensor_fault_locked()) {
+                sensor_error_ = true;
+                system_info_.action = AmsAction::ERROR;
+                system_info_.operation_detail = "sensor error";
+            }
         }
         emit_event(EVENT_STATE_CHANGED);
         return;
@@ -1663,6 +1720,8 @@ void AmsBackendToolChanger::send_feed_stage() {
         std::lock_guard<std::mutex> lock(mutex_);
         feed_phase_ = feed_run_->phase_index();
         feed_step_action_ = mf::step_action(feed_run_->current_step());
+        const mf::Stage* stage = feed_run_->current_stage();
+        feed_swap_in_flight_ = stage != nullptr && stage->swaps;
         publish_feed_state_locked();
     }
     emit_event(EVENT_STATE_CHANGED);
@@ -1680,7 +1739,11 @@ void AmsBackendToolChanger::send_feed_stage() {
                         });
         },
         IMoonrakerAPI::kAmsOperationTimeoutMs, /*skip_homing=*/false, /*silent=*/true,
-        /*caller_surfaces_errors=*/false);
+        /*caller_surfaces_errors=*/false, /*on_predispatch_error=*/nullptr,
+        // Every stage waits on its answer, and a swap leaves idle_timeout
+        // reading "Printing": the API's busy gate would send a heater-only
+        // stage fire-and-forget and drop that answer.
+        /*bypass_busy_gate=*/true);
     if (!sent.success()) {
         on_feed_stage_failed(generation, sent.technical_msg);
     }
@@ -1690,9 +1753,109 @@ void AmsBackendToolChanger::on_feed_stage_acked(uint64_t generation) {
     if (!feed_run_ || generation != feed_generation_) {
         return;
     }
+    if (const std::optional<int> expected = swap_to_confirm()) {
+        bool confirmed = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            confirmed = swap_confirmed_locked(*expected);
+        }
+        if (!confirmed) {
+            // The ack can lead the frame that reports the finished swap.
+            feed_swap_check_ = SwapCheck{generation, *expected};
+            set_swap_watchdog(true);
+            return;
+        }
+    }
+    advance_feed_run();
+}
+
+void AmsBackendToolChanger::advance_feed_run() {
+    feed_swap_check_.reset();
+    set_swap_watchdog(false);
     feed_run_->stage_done();
     ++feed_generation_;
     send_feed_stage();
+}
+
+std::optional<int> AmsBackendToolChanger::swap_to_confirm() const {
+    namespace mf = helix::mount_feed;
+    if (!feed_run_ || feed_run_->aborted() || !tool_sensor_.present) {
+        return std::nullopt;
+    }
+    const mf::Stage* stage = feed_run_->current_stage();
+    if (stage == nullptr || !stage->swaps) {
+        return std::nullopt;
+    }
+    if (stage->step == mf::Step::Restore) {
+        return feed_run_->request().restore_head;
+    }
+    const auto& heads = feed_run_->request().heads;
+    if (stage->tool_index < 0 || static_cast<size_t>(stage->tool_index) >= heads.size()) {
+        return std::nullopt;
+    }
+    return heads[static_cast<size_t>(stage->tool_index)].head;
+}
+
+bool AmsBackendToolChanger::swap_confirmed_locked(int expected_slot) const {
+    if (raw_sensor_fault_locked() || !sensor_tool_reading_) {
+        return false;
+    }
+    return slot_for_tool_locked(*sensor_tool_reading_) == expected_slot;
+}
+
+void AmsBackendToolChanger::recheck_swap() {
+    if (!feed_swap_check_ || !feed_run_ || feed_swap_check_->generation != feed_generation_) {
+        feed_swap_check_.reset();
+        set_swap_watchdog(false);
+        return;
+    }
+    bool confirmed = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        confirmed = swap_confirmed_locked(feed_swap_check_->expected_slot);
+    }
+    if (confirmed) {
+        advance_feed_run();
+    }
+}
+
+void AmsBackendToolChanger::handle_swap_check_elapsed() {
+    if (!feed_swap_check_) {
+        return;
+    }
+    spdlog::warn("[AMS ToolChanger] Dock sensors never confirmed the swap to slot {}",
+                 feed_swap_check_->expected_slot);
+    on_feed_sensor_fault();
+}
+
+void AmsBackendToolChanger::on_feed_sensor_fault() {
+    feed_swap_check_.reset();
+    set_swap_watchdog(false);
+    if (!feed_run_ || feed_run_->aborted()) {
+        return;
+    }
+    spdlog::warn("[AMS ToolChanger] Mount-to-feed run stopped: the dock sensors cannot vouch for "
+                 "the carriage, so it is left where it is");
+    toast_partial_run(FeedStopReason::SensorFault, feed_run_->completed_heads());
+    feed_run_->abort(/*restore_carriage=*/false);
+    ++feed_generation_;
+    send_feed_stage();
+}
+
+void AmsBackendToolChanger::set_swap_watchdog(bool armed) {
+    if (!armed) {
+        feed_swap_timer_.reset();
+        return;
+    }
+    if (!lv_is_initialized()) {
+        return;
+    }
+    feed_swap_timer_.reset(lv_timer_create(
+        [](lv_timer_t* timer) {
+            static_cast<AmsBackendToolChanger*>(lv_timer_get_user_data(timer))
+                ->handle_swap_check_elapsed();
+        },
+        kSwapConfirmGraceMs, this));
 }
 
 void AmsBackendToolChanger::on_feed_stage_failed(uint64_t generation, const std::string& message) {
@@ -1776,13 +1939,16 @@ void AmsBackendToolChanger::toast_partial_run(FeedStopReason why,
     }
     std::string base;
     if (why == FeedStopReason::TimedOut) {
-        base = lv_tr("No filament was inserted in time. The heater is off and the carriage is "
-                     "restored");
+        // The prompt is the run's first stage: nothing has heated or moved.
+        base = lv_tr("No filament was inserted in time");
     } else if (several) {
         base = feed_run_->request().load ? lv_tr("Load all stopped") : lv_tr("Unload all stopped");
     } else {
         // One tool never was an "all": the toast is about its own load.
         base = feed_run_->request().load ? lv_tr("Load stopped") : lv_tr("Unload stopped");
+    }
+    if (why == FeedStopReason::SensorFault) {
+        base += ". " + std::string(lv_tr("Dock sensors cannot tell which tool is mounted"));
     }
     const std::string list = feed_lane_list(completed);
     if (!list.empty()) {
@@ -1800,8 +1966,8 @@ void AmsBackendToolChanger::toast_unload_complete() {
         heads.push_back(head.head);
     }
     show_feed_toast(
-        std::string(lv_tr("Unload complete")) + " " +
-            fmt::format(fmt::runtime(lv_tr("Pull the filament out of {}")), feed_lane_list(heads)),
+        fmt::format(fmt::runtime(lv_tr("Unload complete. Pull the filament out of {}.")),
+                    feed_lane_list(heads)),
         ToastSeverity::SUCCESS);
 }
 
@@ -1838,10 +2004,13 @@ void AmsBackendToolChanger::abandon_feed_run_after_disconnect() {
     feed_run_->abort();
     const std::optional<std::string> cleanup = feed_run_->current_gcode();
     feed_run_.reset();
+    feed_swap_check_.reset();
+    set_swap_watchdog(false);
     ++feed_generation_;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         feed_active_ = false;
+        feed_swap_in_flight_ = false;
         feed_phase_ = -1;
         feed_step_action_.reset();
         system_info_.action = AmsAction::IDLE;

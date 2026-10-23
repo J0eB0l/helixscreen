@@ -561,6 +561,26 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// an ack that can no longer arrive. Shared by on_started() (reconnect)
     /// and on_stopped(). Takes mutex_ and emits, so never under the lock.
     void abandon_feed_run_after_disconnect();
+    /// A swap stage acked but the dock sensors never confirmed it.
+    void handle_swap_check_elapsed();
+    /// The tool (slot) the stage in flight puts on the carriage, -1 for a park,
+    /// when the dock sensors must confirm it before the run goes on; nullopt
+    /// for a stage that swaps nothing, a cleanup, or a machine with no sensors.
+    [[nodiscard]] std::optional<int> swap_to_confirm() const;
+    /// The latest sensor reading places @p expected_slot on the carriage.
+    [[nodiscard]] bool swap_confirmed_locked(int expected_slot) const;
+    /// The latest sensor reading is a fault: -2, or the controller's own flag.
+    [[nodiscard]] bool raw_sensor_fault_locked() const;
+    /// The slot a dock-sensor tool number seats.
+    [[nodiscard]] int slot_for_tool_locked(int tool) const;
+    /// The stage in flight is done: move the run on.
+    void advance_feed_run();
+    /// A sensor frame arrived while an acked swap waits on confirmation.
+    void recheck_swap();
+    /// The dock sensors cannot vouch for the carriage under a live run: stop it
+    /// without sending any swap, and say why.
+    void on_feed_sensor_fault();
+    void set_swap_watchdog(bool armed);
     /// The operator wait outlived its timeout: unwind the run and say so.
     void handle_wait_elapsed(uint32_t elapsed_ms);
     /// Arm or drop the one-second timer that watches the operator wait. LVGL
@@ -569,7 +589,7 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     void set_wait_watchdog(bool armed);
     void feed_wait_tick();
     /// Why a run unwound early, for the toast that names what got done.
-    enum class FeedStopReason : uint8_t { Cancelled, TimedOut, Failed };
+    enum class FeedStopReason : uint8_t { Cancelled, TimedOut, Failed, SensorFault };
     /// A run stopping early says what it did finish. A single tool's Cancel
     /// stays silent; everything else accounts for itself. @p completed was
     /// read off the run BEFORE its unwind: abort() collapses the stage list
@@ -605,6 +625,26 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// unit tests can pin the wording without a display.
     std::string feed_last_toast_;
     ToastSeverity feed_last_toast_severity_ = ToastSeverity::INFO;
+    /// The stage in flight swaps the carriage. Guarded by mutex_.
+    bool feed_swap_in_flight_ = false;
+    /// A sensor fault arrived under a live run. Set under mutex_ by the frame,
+    /// acted on (main thread) once the frame is applied.
+    bool feed_sensor_fault_ = false;
+    /// An acked swap waiting for the dock sensors to report it. Main thread.
+    struct SwapCheck {
+        uint64_t generation = 0;
+        int expected_slot = -1;
+    };
+    std::optional<SwapCheck> feed_swap_check_;
+    /// How long an acked swap may wait for the frame that confirms it.
+    /// Moonraker batches status frames, so the answer can lead the frame.
+    static constexpr uint32_t kSwapConfirmGraceMs = 3000;
+    helix::ui::LvglTimerGuard feed_swap_timer_;
+    /// The dock sensors' latest word, whatever the fault rule made of it.
+    /// Moonraker republishes only what changed, so these persist across frames
+    /// that do not name them. Guarded by mutex_.
+    std::optional<int> sensor_tool_reading_;
+    bool sensor_fault_reported_ = false;
 
     /// Z-Mod's Creator 5 row narrates its swaps through gcode-response markers
     /// (toolchanger_addon::parse_zmod_marker) rather than a status object, so
