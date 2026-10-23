@@ -200,8 +200,8 @@ TEST_CASE("a file's head gives its printer, nozzles and hottest targets", "[plug
         CHECK(facts.max_hotend_temp == std::optional<double>(240.0));
         CHECK(facts.max_bed_temp == std::optional<double>(70.0));
     }
-    SECTION("a preset name stands in for a missing printer_model") {
-        CHECK(fit_head_facts("; printer_settings_id = Prusa MK4\n").printer_model == "Prusa MK4");
+    SECTION("a preset name is never the printer model") {
+        CHECK(fit_head_facts("; printer_settings_id = Prusa MK4\n").printer_model.empty());
     }
     SECTION("Cura's header") {
         const FitHeadFacts facts = fit_head_facts(";FLAVOR:Marlin\n"
@@ -348,6 +348,23 @@ TEST_CASE("warnings alone ask before starting", "[plugin_fitcheck]") {
     CHECK(r.verdict == CheckResult::Verdict::Warn);
     CHECK_FALSE(r.proceed_label.empty());
     CHECK(r.body.find("0.6") != std::string::npos);
+}
+
+TEST_CASE("another printer model is shown, never asked about at Print", "[plugin_fitcheck]") {
+    PrintStartContext ctx = ctx_for(FitFile{});
+    ctx.fit_machine->model = "Voron 0.2";
+    ctx.fit_file.printer_model = "Prusa MK4";
+    const auto findings = check_fit(*ctx.fit_machine, ctx.fit_file);
+    REQUIRE(findings.size() == 1);
+    CHECK(findings[0].severity == FitSeverity::Note);
+    CHECK(gate_fit_check(ctx).verdict == CheckResult::Verdict::Pass);
+    CHECK_FALSE(fit_findings_text(findings, FitSeverity::Note).empty());
+
+    INFO("beside a warning, the dialog names only the warning");
+    ctx.fit_file.nozzle_diameters = {0.6};
+    const CheckResult r = gate_fit_check(ctx);
+    CHECK(r.verdict == CheckResult::Verdict::Warn);
+    CHECK(r.body.find("Prusa MK4") == std::string::npos);
 }
 
 TEST_CASE("a file that fits, or a printer whose config is unread, passes", "[plugin_fitcheck]") {

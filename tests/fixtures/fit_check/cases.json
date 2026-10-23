@@ -449,7 +449,7 @@
         "tools": [], "nozzle_diameters": [], "printer_model": "Creality K1C"
       },
       "findings": [
-        {"kind": "printer_model_mismatch", "severity": "warn",
+        {"kind": "printer_model_mismatch", "severity": "note",
          "detail": {"file": "Creality K1C", "printer": "Voron 2.4"}}
       ]
     },
@@ -509,7 +509,7 @@
         {"kind": "too_many_tools", "severity": "block", "detail": {"tool": 1, "limit": 1}},
         {"kind": "nozzle_mismatch", "severity": "warn",
          "detail": {"tool": 0, "file": 0.6, "printer": 0.4}},
-        {"kind": "printer_model_mismatch", "severity": "warn",
+        {"kind": "printer_model_mismatch", "severity": "note",
          "detail": {"file": "Prusa MK4", "printer": "Voron 0.2"}}
       ]
     }

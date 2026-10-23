@@ -59,7 +59,8 @@ struct FitFile {
 };
 
 enum class FitKind { OutOfBounds, TempOverMax, TooManyTools, NozzleMismatch, PrinterModelMismatch };
-enum class FitSeverity { Warn, Block };
+/// Block stops a start; Warn asks before one; Note is only shown, never asked about.
+enum class FitSeverity { Note, Warn, Block };
 
 /// One way a file does not fit. Which fields mean anything depends on the kind.
 struct FitFinding {
@@ -95,6 +96,9 @@ struct FitFinding {
 /// Whether any finding blocks a start.
 [[nodiscard]] bool fit_blocks(const std::vector<FitFinding>& findings);
 
+/// Whether any finding is a warning to ask about before a start (blocks aside).
+[[nodiscard]] bool fit_warns(const std::vector<FitFinding>& findings);
+
 /// {"min": [x, y, z], "max": [x, y, z]} with null for an unknown axis; nullopt
 /// for anything else.
 [[nodiscard]] std::optional<FitBox> fit_box_from_json(const nlohmann::json& j);
@@ -106,9 +110,9 @@ struct FitFinding {
 /// One sentence telling the user what @p finding means, translated.
 [[nodiscard]] std::string fit_finding_text(const FitFinding& finding);
 
-/// One line per finding, or per blocking finding with @p blocking_only.
+/// One line per finding of @p at_least severity or worse.
 [[nodiscard]] std::string fit_findings_text(const std::vector<FitFinding>& findings,
-                                            bool blocking_only);
+                                            FitSeverity at_least);
 
 /// What the first kPrinterStopScanBytes of a file declare without the
 /// plugin: its slicer's printer and nozzles, and the hottest targets its

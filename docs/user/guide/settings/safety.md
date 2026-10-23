@@ -81,8 +81,8 @@ When your slicer uploads a file with "print" (OrcaSlicer's **Print** button, for
 | **On** | A slicer's upload-and-print waits for the check, and a file that doesn't fit stays in the file list unstarted |
 | **Off** (default) | The slicer's print starts as soon as the upload finishes |
 
-- Warnings (a different nozzle size or a different printer model in the slicer profile) never hold a print.
-- If the check can't be made (for example, the plugin hasn't finished reading a very large file within two minutes), the print starts as it would without the switch.
+- A different nozzle size or printer model in the slicer profile never holds a print.
+- If the check can't be made (for example, the plugin hasn't finished reading a very large file within two minutes, or can't read the printer's configuration), the print starts as it would without the switch. The printer's Moonraker log says why.
 - The plugin can't see the extra tools a filament system adds, so this switch doesn't hold a print for its tool count. The screen still checks it when you start the file there.
 - Without the HelixPrint plugin the switch is greyed out with **Requires the HelixPrint plugin** and an **Install** button: only the plugin sees a slicer's print. Prints you start from the screen are checked either way; see [Does the file fit this printer?](../printing.md#does-the-file-fit-this-printer).
 

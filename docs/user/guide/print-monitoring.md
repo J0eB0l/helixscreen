@@ -140,7 +140,7 @@ A file sliced for another printer can ask for moves this printer can't make or t
 > *Moves to X 360 mm, past this printer's 350 mm.*
 > *Re-slice the file with a profile made for this printer.*
 
-A file sliced for a different nozzle size or printer model gets the softer **Sliced for a Different Setup** warning, with **Start Anyway**. The findings also show in the file's details before you tap Start Print; see [Does the file fit this printer?](printing.md#does-the-file-fit-this-printer).
+A file sliced for a different nozzle size gets the softer **Sliced for a Different Setup** warning, with **Start Anyway**. A different printer model in the slicer profile is only shown in the file details. The findings also show in the file's details before you tap Start Print; see [Does the file fit this printer?](printing.md#does-the-file-fit-this-printer).
 
 ---
 

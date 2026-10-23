@@ -247,7 +247,7 @@ and the blocking findings:
 
 A `.gcode.3mf` with `start_3mf_on_upload` asks the same check before the converter starts its
 plate. A file whose analysis does not arrive in time, or a printer whose config cannot be
-read, starts unchecked.
+read, starts unchecked, with the reason logged at info.
 
 The checker compares a file analysis record (`bounds`, `header`, tools) with Klipper's
 `configfile.settings`. Each finding is `{kind, severity, detail}`:
@@ -258,9 +258,10 @@ The checker compares a file analysis record (`bounds`, `header`, tools) with Kli
 | `temp_over_max` | block | `heater` (`extruder`, `heater_bed`), `value`, `limit` | A target above the hottest `extruder*` `max_temp`, or above `heater_bed` `max_temp` |
 | `too_many_tools` | block | `tool`, `limit` | A tool number at or past the count of extruders and `T<n>` macros. The plugin's hold never uses this one: a filament system's T commands are not in the config |
 | `nozzle_mismatch` | warn | `tool`, `file`, `printer` | The slicer's nozzle for an extruder differs from that extruder's `nozzle_diameter` by more than 0.005 mm |
-| `printer_model_mismatch` | warn | `file`, `printer` | Neither model name contains the other, ignoring case and punctuation. The printer's model comes from the screen; the plugin has none |
+| `printer_model_mismatch` | note | `file`, `printer` | Neither model name contains the other, ignoring case and punctuation. The file's model is the slicer's `printer_model` (Cura: its machine name), never a preset name; the printer's comes from the screen, so the plugin never reports this one |
 
-Warnings never hold a start. The screen runs the same checker as print-start gates
+A block stops a start; a warn asks before one on the screen; a note is only shown. Neither a
+warn nor a note holds a slicer's start. The screen runs the same checker as print-start gates
 (`src/printer/fit_check.cpp`); `tests/fixtures/fit_check/cases.json` holds both to one table.
 
 ### Start Modified Print

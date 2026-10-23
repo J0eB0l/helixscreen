@@ -2098,7 +2098,7 @@ void PrintSelectDetailView::refresh_fit_check() {
                                                         : std::vector<helix::FitFinding>{};
     const int severity = findings.empty() ? 0 : helix::fit_blocks(findings) ? 2 : 1;
     lv_subject_copy_string(&detail_fit_text_,
-                           helix::fit_findings_text(findings, /*blocking_only=*/false).c_str());
+                           helix::fit_findings_text(findings, helix::FitSeverity::Note).c_str());
     lv_subject_set_int(&detail_fit_severity_, severity);
 }
 

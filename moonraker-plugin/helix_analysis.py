@@ -144,7 +144,7 @@ def record_current(record: Any, size: int, mtime: float) -> bool:
 CONFIG_KEYS = frozenset((
     "filament used [mm]", "filament used [g]", "filament_colour", "filament_color",
     "extruder_colour", "extruder_color", "filament_type", "nozzle_diameter",
-    "printer_model", "printer_settings_id", "bed_shape", "printable_area",
+    "printer_model", "bed_shape", "printable_area",
     "max_print_height", "printable_height",
 ))
 
@@ -262,7 +262,9 @@ def _shape_bounds(value: Optional[str]) -> Optional[Tuple[List[float], List[floa
 
 
 def header_from_config(config: Dict[str, str]) -> Dict[str, Any]:
-    model = config.get("printer_model") or config.get("printer_settings_id") \
+    # The slicer's printer model only: a preset name is the user's label for a
+    # profile and says nothing about which machine it targets.
+    model = config.get("printer_model") \
         or config.get("TARGET_MACHINE.NAME") or config.get("MACHINE_NAME") or None
     nozzles = [v for v in _floats(config.get("nozzle_diameter")) if v is not None]
     if not nozzles:

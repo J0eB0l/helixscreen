@@ -485,11 +485,13 @@ CheckResult gate_fit_check(const PrintStartContext& ctx) {
         return pass_result();
     }
     const std::vector<FitFinding> findings = check_fit(*ctx.fit_machine, ctx.fit_file);
-    if (findings.empty()) {
+    // A note (another printer model) shows in the file details only.
+    const bool blocks = fit_blocks(findings);
+    if (!blocks && !fit_warns(findings)) {
         return pass_result();
     }
-    const bool blocks = fit_blocks(findings);
-    const std::string lines = fit_findings_text(findings, blocks);
+    const std::string lines =
+        fit_findings_text(findings, blocks ? FitSeverity::Block : FitSeverity::Warn);
     if (blocks) {
         CheckResult r;
         r.verdict = CheckResult::Verdict::Block;

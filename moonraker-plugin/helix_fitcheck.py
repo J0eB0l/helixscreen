@@ -11,7 +11,10 @@ gives findings {kind, severity, detail}:
     temp_over_max           block  a heater target above its max_temp
     too_many_tools          block  a tool number past the printer's last tool
     nozzle_mismatch         warn   the slicer's nozzle differs from the extruder's
-    printer_model_mismatch  warn   the slicer's printer is not this printer
+    printer_model_mismatch  note   the slicer's printer is not this printer
+
+A block stops a start; a warn asks before one on the screen; a note is only
+shown. Neither a warn nor a note ever holds a slicer's start.
 
 The screen runs the same checker (src/printer/fit_check.cpp) over the same
 record, or over what it reads itself; tests/fixtures/fit_check/cases.json pins
@@ -31,7 +34,7 @@ from __future__ import annotations
 import logging
 import math
 import re
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import helix_file_queue as file_queue
 
@@ -61,6 +64,7 @@ KIND_PRINTER_MODEL_MISMATCH = "printer_model_mismatch"
 
 SEVERITY_BLOCK = "block"
 SEVERITY_WARN = "warn"
+SEVERITY_NOTE = "note"
 
 _EXTRUDER = re.compile(r"^extruder(\d*)$")
 _TOOL_MACRO = re.compile(r"^gcode_macro t(\d+)$")
@@ -269,7 +273,7 @@ def check_fit(machine: Dict[str, Any], facts: Dict[str, Any]) -> List[Dict[str, 
     file_model, machine_model = facts.get("printer_model"), machine.get("model")
     a, b = _model_key(file_model), _model_key(machine_model)
     if a and b and a not in b and b not in a:
-        findings.append(_finding(KIND_PRINTER_MODEL_MISMATCH, SEVERITY_WARN,
+        findings.append(_finding(KIND_PRINTER_MODEL_MISMATCH, SEVERITY_NOTE,
                                  file=file_model, printer=machine_model))
     return findings
 
@@ -357,35 +361,42 @@ class FitCheck:
             self._converter.start_gate = None
             self._converter = None
 
-    async def _limits(self) -> Optional[Dict[str, Any]]:
+    async def _limits(self) -> Tuple[Optional[Dict[str, Any]], str]:
+        """The printer's limits, or None and why they could not be read."""
         apis = getattr(self.helix, "klippy_apis", None)
         if apis is None:
-            return None
+            return None, "no klippy_apis component"
         try:
             status = await apis.query_objects({"configfile": ["settings"]})
         except Exception as e:
-            logging.info("HelixPrint: fit check cannot read the printer's config: %s", e)
-            return None
+            return None, "configfile query failed: %s" % e
         settings = ((status or {}).get("configfile") or {}).get("settings")
         if not isinstance(settings, dict):
-            return None
+            return None, "configfile.settings missing"
         limits = machine_limits(settings)
         # A filament system's T commands are not in the config, so the count
         # of extruders and T macros cannot say a tool is missing.
         limits["tool_count"] = None
-        return limits
+        return limits, ""
 
     async def findings_for(self, path: str) -> Optional[List[Dict[str, Any]]]:
-        """The findings for `path`, or None when it cannot be checked."""
+        """The findings for `path`, or None when it cannot be checked. Every
+        None is logged with its reason: the start then goes ahead unchecked."""
         analysis = getattr(self.helix, "analysis", None)
         if analysis is None:
+            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: "
+                         "file analysis is not running", path)
             return None
         record = await analysis.record_for(path, RECORD_WAIT_S)
         if record is None:
-            logging.info("HelixPrint: no analysis of %s; starting it unchecked", path)
+            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: no analysis "
+                         "within %.0f s (still queued, failed, or the queue is held)",
+                         path, RECORD_WAIT_S)
             return None
-        limits = await self._limits()
+        limits, why = await self._limits()
         if limits is None:
+            logging.info("HelixPrint: fit check of %s skipped, starting unchecked: %s",
+                         path, why)
             return None
         return check_fit(limits, fit_file_from_record(record))
 

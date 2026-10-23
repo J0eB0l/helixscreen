@@ -8,6 +8,7 @@ Run with: pytest tests/test_helix_fitcheck.py -v
 """
 
 import json
+import logging
 import shutil
 import sys
 from pathlib import Path
@@ -83,7 +84,10 @@ def test_findings_match_the_table(case):
 
 
 def test_the_table_covers_every_kind_and_both_kinematics_families():
-    kinds = {f["kind"] for c in CASES["checks"] for f in c["findings"]}
+    severities = {f["kind"]: f["severity"] for c in CASES["checks"] for f in c["findings"]}
+    assert severities["printer_model_mismatch"] == "note"
+    assert severities["nozzle_mismatch"] == "warn"
+    kinds = set(severities)
     assert kinds == {"out_of_bounds", "temp_over_max", "too_many_tools", "nozzle_mismatch",
                      "printer_model_mismatch"}
     kinematics = {c["machine"]["kinematics"] for c in CASES["machines"]}
@@ -138,6 +142,7 @@ def test_file_facts_of_a_record_without_bounds_check_nothing():
 
 BLOCK = [{"kind": "out_of_bounds", "severity": "block", "detail": {}}]
 WARN = [{"kind": "nozzle_mismatch", "severity": "warn", "detail": {}}]
+NOTE = [{"kind": "printer_model_mismatch", "severity": "note", "detail": {}}]
 
 
 @pytest.mark.parametrize("enabled,findings,starts", [
@@ -145,6 +150,7 @@ WARN = [{"kind": "nozzle_mismatch", "severity": "warn", "detail": {}}]
     (True, None, True),     # could not be checked: started unchecked
     (True, [], True),
     (True, WARN, True),     # a warning never holds a start
+    (True, NOTE, True),     # nor does a note
     (True, BLOCK, False),
     (True, WARN + BLOCK, False),
 ])
@@ -260,19 +266,23 @@ class TestUploadHold:
         assert result["print_started"] is True
 
     @pytest.mark.asyncio
-    async def test_a_file_without_an_analysis_starts_unchecked(self, component):
+    async def test_a_file_without_an_analysis_starts_unchecked(self, component, caplog):
         await _setup(component, record=None)
-        result = await _upload(component)
+        with caplog.at_level(logging.INFO):
+            result = await _upload(component)
+        assert "starting unchecked: no analysis within 120 s" in caplog.text
         assert result["print_started"] is True
         component.analysis.record_for.assert_awaited_once_with(
             "part.gcode", helix_fitcheck.RECORD_WAIT_S)
 
     @pytest.mark.asyncio
-    async def test_unreadable_printer_limits_start_unchecked(self, component):
+    async def test_unreadable_printer_limits_start_unchecked(self, component, caplog):
         await _setup(component, record=_record(x_max=400.0))
         component.klippy_apis.query_objects.side_effect = RuntimeError("klippy down")
-        result = await _upload(component)
+        with caplog.at_level(logging.INFO):
+            result = await _upload(component)
         assert result["print_started"] is True
+        assert "starting unchecked: configfile query failed: klippy down" in caplog.text
 
     @pytest.mark.asyncio
     async def test_an_upload_without_a_print_passes_through(self, component):

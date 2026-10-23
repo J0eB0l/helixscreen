@@ -138,9 +138,9 @@ When you open a file, HelixScreen compares it with your printer's own limits and
 | Heats the nozzle or bed above the printer's limit | The slicer profile asks for more than the printer's heater allows | Blocked |
 | Uses a tool the printer doesn't have | For example T2 on a two-extruder printer with no filament system | Blocked |
 | Sliced for a different nozzle size | The slicer assumed a 0.6 mm nozzle and the printer is set up for 0.4 mm | Warning, with **Start Anyway** |
-| Sliced for a different printer | The slicer profile names another printer model | Warning, with **Start Anyway** |
+| Sliced for a different printer | The slicer profile names another printer model (not your own preset name) | Shown in the card only; Start Print is not interrupted |
 
-A blocked file shows **File Does Not Fit This Printer**, naming each problem; re-slice it with a profile made for this printer. Warnings alone show **Sliced for a Different Setup**.
+A blocked file shows **File Does Not Fit This Printer**, naming each problem; re-slice it with a profile made for this printer. A nozzle mismatch alone shows **Sliced for a Different Setup**.
 
 How much HelixScreen can see depends on whether the **HelixPrint plugin** is installed:
 

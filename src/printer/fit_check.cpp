@@ -304,7 +304,7 @@ std::vector<FitFinding> check_fit(const FitMachine& machine, const FitFile& file
     const std::string b = model_key(machine.model);
     if (!a.empty() && !b.empty() && a.find(b) == std::string::npos &&
         b.find(a) == std::string::npos) {
-        FitFinding f = finding(FitKind::PrinterModelMismatch, FitSeverity::Warn);
+        FitFinding f = finding(FitKind::PrinterModelMismatch, FitSeverity::Note);
         f.file_model = file.printer_model;
         f.printer_model = machine.model;
         out.push_back(std::move(f));
@@ -315,6 +315,11 @@ std::vector<FitFinding> check_fit(const FitMachine& machine, const FitFile& file
 bool fit_blocks(const std::vector<FitFinding>& findings) {
     return std::any_of(findings.begin(), findings.end(),
                        [](const FitFinding& f) { return f.severity == FitSeverity::Block; });
+}
+
+bool fit_warns(const std::vector<FitFinding>& findings) {
+    return std::any_of(findings.begin(), findings.end(),
+                       [](const FitFinding& f) { return f.severity == FitSeverity::Warn; });
 }
 
 std::optional<FitBox> fit_box_from_json(const json& j) {
@@ -378,7 +383,9 @@ json fit_finding_json(const FitFinding& f) {
         break;
     }
     return json{{"kind", kind},
-                {"severity", f.severity == FitSeverity::Block ? "block" : "warn"},
+                {"severity", f.severity == FitSeverity::Block  ? "block"
+                             : f.severity == FitSeverity::Warn ? "warn"
+                                                               : "note"},
                 {"detail", detail}};
 }
 
@@ -418,10 +425,10 @@ std::string fit_finding_text(const FitFinding& f) {
     return {};
 }
 
-std::string fit_findings_text(const std::vector<FitFinding>& findings, bool blocking_only) {
+std::string fit_findings_text(const std::vector<FitFinding>& findings, FitSeverity at_least) {
     std::string lines;
     for (const FitFinding& f : findings) {
-        if (blocking_only && f.severity != FitSeverity::Block) {
+        if (static_cast<int>(f.severity) < static_cast<int>(at_least)) {
             continue;
         }
         if (!lines.empty()) {
@@ -446,8 +453,7 @@ FitHeadFacts fit_head_facts(std::string_view head) {
             const std::string_view text = text_io::trim(line.substr(1));
             if (const size_t eq = text.find(" = "); eq != std::string_view::npos) {
                 const std::string_view key = text_io::trim(text.substr(0, eq));
-                if (key == "printer_model" || key == "printer_settings_id" ||
-                    key == "nozzle_diameter") {
+                if (key == "printer_model" || key == "nozzle_diameter") {
                     config[std::string(key)] = std::string(text_io::trim(text.substr(eq + 3)));
                 }
             } else if (const size_t colon = text.find(':'); colon != std::string_view::npos) {
@@ -487,8 +493,9 @@ FitHeadFacts fit_head_facts(std::string_view head) {
             }
         }
     }
-    for (const char* key :
-         {"printer_model", "printer_settings_id", "TARGET_MACHINE.NAME", "MACHINE_NAME"}) {
+    // The slicer's printer model only, never a preset name (printer_settings_id),
+    // which is the user's label for a profile.
+    for (const char* key : {"printer_model", "TARGET_MACHINE.NAME", "MACHINE_NAME"}) {
         if (auto it = config.find(key); it != config.end() && !it->second.empty()) {
             facts.printer_model = it->second;
             break;
