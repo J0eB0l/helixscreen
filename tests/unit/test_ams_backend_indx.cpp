@@ -8,6 +8,7 @@
 #include "../lvgl_test_fixture.h"
 #include "../lvgl_ui_test_fixture.h"
 #include "../test_helpers/backend_user_edit.h"
+#include "../test_helpers/filament_accounting_cases.h"
 #include "../test_helpers/gcode_recording_api.h"
 #include "../test_helpers/print_state_test_drivers.h"
 #include "../test_helpers/recovery_modal_presenter_test_access.h"
@@ -239,6 +240,26 @@ TEST_CASE_METHOD(IndxFixture, "INDX backend: own spool macros manage the active 
     IndxHelper stock;
     stock.set_discovery(hw);
     CHECK_FALSE(stock.manages_active_spool());
+}
+
+TEST_CASE_METHOD(IndxFixture,
+                 "INDX backend: reports the manages_active_spool the shared case table claims",
+                 "[ams][indx][spool][plugin_filament]") {
+    const auto rows = helix::test::ownership_rows_for("INDX");
+    REQUIRE(rows.size() >= 2);
+    for (const auto& row : rows) {
+        INFO(row["name"].get<std::string>());
+        auto hw = discover(indx_objects(2), 2);
+        MacroParamCache::instance().clear();
+        if (row["macros_set_active_spool"].get<bool>()) {
+            MacroParamCache::instance().populate_from_configfile(
+                json{{"gcode_macro T0", {{"gcode", "SET_ACTIVE_SPOOL ID=3\nCHANGE_TOOL TOOL=0"}}}},
+                hw.macros());
+        }
+        IndxHelper b;
+        b.set_discovery(hw);
+        CHECK(b.manages_active_spool() == row["manages_active_spool"].get<bool>());
+    }
 }
 
 TEST_CASE_METHOD(IndxFixture, "INDX backend: the mounted tool is the feed signal",

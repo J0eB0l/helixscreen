@@ -65,6 +65,11 @@ std::vector<int> mapped_spools(const std::vector<FeedSignal>& signals) {
 
 } // namespace
 
+ActiveSpoolOwner active_spool_owner_now(bool spoolman, bool backend_manages_active_spool) {
+    return active_spool_owner(spoolman, backend_manages_active_spool, printer_switches(),
+                              FilamentAccountingController::macros_set_active_spool());
+}
+
 FilamentAccountingController::FilamentAccountingController() {
     auto& ps = get_printer_state();
     probe_observer_ = observe<int>(
@@ -74,6 +79,12 @@ FilamentAccountingController::FilamentAccountingController() {
                 self->on_plugin_probed();
             }
         },
+        ps.get_subjects_lifetime());
+    // The probe can answer before the plugin reads as installed on a first
+    // connect, and the map is written only once it does.
+    installed_observer_ = observe<int>(
+        ps.plugin_status_state().get_helix_plugin_installed_subject(), this,
+        [](FilamentAccountingController* self, int) { self->refresh_record(); },
         ps.get_subjects_lifetime());
     connection_observer_ = observe<int>(
         ps.network_state().get_printer_connection_state_subject(), this,
@@ -178,6 +189,7 @@ void FilamentAccountingController::on_plugin_probed() {
     baseline_tool_ = ToolState::instance().active_tool_index();
     written_.reset();
     considered_.reset();
+    role_pending_ = false;
     refresh_record();
 }
 
@@ -205,8 +217,16 @@ void FilamentAccountingController::refresh_record() {
     if (considered_ && *considered_ == rendered) {
         return;
     }
-    resolve_fallback_sender_role(lifetime_.token(),
-                                 [this](FallbackSenderRole role) { write_record(role); });
+    // One presence read at a time: the inputs tick faster than it answers,
+    // and write_record() renders whatever is current when it does.
+    if (role_pending_) {
+        return;
+    }
+    role_pending_ = true;
+    resolve_fallback_sender_role(lifetime_.token(), [this](FallbackSenderRole role) {
+        role_pending_ = false;
+        write_record(role);
+    });
 }
 
 void FilamentAccountingController::write_record(FallbackSenderRole role) {
@@ -266,8 +286,7 @@ void FilamentAccountingController::on_active_tool_changed(int tool_index) {
     const bool opted_in =
         plugin_feature_opted_in(status.stored_opt_ins(), kFilamentAccountingFeature, /*acts=*/true);
     const ActiveSpoolOwner owner =
-        active_spool_owner(ps.is_spoolman_available(), backends_manage_active_spool(),
-                           printer_switches(), macros_set_active_spool());
+        active_spool_owner_now(ps.is_spoolman_available(), backends_manage_active_spool());
     // Only a switch this instance would make needs to know who else is here.
     if (filament_accounting_sender(state, opted_in, owner, FallbackSenderRole::Sender) !=
         FilamentAccountingSender::App) {

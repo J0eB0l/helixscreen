@@ -21,6 +21,13 @@ namespace helix {
 
 struct ToolInfo;
 
+/// Who switches the active spool on this printer now: active_spool_owner()
+/// over what this app knows (Spoolman, @p backend_manages_active_spool for
+/// the backend in question, firmware that switches it, T<n> macros that do).
+/// Every HelixScreen path that sets the active spool asks this, and acts only
+/// on ActiveSpoolOwner::Helix. Main thread.
+ActiveSpoolOwner active_spool_owner_now(bool spoolman, bool backend_manages_active_spool);
+
 class FilamentAccountingController {
   public:
     FilamentAccountingController();
@@ -51,6 +58,7 @@ class FilamentAccountingController {
     void switch_active_spool(const FeedEntry& feed, const std::vector<int>& mapped);
 
     ObserverGuard probe_observer_;
+    ObserverGuard installed_observer_;
     ObserverGuard connection_observer_;
     ObserverGuard backend_count_observer_;
     ObserverGuard data_revision_observer_;
@@ -68,6 +76,8 @@ class FilamentAccountingController {
     /// Tool changes count only once this connection's discovery has read the
     /// printer: a tool carried over a reconnect is no change.
     bool armed_ = false;
+    /// A sender-role read for the map is in flight.
+    bool role_pending_ = false;
     int baseline_tool_ = -1;
 };
 

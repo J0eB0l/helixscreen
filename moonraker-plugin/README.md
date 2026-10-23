@@ -267,11 +267,16 @@ The screen keeps the map in Moonraker's database, namespace `helix-screen`, key
   left alone.
 
 The plugin switches when a signal's value changes while a job is printing or paused, and once
-at the job's start (history's `added`, read fresh). The first reading after Klippy connects
-only sets the baseline: a value carried over a reconnect is no change.
+at the job's start (history's `added`, read fresh). It reads the map at each switch, so a spool
+linked or unlinked mid-print counts at the next change, and subscribes any signal object the
+map names that it is not yet receiving (a map written after Klippy connected). Switches run
+one at a time and decide from the newest status. The first reading after Klippy connects only
+sets the baseline: a value carried over a reconnect is no change.
 
 **Per-job record.** From the same position deltas Moonraker charges (the rise above the
-high-water mark, re-based without a charge at an extruder change or a spool switch), the
+high-water mark, re-based without a charge at an extruder change or a spool switch, as
+current Moonraker does; a Moonraker that does not re-base at a spool switch charges each
+switch's retract depth differently, so the record matches it approximately), the
 plugin keeps millimetres per tool, lane and spool for every job that starts while the feature
 is on, whoever switches the spool. Namespace `helix_filament`, key `job_<job id>`:
 
@@ -286,7 +291,8 @@ is on, whoever switches the spool. Namespace `helix_filament`, key `job_<job id>
 under `active` every 30 s while filament moves, and a restart mid-print keeps counting. A job
 closed by the next job's start, with no finish seen (a power cut), has `status: null`. A
 power-loss resume (helix-initiated `plr_resume`) continues the interrupted job's spools, with
-`continues` naming that job. The newest 500 records are kept. When history finishes the job,
+`continues` naming that job, only when it is that job's file the resume started. The newest
+500 records are kept. Records carry the job's `start_time`. When history finishes the job,
 and where it can rewrite a job (`get_job`/`save_job`, Moonraker 0.9 and newer), the `spools`
 list also goes into the job's `auxiliary_data` as `{"provider": "helix_print", "name":
 "filament_spools"}`, through the same locked rewrite as photos and `modifications`, so none
@@ -298,7 +304,9 @@ GET /server/helix/filament_usage?job_id=00002A
 ```
 
 returns `{"job_id", "enabled", "record"}`: the stored record, the live ledger (status
-`in_progress`) of the job still printing, or `null` for a job the feature did not count.
+`in_progress`) of the job still printing, or `null` for a job the feature did not count. Pass
+`start_time` (history's) as well: history reuses job ids, and a record of another start is
+answered `null`.
 
 ### Camera photos (`photos`)
 

@@ -878,12 +878,12 @@ void PrinterDiscovery::parse_config_keys(const nlohmann::json& config) {
         }
     }
 
-    // [indx] on Kalico may have no get_status(), so the configfile section is
-    // the only sign of it, and it arrives after parse_objects() registered the
-    // filament systems.
     if (config.contains("spoollink")) {
         has_spoollink_ = true;
     }
+    // [indx] on Kalico may have no get_status(), so the configfile section is
+    // the only sign of it, and it arrives after parse_objects() registered the
+    // filament systems.
     if (!has_indx_ && config.contains("indx")) {
         has_indx_ = true;
         spdlog::debug("[PrinterDiscovery] INDX detected from config");

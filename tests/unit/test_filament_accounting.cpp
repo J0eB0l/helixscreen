@@ -5,13 +5,13 @@
 // per-spool record the print history shows. The ownership, key and switch
 // rules come from the case table the plugin's suite reads too.
 
+#include "../test_helpers/filament_accounting_cases.h"
 #include "filament_accounting.h"
 #include "helix_plugin_features.h"
 #include "printer_discovery.h"
 #include "printer_plugin_status_state.h"
 
 #include <algorithm>
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -24,13 +24,7 @@ using json = nlohmann::json;
 namespace {
 
 json cases() {
-    std::string src = __FILE__;
-    const auto pos = src.rfind("/tests/unit/");
-    const std::string root = pos != std::string::npos ? src.substr(0, pos) : ".";
-    std::ifstream f(root + "/tests/fixtures/filament_accounting/cases.json");
-    REQUIRE(f.good());
-    std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-    json parsed = json::parse(text, nullptr, false);
+    json parsed = helix::test::filament_accounting_cases();
     REQUIRE_FALSE(parsed.is_discarded());
     return parsed;
 }
@@ -277,11 +271,16 @@ TEST_CASE("filament accounting: history lines name who fed what", "[plugin_filam
     usage[1].mm = 1530.0;
     usage[2].lane = 3;
     usage[2].mm = 200.0;
-    const std::string text = describe_spool_usage(
-        usage, [](int id) { return id == 7 ? std::string("Polymaker PLA") : std::string(); });
+    const auto names = [](int id) {
+        return id == 7 ? std::string("Polymaker PLA") : std::string();
+    };
+    const std::string text = describe_spool_usage(usage, names, ui::LaneNoun::Slot);
     CHECK(text ==
           "T0 · Polymaker PLA · 12 g\nT1 · Spool #9 · 1.5m\nSlot 4 · No spool linked · 200mm");
-    CHECK(describe_spool_usage({}, nullptr).empty());
+    INFO("a lane is named in the printer's own word for one");
+    CHECK(describe_spool_usage({usage[2]}, names, ui::LaneNoun::Gate) ==
+          "Gate 4 · No spool linked · 200mm");
+    CHECK(describe_spool_usage({}, nullptr, ui::LaneNoun::Slot).empty());
 }
 
 TEST_CASE("filament accounting: its switch lives on the Spoolman page", "[plugin_filament]") {

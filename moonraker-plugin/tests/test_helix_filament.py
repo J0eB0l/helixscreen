@@ -562,3 +562,98 @@ class TestHistoryAuxiliaryData:
         await _history(mock_server, _added("00002B"))
         await _history(mock_server, _finished("00002B"))
         assert history.save_job_calls == []
+
+
+class TestReviewFindings:
+    @pytest.mark.asyncio
+    async def test_a_map_written_after_ready_is_subscribed_at_job_start(
+            self, helix_print_component, mock_server):
+        indx = {"version": 1, "manages_active_spool": False,
+                "printer_switches_active_spool": False, "macros_set_active_spool": False,
+                "signals": [{"object": "save_variables", "path": ["variables", "active_tool"],
+                             "values": {"0": _feed(0, 21), "1": _feed(1, 22)}}]}
+        spoolman = await _setup(helix_print_component, mock_server, spool_map=None, active=21)
+        apis = mock_server.components["klippy_apis"]
+        # The screen writes the map once it sees the plugin, after Klippy is ready.
+        await helix_print_component.database.insert_item(HELIX_SCREEN_NAMESPACE, SPOOL_MAP_KEY,
+                                                         indx)
+        apis.subscribe_objects.return_value = {"save_variables": {"variables": {"active_tool": 0}}}
+        await _history(mock_server, _added("000020"))
+        assert any(c.args[0].get("save_variables") == ["variables"]
+                   for c in apis.subscribe_objects.call_args_list)
+        await _update(mock_server, {"save_variables": {"variables": {"active_tool": 1}}})
+        assert spoolman.calls == [22]
+
+    @pytest.mark.asyncio
+    async def test_a_relink_mid_print_counts_at_the_next_change(
+            self, helix_print_component, mock_server):
+        spoolman = await _setup(helix_print_component, mock_server, spool_map=_extruder_map(),
+                                active=11)
+        await _history(mock_server, _added("000021"))
+        db = helix_print_component.database
+        # T1 runs out; the user links a new spool to it mid-print.
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, SPOOL_MAP_KEY,
+                             _extruder_map(spools=(11, 45)))
+        await _update(mock_server, {"toolhead": {"extruder": "extruder1"}})
+        assert spoolman.calls == [45]
+        await _update(mock_server, {"toolhead": {"extruder": "extruder"}})
+        # Then unlinks it: the next change to T1 clears instead of setting 45.
+        await db.insert_item(HELIX_SCREEN_NAMESPACE, SPOOL_MAP_KEY,
+                             _extruder_map(spools=(11, None)))
+        await _update(mock_server, {"toolhead": {"extruder": "extruder1"}})
+        assert spoolman.calls == [45, 11, None]
+
+    @pytest.mark.asyncio
+    async def test_a_quick_change_and_back_ends_on_the_feeding_spool(
+            self, helix_print_component, mock_server):
+        spoolman = await _setup(helix_print_component, mock_server, spool_map=_extruder_map(),
+                                active=11)
+        await _history(mock_server, _added("000022"))
+        gate = asyncio.Event()
+        real_enabled = helix_print_component.feature_enabled
+
+        async def slow_enabled(name):
+            await gate.wait()
+            return await real_enabled(name)
+
+        helix_print_component.feature_enabled = slow_enabled
+        to_t1 = asyncio.ensure_future(
+            _update(mock_server, {"toolhead": {"extruder": "extruder1"}}))
+        await asyncio.sleep(0)
+        back_to_t0 = asyncio.ensure_future(
+            _update(mock_server, {"toolhead": {"extruder": "extruder"}}))
+        await asyncio.sleep(0)
+        gate.set()
+        await asyncio.gather(to_t1, back_to_t0)
+        assert spoolman.spool_id == 11
+
+    @pytest.mark.asyncio
+    async def test_a_resume_does_not_continue_an_unrelated_job(
+            self, helix_print_component, mock_server):
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        db = helix_print_component.database
+        ledger = UsageLedger()
+        ledger.entries.append([0, 0, 11, 15.0, None])
+        await db.insert_item(FILAMENT_NAMESPACE, LAST_KEY,
+                             {"job_id": "000009", "filename": "other.gcode", "continues": None,
+                              "ledger": ledger.to_state()})
+        helix_print_component.mark_helix_initiated("part.gcode", "plr_resume")
+        await _history(mock_server, _added("000023"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 1.0]}})
+        await _history(mock_server, _finished("000023"))
+        record = await db.get_item(FILAMENT_NAMESPACE, JOB_KEY_PREFIX + "000023")
+        assert record["continues"] is None
+        assert [s["mm"] for s in record["spools"]] == [1.0]
+
+    @pytest.mark.asyncio
+    async def test_a_reused_job_id_does_not_answer_with_the_old_record(
+            self, helix_print_component, mock_server):
+        await _setup(helix_print_component, mock_server, spool_map=_extruder_map(), active=11)
+        handler = mock_server.endpoints["/server/helix/filament_usage"]
+        await _history(mock_server, _added("000024"))
+        await _update(mock_server, {"toolhead": {"position": [0, 0, 0, 2.0]}})
+        await _history(mock_server, _finished("000024"))
+        same = await handler(MockWebRequest({"job_id": "000024", "start_time": T0}))
+        assert same["record"]["spools"][0]["mm"] == 2.0
+        reused = await handler(MockWebRequest({"job_id": "000024", "start_time": T0 + 5000}))
+        assert reused["record"] is None

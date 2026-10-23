@@ -9,6 +9,7 @@
 #include "ui_update_queue.h"
 
 #include "../lvgl_test_fixture.h"
+#include "../test_helpers/filament_accounting_cases.h"
 #include "ams_backend_afc.h"
 #include "ams_state.h"
 #include "ams_types.h"
@@ -5444,6 +5445,17 @@ TEST_CASE("AFC current_load null clears filament state", "[ams][afc][status]") {
 TEST_CASE("AFC backend reports manages_active_spool=true", "[ams][afc][spoolman]") {
     AmsBackendAfcTestHelper helper;
     REQUIRE(helper.manages_active_spool() == true);
+}
+
+TEST_CASE("AFC reports the manages_active_spool the shared case table claims",
+          "[ams][afc][spoolman][plugin_filament]") {
+    const auto rows = helix::test::ownership_rows_for("AFC");
+    REQUIRE_FALSE(rows.empty());
+    AmsBackendAfcTestHelper helper;
+    for (const auto& row : rows) {
+        INFO(row["name"].get<std::string>());
+        CHECK(helper.manages_active_spool() == row["manages_active_spool"].get<bool>());
+    }
 }
 
 TEST_CASE("AFC get_type returns AFC", "[ams][afc][spoolman]") {

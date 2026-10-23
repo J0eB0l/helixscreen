@@ -639,7 +639,7 @@ HelixScreen reads a `spoollink` object in `printer.objects.list`, or a `[spoolli
 `configfile.settings`, as "the printer already switches spools"
 (`include/filament_accounting.h#printer_switches_active_spool`, from
 `PrinterDiscovery::has_spoollink()`). The filament accounting ownership rule then answers
-`printer`, and neither the HelixPrint plugin nor the app's fallback switches anything. On stock
+`printer`, and no HelixScreen path switches it: not the plugin, not the app's fallback, and not the lane-load sync (`active_spool_owner_now()`). On stock
 firmware the owner is `helix`: the plugin switches the active spool from `toolhead.extruder`
 with the spools linked to each head, when the user opted in (`HELIXPRINT_PLUGIN.md`, filament
 accounting). Either way the plugin's per-job spool record still counts what Moonraker charged.

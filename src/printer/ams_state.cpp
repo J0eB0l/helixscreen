@@ -26,6 +26,7 @@
 #include "app_globals.h"
 #include "data_root_resolver.h"
 #include "display_numbering.h"
+#include "filament_accounting_controller.h"
 #include "filament_database.h"
 #include "filament_display_name.h"
 #include "filament_sensor_manager.h"
@@ -2241,12 +2242,14 @@ void AmsState::sync_current_loaded_from_backend(const AmsSystemInfo& primary_inf
         }
         SlotInfo slot_info = loaded_backend->get_slot_info(slot_index);
 
-        // Sync Spoolman active spool when slot with spoolman_id is loaded.
-        // Skip when the backend manages active spool itself (e.g., AFC calls
-        // spoolman_set_active_spool on tool load/unload natively).
+        // Sync Spoolman active spool when slot with spoolman_id is loaded,
+        // unless something else switches it (the backend, as AFC does on tool
+        // load, the printer's firmware, or its T<n> macros). A linked spool
+        // means Spoolman is in use.
         if (api_ && slot_info.spoolman_id > 0 &&
             slot_info.spoolman_id != last_synced_spoolman_id_ &&
-            !loaded_backend->manages_active_spool()) {
+            active_spool_owner_now(/*spoolman=*/true, loaded_backend->manages_active_spool()) ==
+                ActiveSpoolOwner::Helix) {
             last_synced_spoolman_id_ = slot_info.spoolman_id;
             spdlog::info("[AMS State] Setting active Spoolman spool to {} (slot {})",
                          slot_info.spoolman_id, slot_index);

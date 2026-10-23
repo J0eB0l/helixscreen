@@ -210,15 +210,12 @@ std::vector<SpoolUsage> parse_filament_usage(const json& reply) {
 }
 
 std::string describe_spool_usage(const std::vector<SpoolUsage>& usage,
-                                 const std::function<std::string(int)>& spool_name) {
+                                 const std::function<std::string(int)>& spool_name,
+                                 ui::LaneNoun noun) {
+    const std::string separator = std::string(" ") + ui::kUnitSeparator + " ";
     std::string text;
     for (const SpoolUsage& u : usage) {
-        std::string who;
-        if (u.tool >= 0) {
-            who = fmt::format("T{}", u.tool);
-        } else if (u.lane >= 0) {
-            who = ui::lane_label(ui::LaneNoun::Slot, u.lane);
-        }
+        const std::string who = u.tool >= 0 ? ui::tool_label(u.tool) : ui::lane_label(noun, u.lane);
         std::string spool;
         if (u.spool_id > 0) {
             spool = spool_name ? spool_name(u.spool_id) : std::string();
@@ -234,8 +231,10 @@ std::string describe_spool_usage(const std::vector<SpoolUsage>& usage,
         if (!text.empty()) {
             text += '\n';
         }
-        text += who.empty() ? fmt::format("{} · {}", spool, amount)
-                            : fmt::format("{} · {} · {}", who, spool, amount);
+        if (!who.empty()) {
+            text += who + separator;
+        }
+        text += spool + separator + amount;
     }
     return text;
 }

@@ -22,6 +22,7 @@ cases.json, which both suites read. Python 3.8, stdlib only.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -352,13 +353,35 @@ class UsageLedger:
         return ledger
 
 
-def job_record(job_id: str, filename: str, status: Optional[str],
-               ledger: UsageLedger, continues: Optional[str], end_time: Optional[float]
+def _number(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+# History stores start times as floats; one read back may differ in the last
+# digits, never by a second.
+START_TIME_TOLERANCE_S = 1.0
+
+
+def same_job(record: Any, start_time: Optional[float]) -> bool:
+    """Whether a stored record is the job that started at `start_time`:
+    history reuses job ids, so the id alone names a deleted job too. With no
+    start time to compare, the id decides."""
+    if not isinstance(record, dict):
+        return False
+    if start_time is None:
+        return True
+    stored = _number(record.get("start_time"))
+    return stored is not None and abs(stored - start_time) < START_TIME_TOLERANCE_S
+
+
+def job_record(open_job: "OpenJob", status: Optional[str], end_time: Optional[float]
                ) -> Dict[str, Any]:
     """The per-job record kept in FILAMENT_NAMESPACE."""
-    return {"schema": RECORD_SCHEMA, "job_id": job_id, "filename": filename,
-            "status": status, "end_time": end_time, "continues": continues,
-            "spools": ledger.spools()}
+    return {"schema": RECORD_SCHEMA, "job_id": open_job.job_id, "filename": open_job.filename,
+            "start_time": open_job.start_time, "status": status, "end_time": end_time,
+            "continues": open_job.continues, "spools": open_job.ledger.spools()}
 
 
 def _e_and_extruder(status: Dict[str, Any]) -> Tuple[Optional[float], Optional[str]]:
@@ -388,14 +411,15 @@ class OpenJob:
     """The job the ledger is counting."""
 
     def __init__(self, job_id: str, filename: str, continues: Optional[str],
-                 ledger: Optional[UsageLedger] = None) -> None:
+                 ledger: Optional[UsageLedger] = None, start_time: Any = None) -> None:
         self.job_id = job_id
         self.filename = filename
         self.continues = continues
         self.ledger = ledger or UsageLedger()
+        self.start_time = _number(start_time)
 
     def state(self) -> Dict[str, Any]:
-        return {"job_id": self.job_id, "filename": self.filename,
+        return {"job_id": self.job_id, "filename": self.filename, "start_time": self.start_time,
                 "continues": self.continues, "ledger": self.ledger.to_state()}
 
     @classmethod
@@ -406,7 +430,7 @@ class OpenJob:
         continues = state.get("continues")
         return cls(state["job_id"], filename if isinstance(filename, str) else "",
                    continues if isinstance(continues, str) else None,
-                   UsageLedger.from_state(state.get("ledger")))
+                   UsageLedger.from_state(state.get("ledger")), state.get("start_time"))
 
 
 class FilamentAccounting:
@@ -428,6 +452,9 @@ class FilamentAccounting:
         self._last_persist = float("-inf")
         self._dirty = False
         self._map: Optional[SpoolMap] = None
+        # The objects and fields subscribed on this Klippy connection
+        self._subscribed: Dict[str, set] = {}
+        self._switch_lock = asyncio.Lock()
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -517,26 +544,62 @@ class FilamentAccounting:
         spoolman = self._spoolman()
         return _spool_id(getattr(spoolman, "spool_id", None)) if spoolman is not None else None
 
-    async def _switch(self, spool_map: SpoolMap, feed: Optional[Feed], why: str) -> None:
-        """Switch the active spool for `feed` when this module owns it."""
-        spoolman = self._spoolman()
-        owner = active_spool_owner(spoolman is not None, spool_map.manages_active_spool,
-                                   spool_map.printer_switches_active_spool,
-                                   spool_map.macros_set_active_spool)
-        if owner != OWNER_HELIX:
+    async def _switch(self, why: str) -> None:
+        """Switch the active spool for what feeds now, when this module owns
+        it. The map is read here, so a spool linked or unlinked since the
+        job started counts at the next change. Switches run one at a time,
+        and each decides from the newest status only after its last await, so
+        a quick T0 -> T1 -> T0 ends on T0's spool."""
+        async with self._switch_lock:
+            spool_map = await self._read_map()
+            if spool_map is None:
+                return
+            self._map = spool_map
+            await self._subscribe_signals(spool_map)
+            spoolman = self._spoolman()
+            owner = active_spool_owner(spoolman is not None, spool_map.manages_active_spool,
+                                       spool_map.printer_switches_active_spool,
+                                       spool_map.macros_set_active_spool)
+            if owner != OWNER_HELIX:
+                return
+            if not await self.helix.feature_enabled(FILAMENT_FEATURE):
+                return
+            _key, feed = feeding(spool_map, self.status)
+            action = spool_switch(feed, self._active_spool(), spool_map.mapped_spools())
+            if action is None:
+                return
+            spool_id = action[1]
+            logging.info("HelixPrint: active spool -> %s (%s, tool %s, lane %s)", spool_id, why,
+                         feed.tool if feed else None, feed.lane if feed else None)
+            try:
+                spoolman.set_active_spool(spool_id)
+            except Exception as e:
+                logging.warning("HelixPrint: could not set the active spool: %s", e)
+
+    async def _subscribe_signals(self, spool_map: SpoolMap) -> None:
+        """Subscribe the map's signal fields Moonraker is not yet sending
+        this module: a map written or rewritten after Klippy connected names
+        objects the ready-time subscription could not."""
+        apis = self.helix.klippy_apis
+        if apis is None or not self._baselined:
             return
-        action = spool_switch(feed, self._active_spool(), spool_map.mapped_spools())
-        if action is None:
+        missing: Dict[str, List[str]] = {}
+        for obj, fields in spool_map.objects().items():
+            have = self._subscribed.get(obj, set())
+            if any(f not in have for f in fields):
+                missing[obj] = sorted(set(fields) | have)
+        if not missing:
             return
-        if not await self.helix.feature_enabled(FILAMENT_FEATURE):
-            return
-        spool_id = action[1]
-        logging.info("HelixPrint: active spool -> %s (%s, tool %s, lane %s)", spool_id, why,
-                     feed.tool if feed else None, feed.lane if feed else None)
         try:
-            spoolman.set_active_spool(spool_id)
+            status = await apis.subscribe_objects(missing)
         except Exception as e:
-            logging.warning("HelixPrint: could not set the active spool: %s", e)
+            logging.warning("HelixPrint: filament accounting could not subscribe %s: %s",
+                            sorted(missing), e)
+            return
+        for obj, fields in missing.items():
+            self._subscribed[obj] = set(fields)
+        if isinstance(status, dict):
+            _merge(self.status, status)
 
     def _attribute(self, feed: Optional[Feed]) -> None:
         if self.job is None:
@@ -570,6 +633,7 @@ class FilamentAccounting:
         except Exception as e:
             logging.warning("HelixPrint: filament accounting could not subscribe: %s", e)
             return
+        self._subscribed = {obj: set(fields) for obj, fields in objects.items()}
         self.status = {}
         if isinstance(status, dict):
             _merge(self.status, status)
@@ -593,6 +657,7 @@ class FilamentAccounting:
     async def on_klippy_gone(self, *args: Any) -> None:
         self._baselined = False
         self._feed_key = None
+        self._subscribed = {}
         await self._persist(force=True)
 
     async def on_spool_set(self, payload: Any = None, *args: Any) -> None:
@@ -622,11 +687,12 @@ class FilamentAccounting:
             if key != self._feed_key:
                 self._feed_key = key
                 if self._job_running():
-                    await self._switch(self._map, feed, "feed changed")
+                    await self._switch("feed changed")
+                    _key, feed = feeding(self._map, self.status)
                 self._attribute(feed)
                 self._dirty = True
         if self._dirty:
-                await self._persist()
+            await self._persist()
 
     def _job_running(self) -> bool:
         stats = self.status.get("print_stats") or {}
@@ -649,7 +715,9 @@ class FilamentAccounting:
         filename = job.get("filename", "")
         # Read before the first await: helix_print binds its marker for this
         # job before it awaits.
-        kind = self.helix.helix_initiated(job_id, filename, job.get("start_time"))
+        start_time = job.get("start_time")
+        kind = self.helix.helix_initiated(job_id, filename, start_time)
+        resumed_names = self.helix.helix_initiated_names(job_id) if kind == "plr_resume" else []
         previous = self.job
         if previous is not None and previous.job_id == job_id:
             return
@@ -662,22 +730,27 @@ class FilamentAccounting:
         base: Optional[OpenJob] = None
         if kind == "plr_resume":
             base = previous or OpenJob.from_state(await self._ns_get(LAST_KEY))
+            # Only the job the resume continues: one that was not counted
+            # leaves an older, unrelated job as the last one closed.
+            if base is not None and base.filename not in resumed_names:
+                base = None
         if base is not None:
             # The resumed part continues the interrupted job's spools.
             self.job = OpenJob(job_id, filename, base.job_id,
-                               UsageLedger.from_state(base.ledger.to_state()))
+                               UsageLedger.from_state(base.ledger.to_state()), start_time)
             logging.info("HelixPrint: job %s continues the filament record of job %s",
                          job_id, base.job_id)
         else:
-            self.job = OpenJob(job_id, filename, None)
+            self.job = OpenJob(job_id, filename, None, start_time=start_time)
         self._map = await self._read_map()
         e, extruder = _e_and_extruder(self.status)
         self.job.ledger.baseline(e, extruder)
         if self._map is not None:
-            fresh = await self._query_signals(self._map)
-            key, feed = feeding(self._map, fresh)
+            await self._subscribe_signals(self._map)
+            await self._query_signals(self._map)
+            await self._switch("job start")
+            key, feed = feeding(self._map, self.status)
             self._feed_key = key
-            await self._switch(self._map, feed, "job start")
             self._attribute(feed)
         else:
             self._attribute(None)
@@ -714,7 +787,10 @@ class FilamentAccounting:
         one history rewrite every feature shares. History reuses job ids, so
         the row must still have this job's start time."""
         patch = getattr(self.helix, "patch_history_job", None)
-        if patch is None:
+        history = getattr(self.helix, "history", None)
+        # A history that cannot rewrite a job (API 1.4.0 forks) keeps the
+        # record in this module's namespace only; that is no fault to log.
+        if patch is None or not (hasattr(history, "get_job") and hasattr(history, "save_job")):
             return
         start_time = job.get("start_time")
 
@@ -731,8 +807,8 @@ class FilamentAccounting:
                      end_time: Optional[float]) -> Dict[str, Any]:
         """Write the job's record and drop the open ledger. A job closed by
         the next job's start, with no finish seen, has no status."""
-        record = job_record(open_job.job_id, open_job.filename, status, open_job.ledger,
-                            open_job.continues, end_time if end_time is not None else time.time())
+        record = job_record(open_job, status,
+                            end_time if end_time is not None else time.time())
         await self._ns_put(JOB_KEY_PREFIX + open_job.job_id, record)
         await self._ns_put(LAST_KEY, open_job.state())
         await self._ns_delete(ACTIVE_KEY)
@@ -746,16 +822,20 @@ class FilamentAccounting:
     async def handle_usage(self, web_request: Any) -> Dict[str, Any]:
         """The per-spool record of a job: the finished record, or the open
         ledger of the job still printing. `record` is None for a job this
-        feature did not count."""
+        feature did not count. With `start_time` (history's, for that job),
+        a record of an earlier job under a reused id is not answered."""
         job_id = web_request.get_str("job_id")
         if not job_id:
             raise self.server.error("job_id is required", 400)
+        try:
+            start_time: Optional[float] = float(web_request.get_str("start_time", ""))
+        except ValueError:
+            start_time = None
         enabled = await self.helix.feature_enabled(FILAMENT_FEATURE)
         if self.job is not None and self.job.job_id == job_id:
-            record: Any = job_record(job_id, self.job.filename, "in_progress", self.job.ledger,
-                                     self.job.continues, None)
+            record: Any = job_record(self.job, "in_progress", None)
         else:
             record = await self._ns_get(JOB_KEY_PREFIX + job_id)
-            if not isinstance(record, dict):
-                record = None
+        if not same_job(record, start_time):
+            record = None
         return {"job_id": job_id, "enabled": enabled, "record": record}

@@ -19,8 +19,10 @@
 #include "lane_resolver.h"
 #include "lane_source_store.h"
 #include "lane_translation.h"
+#include "macro_param_cache.h"
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
+#include "printer_discovery.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 #include "spoolman_manager.h"
@@ -1812,4 +1814,60 @@ TEST_CASE("a fresh load re-sends its spool after the server's active spool was c
     REQUIRE(f.backend->get_current_slot() == 0);
     REQUIRE(f.backend->is_filament_loaded());
     CHECK(f.client.spoolman_mock().get_mock_active_spool_id() == 9);
+}
+
+namespace {
+
+/// A printer whose firmware or T<n> macros switch the active spool, staged on
+/// PrinterState's discovery and the macro cache; both reset on destruction.
+struct OwnedActiveSpoolFixture : CommitFixture {
+    explicit OwnedActiveSpoolFixture(const nlohmann::json& objects,
+                                     const nlohmann::json& config = nlohmann::json::object()) {
+        PrinterDiscovery hw;
+        hw.parse_objects(objects);
+        hw.parse_config_keys(config);
+        MacroParamCache::instance().populate_from_configfile(config, hw.macros());
+        get_printer_state().set_hardware(std::move(hw));
+    }
+    ~OwnedActiveSpoolFixture() override {
+        MacroParamCache::instance().clear();
+        get_printer_state().set_hardware(PrinterDiscovery());
+    }
+
+    /// Load lane 0 (linked to spool 9) from an empty active spool; the active
+    /// spool afterwards.
+    int load_and_sync() {
+        setup(9);
+        backend->set_operation_delay(0);
+        REQUIRE(backend->start().success());
+        client.spoolman_mock().set_active_spool_id(0);
+        AmsState::instance().sync_current_loaded_from_backend();
+        helix::ui::UpdateQueue::instance().drain();
+        REQUIRE(backend->get_current_slot() == 0);
+        return client.spoolman_mock().get_mock_active_spool_id();
+    }
+};
+
+} // namespace
+
+TEST_CASE("a lane load leaves the active spool to SpoolLink firmware",
+          "[ams][commit][spoolman_sync][plugin_filament]") {
+    OwnedActiveSpoolFixture f(nlohmann::json::array({"toolhead", "extruder", "spoollink"}));
+    CHECK(f.load_and_sync() == 0);
+}
+
+TEST_CASE("a lane load leaves the active spool to T<n> macros that set it",
+          "[ams][commit][spoolman_sync][plugin_filament]") {
+    OwnedActiveSpoolFixture f(
+        nlohmann::json::array({"toolhead", "extruder", "gcode_macro T0", "gcode_macro T1"}),
+        nlohmann::json{
+            {"gcode_macro T0", {{"gcode", "SET_ACTIVE_SPOOL ID=3\nACTIVATE_EXTRUDER"}}}});
+    CHECK(f.load_and_sync() == 0);
+}
+
+TEST_CASE("a lane load sets the active spool when nothing else switches it",
+          "[ams][commit][spoolman_sync][plugin_filament]") {
+    OwnedActiveSpoolFixture f(nlohmann::json::array({"toolhead", "extruder", "gcode_macro T0"}),
+                              nlohmann::json{{"gcode_macro T0", {{"gcode", "ACTIVATE_EXTRUDER"}}}});
+    CHECK(f.load_and_sync() == 9);
 }

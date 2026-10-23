@@ -13,6 +13,7 @@
 // tests/fixtures/filament_accounting/cases.json; the wiring lives in
 // FilamentAccountingController.
 
+#include "display_numbering.h"
 #include "helix_plugin_features.h"
 
 #include <functional>
@@ -158,10 +159,13 @@ bool filament_usage_available(PluginFeatureState accounting);
 std::vector<SpoolUsage> parse_filament_usage(const nlohmann::json& reply);
 
 /// One line per spool for the print history: "<who fed it> · <spool> ·
-/// <amount>", newline-joined. @p spool_name names a linked spool (empty when
-/// it cannot); the amount is grams where the record has them, else length.
+/// <amount>", newline-joined. Who fed it is the tool's G-code label, else the
+/// lane in @p noun, the printer's word for one. @p spool_name names a linked
+/// spool (empty when it cannot); the amount is grams where the record has
+/// them, else length.
 std::string describe_spool_usage(const std::vector<SpoolUsage>& usage,
-                                 const std::function<std::string(int)>& spool_name);
+                                 const std::function<std::string(int)>& spool_name,
+                                 ui::LaneNoun noun);
 
 template <typename Macros, typename Sets>
 bool tool_macros_set_active_spool(const Macros& macros, Sets sets) {

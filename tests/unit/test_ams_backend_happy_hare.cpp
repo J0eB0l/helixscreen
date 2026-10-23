@@ -7,6 +7,7 @@
 #include "ui_utils.h"
 
 #include "../lvgl_test_fixture.h"
+#include "../test_helpers/filament_accounting_cases.h"
 #include "../ui_test_utils.h"
 #include "action_prompt_manager.h"
 #include "ams_backend_happy_hare.h"
@@ -2819,6 +2820,20 @@ TEST_CASE("Happy Hare manages_active_spool=false when spoolman off (default)",
     AmsBackendHappyHareTestHelper& helper = *helper_reg;
     // Default spoolman_mode is OFF
     REQUIRE(helper.manages_active_spool() == false);
+}
+
+TEST_CASE("Happy Hare reports the manages_active_spool the shared case table claims",
+          "[ams][happy_hare][spoolman][plugin_filament]") {
+    const auto rows = helix::test::ownership_rows_for("Happy Hare");
+    REQUIRE(rows.size() >= 3);
+    for (const auto& row : rows) {
+        INFO(row["name"].get<std::string>());
+        helix::test::RegisteredBackend<AmsBackendHappyHareTestHelper> helper_reg;
+        AmsBackendHappyHareTestHelper& helper = *helper_reg;
+        helper.initialize_test_gates(4);
+        helper.test_parse_mmu_state({{"spoolman_support", row["spoolman_mode"]}});
+        CHECK(helper.manages_active_spool() == row["manages_active_spool"].get<bool>());
+    }
 }
 
 TEST_CASE("Happy Hare manages_active_spool=true when spoolman enabled",
