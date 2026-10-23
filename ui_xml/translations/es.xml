@@ -3652,7 +3652,7 @@
   <translation tag="The nozzle is clear of the print" es="La boquilla no toca la impresión"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." es="La boquilla está caliente. Límpiala con el cepillo de alambre incluido, mantén limpia la posición de anclaje y pulsa Siguiente."/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." es="La boquilla está separada de la impresión y X e Y están posicionados. Al reanudar, baja de nuevo a la altura en que se detuvo."/>
-  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts." es="El pico de {0} salió de la zona. Comprueba que solo giraste el tensor de {1}. ¿No sabes cuál es cuál? Toca la línea del tensor para identificar las correas."/>
+  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts." es="El pico de {0} salió de la zona. Comprueba que solo giraste el tensor de {1}. ¿No sabes cuál es cuál? Toca el lápiz para identificar las correas."/>
   <translation tag="The peak of {} moved out of the zone. Widening it." es="El pico de {} salió de la zona. Ampliándola."/>
   <translation tag="The plate and the spools are still hot. Use gloves." es="La cama y las bobinas siguen calientes. Usa guantes."/>
   <translation tag="The plate finishes its current move, but drying will not start." es="La cama termina su movimiento actual, pero el secado no empezará."/>

@@ -3790,8 +3790,8 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : 喷嘴很烫。请用随机附带的金属刷清洁，并保持停靠位置干净，然后点击下一步。
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "喷嘴已抬离打印件，X 和 Y 已归零。恢复时会降回停止时的高度。"
-  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
-  : "{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?点按张紧器一行来识别皮带。"
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts.
+  : "{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?点按编辑图标来识别皮带。"
   The peak of {} moved out of the zone. Widening it.: "{} 的峰移出了区间。正在扩大区间。"
   The plate and the spools are still hot. Use gloves.: 热床和料盘仍然很烫。请戴手套。
 

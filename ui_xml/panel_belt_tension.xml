@@ -410,6 +410,12 @@
               <bind_style name="gap_matched" subject="bt_tune_phase" ref_value="2"/>
               <bind_style name="gap_matched" subject="bt_tune_phase" ref_value="4"/>
             </text_body>
+            <!-- Opens "Which belt is which?"; it does not bubble, so the line's swap stays a separate tap -->
+            <icon name="bt_tune_line_names"
+                  src="pencil" size="xs" variant="muted" style_pad_all="#space_xs" clickable="true">
+              <bind_flag_if cond="bt_tune_phase eq 2 or bt_tune_phase eq 4 or bt_tune_unrepeatable eq 1" flag="hidden"/>
+              <event_cb trigger="clicked" callback="belt_tension_names_cb"/>
+            </icon>
             <text_body name="bt_tune_line_gap"
                        bind_text="bt_tune_gap" style_text_font="#font_body_bold" clickable="false" event_bubble="true">
               <bind_style name="gap_matched" subject="bt_tune_severity" ref_value="0"/>

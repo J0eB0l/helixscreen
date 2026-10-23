@@ -2107,8 +2107,8 @@ std::string BeltTensionPanel::tune_last_message() const {
         if (!t.rounds().empty() && t.rounds().back().reference_lost) {
             return fmt::format(
                 fmt::runtime(lv_tr("The peak of {0} left the zone. Check that only {1}'s tensioner "
-                                   "was turned. Not sure which is which? Tap the tensioner line "
-                                   "to identify the belts.")),
+                                   "was turned. Not sure which is which? Tap the pencil to "
+                                   "identify the belts.")),
                 ref_name, adj_name);
         }
         return lv_tr("No clear peak in this zone");

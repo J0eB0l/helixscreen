@@ -3712,7 +3712,7 @@
   <translation tag="The nozzle is clear of the print" ru="Сопло не касается печати"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." ru="Сопло горячее. Очистите его металлической щёткой из комплекта, держите место парковки чистым и нажмите «Далее»."/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." ru="Сопло поднято над печатью, X и Y запаркованы. При продолжении оно опустится на высоту, где остановилось."/>
-  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts." ru="Пик ({0}) вышел из зоны. Проверьте, что крутили только натяжитель: {1}. Не знаете, где какой? Коснитесь строки натяжителя, чтобы определить ремни."/>
+  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts." ru="Пик ({0}) вышел из зоны. Проверьте, что крутили только натяжитель: {1}. Не знаете, где какой? Коснитесь значка карандаша, чтобы определить ремни."/>
   <translation tag="The peak of {} moved out of the zone. Widening it." ru="Пик ({}) вышел из зоны. Расширяем её."/>
   <translation tag="The plate and the spools are still hot. Use gloves." ru="Стол и катушки ещё горячие. Используйте перчатки."/>
   <translation tag="The plate finishes its current move, but drying will not start." ru="Стол завершит текущее перемещение, но сушка не начнётся."/>

@@ -4014,8 +4014,8 @@ translations:
   ? The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next.
   : Die Düse ist heiß. Bürste sie mit der mitgelieferten Drahtbürste sauber, halte die Parkposition sauber und tippe dann auf Weiter.
   The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at.: "Die Düse ist vom Druck abgehoben und X und Y sind referenziert. Beim Fortsetzen senkt sie sich wieder auf die Höhe, an der sie stoppte."
-  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts.
-  : "Die Spitze von {0} hat die Zone verlassen. Prüfe, dass nur der Spanner von {1} gedreht wurde. Unsicher, welcher welcher ist? Tippe auf die Spanner-Zeile, um die Riemen zu identifizieren."
+  ? The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts.
+  : "Die Spitze von {0} hat die Zone verlassen. Prüfe, dass nur der Spanner von {1} gedreht wurde. Unsicher, welcher welcher ist? Tippe auf den Stift, um die Riemen zu identifizieren."
   The peak of {} moved out of the zone. Widening it.: "Die Spitze von {} hat die Zone verlassen. Sie wird erweitert."
   The plate and the spools are still hot. Use gloves.: Heizbett und Spulen sind noch heiß. Trage Handschuhe.
 

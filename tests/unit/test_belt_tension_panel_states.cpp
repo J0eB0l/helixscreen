@@ -1934,7 +1934,7 @@ TEST_CASE("a reference peak that leaves the zone names the reference", "[belt][p
         tune_round(fx);
         CHECK(fx.text("bt_tune_last") ==
               "The peak of Path A left the zone. Check that only Path B's tensioner was turned. "
-              "Not sure which is which? Tap the tensioner line to identify the belts.");
+              "Not sure which is which? Tap the pencil to identify the belts.");
     }
     SECTION("the adjusted path losing its peak keeps the generic line") {
         belts.set_b({});
@@ -2469,7 +2469,7 @@ TEST_CASE("every locale's tuning strings fit their buffers", "[belt][panel][tune
                   .size() < fx.last_buf_size());
         CHECK(f("No turn: the gap moved {:.1f} Hz", 12.3).size() < fx.last_buf_size());
         CHECK(f("The peak of {0} left the zone. Check that only {1}'s tensioner was turned. Not "
-                "sure which is which? Tap the tensioner line to identify the belts.",
+                "sure which is which? Tap the pencil to identify the belts.",
                 name, name)
                   .size() < fx.last_buf_size());
         CHECK(f("Went past {} by {:.1f} Hz. Back it off a little.", name, 12.3).size() <
@@ -4079,4 +4079,30 @@ TEST_CASE("A as the right belt puts Path B in the left slot and its Re-test",
     CHECK(fx.state_int("bt_running_path") == 1);
     CHECK(fx.text("bt_slot_0_note") == "sweeping");
     CHECK(fx.text("bt_slot_1_note") != "sweeping");
+}
+
+TEST_CASE("compact tuning's pencil opens the names dialog instead of swapping",
+          "[belt][panel][names][tune][compact]") {
+    BeltPanelFixture fx;
+    get_printer_state().set_printer_type_sync("Voron 2.4");
+    ScopedLayoutSubject bp("ui_breakpoint", kBpMicro);
+    REQUIRE(fx.register_component("belt_names_modal"));
+    enter_tuning(fx);
+    REQUIRE(fx.state_int("bt_tune_phase") == kPhaseCalibrate);
+    const auto* session = fx.panel_session();
+    const int adjusted = fx.state_int("bt_tune_path");
+    // On compact layouts the line is the only tuning header; the full one,
+    // with its tensioner row, is hidden.
+    REQUIRE_FALSE(lv_hidden(named(fx, "bt_tune_line")));
+    REQUIRE(lv_hidden(named(fx, "bt_tune_hero")));
+
+    lv_obj_t* pencil = named(fx, "bt_tune_line_names");
+    REQUIRE_FALSE(lv_hidden(pencil));
+    lv_obj_send_event(pencil, LV_EVENT_CLICKED, nullptr);
+    UpdateQueue::instance().drain();
+    lv_obj_t* screen = lv_screen_active();
+    CHECK(lv_obj_find_by_name(screen, "btn_identify_a") != nullptr);
+    CHECK(fx.state_int("bt_tune_path") == adjusted);
+    CHECK(fx.panel_session() == session);
+    CHECK(fx.state_int("belt_tension_state") == kTuning);
 }

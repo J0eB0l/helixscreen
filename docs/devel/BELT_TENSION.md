@@ -48,8 +48,10 @@ depends on the printer, so the user names the paths rather than the app guessing
   which asks `belt_path_name` as it draws. Log lines keep the letter.
 
 The dialog (`ui_xml/belt_names_modal.xml`, `helix::ui::BeltNamesModal`) opens from START's
-"Which belt is which?" button, the RESULTS path headers, and the tuning view's tensioner line
-("Tensioner: Left belt"), where it leaves the session as it was. A title stands only where it
+"Which belt is which?" button, the RESULTS path headers, and in the tuning view the pencil
+beside the tensioner line ("Tensioner: Left belt") or, on compact layouts, beside the one-line
+instruction; it leaves the session as it was. The reference-lost hint says "Tap the pencil",
+which names a target in every layout. A title stands only where it
 reads as a label (a header, a button, after a colon, at the start of an English sentence whose
 translations also start with it); everywhere else the phrase form goes inside the sentence, so
 no locale gets a capitalised name mid-sentence.

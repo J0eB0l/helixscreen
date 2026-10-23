@@ -3652,7 +3652,7 @@
   <translation tag="The nozzle is clear of the print" zh="喷嘴未接触打印件"/>
   <translation tag="The nozzle is hot. Brush it clean with the wire brush that came with the printer and keep the docking position clean, then tap Next." zh="喷嘴很烫。请用随机附带的金属刷清洁，并保持停靠位置干净，然后点击下一步。"/>
   <translation tag="The nozzle is lifted clear of the print and X and Y are homed. Resuming lowers it back to the height it stopped at." zh="喷嘴已抬离打印件，X 和 Y 已归零。恢复时会降回停止时的高度。"/>
-  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the tensioner line to identify the belts." zh="{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?点按张紧器一行来识别皮带。"/>
+  <translation tag="The peak of {0} left the zone. Check that only {1}&apos;s tensioner was turned. Not sure which is which? Tap the pencil to identify the belts." zh="{0} 的峰离开了区间。请确认只转动了 {1} 的张紧器。分不清哪条是哪条?点按编辑图标来识别皮带。"/>
   <translation tag="The peak of {} moved out of the zone. Widening it." zh="{} 的峰移出了区间。正在扩大区间。"/>
   <translation tag="The plate and the spools are still hot. Use gloves." zh="热床和料盘仍然很烫。请戴手套。"/>
   <translation tag="The plate finishes its current move, but drying will not start." zh="热床会完成当前移动,但烘干不会开始。"/>
