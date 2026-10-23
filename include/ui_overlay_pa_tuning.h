@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "ui_head_picker.h"
 #include "ui_modal.h"
 #include "ui_observer_guard.h"
 
@@ -64,8 +65,6 @@ namespace helix::ui {
 
 class PaTuningOverlay : public OverlayBase {
   public:
-    /// Physical extruders offered as chips; a changer with more shows the first.
-    static constexpr int kMaxHeads = 8;
     static constexpr int kPresetSlots = 4;
     /// Band rows in the picker. The default ramp yields 11 (base + 10 bands);
     /// a nudge-heavy run can yield more, and the closest neighbours are merged
@@ -173,7 +172,6 @@ class PaTuningOverlay : public OverlayBase {
   private:
     // --- setup ---
     void refresh_setup();
-    void refresh_tools();
     void refresh_presets();
     void set_kind(helix::pa::ExtruderKind kind);
     void adjust_ramp_k(bool start, int direction);
@@ -235,7 +233,7 @@ class PaTuningOverlay : public OverlayBase {
     Stage stage_ = SETUP;
     helix::pa::TuningSession session_;
 
-    int selected_head_ = 0;
+    HeadPicker heads_;
     /// Tool the run selected, -1 for none; its spool is the one saved to.
     int tuned_tool_ = -1;
     int selected_preset_ = 0;
@@ -257,11 +255,6 @@ class PaTuningOverlay : public OverlayBase {
     SubjectManager subjects_;
 
     lv_subject_t stage_subject_{};
-    lv_subject_t multi_tool_{};
-    lv_subject_t tool_count_{};
-    lv_subject_t tool_selected_[kMaxHeads]{};
-    lv_subject_t tool_label_[kMaxHeads]{};
-    char tool_label_buf_[kMaxHeads][8] = {};
     lv_subject_t preset_selected_[kPresetSlots]{};
     lv_subject_t preset_temp_[kPresetSlots]{};
     char preset_temp_buf_[kPresetSlots][24] = {};

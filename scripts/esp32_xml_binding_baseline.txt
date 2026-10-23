@@ -134,6 +134,7 @@ callback:on_pa_tune_step
 callback:on_pa_tune_tool
 callback:on_part_fan_dropdown_changed
 callback:on_pid_abort
+callback:on_pid_cal_tool
 callback:on_pid_done
 callback:on_pid_heater_bed
 callback:on_pid_heater_extruder
