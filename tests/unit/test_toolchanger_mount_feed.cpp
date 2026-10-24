@@ -155,13 +155,8 @@ TEST_CASE("mount-to-feed: the tool already on the carriage is neither mounted no
     CHECK(stages[2].step == mf::Step::Purge);
 }
 
-TEST_CASE("mount-to-feed: the printer's own macro replaces the built-in moves",
-          "[toolchanger][mount_feed][macro]") {
-    mf::Request load = load_request();
-    load.macro = "LOAD_FILAMENT";
-    CHECK(mf::plan(load)[3].gcode ==
-          "LOAD_FILAMENT T=2 TEMP=215\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
-
+TEST_CASE("mount-to-feed: an unload retracts with the built-in moves",
+          "[toolchanger][mount_feed]") {
     mf::Request unload = load_request();
     unload.load = false;
     // No feeder release: the retract alone takes the strand fully out.
@@ -173,24 +168,6 @@ TEST_CASE("mount-to-feed: the printer's own macro replaces the built-in moves",
             "MINIMUM=213",
             "M83\nG1 E-25 F1800\nG1 E-150 F1200\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
             "SELECT_TOOL T=0"});
-    unload.macro = "UNLOAD_FILAMENT";
-    CHECK(mf::plan(unload)[2].gcode ==
-          "UNLOAD_FILAMENT T=2\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
-}
-
-TEST_CASE("mount-to-feed: a macro stands in only when it takes the tool as T=",
-          "[toolchanger][mount_feed][macro]") {
-    CachedMacroInfo with_t;
-    with_t.knowledge = MacroParamKnowledge::KNOWN_PARAMS;
-    with_t.params = {MacroParam{"T"}, MacroParam{"TEMP"}};
-    CHECK(mf::macro_takes_tool(with_t));
-
-    CachedMacroInfo without_t = with_t;
-    without_t.params = {MacroParam{"TEMP"}};
-    CHECK_FALSE(mf::macro_takes_tool(without_t));
-
-    CachedMacroInfo unknown;
-    CHECK_FALSE(mf::macro_takes_tool(unknown));
 }
 
 TEST_CASE("mount-to-feed: prompt text cannot break out of its RESPOND line",
@@ -319,32 +296,43 @@ TEST_CASE("MedusaHC unloads by retracting fully, sends no OPEN, and parks when n
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
 
-TEST_CASE("MedusaHC runs the printer's LOAD_FILAMENT when it takes T=",
+TEST_CASE("MedusaHC never runs the printer's own LOAD_FILAMENT or UNLOAD_FILAMENT",
           "[toolchanger][mount_feed][medusahc][macro]") {
+    // Shaped like a real printer's custom macros: both take T=, which is no
+    // contract to call into.
     auto& cache = MacroParamCache::instance();
     cache.populate_from_configfile(
         json{{"gcode_macro load_filament",
-              {{"gcode", "{% set t = params.T|int %}{% set temp = params.TEMP|int %}M109"}}}},
-        std::unordered_set<std::string>{"LOAD_FILAMENT"});
+              {{"gcode", "{% set t = params.T|int %}{% set temp = params.TEMP|int %}M109"}}},
+             {"gcode_macro unload_filament", {{"gcode", "{% set t = params.T|int %}M104 S0"}}}},
+        std::unordered_set<std::string>{"LOAD_FILAMENT", "UNLOAD_FILAMENT"});
     struct ClearCache {
         ~ClearCache() {
             MacroParamCache::instance().clear();
         }
     } clear_cache;
 
+    const auto never_named = [](const std::vector<std::string>& sent) {
+        return std::none_of(sent.begin(), sent.end(), [](const std::string& g) {
+            return g.find("LOAD_FILAMENT") != std::string::npos;
+        });
+    };
+
     AckingChanger tc(4);
     tc.feed_status("ready", 2);
     REQUIRE(tc.load_filament(2).success());
-    CHECK(tc.sent_.front().find("action:prompt_show") != std::string::npos);
     tc.ack();
     ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
-    // Already mounted: no mount stage, so the heat closes the prompt.
-    CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
-                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder2 "
-                                 "TARGET=220\nTEMPERATURE_WAIT SENSOR=extruder2 MINIMUM=218");
-    tc.ack();
-    CHECK(tc.sent_.back().find("LOAD_FILAMENT T=2 TEMP=220") != std::string::npos);
-    CHECK(tc.sent_.back().find("G1 E50") == std::string::npos);
+    tc.ack(); // the heat
+    CHECK(tc.sent_.back().find("G1 E50 F300") != std::string::npos);
+    CHECK(never_named(tc.sent_));
+
+    AckingChanger un(4);
+    un.feed_status("ready", 2);
+    REQUIRE(un.unload_filament(2).success());
+    un.ack(); // the heat
+    CHECK(un.sent_.back().find("G1 E-150 F1200") != std::string::npos);
+    CHECK(never_named(un.sent_));
 }
 
 TEST_CASE("MedusaHC cancels a load waiting on the operator",
@@ -646,7 +634,7 @@ TEST_CASE("MedusaHC times a single-tool load out when nobody inserts",
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
 
-TEST_CASE("MedusaHC sends the printer's LOAD_ALL_FILAMENT for a full selection",
+TEST_CASE("MedusaHC sequences a full selection itself even with all-macros defined",
           "[toolchanger][mount_feed][medusahc][batch][macro]") {
     auto& cache = MacroParamCache::instance();
     cache.populate_from_configfile(
@@ -661,40 +649,21 @@ TEST_CASE("MedusaHC sends the printer's LOAD_ALL_FILAMENT for a full selection",
 
     AckingChanger tc(4);
     tc.feed_status("ready", 0);
-    // Every tool selected: the printer's own macro runs the whole batch.
     REQUIRE(tc.load_filament_batch({0, 1, 2, 3}).success());
-    REQUIRE(tc.sent_.size() == 1);
-    CHECK(tc.sent_.back() == "LOAD_ALL_FILAMENT TEMP=220");
-    CHECK(tc.get_current_action() == AmsAction::LOADING);
+    CHECK(tc.sent_.back().find("action:prompt_begin") != std::string::npos);
+    CHECK(tc.sent_.back().find("Tools 2, 3, 4") != std::string::npos);
 
-    // A partial selection sequences tool by tool, macro or no macro. A fresh
-    // changer: this fixture drops the two-arg ack, so the optimistic action
-    // above never resolves and would refuse a second op.
-    AckingChanger partial(4);
-    partial.feed_status("ready", 0);
-    REQUIRE(partial.load_filament_batch({1, 2}).success());
-    CHECK(partial.sent_.back().find("action:prompt_begin") != std::string::npos);
-    CHECK(partial.sent_.back().find("Tools 2, 3") != std::string::npos);
-}
-
-TEST_CASE("MedusaHC sends the printer's UNLOAD_ALL_FILAMENT for a full selection",
-          "[toolchanger][mount_feed][medusahc][batch][macro]") {
-    auto& cache = MacroParamCache::instance();
-    cache.populate_from_configfile(
-        json{{"gcode_macro unload_all_filament", {{"gcode", "M104 S0"}}}},
-        std::unordered_set<std::string>{"UNLOAD_ALL_FILAMENT"});
-    struct ClearCache {
-        ~ClearCache() {
-            MacroParamCache::instance().clear();
-        }
-    } clear_cache;
-
-    AckingChanger tc(4);
-    tc.feed_status("ready", -1);
-    REQUIRE(tc.unload_filament_batch({0, 1, 2, 3}).success());
-    REQUIRE(tc.sent_.size() == 1);
-    // No TEMP: this macro takes none, and none is invented for it.
-    CHECK(tc.sent_.back() == "UNLOAD_ALL_FILAMENT");
+    // A fresh changer: this fixture drops the two-arg ack, so the action above
+    // never resolves and would refuse a second op.
+    AckingChanger un(4);
+    un.feed_status("ready", -1);
+    REQUIRE(un.unload_filament_batch({0, 1, 2, 3}).success());
+    CHECK(un.sent_.back().rfind("SELECT_TOOL T=0", 0) == 0);
+    for (const auto* sent : {&tc.sent_, &un.sent_}) {
+        CHECK(std::none_of(sent->begin(), sent->end(), [](const std::string& g) {
+            return g.find("_ALL_FILAMENT") != std::string::npos;
+        }));
+    }
 }
 
 TEST_CASE("MedusaHC's step bar tracks every filament-op action",

@@ -239,14 +239,11 @@ run found on it (or parked). A stop mid-sequence - cancel, timeout, failed stage
 every heater in the plan off, restores the carriage, and toasts the tools that did complete
 (`mount_feed::Run::completed_heads()`).
 
-**Macro first, both levels.** When the printer defines `LOAD_FILAMENT` / `UNLOAD_FILAMENT`
-taking `T=` (read from the macro's template through `MacroParamCache`,
-`mount_feed::macro_takes_tool()`), the feed or retract stage calls
-`LOAD_FILAMENT T=<n> TEMP=<t>` / `UNLOAD_FILAMENT T=<n>` instead of the built-in moves.
-When it defines `LOAD_ALL_FILAMENT` / `UNLOAD_ALL_FILAMENT` and the selection is **every**
-tool, the batch is that one macro instead (`TEMP=` when its template takes it) and HelixScreen
-sequences nothing. topi314's macros (github.com/topi314/klipper, branch `ducr10`,
-`macros/filament.cfg`) are that shape. Stock MedusaHC has none.
+**The printer's filament macros are never called.** The feed and retract stages always send
+the built-in moves, and a batch of every tool is the same sequenced run as any other. A
+`LOAD_FILAMENT` / `UNLOAD_FILAMENT` / `LOAD_ALL_FILAMENT` / `UNLOAD_ALL_FILAMENT` on a
+MedusaHC printer is the owner's own customization (stock MedusaHC defines none), with no
+shared contract for its parameters or what it does around the moves.
 
 While a run is active its stage owns the published action and step: the swap frames its
 Mount and Restore stages raise (`operation`, the gripper) do not end it. The step bar is

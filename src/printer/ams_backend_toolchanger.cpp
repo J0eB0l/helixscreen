@@ -21,7 +21,6 @@
 #include "lane_source_store.h"
 #include "lane_translation.h"
 #include "lvgl/src/others/translation/lv_translation.h"
-#include "macro_param_cache.h"
 #include "printer_state.h"
 #include "settings_manager.h"
 
@@ -1589,12 +1588,6 @@ helix::mount_feed::Request AmsBackendToolChanger::build_feed_request(const std::
         }
         req.restore_head = mounted;
     }
-    // The printer's own macro, when it takes the tool, does the feed or the
-    // retract in place of the built-in moves.
-    const char* macro_name = load ? "LOAD_FILAMENT" : "UNLOAD_FILAMENT";
-    if (mf::macro_takes_tool(helix::MacroParamCache::instance().get(macro_name))) {
-        req.macro = macro_name;
-    }
     // The prompt is the one part of the run every client of the printer sees,
     // so it is English whatever this screen's language is.
     // The prompt comes before any mount, so a tool it names is still in its
@@ -1664,8 +1657,8 @@ AmsError AmsBackendToolChanger::start_mount_feed(const std::vector<int>& heads, 
     }
 
     mf::Request req = build_feed_request(heads, load);
-    spdlog::info("[AMS ToolChanger] {} {} tool(s) through the carriage (restore='{}', macro='{}')",
-                 load ? "Loading" : "Unloading", heads.size(), req.restore_gcode, req.macro);
+    spdlog::info("[AMS ToolChanger] {} {} tool(s) through the carriage (restore='{}')",
+                 load ? "Loading" : "Unloading", heads.size(), req.restore_gcode);
     feed_run_.emplace(std::move(req));
     ++feed_generation_;
     {
@@ -2193,39 +2186,20 @@ AmsError AmsBackendToolChanger::do_unload_filament(int slot_index) {
 }
 
 AmsError AmsBackendToolChanger::do_filament_batch(const std::vector<int>& slots, bool load) {
-    namespace mf = helix::mount_feed;
     if (!mounts_to_feed_) {
         return AmsErrorHelper::not_supported("Batch filament ops");
     }
     if (slots.empty()) {
         return AmsErrorHelper::invalid_parameter("batch filament op with no slots");
     }
-    int total = 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        total = slot_index_bound_locked();
         for (int slot : slots) {
             AmsError slot_valid = validate_slot_index_locked(slot);
             if (!slot_valid) {
                 return slot_valid;
             }
         }
-    }
-    // The printer's own all-macro, when there is one and the selection is
-    // every tool, does the whole batch itself: one command, its own sequence,
-    // nothing for this run to stage.
-    const char* all_macro = load ? "LOAD_ALL_FILAMENT" : "UNLOAD_ALL_FILAMENT";
-    const CachedMacroInfo& all = helix::MacroParamCache::instance().get(all_macro);
-    const bool all_selected = static_cast<int>(slots.size()) == total;
-    if (all_selected && all.knowledge != MacroParamKnowledge::UNKNOWN) {
-        std::string cmd = all_macro;
-        if (std::any_of(all.params.begin(), all.params.end(),
-                        [](const MacroParam& p) { return p.name == "TEMP"; })) {
-            cmd += fmt::format(" TEMP={}", app_constants::ams::kDefaultLoadPreheatTemp);
-        }
-        spdlog::info("[AMS ToolChanger] Batch {} through the printer's {}",
-                     load ? "load" : "unload", cmd);
-        return dispatch_operation(std::move(cmd), load ? AmsAction::LOADING : AmsAction::UNLOADING);
     }
     return start_mount_feed(slots, load);
 }

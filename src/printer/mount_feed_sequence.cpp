@@ -4,7 +4,6 @@
 #include "mount_feed_sequence.h"
 
 #include "klipper_extruder_naming.h"
-#include "macro_param_cache.h"
 
 #include <spdlog/fmt/fmt.h>
 
@@ -73,15 +72,14 @@ std::string with_heater_off(std::string gcode, int head) {
     return gcode + "\n" + heater_off_gcode(head);
 }
 
-/// The moves that work one tool's filament: the printer's own macro when it
-/// takes the tool, else the built-in slow draw and purge (or the full retract).
-std::string feed_or_retract_gcode(const Request& r, const HeadRequest& head) {
+/// The moves that work one tool's filament: a slow draw and purge, or the full
+/// retract. Always these, never a printer's LOAD_FILAMENT / UNLOAD_FILAMENT:
+/// those are per-printer customizations with no shared contract to call into.
+std::string feed_or_retract_gcode(const Request& r) {
     if (r.load) {
-        return r.macro.empty() ? "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 F1800"
-                               : fmt::format("{} T={} TEMP={}", r.macro, head.head, head.temp_c);
+        return "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 F1800";
     }
-    return r.macro.empty() ? "M83\nG1 E-25 F1800\nG1 E-150 F1200"
-                           : fmt::format("{} T={}", r.macro, head.head);
+    return "M83\nG1 E-25 F1800\nG1 E-150 F1200";
 }
 
 } // namespace
@@ -194,7 +192,7 @@ std::vector<Stage> plan(const Request& r) {
         }
         push_stage(Step::Heat, std::move(heat), false, tool);
         push_stage(r.load ? Step::Purge : Step::Retract,
-                   with_heater_off(feed_or_retract_gcode(r, head), head.head), false, tool);
+                   with_heater_off(feed_or_retract_gcode(r), head.head), false, tool);
     }
     if (!r.restore_gcode.empty()) {
         push_stage(Step::Restore, r.restore_gcode, false, static_cast<int>(r.heads.size()) - 1);
@@ -249,14 +247,6 @@ ConsoleSignal parse_console(std::string_view line) {
         return ConsoleSignal::Dismissed;
     }
     return ConsoleSignal::None;
-}
-
-bool macro_takes_tool(const CachedMacroInfo& macro) {
-    if (macro.knowledge != MacroParamKnowledge::KNOWN_PARAMS) {
-        return false;
-    }
-    return std::any_of(macro.params.begin(), macro.params.end(),
-                       [](const MacroParam& p) { return p.name == "T"; });
 }
 
 Run::Run(Request request) : request_(std::move(request)), stages_(plan(request_)) {}

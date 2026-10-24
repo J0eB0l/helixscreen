@@ -32,10 +32,6 @@
 #include <string_view>
 #include <vector>
 
-namespace helix {
-struct CachedMacroInfo;
-}
-
 namespace helix::mount_feed {
 
 enum class Step : uint8_t { Mount, Heat, Insert, Purge, Retract, Restore };
@@ -74,9 +70,6 @@ struct Request {
     std::string restore_gcode; ///< Puts the carriage back; empty when nothing changes
     /// The tool restore_gcode puts on the carriage, or -1 when it parks.
     int restore_head = -1;
-    /// The printer's own LOAD_FILAMENT / UNLOAD_FILAMENT taking T=, run in
-    /// place of the built-in feed or retract moves; empty for the built-in ones.
-    std::string macro;
     /// The prompt may not outlive this. A Load asks once, up front, for every
     /// strand.
     uint32_t prompt_timeout_ms = kPromptTimeoutMs;
@@ -135,10 +128,6 @@ enum class ConsoleSignal : uint8_t { None, Continue, Cancel, Dismissed };
 
 /// Whether @p line is one the prompt watcher must look at closer.
 [[nodiscard]] bool may_be_prompt_signal(std::string_view line);
-
-/// Whether the printer's @p macro takes the tool as T=, so it can stand in for
-/// the built-in feed or retract.
-[[nodiscard]] bool macro_takes_tool(const CachedMacroInfo& macro);
 
 /**
  * @brief One Load or Unload in progress.

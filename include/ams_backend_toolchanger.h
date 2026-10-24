@@ -273,9 +273,8 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     // Operations. Gated by AmsSubscriptionBackend's NVI wrapper.
     AmsError do_load_filament(int slot_index) override;
     AmsError do_unload_filament(int slot_index) override;
-    /// Load all / Unload all on a mount-to-feed changer: the printer's own
-    /// LOAD_ALL_FILAMENT / UNLOAD_ALL_FILAMENT when the selection is every
-    /// tool and the macro exists, else one sequenced run over the tools.
+    /// Load all / Unload all on a mount-to-feed changer: one sequenced run over
+    /// the tools.
     AmsError do_filament_batch(const std::vector<int>& slots, bool load) override;
     AmsError do_select_slot(int slot_index) override;
 
