@@ -7,7 +7,7 @@
 #include "../test_helpers/print_state_test_drivers.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
-#include "print_end_reason.h"
+#include "print_stop_reason.h"
 #include "printer_state.h"
 #include "test_helpers/printer_state_test_access.h"
 
@@ -24,6 +24,14 @@ using json = nlohmann::json;
 namespace {
 
 constexpr double kEnd = 1'700'000'000.0;
+
+// What a Voron's AFC wrote when it paused on a lane it could not load.
+constexpr const char* kAfcLoadFailure =
+    "!! lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH\n"
+    "||=====||====||==>--||\n"
+    "TRG   LOAD   HUB   TOOL\n"
+    "To resolve set lane loaded with `SET_LANE_LOADED LANE=lane3` macro.\n"
+    "Manually move filament with LANE_MOVE macro";
 
 JournalEntry gcode_error(const char* text, double time) {
     JournalEntry e;
@@ -59,7 +67,7 @@ class TrackerFixture : public LVGLTestFixture {
         PrinterStateTestAccess::reset(ps);
         ps.init_subjects(false);
         test::set_wire_state(ps, PrintJobState::PRINTING);
-        tracker_ = std::make_unique<PrintEndReasonTracker>(client_, ps, [this] { return now_; });
+        tracker_ = std::make_unique<PrintStopReasonTracker>(client_, ps, [this] { return now_; });
         settle();
     }
 
@@ -75,12 +83,12 @@ class TrackerFixture : public LVGLTestFixture {
 
     static std::string reason() {
         return lv_subject_get_string(
-            get_printer_state().print_state().get_print_end_reason_subject());
+            get_printer_state().print_state().get_print_stop_reason_subject());
     }
 
     static int reason_visible() {
         return lv_subject_get_int(
-            get_printer_state().print_state().get_print_end_reason_visible_subject());
+            get_printer_state().print_state().get_print_stop_reason_visible_subject());
     }
 
     void end(const char* state, const char* message = nullptr) {
@@ -94,7 +102,7 @@ class TrackerFixture : public LVGLTestFixture {
 
     double now_ = kEnd;
     StoreClient client_;
-    std::unique_ptr<PrintEndReasonTracker> tracker_;
+    std::unique_ptr<PrintStopReasonTracker> tracker_;
 };
 
 } // namespace
@@ -106,48 +114,57 @@ TEST_CASE("an event is put down to a cause shortly before it", "[plugin_event_jo
     CHECK_FALSE(is_recent_cause(kEnd + kEventCauseLateS + 0.5, kEnd));
 }
 
-TEST_CASE("end reason: Klipper's message wins over a gcode error",
-          "[print_completion][end_reason]") {
+TEST_CASE("stop reason: Klipper's message wins over a gcode error",
+          "[print_completion][stop_reason]") {
     const std::vector<JournalEntry> errors = {gcode_error("Probe triggered prior", kEnd - 1)};
-    CHECK(decide_print_end_reason(PrintOutcome::ERROR, "MCU 'mcu' shutdown", errors, kEnd) ==
+    CHECK(decide_print_stop_reason(PrintJobState::ERROR, "MCU 'mcu' shutdown", errors, kEnd) ==
           "MCU 'mcu' shutdown");
 }
 
-TEST_CASE("end reason: the newest gcode error in the window explains a canceled or failed print",
-          "[print_completion][end_reason]") {
+TEST_CASE("stop reason: the newest gcode error in the window explains a pause, cancel or failure",
+          "[print_completion][stop_reason]") {
     const std::vector<JournalEntry> errors = {
         gcode_error("Too far out of range", kEnd - 40),
         gcode_error("Retries exceeded", kEnd - 3),
         gcode_error("Quad gantry level failed", kEnd - 1),
     };
-    CHECK(decide_print_end_reason(PrintOutcome::CANCELLED, "", errors, kEnd) ==
+    CHECK(decide_print_stop_reason(PrintJobState::CANCELLED, "", errors, kEnd) ==
           "Quad gantry level failed");
-    CHECK(decide_print_end_reason(PrintOutcome::ERROR, "", errors, kEnd) ==
+    CHECK(decide_print_stop_reason(PrintJobState::ERROR, "", errors, kEnd) ==
+          "Quad gantry level failed");
+    CHECK(decide_print_stop_reason(PrintJobState::PAUSED, "", errors, kEnd) ==
           "Quad gantry level failed");
 }
 
-TEST_CASE("end reason: an error outside the window, or a completed print, says nothing",
-          "[print_completion][end_reason]") {
+TEST_CASE("stop reason: an error outside the window, or a completed print, says nothing",
+          "[print_completion][stop_reason]") {
     const std::vector<JournalEntry> old = {gcode_error("Must home axis first", kEnd - 60)};
-    CHECK(decide_print_end_reason(PrintOutcome::CANCELLED, "", old, kEnd).empty());
-    CHECK(decide_print_end_reason(PrintOutcome::CANCELLED, "", {}, kEnd).empty());
+    CHECK(decide_print_stop_reason(PrintJobState::CANCELLED, "", old, kEnd).empty());
+    CHECK(decide_print_stop_reason(PrintJobState::CANCELLED, "", {}, kEnd).empty());
 
     const std::vector<JournalEntry> recent = {gcode_error("Must home axis first", kEnd - 1)};
-    CHECK(decide_print_end_reason(PrintOutcome::COMPLETE, "", recent, kEnd).empty());
-    CHECK(decide_print_end_reason(PrintOutcome::NONE, "Runout", recent, kEnd).empty());
+    CHECK(decide_print_stop_reason(PrintJobState::COMPLETE, "", recent, kEnd).empty());
+    CHECK(decide_print_stop_reason(PrintJobState::PRINTING, "Runout", recent, kEnd).empty());
 }
 
-TEST_CASE("end reason tap: only !! lines, and the last one of a frame wins",
-          "[print_completion][end_reason]") {
+TEST_CASE("stop reason tap: only !! lines, and the last one of a frame wins",
+          "[print_completion][stop_reason]") {
     CHECK_FALSE(last_gcode_error_text(response({"// QGL probing", "ok"})).has_value());
     CHECK_FALSE(last_gcode_error_text(response({"Error: unknown command"})).has_value());
     CHECK(last_gcode_error_text(response({"!! First failure", "// note", "!! Second failure"})) ==
           "Second failure");
 }
 
+TEST_CASE("stop reason text: only the first line of a multi-line !! response",
+          "[print_completion][stop_reason]") {
+    CHECK(gcode_error_reason_text(kAfcLoadFailure) ==
+          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    CHECK(gcode_error_reason_text("!! Move out of range: 1 2 3") == "Move out of range: 1 2 3");
+}
+
 TEST_CASE_METHOD(LVGLTestFixture,
                  "PrinterState: an observer of a terminal outcome sees the same frame's message",
-                 "[state][end_reason]") {
+                 "[state][stop_reason]") {
     PrinterState& state = get_printer_state();
     PrinterStateTestAccess::reset(state);
     state.init_subjects(false);
@@ -171,8 +188,8 @@ TEST_CASE_METHOD(LVGLTestFixture,
     test::set_wire_state(state, PrintJobState::STANDBY);
 }
 
-TEST_CASE_METHOD(TrackerFixture, "end reason tracker: the tapped error explains a cancel",
-                 "[print_completion][end_reason]") {
+TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: the tapped error explains a cancel",
+                 "[print_completion][stop_reason]") {
     now_ = kEnd - 2;
     REQUIRE(client_.fire_notification("notify_gcode_response",
                                       response({"!! Quad gantry level failed"})));
@@ -193,8 +210,8 @@ TEST_CASE_METHOD(TrackerFixture, "end reason tracker: the tapped error explains 
     CHECK(reason_visible() == 0);
 }
 
-TEST_CASE_METHOD(TrackerFixture, "end reason tracker: Klipper's message outlives its reset",
-                 "[print_completion][end_reason]") {
+TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: Klipper's message outlives its reset",
+                 "[print_completion][stop_reason]") {
     end("error", "Heater bed not heating at expected rate");
     CHECK(reason() == "Heater bed not heating at expected rate");
     get_printer_state().update_from_status(json{{"print_stats", {{"message", ""}}}});
@@ -203,8 +220,8 @@ TEST_CASE_METHOD(TrackerFixture, "end reason tracker: Klipper's message outlives
 }
 
 TEST_CASE_METHOD(TrackerFixture,
-                 "end reason tracker: reads the gcode store when the tap saw nothing",
-                 "[print_completion][end_reason]") {
+                 "stop reason tracker: reads the gcode store when the tap saw nothing",
+                 "[print_completion][stop_reason]") {
     now_ = kEnd - 120;
     client_.fire_notification("notify_gcode_response", response({"!! An old failure"}));
     settle();
@@ -213,7 +230,7 @@ TEST_CASE_METHOD(TrackerFixture,
     end("cancelled");
     CHECK(reason().empty());
     REQUIRE(client_.reads == 1);
-    CHECK(client_.last_count == PrintEndReasonTracker::kGcodeStoreCount);
+    CHECK(client_.last_count == PrintStopReasonTracker::kGcodeStoreCount);
 
     // Moonraker's clock runs 500s behind the screen's; the store places itself.
     const double host = kEnd - 500;
@@ -233,8 +250,8 @@ TEST_CASE_METHOD(TrackerFixture,
 }
 
 TEST_CASE_METHOD(TrackerFixture,
-                 "end reason tracker: an error arriving just after the end fills in",
-                 "[print_completion][end_reason]") {
+                 "stop reason tracker: an error arriving just after the end fills in",
+                 "[print_completion][stop_reason]") {
     end("cancelled");
     CHECK(reason().empty());
     now_ = kEnd + 1;
@@ -243,8 +260,8 @@ TEST_CASE_METHOD(TrackerFixture,
     CHECK(reason() == "Probe triggered prior");
 }
 
-TEST_CASE_METHOD(TrackerFixture, "end reason tracker: a completed print has no reason",
-                 "[print_completion][end_reason]") {
+TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: a completed print has no reason",
+                 "[print_completion][stop_reason]") {
     client_.fire_notification("notify_gcode_response", response({"!! Unknown command"}));
     settle();
     end("complete");
@@ -252,8 +269,71 @@ TEST_CASE_METHOD(TrackerFixture, "end reason tracker: a completed print has no r
     CHECK(client_.reads == 0);
 }
 
-TEST_CASE_METHOD(TrackerFixture, "end reason tracker: unregisters its tap",
-                 "[print_completion][end_reason]") {
+TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: unregisters its tap",
+                 "[print_completion][stop_reason]") {
     tracker_.reset();
     CHECK_FALSE(client_.fire_notification("notify_gcode_response", response({"!! x"})));
+}
+
+TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: a pause shows the error that caused it",
+                 "[print_completion][stop_reason]") {
+    auto& ps = get_printer_state();
+    ps.update_from_status(json{{"display_status", {{"message", "Print starting..."}}}});
+    settle();
+    REQUIRE(lv_subject_get_int(ps.print_state().get_display_message_visible_subject()) == 1);
+
+    now_ = kEnd - 40 * 60;
+    client_.fire_notification("notify_gcode_response",
+                              response({"!! Error getting data from moonraker"}));
+    now_ = kEnd - 1;
+    client_.fire_notification("notify_gcode_response", response({kAfcLoadFailure}));
+    settle();
+
+    now_ = kEnd;
+    end("paused");
+    CHECK(reason() ==
+          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    // The reason, not the macro's leftover M117, is the status while paused.
+    CHECK(lv_subject_get_int(ps.print_state().get_display_message_visible_subject()) == 0);
+
+    end("printing");
+    CHECK(reason().empty());
+    CHECK(lv_subject_get_int(ps.print_state().get_display_message_visible_subject()) == 1);
+}
+
+TEST_CASE_METHOD(TrackerFixture,
+                 "stop reason tracker: canceling a paused print keeps the pause's reason",
+                 "[print_completion][stop_reason]") {
+    now_ = kEnd - 1;
+    client_.fire_notification("notify_gcode_response", response({kAfcLoadFailure}));
+    settle();
+    now_ = kEnd;
+    end("paused");
+    REQUIRE_FALSE(reason().empty());
+
+    now_ = kEnd + 120;
+    end("cancelled");
+    CHECK(reason() ==
+          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    CHECK(client_.reads == 0);
+}
+
+TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: a pause reads the gcode store too",
+                 "[print_completion][stop_reason]") {
+    end("paused");
+    REQUIRE(client_.reads == 1);
+    std::vector<GcodeStoreEntry> store(3);
+    store[0].type = "response";
+    store[0].time = 100.0;
+    store[0].message = kAfcLoadFailure;
+    store[1].type = "response";
+    store[1].time = 100.2;
+    store[1].message = "PAUSING";
+    store[2].type = "response";
+    store[2].time = 100.5;
+    store[2].message = "// idle_timeout: Timeout set to 43200 s";
+    client_.reply(store);
+    settle();
+    CHECK(reason() ==
+          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
 }

@@ -129,8 +129,8 @@ void PrinterPrintState::init_subjects(bool register_xml) {
 
     // Klipper print_stats.message — pause/error reason from firmware
     INIT_SUBJECT_STRING(print_message, "", subjects_, register_xml);
-    INIT_SUBJECT_STRING(print_end_reason, "", subjects_, register_xml);
-    INIT_SUBJECT_INT(print_end_reason_visible, 0, subjects_, register_xml);
+    INIT_SUBJECT_STRING(print_stop_reason, "", subjects_, register_xml);
+    INIT_SUBJECT_INT(print_stop_reason_visible, 0, subjects_, register_xml);
 
     // virtual_sdcard.pl_env_valid — Snapmaker-fork Power-Loss-Recovery flag.
     // Default 0; stays 0 forever on mainline Klipper (field absent).
@@ -406,7 +406,7 @@ void PrinterPrintState::reset_for_new_print() {
     slicer_progress_ = 0.0;
     slicer_progress_active_ = false;
     lv_subject_copy_string(&print_message_, "");
-    set_print_end_reason("");
+    set_print_stop_reason("");
     lv_subject_set_int(&print_duration_, 0);
     lv_subject_set_int(&print_elapsed_, 0);
     lv_subject_set_int(&print_filament_used_, 0);
@@ -1147,14 +1147,15 @@ void PrinterPrintState::update_print_show_progress() {
     }
 }
 
-void PrinterPrintState::set_print_end_reason(const std::string& reason) {
-    if (reason != lv_subject_get_string(&print_end_reason_)) {
-        lv_subject_copy_string(&print_end_reason_, reason.c_str());
+void PrinterPrintState::set_print_stop_reason(const std::string& reason) {
+    if (reason != lv_subject_get_string(&print_stop_reason_)) {
+        lv_subject_copy_string(&print_stop_reason_, reason.c_str());
     }
     const int visible = reason.empty() ? 0 : 1;
-    if (lv_subject_get_int(&print_end_reason_visible_) != visible) {
-        lv_subject_set_int(&print_end_reason_visible_, visible);
+    if (lv_subject_get_int(&print_stop_reason_visible_) != visible) {
+        lv_subject_set_int(&print_stop_reason_visible_, visible);
     }
+    update_display_message_visible();
 }
 
 void PrinterPrintState::update_display_message_visible() {
@@ -1162,8 +1163,19 @@ void PrinterPrintState::update_display_message_visible() {
     // text. Pre-print is deliberately included: PRINT_START macros are where
     // most M117 traffic originates. The collector's phase label lives in a
     // separate subject (print_start_message), so there is nothing to duplicate.
-    int new_value = (strcmp(lv_subject_get_string(&display_message_), "") != 0) ? 1 : 0;
-    lv_subject_set_int(&display_message_visible_, new_value);
+    // While a pause has a reason, that reason is the status: a macro's M117
+    // ("Print starting...") left over from before the pause would read as if
+    // the print were running.
+    // RAW_PRINT_STATE_OK: the printer's own pause, which the reason explains.
+    const bool paused_with_reason =
+        static_cast<PrintJobState>(lv_subject_get_int(&print_state_enum_)) ==
+            PrintJobState::PAUSED &&
+        lv_subject_get_int(&print_stop_reason_visible_) != 0;
+    int new_value =
+        (!paused_with_reason && strcmp(lv_subject_get_string(&display_message_), "") != 0) ? 1 : 0;
+    if (lv_subject_get_int(&display_message_visible_) != new_value) {
+        lv_subject_set_int(&display_message_visible_, new_value);
+    }
 }
 
 // ============================================================================

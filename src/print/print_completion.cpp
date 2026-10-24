@@ -446,9 +446,9 @@ static void on_print_state_changed_for_notification(lv_observer_t* observer,
             std::string message = std::string("Print ") +
                                   ((current == PrintJobState::COMPLETE) ? "complete" : "canceled") +
                                   ": " + display_name;
-            // Empty for a completed print (decide_print_end_reason).
+            // Empty for a completed print (decide_print_stop_reason).
             const char* reason = lv_subject_get_string(
-                get_printer_state().print_state().get_print_end_reason_subject());
+                get_printer_state().print_state().get_print_stop_reason_subject());
             if (reason && *reason) {
                 message += std::string(" - ") + reason;
             }
