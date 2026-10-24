@@ -197,6 +197,32 @@ TEST_CASE("AFC paused_fault tells the fault by the bang line", "[ams-paused-faul
     }
 }
 
+TEST_CASE("AFC status detail drops an error message AFC is no longer in",
+          "[ams-paused-fault][afc]") {
+    AfcPausedFaultHelper afc;
+
+    SECTION("error_state false: the stale error is not the detail") {
+        afc.feed_afc({{"error_state", false},
+                      {"current_state", "Idle"},
+                      {"message", {{"message", kStaleMessage}, {"type", "error"}}}});
+        CHECK(afc.get_system_info().operation_detail.empty());
+    }
+    SECTION("the fault clearing in a later frame drops it too") {
+        afc.feed_afc({{"error_state", true},
+                      {"current_state", "Error"},
+                      {"message", {{"message", kStaleMessage}, {"type", "error"}}}});
+        REQUIRE(afc.get_system_info().operation_detail == kStaleMessage);
+        afc.feed_afc({{"error_state", false}});
+        CHECK(afc.get_system_info().operation_detail.empty());
+    }
+    SECTION("a warning still shows") {
+        afc.feed_afc({{"error_state", false},
+                      {"current_state", "Idle"},
+                      {"message", {{"message", "Buffer nudged"}, {"type", "warning"}}}});
+        CHECK(afc.get_system_info().operation_detail == "Buffer nudged");
+    }
+}
+
 // ============================================================================
 // Desktop: AmsErrorBridge raises the recovery modal
 // ============================================================================

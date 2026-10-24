@@ -2426,6 +2426,15 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         }
     }
 
+    // AFC keeps the head of its message queue until a client sends
+    // AFC_CLEAR_MESSAGE, so an error message outlives the fault it reported and
+    // would pin the status label through a print that runs fine. It describes
+    // the filament system only while AFC is in error.
+    if (!error_state_ && last_message_type_ == "error" &&
+        system_info_.operation_detail == last_seen_message_) {
+        system_info_.operation_detail.clear();
+    }
+
     // Needs next_lane and error_state, both parsed above, and runs before the
     // latch so a latched ERROR still outranks a held action.
     apply_toolchange_hold_locked(action_at_frame_start, detail_at_frame_start);
