@@ -123,11 +123,11 @@ TEST_CASE("slot_card_name: a colour is never the card's name", "[ams][slot_name]
     CHECK(helix::slot_card_name(slot, &ids_only).empty());
 }
 
-TEST_CASE("slot_card_lines: a product name that states the material is the one line",
+TEST_CASE("slot_card_lines: a product name that states the material keeps the material line",
           "[ams][slot_name][pure]") {
     const SlotCardLines lines = helix::slot_card_lines("PLA+ 2.0", "PLA", "PLA", 4, false);
-    CHECK(lines.name.empty());
-    CHECK(lines.lower == "PLA+ 2.0");
+    CHECK(lines.name == "PLA+ 2.0");
+    CHECK(lines.lower == "PLA");
 }
 
 TEST_CASE("slot_card_lines: the name sits over the material", "[ams][slot_name][pure]") {
@@ -148,15 +148,18 @@ TEST_CASE("slot_card_lines: no name reads exactly as the material-only label",
     CHECK(none.lower == "--");
 }
 
-TEST_CASE("slot_card_lines: a name that states the material is not followed by it",
+TEST_CASE("slot_card_lines: a name that states the material still sits over it",
           "[ams][slot_name][pure]") {
-    const SlotCardLines lines = helix::slot_card_lines("PLA+ Bone White", "PLA+", "PLA+", 4, false);
-    CHECK(lines.name.empty());
-    CHECK(lines.lower == "PLA+ Bone White");
+    // Names as an AFC lane reports them; the card is too narrow for the name to
+    // stand in for the material.
+    const SlotCardLines lines = helix::slot_card_lines("Overture Gray ASA", "ASA", "ASA", 4, false);
+    CHECK(lines.name == "Overture Gray ASA");
+    CHECK(lines.lower == "ASA");
 
-    // Case-insensitive, and a compound material counts when every word is there.
-    CHECK(helix::slot_card_lines("silk blue epla", "Silk PLA", "Silk PLA", 3, false).lower ==
-          "silk blue epla");
+    const SlotCardLines plus =
+        helix::slot_card_lines("Fire Engine Red ABS+", "ABS", "ABS", 4, false);
+    CHECK(plus.name == "Fire Engine Red ABS+");
+    CHECK(plus.lower == "ABS");
 
     // A material that only shares a prefix with a word is still shown.
     const SlotCardLines distinct = helix::slot_card_lines("Gray ASA", "PLA", "PLA", 4, false);
@@ -353,7 +356,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "ams_slot: no name reads exactly as the mate
     lv_obj_delete(slot);
 }
 
-TEST_CASE_METHOD(LVGLUITestFixture, "ams_slot: a name stating its material is not repeated",
+TEST_CASE_METHOD(LVGLUITestFixture, "ams_slot: a name stating its material keeps the material line",
                  "[ams][slot_name][ui]") {
     ui_ams_slot_register();
     AmsState::instance().init_subjects(true);
@@ -362,8 +365,9 @@ TEST_CASE_METHOD(LVGLUITestFixture, "ams_slot: a name stating its material is no
     lv_obj_t* slot = create_ams_slot(test_screen(), 0);
     REQUIRE(slot != nullptr);
 
-    CHECK_FALSE(shown(name_label(slot)));
-    CHECK(text_of(material_label(slot)) == "PLA+ Bone White");
+    CHECK(shown(name_label(slot)));
+    CHECK(text_of(name_label(slot)) == "PLA+ Bone White");
+    CHECK(text_of(material_label(slot)) == "PLA+");
 
     lv_obj_delete(slot);
 }

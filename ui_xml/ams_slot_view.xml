@@ -11,7 +11,7 @@
     Named children accessible via lv_obj_find_by_name():
     - name_label: text_small showing the spool name (Bone White) above the material
     - material_label: text_small showing material type (PLA, PETG, etc.), or the name
-      alone when the name already states the material
+      alone when the lane has no material
     - lane_humidity: per-lane climate under a per-lane lid: thermometer +
       lane_temp_text when the lane reports a temperature, lane_humidity_icon (a
       humidity_drop the C++ fills to the reading) + lane_humidity_text

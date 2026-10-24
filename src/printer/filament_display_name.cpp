@@ -204,7 +204,10 @@ SlotCardLines slot_card_lines(std::string_view name, std::string_view material,
         }
         return lines;
     }
-    if (normalize_ws(material).empty() || name_states_material(name_part, material)) {
+    // The name rides above even when it states the material: the card is a
+    // spool wide, so a name standing in for the material ellipsizes to its
+    // first few letters and the material is lost.
+    if (normalize_ws(material).empty()) {
         lines.lower = name_part;
         return lines;
     }

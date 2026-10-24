@@ -192,7 +192,7 @@ inline constexpr size_t kSlotCardCrowdedMaterialBytes = 4;
  */
 struct SlotCardLines {
     std::string name;  ///< Upper line; empty = no upper line
-    std::string lower; ///< The material, or the name when the name already states it
+    std::string lower; ///< The material, or the name when the lane has no material
 };
 
 /**
@@ -201,9 +201,9 @@ struct SlotCardLines {
  * - Empty lane, more than kSlotCardMaxTwoLineCount slots, or no name: one
  *   line, @p material_text. A crowded row cuts a non-Empty material to
  *   kSlotCardCrowdedMaterialBytes bytes.
- * - A name that already states the material, or a lane with no material: one
- *   line, the name.
- * - Otherwise the name over @p material_text.
+ * - A lane with no material: one line, the name.
+ * - Otherwise the name over @p material_text, even when the name states the
+ *   material: the card is a spool wide, so the name alone ellipsizes past it.
  *
  * @param name          Resolved name (slot_card_name()), may be empty
  * @param material      Raw material type, may be empty
