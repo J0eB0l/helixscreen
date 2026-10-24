@@ -1019,3 +1019,37 @@ TEST_CASE("no two leaders cross", "[printer_image][callout_layout]") {
     }
     CHECK(lined_layouts >= 1);
 }
+
+TEST_CASE("hotend fan drops first when chips do not fit", "[printer_image][callout_layout]") {
+    auto in = wide();
+    in.area_w = 286; // one 70px column beside the image; a 110px chip overflows it
+    // Dropping the hotend fan alone brings the widest chip down to 70px.
+    in.budget = {{CalloutKind::Nozzle, 70, NormPoint{0.51f, 0.28f}},
+                 {CalloutKind::Bed, 70, NormPoint{0.46f, 0.57f}},
+                 {CalloutKind::Light, 50, NormPoint{0.8f, 0.2f}, true},
+                 {CalloutKind::AuxFan, 50, std::nullopt, true},
+                 {CalloutKind::HotendFan, 110, NormPoint{0.51f, 0.28f}, true}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    CHECK(l.mode != CalloutMode::Pinned);
+    REQUIRE(l.dropped.size() == 1);
+    CHECK(l.dropped[0] == CalloutKind::HotendFan);
+    CHECK(find(l, CalloutKind::Light));
+    CHECK(find(l, CalloutKind::AuxFan));
+
+    // Pinned columns give up the hotend fan before the light and the aux fan.
+    auto tall = base();
+    tall.area_w = 150;
+    tall.area_h = 190;
+    tall.chip_h = 30;
+    tall.active = {{CalloutKind::Nozzle, 60, NormPoint{0.5f, 0.30f}},
+                   {CalloutKind::Bed, 60, NormPoint{0.5f, 0.32f}},
+                   {CalloutKind::Light, 40, NormPoint{0.5f, 0.34f}, true},
+                   {CalloutKind::AuxFan, 40, NormPoint{0.5f, 0.36f}, true},
+                   {CalloutKind::HotendFan, 40, NormPoint{0.5f, 0.38f}, true},
+                   {CalloutKind::Fan, 40, NormPoint{0.5f, 0.40f}}};
+    const auto p = compute_callout_layout(tall);
+    REQUIRE(p.mode == CalloutMode::Pinned);
+    REQUIRE(p.dropped.size() == 1);
+    CHECK(p.dropped[0] == CalloutKind::HotendFan);
+}

@@ -248,14 +248,15 @@ inline std::vector<std::vector<size_t>> x_columns(const std::vector<CalloutChipO
 }
 
 /// Which chip a column too tall to stack gives up to the docked row first.
-/// The nozzle and the toolhead never do.
+/// The nozzle and the toolhead never do. The hotend fan goes before everything.
 inline int dock_rank(CalloutKind k) {
     switch (k) {
+    case CalloutKind::HotendFan:
+        return -1;
     case CalloutKind::Light:
     case CalloutKind::AuxFan:
         return 0;
     case CalloutKind::Fan:
-    case CalloutKind::HotendFan:
     case CalloutKind::SpeedFlow:
         return 1;
     case CalloutKind::Chamber:
@@ -280,7 +281,9 @@ inline std::optional<size_t> slide_apart(const CalloutLayoutInput& in,
                                          const std::vector<CalloutChipIn>& src) {
     const size_t pinned = src.size();
     // An expendable chip gives way before any other; the rest go by dock_rank.
-    const auto rank = [&](size_t i) { return src[i].expendable ? -1 : dock_rank(chips[i].kind); };
+    const auto rank = [&](size_t i) {
+        return dock_rank(chips[i].kind) - (src[i].expendable ? 10 : 0);
+    };
     int hi = in.area_h - in.gap;
     for (size_t i = pinned; i < chips.size(); ++i)
         hi = std::min(hi, chips[i].rect.y - in.gap);
@@ -786,15 +789,25 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
     if (in.tagged) {
         if (try_line_modes(in, out))
             return out;
-        // Expendable chips go before the image gives up its lines.
-        const auto expendable = [](const CalloutChipIn& c) { return c.expendable; };
-        if (std::any_of(in.budget.begin(), in.budget.end(), expendable)) {
+        // Expendable chips go before the image gives up its lines, the most
+        // expendable first, one more at a time.
+        std::vector<CalloutKind> by_rank;
+        for (const auto& c : in.budget)
+            if (c.expendable)
+                by_rank.push_back(c.kind);
+        std::sort(by_rank.begin(), by_rank.end(),
+                  [](CalloutKind a, CalloutKind b) { return dock_rank(a) < dock_rank(b); });
+        for (size_t n = 1; n <= by_rank.size(); ++n) {
+            const auto gone = [&](const CalloutChipIn& c) {
+                return c.expendable && std::find(by_rank.begin(), by_rank.begin() + long(n),
+                                                 c.kind) != by_rank.begin() + long(n);
+            };
             CalloutLayoutInput lean = in;
             for (auto* v : {&lean.budget, &lean.active})
-                v->erase(std::remove_if(v->begin(), v->end(), expendable), v->end());
+                v->erase(std::remove_if(v->begin(), v->end(), gone), v->end());
             if (try_line_modes(lean, out)) {
                 for (const auto& c : in.active)
-                    if (c.expendable)
+                    if (gone(c))
                         out.dropped.push_back(c.kind);
                 return out;
             }
