@@ -57,7 +57,7 @@ int32_t PrintStatusLayoutFitter::strip_row_height() {
 }
 
 int32_t PrintStatusLayoutFitter::strip_stacked_height() {
-    return strip_text_height(strip_shows_up_next(false)) + theme_manager_get_spacing("space_sm") +
+    return strip_text_height(strip_shows_up_next(false)) + theme_manager_get_spacing("space_md") +
            theme_manager_get_spacing("button_height") + strip_chrome();
 }
 

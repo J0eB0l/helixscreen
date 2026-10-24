@@ -24,7 +24,7 @@
     <style name="button_square" max_width="#ps_strip_button"/>
   </styles>
   <view extends="ui_card"
-        width="100%" height="content" style_pad_all="#space_sm" style_pad_gap="#space_sm" style_radius="#border_radius"
+        width="100%" height="content" style_pad_all="#space_sm" style_pad_gap="#space_md" style_radius="#border_radius"
         scrollable="false">
     <bind_style_if_eq name="strip_row" subject="ps_strip_stacked" ref_value="0"/>
     <bind_style_if_eq name="strip_stacked" subject="ps_strip_stacked" ref_value="1"/>
