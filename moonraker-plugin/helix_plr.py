@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import struct
 import time
 import zlib
@@ -841,6 +842,30 @@ def write_mesh_include_change(path: Path, old_text: str, new_text: str,
         mode = None
     helix_gcode_reader.atomic_write_bytes(str(path), new_text.encode("utf-8"),
                                           replace=replace, mode=mode)
+
+
+def uninstall_mesh_include(config_dir: Path) -> Optional[str]:
+    """The uninstaller's whole mesh-include step: strip the two lines from
+    printer.cfg (the same backup and atomic write the endpoint uses) and
+    delete the helix-plr directory. None on success, or the problem as a
+    string - the caller reports it and carries on. Running the plugin's own
+    rule here, rather than a second copy in the uninstaller, is what keeps
+    "which lines are ours" answered in one place."""
+    cfg = config_dir / "printer.cfg"
+    try:
+        try:
+            with open(str(cfg), encoding="utf-8", newline="") as f:
+                text = f.read()
+        except OSError as e:
+            return "printer.cfg unreadable: %s" % e
+        new_text, removed = strip_mesh_include(text)
+        if removed:
+            write_mesh_include_change(cfg, text, new_text)
+        if (config_dir / "helix-plr").is_dir():
+            shutil.rmtree(str(config_dir / "helix-plr"))
+    except OSError as e:
+        return str(e)
+    return None
 
 
 # ============================================================================

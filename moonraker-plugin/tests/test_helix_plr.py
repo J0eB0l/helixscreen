@@ -3002,3 +3002,28 @@ def test_a_failed_rename_leaves_printer_cfg_unchanged(plr):
                                             replace_fails)
     assert cfg.read_text() == "[printer]\n"
     assert (cfg.parent / "printer.cfg.helixscreen-bak").read_text() == "[printer]\n"
+
+
+def test_uninstall_mesh_include_strips_the_lines_and_the_directory(plr, tmp_path):
+    config = plr._config_dir()
+    (config / "printer.cfg").write_text(
+        "[printer]\n# Added by HelixScreen: lets a power-loss resume reload the print's bed mesh\n"
+        "[include helix-plr/*.cfg]\n")
+    (config / "helix-plr").mkdir()
+    (config / "helix-plr" / "mesh.cfg").write_text("[bed_mesh helix_plr]\n")
+
+    assert helix_plr.uninstall_mesh_include(config) is None
+
+    assert (config / "printer.cfg").read_text() == "[printer]\n"
+    assert (config / "printer.cfg.helixscreen-bak").read_text().count("helix-plr") == 1
+    assert not (config / "helix-plr").exists()
+
+
+def test_uninstall_mesh_include_with_nothing_there_touches_nothing(plr):
+    config = plr._config_dir()
+    (config / "printer.cfg").write_text("[printer]\n")
+
+    assert helix_plr.uninstall_mesh_include(config) is None
+
+    assert (config / "printer.cfg").read_text() == "[printer]\n"
+    assert not (config / "printer.cfg.helixscreen-bak").exists()
