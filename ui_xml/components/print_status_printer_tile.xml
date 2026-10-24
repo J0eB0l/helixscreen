@@ -78,37 +78,42 @@
         </lv_obj>
         <leader_line name="ps_line_nozzle" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_nozzle eq 0 or ps_chip_nozzle_shown eq 0" flag="hidden"/>
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_nozzle eq 0 or ps_chip_nozzle_shown eq 0"
+                        flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_bed" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_bed eq 0 or ps_chip_bed_shown eq 0" flag="hidden"/>
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_bed eq 0 or ps_chip_bed_shown eq 0"
+                        flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_chamber" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_chamber eq 0 or ps_chip_chamber_shown eq 0" flag="hidden"/>
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_chamber eq 0 or ps_chip_chamber_shown eq 0"
+                        flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_part_fan" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_part_fan eq 0 or ps_chip_part_fan_shown eq 0"
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_part_fan eq 0 or ps_chip_part_fan_shown eq 0"
                         flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_hotend_fan" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_hotend_fan eq 0 or ps_chip_hotend_fan_shown eq 0"
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_hotend_fan eq 0 or ps_chip_hotend_fan_shown eq 0"
                         flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_aux_fan" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_aux_fan eq 0 or ps_chip_aux_fan_shown eq 0" flag="hidden"/>
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_aux_fan eq 0 or ps_chip_aux_fan_shown eq 0"
+                        flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_light" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_light eq 0 or ps_chip_light_shown eq 0" flag="hidden"/>
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_light eq 0 or ps_chip_light_shown eq 0"
+                        flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_speed_flow" style_line_width="1" style_line_color="#text_muted">
           <style name="styles.leader_dotted"/>
-          <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_speed_flow eq 0 or ps_chip_speed_flow_shown eq 0"
+          <bind_flag_if cond="ps_callout_mode eq 0 or ps_callout_mode eq 2 or ps_line_speed_flow eq 0 or ps_chip_speed_flow_shown eq 0"
                         flag="hidden"/>
         </leader_line>
         <activity_chip name="ps_chip_nozzle"

@@ -3,18 +3,18 @@
 #include "print_status_chips.h"
 
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "panel_widgets/callout_chip.h"
 
 #include <algorithm>
 
 namespace helix {
 
 namespace {
-constexpr int kColdHideDeci = 400;
-
-std::string deg(int deci) {
-    // Round half away from zero to whole degrees.
-    int v = deci >= 0 ? (deci + 5) / 10 : -((-deci + 5) / 10);
-    return std::to_string(v);
+/// The reading as every heater display prints it, without the unit letter:
+/// "184 / 220°" with a target, "220°" without.
+std::string heater_text(int current_deci, int target_deci) {
+    return ui::compact_callout_text(
+        ui::temperature::heater_display(current_deci, target_deci).temp);
 }
 } // namespace
 
@@ -23,7 +23,7 @@ ChipContent heater_chip(bool present, int current_deci, int target_deci,
                         std::string_view badge, int start_deci) {
     using ui::temperature::HeaterStatusState;
     ChipContent c;
-    if (!present || (target_deci <= 0 && current_deci < kColdHideDeci))
+    if (!present || (target_deci <= 0 && !ui::temperature::is_residual_hot(current_deci)))
         return c;
     c.shown = true;
     c.glow = target_deci > 0;
@@ -37,15 +37,11 @@ ChipContent heater_chip(bool present, int current_deci, int target_deci,
         text.append(badge);
         text += ' ';
     }
-    if (heating || cooling) {
-        text += deg(current_deci) + " / " + deg(target_deci) + "°";
-        if (show_power && !status.duty.empty())
-            text += " · " + status.duty;
-    } else {
-        text += deg(current_deci) + "°";
-        if (show_power && !status.duty.empty())
-            text += " · " + status.duty;
-    }
+    // The target shows only while the reading is off it; holding, the
+    // reading alone says the heater is there.
+    text += heater_text(current_deci, heating || cooling ? target_deci : 0);
+    if (show_power && !status.duty.empty())
+        text += " · " + status.duty;
     c.text = std::move(text);
 
     if (printing) {
@@ -99,13 +95,13 @@ ChipContent fan_chip(FanRole role, bool present, int pct, bool automatic, bool l
     return c;
 }
 
-std::string heater_budget_text(std::string_view now, std::string_view badge) {
+std::string heater_budget_text(std::string_view badge) {
     std::string text(badge);
     if (!text.empty()) {
         text += ' ';
     }
-    text += now.find(" / ") != std::string_view::npos ? "220 / 220°" : "220°";
-    return text;
+    // The widest shape at the widest reading the home callout measures too.
+    return text + heater_text(9990, 9990);
 }
 
 ChipContent speed_flow_chip(int speed_pct, int flow_pct, const std::string& speed_text,

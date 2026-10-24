@@ -288,8 +288,7 @@ ChipContent PrintStatusTiles::heater(PrintStatusChip chip, bool show_power) {
     default: {
         type = HeaterType::Chamber;
         auto& caps = printer_state_.capabilities_state();
-        present = subject_int_or_zero(caps.subject(Capability::HasChamberSensor)) != 0 ||
-                  subject_int_or_zero(caps.subject(Capability::HasChamberHeater)) != 0;
+        present = subject_int_or_zero(caps.subject(Capability::HasChamber)) != 0;
         current = subject_int_or_zero(temps.get_chamber_temp_subject());
         // The effective setpoint: a parked chamber holds its target on the fan.
         target = subject_int_or_zero(temps.get_chamber_effective_target_subject());
@@ -436,13 +435,12 @@ void PrintStatusTiles::update_now() {
         }
     }
     const auto worst = [&](PrintStatusChip c, bool labeled) -> std::string {
-        const std::string& now = contents[index_of(c)].text;
         switch (c) {
         case PrintStatusChip::Nozzle:
-            return heater_budget_text(now, badge);
+            return heater_budget_text(badge);
         case PrintStatusChip::Bed:
         case PrintStatusChip::Chamber:
-            return heater_budget_text(now, {});
+            return heater_budget_text({});
         case PrintStatusChip::PartFan:
             return fan_chip(FanRole::Part, true, 100, false, labeled).text;
         case PrintStatusChip::HotendFan:
@@ -468,8 +466,7 @@ void PrintStatusTiles::update_now() {
             return true;
         case PrintStatusChip::Chamber: {
             auto& caps = printer_state_.capabilities_state();
-            return subject_int_or_zero(caps.subject(Capability::HasChamberSensor)) != 0 ||
-                   subject_int_or_zero(caps.subject(Capability::HasChamberHeater)) != 0;
+            return subject_int_or_zero(caps.subject(Capability::HasChamber)) != 0;
         }
         case PrintStatusChip::PartFan:
             return !part_fan_.empty();

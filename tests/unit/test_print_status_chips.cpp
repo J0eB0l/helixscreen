@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "print_status_chips.h"
+#include "src/ui/panel_widgets/callout_chip.h"
 
 #include "../catch_amalgamated.hpp"
 
@@ -115,13 +116,9 @@ TEST_CASE("heater duty shows only beside the picture and only while it fits the 
     CHECK_FALSE(heater_power_fits(CalloutMode::BothSides, 0, 90));
 }
 
-TEST_CASE("a heater is budgeted by its shape, not its digits", "[print_status_chips]") {
-    CHECK(heater_budget_text("84 / 220°", "") == heater_budget_text("184 / 250°", ""));
-    CHECK(heater_budget_text("9°", "") == heater_budget_text("215°", ""));
-    CHECK(heater_budget_text("84 / 220°", "") == "220 / 220°");
-    CHECK(heater_budget_text("215°", "") == "220°");
-    CHECK(heater_budget_text("", "") == "220°"); // off: measured at a reading it may show
-    CHECK(heater_budget_text("T1 84 / 220°", "T1") == "T1 220 / 220°");
+TEST_CASE("a heater is budgeted at its widest shape, whatever it shows", "[print_status_chips]") {
+    CHECK(heater_budget_text("") == "999 / 999°");
+    CHECK(heater_budget_text("T1") == "T1 999 / 999°");
 }
 
 TEST_CASE("a heater chip carries its status for the glyph", "[print_status_chips]") {
@@ -130,4 +127,15 @@ TEST_CASE("a heater chip carries its status for the glyph", "[print_status_chips
     CHECK(heater(1000, 2200).status_state == static_cast<int>(HeaterStatusState::Heating));
     CHECK(heater(2600, 2200).status_state == static_cast<int>(HeaterStatusState::Cooling));
     CHECK(fan_chip(FanRole::Part, true, 30, false, true).status_state == 0);
+}
+
+TEST_CASE("a heater chip prints its reading as every heater display does", "[print_status_chips]") {
+    // 222.5 renders 222 everywhere (half to even), and the tone is classified
+    // from that same value.
+    CHECK(heater(2225, 2200).text == "222°");
+    CHECK(heater(2225, 2200).text ==
+          ui::compact_callout_text(ui::temperature::heater_display(2225, 0).temp));
+    // An off heater shows while it is still hot by the app's residual-heat rule.
+    CHECK_FALSE(heater(450, 0).shown);
+    CHECK(heater(600, 0).shown);
 }

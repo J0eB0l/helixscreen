@@ -41,8 +41,7 @@ struct ChamberPanelFixture : public LVGLUITestFixture {
         temps.set_chamber_heater_name("heater_generic chamber_heater");
         temps.set_chamber_cooling_fan_name("temperature_fan chamber_fan");
         temps.set_chamber_fan_resting(350); // 35.0C in decidegrees (K2 stock)
-        lv_subject_set_int(
-            get_printer_state().capabilities_state().subject(Capability::HasChamberHeater), 1);
+        get_printer_state().capabilities_state().set_has_chamber_heater(true);
         panel = std::make_unique<PrintStatusPanel>(get_printer_state(), nullptr);
         panel->init_subjects();
     }
@@ -52,8 +51,7 @@ struct ChamberPanelFixture : public LVGLUITestFixture {
         // Return the global state to names and a capability later tests can
         // re-derive; a leaked HasChamberHeater would ghost the chamber row in
         // any test that builds XML afterwards.
-        lv_subject_set_int(
-            get_printer_state().capabilities_state().subject(Capability::HasChamberHeater), 0);
+        get_printer_state().capabilities_state().set_has_chamber_heater(false);
         auto& temps = get_printer_state().temperature_state();
         temps.set_chamber_heater_name("");
         temps.set_chamber_cooling_fan_name("");
