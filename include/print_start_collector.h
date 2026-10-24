@@ -774,6 +774,8 @@ class PrintStartCollector : public std::enable_shared_from_this<PrintStartCollec
     // Duration-proportional progress weights (protected by state_mutex_)
     std::map<int, float> predicted_phase_weights_; ///< Phase -> fraction of total (0.0-1.0)
     float predicted_total_seconds_ = 0.0f;         ///< Total predicted pre-print duration
+    float priced_heating_seconds_ = 0.0f;          ///< Nozzle+bed heating priced at this start's
+                                                   ///< targets; 0 until priced or when unknown
     int start_ext_temp_ = 0; ///< Extruder temp at collector start (decideg/10)
     int start_bed_temp_ = 0; ///< Bed temp at collector start (decideg/10)
     // Cached temperature readings for thread-safe access from calculate_progress_locked()

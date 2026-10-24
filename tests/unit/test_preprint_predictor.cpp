@@ -685,3 +685,103 @@ TEST_CASE("PreprintPredictor: skipped phases round-trip through the stored histo
     CHECK(loaded[1].skipped_phases->empty());
     CHECK_FALSE(loaded[2].skipped_phases.has_value());
 }
+
+// ============================================================================
+// Heating-aware totals
+// ============================================================================
+TEST_CASE(
+    "PreprintPredictor: an entry that recorded its heating predicts residual plus live heating",
+    "[print][predictor]") {
+    PreprintPredictor predictor;
+    PreprintEntry e;
+    e.total_seconds = 894;
+    e.timestamp = 2000;
+    e.heating_seconds = 470;
+    predictor.add_entry(e);
+
+    SECTION("a start with the same heating replays the recorded total") {
+        PreprintHeating h;
+        h.nozzle_seconds = 200;
+        h.bed_seconds = 270;
+        h.nozzle_target_known = true;
+        CHECK(predictor.estimate(h, {}).total_seconds == 894.0f);
+    }
+    SECTION("a cheaper start pays only its own heating") {
+        PreprintHeating h;
+        h.nozzle_seconds = 50;
+        h.bed_seconds = 200;
+        h.nozzle_target_known = true;
+        CHECK(predictor.estimate(h, {}).total_seconds == 674.0f);
+    }
+    SECTION("a costlier start never sits below its own heating") {
+        PreprintHeating h;
+        h.nozzle_seconds = 300;
+        h.bed_seconds = 300;
+        h.nozzle_target_known = true;
+        CHECK(predictor.estimate(h, {}).total_seconds == 1024.0f);
+    }
+}
+
+TEST_CASE("PreprintPredictor: legacy history is floored by this start's own heating",
+          "[print][predictor]") {
+    PreprintPredictor predictor;
+    PreprintEntry e;
+    e.total_seconds = 405;
+    e.timestamp = 1000;
+    predictor.add_entry(e);
+
+    SECTION("heating above the recorded total raises the estimate") {
+        PreprintHeating h;
+        h.nozzle_seconds = 58;
+        h.bed_seconds = 412;
+        h.nozzle_target_known = true;
+        CHECK(predictor.estimate(h, {}).total_seconds == 470.0f);
+    }
+    SECTION("cheap heating keeps the learned total") {
+        PreprintHeating h;
+        h.nozzle_seconds = 30;
+        h.bed_seconds = 100;
+        h.nozzle_target_known = true;
+        CHECK(predictor.estimate(h, {}).total_seconds == 405.0f);
+    }
+}
+
+TEST_CASE("PreprintPredictor: mixed history splits only what recorded heating",
+          "[print][predictor]") {
+    PreprintPredictor predictor;
+    PreprintEntry legacy;
+    legacy.total_seconds = 405;
+    legacy.timestamp = 1000;
+    PreprintEntry split;
+    split.total_seconds = 894;
+    split.timestamp = 2000;
+    split.heating_seconds = 470;
+    predictor.add_entry(legacy);
+    predictor.add_entry(split);
+
+    PreprintHeating h;
+    h.nozzle_seconds = 50;
+    h.bed_seconds = 200;
+    h.nozzle_target_known = true;
+    CHECK(predictor.estimate(h, {}).total_seconds == 674.0f);
+}
+
+TEST_CASE("PreprintPredictor: recorded heating round-trips through the stored history",
+          "[print][predictor]") {
+    PreprintConfigScope config;
+    PreprintEntry e;
+    e.total_seconds = 894;
+    e.timestamp = 1000;
+    e.heating_seconds = 470;
+    PreprintPredictor::append_to_config(e);
+    PreprintEntry none;
+    none.total_seconds = 300;
+    none.timestamp = 1001;
+    PreprintPredictor::append_to_config(none);
+
+    const auto loaded = PreprintPredictor::load_entries_from_config();
+    REQUIRE(loaded.size() == 2);
+    REQUIRE(loaded[0].heating_seconds.has_value());
+    CHECK(*loaded[0].heating_seconds == 470);
+    CHECK_FALSE(loaded[1].heating_seconds.has_value());
+}
