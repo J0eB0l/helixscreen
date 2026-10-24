@@ -4,8 +4,7 @@
 #include "enclosure_top.h"
 #include "moonraker_client_mock.h"
 #include "printer_discovery.h"
-
-#include <cstdlib>
+#include "test_helpers/scoped_env.h"
 
 #include "../catch_amalgamated.hpp"
 #include "hv/json.hpp"
@@ -92,17 +91,32 @@ TEST_CASE("enclosure top: a flag of the wrong type says nothing", "[enclosure_to
 
 TEST_CASE_METHOD(HelixTestFixture, "enclosure top: the U1 mock reports its top fitted",
                  "[enclosure_top][mock]") {
-    unsetenv("HELIX_MOCK_ENCLOSURE_TOP");
-    MoonrakerClientMock u1(MoonrakerClientMock::PrinterType::SNAPMAKER_U1);
-    const PrinterDiscovery& hw = u1.hardware();
-    REQUIRE(firmware_reports_enclosure_top(hw));
-    const json status{{"purifier", u1.purifier_status()}};
-    CHECK(fitted_from_status(hw, status) == std::optional<bool>(true));
+    // Both answers a client reads status from: the discovery subscribe and a query.
+    auto fitted_via = [](MoonrakerClientMock& mock, const char* method) {
+        json response;
+        mock.send_jsonrpc(method, json{{"objects", {{"purifier", {"power_detected"}}}}},
+                          [&response](const json& r) { response = r; });
+        REQUIRE(response.contains("result"));
+        return fitted_from_status(mock.hardware(), response["result"]["status"]);
+    };
 
-    setenv("HELIX_MOCK_ENCLOSURE_TOP", "0", 1);
-    CHECK(fitted_from_status(hw, json{{"purifier", u1.purifier_status()}}) ==
-          std::optional<bool>(false));
-    unsetenv("HELIX_MOCK_ENCLOSURE_TOP");
+    {
+        helix::ScopedEnv env("HELIX_MOCK_ENCLOSURE_TOP", nullptr);
+        MoonrakerClientMock u1(MoonrakerClientMock::PrinterType::SNAPMAKER_U1);
+        REQUIRE(firmware_reports_enclosure_top(u1.hardware()));
+        for (const char* method : {"printer.objects.query", "printer.objects.subscribe"}) {
+            CAPTURE(method);
+            CHECK(fitted_via(u1, method) == std::optional<bool>(true));
+        }
+    }
+    {
+        helix::ScopedEnv env("HELIX_MOCK_ENCLOSURE_TOP", "0");
+        MoonrakerClientMock u1(MoonrakerClientMock::PrinterType::SNAPMAKER_U1);
+        for (const char* method : {"printer.objects.query", "printer.objects.subscribe"}) {
+            CAPTURE(method);
+            CHECK(fitted_via(u1, method) == std::optional<bool>(false));
+        }
+    }
 
     MoonrakerClientMock voron(MoonrakerClientMock::PrinterType::VORON_24);
     CHECK(voron.purifier_status().empty());
