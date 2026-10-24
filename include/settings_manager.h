@@ -7,6 +7,7 @@
 #include "bed_drying.h"
 #include "lvgl/lvgl.h"
 #include "maintenance_meters.h"
+#include "mount_feed_sequence.h"
 #include "persisted_setting.h"
 #include "subject_managed_panel.h"
 
@@ -988,7 +989,7 @@ class SettingsManager {
     std::string chamber_heater_assignment_{"auto"};
     std::string feeder_open_macro_{"auto"};
     std::string feeder_close_macro_{"auto"};
-    int mount_feed_purge_mm_ = 0; ///< Loaded in the ctor; default mount_feed::kDefaultPurgeMm
+    int mount_feed_purge_mm_ = helix::mount_feed::kDefaultPurgeMm; ///< Loaded in init_subjects()
     std::string ace_bypass_on_macro_{"auto"};
     std::string ace_bypass_off_macro_{"auto"};
     std::string chamber_sensor_assignment_{"auto"};

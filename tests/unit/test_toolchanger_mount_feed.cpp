@@ -11,14 +11,18 @@
 #include "ui_update_queue.h"
 
 #include "../busy_guard_fixture.h"
+#include "../lvgl_test_fixture.h"
 #include "../test_helpers/toolchanger_test_access.h"
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_backend_toolchanger.h"
+#include "config.h"
 #include "filament_op_slot_resolver.h"
 #include "macro_param_cache.h"
 #include "mount_feed_sequence.h"
 #include "printer_discovery.h"
+#include "settings_manager.h"
 #include "toolchanger_addon.h"
+#include "wizard_config_paths.h"
 
 #include <algorithm>
 #include <chrono>
@@ -769,8 +773,17 @@ TEST_CASE("mount-to-feed: a load purges the requested length past the nozzle",
     CHECK(mf::plan(r)[2].gcode.find("E80") == std::string::npos);
 }
 
+/// Puts the purge setting back to its default whatever a case leaves behind:
+/// SettingsManager and Config outlive every case in this binary.
+struct RestorePurgeSetting {
+    ~RestorePurgeSetting() {
+        helix::SettingsManager::instance().set_mount_feed_purge_mm(mf::kDefaultPurgeMm);
+    }
+};
+
 TEST_CASE("MedusaHC offers the load purge as a setting, and the next load uses it",
           "[toolchanger][mount_feed][medusahc][purge]") {
+    RestorePurgeSetting restore;
     AckingChanger tc(4);
     tc.feed_status("ready", 2);
 
@@ -798,7 +811,7 @@ TEST_CASE("MedusaHC offers the load purge as a setting, and the next load uses i
     const auto* value = std::any_cast<float>(&reread->current_value);
     REQUIRE(value != nullptr);
     CHECK(*value == 75.0f);
-    REQUIRE(tc.execute_device_action("purge_length", std::any(50.0f)).success());
+    CHECK(helix::SettingsManager::instance().get_mount_feed_purge_mm() == 75);
 }
 
 TEST_CASE("A tool changer that does not mount to feed has no purge setting",
@@ -1449,4 +1462,35 @@ TEST_CASE("MedusaHC: a frame silent about the carriage leaves a standing sensor 
     CHECK(tc.get_system_info().action == AmsAction::IDLE);
     CHECK(tc.get_system_info().operation_detail.empty());
     CHECK(tc.unload_blocked_reason(1).empty());
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "MedusaHC reads the saved and clamped purge length when it discovers the printer",
+                 "[toolchanger][mount_feed][medusahc][purge]") {
+    RestorePurgeSetting restore;
+    Config* config = Config::get_instance();
+    const std::string key = config->df() + helix::wizard::kMountFeedPurgeMm;
+    // What a restart does: SettingsManager rebuilt from the saved config.
+    const auto reload = [&](int stored) {
+        config->set<int>(key, stored);
+        helix::SettingsManager::instance().deinit_subjects();
+        helix::SettingsManager::instance().init_subjects();
+        return helix::SettingsManager::instance().get_mount_feed_purge_mm();
+    };
+    CHECK(reload(500) == mf::kMaxPurgeMm);
+    CHECK(reload(-5) == 0);
+    REQUIRE(reload(120) == 120);
+
+    AckingChanger tc(4);
+    tc.set_discovery(irbis_medusahc_discovery());
+    REQUIRE(tc.max_heads_per_filament_op() == 4); // set_discovery kept mount-to-feed
+    const auto actions = tc.get_device_actions();
+    const auto slider = std::find_if(actions.begin(), actions.end(),
+                                     [](const auto& a) { return a.id == "purge_length"; });
+    REQUIRE(slider != actions.end());
+    const auto* value = std::any_cast<float>(&slider->current_value);
+    REQUIRE(value != nullptr);
+    // The slider shows the value the next load sends: the same member feeds
+    // both (the setting case above follows it into the gcode).
+    CHECK(*value == 120.0f);
 }
