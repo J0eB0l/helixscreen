@@ -18,19 +18,53 @@
 
 namespace helix::ui {
 
-/// Share of one core a running saver may use: 4 or more cores 0.50, 3 cores 0.37, 2 cores 0.25,
-/// otherwise 0.10 (a core count that failed to parse reads as one core). Halved while printing.
+/// Share of one core a running saver may use: 4 or more cores 1.00 (the saver
+/// is the foreground activity while idle, and one core of a 4+ core board
+/// leaves the machine responsive), 3 cores 0.75, 2 cores 0.50, otherwise 0.10
+/// (a core count that failed to parse reads as one core). Halved while
+/// printing.
 double saver_budget_share(int cores, bool printing);
 
 enum class GateDecision {
     KEEP,      ///< within budget: the level stays
     STEP_DOWN, ///< over budget: run one level lower
     TOO_HEAVY, ///< over budget at the lowest level: the board cannot afford this saver
+    STEP_UP,   ///< comfortably under budget for long enough: run one level higher
 };
 
 /// What a window measuring `share` of one core against `budget` means for a saver running at
-/// `level` of `level_count` levels. A run never steps up.
+/// `level` of `level_count` levels.
 GateDecision decide_saver_level(double share, double budget, size_t level, size_t level_count);
+
+/// Consecutive windows a raise asks for, comfortably under budget, so a stored
+/// low level climbs back only after a sustained quiet run.
+inline constexpr int kStepUpWindows = 3;
+
+/// A window counts toward a raise at or below this fraction of the budget:
+/// marginal comfort must not buy a more expensive rung.
+inline constexpr double kStepUpComfort = 0.6;
+
+/// Consecutive-window comfort streak toward a step-up. A window above
+/// kStepUpComfort of the budget resets it, even one still within budget.
+class SaverComfortStreak {
+  public:
+    void add(double share, double budget) {
+        streak_ = share <= budget * kStepUpComfort ? streak_ + 1 : 0;
+    }
+    void reset() {
+        streak_ = 0;
+    }
+    int streak() const {
+        return streak_;
+    }
+
+  private:
+    int streak_ = 0;
+};
+
+/// A raise for a saver at `level` whose comfort streak reached kStepUpWindows.
+/// The top rung (level 0) never raises.
+GateDecision decide_saver_level_up(size_t level, int comfortable_windows);
 
 /// The app's CPU rate while no saver runs, over the last idle stretch of up to kSpanNs.
 class IdleBaseline {

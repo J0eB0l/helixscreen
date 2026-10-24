@@ -327,6 +327,7 @@ void ScreensaverManager::begin_gate(const StartPlan& plan) {
     gate_enabled_ = plan.gated;
     gated_level_ = active_->level();
     requested_level_ = gated_level_;
+    comfort_.reset();
     const CpuSample now = cpu_clock_();
     session_.begin(now, baseline_.rate());
     last_sample_ns_ = now.wall_ns;
@@ -351,9 +352,10 @@ void ScreensaverManager::on_idle_check_tick() {
         return;
     }
     if (active_->level() != gated_level_) {
-        // The saver applied a lower level: measure that level on its own.
+        // The saver applied a different level: measure that level on its own.
         gated_level_ = active_->level();
         session_.restart_window(now);
+        comfort_.reset();
         return;
     }
 
@@ -368,9 +370,31 @@ void ScreensaverManager::on_idle_check_tick() {
         budget_override_.value_or(helix::ui::saver_budget_share(cores_, printing));
     switch (helix::ui::decide_saver_level(*share, budget, gated_level_, active_->level_count())) {
     case GateDecision::KEEP:
+        // Comfort at this rung accumulates toward raising the level again: a
+        // stored low level was earned under whatever load ran then, and a
+        // sustained quiet run says the board affords more now.
+        comfort_.add(*share, budget);
+        if (helix::ui::decide_saver_level_up(gated_level_, comfort_.streak()) ==
+            GateDecision::STEP_UP) {
+            requested_level_ = gated_level_ - 1;
+            spdlog::info("[ScreensaverManager] {} steady at {:.1f}% of a {:.1f}% budget{}; "
+                         "stepping up to level {}",
+                         active_info_->name, *share * 100.0, budget * 100.0,
+                         printing ? " while printing" : "", requested_level_);
+            // A raise measured while printing says nothing about what the board
+            // affords idle, so only an idle raise is recorded.
+            if (!printing) {
+                record_level(requested_level_, false);
+            }
+            active_->request_level(requested_level_);
+        }
+        return;
+    case GateDecision::STEP_UP:
+        // decide_saver_level never raises; a raise comes from the streak above.
         return;
     case GateDecision::STEP_DOWN:
         requested_level_ = gated_level_ + 1;
+        comfort_.reset();
         spdlog::info("[ScreensaverManager] {} used {:.1f}% of a core against a {:.1f}% budget{}; "
                      "stepping down to level {}",
                      active_info_->name, *share * 100.0, budget * 100.0,
