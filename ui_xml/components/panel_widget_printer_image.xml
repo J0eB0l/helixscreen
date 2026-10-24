@@ -50,18 +50,23 @@
                         flag="hidden"/>
         </lv_obj>
         <leader_line name="callout_line_nozzle" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="printer_callout_mode lt 3 or callout_nozzle_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="callout_line_bed" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="printer_callout_mode lt 3 or callout_bed_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="callout_line_chamber" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="printer_callout_mode lt 3 or callout_chamber_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="callout_line_fan" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="printer_callout_mode lt 3 or callout_fan_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="callout_line_light" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="printer_callout_mode lt 3 or callout_light_shown eq 0" flag="hidden"/>
         </leader_line>
 

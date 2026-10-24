@@ -19,6 +19,8 @@
          of its own gets the LVGL default, which ignores the theme's corner
          setting, so give it one. -->
     <style name="press_wash" bg_color="#primary" bg_opa="30%"/>
+    <!-- Callout leader lines are dotted on every screen that draws them. -->
+    <style name="leader_dotted" line_dash_width="#space_xxs" line_dash_gap="#space_xs"/>
     <!-- The translucent metadata strip that rides at the bottom of a g-code
          preview card. Print status stacks it as a flex sibling under the art;
          the file detail view floats it over the art with align="bottom_mid".

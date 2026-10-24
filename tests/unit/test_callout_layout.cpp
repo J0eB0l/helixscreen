@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "callout_layout.h"
 
+#include <fstream>
+#include <iterator>
+
 #include "../catch_amalgamated.hpp"
 
 using namespace helix;
@@ -803,4 +806,216 @@ TEST_CASE("pinned drops expendable docked chips when the docked row overflows",
     REQUIRE(roomy.mode == CalloutMode::Pinned);
     CHECK(roomy.dropped.empty());
     CHECK(find(roomy, CalloutKind::AuxFan) != nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// Band layout: chips beside the part they name, the toolhead as one block
+// ---------------------------------------------------------------------------
+
+namespace {
+
+CalloutLayoutInput bands() {
+    CalloutLayoutInput in;
+    in.area_w = 342;
+    in.area_h = 270;
+    in.image_w = 645;
+    in.image_h = 908;
+    in.tagged = true;
+    in.chip_h = 22;
+    in.gap = 4;
+    in.min_line = 8;
+    return in;
+}
+
+int centre_y(const CalloutChipOut& c) {
+    return c.rect.y + c.rect.h / 2;
+}
+
+bool left_of_image(const CalloutLayout& l, const CalloutChipOut& c) {
+    return c.rect.x + c.rect.w <= l.image.x;
+}
+
+} // namespace
+
+TEST_CASE("band chips sit on their part's side", "[printer_image][callout_layout]") {
+    auto in = bands();
+    in.budget = {{CalloutKind::Nozzle, 60, NormPoint{0.441f, 0.36f}},
+                 {CalloutKind::Chamber, 60, NormPoint{0.2f, 0.554f}},
+                 {CalloutKind::Light, 60, NormPoint{0.811f, 0.14f}},
+                 {CalloutKind::Bed, 60, NormPoint{0.346f, 0.382f}},
+                 {CalloutKind::SpeedFlow, 60, std::nullopt}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    REQUIRE(l.mode == CalloutMode::BothSides);
+    CHECK(left_of_image(l, *find(l, CalloutKind::Nozzle)));
+    CHECK(left_of_image(l, *find(l, CalloutKind::Chamber)));
+    CHECK(left_of_image(l, *find(l, CalloutKind::Bed)));
+    CHECK_FALSE(left_of_image(l, *find(l, CalloutKind::Light)));
+    // Three chips left, one right: the chip with no point takes the emptier band.
+    CHECK_FALSE(left_of_image(l, *find(l, CalloutKind::SpeedFlow)));
+}
+
+TEST_CASE("toolhead group stacks contiguously in the nozzle band",
+          "[printer_image][callout_layout]") {
+    auto in = bands();
+    in.budget = {{CalloutKind::Nozzle, 60, NormPoint{0.441f, 0.36f}},
+                 {CalloutKind::Fan, 60, NormPoint{0.441f, 0.318f}},
+                 {CalloutKind::HotendFan, 60, NormPoint{0.441f, 0.36f}},
+                 {CalloutKind::Light, 60, NormPoint{0.811f, 0.14f}}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    REQUIRE((l.mode == CalloutMode::BothSides || l.mode == CalloutMode::OneSide));
+    const auto *nozzle = find(l, CalloutKind::Nozzle), *fan = find(l, CalloutKind::Fan),
+               *hot = find(l, CalloutKind::HotendFan);
+    REQUIRE((nozzle && fan && hot));
+    CHECK(left_of_image(l, *fan) == left_of_image(l, *nozzle));
+    CHECK(left_of_image(l, *hot) == left_of_image(l, *nozzle));
+    // One block: the normal gap between neighbours, nothing spread inside it.
+    CHECK(hot->rect.y == fan->rect.y + in.chip_h + in.gap);
+    CHECK(nozzle->rect.y == hot->rect.y + in.chip_h + in.gap);
+}
+
+TEST_CASE("toolhead group orders by anchor, fan above temp on a shared point",
+          "[printer_image][callout_layout]") {
+    auto in = bands();
+    // The part fan's point is BELOW the nozzle here, so it sits below the temp;
+    // the hotend fan shares the nozzle's point and sits above the temp.
+    in.budget = {{CalloutKind::Nozzle, 60, NormPoint{0.441f, 0.30f}},
+                 {CalloutKind::Fan, 60, NormPoint{0.441f, 0.40f}},
+                 {CalloutKind::HotendFan, 60, NormPoint{0.441f, 0.30f}}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    REQUIRE((l.mode == CalloutMode::BothSides || l.mode == CalloutMode::OneSide));
+    const auto *nozzle = find(l, CalloutKind::Nozzle), *fan = find(l, CalloutKind::Fan),
+               *hot = find(l, CalloutKind::HotendFan);
+    REQUIRE((nozzle && fan && hot));
+    CHECK(hot->rect.y < nozzle->rect.y);
+    CHECK(nozzle->rect.y < fan->rect.y);
+}
+
+TEST_CASE("band units spread over the full height", "[printer_image][callout_layout]") {
+    auto in = bands();
+    in.budget = {{CalloutKind::Nozzle, 60, NormPoint{0.3f, 0.30f}},
+                 {CalloutKind::Bed, 60, NormPoint{0.3f, 0.34f}},
+                 {CalloutKind::Chamber, 60, NormPoint{0.3f, 0.38f}}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    REQUIRE(l.mode == CalloutMode::BothSides);
+    REQUIRE(l.chips.size() == 3);
+    int top = in.area_h, bottom = 0;
+    for (const auto& c : l.chips) {
+        top = std::min(top, c.rect.y);
+        bottom = std::max(bottom, c.rect.y + c.rect.h);
+    }
+    CHECK(top == in.gap);
+    CHECK(bottom == in.area_h - in.gap);
+    // Equal gaps between the three.
+    std::vector<int> ys;
+    for (const auto& c : l.chips)
+        ys.push_back(c.rect.y);
+    std::sort(ys.begin(), ys.end());
+    CHECK((ys[1] - ys[0] - in.chip_h) / 2 == (ys[2] - ys[1] - in.chip_h) / 2);
+    // A band with one unit sits level with its point.
+    auto one = bands();
+    one.budget = {{CalloutKind::Light, 60, NormPoint{0.811f, 0.5f}}};
+    one.active = one.budget;
+    const auto l1 = compute_callout_layout(one);
+    REQUIRE(l1.chips.size() == 1);
+    CHECK(std::abs(centre_y(l1.chips[0]) - (l1.image.y + l1.image.h / 2)) <= 1);
+}
+
+TEST_CASE("untagged chips take the slots that keep tagged chips nearest",
+          "[printer_image][callout_layout]") {
+    auto in = bands();
+    in.image_w = 756;
+    in.image_h = 939;
+    in.budget = {{CalloutKind::Nozzle, 60, NormPoint{0.51f, 0.405f}},
+                 {CalloutKind::Fan, 60, NormPoint{0.483f, 0.282f}},
+                 {CalloutKind::HotendFan, 60, NormPoint{0.51f, 0.405f}},
+                 {CalloutKind::Bed, 60, NormPoint{0.44f, 0.835f}},
+                 {CalloutKind::Light, 60, std::nullopt},
+                 {CalloutKind::Chamber, 60, std::nullopt}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    REQUIRE((l.mode == CalloutMode::BothSides || l.mode == CalloutMode::OneSide));
+    const auto* bed = find(l, CalloutKind::Bed);
+    REQUIRE(bed);
+    CHECK(centre_y(*bed) > in.area_h / 2);
+    CHECK_FALSE(find(l, CalloutKind::Light)->has_line);
+    CHECK_FALSE(find(l, CalloutKind::Chamber)->has_line);
+}
+
+TEST_CASE("an untagged chip takes the middle slot between two tagged ones",
+          "[printer_image][callout_layout]") {
+    auto in = bands();
+    in.budget = {{CalloutKind::Nozzle, 60, NormPoint{0.3f, 0.3f}},
+                 {CalloutKind::Chamber, 60, NormPoint{0.3f, 0.5f}},
+                 {CalloutKind::Bed, 60, NormPoint{0.3f, 0.7f}},
+                 {CalloutKind::Light, 60, NormPoint{0.8f, 0.15f}},
+                 {CalloutKind::AuxFan, 60, NormPoint{0.8f, 0.85f}},
+                 {CalloutKind::SpeedFlow, 60, std::nullopt}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    REQUIRE(l.mode == CalloutMode::BothSides);
+    const auto *light = find(l, CalloutKind::Light), *aux = find(l, CalloutKind::AuxFan),
+               *speed = find(l, CalloutKind::SpeedFlow);
+    REQUIRE((light && aux && speed));
+    CHECK(light->rect.y < speed->rect.y);
+    CHECK(speed->rect.y < aux->rect.y);
+}
+
+namespace {
+
+long cross(CalloutPoint o, CalloutPoint a, CalloutPoint b) {
+    return long(a.x - o.x) * (b.y - o.y) - long(a.y - o.y) * (b.x - o.x);
+}
+
+bool segments_cross(CalloutPoint a, CalloutPoint b, CalloutPoint c, CalloutPoint d) {
+    const long d1 = cross(a, b, c), d2 = cross(a, b, d), d3 = cross(c, d, a), d4 = cross(c, d, b);
+    return ((d1 > 0) != (d2 > 0)) && d1 != 0 && d2 != 0 && ((d3 > 0) != (d4 > 0)) && d3 != 0 &&
+           d4 != 0;
+}
+
+} // namespace
+
+TEST_CASE("no two leaders cross", "[printer_image][callout_layout]") {
+    std::ifstream f("assets/images/printers/regions.json");
+    REQUIRE(f.good());
+    const auto all = parse_image_regions(std::string((std::istreambuf_iterator<char>(f)), {}));
+    int lined_layouts = 0;
+    for (const char* name : {"voron-v2", "flashforge-adventurer-5m", "creality-k2-plus-cfs",
+                             "snapmaker-u1", "elegoo-centauri-carbon", "qidi-q2"}) {
+        const auto it = all.find(name);
+        REQUIRE(it != all.end());
+        const auto& r = it->second;
+        auto in = bands();
+        in.image_w = r.src_w;
+        in.image_h = r.src_h;
+        for (const auto k : {CalloutKind::Nozzle, CalloutKind::Fan, CalloutKind::HotendFan,
+                             CalloutKind::Bed, CalloutKind::Chamber, CalloutKind::Light})
+            if (const auto a = region_anchor(r, k))
+                in.budget.push_back({k, 60, a});
+        in.budget.push_back({CalloutKind::AuxFan, 60, std::nullopt});
+        in.budget.push_back({CalloutKind::SpeedFlow, 60, std::nullopt});
+        in.active = in.budget;
+        const auto l = compute_callout_layout(in);
+        INFO(name << " mode " << int(l.mode));
+        if (l.mode != CalloutMode::BothSides && l.mode != CalloutMode::OneSide)
+            continue;
+        ++lined_layouts;
+        for (size_t i = 0; i < l.chips.size(); ++i)
+            for (size_t j = i + 1; j < l.chips.size(); ++j) {
+                const auto &a = l.chips[i], &b = l.chips[j];
+                if (!a.has_line || !b.has_line || left_of_image(l, a) != left_of_image(l, b))
+                    continue;
+                const CalloutPoint pa[] = {
+                    {a.line_x0, a.line_y0}, {a.line_xm, a.line_ym}, {a.line_x1, a.line_y1}};
+                const CalloutPoint pb[] = {
+                    {b.line_x0, b.line_y0}, {b.line_xm, b.line_ym}, {b.line_x1, b.line_y1}};
+                for (int s = 0; s < 2; ++s)
+                    for (int t = 0; t < 2; ++t)
+                        CHECK_FALSE(segments_cross(pa[s], pa[s + 1], pb[t], pb[t + 1]));
+            }
+    }
+    CHECK(lined_layouts >= 1);
 }

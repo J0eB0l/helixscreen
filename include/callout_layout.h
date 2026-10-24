@@ -464,14 +464,203 @@ inline std::pair<bool, int> line_column(const CalloutLayoutInput& in, const Call
     return {horiz, (horiz ? widest : in.chip_h) + in.gap + in.min_line};
 }
 
-/// Both sides, else one side, with the image centred at `centred`. `in` holds only
-/// chips with points; the `loose_` chips have none and dock in the space left.
+/// The chips of the toolhead: one block in the nozzle's band.
+inline bool in_toolhead_group(CalloutKind k) {
+    return k == CalloutKind::Nozzle || k == CalloutKind::Fan || k == CalloutKind::HotendFan;
+}
+
+/// Which band each kind's chip goes in: true is the right band.
+using BandSides = std::array<bool, kCalloutKindCount>;
+
+/// A chip goes in the band on its point's side of the image, the toolhead group
+/// follows the nozzle, and a chip with no point takes the band with fewer chips
+/// (right on a tie). `all_right` puts everything in the right band.
+inline BandSides band_sides(const std::vector<CalloutChipIn>& chips, bool all_right) {
+    BandSides sides;
+    sides.fill(true);
+    if (all_right)
+        return sides;
+    const auto right_of = [](const CalloutChipIn& c) { return c.anchor->x >= 0.5f; };
+    std::optional<bool> nozzle_right;
+    for (const auto& c : chips)
+        if (c.kind == CalloutKind::Nozzle && c.anchor)
+            nozzle_right = right_of(c);
+    int left = 0, right = 0;
+    for (const auto& c : chips) {
+        if (!c.anchor && !(nozzle_right && in_toolhead_group(c.kind)))
+            continue;
+        const bool r = (nozzle_right && in_toolhead_group(c.kind)) ? *nozzle_right : right_of(c);
+        sides[size_t(c.kind)] = r;
+        ++(r ? right : left);
+    }
+    for (const auto& c : chips)
+        if (!c.anchor && !(nozzle_right && in_toolhead_group(c.kind))) {
+            const bool r = left >= right;
+            sides[size_t(c.kind)] = r;
+            ++(r ? right : left);
+        }
+    return sides;
+}
+
+/// One band's worth of stacked chips: the toolhead block or a single chip.
+struct BandUnit {
+    std::vector<CalloutChipIn> chips; ///< top to bottom
+    std::optional<float> y;           ///< the first chip's point, in area pixels
+    int h = 0;
+};
+
+/// Chips of one band as units. Inside the toolhead block chips follow their
+/// points top to bottom so no two leaders cross; on a shared point the part fan
+/// sits above the hotend fan, above the nozzle.
+inline std::vector<BandUnit> band_units(const CalloutLayoutInput& in, const CalloutRect& img,
+                                        const std::vector<CalloutChipIn>& chips) {
+    const auto py = [&](const CalloutChipIn& c) {
+        return c.anchor ? float(px(c.anchor->y, img.y, img.h)) : 1e9f;
+    };
+    const auto rank = [](CalloutKind k) {
+        return k == CalloutKind::Fan ? 0 : k == CalloutKind::HotendFan ? 1 : 2;
+    };
+    std::vector<CalloutChipIn> group;
+    std::vector<BandUnit> units;
+    for (const auto& c : chips) {
+        if (in_toolhead_group(c.kind)) {
+            group.push_back(c);
+        } else {
+            BandUnit u;
+            u.chips = {c};
+            u.h = in.chip_h;
+            if (c.anchor)
+                u.y = py(c);
+            units.push_back(u);
+        }
+    }
+    if (!group.empty()) {
+        std::sort(group.begin(), group.end(), [&](const CalloutChipIn& a, const CalloutChipIn& b) {
+            return py(a) != py(b) ? py(a) < py(b) : rank(a.kind) < rank(b.kind);
+        });
+        BandUnit u;
+        u.h = int(group.size()) * in.chip_h + int(group.size() - 1) * in.gap;
+        if (group.front().anchor)
+            u.y = py(group.front());
+        u.chips = std::move(group);
+        units.insert(units.begin(), std::move(u));
+    }
+    return units;
+}
+
+/// Spreads a band's units evenly over its full height, anchored units in anchor
+/// order and unanchored ones in the slots that keep the anchored nearest their
+/// points. Returns each unit's top, in the order the units end up; false when
+/// the units do not fit.
+inline bool band_slots(const CalloutLayoutInput& in, std::vector<BandUnit>& units,
+                       std::vector<int>& tops) {
+    const size_t n = units.size();
+    tops.clear();
+    if (n == 0)
+        return true;
+    int sum = 0;
+    for (const auto& u : units)
+        sum += u.h;
+    const int room = in.area_h - 2 * in.gap;
+    if (sum + int(n - 1) * in.gap > room)
+        return false;
+    std::vector<BandUnit> anchored, loose;
+    for (auto& u : units)
+        (u.y ? anchored : loose).push_back(std::move(u));
+    std::stable_sort(anchored.begin(), anchored.end(),
+                     [](const BandUnit& a, const BandUnit& b) { return *a.y < *b.y; });
+    const auto spread = [&](const std::vector<BandUnit>& order) {
+        std::vector<int> t;
+        const float step = n > 1 ? float(room - sum) / float(n - 1) : 0.0f;
+        float y = float(in.gap);
+        for (const auto& u : order) {
+            t.push_back(int(y + 0.5f));
+            y += float(u.h) + step;
+        }
+        return t;
+    };
+    if (n == 1) {
+        units = anchored.empty() ? loose : anchored;
+        const int h = units[0].h;
+        tops = {units[0].y ? std::clamp(int(*units[0].y) - h / 2, in.gap, in.area_h - in.gap - h)
+                           : in.gap};
+        return true;
+    }
+    std::vector<BandUnit> best;
+    std::vector<int> best_tops;
+    float best_cost = 0;
+    for (uint32_t mask = 0; mask < (1u << n); ++mask) {
+        if (size_t(__builtin_popcount(mask)) != loose.size())
+            continue;
+        std::vector<BandUnit> order;
+        size_t ai = 0, li = 0;
+        for (size_t k = 0; k < n; ++k)
+            order.push_back((mask >> k) & 1 ? loose[li++] : anchored[ai++]);
+        const auto t = spread(order);
+        float cost = 0;
+        for (size_t k = 0; k < n; ++k)
+            if (order[k].y)
+                cost += std::abs(float(t[k]) + float(order[k].h) / 2 - *order[k].y);
+        if (best.empty() || cost < best_cost) {
+            best = order;
+            best_tops = t;
+            best_cost = cost;
+        }
+    }
+    units = std::move(best);
+    tops = std::move(best_tops);
+    return true;
+}
+
+/// The chips of `chips` that `sides` puts in the right (or left) band, placed
+/// against the area edge with leaders running 45 degrees, then level into the chip.
+inline bool place_band(const CalloutLayoutInput& in, const CalloutRect& img, bool right,
+                       const BandSides& sides, const std::vector<CalloutChipIn>& chips,
+                       std::vector<CalloutChipOut>& out) {
+    std::vector<CalloutChipIn> mine;
+    for (const auto& c : chips)
+        if (sides[size_t(c.kind)] == right)
+            mine.push_back(c);
+    auto units = band_units(in, img, mine);
+    std::vector<int> tops;
+    if (!band_slots(in, units, tops))
+        return false;
+    for (size_t k = 0; k < units.size(); ++k) {
+        int y = tops[k];
+        for (const auto& c : units[k].chips) {
+            const int x = right ? in.area_w - in.gap - c.w : in.gap;
+            CalloutChipOut o;
+            if (c.anchor) {
+                const int ax = px(c.anchor->x, img.x, img.w), ay = px(c.anchor->y, img.y, img.h);
+                o = chip_at(c, x, y, in.chip_h, ax, ay);
+                o.line_x1 = right ? x : x + c.w;
+                o.line_y1 = y + in.chip_h / 2;
+                const CalloutPoint e =
+                    leader_elbow({ax, ay}, {o.line_x1, o.line_y1}, in.min_line, true);
+                o.line_xm = e.x;
+                o.line_ym = e.y;
+            } else {
+                o.kind = c.kind;
+                o.rect = {x, y, c.w, in.chip_h};
+            }
+            out.push_back(o);
+            y += in.chip_h + in.gap;
+        }
+    }
+    return true;
+}
+
+/// Both sides, else one side, with the image centred at `centred`. In side bands
+/// every chip lands by place_band; in bands above and below, chips with no point
+/// dock in the space left (`in` then holds only chips with points).
 inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& centred,
                               const std::vector<CalloutChipIn>& loose_budget,
                               const std::vector<CalloutChipIn>& loose_active, CalloutLayout& out) {
     // Plain locals, not a structured binding: clang before 16 rejects a lambda
     // capturing a binding.
-    const auto column = line_column(in, centred);
+    CalloutLayoutInput widths = in;
+    widths.budget.insert(widths.budget.end(), loose_budget.begin(), loose_budget.end());
+    const auto column = line_column(widths, centred);
     const bool horiz = column.first;
     const int col = column.second;
     const int far_edge = (horiz ? in.area_w : in.area_h) - in.gap;
@@ -482,12 +671,30 @@ inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& c
                 r.push_back(c);
         return r;
     };
+    const auto joined = [](std::vector<CalloutChipIn> a, const std::vector<CalloutChipIn>& b) {
+        a.insert(a.end(), b.begin(), b.end());
+        return a;
+    };
+    const auto budget = joined(in.budget, loose_budget);
+    const auto active = joined(in.active, loose_active);
 
     std::vector<CalloutChipOut> scratch;
     const int band = horiz ? centred.x : centred.y;
-    if (band >= col && stack(in, centred, horiz, true, in.gap, split(in.budget, true), scratch) &&
-        stack(in, centred, horiz, false, far_edge, split(in.budget, false), scratch) &&
-        dock_free(in, centred, loose_budget, scratch)) {
+    if (horiz) {
+        const BandSides sides = band_sides(budget, false);
+        if (band >= col && place_band(in, centred, false, sides, budget, scratch) &&
+            place_band(in, centred, true, sides, budget, scratch)) {
+            out.image = centred;
+            out.chips.clear();
+            place_band(in, centred, false, sides, active, out.chips);
+            place_band(in, centred, true, sides, active, out.chips);
+            out.mode = CalloutMode::BothSides;
+            return true;
+        }
+    } else if (band >= col &&
+               stack(in, centred, horiz, true, in.gap, split(in.budget, true), scratch) &&
+               stack(in, centred, horiz, false, far_edge, split(in.budget, false), scratch) &&
+               dock_free(in, centred, loose_budget, scratch)) {
         out.image = centred;
         out.chips.clear();
         stack(in, centred, horiz, true, in.gap, split(in.active, true), out.chips);
@@ -501,8 +708,17 @@ inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& c
     CalloutRect moved = centred;
     (horiz ? moved.x : moved.y) = 0;
     scratch.clear();
-    if (free_extent >= col && stack(in, moved, horiz, false, far_edge, in.budget, scratch) &&
-        dock_free(in, moved, loose_budget, scratch)) {
+    if (horiz) {
+        const BandSides sides = band_sides(budget, true);
+        if (free_extent >= col && place_band(in, moved, true, sides, budget, scratch)) {
+            out.image = moved;
+            out.chips.clear();
+            place_band(in, moved, true, sides, active, out.chips);
+            out.mode = CalloutMode::OneSide;
+            return true;
+        }
+    } else if (free_extent >= col && stack(in, moved, horiz, false, far_edge, in.budget, scratch) &&
+               dock_free(in, moved, loose_budget, scratch)) {
         out.image = moved;
         out.chips.clear();
         stack(in, moved, horiz, false, far_edge, in.active, out.chips);
@@ -536,7 +752,7 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
     const CalloutRect fitted = out.image;
     if (try_line_modes_at(lined, fitted, loose_budget, loose_active, out))
         return true;
-    const auto [horiz, col] = line_column(lined, fitted);
+    const auto [horiz, col] = line_column(in, fitted);
     const int area = horiz ? in.area_w : in.area_h;
     const int full = horiz ? fitted.w : fitted.h;
     const int min_extent = full - full * kMaxImageShrinkPct / 100;

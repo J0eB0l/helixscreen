@@ -1318,8 +1318,8 @@ TEST_CASE_METHOD(LVGLUITestFixture, "callouts: an untagged image draws no bed gl
 TEST_CASE_METHOD(LVGLUITestFixture,
                  "callouts: a capability found after layout relayouts with no chip change",
                  "[printer_image][callouts]") {
-    // The chamber joins the budget; at this size, beside the light chip, four
-    // chips on the left no longer fit beside the image, so the mode drops to pinned.
+    // The chamber joins the budget with no chip showing; the bands spread their
+    // chips, so the image keeps both sides and the light chip stays put.
     const auto regions = prepare_tagged_widget();
     lv_subject_t* has_led = lv_xml_get_subject(nullptr, "printer_has_led");
     lv_subject_t* has_chamber = state().capabilities_state().subject(Capability::HasChamberHeater);
@@ -1335,7 +1335,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     lv_subject_set_int(has_chamber, 1);
     settle();
     CHECK_FALSE(shown(h, "callout_chip_chamber"));
-    CHECK(mode_now() == static_cast<int>(CalloutMode::Pinned));
+    CHECK(shown(h, "callout_chip_light"));
+    CHECK(mode_now() == static_cast<int>(CalloutMode::BothSides));
 }
 
 // A custom image can be re-imported in place: same id, same path, new pixels.
