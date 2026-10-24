@@ -573,6 +573,12 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     status_obj["defect_detection"] = dd;
                 }
             }
+            // The U1 top module's purifier, which reports the top fitted.
+            if (objects.contains("purifier")) {
+                if (auto purifier = self->purifier_status(); !purifier.empty()) {
+                    status_obj["purifier"] = purifier;
+                }
+            }
             for (auto it = objects.begin(); it != objects.end(); ++it) {
                 if (it.key() != "pin_watch" && it.key().rfind("pin_watch ", 0) != 0) {
                     continue;
@@ -882,6 +888,12 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
             if (objects.contains("defect_detection")) {
                 if (auto dd = self->defect_detection_status(); !dd.empty()) {
                     status_obj["defect_detection"] = dd;
+                }
+            }
+            // The U1 top module's purifier, which reports the top fitted.
+            if (objects.contains("purifier")) {
+                if (auto purifier = self->purifier_status(); !purifier.empty()) {
+                    status_obj["purifier"] = purifier;
                 }
             }
             for (auto it = objects.begin(); it != objects.end(); ++it) {

@@ -2508,6 +2508,24 @@ nlohmann::json MoonrakerClientMock::defect_detection_status() const {
                           {"nozzle", feature(false)}};
 }
 
+nlohmann::json MoonrakerClientMock::purifier_status() const {
+    if (printer_type_ != PrinterType::SNAPMAKER_U1) {
+        return nlohmann::json::object();
+    }
+    const char* env = std::getenv("HELIX_MOCK_ENCLOSURE_TOP");
+    const bool fitted = !(env && std::string(env) == "0");
+    const auto fan = nlohmann::json{{"speed", 0.0}, {"rpm", 0.0}};
+    return nlohmann::json{{"power_detected", fitted},
+                          {"power_det_value", fitted ? 2.5 : 0.0},
+                          {"mode", 0},
+                          {"desired_chamber_temp", 0},
+                          {"critical_chamber_temp", 0},
+                          {"inner_fan_work_time", 0.0},
+                          {"inner_fan_rpm", 0.0},
+                          {"exhaust_fan", fan},
+                          {"inner_fan", fan}};
+}
+
 json MoonrakerClientMock::zmod_color_status() const {
     std::lock_guard<std::mutex> lock(zmod_mutex_);
     json slots = json::array();

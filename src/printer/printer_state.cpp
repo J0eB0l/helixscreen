@@ -20,6 +20,7 @@
 #include "chamber_heater_assignment.h"
 #include "connection_state.h" // For ConnectionState enum
 #include "device_display_name.h"
+#include "enclosure_top.h"
 #include "hardware_validator.h"
 #include "i_moonraker_client.h" // for helix::kCachedSnapshotMarker
 #include "json_utils.h"
@@ -341,6 +342,12 @@ void PrinterState::update_from_status(const json& state, double eventtime,
     // the toggles show. Silent on printers that store none.
     merge_firmware_option_defaults(
         helix::preprint_prefs::read_persisted_defaults(discovery_, state));
+
+    // A removable enclosure top can come and go while connected; a frame that
+    // does not mention it keeps the last report.
+    if (auto fitted = helix::enclosure_top::fitted_from_status(state)) {
+        capabilities_state_.set_enclosure_top_fitted(*fitted);
+    }
 
     // Delegate print updates to print state component
     print_domain_.update_from_status(state, whole_objects);

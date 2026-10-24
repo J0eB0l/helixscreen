@@ -1281,7 +1281,9 @@ and applies its preset; no printer type is saved for it. Its default `HELIX_MOCK
 would make discovery stand up the production Snapmaker backend. It does publish
 `defect_detection`, answering `printer.objects.query` with the module's stored config, whose
 `main_enable` and `clean_bed.enable` follow `DEFECT_DETECTION_CONFIG MAIN_ENABLE=0|1` and
-`CLEAN_BED_ENABLE=0|1`.
+`CLEAN_BED_ENABLE=0|1`. Its `purifier` reports `power_detected: true`, the top module
+fitted, so the home panel shows the U1's with-top picture; `HELIX_MOCK_ENCLOSURE_TOP=0`
+reports it removed.
 
 The `delta` persona changes the kinematics and hardware only. Its build volume is the same 0-based 250x250x300 box the other generic personas report, not a real delta's centred round bed, so it does not exercise negative coordinates or a round bed mesh.
 

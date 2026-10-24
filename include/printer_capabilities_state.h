@@ -61,6 +61,8 @@ enum class Capability : uint8_t {
     HasHeatSoak,                 ///< heat soak macro, after the user override
     HasFanFeedback,              ///< fan tachometer feedback (fan_feedback)
     HasLedEffects,               ///< [led_effect] sections
+    EnclosureTopFitted,          ///< 1 = firmware reports a removable enclosure top fitted;
+                                 ///< 0 = removed, not reported yet, or no such report
     HardwareGeneration,          ///< bumped whenever discovery or kinematics changes
     Count
 };
@@ -217,6 +219,15 @@ class PrinterCapabilitiesState {
     /// Enclosed printer, and whether drying on the heated bed is offered
     /// (prestonbrown/helixscreen#1730). Resolved by PrinterState.
     void set_bed_drying(bool enclosed, bool can_bed_dry);
+
+    /// Whether the firmware reports a removable enclosure top fitted, from a
+    /// status frame (include/enclosure_top.h). Main thread only.
+    void set_enclosure_top_fitted(bool fitted);
+
+    /// The last enclosure-top report; false before any.
+    [[nodiscard]] bool enclosure_top_fitted() const {
+        return capability_value(Capability::EnclosureTopFitted) != 0;
+    }
 
     /** @brief Override chamber sensor capability after manual assignment resolution */
     void set_has_chamber_sensor(bool available);

@@ -218,6 +218,7 @@ src/printer/printer_discovery.cpp
 src/printer/printer_discovery_parse.cpp
 src/printer/power_device_state.cpp
 src/printer/power_loss_sensor.cpp
+src/printer/enclosure_top.cpp
 src/printer/pre_print_option.cpp
 src/printer/pre_print_preferences.cpp
 src/printer/preflight_validator.cpp

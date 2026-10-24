@@ -781,6 +781,27 @@ TEST_CASE("Subscription: mains-monitor firmware subscribes its power-loss object
     }
 }
 
+TEST_CASE("Subscription: enclosure-top firmware subscribes the one field it reads",
+          "[moonraker][subscription][enclosure_top]") {
+    SECTION("purifier discovered -> power_detected subscribed alone") {
+        // The object's fan readings change every tick; only the flag is read.
+        DiscoveryFixture fx;
+        fx.add("purifier", {});
+        json subs = fx.build();
+
+        REQUIRE(subs.contains("purifier"));
+        CHECK(subs["purifier"] == json::array({"power_detected"}));
+    }
+
+    SECTION("no purifier -> not subscribed") {
+        DiscoveryFixture fx;
+        fx.add("extruder", {"heater"});
+        json subs = fx.build();
+
+        REQUIRE_FALSE(subs.contains("purifier"));
+    }
+}
+
 TEST_CASE("Subscription: ZMOD printers subscribe save_variables for the persisted z-offset",
           "[moonraker][subscription][zmod]") {
     SECTION("SAVE_ZMOD_DATA present -> save_variables subscribed") {

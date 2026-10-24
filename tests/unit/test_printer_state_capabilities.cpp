@@ -694,3 +694,25 @@ TEST_CASE("PrinterState: an unambiguously detected provider is not refuted by a 
           ZOffsetCalibrationStrategy::FIRMWARE_MANAGED);
     CHECK(lv_subject_get_int(state.profile_state().get_z_offset_can_save_subject()) == 0);
 }
+
+TEST_CASE("PrinterState: the enclosure top follows status frames",
+          "[printer_state][enclosure_top]") {
+    lv_init_safe();
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+    auto& caps = state.capabilities_state();
+    REQUIRE_FALSE(caps.enclosure_top_fitted());
+
+    state.update_from_status({{"purifier", {{"power_detected", true}, {"mode", 0}}}});
+    CHECK(caps.enclosure_top_fitted());
+
+    // Delta frames that do not carry the flag keep the last report.
+    state.update_from_status({{"purifier", {{"inner_fan_rpm", 1500.0}}}});
+    CHECK(caps.enclosure_top_fitted());
+    state.update_from_status({{"extruder", {{"temperature", 25.0}}}});
+    CHECK(caps.enclosure_top_fitted());
+
+    state.update_from_status({{"purifier", {{"power_detected", false}}}});
+    CHECK_FALSE(caps.enclosure_top_fitted());
+}
