@@ -6842,6 +6842,14 @@
       "name": "Snapmaker U1",
       "manufacturer": "Snapmaker",
       "image": "snapmaker-u1.png",
+      "image_variants": [
+        {
+          "when": {
+            "enclosure_top": true
+          },
+          "image": "snapmaker-u1-tophat.png"
+        }
+      ],
       "toolhead_style": "snapmaker_u1",
       "probe_type": "eddy_current",
       "preset": "snapmaker_u1",
