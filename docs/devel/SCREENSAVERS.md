@@ -216,7 +216,10 @@ samples `CLOCK_PROCESS_CPUTIME_ID` (every thread, LVGL's draw thread included) a
   saver is too heavy for the board, and its fallback takes over at once.
 
 Each step down and each too-heavy mark is stored at `/display/screensaver_levels/<name>` as
-`{"level", "too_heavy", "version", "board"}`. The next run of that saver starts there, unless
+`{"level", "too_heavy", "version", "board"}`, except one taken while printing: the halved
+budget says nothing about the idle board, so that step down lasts for the run only, and a saver
+too heavy at its bottom level while printing shows the black screen for the rest of the run,
+unmarked. The next run of that saver starts there, unless
 `helix_version_full()` or the board fingerprint (display path, cores, bogomips to the nearest
 100, resolution, color depth) differs, which starts again at level 0.
 

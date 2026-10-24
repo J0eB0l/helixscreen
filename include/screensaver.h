@@ -256,6 +256,9 @@ class ScreensaverManager {
     /// Shows the static black overlay in place of `type`.
     void show_black_screen(ScreensaverType type);
 
+    /// Runs the black screen in place of `type`: no held refresh period, counted, screen held.
+    void run_black_screen(ScreensaverType type);
+
     /// Stores `level` and `too_heavy` for the running saver on this board and version.
     void record_level(size_t level, bool too_heavy);
 

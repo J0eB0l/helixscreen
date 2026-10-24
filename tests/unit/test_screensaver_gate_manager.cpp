@@ -447,6 +447,59 @@ TEST_CASE_METHOD(LVGLTestFixture,
     CHECK(gate.running()->level() == 1);
 }
 
+TEST_CASE_METHOD(LVGLTestFixture, "a step-down taken while printing lasts only for that run",
+                 "[screensaver][screensaver_gate]") {
+    GateHarness gate;
+    setenv("HELIX_SCREENSAVER_BUDGET_PCT", "20", 1);
+    gate.run(10.0, 0.0);
+    gate.printing = true;
+    gate.mgr.start(ScreensaverType::FLYING_TOASTERS);
+    REQUIRE(gate.running() != nullptr);
+
+    gate.run(6.25, 0.5);
+    REQUIRE(gate.running()->level() == 1);
+    CHECK_FALSE(gate.stored("toasters").has_value());
+
+    // The print ends; the run keeps its level, and the next run is measured from level 0.
+    gate.printing = false;
+    gate.run(10.0, 0.01);
+    CHECK(gate.running()->level() == 1);
+    gate.mgr.stop();
+    gate.mgr.start(ScreensaverType::FLYING_TOASTERS);
+    REQUIRE(gate.running() != nullptr);
+    CHECK(gate.running()->level() == 0);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "too heavy while printing blanks that run and marks nothing",
+                 "[screensaver][screensaver_gate]") {
+    GateHarness gate;
+    setenv("HELIX_SCREENSAVER_BUDGET_PCT", "10", 1);
+    gate.run(10.0, 0.0);
+    gate.printing = true;
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    helix::ui::SaverBase* maze = gate.running();
+    REQUIRE(maze != nullptr);
+
+    run_past_bottom(gate, *maze);
+
+    CHECK_FALSE(maze->is_active());
+    CHECK(gate.running() == nullptr);
+    CHECK(gate.mgr.is_active());
+    CHECK(ScreensaverManagerTestAccess::showing_black_screen(gate.mgr));
+    CHECK(helix::active_screen_hide_hold().is_held());
+    CHECK_FALSE(helix::active_refresh_period_hold().is_held());
+    CHECK_FALSE(gate.stored("maze").has_value());
+    CHECK_FALSE(gate.mgr.too_heavy_here(ScreensaverType::MAZE_3D));
+
+    gate.mgr.stop();
+    CHECK_FALSE(helix::active_screen_hide_hold().is_held());
+    gate.printing = false;
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    REQUIRE(gate.running() != nullptr);
+    CHECK(gate.running()->type() == ScreensaverType::MAZE_3D);
+    CHECK(gate.running()->level() == 0);
+}
+
 namespace {
 
 std::vector<std::string> dropdown_lines(lv_obj_t* dropdown) {

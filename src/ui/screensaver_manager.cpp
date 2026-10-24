@@ -139,10 +139,7 @@ void ScreensaverManager::launch(ScreensaverType type) {
         spdlog::warn("[ScreensaverManager] Every screensaver is stored as too heavy for board {} "
                      "on {}; showing a black screen",
                      board_, version_);
-        release_refresh_period();
-        show_black_screen(type);
-        count_run_start(helix::kSaverUsageBlackScreen);
-        hold_screen();
+        run_black_screen(type);
         return;
     }
 
@@ -378,26 +375,47 @@ void ScreensaverManager::on_idle_check_tick() {
                      "stepping down to level {}",
                      active_info_->name, *share * 100.0, budget * 100.0,
                      printing ? " while printing" : "", requested_level_);
-        record_level(requested_level_, false);
+        // The print's halved budget says nothing about what the board affords idle.
+        if (!printing) {
+            record_level(requested_level_, false);
+        }
         active_->request_level(requested_level_);
         return;
     case GateDecision::TOO_HEAVY: {
-        spdlog::warn("[ScreensaverManager] {} used {:.1f}% of a core at its lowest level against a "
-                     "{:.1f}% budget{}; it is too heavy for this board until the app version or "
-                     "board changes",
-                     active_info_->name, *share * 100.0, budget * 100.0,
-                     printing ? " while printing" : "");
-        record_level(gated_level_, true);
+        if (printing) {
+            spdlog::warn("[ScreensaverManager] {} used {:.1f}% of a core at its lowest level "
+                         "against a {:.1f}% budget while printing; blanking the screen for this "
+                         "run",
+                         active_info_->name, *share * 100.0, budget * 100.0);
+        } else {
+            spdlog::warn("[ScreensaverManager] {} used {:.1f}% of a core at its lowest level "
+                         "against a {:.1f}% budget; it is too heavy for this board until the app "
+                         "version or board changes",
+                         active_info_->name, *share * 100.0, budget * 100.0);
+            record_level(gated_level_, true);
+        }
         count_run_end(helix::SaverRunEnd::TOO_HEAVY, gated_level_);
         const ScreensaverType type = active_->type();
         active_->stop();
         active_ = nullptr;
         active_info_ = nullptr;
         gate_enabled_ = false;
-        launch(runnable_type_for_identity(type));
+        // Unmarked, the saver would resolve to itself again: a print blanks the rest of the run.
+        if (printing) {
+            run_black_screen(type);
+        } else {
+            launch(runnable_type_for_identity(type));
+        }
         return;
     }
     }
+}
+
+void ScreensaverManager::run_black_screen(ScreensaverType type) {
+    release_refresh_period();
+    show_black_screen(type);
+    count_run_start(helix::kSaverUsageBlackScreen);
+    hold_screen();
 }
 
 void ScreensaverManager::show_black_screen(ScreensaverType type) {
