@@ -193,6 +193,7 @@ src/printer/wait_line_reader.cpp
 src/printer/chamber_heater_backend_generic.cpp
 src/printer/chamber_heater_backend_panda_breath.cpp
 src/printer/consumption_sink.cpp
+src/printer/enclosure_top.cpp
 src/printer/filament_catalog.cpp
 src/printer/filament_consumption_tracker.cpp
 src/printer/filament_database.cpp
@@ -218,7 +219,6 @@ src/printer/printer_discovery.cpp
 src/printer/printer_discovery_parse.cpp
 src/printer/power_device_state.cpp
 src/printer/power_loss_sensor.cpp
-src/printer/enclosure_top.cpp
 src/printer/pre_print_option.cpp
 src/printer/pre_print_preferences.cpp
 src/printer/preflight_validator.cpp
