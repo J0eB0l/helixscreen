@@ -26,10 +26,16 @@ PrinterDiscovery hardware_with_objects(const std::vector<std::string>& names) {
     return hw;
 }
 
+/// The object set a real U1 capture lists around its purifier.
+PrinterDiscovery u1_hardware() {
+    return hardware_with_objects({"purifier", "fm175xx_reader", "tool", "extruder"});
+}
+
 } // namespace
 
-TEST_CASE("enclosure top: detected by its status object", "[enclosure_top]") {
-    PrinterDiscovery hw = hardware_with_objects({"purifier", "extruder"});
+TEST_CASE("enclosure top: detected by its status object beside a firmware marker",
+          "[enclosure_top]") {
+    PrinterDiscovery hw = u1_hardware();
     CHECK(firmware_reports_enclosure_top(hw));
     // Only the one field is subscribed: the object's fan readings change every tick.
     CHECK(required_status_objects(hw) == json{{"purifier", {"power_detected"}}});
@@ -41,7 +47,17 @@ TEST_CASE("enclosure top: a printer without the object subscribes nothing", "[en
     CHECK(required_status_objects(hw).empty());
 }
 
+TEST_CASE("enclosure top: a purifier object alone does not identify the firmware",
+          "[enclosure_top]") {
+    // "purifier" is a generic name another Klipper module can publish.
+    PrinterDiscovery hw = hardware_with_objects({"purifier", "extruder"});
+    CHECK_FALSE(firmware_reports_enclosure_top(hw));
+    CHECK(required_status_objects(hw).empty());
+    CHECK_FALSE(fitted_from_status(hw, json{{"purifier", {{"power_detected", true}}}}).has_value());
+}
+
 TEST_CASE("enclosure top: the reading follows the firmware's flag", "[enclosure_top]") {
+    const PrinterDiscovery hw = u1_hardware();
     // The shape a U1 with its top fitted reports.
     json s = {{"purifier",
                {{"power_detected", true},
@@ -49,35 +65,42 @@ TEST_CASE("enclosure top: the reading follows the firmware's flag", "[enclosure_
                 {"mode", 0},
                 {"inner_fan_rpm", 0.0},
                 {"exhaust_fan", json::object()}}}};
-    REQUIRE(fitted_from_status(s) == std::optional<bool>(true));
+    REQUIRE(fitted_from_status(hw, s) == std::optional<bool>(true));
     s["purifier"]["power_detected"] = false;
-    REQUIRE(fitted_from_status(s) == std::optional<bool>(false));
+    REQUIRE(fitted_from_status(hw, s) == std::optional<bool>(false));
 }
 
 TEST_CASE("enclosure top: a frame that does not carry the flag says nothing", "[enclosure_top]") {
     // Delta frames carry only what changed; silence is not a removal.
-    CHECK_FALSE(fitted_from_status(json::object()).has_value());
-    CHECK_FALSE(fitted_from_status(json{{"extruder", {{"temperature", 200.0}}}}).has_value());
-    CHECK_FALSE(fitted_from_status(json{{"purifier", {{"inner_fan_rpm", 1200.0}}}}).has_value());
-    CHECK_FALSE(fitted_from_status(json::array()).has_value());
+    const PrinterDiscovery hw = u1_hardware();
+    CHECK_FALSE(fitted_from_status(hw, json::object()).has_value());
+    CHECK_FALSE(fitted_from_status(hw, json{{"extruder", {{"temperature", 200.0}}}}).has_value());
+    CHECK_FALSE(
+        fitted_from_status(hw, json{{"purifier", {{"inner_fan_rpm", 1200.0}}}}).has_value());
+    CHECK_FALSE(fitted_from_status(hw, json::array()).has_value());
 }
 
 TEST_CASE("enclosure top: a flag of the wrong type says nothing", "[enclosure_top]") {
-    CHECK_FALSE(fitted_from_status(json{{"purifier", {{"power_detected", 1}}}}).has_value());
-    CHECK_FALSE(fitted_from_status(json{{"purifier", {{"power_detected", "true"}}}}).has_value());
-    CHECK_FALSE(fitted_from_status(json{{"purifier", {{"power_detected", nullptr}}}}).has_value());
-    CHECK_FALSE(fitted_from_status(json{{"purifier", true}}).has_value());
+    const PrinterDiscovery hw = u1_hardware();
+    CHECK_FALSE(fitted_from_status(hw, json{{"purifier", {{"power_detected", 1}}}}).has_value());
+    CHECK_FALSE(
+        fitted_from_status(hw, json{{"purifier", {{"power_detected", "true"}}}}).has_value());
+    CHECK_FALSE(
+        fitted_from_status(hw, json{{"purifier", {{"power_detected", nullptr}}}}).has_value());
+    CHECK_FALSE(fitted_from_status(hw, json{{"purifier", true}}).has_value());
 }
 
 TEST_CASE_METHOD(HelixTestFixture, "enclosure top: the U1 mock reports its top fitted",
                  "[enclosure_top][mock]") {
     unsetenv("HELIX_MOCK_ENCLOSURE_TOP");
     MoonrakerClientMock u1(MoonrakerClientMock::PrinterType::SNAPMAKER_U1);
+    const PrinterDiscovery& hw = u1.hardware();
+    REQUIRE(firmware_reports_enclosure_top(hw));
     const json status{{"purifier", u1.purifier_status()}};
-    CHECK(fitted_from_status(status) == std::optional<bool>(true));
+    CHECK(fitted_from_status(hw, status) == std::optional<bool>(true));
 
     setenv("HELIX_MOCK_ENCLOSURE_TOP", "0", 1);
-    CHECK(fitted_from_status(json{{"purifier", u1.purifier_status()}}) ==
+    CHECK(fitted_from_status(hw, json{{"purifier", u1.purifier_status()}}) ==
           std::optional<bool>(false));
     unsetenv("HELIX_MOCK_ENCLOSURE_TOP");
 

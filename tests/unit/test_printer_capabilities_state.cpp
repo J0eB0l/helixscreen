@@ -135,7 +135,7 @@ TEST_CASE("new capability subjects register under their XML names", "[printer_ca
     caps.deinit_subjects();
 }
 
-TEST_CASE("enclosure top: set from status, cleared by a printer that cannot report one",
+TEST_CASE("enclosure top: set from status, cleared by every new printer",
           "[printer_capabilities][enclosure_top]") {
     LVGLTestFixture fixture;
     PrinterCapabilitiesState caps;
@@ -147,15 +147,16 @@ TEST_CASE("enclosure top: set from status, cleared by a printer that cannot repo
     CHECK(cap(caps, Capability::EnclosureTopFitted) == 1);
     CHECK(caps.enclosure_top_fitted());
 
-    // The first status frame can land before discovery finishes, so a printer
-    // that reports a top keeps the reading it already has.
+    // Another printer that also reports a top must not inherit this one's answer
+    // before its own first frame.
     PrinterDiscovery reporting;
-    reporting.parse_objects(json{"purifier"});
+    reporting.parse_objects(json{"purifier", "fm175xx_reader"});
     CapabilityOverrides reporting_overrides;
     reporting_overrides.set_hardware(reporting);
     caps.set_hardware(reporting, reporting_overrides);
-    CHECK(caps.enclosure_top_fitted());
+    CHECK_FALSE(caps.enclosure_top_fitted());
 
+    caps.set_enclosure_top_fitted(true);
     PrinterDiscovery bare;
     bare.parse_objects(json{"fan"});
     CapabilityOverrides bare_overrides;

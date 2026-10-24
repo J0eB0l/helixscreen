@@ -221,7 +221,8 @@ class PrinterCapabilitiesState {
     void set_bed_drying(bool enclosed, bool can_bed_dry);
 
     /// Whether the firmware reports a removable enclosure top fitted, from a
-    /// status frame (include/enclosure_top.h). Main thread only.
+    /// status frame (include/enclosure_top.h). set_hardware() clears it.
+    /// Main thread only.
     void set_enclosure_top_fitted(bool fitted);
 
     /// The last enclosure-top report; false before any.

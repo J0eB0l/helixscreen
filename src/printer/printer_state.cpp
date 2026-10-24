@@ -345,7 +345,7 @@ void PrinterState::update_from_status(const json& state, double eventtime,
 
     // A removable enclosure top can come and go while connected; a frame that
     // does not mention it keeps the last report.
-    if (auto fitted = helix::enclosure_top::fitted_from_status(state)) {
+    if (auto fitted = helix::enclosure_top::fitted_from_status(discovery_, state)) {
         capabilities_state_.set_enclosure_top_fitted(*fitted);
     }
 

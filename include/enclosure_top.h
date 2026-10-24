@@ -34,11 +34,11 @@ namespace helix::enclosure_top {
 
 /// Whether an enclosure top is fitted, read out of a Moonraker status frame.
 ///
-/// nullopt is "this frame says nothing": the object or field absent, as it is
-/// from any delta frame where it did not change, or a field of a type no
-/// firmware sends. Callers must keep their last answer on nullopt, never read
-/// it as "removed". The object names are unique to the firmwares that publish
-/// them, so the frame alone identifies the source.
-[[nodiscard]] std::optional<bool> fitted_from_status(const nlohmann::json& status);
+/// nullopt is "this frame says nothing": the printer reports no enclosure top,
+/// the object or field is absent (as it is from any delta frame where it did not
+/// change), or the field has a type no firmware sends. Callers must keep their
+/// last answer on nullopt, never read it as "removed".
+[[nodiscard]] std::optional<bool> fitted_from_status(const PrinterDiscovery& hw,
+                                                     const nlohmann::json& status);
 
 } // namespace helix::enclosure_top

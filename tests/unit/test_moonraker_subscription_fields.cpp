@@ -787,6 +787,7 @@ TEST_CASE("Subscription: enclosure-top firmware subscribes the one field it read
         // The object's fan readings change every tick; only the flag is read.
         DiscoveryFixture fx;
         fx.add("purifier", {});
+        fx.add("fm175xx_reader", {});
         json subs = fx.build();
 
         REQUIRE(subs.contains("purifier"));
@@ -796,6 +797,14 @@ TEST_CASE("Subscription: enclosure-top firmware subscribes the one field it read
     SECTION("no purifier -> not subscribed") {
         DiscoveryFixture fx;
         fx.add("extruder", {"heater"});
+        json subs = fx.build();
+
+        REQUIRE_FALSE(subs.contains("purifier"));
+    }
+
+    SECTION("a purifier without the firmware's marker -> not subscribed") {
+        DiscoveryFixture fx;
+        fx.add("purifier", {});
         json subs = fx.build();
 
         REQUIRE_FALSE(subs.contains("purifier"));

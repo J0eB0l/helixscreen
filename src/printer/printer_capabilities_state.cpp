@@ -12,7 +12,6 @@
 
 #include "ui_update_queue.h"
 
-#include "enclosure_top.h"
 #include "layer_pause.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "pa_calibration.h"
@@ -198,11 +197,9 @@ void PrinterCapabilitiesState::set_hardware(const PrinterDiscovery& hardware,
     set_capability(Capability::HasShakeTune, hardware.has_klippain_shaketune() ? 1 : 0);
     set_capability(Capability::HasFanFeedback, hardware.has_fan_feedback() ? 1 : 0);
     set_capability(Capability::HasLedEffects, hardware.has_led_effects() ? 1 : 0);
-    // The report itself arrives in status frames, possibly before this runs, so
-    // it is cleared only for a printer that cannot make one.
-    if (!enclosure_top::firmware_reports_enclosure_top(hardware)) {
-        set_capability(Capability::EnclosureTopFitted, 0);
-    }
+    // A new printer's report arrives in its first status frame, which discovery
+    // dispatches after this, so the previous printer's answer never carries over.
+    set_capability(Capability::EnclosureTopFitted, 0);
 
     set_capability(Capability::HasExtraFans,
                    PrinterFanState::count_extra_controllable_fans(hardware.fans()) > 0 ? 1 : 0);
