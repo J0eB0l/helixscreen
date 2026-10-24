@@ -45,8 +45,8 @@ class PrintLightTimelapseControls {
     /**
      * @brief Initialize subjects for XML binding
      *
-     * Registers light_button_icon, timelapse_button_icon, timelapse_button_label
-     * subjects and XML event callbacks.
+     * Registers the light_button_icon and timelapse_button_icon subjects and
+     * the light XML event callback.
      */
     void init_subjects();
 
@@ -123,9 +123,7 @@ class PrintLightTimelapseControls {
 
     bool timelapse_enabled_ = false;
     lv_subject_t timelapse_button_subject_{};
-    lv_subject_t timelapse_label_subject_{};
     char timelapse_button_buf_[8] = ""; // MDI video/video-off icon
-    char timelapse_label_buf_[16] = "Off";
 
     helix::AsyncLifetimeGuard lifetime_;
 };

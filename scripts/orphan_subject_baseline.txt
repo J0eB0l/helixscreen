@@ -48,12 +48,6 @@ printer_detection_status  # src/ui/ui_wizard_printer_identify.cpp:314
 printer_icon_state  # src/ui/ui_printer_status_icon.cpp:40
 probe_acc_median  # src/ui/ui_probe_overlay.cpp:364
 probe_overlay_state  # src/ui/ui_probe_overlay.cpp:309
-ps_arrangement  # src/ui/ui_panel_print_status.cpp:635
-ps_checklist_compact  # src/ui/ui_panel_print_status.cpp:637
-ps_step_count  # src/ui/ui_print_status_tiles.cpp:162
-ps_step_current_name  # src/ui/ui_print_status_tiles.cpp:168
-ps_step_position_text  # src/ui/ui_print_status_tiles.cpp:165
-ps_strip_stacked  # src/ui/ui_panel_print_status.cpp:636
 selected_filename  # src/ui/ui_panel_print_select.cpp:298
 selected_thumbnail  # src/ui/ui_panel_print_select.cpp:308
 settings_has_backlight  # src/system/display_settings_manager.cpp:241

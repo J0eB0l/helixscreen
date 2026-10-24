@@ -12,7 +12,6 @@
 #include "ui_print_layer_pause.h"
 #include "ui_print_light_timelapse.h"
 #include "ui_print_tune_overlay.h"
-#include "ui_temperature_utils.h" // kHeaterStatusBufBytes
 
 #include "overlay_base.h"
 #include "print_control_buttons.h"
@@ -359,16 +358,8 @@ class PrintStatusPanel : public OverlayBase {
 
     SubjectManager subjects_; ///< RAII manager for automatic subject cleanup
 
-    lv_subject_t nozzle_status_subject_{};        ///< duty text ("" = none)
-    lv_subject_t bed_status_subject_{};           ///< duty text ("" = none)
-    lv_subject_t chamber_status_subject_{};       ///< duty text ("" = none)
-    lv_subject_t nozzle_status_state_subject_{};  ///< HeaterStatusState int
-    lv_subject_t bed_status_state_subject_{};     ///< HeaterStatusState int
-    lv_subject_t chamber_status_state_subject_{}; ///< HeaterStatusState int
     lv_subject_t
         view_toggle_icon_subject_{}; ///< MDI codepoint for btn_view_toggle_icon (cube/layers)
-    lv_subject_t
-        camera_button_label_subject_{}; ///< "Cam"/"Camera" — short form at Medium and below
 
     // Preparing state subjects
     lv_subject_t preparing_visible_subject_{};  // int: 1 if preparing, 0 otherwise
@@ -384,20 +375,6 @@ class PrintStatusPanel : public OverlayBase {
     // 1 once the user taps the print end overlay to dismiss it. Reset to 0
     // on new-print transitions so the next outcome's overlay appears normally.
     lv_subject_t end_overlay_dismissed_subject_{};
-
-    // Bound only by the fan row, mini-graph and two-row action grid that the
-    // tile layout replaces; nothing measures them, so they stay at 0.
-    lv_subject_t fans_fit_subject_{};
-    lv_subject_t graph_fits_subject_{};
-    lv_subject_t row1_stacked_subject_{};
-    lv_subject_t row1_tall_subject_{};
-    lv_subject_t row2_stacked_subject_{};
-    lv_subject_t row2_tall_subject_{};
-    lv_subject_t aux_fan_present_subject_{};
-    lv_subject_t fan_row_density_subject_{};
-    lv_subject_t aux_icon_visible_subject_{};
-    lv_subject_t aux_full_visible_subject_{};
-    lv_subject_t aux_short_visible_subject_{};
 
     // The tile arrangement PrintStatusLayoutFitter measures (ps_arrangement,
     // ps_strip_stacked, ps_checklist_compact).
@@ -437,12 +414,8 @@ class PrintStatusPanel : public OverlayBase {
     lv_subject_t print_controls_enabled_subject_{}; ///< 1 when lifecycle.is_active()
 
     // Subject storage buffers
-    char nozzle_status_buf_[helix::ui::temperature::kHeaterStatusBufBytes] = "Off";
-    char bed_status_buf_[helix::ui::temperature::kHeaterStatusBufBytes] = "Off";
-    char chamber_status_buf_[helix::ui::temperature::kHeaterStatusBufBytes] = "";
     char objects_text_buf_[32] = "";        ///< "X of Y obj" buffer
     char view_toggle_icon_buf_[8] = "";     ///< View toggle icon codepoint (cube/layers)
-    char camera_button_label_buf_[16] = ""; ///< Short/long camera label per ui_breakpoint
     char print_pause_reason_buf_[256] = ""; ///< Reason line shown under "Print Paused"
 
     //
@@ -513,7 +486,6 @@ class PrintStatusPanel : public OverlayBase {
     bool exclude_map_requested_ = false; ///< Open the exclude map on the next activation
 
     // Control buttons (stored for enable/disable on state changes)
-    lv_obj_t* btn_timelapse_ = nullptr;
     lv_obj_t* btn_tune_ = nullptr;
     lv_obj_t* btn_cancel_ = nullptr;
 
@@ -548,12 +520,8 @@ class PrintStatusPanel : public OverlayBase {
                            const std::string& object_name);
 
     void update_all_displays();
-    void update_heater_status_rows();
     void show_gcode_viewer(bool show);
     void update_button_states(); ///< Enable/disable buttons based on current print state
-
-    /// "Cam"/"Camera" per ui_breakpoint — full word only where Row 2 has room
-    void update_camera_button_label(int breakpoint_value);
 
     /// The two per-job resets, shared by the job-state edge and the
     /// exit-from-Preparing edge. A print started in-app only ever reaches the
@@ -577,7 +545,6 @@ class PrintStatusPanel : public OverlayBase {
     //
 
     void handle_temp_card_click();
-    void update_chamber_status();
     void recompute_end_overlay_visibility();
     void recompute_paused_overlay_visibility();
     void handle_tune_button();
@@ -605,7 +572,7 @@ class PrintStatusPanel : public OverlayBase {
     /// thread (observer callbacks + gcode-load paths).
     void recompute_scoped_runout();
 
-    // SIZE_CHANGED on controls_section — triggers density + fit recompute.
+    // SIZE_CHANGED on overlay_content — triggers the tile layout recompute.
     // Direct lv_obj_add_event_cb registration is correct here: SIZE_CHANGED
     // has no XML binding equivalent (only click/value events go through XML).
     static void on_content_size_changed(lv_event_t* e);
@@ -669,7 +636,7 @@ class PrintStatusPanel : public OverlayBase {
     ObserverGuard ams_color_observer_; ///< Tracks AMS/Spoolman filament color for gcode viewer
     ObserverGuard tool_map_version_observer_; ///< Refreshes gcode viewer colors on tool remap
     ObserverGuard active_tool_observer_;    ///< Refreshes nozzle temp display with tool name prefix
-    ObserverGuard chamber_temp_observer_;   ///< Updates chamber status text
+    ObserverGuard chamber_temp_observer_;   ///< Chamber chip reading
     ObserverGuard chamber_target_observer_; ///< Effective setpoint moved (fan-parked M141 sets)
     ObserverGuard chamber_mode_observer_;   ///< Control mode moved (Heating/Maintaining/Resting)
     ObserverGuard print_identity_observer_; ///< Reconciles when the print's identity changes
@@ -682,7 +649,6 @@ class PrintStatusPanel : public OverlayBase {
     ObserverGuard end_overlay_dismissed_observer_; ///< Ditto; second input to the same recompute
     ObserverGuard print_message_observer_;  ///< Drives pause reason text from print_stats.message
     ObserverGuard pending_action_observer_; ///< observes PrintControlButtons' print_pending_action
-    ObserverGuard camera_label_observer_;   ///< observes ui_breakpoint → camera label length
                                             ///< for the paused overlay
 
     // Per-fan speed observers — each watches a DYNAMIC subject, so a paired

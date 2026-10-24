@@ -65,8 +65,6 @@ class PrintProgressText {
     lv_subject_t elapsed_subject_{};
     lv_subject_t remaining_subject_{};
     lv_subject_t eta_subject_{};
-    lv_subject_t speed_subject_{};
-    lv_subject_t flow_subject_{};
 
     char layer_text_buf_[80] = "Layer 0 / 0";
     char filament_used_text_buf_[32] = "";

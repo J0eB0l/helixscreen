@@ -194,9 +194,10 @@ class PortraitExcludePanelFixture : public PrintStatusPanelFixture {
 
 } // namespace
 
-TEST_CASE_METHOD(PortraitExcludePanelFixture,
-                 "In portrait the print status object list covers the controls and not the preview",
-                 "[exclude_badges][print_status][pre_start_exclude][portrait]") {
+TEST_CASE_METHOD(
+    PortraitExcludePanelFixture,
+    "Stacked, the print status object list covers the printer tile and not the preview",
+    "[exclude_badges][print_status][pre_start_exclude][portrait]") {
     state().excluded_objects_state().set_defined_objects_with_geometry(
         {placed("Zed", 30, 30), placed("Alpha", 90, 30), placed("Mid", 150, 30)});
     UpdateQueue::instance().drain();
@@ -209,7 +210,11 @@ TEST_CASE_METHOD(PortraitExcludePanelFixture,
 
     lv_obj_t* rows = lv_obj_find_by_name(root_, "rows_container");
     REQUIRE(rows != nullptr);
-    lv_obj_t* controls = lv_obj_find_by_name(root_, "controls_section");
+    lv_subject_t* arrangement = lv_xml_get_subject(nullptr, "ps_arrangement");
+    REQUIRE(arrangement != nullptr);
+    REQUIRE(lv_subject_get_int(arrangement) ==
+            static_cast<int>(helix::PrintStatusArrangement::Stacked));
+    lv_obj_t* controls = lv_obj_find_by_name(root_, "ps_printer_tile");
     lv_obj_t* preview = lv_obj_find_by_name(root_, "thumbnail_section");
     REQUIRE(controls != nullptr);
     REQUIRE(preview != nullptr);
@@ -217,8 +222,10 @@ TEST_CASE_METHOD(PortraitExcludePanelFixture,
     lv_obj_get_coords(lv_obj_get_parent(rows), &list);
     lv_obj_get_coords(controls, &ctl);
     lv_obj_get_coords(preview, &card);
-    INFO("list y1=" << list.y1 << " controls y1=" << ctl.y1 << " preview y2=" << card.y2);
+    INFO("list y1=" << list.y1 << " y2=" << list.y2 << " tile y1=" << ctl.y1 << " y2=" << ctl.y2
+                    << " preview y2=" << card.y2);
     CHECK(list.y1 <= ctl.y1);
+    CHECK(list.y2 >= ctl.y2);
     CHECK(list.y1 > card.y2);
 
     PrintStatusPanelTestAccess::hide_exclude(panel());

@@ -42,6 +42,7 @@ TEST_CASE_METHOD(PrintStatusPanelFixture, "Print status: speed text follows the 
                  "[print_status][progress_text]") {
     state().update_from_status({{"gcode_move", {{"speed_factor", 1.5}}}});
     helix::ui::UpdateQueue::instance().drain();
+    process_lvgl(50); // the chip update is coalesced onto a timer
 
-    CHECK(subject_text("print_speed_text") == "150%");
+    CHECK(subject_text("ps_chip_speed_flow_text").rfind("150%", 0) == 0);
 }

@@ -26,8 +26,6 @@ void PrintProgressText::init_subjects(SubjectManager& subjects) {
     UI_MANAGED_SUBJECT_STRING(remaining_subject_, remaining_buf_, "0h 00m", "print_remaining",
                               subjects);
     UI_MANAGED_SUBJECT_STRING(eta_subject_, eta_buf_, "", "print_eta", subjects);
-    UI_MANAGED_SUBJECT_STRING(speed_subject_, speed_buf_, "100%", "print_speed_text", subjects);
-    UI_MANAGED_SUBJECT_STRING(flow_subject_, flow_buf_, "100%", "print_flow_text", subjects);
 }
 
 void PrintProgressText::refresh_layer() {
@@ -69,11 +67,9 @@ void PrintProgressText::refresh_speed_flow() {
     // changed string is worth a relabel.
     if (text.speed != speed_buf_) {
         std::snprintf(speed_buf_, sizeof(speed_buf_), "%s", text.speed.c_str());
-        lv_subject_copy_string(&speed_subject_, speed_buf_);
     }
     if (text.flow != flow_buf_) {
         std::snprintf(flow_buf_, sizeof(flow_buf_), "%s", text.flow.c_str());
-        lv_subject_copy_string(&flow_subject_, flow_buf_);
     }
 }
 

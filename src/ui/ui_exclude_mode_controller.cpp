@@ -55,9 +55,10 @@ void ExcludeModeController::show(const ExcludeModeTargets& targets,
         }
     }
 
-    // Landscape covers the right-hand column by ratio; portrait sizes the list
-    // to the control stack it covers, up to the preview card, so measure both.
-    const bool portrait = helix::is_portrait_layout(helix::LayoutManager::instance().type());
+    // Side by side covers the right-hand column by ratio; stacked sizes the
+    // list to the controls it covers, up to the preview card, so measure both.
+    const bool portrait = targets.stacked.value_or(
+        helix::is_portrait_layout(helix::LayoutManager::instance().type()));
     int32_t controls_h = 0;
     int32_t content_h = 0;
     int32_t gap = 0;

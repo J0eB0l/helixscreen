@@ -93,10 +93,11 @@
     <!-- The printer-image callout pill: a card-colored, bordered chip that
          lays its children out icon-first (row_reverse, so a nested icon
          renders left of a template-declared label). Shared so an icon-only
-         chip (no label) still looks identical to a labeled one. -->
+         chip (no label) still looks identical to a labeled one. Half
+         transparent, so the picture under a chip still reads. -->
     <style name="activity_chip"
            layout="flex" flex_flow="row_reverse" flex_main_place="center" flex_cross_place="center" pad_hor="#space_xs"
-           pad_ver="#space_xxs" pad_column="#space_xxs" radius="#space_md" bg_color="#card_bg" bg_opa="220"
+           pad_ver="#space_xxs" pad_column="#space_xxs" radius="#space_md" bg_color="#card_bg" bg_opa="50%"
            border_width="1" border_color="#border"/>
 
     <!-- LEDs overlay: the running effect/preset or the chosen level fills its

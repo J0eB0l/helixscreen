@@ -67,7 +67,7 @@ inline constexpr int32_t kPortraitSideListFallbackPct = 50;
  * the controls were ~55% survived them falling to 14-34% and started eating a
  * live tappable object map instead.
  *
- * @param controls_h Measured height of `controls_section`. <= 0 means unmeasured.
+ * @param controls_h Measured height of the controls the list covers. <= 0 means unmeasured.
  * @param content_h  Measured CONTENT height of `overlay_content` — what a
  *                   percentage would have resolved against. <= 0 means unmeasured.
  * @param gap        The column's `pad_gap`, so the list clears the control stack
@@ -97,7 +97,7 @@ inline constexpr int32_t portrait_side_list_height(int32_t controls_h, int32_t c
 
 /**
  * @param portrait   True when overlay_content is stacked.
- * @param controls_h Measured `controls_section` height. Portrait only; ignored
+ * @param controls_h Measured height of the controls the list covers. Portrait only; ignored
  *                   in landscape, where the 44%/100% rule is already exact.
  * @param content_h  Measured `overlay_content` content height. Portrait only.
  * @param gap        The column's `pad_gap`. Portrait only.
@@ -107,9 +107,9 @@ inline constexpr SideListGeometry exclude_side_list_geometry(bool portrait, int3
                                                              int32_t content_h = 0, int32_t gap = 0,
                                                              int32_t room_h = 0) {
     if (!portrait) {
-        // 44% ~= 4/9, the controls column's share of the landscape row — it is
-        // flex_grow="4" against thumbnail_section's flex_grow="5", so this is
-        // derived, not tuned, and needs no measurement.
+        // 44% ~= 4/9, the options column's share of print details' landscape
+        // row (flex_grow 4 against 5). Print status splits its tiles 1:1, so
+        // there the list covers all but the inner edge of the printer tile.
         return SideListGeometry{44, 100, 0, false};
     }
     return SideListGeometry{100, kPortraitSideListFallbackPct,

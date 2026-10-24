@@ -94,21 +94,6 @@ ALLOWED_OMISSIONS: dict[str, dict[str, dict[str, str]]] = {
             "tiny; micro is landscape-only and always lays Motion out inline.",
         },
     },
-    "ui_xml/portrait/print_status_panel.xml": {
-        "subject": {
-            "ui_breakpoint": "the base hides speed_flow_row below MEDIUM (breakpoints 0-2) because the "
-            "landscape controls column has no room for it. Portrait merged Speed/Flow and the "
-            "filament+AMS cluster into ONE row that fits at every portrait width, so there is "
-            "nothing left to hide — the row is rendered unconditionally, not dropped.",
-        },
-        "condition": {
-            # Only for the conds CONDITION_ALLOWANCE_SCOPE below names.
-            "bind_style_if@cond": "the base's two action rows take a fixed height when "
-            "print_status_rowN_tall says their labels must stack. Portrait has ONE action row "
-            "whose buttons are always icon over label at button_height, so it has no height to "
-            "switch.",
-        },
-    },
 }
 
 # A condition allowance covers only base expressions matching its pattern: a new
@@ -118,9 +103,6 @@ CONDITION_ALLOWANCE_SCOPE: dict[str, dict[str, re.Pattern]] = {
     "ui_xml/micro/controls_panel.xml": {
         "calib_tile@disabled_cond": re.compile(r"^controls_operation_in_progress eq 1$"),
         "bind_style_if@cond": re.compile(r"^ui_breakpoint (ge 2 and|le 1 or) ui_is_portrait eq [01]$"),
-    },
-    "ui_xml/portrait/print_status_panel.xml": {
-        "bind_style_if@cond": re.compile(r"^print_status_row\d_tall eq 1$"),
     },
 }
 

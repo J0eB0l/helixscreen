@@ -5,7 +5,6 @@ unreferenced:bed_temperature
 unreferenced:chamber_temperature
 unreferenced:on_ip_input_changed
 unreferenced:on_port_input_changed
-unreferenced:on_print_status_more
 unreferenced:on_printer_image_card_clicked
 unreferenced:on_printer_image_usb_clicked
 unreferenced:on_printer_name_changed

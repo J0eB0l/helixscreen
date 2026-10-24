@@ -6,10 +6,15 @@
      shared CalloutPresenter positions the image, chips, lines and glows inside
      ps_printer_area's content box; everything else is bound here.
      ps_callout_mode: 0 ImageOnly, 1 Pinned (compact chips on the picture),
-     2 Docked (untagged image, no lines or glows), 3 BothSides, 4 OneSide. -->
+     2 Docked (untagged image, no lines or glows), 3 BothSides, 4 OneSide.
+     A glow is strong while its chip's tone is Active (a heater climbing, a fan
+     spinning, the light on) and soft otherwise; ps_glow_<key> 0 hides it. -->
 <component>
-  <view extends="lv_obj"
-        width="100%" height="100%" style_pad_all="0" style_bg_opa="0" style_border_width="0" scrollable="false">
+  <styles>
+    <style name="glow_soft" bg_opa="40"/>
+    <style name="glow_strong" bg_opa="110"/>
+  </styles>
+  <view extends="ui_card" style_pad_all="0" style_radius="#border_radius" style_clip_corner="true" scrollable="false">
     <lv_obj name="ps_printer_area"
             width="100%" height="100%" style_pad_all="#space_sm" style_bg_opa="0" style_border_width="0"
             scrollable="false">
@@ -19,75 +24,97 @@
               clickable="false" ignore_layout="true">
         <bind_flag_if_eq subject="ps_callout_mode" flag="hidden" ref_value="0"/>
         <lv_obj name="ps_glow_nozzle"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#danger" style_border_width="0" scrollable="false"
+                clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_nozzle_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_nozzle" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_bed"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#danger" style_border_width="0" scrollable="false"
+                clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_bed_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_bed" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_chamber"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#danger" style_border_width="0" scrollable="false"
+                clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_chamber_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_chamber" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_part_fan"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#info" style_border_width="0" scrollable="false" clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_part_fan_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_part_fan" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_hotend_fan"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#info" style_border_width="0" scrollable="false" clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_hotend_fan_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_hotend_fan" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_aux_fan"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#info" style_border_width="0" scrollable="false" clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_aux_fan_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_aux_fan" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_light"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#warning" style_border_width="0" scrollable="false"
+                clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_light_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_light" flag="hidden" ref_value="0"/>
         </lv_obj>
         <lv_obj name="ps_glow_speed_flow"
-                style_radius="32767" style_bg_color="#warning" style_bg_opa="50" style_border_width="0"
-                scrollable="false" clickable="false">
+                style_radius="32767" style_bg_color="#warning" style_border_width="0" scrollable="false"
+                clickable="false">
+          <style name="glow_soft"/>
+          <bind_style_if_eq name="glow_strong" subject="ps_chip_speed_flow_tone" ref_value="1"/>
           <bind_flag_if_eq subject="ps_glow_speed_flow" flag="hidden" ref_value="0"/>
         </lv_obj>
         <leader_line name="ps_line_nozzle" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_nozzle eq 0 or ps_chip_nozzle_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_bed" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_bed eq 0 or ps_chip_bed_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_chamber" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_chamber eq 0 or ps_chip_chamber_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_part_fan" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_part_fan eq 0 or ps_chip_part_fan_shown eq 0"
                         flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_hotend_fan" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_hotend_fan eq 0 or ps_chip_hotend_fan_shown eq 0"
                         flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_aux_fan" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_aux_fan eq 0 or ps_chip_aux_fan_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_light" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_light eq 0 or ps_chip_light_shown eq 0" flag="hidden"/>
         </leader_line>
         <leader_line name="ps_line_speed_flow" style_line_width="1" style_line_color="#text_muted">
+          <style name="styles.leader_dotted"/>
           <bind_flag_if cond="ps_callout_mode lt 3 or ps_line_speed_flow eq 0 or ps_chip_speed_flow_shown eq 0"
                         flag="hidden"/>
         </leader_line>
         <activity_chip name="ps_chip_nozzle"
                        text_subject="ps_chip_nozzle_text" shown_subject="ps_chip_nozzle_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_nozzle_tone"
+                       progress_subject="ps_chip_nozzle_progress">
           <bind_flag_if cond="ps_chip_nozzle_shown eq 0 or ps_toolhead_merged eq 1" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_temp_card_clicked"/>
           <icon src="heater" size="xs">
@@ -96,7 +123,8 @@
         </activity_chip>
         <activity_chip name="ps_chip_bed"
                        text_subject="ps_chip_bed_text" shown_subject="ps_chip_bed_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_bed_tone"
+                       progress_subject="ps_chip_bed_progress">
           <bind_flag_if cond="ps_chip_bed_shown eq 0" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_temp_card_clicked"/>
           <icon src="radiator" size="xs">
@@ -105,7 +133,8 @@
         </activity_chip>
         <activity_chip name="ps_chip_chamber"
                        text_subject="ps_chip_chamber_text" shown_subject="ps_chip_chamber_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_chamber_tone"
+                       progress_subject="ps_chip_chamber_progress">
           <bind_flag_if cond="ps_chip_chamber_shown eq 0" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_temp_card_clicked"/>
           <icon src="fridge_industrial" size="xs">
@@ -114,7 +143,8 @@
         </activity_chip>
         <activity_chip name="ps_chip_part_fan"
                        text_subject="ps_chip_part_fan_text" shown_subject="ps_chip_part_fan_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_part_fan_tone"
+                       progress_subject="ps_chip_part_fan_progress">
           <bind_flag_if cond="ps_chip_part_fan_shown eq 0 or ps_toolhead_merged eq 1" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_print_status_fans_clicked"/>
           <icon src="fan" size="xs">
@@ -123,7 +153,8 @@
         </activity_chip>
         <activity_chip name="ps_chip_hotend_fan"
                        text_subject="ps_chip_hotend_fan_text" shown_subject="ps_chip_hotend_fan_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_hotend_fan_tone"
+                       progress_subject="ps_chip_hotend_fan_progress">
           <bind_flag_if cond="ps_chip_hotend_fan_shown eq 0" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_print_status_fans_clicked"/>
           <icon src="fan" size="xs">
@@ -132,36 +163,50 @@
         </activity_chip>
         <activity_chip name="ps_chip_aux_fan"
                        text_subject="ps_chip_aux_fan_text" shown_subject="ps_chip_aux_fan_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_aux_fan_tone"
+                       progress_subject="ps_chip_aux_fan_progress">
           <bind_flag_if cond="ps_chip_aux_fan_shown eq 0" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_print_status_fans_clicked"/>
           <icon src="fan" size="xs">
             <bind_flag_if_eq subject="ps_callout_mode" flag="hidden" ref_value="1"/>
           </icon>
         </activity_chip>
-        <activity_chip name="ps_chip_light"
-                       text_subject="ps_chip_light_text" shown_subject="ps_chip_light_shown"
-                       compact_subject="ps_callout_mode">
-          <bind_flag_if cond="ps_chip_light_shown eq 0" flag="hidden"/>
+        <lv_obj name="ps_chip_light" width="content" height="content" scrollable="false" clickable="true">
+          <style name="styles.activity_chip"/>
+          <bind_flag_if_eq subject="ps_chip_light_shown" flag="hidden" ref_value="0"/>
+          <bind_state_if_eq subject="led_command_in_flight" state="disabled" ref_value="1"/>
           <event_cb trigger="clicked" callback="on_print_status_light"/>
-          <icon src="lightbulb_on" size="xs">
-            <bind_flag_if_eq subject="ps_callout_mode" flag="hidden" ref_value="1"/>
+          <icon name="ps_chip_light_lit" src="lightbulb_on" size="xs" variant="warning">
+            <bind_flag_if_not_eq subject="ps_chip_light_tone" flag="hidden" ref_value="1"/>
           </icon>
-        </activity_chip>
+          <icon name="ps_chip_light_dark" src="lightbulb_outline" size="xs" variant="muted">
+            <bind_flag_if_eq subject="ps_chip_light_tone" flag="hidden" ref_value="1"/>
+          </icon>
+        </lv_obj>
         <activity_chip name="ps_chip_speed_flow"
                        text_subject="ps_chip_speed_flow_text" shown_subject="ps_chip_speed_flow_shown"
-                       compact_subject="ps_callout_mode">
+                       compact_subject="ps_callout_mode" tone_subject="ps_chip_speed_flow_tone"
+                       progress_subject="ps_chip_speed_flow_progress">
           <bind_flag_if cond="ps_chip_speed_flow_shown eq 0" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_print_status_tune"/>
           <icon src="speed" size="xs">
             <bind_flag_if_eq subject="ps_callout_mode" flag="hidden" ref_value="1"/>
           </icon>
         </activity_chip>
-        <activity_chip name="ps_chip_toolhead" text_subject="ps_chip_toolhead_text" compact_subject="ps_callout_mode">
+        <activity_chip name="ps_chip_toolhead"
+                       text_subject="ps_chip_toolhead_text" compact_subject="ps_callout_mode"
+                       tone_subject="ps_chip_nozzle_tone" progress_subject="ps_chip_nozzle_progress">
           <bind_flag_if_eq subject="ps_toolhead_merged" flag="hidden" ref_value="0"/>
           <event_cb trigger="clicked" callback="on_temp_card_clicked"/>
         </activity_chip>
       </lv_obj>
+    </lv_obj>
+    <!-- A chamber heater fault, an offline heater or a refused target. Rides
+         over the top of the picture and hides itself while the heater is healthy. -->
+    <lv_obj name="chamber_fault_banner_slot"
+            width="100%" height="content" ignore_layout="true" align="top_mid" style_pad_all="#space_xs"
+            style_border_width="0" style_bg_opa="0" scrollable="false">
+      <chamber_fault_banner name="chamber_fault_banner"/>
     </lv_obj>
   </view>
 </component>

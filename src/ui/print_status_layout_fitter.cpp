@@ -13,12 +13,21 @@ namespace helix::ui {
 
 namespace {
 
-/// The strip's progress block: the big percentage, then the time line and the
-/// filament line, with the bar between them.
+/// components/progress_bar.xml's height.
+constexpr int32_t kProgressBarHeight = 12;
+
+/// The strip's progress block (components/print_status_strip.xml), rows
+/// flush: the percent line in font_body_bold, the bar, the filament line and
+/// the up-next line.
 int32_t strip_text_height() {
-    const int32_t heading = lv_font_get_line_height(theme_manager_get_font("font_heading"));
+    const int32_t heading = lv_font_get_line_height(theme_manager_get_font("font_body_bold"));
     const int32_t small = lv_font_get_line_height(theme_manager_get_font("font_small"));
-    return heading + 2 * small + 2 * theme_manager_get_spacing("space_xs");
+    return heading + kProgressBarHeight + 2 * small;
+}
+
+/// The strip is a ui_card: its padding and border on both sides.
+int32_t strip_chrome() {
+    return 2 * (theme_manager_get_spacing("space_sm") + theme_manager_get_spacing("border_width"));
 }
 
 } // namespace
@@ -27,13 +36,13 @@ PrintStatusLayoutFitter::PrintStatusLayoutFitter(std::string log_tag, Subjects s
     : log_tag_(std::move(log_tag)), subjects_(subjects), host_(std::move(host)) {}
 
 int32_t PrintStatusLayoutFitter::strip_row_height() {
-    return std::max(theme_manager_get_spacing("button_height"), strip_text_height()) +
-           2 * theme_manager_get_spacing("space_sm");
+    return std::max(theme_manager_get_spacing("ps_strip_button"), strip_text_height()) +
+           strip_chrome();
 }
 
 int32_t PrintStatusLayoutFitter::strip_stacked_height() {
     return strip_text_height() + theme_manager_get_spacing("space_sm") +
-           theme_manager_get_spacing("button_height") + 2 * theme_manager_get_spacing("space_sm");
+           theme_manager_get_spacing("button_height") + strip_chrome();
 }
 
 const PrintStatusTileLayout& PrintStatusLayoutFitter::recompute() {

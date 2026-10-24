@@ -641,6 +641,16 @@
     <px name="button_height_lg_xlarge" value="112"/>
     <px name="button_height_lg_xxlarge" value="128"/>
 
+    <!-- Print status strip buttons beside the progress: square at this size
+         each way, narrower where four do not fit the row's share. -->
+    <px name="ps_strip_button_micro" value="58"/>
+    <px name="ps_strip_button_tiny" value="66"/>
+    <px name="ps_strip_button_small" value="76"/>
+    <px name="ps_strip_button_medium" value="90"/>
+    <px name="ps_strip_button_large" value="112"/>
+    <px name="ps_strip_button_xlarge" value="120"/>
+    <px name="ps_strip_button_xxlarge" value="144"/>
+
     <!-- Other component dimensions -->
     <!-- header_height is responsive: _small/_medium/_large registered as header_height based on screen height -->
     <px name="header_height_micro" value="28"/>

@@ -229,7 +229,7 @@ void XMLTestFixture::setup_global_xml_registrations_once() {
     lv_xml_register_component_from_file("A:ui_xml/overlay_panel.xml");
     lv_xml_register_component_from_file("A:ui_xml/components/nozzle_icon.xml");
 
-    // The heater status area rides inside controls_panel, temp_card_unified and
+    // The heater status area rides inside controls_panel and
     // temp_graph_overlay; an unregistered instance silently vanishes from the
     // tree and only the surrounding row renders.
     lv_xml_register_component_from_file("A:ui_xml/components/heater_status.xml");

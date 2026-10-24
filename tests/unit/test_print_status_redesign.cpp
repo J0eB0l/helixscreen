@@ -63,12 +63,10 @@ const ImageRegions& tagged_regions() {
     return r;
 }
 
-/// A panel built at a geometry, with a printer tile of the given size under
-/// its content box: the tile layout replaces the panel's own XML later, so
-/// these cases attach the component themselves.
+/// The panel's own XML built at a screen size, with a tagged printer picture.
 class TileFixture : public PrintStatusPanelFixture {
   public:
-    TileFixture(int32_t screen_w, int32_t screen_h, int32_t tile_w, int32_t tile_h)
+    TileFixture(int32_t screen_w, int32_t screen_h)
         : PrintStatusPanelFixture([screen_w, screen_h]() -> std::shared_ptr<void> {
               // The chips read the light and tool-badge subjects their owners publish.
               helix::led::LedController::instance().init(nullptr, nullptr);
@@ -76,12 +74,7 @@ class TileFixture : public PrintStatusPanelFixture {
               return std::make_shared<helix::test::ScopedGeometry>(screen_w, screen_h);
           }) {
         lv_obj_remove_flag(root_, LV_OBJ_FLAG_HIDDEN);
-        holder_ = lv_obj_create(lv_obj_find_by_name(root_, "overlay_content"));
-        lv_obj_add_flag(holder_, LV_OBJ_FLAG_FLOATING);
-        lv_obj_set_size(holder_, tile_w, tile_h);
-        lv_obj_set_style_pad_all(holder_, 0, 0);
-        tile_ =
-            static_cast<lv_obj_t*>(lv_xml_create(holder_, "print_status_printer_tile", nullptr));
+        tile_ = lv_obj_find_by_name(root_, "ps_printer_tile");
         REQUIRE(tile_ != nullptr);
         tiles().set_image_source([]() {
             PrintStatusTiles::Image img;
@@ -91,7 +84,7 @@ class TileFixture : public PrintStatusPanelFixture {
             img.regions = &tagged_regions();
             return img;
         });
-        lv_obj_update_layout(root_);
+        settle();
     }
 
     PrintStatusTiles& tiles() {
@@ -102,34 +95,22 @@ class TileFixture : public PrintStatusPanelFixture {
     void settle() {
         UpdateQueue::instance().drain();
         lv_obj_update_layout(root_);
+        UpdateQueue::instance().drain();
+        lv_obj_update_layout(root_);
         tiles().update_now();
     }
 
-    lv_obj_t* holder_ = nullptr;
     lv_obj_t* tile_ = nullptr;
 };
 
 struct Landscape800 : TileFixture {
-    Landscape800() : TileFixture(800, 480, 360, 300) {}
+    Landscape800() : TileFixture(800, 480) {}
 };
-/// The printer tile the arrangement gives a portrait content box.
-helix::PrintStatusTileLayout portrait_tiles(int32_t content_w, int32_t content_h) {
-    return helix::decide_print_status_tile_layout(
-        content_w, content_h, theme_manager_get_spacing("space_md"),
-        helix::ui::PrintStatusLayoutFitter::strip_row_height(),
-        helix::ui::PrintStatusLayoutFitter::strip_stacked_height());
-}
-
-// Content boxes measured from the running app (the spec's size table).
 struct Portrait320 : TileFixture {
-    Portrait320()
-        : TileFixture(320, 480, portrait_tiles(304, 346).printer_w,
-                      portrait_tiles(304, 346).printer_h) {}
+    Portrait320() : TileFixture(320, 480) {}
 };
 struct Portrait272 : TileFixture {
-    Portrait272()
-        : TileFixture(272, 480, portrait_tiles(256, 346).printer_w,
-                      portrait_tiles(256, 346).printer_h) {}
+    Portrait272() : TileFixture(272, 480) {}
 };
 
 void set_int(lv_subject_t* s, int v) {
@@ -324,4 +305,134 @@ TEST_CASE_METHOD(Landscape800, "nozzle chip shows active tool on a toolchanger",
     lv_subject_copy_string(tools.get_tool_badge_text_subject(), "");
     settle();
     CHECK(subject_str("ps_chip_nozzle_text").rfind("T1", 0) == std::string::npos);
+}
+
+namespace {
+
+bool hidden(lv_obj_t* root, const char* name) {
+    lv_obj_t* obj = lv_obj_find_by_name(root, name);
+    REQUIRE(obj != nullptr);
+    return lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN);
+}
+
+/// Two steps done of five, the third under way.
+std::optional<PreprintChecklistInput> five_steps() {
+    PreprintChecklistInput in;
+    in.done_in_order = {PrintStartPhase::HOMING, PrintStartPhase::HEATING_BED};
+    in.current = PrintStartPhase::HEATING_NOZZLE;
+    in.expected_order = {PrintStartPhase::HOMING, PrintStartPhase::HEATING_BED,
+                         PrintStartPhase::HEATING_NOZZLE, PrintStartPhase::QGL,
+                         PrintStartPhase::BED_MESH};
+    return in;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(Landscape800, "the checklist shows a row per step and none past them",
+                 "[print_status]") {
+    tiles().set_checklist_source(five_steps);
+    set_int(state().print_state().get_print_start_phase_subject(),
+            static_cast<int>(PrintStartPhase::HEATING_NOZZLE));
+    UpdateQueue::instance().drain();
+    process_lvgl(900); // the preparing view shows after its debounce
+    REQUIRE(subject_int("preparing_visible") == 1);
+    REQUIRE(subject_int("ps_step_count") == 5);
+    REQUIRE(subject_int("ps_checklist_compact") == 0);
+
+    CHECK_FALSE(hidden(root_, "ps_job_checklist"));
+    CHECK_FALSE(hidden(root_, "ps_checklist_list"));
+    CHECK(hidden(root_, "ps_checklist_compact"));
+    CHECK_FALSE(hidden(root_, "ps_step_row_4"));
+    CHECK(hidden(root_, "ps_step_row_5"));
+    CHECK(hidden(root_, "ps_step_row_7"));
+    // The pre-print strip line replaces the printing one.
+    CHECK_FALSE(hidden(root_, "ps_strip_prepare_line"));
+    CHECK(hidden(root_, "ps_strip_print_line"));
+
+    set_int(state().print_state().get_print_start_phase_subject(),
+            static_cast<int>(PrintStartPhase::IDLE));
+    UpdateQueue::instance().drain();
+    REQUIRE(subject_int("preparing_visible") == 0);
+    CHECK(hidden(root_, "ps_job_checklist"));
+    CHECK_FALSE(hidden(root_, "ps_strip_print_line"));
+}
+
+TEST_CASE_METHOD(Portrait272, "a narrow job tile shows the current step compactly",
+                 "[print_status]") {
+    tiles().set_checklist_source(five_steps);
+    set_int(state().print_state().get_print_start_phase_subject(),
+            static_cast<int>(PrintStartPhase::HEATING_NOZZLE));
+    UpdateQueue::instance().drain();
+    process_lvgl(900);
+    REQUIRE(subject_int("ps_checklist_compact") == 1);
+    CHECK(hidden(root_, "ps_checklist_list"));
+    CHECK_FALSE(hidden(root_, "ps_checklist_compact"));
+    lv_obj_t* current = lv_obj_find_by_name(root_, "ps_checklist_current");
+    REQUIRE(current != nullptr);
+    CHECK(std::string(lv_label_get_text(current)) == subject_str("ps_step_current_name"));
+    set_int(state().print_state().get_print_start_phase_subject(),
+            static_cast<int>(PrintStartPhase::IDLE));
+    UpdateQueue::instance().drain();
+}
+
+TEST_CASE_METHOD(Landscape800, "More hides when its menu has nothing to offer", "[print_status]") {
+    lv_subject_t* webcam = lv_xml_get_subject(nullptr, "printer_has_webcam");
+    lv_subject_t* leds = lv_xml_get_subject(nullptr, "led_controllable");
+    lv_subject_t* timelapse = lv_xml_get_subject(nullptr, "printer_has_timelapse");
+    REQUIRE(webcam != nullptr);
+    REQUIRE(leds != nullptr);
+    REQUIRE(timelapse != nullptr);
+    set_int(webcam, 0);
+    set_int(timelapse, 0);
+    set_int(leds, 0);
+    CHECK(hidden(root_, "btn_more"));
+    set_int(timelapse, 1);
+    CHECK_FALSE(hidden(root_, "btn_more"));
+    set_int(timelapse, 0);
+    set_int(leds, 1);
+    CHECK_FALSE(hidden(root_, "btn_more"));
+    set_int(leds, 0);
+}
+
+TEST_CASE_METHOD(Landscape800, "strip buttons are square beside the progress", "[print_status]") {
+    REQUIRE(subject_int("ps_strip_stacked") == 0);
+    lv_obj_t* strip = lv_obj_find_by_name(root_, "ps_strip");
+    lv_obj_t* progress = lv_obj_find_by_name(root_, "ps_strip_progress");
+    lv_obj_t* pause = lv_obj_find_by_name(root_, "btn_pause");
+    REQUIRE(strip != nullptr);
+    REQUIRE(progress != nullptr);
+    REQUIRE(pause != nullptr);
+    const int32_t side = theme_manager_get_spacing("ps_strip_button");
+    CHECK(lv_obj_get_height(pause) == side);
+    CHECK(lv_obj_get_width(pause) <= side);
+    CHECK(lv_obj_get_width(pause) >= side - theme_manager_get_spacing("space_sm"));
+    // The progress keeps at least 45% of the strip.
+    CHECK(lv_obj_get_width(progress) * 100 >= lv_obj_get_content_width(strip) * 40);
+    CHECK(lv_obj_get_height(strip) == helix::ui::PrintStatusLayoutFitter::strip_row_height());
+}
+
+TEST_CASE_METHOD(Portrait320, "a narrow strip stacks progress over a full row of buttons",
+                 "[print_status]") {
+    REQUIRE(subject_int("ps_strip_stacked") == 1);
+    lv_obj_t* buttons = lv_obj_find_by_name(root_, "ps_strip_buttons");
+    lv_obj_t* progress = lv_obj_find_by_name(root_, "ps_strip_progress");
+    lv_obj_t* strip = lv_obj_find_by_name(root_, "ps_strip");
+    REQUIRE(buttons != nullptr);
+    REQUIRE(progress != nullptr);
+    CHECK(lv_obj_get_width(buttons) == lv_obj_get_content_width(strip));
+    CHECK(lv_obj_get_y(buttons) > lv_obj_get_y(progress));
+    CHECK(lv_obj_get_height(buttons) == theme_manager_get_spacing("button_height"));
+}
+
+TEST_CASE_METHOD(Landscape800, "a tuned speed turns the speed/flow chip amber", "[print_status]") {
+    set_int(state().motion_state().get_speed_factor_subject(), 104);
+    settle();
+    REQUIRE(subject_int("ps_chip_speed_flow_tone") == static_cast<int>(ChipTone::Warn));
+    lv_obj_t* chip = lv_obj_find_by_name(root_, "ps_chip_speed_flow");
+    REQUIRE(chip != nullptr);
+    const lv_color_t warn = theme_manager_get_color("warning");
+    CHECK(lv_color_eq(lv_obj_get_style_border_color(chip, LV_PART_MAIN), warn));
+    set_int(state().motion_state().get_speed_factor_subject(), 100);
+    settle();
+    CHECK_FALSE(lv_color_eq(lv_obj_get_style_border_color(chip, LV_PART_MAIN), warn));
 }

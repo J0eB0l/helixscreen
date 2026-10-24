@@ -104,7 +104,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "printer image: the light chip has no text l
     // Still looks like a pill: same styles.activity_chip look every other
     // chip borrows (bg_opa and border_width are literals in that style, not
     // theme-token defaults a bare lv_obj would already carry).
-    CHECK(lv_obj_get_style_bg_opa(light, LV_PART_MAIN) == 220);
+    CHECK(lv_obj_get_style_bg_opa(light, LV_PART_MAIN) == LV_OPA_50);
     CHECK(lv_obj_get_style_border_width(light, LV_PART_MAIN) == 1);
 }
 

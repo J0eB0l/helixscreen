@@ -12,7 +12,6 @@
 #include "ui_breakpoint.h"
 #include "ui_carousel.h"
 #include "ui_language_refresh.h"
-#include "ui_print_light_timelapse.h"
 #include "ui_update_queue.h"
 
 #include "../lvgl_ui_test_fixture.h"
@@ -402,21 +401,4 @@ TEST_CASE_METHOD(LanguageSwitchFixture, "AMS status texts re-translate on a lang
               .rfind(lv_tr("Clog Auto"), 0) == 0);
 
     ams.set_backend(nullptr);
-}
-
-// The print-status timelapse button's On/Off is formatted into a subject buffer.
-TEST_CASE_METHOD(LanguageSwitchFixture, "the print-status timelapse label re-translates",
-                 "[i18n][timelapse]") {
-    PrintLightTimelapseControls controls;
-    controls.init_subjects();
-    lv_subject_t* label = lv_xml_get_subject(nullptr, "timelapse_button_label");
-    REQUIRE(label != nullptr);
-    CHECK(std::string(lv_subject_get_string(label)) == "Off");
-
-    SystemSettingsManager::instance().set_language("ru");
-    helix::ui::UpdateQueueTestAccess::drain_all(helix::ui::UpdateQueue::instance());
-    REQUIRE(std::string(lv_tr("Off")) != "Off");
-    CHECK(std::string(lv_subject_get_string(label)) == lv_tr("Off"));
-
-    controls.deinit_subjects();
 }

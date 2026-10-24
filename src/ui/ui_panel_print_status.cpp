@@ -264,18 +264,18 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
         [](PrintStatusPanel* self, int) { self->on_temperature_changed(); },
         helix::ToolState::instance().get_subjects_lifetime());
 
-    // Chamber status text: observe chamber temp, the effective setpoint and the
+    // Chamber chip: observe chamber temp, the effective setpoint and the
     // control mode — a set that lands without the temperature moving (M141
-    // parking ≤40°C targets on the cooling fan) still changes the status.
+    // parking ≤40°C targets on the cooling fan) still changes the chip.
     chamber_temp_observer_ = observe<int>(
         printer_state_.temperature_state().get_chamber_temp_subject(), this,
-        [](PrintStatusPanel* self, int) { self->update_chamber_status(); }, ps_subjects);
+        [](PrintStatusPanel* self, int) { self->tiles_.request_update(); }, ps_subjects);
     chamber_target_observer_ = observe<int>(
         printer_state_.temperature_state().get_chamber_effective_target_subject(), this,
-        [](PrintStatusPanel* self, int) { self->update_chamber_status(); }, ps_subjects);
+        [](PrintStatusPanel* self, int) { self->tiles_.request_update(); }, ps_subjects);
     chamber_mode_observer_ = observe<int>(
         printer_state_.temperature_state().get_chamber_mode_subject(), this,
-        [](PrintStatusPanel* self, int) { self->update_chamber_status(); }, ps_subjects);
+        [](PrintStatusPanel* self, int) { self->tiles_.request_update(); }, ps_subjects);
 
     // Subscribe to print progress and state
     print_progress_observer_ = observe<int>(
@@ -562,42 +562,12 @@ void PrintStatusPanel::init_subjects() {
     // Initialize all subjects with default values
     // Note: Display filename is now handled by ActivePrintMediaManager via print_display_filename
     progress_text_.init_subjects(subjects_);
-    UI_MANAGED_SUBJECT_STRING(nozzle_status_subject_, nozzle_status_buf_, "", "print_nozzle_status",
-                              subjects_);
-    UI_MANAGED_SUBJECT_STRING(bed_status_subject_, bed_status_buf_, "", "print_bed_status",
-                              subjects_);
-    UI_MANAGED_SUBJECT_STRING(chamber_status_subject_, chamber_status_buf_, "",
-                              "print_chamber_status", subjects_);
-    UI_MANAGED_SUBJECT_INT(nozzle_status_state_subject_, 0, "print_nozzle_status_state", subjects_);
-    UI_MANAGED_SUBJECT_INT(bed_status_state_subject_, 0, "print_bed_status_state", subjects_);
-    UI_MANAGED_SUBJECT_INT(chamber_status_state_subject_, 0, "print_chamber_status_state",
-                           subjects_);
     UI_MANAGED_SUBJECT_STRING(objects_text_subject_, objects_text_buf_, "", "print_objects_text",
                               subjects_);
     // View toggle icon: starts as cube (progress view), flips to layers on complete view.
     // Populated lazily at first update (icon_cube const resolves only after globals load).
     UI_MANAGED_SUBJECT_STRING(view_toggle_icon_subject_, view_toggle_icon_buf_, "",
                               "view_toggle_icon", subjects_);
-    // Camera button label: "Camera" only where Row 2 has breathing room (narrow
-    // axis >= LARGE, e.g. 1024x600); "Cam" at MEDIUM and below (800x480 and the
-    // cramped portrait row) where the full word barely fits. The XML expression
-    // engine is int-only, so a string label conditioned on ui_breakpoint needs
-    // this subject — same shape as view_toggle_icon above.
-    UI_MANAGED_SUBJECT_STRING(camera_button_label_subject_, camera_button_label_buf_, lv_tr("Cam"),
-                              "camera_button_label", subjects_);
-    if (lv_subject_t* bp = lv_xml_get_subject(nullptr, "ui_breakpoint")) {
-        update_camera_button_label(lv_subject_get_int(bp));
-        auto token = lifetime_.token();
-        camera_label_observer_ = observe<int>(
-            bp, this,
-            [token](PrintStatusPanel* self, int value) {
-                if (token.expired())
-                    return;
-                self->update_camera_button_label(value);
-            },
-            subject_never_freed());
-    }
-
     // Initialize light/timelapse controls (extracted Phase 2)
     light_timelapse_controls_.init_subjects();
     light_timelapse_controls_.set_api(api_);
@@ -615,22 +585,6 @@ void PrintStatusPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(gcode_viewer_mode_subject_, 0, "gcode_viewer_mode", subjects_);
     UI_MANAGED_SUBJECT_INT(exclude_map_active_subject_, 0, "exclude_map_active", subjects_);
     UI_MANAGED_SUBJECT_INT(end_overlay_dismissed_subject_, 0, "end_overlay_dismissed", subjects_);
-
-    // Held at 0: only the widgets the tile layout replaces bind these.
-    UI_MANAGED_SUBJECT_INT(fans_fit_subject_, 0, "print_status_fans_fit", subjects_);
-    UI_MANAGED_SUBJECT_INT(graph_fits_subject_, 0, "print_status_graph_fits", subjects_);
-    UI_MANAGED_SUBJECT_INT(row1_stacked_subject_, 0, "print_status_row1_stacked", subjects_);
-    UI_MANAGED_SUBJECT_INT(row1_tall_subject_, 0, "print_status_row1_tall", subjects_);
-    UI_MANAGED_SUBJECT_INT(row2_stacked_subject_, 0, "print_status_row2_stacked", subjects_);
-    UI_MANAGED_SUBJECT_INT(row2_tall_subject_, 0, "print_status_row2_tall", subjects_);
-    UI_MANAGED_SUBJECT_INT(aux_fan_present_subject_, 0, "print_status_aux_fan_present", subjects_);
-    UI_MANAGED_SUBJECT_INT(fan_row_density_subject_, 0, "print_status_fan_row_density", subjects_);
-    UI_MANAGED_SUBJECT_INT(aux_icon_visible_subject_, 0, "print_status_aux_icon_visible",
-                           subjects_);
-    UI_MANAGED_SUBJECT_INT(aux_full_visible_subject_, 0, "print_status_aux_full_visible",
-                           subjects_);
-    UI_MANAGED_SUBJECT_INT(aux_short_visible_subject_, 0, "print_status_aux_short_visible",
-                           subjects_);
 
     UI_MANAGED_SUBJECT_INT(arrangement_subject_, 0, "ps_arrangement", subjects_);
     UI_MANAGED_SUBJECT_INT(strip_stacked_subject_, 0, "ps_strip_stacked", subjects_);
@@ -777,7 +731,6 @@ void PrintStatusPanel::init_subjects() {
     register_xml_callbacks({
         {"on_print_status_tune",
          [](lv_event_t*) { get_global_print_status_panel().handle_tune_button(); }},
-        {"on_print_status_camera", [](lv_event_t*) { open_print_status_camera(); }},
         {"on_print_status_more",
          [](lv_event_t* e) {
              get_global_print_status_panel().handle_more_clicked(
@@ -788,11 +741,6 @@ void PrintStatusPanel::init_subjects() {
         {"on_print_status_reprint",
          [](lv_event_t*) { get_global_print_status_panel().handle_reprint_button(); }},
         {"on_temp_card_clicked",
-         [](lv_event_t*) { get_global_print_status_panel().handle_temp_card_click(); }},
-        // The mini-graph is a summary; the full overlay is the detail view. Tapping it
-        // opens exactly what tapping the temp chips opens, so both entry points land on
-        // one code path rather than two that can drift.
-        {"on_print_status_graph_clicked",
          [](lv_event_t*) { get_global_print_status_panel().handle_temp_card_click(); }},
         {"on_print_status_objects",
          [](lv_event_t*) { get_global_print_status_panel().handle_objects_toggle(); }},
@@ -876,7 +824,6 @@ void PrintStatusPanel::deinit_subjects() {
     print_message_observer_.reset();
 
     // Fan observers — lifetimes BEFORE observer guards per [L084]
-    camera_label_observer_.reset();
     fans_version_observer_.reset();
     primary_fans_version_observer_.reset();
     breakpoint_observer_.reset();
@@ -1028,7 +975,6 @@ lv_obj_t* PrintStatusPanel::create(lv_obj_t* parent) {
     resize_registered_ = true;
 
     // Store button references for potential state queries (not event wiring - that's in XML)
-    btn_timelapse_ = helix::ui::find_required(overlay_content, "btn_timelapse", get_name());
     btn_tune_ = helix::ui::find_required(overlay_content, "btn_tune", get_name());
     btn_cancel_ = helix::ui::find_required(overlay_content, "btn_cancel", get_name());
 
@@ -1349,7 +1295,6 @@ void PrintStatusPanel::forget_cached_widgets() {
     gcode_viewer_ = nullptr;
     print_thumbnail_ = nullptr;
     gradient_background_ = nullptr;
-    btn_timelapse_ = nullptr;
     btn_tune_ = nullptr;
     btn_cancel_ = nullptr;
     success_badge_ = nullptr;
@@ -1580,8 +1525,11 @@ void PrintStatusPanel::show_exclude_map_view() {
     }
     helix::ui::ExcludeModeTargets targets;
     targets.card = helix::ui::find_required(overlay_content, "thumbnail_section", get_name());
-    targets.columns = overlay_content;
-    targets.controls_name = "controls_section";
+    // The list covers the printer tile: beside the job tile, or below it when stacked.
+    targets.columns = helix::ui::find_required(overlay_content, "ps_tiles", get_name());
+    targets.controls_name = "ps_printer_tile";
+    targets.stacked = lv_subject_get_int(&arrangement_subject_) ==
+                      static_cast<int>(helix::PrintStatusArrangement::Stacked);
     targets.gcode_viewer = gcode_viewer_;
     targets.map_active = &exclude_map_active_subject_;
     targets.thumbnail_mode = lv_subject_get_int(&gcode_viewer_mode_subject_) == 0;
@@ -1608,24 +1556,6 @@ void PrintStatusPanel::open_pending_exclude_map() {
     }
 }
 
-void PrintStatusPanel::update_heater_status_rows() {
-    // Glyph state + duty text come from the one shared classifier; the XML row
-    // maps the state int to the flame/check/snowflake glyph pair.
-    auto nozzle = helix::ui::temperature::classify_heater_status(
-        lifecycle_.nozzle_current(), lifecycle_.nozzle_target(),
-        lv_subject_get_int(printer_state_.get_heater_power_subject(helix::HeaterType::Nozzle)));
-    lv_subject_set_int(&nozzle_status_state_subject_, static_cast<int>(nozzle.state));
-    std::snprintf(nozzle_status_buf_, sizeof(nozzle_status_buf_), "%s", nozzle.duty.c_str());
-    lv_subject_copy_string(&nozzle_status_subject_, nozzle_status_buf_);
-
-    auto bed = helix::ui::temperature::classify_heater_status(
-        lifecycle_.bed_current(), lifecycle_.bed_target(),
-        lv_subject_get_int(printer_state_.get_heater_power_subject(helix::HeaterType::Bed)));
-    lv_subject_set_int(&bed_status_state_subject_, static_cast<int>(bed.state));
-    std::snprintf(bed_status_buf_, sizeof(bed_status_buf_), "%s", bed.duty.c_str());
-    lv_subject_copy_string(&bed_status_subject_, bed_status_buf_);
-}
-
 void PrintStatusPanel::update_all_displays() {
     // Guard: don't update if subjects aren't initialized yet
     if (!subjects_initialized_) {
@@ -1647,9 +1577,6 @@ void PrintStatusPanel::update_all_displays() {
 
         progress_text_.show_remaining(lifecycle_.remaining_seconds());
     }
-
-    // Heater status (state glyph + duty)
-    update_heater_status_rows();
 
     update_speed_flow_text();
 
@@ -1918,10 +1845,8 @@ void PrintStatusPanel::on_temperature_changed() {
     if (!subjects_initialized_)
         return;
 
-    // Update only temperature-related subjects (not the full display refresh).
-    // Temperature observers fire frequently during heating (4 subjects x ~1Hz each),
-    // and update_all_displays() re-renders ALL subjects causing visible flickering.
-    update_heater_status_rows();
+    // Only the chips (not the full display refresh): temperature observers fire
+    // frequently during heating (4 subjects x ~1Hz each).
     tiles_.request_update();
 
     spdlog::trace("[{}] Temperatures updated: nozzle {}/{}°C, bed {}/{}°C", get_name(),
@@ -2089,36 +2014,6 @@ void PrintStatusPanel::recompute_paused_overlay_visibility() {
     }
     lv_subject_copy_string(&print_pause_reason_subject_, reason.c_str());
     lv_subject_set_int(&print_pause_reason_visible_subject_, reason.empty() ? 0 : 1);
-}
-
-void PrintStatusPanel::update_chamber_status() {
-    if (!subjects_initialized_)
-        return;
-
-    bool has_heater = lv_subject_get_int(printer_state_.capabilities_state().subject(
-                          Capability::HasChamberHeater)) != 0;
-    int current = lv_subject_get_int(printer_state_.temperature_state().get_chamber_temp_subject());
-    // Effective setpoint, not the raw heater target: in Maintaining/Resting mode
-    // the real setpoint lives on the cooling fan and the heater target is 0.
-    int target = lv_subject_get_int(
-        printer_state_.temperature_state().get_chamber_effective_target_subject());
-
-    if (!has_heater || target == 0) {
-        // Sensor-only or heater off: no status text
-        chamber_status_buf_[0] = '\0';
-        lv_subject_set_int(&chamber_status_state_subject_,
-                           static_cast<int>(helix::ui::temperature::HeaterStatusState::None));
-    } else {
-        auto chamber = helix::ui::temperature::classify_heater_status(
-            current, target,
-            lv_subject_get_int(printer_state_.get_heater_power_subject(helix::HeaterType::Chamber)),
-            static_cast<helix::ChamberMode>(
-                lv_subject_get_int(printer_state_.temperature_state().get_chamber_mode_subject())));
-        lv_subject_set_int(&chamber_status_state_subject_, static_cast<int>(chamber.state));
-        std::snprintf(chamber_status_buf_, sizeof(chamber_status_buf_), "%s", chamber.duty.c_str());
-    }
-    lv_subject_copy_string(&chamber_status_subject_, chamber_status_buf_);
-    tiles_.request_update();
 }
 
 void PrintStatusPanel::on_print_progress_changed(int progress) {
@@ -2651,14 +2546,6 @@ void PrintStatusPanel::update_objects_text() {
         objects_text_buf_[0] = '\0';
     }
     lv_subject_copy_string(&objects_text_subject_, objects_text_buf_);
-}
-
-void PrintStatusPanel::update_camera_button_label(int breakpoint_value) {
-    // Full word only from LARGE up (narrow axis >= 551px, e.g. 1024x600); the
-    // 800x480 Row 2 and the cramped portrait row get the short form.
-    const char* label =
-        breakpoint_value >= to_int(UiBreakpoint::Large) ? lv_tr("Camera") : lv_tr("Cam");
-    lv_subject_copy_string(&camera_button_label_subject_, label);
 }
 
 void PrintStatusPanel::update_button_states() {
