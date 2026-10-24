@@ -833,8 +833,14 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     if (reading.current_tool.has_value()) {
         sensor_tool_reading_ = reading.current_tool;
     }
+    // Which readings are faults at all is sensor_error_is_fault()'s rule, not
+    // this function's. The stored latch follows the same answer: a flag at rest
+    // beside a definite carriage is a past failure, and keeping it would make
+    // every later raw_sensor_fault_locked() check disagree with the screen.
+    const bool fault = helix::toolchanger_addon::sensor_error_is_fault(
+        reading, was_mid_operation || feed_swap_in_flight);
     if (reading.sensor_error_named) {
-        sensor_fault_reported_ = reading.sensor_error_reported;
+        sensor_fault_reported_ = reading.sensor_error_reported && fault;
     } else if (reading.current_tool.has_value() && *reading.current_tool >= -1) {
         // The controller's flag latches the last operation and is republished
         // only when the next one clears it. A definite carriage reading that
@@ -845,10 +851,8 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
 
     // -2 means the sensors cannot tell, which is NOT "no tool". Reporting -1
     // would invite a tool change against an unknown carriage state, so hold the
-    // last known tool and let the error surface instead. Which -2 readings are
-    // faults at all is sensor_error_is_fault()'s rule, not this function's.
-    if (helix::toolchanger_addon::sensor_error_is_fault(reading,
-                                                        was_mid_operation || feed_swap_in_flight)) {
+    // last known tool and let the error surface instead.
+    if (fault) {
         if (!sensor_error_) {
             spdlog::warn("{} Dock sensors cannot identify the mounted tool", backend_log_tag());
         }

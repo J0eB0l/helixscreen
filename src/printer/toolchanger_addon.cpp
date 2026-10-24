@@ -175,13 +175,12 @@ std::string zmod_c5_feed_gcode(const PrinterDiscovery& hw, int head) {
 
 const std::vector<Provider>& providers() {
     static const std::vector<Provider> table = {
-        // T<n> and DROP_TOOL are what the extra registers when it runs the swap
-        // itself, which is the fork case only - on the reference config
-        // klipper-toolchanger is present and SELECT_TOOL/UNSELECT_TOOL stay in
-        // use. DROP_TOOL is a bare gcode command, not a [gcode_macro], so it
-        // never appears in printer.objects.list: it cannot be capability-checked
-        // the way the feeder macros are, and naming it here is the whole point of
-        // this table.
+        // T<n> and DROP_TOOL swap tools on a MedusaHC without klipper-toolchanger:
+        // the fork, and the Irbis3D controller with sync_toolchanger off. With
+        // klipper-toolchanger present SELECT_TOOL/UNSELECT_TOOL stay in use.
+        // DROP_TOOL is a [gcode_macro] in Irbis3D's MHC_macros.cfg and a bare
+        // command elsewhere, so it cannot be capability-checked the way the
+        // feeder macros are, and naming it here is the whole point of this table.
         {"MedusaHC", medusa_detect, medusa_status_objects, medusa_open_gcode, medusa_close_gcode,
          "T", "DROP_TOOL", nullptr, nullptr, /*feeds_through_mount=*/true},
         {kZmodC5ProviderName, zmod_c5_detect, zmod_c5_status_objects, nullptr, nullptr,

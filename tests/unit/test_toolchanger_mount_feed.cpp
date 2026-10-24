@@ -1286,6 +1286,25 @@ TEST_CASE("MedusaHC: a dock sensor jostled while the operator inserts is no faul
     CHECK(tc.sent_.back() == mf::prompt_end_gcode() + "\nSELECT_TOOL T=1");
 }
 
+TEST_CASE("MedusaHC: a latch left over from before a restart does not fault a later run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    // The first full frame after a restart: the flag still latched, T2 seated.
+    tc.feed(
+        json{{"medusahc", {{"operation", "idle"}, {"current_tool", 2}, {"sensor_error", true}}}});
+    REQUIRE(tc.get_system_info().action != AmsAction::ERROR);
+
+    // T2 is already mounted, so the run sends no MHC operation that would
+    // clear the flag: nothing but the heat and the retract.
+    REQUIRE(tc.unload_filament(2).success());
+    tc.ack();
+    tc.ack();
+    REQUIRE(tc.get_current_action() != AmsAction::UNLOADING);
+    CHECK(tc.get_system_info().action != AmsAction::ERROR);
+    CHECK(tc.unload_blocked_reason(2).empty());
+}
+
 TEST_CASE("MedusaHC: a fault the controller reports at the prompt still stops the run",
           "[toolchanger][mount_feed][medusahc]") {
     AckingChanger tc(4);

@@ -947,8 +947,7 @@ TEST_CASE("A -2 during a swap is transitional, not a sensor fault",
     CHECK_FALSE(tc.current_error().has_value());
 }
 
-TEST_CASE("A published sensor_error is a fault whatever the phase",
-          "[ams][toolchanger][medusahc]") {
+TEST_CASE("A published sensor_error is a fault mid-swap", "[ams][toolchanger][medusahc]") {
     ToolChangerHelper tc(4);
     tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
 

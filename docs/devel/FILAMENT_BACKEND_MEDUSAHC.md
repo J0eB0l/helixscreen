@@ -43,7 +43,10 @@ backend holds the last known tool and raises `AmsAction::ERROR` instead. A swap 
 reads `-2` for a moment between the head sensor and the dock sensor changing, so an
 unreported `-2` is a fault only outside one (`toolchanger_addon::sensor_error_is_fault()`);
 a mount-to-feed run's Mount and Restore stages count as a swap. A `sensor_error` the
-firmware itself reports is always a fault.
+firmware itself reports is a fault during a swap, and at rest unless a definite
+`current_tool` (-1 or a tool) sits beside it. Irbis3D's flag latches the last operation's
+failure until the next operation begins, while `current_tool` follows the dock pins live,
+so a definite reading at rest, or one arriving after the flag, means the docks agree.
 
 ### 1a. And which tools are in their docks
 
