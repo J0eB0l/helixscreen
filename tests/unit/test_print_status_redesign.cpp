@@ -217,6 +217,11 @@ TEST_CASE_METHOD(Landscape800, "a heater at its target shows the check", "[print
     REQUIRE(flame != nullptr);
     CHECK_FALSE(lv_obj_has_flag(check, LV_OBJ_FLAG_HIDDEN));
     CHECK(lv_obj_has_flag(flame, LV_OBJ_FLAG_HIDDEN));
+    // The duty is in the chip's own text; the status row adds only the glyph,
+    // which is all the chip's width reserves for it.
+    lv_obj_t* duty = lv_obj_find_by_name(chip, "status_duty");
+    REQUIRE(duty != nullptr);
+    CHECK(std::string(lv_label_get_text(duty)).empty());
     // A chip with no heater shows no glyph.
     lv_obj_t* fan = lv_obj_find_by_name(root_, "ps_chip_part_fan");
     REQUIRE(fan != nullptr);

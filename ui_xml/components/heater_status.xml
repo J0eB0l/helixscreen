@@ -32,7 +32,8 @@
         style_pad_column="#space_xxs" scrollable="false" clickable="false" event_bubble="true">
     <!-- Duty color is bound, not inline: an inline style_text_color would
          outrank both bound styles, leaving the amber unreachable. -->
-    <text_small name="status_duty" bind_text="$duty_subject" style_text_align="right">
+    <!-- Empty until bound: a host without a duty subject shows the glyph alone. -->
+    <text_small name="status_duty" text="" bind_text="$duty_subject" style_text_align="right">
       <bind_style_if_eq name="styles.heater_duty_heating" subject="$state_subject" ref_value="1"/>
       <bind_style_if_not_eq name="styles.heater_duty_muted" subject="$state_subject" ref_value="1"/>
     </text_small>
