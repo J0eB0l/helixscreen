@@ -10,16 +10,23 @@
 
 #include "ui_update_queue.h"
 
+#include "../busy_guard_fixture.h"
 #include "../test_helpers/toolchanger_test_access.h"
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_backend_toolchanger.h"
 #include "filament_op_slot_resolver.h"
 #include "macro_param_cache.h"
 #include "mount_feed_sequence.h"
+#include "printer_discovery.h"
+#include "toolchanger_addon.h"
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
+#include <future>
+#include <memory>
 #include <string>
+#include <thread>
 #include <unordered_set>
 #include <vector>
 
@@ -110,22 +117,26 @@ class AckingChanger : public ToolChangerHelper {
 // The plan
 // ============================================================================
 
-TEST_CASE("mount-to-feed: a load mounts, heats, prompts, purges and restores",
+TEST_CASE("mount-to-feed: a load prompts at the dock, then mounts, heats, purges and restores",
           "[toolchanger][mount_feed]") {
     const auto stages = mf::plan(load_request());
+    // The strand goes into the docked hot end first: once the tool is on the
+    // carriage, the extruder's gears stand between the operator and the nozzle.
     REQUIRE(stages.size() == 5);
-    CHECK(stages[0].step == mf::Step::Mount);
-    CHECK(stages[0].gcode == "SELECT_TOOL T=2");
-    CHECK(stages[1].gcode == "M109 S215");
-    CHECK(stages[2].step == mf::Step::Insert);
-    CHECK(stages[2].awaits_operator);
-    CHECK(stages[2].gcode.find("action:prompt_begin Load filament") != std::string::npos);
-    CHECK(stages[2].gcode.find("MSG=HELIX_MOUNT_FEED_CONTINUE|primary") != std::string::npos);
-    CHECK(stages[2].gcode.find("MSG=HELIX_MOUNT_FEED_CANCEL|error") != std::string::npos);
+    CHECK(stages[0].step == mf::Step::Insert);
+    CHECK(stages[0].awaits_operator);
+    CHECK(stages[0].gcode.find("action:prompt_begin Load filament") != std::string::npos);
+    CHECK(stages[0].gcode.find("MSG=HELIX_MOUNT_FEED_CONTINUE|primary") != std::string::npos);
+    CHECK(stages[0].gcode.find("MSG=HELIX_MOUNT_FEED_CANCEL|error") != std::string::npos);
+    CHECK(stages[1].step == mf::Step::Mount);
+    CHECK(stages[1].gcode == mf::prompt_end_gcode() + "\nSELECT_TOOL T=2");
+    CHECK(stages[2].step == mf::Step::Heat);
+    CHECK(stages[2].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=215\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder2 MINIMUM=213");
     CHECK(stages[3].step == mf::Step::Purge);
-    CHECK(stages[3].gcode ==
-          mf::prompt_end_gcode() +
-              "\nM83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 F1800\nM104 S0");
+    CHECK(stages[3].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
+                             "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
+    CHECK(stages[4].step == mf::Step::Restore);
     CHECK(stages[4].gcode == "SELECT_TOOL T=0");
 }
 
@@ -136,8 +147,12 @@ TEST_CASE("mount-to-feed: the tool already on the carriage is neither mounted no
     r.restore_gcode.clear();
     const auto stages = mf::plan(r);
     REQUIRE(stages.size() == 3);
-    CHECK(stages.front().step == mf::Step::Heat);
-    CHECK(stages.back().step == mf::Step::Purge);
+    CHECK(stages[0].step == mf::Step::Insert);
+    CHECK(stages[1].step == mf::Step::Heat);
+    CHECK(stages[1].gcode == mf::prompt_end_gcode() +
+                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder2 "
+                                 "TARGET=215\nTEMPERATURE_WAIT SENSOR=extruder2 MINIMUM=213");
+    CHECK(stages[2].step == mf::Step::Purge);
 }
 
 TEST_CASE("mount-to-feed: the printer's own macro replaces the built-in moves",
@@ -145,17 +160,22 @@ TEST_CASE("mount-to-feed: the printer's own macro replaces the built-in moves",
     mf::Request load = load_request();
     load.macro = "LOAD_FILAMENT";
     CHECK(mf::plan(load)[3].gcode ==
-          mf::prompt_end_gcode() + "\nLOAD_FILAMENT T=2 TEMP=215\nM104 S0");
+          "LOAD_FILAMENT T=2 TEMP=215\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
 
     mf::Request unload = load_request();
     unload.load = false;
     // No feeder release: the retract alone takes the strand fully out.
-    CHECK(gcodes(mf::plan(unload)) ==
-          std::vector<std::string>{"SELECT_TOOL T=2", "M109 S215",
-                                   "M83\nG1 E-25 F1800\nG1 E-150 F1200\nM104 S0",
-                                   "SELECT_TOOL T=0"});
+    CHECK(
+        gcodes(mf::plan(unload)) ==
+        std::vector<std::string>{
+            "SELECT_TOOL T=2",
+            "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=215\nTEMPERATURE_WAIT SENSOR=extruder2 "
+            "MINIMUM=213",
+            "M83\nG1 E-25 F1800\nG1 E-150 F1200\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0",
+            "SELECT_TOOL T=0"});
     unload.macro = "UNLOAD_FILAMENT";
-    CHECK(mf::plan(unload)[2].gcode == "UNLOAD_FILAMENT T=2\nM104 S0");
+    CHECK(mf::plan(unload)[2].gcode ==
+          "UNLOAD_FILAMENT T=2\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
 }
 
 TEST_CASE("mount-to-feed: a macro stands in only when it takes the tool as T=",
@@ -197,11 +217,8 @@ TEST_CASE("mount-to-feed: only the button's own echo is a reply", "[toolchanger]
 TEST_CASE("mount-to-feed: the run waits on the operator and cleans up on Cancel",
           "[toolchanger][mount_feed]") {
     mf::Run run(load_request());
-    CHECK(run.current_gcode() == std::optional<std::string>("SELECT_TOOL T=2"));
-    run.stage_done();
-    CHECK(run.step_index() == 1);
-    run.stage_done();
     REQUIRE(run.current_step() == mf::Step::Insert);
+    CHECK(run.step_index() == 0);
     run.stage_done(); // the prompt is up
     CHECK(run.awaiting_operator());
     CHECK_FALSE(run.current_gcode().has_value());
@@ -210,10 +227,10 @@ TEST_CASE("mount-to-feed: the run waits on the operator and cleans up on Cancel"
 
     run.operator_reply(mf::Reply::Cancel);
     CHECK(run.aborted());
-    CHECK(run.current_gcode() ==
-          std::optional<std::string>(mf::prompt_end_gcode() +
-                                     "\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0\n"
-                                     "SELECT_TOOL T=0"));
+    // Nothing has moved or heated yet: closing the prompt is the whole cleanup.
+    // A heater-off would zero a target the user set; a restore would swap a
+    // carriage nothing touched.
+    CHECK(run.current_gcode() == std::optional<std::string>(mf::prompt_end_gcode()));
     run.stage_done();
     CHECK(run.finished());
 }
@@ -221,8 +238,11 @@ TEST_CASE("mount-to-feed: the run waits on the operator and cleans up on Cancel"
 TEST_CASE("mount-to-feed: a failure turns the rest into heater off and restore",
           "[toolchanger][mount_feed]") {
     mf::Run run(load_request());
+    run.stage_done(); // the prompt is up
+    run.operator_reply(mf::Reply::Continue);
     run.stage_done(); // mounted
-    run.abort();      // the heat failed
+    REQUIRE(run.current_step() == mf::Step::Heat);
+    run.abort(); // the heat failed
     CHECK(run.current_gcode() ==
           std::optional<std::string>("SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0\n"
                                      "SELECT_TOOL T=0"));
@@ -244,20 +264,9 @@ TEST_CASE("MedusaHC loads through the carriage and puts the old tool back",
 
     REQUIRE(tc.load_filament(2).success());
     REQUIRE(tc.sent_.size() == 1);
-    CHECK(tc.sent_.back() == "SELECT_TOOL T=2");
-    CHECK(tc.get_current_action() == AmsAction::SELECTING); // the Mount step
-    CHECK(tc.get_system_info().operation_phase == 0);
-
-    // A swap's own frames must not end the load or move its step.
-    tc.feed_status("ready", 2);
-    CHECK(tc.get_system_info().is_busy());
-    CHECK(tc.get_system_info().operation_phase == 0);
-
-    tc.ack();
-    CHECK(tc.sent_.back() == "M109 S220"); // no material named: the default
-    CHECK(tc.get_current_action() == AmsAction::HEATING);
-    tc.ack();
     CHECK(tc.sent_.back().find("action:prompt_show") != std::string::npos);
+    CHECK(tc.get_current_action() == AmsAction::LOADING); // the Insert step
+    CHECK(tc.get_system_info().operation_phase == 0);
     tc.ack();
     const size_t before_reply = tc.sent_.size();
     CHECK(tc.get_system_info().is_busy()); // waiting on the operator
@@ -265,6 +274,20 @@ TEST_CASE("MedusaHC loads through the carriage and puts the old tool back",
 
     ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
     REQUIRE(tc.sent_.size() == before_reply + 1);
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode() + "\nSELECT_TOOL T=2");
+    CHECK(tc.get_current_action() == AmsAction::SELECTING); // the Mount step
+    CHECK(tc.get_system_info().operation_phase == 1);
+
+    // A swap's own frames must not end the load or move its step.
+    tc.feed_status("ready", 2);
+    CHECK(tc.get_system_info().is_busy());
+    CHECK(tc.get_system_info().operation_phase == 1);
+
+    tc.ack();
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=220\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder2 MINIMUM=218"); // no material named: the default
+    CHECK(tc.get_current_action() == AmsAction::HEATING);
+    tc.ack();
     CHECK(tc.sent_.back().find("G1 E50 F300") != std::string::npos);
     CHECK(tc.get_current_action() == AmsAction::PURGING);
     tc.ack();
@@ -272,6 +295,8 @@ TEST_CASE("MedusaHC loads through the carriage and puts the old tool back",
     tc.ack();
     CHECK(tc.get_current_action() == AmsAction::IDLE);
     CHECK_FALSE(tc.can_cancel_operation());
+    // A finished load needs nothing more from the operator.
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
 }
 
 TEST_CASE("MedusaHC unloads by retracting fully, sends no OPEN, and parks when nothing was "
@@ -285,7 +310,8 @@ TEST_CASE("MedusaHC unloads by retracting fully, sends no OPEN, and parks when n
     CHECK(tc.sent_.back() == "SELECT_TOOL T=1");
     tc.ack();
     tc.ack();
-    CHECK(tc.sent_.back() == "M83\nG1 E-25 F1800\nG1 E-150 F1200\nM104 S0");
+    CHECK(tc.sent_.back() ==
+          "M83\nG1 E-25 F1800\nG1 E-150 F1200\nSET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
     tc.ack();
     CHECK(tc.sent_.back() == "UNSELECT_TOOL");
     CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "OPEN") == tc.sent_.end());
@@ -309,10 +335,14 @@ TEST_CASE("MedusaHC runs the printer's LOAD_FILAMENT when it takes T=",
     AckingChanger tc(4);
     tc.feed_status("ready", 2);
     REQUIRE(tc.load_filament(2).success());
-    CHECK(tc.sent_.front() == "M109 S220"); // already mounted: no mount stage
-    tc.ack();
+    CHECK(tc.sent_.front().find("action:prompt_show") != std::string::npos);
     tc.ack();
     ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    // Already mounted: no mount stage, so the heat closes the prompt.
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
+                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder2 "
+                                 "TARGET=220\nTEMPERATURE_WAIT SENSOR=extruder2 MINIMUM=218");
+    tc.ack();
     CHECK(tc.sent_.back().find("LOAD_FILAMENT T=2 TEMP=220") != std::string::npos);
     CHECK(tc.sent_.back().find("G1 E50") == std::string::npos);
 }
@@ -322,13 +352,9 @@ TEST_CASE("MedusaHC cancels a load waiting on the operator",
     AckingChanger tc(4);
     tc.feed_status("ready", 0);
     REQUIRE(tc.load_filament(3).success());
-    tc.ack();
-    tc.ack();
     tc.ack(); // the prompt is up
     REQUIRE(tc.cancel().success());
-    CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
-                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
-                                 "SELECT_TOOL T=0");
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode());
     tc.ack();
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
@@ -341,6 +367,8 @@ TEST_CASE("MedusaHC refuses a second op while one runs, and cleans up a failed s
     CHECK_FALSE(tc.load_filament(2).success());
     CHECK_FALSE(tc.unload_filament(1).success());
 
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
     tc.ack();  // mounted
     tc.fail(); // the heat failed
     CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0\n"
@@ -370,7 +398,10 @@ TEST_CASE("MedusaHC shows the mount-to-feed steps for a load and an unload",
     AckingChanger tc(4);
     const auto load = tc.get_operation_step_model(StepOperationType::LOAD_FRESH);
     REQUIRE(load.steps.size() == 5);
-    CHECK(load.steps[2].label == "Insert filament");
+    CHECK(load.steps[0].label == "Insert filament");
+    CHECK(load.steps[1].label == "Mount tool");
+    CHECK(load.steps[2].label == "Heat nozzle");
+    CHECK(load.steps[3].label == "Purge");
     const auto unload = tc.get_operation_step_model(StepOperationType::UNLOAD);
     REQUIRE(unload.steps.size() == 4);
     CHECK(unload.steps[2].label == "Retract filament");
@@ -384,8 +415,6 @@ TEST_CASE("MedusaHC shows the mount-to-feed steps for a load and an unload",
 TEST_CASE("mount-to-feed: the operator wait times out into the cleanup",
           "[toolchanger][mount_feed]") {
     mf::Run run(load_request());
-    run.stage_done();
-    run.stage_done();
     run.stage_done(); // the prompt is up
     REQUIRE(run.awaiting_operator());
 
@@ -395,10 +424,7 @@ TEST_CASE("mount-to-feed: the operator wait times out into the cleanup",
     // Three minutes is the ceiling; the wait never outlives it.
     CHECK(run.advance_wait(mf::kPromptTimeoutMs) == mf::Run::WaitResult::Expired);
     CHECK(run.aborted());
-    CHECK(run.current_gcode() ==
-          std::optional<std::string>(mf::prompt_end_gcode() +
-                                     "\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0\n"
-                                     "SELECT_TOOL T=0"));
+    CHECK(run.current_gcode() == std::optional<std::string>(mf::prompt_end_gcode()));
     // A wait that is not running is not expired either.
     CHECK(run.advance_wait(1000) == mf::Run::WaitResult::NotWaiting);
 }
@@ -437,13 +463,17 @@ TEST_CASE("mount-to-feed: a load of several tools asks once, then works tool by 
     CHECK(stages[1].gcode == mf::prompt_end_gcode() +
                                  "\nSELECT_TOOL T=1\n"
                                  "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143");
-    CHECK(stages[2].gcode == "M109 S210");
-    CHECK(stages[3].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 F1800\nM104 S0");
+    CHECK(stages[2].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=210\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder1 MINIMUM=208");
+    CHECK(stages[3].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
+                             "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
     // The last tool mounts with nothing left to preheat, and the carriage
     // goes back to the tool the run found on it.
     CHECK(stages[4].gcode == "SELECT_TOOL T=3");
-    CHECK(stages[5].gcode == "M109 S220");
-    CHECK(stages[6].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 F1800\nM104 S0");
+    CHECK(stages[5].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder3 MINIMUM=218");
+    CHECK(stages[6].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
+                             "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0");
     CHECK(stages[7].gcode == "SELECT_TOOL T=0");
 }
 
@@ -456,28 +486,32 @@ TEST_CASE("mount-to-feed: an unload of several tools preheats the next and resto
     // No prompt in the unload direction.
     CHECK(stages[0].step == mf::Step::Mount);
     CHECK(stages[0].gcode == "SELECT_TOOL T=1\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143");
-    CHECK(stages[1].gcode == "M109 S210");
-    CHECK(stages[2].gcode == "M83\nG1 E-25 F1800\nG1 E-150 F1200\nM104 S0");
+    CHECK(stages[1].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=210\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder1 MINIMUM=208");
+    CHECK(stages[2].gcode ==
+          "M83\nG1 E-25 F1800\nG1 E-150 F1200\nSET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
     CHECK(stages[3].gcode == "SELECT_TOOL T=3");
-    CHECK(stages[4].gcode == "M109 S220");
-    CHECK(stages[5].gcode == "M83\nG1 E-25 F1800\nG1 E-150 F1200\nM104 S0");
+    CHECK(stages[4].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder3 MINIMUM=218");
+    CHECK(stages[5].gcode ==
+          "M83\nG1 E-25 F1800\nG1 E-150 F1200\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0");
     CHECK(stages[6].gcode == "SELECT_TOOL T=0");
 }
 
 TEST_CASE("mount-to-feed: a multi-tool run's step index walks every tool's stride",
           "[toolchanger][mount_feed][batch]") {
     mf::Run run(multi_load_request());
-    REQUIRE(run.phase_index() == 2); // the prompt reads as tool 1's insert
+    REQUIRE(run.phase_index() == 0); // the prompt reads as tool 1's insert
     run.stage_done();
     REQUIRE(run.awaiting_operator());
     run.operator_reply(mf::Reply::Continue);
-    CHECK(run.phase_index() == 0); // tool 1: mount
+    CHECK(run.phase_index() == 1); // tool 1: mount
     run.stage_done();
-    CHECK(run.phase_index() == 1); // tool 1: heat
+    CHECK(run.phase_index() == 2); // tool 1: heat
     run.stage_done();
     CHECK(run.phase_index() == 3); // tool 1: purge
     run.stage_done();
-    CHECK(run.phase_index() == 5); // tool 2: mount
+    CHECK(run.phase_index() == 6); // tool 2: mount
     run.stage_done();
     CHECK(run.completed_heads() == std::vector<int>{1}); // tool 1's work is done
     run.stage_done();
@@ -520,7 +554,8 @@ TEST_CASE("MedusaHC loads several tools in one sequenced run, preheating the nex
     REQUIRE(tc.load_filament_batch({1, 3}).success());
     REQUIRE(tc.sent_.size() == 1);
     // One prompt naming both tools, before anything mounts.
-    CHECK(tc.sent_.back().find("Insert filament into Tools 2, 4 as far as it goes") !=
+    CHECK(tc.sent_.back().find("Insert filament into the hot ends of Tools 2, 4 while they are "
+                               "docked, as far as it goes, then tap Continue") !=
           std::string::npos);
     tc.ack(); // the prompt is up
     ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
@@ -530,13 +565,15 @@ TEST_CASE("MedusaHC loads several tools in one sequenced run, preheating the nex
                                  "\nSELECT_TOOL T=1\n"
                                  "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143");
     tc.ack();
-    CHECK(tc.sent_.back() == "M109 S220");
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=220\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder1 MINIMUM=218");
     tc.ack();
     CHECK(tc.sent_.back().find("G1 E50 F300") != std::string::npos);
     tc.ack();
     CHECK(tc.sent_.back() == "SELECT_TOOL T=3");
     tc.ack();
-    CHECK(tc.sent_.back() == "M109 S220");
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder3 MINIMUM=218");
     tc.ack();
     CHECK(tc.sent_.back().find("G1 E50 F300") != std::string::npos);
     tc.ack();
@@ -545,7 +582,7 @@ TEST_CASE("MedusaHC loads several tools in one sequenced run, preheating the nex
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
 
-TEST_CASE("MedusaHC times a multi-tool load out and stops with every heater off",
+TEST_CASE("MedusaHC times a multi-tool load out at the prompt, before anything moves",
           "[toolchanger][mount_feed][medusahc][batch]") {
     AckingChanger tc(4);
     tc.feed_status("ready", 0);
@@ -554,10 +591,8 @@ TEST_CASE("MedusaHC times a multi-tool load out and stops with every heater off"
     REQUIRE(tc.get_system_info().is_busy());
 
     ToolChangerTestAccess::feed_wait_elapsed(tc, mf::kPromptTimeoutMs);
-    CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
-                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0\n"
-                                 "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
-                                 "SELECT_TOOL T=0");
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode());
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc) == "No filament was inserted in time");
     tc.ack();
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
@@ -586,13 +621,9 @@ TEST_CASE("MedusaHC counts a dismissed prompt as a Cancel", "[toolchanger][mount
     AckingChanger tc(4);
     tc.feed_status("ready", 0);
     REQUIRE(tc.load_filament(3).success());
-    tc.ack();
-    tc.ack();
     tc.ack(); // the prompt is up
     ToolChangerTestAccess::feed_console_signal(tc, mf::ConsoleSignal::Dismissed);
-    CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
-                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
-                                 "SELECT_TOOL T=0");
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode());
     tc.ack();
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
@@ -602,17 +633,15 @@ TEST_CASE("MedusaHC times a single-tool load out when nobody inserts",
     AckingChanger tc(4);
     tc.feed_status("ready", 0);
     REQUIRE(tc.load_filament(3).success());
-    tc.ack();
-    tc.ack();
     tc.ack(); // the prompt is up
     // A wait inside the ceiling keeps waiting.
     ToolChangerTestAccess::feed_wait_elapsed(tc, mf::kPromptTimeoutMs - 1000);
     CHECK(tc.get_system_info().is_busy());
-    CHECK(tc.sent_.size() == 3);
+    CHECK(tc.sent_.size() == 1);
     ToolChangerTestAccess::feed_wait_elapsed(tc, 1000);
-    CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
-                                 "\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
-                                 "SELECT_TOOL T=0");
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode());
+    // The toast claims nothing about heaters or the carriage: neither was touched.
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc) == "No filament was inserted in time");
     tc.ack();
     CHECK(tc.get_current_action() == AmsAction::IDLE);
 }
@@ -688,13 +717,16 @@ TEST_CASE("MedusaHC's step model spans every tool of a multi-tool run",
     const auto model = tc.get_operation_step_model(StepOperationType::LOAD_FRESH);
     // Two tools x five steps, each label naming its tool.
     REQUIRE(model.steps.size() == 10);
-    CHECK(model.steps[0].label == "Tool 1 of 2: Mount tool");
-    CHECK(model.steps[2].label == "Tool 1 of 2: Insert filament");
-    CHECK(model.steps[5].label == "Tool 2 of 2: Mount tool");
+    CHECK(model.steps[0].label == "Tool 1 of 2: Insert filament");
+    CHECK(model.steps[1].label == "Tool 1 of 2: Mount tool");
+    CHECK(model.steps[6].label == "Tool 2 of 2: Mount tool");
     CHECK(model.steps[9].label == "Tool 2 of 2: Restore tool");
+    // One prompt covers every strand: the later tools' insert never runs.
+    CHECK_FALSE(model.steps[0].optional);
+    CHECK(model.steps[5].optional);
     // The phase the run publishes lands inside this model.
-    tc.ack(); // prompt up -> phase 2
-    CHECK(tc.get_system_info().operation_phase == 2);
+    tc.ack(); // prompt up -> phase 0
+    CHECK(tc.get_system_info().operation_phase == 0);
 }
 
 // ============================================================================
@@ -708,6 +740,8 @@ TEST_CASE("mount-to-feed: an abort before the first mount never touches the prev
     // it, whose heater may hold a target its user set. The cleanup turns the
     // RUN's heaters off by name; a blanket M104 S0 would zero that target.
     mf::Run run(load_request());
+    run.stage_done(); // the prompt is up
+    run.operator_reply(mf::Reply::Continue);
     REQUIRE(run.current_step() == mf::Step::Mount);
     run.abort();
     const std::string cleanup = run.current_gcode().value_or("");
@@ -745,15 +779,11 @@ TEST_CASE("MedusaHC unwinds a live run when the connection is lost or restored",
         AckingChanger tc(4);
         tc.feed_status("ready", 0);
         REQUIRE(tc.load_filament(3).success());
-        tc.ack();
-        tc.ack();
         tc.ack(); // the prompt is up
         REQUIRE(tc.get_system_info().is_busy());
 
         ToolChangerTestAccess::feed_disconnect_started(tc);
-        CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
-                                     "\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
-                                     "SELECT_TOOL T=0");
+        CHECK(tc.sent_.back() == mf::prompt_end_gcode());
         CHECK(tc.get_current_action() == AmsAction::IDLE);
         CHECK_FALSE(tc.can_cancel_operation());
     }
@@ -763,6 +793,8 @@ TEST_CASE("MedusaHC unwinds a live run when the connection is lost or restored",
         AckingChanger tc(4);
         tc.feed_status("ready", 0);
         REQUIRE(tc.load_filament(3).success());
+        tc.ack(); // the prompt is up
+        ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
         tc.ack(); // mounted
         ToolChangerTestAccess::feed_disconnect_stopping(tc);
         CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
@@ -794,6 +826,8 @@ TEST_CASE("MedusaHC ends the run and says so when the cleanup itself cannot be s
     FailingCleanupChanger tc(4);
     tc.feed_status("ready", 0);
     REQUIRE(tc.load_filament(3).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
     tc.ack(); // mounted; the heat stage is in flight
     tc.fail_sends = true;
     tc.fail(); // the heat failed, and the cleanup cannot leave either
@@ -807,4 +841,553 @@ TEST_CASE("MedusaHC ends the run and says so when the cleanup itself cannot be s
     CHECK(tc.get_current_action() == AmsAction::IDLE);
     CHECK_FALSE(tc.can_cancel_operation());
     CHECK(std::count(tc.sent_.begin(), tc.sent_.end(), cleanup) == 1);
+}
+
+TEST_CASE("MedusaHC stops under a live run without deadlocking, and still sends the cleanup",
+          "[toolchanger][mount_feed][medusahc]") {
+    // Heap-allocated so a deadlocked stop() can be abandoned: the stuck thread
+    // holds the backend's mutex for good, so destroying it would hang the run.
+    auto* tc = new AckingChanger(4);
+    tc->feed_status("ready", 0);
+    REQUIRE(tc->load_filament(3).success());
+    tc->ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(*tc, mf::Reply::Continue);
+    tc->ack(); // mounted; the heat stage is in flight
+    REQUIRE(tc->is_running());
+
+    auto stopped = std::make_shared<std::promise<void>>();
+    std::future<void> done = stopped->get_future();
+    std::thread stopper([tc, stopped]() {
+        tc->stop();
+        stopped->set_value();
+    });
+    if (done.wait_for(std::chrono::seconds(5)) != std::future_status::ready) {
+        stopper.detach();
+        FAIL("stop() never returned under a live mount-to-feed run");
+    }
+    stopper.join();
+
+    CHECK_FALSE(tc->is_running());
+    CHECK(tc->sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=0\n"
+                              "SELECT_TOOL T=0");
+    CHECK(tc->get_current_action() == AmsAction::IDLE);
+    CHECK_FALSE(tc->can_cancel_operation());
+    delete tc;
+}
+
+namespace {
+
+/// The topi314 MedusaHC: a [medusahc] object and the pin_watch dock sensors,
+/// no klipper-toolchanger.
+PrinterDiscovery pin_watch_medusahc_discovery() {
+    PrinterDiscovery hw;
+    hw.parse_objects(json::array(
+        {"medusahc", "pin_watch io", "extruder", "extruder1", "extruder2", "extruder3"}));
+    return hw;
+}
+
+json pin_watch_frame(int current_tool) {
+    return json{{"pin_watch io", {{"current_tool", current_tool}}}};
+}
+
+} // namespace
+
+TEST_CASE("MedusaHC: the dock sensors' mid-swap -2 under a mount-to-feed run is no fault",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.unload_blocked_reason(0).empty());
+
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.get_current_action() == AmsAction::SELECTING); // the Mount stage
+
+    // Between the head sensor and the dock sensor changing, pin_watch reports
+    // -2 for a moment. That is the swap the run itself asked for.
+    tc.feed(pin_watch_frame(-2));
+    CHECK(tc.unload_blocked_reason(1).empty());
+    CHECK(tc.get_current_action() == AmsAction::SELECTING);
+    tc.feed(pin_watch_frame(1));
+
+    tc.ack();
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=220\nTEMPERATURE_WAIT "
+                             "SENSOR=extruder1 MINIMUM=218");
+    CHECK(tc.get_current_action() == AmsAction::HEATING);
+
+    // Outside a swap the same reading still means the sensors lost the tool.
+    tc.feed(pin_watch_frame(-2));
+    CHECK_FALSE(tc.unload_blocked_reason(1).empty());
+}
+
+namespace {
+
+/// A tool changer on a real MoonrakerAPI, so a stage's send meets the API's
+/// busy gate exactly as it does on a printer.
+class LiveApiChanger : public AmsBackendToolChanger {
+  public:
+    LiveApiChanger(IMoonrakerAPI* api, IMoonrakerClient* client)
+        : AmsBackendToolChanger(api, client) {
+        set_discovered_tools({"T0", "T1", "T2", "T3"});
+        set_mounts_to_feed(true);
+        running_ = true;
+    }
+    ~LiveApiChanger() override {
+        helix::ui::UpdateQueue::instance().drain();
+    }
+    [[nodiscard]] bool toolhead_homed() const override {
+        return homed;
+    }
+    void feed(const json& status) {
+        handle_status_update(
+            json{{"method", "notify_status_update"}, {"params", json::array({status, 0.0})}});
+    }
+    /// Whether every stage may skip the home first.
+    bool homed = true;
+};
+
+} // namespace
+
+TEST_CASE_METHOD(BusyGuardFixture, "MedusaHC's run is answered even while the printer reads busy",
+                 "[toolchanger][mount_feed][medusahc]") {
+    // A swap leaves idle_timeout reading "Printing" for a while. A script made
+    // only of heater commands is "discretionary" to the API's busy gate, which
+    // then sends it fire-and-forget and drops its answer. The run's cleanup is
+    // such a script when there is no carriage to restore: dropped, the run
+    // would sit in its cleanup forever.
+    LiveApiChanger tc(api.get(), &mock_client);
+    tc.feed(json{{"toolchanger", {{"status", "ready"}, {"tool_number", 2}}}});
+    begin_blocking_episode();
+    const auto drain = []() {
+        for (int i = 0; i < 4; ++i) {
+            helix::ui::UpdateQueue::instance().drain();
+        }
+    };
+
+    REQUIRE(tc.load_filament(2).success()); // already mounted: nothing to restore
+    drain();                                // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.cancel().success()); // stopped while heating
+    const auto& history = mock_client.gcode_script_history();
+    REQUIRE_FALSE(history.empty());
+    REQUIRE(history.back() == "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
+
+    drain();
+    // The cleanup's answer ended the run.
+    CHECK_FALSE(tc.can_cancel_operation());
+    CHECK(tc.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE_METHOD(BusyGuardFixture,
+                 "A backend send outside a mount-to-feed run keeps the API's busy gate",
+                 "[toolchanger][mount_feed][medusahc]") {
+    // The gate is the API's rule for every other caller (#1108); only the
+    // mount-to-feed run steps around it.
+    LiveApiChanger tc(api.get(), &mock_client);
+    begin_blocking_episode();
+    bool answered = false;
+    REQUIRE(tc.ensure_homed_then(
+                  "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0",
+                  [&answered]() { answered = true; },
+                  [&answered](const MoonrakerError&) { answered = true; })
+                .success());
+    for (int i = 0; i < 4; ++i) {
+        helix::ui::UpdateQueue::instance().drain();
+    }
+    REQUIRE(mock_client.gcode_script_history().back() ==
+            "SET_HEATER_TEMPERATURE HEATER=extruder TARGET=0");
+    CHECK_FALSE(answered);
+}
+
+TEST_CASE("MedusaHC: the controller's phase word never relabels a live mount-to-feed run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    tc.feed(pin_watch_frame(1));
+    tc.ack(); // mounted and confirmed; heating
+    REQUIRE(tc.get_current_action() == AmsAction::HEATING);
+
+    // The controller's own phase word says it is idle: true of the changer,
+    // not of the run, and the run's status line must not read it.
+    tc.feed(json{{"medusahc", {{"operation", "idle"}}}});
+    CHECK(tc.get_current_action() == AmsAction::HEATING);
+    CHECK(tc.get_system_info().operation_detail.empty());
+}
+
+TEST_CASE("MedusaHC: the dock sensors losing the tool mid-run stop it without a restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    tc.feed(pin_watch_frame(1));
+    tc.ack(); // mounted and confirmed; heating
+    REQUIRE(tc.get_current_action() == AmsAction::HEATING);
+
+    // No swap is running, so -2 means the sensors lost the tool: the carriage
+    // is unknown and no swap may be sent against it.
+    tc.feed(pin_watch_frame(-2));
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc) ==
+          "Load stopped. Dock sensors cannot tell which tool is mounted");
+    tc.ack();
+    CHECK_FALSE(tc.can_cancel_operation());
+    // The fault stays on show once the run is over.
+    CHECK(tc.get_system_info().action == AmsAction::ERROR);
+    CHECK(tc.get_system_info().operation_detail == "sensor error");
+    CHECK_FALSE(tc.unload_blocked_reason(1).empty());
+}
+
+TEST_CASE("MedusaHC's load prompt asks for the strand at the docked hot end",
+          "[toolchanger][mount_feed][medusahc]") {
+    {
+        AckingChanger tc(4);
+        tc.feed_status("ready", 0);
+        REQUIRE(tc.load_filament(2).success());
+        CHECK(tc.sent_.back().find("action:prompt_text Insert filament into the hot end of Tool "
+                                   "3 while it is docked, then tap Continue") != std::string::npos);
+    }
+    // A tool already on the carriage is not docked, and the prompt says so.
+    {
+        AckingChanger tc(4);
+        tc.feed_status("ready", 2);
+        REQUIRE(tc.load_filament(2).success());
+        CHECK(tc.sent_.back().find("action:prompt_text Insert filament into Tool 3, then tap "
+                                   "Continue") != std::string::npos);
+    }
+}
+
+TEST_CASE("MedusaHC tells the operator to pull the strand once an unload completes",
+          "[toolchanger][mount_feed][medusahc]") {
+    SECTION("one tool") {
+        AckingChanger tc(4);
+        tc.feed_status("ready", 0);
+        REQUIRE(tc.unload_filament(1).success());
+        for (int stage = 0; stage < 4; ++stage) { // mount, heat, retract, restore
+            REQUIRE(ToolChangerTestAccess::feed_last_toast(tc).empty());
+            tc.ack();
+        }
+        CHECK(tc.get_current_action() == AmsAction::IDLE);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc) ==
+              "Unload complete. Pull the filament out of Tool 2.");
+        CHECK(ToolChangerTestAccess::feed_last_toast_severity(tc) == ToastSeverity::SUCCESS);
+    }
+    SECTION("several tools, one toast naming them all") {
+        AckingChanger tc(4);
+        tc.feed_status("ready", 0);
+        REQUIRE(tc.unload_filament_batch({1, 3}).success());
+        for (int stage = 0; stage < 7; ++stage) {
+            REQUIRE(ToolChangerTestAccess::feed_last_toast(tc).empty());
+            tc.ack();
+        }
+        CHECK(tc.get_current_action() == AmsAction::IDLE);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc) ==
+              "Unload complete. Pull the filament out of Tool 2, Tool 4.");
+        CHECK(ToolChangerTestAccess::feed_last_toast_severity(tc) == ToastSeverity::SUCCESS);
+    }
+    SECTION("a stopped unload keeps its error toast") {
+        AckingChanger tc(4);
+        tc.feed_status("ready", 0);
+        REQUIRE(tc.unload_filament(1).success());
+        tc.ack();  // mounted
+        tc.fail(); // the heat failed
+        tc.ack();  // the cleanup landed
+        CHECK(tc.get_current_action() == AmsAction::IDLE);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc) == "Unload stopped");
+        CHECK(ToolChangerTestAccess::feed_last_toast_severity(tc) == ToastSeverity::ERROR);
+    }
+}
+
+// ============================================================================
+// The dock sensors confirm every swap the run sends
+// ============================================================================
+
+namespace {
+
+/// Irbis3D's controller: a [medusahc] object that publishes sensor_error.
+PrinterDiscovery irbis_medusahc_discovery() {
+    PrinterDiscovery hw;
+    hw.parse_objects(json::array({"toolchanger", "tool T0", "tool T1", "tool T2", "tool T3",
+                                  "medusahc", "pin_watch io", "extruder", "extruder1"}));
+    return hw;
+}
+
+/// A sensed MedusaHC on tool 0, with a Load of tool 1 at its Mount stage.
+void start_load_to_mount(AckingChanger& tc) {
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.sent_.back() == mf::prompt_end_gcode() + "\nSELECT_TOOL T=1");
+}
+
+} // namespace
+
+TEST_CASE("MedusaHC: a swap the sensors confirm moves the run on",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    // The ack can beat the frame that reports the finished swap: the run waits
+    // for the frame rather than judging the reading it already had.
+    tc.ack();
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode() + "\nSELECT_TOOL T=1");
+    tc.feed(pin_watch_frame(1));
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=220\n"
+                             "TEMPERATURE_WAIT SENSOR=extruder1 MINIMUM=218");
+}
+
+TEST_CASE("MedusaHC: a mount the sensors still cannot place stops the run without a restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(-2)); // mid-swap, and it never settles
+    tc.ack();
+    REQUIRE(tc.sent_.back() ==
+            mf::prompt_end_gcode() + "\nSELECT_TOOL T=1"); // still waiting on the frame
+    ToolChangerTestAccess::feed_swap_check_elapsed(tc);
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc) ==
+          "Load stopped. Dock sensors cannot tell which tool is mounted");
+    tc.ack();
+    CHECK(tc.get_system_info().action == AmsAction::ERROR);
+    CHECK_FALSE(tc.unload_blocked_reason(1).empty());
+}
+
+TEST_CASE("MedusaHC: a mount that seated the wrong tool stops the run without a restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(2));
+    tc.ack();
+    ToolChangerTestAccess::feed_swap_check_elapsed(tc);
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc) ==
+          "Load stopped. Dock sensors cannot tell which tool is mounted");
+    tc.ack();
+    CHECK_FALSE(tc.can_cancel_operation());
+}
+
+TEST_CASE("MedusaHC: a restore the sensors confirm completes the run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(1));
+    tc.ack(); // mounted
+    tc.ack(); // heated
+    tc.ack(); // purged
+    REQUIRE(tc.sent_.back() == "SELECT_TOOL T=0");
+    tc.feed(pin_watch_frame(1)); // the old tool, still on: not restored yet
+    tc.ack();
+    CHECK(tc.can_cancel_operation());
+    tc.feed(pin_watch_frame(0));
+    CHECK_FALSE(tc.can_cancel_operation());
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
+}
+
+TEST_CASE("MedusaHC: a fault the controller reports during a swap still stops the run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"current_tool", 0}, {"sensor_error", false}}}});
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.get_current_action() == AmsAction::SELECTING); // the Mount stage
+
+    // The flag is the controller's own word: a fault even mid-swap.
+    tc.feed(json{{"medusahc", {{"sensor_error", true}}}});
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    tc.ack();
+    CHECK(tc.get_system_info().action == AmsAction::ERROR);
+    CHECK(tc.get_system_info().operation_detail == "sensor error");
+}
+
+TEST_CASE("MedusaHC: a cleanup that sends no swap is no cover for a -2",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(1));
+    REQUIRE(tc.load_filament(1).success()); // already mounted: nothing to restore
+    tc.ack();                               // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.cancel().success());
+    REQUIRE(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+
+    tc.feed(pin_watch_frame(-2));
+    CHECK_FALSE(tc.unload_blocked_reason(1).empty());
+}
+
+TEST_CASE("mount-to-feed: an abort that cannot trust the carriage leaves it alone",
+          "[toolchanger][mount_feed]") {
+    mf::Run run(load_request());
+    run.stage_done(); // the prompt is up
+    run.operator_reply(mf::Reply::Continue);
+    REQUIRE(run.current_stage() != nullptr);
+    CHECK(run.current_stage()->swaps); // the mount
+    run.abort(/*restore_carriage=*/false);
+    CHECK(run.current_gcode() ==
+          std::optional<std::string>("SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0"));
+    REQUIRE(run.current_stage() != nullptr);
+    CHECK_FALSE(run.current_stage()->swaps);
+
+    mf::Run restoring(load_request());
+    restoring.stage_done();
+    restoring.operator_reply(mf::Reply::Continue);
+    restoring.abort();
+    REQUIRE(restoring.current_stage() != nullptr);
+    CHECK(restoring.current_stage()->swaps); // its cleanup puts tool 0 back
+}
+
+TEST_CASE("MedusaHC words a mixed load's prompt for the mounted tool and the docked ones",
+          "[toolchanger][mount_feed][medusahc][batch]") {
+    AckingChanger tc(4);
+    tc.feed_status("ready", 0);
+    REQUIRE(tc.load_filament_batch({0, 2}).success());
+    CHECK(tc.sent_.back().find("action:prompt_text Insert filament into Tool 1 as far as it "
+                               "goes, and into the hot end of Tool 3 while it is docked, then "
+                               "tap Continue") != std::string::npos);
+}
+
+// ============================================================================
+// A carriage nothing can vouch for is never restored
+// ============================================================================
+
+TEST_CASE("MedusaHC: a Mount stage that fails sends no restore swap",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(-2)); // the swap stopped partway
+    tc.fail();                    // the machine's T1 reported `!!`
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+}
+
+TEST_CASE("MedusaHC: a Cancel while a swap waits on the sensors sends no restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.ack(); // acked, waiting on the frame that confirms it
+    REQUIRE(tc.cancel().success());
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+}
+
+TEST_CASE("MedusaHC: losing the connection mid-Mount sends no restore",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    ToolChangerTestAccess::feed_disconnect_stopping(tc);
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0");
+    CHECK(std::find(tc.sent_.begin(), tc.sent_.end(), "SELECT_TOOL T=0") == tc.sent_.end());
+}
+
+TEST_CASE("MedusaHC: a Cancel after a confirmed Mount still restores the carriage",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    start_load_to_mount(tc);
+    tc.feed(pin_watch_frame(1));
+    tc.ack(); // mounted and confirmed; heating
+    REQUIRE(tc.cancel().success());
+    CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=0\n"
+                             "SELECT_TOOL T=0");
+}
+
+TEST_CASE("MedusaHC: a dock sensor jostled while the operator inserts is no fault",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    const size_t sent_before = tc.sent_.size();
+    tc.feed(pin_watch_frame(-2));
+    tc.feed(pin_watch_frame(0));
+    CHECK(tc.sent_.size() == sent_before);
+    CHECK(tc.can_cancel_operation());
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode() + "\nSELECT_TOOL T=1");
+}
+
+TEST_CASE("MedusaHC: a fault the controller reports at the prompt still stops the run",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"current_tool", 0}, {"sensor_error", false}}}});
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    tc.feed(json{{"medusahc", {{"sensor_error", true}}}});
+    CHECK(tc.sent_.back() == mf::prompt_end_gcode());
+}
+
+TEST_CASE("MedusaHC: a sensor fault left over from before a run does not stop the next one",
+          "[toolchanger][mount_feed][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(pin_watch_medusahc_discovery()));
+    tc.feed(pin_watch_frame(0));
+    ToolChangerTestAccess::set_feed_sensor_fault(tc);
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    tc.feed(json{{"medusahc", {{"operation", "idle"}}}});
+    CHECK(tc.can_cancel_operation());
+    CHECK(tc.sent_.back().find("action:prompt_show") != std::string::npos);
+}
+
+TEST_CASE_METHOD(BusyGuardFixture,
+                 "MedusaHC's run is answered while busy even when each stage homes first",
+                 "[toolchanger][mount_feed][medusahc]") {
+    // A printer that lost homing to idle_timeout sends G28 ahead of every stage,
+    // and the stage itself goes out from the G28's answer. The busy-gate bypass
+    // has to survive that hop, or a heater-only cleanup is dropped again.
+    LiveApiChanger tc(api.get(), &mock_client);
+    tc.homed = false;
+    tc.feed(json{{"toolchanger", {{"status", "ready"}, {"tool_number", 2}}}});
+    begin_blocking_episode();
+    const auto drain = []() {
+        for (int i = 0; i < 6; ++i) {
+            helix::ui::UpdateQueue::instance().drain();
+        }
+    };
+
+    REQUIRE(tc.load_filament(2).success()); // already mounted: nothing to restore
+    drain();                                // homed, then the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.cancel().success()); // stopped while homing for the heat
+    drain();                        // homed, then the heater-only cleanup
+    const auto& history = mock_client.gcode_script_history();
+    REQUIRE_FALSE(history.empty());
+    REQUIRE(history.back() == "SET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
+    CHECK(std::count(history.begin(), history.end(), "G28") >= 3);
+    // The cleanup's answer ended the run.
+    CHECK_FALSE(tc.can_cancel_operation());
+    CHECK(tc.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE("MedusaHC: a frame silent about the carriage leaves a standing sensor fault",
+          "[toolchanger][medusahc]") {
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"current_tool", 1}}}});
+    tc.feed(json{{"medusahc", {{"current_tool", -2}}}}); // no swap running: a fault
+    REQUIRE(tc.get_system_info().action == AmsAction::ERROR);
+
+    // Moonraker republishes only what changed: a docks-only frame is not the
+    // sensors agreeing again.
+    tc.feed(json{{"medusahc", {{"sensors", {{"t0", 1}, {"t2", 1}}}}}});
+    CHECK(tc.get_system_info().action == AmsAction::ERROR);
+    CHECK(tc.get_system_info().operation_detail == "sensor error");
+    CHECK_FALSE(tc.unload_blocked_reason(1).empty());
+
+    tc.feed(json{{"medusahc", {{"current_tool", 1}}}});
+    CHECK(tc.get_system_info().action == AmsAction::IDLE);
+    CHECK(tc.get_system_info().operation_detail.empty());
+    CHECK(tc.unload_blocked_reason(1).empty());
 }

@@ -306,6 +306,7 @@ std::optional<ToolReading> read_medusahc(const nlohmann::json& obj) {
     if (auto flag = bool_field(obj, "sensor_error")) {
         r.sensor_error = *flag;
         r.sensor_error_reported = *flag;
+        r.sensor_error_named = true;
         saw_anything = true;
     }
     if (r.current_tool == -2) {

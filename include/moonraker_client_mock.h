@@ -1434,6 +1434,15 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
      */
     nlohmann::json defect_detection_status() const;
 
+    /**
+     * @brief U1 `purifier` status: the top module's air purifier, whose
+     *        power_detected is the top being fitted.
+     *
+     * Empty object for every persona but the U1. power_detected is true unless
+     * HELIX_MOCK_ENCLOSURE_TOP=0.
+     */
+    nlohmann::json purifier_status() const;
+
   private:
     // Test visibility into the chamber-key cache and the synchronous initial
     // state dispatch (see tests/test_helpers/moonraker_client_mock_test_access.h).

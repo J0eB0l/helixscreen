@@ -2273,7 +2273,7 @@
   <translation tag="No filament environment sensors" en="No filament environment sensors"/>
   <translation tag="No filament loaded to unload" en="No filament loaded to unload"/>
   <translation tag="No filament sensor detected" en="No filament sensor detected"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" en="No filament was inserted in time. The heater is off and the carriage is restored"/>
+  <translation tag="No filament was inserted in time" en="No filament was inserted in time"/>
   <translation tag="No filament. Load filament and retry." en="No filament. Load filament and retry."/>
   <translation tag="No filaments found" en="No filaments found"/>
   <translation tag="No file loaded" en="No file loaded"/>
@@ -3976,6 +3976,7 @@
   <translation tag="Unload Filament" en="Unload Filament"/>
   <translation tag="Unload all stopped" en="Unload all stopped"/>
   <translation tag="Unload at end" en="Unload at end"/>
+  <translation tag="Unload complete. Pull the filament out of {}." en="Unload complete. Pull the filament out of {}."/>
   <translation tag="Unload failed" en="Unload failed"/>
   <translation tag="Unload filament" en="Unload filament"/>
   <translation tag="Unload filament?" en="Unload filament?"/>

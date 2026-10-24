@@ -13,10 +13,12 @@
 #include "../test_helpers/printer_image_regions_test_access.h"
 #include "../test_helpers/typed_mock_backend.h"
 #include "ams_state.h"
+#include "app_globals.h"
 #include "config.h"
 #include "lvgl/lvgl.h"
 #include "printer_detector.h"
 #include "printer_image_regions.h"
+#include "printer_state.h"
 #include "wizard_config_paths.h"
 
 #include <cstdint>
@@ -774,5 +776,32 @@ TEST_CASE_METHOD(
     const std::string plain = pim.get_detected_image_path(800);
     AmsState::instance().add_backend(std::make_unique<test::TypedMockBackend>(
         AmsType::CFS, /*with_units=*/true, /*units_connected=*/false));
+    CHECK(pim.get_detected_image_path(800) == plain);
+}
+
+TEST_CASE_METHOD(DetectedK2Fixture,
+                 "PrinterImageManager a Snapmaker U1 with its top fitted shows the top",
+                 "[printer_image_manager][printer_image_variants][enclosure_top]") {
+    Config* config = Config::get_instance();
+    config->set<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "Snapmaker U1");
+    auto& caps = get_printer_state().capabilities_state();
+    caps.set_enclosure_top_fitted(false);
+    caps.set_has_chamber_heater(false);
+
+    auto& pim = PrinterImageManager::instance();
+    const std::string plain = pim.get_detected_image_path(800);
+    REQUIRE(plain.find("snapmaker-u1") != std::string::npos);
+    CHECK(plain.find("snapmaker-u1-tophat") == std::string::npos);
+
+    caps.set_enclosure_top_fitted(true);
+    CHECK(pim.get_detected_image_path(800).find("snapmaker-u1-tophat") != std::string::npos);
+
+    caps.set_enclosure_top_fitted(false);
+    CHECK(pim.get_detected_image_path(800) == plain);
+
+    // A chamber heater alone shows the same picture.
+    caps.set_has_chamber_heater(true);
+    CHECK(pim.get_detected_image_path(800).find("snapmaker-u1-tophat") != std::string::npos);
+    caps.set_has_chamber_heater(false);
     CHECK(pim.get_detected_image_path(800) == plain);
 }

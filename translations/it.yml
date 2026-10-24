@@ -942,7 +942,7 @@ translations:
   "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Le basi: la procedura guidata di configurazione, come spostarsi tra le schermate e i gesti touch."
   Load all stopped: Caricamento di tutti interrotto
   Load stopped: Caricamento interrotto
-  No filament was inserted in time. The heater is off and the carriage is restored: 'Nessun filamento inserito in tempo. Il riscaldatore è spento e il carrello è ripristinato'
+  No filament was inserted in time: 'Nessun filamento inserito in tempo'
   Print hours between filter changes. Off hides this meter.: 'Ore di stampa tra un cambio filtro e l’altro. Spento nasconde questo contatore.'
   Print hours between nozzle changes. Off hides this meter.: 'Ore di stampa tra un cambio ugello e l’altro. Spento nasconde questo contatore.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Ore di stampa tra una pulizia e lubrificazione delle guide e l’altra. Spento nasconde questo contatore.'
@@ -4396,6 +4396,7 @@ translations:
   Unload Failed: 'Scaricamento non riuscito'
   Unload Filament: Scarica filamento
   'Unload at end': 'Scarica alla fine'
+  Unload complete. Pull the filament out of {}.: 'Scaricamento completato. Estrai il filamento: {}.'
   Unload failed: Scarico non riuscito
   Unload filament: 'Scarica il filamento'
   Unload filament?: Scaricare il filamento?

@@ -76,6 +76,7 @@ constexpr CapabilityDef kCapabilityDefs[] = {
     {Capability::HasHeatSoak, "printer_has_heat_soak", 0},
     {Capability::HasFanFeedback, "printer_has_fan_feedback", 0},
     {Capability::HasLedEffects, "printer_has_led_effects", 0},
+    {Capability::EnclosureTopFitted, "printer_enclosure_top_fitted", 0},
     {Capability::HardwareGeneration, "printer_hardware_generation", 0},
 };
 static_assert(std::size(kCapabilityDefs) == kCapabilityCount);
@@ -196,6 +197,9 @@ void PrinterCapabilitiesState::set_hardware(const PrinterDiscovery& hardware,
     set_capability(Capability::HasShakeTune, hardware.has_klippain_shaketune() ? 1 : 0);
     set_capability(Capability::HasFanFeedback, hardware.has_fan_feedback() ? 1 : 0);
     set_capability(Capability::HasLedEffects, hardware.has_led_effects() ? 1 : 0);
+    // A new printer's report arrives in its first status frame, which discovery
+    // dispatches after this, so the previous printer's answer never carries over.
+    set_capability(Capability::EnclosureTopFitted, 0);
 
     set_capability(Capability::HasExtraFans,
                    PrinterFanState::count_extra_controllable_fans(hardware.fans()) > 0 ? 1 : 0);
@@ -417,6 +421,10 @@ void PrinterCapabilitiesState::set_bed_drying(bool enclosed, bool can_bed_dry) {
         set_capability(Capability::CanBedDry, can_bed_dry ? 1 : 0);
         spdlog::info("[PrinterCapabilitiesState] Bed drying available: {}", can_bed_dry);
     }
+}
+
+void PrinterCapabilitiesState::set_enclosure_top_fitted(bool fitted) {
+    set_capability(Capability::EnclosureTopFitted, fitted ? 1 : 0);
 }
 
 void PrinterCapabilitiesState::set_has_chamber_sensor(bool available) {

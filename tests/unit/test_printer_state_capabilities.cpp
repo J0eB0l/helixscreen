@@ -694,3 +694,68 @@ TEST_CASE("PrinterState: an unambiguously detected provider is not refuted by a 
           ZOffsetCalibrationStrategy::FIRMWARE_MANAGED);
     CHECK(lv_subject_get_int(state.profile_state().get_z_offset_can_save_subject()) == 0);
 }
+
+namespace {
+
+PrinterDiscovery discovery_with(const json& objects) {
+    PrinterDiscovery hw;
+    hw.parse_objects(objects);
+    return hw;
+}
+
+const json kTopFitted = {{"purifier", {{"power_detected", true}, {"mode", 0}}}};
+
+} // namespace
+
+TEST_CASE("PrinterState: the enclosure top follows status frames",
+          "[printer_state][enclosure_top]") {
+    lv_init_safe();
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+    auto& caps = state.capabilities_state();
+    const json u1_objects = {"purifier", "fm175xx_reader", "tool"};
+
+    SECTION("discovery, then the first frame") {
+        state.set_hardware(discovery_with(u1_objects));
+        REQUIRE_FALSE(caps.enclosure_top_fitted());
+
+        state.update_from_status(kTopFitted);
+        CHECK(caps.enclosure_top_fitted());
+
+        // Delta frames that do not carry the flag keep the last report.
+        state.update_from_status({{"purifier", {{"inner_fan_rpm", 1500.0}}}});
+        CHECK(caps.enclosure_top_fitted());
+        state.update_from_status({{"extruder", {{"temperature", 25.0}}}});
+        CHECK(caps.enclosure_top_fitted());
+
+        state.update_from_status({{"purifier", {{"power_detected", false}}}});
+        CHECK_FALSE(caps.enclosure_top_fitted());
+
+        // A second printer of the same kind starts from its own first frame.
+        state.update_from_status(kTopFitted);
+        REQUIRE(caps.enclosure_top_fitted());
+        state.set_hardware(discovery_with(u1_objects));
+        CHECK_FALSE(caps.enclosure_top_fitted());
+    }
+
+    SECTION("a frame before discovery, then the subscribe response's status") {
+        // A live frame can reach PrinterState while it still holds the previous
+        // printer's discovery; discovery then dispatches the subscribe
+        // response's whole-object status after set_hardware.
+        state.set_hardware(discovery_with({"extruder"}));
+        state.update_from_status(kTopFitted);
+        CHECK_FALSE(caps.enclosure_top_fitted());
+
+        state.set_hardware(discovery_with(u1_objects));
+        CHECK_FALSE(caps.enclosure_top_fitted());
+        state.update_from_status(kTopFitted);
+        CHECK(caps.enclosure_top_fitted());
+    }
+
+    SECTION("a purifier on another printer is not an enclosure top") {
+        state.set_hardware(discovery_with({"purifier", "extruder"}));
+        state.update_from_status(kTopFitted);
+        CHECK_FALSE(caps.enclosure_top_fitted());
+    }
+}

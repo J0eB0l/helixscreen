@@ -134,3 +134,46 @@ TEST_CASE("new capability subjects register under their XML names", "[printer_ca
     }
     caps.deinit_subjects();
 }
+
+TEST_CASE("enclosure top: set from status, cleared by every new printer",
+          "[printer_capabilities][enclosure_top]") {
+    LVGLTestFixture fixture;
+    PrinterCapabilitiesState caps;
+    caps.init_subjects(true);
+    CHECK(lv_xml_get_subject(nullptr, "printer_enclosure_top_fitted") != nullptr);
+    CHECK_FALSE(caps.enclosure_top_fitted());
+
+    caps.set_enclosure_top_fitted(true);
+    CHECK(cap(caps, Capability::EnclosureTopFitted) == 1);
+    CHECK(caps.enclosure_top_fitted());
+
+    // Another printer that also reports a top must not inherit this one's answer
+    // before its own first frame.
+    PrinterDiscovery reporting;
+    reporting.parse_objects(json{"purifier", "fm175xx_reader"});
+    CapabilityOverrides reporting_overrides;
+    reporting_overrides.set_hardware(reporting);
+    caps.set_hardware(reporting, reporting_overrides);
+    CHECK_FALSE(caps.enclosure_top_fitted());
+
+    caps.set_enclosure_top_fitted(true);
+    PrinterDiscovery bare;
+    bare.parse_objects(json{"fan"});
+    CapabilityOverrides bare_overrides;
+    bare_overrides.set_hardware(bare);
+    caps.set_hardware(bare, bare_overrides);
+    CHECK_FALSE(caps.enclosure_top_fitted());
+
+    caps.deinit_subjects();
+}
+
+TEST_CASE("enclosure top: a report before the subjects exist is kept",
+          "[printer_capabilities][enclosure_top]") {
+    LVGLTestFixture fixture;
+    PrinterCapabilitiesState caps;
+    caps.set_enclosure_top_fitted(true);
+    CHECK(caps.enclosure_top_fitted());
+    caps.init_subjects(false);
+    CHECK(cap(caps, Capability::EnclosureTopFitted) == 1);
+    caps.deinit_subjects();
+}

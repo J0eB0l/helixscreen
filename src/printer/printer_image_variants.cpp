@@ -12,6 +12,13 @@ namespace helix::printer_images {
 namespace {
 
 constexpr std::string_view kFilamentSystem = "filament_system";
+constexpr std::string_view kEnclosureTop = "enclosure_top";
+constexpr std::string_view kChamberHeater = "chamber_heater";
+
+/// A boolean condition against @p fact; any other value never holds.
+bool bool_condition_holds(const nlohmann::json& value, bool fact) {
+    return value.is_boolean() && value.get<bool>() == fact;
+}
 
 /// The AmsType a `filament_system` value names, NONE when it names none.
 AmsType parse_filament_system(const nlohmann::json& value) {
@@ -32,18 +39,27 @@ bool condition_holds(std::string_view key, const nlohmann::json& value,
         return std::find(facts.filament_systems.begin(), facts.filament_systems.end(), wanted) !=
                facts.filament_systems.end();
     }
+    if (key == kEnclosureTop) {
+        return bool_condition_holds(value, facts.enclosure_top);
+    }
+    if (key == kChamberHeater) {
+        return bool_condition_holds(value, facts.has_chamber_heater);
+    }
     return false;
 }
 
 } // namespace
 
 bool is_known_variant_condition(std::string_view key) {
-    return key == kFilamentSystem;
+    return key == kFilamentSystem || key == kEnclosureTop || key == kChamberHeater;
 }
 
 bool is_valid_variant_condition_value(std::string_view key, const nlohmann::json& value) {
     if (key == kFilamentSystem) {
         return parse_filament_system(value) != AmsType::NONE;
+    }
+    if (key == kEnclosureTop || key == kChamberHeater) {
+        return value.is_boolean();
     }
     return false;
 }

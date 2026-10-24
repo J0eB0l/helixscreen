@@ -14,6 +14,7 @@
 #include "board_identity.h"
 #include "chamber_heater_backend.h"
 #include "config.h"
+#include "enclosure_top.h"
 #include "firmware_fault_codes.h"
 #include "helix_version.h"
 #include "humidity_sensor_types.h"
@@ -1443,6 +1444,14 @@ json MoonrakerDiscoverySequence::build_subscription_objects(
     // See include/power_loss_sensor.h.
     for (const auto& obj : helix::power_loss::required_status_objects(hw)) {
         subscription_objects[obj] = nullptr;
+    }
+
+    // Firmware that reports a removable enclosure top fitted keeps the reading
+    // in its own status object; the home panel's printer picture follows it.
+    // See include/enclosure_top.h.
+    const json enclosure_top_objects = helix::enclosure_top::required_status_objects(hw);
+    for (auto it = enclosure_top_objects.begin(); it != enclosure_top_objects.end(); ++it) {
+        subscription_objects[it.key()] = it.value();
     }
 
     // Firmware that keeps a z-offset PER TOOL needs whatever object stores it.

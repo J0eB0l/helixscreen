@@ -950,7 +950,7 @@ translations:
   "Learn the basics: the setup wizard, moving around the screens, and touch gestures.": "Die Grundlagen: der Einrichtungsassistent, die Navigation zwischen den Bildschirmen und Touch-Gesten."
   Load all stopped: Laden gestoppt
   Load stopped: Laden gestoppt
-  No filament was inserted in time. The heater is off and the carriage is restored: 'Kein Filament wurde rechtzeitig eingeführt. Die Heizung ist aus und der Schlitten ist zurückgestellt'
+  No filament was inserted in time: 'Kein Filament wurde rechtzeitig eingeführt'
   Print hours between filter changes. Off hides this meter.: 'Druckstunden zwischen Filterwechseln. Aus blendet diesen Zähler aus.'
   Print hours between nozzle changes. Off hides this meter.: 'Druckstunden zwischen Düsenwechseln. Aus blendet diesen Zähler aus.'
   Print hours between rail cleaning and lubrication. Off hides this meter.: 'Druckstunden zwischen Reinigen und Schmieren der Linearschienen. Aus blendet diesen Zähler aus.'
@@ -4404,6 +4404,7 @@ translations:
   Unload Failed: 'Entladen fehlgeschlagen'
   Unload Filament: Filament entladen
   'Unload at end': 'Am Ende entladen'
+  Unload complete. Pull the filament out of {}.: 'Entladen abgeschlossen. Ziehen Sie das Filament heraus: {}.'
   Unload failed: Entladen fehlgeschlagen
   Unload filament: 'Filament entladen'
   Unload filament?: Filament entladen?

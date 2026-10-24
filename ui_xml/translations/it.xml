@@ -2273,7 +2273,7 @@
   <translation tag="No filament environment sensors" it="Nessun sensore ambientale del filamento"/>
   <translation tag="No filament loaded to unload" it="Nessun filamento caricato da scaricare"/>
   <translation tag="No filament sensor detected" it="Nessun sensore filamento rilevato"/>
-  <translation tag="No filament was inserted in time. The heater is off and the carriage is restored" it="Nessun filamento inserito in tempo. Il riscaldatore è spento e il carrello è ripristinato"/>
+  <translation tag="No filament was inserted in time" it="Nessun filamento inserito in tempo"/>
   <translation tag="No filament. Load filament and retry." it="Nessun filamento. Carica il filamento e riprova."/>
   <translation tag="No filaments found" it="Nessun filamento trovato"/>
   <translation tag="No file loaded" it="Nessun file caricato"/>
@@ -3976,6 +3976,7 @@
   <translation tag="Unload Filament" it="Scarica filamento"/>
   <translation tag="Unload all stopped" it="Scaricamento di tutti interrotto"/>
   <translation tag="Unload at end" it="Scarica alla fine"/>
+  <translation tag="Unload complete. Pull the filament out of {}." it="Scaricamento completato. Estrai il filamento: {}."/>
   <translation tag="Unload failed" it="Scarico non riuscito"/>
   <translation tag="Unload filament" it="Scarica il filamento"/>
   <translation tag="Unload filament?" it="Scaricare il filamento?"/>

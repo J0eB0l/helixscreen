@@ -61,6 +61,8 @@ enum class Capability : uint8_t {
     HasHeatSoak,                 ///< heat soak macro, after the user override
     HasFanFeedback,              ///< fan tachometer feedback (fan_feedback)
     HasLedEffects,               ///< [led_effect] sections
+    EnclosureTopFitted,          ///< 1 = firmware reports a removable enclosure top fitted;
+                                 ///< 0 = removed, not reported yet, or no such report
     HardwareGeneration,          ///< bumped whenever discovery or kinematics changes
     Count
 };
@@ -218,11 +220,26 @@ class PrinterCapabilitiesState {
     /// (prestonbrown/helixscreen#1730). Resolved by PrinterState.
     void set_bed_drying(bool enclosed, bool can_bed_dry);
 
+    /// Whether the firmware reports a removable enclosure top fitted, from a
+    /// status frame (include/enclosure_top.h). set_hardware() clears it.
+    /// Main thread only.
+    void set_enclosure_top_fitted(bool fitted);
+
+    /// The last enclosure-top report; false before any.
+    [[nodiscard]] bool enclosure_top_fitted() const {
+        return capability_value(Capability::EnclosureTopFitted) != 0;
+    }
+
     /** @brief Override chamber sensor capability after manual assignment resolution */
     void set_has_chamber_sensor(bool available);
 
     /** @brief Override chamber heater capability after manual assignment resolution */
     void set_has_chamber_heater(bool available);
+
+    /// Whether the printer has a chamber heater, detected or manually assigned.
+    [[nodiscard]] bool has_chamber_heater() const {
+        return capability_value(Capability::HasChamberHeater) != 0;
+    }
 
     /** @brief Set chamber-heater diagnostics capability (backend diagnostics object resolved) */
     void set_has_chamber_heater_diagnostics(bool available);

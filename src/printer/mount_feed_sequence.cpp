@@ -39,28 +39,38 @@ std::string respond_command(std::string_view message) {
     return fmt::format("RESPOND TYPE=command MSG=\"{}\"", message);
 }
 
-std::string heat_gcode(int temp_c) {
-    return fmt::format("M109 S{}", temp_c);
+/// Set @p head's own heater by name. Every temperature the run sends goes this
+/// way: a changer that swaps tools without ACTIVATE_EXTRUDER leaves Klipper's
+/// active extruder where it was, so M104/M109 would act on that one instead.
+std::string heater_target_gcode(int head, int target_c) {
+    return fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET={}", heater_name(head), target_c);
 }
 
-std::string with_heater_off(std::string gcode) {
-    return gcode + "\nM104 S0";
-}
-
-/// Warm @p head partway while another tool works, so its own M109 starts from
-/// heat instead of room temperature - unless it is already set at least that
-/// hot, in which case its target stands and nothing is sent.
+/// Warm @p head partway while another tool works, so its own heat stage starts
+/// from heat instead of room temperature - unless it is already set at least
+/// that hot, in which case its target stands and nothing is sent.
 std::string preheat_gcode(const HeadRequest& head) {
     const int preheat = head.temp_c * 65 / 100;
     if (head.heater_target_c >= preheat) {
         return {};
     }
-    return fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET={}", heater_name(head.head),
-                       preheat);
+    return heater_target_gcode(head.head, preheat);
 }
 
 std::string heater_off_gcode(int head) {
-    return fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET=0", heater_name(head));
+    return heater_target_gcode(head, 0);
+}
+
+/// Heat @p head and wait for it, by name rather than through a printer's own
+/// M109 override, which may wait on a different heater than it set.
+std::string heat_gcode(int head, int temp_c) {
+    return heater_target_gcode(head, temp_c) +
+           fmt::format("\nTEMPERATURE_WAIT SENSOR={} MINIMUM={}", heater_name(head), temp_c - 2);
+}
+
+/// @p gcode, then @p head's heater off by name, for the same reason.
+std::string with_heater_off(std::string gcode, int head) {
+    return gcode + "\n" + heater_off_gcode(head);
 }
 
 /// The moves that work one tool's filament: the printer's own macro when it
@@ -82,7 +92,7 @@ std::string heater_name(int head) {
 
 std::vector<Step> steps(bool load) {
     if (load) {
-        return {Step::Mount, Step::Heat, Step::Insert, Step::Purge, Step::Restore};
+        return {Step::Insert, Step::Mount, Step::Heat, Step::Purge, Step::Restore};
     }
     return {Step::Mount, Step::Heat, Step::Retract, Step::Restore};
 }
@@ -144,7 +154,6 @@ std::string prompt_end_gcode() {
 
 std::vector<Stage> plan(const Request& r) {
     std::vector<Stage> stages;
-    const bool several = r.heads.size() > 1;
     // Whichever stage follows an operator-wait stage closes the prompt: the
     // reply moved the run on, and the dialog is still up until this lands.
     bool close_prompt = false;
@@ -153,14 +162,16 @@ std::vector<Stage> plan(const Request& r) {
             gcode = prompt_end_gcode() + "\n" + std::move(gcode);
             close_prompt = false;
         }
-        stages.push_back({step, std::move(gcode), awaits, tool});
+        const bool swaps = step == Step::Mount || step == Step::Restore;
+        stages.push_back({step, std::move(gcode), awaits, tool, swaps});
         if (awaits) {
             close_prompt = true;
         }
     };
-    if (several && r.load) {
-        // One prompt for every strand, before anything mounts: the operator
-        // fills every tube once and the run then works tool by tool.
+    if (r.load) {
+        // One prompt for every strand, before anything mounts: a strand goes
+        // into the docked hot end, since on the carriage the extruder's gears
+        // stand in the way. The run then works tool by tool.
         push_stage(Step::Insert, prompt_gcode(r), /*awaits_operator=*/true, 0);
     }
     for (size_t t = 0; t < r.heads.size(); ++t) {
@@ -168,7 +179,7 @@ std::vector<Stage> plan(const Request& r) {
         const HeadRequest* next = t + 1 < r.heads.size() ? &r.heads[t + 1] : nullptr;
         const std::string preheat = next ? preheat_gcode(*next) : std::string();
         const int tool = static_cast<int>(t);
-        std::string heat = heat_gcode(head.temp_c);
+        std::string heat = heat_gcode(head.head, head.temp_c);
         if (!preheat.empty()) {
             // The next tool warms partway while this one works. It rides the
             // stage that starts this tool: mount where there is one, else heat.
@@ -182,11 +193,8 @@ std::vector<Stage> plan(const Request& r) {
                        false, tool);
         }
         push_stage(Step::Heat, std::move(heat), false, tool);
-        if (r.load && !several) {
-            push_stage(Step::Insert, prompt_gcode(r), /*awaits_operator=*/true, tool);
-        }
         push_stage(r.load ? Step::Purge : Step::Retract,
-                   with_heater_off(feed_or_retract_gcode(r, head)), false, tool);
+                   with_heater_off(feed_or_retract_gcode(r, head), head.head), false, tool);
     }
     if (!r.restore_gcode.empty()) {
         push_stage(Step::Restore, r.restore_gcode, false, static_cast<int>(r.heads.size()) - 1);
@@ -345,32 +353,46 @@ Run::WaitResult Run::advance_wait(uint32_t elapsed_ms) {
     return WaitResult::Expired;
 }
 
-void Run::abort() {
+const Stage* Run::current_stage() const {
+    return finished() ? nullptr : &stages_[index_];
+}
+
+void Run::abort(bool restore_carriage) {
     if (cleaning_up_ || finished()) {
         index_ = stages_.size();
         return;
     }
-    // The carriage goes back where it was, a prompt still open is closed with
-    // it, and every heater in the plan goes off BY NAME: the active extruder
+    // A prompt still open is closed. Once anything past the prompt has gone
+    // out, every heater in the plan goes off BY NAME (the active extruder
     // before the first mount is the PREVIOUS tool's, and a blanket M104 S0
-    // would zero a target its user set.
+    // would zero a target its user set) and the carriage goes back where it
+    // was. Before that nothing has moved or heated, so there is nothing to undo.
+    const bool started = std::any_of(stages_.begin(), stages_.begin() + index_ + 1,
+                                     [](const Stage& s) { return !s.awaits_operator; });
     std::string cleanup;
     if (awaiting_operator_ || current_step() == Step::Insert) {
         cleanup = prompt_end_gcode();
     }
-    for (const HeadRequest& head : request_.heads) {
-        if (!cleanup.empty()) {
-            cleanup += "\n";
+    bool swaps = false;
+    if (started) {
+        for (const HeadRequest& head : request_.heads) {
+            if (!cleanup.empty()) {
+                cleanup += "\n";
+            }
+            cleanup += heater_off_gcode(head.head);
         }
-        cleanup += heater_off_gcode(head.head);
-    }
-    if (!request_.restore_gcode.empty()) {
-        cleanup += "\n" + request_.restore_gcode;
+        if (restore_carriage && !request_.restore_gcode.empty()) {
+            cleanup += "\n" + request_.restore_gcode;
+            swaps = true;
+        }
     }
     awaiting_operator_ = false;
     cleaning_up_ = true;
-    stages_ = {Stage{Step::Restore, std::move(cleanup)}};
+    stages_ = {Stage{Step::Restore, std::move(cleanup), false, 0, swaps}};
     index_ = 0;
+    if (stages_.front().gcode.empty()) {
+        index_ = stages_.size();
+    }
 }
 
 } // namespace helix::mount_feed

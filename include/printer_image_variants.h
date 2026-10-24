@@ -19,6 +19,15 @@
  *
  *     "image_variants": [{"when": {"filament_system": "cfs"}, "image": "creality-k2-cfs.png"}]
  *
+ * Conditions:
+ *  - `filament_system`: an AmsType spelling; holds when a backend of that kind
+ *    has a unit present.
+ *  - `enclosure_top`: true or false; holds when the firmware's report of a
+ *    removable enclosure top (include/enclosure_top.h) equals it. A printer that
+ *    reports none, or has not reported yet, reads false.
+ *  - `chamber_heater`: true or false; holds when the printer having a chamber
+ *    heater (detected or manually assigned) equals it.
+ *
  * The first variant whose every condition matches wins; none matching means the
  * plain `image`. Vendor names live in the database only: a condition names a
  * detected capability, and this module answers it from the facts it is handed.
@@ -30,6 +39,10 @@ namespace helix::printer_images {
 struct HardwareFacts {
     /// Every registered filament-system backend's kind; empty when none is detected.
     std::vector<AmsType> filament_systems;
+    /// The firmware reports a removable enclosure top fitted.
+    bool enclosure_top = false;
+    /// The printer has a chamber heater, detected or manually assigned.
+    bool has_chamber_heater = false;
 };
 
 /// Whether @p key is a condition `image_variants` understands.
@@ -37,7 +50,8 @@ struct HardwareFacts {
 
 /// Whether @p value is a value the condition @p key can ever match.
 /// `filament_system` takes an AmsType spelling ams_type_from_string() parses
-/// ("cfs", "afc", "happy_hare", ...); "none" is not one.
+/// ("cfs", "afc", "happy_hare", ...); "none" is not one. `enclosure_top` and
+/// `chamber_heater` take a JSON boolean.
 [[nodiscard]] bool is_valid_variant_condition_value(std::string_view key,
                                                     const nlohmann::json& value);
 

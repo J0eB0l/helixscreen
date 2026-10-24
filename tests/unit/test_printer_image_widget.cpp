@@ -439,3 +439,61 @@ TEST_CASE_METHOD(XMLTestFixture,
     process_async_timers();
     cfg->set<std::string>(cfg->df() + helix::wizard::PRINTER_TYPE, "");
 }
+
+// The top can be fitted or lifted off while connected, so the widget follows the
+// enclosure-top subject as well.
+TEST_CASE_METHOD(XMLTestFixture,
+                 "PrinterImageWidget switches to the with-top image when the top is fitted",
+                 "[panel_widget][printer_image][printer_image_variants][enclosure_top]") {
+    helix::init_widget_registrations();
+    helix::PanelWidgetManager::instance().init_widget_subjects();
+    get_printer_state().init_subjects(false);
+    AmsState& ams = AmsState::instance();
+    ams.clear_backends();
+    ams.init_subjects(false);
+    auto& caps = get_printer_state().capabilities_state();
+    caps.set_enclosure_top_fitted(false);
+    caps.set_has_chamber_heater(false);
+
+    Config* cfg = Config::get_instance();
+    cfg->set<std::string>(cfg->df() + helix::wizard::PRINTER_TYPE, "Snapmaker U1");
+
+    lv_obj_t* widget_obj = lv_obj_create(test_screen());
+    lv_obj_set_size(widget_obj, 200, 200);
+    lv_obj_t* img = lv_image_create(widget_obj);
+    lv_obj_set_name(img, "printer_image");
+    process_lvgl(2);
+
+    helix::PrinterImageWidget w;
+    w.attach(widget_obj, test_screen());
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    auto source = [&]() { return std::string(static_cast<const char*>(lv_image_get_src(img))); };
+    const std::string plain = source();
+    REQUIRE(plain.find("snapmaker-u1") != std::string::npos);
+    REQUIRE(plain.find("snapmaker-u1-tophat") == std::string::npos);
+
+    caps.set_enclosure_top_fitted(true);
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    CHECK(source().find("snapmaker-u1-tophat") != std::string::npos);
+
+    caps.set_enclosure_top_fitted(false);
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    CHECK(source() == plain);
+
+    caps.set_has_chamber_heater(true);
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    CHECK(source().find("snapmaker-u1-tophat") != std::string::npos);
+
+    caps.set_has_chamber_heater(false);
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    CHECK(source() == plain);
+
+    w.detach();
+    process_async_timers();
+    cfg->set<std::string>(cfg->df() + helix::wizard::PRINTER_TYPE, "");
+}

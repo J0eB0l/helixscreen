@@ -84,14 +84,32 @@ class ToolChangerTestAccess {
         b.on_started();
     }
 
-    /// The backend stopping under a live run (on_stopping).
+    /// The backend stopping under a live run, through stop() itself so the
+    /// unwind runs under the same locking it meets in the app.
     static void feed_disconnect_stopping(AmsBackendToolChanger& b) {
-        b.on_stopping();
+        b.stop();
     }
 
     /// The wording of the last toast a feed run raised.
     static const std::string& feed_last_toast(const AmsBackendToolChanger& b) {
         return b.feed_last_toast_;
+    }
+
+    /// The grace for the dock sensors to confirm an acked swap ran out.
+    static void feed_swap_check_elapsed(AmsBackendToolChanger& b) {
+        b.handle_swap_check_elapsed();
+    }
+
+    /// A sensor fault flagged under no live run, as a path that never consumes
+    /// it would leave it.
+    static void set_feed_sensor_fault(AmsBackendToolChanger& b) {
+        std::lock_guard<std::mutex> lock(b.mutex_);
+        b.feed_sensor_fault_ = true;
+    }
+
+    /// The severity of the last toast a feed run raised.
+    static ToastSeverity feed_last_toast_severity(const AmsBackendToolChanger& b) {
+        return b.feed_last_toast_severity_;
     }
 
     /// Deliver one gcode-response line to the Z-Mod marker handler, the
