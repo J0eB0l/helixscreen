@@ -86,6 +86,12 @@
                  width="content" height="content" variant="warning" icon="cancel" text="Print Canceled"
                  clickable="false" focusable="false" style_radius="#space_lg" style_pad_left="#space_md"
                  style_pad_right="#space_md" style_pad_top="#space_sm" style_pad_bottom="#space_sm"/>
+      <!-- Why it ended, hidden when nothing says; wraps under the badge -->
+      <text_small name="cancel_reason_label"
+                  width="100%" bind_text="print_end_reason" long_mode="wrap" style_text_align="center"
+                  style_bg_color="#card_bg" style_bg_opa="180" style_radius="#space_sm" style_pad_all="#space_xs">
+        <bind_flag_if_eq subject="print_end_reason_visible" flag="hidden" ref_value="0"/>
+      </text_small>
     </lv_obj>
 
     <!-- PRINT ERROR OVERLAY: shown via show_error_overlay (see COMPLETE above). -->
@@ -102,6 +108,12 @@
                  width="content" height="content" variant="danger" icon="alert_circle" text="Print Failed"
                  clickable="false" focusable="false" style_radius="#space_lg" style_pad_left="#space_md"
                  style_pad_right="#space_md" style_pad_top="#space_sm" style_pad_bottom="#space_sm"/>
+      <!-- Why it ended, hidden when nothing says; wraps under the badge -->
+      <text_small name="error_reason_label"
+                  width="100%" bind_text="print_end_reason" long_mode="wrap" style_text_align="center"
+                  style_bg_color="#card_bg" style_bg_opa="180" style_radius="#space_sm" style_pad_all="#space_xs">
+        <bind_flag_if_eq subject="print_end_reason_visible" flag="hidden" ref_value="0"/>
+      </text_small>
     </lv_obj>
 
     <!-- PRINT PAUSED OVERLAY: shown while print is in PAUSED state. Driven by   -->

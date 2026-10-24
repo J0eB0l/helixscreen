@@ -30,7 +30,8 @@ class PrinterState;
 class PrintStartCollector;
 namespace helix {
 class MoonrakerManagerTestAccess;
-}
+class PrintEndReasonTracker;
+} // namespace helix
 
 // Need full enum definition for inline helper function
 #include "printer_state.h"
@@ -156,6 +157,10 @@ class MoonrakerManager {
 
     /// Detach and drop the print start collector, if there is one.
     void release_print_start_collector();
+
+    /// Start tracking why a print ends (print_end_reason.h), replacing any
+    /// previous tracker. Call before connect(), after the subjects exist.
+    void init_print_end_reason();
 
     /**
      * @brief The pre-print detection collector, if one exists yet
@@ -419,6 +424,7 @@ class MoonrakerManager {
 
     // Print start collector (monitors PRINT_START macro progress)
     std::shared_ptr<PrintStartCollector> m_print_start_collector;
+    std::unique_ptr<helix::PrintEndReasonTracker> m_print_end_reason;
     ObserverGuard m_preparing_epoch_observer;
     ObserverGuard m_print_start_observer;
     ObserverGuard m_print_start_phase_observer;

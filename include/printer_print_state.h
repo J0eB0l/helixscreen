@@ -635,6 +635,21 @@ class PrinterPrintState {
         return &print_message_;
     }
 
+    /// Why the last print was canceled or failed, when anything says; empty
+    /// otherwise, and cleared when a new print starts. PrintEndReasonTracker
+    /// decides it (print_end_reason.h).
+    lv_subject_t* get_print_end_reason_subject() {
+        return &print_end_reason_;
+    }
+
+    /// 1 when print_end_reason is non-empty (for XML visibility binding)
+    lv_subject_t* get_print_end_reason_visible_subject() {
+        return &print_end_reason_visible_;
+    }
+
+    /// Main thread only.
+    void set_print_end_reason(const std::string& reason);
+
     /// print_stats.exception (Snapmaker U1 structured pause descriptor) id, or
     /// -1 when no exception is latched. Hardware-verified ids: 523 = recoverable
     /// runout, 532 = terminal dirty-bed (#991). Main-thread only.
@@ -1290,6 +1305,10 @@ class PrinterPrintState {
     // print_stats.message from Klipper (set by firmware on pause/error to describe reason)
     lv_subject_t print_message_{};  // String: e.g. "Filament Sensor: Runout Detected"
     char print_message_buf_[256]{}; // Buffer for print_stats.message storage
+
+    lv_subject_t print_end_reason_{};
+    char print_end_reason_buf_[256]{};
+    lv_subject_t print_end_reason_visible_{};
 
     // print_stats.exception — structured pause descriptor {id,index,code,message,
     // level} sent by Snapmaker U1 firmware. On these pauses print_stats.message

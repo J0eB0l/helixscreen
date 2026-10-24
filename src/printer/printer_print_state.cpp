@@ -129,6 +129,8 @@ void PrinterPrintState::init_subjects(bool register_xml) {
 
     // Klipper print_stats.message — pause/error reason from firmware
     INIT_SUBJECT_STRING(print_message, "", subjects_, register_xml);
+    INIT_SUBJECT_STRING(print_end_reason, "", subjects_, register_xml);
+    INIT_SUBJECT_INT(print_end_reason_visible, 0, subjects_, register_xml);
 
     // virtual_sdcard.pl_env_valid — Snapmaker-fork Power-Loss-Recovery flag.
     // Default 0; stays 0 forever on mainline Klipper (field absent).
@@ -404,6 +406,7 @@ void PrinterPrintState::reset_for_new_print() {
     slicer_progress_ = 0.0;
     slicer_progress_active_ = false;
     lv_subject_copy_string(&print_message_, "");
+    set_print_end_reason("");
     lv_subject_set_int(&print_duration_, 0);
     lv_subject_set_int(&print_elapsed_, 0);
     lv_subject_set_int(&print_filament_used_, 0);
@@ -514,6 +517,25 @@ void PrinterPrintState::update_from_status(const nlohmann::json& status, bool wh
             lv_subject_set_int(&print_elapsed_, total_elapsed);
         }
 
+        // print_stats.message — populated by Klipper to describe pause/error reason
+        // (e.g. "Filament Sensor filament_sensor: Runout Detected"). Subscribed-field
+        // updates may send null when the field is absent on the Klipper side.
+        // Parsed before state: Klipper sets the error and its message in one frame,
+        // and an observer of the terminal transition reads the message that
+        // explains it.
+        const auto msg_it = stats.find("message");
+        if (msg_it != stats.end()) {
+            // A print error can carry a firmware JSON envelope; every consumer
+            // shows or substring-matches the message, so decode it once here.
+            const std::string new_msg =
+                msg_it->is_string()
+                    ? decode_firmware_error_text(msg_it->get_ref<const std::string&>())
+                    : std::string();
+            if (new_msg != lv_subject_get_string(&print_message_)) {
+                lv_subject_copy_string(&print_message_, new_msg.c_str());
+            }
+        }
+
         ++print_stats_frames_;
         const bool frame_has_exception = [&stats] {
             auto exc = stats.find("exception");
@@ -575,7 +597,10 @@ void PrinterPrintState::update_from_status(const nlohmann::json& status, bool wh
                     // Reset slicer progress for the new print
                     slicer_progress_ = 0.0;
                     slicer_progress_active_ = false;
-                    lv_subject_copy_string(&print_message_, "");
+                    // This frame's own message is already applied above.
+                    if (msg_it == stats.end()) {
+                        lv_subject_copy_string(&print_message_, "");
+                    }
                 }
 
                 // Clear M117 at print END, never at print start. Clearing on the
@@ -676,21 +701,6 @@ void PrinterPrintState::update_from_status(const nlohmann::json& status, bool wh
                 lv_subject_copy_string(&print_filename_, filename.c_str());
             }
             reconcile_preparing();
-        }
-
-        // print_stats.message — populated by Klipper to describe pause/error reason
-        // (e.g. "Filament Sensor filament_sensor: Runout Detected"). Subscribed-field
-        // updates may send null when the field is absent on the Klipper side.
-        if (auto msg_it = stats.find("message"); msg_it != stats.end()) {
-            // A print error can carry a firmware JSON envelope; every consumer
-            // shows or substring-matches the message, so decode it once here.
-            const std::string new_msg =
-                msg_it->is_string()
-                    ? decode_firmware_error_text(msg_it->get_ref<const std::string&>())
-                    : std::string();
-            if (new_msg != lv_subject_get_string(&print_message_)) {
-                lv_subject_copy_string(&print_message_, new_msg.c_str());
-            }
         }
 
         // print_stats.exception — Snapmaker U1 structured pause descriptor
@@ -1134,6 +1144,16 @@ void PrinterPrintState::update_print_show_progress() {
         spdlog::trace(
             "[PrinterPrintState] print_show_progress updated: {} (active={}, starting={})",
             new_value, is_active, is_starting);
+    }
+}
+
+void PrinterPrintState::set_print_end_reason(const std::string& reason) {
+    if (reason != lv_subject_get_string(&print_end_reason_)) {
+        lv_subject_copy_string(&print_end_reason_, reason.c_str());
+    }
+    const int visible = reason.empty() ? 0 : 1;
+    if (lv_subject_get_int(&print_end_reason_visible_) != visible) {
+        lv_subject_set_int(&print_end_reason_visible_, visible);
     }
 }
 

@@ -44,6 +44,7 @@
 #endif
 #include "print_collector_arming.h"
 #include "print_completion.h"
+#include "print_end_reason.h"
 #include "print_start_collector.h"
 #include "print_start_profile.h"
 #include "printer_detector.h"
@@ -153,6 +154,7 @@ void MoonrakerManager::shutdown() {
 
     // Stop print start collector first (before client is destroyed)
     release_print_start_collector();
+    m_print_end_reason.reset();
 
     // Release observer guards without calling lv_observer_remove().
     // During shutdown, subjects may already be deinitialized (which frees observers).
@@ -677,6 +679,14 @@ void MoonrakerManager::release_print_start_collector() {
     if (m_print_start_collector) {
         m_print_start_collector->detach();
         m_print_start_collector.reset();
+    }
+}
+
+void MoonrakerManager::init_print_end_reason() {
+    m_print_end_reason.reset();
+    if (m_client) {
+        m_print_end_reason =
+            std::make_unique<helix::PrintEndReasonTracker>(*m_client, get_printer_state());
     }
 }
 
