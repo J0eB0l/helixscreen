@@ -292,7 +292,9 @@ TEST_CASE("a small image shrink unlocks one side instead of pinned",
 TEST_CASE("a column needing more than the shrink limit stays pinned",
           "[printer_image][callout_layout]") {
     auto in = wide();
-    in.area_w = 186 + (70 + in.gap + in.min_line) - 15; // 15px is over 8% of 186
+    // One pixel more than the image may give up.
+    in.area_w = 186 + (70 + in.gap + in.min_line) -
+                (186 * helix::callout_detail::kMaxImageShrinkPct / 100 + 1);
     const auto l = compute_callout_layout(in);
     CHECK(l.mode == CalloutMode::Pinned);
     CHECK(l.image.w == 186);
@@ -694,12 +696,13 @@ TEST_CASE("missing anchor docks only that chip", "[printer_image][callout_layout
 
 TEST_CASE("expendable chips drop before the image goes pinned", "[printer_image][callout_layout]") {
     auto in = wide();
-    in.area_w = 286; // room for one 70px column beside the image, not a 110px one
-    // Two wide expendable fans widen the budget's column past what the band holds.
+    in.area_w = 286; // room for one 70px column beside the image, not a 150px one
+    // Two wide expendable fans widen the budget's column past what the band
+    // holds even with the image shrunk.
     in.budget = {{CalloutKind::Nozzle, 70, NormPoint{0.51f, 0.28f}},
                  {CalloutKind::Bed, 70, NormPoint{0.46f, 0.57f}}};
-    in.budget.push_back({CalloutKind::HotendFan, 110, NormPoint{0.6f, 0.30f}, true});
-    in.budget.push_back({CalloutKind::AuxFan, 110, NormPoint{0.6f, 0.34f}, true});
+    in.budget.push_back({CalloutKind::HotendFan, 150, NormPoint{0.6f, 0.30f}, true});
+    in.budget.push_back({CalloutKind::AuxFan, 150, NormPoint{0.6f, 0.34f}, true});
     in.active = in.budget;
     // Same input without the expendable chips must line; with them it cannot.
     auto lean = in;
@@ -1022,13 +1025,13 @@ TEST_CASE("no two leaders cross", "[printer_image][callout_layout]") {
 
 TEST_CASE("hotend fan drops first when chips do not fit", "[printer_image][callout_layout]") {
     auto in = wide();
-    in.area_w = 286; // one 70px column beside the image; a 110px chip overflows it
+    in.area_w = 286; // one 70px column beside the image; a 150px chip overflows it
     // Dropping the hotend fan alone brings the widest chip down to 70px.
     in.budget = {{CalloutKind::Nozzle, 70, NormPoint{0.51f, 0.28f}},
                  {CalloutKind::Bed, 70, NormPoint{0.46f, 0.57f}},
                  {CalloutKind::Light, 50, NormPoint{0.8f, 0.2f}, true},
                  {CalloutKind::AuxFan, 50, std::nullopt, true},
-                 {CalloutKind::HotendFan, 110, NormPoint{0.51f, 0.28f}, true}};
+                 {CalloutKind::HotendFan, 150, NormPoint{0.51f, 0.28f}, true}};
     in.active = in.budget;
     const auto l = compute_callout_layout(in);
     CHECK(l.mode != CalloutMode::Pinned);

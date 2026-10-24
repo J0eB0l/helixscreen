@@ -460,7 +460,7 @@ inline bool stack(const CalloutLayoutInput& in, const CalloutRect& img, bool hor
 
 /// How far below its contain-fit size the image may shrink to make room for a
 /// leader-line column; past this, the picture loses more than the lines give.
-inline constexpr int kMaxImageShrinkPct = 8;
+inline constexpr int kMaxImageShrinkPct = 20;
 
 /// The side band's axis (true: bands left and right) and the room one column of
 /// budget chips needs across it, for the image at `img`.

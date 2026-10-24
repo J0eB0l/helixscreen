@@ -194,7 +194,9 @@ TEST_CASE_METHOD(Landscape800, "phase switch relayouts and clears pre-print glow
     UpdateQueue::instance().drain();
     process_lvgl(50); // the coalesced update runs on its own timer
 
-    CHECK(tiles().layout_count() == layouts + 1);
+    // One pass, and a second when the mode it picks differs from the last one.
+    CHECK(tiles().layout_count() > layouts);
+    CHECK(tiles().layout_count() <= layouts + 2);
     CHECK(subject_int("ps_glow_nozzle") == 0);
     CHECK(subject_int("ps_chip_nozzle_progress") == -1);
 }
