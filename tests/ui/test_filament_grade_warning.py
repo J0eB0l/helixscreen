@@ -24,11 +24,10 @@ one because a tool reaches a lane by colour match and then by POSITIONAL
 fallback over the file's whole palette -- the calibration cube's used tool is
 T2, so it lands on lane 3, not lane 1. See MOCK_ENVIRONMENT_VARIABLES.md.
 
-The cube is sliced for a printer whose origin is the bed centre, so its moves
-reach X/Y -4.79, past the mock Voron's position_min of 0, and the print-start
-fit check blocks it before any material gate speaks. Each app here plants a
-copy shifted onto the bed (HELIX_MOCK_GCODE_DIR); its fresh mtime makes it
-print-select card 0, and its metadata and tools are the cube's own.
+The cube is sliced for a centre-origin bed, which is the geometry the mock
+Voron models, so it passes the print-start fit check untouched. Each app here
+plants a fresh-mtime copy (HELIX_MOCK_GCODE_DIR); that makes it print-select
+card 0, and its metadata and tools are the cube's own.
 
 Mutation check (measured 2026-08-18, not assumed):
   - kVariantAffixes[]: flip CF's `filled` column to false
@@ -46,7 +45,6 @@ against both directions, which is a cheaper place to catch a reworded string.
 from __future__ import annotations
 
 import os
-import re
 import sys
 import time
 from pathlib import Path
@@ -66,9 +64,6 @@ _CARD0 = ("s/app_layout_0/content_area/panel_container/print_select_panel"
           "/card_view_container/card_root[0]")
 _CARD0_NAME = "grade-cube-on-bed"
 _CUBE = _REPO_ROOT / "assets" / "test_gcodes" / "xyz-10mm-calibration-cube.gcode"
-# Moves the cube's +/-4.79 mm footprint to the middle of the mock's 350 mm bed.
-_BED_OFFSET_MM = 175.0
-_XY_WORD = re.compile(r"(?<=\s)([XY])(-?(?:\d+\.?\d*|\.\d+))")
 # By name, not by path: the modal's screen index depends on how many screens
 # the instance has created, so an "s/5/..." path is per-instance and breaks the
 # moment a test boots its own app.
@@ -77,23 +72,11 @@ _DIALOG_MESSAGE = "dialog_message"
 _DIALOG_PRIMARY = "btn_primary"
 
 
-def _shift_move(line: str) -> str:
-    """A G0-G3 move with its X and Y words moved by _BED_OFFSET_MM; any other
-    line unchanged. The cube is absolute (G90) throughout."""
-    code, sep, comment = line.partition(";")
-    if not re.match(r"G[0-3]\b", code):
-        return line
-    shifted = _XY_WORD.sub(
-        lambda m: f"{m.group(1)}{float(m.group(2)) + _BED_OFFSET_MM:.3f}", code)
-    return shifted + sep + comment
-
-
 def _plant_cube_on_bed(directory: Path) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     text = _CUBE.read_text(encoding="utf-8", errors="surrogateescape")
     planted = directory / f"{_CARD0_NAME}.gcode"
-    planted.write_text("".join(_shift_move(line) for line in text.splitlines(keepends=True)),
-                       encoding="utf-8", errors="surrogateescape")
+    planted.write_text(text, encoding="utf-8", errors="surrogateescape")
     return planted
 
 

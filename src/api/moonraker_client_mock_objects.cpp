@@ -308,6 +308,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
         json status_obj = json::object();
         // Volume the persona reports through configfile settings and toolhead.
         const auto axis_max = helix::mock::descriptor(self->get_printer_type()).axis_max;
+        const auto axis_min = helix::mock::descriptor(self->get_printer_type()).axis_min;
 
         // Check what objects are being queried
         if (params.contains("objects")) {
@@ -414,7 +415,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                 // Probe-equipped printers (endstop_pin: probe:z_virtual_endstop)
                 // get a JSON null here rather than a number — see
                 // set_stepper_z_endstop_null().
-                json stepper_z_settings = {{"position_min", 0.0}, {"position_max", axis_max.z}};
+                json stepper_z_settings = {{"position_min", axis_min.z},
+                                           {"position_max", axis_max.z}};
                 if (self->is_stepper_z_endstop_null()) {
                     stepper_z_settings["position_endstop"] = nullptr;
                 } else {
@@ -430,8 +432,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                         // settings reader (belt hardware detect) and a config
                         // reader (bed moves detection) see the same machine.
                         {"kinematics", self->kinematics()}}},
-                      {"stepper_x", {{"position_min", kMockBedXMin}, {"position_max", axis_max.x}}},
-                      {"stepper_y", {{"position_min", kMockBedYMin}, {"position_max", axis_max.y}}},
+                      {"stepper_x", {{"position_min", axis_min.x}, {"position_max", axis_max.x}}},
+                      {"stepper_y", {{"position_min", axis_min.y}, {"position_max", axis_max.y}}},
                       {"stepper_z", stepper_z_settings},
                       {"extruder", extruder_settings},
                       // Resonance sweep bounds — the input shaper collector
@@ -695,6 +697,7 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
         json status_obj = json::object();
         // Volume the persona reports through configfile settings and toolhead.
         const auto axis_max = helix::mock::descriptor(self->get_printer_type()).axis_max;
+        const auto axis_min = helix::mock::descriptor(self->get_printer_type()).axis_min;
 
         // Check what objects are being subscribed to
         if (params.contains("objects")) {
@@ -1092,10 +1095,10 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                         // settings reader (belt hardware detect) and a config
                         // reader (bed moves detection) see the same machine.
                         {"kinematics", self->kinematics()}}},
-                      {"stepper_x", {{"position_min", kMockBedXMin}, {"position_max", axis_max.x}}},
-                      {"stepper_y", {{"position_min", kMockBedYMin}, {"position_max", axis_max.y}}},
+                      {"stepper_x", {{"position_min", axis_min.x}, {"position_max", axis_max.x}}},
+                      {"stepper_y", {{"position_min", axis_min.y}, {"position_max", axis_max.y}}},
                       {"stepper_z",
-                       {{"position_min", 0.0},
+                       {{"position_min", axis_min.z},
                         {"position_max", axis_max.z},
                         {"position_endstop", 235.0}}},
                       {"extruder", extruder_settings2},

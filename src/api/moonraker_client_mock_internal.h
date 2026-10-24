@@ -25,10 +25,6 @@ namespace mock_internal {
 // Mock Printer Configuration Constants
 // ============================================================================
 
-// Bed origin (mm). The far edge is the persona's descriptor().axis_max.
-constexpr double kMockBedXMin = 0.0;
-constexpr double kMockBedYMin = 0.0;
-
 // Probe margins - typical probes can't reach bed edges
 constexpr double kMockProbeMargin = 15.0;
 
@@ -53,9 +49,9 @@ struct MeshBounds {
 };
 
 [[nodiscard]] inline MeshBounds mesh_bounds(helix::mock::PrinterType type) {
-    const auto max = helix::mock::descriptor(type).axis_max;
-    return {kMockBedXMin + kMockProbeMargin, max.x - kMockProbeMargin,
-            kMockBedYMin + kMockProbeMargin, max.y - kMockProbeMargin};
+    const auto d = helix::mock::descriptor(type);
+    return {d.axis_min.x + kMockProbeMargin, d.axis_max.x - kMockProbeMargin,
+            d.axis_min.y + kMockProbeMargin, d.axis_max.y - kMockProbeMargin};
 }
 
 /**

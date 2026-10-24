@@ -48,19 +48,19 @@ using namespace helix;
 // Spreads objects in a grid inset from the edges of the persona's bed, matching
 // the `center` + `polygon` shape Moonraker reports for EXCLUDE_OBJECT_DEFINE.
 static json mock_object_entry(const std::string& name, int index, int total,
-                              const helix::mock::AxisMax& bed) {
+                              const helix::mock::PersonaDescriptor& persona) {
     constexpr float kInset = 20.0f; // keep the plate margin visible in the map
-    const float bed_w = static_cast<float>(bed.x - mock_internal::kMockBedXMin) - 2.0f * kInset;
-    const float bed_h = static_cast<float>(bed.y - mock_internal::kMockBedYMin) - 2.0f * kInset;
+    const float bed_w = static_cast<float>(persona.axis_max.x - persona.axis_min.x) - 2.0f * kInset;
+    const float bed_h = static_cast<float>(persona.axis_max.y - persona.axis_min.y) - 2.0f * kInset;
     int cols = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(std::max(1, total)))));
     int rows = std::max(1, (total + cols - 1) / cols);
     int row = index / cols, col = index % cols;
     float cell_w = bed_w / static_cast<float>(cols);
     float cell_h = bed_h / static_cast<float>(rows);
-    float cx = static_cast<float>(mock_internal::kMockBedXMin) + kInset +
-               (static_cast<float>(col) + 0.5f) * cell_w;
-    float cy = static_cast<float>(mock_internal::kMockBedYMin) + kInset +
-               (static_cast<float>(row) + 0.5f) * cell_h;
+    float cx =
+        static_cast<float>(persona.axis_min.x) + kInset + (static_cast<float>(col) + 0.5f) * cell_w;
+    float cy =
+        static_cast<float>(persona.axis_min.y) + kInset + (static_cast<float>(row) + 0.5f) * cell_h;
     float hw = cell_w * 0.35f, hh = cell_h * 0.35f;
     return {{"name", name},
             {"center", {cx, cy}},
@@ -1602,11 +1602,10 @@ void MoonrakerClientMock::populate_capabilities() {
     // volume from these before detection runs, so the mock has to carry them or
     // --test detects against an empty volume the live path no longer sees.
     const auto axis_max = persona.axis_max;
-    mock_config["stepper_x"] = {{"position_min", mock_internal::kMockBedXMin},
-                                {"position_max", axis_max.x}};
-    mock_config["stepper_y"] = {{"position_min", mock_internal::kMockBedYMin},
-                                {"position_max", axis_max.y}};
-    mock_config["stepper_z"] = {{"position_min", 0.0}, {"position_max", axis_max.z}};
+    const auto axis_min = persona.axis_min;
+    mock_config["stepper_x"] = {{"position_min", axis_min.x}, {"position_max", axis_max.x}};
+    mock_config["stepper_y"] = {{"position_min", axis_min.y}, {"position_max", axis_max.y}};
+    mock_config["stepper_z"] = {{"position_min", axis_min.z}, {"position_max", axis_max.z}};
     for (const auto& [name, settings] : extra_config_settings_.items()) {
         mock_config[name] = settings;
     }
@@ -4248,8 +4247,8 @@ bool MoonrakerClientMock::start_print_internal(const std::string& filename) {
         json objects_array = json::array();
         for (int i = 0; i < total; ++i) {
             names.emplace_back(kMockExcludeObjectNames[i]);
-            objects_array.push_back(mock_object_entry(
-                names.back(), i, total, helix::mock::descriptor(printer_type_).axis_max));
+            objects_array.push_back(
+                mock_object_entry(names.back(), i, total, helix::mock::descriptor(printer_type_)));
         }
 
         {
@@ -4665,7 +4664,10 @@ void MoonrakerClientMock::dispatch_initial_state() {
         {"toolhead",
          {{"position", {x, y, z, 0.0}},
           {"homed_axes", homed},
-          {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
+          {"axis_minimum",
+           {helix::mock::descriptor(printer_type_).axis_min.x,
+            helix::mock::descriptor(printer_type_).axis_min.y,
+            helix::mock::descriptor(printer_type_).axis_min.z, 0.0}},
           {"axis_maximum",
            {helix::mock::descriptor(printer_type_).axis_max.x,
             helix::mock::descriptor(printer_type_).axis_max.y,
@@ -5592,7 +5594,10 @@ void MoonrakerClientMock::temperature_simulation_loop() {
             {"toolhead",
              {{"position", {x, y, z, 0.0}},
               {"homed_axes", homed},
-              {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
+              {"axis_minimum",
+               {helix::mock::descriptor(printer_type_).axis_min.x,
+                helix::mock::descriptor(printer_type_).axis_min.y,
+                helix::mock::descriptor(printer_type_).axis_min.z, 0.0}},
               {"axis_maximum",
                {helix::mock::descriptor(printer_type_).axis_max.x,
                 helix::mock::descriptor(printer_type_).axis_max.y,

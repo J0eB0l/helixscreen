@@ -606,8 +606,8 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_move(const std::stri
     // Position limits: the persona's stepper travel. Z allows slight negative
     // for probe calibration.
     const auto axis_max = helix::mock::descriptor(printer_type_).axis_max;
-    constexpr double kXMin = mock_internal::kMockBedXMin;
-    constexpr double kYMin = mock_internal::kMockBedYMin;
+    const auto axis_min = helix::mock::descriptor(printer_type_).axis_min;
+    const double kXMin = axis_min.x, kYMin = axis_min.y;
     constexpr double kZMin = -0.5;
     const double kXMax = axis_max.x, kYMax = axis_max.y, Z_MAX = axis_max.z;
 
