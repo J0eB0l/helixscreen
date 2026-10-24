@@ -656,6 +656,10 @@ class PrintPreparationManager {
     /// cannot run.
     void publish_macro_option_count();
 
+    /// Keep `analysis` as this printer's macro analysis: publish its option
+    /// count and hand it to the print start collector for the checklist.
+    void adopt_macro_analysis(const helix::PrintStartAnalysis& analysis);
+
     friend class ::PrintPreparationManagerTestAccess;
 
     // === Dependencies ===

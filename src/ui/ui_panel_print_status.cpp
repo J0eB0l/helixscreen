@@ -67,7 +67,6 @@
 #include "theme_manager.h"
 #include "tool_state.h"
 #include "tune_controller.h"
-#include "ui/fan_spin_animation.h"
 #include "ui/ui_widget_helpers.h"
 #include "wizard_config_paths.h"
 #include "z_offset_utils.h"
@@ -164,6 +163,17 @@ static void log_tree_created(PrintState state, size_t available_mb) {
     }
 }
 
+// No-ops when no webcam is configured or a fullscreen view is already open;
+// reuses an attached home CameraWidget's stream when one exists
+// (single-MJPEG-client safe).
+static void open_print_status_camera() {
+#if HELIX_HAS_CAMERA
+    helix::open_standalone_camera_fullscreen(lv_display_get_screen_active(nullptr));
+#else
+    spdlog::debug("[PrintStatusPanel] Camera support disabled in this build");
+#endif
+}
+
 // Observer factory pattern
 using helix::ui::find_required;
 using helix::ui::observe;
@@ -218,14 +228,15 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
                 },
                 [this]() { return is_active_; }}),
       progress_text_(printer_state, lifecycle_),
-      layout_fitter_(get_name(), printer_state,
-                     {&fan_row_density_subject_, &aux_icon_visible_subject_,
-                      &aux_full_visible_subject_, &aux_short_visible_subject_, &fans_fit_subject_,
-                      &graph_fits_subject_, &row1_stacked_subject_, &row1_tall_subject_,
-                      &row2_stacked_subject_, &row2_tall_subject_},
-                     {[this]() { return overlay_root_; },
-                      [this]() { return subjects_initialized_; },
-                      [this]() { return !aux_fan_name_.empty(); }}) {
+      layout_fitter_(
+          get_name(), {&arrangement_subject_, &strip_stacked_subject_, &checklist_compact_subject_},
+          {[this]() { return overlay_root_; }, [this]() { return subjects_initialized_; }}),
+      tiles_(printer_state, {[this]() { return overlay_root_; },
+                             [this]() { return lifecycle_.state() != PrintState::Preparing; },
+                             [this]() { return lifecycle_.speed_percent(); },
+                             [this]() { return lifecycle_.flow_percent(); },
+                             [this]() { return std::string(progress_text_.speed_text()); },
+                             [this]() { return std::string(progress_text_.flow_text()); }}) {
     preview_.set_api(api);
     // Pre-init local subject used by observer callback below (fires immediately on subscribe)
     lv_subject_init_int(&exclude_objects_available_subject_, 0);
@@ -507,12 +518,6 @@ PrintStatusPanel::~PrintStatusPanel() {
     // explicit teardown path removed it — nothing left to uninstall.
     uninstall_root_delete_hook(delete_hook_root_, on_root_deleted, this);
 
-    // Before deinit_subjects(): the mini-graph's observers are attached to
-    // PrinterState subjects, and detaching them after those are freed is the
-    // exact use-after-free ObserverGuard exists to prevent. Synchronous delete —
-    // nothing will drain the async queue on the way out.
-    layout_fitter_.destroy_temp_graph(/*defer_delete=*/false);
-
     deinit_subjects();
 
     // Expire all outstanding async callback tokens before destroying resources
@@ -611,23 +616,14 @@ void PrintStatusPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(exclude_map_active_subject_, 0, "exclude_map_active", subjects_);
     UI_MANAGED_SUBJECT_INT(end_overlay_dismissed_subject_, 0, "end_overlay_dismissed", subjects_);
 
-    // Fan row adaptive-fit + aux presence subjects (set by recompute_fans_fit
-    // and bind_fan_speeds respectively; default to 0 so the row stays hidden
-    // until the first recompute fires after attach).
+    // Held at 0: only the widgets the tile layout replaces bind these.
     UI_MANAGED_SUBJECT_INT(fans_fit_subject_, 0, "print_status_fans_fit", subjects_);
-
-    // Portrait temperature mini-graph fit (set by recompute_graph_fits from the
-    // slack the preview aspect cap parks in the absorber). Defaults to 0 so the
-    // graph stays hidden until the first measured recompute after attach —
-    // landscape and every non-capped portrait size never leave that state.
     UI_MANAGED_SUBJECT_INT(graph_fits_subject_, 0, "print_status_graph_fits", subjects_);
     UI_MANAGED_SUBJECT_INT(row1_stacked_subject_, 0, "print_status_row1_stacked", subjects_);
     UI_MANAGED_SUBJECT_INT(row1_tall_subject_, 0, "print_status_row1_tall", subjects_);
     UI_MANAGED_SUBJECT_INT(row2_stacked_subject_, 0, "print_status_row2_stacked", subjects_);
     UI_MANAGED_SUBJECT_INT(row2_tall_subject_, 0, "print_status_row2_tall", subjects_);
     UI_MANAGED_SUBJECT_INT(aux_fan_present_subject_, 0, "print_status_aux_fan_present", subjects_);
-
-    // Density + composite subjects for 3-tier adaptive content.
     UI_MANAGED_SUBJECT_INT(fan_row_density_subject_, 0, "print_status_fan_row_density", subjects_);
     UI_MANAGED_SUBJECT_INT(aux_icon_visible_subject_, 0, "print_status_aux_icon_visible",
                            subjects_);
@@ -635,6 +631,11 @@ void PrintStatusPanel::init_subjects() {
                            subjects_);
     UI_MANAGED_SUBJECT_INT(aux_short_visible_subject_, 0, "print_status_aux_short_visible",
                            subjects_);
+
+    UI_MANAGED_SUBJECT_INT(arrangement_subject_, 0, "ps_arrangement", subjects_);
+    UI_MANAGED_SUBJECT_INT(strip_stacked_subject_, 0, "ps_strip_stacked", subjects_);
+    UI_MANAGED_SUBJECT_INT(checklist_compact_subject_, 0, "ps_checklist_compact", subjects_);
+    tiles_.init_subjects(subjects_);
 
     // Fan classification refresh: on discovery (structural, fans_version) and on
     // runtime part-fan reassignment as fans start/stop (primary_fans_version, #1124).
@@ -661,7 +662,8 @@ void PrintStatusPanel::init_subjects() {
             printer_state_.get_subjects_lifetime());
     }
 
-    // Density + fit recompute on breakpoint change
+    // A new tier brings new fonts and tokens, so the arrangement and every
+    // chip width change with it.
     {
         lv_subject_t* bp = lv_xml_get_subject(nullptr, "ui_breakpoint");
         if (bp) {
@@ -671,62 +673,9 @@ void PrintStatusPanel::init_subjects() {
                 [token](PrintStatusPanel* self, int) {
                     if (token.expired())
                         return;
-                    self->layout_fitter_.recompute_fans_density();
-                    self->layout_fitter_.recompute_fans_fit();
-                    self->layout_fitter_.recompute_actions_crowded();
+                    self->relayout();
                 },
                 subject_never_freed());
-        }
-    }
-
-    // Density + fit recompute when filament sensor count changes
-    {
-        lv_subject_t* s = lv_xml_get_subject(nullptr, "filament_sensor_count");
-        if (s) {
-            auto token = lifetime_.token();
-            filament_sensor_count_observer_ = observe<int>(
-                s, this,
-                [token](PrintStatusPanel* self, int) {
-                    if (token.expired())
-                        return;
-                    self->layout_fitter_.recompute_fans_density();
-                    self->layout_fitter_.recompute_fans_fit();
-                },
-                FilamentSensorManager::instance().get_subjects_lifetime());
-        }
-    }
-
-    // Density + fit recompute when AMS slot count changes
-    {
-        lv_subject_t* s = AmsState::instance().get_slot_count_subject();
-        if (s) {
-            auto token = lifetime_.token();
-            ams_slot_count_observer_ = observe<int>(
-                s, this,
-                [token](PrintStatusPanel* self, int) {
-                    if (token.expired())
-                        return;
-                    self->layout_fitter_.recompute_fans_density();
-                    self->layout_fitter_.recompute_fans_fit();
-                },
-                AmsState::instance().get_subjects_lifetime());
-        }
-    }
-
-    // Density + fit recompute when toolchange panel appears/disappears
-    {
-        lv_subject_t* s = lv_xml_get_subject(nullptr, "toolchange_visible");
-        if (s) {
-            auto token = lifetime_.token();
-            toolchange_visible_observer_ = observe<int>(
-                s, this,
-                [token](PrintStatusPanel* self, int) {
-                    if (token.expired())
-                        return;
-                    self->layout_fitter_.recompute_fans_density();
-                    self->layout_fitter_.recompute_fans_fit();
-                },
-                AmsState::instance().get_subjects_lifetime());
         }
     }
 
@@ -773,21 +722,6 @@ void PrintStatusPanel::init_subjects() {
                 },
                 AmsState::instance().get_subjects_lifetime());
         }
-    }
-
-    // Animation-settings refresh
-    animations_enabled_ = DisplaySettingsManager::instance().get_animations_enabled();
-    {
-        auto token = lifetime_.token();
-        animations_enabled_observer_ = observe<int>(
-            DisplaySettingsManager::instance().subject_animations_enabled(), this,
-            [token](PrintStatusPanel* self, int enabled) {
-                if (token.expired())
-                    return;
-                self->animations_enabled_ = (enabled != 0);
-                self->refresh_fan_animations();
-            },
-            DisplaySettingsManager::instance().get_subjects_lifetime());
     }
 
     end_overlay_dismissed_observer_ = observe<int>(
@@ -843,21 +777,11 @@ void PrintStatusPanel::init_subjects() {
     register_xml_callbacks({
         {"on_print_status_tune",
          [](lv_event_t*) { get_global_print_status_panel().handle_tune_button(); }},
-        {"on_print_status_units_toggle",
-         [](lv_event_t*) {
-             auto& settings = DisplaySettingsManager::instance();
-             settings.set_speed_flow_physical_units(!settings.get_speed_flow_physical_units());
-         }},
-        {"on_print_status_camera",
-         [](lv_event_t*) {
-#if HELIX_HAS_CAMERA
-             // No-ops when no webcam is configured or a fullscreen view is already
-             // open; reuses an attached home CameraWidget's stream when one exists
-             // (single-MJPEG-client safe).
-             helix::open_standalone_camera_fullscreen(lv_display_get_screen_active(nullptr));
-#else
-             spdlog::debug("[PrintStatusPanel] Camera support disabled in this build");
-#endif
+        {"on_print_status_camera", [](lv_event_t*) { open_print_status_camera(); }},
+        {"on_print_status_more",
+         [](lv_event_t* e) {
+             get_global_print_status_panel().handle_more_clicked(
+                 static_cast<lv_obj_t*>(lv_event_get_current_target(e)));
          }},
         {"on_print_status_files",
          [](lv_event_t*) { get_global_print_status_panel().handle_files_click(); }},
@@ -883,6 +807,8 @@ void PrintStatusPanel::init_subjects() {
         {"on_print_status_fans_clicked",
          [](lv_event_t*) { get_global_print_status_panel().handle_fans_click(); }},
     });
+
+    helix::ui::PrintStatusMoreMenu::register_callbacks();
 
     subjects_initialized_ = true;
 
@@ -949,17 +875,13 @@ void PrintStatusPanel::deinit_subjects() {
     end_overlay_dismissed_observer_.reset();
     print_message_observer_.reset();
 
-    // Fan-row observers — lifetimes BEFORE observer guards per [L084]
+    // Fan observers — lifetimes BEFORE observer guards per [L084]
     camera_label_observer_.reset();
     fans_version_observer_.reset();
     primary_fans_version_observer_.reset();
-    animations_enabled_observer_.reset();
     breakpoint_observer_.reset();
-    filament_sensor_count_observer_.reset();
-    ams_slot_count_observer_.reset();
     scoped_runout_observer_.reset();
     scoped_runout_slots_observer_.reset();
-    toolchange_visible_observer_.reset();
     part_speed_lifetime_.reset();
     part_speed_observer_.reset();
     hotend_speed_lifetime_.reset();
@@ -968,6 +890,7 @@ void PrintStatusPanel::deinit_subjects() {
     aux_speed_observer_.reset();
 
     temp_observers_.clear();
+    tiles_.deinit();
     subjects_.deinit_all();
 
     subjects_initialized_ = false;
@@ -1197,15 +1120,9 @@ lv_obj_t* PrintStatusPanel::create(lv_obj_t* parent) {
     // Initial fan classification (may rebind later when fans_version updates)
     bind_fan_observers();
 
-    // Wire LV_EVENT_SIZE_CHANGED on controls_section so any column-width change
-    // triggers a density + fit recompute. Direct lv_obj_add_event_cb is correct
-    // here: SIZE_CHANGED has no XML binding equivalent (pattern from
-    // ui_ams_mini_status.cpp).
-    if (lv_obj_t* controls_section = find_required(overlay_root_, "controls_section", get_name())) {
-        lv_obj_add_event_cb(controls_section, on_controls_size_changed, LV_EVENT_SIZE_CHANGED,
-                            this);
-        spdlog::debug("[{}] Registered SIZE_CHANGED on controls_section", get_name());
-    }
+    // The arrangement and the callout layout follow the content box's size.
+    // DECLARATIVE_OK: SIZE_CHANGED has no XML binding equivalent.
+    lv_obj_add_event_cb(overlay_content, on_content_size_changed, LV_EVENT_SIZE_CHANGED, this);
 
     // Thermal tint for the temp-card heater icons. The binder owns its own
     // observers, so this needs no hook into on_temperature_changed().
@@ -1213,9 +1130,8 @@ lv_obj_t* PrintStatusPanel::create(lv_obj_t* parent) {
     bed_icon_binder_.bind(overlay_root_, printer_state_, helix::HeaterType::Bed);
     chamber_icon_binder_.bind(overlay_root_, printer_state_, helix::HeaterType::Chamber);
 
-    // Initial density + fit recompute is scheduled from on_activate() — running
-    // it here is futile because overlay_root_ is HIDDEN until activation, and a
-    // hidden subtree has 0-width layout in LVGL (so measurement returns 0).
+    // The first arrangement is measured from on_activate(): overlay_root_ is
+    // HIDDEN until then, and a hidden subtree lays out at 0 width.
 
     spdlog::debug("[{}] Setup complete!", get_name());
     return overlay_root_;
@@ -1274,31 +1190,19 @@ void PrintStatusPanel::on_activate() {
         }
         ui_gcode_viewer_set_print_progress(gcode_viewer_, viewer_layer);
     }
-    // Fan row adaptive-fit + density recompute: this is the earliest point where
-    // overlay_root_ and its parents are visible, so LVGL will actually compute
-    // non-zero widths for the row. Deferred so layout has at least one tick to
-    // settle after on_activate() un-hides the panel.
+    // Re-resolve which fan owns each chip: classify_primary_fans() is
+    // runtime-adaptive (#1124), so the names can be stale, not just the values
+    // (#1181). The checklist re-reads too, since its elapsed time moves with no
+    // subject of its own.
+    bind_fan_observers();
+    tiles_.refresh_checklist();
+
+    // This is the earliest point where overlay_root_ is visible, so LVGL
+    // computes real sizes. Deferred so layout has a tick to settle.
     {
-        // Re-resolve which fan owns each slot and re-seed the labels. Seeding
-        // alone is not enough: the compact row can be stale because the *name* is
-        // stale, not just the value — classify_primary_fans() is runtime-adaptive
-        // (#1124), so re-reading part_fan_name_'s subject would faithfully
-        // re-display the wrong fan. bind_fan_observers() refreshes the names and
-        // ends each rebind with a seed, which covers both (#1181).
-        bind_fan_observers();
-
         auto token = lifetime_.token();
-        token.defer("PrintStatusPanel::on_activate_fan_row_recompute", [this]() {
-            layout_fitter_.recompute_fans_density();
-            layout_fitter_.recompute_fans_fit();
-            layout_fitter_.recompute_actions_crowded();
-        });
+        token.defer("PrintStatusPanel::on_activate_relayout", [this]() { relayout(); });
     }
-
-    // Resume the mini-graph and pull in whatever landed while we were off-screen.
-    // resume() backfills, so the trace is continuous rather than starting a fresh
-    // segment at re-entry.
-    layout_fitter_.resume_temp_graph();
 
     open_pending_exclude_map();
 
@@ -1345,10 +1249,8 @@ void PrintStatusPanel::on_deactivating(DeactivateReason) {
         runout_handler_->hide_modal();
     }
 
-    // Stop feeding the mini-graph while it is off-screen — same reasoning as
-    // pausing the G-code viewer above. History keeps accumulating in the manager,
-    // so on_activate()'s resume() backfills the gap.
-    layout_fitter_.pause_temp_graph();
+    more_menu_.set_action_callback(nullptr);
+    more_menu_.hide();
 }
 
 void PrintStatusPanel::cleanup() {
@@ -1384,11 +1286,9 @@ void PrintStatusPanel::on_ui_destroyed() {
         exclude_manager_.reset();
     }
 
-    // Tear the mini-graph down while its container is still addressable, and
-    // drop the fit decision with it: a rebuilt tree starts with no controller,
-    // so leaving the subject at 1 would un-hide an empty container until the
-    // first post-activate recompute.
-    layout_fitter_.on_tree_destroyed();
+    tiles_.on_tree_destroyed();
+    more_menu_.set_action_callback(nullptr);
+    more_menu_.hide();
 
     // Null all child widget pointers (the tree's actual deletion is deferred by
     // the base class, but every pointer below is dead from here on)
@@ -2022,6 +1922,7 @@ void PrintStatusPanel::on_temperature_changed() {
     // Temperature observers fire frequently during heating (4 subjects x ~1Hz each),
     // and update_all_displays() re-renders ALL subjects causing visible flickering.
     update_heater_status_rows();
+    tiles_.request_update();
 
     spdlog::trace("[{}] Temperatures updated: nozzle {}/{}°C, bed {}/{}°C", get_name(),
                   lifecycle_.nozzle_current(), lifecycle_.nozzle_target(), lifecycle_.bed_current(),
@@ -2055,29 +1956,18 @@ void PrintStatusPanel::bind_fan_observers() {
     hotend_fan_name_ = primary.hotend;
     aux_fan_name_ = primary.aux;
 
-    rebind_single_fan(part_speed_observer_, part_speed_lifetime_, part_fan_name_, "part_fan_speed",
-                      "part_fan_icon");
-    rebind_single_fan(hotend_speed_observer_, hotend_speed_lifetime_, hotend_fan_name_,
-                      "hotend_fan_speed", "hotend_fan_icon");
-    rebind_single_fan(aux_speed_observer_, aux_speed_lifetime_, aux_fan_name_, "aux_fan_speed",
-                      "aux_fan_icon");
-
-    // Aux cluster visibility — subject drives XML bind_flag_if_eq
-    lv_subject_set_int(&aux_fan_present_subject_, aux_fan_name_.empty() ? 0 : 1);
-
-    // Recompute composite aux subjects (icon/full/short) with updated aux_present.
-    layout_fitter_.recompute_aux_composites();
+    rebind_single_fan(part_speed_observer_, part_speed_lifetime_, part_fan_name_);
+    rebind_single_fan(hotend_speed_observer_, hotend_speed_lifetime_, hotend_fan_name_);
+    rebind_single_fan(aux_speed_observer_, aux_speed_lifetime_, aux_fan_name_);
+    tiles_.set_fans(part_fan_name_, hotend_fan_name_, aux_fan_name_);
 
     spdlog::debug("[{}] Bound fans: part='{}' hotend='{}' aux='{}'", get_name(), part_fan_name_,
                   hotend_fan_name_, aux_fan_name_);
 }
 
 void PrintStatusPanel::rebind_single_fan(ObserverGuard& guard, SubjectLifetime& lt,
-                                         const std::string& object_name,
-                                         const char* speed_label_widget_name,
-                                         const char* icon_widget_name) {
+                                         const std::string& object_name) {
     if (object_name.empty()) {
-        update_fan_speed_display(speed_label_widget_name, icon_widget_name, 0);
         return;
     }
     lv_subject_t* subj = printer_state_.fan_state().get_fan_speed_subject(object_name, lt);
@@ -2087,75 +1977,55 @@ void PrintStatusPanel::rebind_single_fan(ObserverGuard& guard, SubjectLifetime& 
     }
 
     auto token = lifetime_.token();
-    std::string label_copy = speed_label_widget_name;
-    std::string icon_copy = icon_widget_name;
     guard = helix::ui::observe<int>(
         subj, this,
-        [token, label_copy, icon_copy](PrintStatusPanel* self, int speed) {
+        [token](PrintStatusPanel* self, int) {
             if (token.expired())
                 return;
-            self->update_fan_speed_display(label_copy.c_str(), icon_copy.c_str(), speed);
+            self->tiles_.request_update();
         },
         lt);
-
-    // Seed initial value — observer fires only on change
-    update_fan_speed_display(speed_label_widget_name, icon_widget_name, lv_subject_get_int(subj));
 }
 
-void PrintStatusPanel::update_fan_speed_display(const char* label_name, const char* icon_name,
-                                                int speed) {
-    if (!overlay_root_)
-        return;
-    lv_obj_t* label = lv_obj_find_by_name(overlay_root_, label_name);
-    if (label) {
-        char buf[8];
-        helix::format::format_percent(speed, buf, sizeof(buf));
-        lv_label_set_text(label, buf);
-    }
-    lv_obj_t* icon = lv_obj_find_by_name(overlay_root_, icon_name);
-    if (icon) {
-        if (!animations_enabled_ || speed <= 0)
-            helix::ui::fan_spin_stop(icon);
-        else
-            helix::ui::fan_spin_start(icon, speed);
-    }
+void PrintStatusPanel::relayout() {
+    layout_fitter_.recompute();
+    tiles_.request_update();
 }
 
-void PrintStatusPanel::refresh_fan_animations() {
-    if (!overlay_root_)
-        return;
-    auto refresh_one = [this](const std::string& name, const char* icon_widget) {
-        if (name.empty())
-            return;
-        lv_subject_t* s = printer_state_.fan_state().get_fan_speed_subject(name);
-        if (!s)
-            return;
-        lv_obj_t* icon = lv_obj_find_by_name(overlay_root_, icon_widget);
-        if (!icon)
-            return;
-        int sp = lv_subject_get_int(s);
-        if (!animations_enabled_ || sp <= 0)
-            helix::ui::fan_spin_stop(icon);
-        else
-            helix::ui::fan_spin_start(icon, sp);
-    };
-    refresh_one(part_fan_name_, "part_fan_icon");
-    refresh_one(hotend_fan_name_, "hotend_fan_icon");
-    refresh_one(aux_fan_name_, "aux_fan_icon");
-}
-
-// SIZE_CHANGED on controls_section — defers density + fit recompute via lifetime token
-void PrintStatusPanel::on_controls_size_changed(lv_event_t* e) {
-    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_controls_size_changed");
+// SIZE_CHANGED on overlay_content: the arrangement and chips follow the box.
+void PrintStatusPanel::on_content_size_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_content_size_changed");
     auto* self = static_cast<PrintStatusPanel*>(lv_event_get_user_data(e));
     if (self) {
         auto token = self->lifetime_.token();
-        token.defer("PrintStatusPanel::size_changed_recompute", [self]() {
-            self->layout_fitter_.recompute_fans_density();
-            self->layout_fitter_.recompute_fans_fit();
-        });
+        token.defer("PrintStatusPanel::size_changed_relayout", [self]() { self->relayout(); });
     }
     LVGL_SAFE_EVENT_CB_END();
+}
+
+void PrintStatusPanel::handle_more_clicked(lv_obj_t* anchor) {
+    if (!anchor || more_menu_.is_visible()) {
+        return;
+    }
+    more_menu_.set_action_callback(
+        [this](int action, int /*item*/) { handle_more_action(action); });
+    more_menu_.show_below_widget(lv_obj_get_screen(anchor), anchor);
+}
+
+void PrintStatusPanel::handle_more_action(int action) {
+    switch (action) {
+    case helix::ui::PrintStatusMoreMenu::kActionCamera:
+        open_print_status_camera();
+        break;
+    case helix::ui::PrintStatusMoreMenu::kActionTimelapse:
+        light_timelapse_controls_.handle_timelapse_button();
+        break;
+    case helix::ui::PrintStatusMoreMenu::kActionLight:
+        light_timelapse_controls_.handle_light_button();
+        break;
+    default:
+        break;
+    }
 }
 
 void PrintStatusPanel::recompute_paused_overlay_visibility() {
@@ -2248,6 +2118,7 @@ void PrintStatusPanel::update_chamber_status() {
         std::snprintf(chamber_status_buf_, sizeof(chamber_status_buf_), "%s", chamber.duty.c_str());
     }
     lv_subject_copy_string(&chamber_status_subject_, chamber_status_buf_);
+    tiles_.request_update();
 }
 
 void PrintStatusPanel::on_print_progress_changed(int progress) {
@@ -2382,6 +2253,7 @@ void PrintStatusPanel::on_print_state_changed(PrintJobState job_state) {
         update_all_displays();
         update_button_states();
         show_gcode_viewer(result.should_show_viewer);
+        tiles_.request_update();
         spdlog::debug("[{}] Print state changed: {} -> {}", get_name(),
                       print_job_state_to_string(job_state), static_cast<int>(result.new_state));
     }
@@ -2482,6 +2354,7 @@ void PrintStatusPanel::update_speed_flow_text() {
         return;
     }
     progress_text_.refresh_speed_flow();
+    tiles_.request_update();
 }
 
 void PrintStatusPanel::on_gcode_z_offset_changed(int /* microns */) {
@@ -2684,6 +2557,10 @@ void PrintStatusPanel::on_print_start_phase_changed(int phase) {
                       static_cast<int>(lifecycle_.state()));
     }
     was_preparing_ = preparing;
+    // A phase switch can change which chips glow and, at the pre-print to
+    // printing edge, the callout mode.
+    tiles_.refresh_checklist();
+    tiles_.request_update();
     spdlog::debug("[{}] Print start phase changed: {} (visible={})", get_name(), phase, preparing);
 }
 
@@ -2694,6 +2571,7 @@ void PrintStatusPanel::on_print_start_progress_changed(int progress) {
     }
 
     lv_subject_set_int(&preparing_progress_subject_, progress);
+    tiles_.refresh_checklist();
 
     // Animate bar for smooth visual feedback
     if (preparing_progress_bar_) {
@@ -2740,6 +2618,10 @@ void PrintStatusPanel::on_preprint_elapsed_changed(int seconds) {
     if (lifecycle_.state() != PrintState::Preparing) {
         return;
     }
+
+    // The collector's per-phase elapsed time moves with this tick and fires
+    // no subject of its own.
+    tiles_.refresh_checklist();
 
     progress_text_.show_elapsed(lifecycle_.preprint_elapsed_seconds());
 }

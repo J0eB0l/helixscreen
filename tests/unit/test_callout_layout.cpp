@@ -779,3 +779,28 @@ TEST_CASE("leader_min_distance 0 keeps pinned line-free", "[printer_image][callo
     for (const auto& c : l.chips)
         CHECK_FALSE(c.has_line);
 }
+
+TEST_CASE("pinned drops expendable docked chips when the docked row overflows",
+          "[printer_image][callout_layout]") {
+    auto in = base();
+    in.area_w = 150;
+    in.area_h = 190;
+    in.chip_h = 22;
+    // Two anchorless chips: 70 + 4 + 80 = 154 overflow a 142px row, either alone fits.
+    in.active = {{CalloutKind::Nozzle, 50, NormPoint{0.5f, 0.3f}},
+                 {CalloutKind::Bed, 50, NormPoint{0.5f, 0.6f}},
+                 {CalloutKind::SpeedFlow, 80, std::nullopt, false},
+                 {CalloutKind::AuxFan, 70, std::nullopt, true}};
+    const auto l = compute_callout_layout(in);
+    REQUIRE(l.mode == CalloutMode::Pinned);
+    CHECK(l.dropped == std::vector<CalloutKind>{CalloutKind::AuxFan});
+    CHECK(find(l, CalloutKind::AuxFan) == nullptr);
+    CHECK(find(l, CalloutKind::SpeedFlow) != nullptr);
+
+    // With room for the row, nothing expected is dropped.
+    in.area_w = 240;
+    const auto roomy = compute_callout_layout(in);
+    REQUIRE(roomy.mode == CalloutMode::Pinned);
+    CHECK(roomy.dropped.empty());
+    CHECK(find(roomy, CalloutKind::AuxFan) != nullptr);
+}

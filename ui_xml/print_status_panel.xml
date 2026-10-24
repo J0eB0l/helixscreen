@@ -95,7 +95,7 @@
                 clickable="true" style_radius="#border_radius">
           <style name="styles.press_wash" selector="pressed"/>
           <bind_flag_if cond="ui_breakpoint lt 3" flag="hidden"/>
-          <event_cb trigger="clicked" callback="on_print_status_units_toggle"/>
+          <event_cb trigger="clicked" callback="on_print_status_tune"/>
           <text_small text="Speed" clickable="false" event_bubble="true"/>
           <text_small name="speed_value" bind_text="print_speed_text" clickable="false" event_bubble="true"/>
           <text_small text=" · " clickable="false" event_bubble="true"/>

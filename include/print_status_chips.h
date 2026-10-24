@@ -6,6 +6,8 @@
 
 #include "ui_temperature_utils.h"
 
+#include "callout_layout.h"
+
 #include <string>
 #include <string_view>
 
@@ -51,5 +53,11 @@ enum class FanRole { Part = 0, Hotend = 1, Aux = 2 };
 
 /// The light chip: Active when on, expendable when off.
 [[nodiscard]] ChipContent light_chip(bool controllable, bool on);
+
+/// Whether a heater chip carries its duty ("220° · 5%"). Only the line modes
+/// set chips beside the picture with a column of their own, and the duty goes
+/// on only while the chip, measured with it, still fits that column:
+/// `column_w` is the widest budget chip, which sized the column.
+[[nodiscard]] bool heater_power_fits(CalloutMode mode, int w_with_power, int column_w);
 
 } // namespace helix

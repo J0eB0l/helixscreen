@@ -13,8 +13,6 @@
 // translation units each defining their own version of the class would be an
 // ODR violation.
 //
-//  - recompute_aux_composites(): the measurement-only entry point for the fan
-//    row's composite visibility, which otherwise needs a laid-out widget tree.
 //  - set_thumbnail_widget(): stands in for the XML build, which is what
 //    normally assigns print_thumbnail_. The shared-subject observer only
 //    touches the image when that pointer is non-null, so a test that leaves it
@@ -65,8 +63,17 @@ class PrintStatusPanelTestAccess {
         return panel.gcode_viewer_;
     }
 
-    static void recompute_aux_composites(PrintStatusPanel& panel, int density, bool aux_present) {
-        panel.layout_fitter_.recompute_aux_composites_for_measurement(density, aux_present);
+    /// The printer tile's chips and the job tile's checklist.
+    static helix::ui::PrintStatusTiles& tiles(PrintStatusPanel& panel) {
+        return panel.tiles_;
+    }
+
+    /// The More button's tap, raising the menu below @p anchor.
+    static void open_more_menu(PrintStatusPanel& panel, lv_obj_t* anchor) {
+        panel.handle_more_clicked(anchor);
+    }
+    static helix::ui::PrintStatusMoreMenu& more_menu(PrintStatusPanel& panel) {
+        return panel.more_menu_;
     }
 
     static void set_thumbnail_widget(PrintStatusPanel& panel, lv_obj_t* image) {

@@ -43,6 +43,14 @@ class PrintProgressText {
     /// Speed and flow, in percent or physical units per the display setting.
     void refresh_speed_flow();
 
+    /// The speed and flow readouts as published, in the units the preference picks.
+    [[nodiscard]] const char* speed_text() const {
+        return speed_buf_;
+    }
+    [[nodiscard]] const char* flow_text() const {
+        return flow_buf_;
+    }
+
     void show_elapsed(int seconds);
     void show_remaining(int seconds);
     /// Remaining time plus the wall-clock time it ends at.

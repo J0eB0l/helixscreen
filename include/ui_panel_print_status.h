@@ -31,6 +31,9 @@ class PrintStartController;
 struct MemoryInfo;
 } // namespace helix
 
+#include "ui_print_status_more_menu.h"
+#include "ui_print_status_tiles.h"
+
 #include "filament_mapper.h" // helix::GcodeToolInfo
 #include "print_preview_controller.h"
 #include "print_progress_text.h"
@@ -382,42 +385,25 @@ class PrintStatusPanel : public OverlayBase {
     // on new-print transitions so the next outcome's overlay appears normally.
     lv_subject_t end_overlay_dismissed_subject_{};
 
-    // Fan row adaptive-fit subject (1=row fits in the column, 0=hidden).
-    // Set by recompute_fans_fit() after every breakpoint/layout change.
+    // Bound only by the fan row, mini-graph and two-row action grid that the
+    // tile layout replaces; nothing measures them, so they stay at 0.
     lv_subject_t fans_fit_subject_{};
-
-    // Temperature mini-graph fit subject (1=the portrait slack band is tall
-    // enough to hold a readable graph, 0=hidden). Set by recompute_graph_fits()
-    // from the slack the preview aspect cap just computed. 0 in landscape and at
-    // every size where the cap does not bind.
     lv_subject_t graph_fits_subject_{};
-
-    // Each action row's layout (row 1 Light/Timelapse/Pause, row 2
-    // Tune/Cancel): stacked icon over label (always at tiny and below, and
-    // wherever a long translation cannot sit beside its icon), and tall when
-    // that stacking happens from small up. Set by
-    // PrintStatusLayoutFitter::recompute_actions_crowded().
     lv_subject_t row1_stacked_subject_{};
     lv_subject_t row1_tall_subject_{};
     lv_subject_t row2_stacked_subject_{};
     lv_subject_t row2_tall_subject_{};
-
-    // Aux fan present subject (1=aux cluster visible, 0=hidden).
-    // Set by bind_fan_speeds() when an aux fan is discovered.
     lv_subject_t aux_fan_present_subject_{};
-
-    // Fan row content density (0=full: icon+label+val, 1=medium: label+val,
-    // 2=compact: single-letter+val). Set by recompute_fans_density().
     lv_subject_t fan_row_density_subject_{};
+    lv_subject_t aux_icon_visible_subject_{};
+    lv_subject_t aux_full_visible_subject_{};
+    lv_subject_t aux_short_visible_subject_{};
 
-    // Composite visibility subjects for the aux cluster.  Each combines
-    // aux_fan_present AND the current density tier so each aux widget only
-    // needs ONE bind_flag (satisfying [L042]).
-    lv_subject_t aux_icon_visible_subject_{};  // aux_present && density==0
-    lv_subject_t aux_full_visible_subject_{};  // aux_present && density!=2
-    lv_subject_t aux_short_visible_subject_{}; // aux_present && density==2
-
-    bool animations_enabled_ = false; ///< Cached from DisplaySettingsManager
+    // The tile arrangement PrintStatusLayoutFitter measures (ps_arrangement,
+    // ps_strip_stacked, ps_checklist_compact).
+    lv_subject_t arrangement_subject_{};
+    lv_subject_t strip_stacked_subject_{};
+    lv_subject_t checklist_compact_subject_{};
 
     // Resolved fan object names (refreshed when fans_version ticks).
     std::string part_fan_name_;
@@ -483,8 +469,13 @@ class PrintStatusPanel : public OverlayBase {
     /// The progress card's text subjects and their formatting.
     helix::ui::PrintProgressText progress_text_;
 
-    /// Measured layout: fan row fit, preview height cap, temperature mini-graph.
+    /// Measured arrangement of the job tile, printer tile and strip.
     helix::ui::PrintStatusLayoutFitter layout_fitter_;
+
+    /// The printer tile's chips and the job tile's checklist.
+    helix::ui::PrintStatusTiles tiles_;
+
+    helix::ui::PrintStatusMoreMenu more_menu_;
 
     /**
      * @brief Withholds the preparing overlay until preparation is worth showing
@@ -554,10 +545,7 @@ class PrintStatusPanel : public OverlayBase {
 
     void bind_fan_observers(); ///< Reclassify + rebind on fans_version
     void rebind_single_fan(ObserverGuard& guard, SubjectLifetime& lt,
-                           const std::string& object_name, const char* speed_label_widget_name,
-                           const char* icon_widget_name);
-    void update_fan_speed_display(const char* label_name, const char* icon_name, int speed);
-    void refresh_fan_animations();
+                           const std::string& object_name);
 
     void update_all_displays();
     void update_heater_status_rows();
@@ -620,7 +608,10 @@ class PrintStatusPanel : public OverlayBase {
     // SIZE_CHANGED on controls_section — triggers density + fit recompute.
     // Direct lv_obj_add_event_cb registration is correct here: SIZE_CHANGED
     // has no XML binding equivalent (only click/value events go through XML).
-    static void on_controls_size_changed(lv_event_t* e);
+    static void on_content_size_changed(lv_event_t* e);
+    void relayout();
+    void handle_more_clicked(lv_obj_t* anchor);
+    void handle_more_action(int action);
     void handle_fans_click();
     void handle_objects_toggle();
     void handle_view_toggle();
@@ -713,11 +704,7 @@ class PrintStatusPanel : public OverlayBase {
     // Static-subject observers (singleton lifetime — no SubjectLifetime token needed).
     ObserverGuard fans_version_observer_;
     ObserverGuard primary_fans_version_observer_;
-    ObserverGuard animations_enabled_observer_;
     ObserverGuard breakpoint_observer_;
-    ObserverGuard filament_sensor_count_observer_;
-    ObserverGuard ams_slot_count_observer_;
-    ObserverGuard toolchange_visible_observer_;
     ObserverGuard scoped_runout_observer_; ///< Recomputes scoped runout badge on sensor edge
     /// ...and on AMS lane change (slots_version), which also re-pushes the
     /// viewer's per-tool colors: ams_color_observer_ only sees the ACTIVE lane

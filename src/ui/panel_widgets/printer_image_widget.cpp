@@ -998,40 +998,20 @@ void PrinterImageWidget::apply_callout_layout() {
     const ImageRegions* r = lookup_image_regions(printer_image_region_key(current_source_path_),
                                                  natural_w_, natural_h_);
 
-    // Measure in the fonts the chips render: chip_text is a text_small
-    // (font_small) and every chip icon is size="xs" (icon_font_xs). Padding and
-    // border come from the live chip's own style, so they follow the theme.
     lv_obj_t* probe = lv_obj_find_by_name(widget_obj_, "callout_chip_bed");
     if (!probe)
         return;
-    const lv_font_t* text_font = theme_manager_get_font("font_small");
-    const lv_font_t* icon_font = theme_manager_get_font("icon_font_xs");
-    const int border = lv_obj_get_style_border_width(probe, LV_PART_MAIN);
-    const int chrome_w = lv_obj_get_style_pad_left(probe, LV_PART_MAIN) +
-                         lv_obj_get_style_pad_right(probe, LV_PART_MAIN) + 2 * border;
-    const int col_gap = lv_obj_get_style_pad_column(probe, LV_PART_MAIN);
-    const int comfort = theme_manager_get_spacing("space_md");
-    const auto icon_px = [&](const char* name) {
-        return helix::ui::measure_text_px(helix::ui::icon::lookup_codepoint(name), icon_font);
-    };
-    // Measured text and rendered text disagree by a few pixels, so a chip with
-    // text gets a comfort margin; an icon-only chip is exactly its glyph.
-    // Everything in a text chip but its text: chrome, icons, and the gap before
-    // the label. Sizes the chip here and bounds its label in the apply loop.
-    const auto around_text = [&](int icons) { return chrome_w + icons + col_gap; };
+    const helix::ui::CalloutChipMetrics metrics = helix::ui::measure_callout_chip(probe);
+    const auto icon_px = [&](const char* name) { return metrics.icon_px(name); };
     const auto chip_w = [&](int icons, const std::string& text) {
-        if (text.empty())
-            return chrome_w + icons;
-        return around_text(icons) + helix::ui::measure_text_px(text.c_str(), text_font) + comfort;
+        return metrics.chip_w(icons, text);
     };
     // Pinned chips drop their icons and set chip_text in font_xs (the
     // printer_callout_mode binding in panel_widget_printer_image.xml).
     const auto compact_w = [&](int icons, const std::string& text) {
         return helix::ui::compact_callout_chip_w(probe, text, icons);
     };
-    cfg.chip_h = std::max(lv_font_get_line_height(text_font), lv_font_get_line_height(icon_font)) +
-                 lv_obj_get_style_pad_top(probe, LV_PART_MAIN) +
-                 lv_obj_get_style_pad_bottom(probe, LV_PART_MAIN) + 2 * border;
+    cfg.chip_h = metrics.chip_h;
     cfg.compact_chip_h =
         helix::ui::compact_callout_chip_h(probe, lv_subject_get_int(&s_callout_light_shown));
     cfg.gap = theme_manager_get_spacing("space_xs");

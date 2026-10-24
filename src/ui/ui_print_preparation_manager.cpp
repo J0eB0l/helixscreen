@@ -393,7 +393,8 @@ void PrintPreparationManager::analyze_print_start_macro() {
     // Skip if we already have a cached result
     if (macro_analysis_.has_value()) {
         spdlog::debug("[PrintPreparationManager] Using cached PRINT_START analysis");
-        publish_macro_option_count();
+        // A collector rebuilt since the analysis ran has not seen it yet.
+        adopt_macro_analysis(*macro_analysis_);
         if (on_macro_analysis_complete_) {
             on_macro_analysis_complete_(*macro_analysis_);
         }
@@ -442,9 +443,8 @@ void PrintPreparationManager::analyze_print_start_macro_internal() {
                 }
                 spdlog::debug("[PrintPreparationManager] PRINT_START analysis complete: {}",
                               analysis.summary());
-                macro_analysis_ = analysis;
                 macro_analysis_in_progress_ = false;
-                publish_macro_option_count();
+                adopt_macro_analysis(analysis);
                 if (on_macro_analysis_complete_) {
                     on_macro_analysis_complete_(analysis);
                 }
@@ -504,8 +504,7 @@ void PrintPreparationManager::analyze_print_start_macro_internal() {
                 macro_analysis_in_progress_ = false;
                 helix::PrintStartAnalysis not_found;
                 not_found.found = false;
-                macro_analysis_ = not_found;
-                publish_macro_option_count();
+                adopt_macro_analysis(not_found);
                 if (on_macro_analysis_complete_) {
                     on_macro_analysis_complete_(not_found);
                 }
@@ -562,8 +561,19 @@ CapabilityMatrix PrintPreparationManager::build_capability_matrix() const {
 }
 
 void PrintPreparationManager::set_macro_analysis(const helix::PrintStartAnalysis& analysis) {
+    adopt_macro_analysis(analysis);
+}
+
+void PrintPreparationManager::adopt_macro_analysis(const helix::PrintStartAnalysis& analysis) {
     macro_analysis_ = analysis;
     publish_macro_option_count();
+    // The macro's steps are the checklist's expected order when the file has
+    // no start block of its own.
+    if (auto* mgr = get_moonraker_manager()) {
+        if (auto collector = mgr->print_start_collector()) {
+            collector->set_macro_analysis(analysis);
+        }
+    }
 }
 
 // The options card shows only when some row will render, and the rows this

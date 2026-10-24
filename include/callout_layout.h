@@ -601,6 +601,24 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
         std::vector<CalloutChipIn> pinned, docked;
         for (const auto& c : chips)
             (c.anchor ? pinned : docked).push_back(c);
+        // A docked row longer than the area is wide would climb over the
+        // picture, so its expected values give way first, least needed first.
+        for (;;) {
+            int row = docked.empty() ? 0 : in.gap * int(docked.size() - 1);
+            for (const auto& c : docked)
+                row += c.w;
+            if (row <= in.area_w - 2 * in.gap)
+                break;
+            auto victim = docked.end();
+            for (auto it = docked.begin(); it != docked.end(); ++it)
+                if (it->expendable &&
+                    (victim == docked.end() || dock_rank(it->kind) < dock_rank(victim->kind)))
+                    victim = it;
+            if (victim == docked.end())
+                break;
+            out.dropped.push_back(victim->kind);
+            docked.erase(victim);
+        }
         // Each pass places the pinned chips on their points and the rest in the
         // docked row, until every column of pinned chips stacks above that row.
         for (;;) {

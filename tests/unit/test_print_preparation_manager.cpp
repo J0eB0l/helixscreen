@@ -4928,3 +4928,41 @@ TEST_CASE_METHOD(HelixTestFixture,
                                         {static_cast<int>(helix::PrintStartPhase::QGL), true}});
     manager.set_dependencies(nullptr, nullptr);
 }
+
+TEST_CASE_METHOD(HelixTestFixture,
+                 "PrintPreparationManager: a macro analysis reaches the collector's checklist "
+                 "order when the file has no start block",
+                 "[print_preparation][collector]") {
+    lv_init_safe();
+    MoonrakerManager moonraker;
+    MoonrakerManagerTestAccess::install_client(
+        moonraker, std::make_unique<helix::test::FakeMoonrakerClient>());
+    moonraker.init_print_start_collector();
+    const auto collector = moonraker.print_start_collector();
+    REQUIRE(collector);
+    set_moonraker_manager(&moonraker);
+    struct Uninstall {
+        ~Uninstall() {
+            set_moonraker_manager(nullptr);
+        }
+    } uninstall;
+    REQUIRE(collector->checklist_input().expected_order.empty());
+
+    helix::PrintStartAnalysis analysis;
+    analysis.found = true;
+    analysis.macro_name = "PRINT_START";
+    helix::PrintStartOperation mesh;
+    mesh.name = "BED_MESH_CALIBRATE";
+    mesh.category = helix::OperationCategory::BED_MESH;
+    helix::PrintStartOperation purge;
+    purge.name = "LINE_PURGE";
+    purge.category = helix::OperationCategory::PURGE_LINE;
+    analysis.operations = {mesh, purge};
+
+    PrintPreparationManager manager;
+    manager.set_macro_analysis(analysis);
+
+    CHECK(collector->checklist_input().expected_order ==
+          std::vector<helix::PrintStartPhase>{helix::PrintStartPhase::BED_MESH,
+                                              helix::PrintStartPhase::PURGING});
+}

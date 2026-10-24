@@ -125,6 +125,8 @@ src/print/preprint_checklist.cpp
 src/print/print_start_phase_label.cpp
 src/ui/print_status_chips.cpp
 src/ui/print_status_tile_layout.cpp
+src/ui/ui_print_status_more_menu.cpp
+src/ui/ui_print_status_tiles.cpp
 src/print/print_eta_estimator.cpp
 src/print/thumbnail_write_journal.cpp
 src/print/print_completion.cpp

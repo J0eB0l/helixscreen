@@ -102,3 +102,14 @@ TEST_CASE("light off is expendable, on glows", "[print_status_chips]") {
     CHECK(off.tone == ChipTone::Dim);
     CHECK(off.expendable);
 }
+
+TEST_CASE("heater duty shows only beside the picture and only while it fits the column",
+          "[print_status_chips]") {
+    CHECK(heater_power_fits(CalloutMode::BothSides, 90, 90));
+    CHECK(heater_power_fits(CalloutMode::OneSide, 80, 90));
+    CHECK_FALSE(heater_power_fits(CalloutMode::BothSides, 91, 90));
+    CHECK_FALSE(heater_power_fits(CalloutMode::Pinned, 40, 90));
+    CHECK_FALSE(heater_power_fits(CalloutMode::Docked, 40, 90));
+    CHECK_FALSE(heater_power_fits(CalloutMode::ImageOnly, 40, 90));
+    CHECK_FALSE(heater_power_fits(CalloutMode::BothSides, 0, 90));
+}
