@@ -223,12 +223,13 @@ If the plugin isn't installed yet, HelixScreen shows an **Install Wizard** that 
 
 ## Power-loss recovery and start options for other apps
 
-These two switches come from the **HelixPrint plugin** on your printer. See [HelixPrint Plugin](../helixprint-plugin.md) for installing it and everything else it adds.
+These settings come from the **HelixPrint plugin** on your printer. See [HelixPrint Plugin](../helixprint-plugin.md) for installing it and everything else it adds.
 
 | Setting | What it does |
 |---------|--------------|
 | **Power-loss recovery** | Saves the print position about once a second so a print can resume after a power cut. Shown only on a printer HelixScreen supports for it (today, the QIDI Q2). On by default on a supported printer that stores its data on eMMC; off on an SD card, where it adds wear. Resuming is described in [Recovering After a Power Loss](../printing.md#resuming-with-the-helixprint-plugin) |
 | **Apply start options to prints from other apps** | When a print starts from Mainsail, Fluidd, your slicer or the job queue, sends your standing print options too, such as which toolheads unload at the end. Off until you turn it on |
+| **Resume reloads the saved bed mesh** | Adds `[include helix-plr/*.cfg]` to printer.cfg, so a power-loss resume reloads the mesh the print started with instead of the printer's default mesh profile. HelixScreen keeps a backup of printer.cfg beside it, asks before changing anything, and offers the firmware restart that applies the change. Tap the row again to remove the lines |
 
 Without the plugin on the printer:
 

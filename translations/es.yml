@@ -242,9 +242,11 @@ translations:
   Add Printer: Agregar Impresora
   Add Vendor: Agregar Proveedor
   Add Widget: Agregar widget
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: Agrega [include helix-plr/*.cfg] a printer.cfg para que una reanudación vuelva a cargar la malla con la que empezó la impresión
   Add custom filament: Añadir filamento personalizado
   Add page: 'Añadir página'
   Add to Queue: Añadir a la cola
+  Added: Agregado
   Added to Spoolman: Añadido a Spoolman
   Added to queue (position {}): Añadido a la cola (posición {})
   'Added to queue (position {}) - queue is paused': 'Añadido a la cola (posición {}): la cola está en pausa'
@@ -956,6 +958,7 @@ translations:
   Unload stopped: Descarga detenida
   "User Guide": "Guía del usuario"
   '{} could not be checked from Home - review it and tap Print': 'No se pudo comprobar {} desde Inicio: revísalo y toca Imprimir'
+  Could not change printer.cfg: No se pudo cambiar printer.cfg
   ? "Could not check webcam status.\nCheck printer connection."
   : "No se pudo verificar la webcam.\nCompruebe la conexión."
   Could not confirm cancel: No se pudo confirmar la cancelación
@@ -1779,8 +1782,12 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen se Bloqueó
   HelixScreen Macros: 'Macros de HelixScreen'
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : HelixScreen agrega [include helix-plr/*.cfg] a printer.cfg para que una reanudación vuelva a cargar la malla con la que empezó la impresión. Junto a printer.cfg se guarda una copia de seguridad, y Klipper debe reiniciarse para que surta efecto.
   HelixScreen is detecting your display orientation: HelixScreen está detectando la
     orientación de su pantalla
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : HelixScreen elimina sus líneas [include helix-plr/*.cfg] de printer.cfg. Junto a printer.cfg se guarda una copia de seguridad, y Klipper debe reiniciarse para que surta efecto. Una reanudación usará entonces el perfil de malla predeterminado de la impresora.
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     se integrará con su cambiador de filamento para operaciones de impresión multi-bobina/color.
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreen escribirá esto en printer.cfg y reiniciará Klipper. La impresora se desconectará brevemente.
@@ -2575,6 +2582,7 @@ translations:
   Not Initialized: 'No inicializado'
   Not Now: Ahora No
   Not Supported: 'No compatible'
+  Not added: No agregado
   Not available here. Update from a terminal.: No disponible aquí. Actualiza desde un terminal.
   Not available now: No disponible ahora
   Not available on Android: No disponible en Android
@@ -3181,11 +3189,13 @@ translations:
   Release or grip the filament by hand: Liberar o agarrar el filamento a mano
   Release the filament: Liberar el filamento
   Release {}'s tensioner, let the spring settle, lock it: "Suelta el tensor de {}, deja asentar el resorte, bloquéalo"
+  Reload the saved bed mesh?: ¿Volver a cargar la malla guardada?
   Remaining: 'Restante'
   Remaining (g): Restante (g)
   Remaining Weight (g): Peso Restante (g)
   Remember slot spool details across an eject: Recordar los detalles de la bobina de la ranura tras una expulsión
   Remove: Eliminar
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: Elimina las líneas include de HelixScreen de printer.cfg; una reanudación usará entonces el perfil de malla predeterminado de la impresora
   Remove PIN: Eliminar PIN
   Remove Spoolman?: ¿Eliminar Spoolman?
   Remove plugin from printer: Eliminar plugin de la impresora
@@ -3295,6 +3305,7 @@ translations:
   Resume interrupted print?: ¿Reanudar impresión interrumpida?
   Resume macro not configured: Macro de reanudación no configurado
   Resume preparation failed: La preparación para reanudar falló
+  Resume reloads the saved bed mesh: Reanudar vuelve a cargar la malla guardada
   Resume without the bed mesh this print used: Reanudar sin la malla de cama que usó esta impresión
   Resuming is not set up for this printer.: La reanudación no está configurada para esta impresora.
   Resuming print...: Reanudando impresión...
@@ -3789,6 +3800,7 @@ translations:
   Stop failed: Detención fallida
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "¿Detener la impresión de \"{}\"?\n\nEsto no se puede deshacer después de 5 segundos."
+  Stop reloading the saved bed mesh?: ¿Dejar de cargar la malla guardada?
   Stop the check?: ¿Detener la comprobación?
   Stop the running cycle before starting another: 'Detenga el ciclo en curso antes de iniciar otro'
   Stop with an emergency stop?: '¿Detener con una parada de emergencia?'
@@ -3972,6 +3984,8 @@ translations:
   : 'La cámara creyó ver algo en la cama, así que la impresora se detuvo antes de imprimir. Si la cama está libre, fue una falsa alarma.'
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: 'El calentador de la cámara puede ejecutar un ciclo de secado de filamento. Inícialo desde el diálogo de secado.'
   The chamber wait already ended; nothing was stopped.: 'La espera de la cámara ya terminó; no se detuvo nada.'
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : El cambio surte efecto cuando Klipper se reinicie. Se reiniciará el firmware de Klipper. Las operaciones activas se interrumpirán.
   The controller boards Klipper runs on. See their load in the system settings.: 'Las placas controladoras en las que se ejecuta Klipper. Consulta su carga en los ajustes del sistema.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: La cuchilla no regresó. Compruebe si hay filamento enrollado en el mecanismo de corte
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: El cortador está desalineado. Recalíbrelo con CALIBRATE_CUT_POS

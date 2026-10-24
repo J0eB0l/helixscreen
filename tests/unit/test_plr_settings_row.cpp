@@ -13,6 +13,7 @@
  * recover. Flipping it writes the user's choice where the plugin reads it.
  */
 
+#include "ui_modal.h"
 #include "ui_panel_settings.h"
 #include "ui_settings_printing.h"
 #include "ui_update_queue.h"
@@ -27,6 +28,7 @@
 #include "printer_state.h"
 #include "settings_manager.h"
 
+#include <cstring>
 #include <optional>
 
 #include "../catch_amalgamated.hpp"
@@ -85,6 +87,32 @@ struct PlrSettingsRowFixture : LVGLUITestFixture {
 
     lv_obj_t* find(const char* name) const {
         return lv_obj_find_by_name(root_, name);
+    }
+
+    /// Click a widget, pump LVGL and the update queue.
+    void tap(lv_obj_t* widget) {
+        lv_obj_send_event(widget, LV_EVENT_CLICKED, nullptr);
+        process_lvgl(50);
+        helix::ui::UpdateQueue::instance().drain();
+    }
+
+    /// The top modal dialog's text of the named widget, or "" when absent.
+    std::string modal_text(const char* widget) {
+        lv_obj_t* dialog = ModalStack::instance().top_dialog();
+        if (dialog == nullptr) {
+            return "(no dialog)";
+        }
+        lv_obj_t* label = lv_obj_find_by_name(dialog, widget);
+        return label != nullptr ? lv_label_get_text(label) : "(missing)";
+    }
+
+    /// The top modal dialog's primary button, clicked.
+    void confirm_modal() {
+        lv_obj_t* dialog = ModalStack::instance().top_dialog();
+        REQUIRE(dialog != nullptr);
+        lv_obj_t* button = lv_obj_find_by_name(dialog, "btn_primary");
+        REQUIRE(button != nullptr);
+        tap(button);
     }
 };
 
@@ -185,5 +213,128 @@ TEST_CASE_METHOD(PlrSettingsRowFixture, "PLR settings switch follows saving, not
         set_plr_feature(true, true);
         process_lvgl(5);
         CHECK(lv_obj_has_state(toggle, LV_STATE_CHECKED));
+    }
+}
+
+TEST_CASE_METHOD(PlrSettingsRowFixture, "the mesh-include row follows the feature and the answer",
+                 "[plr][settings]") {
+    lv_obj_t* add = find("row_plr_mesh_include_add");
+    lv_obj_t* remove = find("row_plr_mesh_include_remove");
+    REQUIRE(add != nullptr);
+    REQUIRE(remove != nullptr);
+    auto& plugin = get_printer_state().plugin_status_state();
+
+    SECTION("hidden until the plugin's plr feature answers") {
+        CHECK_FALSE(visible(add));
+        CHECK_FALSE(visible(remove));
+    }
+    SECTION("the feature present but no answer yet shows neither row") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(std::nullopt);
+        process_lvgl(5);
+        CHECK_FALSE(visible(add));
+        CHECK_FALSE(visible(remove));
+    }
+    SECTION("the include missing: the add row, marked Not added") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(false);
+        process_lvgl(5);
+        CHECK(visible(add));
+        CHECK_FALSE(visible(remove));
+        CHECK(std::strcmp(lv_label_get_text(lv_obj_find_by_name(add, "value")), "Not added") == 0);
+    }
+    SECTION("the include there: the remove row, marked Added") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(true);
+        process_lvgl(5);
+        CHECK_FALSE(visible(add));
+        CHECK(visible(remove));
+        CHECK(std::strcmp(lv_label_get_text(lv_obj_find_by_name(remove, "value")), "Added") == 0);
+    }
+    SECTION("a stale answer landing after the feature went absent shows nothing") {
+        // The reply guard checks at send time, so a reply can outlive the
+        // feature: the container's feature gate is what hides the row then.
+        set_plr_feature(true, false);
+        set_plr_feature(false, false);
+        plugin.set_plr_mesh_include(true);
+        process_lvgl(5);
+        CHECK_FALSE(visible(add));
+        CHECK_FALSE(visible(remove));
+    }
+    SECTION("a printer the plugin cannot recover: hidden, and the answer resets") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(true);
+        set_plr_feature(false, false);
+        process_lvgl(5);
+        CHECK_FALSE(visible(add));
+        CHECK_FALSE(visible(remove));
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == -1);
+    }
+}
+
+TEST_CASE_METHOD(PlrSettingsRowFixture, "opening the page asks the plugin for the include",
+                 "[plr][settings]") {
+    auto& plugin = get_printer_state().plugin_status_state();
+
+    SECTION("the feature present: the endpoint's answer lands in the row") {
+        set_plr_feature(true, false);
+        helix::settings::get_printing_settings_overlay().on_activate();
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 0);
+        process_lvgl(5);
+        CHECK(visible(find("row_plr_mesh_include_add")));
+    }
+    SECTION("the feature absent: nothing is asked") {
+        helix::settings::get_printing_settings_overlay().on_activate();
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == -1);
+    }
+}
+
+TEST_CASE_METHOD(PlrSettingsRowFixture, "the mesh-include row changes printer.cfg behind a confirm",
+                 "[plr][settings]") {
+    helix::ui::modal_init_subjects();
+    auto& plugin = get_printer_state().plugin_status_state();
+
+    SECTION("adding") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(false);
+        process_lvgl(5);
+        tap(find("row_plr_mesh_include_add"));
+        CHECK(modal_text("dialog_title") == "Reload the saved bed mesh?");
+        confirm_modal();
+
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 1);
+        process_lvgl(5);
+        CHECK(visible(find("row_plr_mesh_include_remove")));
+        CHECK(modal_text("dialog_title") == "Restart Firmware?");
+        confirm_modal();
+    }
+    SECTION("removing") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(true);
+        process_lvgl(5);
+        tap(find("row_plr_mesh_include_remove"));
+        CHECK(modal_text("dialog_title") == "Stop reloading the saved bed mesh?");
+        confirm_modal();
+
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 0);
+        process_lvgl(5);
+        CHECK(visible(find("row_plr_mesh_include_add")));
+    }
+    SECTION("declining the confirm changes nothing") {
+        set_plr_feature(true, false);
+        plugin.set_plr_mesh_include(false);
+        process_lvgl(5);
+        tap(find("row_plr_mesh_include_add"));
+        lv_obj_t* dialog = ModalStack::instance().top_dialog();
+        REQUIRE(dialog != nullptr);
+        lv_obj_t* cancel = lv_obj_find_by_name(dialog, "btn_secondary");
+        REQUIRE(cancel != nullptr);
+        tap(cancel);
+
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 0);
+        process_lvgl(5);
+        CHECK(visible(find("row_plr_mesh_include_add")));
     }
 }

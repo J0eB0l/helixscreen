@@ -244,9 +244,11 @@ translations:
   Add Printer: Drucker hinzufügen
   Add Vendor: Hersteller hinzufügen
   Add Widget: Widget hinzufügen
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: Fügt [include helix-plr/*.cfg] zu printer.cfg hinzu, damit ein Fortsetzen das Bettnetz lädt, mit dem der Druck begonnen hat
   Add custom filament: Benutzerdefiniertes Filament hinzufügen
   Add page: 'Seite hinzufügen'
   Add to Queue: Zur Warteschlange hinzufügen
+  Added: Hinzugefügt
   Added to Spoolman: Zu Spoolman hinzugefügt
   Added to queue (position {}): Zur Warteschlange hinzugefügt (Position {})
   Added to queue (position {}) - queue is paused: Zur Warteschlange hinzugefügt (Position {}) – Warteschlange ist pausiert
@@ -959,6 +961,7 @@ translations:
   Unload stopped: Entladen gestoppt
   "User Guide": "Benutzerhandbuch"
   '{} could not be checked from Home - review it and tap Print': '{} konnte von der Startseite aus nicht geprüft werden – prüfe die Datei und tippe auf Drucken'
+  Could not change printer.cfg: printer.cfg konnte nicht geändert werden
   ? "Could not check webcam status.\nCheck printer connection."
   : "Webcam-Status konnte nicht geprüft werden.\nDruckerverbindung prüfen."
   Could not confirm cancel: Abbruch konnte nicht bestätigt werden
@@ -1788,7 +1791,11 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen abgestürzt
   HelixScreen Macros: 'HelixScreen-Makros'
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : HelixScreen fügt [include helix-plr/*.cfg] zu printer.cfg hinzu, damit ein Fortsetzen das Bettnetz lädt, mit dem der Druck begonnen hat. Neben printer.cfg wird eine Sicherung aufbewahrt, und Klipper muss neu gestartet werden, damit die Änderung wirksam wird.
   HelixScreen is detecting your display orientation: HelixScreen erkennt Ihre Display-Ausrichtung
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : HelixScreen entfernt seine [include helix-plr/*.cfg]-Zeilen aus printer.cfg. Neben printer.cfg wird eine Sicherung aufbewahrt, und Klipper muss neu gestartet werden, damit die Änderung wirksam wird. Ein Fortsetzen verwendet dann das Standard-Bettnetzprofil des Druckers.
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     wird sich mit Ihrem Filamentwechsler für Multi-Spulen/Farb-Druckoperationen integrieren.
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreen schreibt dies in die printer.cfg und startet Klipper neu. Der Drucker wird kurz getrennt.
@@ -2583,6 +2590,7 @@ translations:
   Not Initialized: 'Nicht initialisiert'
   Not Now: Nicht jetzt
   Not Supported: 'Nicht unterstützt'
+  Not added: Nicht hinzugefügt
   Not available here. Update from a terminal.: Hier nicht verfügbar. Update über ein Terminal.
   Not available now: Derzeit nicht verfügbar
   Not available on Android: Auf Android nicht verfügbar
@@ -3189,11 +3197,13 @@ translations:
   Release or grip the filament by hand: Filament von Hand freigeben oder greifen
   Release the filament: Filament freigeben
   Release {}'s tensioner, let the spring settle, lock it: "Spanner von {} lösen, Feder setzen lassen, feststellen"
+  Reload the saved bed mesh?: Gespeichertes Bettnetz neu laden?
   Remaining: 'Verbleibend'
   Remaining (g): Verbleibend (g)
   Remaining Weight (g): Restgewicht (g)
   Remember slot spool details across an eject: Spulendetails des Slots über ein Auswerfen hinweg merken
   Remove: Entfernen
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: Entfernt die Include-Zeilen von HelixScreen aus printer.cfg; ein Fortsetzen verwendet dann das Standard-Bettnetzprofil des Druckers
   Remove PIN: PIN entfernen
   Remove Spoolman?: Spoolman entfernen?
   Remove plugin from printer: Plugin vom Drucker entfernen
@@ -3301,6 +3311,7 @@ translations:
   Resume interrupted print?: Unterbrochenen Druck fortsetzen?
   Resume macro not configured: Fortsetzen-Makro nicht konfiguriert
   Resume preparation failed: Vorbereitung zum Fortsetzen fehlgeschlagen
+  Resume reloads the saved bed mesh: Fortsetzen lädt das gespeicherte Bettnetz neu
   Resume without the bed mesh this print used: Ohne das Bettnetz dieses Drucks fortsetzen
   Resuming is not set up for this printer.: Fortsetzen ist für diesen Drucker nicht eingerichtet.
   Resuming print...: Druck fortsetzen...
@@ -3796,6 +3807,7 @@ translations:
   Stop failed: Stopp fehlgeschlagen
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "Druck von \"{}\" stoppen?\n\nDies kann nach 5 Sekunden nicht rückgängig gemacht werden."
+  Stop reloading the saved bed mesh?: Das Laden des gespeicherten Bettnetzes beenden?
   Stop the check?: Prüfung beenden?
   Stop the running cycle before starting another: 'Beenden Sie den laufenden Zyklus, bevor Sie einen neuen starten'
   Stop with an emergency stop?: 'Mit Notaus stoppen?'
@@ -3978,6 +3990,8 @@ translations:
   : 'Die Kamera hat etwas auf dem Heizbett erkannt, daher hat der Drucker vor dem Drucken angehalten. Wenn das Heizbett frei ist, war es ein Fehlalarm.'
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: 'Die Kammerheizung kann einen Filament-Trocknungszyklus ausführen. Starte ihn im Trocknungsdialog.'
   The chamber wait already ended; nothing was stopped.: 'Das Warten auf die Kammer ist bereits beendet; es wurde nichts gestoppt.'
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : Die Änderung wird wirksam, nachdem Klipper neu gestartet wurde. Klipper-Firmware wird neu gestartet. Aktive Vorgänge werden unterbrochen.
   The controller boards Klipper runs on. See their load in the system settings.: 'Die Steuerplatinen, auf denen Klipper läuft. Ihre Auslastung siehst du in den Systemeinstellungen.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: Die Schneidklinge ist nicht zurückgefahren. Prüfen, ob Filament um den Schneidmechanismus gewickelt ist
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: Der Schneider ist verstellt. Mit CALIBRATE_CUT_POS neu kalibrieren

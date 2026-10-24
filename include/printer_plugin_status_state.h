@@ -13,6 +13,7 @@
 #include <array>
 #include <functional>
 #include <lvgl.h>
+#include <optional>
 
 namespace helix {
 
@@ -241,6 +242,16 @@ class PrinterPluginStatusState {
         return &plr_feature_state_;
     }
 
+    /// Whether printer.cfg carries the plugin's mesh include, as the
+    /// server.helix.plr.mesh_include status answered: -1 never asked (or the
+    /// ask failed), 0 absent, 1 present. Reset to -1 whenever the plr feature
+    /// reads Absent, so a stale answer cannot outlive the feature.
+    lv_subject_t* get_plr_mesh_include_subject() {
+        return &plr_mesh_include_;
+    }
+
+    void set_plr_mesh_include(std::optional<bool> present);
+
     /// Where screen_local() reads whether this screen runs on the printer's
     /// own host. PrinterState points it at its connection's locality verdict,
     /// the one place that fact is kept.
@@ -329,6 +340,7 @@ class PrinterPluginStatusState {
     lv_subject_t plr_feature_state_{};
     lv_subject_t helix_plugin_probe_seq_{};
     lv_subject_t plr_saving_enabled_{};
+    lv_subject_t plr_mesh_include_{};
     std::function<bool()> is_local_;
     nlohmann::json stored_opt_ins_ = nlohmann::json::object();
     std::array<lv_subject_t, kPluginSwitchFeatures.size()> switch_mode_{};

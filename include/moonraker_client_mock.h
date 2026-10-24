@@ -2157,6 +2157,9 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     bool plr_snapshot_cleared_ = false;
     int plr_plan_seq_ = 0;
     std::string plr_plan_id_;
+    /// server.helix.plr.mesh_include state: printer.cfg's include line, as
+    /// the add/remove actions leave it.
+    bool plr_mesh_include_ = false;
     std::atomic<bool> layer_pause_next_{false};
     std::atomic<int> layer_pause_next_armed_at_{0}; ///< layer the request arrived on
     std::atomic<bool> layer_pause_at_enable_{false};

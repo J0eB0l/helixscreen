@@ -234,9 +234,11 @@ translations:
   Add Printer: プリンターを追加
   Add Vendor: ベンダーを追加
   Add Widget: ウィジェットを追加
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: printer.cfg に [include helix-plr/*.cfg] を追加し、再開時に印刷開始時のメッシュを読み込み直します
   Add custom filament: カスタムフィラメントを追加
   Add page: 'ページを追加'
   Add to Queue: キューに追加
+  Added: 追加済み
   Added to Spoolman: Spoolman に追加しました
   Added to queue (position {}): キューに追加しました（{} 番目）
   Added to queue (position {}) - queue is paused: キューに追加しました（{} 番目）– キューは一時停止中です
@@ -889,6 +891,7 @@ translations:
   Unload stopped: 'アンロードを停止しました'
   "User Guide": "ユーザーガイド"
   '{} could not be checked from Home - review it and tap Print': '{} をホームから確認できませんでした – 内容を確認して印刷をタップしてください'
+  Could not change printer.cfg: printer.cfg を変更できませんでした
   ? "Could not check webcam status.\nCheck printer connection."
   : "ウェブカメラの状態を確認できませんでした。\nプリンター接続を確認してください。"
   Could not confirm cancel: キャンセルを確認できませんでした
@@ -1687,7 +1690,11 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen がクラッシュしました
   HelixScreen Macros: 'HelixScreenマクロ'
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : HelixScreen は printer.cfg に [include helix-plr/*.cfg] を追加し、再開時に印刷開始時のメッシュを読み込み直せるようにします。printer.cfg の横にバックアップが保存され、反映には Klipper の再起動が必要です。
   HelixScreen is detecting your display orientation: HelixScreenがディスプレイの向きを検出しています
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : HelixScreen は printer.cfg から [include helix-plr/*.cfg] の行を削除します。printer.cfg の横にバックアップが保存され、反映には Klipper の再起動が必要です。再開時にはプリンターのデフォルトのメッシュプロファイルが使われます。
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     はマルチスプール/カラー印刷操作のためにフィラメントチェンジャーと連携します。
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreenがこれをprinter.cfgに書き込み、Klipperを再起動します。プリンターは一時的に切断されます。
@@ -2441,6 +2448,7 @@ translations:
   Not Initialized: '初期化されていません'
   Not Now: 今はしない
   Not Supported: 'サポートされていません'
+  Not added: 未追加
   Not available here. Update from a terminal.: ここでは利用できません。ターミナルから更新してください。
   Not available now: 現在は利用できません
   Not available on Android: Androidでは利用できません
@@ -3023,11 +3031,13 @@ translations:
   Release or grip the filament by hand: 手でフィラメントを解放または把持
   Release the filament: フィラメントを解放
   Release {}'s tensioner, let the spring settle, lock it: "{}のテンショナーを緩め、バネをなじませてから固定"
+  Reload the saved bed mesh?: 保存されたベッドメッシュを再読み込みしますか？
   Remaining: '残り'
   Remaining (g): 残量 (g)
   Remaining Weight (g): 残量（g）
   Remember slot spool details across an eject: 取り出し後もスロットのスプール情報を記憶します
   Remove: 削除
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: printer.cfg から HelixScreen の include 行を削除します。再開時にはプリンターのデフォルトのメッシュプロファイルが使われます
   Remove PIN: PIN を削除
   Remove Spoolman?: Spoolman を削除しますか？
   Remove plugin from printer: プリンターからプラグインを削除
@@ -3134,6 +3144,7 @@ translations:
   Resume interrupted print?: 中断した印刷を再開しますか？
   Resume macro not configured: 再開マクロが未設定です
   Resume preparation failed: 再開準備に失敗しました
+  Resume reloads the saved bed mesh: 再開時に保存されたベッドメッシュを再読み込み
   Resume without the bed mesh this print used: この印刷で使ったベッドメッシュなしで再開する
   Resuming is not set up for this printer.: このプリンターでは再開が設定されていません。
   Resuming print...: 印刷を再開中...
@@ -3591,6 +3602,7 @@ translations:
   Stop failed: 停止に失敗
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "\"{}\" の印刷を停止しますか？\n\n5秒後は取り消せません。"
+  Stop reloading the saved bed mesh?: 保存されたベッドメッシュの再読み込みを停止しますか？
   Stop the check?: チェックを停止しますか？
   Stop the running cycle before starting another: '新しく開始する前に、実行中のサイクルを停止してください'
   Stop with an emergency stop?: '緊急停止で停止しますか？'
@@ -3764,6 +3776,8 @@ translations:
   : 'カメラがベッド上に何かを検出したため、プリンターは印刷前に停止しました。ベッドに何もなければ誤検出です。'
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: 'チャンバーヒーターでフィラメントの乾燥サイクルを実行できます。乾燥ダイアログから開始してください。'
   The chamber wait already ended; nothing was stopped.: 'チャンバーの待機はすでに終了しました。何も停止していません。'
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : 変更は Klipper の再起動後に反映されます。Klipperファームウェアを再起動します。実行中の操作は中断されます。
   The controller boards Klipper runs on. See their load in the system settings.: 'Klipperが動作するコントローラーボード。負荷はシステム設定で確認できます。'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: カッターの刃が戻りませんでした。切断機構にフィラメントが巻き付いていないか確認してください
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: カッターの位置がずれています。CALIBRATE_CUT_POS で再校正してください

@@ -39,6 +39,7 @@ void PrinterPluginStatusState::init_subjects(bool register_xml) {
     INIT_SUBJECT_INT(plr_feature_state, static_cast<int>(PluginFeatureState::Absent), subjects_,
                      register_xml);
     INIT_SUBJECT_INT(plr_saving_enabled, 0, subjects_, register_xml);
+    INIT_SUBJECT_INT(plr_mesh_include, -1, subjects_, register_xml);
     INIT_SUBJECT_INT(helix_plugin_probe_seq, 0, subjects_, register_xml);
     for (size_t i = 0; i < kPluginSwitchFeatures.size(); ++i) {
         const PluginSwitchFeature& f = kPluginSwitchFeatures[i];
@@ -111,6 +112,9 @@ void PrinterPluginStatusState::publish_features() {
 
     const PluginFeatureState state = plugin_feature(kPlrFeatureName, kPlrFeatureMinVersion);
     lv_subject_set_int(&plr_feature_state_, static_cast<int>(state));
+    if (state == PluginFeatureState::Absent) {
+        set_plr_mesh_include(std::nullopt);
+    }
     bool saving = state == PluginFeatureState::Ready;
     if (state != PluginFeatureState::Absent) {
         const auto it = features_.find(kPlrFeatureName);
@@ -119,6 +123,10 @@ void PrinterPluginStatusState::publish_features() {
         }
     }
     lv_subject_set_int(&plr_saving_enabled_, saving ? 1 : 0);
+}
+
+void PrinterPluginStatusState::set_plr_mesh_include(std::optional<bool> present) {
+    lv_subject_set_int(&plr_mesh_include_, present.has_value() ? (*present ? 1 : 0) : -1);
 }
 
 void PrinterPluginStatusState::set_link_dir(const std::string& dir) {
