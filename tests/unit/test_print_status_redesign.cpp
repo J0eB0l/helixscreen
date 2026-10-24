@@ -239,7 +239,8 @@ TEST_CASE_METHOD(Landscape800, "speed 104 sets speed_flow tone Warn", "[print_st
     settle();
     CHECK(subject_int("ps_chip_speed_flow_tone") == static_cast<int>(ChipTone::Warn));
     CHECK(subject_int("ps_chip_speed_flow_shown") == 1);
-    CHECK(subject_str("ps_chip_speed_flow_text").find("104") != std::string::npos);
+    CHECK(subject_str("ps_chip_speed_flow_lead") == "104%");
+    CHECK(subject_str("ps_chip_speed_flow_text") == "100%");
 }
 
 namespace {
@@ -256,14 +257,18 @@ void fans_part_spinning_aux_stopped(TileFixture& fx) {
 
 } // namespace
 
-TEST_CASE_METHOD(Portrait272, "fan at 0 hides on tight layout via dropped", "[print_status]") {
+TEST_CASE_METHOD(Portrait272, "the smallest tile keeps the unusual chips and dims a stopped fan",
+                 "[print_status]") {
     fans_part_spinning_aux_stopped(*this);
 
+    // Which expendable chip a tight tile drops first is the engine's rule
+    // ([callout_layout] "hotend fan drops first when chips do not fit").
     REQUIRE(subject_int("ps_callout_mode") == static_cast<int>(CalloutMode::Pinned));
-    CHECK(subject_int("ps_chip_aux_fan_shown") == 0);
-    // An expected value is what goes; the unusual stays.
     CHECK(subject_int("ps_chip_part_fan_shown") == 1);
     CHECK(subject_int("ps_chip_speed_flow_shown") == 1);
+    if (subject_int("ps_chip_aux_fan_shown") == 1) {
+        CHECK(subject_int("ps_chip_aux_fan_tone") == static_cast<int>(ChipTone::Dim));
+    }
     PrinterStateTestAccess::get_fan_state(state()).init_fans({});
 }
 

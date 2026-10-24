@@ -189,6 +189,13 @@
                        progress_subject="ps_chip_speed_flow_progress">
           <bind_flag_if cond="ps_chip_speed_flow_shown eq 0" flag="hidden"/>
           <event_cb trigger="clicked" callback="on_print_status_tune"/>
+          <!-- The pill lays out row_reverse, so on screen these read speed icon,
+               speed, flow icon, then the chip's own text, the flow. -->
+          <icon src="water" size="xs"/>
+          <text_small name="ps_chip_speed_text" bind_text="ps_chip_speed_flow_lead">
+            <bind_style_if_eq name="styles.chip_text_warning" subject="ps_chip_speed_flow_tone" ref_value="2"/>
+            <bind_style_if_eq name="styles.chip_text_compact" subject="ps_callout_mode" ref_value="1"/>
+          </text_small>
           <icon src="speed" size="xs">
             <bind_flag_if_eq subject="ps_callout_mode" flag="hidden" ref_value="1"/>
           </icon>

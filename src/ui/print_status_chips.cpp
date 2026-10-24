@@ -112,7 +112,8 @@ ChipContent speed_flow_chip(int speed_pct, int flow_pct, const std::string& spee
                             const std::string& flow_text) {
     ChipContent c;
     c.shown = true;
-    c.text = speed_text + " · " + flow_text;
+    c.lead_text = speed_text;
+    c.text = flow_text;
     if (speed_pct != 100 || flow_pct != 100) {
         c.tone = ChipTone::Warn;
     } else {

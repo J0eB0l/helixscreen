@@ -82,7 +82,8 @@ TEST_CASE("speed 104 warns and is not expendable", "[print_status_chips]") {
     auto c = speed_flow_chip(104, 100, "104%", "100%");
     CHECK(c.tone == ChipTone::Warn);
     CHECK_FALSE(c.expendable);
-    CHECK(c.text == "104% · 100%");
+    CHECK(c.lead_text == "104%");
+    CHECK(c.text == "100%");
     CHECK(speed_flow_chip(100, 97, "100%", "97%").tone == ChipTone::Warn);
     CHECK(speed_flow_chip(90, 100, "90%", "100%").tone == ChipTone::Warn);
 }
