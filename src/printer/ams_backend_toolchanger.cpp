@@ -836,6 +836,12 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     }
     if (reading.sensor_error_named) {
         sensor_fault_reported_ = reading.sensor_error_reported;
+    } else if (reading.current_tool.has_value() && *reading.current_tool >= -1) {
+        // The controller's flag latches the last operation and is republished
+        // only when the next one clears it. A definite carriage reading that
+        // arrives after it is the sensors agreeing again: someone docked or
+        // mounted a tool by hand.
+        sensor_fault_reported_ = false;
     }
 
     // -2 means the sensors cannot tell, which is NOT "no tool". Reporting -1

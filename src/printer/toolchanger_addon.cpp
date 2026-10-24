@@ -717,7 +717,11 @@ bool sensor_error_is_fault(const ToolReading& reading, bool swap_in_flight) {
     if (!reading.sensor_error) {
         return false;
     }
-    return reading.sensor_error_reported || !swap_in_flight;
+    if (reading.sensor_error_reported) {
+        const bool carriage_known = reading.current_tool && *reading.current_tool >= -1;
+        return swap_in_flight || !carriage_known;
+    }
+    return !swap_in_flight;
 }
 
 } // namespace helix::toolchanger_addon

@@ -395,9 +395,28 @@ TEST_CASE("A published sensor_error is a fault even mid-swap", "[toolchanger][to
     auto flagged = read_tool(json{{"medusahc", {{"sensor_error", true}, {"current_tool", 1}}}});
     REQUIRE(flagged.has_value());
     REQUIRE(flagged->sensor_error_reported);
-
     CHECK(sensor_error_is_fault(*flagged, /*swap_in_flight=*/true));
-    CHECK(sensor_error_is_fault(*flagged, /*swap_in_flight=*/false));
+
+    // At rest without a carriage reading, nothing contradicts the flag.
+    auto bare = read_tool(json{{"medusahc", {{"sensor_error", true}}}});
+    REQUIRE(bare.has_value());
+    CHECK(sensor_error_is_fault(*bare, /*swap_in_flight=*/false));
+}
+
+TEST_CASE("A published sensor_error at rest beside a definite carriage is a past failure",
+          "[toolchanger][toolsource]") {
+    using helix::toolchanger_addon::sensor_error_is_fault;
+
+    for (int tool : {-1, 0, 2}) {
+        CAPTURE(tool);
+        auto r = read_tool(json{{"medusahc", {{"sensor_error", true}, {"current_tool", tool}}}});
+        REQUIRE(r.has_value());
+        REQUIRE(r->sensor_error_reported);
+        CHECK_FALSE(sensor_error_is_fault(*r, /*swap_in_flight=*/false));
+    }
+    auto unknown = read_tool(json{{"medusahc", {{"sensor_error", true}, {"current_tool", -2}}}});
+    REQUIRE(unknown.has_value());
+    CHECK(sensor_error_is_fault(*unknown, /*swap_in_flight=*/false));
 }
 
 TEST_CASE("A clean reading is never a fault", "[toolchanger][toolsource]") {

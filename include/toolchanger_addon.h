@@ -310,6 +310,11 @@ std::optional<ToolReading> read_tool(const nlohmann::json& status);
 /// second. So only a flag the controller published itself, or a -2 it still
 /// reports once at rest, is a fault. topi314's controller draws the same line,
 /// escalating -2 to state:"error" only while its machine state is ready.
+///
+/// Irbis3D's flag is a latch on the last operation, cleared only when the next
+/// one begins, while its current_tool follows the dock sensors live. At rest, a
+/// flag beside a definite carriage reading (-1 or a tool) describes a past
+/// failure: the sensors can tell which tool is mounted.
 [[nodiscard]] bool sensor_error_is_fault(const ToolReading& reading, bool swap_in_flight);
 
 } // namespace helix::toolchanger_addon

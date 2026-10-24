@@ -963,6 +963,43 @@ TEST_CASE("A published sensor_error is a fault whatever the phase",
     CHECK(tc.current_error().has_value());
 }
 
+TEST_CASE("A tool put back by hand clears the controller's latched sensor_error",
+          "[ams][toolchanger][medusahc]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+
+    tc.feed(json{{"medusahc", {{"operation", "picking"}, {"current_tool", 1}}}});
+    tc.feed(
+        json{{"medusahc", {{"operation", "idle"}, {"current_tool", -2}, {"sensor_error", true}}}});
+    REQUIRE(tc.get_system_info().action == AmsAction::ERROR);
+    REQUIRE_FALSE(tc.unload_blocked_reason(1).empty());
+
+    // A delta carrying none of the carriage holds the fault.
+    tc.feed(json{{"medusahc", {{"feeder_open", false}}}});
+    REQUIRE(tc.get_system_info().action == AmsAction::ERROR);
+
+    // The controller republishes current_tool as the docks change, never the
+    // flag: it stays true until its next operation begins.
+    tc.feed(json{{"medusahc", {{"current_tool", -1}}}});
+    CHECK(tc.get_system_info().action == AmsAction::IDLE);
+    CHECK(tc.get_current_slot() == -1);
+    CHECK(tc.unload_blocked_reason(1).empty());
+}
+
+TEST_CASE("A latched sensor_error from before a restart is no fault while the docks agree",
+          "[ams][toolchanger][medusahc]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+
+    // The first full frame after a restart: the flag still latched from a
+    // failure before it, the docks reading a definite carriage.
+    tc.feed(
+        json{{"medusahc", {{"operation", "idle"}, {"current_tool", 2}, {"sensor_error", true}}}});
+    CHECK(tc.get_system_info().action != AmsAction::ERROR);
+    CHECK(tc.get_current_slot() == 2);
+    CHECK(tc.unload_blocked_reason(2).empty());
+}
+
 TEST_CASE("A -2 at rest is still a fault, and names the docks", "[ams][toolchanger][medusahc]") {
     ToolChangerHelper tc(4);
     tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
