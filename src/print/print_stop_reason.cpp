@@ -53,6 +53,11 @@ std::optional<std::string> last_gcode_error_text(const nlohmann::json& msg) {
     return out;
 }
 
+std::string recent_gcode_error(const PrinterPrintState& state, double now) {
+    return is_recent_cause(state.last_gcode_error_time(), now) ? state.last_gcode_error()
+                                                               : std::string();
+}
+
 std::string decide_print_stop_reason(PrintJobState stop, const std::string& print_message,
                                      const std::vector<JournalEntry>& entries, double stop_time) {
     if (!is_stop(stop)) {
@@ -178,6 +183,7 @@ void PrintStopReasonTracker::on_state() {
 }
 
 void PrintStopReasonTracker::on_gcode_error(JournalEntry e) {
+    state_.print_state().set_last_gcode_error(e.text, e.time);
     last_error_ = std::move(e);
     if (stopped()) {
         publish();

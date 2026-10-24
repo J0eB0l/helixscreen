@@ -42,11 +42,11 @@ void AmsErrorBridge::start() {
     // stops the print with.
     print_state_observer_ = helix::ui::observe<int>(
         printer.print_state().get_print_state_enum_subject(), this,
-        [](AmsErrorBridge* self, int) { self->evaluate_paused_fault(); },
+        [](AmsErrorBridge* self, int) { self->evaluate_current_error_with_cause(); },
         printer.get_subjects_lifetime());
     stop_reason_observer_ = helix::ui::observe<const char*>(
         printer.print_state().get_print_stop_reason_subject(), this,
-        [](AmsErrorBridge* self, const char*) { self->evaluate_paused_fault(); },
+        [](AmsErrorBridge* self, const char*) { self->evaluate_current_error_with_cause(); },
         printer.get_subjects_lifetime());
 }
 
@@ -59,7 +59,7 @@ bool print_paused() {
 
 /// The backend's fault, explained by why the print paused while it is paused.
 std::optional<ErrorEvent> standing_fault(const AmsBackend& backend, bool paused) {
-    return backend.paused_fault(
+    return backend.current_error_with_cause(
         paused ? lv_subject_get_string(
                      get_printer_state().print_state().get_print_stop_reason_subject())
                : "");
@@ -67,11 +67,14 @@ std::optional<ErrorEvent> standing_fault(const AmsBackend& backend, bool paused)
 
 } // namespace
 
-void AmsErrorBridge::evaluate_paused_fault() {
+void AmsErrorBridge::evaluate_current_error_with_cause() {
     auto* backend = AmsState::instance().get_backend();
     const bool paused = print_paused();
     const auto ev = backend ? standing_fault(*backend, paused) : std::nullopt;
-    if (!paused_trigger_.update(ev.has_value(), paused, ev ? ev->detail : std::string())) {
+    // Outside a pause the ERROR edge in on_action_changed() raises the fault, so
+    // only the pause counts here.
+    if (!fault_trigger_.update(ev.has_value(), paused, /*printing=*/true,
+                               ev ? ev->detail : std::string())) {
         return;
     }
     // GcodeErrorRouter can have raised the same `!!` already.
@@ -139,7 +142,7 @@ void AmsErrorBridge::on_action_changed(int action) {
         presenter_.dismiss();
         presented_ = false;
     }
-    evaluate_paused_fault();
+    evaluate_current_error_with_cause();
 }
 
 void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {

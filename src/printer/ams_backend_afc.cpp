@@ -805,7 +805,8 @@ std::optional<helix::ErrorEvent> AmsBackendAfc::current_error() const {
     return fault_event_locked(std::string(), current_lane_name_);
 }
 
-std::optional<helix::ErrorEvent> AmsBackendAfc::paused_fault(const std::string& cause) const {
+std::optional<helix::ErrorEvent>
+AmsBackendAfc::current_error_with_cause(const std::string& cause) const {
     std::lock_guard<std::mutex> lock(mutex_);
     std::string lane = current_lane_name_;
     if (lane.empty()) {

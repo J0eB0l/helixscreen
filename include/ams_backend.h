@@ -578,13 +578,13 @@ class AmsBackend {
         return std::nullopt;
     }
 
-    /// current_error() for a fault standing while the print is paused, told by
-    /// @p cause: why the print paused (print_stop_reason), empty when nothing
+    /// current_error() told by @p cause: why the print paused
+    /// (print_stop_reason), or the newest recent `!!` line, empty when nothing
     /// said. A non-empty cause is the detail, since a backend's own status text
     /// can belong to an earlier fault. Overridden by a backend that reads more
     /// from the cause, such as which lane faulted.
     [[nodiscard]] virtual std::optional<helix::ErrorEvent>
-    paused_fault(const std::string& cause) const {
+    current_error_with_cause(const std::string& cause) const {
         auto e = current_error();
         if (e && !cause.empty()) {
             e->detail = cause;

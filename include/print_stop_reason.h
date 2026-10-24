@@ -26,6 +26,7 @@
 namespace helix {
 
 class IMoonrakerClient;
+class PrinterPrintState;
 class PrinterState;
 enum class PrintJobState;
 
@@ -37,6 +38,9 @@ std::string gcode_error_reason_text(const std::string& line);
 /// The newest `!!` line of a notify_gcode_response frame, as
 /// gcode_error_reason_text(); nullopt when the frame has none.
 std::optional<std::string> last_gcode_error_text(const nlohmann::json& msg);
+
+/// @p state's last `!!` line when is_recent_cause() of @p now, else empty.
+std::string recent_gcode_error(const PrinterPrintState& state, double now);
 
 /// The reason a print stopped as @p stop at @p stop_time: @p print_message when
 /// Klipper set one, else the newest gcode_error among @p entries that

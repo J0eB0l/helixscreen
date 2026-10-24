@@ -650,6 +650,20 @@ class PrinterPrintState {
     /// Main thread only.
     void set_print_stop_reason(const std::string& reason);
 
+    /// The newest `!!` line PrintStopReasonTracker saw, as
+    /// gcode_error_reason_text(), and when (unix seconds). A print need not be
+    /// stopped. Main thread only.
+    void set_last_gcode_error(std::string text, double time) {
+        last_gcode_error_ = std::move(text);
+        last_gcode_error_time_ = time;
+    }
+    [[nodiscard]] const std::string& last_gcode_error() const {
+        return last_gcode_error_;
+    }
+    [[nodiscard]] double last_gcode_error_time() const {
+        return last_gcode_error_time_;
+    }
+
     /// print_stats.exception (Snapmaker U1 structured pause descriptor) id, or
     /// -1 when no exception is latched. Hardware-verified ids: 523 = recoverable
     /// runout, 532 = terminal dirty-bed (#991). Main-thread only.
@@ -1309,6 +1323,8 @@ class PrinterPrintState {
     lv_subject_t print_stop_reason_{};
     char print_stop_reason_buf_[256]{};
     lv_subject_t print_stop_reason_visible_{};
+    std::string last_gcode_error_;
+    double last_gcode_error_time_ = 0.0;
 
     // print_stats.exception — structured pause descriptor {id,index,code,message,
     // level} sent by Snapmaker U1 firmware. On these pauses print_stats.message

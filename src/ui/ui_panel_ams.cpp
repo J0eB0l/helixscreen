@@ -43,6 +43,7 @@
 #include "i_moonraker_api.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
+#include "print_stop_reason.h"
 #include "printer_detector.h"
 #include "printer_state.h"
 #include "spoolman_manager.h"
@@ -1463,34 +1464,40 @@ void show_ams_error_dialog(AmsLoadingErrorModal& modal, lv_obj_t* parent,
     modal.show(parent, afc_fault_path_apply(message), std::move(retry));
 }
 
-AmsPausedFaultDialog::AmsPausedFaultDialog(PrinterState& printer) : printer_(printer) {
+AmsStandingFaultDialog::AmsStandingFaultDialog(PrinterState& printer) : printer_(printer) {
     auto& ams = AmsState::instance();
     action_observer_ = observe<int>(
         ams.get_ams_action_subject(), this,
-        [](AmsPausedFaultDialog* self, int) { self->evaluate(); }, ams.get_subjects_lifetime());
+        [](AmsStandingFaultDialog* self, int) { self->evaluate(); }, ams.get_subjects_lifetime());
     // RAW_PRINT_STATE_OK: the printer's own pause is what a filament fault
     // stops the print with.
     print_state_observer_ = observe<int>(
         printer_.print_state().get_print_state_enum_subject(), this,
-        [](AmsPausedFaultDialog* self, int) { self->evaluate(); },
+        [](AmsStandingFaultDialog* self, int) { self->evaluate(); },
         printer_.get_subjects_lifetime());
     // The stop reason can land after the pause, read from gcode_store.
     stop_reason_observer_ = observe<const char*>(
         printer_.print_state().get_print_stop_reason_subject(), this,
-        [](AmsPausedFaultDialog* self, const char*) { self->evaluate(); },
+        [](AmsStandingFaultDialog* self, const char*) { self->evaluate(); },
         printer_.get_subjects_lifetime());
 }
 
-void AmsPausedFaultDialog::evaluate() {
+void AmsStandingFaultDialog::evaluate() {
     auto& print = printer_.print_state();
     // RAW_PRINT_STATE_OK: see the print-state observer in the constructor.
-    const bool paused = print.get_print_job_state() == PrintJobState::PAUSED;
+    const PrintJobState job = print.get_print_job_state();
+    const bool paused = job == PrintJobState::PAUSED;
+    const bool printing = job == PrintJobState::PRINTING;
     AmsBackend* backend = AmsState::instance().get_backend();
-    const auto ev =
-        backend ? backend->paused_fault(
-                      paused ? lv_subject_get_string(print.get_print_stop_reason_subject()) : "")
-                : std::nullopt;
-    const bool raise = trigger_.update(ev.has_value(), paused, ev ? ev->detail : std::string());
+    std::string cause = paused ? lv_subject_get_string(print.get_print_stop_reason_subject()) : "";
+    if (cause.empty()) {
+        using namespace std::chrono;
+        cause = recent_gcode_error(
+            print, duration<double>(system_clock::now().time_since_epoch()).count());
+    }
+    const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
+    const bool raise =
+        trigger_.update(ev.has_value(), paused, printing, ev ? ev->detail : std::string());
     if (!trigger_.raised()) {
         if (modal_) {
             modal_->dismiss_silently();
@@ -1500,7 +1507,7 @@ void AmsPausedFaultDialog::evaluate() {
     if (!raise) {
         return;
     }
-    spdlog::info("[AmsPausedFaultDialog] fault while paused: {}", ev->detail);
+    spdlog::info("[AmsStandingFaultDialog] filament fault: {}", ev->detail);
     ensure_ams_widgets_registered();
     if (!modal_) {
         modal_ = std::make_unique<AmsLoadingErrorModal>();
@@ -1512,8 +1519,8 @@ void AmsPausedFaultDialog::evaluate() {
                           []() { navigate_to_ams_panel(); });
 }
 
-void init_ams_paused_fault_dialog() {
-    helix::lazy_global<AmsPausedFaultDialog>("AmsPausedFaultDialog", get_printer_state());
+void init_ams_standing_fault_dialog() {
+    helix::lazy_global<AmsStandingFaultDialog>("AmsStandingFaultDialog", get_printer_state());
 }
 
 } // namespace helix::ui

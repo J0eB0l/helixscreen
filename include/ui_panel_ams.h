@@ -13,7 +13,7 @@
 #include "ui_observer_guard.h"
 #include "ui_panel_base.h"
 
-#include "ams_paused_fault.h"
+#include "ams_standing_fault.h"
 #include "ams_state.h"
 #include "ams_types.h" // For SlotInfo
 #include "async_lifetime_guard.h"
@@ -379,7 +379,7 @@ namespace helix::ui {
  *        drawn as a graphic, and a dismissal that clears the backend's fault
  *        for @p slot after running @p on_dismissed
  *
- * Shared by the AMS panel and AmsPausedFaultDialog.
+ * Shared by the AMS panel and AmsStandingFaultDialog.
  */
 void show_ams_error_dialog(AmsLoadingErrorModal& modal, lv_obj_t* parent,
                            const std::string& message, int slot, std::function<void()> on_dismissed,
@@ -387,15 +387,16 @@ void show_ams_error_dialog(AmsLoadingErrorModal& modal, lv_obj_t* parent,
 
 /**
  * @brief The firmware's stand-in for AmsErrorBridge: raises the filament-error
- *        dialog for a fault standing while the print is paused
- *        (PausedFaultTrigger), whether or not the AMS panel is open
+ *        dialog for a fault standing while the print is paused or no print
+ *        runs (StandingFaultTrigger), whether or not the AMS panel is open
  *
- * Retry opens the AMS panel, where the load is retried. The dialog closes on
- * its own when the fault clears or the print leaves the pause.
+ * The detail is why the print paused, else the newest recent `!!` line, else
+ * the backend's own. Retry opens the AMS panel, where the load is retried. The
+ * dialog closes on its own when the fault clears or a print runs.
  */
-class AmsPausedFaultDialog {
+class AmsStandingFaultDialog {
   public:
-    explicit AmsPausedFaultDialog(PrinterState& printer);
+    explicit AmsStandingFaultDialog(PrinterState& printer);
 
     [[nodiscard]] bool is_visible() const {
         return modal_ && modal_->is_visible();
@@ -405,15 +406,15 @@ class AmsPausedFaultDialog {
     void evaluate();
 
     PrinterState& printer_;
-    PausedFaultTrigger trigger_;
+    StandingFaultTrigger trigger_;
     std::unique_ptr<AmsLoadingErrorModal> modal_;
     ObserverGuard action_observer_;
     ObserverGuard print_state_observer_;
     ObserverGuard stop_reason_observer_;
 };
 
-/// Builds the process-wide AmsPausedFaultDialog. Firmware startup only: the
+/// Builds the process-wide AmsStandingFaultDialog. Firmware startup only: the
 /// desktop raises these faults through AmsErrorBridge's recovery dialog.
-void init_ams_paused_fault_dialog();
+void init_ams_standing_fault_dialog();
 
 } // namespace helix::ui

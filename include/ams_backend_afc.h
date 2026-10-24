@@ -355,7 +355,7 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// trigger ..."), so a failed load, which leaves no lane loaded, still
     /// offers to eject that lane.
     [[nodiscard]] std::optional<helix::ErrorEvent>
-    paused_fault(const std::string& cause) const override;
+    current_error_with_cause(const std::string& cause) const override;
 
     /// L1: recognize AFC toolhead jam / lane / hub faults and emit a CRITICAL
     /// ErrorEvent with context-aware recovery actions. Falls back to a catch-all

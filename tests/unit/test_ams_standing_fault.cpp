@@ -17,7 +17,7 @@
 #include "ams_backend_mock.h"
 #include "ams_error_bridge.h"
 #include "ams_fault_event.h"
-#include "ams_paused_fault.h"
+#include "ams_standing_fault.h"
 #include "ams_state.h"
 #include "fault_surface_correlation.h"
 #include "print_stop_reason.h"
@@ -25,6 +25,7 @@
 #include "recovery_modal_presenter.h"
 #include "test_helpers/afc_test_access.h"
 
+#include <chrono>
 #include <string>
 
 #include "../catch_amalgamated.hpp"
@@ -111,12 +112,12 @@ lv_obj_t* find_on_screen(const char* name) {
 
 namespace helix {
 
-class AfcPausedFaultHelper : public AmsBackendAfc {
+class AfcStandingFaultHelper : public AmsBackendAfc {
   public:
-    ~AfcPausedFaultHelper() override {
+    ~AfcStandingFaultHelper() override {
         helix::ui::UpdateQueue::instance().drain();
     }
-    AfcPausedFaultHelper() : AmsBackendAfc(nullptr, nullptr) {
+    AfcStandingFaultHelper() : AmsBackendAfc(nullptr, nullptr) {
         std::vector<std::string> names{"lane1", "lane2", "lane3", "lane4"};
         AfcTestAccess::initialize_slots(*this, names);
     }
@@ -135,34 +136,44 @@ class AfcPausedFaultHelper : public AmsBackendAfc {
 // The trigger decision
 // ============================================================================
 
-TEST_CASE("PausedFaultTrigger fires when a fault stands while paused", "[ams-paused-fault]") {
-    PausedFaultTrigger t;
+TEST_CASE("StandingFaultTrigger fires when a fault stands outside a running print", "[ams-standing-fault]") {
+    StandingFaultTrigger t;
 
     SECTION("both at once") {
-        CHECK(t.update(true, true, kLane3Fault));
+        CHECK(t.update(true, true, false, kLane3Fault));
     }
     SECTION("paused first, then the fault") {
-        CHECK_FALSE(t.update(false, true, ""));
-        CHECK(t.update(true, true, kLane3Fault));
+        CHECK_FALSE(t.update(false, true, false, ""));
+        CHECK(t.update(true, true, false, kLane3Fault));
     }
     SECTION("the fault first, then paused") {
-        CHECK_FALSE(t.update(true, false, kStaleMessage));
-        CHECK(t.update(true, true, kLane3Fault));
+        CHECK_FALSE(t.update(true, false, true, kStaleMessage));
+        CHECK(t.update(true, true, false, kLane3Fault));
     }
     SECTION("neither") {
-        CHECK_FALSE(t.update(false, false, ""));
+        CHECK_FALSE(t.update(false, false, true, ""));
         CHECK_FALSE(t.raised());
     }
     SECTION("the same fault twice raises once") {
-        CHECK(t.update(true, true, kLane3Fault));
-        CHECK_FALSE(t.update(true, true, kLane3Fault));
+        CHECK(t.update(true, true, false, kLane3Fault));
+        CHECK_FALSE(t.update(true, true, false, kLane3Fault));
         CHECK(t.raised());
     }
-    SECTION("a resume arms it again") {
-        CHECK(t.update(true, true, kLane3Fault));
-        CHECK_FALSE(t.update(true, false, kLane3Fault));
+    SECTION("no print running") {
+        CHECK(t.update(true, false, false, kLane3Fault));
+        CHECK_FALSE(t.update(true, false, false, kLane3Fault));
+    }
+    SECTION("a print starting arms it again") {
+        CHECK(t.update(true, false, false, kLane3Fault));
+        CHECK_FALSE(t.update(true, false, true, kLane3Fault));
         CHECK_FALSE(t.raised());
-        CHECK(t.update(true, true, kLane3Fault));
+        CHECK(t.update(true, false, false, kLane3Fault));
+    }
+    SECTION("a resume arms it again") {
+        CHECK(t.update(true, true, false, kLane3Fault));
+        CHECK_FALSE(t.update(true, false, true, kLane3Fault));
+        CHECK_FALSE(t.raised());
+        CHECK(t.update(true, true, false, kLane3Fault));
     }
 }
 
@@ -170,13 +181,13 @@ TEST_CASE("PausedFaultTrigger fires when a fault stands while paused", "[ams-pau
 // The detail: the `!!` line, not AFC.message
 // ============================================================================
 
-TEST_CASE("AFC paused_fault tells the fault by the bang line", "[ams-paused-fault][afc]") {
-    AfcPausedFaultHelper afc;
+TEST_CASE("AFC current_error_with_cause tells the fault by the bang line", "[ams-standing-fault][afc]") {
+    AfcStandingFaultHelper afc;
     afc.feed_afc({{"error_state", true},
                   {"current_state", "Error"},
                   {"message", {{"message", kStaleMessage}, {"type", "error"}}}});
 
-    const auto ev = afc.paused_fault(gcode_error_reason_text(kBangResponse));
+    const auto ev = afc.current_error_with_cause(gcode_error_reason_text(kBangResponse));
     REQUIRE(ev.has_value());
     CHECK(ev->detail == kLane3Fault);
     // A failed load leaves no lane loaded; the fault names lane3.
@@ -187,19 +198,19 @@ TEST_CASE("AFC paused_fault tells the fault by the bang line", "[ams-paused-faul
     CHECK(ejects_lane3);
 
     SECTION("with no cause it is current_error()") {
-        const auto plain = afc.paused_fault("");
+        const auto plain = afc.current_error_with_cause("");
         REQUIRE(plain.has_value());
         CHECK(plain->detail == kStaleMessage);
     }
     SECTION("no error_state, no fault") {
         afc.feed_afc({{"error_state", false}, {"current_state", "Idle"}});
-        CHECK_FALSE(afc.paused_fault(kLane3Fault).has_value());
+        CHECK_FALSE(afc.current_error_with_cause(kLane3Fault).has_value());
     }
 }
 
 TEST_CASE("AFC status detail drops an error message AFC is no longer in",
-          "[ams-paused-fault][afc]") {
-    AfcPausedFaultHelper afc;
+          "[ams-standing-fault][afc]") {
+    AfcStandingFaultHelper afc;
 
     SECTION("error_state false: the stale error is not the detail") {
         afc.feed_afc({{"error_state", false},
@@ -228,7 +239,7 @@ TEST_CASE("AFC status detail drops an error message AFC is no longer in",
 // ============================================================================
 
 TEST_CASE_METHOD(LVGLUITestFixture, "AmsErrorBridge raises a fault that stood before the pause",
-                 "[ams-paused-fault][ams-bridge]") {
+                 "[ams-standing-fault][ams-bridge]") {
     auto* backend = install(*this);
     backend->set_fault(true);
     AmsState::instance().set_action(AmsAction::ERROR);
@@ -263,7 +274,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "AmsErrorBridge raises a fault that stood be
 }
 
 TEST_CASE_METHOD(LVGLUITestFixture, "AmsErrorBridge raises a fault that comes after the pause",
-                 "[ams-paused-fault][ams-bridge]") {
+                 "[ams-standing-fault][ams-bridge]") {
     auto* backend = install(*this);
     helix::ui::RecoveryModalPresenter presenter(nullptr);
     AmsErrorBridge bridge(presenter);
@@ -284,12 +295,12 @@ TEST_CASE_METHOD(LVGLUITestFixture, "AmsErrorBridge raises a fault that comes af
 // Firmware: the AMS loading-error dialog, AMS panel closed
 // ============================================================================
 
-TEST_CASE_METHOD(LVGLUITestFixture, "AmsPausedFaultDialog opens without the AMS panel",
-                 "[ams-paused-fault][ams]") {
+TEST_CASE_METHOD(LVGLUITestFixture, "AmsStandingFaultDialog opens without the AMS panel",
+                 "[ams-standing-fault][ams]") {
     auto* backend = install(*this);
     const AmsPanel* panel_before = get_existing_ams_panel();
 
-    helix::ui::AmsPausedFaultDialog dialog(state());
+    helix::ui::AmsStandingFaultDialog dialog(state());
     backend->set_fault(true);
     AmsState::instance().set_action(AmsAction::ERROR);
     pump(*this);
@@ -322,4 +333,78 @@ TEST_CASE_METHOD(LVGLUITestFixture, "AmsPausedFaultDialog opens without the AMS 
 
     uninstall(*this);
     pump(*this);
+}
+
+namespace {
+double wall_now() {
+    using namespace std::chrono;
+    return duration<double>(system_clock::now().time_since_epoch()).count();
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture, "AmsStandingFaultDialog raises a fault outside a print once",
+                 "[ams-standing-fault][ams]") {
+    auto* backend = install(*this);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    pump(*this);
+    const AmsPanel* panel_before = get_existing_ams_panel();
+
+    helix::ui::AmsStandingFaultDialog dialog(state());
+    pump(*this);
+    REQUIRE_FALSE(dialog.is_visible());
+
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    lv_obj_t* message = find_on_screen("error_message");
+    REQUIRE(message != nullptr);
+    CHECK(std::string(lv_label_get_text(message)) == kLane3Fault);
+    CHECK(get_existing_ams_panel() == panel_before);
+
+    lv_obj_t* close = find_on_screen("btn_secondary");
+    REQUIRE(close != nullptr);
+    lv_obj_send_event(close, LV_EVENT_CLICKED, nullptr);
+    pump(*this);
+    REQUIRE_FALSE(dialog.is_visible());
+    lv_subject_notify(AmsState::instance().get_ams_action_subject());
+    pump(*this);
+    CHECK_FALSE(dialog.is_visible());
+
+    state().print_state().set_last_gcode_error("", 0.0);
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "AmsStandingFaultDialog ignores AFC.message without error_state",
+                 "[ams-standing-fault][ams][afc]") {
+    auto& ams = AmsState::instance();
+    ams.init_subjects(true);
+    ams.set_action(AmsAction::IDLE);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_last_gcode_error("", 0.0);
+    auto afc = std::make_unique<AfcStandingFaultHelper>();
+    auto* raw = afc.get();
+    ams.set_backend(std::move(afc));
+    pump(*this);
+
+    helix::ui::AmsStandingFaultDialog dialog(state());
+    raw->feed_afc({{"error_state", false},
+                   {"current_state", "Idle"},
+                   {"message", {{"message", kStaleMessage}, {"type", "error"}}}});
+    lv_subject_notify(ams.get_ams_action_subject());
+    pump(*this);
+    CHECK_FALSE(dialog.is_visible());
+
+    // With error_state set, the same message is the fault's text.
+    raw->feed_afc({{"error_state", true}, {"current_state", "Error"}});
+    lv_subject_notify(ams.get_ams_action_subject());
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    lv_obj_t* message = find_on_screen("error_message");
+    REQUIRE(message != nullptr);
+    CHECK(std::string(lv_label_get_text(message)) == kStaleMessage);
+
+    raw->feed_afc({{"error_state", false}, {"current_state", "Idle"}});
+    uninstall(*this);
 }

@@ -1075,8 +1075,8 @@ extern "C" void app_boot_ui(void) {
 
     ESP_LOGI(TAG, "helix: home panel up");
     // The desktop's AmsErrorBridge is not in the firmware; this raises a
-    // filament fault that pauses the print, AMS panel open or not.
-    helix::ui::init_ams_paused_fault_dialog();
+    // filament fault outside a running print, AMS panel open or not.
+    helix::ui::init_ams_standing_fault_dialog();
     log_heap_milestone("home-panel-up");
     // The .bin font loads at ~2s print into the WiFi RF-cal serial dead window
     // (CH340 drops off USB); re-log them here where serial is reliable.
