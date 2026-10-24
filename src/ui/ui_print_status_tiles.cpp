@@ -412,14 +412,15 @@ void PrintStatusTiles::update_now() {
         set_string(&image_src_, image_src_buf_, sizeof(image_src_buf_), image.path);
     }
 
-    // What each chip shows decides the mode: a heater its reading (a target
-    // reading for one that is off), a fan at full speed, labeled and not.
+    // What each chip shows decides the mode, at representative readings so a
+    // digit coming or going never moves the picture: a heater heating or
+    // holding, a fan at full speed, labeled and not, speed and flow at 100%.
     std::string badge;
     {
         auto& tools = ToolState::instance();
         if (subject_int_or_zero(tools.get_show_tool_badge_subject()) != 0) {
             if (const char* t = lv_subject_get_string(tools.get_tool_badge_text_subject())) {
-                badge = std::string(t) + " ";
+                badge = t;
             }
         }
     }
@@ -427,10 +428,10 @@ void PrintStatusTiles::update_now() {
         const std::string& now = contents[index_of(c)].text;
         switch (c) {
         case PrintStatusChip::Nozzle:
-            return now.empty() ? badge + "220°" : now;
+            return heater_budget_text(now, badge);
         case PrintStatusChip::Bed:
         case PrintStatusChip::Chamber:
-            return now.empty() ? "220°" : now;
+            return heater_budget_text(now, {});
         case PrintStatusChip::PartFan:
             return fan_chip(FanRole::Part, true, 100, false, labeled).text;
         case PrintStatusChip::HotendFan:
@@ -440,7 +441,7 @@ void PrintStatusTiles::update_now() {
         case PrintStatusChip::Light:
             return {};
         case PrintStatusChip::SpeedFlow:
-            return now;
+            return speed_flow_chip(100, 100, "100%", "100%").text;
         }
         return {};
     };

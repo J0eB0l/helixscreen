@@ -113,3 +113,12 @@ TEST_CASE("heater duty shows only beside the picture and only while it fits the 
     CHECK_FALSE(heater_power_fits(CalloutMode::ImageOnly, 40, 90));
     CHECK_FALSE(heater_power_fits(CalloutMode::BothSides, 0, 90));
 }
+
+TEST_CASE("a heater is budgeted by its shape, not its digits", "[print_status_chips]") {
+    CHECK(heater_budget_text("84 / 220°", "") == heater_budget_text("184 / 250°", ""));
+    CHECK(heater_budget_text("9°", "") == heater_budget_text("215°", ""));
+    CHECK(heater_budget_text("84 / 220°", "") == "220 / 220°");
+    CHECK(heater_budget_text("215°", "") == "220°");
+    CHECK(heater_budget_text("", "") == "220°"); // off: measured at a reading it may show
+    CHECK(heater_budget_text("T1 84 / 220°", "T1") == "T1 220 / 220°");
+}

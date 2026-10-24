@@ -39,6 +39,12 @@ struct ChipContent {
                                       const ui::temperature::HeaterStatus& status, bool printing,
                                       bool show_power, std::string_view badge, int start_deci);
 
+/// The text a heater chip is measured at when the layout picks its mode: a
+/// three-digit reading in the shape `now` has, heating ("220 / 220°") or
+/// holding ("220°"), after `badge` ("T1"). The mode then follows what the chip
+/// shows, not the digits of its reading.
+[[nodiscard]] std::string heater_budget_text(std::string_view now, std::string_view badge);
+
 /// A fan chip. A part fan is Active while spinning; any fan at 0% is Dim and
 /// expendable; a hotend fan at its automatic speed is expendable.
 enum class FanRole { Part = 0, Hotend = 1, Aux = 2 };

@@ -98,6 +98,15 @@ ChipContent fan_chip(FanRole role, bool present, int pct, bool automatic, bool l
     return c;
 }
 
+std::string heater_budget_text(std::string_view now, std::string_view badge) {
+    std::string text(badge);
+    if (!text.empty()) {
+        text += ' ';
+    }
+    text += now.find(" / ") != std::string_view::npos ? "220 / 220°" : "220°";
+    return text;
+}
+
 ChipContent speed_flow_chip(int speed_pct, int flow_pct, const std::string& speed_text,
                             const std::string& flow_text) {
     ChipContent c;

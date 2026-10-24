@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <string>
 
 namespace helix::ui {
 
@@ -81,12 +82,15 @@ CalloutLayout CalloutPresenter::apply(const Parts& parts, const ImageRegions* re
     out = compute_callout_layout(in);
     if (spdlog::should_log(spdlog::level::trace)) {
         int widest = 0;
-        for (const auto& c : in.budget)
+        std::string widths;
+        for (const auto& c : in.budget) {
             widest = std::max(widest, c.w);
+            widths += fmt::format(" {}:{}/{}", static_cast<int>(c.kind), c.w, c.w_unlabeled);
+        }
         spdlog::trace("[CalloutPresenter] area {}x{}, image {}x{} at {},{}, widest budget chip {}, "
-                      "mode {}",
+                      "mode {}, budget kind:w/unlabeled{}",
                       in.area_w, in.area_h, out.image.w, out.image.h, out.image.x, out.image.y,
-                      widest, static_cast<int>(out.mode));
+                      widest, static_cast<int>(out.mode), widths);
     }
     if (out.mode == CalloutMode::Pinned) {
         // The budget decided the mode; the chips placed on the picture are
