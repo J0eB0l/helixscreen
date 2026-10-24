@@ -6,7 +6,7 @@
      ps_strip_stacked is 1. Beside the progress the buttons are #ps_strip_button
      wide while the row's 55% share has room for four, and narrower where it
      does not, so progress keeps at least 45%; they are as tall as the strip,
-     which is #ps_strip_button or the progress card's rows, whichever is more.
+     which is #ps_strip_button or the progress block's rows, whichever is more.
      PrintStatusLayoutFitter::strip_row_height() and strip_stacked_height()
      add up these same rows; change both together. -->
 <component>
@@ -15,7 +15,7 @@
     <style name="strip_stacked" layout="flex" flex_flow="column"/>
     <style name="buttons_row" width="55%" height="100%"/>
     <style name="buttons_stacked" width="100%" height="#button_height"/>
-    <!-- Beside the buttons the progress card sets the strip's height: at
+    <!-- Beside the buttons the progress block sets the strip's height: at
          least a square button's, more when its rows need it, which the
          buttons then fill. Spare height spreads between its rows. -->
     <style name="progress_row"
@@ -29,11 +29,10 @@
     <bind_style_if_eq name="strip_row" subject="ps_strip_stacked" ref_value="0"/>
     <bind_style_if_eq name="strip_stacked" subject="ps_strip_stacked" ref_value="1"/>
 
-    <!-- Progress, on a card of its own: the phase line, its bar, the filament
-         line and what is up next. -->
+    <!-- Progress: the phase line, its bar, the filament line and what is up
+         next. -->
     <lv_obj name="ps_strip_progress"
-            style_min_width="0" style_pad_hor="#space_sm" style_pad_ver="#space_xs" style_bg_color="#elevated_bg"
-            style_bg_opa="255" style_radius="#border_radius" style_border_width="0" flex_flow="column"
+            style_min_width="0" style_pad_all="0" style_bg_opa="0" style_border_width="0" flex_flow="column"
             style_pad_gap="#space_xs" scrollable="false">
       <bind_style_if_eq name="progress_row" subject="ps_strip_stacked" ref_value="0"/>
       <bind_style_if_eq name="progress_stacked" subject="ps_strip_stacked" ref_value="1"/>
