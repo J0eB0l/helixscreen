@@ -174,7 +174,7 @@ Choosing between a modal and an overlay is a design question with a fixed answer
 
 ### The print status panel
 
-`PrintStatusPanel` (`src/ui/ui_panel_print_status.cpp`) has three regions on every size: a **job tile**, a **printer tile**, and a **strip** (progress, then Pause, Tune, More, Cancel or Reprint). `decide_print_status_tile_layout()` (`src/ui/print_status_tile_layout.cpp#decide_print_status_tile_layout`) is a pure function of the measured content box; `PrintStatusLayoutFitter` (`src/ui/print_status_layout_fitter.cpp#PrintStatusLayoutFitter::recompute`) feeds it and publishes `ps_arrangement`, `ps_strip_stacked` and `ps_checklist_compact`. Nothing keys off a breakpoint name, only measured pixels:
+`PrintStatusPanel` (`src/ui/ui_panel_print_status.cpp`) has three regions on every size: a **job tile**, a **printer tile**, and a **strip** (progress, then Pause, Tune, More, Cancel or Reprint). `decide_print_status_tile_layout()` (`src/ui/print_status_tile_layout.cpp#decide_print_status_tile_layout`) is a pure function of the measured content box; `PrintStatusLayoutFitter` (`src/ui/print_status_layout_fitter.cpp#recompute`) feeds it and publishes `ps_arrangement`, `ps_strip_stacked` and `ps_checklist_compact`. Nothing keys off a breakpoint name, only measured pixels:
 
 - **Stacked** (portrait, height at least 500 and taller than wide): job tile above printer tile, split 236:196, strip below. Otherwise **side by side**, the two tiles half the width each.
 - **Strip** stacks progress over a row of buttons when the panel is stacked or narrower than 400 px; otherwise progress sits beside square buttons (capped so progress keeps at least 45% of the width). The strip is one card. It hides the Up next line in a row strip on the smallest breakpoint.
@@ -184,7 +184,7 @@ Choosing between a modal and an overlay is a design question with a fixed answer
 
 **Printing**: the job tile is the gcode preview card (corner buttons including exclude object, footer with file name, layer and Z). The strip shows percent, time left, clock time of the finish, elapsed, the filament line (swatch, tool, name, tool changes) and Up next when jobs are queued.
 
-**Printer tile chips** (`include/print_status_chips.h`, one pure decision per kind; `PrintStatusTiles::update_now()` in `src/ui/ui_print_status_tiles.cpp#PrintStatusTiles::update_now` copies results into `ps_chip_<key>_*` subjects):
+**Printer tile chips** (`include/print_status_chips.h`, one pure decision per kind; `PrintStatusTiles::update_now()` in `src/ui/ui_print_status_tiles.cpp#update_now` copies results into `ps_chip_<key>_*` subjects):
 
 | Chip | Anchor | Rules |
 |---|---|---|
