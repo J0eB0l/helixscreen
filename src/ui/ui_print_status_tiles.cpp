@@ -119,21 +119,24 @@ void PrintStatusTiles::init_subjects(SubjectManager& subjects) {
     for (size_t i = 0; i < kPrintStatusChipCount; ++i) {
         ChipSubjects& c = chips_[i];
         const std::string key = kChips[i].key;
-        std::string* names = &chip_names_[i * 6];
+        std::string* names = &chip_names_[i * kChipSubjectCount];
         names[0] = "ps_chip_" + key + "_shown";
         names[1] = "ps_chip_" + key + "_text";
         names[2] = "ps_chip_" + key + "_tone";
         names[3] = "ps_glow_" + key;
         names[4] = "ps_chip_" + key + "_progress";
         names[5] = "ps_line_" + key;
+        names[6] = "ps_chip_" + key + "_state";
         lv_subject_init_int(&c.shown, 0);
         lv_subject_init_string(&c.text, c.text_buf, nullptr, sizeof(c.text_buf), "");
         lv_subject_init_int(&c.tone, static_cast<int>(ChipTone::Normal));
         lv_subject_init_int(&c.glow, 0);
         lv_subject_init_int(&c.progress, -1);
         lv_subject_init_int(&c.line, 0);
-        lv_subject_t* each[] = {&c.shown, &c.text, &c.tone, &c.glow, &c.progress, &c.line};
-        for (size_t n = 0; n < 6; ++n) {
+        lv_subject_init_int(&c.state, 0);
+        lv_subject_t* each[] = {&c.shown,    &c.text, &c.tone, &c.glow,
+                                &c.progress, &c.line, &c.state};
+        for (size_t n = 0; n < kChipSubjectCount; ++n) {
             subjects.publish(names[n].c_str(), each[n]);
         }
     }
@@ -346,6 +349,7 @@ void PrintStatusTiles::publish(PrintStatusChip chip, const ChipContent& c, bool 
     set_string(&s.text, s.text_buf, sizeof(s.text_buf), c.text);
     set_int(&s.tone, static_cast<int>(c.tone));
     set_int(&s.progress, is_heater(chip) ? c.progress_pct : -1);
+    set_int(&s.state, is_heater(chip) ? c.status_state : 0);
     set_int(&s.glow, glow ? 1 : 0);
     set_int(&s.line, line ? 1 : 0);
     set_int(&s.shown, shown ? 1 : 0);
@@ -472,11 +476,17 @@ void PrintStatusTiles::update_now() {
         return false;
     };
 
+    // A heater chip ends in its heater_status glyph; room for the widest one
+    // keeps its width the same whatever state it shows.
+    int status_glyph = 0;
+    for (const char* g : {"fire", "check", "cooldown", "alpha_a_circle"}) {
+        status_glyph = std::max(status_glyph, m.icon_px(g));
+    }
     std::array<int, kPrintStatusChipCount> icons{}, budget_w{}, budget_bare_w{};
     int column_w = 0;
     for (size_t i = 0; i < kPrintStatusChipCount; ++i) {
         const auto chip = static_cast<PrintStatusChip>(i);
-        icons[i] = m.icon_px(kChips[i].icon);
+        icons[i] = m.icon_px(kChips[i].icon) + (is_heater(chip) ? m.col_gap + status_glyph : 0);
         budget_w[i] = in_budget(chip) ? m.chip_w(icons[i], worst(chip, true)) : 0;
         if (in_budget(chip) && is_fan(chip)) {
             budget_bare_w[i] = m.chip_w(icons[i], worst(chip, false));
@@ -531,7 +541,7 @@ void PrintStatusTiles::update_now() {
         CalloutPresenter::Chip th;
         th.kind = CalloutKind::Toolhead;
         th.chip = th_obj;
-        th.w_compact = compact_callout_chip_w(probe, toolhead_text, 0);
+        th.w_compact = compact_callout_chip_w(probe, toolhead_text, m.col_gap + status_glyph);
         parts.toolhead = th;
     }
 

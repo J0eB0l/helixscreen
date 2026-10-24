@@ -27,6 +27,7 @@ ChipContent heater_chip(bool present, int current_deci, int target_deci,
         return c;
     c.shown = true;
     c.glow = target_deci > 0;
+    c.status_state = static_cast<int>(status.state);
 
     const bool heating = status.state == HeaterStatusState::Heating;
     const bool cooling = status.state == HeaterStatusState::Cooling;

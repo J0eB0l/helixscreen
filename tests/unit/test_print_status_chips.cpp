@@ -122,3 +122,11 @@ TEST_CASE("a heater is budgeted by its shape, not its digits", "[print_status_ch
     CHECK(heater_budget_text("", "") == "220°"); // off: measured at a reading it may show
     CHECK(heater_budget_text("T1 84 / 220°", "T1") == "T1 220 / 220°");
 }
+
+TEST_CASE("a heater chip carries its status for the glyph", "[print_status_chips]") {
+    using ui::temperature::HeaterStatusState;
+    CHECK(heater(2200, 2200).status_state == static_cast<int>(HeaterStatusState::Ready));
+    CHECK(heater(1000, 2200).status_state == static_cast<int>(HeaterStatusState::Heating));
+    CHECK(heater(2600, 2200).status_state == static_cast<int>(HeaterStatusState::Cooling));
+    CHECK(fan_chip(FanRole::Part, true, 30, false, true).status_state == 0);
+}

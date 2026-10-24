@@ -14,7 +14,9 @@
      turns the border and text amber, 3 Dim greys the text) and
      progress_subject (0-100 fills a thin bar along the chip's foot and turns
      the border amber; -1 hides the bar). The bar ignores the flex layout, so
-     the chip measures the same with or without it. -->
+     the chip measures the same with or without it. state_subject, also
+     optional, is a HeaterStatusState int: the chip then ends in the
+     heater_status glyph (flame, check, snowflake, circled A). -->
 <component>
   <api>
     <prop name="text_subject" type="subject" default=""/>
@@ -22,6 +24,7 @@
     <prop name="compact_subject" type="subject" default=""/>
     <prop name="tone_subject" type="subject" default=""/>
     <prop name="progress_subject" type="subject" default=""/>
+    <prop name="state_subject" type="string" default=""/>
   </api>
   <styles>
     <style name="residual" text_color="#text_subtle"/>
@@ -33,6 +36,12 @@
     <style name="styles.activity_chip"/>
     <bind_style_if_eq name="accent_border" subject="$tone_subject" ref_value="2"/>
     <bind_style_if_ge name="accent_border" subject="$progress_subject" ref_value="0"/>
+    <!-- Before the label in markup, after it on screen: the pill lays out row_reverse. -->
+    <!-- Takes no room without a state: an unset subject skips the binding and
+         hidden stays, and state 0 (off) hides it. -->
+    <heater_status name="chip_state" state_subject="$state_subject" hidden="true">
+      <bind_flag_if_eq subject="$state_subject" flag="hidden" ref_value="0"/>
+    </heater_status>
     <text_small name="chip_text" bind_text="$text_subject" long_mode="dots">
       <bind_style_if_eq name="residual" subject="$shown_subject" ref_value="2"/>
       <bind_style_if_eq name="residual" subject="$tone_subject" ref_value="3"/>

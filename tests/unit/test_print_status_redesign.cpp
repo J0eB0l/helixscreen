@@ -201,6 +201,30 @@ TEST_CASE_METHOD(Landscape800, "phase switch relayouts and clears pre-print glow
     CHECK(subject_int("ps_chip_nozzle_progress") == -1);
 }
 
+TEST_CASE_METHOD(Landscape800, "a heater at its target shows the check", "[print_status]") {
+    auto& temps = state().temperature_state();
+    set_int(temps.get_bed_target_subject(), 600);
+    set_int(temps.get_bed_temp_subject(), 600);
+    settle();
+    REQUIRE(subject_int("ps_chip_bed_shown") == 1);
+    CHECK(subject_int("ps_chip_bed_state") ==
+          static_cast<int>(helix::ui::temperature::HeaterStatusState::Ready));
+    lv_obj_t* chip = lv_obj_find_by_name(root_, "ps_chip_bed");
+    REQUIRE(chip != nullptr);
+    lv_obj_t* check = lv_obj_find_by_name(chip, "status_ready");
+    lv_obj_t* flame = lv_obj_find_by_name(chip, "status_heating");
+    REQUIRE(check != nullptr);
+    REQUIRE(flame != nullptr);
+    CHECK_FALSE(lv_obj_has_flag(check, LV_OBJ_FLAG_HIDDEN));
+    CHECK(lv_obj_has_flag(flame, LV_OBJ_FLAG_HIDDEN));
+    // A chip with no heater shows no glyph.
+    lv_obj_t* fan = lv_obj_find_by_name(root_, "ps_chip_part_fan");
+    REQUIRE(fan != nullptr);
+    CHECK(lv_obj_has_flag(lv_obj_find_by_name(fan, "status_ready"), LV_OBJ_FLAG_HIDDEN));
+    set_int(temps.get_bed_target_subject(), 0);
+    set_int(temps.get_bed_temp_subject(), 250);
+}
+
 TEST_CASE_METHOD(Landscape800, "speed 104 sets speed_flow tone Warn", "[print_status]") {
     set_int(state().motion_state().get_speed_factor_subject(), 100);
     settle();

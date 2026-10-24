@@ -27,6 +27,8 @@ struct ChipContent {
     bool glow = false;
     /// 0-100 heat-up progress for a climbing heater, -1 for no bar.
     int progress_pct = -1;
+    /// A heater's HeaterStatusState as an int, for its heater_status glyph; 0 for any other chip.
+    int status_state = 0;
 };
 
 /// A heater chip. `status` is classify_heater_status() of the same reading.

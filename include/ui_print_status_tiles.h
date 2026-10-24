@@ -115,6 +115,7 @@ class PrintStatusTiles {
     }
 
   private:
+    static constexpr size_t kChipSubjectCount = 7;
     struct ChipSubjects {
         lv_subject_t shown{};
         lv_subject_t text{};
@@ -122,6 +123,7 @@ class PrintStatusTiles {
         lv_subject_t glow{};
         lv_subject_t progress{};
         lv_subject_t line{};
+        lv_subject_t state{};
         char text_buf[32] = "";
     };
     struct StepSubjects {
@@ -152,7 +154,7 @@ class PrintStatusTiles {
     CalloutPresenter presenter_;
 
     std::array<ChipSubjects, kPrintStatusChipCount> chips_{};
-    std::array<std::string, 6 * kPrintStatusChipCount> chip_names_{};
+    std::array<std::string, kChipSubjectCount * kPrintStatusChipCount> chip_names_{};
     lv_subject_t image_src_{};
     char image_src_buf_[256] = "";
     lv_subject_t callout_mode_{};
