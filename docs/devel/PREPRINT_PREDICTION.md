@@ -517,12 +517,27 @@ Three subjects carry prediction data from the collector to the UI:
             style_text_color="#text_muted"/>
 ```
 
-**Print status panel** (`ui_xml/components/print_status_preview_card.xml`, shared by
-the landscape and portrait layouts): Shows ETA in the preparing overlay:
+**Print status panel** (`ui_xml/components/print_status_strip.xml`): the strip shows the ETA under the phase line while preparing:
 ```xml
-<text_small name="preparing_eta" bind_text="print_start_time_left"
-            style_text_color="#text" style_text_opa="180"/>
+<text_small name="preparing_eta" ...
 ```
+
+### The Pre-Print Checklist
+
+The job tile shows the start sequence as a checklist while the print is preparing
+(`ui_xml/components/print_status_job_checklist.xml`). `PrintStartCollector::checklist_input()`
+is the single read of everything the checklist needs
+(`include/print_start_collector.h#PrintStartCollector/checklist_input`): the phases already
+left in the order they were left, the current phase and its elapsed seconds, seconds spent per
+done phase, the expected order, and the predictor's per-phase seconds. It takes `state_mutex_`
+and is safe from any thread. `build_preprint_checklist()` (`include/preprint_checklist.h`) is a
+pure function from that struct to rows:
+
+- A done row shows the seconds it took, the current row its predicted seconds left (never below 0), an upcoming row its predicted seconds. A row nothing predicts has no time.
+- The expected order is the file's own start block when it has one, else the `PRINT_START` macro analysis the collector was handed through `set_macro_analysis()`, else empty. Upcoming rows come only from it, so with no prediction the list is the done rows plus the current one. A future step is never invented.
+- At most `kPreprintChecklistMaxRows` (8) rows show, the oldest done rows dropping first; the current row never drops. IDLE, INITIALIZING and COMPLETE never appear.
+
+`PrintStatusTiles::refresh_checklist()` (`src/ui/ui_print_status_tiles.cpp#PrintStatusTiles::refresh_checklist`) copies the rows into the `ps_step_<i>_name` / `_time` / `_status` subjects, and the compact form's `ps_step_position_text`, `ps_step_current_name` and `ps_step_current_time`. The collector fires no subject for elapsed time, a start block loading or a macro analysis arriving, so the panel re-reads on its own tick and on activation.
 
 ### PrintStatusPanel Observer Integration
 
@@ -665,6 +680,8 @@ The predictor has no LVGL or Config dependencies, making tests fast and determin
 | `include/printer_print_state.h` | Subject declarations (preprint_remaining, preprint_elapsed, etc.) |
 | `src/printer/printer_print_state.cpp` | Subject initialization and setters |
 | `src/ui/ui_panel_print_status.cpp` | Observer integration for elapsed/remaining display |
+| `include/preprint_checklist.h` | Pure checklist rows built from `checklist_input()` |
+| `src/ui/ui_print_status_tiles.cpp` | Publishes the checklist rows as subjects |
 | `src/ui/ui_panel_print_select.cpp` | Augments slicer time estimates with preprint prediction |
 | `src/ui/ui_print_preparation_manager.cpp` | The print details estimate (`recalculate_estimate()`) and the skipped phases a start hands the collector |
 | `src/ui/ui_print_select_detail_view.cpp` | Formats the details estimate line and decides when it is recomputed |

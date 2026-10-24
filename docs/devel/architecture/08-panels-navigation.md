@@ -172,6 +172,50 @@ re-entry guard or a pending flag needs tier 3. [`MODAL_SYSTEM.md`](../MODAL_SYST
 
 Choosing between a modal and an overlay is a design question with a fixed answer: an overlay is a place the user navigated to and will return from (it goes on the history stack, gets a back affordance, a width class); a modal interrupts for a decision (it dims everything, ignores history, and resolves to a callback). Confirmation of a destructive action, a warning, a quick input - modal. A screen with content - overlay. When a "modal" starts needing scroll, its own navigation, or lifecycle teardown, it has become an overlay and should be moved.
 
+### The print status panel
+
+`PrintStatusPanel` (`src/ui/ui_panel_print_status.cpp`) has three regions on every size: a **job tile**, a **printer tile**, and a **strip** (progress, then Pause, Tune, More, Cancel or Reprint). `decide_print_status_tile_layout()` (`src/ui/print_status_tile_layout.cpp#decide_print_status_tile_layout`) is a pure function of the measured content box; `PrintStatusLayoutFitter` (`src/ui/print_status_layout_fitter.cpp#PrintStatusLayoutFitter::recompute`) feeds it and publishes `ps_arrangement`, `ps_strip_stacked` and `ps_checklist_compact`. Nothing keys off a breakpoint name, only measured pixels:
+
+- **Stacked** (portrait, height at least 500 and taller than wide): job tile above printer tile, split 236:196, strip below. Otherwise **side by side**, the two tiles half the width each.
+- **Strip** stacks progress over a row of buttons when the panel is stacked or narrower than 400 px; otherwise progress sits beside square buttons (capped so progress keeps at least 45% of the width). The strip is one card. It hides the Up next line in a row strip on the smallest breakpoint.
+- **Compact checklist** when the job tile is narrower than 180 or shorter than 170 px.
+
+**Pre-print** (`preparing_visible`): the job tile is a start-sequence checklist over the faded slicer thumbnail: done rows (check, real duration), the current row (amber, spinner, countdown), upcoming rows (muted, predicted duration). The compact form shows "Step N of M", the current step large, its countdown, and a dot per step. Rows come from `PrintStartCollector::checklist_input()` ([PREPRINT_PREDICTION.md](../PREPRINT_PREDICTION.md#the-pre-print-checklist)). A heater still climbing gets an amber chip with a progress bar; one at target shows a check. Fans that are off are hidden. The strip shows the phase, time left and the filament line.
+
+**Printing**: the job tile is the gcode preview card (corner buttons including exclude object, footer with file name, layer and Z). The strip shows percent, time left, clock time of the finish, elapsed, the filament line (swatch, tool, name, tool changes) and Up next when jobs are queued.
+
+**Printer tile chips** (`include/print_status_chips.h`, one pure decision per kind; `PrintStatusTiles::update_now()` in `src/ui/ui_print_status_tiles.cpp#PrintStatusTiles::update_now` copies results into `ps_chip_<key>_*` subjects):
+
+| Chip | Anchor | Rules |
+|---|---|---|
+| Nozzle, bed, chamber | `nozzle`, `bed`, `chamber` | Text is `value / target` while heating or cooling, `value` while holding; tone Active while heating before the print starts, Warn while heating or cooling during it. A climbing heater carries a progress bar. Multi-tool printers prefix the active tool badge. Heater duty (`220° · 5%`) is added only where the chip, measured with it, still fits the column of the line modes. |
+| Part fan, hotend fan | `part_fan`, `nozzle` | Part fan Active while spinning. Fans at 0% are Dim, and a hotend fan at its automatic speed is Dim; both expendable. |
+| Aux fan | none | Dim and expendable at 0%. |
+| Light | `light` | Active when on, expendable when off; tap toggles. |
+| Speed + flow | none | One chip; Warn whenever either factor is not 100%, never expendable then. It honors the percent or mm/s choice and opens Tune. |
+
+Fan chips lead with a role label (Part, HE, Aux) when there is room. Every chip is a tap target into the detail it summarizes. **More** holds Camera, Timelapse and Light, each under its existing visibility rule, and hides when all are hidden.
+
+The picture and chips are placed by the same engine as the home printer image, `compute_callout_layout()` (`include/callout_layout.h`), through the shared `CalloutPresenter`, so the two screens cannot drift. Its modes, published as `ps_callout_mode`:
+
+| Mode | When | What it draws |
+|---|---|---|
+| `BothSides` | both side bands (or bands above and below) fit a chip column | Chips on the side of their part (anchor x under 0.5 is left), spread evenly over the band height. Each column keeps the top-to-bottom order of its parts' points so no two leaders cross; the toolhead group (nozzle, hotend fan, part fan) stays contiguous, with the hotend fan above the nozzle chip when both sit on one point. Chips with no tagged point take the slots that leave tagged chips closest to their parts. |
+| `OneSide` | only one band fits | The picture moves to the near edge and every chip stacks in the far band. Leaders can cross the picture here. |
+| `Pinned` | no band fits | Chips sit on their points (compact, no labels), nozzle and part fan merge into one toolhead chip, overlapping chips slide apart, and a chip that lands far from its point gets a leader. Untagged chips dock in a row at the bottom. |
+| `Docked` | untagged image or custom photo | Chips line the free band or bottom edge; no leaders, no glows. |
+| `ImageOnly` | one grid cell, or the area is shorter than three chip heights | The picture alone. |
+
+Leaders are dotted and have three points: the part's point, an elbow, and the chip's inner edge. The first segment runs at 45 degrees (steeper when the chip is close), the last is always horizontal into a side-band chip (`callout_detail::leader_elbow`). Glows mark only active regions: strong while a heater climbs, a fan spins or the light is on, soft otherwise.
+
+Three rules keep the picture still and the chips readable:
+
+- **The mode follows a stable budget, not the readings.** Fit is tested against every chip the printer can ever show, each measured at a representative reading (`heater_budget_text()`: a three-digit value, heating or holding; fans at 100%; speed and flow at 100%), so a digit or a chip coming and going never moves the layout. Only the active chips get positions.
+- **The picture may shrink up to 20%** (`kMaxImageShrinkPct`), just enough for one side then both, to keep leader lines before giving up to `Pinned`.
+- **When chips do not fit**, a chip gives way in this order: fan labels first (the same chips, narrower), then expendable chips one at a time (hotend fan first, then the light and aux fan, then part fan and speed/flow if expendable), then `Pinned`. A chip off target, tuned or heating is never expendable. `CalloutLayout::dropped` names what was left off and `unlabeled` says labels were shed.
+
+Current limitations: a toolchanger's idle tools are not shown on this screen (only the active tool, as the badge on the nozzle chip), and the pre-print phase has no first-layer or estimated print time line.
+
 ## Patterns & gotchas
 
 - **Register before push, every push.** `helix::nav::register_overlay(root, this)` then `helix::nav::push_overlay(root)`. Cached overlays must re-register on re-open (navbar switches clear the map); `OverlayBase::show()` does this for you - hand-rolled opens forget.

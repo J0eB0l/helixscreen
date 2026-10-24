@@ -409,7 +409,7 @@ Motors Off use the same component; its props are listed in
 ### The printer image callouts instance
 
 `PrinterImageWidget` (`src/ui/panel_widgets/printer_image_widget.{h,cpp}`) runs the pattern
-over live chips on the home printer picture: temperature chips for the nozzle, bed and
+over live chips on the home printer picture (the print status panel's printer tile drives the same engine through `CalloutPresenter`, see [the print status panel](architecture/08-panels-navigation.md#the-print-status-panel)): temperature chips for the nozzle, bed and
 chamber, the part fan's speed, and a light chip (prestonbrown/helixscreen#1397). The pure
 decision is `helix::compute_callout_layout()` (`include/callout_layout.h`),
 which returns a `CalloutMode`, the image rect, and each chip's rect and leader line.
@@ -422,7 +422,7 @@ which returns a `CalloutMode`, the image rect, and each chip's rect and leader l
   docked (untagged image: chips in the free band, else along the bottom edge, never a
   line). A tile taller than the image's aspect runs the same ladder with bands above and
   below. When neither line mode fits at the contain-fit size, the image may shrink by up
-  to `kMaxImageShrinkPct` (8%), just enough for one side, then for both, before pinned.
+  to `kMaxImageShrinkPct` (20%), just enough for one side, then for both, before pinned.
 - **The budget decides the mode; the active chips get positions.** `CalloutLayoutInput`
   carries both: `budget` is every chip this printer can ever show at its widest text,
   `active` is what shows now. Fitting against the budget is what keeps the image still
