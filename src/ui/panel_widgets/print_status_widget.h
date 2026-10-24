@@ -383,6 +383,10 @@ class PrintStatusWidget : public PanelWidget {
     static inline lv_subject_t layer_z_fits_subject_{};
     // 1 when the detailed time row has room for the elapsed time before the remaining.
     static inline lv_subject_t elapsed_fits_subject_{};
+    // 1 when the detailed data column has the height for the speed row.
+    static inline lv_subject_t speed_fits_subject_{};
+    // 1 when the filament row has room for the flow after the length used.
+    static inline lv_subject_t flow_fits_subject_{};
     // Resolved thumbnail path for the detailed-idle hero; written by
     // reset_print_card_to_idle alongside the lv_image_set_src calls on the
     // Library-mode thumbs, so all three idle thumbnails share the same source.
@@ -528,11 +532,14 @@ class PrintStatusWidget : public PanelWidget {
         SubjectManager subjects_;
 
         // Buffers backing string subjects
-        char layer_text_buf_[32];        // "~9999 / 9999"
-        char layer_z_text_buf_[24];      // "· 123.4mm"
-        char elapsed_text_buf_[24];      // "12h 34m"
-        char remaining_text_buf_[24];    // "99h 59m"
-        char filament_text_buf_[32];     // "1234.5m"
+        char layer_text_buf_[32];     // "~9999 / 9999"
+        char layer_z_text_buf_[24];   // "· 123.4mm"
+        char elapsed_text_buf_[24];   // "12h 34m"
+        char remaining_text_buf_[24]; // "99h 59m"
+        char filament_text_buf_[32];  // "1234.5m"
+        char speed_text_buf_[16];     // "1234mm/s"
+        char flow_text_buf_[24];      // "· 123.4mm³/s"
+        size_t speed_flow_len_ = 0;
         char nozzle_text_buf_[32];       // "265 / 270°C" — kept for tool_override test
         char nozzle_badge_text_buf_[16]; // the nozzle icon's 1-based tool number
         char idle_filename_buf_[160];
@@ -545,6 +552,8 @@ class PrintStatusWidget : public PanelWidget {
         lv_subject_t elapsed_text_subject_{};
         lv_subject_t remaining_text_subject_{};
         lv_subject_t filament_text_subject_{};
+        lv_subject_t speed_text_subject_{};
+        lv_subject_t flow_text_subject_{};
         lv_subject_t nozzle_text_subject_{};
         lv_subject_t nozzle_badge_text_subject_{};
         // Proxy temp subjects (decidegrees, int) so the temp_display widget in the
@@ -564,6 +573,8 @@ class PrintStatusWidget : public PanelWidget {
         ObserverGuard elapsed_observer_;
         ObserverGuard time_left_observer_;
         ObserverGuard filament_used_observer_;
+        ObserverGuard live_velocity_observer_;
+        ObserverGuard live_extruder_velocity_observer_;
 
         // Nozzle temp observers — paired SubjectLifetimes per [L084] for per-tool pinning.
         // Lifetimes declared before observers so they destruct AFTER observers in ~dtor
@@ -584,6 +595,7 @@ class PrintStatusWidget : public PanelWidget {
         void update_layer_text();
         void update_time_text();
         void update_filament_text();
+        void update_speed_flow_text();
         void update_nozzle_text();
         void update_multi_tool();
         void update_tool_label();
@@ -715,6 +727,7 @@ class PrintStatusWidget : public PanelWidget {
     // Publishes whether the named row has room for all of its pieces, the ones
     // its optional piece hides included.
     void fit_row(const char* row_name, lv_subject_t* fits);
+    void fit_speed_row();
 
     // The two context menus this widget raises
     ConfigurePicker configure_picker_{*this};

@@ -9,6 +9,7 @@
 #include "../test_helpers/printer_state_test_access.h"
 #include "../test_helpers/update_queue_test_access.h"
 #include "app_globals.h"
+#include "display_settings_manager.h"
 #include "format_utils.h"
 #include "print_history_manager.h"
 #include "printer_discovery.h"
@@ -623,4 +624,28 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter idle tile on an interrupte
         REQUIRE(subject_text("print_status_idle_when") == lv_tr("Failed"));
         REQUIRE(subject_text("print_status_idle_meta").empty());
     }
+}
+
+TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter speed/flow text shows live rates",
+                 "[print_status][formatter]") {
+    PrintStatusWidget::destroy_formatter_for_test();
+
+    PrinterState& ps = get_printer_state();
+    PrinterStateTestAccess::reset(ps);
+    ps.init_subjects(false);
+
+    FormatterScope fs;
+
+    // The card shows the physical rates even with the percent preference set.
+    REQUIRE_FALSE(DisplaySettingsManager::instance().get_speed_flow_physical_units());
+
+    lv_subject_set_int(ps.motion_state().get_live_velocity_subject(), 187);
+    lv_subject_set_int(ps.motion_state().get_live_extruder_velocity_subject(), 500); // 5 mm/s
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+
+    // 5 mm/s of 1.75 mm filament: 5 * pi * 0.875^2 = 12.03 mm³/s.
+    REQUIRE(std::string(lv_subject_get_string(
+                lv_xml_get_subject(nullptr, "print_status_speed_text"))) == "187mm/s");
+    REQUIRE(std::string(lv_subject_get_string(
+                lv_xml_get_subject(nullptr, "print_status_flow_text"))) == "· 12.0mm\xC2\xB3/s");
 }
