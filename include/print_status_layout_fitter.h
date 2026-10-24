@@ -51,10 +51,12 @@ class PrintStatusLayoutFitter {
         return last_;
     }
 
-    /// Strip heights for the current tier's fonts: progress text beside the
-    /// buttons, and progress text above a row of buttons.
-    [[nodiscard]] static int32_t strip_row_height();
-    [[nodiscard]] static int32_t strip_stacked_height();
+    /// Strip heights: progress text beside the buttons, and progress text
+    /// above a row of buttons. `progress` is the strip's laid-out progress
+    /// block, whose rows are measured; without one the rows are estimated
+    /// from the current tier's fonts.
+    [[nodiscard]] static int32_t strip_row_height(lv_obj_t* progress = nullptr);
+    [[nodiscard]] static int32_t strip_stacked_height(lv_obj_t* progress = nullptr);
 
   private:
     std::string log_tag_;

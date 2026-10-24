@@ -17,12 +17,11 @@ namespace {
 /// components/progress_bar.xml's height.
 constexpr int32_t kProgressBarHeight = 12;
 
-/// The strip's progress block (components/print_status_strip.xml), within a few
-/// pixels: the filament line is as tall as whichever indicators the printer
-/// shows, counted here as a line of font_small. The percent
-/// line in font_body_bold, the bar, the filament line and, with `up_next`, the
-/// up-next line, #space_xs apart.
-int32_t strip_text_height(bool up_next) {
+/// The strip's progress block (components/print_status_strip.xml) before it
+/// is laid out, within a few pixels: the percent line in font_body_bold, the
+/// bar, the filament line and, with `up_next`, the up-next line, #space_xs
+/// apart. Rows holding icons can stand taller than their text.
+int32_t estimated_text_height(bool up_next) {
     const int32_t heading = lv_font_get_line_height(theme_manager_get_font("font_body_bold"));
     const int32_t small = lv_font_get_line_height(theme_manager_get_font("font_small"));
     const int32_t rows = up_next ? 4 : 3;
@@ -40,6 +39,34 @@ bool strip_shows_up_next(bool row) {
     return !row || !bp || lv_subject_get_int(bp) > 0;
 }
 
+/// The laid-out progress block's rows and the gaps between them; 0 before
+/// its first layout.
+int32_t measured_text_height(lv_obj_t* progress) {
+    if (!progress || !lv_obj_is_valid(progress)) {
+        return 0;
+    }
+    int32_t h = 0;
+    int32_t rows = 0;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(progress); ++i) {
+        lv_obj_t* row = lv_obj_get_child(progress, static_cast<int32_t>(i));
+        if (lv_obj_has_flag(row, LV_OBJ_FLAG_HIDDEN) ||
+            lv_obj_has_flag(row, LV_OBJ_FLAG_IGNORE_LAYOUT)) {
+            continue;
+        }
+        h += lv_obj_get_height(row);
+        ++rows;
+    }
+    if (rows == 0 || h == 0) {
+        return 0;
+    }
+    return h + (rows - 1) * lv_obj_get_style_pad_row(progress, LV_PART_MAIN);
+}
+
+int32_t strip_text_height(lv_obj_t* progress, bool up_next) {
+    const int32_t measured = measured_text_height(progress);
+    return measured > 0 ? measured : estimated_text_height(up_next);
+}
+
 /// The strip is a ui_card: its padding and border on both sides.
 int32_t strip_chrome() {
     return 2 * (theme_manager_get_spacing("space_sm") + theme_manager_get_spacing("border_width"));
@@ -50,15 +77,16 @@ int32_t strip_chrome() {
 PrintStatusLayoutFitter::PrintStatusLayoutFitter(std::string log_tag, Subjects subjects, Host host)
     : log_tag_(std::move(log_tag)), subjects_(subjects), host_(std::move(host)) {}
 
-int32_t PrintStatusLayoutFitter::strip_row_height() {
+int32_t PrintStatusLayoutFitter::strip_row_height(lv_obj_t* progress) {
     return std::max(theme_manager_get_spacing("ps_strip_button"),
-                    strip_text_height(strip_shows_up_next(true))) +
+                    strip_text_height(progress, strip_shows_up_next(true))) +
            strip_chrome();
 }
 
-int32_t PrintStatusLayoutFitter::strip_stacked_height() {
-    return strip_text_height(strip_shows_up_next(false)) + theme_manager_get_spacing("space_md") +
-           theme_manager_get_spacing("button_height") + strip_chrome();
+int32_t PrintStatusLayoutFitter::strip_stacked_height(lv_obj_t* progress) {
+    return strip_text_height(progress, strip_shows_up_next(false)) +
+           theme_manager_get_spacing("space_md") + theme_manager_get_spacing("button_height") +
+           strip_chrome();
 }
 
 const PrintStatusTileLayout& PrintStatusLayoutFitter::recompute() {
@@ -72,8 +100,10 @@ const PrintStatusTileLayout& PrintStatusLayoutFitter::recompute() {
     if (w <= 0 || h <= 0) {
         return last_;
     }
-    last_ = decide_print_status_tile_layout(w, h, theme_manager_get_spacing("space_md"),
-                                            strip_row_height(), strip_stacked_height());
+    lv_obj_t* progress = lv_obj_find_by_name(root, "ps_strip_progress");
+    last_ =
+        decide_print_status_tile_layout(w, h, theme_manager_get_spacing("space_md"),
+                                        strip_row_height(progress), strip_stacked_height(progress));
     const auto set = [](lv_subject_t* s, int v) {
         if (s && lv_subject_get_int(s) != v) {
             lv_subject_set_int(s, v);
