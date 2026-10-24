@@ -5,6 +5,124 @@ All notable changes to HelixScreen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0-beta.12] - 2026-10-24
+
+<!-- whatsnew
+The twelfth beta of 1.1.
+
+- A redesigned Print Status screen built around your printer's picture
+- A pre-print checklist with times for each start step
+- Guided power-loss resume on the QIDI Q2 (HelixPrint plugin)
+- Files that don't fit the printer are stopped before they start
+- Print photos in history, a Storage page and Printer Events
+- Spoolman follows each tool change and links spools from CFS tags
+- Name your belts left and right in Belt Tension
+-->
+
+The twelfth beta of 1.1. The headline is a new Print Status screen: your printer's picture with a chip for each heater, fan and light pointing at its part, a checklist of the start sequence while the print prepares, and one strip for progress and the buttons. HelixPrint plugin 1.4.0 brings a large batch with it: a guided power-loss resume on the QIDI Q2, a check that a file fits the printer (which also works without the plugin), camera photos of every print in history, a Storage page with cleanup, a Printer Events log, and Spoolman switching spools at every tool change. Belt Tension learns which belt is which, bed screw adjustment says Tighten or Loosen from the probed heights, and heater calibration can tune any tool on a tool changer. Filament Mapping now follows the printer's own tool map instead of overwriting it, AFC tool changers handle tool numbers past the lane count, MedusaHC loads go in at the dock, and there are fixes for ACE, CFS, the Creator 5, Centauri Carbon reboots, QIDI, K1 first boot and label printing.
+
+**Upgrading from beta.11?**
+
+- **Print Status:** Camera, Timelapse and Light moved into a **More** button on the strip, and the light can also be toggled from its chip on the printer picture. Tapping the Speed / Flow chip opens Tune; switch between percent and mm/s there.
+- **Tool changers:** only the active tool's temperature shows on Print Status for now, as the badge on the nozzle chip. Every tool's temperature is still on the Controls and temperature screens (#1818).
+- **Flow steps:** the Tune flow buttons step by 1% and 5%, and the home Speed / Flow widget's flow buttons by 1%. Speed keeps 5% and 10%.
+- **Bed screws on AD5M and AD5X:** the rotation arrows now point the way Klipper's console says, so they are reversed from beta.11. Follow the Tighten or Loosen word, which comes from the probed heights.
+- **Config backups:** copies HelixScreen makes before writing your Klipper config now live in the hidden `.helix_backups` folder in your config folder.
+
+### Added
+
+**Print Status**
+
+- **A new Print Status screen** - the screen is built around a picture of your printer. Each heater, fan, the light and speed/flow get a chip, and on printers whose picture has been mapped each chip sits beside its part with a dotted line to it, and the part glows while it is active. A heater chip shows a flame while it heats, a check at its target and a snowflake while it cools, turns amber when it is off target, and carries a progress bar while it climbs. The speed/flow chip turns amber when either is not 100%. Tap any chip for its detail.
+- **A pre-print checklist** - while the print prepares, the preview is replaced by the start sequence: finished steps with how long they took, the current step in amber with a countdown, and an estimate for each step still to come. Small screens show the current step and a dot per step. A step the printer has not announced is never listed ahead of time.
+- **One strip for the job** - progress, time remaining, finish time, elapsed time, the filament in use and the next queued job sit in one strip with Pause, Tune, More and Cancel.
+- **Fits every screen** - the layout is chosen from the space the screen actually has, portrait or landscape, down to 480x320. When chips do not fit, the picture shrinks a little first, then chips showing an ordinary value (a fan at 0% or on auto, the light off) step aside, and only then do the chips move onto the parts themselves. Fan chips keep their Part, HE and Aux labels beside the picture. A heater off target or a tuned speed is never left out.
+- **Snapmaker U1 top module** - the U1's picture shows its top module when it is fitted (or a chamber heater is set up), and switches live when you lift it off.
+
+**HelixPrint plugin**
+
+The plugin updates to 1.4.0. Each feature below says what works without it; [HelixPrint Plugin](docs/user/guide/helixprint-plugin.md) in the user guide covers each one on attached and remote screens.
+
+- **Power-loss recovery on the QIDI Q2** (#1716) - the plugin saves the print's position about once a second, whichever app started the print. After a power cut, Resume opens a guided resume that checks the part is still on the bed, heats bed and nozzle together with the nozzle left in place, lifts and homes, has you confirm the nozzle height, then purges away from the part and continues. Nothing moves until you tap a button, and a big red Cancel stops everything. Saving is on by default on eMMC storage and off on an SD card, under **Settings > Printing > Power-loss recovery**.
+- **Does the file fit this printer?** - before a print starts, the file is compared with the printer's travel, heater limits and tools. A file that would move past the travel, overheat or use a missing tool is stopped with **File Does Not Fit This Printer**, naming each problem; a different nozzle size gets a warning with **Start Anyway**; a different printer model is only noted. The findings show in a card in the file's details. This works without the plugin too, from the file's preview; with it, every move is checked, purge line and wipe tower included. **Hold slicer prints that do not fit** (Settings > Safety & Alerts, off) lets the plugin stop a slicer's upload-and-print that would fail the check.
+- **Print photos** - two camera pictures of every print, one after layer 2 and one at the end, shown with the slicer preview in the print's history details. On by default in **Settings > Devices > Print photos** when a webcam is set up. With the plugin the printer takes them for every print; without it, the screen takes them while it is connected.
+- **Storage** - **Settings > System > Storage** shows what fills the printer's storage and cleans up print copies, file analysis indexes, photos, timelapse videos and old logs, never your own files. The plugin adds an optional daily automatic cleanup. HelixScreen also refuses an upload, print copy or USB copy that would leave less than 100 MB free.
+- **Printer Events** - tap the Notifications widget, then **Printer Events**, for a log of what happened to the printer: shutdowns and their reasons, lost MCUs, firmware restarts, pauses, runouts, errors and how each print ended. With the plugin it includes what happened while no screen was connected. Debug bundles include it.
+- **Switch spools at each tool change** - in **Settings > Devices > Spoolman**, the active Spoolman spool follows the tool or lane that is printing, so each spool is charged for its own filament. With the plugin it covers every print and the print's history lists the spools it used; without it, the screen does it while connected.
+- **Start options for prints from other apps** - **Settings > Printing > Apply start options to prints from other apps** sends your standing print options, such as which U1 toolheads unload at the end, to prints started from Mainsail, Fluidd, a slicer or the job queue.
+- **Thumbnails and faster previews** - the plugin reads every uploaded file once: files saved without a picture get a thumbnail (in Mainsail and Fluidd too), large files preview sooner, and per-tool filament is ready for the pre-print checks. On the K-Touch this is the only way to get them.
+- **Faster starts for edited prints** - when a print start changes the file, the plugin makes the copy on the printer, so a large file no longer travels to the screen and back.
+- **Safer config saves** - Input Shaper Save, the PID/MPC switch and probe settings are written by the plugin in one step, refused if someone else changed the same setting meanwhile, with the last five copies of each file kept.
+- **AD5X and ACE update instantly** - with the plugin, lane changes are pushed to the screen instead of polled.
+- **Plugin overview** - **Advanced > HelixPrint Plugin** lists every feature as Active, Off or Unavailable with a plain reason, and tapping one opens the page where its switch lives.
+
+**Filament and Spoolman**
+
+- **Link Spools from Tags** - on a Creality CFS, a tag whose serial number names a Spoolman spool (as CFTag writes it) links its slot to that spool when the spool goes in. A tag naming a spool Spoolman doesn't have gets a notice, and a spool you pick while the same tag stays in is kept. On by default; turn it off in the CFS settings.
+- **Creator 5 spools set from outside** - a spool an NFC reader or another tool binds to a Z-Mod Creator 5 head shows right away instead of after a reboot.
+
+**Calibration and settings**
+
+- **Which belt is which?** - Belt Tension can buzz each path's motor so you can see which belt it drives, then name the paths left and right or upper and lower. Results, tuning and every instruction then use those names ("Tighten the left belt one full turn"), saved per printer.
+- **Heater calibration on tool changers** (#1870) - PID and MPC calibration offer a tool row on printers with several heated heads, defaulting to the active tool, instead of always tuning the first extruder.
+- **Bed screws diagram** - the bed is shaded by probed height in the bed mesh colors, so a twisted bed shows as a saddle, with the spread between the highest and lowest corner beneath it. The screw furthest off is highlighted.
+- **1 hour Display Sleep** option.
+- **FLSUN T1 Pro picture** for the home screen and Printer Manager.
+
+### Changed
+
+- **Bed screws say Tighten or Loosen** - the word comes from each corner's probed height, which is right on any spring-mounted bed, and the arrow always matches Klipper's own direction. Every probe homes first, Re-probe included.
+- **Home printer picture** - its chips use the same dotted leader lines and side-by-side layout as Print Status.
+- **Home print card** - the stats use Print Status's icons and drop the least useful piece when a row is tight, and the nozzle icon carries its tool number.
+- **Flow icon** - flow shows a nozzle instead of a water drop, on Print Status and the home Speed / Flow widget.
+- **Filament sensor icons** - sensors show a sensor icon instead of the spool.
+- **Progress bars** have an outline, so the empty part of the track stays visible on any card.
+- **3D Pipes** draws one pipe at a time, five to a screen, like the Windows original.
+- **Help** - the docs QR codes open this release's pages, and Help gains Getting Started and User Guide rows.
+- **Share Screen** - opening the screen in a browser wakes a sleeping display, and while the page is open the screen dims and runs its screensaver but never goes black. Webcam integrations such as Obico and Home Assistant no longer keep it awake.
+- **K-Touch** - screens switch about 20% faster.
+
+### Fixed
+
+**Filament systems**
+
+- **Filament Mapping follows the printer's tool map** (#1859, #1862) - a print no longer sends a remap you did not pick: rows you left alone follow the printer, even when its tool table arrives or changes after you opened the file, and an AFC, Happy Hare or CFS tool you remapped yourself stays on its lane. A guessed free lane is never sent as a remap. The map a print's remap displaced is put back after the print, even across a restart or a torn file.
+- **Filament Mapping picks are kept** - a pick survives the file's colors arriving late, OK in the remap dialog keeps only the rows you changed, flipping auto color mapping takes effect on the open file, and a hidden mapping card sends nothing.
+- **Pre-print messages** - a tool with no lane assigned says so, instead of asking you to load filament.
+- **AFC tool numbers past the lane count** - a lane running as T7 on a four-lane unit can be remapped, restored and changed to, and remapping two lanes swaps their tools as AFC does.
+- **AFC tool changers** (#1824, #1850) - tapping a parked head only mounts it instead of swapping filament, a Load that needs a lane swap really loads, and a head missing from the toolchanger is warned about instead of leaving the screen on Selecting for five minutes.
+- **MedusaHC loads** - a Load inserts the filament at the docked hot end first, heats the right tool, and trusts a swap only once the dock sensors confirm it; a failed or canceled run turns the heaters off and never moves a carriage the sensors cannot vouch for. Unload ends by saying which tools to pull the strand from, and the status line no longer reads idle between swaps.
+- **ACE Feed Assist** (#1853) - the switch shows what the driver is actually doing, flips back if the driver doesn't take the change, and is grayed out with no tool loaded.
+- **Filament fault dialogs** (#1838) - faults use the standard dialog with its usual buttons, ESC and the backdrop close without acting, and a fault with no recovery actions offers OK.
+- **Spoolman active spool** - reloading the same spool sets it active again, so the next print is tracked; linking a spool to the loaded lane makes it active at once; the external spool only becomes active while it feeds; and unlinking clears only its own spool.
+- **Spool picker on a remapped lane** - the lane's own spool is no longer grayed out.
+- **Lane settings** show the tool a multi-tool lane is running, not its first tool.
+- **CFS tags** - an unknown tag record no longer appears as the brand, and a box dropping off the bus is not treated as a new spool.
+- **Unwired hubs** - a unit whose lanes feed no tool ends at its hub in the unit view, as it does in the overview.
+
+**Printing**
+
+- **K2 bed mesh ran twice** - with Auto Bed Mesh on, the pre-print mesh is skipped when the file's start G-code already calls the same command, and only then.
+- **Print history dates** (#1865) - Started and Ended show the date over the time instead of clipping.
+- **First-run tour** waits while a dialog, such as a power-loss resume, covers Home.
+
+**Screen and devices**
+
+- **Centauri Carbon reboot and shutdown** (#1869) - Reboot and Shut Down from HelixScreen work on COSMOS, and the last frame no longer lingers on the next boot.
+- **K1 series first boot** - the splash and screen come up the right way round on the first start instead of running the rotation check.
+- **QIDI** (#1854) - the stock screen is matched however its service starts it, and the makerbase tuning service it wrongly disabled is turned back on once.
+- **Sheet labels over IPP** (#1851) - printed blank pages; they print again.
+- **Label printer settings** - typing an address or port is no longer overwritten by a printer found on the network, and the saved printer shows in the list.
+- **Text fields on large screens** - one-line fields on 1920x1200 and similar screens no longer bounce while you type.
+- **Share Screen** (#1856) - the tap that wakes the display no longer presses what is under it, and renaming the screen's webcam in Mainsail or Fluidd sticks.
+- **Plugin tables** (#1858) - dragging across a table whose rows all fit no longer taps a row.
+
+**Install and updates**
+
+- **Installer re-runs keep your settings** - detected rotation and touch settings are only seeded on a fresh install.
+- **Forge-X** - the installer takes over the display on a fresh Forge-X too, and when a display change is still waiting for a reboot it says to reboot first.
+- **The `main/scripts/install.sh` command** used by older guides and forum posts works again.
+
 ## [1.1.0-beta.11] - 2026-10-21
 
 <!-- whatsnew
@@ -9790,6 +9908,7 @@ Initial tagged release. Foundation for all subsequent development.
 - Automated GitHub Actions release pipeline
 - One-liner installation script with platform auto-detection
 
+[1.1.0-beta.12]: https://github.com/prestonbrown/helixscreen/compare/v1.1.0-beta.11...v1.1.0-beta.12
 [1.1.0-beta.11]: https://github.com/prestonbrown/helixscreen/compare/v1.1.0-beta.10...v1.1.0-beta.11
 [1.1.0-beta.10]: https://github.com/prestonbrown/helixscreen/compare/v1.1.0-beta.9...v1.1.0-beta.10
 [1.1.0-beta.9]: https://github.com/prestonbrown/helixscreen/compare/v1.1.0-beta.8...v1.1.0-beta.9
