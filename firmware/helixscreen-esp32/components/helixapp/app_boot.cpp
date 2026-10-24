@@ -413,6 +413,12 @@ void wire_printer_callbacks() {
     helix::EspMoonrakerClient::set_transport_stall_handler([] {
         helix::ui::queue_update("app_boot::transport_stall", [] { restart_into_active_printer(); });
     });
+    // Both are safe on the websocket task: the reset takes its own lock, and
+    // set_klippy_state() defers the subject write to the UI thread.
+    static const helix::EspMoonrakerClient::KlippyStateSink kKlippyStateSink{
+        [] { get_printer_state().network_state().reset_klippy_state_freshness(); },
+        [](helix::KlippyState state) { get_printer_state().set_klippy_state(state); }};
+    helix::EspMoonrakerClient::set_klippy_state_sink(&kKlippyStateSink);
     switch_flow().set_connected_printer_id(helix::Config::get_instance()->get_active_printer_id());
 }
 

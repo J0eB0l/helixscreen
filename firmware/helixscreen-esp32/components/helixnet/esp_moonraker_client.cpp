@@ -11,6 +11,7 @@
 #include "helix_version.h" // HELIX_VERSION for server.connection.identify
 #include "http_lane_queue.h"
 #include "json_utils.h"
+#include "klippy_notification.h"
 #include "link_liveness.h"
 #include "psram_thread_stack.h"
 
@@ -39,6 +40,7 @@ constexpr uint8_t kOpPong = 0x0A;
 constexpr uint8_t kOpControlBit = 0x08; // close, ping, pong
 
 std::atomic<EspMoonrakerClient::LinkDropObserver> s_link_drop_observer{nullptr};
+std::atomic<const EspMoonrakerClient::KlippyStateSink*> s_klippy_state_sink{nullptr};
 
 std::function<bool()> s_before_transport_start;
 std::function<void()> s_transport_stall_handler;
@@ -46,6 +48,10 @@ std::function<void()> s_transport_stall_handler;
 
 void EspMoonrakerClient::set_link_drop_observer(LinkDropObserver observer) {
     s_link_drop_observer.store(observer);
+}
+
+void EspMoonrakerClient::set_klippy_state_sink(const KlippyStateSink* sink) {
+    s_klippy_state_sink.store(sink);
 }
 
 EspMoonrakerClient::EspMoonrakerClient()
@@ -474,6 +480,13 @@ void EspMoonrakerClient::ws_event_trampoline(void* arg, esp_event_base_t /*base*
 
 void EspMoonrakerClient::on_ws_connected() {
     ESP_LOGI(TAG, "connected to %s", url_.c_str());
+    // Every session passes through here before its first frame, on the task that
+    // delivers its frames. A retired transport's close can land after the next
+    // session's frames have started, so the close is not where this belongs.
+    if (const KlippyStateSink* sink = s_klippy_state_sink.load()) {
+        sink->session_started();
+    }
+    discovery_completed_.store(false);
     pongs_this_connection_ = 0;
     last_pong_us_.store(esp_timer_get_time());
     dead_link_reported_.store(false);
@@ -495,6 +508,10 @@ void EspMoonrakerClient::on_ws_connected() {
     was_connected_ = true;
     lost_notified_ = false;
 
+    invoke_connected_callbacks();
+}
+
+void EspMoonrakerClient::invoke_connected_callbacks() {
     if (on_connected_) {
         on_connected_();
     }
@@ -699,6 +716,28 @@ void EspMoonrakerClient::dispatch_message(const char* buf, size_t len) {
     // Notification (has "method") → notify + method + bed-mesh callbacks.
     if (msg.contains("method") && msg["method"].is_string()) {
         dispatch_notification(msg, /*include_method_callbacks=*/true);
+        on_klippy_notification(msg["method"].get<std::string>());
+    }
+}
+
+void EspMoonrakerClient::on_klippy_notification(const std::string& method) {
+    // No printer.info poll follows a disconnect here: a Klippy that comes back
+    // into an error reads SHUTDOWN until notify_klippy_ready, which rediscovers.
+    const std::optional<KlippyNotification> klippy =
+        classify_klippy_notification(method, discovery_completed_.load());
+    if (!klippy) {
+        return;
+    }
+    ESP_LOGI(TAG, "%s", method.c_str());
+    if (const KlippyStateSink* sink = s_klippy_state_sink.load()) {
+        sink->state_reported(klippy->state);
+    }
+    if (klippy->abandon_requests) {
+        fail_pending_requests();
+    }
+    emit_event(klippy->event);
+    if (klippy->rediscover) {
+        invoke_connected_callbacks();
     }
 }
 
@@ -1641,6 +1680,7 @@ void EspMoonrakerClient::discovery_subscribe(DiscoveryDone done, DiscoveryFail f
                          uxTaskGetStackHighWaterMark(nullptr), kWsTaskStackBytes);
 
             discovery_in_flight_.store(false);
+            discovery_completed_.store(true);
             if (*done) {
                 (*done)();
             }
