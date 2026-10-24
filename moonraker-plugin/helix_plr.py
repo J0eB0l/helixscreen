@@ -794,11 +794,61 @@ def offer_verdict(i: OfferInputs) -> OfferVerdict:
 
 
 # ============================================================================
+# The mesh-include line in printer.cfg
+# ============================================================================
+
+def mesh_include_present(text: str) -> bool:
+    """True when printer.cfg's text carries the include line, whosever hand
+    added it: a resume then reloads the saved mesh."""
+    return any(line.strip() == MESH_INCLUDE_LINE for line in text.splitlines())
+
+
+def add_mesh_include(text: str) -> Optional[str]:
+    """`text` with the marker and include appended, or None when the include
+    is already there. A marker left behind by a hand-removed include is
+    dropped first, so the file never carries two."""
+    if mesh_include_present(text):
+        return None
+    if any(line.strip() == MESH_INCLUDE_MARKER for line in text.splitlines()):
+        text, _ = strip_mesh_include(text)
+    prefix = text if text == "" or text.endswith("\n") else text + "\n"
+    return prefix + MESH_INCLUDE_MARKER + "\n" + MESH_INCLUDE_LINE + "\n"
+
+
+def strip_mesh_include(text: str) -> Tuple[str, int]:
+    """`text` without the marker and include lines, and how many lines went.
+    Only a line whose stripped text is exactly one of ours is taken."""
+    lines = text.splitlines(True)
+    kept = [l for l in lines
+            if l.strip() not in (MESH_INCLUDE_MARKER, MESH_INCLUDE_LINE)]
+    return "".join(kept), len(lines) - len(kept)
+
+
+def write_mesh_include_change(path: Path, old_text: str, new_text: str,
+                              replace: Callable[[str, str], None] = os.replace) -> None:
+    """Back `path` up to its single rolling .helixscreen-bak beside it, then
+    write `new_text` atomically. The backup is the text the caller read, so
+    it is the file as it stood; a failure at any point leaves `path` as it
+    was, and a half-written config never exists."""
+    backup = path.with_name(path.name + PRINTER_CFG_BACKUP_SUFFIX)
+    with open(str(backup), "wb") as f:
+        f.write(old_text.encode("utf-8"))
+        f.flush()
+        os.fsync(f.fileno())
+    try:
+        mode: Optional[int] = os.stat(str(path)).st_mode & 0o7777
+    except OSError:
+        mode = None
+    helix_gcode_reader.atomic_write_bytes(str(path), new_text.encode("utf-8"),
+                                          replace=replace, mode=mode)
+
+
+# ============================================================================
 # The Moonraker-facing component
 # ============================================================================
 
 PLR_FEATURE = "plr"
-PLR_FEATURE_VERSION = 1
+PLR_FEATURE_VERSION = 2
 
 # The app's settings namespace, where plr_profile and plr_user live.
 HELIX_SCREEN_NAMESPACE = "helix-screen"
@@ -814,6 +864,16 @@ RESUMING_KEY = "resuming"
 
 SNAPSHOT_FILE = Path("helix-plr") / "snapshot.bin"
 MESH_CFG_FILE = Path("helix-plr") / "mesh.cfg"
+
+# The two lines the mesh carry-over needs in printer.cfg: a marker naming who
+# added the include, and the include itself. Both are matched on their
+# stripped text, so surrounding whitespace never defeats a removal, and a
+# user's own include of the directory in any other spelling never matches.
+MESH_INCLUDE_MARKER = (
+    "# Added by HelixScreen: lets a power-loss resume reload the print's bed mesh")
+MESH_INCLUDE_LINE = "[include helix-plr/*.cfg]"
+# printer.cfg's single rolling backup, beside the file.
+PRINTER_CFG_BACKUP_SUFFIX = ".helixscreen-bak"
 
 # How long the switch's answer is reused by the 4 Hz status path.
 SWITCH_CACHE_S = 5.0
@@ -1457,6 +1517,7 @@ class HelixPlr:
             ("/server/helix/plr/commit", ["POST"], self.handle_commit),
             ("/server/helix/plr/abort", ["POST"], self.handle_abort),
             ("/server/helix/plr/discard", ["POST"], self.handle_discard),
+            ("/server/helix/plr/mesh_include", ["GET", "POST"], self.handle_mesh_include),
         ):
             self.server.register_endpoint(path, methods, handler)
         register = getattr(self.server, "register_notification", None)
@@ -2330,6 +2391,40 @@ class HelixPlr:
                 raise self._error("plr_klippy_error", "print_state not deleted: %s" % e, 500)
         await self.discard()
         return {"ok": True}
+
+    async def handle_mesh_include(self, web_request: Any) -> Dict[str, Any]:
+        """Whether printer.cfg carries the mesh include (no action), or add
+        or remove it (action). The status is a read; an action backs the
+        file up first and writes atomically, and is idempotent both ways.
+        Klipper reads the change at its next restart, which the caller
+        offers, not this endpoint."""
+        config = self._config_dir()
+        if config is None:
+            raise self._error("plr_config_read", "the config directory is unknown", 503)
+        path = config / "printer.cfg"
+        try:
+            with open(str(path), encoding="utf-8", newline="") as f:
+                text = f.read()
+        except OSError as e:
+            raise self._error("plr_config_read", "printer.cfg unreadable: %s" % e, 500)
+        action = _param(web_request, "action", "")
+        if action == "":
+            return {"present": mesh_include_present(text)}
+        if action not in ("add", "remove"):
+            raise self._error("plr_bad_action", "unknown action '%s'" % action, 400)
+        if action == "add":
+            new_text = add_mesh_include(text)
+        else:
+            stripped, removed = strip_mesh_include(text)
+            new_text = stripped if removed else None
+        if new_text is None:
+            return {"present": mesh_include_present(text), "changed": False}
+        try:
+            write_mesh_include_change(path, text, new_text)
+        except OSError as e:
+            raise self._error("plr_config_write", "printer.cfg unwritable: %s" % e, 500)
+        logging.info("HelixPrint: PLR %s the mesh include in printer.cfg", action)
+        return {"present": mesh_include_present(new_text), "changed": True}
 
 
 # Notifications to clients: notify_plr_progress, notify_plr_plan_ready,
