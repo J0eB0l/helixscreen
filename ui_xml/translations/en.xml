@@ -147,6 +147,7 @@
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." en="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." en="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen."/>
   <translation tag="A few minutes, nearly all of it heating. You judge nothing by eye." en="A few minutes, nearly all of it heating. You judge nothing by eye."/>
+  <translation tag="A folder name in moonraker.conf is unsafe, so cleanup is off." en="A folder name in moonraker.conf is unsafe, so cleanup is off."/>
   <translation tag="A heat soak macro is set up on the printer. HelixScreen detects it but does not run it." en="A heat soak macro is set up on the printer. HelixScreen detects it but does not run it."/>
   <translation tag="A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen." en="A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen."/>
   <translation tag="A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen." en="A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen."/>
@@ -3717,6 +3718,7 @@
   <translation tag="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service" en="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service"/>
   <translation tag="The speed of one fan you choose" en="The speed of one fan you choose"/>
   <translation tag="The time, date, and system uptime" en="The time, date, and system uptime"/>
+  <translation tag="The timelapse or logs folder overlaps a protected folder, so cleanup is off." en="The timelapse or logs folder overlaps a protected folder, so cleanup is off."/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?" en="The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?"/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?" en="The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?"/>
   <translation tag="The toolhead sensor indicates filament is already loaded. Proceed with load anyway?" en="The toolhead sensor indicates filament is already loaded. Proceed with load anyway?"/>

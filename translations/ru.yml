@@ -197,6 +197,7 @@ translations:
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Камера, которую транслирует Moonraker. Добавьте виджет камеры на главный экран, чтобы смотреть ее, в том числе во время печати.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Вентилятор, который прогоняет воздух камеры через фильтр. Управляйте им на экране температуры камеры.'
   A few minutes, nearly all of it heating. You judge nothing by eye.: 'Несколько минут, почти всё время нагрев. Ничего не нужно оценивать на глаз.'
+  A folder name in moonraker.conf is unsafe, so cleanup is off.: "Небезопасное имя папки в moonraker.conf, поэтому очистка выключена."
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: 'На принтере настроен макрос прогрева (heat soak). HelixScreen обнаруживает его, но не запускает.'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: 'Нагреватель, который греет воздух внутри камеры. Температура задается на экране температуры камеры.'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Карта высот стола, по которой Klipper компенсирует неровности поверхности. Просмотр и калибровка на экране «Сетка стола».'
@@ -4133,6 +4134,7 @@ translations:
   The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service: Не удаётся считать датчик этого блока CFS. Проверьте подключение, иначе блоку требуется обслуживание
   The speed of one fan you choose: Скорость выбранного вентилятора
   The time, date, and system uptime: Время, дата и время работы системы
+  The timelapse or logs folder overlaps a protected folder, so cleanup is off.: "Папка таймлапсов или журналов пересекается с защищённой папкой, поэтому очистка выключена."
   The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?: В печатающей головке есть филамент, но ни один слот AMS не сообщает о его загрузке. Извлеките его вручную перед печатью. Всё равно начать?
   ? The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?
   : 'В печатающей головке есть филамент, но ни один слот AMS не сообщает о его загрузке. Принтер может отказаться загружать слот, пока она не будет очищена. Всё равно начать?'

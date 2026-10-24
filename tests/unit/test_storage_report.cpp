@@ -218,7 +218,7 @@ TEST_CASE("The app cleans nothing while the plugin refuses this printer's direct
           "[plugin_storage]") {
     json unavailable = kReady;
     unavailable["available"] = false;
-    unavailable["reason"] = "unsafe timelapse root: it holds the gcodes directory";
+    unavailable["reason"] = "unsafe_root: /home/pi/printer_data/gcodes";
     CHECK_FALSE(fallback_may_clean(true, parse_plugin_features(status_with(unavailable))));
     CHECK(fallback_may_clean(false, parse_plugin_features(status_with(unavailable))));
     CHECK(fallback_may_clean(true, PluginFeatureMap{}));

@@ -1027,8 +1027,8 @@ photos and staging directories are one constant each, shared across modules (`PH
 - `root_problem()`: each staging directory name must be one plain path segment and not another
   consumer's directory (`.helix_index`, `.helix_photos`, `.thumbs`); the timelapse and logs
   roots, resolved, must not be or hold the gcodes, config, data or database directory. While
-  one fails, both features report `available: false` with the reason (`unsafe staging directory
-  '<name>'`, `unsafe <root> root: it holds the <dir> directory`) and cleanup answers 409.
+  one fails, both features report `available: false` with the reason
+  (`unsafe_staging_dir: '<name>'`, `unsafe_root: '<path>'`) and cleanup answers 409.
 - `cleanup_tops()` resolves every directory a cleanup walks and requires it strictly inside its
   root; a staging directory that is a link is refused.
 - Positive name rules (`name_allowed`): timelapse removes only render outputs (`.mp4 .mkv

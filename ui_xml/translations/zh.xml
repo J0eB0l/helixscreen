@@ -147,6 +147,7 @@
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." zh="Moonraker 推流的摄像头。将摄像头小组件添加到主屏幕即可查看,打印时也能看到。"/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." zh="让腔体内空气经过滤网循环的风扇。在腔体温度界面控制。"/>
   <translation tag="A few minutes, nearly all of it heating. You judge nothing by eye." zh="需要几分钟，几乎全是加热时间。你无需用肉眼判断任何东西。"/>
+  <translation tag="A folder name in moonraker.conf is unsafe, so cleanup is off." zh="moonraker.conf 中的文件夹名称不安全，因此清理功能已关闭。"/>
   <translation tag="A heat soak macro is set up on the printer. HelixScreen detects it but does not run it." zh="打印机上已设置热浸(heat soak)宏。HelixScreen 会检测到它,但不会运行。"/>
   <translation tag="A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen." zh="为腔体内空气加热的加热器。在腔体温度界面设置温度。"/>
   <translation tag="A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen." zh="Klipper 用来补偿热床不平整的高度图。在热床网格界面查看和校准。"/>
@@ -3717,6 +3718,7 @@
   <translation tag="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service" zh="无法读取此 CFS 单元的传感器。请检查其连接，否则该单元可能需要维修"/>
   <translation tag="The speed of one fan you choose" zh="所选风扇的转速"/>
   <translation tag="The time, date, and system uptime" zh="时间、日期和系统运行时长"/>
+  <translation tag="The timelapse or logs folder overlaps a protected folder, so cleanup is off." zh="延时摄影或日志文件夹与受保护的文件夹重叠，因此清理功能已关闭。"/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?" zh="工具头内有耗材，但没有 AMS 槽位报告已装载。请在打印前手动取出耗材。仍要开始打印吗？"/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?" zh="工具头内有耗材，但没有 AMS 槽位报告已装载。在清空之前，打印机可能拒绝装载槽位。仍要开始打印吗？"/>
   <translation tag="The toolhead sensor indicates filament is already loaded. Proceed with load anyway?" zh="工具头传感器显示耗材已装载。仍要继续装载吗？"/>

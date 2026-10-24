@@ -147,6 +147,7 @@
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." it="Una telecamera trasmessa da Moonraker. Aggiungi il widget telecamera alla schermata iniziale per guardarla, anche durante una stampa."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." it="Una ventola che fa passare l&apos;aria della camera attraverso un filtro. Controllala nella schermata della temperatura camera."/>
   <translation tag="A few minutes, nearly all of it heating. You judge nothing by eye." it="Pochi minuti, quasi tutti di riscaldamento. Non giudichi nulla a occhio."/>
+  <translation tag="A folder name in moonraker.conf is unsafe, so cleanup is off." it="Un nome di cartella in moonraker.conf non è sicuro, quindi la pulizia è disattivata."/>
   <translation tag="A heat soak macro is set up on the printer. HelixScreen detects it but does not run it." it="Sulla stampante è configurata una macro di heat soak. HelixScreen la rileva ma non la esegue."/>
   <translation tag="A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen." it="Un riscaldatore che scalda l&apos;aria dentro la camera. Imposta la temperatura nella schermata della temperatura camera."/>
   <translation tag="A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen." it="Una mappa delle altezze del piano che Klipper usa per compensare una superficie irregolare. Visualizzala e calibrala nella schermata Mesh piano."/>
@@ -3717,6 +3718,7 @@
   <translation tag="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service" it="Il sensore di questa unità CFS non può essere letto. Controllare il collegamento, altrimenti l&apos;unità richiede assistenza"/>
   <translation tag="The speed of one fan you choose" it="La velocità di una ventola a scelta"/>
   <translation tag="The time, date, and system uptime" it="Ora, data e tempo di attività"/>
+  <translation tag="The timelapse or logs folder overlaps a protected folder, so cleanup is off." it="La cartella timelapse o di log sovrappone una cartella protetta, quindi la pulizia è disattivata."/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?" it="La testina contiene filamento ma nessuno slot AMS lo riporta come caricato. Estrailo manualmente prima di stampare. Avviare comunque?"/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?" it="La testina contiene filamento ma nessuno slot AMS lo riporta come caricato. La stampante potrebbe rifiutare il caricamento di uno slot finché non viene svuotata. Avviare comunque?"/>
   <translation tag="The toolhead sensor indicates filament is already loaded. Proceed with load anyway?" it="Il sensore della testina indica che il filamento è già caricato. Procedere comunque con il caricamento?"/>

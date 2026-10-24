@@ -154,6 +154,7 @@ translations:
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Una cámara que transmite Moonraker. Añade el widget de cámara a la pantalla de inicio para verla, también durante una impresión.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Un ventilador que hace pasar el aire de la cámara por un filtro. Contrólalo en la pantalla de temperatura de la cámara.'
   A few minutes, nearly all of it heating. You judge nothing by eye.: 'Unos minutos, casi todo calentando. No juzgas nada a ojo.'
+  A folder name in moonraker.conf is unsafe, so cleanup is off.: "Un nombre de carpeta en moonraker.conf no es seguro, por eso la limpieza está desactivada."
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: 'Hay una macro de heat soak configurada en la impresora. HelixScreen la detecta pero no la ejecuta.'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: 'Un calentador que caldea el aire dentro de la cámara. Ajusta su temperatura en la pantalla de temperatura de la cámara.'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Un mapa de alturas de la cama que Klipper usa para compensar una superficie irregular. Consúltalo y calíbralo en la pantalla Malla de Cama.'
@@ -4088,6 +4089,7 @@ translations:
   The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service: No se puede leer el sensor de esta unidad CFS. Compruebe su conexión o puede que la unidad necesite servicio
   The speed of one fan you choose: La velocidad de un ventilador elegido
   The time, date, and system uptime: Hora, fecha y tiempo de actividad
+  The timelapse or logs folder overlaps a protected folder, so cleanup is off.: "La carpeta de timelapse o de registros se solapa con una carpeta protegida, por eso la limpieza está desactivada."
   The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?: El cabezal tiene filamento, pero ninguna ranura del AMS informa que esté cargado. Retírelo manualmente antes de imprimir. ¿Iniciar de todos modos?
   ? The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?
   : El cabezal tiene filamento, pero ninguna ranura del AMS informa que esté cargado. La impresora puede negarse a cargar una ranura hasta que se vacíe. ¿Iniciar de todos modos?
