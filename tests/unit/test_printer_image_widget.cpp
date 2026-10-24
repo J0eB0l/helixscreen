@@ -453,6 +453,7 @@ TEST_CASE_METHOD(XMLTestFixture,
     ams.init_subjects(false);
     auto& caps = get_printer_state().capabilities_state();
     caps.set_enclosure_top_fitted(false);
+    caps.set_has_chamber_heater(false);
 
     Config* cfg = Config::get_instance();
     cfg->set<std::string>(cfg->df() + helix::wizard::PRINTER_TYPE, "Snapmaker U1");
@@ -478,6 +479,16 @@ TEST_CASE_METHOD(XMLTestFixture,
     CHECK(source().find("snapmaker-u1-tophat") != std::string::npos);
 
     caps.set_enclosure_top_fitted(false);
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    CHECK(source() == plain);
+
+    caps.set_has_chamber_heater(true);
+    helix::ui::UpdateQueue::instance().drain();
+    process_async_timers();
+    CHECK(source().find("snapmaker-u1-tophat") != std::string::npos);
+
+    caps.set_has_chamber_heater(false);
     helix::ui::UpdateQueue::instance().drain();
     process_async_timers();
     CHECK(source() == plain);

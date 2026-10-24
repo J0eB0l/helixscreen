@@ -6848,6 +6848,12 @@
             "enclosure_top": true
           },
           "image": "snapmaker-u1-tophat.png"
+        },
+        {
+          "when": {
+            "chamber_heater": true
+          },
+          "image": "snapmaker-u1-tophat.png"
         }
       ],
       "toolhead_style": "snapmaker_u1",

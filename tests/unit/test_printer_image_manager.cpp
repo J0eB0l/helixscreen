@@ -786,6 +786,7 @@ TEST_CASE_METHOD(DetectedK2Fixture,
     config->set<std::string>(config->df() + helix::wizard::PRINTER_TYPE, "Snapmaker U1");
     auto& caps = get_printer_state().capabilities_state();
     caps.set_enclosure_top_fitted(false);
+    caps.set_has_chamber_heater(false);
 
     auto& pim = PrinterImageManager::instance();
     const std::string plain = pim.get_detected_image_path(800);
@@ -796,5 +797,11 @@ TEST_CASE_METHOD(DetectedK2Fixture,
     CHECK(pim.get_detected_image_path(800).find("snapmaker-u1-tophat") != std::string::npos);
 
     caps.set_enclosure_top_fitted(false);
+    CHECK(pim.get_detected_image_path(800) == plain);
+
+    // A chamber heater alone shows the same picture.
+    caps.set_has_chamber_heater(true);
+    CHECK(pim.get_detected_image_path(800).find("snapmaker-u1-tophat") != std::string::npos);
+    caps.set_has_chamber_heater(false);
     CHECK(pim.get_detected_image_path(800) == plain);
 }
