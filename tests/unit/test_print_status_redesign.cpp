@@ -248,6 +248,17 @@ TEST_CASE_METHOD(Landscape800, "the printer tile follows a change of printer ima
     CHECK(subject_str("ps_printer_image_src") == before);
 }
 
+TEST_CASE_METHOD(Landscape800, "chips lay out again when the printer tile resizes",
+                 "[print_status]") {
+    settle();
+    const int before = tiles().layout_count();
+    lv_obj_set_height(tile_, lv_obj_get_height(tile_) - 30);
+    lv_obj_update_layout(root_);
+    UpdateQueue::instance().drain();
+    process_lvgl(50); // the chip update is coalesced onto a timer
+    CHECK(tiles().layout_count() > before);
+}
+
 TEST_CASE_METHOD(Landscape800, "speed 104 sets speed_flow tone Warn", "[print_status]") {
     set_int(state().motion_state().get_speed_factor_subject(), 100);
     settle();

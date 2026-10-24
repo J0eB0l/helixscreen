@@ -576,6 +576,7 @@ class PrintStatusPanel : public OverlayBase {
     // Direct lv_obj_add_event_cb registration is correct here: SIZE_CHANGED
     // has no XML binding equivalent (only click/value events go through XML).
     static void on_content_size_changed(lv_event_t* e);
+    static void on_printer_area_size_changed(lv_event_t* e);
     void relayout();
     void handle_more_clicked(lv_obj_t* anchor);
     void handle_more_action(int action);

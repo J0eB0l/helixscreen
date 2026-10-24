@@ -1087,6 +1087,12 @@ lv_obj_t* PrintStatusPanel::create(lv_obj_t* parent) {
     // The arrangement and the callout layout follow the content box's size.
     // DECLARATIVE_OK: SIZE_CHANGED has no XML binding equivalent.
     lv_obj_add_event_cb(overlay_content, on_content_size_changed, LV_EVENT_SIZE_CHANGED, this);
+    // The chips are placed in the printer tile's own box, which also changes
+    // when the strip grows or shrinks under a content box that does not.
+    if (lv_obj_t* area = lv_obj_find_by_name(overlay_root_, "ps_printer_area")) {
+        // DECLARATIVE_OK: SIZE_CHANGED has no XML binding equivalent.
+        lv_obj_add_event_cb(area, on_printer_area_size_changed, LV_EVENT_SIZE_CHANGED, this);
+    }
 
     // Thermal tint for the temp-card heater icons. The binder owns its own
     // observers, so this needs no hook into on_temperature_changed().
@@ -1936,6 +1942,17 @@ void PrintStatusPanel::relayout() {
 }
 
 // SIZE_CHANGED on overlay_content: the arrangement and chips follow the box.
+void PrintStatusPanel::on_printer_area_size_changed(lv_event_t* e) {
+    LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_printer_area_size_changed");
+    auto* self = static_cast<PrintStatusPanel*>(lv_event_get_user_data(e));
+    if (self) {
+        auto token = self->lifetime_.token();
+        token.defer("PrintStatusPanel::area_size_changed",
+                    [self]() { self->tiles_.request_update(); });
+    }
+    LVGL_SAFE_EVENT_CB_END();
+}
+
 void PrintStatusPanel::on_content_size_changed(lv_event_t* e) {
     LVGL_SAFE_EVENT_CB_BEGIN("[PrintStatusPanel] on_content_size_changed");
     auto* self = static_cast<PrintStatusPanel*>(lv_event_get_user_data(e));
