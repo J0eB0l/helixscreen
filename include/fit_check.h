@@ -86,10 +86,11 @@ struct FitFinding {
 [[nodiscard]] FitMachine fit_machine_from_settings(const nlohmann::json& settings);
 
 /// @p base as this screen knows the printer: its model when the printer
-/// database knows the machine, and no tool count when a filament system may
-/// add T commands the config does not show.
+/// database knows the machine, no tool count when a filament system may
+/// add T commands the config does not show, and Y shorter by @p y_shrink_mm
+/// when the filament system's hardware sits over the far edge of the bed.
 [[nodiscard]] FitMachine fit_machine_for_screen(FitMachine base, std::string model,
-                                                bool filament_system);
+                                                bool filament_system, double y_shrink_mm);
 
 /// Every way @p file does not fit @p machine, in the plugin's order: bounds by
 /// axis (min before max, the radius last), temperatures (hotend, bed), tools,

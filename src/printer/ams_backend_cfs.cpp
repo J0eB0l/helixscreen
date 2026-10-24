@@ -2512,6 +2512,10 @@ void AmsBackendCfs::apply_seated_slot_stamp_locked() {
 
 // --- State queries ---
 
+double AmsBackendCfs::printable_y_shrink_mm() const {
+    return cfs_k1_upgrade_y_shrink_mm(PrinterDetector::is_creality_k1());
+}
+
 AmsSystemInfo AmsBackendCfs::get_system_info() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return system_info_;

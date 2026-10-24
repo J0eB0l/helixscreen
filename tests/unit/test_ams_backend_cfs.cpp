@@ -8030,3 +8030,34 @@ TEST_CASE("CFS routing ignores our own unconfirmed tool-table write",
         CHECK(helper.firmware_default_routing().head(1) == 3);
     }
 }
+
+TEST_CASE("the K1-family CFS upgrade costs 5 mm of printable Y", "[ams][cfs]") {
+    CHECK(cfs_k1_upgrade_y_shrink_mm(true) == 5.0);
+    CHECK(cfs_k1_upgrade_y_shrink_mm(false) == 0.0);
+}
+
+TEST_CASE("CFS backend reports the K1-family upgrade's printable-Y shrink (#968)", "[ams][cfs]") {
+    auto* config = Config::get_instance();
+    const std::string type_path = config->df() + "type";
+    const std::string saved = config->get<std::string>(type_path, "");
+
+    SECTION("K1C printer type -> 5 mm") {
+        config->set<std::string>(type_path, "Creality K1C");
+        AmsBackendCfs backend(nullptr, nullptr);
+        CHECK(backend.printable_y_shrink_mm() == 5.0);
+    }
+
+    SECTION("K1 Max printer type -> 5 mm") {
+        config->set<std::string>(type_path, "Creality K1 Max");
+        AmsBackendCfs backend(nullptr, nullptr);
+        CHECK(backend.printable_y_shrink_mm() == 5.0);
+    }
+
+    SECTION("K2 Plus printer type -> none") {
+        config->set<std::string>(type_path, "Creality K2 Plus");
+        AmsBackendCfs backend(nullptr, nullptr);
+        CHECK(backend.printable_y_shrink_mm() == 0.0);
+    }
+
+    config->set<std::string>(type_path, saved);
+}

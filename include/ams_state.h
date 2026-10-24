@@ -411,6 +411,14 @@ class AmsState {
     [[nodiscard]] std::optional<AmsType> primary_type() const;
 
     /**
+     * @brief Bed Y the active backend's mounted hardware makes unprintable, mm
+     *
+     * Main thread only (follows get_backend()).
+     * @return 0.0 when no backend is registered
+     */
+    [[nodiscard]] double printable_y_shrink_mm() const;
+
+    /**
      * @brief Capability traits of the primary backend, by value. Safe off the main thread.
      *
      * The same guarantee as primary_type(): a copy taken under the registry lock, so
