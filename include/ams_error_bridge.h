@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "ams_paused_fault.h"
 #include "async_lifetime_guard.h"
 #include "observer_factory.h"
 #include "recovery_modal_presenter.h"
@@ -28,6 +29,11 @@ class AmsErrorBridge {
     /// on screen. Outside ERROR it is a no-op.
     void on_detail_changed(const char* detail);
 
+    /// Raises the backend's fault while the print is paused, once per fault,
+    /// whichever of the two came first (PausedFaultTrigger). Runs on every
+    /// action, pause and stop-reason change.
+    void evaluate_paused_fault();
+
     /// Runs one queue tick after the ERROR edge. Toasts only if the fault is
     /// still current and no dialog anywhere ended up describing it.
     void surface_unhandled_error();
@@ -40,6 +46,10 @@ class AmsErrorBridge {
     /// Watches ams_action_detail so a fault whose content changes while
     /// AmsAction stays ERROR re-presents instead of going stale.
     ObserverGuard detail_observer_;
+    ObserverGuard print_state_observer_;
+    /// The stop reason can land after the pause, read from gcode_store.
+    ObserverGuard stop_reason_observer_;
+    PausedFaultTrigger paused_trigger_;
     /// Expires the deferred fallback if Application drops the bridge between
     /// the ERROR edge and the tick the check runs on.
     AsyncLifetimeGuard lifetime_;

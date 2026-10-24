@@ -1853,6 +1853,17 @@ A backend fault reaches the user through one of **two independent channels**. Th
 | Presentation | `decide_presentation()` → toast / modal / `MODAL_WITH_RECOVER` | `RecoveryModalPresenter::present()` directly |
 | Returning `nullopt` | Defers to `error_classify::classify()` | Falls through to the bridge's last-resort toast (`surface_unhandled_error()`) |
 
+**A fault standing while the print is paused.** Channel B also fires off the pause:
+`PausedFaultTrigger` (`include/ams_paused_fault.h`) raises a fault once when
+`paused_fault()` has one while the print is paused, fed on every action, pause and
+`print_stop_reason` change, so it does not matter which came first or whether
+`error_state` was already set before the load that failed. `paused_fault(cause)` is
+`current_error()` told by the stop reason (the newest `!!` line near the pause), since a
+queued `AFC.message` can be an earlier fault's; AFC also takes the faulted lane from it for
+Eject. The desktop presents it through `AmsErrorBridge`; the firmware, which has no bridge,
+through `helix::ui::AmsPausedFaultDialog`, the AMS panel's loading-error dialog raised with
+the panel closed.
+
 **Per-backend gates and recovery sets:**
 
 | Backend | Channel A gate | Channel B gate | Recovery actions (`build_recovery_actions()`) |

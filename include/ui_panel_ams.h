@@ -13,11 +13,13 @@
 #include "ui_observer_guard.h"
 #include "ui_panel_base.h"
 
+#include "ams_paused_fault.h"
 #include "ams_state.h"
 #include "ams_types.h" // For SlotInfo
 #include "async_lifetime_guard.h"
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -369,3 +371,49 @@ AmsPanel* get_existing_ams_panel();
  * Call this when the panel is closed to free memory on embedded systems.
  */
 void destroy_ams_panel_ui();
+
+namespace helix::ui {
+
+/**
+ * @brief Show the filament-error dialog: @p message with AFC's position diagram
+ *        drawn as a graphic, and a dismissal that clears the backend's fault
+ *        for @p slot after running @p on_dismissed
+ *
+ * Shared by the AMS panel and AmsPausedFaultDialog.
+ */
+void show_ams_error_dialog(AmsLoadingErrorModal& modal, lv_obj_t* parent,
+                           const std::string& message, int slot, std::function<void()> on_dismissed,
+                           AmsLoadingErrorModal::RetryCallback retry);
+
+/**
+ * @brief The firmware's stand-in for AmsErrorBridge: raises the filament-error
+ *        dialog for a fault standing while the print is paused
+ *        (PausedFaultTrigger), whether or not the AMS panel is open
+ *
+ * Retry opens the AMS panel, where the load is retried. The dialog closes on
+ * its own when the fault clears or the print leaves the pause.
+ */
+class AmsPausedFaultDialog {
+  public:
+    explicit AmsPausedFaultDialog(PrinterState& printer);
+
+    [[nodiscard]] bool is_visible() const {
+        return modal_ && modal_->is_visible();
+    }
+
+  private:
+    void evaluate();
+
+    PrinterState& printer_;
+    PausedFaultTrigger trigger_;
+    std::unique_ptr<AmsLoadingErrorModal> modal_;
+    ObserverGuard action_observer_;
+    ObserverGuard print_state_observer_;
+    ObserverGuard stop_reason_observer_;
+};
+
+/// Builds the process-wide AmsPausedFaultDialog. Firmware startup only: the
+/// desktop raises these faults through AmsErrorBridge's recovery dialog.
+void init_ams_paused_fault_dialog();
+
+} // namespace helix::ui

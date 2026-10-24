@@ -46,6 +46,7 @@
 #include "ui_nav_manager.h"
 #include "ui_notification_history.h"
 #include "ui_notification_manager.h"
+#include "ui_panel_ams.h"
 #include "ui_panel_home.h"
 #include "ui_severity_card.h"
 #include "ui_status_pill.h"
@@ -1073,6 +1074,9 @@ extern "C" void app_boot_ui(void) {
     }
 
     ESP_LOGI(TAG, "helix: home panel up");
+    // The desktop's AmsErrorBridge is not in the firmware; this raises a
+    // filament fault that pauses the print, AMS panel open or not.
+    helix::ui::init_ams_paused_fault_dialog();
     log_heap_milestone("home-panel-up");
     // The .bin font loads at ~2s print into the WiFi RF-cal serial dead window
     // (CH340 drops off USB); re-log them here where serial is reliable.
