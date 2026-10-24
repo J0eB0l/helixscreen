@@ -1219,6 +1219,7 @@
   <translation tag="Extrude failed: {}" es="Error al extruir: {}"/>
   <translation tag="Extrude may still be running — response timed out" es="La extrusión puede seguir en curso — tiempo de espera agotado"/>
   <translation tag="Extrude/retract feedrate (Saved)" es="Velocidad de extrusión/retracción (Guardada)"/>
+  <translation tag="Extruded past the nozzle after each load" es="Extruido por la boquilla tras cada carga"/>
   <translation tag="Extruder" es="Extrusor"/>
   <translation tag="Extruder Cold" es="Extrusor frío"/>
   <translation tag="Extruder Load Speed" es="Velocidad de carga del extrusor"/>
@@ -1695,6 +1696,7 @@
   <translation tag="How fast the head moves while changing tools" es="Velocidad del cabezal durante el cambio de herramienta"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" es="Cuánto hay que mantener pulsado para que cuente como pulsación larga, en ms (auméntalo si el modo de edición u otras acciones se activan por accidente)"/>
   <translation tag="How many labels to print" es="Cuántas etiquetas imprimir"/>
+  <translation tag="How much a load pushes through the nozzle" es="Cuánto empuja una carga a través de la boquilla"/>
   <translation tag="How the Jog tab arranges its buttons" es="Cómo organiza sus botones la pestaña Jog"/>
   <translation tag="How the printer&apos;s axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply." es="Cómo se mueven los ejes de la impresora, según lo declara su configuración de Klipper. HelixScreen lo usa para decidir cómo funciona el homing y qué herramientas de correa y movimiento se aplican."/>
   <translation tag="How the toolhead icon appears" es="Cómo se muestra el icono del cabezal"/>

@@ -446,11 +446,11 @@ TEST_CASE("mount-to-feed: a load of several tools asks once, then works tool by 
     CHECK(stages[0].gcode.find("Insert filament into Tools 2, 4 as far as it goes") !=
           std::string::npos);
     // The stage after the reply closes the prompt, mounts the first tool, and
-    // warms the second partway while the first works.
+    // heats the second to its own temperature while the first works.
     CHECK(stages[1].step == mf::Step::Mount);
     CHECK(stages[1].gcode == mf::prompt_end_gcode() +
                                  "\nSELECT_TOOL T=1\n"
-                                 "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143");
+                                 "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220");
     CHECK(stages[2].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=210\nTEMPERATURE_WAIT "
                              "SENSOR=extruder1 MINIMUM=208");
     CHECK(stages[3].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
@@ -473,7 +473,7 @@ TEST_CASE("mount-to-feed: an unload of several tools preheats the next and resto
     REQUIRE(stages.size() == 7);
     // No prompt in the unload direction.
     CHECK(stages[0].step == mf::Step::Mount);
-    CHECK(stages[0].gcode == "SELECT_TOOL T=1\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143");
+    CHECK(stages[0].gcode == "SELECT_TOOL T=1\nSET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220");
     CHECK(stages[1].gcode == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=210\nTEMPERATURE_WAIT "
                              "SENSOR=extruder1 MINIMUM=208");
     CHECK(stages[2].gcode ==
@@ -548,10 +548,10 @@ TEST_CASE("MedusaHC loads several tools in one sequenced run, preheating the nex
     tc.ack(); // the prompt is up
     ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
     // The prompt closes on the first mount, which also preheats tool 3 (0-based
-    // head 3, 220C default material -> 143C).
+    // head 3, at its 220C default material temperature).
     CHECK(tc.sent_.back() == mf::prompt_end_gcode() +
                                  "\nSELECT_TOOL T=1\n"
-                                 "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143");
+                                 "SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220");
     tc.ack();
     CHECK(tc.sent_.back() == "SET_HEATER_TEMPERATURE HEATER=extruder1 TARGET=220\nTEMPERATURE_WAIT "
                              "SENSOR=extruder1 MINIMUM=218");
@@ -720,23 +720,94 @@ TEST_CASE("mount-to-feed: an abort before the first mount never touches the prev
 
 TEST_CASE("mount-to-feed: the next tool's preheat never lowers a hotter target",
           "[toolchanger][mount_feed][batch]") {
-    // Tool 3 idles at 200C (its user set it, or a job just used it); its
-    // preheat value would be 143C. Sending that would PULL IT DOWN.
+    // Tool 3 idles at 230C (its user set it, or a job just used it), above its
+    // 220C load temperature. Sending 220 would PULL IT DOWN.
     mf::Request r = multi_load_request();
-    r.heads[1].heater_target_c = 200;
+    r.heads[1].heater_target_c = 230;
     const auto stages = mf::plan(r);
     REQUIRE(stages.size() == 8);
     CHECK(stages[1].gcode == mf::prompt_end_gcode() + "\nSELECT_TOOL T=1");
     CHECK(stages[1].gcode.find("SET_HEATER_TEMPERATURE HEATER=extruder3") == std::string::npos);
 
-    // A cooler idle tool (50C) still warms to the preheat value, and a cold
-    // one starts from it.
-    r.heads[1].heater_target_c = 50;
-    CHECK(mf::plan(r)[1].gcode.find("SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143") !=
+    // Already at its load temperature: nothing to send either.
+    r.heads[1].heater_target_c = 220;
+    CHECK(mf::plan(r)[1].gcode.find("SET_HEATER_TEMPERATURE HEATER=extruder3") ==
           std::string::npos);
-    r.heads[1].heater_target_c = 0;
-    CHECK(mf::plan(r)[1].gcode.find("SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=143") !=
+
+    // A cooler idle tool and a cold one both go straight to the full temperature.
+    for (int idle : {200, 0}) {
+        CAPTURE(idle);
+        r.heads[1].heater_target_c = idle;
+        CHECK(mf::plan(r)[1].gcode.find("SET_HEATER_TEMPERATURE HEATER=extruder3 TARGET=220") !=
+              std::string::npos);
+    }
+}
+
+TEST_CASE("mount-to-feed: a load purges the requested length past the nozzle",
+          "[toolchanger][mount_feed][purge]") {
+    mf::Request r = load_request();
+    // The default purge: 5mm into the gears, 50mm to the nozzle, 50mm through it.
+    CHECK(mf::plan(r)[3].gcode == "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 "
+                                  "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0");
+    r.purge_mm = 80;
+    CHECK(mf::plan(r)[3].gcode.find("G1 E50 F300\nG1 E80 F300\nG1 E-10 F1800") !=
           std::string::npos);
+    // None: the strand stops at the nozzle.
+    const std::string no_purge = "M83\nG1 E5 F60\nG1 E50 F300\nG1 E-10 "
+                                 "F1800\nSET_HEATER_TEMPERATURE HEATER=extruder2 TARGET=0";
+    r.purge_mm = 0;
+    CHECK(mf::plan(r)[3].gcode == no_purge);
+    // Out of range is clamped, never extruded as asked.
+    r.purge_mm = 5000;
+    CHECK(mf::plan(r)[3].gcode.find("G1 E200 F300") != std::string::npos);
+    r.purge_mm = -20;
+    CHECK(mf::plan(r)[3].gcode == no_purge);
+
+    // An unload never purges.
+    r.load = false;
+    r.purge_mm = 80;
+    CHECK(mf::plan(r)[2].gcode.find("E80") == std::string::npos);
+}
+
+TEST_CASE("MedusaHC offers the load purge as a setting, and the next load uses it",
+          "[toolchanger][mount_feed][medusahc][purge]") {
+    AckingChanger tc(4);
+    tc.feed_status("ready", 2);
+
+    const auto sections = tc.get_device_sections();
+    CHECK(std::any_of(sections.begin(), sections.end(),
+                      [](const auto& s) { return s.id == "purge"; }));
+    const auto actions = tc.get_device_actions();
+    const auto slider = std::find_if(actions.begin(), actions.end(),
+                                     [](const auto& a) { return a.id == "purge_length"; });
+    REQUIRE(slider != actions.end());
+    CHECK(slider->max_value == static_cast<float>(mf::kMaxPurgeMm));
+
+    REQUIRE(tc.execute_device_action("purge_length", std::any(75.0f)).success());
+    REQUIRE(tc.load_filament(2).success());
+    tc.ack();
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    tc.ack(); // the heat
+    CHECK(tc.sent_.back().find("G1 E50 F300\nG1 E75 F300") != std::string::npos);
+
+    // The slider reads back what was set.
+    const auto after = tc.get_device_actions();
+    const auto reread = std::find_if(after.begin(), after.end(),
+                                     [](const auto& a) { return a.id == "purge_length"; });
+    REQUIRE(reread != after.end());
+    const auto* value = std::any_cast<float>(&reread->current_value);
+    REQUIRE(value != nullptr);
+    CHECK(*value == 75.0f);
+    REQUIRE(tc.execute_device_action("purge_length", std::any(50.0f)).success());
+}
+
+TEST_CASE("A tool changer that does not mount to feed has no purge setting",
+          "[toolchanger][purge]") {
+    ToolChangerHelper tc(4);
+    const auto sections = tc.get_device_sections();
+    CHECK(std::none_of(sections.begin(), sections.end(),
+                       [](const auto& s) { return s.id == "purge"; }));
+    CHECK_FALSE(tc.execute_device_action("purge_length", std::any(75.0f)).success());
 }
 
 TEST_CASE("MedusaHC unwinds a live run when the connection is lost or restored",

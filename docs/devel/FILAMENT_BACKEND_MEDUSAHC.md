@@ -232,10 +232,10 @@ grace through `handle_swap_check_elapsed()` the same way.
 sidebar's picker accepts several heads on this backend. A Load of several asks **once**, up
 front, exactly as a Load of one does ("Insert filament into the hot ends of Tools 1, 2, 4
 while they are docked, as far as it goes, then tap Continue"), then works tool by tool
-(Mount, Heat, Purge): each tool's opening stage preheats the **next** one to 65% of its
-material temperature (`SET_HEATER_TEMPERATURE HEATER=extruder<n>`, the Klipper multi-extruder
-naming - `extruder` for tool 0), so its own heat stage starts from heat. A preheat never LOWERS
-a target: a next tool already set hotter than the preheat value is left alone
+(Mount, Heat, Purge): each tool's opening stage heats the **next** one to its full material
+temperature (`SET_HEATER_TEMPERATURE HEATER=extruder<n>`, the Klipper multi-extruder
+naming - `extruder` for tool 0), so its own heat stage has nothing left to wait for. A preheat
+never LOWERS a target: a next tool already set at least that hot is left alone
 (`HeadRequest::heater_target_c`, read off the live extruder targets at dispatch). An Unload of several
 runs the same sequence with no prompt. At the end the carriage is restored to the tool the
 run found on it (or parked). A stop mid-sequence - cancel, timeout, failed stage - turns
