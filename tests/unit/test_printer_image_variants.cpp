@@ -23,6 +23,7 @@ namespace {
 const HardwareFacts kNoHardware{};
 const HardwareFacts kCfs{{AmsType::CFS}};
 const HardwareFacts kTopFitted{{}, true};
+const HardwareFacts kChamberHeater{{}, false, true};
 
 json entry_with(json variants) {
     return json{{"image", "plain.png"}, {"image_variants", std::move(variants)}};
@@ -137,4 +138,37 @@ TEST_CASE("variant_matches: an enclosure_top value that is not a boolean never m
     CHECK_FALSE(variant_matches({{"enclosure_top", "true"}}, kTopFitted));
     CHECK_FALSE(variant_matches({{"enclosure_top", nullptr}}, kNoHardware));
     CHECK_FALSE(variant_matches({{"enclosure_top", 0}}, kNoHardware));
+}
+
+TEST_CASE("select_image: a chamber_heater variant follows the heater", "[printer_image_variants]") {
+    const json entry =
+        entry_with({{{"when", {{"chamber_heater", true}}}, {"image", "with-heater.png"}}});
+    CHECK(select_image(entry, kChamberHeater) == "with-heater.png");
+    CHECK(select_image(entry, kNoHardware) == "plain.png");
+    CHECK(select_image(entry, kTopFitted) == "plain.png");
+    CHECK(variant_matches({{"chamber_heater", false}}, kNoHardware));
+    CHECK_FALSE(variant_matches({{"chamber_heater", false}}, kChamberHeater));
+}
+
+TEST_CASE("variant_matches: a chamber_heater value that is not a boolean never matches",
+          "[printer_image_variants]") {
+    CHECK(is_known_variant_condition("chamber_heater"));
+    CHECK(is_valid_variant_condition_value("chamber_heater", true));
+    CHECK(is_valid_variant_condition_value("chamber_heater", false));
+    CHECK_FALSE(is_valid_variant_condition_value("chamber_heater", 1));
+    CHECK_FALSE(is_valid_variant_condition_value("chamber_heater", "true"));
+    CHECK_FALSE(variant_matches({{"chamber_heater", 1}}, kChamberHeater));
+    CHECK_FALSE(variant_matches({{"chamber_heater", nullptr}}, kNoHardware));
+}
+
+TEST_CASE("select_image: two variants naming one image show it when either fact holds",
+          "[printer_image_variants]") {
+    const json entry = entry_with({
+        {{"when", {{"enclosure_top", true}}}, {"image", "with-top.png"}},
+        {{"when", {{"chamber_heater", true}}}, {"image", "with-top.png"}},
+    });
+    CHECK(select_image(entry, kTopFitted) == "with-top.png");
+    CHECK(select_image(entry, kChamberHeater) == "with-top.png");
+    CHECK(select_image(entry, HardwareFacts{{}, true, true}) == "with-top.png");
+    CHECK(select_image(entry, kNoHardware) == "plain.png");
 }

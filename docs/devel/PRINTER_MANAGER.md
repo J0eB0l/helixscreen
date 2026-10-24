@@ -378,14 +378,15 @@ only in the database.
 |---|---|---|
 | `filament_system` | a registered backend of this kind (any of them, not only the active one) has at least one unit that is `connected` and not `absent`. A backend registered from the firmware object alone, before a unit reports in, does not count | an `AmsType` spelling `ams_type_from_string()` parses that `is_filament_system()` accepts: `cfs`, `afc`, `happy_hare`, `ace`, `ad5x_ifs`, `snapmaker`, `qidi_box`, `openams`. `tool_changer` is not a filament system and never matches |
 | `enclosure_top` | the firmware's report of a removable enclosure top (`include/enclosure_top.h`, read into the `printer_enclosure_top_fitted` capability subject) equals the value. A printer that reports none, or has not reported yet, reads `false` | a JSON boolean |
+| `chamber_heater` | whether the printer has a chamber heater, detected or manually assigned (the `printer_has_chamber_heater` capability subject), equals the value | a JSON boolean |
 
 A condition key or value the build does not know makes its variant never match, so the
 entry degrades to its plain image; the `[printer_database][schema]` test fails on one, and
 `scripts/check_printer_images.py` fails on a variant image that is not on disk. A new
 condition is a new `HardwareFacts` field, a branch in `condition_holds()`, and its
 gathering in `PrinterImageManager` (`src/system/printer_image_manager.cpp#detected_hardware_facts`). The home widget re-resolves when AmsState's
-backend count, type or data revision changes, or the enclosure-top subject does, so a filament system whose units report in after connect switches the
-image live, and one whose units drop back to disconnected switches it back; a top fitted or lifted off does the same. Each variant image needs its own `regions.json` entry for the callout chips.
+backend count, type or data revision changes, or the enclosure-top or chamber-heater subject does, so a filament system whose units report in after connect switches the
+image live, and one whose units drop back to disconnected switches it back; a top fitted or lifted off, or a heater assigned by hand, does the same. Conditions in one `when` all have to hold; to show one image when either of two facts holds, list two variants naming the same image. Each variant image needs its own `regions.json` entry for the callout chips.
 
 ---
 

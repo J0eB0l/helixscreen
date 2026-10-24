@@ -1097,9 +1097,10 @@ PrinterDetector::get_image_for_printer(const std::string& printer_name,
                                        const helix::printer_images::HardwareFacts& facts) {
     const json* printer = find_printer_entry(printer_name);
     std::string image = printer ? helix::printer_images::select_image(*printer, facts) : "";
-    spdlog::debug("[PrinterDetector] image for '{}' ({} filament system(s), enclosure top {}): "
-                  "'{}'",
-                  printer_name, facts.filament_systems.size(), facts.enclosure_top, image);
+    spdlog::debug("[PrinterDetector] image for '{}' ({} filament system(s), enclosure top {}, "
+                  "chamber heater {}): '{}'",
+                  printer_name, facts.filament_systems.size(), facts.enclosure_top,
+                  facts.has_chamber_heater, image);
     return image;
 }
 

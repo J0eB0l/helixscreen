@@ -269,12 +269,16 @@ void PrinterImageWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
             [](PrinterImageWidget* w, int /*value*/) { w->refresh_if_detected_image_changed(); },
             ams.get_subjects_lifetime()));
     }
-    // A removable enclosure top can be fitted or lifted off while connected.
+    // A removable enclosure top can be fitted or lifted off while connected, and
+    // a chamber heater can be assigned by hand after discovery.
     auto& caps = get_printer_state().capabilities_state();
-    hardware_observers_.push_back(helix::ui::observe<int>(
-        caps.subject(helix::Capability::EnclosureTopFitted), this,
-        [](PrinterImageWidget* w, int /*value*/) { w->refresh_if_detected_image_changed(); },
-        caps.get_subjects_lifetime()));
+    for (helix::Capability cap :
+         {helix::Capability::EnclosureTopFitted, helix::Capability::HasChamberHeater}) {
+        hardware_observers_.push_back(helix::ui::observe<int>(
+            caps.subject(cap), this,
+            [](PrinterImageWidget* w, int /*value*/) { w->refresh_if_detected_image_changed(); },
+            caps.get_subjects_lifetime()));
+    }
 
     // A recycled instance's mode is the last tree's; hide the layer until the
     // timer has positioned this tree's chips.

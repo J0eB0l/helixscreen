@@ -188,7 +188,9 @@ printer_images::HardwareFacts detected_hardware_facts() {
             facts.filament_systems.push_back(backend->get_type());
         }
     }
-    facts.enclosure_top = get_printer_state().capabilities_state().enclosure_top_fitted();
+    const auto& caps = get_printer_state().capabilities_state();
+    facts.enclosure_top = caps.enclosure_top_fitted();
+    facts.has_chamber_heater = caps.has_chamber_heater();
     return facts;
 }
 

@@ -235,6 +235,11 @@ class PrinterCapabilitiesState {
     /** @brief Override chamber heater capability after manual assignment resolution */
     void set_has_chamber_heater(bool available);
 
+    /// Whether the printer has a chamber heater, detected or manually assigned.
+    [[nodiscard]] bool has_chamber_heater() const {
+        return capability_value(Capability::HasChamberHeater) != 0;
+    }
+
     /** @brief Set chamber-heater diagnostics capability (backend diagnostics object resolved) */
     void set_has_chamber_heater_diagnostics(bool available);
 
