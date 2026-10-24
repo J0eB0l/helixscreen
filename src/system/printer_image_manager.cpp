@@ -5,6 +5,7 @@
 
 #include "ams_backend.h"
 #include "ams_state.h"
+#include "app_globals.h"
 #include "config.h"
 #include "data_root_resolver.h"
 #include "helix_fs.h"
@@ -13,6 +14,7 @@
 #include "printer_image_regions.h"
 #include "printer_image_variants.h"
 #include "printer_images.h"
+#include "printer_state.h"
 #include "settings_manager.h"
 #include "static_subject_registry.h"
 #include "text_io.h"
@@ -166,7 +168,8 @@ void PrinterImageManager::notify_image_changed() {
 
 namespace {
 
-/// The hardware AmsState has detected, as the facts image variants are chosen by.
+/// The hardware AmsState and PrinterState have detected, as the facts image
+/// variants are chosen by.
 printer_images::HardwareFacts detected_hardware_facts() {
     printer_images::HardwareFacts facts;
     AmsState& ams = AmsState::instance();
@@ -185,6 +188,7 @@ printer_images::HardwareFacts detected_hardware_facts() {
             facts.filament_systems.push_back(backend->get_type());
         }
     }
+    facts.enclosure_top = get_printer_state().capabilities_state().enclosure_top_fitted();
     return facts;
 }
 

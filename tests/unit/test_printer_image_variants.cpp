@@ -22,6 +22,7 @@ namespace {
 
 const HardwareFacts kNoHardware{};
 const HardwareFacts kCfs{{AmsType::CFS}};
+const HardwareFacts kTopFitted{{}, true};
 
 json entry_with(json variants) {
     return json{{"image", "plain.png"}, {"image_variants", std::move(variants)}};
@@ -102,4 +103,38 @@ TEST_CASE("variant condition vocabulary", "[printer_image_variants]") {
     CHECK_FALSE(is_valid_variant_condition_value("filament_system", "none"));
     CHECK_FALSE(is_valid_variant_condition_value("filament_system", 6));
     CHECK_FALSE(is_valid_variant_condition_value("enclosure", true));
+    CHECK(is_known_variant_condition("enclosure_top"));
+    CHECK(is_valid_variant_condition_value("enclosure_top", true));
+    CHECK(is_valid_variant_condition_value("enclosure_top", false));
+    CHECK_FALSE(is_valid_variant_condition_value("enclosure_top", 1));
+    CHECK_FALSE(is_valid_variant_condition_value("enclosure_top", "true"));
+}
+
+TEST_CASE("select_image: an enclosure_top variant follows the fitted top",
+          "[printer_image_variants]") {
+    const json entry =
+        entry_with({{{"when", {{"enclosure_top", true}}}, {"image", "with-top.png"}}});
+    CHECK(select_image(entry, kTopFitted) == "with-top.png");
+    CHECK(select_image(entry, kNoHardware) == "plain.png");
+
+    // false names the bare printer, which includes one that reports no top at all.
+    CHECK(variant_matches({{"enclosure_top", false}}, kNoHardware));
+    CHECK_FALSE(variant_matches({{"enclosure_top", false}}, kTopFitted));
+}
+
+TEST_CASE("variant_matches: enclosure_top combines with the other conditions",
+          "[printer_image_variants]") {
+    const HardwareFacts cfs_and_top{{AmsType::CFS}, true};
+    const json both{{"filament_system", "cfs"}, {"enclosure_top", true}};
+    CHECK(variant_matches(both, cfs_and_top));
+    CHECK_FALSE(variant_matches(both, kCfs));
+    CHECK_FALSE(variant_matches(both, kTopFitted));
+}
+
+TEST_CASE("variant_matches: an enclosure_top value that is not a boolean never matches",
+          "[printer_image_variants]") {
+    CHECK_FALSE(variant_matches({{"enclosure_top", 1}}, kTopFitted));
+    CHECK_FALSE(variant_matches({{"enclosure_top", "true"}}, kTopFitted));
+    CHECK_FALSE(variant_matches({{"enclosure_top", nullptr}}, kNoHardware));
+    CHECK_FALSE(variant_matches({{"enclosure_top", 0}}, kNoHardware));
 }

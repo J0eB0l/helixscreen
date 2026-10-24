@@ -12,6 +12,7 @@ namespace helix::printer_images {
 namespace {
 
 constexpr std::string_view kFilamentSystem = "filament_system";
+constexpr std::string_view kEnclosureTop = "enclosure_top";
 
 /// The AmsType a `filament_system` value names, NONE when it names none.
 AmsType parse_filament_system(const nlohmann::json& value) {
@@ -32,18 +33,24 @@ bool condition_holds(std::string_view key, const nlohmann::json& value,
         return std::find(facts.filament_systems.begin(), facts.filament_systems.end(), wanted) !=
                facts.filament_systems.end();
     }
+    if (key == kEnclosureTop) {
+        return value.is_boolean() && value.get<bool>() == facts.enclosure_top;
+    }
     return false;
 }
 
 } // namespace
 
 bool is_known_variant_condition(std::string_view key) {
-    return key == kFilamentSystem;
+    return key == kFilamentSystem || key == kEnclosureTop;
 }
 
 bool is_valid_variant_condition_value(std::string_view key, const nlohmann::json& value) {
     if (key == kFilamentSystem) {
         return parse_filament_system(value) != AmsType::NONE;
+    }
+    if (key == kEnclosureTop) {
+        return value.is_boolean();
     }
     return false;
 }

@@ -18,10 +18,12 @@ chosen by detected hardware (a K2 with a CFS on top shows `creality-k2-cfs.png`,
 hand-maintained list drifts from the database silently.
 
 A variant replaces the plain `image` when every condition in its `when` holds; the first
-matching variant wins, and none matching leaves the plain image. The one condition today is
+matching variant wins, and none matching leaves the plain image. Two conditions exist:
 `filament_system`, which holds when a filament system of that kind (`cfs`, `afc`, ...) has
 at least one unit connected, so a backend that has registered but heard from no unit yet
-does not count. The home widget switches images live as units report in or drop out. A
+does not count; and `enclosure_top` (`true`/`false`), which follows the firmware's report
+of a removable top (a Snapmaker U1 with its top module fitted). The home widget switches
+images live as units report in or drop out and as a top is fitted or removed. A
 user's own pick in the image picker always wins over both.
 
 ```bash
