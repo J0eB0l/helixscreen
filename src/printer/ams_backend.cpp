@@ -795,8 +795,7 @@ static std::unique_ptr<AmsBackend> try_create_mock(IMoonrakerClient* mock_client
     // the point is to exercise the production AmsBackendToolChanger +
     // toolchanger_addon path against them. Declining here is what lets real
     // discovery run, the same escape hatch HELIX_MOCK_AMS=none uses.
-    if (mode == "medusahc" || mode == "medusa" || mode == "mhc" || mode == "medusahc-fork" ||
-        mode == "medusa-fork") {
+    if (helix::mock::medusa_variant(mode) != helix::mock::MedusaVariant::NONE) {
         spdlog::info("[AMS Backend] HELIX_MOCK_AMS={} selects mock hardware, not a mock "
                      "backend - deferring to real discovery",
                      mode);

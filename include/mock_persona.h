@@ -218,6 +218,29 @@ inline constexpr std::array<PersonaEntry, 15> kPersonas = {{
     return {};
 }
 
+/// Which MedusaHC shipping configuration a mock AMS mode emulates. Every
+/// MedusaHC mode is mock HARDWARE: the CLI's --real-ams implication, AmsBackend's
+/// mock selection and MoonrakerClientMock all classify the mode through this.
+enum class MedusaVariant {
+    NONE,          ///< Not a MedusaHC mode
+    CONTROLLER,    ///< Irbis3D controller with klipper-toolchanger (sync_toolchanger: 1)
+    CONTROLLER_TN, ///< Irbis3D controller alone: T<n> macros -> SET -> MHC_SET, DROP_TOOL parks
+    FORK,          ///< topi314/MedusaHC: [medusahc] alone, forked status schema
+};
+
+[[nodiscard]] inline MedusaVariant medusa_variant(std::string_view mode) {
+    if (mode == "medusahc" || mode == "medusa" || mode == "mhc") {
+        return MedusaVariant::CONTROLLER;
+    }
+    if (mode == "medusahc-tn" || mode == "medusa-tn") {
+        return MedusaVariant::CONTROLLER_TN;
+    }
+    if (mode == "medusahc-fork" || mode == "medusa-fork") {
+        return MedusaVariant::FORK;
+    }
+    return MedusaVariant::NONE;
+}
+
 /// True when a HELIX_MOCK_PRINTER value names a mock HARDWARE persona: the
 /// persona publishes the Klipper objects and status a real machine runs, and a
 /// production backend is meant to drive them rather than a mock backend. The

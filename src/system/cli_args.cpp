@@ -742,8 +742,7 @@ bool parse_cli_args(int argc, char** argv, CliArgs& args, int& screen_width, int
         const char* printer_env = std::getenv("HELIX_MOCK_PRINTER");
         const std::string mode =
             helix::mock::effective_mock_ams(std::getenv("HELIX_MOCK_AMS"), printer_env);
-        if (mode == "medusahc" || mode == "medusa" || mode == "mhc" || mode == "medusahc-fork" ||
-            mode == "medusa-fork") {
+        if (helix::mock::medusa_variant(mode) != helix::mock::MedusaVariant::NONE) {
             config.use_real_ams = true;
             spdlog::info("[CLI] HELIX_MOCK_AMS={} implies --real-ams (mock hardware, real "
                          "tool-changer backend)",

@@ -84,7 +84,7 @@ them** - there is no macros-only deployment, so `[medusahc]` is always present.
 
 | | Source | Objects | Status schema | Feeder macros |
 |---|---|---|---|---|
-| **(a) Irbis3D Python controller** | [Irbis3D/MedusaHC-Python-Controller](https://github.com/Irbis3D/MedusaHC-Python-Controller) `klippy/extras/medusahc.py` | `[pin_watch io]`, `[toolchanger]`, `[tool T0..3]`, `[medusahc]` | `operation`, `current_tool`, `target_tool`, `last_error`, `feeder_open`, `layer`, `sensor_error`, `tool_count`, `sensors` | `MHC_OPEN` / `MHC_CLOSE`, plus the `OPEN` / `CLOSE` aliases HelixScreen sends |
+| **(a) Irbis3D Python controller** | [Irbis3D/MedusaHC-Python-Controller](https://github.com/Irbis3D/MedusaHC-Python-Controller) `klippy/extras/medusahc.py` | `[pin_watch io]`, `[medusahc]`; `[toolchanger]` + `[tool Tn]` only when klipper-toolchanger is installed (`sync_toolchanger: 1`), otherwise `T<n>` macros run `SET T=<n>` | `operation`, `current_tool`, `target_tool`, `last_error`, `feeder_open`, `layer`, `sensor_error`, `tool_count`, `sensors` | `MHC_OPEN` / `MHC_CLOSE` (native commands, absent from `printer.objects.list`), plus the `OPEN` / `CLOSE` macros HelixScreen sends |
 | **(b) topi314's fork** | [topi314/MedusaHC](https://github.com/topi314/MedusaHC) `scripts/medusahc.py` | `[medusahc]` **alone** - drops both `[pin_watch]` and `[toolchanger]` | `state`, `current_tool`, `target_tool`, `tool_count`, `feeder_open`, `error` (bool), `layer`, `head_loaded`, flat `toolN_docked`, plus calibration fields | `OPEN` / `CLOSE` |
 
 Object presence cannot separate the two - both register `[medusahc]` - so
@@ -99,7 +99,7 @@ and are not. Read from the two sources, not inferred:
 
 | | key | values |
 |---|---|---|
-| (a) Irbis3D | `operation` | `idle`, `dropping`, `picking` |
+| (a) Irbis3D | `operation` | `idle`, `changing` (MHC_SET homing before it reads the docks), `dropping`, `picking` |
 | (b) topi314 | `state` | `uninitialized`, `ready`, `changing`, `error` |
 
 Only `operation` names the swap **direction**. `state` is the same coarse resolution as

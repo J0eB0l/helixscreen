@@ -168,9 +168,24 @@ MoonrakerClientMock::MoonrakerClientMock(PrinterType type, double speedup_factor
         set_config_settings_section("gcode_macro product_param", {{"variable_bed_size_x", "350"},
                                                                   {"variable_bed_size_y", "350"}});
     }
-    // The MedusaHC dock sensors disagree from the first frame: the changer
-    // fault every head but the mounted one is drawn under.
-    medusa_sensor_error_.store(helix::env_flag("HELIX_MOCK_MEDUSA_SENSOR_ERROR"));
+    // A pick of T0 failed before the screen connected: the hot end is on the
+    // carriage while its dock switch still reads seated, so pin_watch cannot
+    // tell what is mounted, and the controller holds the failure latched.
+    if (const char* fail = std::getenv("HELIX_MOCK_MEDUSA_SWAP_FAIL"); fail && *fail) {
+        medusa_swap_fail_tool_ = helix::text_io::parse_leading<int>(fail).value_or(-1);
+    }
+    if (const char* redock = std::getenv("HELIX_MOCK_MEDUSA_REDOCK_S"); redock && *redock) {
+        // One notification is ~1s of simulated time.
+        medusa_redock_notifications_ = helix::text_io::parse_leading<int>(redock).value_or(-1);
+    }
+    if (helix::env_flag("HELIX_MOCK_MEDUSA_SENSOR_ERROR")) {
+        medusa_.stuck_dock = 0;
+        medusa_.target_tool = 0;
+        medusa_.feeder_open = true;
+        medusa_.op_failed = true;
+        medusa_.last_error = "MHC_SET: sensors did not confirm T0";
+        medusa_.redock_ticks = medusa_redock_notifications_;
+    }
     dragonbreath_fault_ = helix::env_flag("HELIX_MOCK_DRAGONBREATH_FAULT");
     dragonbreath_offline_ = helix::env_flag("HELIX_MOCK_DRAGONBREATH_OFFLINE");
     dragonbreath_external_ = helix::env_flag("HELIX_MOCK_DRAGONBREATH_EXTERNAL");
@@ -1456,17 +1471,22 @@ void MoonrakerClientMock::populate_capabilities() {
     // runtime and not only in the unit tests.
     // See docs/devel/FILAMENT_BACKEND_MEDUSAHC.md § "Two shipping configurations".
     if (const MedusaVariant variant = mock_medusa_variant(); variant != MedusaVariant::NONE) {
-        // The fork drops both halves of the Irbis3D signature; [medusahc] alone
-        // is the only thing left to detect on.
+        // Irbis3D's controller reads the docks through [pin_watch io]; the fork
+        // absorbed them into [medusahc] itself.
         if (variant != MedusaVariant::FORK) {
             mock_objects.push_back("pin_watch io");
+        }
+        if (variant == MedusaVariant::CONTROLLER) {
+            // klipper-toolchanger runs alongside (pin_watch sync_toolchanger: 1)
+            // and registers T<n> itself.
             mock_objects.push_back("toolchanger");
             for (int i = 0; i < 4; ++i) {
                 mock_objects.push_back("tool T" + std::to_string(i));
             }
         } else {
             // No [tool N] objects: the tools are named from the extruder heaters
-            // (one hot end per extruder), and T<n> drives the swap.
+            // (one hot end per extruder), and T<n> drives the swap. On Irbis3D's
+            // controller each T<n> macro runs SET T=<n>, which runs MHC_SET.
             for (int i = 0; i < 4; ++i) {
                 mock_objects.push_back("gcode_macro T" + std::to_string(i));
             }
@@ -1478,17 +1498,20 @@ void MoonrakerClientMock::populate_capabilities() {
         // in PrinterDiscovery (which must NOT claim it) has something to not
         // claim.
         mock_objects.push_back("medusahc_calibrate");
-        // Feeder macros. The Irbis3D controller registers the native MHC_*
-        // commands and ships legacy OPEN/CLOSE aliases forwarding to them, so
-        // both are present there and detection should prefer MHC_OPEN.
-        if (variant == MedusaVariant::CONTROLLER) {
-            mock_objects.push_back("gcode_macro MHC_OPEN");
-            mock_objects.push_back("gcode_macro MHC_CLOSE");
+        // The Irbis3D controller registers MHC_* as native commands, which
+        // printer.objects.list never shows; its MHC_macros.cfg wraps them in
+        // these macros.
+        if (variant != MedusaVariant::FORK) {
+            mock_objects.push_back("gcode_macro SET");
+            mock_objects.push_back("gcode_macro _DROP");
+            mock_objects.push_back("gcode_macro DROP_TOOL");
         }
         mock_objects.push_back("gcode_macro OPEN");
         mock_objects.push_back("gcode_macro CLOSE");
         spdlog::info("[MoonrakerClientMock] MedusaHC mock: variant={}",
-                     variant == MedusaVariant::CONTROLLER ? "controller" : "fork");
+                     variant == MedusaVariant::CONTROLLER      ? "controller"
+                     : variant == MedusaVariant::CONTROLLER_TN ? "controller-tn"
+                                                               : "fork");
     }
 
     // multiACE mock hardware (HELIX_MOCK_AMS=multiace): the U1's own feed
@@ -1786,14 +1809,7 @@ bool MoonrakerClientMock::is_mock_toolchanger() const {
 }
 
 MoonrakerClientMock::MedusaVariant MoonrakerClientMock::mock_medusa_variant() {
-    const std::string ams_type = effective_mock_ams_env();
-    if (ams_type == "medusahc-fork" || ams_type == "medusa-fork") {
-        return MedusaVariant::FORK;
-    }
-    if (ams_type == "medusahc" || ams_type == "medusa" || ams_type == "mhc") {
-        return MedusaVariant::CONTROLLER;
-    }
-    return MedusaVariant::NONE;
+    return helix::mock::medusa_variant(effective_mock_ams_env());
 }
 
 bool MoonrakerClientMock::is_mock_medusahc() const {
@@ -2661,44 +2677,92 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_zmod(const std::stri
     return std::nullopt;
 }
 
+namespace {
+constexpr int kMedusaToolCount = 4;
+// Out of the machine entirely - not on the head and not in its dock: the
+// ejected lane the ghost rendering and the EMPTY slot status need. Fork only:
+// on Irbis3D's controller a vacant dock beside a mounted tool is exactly what
+// pin_watch reads as -2, so no definite carriage could ever coexist with it.
+constexpr int kMedusaForkEjectedTool = 3;
+
+// Notifications a single swap phase lasts. One notification is
+// kNotificationIntervalTicks * kSimulationIntervalMs = ~1s, so a full
+// drop-then-pick swap runs ~7s: slow enough to watch the step bar move,
+// fast enough not to be a wait.
+constexpr int kMedusaPhaseNotifications = 3;
+// The homing and Z hop MHC_SET runs before it reads the docks.
+constexpr int kMedusaChangingNotifications = 1;
+
+/// pin_watch.py's _compute_current_tool(): -1 when the toolhead switch is
+/// released and every dock is seated, the one vacant dock's index when the
+/// toolhead switch is pressed, and -2 for anything else.
+int pin_watch_current_tool(bool head, const std::array<bool, kMedusaToolCount>& docks) {
+    int seated = 0;
+    int vacant = -1;
+    for (int i = 0; i < kMedusaToolCount; ++i) {
+        if (docks[static_cast<size_t>(i)]) {
+            ++seated;
+        } else {
+            vacant = i;
+        }
+    }
+    if (!head && seated == kMedusaToolCount) {
+        return -1;
+    }
+    if (head && seated == kMedusaToolCount - 1) {
+        return vacant;
+    }
+    return -2;
+}
+} // namespace
+
+int MoonrakerClientMock::medusa_pin_tool_locked() const {
+    std::array<bool, kMedusaToolCount> docks{};
+    for (int i = 0; i < kMedusaToolCount; ++i) {
+        docks[static_cast<size_t>(i)] = i != medusa_.carriage_tool || i == medusa_.stuck_dock;
+    }
+    return pin_watch_current_tool(medusa_.carriage_tool >= 0, docks);
+}
+
 nlohmann::json MoonrakerClientMock::medusa_status_json() const {
     const MedusaVariant variant = mock_medusa_variant();
     if (variant == MedusaVariant::NONE) {
         return nlohmann::json::object();
     }
 
-    constexpr int kToolCount = 4;
-    // Out of the machine entirely - not on the head and not in its dock. The
-    // ejected lane the ghost rendering and the EMPTY slot status need, and the
-    // state a user produces by lifting a hot end off the rack.
-    constexpr int kEjectedTool = 3;
-    const int current = medusa_current_tool_.load();
-    const int target = medusa_target_tool_.load();
-    const bool sensor_error = medusa_sensor_error_.load();
-    const int phase = medusa_phase_.load();
-    const char* operation = (phase == 1) ? "dropping" : (phase == 2) ? "picking" : "idle";
-
-    // -2 is how both schemas encode "the docks cannot tell", and it is a
-    // distinct answer from -1 "nothing on the head".
-    const int reported_tool = sensor_error ? -2 : current;
-
+    std::lock_guard<std::mutex> lock(medusa_mutex_);
+    const MedusaSim& m = medusa_;
     nlohmann::json obj;
-    obj["current_tool"] = reported_tool;
-    obj["tool_count"] = kToolCount;
+    obj["tool_count"] = kMedusaToolCount;
+    obj["target_tool"] = m.target_tool;
+    obj["feeder_open"] = m.feeder_open;
+    obj["layer"] = 0;
 
-    if (variant == MedusaVariant::CONTROLLER) {
-        obj["operation"] = operation;
-        obj["target_tool"] = target;
-        obj["last_error"] = "";
-        obj["feeder_open"] = medusa_feeder_open_.load();
-        obj["layer"] = 0;
-        obj["sensor_error"] = sensor_error;
-        // "e" is the toolhead, "t<n>" each dock: a tool is seated in its dock
-        // exactly when it is not the one on the head.
+    if (variant != MedusaVariant::FORK) {
+        // Irbis3D medusahc.py get_status(). current_tool is pin_watch's, live
+        // from the pins; sensor_error is the operation latch, a separate signal.
+        switch (m.phase) {
+        case MedusaPhase::Changing:
+            obj["operation"] = "changing";
+            break;
+        case MedusaPhase::Dropping:
+            obj["operation"] = "dropping";
+            break;
+        case MedusaPhase::Picking:
+            obj["operation"] = "picking";
+            break;
+        case MedusaPhase::Idle:
+            obj["operation"] = "idle";
+            break;
+        }
+        obj["current_tool"] = medusa_pin_tool_locked();
+        obj["last_error"] = m.last_error;
+        obj["sensor_error"] = m.op_failed;
+        // pin_watch's raw pins: "e" the toolhead, "t<n>" each dock.
         nlohmann::json sensors;
-        sensors["e"] = (current >= 0) ? 1 : 0;
-        for (int i = 0; i < kToolCount; ++i) {
-            sensors["t" + std::to_string(i)] = (i == current || i == kEjectedTool) ? 0 : 1;
+        sensors["e"] = (m.carriage_tool >= 0) ? 1 : 0;
+        for (int i = 0; i < kMedusaToolCount; ++i) {
+            sensors["t" + std::to_string(i)] = (i != m.carriage_tool || i == m.stuck_dock) ? 1 : 0;
         }
         obj["sensors"] = sensors;
     } else {
@@ -2708,88 +2772,154 @@ nlohmann::json MoonrakerClientMock::medusa_status_json() const {
         // with uninitialized / ready / changing / error - there is no picking or
         // dropping - so a swap here is one undifferentiated "changing", the same
         // resolution klipper-toolchanger's own status gives.
-        obj["state"] = (phase == 0) ? "ready" : "changing";
+        obj["state"] = (m.phase == MedusaPhase::Idle) ? "ready" : "changing";
+        // -2 is how both schemas encode "the docks cannot tell".
+        obj["current_tool"] = m.stuck_dock >= 0 ? -2 : m.carriage_tool;
         // A bool here, where upstream sends a `last_error` message string.
-        obj["error"] = false;
-        // Published by BOTH controllers (medusahc.py:370), so the gripper phases
-        // are drivable on this machine too.
-        obj["feeder_open"] = medusa_feeder_open_.load();
-        obj["target_tool"] = target;
-        obj["layer"] = 0;
-        obj["head_loaded"] = (current >= 0);
-        for (int i = 0; i < kToolCount; ++i) {
-            obj["tool" + std::to_string(i) + "_docked"] = (i != current && i != kEjectedTool);
+        obj["error"] = m.op_failed;
+        obj["head_loaded"] = (m.carriage_tool >= 0);
+        for (int i = 0; i < kMedusaToolCount; ++i) {
+            const bool seated = i != m.carriage_tool || i == m.stuck_dock;
+            obj["tool" + std::to_string(i) + "_docked"] = seated && i != kMedusaForkEjectedTool;
         }
     }
     return obj;
 }
 
-// Notifications a single swap phase lasts. One notification is
-// kNotificationIntervalTicks * kSimulationIntervalMs = ~1s, so a full
-// drop-then-pick swap runs ~6s: slow enough to watch the step bar move,
-// fast enough not to be a wait.
-static constexpr int kMedusaPhaseNotifications = 3;
-
-void MoonrakerClientMock::start_medusa_swap(int tool) {
-    const int current = medusa_current_tool_.load();
-    medusa_target_tool_.store(tool);
-    // Releasing the filament is the first thing a swap does: on a hotend changer
-    // the frame-side gripper is the only thing holding it, and the hot end
-    // cannot leave with the strand still clamped.
-    medusa_feeder_open_.store(true);
-    // Nothing on the head means there is nothing to drop; go straight to picking.
-    const bool needs_drop = (current >= 0);
-    const int next_phase = needs_drop ? 1 : (tool >= 0 ? 2 : 0);
-    // Ticks BEFORE the phase: the simulation thread polls medusa_phase_ to decide
-    // whether to advance, so publishing the phase first lets it observe the new
-    // phase with the previous count of 0, complete the phase on its very first
-    // tick and leave the counter at -1.
-    medusa_phase_ticks_.store(next_phase == 0 ? 0 : kMedusaPhaseNotifications);
-    medusa_phase_.store(next_phase);
-    if (next_phase == 0) {
-        // Unmount requested with an empty head: a no-op on real firmware too.
-        medusa_feeder_open_.store(false);
-        medusa_target_tool_.store(-1);
+void MoonrakerClientMock::start_medusa_swap(int tool, bool close_after) {
+    std::lock_guard<std::mutex> lock(medusa_mutex_);
+    MedusaSim& m = medusa_;
+    // The controller's _begin(): a new operation clears the last one's latch.
+    m.op_failed = false;
+    m.last_error.clear();
+    m.redock_ticks = -1;
+    m.pick_tool = tool;
+    m.close_after_drop = close_after;
+    if (tool >= 0) {
+        // MHC_SET homes and hops Z as "changing" before it reads the docks.
+        m.target_tool = tool;
+        m.phase = MedusaPhase::Changing;
+        m.phase_ticks = kMedusaChangingNotifications;
+    } else {
+        // MHC_DROP targets the tool it parks, and an empty head has none.
+        const int reading = medusa_pin_tool_locked();
+        m.target_tool = reading;
+        if (reading == -1) {
+            if (close_after) {
+                m.feeder_open = false;
+            }
+            spdlog::info("[MoonrakerClientMock] MedusaHC unmount: nothing installed");
+            return;
+        }
+        // The gripper releases at the dock, once the docks have named the tool.
+        m.feeder_open = m.feeder_open || reading >= 0;
+        m.phase = MedusaPhase::Dropping;
+        m.phase_ticks = kMedusaPhaseNotifications;
     }
-    spdlog::info("[MoonrakerClientMock] MedusaHC swap armed: {} -> {} (phase={})", current, tool,
-                 next_phase);
+    spdlog::info("[MoonrakerClientMock] MedusaHC {} armed: carriage T{} -> T{}",
+                 tool >= 0 ? "swap" : "unmount", m.carriage_tool, tool);
+}
+
+void MoonrakerClientMock::medusa_fail_locked(std::string message) {
+    spdlog::info("[MoonrakerClientMock] MedusaHC operation failed: {}", message);
+    medusa_.op_failed = true;
+    medusa_.last_error = std::move(message);
+    medusa_.phase = MedusaPhase::Idle;
+    medusa_.phase_ticks = 0;
+    medusa_.redock_ticks = medusa_redock_notifications_;
+}
+
+void MoonrakerClientMock::medusa_place_tools_by_hand(int tool) {
+    std::lock_guard<std::mutex> lock(medusa_mutex_);
+    medusa_.carriage_tool = tool;
+    medusa_.stuck_dock = -1;
+    medusa_.redock_ticks = -1;
+    spdlog::info("[MoonrakerClientMock] MedusaHC tools placed by hand: carriage T{}", tool);
 }
 
 void MoonrakerClientMock::advance_medusa_swap() {
-    const int phase = medusa_phase_.load();
-    if (phase == 0) {
-        return;
-    }
-    if (medusa_phase_ticks_.fetch_sub(1) > 1) {
-        return; // still inside this phase
-    }
-
-    if (phase == 1) {
-        // Drop complete: the head is empty and the old tool is back in its dock.
-        medusa_current_tool_.store(-1);
-        const int target = medusa_target_tool_.load();
-        if (target < 0) {
-            // UNSELECT_TOOL / DROP_TOOL: unmount only, re-grip the filament.
-            medusa_phase_.store(0);
-            medusa_phase_ticks_.store(0);
-            medusa_feeder_open_.store(false);
-            spdlog::info("[MoonrakerClientMock] MedusaHC unmount complete");
+    bool failed = false;
+    {
+        std::lock_guard<std::mutex> lock(medusa_mutex_);
+        MedusaSim& m = medusa_;
+        if (m.phase == MedusaPhase::Idle) {
+            if (m.redock_ticks > 0 && --m.redock_ticks == 0) {
+                // The user lifts the hot end off the carriage into its dock.
+                m.carriage_tool = -1;
+                m.stuck_dock = -1;
+                m.redock_ticks = -1;
+                spdlog::info("[MoonrakerClientMock] MedusaHC re-docked by hand");
+            }
             return;
         }
-        medusa_phase_.store(2);
-        medusa_phase_ticks_.store(kMedusaPhaseNotifications);
-        spdlog::debug("[MoonrakerClientMock] MedusaHC drop complete, picking T{}", target);
-        return;
-    }
+        if (--m.phase_ticks > 0) {
+            return; // still inside this phase
+        }
 
-    // Pick complete: the new hot end is on the head, so the gripper closes again.
-    const int target = medusa_target_tool_.load();
-    medusa_current_tool_.store(target);
-    medusa_target_tool_.store(-1);
-    medusa_phase_.store(0);
-    medusa_phase_ticks_.store(0);
-    medusa_feeder_open_.store(false);
-    spdlog::info("[MoonrakerClientMock] MedusaHC swap complete: T{} on head", target);
+        // What the controller reads from the docks once the phase's motion ends.
+        const int reading = medusa_pin_tool_locked();
+        switch (m.phase) {
+        case MedusaPhase::Changing:
+            if (reading == -2) {
+                medusa_fail_locked("MHC_SET: ambiguous sensor state");
+                failed = true;
+            } else if (reading == m.pick_tool) {
+                m.phase = MedusaPhase::Idle;
+                spdlog::info("[MoonrakerClientMock] MedusaHC T{} already installed", reading);
+            } else {
+                // The gripper releases at the dock, before the latch moves.
+                m.feeder_open = true;
+                m.phase = reading >= 0 ? MedusaPhase::Dropping : MedusaPhase::Picking;
+                m.phase_ticks = kMedusaPhaseNotifications;
+            }
+            break;
+        case MedusaPhase::Dropping:
+            if (reading == -2) {
+                medusa_fail_locked("MHC_DROP: ambiguous sensor state");
+                failed = true;
+                break;
+            }
+            m.feeder_open = true;
+            m.carriage_tool = -1;
+            if (m.pick_tool >= 0) {
+                m.phase = MedusaPhase::Picking;
+                m.phase_ticks = kMedusaPhaseNotifications;
+                spdlog::debug("[MoonrakerClientMock] MedusaHC drop complete, picking T{}",
+                              m.pick_tool);
+                break;
+            }
+            // MHC_DROP leaves the gripper open; DROP_TOOL closes it after.
+            m.feeder_open = !m.close_after_drop;
+            m.phase = MedusaPhase::Idle;
+            spdlog::info("[MoonrakerClientMock] MedusaHC unmount complete");
+            break;
+        case MedusaPhase::Picking:
+            m.carriage_tool = m.pick_tool;
+            if (m.pick_tool == medusa_swap_fail_tool_) {
+                // The hot end is on the carriage but its dock switch still reads
+                // seated, so the sensors never confirm it; _fail() leaves the
+                // gripper open.
+                m.stuck_dock = m.pick_tool;
+                medusa_fail_locked(
+                    fmt::format("MHC_SET: sensors did not confirm T{}", m.pick_tool));
+                failed = true;
+                break;
+            }
+            m.feeder_open = false;
+            m.phase = MedusaPhase::Idle;
+            spdlog::info("[MoonrakerClientMock] MedusaHC swap complete: T{} on head", m.pick_tool);
+            break;
+        case MedusaPhase::Idle:
+            break;
+        }
+    }
+    // MHC_ERROR pauses a running print.
+    if (failed) {
+        const MockPrintPhase phase = print_phase_.load();
+        if (phase == MockPrintPhase::PRINTING || phase == MockPrintPhase::PREHEAT) {
+            pause_print_internal();
+        }
+    }
 }
 
 nlohmann::json MoonrakerClientMock::u1_feed_side_json(int ext) const {
@@ -3093,8 +3223,8 @@ nlohmann::json MoonrakerClientMock::pin_watch_status_json() const {
     if (variant == MedusaVariant::NONE || variant == MedusaVariant::FORK) {
         return nlohmann::json::object();
     }
-    const int current = medusa_current_tool_.load();
-    return nlohmann::json{{"current_tool", medusa_sensor_error_.load() ? -2 : current}};
+    std::lock_guard<std::mutex> lock(medusa_mutex_);
+    return nlohmann::json{{"current_tool", medusa_pin_tool_locked()}};
 }
 
 void MoonrakerClientMock::read_multiace_knobs() {

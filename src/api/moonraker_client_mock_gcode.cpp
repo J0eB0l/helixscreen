@@ -94,29 +94,48 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_medusa(const std::st
         }
     };
 
-    if (cmd == "OPEN" || cmd == "MHC_OPEN") {
-        medusa_feeder_open_.store(true);
-        spdlog::info("[MoonrakerClientMock] MedusaHC feeder opened ({})", cmd);
+    if (cmd == "OPEN" || cmd == "MHC_OPEN" || cmd == "CLOSE" || cmd == "MHC_CLOSE") {
+        const bool open = cmd.find("OPEN") != std::string::npos;
+        {
+            std::lock_guard<std::mutex> lock(medusa_mutex_);
+            medusa_.feeder_open = open;
+        }
+        spdlog::info("[MoonrakerClientMock] MedusaHC feeder {} ({})", open ? "opened" : "closed",
+                     cmd);
         return 0;
     }
-    if (cmd == "CLOSE" || cmd == "MHC_CLOSE") {
-        medusa_feeder_open_.store(false);
-        spdlog::info("[MoonrakerClientMock] MedusaHC feeder closed ({})", cmd);
+    // The Irbis3D controller's own swap and its SET macro, which validate T.
+    if (cmd == "MHC_SET" || cmd == "SET") {
+        const int tool = tool_param();
+        if (tool < 0 || tool > 3) {
+            std::lock_guard<std::mutex> lock(gcode_error_mutex_);
+            last_gcode_error_ =
+                "Tool T" + std::to_string(tool) + " is outside configured range T0..T3";
+            return 1;
+        }
+        start_medusa_swap(tool);
         return 0;
     }
     if (cmd == "SELECT_TOOL") {
-        start_medusa_swap(tool_param());
+        if (const int tool = tool_param(); tool >= 0) {
+            start_medusa_swap(tool);
+        }
+        return 0;
+    }
+    // MHC_DROP parks and leaves the gripper open; DROP_TOOL is MHC_DROP then
+    // MHC_CLOSE.
+    if (cmd == "MHC_DROP" || cmd == "_DROP") {
+        start_medusa_swap(-1, /*close_after=*/false);
         return 0;
     }
     if (cmd == "UNSELECT_TOOL" || cmd == "DROP_TOOL") {
         start_medusa_swap(-1);
         return 0;
     }
-    // Bare T<n>: what the fork registers when it runs the swap itself.
-    if (cmd.size() >= 2 && cmd[0] == 'T' &&
-        std::all_of(cmd.begin() + 1, cmd.end(),
-                    [](unsigned char c) { return std::isdigit(c) != 0; })) {
-        start_medusa_swap(std::stoi(cmd.substr(1)));
+    // Bare T<n>: the fork's own command, a T<n> macro running SET T=<n> on the
+    // controller alone, or klipper-toolchanger's T<n> beside it.
+    if (cmd.size() == 2 && cmd[0] == 'T' && cmd[1] >= '0' && cmd[1] <= '3') {
+        start_medusa_swap(cmd[1] - '0');
         return 0;
     }
     return std::nullopt;

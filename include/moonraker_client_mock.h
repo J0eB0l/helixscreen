@@ -1507,28 +1507,35 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /**
      * @brief Which MedusaHC shipping configuration the mock emulates.
      *
-     * MedusaHC is a hotend changer bolted onto klipper-toolchanger. The Python
-     * extra that publishes [medusahc] lives outside the hardware repo and has
-     * two independent implementations whose objects and status schemas differ
-     * (see docs/devel/FILAMENT_BACKEND_MEDUSAHC.md). Emulating only one would
-     * leave toolchanger_addon's schema discrimination unexercised outside the
-     * unit tests, so the mock can produce either.
+     * The Python extra that publishes [medusahc] lives outside the hardware repo
+     * and has two independent implementations whose objects and status schemas
+     * differ, and Irbis3D's runs with or without klipper-toolchanger (see
+     * docs/devel/FILAMENT_BACKEND_MEDUSAHC.md). Each variant emits the object set
+     * its configuration has, so toolchanger_addon's detection and schema
+     * discrimination run outside the unit tests too.
      */
-    enum class MedusaVariant {
-        NONE,       ///< Not a MedusaHC mock
-        CONTROLLER, ///< Irbis3D MedusaHC-Python-Controller: MHC_* + legacy aliases
-        FORK,       ///< topi314/MedusaHC: [medusahc] alone, forked status schema
-    };
+    using MedusaVariant = helix::mock::MedusaVariant;
 
     /**
      * @brief MedusaHC variant selected by HELIX_MOCK_AMS, or NONE.
      *
-     * "medusahc"/"medusa"/"mhc" select CONTROLLER (the Irbis3D implementation);
-     * "medusahc-fork" selects topi314's. Unlike is_mock_toolchanger(), these values do NOT
-     * build an AmsBackendMock: try_create_mock() declines them so real discovery
-     * runs and the production AmsBackendToolChanger drives the mock objects.
+     * "medusahc"/"medusa"/"mhc" select CONTROLLER, "medusahc-tn" CONTROLLER_TN and
+     * "medusahc-fork" FORK (helix::mock::medusa_variant). Unlike
+     * is_mock_toolchanger(), these values do NOT build an AmsBackendMock:
+     * try_create_mock() declines them so real discovery runs and the production
+     * AmsBackendToolChanger drives the mock objects.
      */
     static MedusaVariant mock_medusa_variant();
+
+    /**
+     * @brief Someone puts the hot ends back by hand: @p tool seated on the
+     * carriage (-1 for none) and every other one in its dock.
+     *
+     * The dock switches then agree, so pin_watch's current_tool is definite
+     * again. The controller's sensor_error latch is NOT touched: only its next
+     * operation clears it.
+     */
+    void medusa_place_tools_by_hand(int tool);
 
     /// Convenience: mock_medusa_variant() != MedusaVariant::NONE.
     bool is_mock_medusahc() const;
@@ -2408,17 +2415,34 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     bool mmu_enabled_{true}; ///< MMU available (default true for existing tests)
 
     // --- MedusaHC swap simulation -------------------------------------------
-    // Driven from gcode_script() (SELECT_TOOL / UNSELECT_TOOL / the feeder
-    // macros) and advanced by temperature_simulation_loop(), so a swap moves
-    // through its phases on the wire the way the real controller reports them
-    // instead of snapping to the final state. Atomics: written on the main
-    // thread from gcode_script(), read and advanced on the simulation thread.
-    std::atomic<int> medusa_current_tool_{0};      ///< Tool physically on the head, -1 none
-    std::atomic<int> medusa_target_tool_{-1};      ///< Tool the running swap is fetching, -1 none
-    std::atomic<int> medusa_phase_{0};             ///< 0 idle, 1 dropping, 2 picking
-    std::atomic<int> medusa_phase_ticks_{0};       ///< Sim ticks left in the current phase
-    std::atomic<bool> medusa_feeder_open_{false};  ///< Servo gripper released
-    std::atomic<bool> medusa_sensor_error_{false}; ///< Docks cannot say what is mounted
+    // Driven from gcode_script() (the swap, unmount and feeder commands) and
+    // advanced by temperature_simulation_loop(), so an operation moves through
+    // the phases the real controller reports instead of snapping to its end.
+    // Written from the caller's thread and the simulation thread, read by the
+    // RPC handlers on any thread: every field sits behind medusa_mutex_.
+    enum class MedusaPhase { Idle, Changing, Dropping, Picking };
+    struct MedusaSim {
+        int carriage_tool = 0; ///< Hot end physically on the carriage, -1 none
+        /// A dock whose switch reads seated though its hot end is not in it,
+        /// -1 none. pin_watch then cannot tell which tool is mounted (-2).
+        int stuck_dock = -1;
+        /// [medusahc].target_tool: the last operation's tool, kept after it ends.
+        int target_tool = -1;
+        int pick_tool = -1;            ///< What the running operation picks up, -1 none
+        bool close_after_drop = false; ///< DROP_TOOL / UNSELECT_TOOL re-grip after parking
+        MedusaPhase phase = MedusaPhase::Idle;
+        int phase_ticks = 0; ///< Notifications left in the current phase
+        bool feeder_open = false;
+        /// [medusahc].sensor_error and last_error: set when an operation fails,
+        /// cleared only when the next one begins.
+        bool op_failed = false;
+        std::string last_error;
+        int redock_ticks = -1; ///< Notifications until the simulated hand re-dock, -1 none
+    };
+    mutable std::mutex medusa_mutex_;
+    MedusaSim medusa_;
+    int medusa_swap_fail_tool_ = -1;       ///< HELIX_MOCK_MEDUSA_SWAP_FAIL, set in the ctor
+    int medusa_redock_notifications_ = -1; ///< HELIX_MOCK_MEDUSA_REDOCK_S, set in the ctor
 
     // --- Z-Mod (Creator 5 Pro) mock hardware ----------------------------------
     // Same shape as the MedusaHC block above: gcode_script() writes on the
@@ -2432,9 +2456,16 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     std::array<std::pair<std::string, std::string>, 4> zmod_slots_{
         {{"PLA", "FFFFFF"}, {"PETG", "0ACC38"}, {"ABS", "161616"}, {"PLA", "F72224"}}};
 
-    /// Arm a swap to `tool` (-1 unmounts whatever is on the head). Opens the
-    /// feeder and enters the drop phase; advance_medusa_swap() does the rest.
-    void start_medusa_swap(int tool);
+    /// Begin a swap to `tool` (MHC_SET), or with -1 park whatever is on the head
+    /// (MHC_DROP; @p close_after re-grips the filament afterwards, as DROP_TOOL
+    /// does). Clears the failure latch, as the controller's _begin() does;
+    /// advance_medusa_swap() does the rest.
+    void start_medusa_swap(int tool, bool close_after = true);
+    /// pin_watch's current_tool for the simulated pins. Caller holds medusa_mutex_.
+    [[nodiscard]] int medusa_pin_tool_locked() const;
+    /// The controller's _fail(): latch the error and end the operation. Caller
+    /// holds medusa_mutex_, and pauses a running print once it has let go.
+    void medusa_fail_locked(std::string message);
 
     // --- Bondtech INDX mock hardware (moonraker_client_mock_indx.cpp) ----------
     // The macro state Bondtech's upstream macros publish (save_variables and

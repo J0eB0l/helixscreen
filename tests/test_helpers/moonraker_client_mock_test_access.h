@@ -40,6 +40,11 @@ class MoonrakerClientMockTestAccess {
         return c.ifs_module_head_loaded_.load();
     }
 
+    // One notification interval of the MedusaHC swap simulation.
+    static void advance_medusa(MoonrakerClientMock& c) {
+        c.advance_medusa_swap();
+    }
+
     // Simulation-loop iterations begun so far. Once it reads n + 1, iteration
     // n has pushed its status frame.
     static uint32_t tick_count(const MoonrakerClientMock& c) {

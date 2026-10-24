@@ -634,7 +634,7 @@ Select the mock AMS topology/type.
 
 | Property | Value |
 |----------|-------|
-| **Values** | `none`, `afc`, `toolchanger` / `tc`, `mixed`, `multi`, `torture`, `stealth`, `vivid`, `ifs`, `htlf`, `snapmaker`, `medusahc` / `medusahc-fork`, `ifs-module`, `cfs`, `openams`, `multiace` |
+| **Values** | `none`, `afc`, `toolchanger` / `tc`, `mixed`, `multi`, `torture`, `stealth`, `vivid`, `ifs`, `htlf`, `snapmaker`, `medusahc` / `medusahc-tn` / `medusahc-fork`, `ifs-module`, `cfs`, `openams`, `multiace` |
 | **Default** | The persona's own (`helix::mock::effective_mock_ams`): `toolchanger` on `creator5`, `ifs` on `ad5x`, `cfs` on `k2`, `snapmaker` on `snapmaker_u1`; Happy Hare, LINEAR, 4 slots on every other persona |
 | **File** | `src/printer/ams_backend.cpp` |
 
@@ -653,6 +653,7 @@ Select the mock AMS topology/type.
 | `htlf_toolchanger` | 2 | AFC HTLF + Toolchanger: 4 HTLF lanes (2 direct, 2 hub→shared extruder) + 3 standalone toolheads. Tests MIXED topology. Aliases: `htlf_tc`, `htlf` |
 | `snapmaker` | 1 | Snapmaker U1, 4 slots, PARALLEL, non-editable mapping. Aliases: `snapswap`, `u1` |
 | `medusahc` | 1 | **MedusaHC hotend changer - mock HARDWARE, real backend.** Irbis3D controller. Aliases: `medusa`, `mhc`. See below |
+| `medusahc-tn` | 1 | MedusaHC on the Irbis3D controller without klipper-toolchanger. Alias: `medusa-tn` |
 | `medusahc-fork` | 1 | MedusaHC as driven by topi314's fork. Alias: `medusa-fork` |
 | `ifs-module` | 1 | **Standalone AD5X IFS module - mock HARDWARE, real backend.** The Forge-X drop-in's `ifs`/`ifs_materials` objects + stock-named sensors. Aliases: `ifs_module`, `ad5x-module`. See below |
 | `cfs` | 1 | **Creality CFS, K1 stock dialect - mock HARDWARE, real backend.** The stock `box` status object plus the calibration command surface. Alias: `cfs-k1`. See below |
@@ -762,25 +763,51 @@ They imply `--real-ams` (`cli_args.cpp`), so no second flag is needed:
 HELIX_MOCK_AMS=medusahc ./build/bin/helix-screen --test -vv
 ```
 
-The two values map to the two shipping configurations in
+The three values map to the shipping configurations in
 [FILAMENT_BACKEND_MEDUSAHC.md](FILAMENT_BACKEND_MEDUSAHC.md), so the schema discrimination
 in `read_medusahc()` is exercised at runtime and not only in the unit tests:
 
 | Value | Objects | Phase key | Feeder | Step bar |
 |-------|---------|-----------|--------|----------|
-| `medusahc` | `pin_watch io` + `toolchanger` + `tool T0..3` + `medusahc`, `MHC_*` and legacy aliases | `operation`: idle/dropping/picking | `feeder_open` | 4 steps |
+| `medusahc` | `pin_watch io` + `toolchanger` + `tool T0..3` + `medusahc`, the `SET`/`DROP_TOOL`/`OPEN`/`CLOSE` macros | `operation`: idle/changing/dropping/picking | `feeder_open` | 4 steps |
+| `medusahc-tn` | `pin_watch io` + `medusahc` + `gcode_macro T0..3`, no `toolchanger`: the swap is `T<n>`, the park `DROP_TOOL` | as `medusahc` | `feeder_open` | 4 steps |
 | `medusahc-fork` | `medusahc` alone, forked `state`/`error`/`toolN_docked` schema | `state`: ready/changing | `feeder_open` | 3 steps |
 
-A swap advances through its phases on the simulation thread over ~6s, so they arrive as
-separate status frames rather than collapsing into one update. `SELECT_TOOL`,
-`UNSELECT_TOOL`, `DROP_TOOL`, bare `T<n>` and the feeder macros are all handled.
+A swap advances through its phases on the simulation thread over ~7s, so they arrive as
+separate status frames rather than collapsing into one update. `MHC_SET`/`SET`,
+`SELECT_TOOL`, bare `T<n>`, `MHC_DROP`/`_DROP` (parks and leaves the gripper open),
+`DROP_TOOL`/`UNSELECT_TOOL` (parks and re-grips) and the feeder commands are all handled.
+
+The controller variants simulate the dock pins and derive `current_tool` from them the
+way Irbis3D's pin_watch extra does: -1 when the toolhead switch is released and every dock seated, a
+tool when the toolhead switch is pressed and exactly that dock is vacant, -2 for anything
+else. `sensor_error` and `last_error` are a separate signal, the controller's latch: an
+operation that fails sets them, and only the next operation clears them, so a hot end put
+back by hand makes `current_tool` definite again while `sensor_error` stays `true`.
 
 The default `mmu` object is suppressed in these modes - it would detect Happy Hare and
 stand a second AMS backend up alongside the changer.
 
-`HELIX_MOCK_MEDUSA_SENSOR_ERROR=1` latches the dock-sensor fault into every MedusaHC frame
-(`current_tool: -2`, and `sensor_error: true` in the controller schema), so the backend
-raises the changer fault the tool switcher draws on every head but the mounted one.
+`HELIX_MOCK_MEDUSA_SENSOR_ERROR=1` starts as if a pick of T0 failed before the screen
+connected: T0 is on the carriage with its dock switch still reading seated, so
+`current_tool` is -2 (`error: true` in the fork), and the controller holds `sensor_error:
+true` with `last_error` set, so the backend raises the changer fault. A swap retried in
+that state fails at once with `MHC_SET: ambiguous sensor state`, as the controller does.
+
+`HELIX_MOCK_MEDUSA_SWAP_FAIL=<n>` makes every pick of tool `n` fail the controller's sensor
+check: the hot end ends on the carriage with its dock switch still pressed, `current_tool`
+-2, `sensor_error: true`, `last_error: "MHC_SET: sensors did not confirm T<n>"`, the gripper
+left open, and a running print paused, as `MHC_ERROR` does.
+`HELIX_MOCK_MEDUSA_REDOCK_S=<s>` then has the simulated user lift that hot end back into its
+dock `s` seconds after a failure (either of the two above): `current_tool` reads -1 and
+`sensor_error` stays latched, the sequence a real user produces.
+`tests/unit/test_toolchanger_medusahc.cpp` (`[medusahc][mock]`) pins all three.
+
+```bash
+# Swap to T2 fails, then the hot end is docked by hand 5s later
+HELIX_MOCK_AMS=medusahc HELIX_MOCK_MEDUSA_SWAP_FAIL=2 HELIX_MOCK_MEDUSA_REDOCK_S=5 \
+    ./build/bin/helix-screen --test -vv
+```
 
 #### `ifs-module` - mock hardware, real backend
 
