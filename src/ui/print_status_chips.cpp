@@ -4,6 +4,7 @@
 
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "panel_widgets/callout_chip.h"
+#include "tune_controller.h"
 
 #include <algorithm>
 
@@ -116,6 +117,12 @@ ChipContent speed_flow_chip(int speed_pct, int flow_pct, const std::string& spee
         c.expendable = true;
     }
     return c;
+}
+
+ChipContent speed_flow_budget_chip(bool physical_units, float filament_diameter_mm) {
+    const auto t =
+        tune::status_speed_flow_text(physical_units, 100, 100, 999, 4150, filament_diameter_mm);
+    return speed_flow_chip(100, 100, t.speed, t.flow);
 }
 
 ChipContent light_chip(bool controllable, bool on) {

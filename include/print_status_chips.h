@@ -62,6 +62,11 @@ enum class FanRole { Part = 0, Hotend = 1, Aux = 2 };
                                           const std::string& speed_text,
                                           const std::string& flow_text);
 
+/// The speed/flow chip the layout measures: representative readings in the
+/// unit the chip shows, 100% each or (`physical_units`) a three-digit
+/// toolhead speed and a two-digit volumetric flow.
+[[nodiscard]] ChipContent speed_flow_budget_chip(bool physical_units, float filament_diameter_mm);
+
 /// The light chip: Active when on, expendable when off.
 [[nodiscard]] ChipContent light_chip(bool controllable, bool on);
 

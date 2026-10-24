@@ -139,3 +139,13 @@ TEST_CASE("a heater chip prints its reading as every heater display does", "[pri
     CHECK_FALSE(heater(450, 0).shown);
     CHECK(heater(600, 0).shown);
 }
+
+TEST_CASE("the speed/flow budget is measured in the unit the chip shows", "[print_status_chips]") {
+    const auto pct = speed_flow_budget_chip(false, 1.75f);
+    CHECK(pct.lead_text == "100%");
+    CHECK(pct.text == "100%");
+    const auto phys = speed_flow_budget_chip(true, 1.75f);
+    CHECK(phys.lead_text.find("mm/s") != std::string::npos);
+    CHECK(phys.text.find("mm") != std::string::npos);
+    CHECK(phys.lead_text.size() > pct.lead_text.size());
+}

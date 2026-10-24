@@ -8,6 +8,7 @@
 #include "ui_timer_guard.h"
 
 #include "app_globals.h"
+#include "display_settings_manager.h"
 #include "format_utils.h"
 #include "led/led_controller.h"
 #include "light_button_config.h"
@@ -505,7 +506,10 @@ void PrintStatusTiles::update_now() {
         if (!in_budget(chip)) {
             budget_w[i] = 0;
         } else if (chip == PrintStatusChip::SpeedFlow) {
-            budget_w[i] = width_of(i, speed_flow_chip(100, 100, "100%", "100%"));
+            budget_w[i] =
+                width_of(i, speed_flow_budget_chip(
+                                DisplaySettingsManager::instance().get_speed_flow_physical_units(),
+                                printer_state_.get_discovery().filament_diameter_mm()));
         } else {
             budget_w[i] = m.chip_w(icons[i], worst(chip, true));
         }
