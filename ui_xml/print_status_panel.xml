@@ -21,7 +21,7 @@
   <!-- Print Status Panel: job tile, printer tile and strip (components/print_status_body.xml). -->
   <view name="print_status_panel"
         extends="lv_obj" width="#overlay_width_transient" height="100%" align="right_mid" style_bg_opa="255"
-        style_bg_color="#card_bg" style_pad_all="0" style_border_width="0" flex_flow="column" clickable="true">
+        style_bg_color="#screen_bg" style_pad_all="0" style_border_width="0" flex_flow="column" clickable="true">
     <!-- The Files action button opens print select mid-print so files can be
          browsed and managed (prestonbrown/helixscreen#1395). The E-stop lives
          on the navbar. -->
