@@ -794,22 +794,13 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
     if (in.tagged) {
         if (try_line_modes(in, out))
             return out;
-        // Labels go first: the same chips, narrower.
+        // A chip with a line keeps its label: two unlabeled fan chips read the
+        // same. Expendable chips go instead, before the image gives up its
+        // lines, the most expendable first, one more at a time.
         const auto has_label = [](const CalloutChipIn& c) { return c.w_unlabeled > 0; };
         const bool can_unlabel = std::any_of(in.budget.begin(), in.budget.end(), has_label) ||
                                  std::any_of(in.active.begin(), in.active.end(), has_label);
-        CalloutLayoutInput bare = in;
-        for (auto* v : {&bare.budget, &bare.active})
-            for (auto& c : *v)
-                if (has_label(c))
-                    c.w = c.w_unlabeled;
-        if (can_unlabel && try_line_modes(bare, out)) {
-            out.unlabeled = true;
-            return out;
-        }
-        const CalloutLayoutInput& base = can_unlabel ? bare : in;
-        // Expendable chips go before the image gives up its lines, the most
-        // expendable first, one more at a time.
+        const CalloutLayoutInput& base = in;
         std::vector<CalloutKind> by_rank;
         for (const auto& c : base.budget)
             if (c.expendable)
@@ -828,13 +819,15 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
                 for (const auto& c : in.active)
                     if (gone(c))
                         out.dropped.push_back(c.kind);
-                out.unlabeled = can_unlabel;
                 return out;
             }
         }
-        // Pinned chips sit on their parts, so they carry no labels either.
+        // Pinned chips sit on their parts, so their place names them: no labels.
         out.unlabeled = can_unlabel;
         chips = base.active;
+        for (auto& c : chips)
+            if (has_label(c))
+                c.w = c.w_unlabeled;
         const auto has = [&](CalloutKind k) {
             return std::any_of(chips.begin(), chips.end(),
                                [k](const CalloutChipIn& c) { return c.kind == k; });
