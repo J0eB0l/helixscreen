@@ -238,7 +238,7 @@ TEST_CASE_METHOD(XMLTestFixture, "context menu: a column with no visible action 
 
     // The survivor is the only group left, so its heading is redundant with the card
     // header directly above it — the external-spool menu read "External Spool" and
-    // then "Spool" one line down.
+    // then "Spool Info" one line down.
     lv_obj_t* heading = lv_obj_find_by_name(col_spool, "col_heading");
     REQUIRE(heading != nullptr);
     CHECK(lv_obj_has_flag(heading, LV_OBJ_FLAG_HIDDEN));

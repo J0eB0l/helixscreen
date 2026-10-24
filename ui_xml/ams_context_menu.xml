@@ -35,7 +35,7 @@
                with no sibling group to tell it apart from, the heading just repeats
                what the card header already said. -->
           <!-- DUPLICATE_NAME_OK: ContextMenu searches per column, lv_obj_find_by_name(col, ...) — the base class iterates arbitrary columns and cannot know per-column names -->
-          <context_menu_column_heading name="col_heading" text="Filament"/>
+          <context_menu_column_heading name="col_heading" text="Actions"/>
           <!-- Bypass toggle (external spool only; hidden for lanes). Text is set
                from C++ because it names the action, not the state. -->
           <ui_button name="btn_bypass_toggle"
@@ -126,7 +126,7 @@
                 style_flex_main_place="start" scrollable="false">
           <!-- Group heading — see col_filament's. -->
           <!-- DUPLICATE_NAME_OK: ContextMenu searches per column, lv_obj_find_by_name(col, ...) — the base class iterates arbitrary columns and cannot know per-column names -->
-          <context_menu_column_heading name="col_heading" text="Spool"/>
+          <context_menu_column_heading name="col_heading" text="Spool Info"/>
           <!-- Select Spool Button (Spoolman quick-assign, hidden by default) -->
           <ui_button name="btn_spoolman"
                      height="#button_height_sm" icon="spoolman" text="Select Spool" variant="ghost" clickable="true"
