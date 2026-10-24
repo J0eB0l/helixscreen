@@ -86,6 +86,25 @@
                                    feature="plr" label="Power-loss recovery" icon="power_plug"
                                    description="Saves the print position about once a second so a print can resume after a power cut. On an SD card this adds wear."
                                    subject="plr_saving_enabled" callback="on_power_loss_recovery_changed"/>
+        <!-- RESUME MESH CARRY-OVER: the plugin's plr feature, at the version that
+             carries server.helix.plr.mesh_include. Which row shows follows the
+             plr_mesh_include subject: 0 the include is missing, 1 it is there;
+             -1 (not asked yet, or the ask failed) shows neither. -->
+        <lv_obj name="container_plr_mesh_include" width="100%" style_pad_all="0" scrollable="false">
+          <bind_flag_if_eq subject="plr_feature_state" flag="hidden" ref_value="0"/>
+          <setting_action_row name="row_plr_mesh_include_add"
+                              label="Resume reloads the saved bed mesh" icon="grid_view"
+                              description="Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with"
+                              value="Not added" callback="on_plr_mesh_include_add_clicked">
+            <bind_flag_if_not_eq subject="plr_mesh_include" flag="hidden" ref_value="0"/>
+          </setting_action_row>
+          <setting_action_row name="row_plr_mesh_include_remove"
+                              label="Resume reloads the saved bed mesh" icon="grid_view"
+                              description="Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile"
+                              value="Added" callback="on_plr_mesh_include_remove_clicked">
+            <bind_flag_if_not_eq subject="plr_mesh_include" flag="hidden" ref_value="1"/>
+          </setting_action_row>
+        </lv_obj>
         <!-- START OPTIONS FOR PRINTS FROM OTHER APPS: the plugin's print_hooks feature -->
         <plugin_feature_toggle_row name="row_print_hooks"
                                    feature="print_hooks" label="Apply start options to prints from other apps"

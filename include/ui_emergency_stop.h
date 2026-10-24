@@ -386,8 +386,17 @@ class EmergencyStopOverlay {
     /// caller sends nothing. Main thread only.
     bool refuse_restart_in_flight();
     void restart_klipper();
+
+  public:
+    /// Restart Klipper firmware: the platform-correct sequence (a plain
+    /// printer.firmware_restart where that is right), guarded against a
+    /// restart already in flight, with the recovery dialogs suppressed for
+    /// the restart window. The restart is machine-moving, so a caller offers
+    /// it behind its own confirmation - the home panel's Firmware Restart
+    /// row is the shape to follow.
     void firmware_restart();
 
+  private:
     // Static callbacks
     static void emergency_stop_clicked(lv_event_t* e);
     static void lock_screen_estop_clicked(lv_event_t* e);

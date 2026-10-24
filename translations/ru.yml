@@ -284,9 +284,11 @@ translations:
   Add Printer: Добавить принтер
   Add Vendor: Добавить производителя
   Add Widget: Добавить виджет
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: Добавляет [include helix-plr/*.cfg] в printer.cfg, чтобы при возобновлении снова загружалась сетка, с которой началась печать
   Add custom filament: Добавить свой филамент
   Add page: 'Добавить страницу'
   Add to Queue: Добавить в очередь
+  Added: Добавлено
   Added to Spoolman: Добавлено в Spoolman
   Added to queue (position {}): Добавлено в очередь (позиция {})
   Added to queue (position {}) - queue is paused: Добавлено в очередь (позиция {}) – очередь на паузе
@@ -1001,6 +1003,7 @@ translations:
   Unload stopped: 'Выгрузка остановлена'
   "User Guide": "Руководство пользователя"
   '{} could not be checked from Home - review it and tap Print': 'Не удалось проверить {} с главного экрана – проверьте файл и нажмите «Печать»'
+  Could not change printer.cfg: Не удалось изменить printer.cfg
   ? "Could not check webcam status.\nCheck printer connection."
   : "Не удалось проверить статус веб-камеры.\nПроверьте подключение принтера."
   Could not confirm cancel: Не удалось подтвердить отмену
@@ -1822,8 +1825,12 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen аварийно завершился
   HelixScreen Macros: 'Макросы HelixScreen'
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : HelixScreen добавляет [include helix-plr/*.cfg] в printer.cfg, чтобы при возобновлении снова загружалась сетка, с которой началась печать. Рядом с printer.cfg хранится резервная копия, а чтобы изменение вступило в силу, нужно перезапустить Klipper.
   HelixScreen is detecting your display orientation: HelixScreen определяет ориентацию
     дисплея
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : HelixScreen удаляет свои строки [include helix-plr/*.cfg] из printer.cfg. Рядом с printer.cfg хранится резервная копия, а чтобы изменение вступило в силу, нужно перезапустить Klipper. При возобновлении будет использоваться стандартный профиль сетки принтера.
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     интегрируется с вашим сменщиком филамента для многокатушечной/многоцветной печати.
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreen записывает это в printer.cfg и перезапускает Klipper. Принтер ненадолго отключится.
@@ -2615,6 +2622,7 @@ translations:
   Not Initialized: 'Не инициализировано'
   Not Now: Не сейчас
   Not Supported: 'Не поддерживается'
+  Not added: Не добавлено
   Not available here. Update from a terminal.: Здесь недоступно. Обновите через терминал.
   Not available now: Сейчас недоступно
   Not available on Android: Недоступно на Android
@@ -3229,11 +3237,13 @@ translations:
   Release or grip the filament by hand: Отпустите или зажмите филамент вручную
   Release the filament: Отпустить филамент
   Release {}'s tensioner, let the spring settle, lock it: "Отпустите натяжитель {}, дайте пружине сесть, зафиксируйте"
+  Reload the saved bed mesh?: Перезагрузить сохранённую сетку?
   Remaining: 'Осталось'
   Remaining (g): Осталось (г)
   Remaining Weight (g): Оставшийся вес (г)
   Remember slot spool details across an eject: Запоминать данные катушки слота после извлечения
   Remove: Удалить
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: Удаляет строки include HelixScreen из printer.cfg; при возобновлении будет использоваться стандартный профиль сетки принтера
   Remove PIN: Удалить PIN
   Remove Spoolman?: Удалить Spoolman?
   Remove plugin from printer: Удалить плагин с принтера
@@ -3341,6 +3351,7 @@ translations:
   Resume interrupted print?: Продолжить прерванную печать?
   Resume macro not configured: Макрос возобновления не настроен
   Resume preparation failed: Не удалось подготовиться к возобновлению
+  Resume reloads the saved bed mesh: При возобновлении снова загружается сохранённая сетка
   Resume without the bed mesh this print used: Продолжить без сетки стола этой печати
   Resuming is not set up for this printer.: Продолжение не настроено для этого принтера.
   Resuming print...: Возобновление печати...
@@ -3839,6 +3850,7 @@ translations:
   Stop failed: Ошибка остановки
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "Остановить печать \"{}\"?\n\nЭто нельзя будет отменить через 5 секунд."
+  Stop reloading the saved bed mesh?: Больше не загружать сохранённую сетку?
   Stop the check?: Остановить проверку?
   Stop the running cycle before starting another: 'Остановите текущий цикл, прежде чем запускать новый'
   Stop with an emergency stop?: 'Остановить аварийной остановкой?'
@@ -4022,6 +4034,8 @@ translations:
   : 'Камере показалось, что на столе что-то есть, поэтому принтер остановился до начала печати. Если стол чист, это ложная тревога.'
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: 'Нагреватель камеры может запускать цикл сушки филамента. Запустите его из диалога сушки.'
   The chamber wait already ended; nothing was stopped.: 'Ожидание камеры уже закончилось; ничего не остановлено.'
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : Изменение вступает в силу после перезапуска Klipper. Прошивка Klipper будет перезапущена. Активные операции будут прерваны.
   The controller boards Klipper runs on. See their load in the system settings.: 'Платы контроллеров, на которых работает Klipper. Их загрузку можно посмотреть в системных настройках.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: Лезвие не вернулось. Проверьте, не намотался ли филамент на режущий механизм
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: Резак смещён. Выполните повторную калибровку командой CALIBRATE_CUT_POS

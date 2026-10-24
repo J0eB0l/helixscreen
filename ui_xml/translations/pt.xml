@@ -232,10 +232,12 @@
   <translation tag="Add Printer" pt="Adicionar Impressora"/>
   <translation tag="Add Vendor" pt="Adicionar Fornecedor"/>
   <translation tag="Add Widget" pt="Adicionar Widget"/>
+  <translation tag="Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with" pt="Adiciona [include helix-plr/*.cfg] ao printer.cfg para que uma retomada recarregue a malha com que a impressão começou"/>
   <translation tag="Add custom filament" pt="Adicionar filamento personalizado"/>
   <translation tag="Add page" pt="Adicionar página"/>
   <translation tag="Add to Queue" pt="Adicionar à fila"/>
   <translation tag="Add to Spoolman + label" pt="Adicionar ao Spoolman + etiqueta"/>
+  <translation tag="Added" pt="Adicionado"/>
   <translation tag="Added to Spoolman" pt="Adicionado ao Spoolman"/>
   <translation tag="Added to queue (position {})" pt="Adicionado à fila (posição {})"/>
   <translation tag="Added to queue (position {}) - queue is paused" pt="Adicionado à fila (posição {}) – a fila está pausada"/>
@@ -856,6 +858,7 @@
   <translation tag="Could not add to queue" pt="Não foi possível adicionar à fila"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." pt="Não foi possível analisar a macro PRINT_START. Algumas opções de impressão podem estar indisponíveis."/>
   <translation tag="Could not answer the connection request" pt="Não foi possível responder à solicitação de conexão"/>
+  <translation tag="Could not change printer.cfg" pt="Não foi possível alterar printer.cfg"/>
   <translation tag="Could not check webcam status.&#10;Check printer connection." pt="Não foi possível verificar status da webcam.&#10;Verifique a conexão da impressora."/>
   <translation tag="Could not check {} - it stays in the queue" pt="Não foi possível verificar {} – permanece na fila"/>
   <translation tag="Could not confirm cancel" pt="Não foi possível confirmar o cancelamento"/>
@@ -1627,7 +1630,9 @@
   <translation tag="HelixScreen" pt="HelixScreen"/>
   <translation tag="HelixScreen Crashed" pt="HelixScreen Travou"/>
   <translation tag="HelixScreen Macros" pt="Macros do HelixScreen"/>
+  <translation tag="HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect." pt="O HelixScreen adiciona [include helix-plr/*.cfg] ao printer.cfg para que uma retomada recarregue a malha com que a impressão começou. Uma cópia de segurança é mantida ao lado do printer.cfg, e o Klipper precisa ser reiniciado para a mudança ter efeito."/>
   <translation tag="HelixScreen is detecting your display orientation" pt="HelixScreen está detectando a orientação do seu ecrã"/>
+  <translation tag="HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer&apos;s default mesh profile." pt="O HelixScreen remove suas linhas [include helix-plr/*.cfg] do printer.cfg. Uma cópia de segurança é mantida ao lado do printer.cfg, e o Klipper precisa ser reiniciado para a mudança ter efeito. Uma retomada usará então o perfil de malha padrão da impressora."/>
   <translation tag="HelixScreen will integrate with your filament changer for multi-spool/color print operations." pt="HelixScreen se integrará com seu trocador de filamento para operações de impressão com múltiplos carretéis/cores."/>
   <translation tag="HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect." pt="O HelixScreen grava isso no printer.cfg e reinicia o Klipper. A impressora se desconectará brevemente."/>
   <translation tag="HelixScreen {} is available — tap Update" pt="HelixScreen {} está disponível — toque em Atualizar"/>
@@ -2352,6 +2357,7 @@
   <translation tag="Not Initialized" pt="Não inicializado"/>
   <translation tag="Not Now" pt="Agora Não"/>
   <translation tag="Not Supported" pt="Não suportado"/>
+  <translation tag="Not added" pt="Não adicionado"/>
   <translation tag="Not available here. Update from a terminal." pt="Não disponível aqui. Atualize a partir de um terminal."/>
   <translation tag="Not available now" pt="Indisponível no momento"/>
   <translation tag="Not available on Android" pt="Não disponível no Android"/>
@@ -2916,12 +2922,14 @@
   <translation tag="Release or grip the filament by hand" pt="Soltar ou segurar o filamento manualmente"/>
   <translation tag="Release the filament" pt="Soltar o filamento"/>
   <translation tag="Release {}&apos;s tensioner, let the spring settle, lock it" pt="Solte o tensor de {}, deixe a mola assentar, trave-o"/>
+  <translation tag="Reload the saved bed mesh?" pt="Recarregar a malha salva?"/>
   <translation tag="Remaining" pt="Restante"/>
   <translation tag="Remaining (g)" pt="Restante (g)"/>
   <translation tag="Remaining Weight (g)" pt="Peso Restante (g)"/>
   <translation tag="Remaining weight" pt="Peso restante"/>
   <translation tag="Remember slot spool details across an eject" pt="Lembrar os detalhes do carretel do slot ao ejetar"/>
   <translation tag="Remove" pt="Remover"/>
+  <translation tag="Remove HelixScreen&apos;s include lines from printer.cfg; a resume then uses the printer&apos;s default mesh profile" pt="Remove as linhas include do HelixScreen do printer.cfg; uma retomada usará então o perfil de malha padrão da impressora"/>
   <translation tag="Remove PIN" pt="Remover PIN"/>
   <translation tag="Remove Spoolman?" pt="Remover Spoolman?"/>
   <translation tag="Remove plugin from printer" pt="Remover plugin da impressora"/>
@@ -3026,6 +3034,7 @@
   <translation tag="Resume interrupted print?" pt="Retomar impressão interrompida?"/>
   <translation tag="Resume macro not configured" pt="Macro de retomada não configurado"/>
   <translation tag="Resume preparation failed" pt="Falha na preparação para retomar"/>
+  <translation tag="Resume reloads the saved bed mesh" pt="Retomar recarrega a malha salva"/>
   <translation tag="Resume without the bed mesh this print used" pt="Retomar sem a malha da mesa que esta impressão usou"/>
   <translation tag="Resuming is not set up for this printer." pt="A retomada não está configurada para esta impressora."/>
   <translation tag="Resuming print..." pt="Retomando impressão..."/>
@@ -3464,6 +3473,7 @@
   <translation tag="Stop drying?" pt="Parar a secagem?"/>
   <translation tag="Stop failed" pt="Falha ao parar"/>
   <translation tag="Stop printing &quot;{}&quot;?&#10;&#10;This cannot be undone after 5 seconds." pt="Parar a impressão de &quot;{}&quot;?&#10;&#10;Isso não pode ser desfeito após 5 segundos."/>
+  <translation tag="Stop reloading the saved bed mesh?" pt="Parar de recarregar a malha salva?"/>
   <translation tag="Stop the check?" pt="Parar a verificação?"/>
   <translation tag="Stop the running cycle before starting another" pt="Pare o ciclo em andamento antes de iniciar outro"/>
   <translation tag="Stop with an emergency stop?" pt="Parar com uma parada de emergência?"/>
@@ -3624,6 +3634,7 @@
   <translation tag="The camera thought it saw something on the bed, so the printer stopped before printing. If the bed is clear, it was a false alarm." pt="A câmera achou que viu algo na mesa, então a impressora parou antes de imprimir. Se a mesa estiver livre, foi um alarme falso."/>
   <translation tag="The chamber heater can run a filament drying cycle. Start one from the drying dialog." pt="O aquecedor da câmara pode executar um ciclo de secagem de filamento. Inicie pelo diálogo de secagem."/>
   <translation tag="The chamber wait already ended; nothing was stopped." pt="A espera da câmara já terminou; nada foi parado."/>
+  <translation tag="The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted." pt="A mudança tem efeito depois que o Klipper reiniciar. O firmware Klipper será reiniciado. Operações ativas serão interrompidas."/>
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." pt="As placas controladoras em que o Klipper roda. Veja a carga delas nas configurações do sistema."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" pt="A lâmina não retornou. Verifique se há filamento enrolado no mecanismo de corte"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" pt="O cortador está desalinhado. Recalibre com CALIBRATE_CUT_POS"/>

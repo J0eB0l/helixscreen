@@ -163,7 +163,7 @@ analysis, are in [HELIXPRINT_PLUGIN.md](HELIXPRINT_PLUGIN.md).
 
 | | |
 |---|---|
-| Capability | `server.helix.status` `features.plr` at version 1 or newer, available and enabled |
+| Capability | `server.helix.status` `features.plr` at version 2 or newer, available and enabled |
 | Availability | `server.helix.plr.status` `offer.available` (the plugin checks the newest history job is `interrupted`, a snapshot exists for it, the file is unchanged, the job got far enough, the tier allows it, Klipper is ready); `backend` says which flavor |
 | Recovery filename | `snapshot.filename` |
 | Resume | the guided wizard (below); nothing is sent at the offer |
@@ -204,7 +204,7 @@ in the `helix-screen` namespace, so it has them with the screen off:
   purge, skip fraction), but no UI provides them: the caller passes an empty
   `PlrUserOverride`, so the record is the database block as is. `PlrOfferController::publish_profile()` writes
   the record once per connection and printer type whenever the plugin reports a
-  `plr` entry at version 1 or newer, available or not
+  `plr` entry at version 2 or newer, available or not
   (`plugin_feature_reported()`): until a profile of tier 1 or more lands, the
   plugin reports the feature unavailable, so the write cannot wait for it. It
   writes only after this connection's plugin probe has answered: discovery resolves
@@ -608,14 +608,17 @@ abort's heaters-off could not run until the target was reached.
 adaptive or unsaved mesh is written once layer 1 is done to `<config>/helix-plr/mesh.cfg` as a
 `[bed_mesh helix_plr]` section in Klipper's autosave format, which Klipper loads after
 the reboot if `printer.cfg` has `[include helix-plr/*.cfg]` (a wildcard include with no
-match is legal). Nothing adds that line; without it the plan carries `mesh_unavailable`
+match is legal). The Settings > Printing row "Resume reloads the saved bed mesh" adds
+that line through `server.helix.plr.mesh_include`, behind a confirmation, with a single
+rolling `printer.cfg.helixscreen-bak` beside the file; the same endpoint removes it, and
+the plugin's uninstaller strips it. Without the line the plan carries `mesh_unavailable`
 and the resume needs `accept_no_mesh`. A resumed job keeps the mesh file it resumed
 with, so a second outage can load it again.
 
 ### Endpoints, events and confirmations
 
 `server.helix.status` reports the feature as
-`"plr": {"version": 1, "available", "enabled", "reason", "saving"}`. `enabled` is "saving
+`"plr": {"version": 2, "available", "enabled", "reason", "saving"}`. `enabled` is "saving
 is on, or a saved snapshot is waiting", so switching saving off does not withdraw an
 offer already saved; `saving` is the switch as applied and is what the settings row
 shows. `reason` when unavailable: `python_too_old`, `no_virtual_sdcard`,
@@ -629,6 +632,7 @@ shows. `reason` when unavailable: `python_too_old`, `no_virtual_sdcard`,
 | `server.helix.plr.commit` / `POST .../commit` | `{"plan_id", "confirmations": {name: true}, "z_reference": "part_top"\|"trusted"}` | `{"ok": true, "job_started": true}` |
 | `server.helix.plr.abort` / `POST .../abort` | `{"plan_id"}` | `{"ok": true}`: stops the run, turns off the bed, extruder, every `heater_generic` and the part fan, keeps the snapshot |
 | `server.helix.plr.discard` / `POST .../discard` | none | `{"ok": true}`: deletes the snapshot, job record and mesh file |
+| `server.helix.plr.mesh_include` / `GET .../mesh_include` (status) or `POST` (`{"action": "add"\|"remove"}`) | see Params | status: `{"present"}`; an action: `{"present", "changed"}`, idempotent both ways. `add` appends the marker comment and the include to printer.cfg, `remove` strips exactly those two lines (whitespace-tolerant, a user's own include of the directory in any other spelling stays); both back the file up to `printer.cfg.helixscreen-bak` beside it first and write atomically, and Klipper reads the change at its next restart, which the app offers. Refuses with `plr_config_read` / `plr_config_write` / `plr_bad_action` |
 
 - `status` answers from what Klippy ready decided (objects, homing, the QIDI check).
   Asked while Klippy is up or starting and that has not finished, it waits for the

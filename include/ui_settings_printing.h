@@ -48,6 +48,7 @@ class PrintingSettingsOverlay : public OverlayBase {
     }
 
     void register_callbacks() override;
+    void on_activate() override;
 };
 
 inline PrintingSettingsOverlay& get_printing_settings_overlay() {

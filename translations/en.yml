@@ -237,10 +237,12 @@ translations:
   Add Printer: Add Printer
   Add Vendor: Add Vendor
   Add Widget: Add Widget
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with
   Add custom filament: Add custom filament
   Add page: Add page
   Add to Queue: Add to Queue
   Add to Spoolman + label: Add to Spoolman + label
+  Added: Added
   Added to Spoolman: Added to Spoolman
   Added to queue (position {}): Added to queue (position {})
   Added to queue (position {}) - queue is paused: Added to queue (position {}) - queue is paused
@@ -930,6 +932,7 @@ translations:
   Unload stopped: Unload stopped
   "User Guide": "User Guide"
   '{} could not be checked from Home - review it and tap Print': '{} could not be checked from Home - review it and tap Print'
+  Could not change printer.cfg: Could not change printer.cfg
   ? "Could not check webcam status.\nCheck printer connection."
   : "Could not check webcam status.\nCheck printer connection."
   Could not confirm cancel: Could not confirm cancel
@@ -1732,8 +1735,12 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen Crashed
   HelixScreen Macros: HelixScreen Macros
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
   HelixScreen is detecting your display orientation: HelixScreen is detecting your
     display orientation
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     will integrate with your filament changer for multi-spool/color print operations.
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.
@@ -2514,6 +2521,7 @@ translations:
   Not Initialized: Not Initialized
   Not Now: Not Now
   Not Supported: Not Supported
+  Not added: Not added
   Not available here. Update from a terminal.: Not available here. Update from a terminal.
   Not available now: Not available now
   Not available on Android: Not available on Android
@@ -3112,12 +3120,14 @@ translations:
   Release or grip the filament by hand: Release or grip the filament by hand
   Release the filament: Release the filament
   Release {}'s tensioner, let the spring settle, lock it: Release {}'s tensioner, let the spring settle, lock it
+  Reload the saved bed mesh?: Reload the saved bed mesh?
   Remaining: Remaining
   Remaining (g): Remaining (g)
   Remaining Weight (g): Remaining Weight (g)
   Remaining weight: Remaining weight
   Remember slot spool details across an eject: Remember slot spool details across an eject
   Remove: Remove
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile
   Remove PIN: Remove PIN
   Remove Spoolman?: Remove Spoolman?
   Remove plugin from printer: Remove plugin from printer
@@ -3223,6 +3233,7 @@ translations:
   Resume interrupted print?: Resume interrupted print?
   Resume macro not configured: Resume macro not configured
   Resume preparation failed: Resume preparation failed
+  Resume reloads the saved bed mesh: Resume reloads the saved bed mesh
   Resume without the bed mesh this print used: Resume without the bed mesh this print used
   Resuming is not set up for this printer.: Resuming is not set up for this printer.
   'Resuming print...': 'Resuming print...'
@@ -3703,6 +3714,7 @@ translations:
   Stop failed: Stop failed
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
+  Stop reloading the saved bed mesh?: Stop reloading the saved bed mesh?
   Stop the check?: Stop the check?
   Stop the running cycle before starting another: Stop the running cycle before starting another
   Stop with an emergency stop?: Stop with an emergency stop?
@@ -3884,6 +3896,8 @@ translations:
   : The camera thought it saw something on the bed, so the printer stopped before printing. If the bed is clear, it was a false alarm.
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: The chamber heater can run a filament drying cycle. Start one from the drying dialog.
   The chamber wait already ended; nothing was stopped.: The chamber wait already ended; nothing was stopped.
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
   The controller boards Klipper runs on. See their load in the system settings.: The controller boards Klipper runs on. See their load in the system settings.
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: The cutter blade didn't return — check for filament wrapped around the cutting mechanism
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS

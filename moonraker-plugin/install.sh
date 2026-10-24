@@ -528,6 +528,7 @@ uninstall() {
         # here - a skipped file or a failed one - is "needs attention", not
         # a failed uninstall.
         strip_phase_tracking_instrumentation "$config_dir" || exit_status=$EXIT_UNINSTALL_NEEDS_ATTENTION
+        remove_plr_mesh_include "$config_dir" || exit_status=$EXIT_UNINSTALL_NEEDS_ATTENTION
     fi
 
     printf '\n'
@@ -611,6 +612,51 @@ strip_phase_tracking_instrumentation() {
     return "$strip_status"
 }
 
+# Strip the two mesh-include lines power-loss recovery adds to printer.cfg
+# and remove the helix-plr directory they include, through the plugin's own
+# rule (helix_plr.py's uninstall_mesh_include): one copy of which lines are
+# ours and how the file is backed up. python3 resolves like
+# strip_phase_tracking_instrumentation's - here, or inside the chroot a
+# Moonraker like Forge-X's runs in. A printer.cfg without the lines, or a
+# missing printer.cfg, is the do-nothing case. Never aborts the rest of the
+# uninstall - a failure is reported and folds into "needs attention".
+remove_plr_mesh_include() {
+    config_dir="$1"
+    [ -n "$config_dir" ] || return 0
+    [ -f "$config_dir/printer.cfg" ] || return 0
+
+    plr_strip_code='
+import pathlib
+import sys
+sys.path.insert(0, sys.argv[1])
+import helix_plr
+problem = helix_plr.uninstall_mesh_include(pathlib.Path(sys.argv[2]))
+if problem is None:
+    sys.exit(0)
+print(problem)
+sys.exit(2)
+'
+    plr_status=0
+    problem=""
+    if command -v python3 > /dev/null 2>&1; then
+        problem=$(python3 -c "$plr_strip_code" "$SCRIPT_DIR" "$config_dir") || plr_status=$?
+    elif chroot_py=$(chroot_python3) &&
+        chroot_script_dir=$(moonraker_visible_path "$SCRIPT_DIR") &&
+        chroot_config_dir=$(moonraker_visible_path "$config_dir"); then
+        problem=$(chroot "$(running_moonraker_root)" "$chroot_py" -c "$plr_strip_code" \
+"$chroot_script_dir" "$chroot_config_dir") || plr_status=$?
+    else
+        warn "python3 not found - could not remove the power-loss mesh include from printer.cfg"
+        warn "If power-loss recovery added [include helix-plr/*.cfg] to it, remove those two lines and the helix-plr directory by hand"
+        return "$EXIT_UNINSTALL_NEEDS_ATTENTION"
+    fi
+    if [ "$plr_status" -ne 0 ]; then
+        warn "Could not remove the power-loss mesh include from printer.cfg${problem:+ - $problem}"
+        return "$EXIT_UNINSTALL_NEEDS_ATTENTION"
+    fi
+    return "$EXIT_UNINSTALL_OK"
+}
+
 # Auto-uninstall function (non-interactive, for HelixScreen integration)
 auto_uninstall() {
     info "HelixPrint Auto-Uninstall Mode"
@@ -649,6 +695,7 @@ auto_uninstall() {
     # uninstall.
     if [ -n "$config_dir" ]; then
         strip_phase_tracking_instrumentation "$config_dir" || exit_status=$EXIT_UNINSTALL_NEEDS_ATTENTION
+        remove_plr_mesh_include "$config_dir" || exit_status=$EXIT_UNINSTALL_NEEDS_ATTENTION
     fi
 
     # Remove the plugin's sections from every file Moonraker reads them from:
