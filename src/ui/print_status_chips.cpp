@@ -119,9 +119,8 @@ ChipContent speed_flow_chip(int speed_pct, int flow_pct, const std::string& spee
     return c;
 }
 
-ChipContent speed_flow_budget_chip(bool physical_units, float filament_diameter_mm) {
-    const auto t =
-        tune::status_speed_flow_text(physical_units, 100, 100, 999, 4150, filament_diameter_mm);
+ChipContent speed_flow_budget_chip(float filament_diameter_mm) {
+    const auto t = tune::live_rates_text(100, 100, 999, 4150, filament_diameter_mm);
     return speed_flow_chip(100, 100, t.speed, t.flow);
 }
 

@@ -638,6 +638,7 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter speed/flow text shows live
 
     // The card shows the physical rates even with the percent preference set.
     REQUIRE_FALSE(DisplaySettingsManager::instance().get_speed_flow_physical_units());
+    REQUIRE(lv_subject_get_int(ps.motion_state().get_speed_factor_subject()) == 100);
 
     lv_subject_set_int(ps.motion_state().get_live_velocity_subject(), 187);
     lv_subject_set_int(ps.motion_state().get_live_extruder_velocity_subject(), 500); // 5 mm/s
@@ -648,4 +649,10 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter speed/flow text shows live
                 lv_xml_get_subject(nullptr, "print_status_speed_text"))) == "187mm/s");
     REQUIRE(std::string(lv_subject_get_string(
                 lv_xml_get_subject(nullptr, "print_status_flow_text"))) == "· 12.0mm\xC2\xB3/s");
+
+    // A tuned factor rides after its own rate.
+    lv_subject_set_int(ps.motion_state().get_speed_factor_subject(), 104);
+    UpdateQueueTestAccess::drain_all(UpdateQueue::instance());
+    REQUIRE(std::string(lv_subject_get_string(
+                lv_xml_get_subject(nullptr, "print_status_speed_text"))) == "187mm/s 104%");
 }

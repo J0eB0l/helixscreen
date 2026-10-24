@@ -621,7 +621,6 @@ class PrintStatusPanel : public OverlayBase {
     ObserverGuard flow_factor_observer_;
     ObserverGuard live_velocity_observer_;
     ObserverGuard extruder_velocity_observer_;
-    ObserverGuard physical_units_observer_;
     ObserverGuard gcode_z_offset_observer_;
     ObserverGuard print_layer_observer_;
     ObserverGuard z_position_observer_;

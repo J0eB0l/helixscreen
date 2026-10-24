@@ -2283,14 +2283,15 @@ void PrintStatusWidget::DetailedFormatter::update_filament_text() {
 
 void PrintStatusWidget::DetailedFormatter::update_speed_flow_text() {
     auto& ps = get_printer_state();
-    // Always the live rates: the percent factors are Tune's to show.
-    snprintf(speed_text_buf_, sizeof(speed_text_buf_), "%dmm/s",
-             lv_subject_get_int(ps.motion_state().get_live_velocity_subject()));
+    const auto t = helix::tune::live_rates_text(
+        lv_subject_get_int(ps.motion_state().get_speed_factor_subject()),
+        lv_subject_get_int(ps.motion_state().get_flow_factor_subject()),
+        lv_subject_get_int(ps.motion_state().get_live_velocity_subject()),
+        lv_subject_get_int(ps.motion_state().get_live_extruder_velocity_subject()),
+        ps.get_discovery().filament_diameter_mm());
+    snprintf(speed_text_buf_, sizeof(speed_text_buf_), "%s", t.speed.c_str());
     lv_subject_copy_string(&speed_text_subject_, speed_text_buf_);
-    snprintf(flow_text_buf_, sizeof(flow_text_buf_), "· %.1fmm\xC2\xB3/s",
-             helix::tune::volumetric_flow_mm3_s(
-                 lv_subject_get_int(ps.motion_state().get_live_extruder_velocity_subject()),
-                 ps.get_discovery().filament_diameter_mm()));
+    snprintf(flow_text_buf_, sizeof(flow_text_buf_), "· %s", t.flow.c_str());
     lv_subject_copy_string(&flow_text_subject_, flow_text_buf_);
     // A rate gaining a digit can push the flow out of its row.
     if (strlen(speed_text_buf_) + strlen(flow_text_buf_) != speed_flow_len_) {
@@ -2572,6 +2573,8 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
         s_formatter_->filament_used_observer_.reset();
         s_formatter_->live_velocity_observer_.reset();
         s_formatter_->live_extruder_velocity_observer_.reset();
+        s_formatter_->speed_factor_observer_.reset();
+        s_formatter_->flow_factor_observer_.reset();
         s_formatter_->nozzle_temp_observer_.reset();
         s_formatter_->nozzle_target_observer_.reset();
         s_formatter_->tools_version_observer_.reset();
@@ -2608,6 +2611,14 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
         ps.get_subjects_lifetime());
     live_extruder_velocity_observer_ = observe<int>(
         ps.motion_state().get_live_extruder_velocity_subject(), this,
+        [](DetailedFormatter* self, int) { self->update_speed_flow_text(); },
+        ps.get_subjects_lifetime());
+    speed_factor_observer_ = observe<int>(
+        ps.motion_state().get_speed_factor_subject(), this,
+        [](DetailedFormatter* self, int) { self->update_speed_flow_text(); },
+        ps.get_subjects_lifetime());
+    flow_factor_observer_ = observe<int>(
+        ps.motion_state().get_flow_factor_subject(), this,
         [](DetailedFormatter* self, int) { self->update_speed_flow_text(); },
         ps.get_subjects_lifetime());
 
@@ -2694,6 +2705,8 @@ PrintStatusWidget::DetailedFormatter::~DetailedFormatter() {
     filament_used_observer_.reset();
     live_velocity_observer_.reset();
     live_extruder_velocity_observer_.reset();
+    speed_factor_observer_.reset();
+    flow_factor_observer_.reset();
     nozzle_temp_observer_.reset();
     nozzle_target_observer_.reset();
     tools_version_observer_.reset();

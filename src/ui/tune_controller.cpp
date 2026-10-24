@@ -102,4 +102,25 @@ SpeedFlowText status_speed_flow_text(bool physical_units, int speed_pct, int flo
     return {speed, flow};
 }
 
+SpeedFlowText live_rates_text(int speed_pct, int flow_pct, int live_velocity_mm_s,
+                              int extruder_velocity_centimm_s, float filament_diameter_mm) {
+    char speed[32];
+    char flow[32];
+    std::snprintf(speed, sizeof(speed), "%dmm/s", live_velocity_mm_s);
+    std::snprintf(flow, sizeof(flow), "%.1fmm\xC2\xB3/s",
+                  volumetric_flow_mm3_s(extruder_velocity_centimm_s, filament_diameter_mm));
+    SpeedFlowText text{speed, flow};
+    const auto add_factor = [](std::string& out, int pct) {
+        if (pct != 100) {
+            char buf[16];
+            helix::format::format_percent(pct, buf, sizeof(buf));
+            out += ' ';
+            out += buf;
+        }
+    };
+    add_factor(text.speed, speed_pct);
+    add_factor(text.flow, flow_pct);
+    return text;
+}
+
 } // namespace helix::tune

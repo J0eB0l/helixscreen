@@ -44,5 +44,6 @@ TEST_CASE_METHOD(PrintStatusPanelFixture, "Print status: speed text follows the 
     helix::ui::UpdateQueue::instance().drain();
     process_lvgl(50); // the chip update is coalesced onto a timer
 
-    CHECK(subject_text("ps_chip_speed_flow_lead") == "150%");
+    // Live rate first, the tuned factor after it.
+    CHECK(subject_text("ps_chip_speed_flow_lead") == "0mm/s 150%");
 }
