@@ -22,6 +22,7 @@
 #include "printer_state.h"
 #include "tool_state.h"
 
+#include <lvgl/src/misc/cache/lv_cache.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -105,7 +106,7 @@ PrintStatusTiles::PrintStatusTiles(PrinterState& printer_state, Host host)
         }
         return collector->checklist_input();
     };
-    image_source_ = [this]() { return current_image(); };
+    use_displayed_image();
 }
 
 PrintStatusTiles::~PrintStatusTiles() {
@@ -200,6 +201,26 @@ void PrintStatusTiles::init_subjects(SubjectManager& subjects) {
         observe<int>(printer_state_.get_heater_power_subject(HeaterType::Bed), this, update, ps);
     chamber_power_observer_ = observe<int>(
         printer_state_.get_heater_power_subject(HeaterType::Chamber), this, update, ps);
+
+    // The same inputs the home printer image follows.
+    const auto image_changed = [](PrintStatusTiles* self, int) {
+        self->image_stale_ = true;
+        self->request_update();
+    };
+    image_observers_.clear();
+    auto& images = PrinterImageManager::instance();
+    image_observers_.push_back(observe<int>(images.get_image_changed_subject(), this, image_changed,
+                                            images.get_subjects_lifetime()));
+    image_observers_.push_back(observe<const char*>(
+        printer_state_.profile_state().get_printer_type_subject(), this,
+        [](PrintStatusTiles* self, const char*) {
+            self->image_stale_ = true;
+            self->request_update();
+        },
+        ps));
+    for (const auto& in : PrinterImageManager::detection_inputs()) {
+        image_observers_.push_back(observe<int>(in.subject, this, image_changed, in.lifetime));
+    }
 }
 
 void PrintStatusTiles::deinit() {
@@ -211,6 +232,7 @@ void PrintStatusTiles::deinit() {
     nozzle_power_observer_.reset();
     bed_power_observer_.reset();
     chamber_power_observer_.reset();
+    image_observers_.clear();
     subjects_ready_ = false;
 }
 
@@ -364,9 +386,19 @@ void PrintStatusTiles::publish(PrintStatusChip chip, const ChipContent& c, bool 
 
 PrintStatusTiles::Image PrintStatusTiles::current_image() const {
     Image img;
-    lv_display_t* disp = lv_display_get_default();
-    const int screen_w = disp ? lv_display_get_horizontal_resolution(disp) : 800;
-    img.path = PrinterImageManager::instance().get_displayed_image_path(screen_w);
+    if (image_stale_) {
+        // An import can rewrite the image under the same path, so the decoded
+        // copy and the size read from it go too.
+        if (!image_path_.empty()) {
+            lv_image_cache_drop(image_path_.c_str());
+        }
+        natural_size_path_.clear();
+        lv_display_t* disp = lv_display_get_default();
+        image_path_ = PrinterImageManager::instance().get_displayed_image_path(
+            disp ? lv_display_get_horizontal_resolution(disp) : 800);
+        image_stale_ = false;
+    }
+    img.path = image_path_;
     if (img.path.empty()) {
         return img;
     }

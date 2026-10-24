@@ -260,25 +260,11 @@ void PrinterImageWidget::attach(lv_obj_t* widget_obj, lv_obj_t* parent_screen) {
         get_printer_state().get_subjects_lifetime());
 
     hardware_observers_.clear();
-    AmsState& ams = AmsState::instance();
-    // Units report in after their backend registers, so the data revision is
-    // watched too: the image can only change once a unit is present.
-    for (lv_subject_t* s : {ams.get_backend_count_subject(), ams.get_ams_type_subject(),
-                            ams.get_ams_data_revision_subject()}) {
+    for (const auto& in : helix::PrinterImageManager::detection_inputs()) {
         hardware_observers_.push_back(helix::ui::observe<int>(
-            s, this,
+            in.subject, this,
             [](PrinterImageWidget* w, int /*value*/) { w->refresh_if_detected_image_changed(); },
-            ams.get_subjects_lifetime()));
-    }
-    // A removable enclosure top can be fitted or lifted off while connected, and
-    // a chamber heater can be assigned by hand after discovery.
-    auto& caps = get_printer_state().capabilities_state();
-    for (helix::Capability cap :
-         {helix::Capability::EnclosureTopFitted, helix::Capability::HasChamberHeater}) {
-        hardware_observers_.push_back(helix::ui::observe<int>(
-            caps.subject(cap), this,
-            [](PrinterImageWidget* w, int /*value*/) { w->refresh_if_detected_image_changed(); },
-            caps.get_subjects_lifetime()));
+            in.lifetime));
     }
 
     // A recycled instance's mode is the last tree's; hide the layer until the

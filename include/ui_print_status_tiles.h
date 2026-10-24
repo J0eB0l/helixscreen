@@ -109,6 +109,11 @@ class PrintStatusTiles {
     void set_image_source(std::function<Image()> source) {
         image_source_ = std::move(source);
     }
+    /// The picture the printer image manager displays, the default source.
+    void use_displayed_image() {
+        image_source_ = [this]() { return current_image(); };
+        image_stale_ = true;
+    }
 
     [[nodiscard]] int layout_count() const {
         return layout_count_;
@@ -183,7 +188,12 @@ class PrintStatusTiles {
 
     std::function<std::optional<PreprintChecklistInput>()> checklist_source_;
     std::function<Image()> image_source_;
+    /// The displayed image's path, resolved again only after one of
+    /// image_observers_ fires: resolving reads the filesystem and config.
+    mutable std::string image_path_;
+    mutable bool image_stale_ = true;
     mutable std::string natural_size_path_;
+    std::vector<ObserverGuard> image_observers_;
     mutable int natural_w_ = 0;
     mutable int natural_h_ = 0;
 

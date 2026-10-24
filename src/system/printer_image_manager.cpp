@@ -159,6 +159,20 @@ std::string PrinterImageManager::get_active_image_path(int screen_width) {
     return "";
 }
 
+std::vector<PrinterImageManager::DetectionInput> PrinterImageManager::detection_inputs() {
+    std::vector<DetectionInput> inputs;
+    AmsState& ams = AmsState::instance();
+    for (lv_subject_t* s : {ams.get_backend_count_subject(), ams.get_ams_type_subject(),
+                            ams.get_ams_data_revision_subject()}) {
+        inputs.push_back({s, ams.get_subjects_lifetime()});
+    }
+    auto& caps = get_printer_state().capabilities_state();
+    for (Capability cap : {Capability::EnclosureTopFitted, Capability::HasChamberHeater}) {
+        inputs.push_back({caps.subject(cap), caps.get_subjects_lifetime()});
+    }
+    return inputs;
+}
+
 void PrinterImageManager::notify_image_changed() {
     if (subjects_initialized_) {
         int ver = lv_subject_get_int(&image_changed_subject_);

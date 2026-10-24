@@ -117,6 +117,17 @@ class PrinterImageManager {
         return custom_dir_;
     }
 
+    /// A subject whose change can change which image auto-detection shows.
+    struct DetectionInput {
+        lv_subject_t* subject;
+        SubjectLifetime lifetime;
+    };
+    /// Every such subject: filament-system units reporting in (they register
+    /// after their backend), a removable enclosure top fitted or lifted, and a
+    /// chamber heater assigned by hand. Anything showing the displayed image
+    /// re-resolves it when one changes.
+    static std::vector<DetectionInput> detection_inputs();
+
     /// Bump the image-changed subject, so the home widget redraws the image and
     /// its callouts. set_active_image() calls it; so does anything that changes
     /// how the same image is drawn, like saving its tags.

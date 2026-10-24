@@ -17,6 +17,7 @@
 #include "print_status_chips.h"
 #include "print_status_layout_fitter.h"
 #include "print_status_tile_layout.h"
+#include "printer_image_manager.h"
 #include "printer_state.h"
 #include "theme_manager.h"
 #include "tool_state.h"
@@ -71,6 +72,9 @@ class TileFixture : public PrintStatusPanelFixture {
               // The chips read the light and tool-badge subjects their owners publish.
               helix::led::LedController::instance().init(nullptr, nullptr);
               ToolState::instance().init_subjects(false);
+              // The tile follows the image-changed subject, which exists
+              // before any panel, as in the app.
+              helix::PrinterImageManager::instance().init_subjects();
               return std::make_shared<helix::test::ScopedGeometry>(screen_w, screen_h);
           }) {
         lv_obj_remove_flag(root_, LV_OBJ_FLAG_HIDDEN);
@@ -228,6 +232,20 @@ TEST_CASE_METHOD(Landscape800, "a heater at its target shows the check", "[print
     CHECK(lv_obj_has_flag(lv_obj_find_by_name(fan, "status_ready"), LV_OBJ_FLAG_HIDDEN));
     set_int(temps.get_bed_target_subject(), 0);
     set_int(temps.get_bed_temp_subject(), 250);
+}
+
+TEST_CASE_METHOD(Landscape800, "the printer tile follows a change of printer image",
+                 "[print_status]") {
+    auto& images = helix::PrinterImageManager::instance();
+    tiles().use_displayed_image();
+    settle();
+    const std::string before = subject_str("ps_printer_image_src");
+    images.set_active_image("shipped:qidi-q2");
+    settle();
+    CHECK(subject_str("ps_printer_image_src").find("qidi-q2") != std::string::npos);
+    images.set_active_image("");
+    settle();
+    CHECK(subject_str("ps_printer_image_src") == before);
 }
 
 TEST_CASE_METHOD(Landscape800, "speed 104 sets speed_flow tone Warn", "[print_status]") {
