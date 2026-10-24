@@ -27,7 +27,7 @@
                        measured_subject="speed_flow_speed_measured" status_subject="speed_flow_speed_status"
                        step_callback="speed_flow_speed_step_cb" reset_callback="speed_flow_speed_reset_cb"/>
       <speed_flow_part name="speed_flow_flow_part"
-                       icon="water" label="Flow" value_subject="speed_flow_flow_text"
+                       icon="nozzle" label="Flow" value_subject="speed_flow_flow_text"
                        measured_subject="speed_flow_flow_measured" status_subject="speed_flow_flow_status"
                        step_callback="speed_flow_flow_step_cb" reset_callback="speed_flow_flow_reset_cb" step_down="-1"
                        step_up="1">

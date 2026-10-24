@@ -493,7 +493,7 @@ void PrintStatusTiles::update_now() {
     int column_w = 0;
     // A lead value sits behind its own icon ahead of the chip's text: the chip
     // grows by that icon, the value and a gap after each.
-    const int lead_icon = m.icon_px("water");
+    const int lead_icon = m.icon_px("nozzle");
     const auto lead_w = [&](const ChipContent& c) {
         return c.lead_text.empty() ? 0
                                    : m.col_gap + measure_text_px(c.lead_text.c_str(), m.text_font) +
