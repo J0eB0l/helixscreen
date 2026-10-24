@@ -3,6 +3,7 @@
 
 #include "print_status_layout_fitter.h"
 
+#include "helix-xml/src/xml/lv_xml.h"
 #include "theme_manager.h"
 
 #include <spdlog/spdlog.h>
@@ -17,12 +18,18 @@ namespace {
 constexpr int32_t kProgressBarHeight = 12;
 
 /// The strip's progress block (components/print_status_strip.xml), rows
-/// flush: the percent line in font_body_bold, the bar, the filament line and
-/// the up-next line.
-int32_t strip_text_height() {
+/// flush: the percent line in font_body_bold, the bar, the filament line and,
+/// with `up_next`, the up-next line.
+int32_t strip_text_height(bool up_next) {
     const int32_t heading = lv_font_get_line_height(theme_manager_get_font("font_body_bold"));
     const int32_t small = lv_font_get_line_height(theme_manager_get_font("font_small"));
-    return heading + kProgressBarHeight + 2 * small;
+    return heading + kProgressBarHeight + (up_next ? 2 : 1) * small;
+}
+
+/// A micro strip beside its buttons hides the up-next line.
+bool row_strip_shows_up_next() {
+    lv_subject_t* bp = lv_xml_get_subject(nullptr, "ui_breakpoint");
+    return !bp || lv_subject_get_int(bp) > 0;
 }
 
 /// The strip is a ui_card: its padding and border on both sides.
@@ -36,12 +43,13 @@ PrintStatusLayoutFitter::PrintStatusLayoutFitter(std::string log_tag, Subjects s
     : log_tag_(std::move(log_tag)), subjects_(subjects), host_(std::move(host)) {}
 
 int32_t PrintStatusLayoutFitter::strip_row_height() {
-    return std::max(theme_manager_get_spacing("ps_strip_button"), strip_text_height()) +
+    return std::max(theme_manager_get_spacing("ps_strip_button"),
+                    strip_text_height(row_strip_shows_up_next())) +
            strip_chrome();
 }
 
 int32_t PrintStatusLayoutFitter::strip_stacked_height() {
-    return strip_text_height() + theme_manager_get_spacing("space_sm") +
+    return strip_text_height(true) + theme_manager_get_spacing("space_sm") +
            theme_manager_get_spacing("button_height") + strip_chrome();
 }
 

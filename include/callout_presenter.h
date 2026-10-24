@@ -33,6 +33,9 @@ class CalloutPresenter {
         int w_budget = 0;
         int w_full = 0;
         int w_compact = 0;
+        /// w_budget and w_full with the chip's label left off; 0 for a chip without one.
+        int w_budget_unlabeled = 0;
+        int w_full_unlabeled = 0;
         int icons = 0; ///< pixels its icons take in the chip row; bounds the label
     };
 

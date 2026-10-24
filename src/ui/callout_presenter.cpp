@@ -72,9 +72,11 @@ CalloutLayout CalloutPresenter::apply(const Parts& parts, const ImageRegions* re
     };
     for (const Chip& c : parts.chips) {
         if (c.in_budget)
-            in.budget.push_back({c.kind, c.w_budget, anchor(c.kind), c.expendable});
+            in.budget.push_back(
+                {c.kind, c.w_budget, anchor(c.kind), c.expendable, c.w_budget_unlabeled});
         if (c.active)
-            in.active.push_back({c.kind, c.w_full, anchor(c.kind), c.expendable});
+            in.active.push_back(
+                {c.kind, c.w_full, anchor(c.kind), c.expendable, c.w_full_unlabeled});
     }
     out = compute_callout_layout(in);
     if (spdlog::should_log(spdlog::level::trace)) {
@@ -98,7 +100,9 @@ CalloutLayout CalloutPresenter::apply(const Parts& parts, const ImageRegions* re
         if (parts.toolhead)
             in.toolhead = CalloutChipIn{parts.toolhead->kind, parts.toolhead->w_compact,
                                         anchor(parts.toolhead->kind)};
+        const bool unlabeled = out.unlabeled;
         out = compute_callout_layout(in);
+        out.unlabeled = unlabeled;
     }
     spdlog::trace("[CalloutPresenter] placed {} chips, chip_h {}", out.chips.size(), in.chip_h);
 

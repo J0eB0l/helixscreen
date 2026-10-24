@@ -138,11 +138,12 @@ class PrintStatusTiles {
     };
 
     void cancel_update_timer();
-    std::array<ChipContent, kPrintStatusChipCount> decide_chips(bool show_power);
+    /// `labeled`: fan chips name their role ("Part 30%").
+    std::array<ChipContent, kPrintStatusChipCount> decide_chips(bool show_power, bool labeled);
     void publish(PrintStatusChip chip, const ChipContent& c, bool shown, bool glow, bool line);
     ChipContent heater(PrintStatusChip chip, bool show_power);
     int heat_start(PrintStatusChip chip, int current, int target);
-    ChipContent fan(PrintStatusChip chip);
+    ChipContent fan(PrintStatusChip chip, bool labeled);
     Image current_image() const;
 
     PrinterState& printer_state_;
@@ -152,6 +153,8 @@ class PrintStatusTiles {
 
     std::array<ChipSubjects, kPrintStatusChipCount> chips_{};
     std::array<std::string, 6 * kPrintStatusChipCount> chip_names_{};
+    lv_subject_t image_src_{};
+    char image_src_buf_[256] = "";
     lv_subject_t callout_mode_{};
     lv_subject_t toolhead_merged_{};
     lv_subject_t toolhead_text_{};
@@ -171,7 +174,7 @@ class PrintStatusTiles {
     std::string part_fan_;
     std::string hotend_fan_;
     std::string aux_fan_;
-    /// The last layout's mode: fan labels and heater duty are sized for it.
+    /// The last layout's mode: heater duty is sized for it.
     CalloutMode last_mode_ = CalloutMode::ImageOnly;
 
     std::function<std::optional<PreprintChecklistInput>()> checklist_source_;

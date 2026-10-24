@@ -75,7 +75,7 @@
           <filament_sensor_indicator subject="filament_runout_scoped"/>
         </lv_obj>
         <lv_obj name="ams_status_row"
-                width="content" height="content" style_min_width="0" style_pad_all="0" style_bg_opa="0"
+                height="content" flex_grow="1" style_min_width="0" style_pad_all="0" style_bg_opa="0"
                 style_border_width="0" flex_flow="row" style_flex_cross_place="center" style_pad_gap="#space_sm">
           <bind_flag_if_eq subject="ams_slot_count" flag="hidden" ref_value="0"/>
           <ams_current_tool name="ams_current_tool_indicator" runout_subject="filament_runout_scoped"/>
@@ -96,6 +96,9 @@
               style_radius="#border_radius">
         <style name="styles.press_wash" selector="pressed"/>
         <bind_flag_if_eq subject="job_queue_count" flag="hidden" ref_value="0"/>
+        <!-- A micro landscape strip gives its height to the tiles; the queue
+             stays reachable from the job queue. -->
+        <bind_flag_if cond="ui_breakpoint eq 0 and ps_strip_stacked eq 0" flag="hidden"/>
         <event_cb trigger="clicked" callback="on_up_next_tap"/>
         <icon src="progress_clock" size="xs" variant="muted" clickable="false" event_bubble="true"/>
         <text_small name="up_next_label"
@@ -125,10 +128,11 @@
         <event_cb trigger="clicked" callback="on_print_status_tune"/>
         <bind_state_if_eq subject="print_controls_enabled" state="disabled" ref_value="0"/>
       </ui_button>
-      <!-- Hidden when every entry of the menu is. -->
+      <!-- Filled grey: the actions behind it are secondary. Hidden when every
+           entry of the menu is. -->
       <ui_button name="btn_more"
-                 height="100%" flex_grow="1" style_pad_hor="#space_xxs" style_pad_ver="#space_xxs" variant="outline"
-                 icon="dots_vertical" text="More" icon_position="top">
+                 height="100%" flex_grow="1" style_pad_hor="#space_xxs" style_pad_ver="#space_xxs" variant="ghost"
+                 style_bg_color="#elevated_bg" style_bg_opa="255" icon="dots_vertical" text="More" icon_position="top">
         <bind_style_if_eq name="button_square" subject="ps_strip_stacked" ref_value="0"/>
         <bind_flag_if cond="(printer_has_webcam and moonraker_is_remote and platform_extras_available) or printer_has_timelapse or led_controllable"
                       flag="hidden" invert="true"/>

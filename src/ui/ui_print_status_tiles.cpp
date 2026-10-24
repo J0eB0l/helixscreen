@@ -137,6 +137,8 @@ void PrintStatusTiles::init_subjects(SubjectManager& subjects) {
             subjects.publish(names[n].c_str(), each[n]);
         }
     }
+    lv_subject_init_string(&image_src_, image_src_buf_, nullptr, sizeof(image_src_buf_), "");
+    subjects.publish("ps_printer_image_src", &image_src_);
     lv_subject_init_int(&callout_mode_, static_cast<int>(CalloutMode::ImageOnly));
     subjects.publish("ps_callout_mode", &callout_mode_);
     lv_subject_init_int(&toolhead_merged_, 0);
@@ -296,7 +298,7 @@ ChipContent PrintStatusTiles::heater(PrintStatusChip chip, bool show_power) {
                        heat_start(chip, current, target));
 }
 
-ChipContent PrintStatusTiles::fan(PrintStatusChip chip) {
+ChipContent PrintStatusTiles::fan(PrintStatusChip chip, bool labeled) {
     const std::string& name = chip == PrintStatusChip::PartFan     ? part_fan_
                               : chip == PrintStatusChip::HotendFan ? hotend_fan_
                                                                    : aux_fan_;
@@ -314,19 +316,18 @@ ChipContent PrintStatusTiles::fan(PrintStatusChip chip) {
             break;
         }
     }
-    // A pinned chip sits on its part, so its role is plain from where it is.
-    const bool labeled = last_mode_ != CalloutMode::Pinned;
     return fan_chip(role, true, subject_int_or_zero(fans.get_fan_speed_subject(name)), automatic,
                     labeled);
 }
 
-std::array<ChipContent, kPrintStatusChipCount> PrintStatusTiles::decide_chips(bool show_power) {
+std::array<ChipContent, kPrintStatusChipCount> PrintStatusTiles::decide_chips(bool show_power,
+                                                                              bool labeled) {
     std::array<ChipContent, kPrintStatusChipCount> out;
     for (auto c : {PrintStatusChip::Nozzle, PrintStatusChip::Bed, PrintStatusChip::Chamber}) {
         out[index_of(c)] = heater(c, show_power);
     }
     for (auto c : {PrintStatusChip::PartFan, PrintStatusChip::HotendFan, PrintStatusChip::AuxFan}) {
-        out[index_of(c)] = fan(c);
+        out[index_of(c)] = fan(c, labeled);
     }
     out[index_of(PrintStatusChip::Light)] =
         light_chip(subject_int_or_zero(
@@ -380,7 +381,9 @@ void PrintStatusTiles::update_now() {
     }
     refresh_checklist();
 
-    auto contents = decide_chips(false);
+    auto contents = decide_chips(false, true);
+    // The same chips with their labels left off, for a layout that sheds them.
+    auto bare = decide_chips(false, false);
     lv_obj_t* root = host_.root ? host_.root() : nullptr;
     lv_obj_t* area = root ? lv_obj_find_by_name(root, "ps_printer_area") : nullptr;
     std::array<lv_obj_t*, kPrintStatusChipCount> chip_objs{};
@@ -405,10 +408,12 @@ void PrintStatusTiles::update_now() {
 
     const CalloutChipMetrics m = measure_callout_chip(probe);
     const Image image = image_source_ ? image_source_() : Image{};
+    if (!image.path.empty()) {
+        set_string(&image_src_, image_src_buf_, sizeof(image_src_buf_), image.path);
+    }
 
-    // The widest each chip can ever show decides the mode, so the picture does
-    // not jump as readings change. Fans are measured labeled and heaters
-    // without their duty.
+    // What each chip shows decides the mode: a heater its reading (a target
+    // reading for one that is off), a fan at full speed, labeled and not.
     std::string badge;
     {
         auto& tools = ToolState::instance();
@@ -418,29 +423,30 @@ void PrintStatusTiles::update_now() {
             }
         }
     }
-    const std::string widest_heater = "999 / 999°";
-    const auto worst = [&](PrintStatusChip c) -> std::string {
+    const auto worst = [&](PrintStatusChip c, bool labeled) -> std::string {
+        const std::string& now = contents[index_of(c)].text;
         switch (c) {
         case PrintStatusChip::Nozzle:
-            return badge + widest_heater;
+            return now.empty() ? badge + "220°" : now;
         case PrintStatusChip::Bed:
         case PrintStatusChip::Chamber:
-            return widest_heater;
+            return now.empty() ? "220°" : now;
         case PrintStatusChip::PartFan:
-            return fan_chip(FanRole::Part, true, 100, false, true).text;
+            return fan_chip(FanRole::Part, true, 100, false, labeled).text;
         case PrintStatusChip::HotendFan:
-            return fan_chip(FanRole::Hotend, true, 100, false, true).text;
+            return fan_chip(FanRole::Hotend, true, 100, false, labeled).text;
         case PrintStatusChip::AuxFan:
-            return fan_chip(FanRole::Aux, true, 100, false, true).text;
+            return fan_chip(FanRole::Aux, true, 100, false, labeled).text;
         case PrintStatusChip::Light:
             return {};
-        case PrintStatusChip::SpeedFlow: {
-            const std::string now = contents[index_of(c)].text;
-            const std::string pct = speed_flow_chip(999, 999, "999%", "999%").text;
-            return now.size() > pct.size() ? now : pct;
-        }
+        case PrintStatusChip::SpeedFlow:
+            return now;
         }
         return {};
+    };
+    const auto is_fan = [](PrintStatusChip c) {
+        return c == PrintStatusChip::PartFan || c == PrintStatusChip::HotendFan ||
+               c == PrintStatusChip::AuxFan;
     };
     const auto in_budget = [&](PrintStatusChip c) {
         switch (c) {
@@ -465,18 +471,21 @@ void PrintStatusTiles::update_now() {
         return false;
     };
 
-    std::array<int, kPrintStatusChipCount> icons{}, budget_w{};
+    std::array<int, kPrintStatusChipCount> icons{}, budget_w{}, budget_bare_w{};
     int column_w = 0;
     for (size_t i = 0; i < kPrintStatusChipCount; ++i) {
         const auto chip = static_cast<PrintStatusChip>(i);
         icons[i] = m.icon_px(kChips[i].icon);
-        budget_w[i] = in_budget(chip) ? m.chip_w(icons[i], worst(chip)) : 0;
+        budget_w[i] = in_budget(chip) ? m.chip_w(icons[i], worst(chip, true)) : 0;
+        if (in_budget(chip) && is_fan(chip)) {
+            budget_bare_w[i] = m.chip_w(icons[i], worst(chip, false));
+        }
         column_w = std::max(column_w, budget_w[i]);
     }
 
     // Heater duty rides along only where the last layout put chips in a column
     // and the wider text still fits it.
-    const auto with_power = decide_chips(true);
+    const auto with_power = decide_chips(true, true);
     for (auto c : {PrintStatusChip::Nozzle, PrintStatusChip::Bed, PrintStatusChip::Chamber}) {
         const size_t i = index_of(c);
         if (with_power[i].text != contents[i].text &&
@@ -502,8 +511,12 @@ void PrintStatusTiles::update_now() {
         part.icons = icons[i];
         part.w_budget = budget_w[i];
         part.w_full = part.active ? m.chip_w(icons[i], contents[i].text) : 0;
-        part.w_compact =
-            part.active ? compact_callout_chip_w(probe, contents[i].text, icons[i]) : 0;
+        if (is_fan(chip)) {
+            part.w_budget_unlabeled = budget_bare_w[i];
+            part.w_full_unlabeled = part.active ? m.chip_w(icons[i], bare[i].text) : 0;
+        }
+        // Pinned chips sit on their parts and carry no labels.
+        part.w_compact = part.active ? compact_callout_chip_w(probe, bare[i].text, icons[i]) : 0;
         parts.chips.push_back(part);
     }
     const std::string fan_pct =
@@ -545,14 +558,15 @@ void PrintStatusTiles::update_now() {
                 line = c.has_line;
             }
         }
-        publish(chip, contents[i], contents[i].shown && !dropped, glows && contents[i].glow, line);
+        const ChipContent& shown = out.unlabeled && is_fan(chip) ? bare[i] : contents[i];
+        publish(chip, shown, shown.shown && !dropped, glows && shown.glow, line);
     }
     set_string(&toolhead_text_, toolhead_text_buf_, sizeof(toolhead_text_buf_), toolhead_text);
     set_int(&toolhead_merged_, out.toolhead_merged ? 1 : 0);
     set_int(&callout_mode_, static_cast<int>(out.mode));
 
     if (out.mode != last_mode_) {
-        // Fan labels and heater duty were sized for the previous mode.
+        // Heater duty was sized for the previous mode.
         last_mode_ = out.mode;
         request_update();
     }

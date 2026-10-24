@@ -1053,3 +1053,34 @@ TEST_CASE("hotend fan drops first when chips do not fit", "[printer_image][callo
     REQUIRE(p.dropped.size() == 1);
     CHECK(p.dropped[0] == CalloutKind::HotendFan);
 }
+
+TEST_CASE("labels drop before the tile goes pinned", "[printer_image][callout_layout]") {
+    auto in = wide();
+    // Room for one 70px column beside the image, so only one side can hold
+    // chips. A labeled fan (110px) overflows that column; unlabeled (45px) it fits.
+    in.area_w = 186 + 70 + in.gap + in.min_line;
+    in.budget = {{CalloutKind::Nozzle, 70, NormPoint{0.51f, 0.28f}},
+                 {CalloutKind::Bed, 70, NormPoint{0.46f, 0.57f}},
+                 {CalloutKind::Fan, 110, NormPoint{0.49f, 0.21f}, false, 45},
+                 {CalloutKind::Chamber, 70, NormPoint{0.31f, 0.38f}}};
+    in.active = in.budget;
+    const auto l = compute_callout_layout(in);
+    CHECK(l.mode == CalloutMode::OneSide);
+    CHECK(l.unlabeled);
+    CHECK(l.dropped.empty());
+    const auto* fan = find(l, CalloutKind::Fan);
+    REQUIRE(fan != nullptr);
+    CHECK(fan->rect.w <= 70);
+
+    // With a column wide enough for the label it stays.
+    in.area_w = 186 + 110 + in.gap + in.min_line;
+    const auto roomy = compute_callout_layout(in);
+    CHECK(roomy.mode == CalloutMode::OneSide);
+    CHECK_FALSE(roomy.unlabeled);
+
+    // A tile too small for lines even unlabeled pins, and pinned chips carry no labels.
+    in.area_w = 150;
+    const auto pinned = compute_callout_layout(in);
+    CHECK(pinned.mode == CalloutMode::Pinned);
+    CHECK(pinned.unlabeled);
+}

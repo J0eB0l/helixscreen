@@ -240,7 +240,7 @@ TEST_CASE_METHOD(Portrait320, "fan at 0 stays, dimmed, while the tile has room f
                  "[print_status]") {
     fans_part_spinning_aux_stopped(*this);
 
-    REQUIRE(subject_int("ps_callout_mode") == static_cast<int>(CalloutMode::Pinned));
+    REQUIRE(subject_int("ps_callout_mode") != static_cast<int>(CalloutMode::ImageOnly));
     CHECK(subject_int("ps_chip_aux_fan_shown") == 1);
     CHECK(subject_int("ps_chip_aux_fan_tone") == static_cast<int>(ChipTone::Dim));
     PrinterStateTestAccess::get_fan_state(state()).init_fans({});
