@@ -46,6 +46,7 @@
 #include "gcode_render_mode_policy.h"
 #include "helix-xml/src/xml/lv_xml.h"
 #include "i_moonraker_api.h"
+#include "job_queue_state.h"
 #include "layout_manager.h"
 #include "led/led_controller.h"
 #include "lvgl/src/others/translation/lv_translation.h"
@@ -630,6 +631,23 @@ void PrintStatusPanel::init_subjects() {
                     self->relayout();
                 },
                 subject_never_freed());
+        }
+    }
+
+    // The strip's Up next row shows only with jobs queued, and the strip's
+    // height counts it.
+    if (JobQueueState* queue = get_job_queue_state()) {
+        lv_subject_t* queued = lv_xml_get_subject(nullptr, "job_queue_count");
+        if (queued) {
+            auto token = lifetime_.token();
+            job_queue_count_observer_ = observe<int>(
+                queued, this,
+                [token](PrintStatusPanel* self, int) {
+                    if (token.expired())
+                        return;
+                    self->relayout();
+                },
+                queue->get_subjects_lifetime());
         }
     }
 

@@ -3,19 +3,24 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Print status strip: progress on the left and Pause, Tune, More,
      Cancel/Reprint on the right, or progress above a row of buttons when
-     ps_strip_stacked is 1. Beside the progress the buttons are square
-     (#ps_strip_button each way) while the row's 55% share has room for four,
-     and narrower where it does not, so progress keeps at least 45%.
+     ps_strip_stacked is 1. Beside the progress the buttons are #ps_strip_button
+     wide while the row's 55% share has room for four, and narrower where it
+     does not, so progress keeps at least 45%; they are as tall as the strip,
+     which is #ps_strip_button or the progress card's rows, whichever is more.
      PrintStatusLayoutFitter::strip_row_height() and strip_stacked_height()
      add up these same rows; change both together. -->
 <component>
   <styles>
     <style name="strip_row" layout="flex" flex_flow="row" flex_cross_place="center"/>
     <style name="strip_stacked" layout="flex" flex_flow="column"/>
-    <style name="buttons_row" width="55%" height="#ps_strip_button"/>
+    <style name="buttons_row" width="55%" height="100%"/>
     <style name="buttons_stacked" width="100%" height="#button_height"/>
-    <style name="progress_row" flex_grow="1"/>
-    <style name="progress_stacked" width="100%"/>
+    <!-- Beside the buttons the progress card sets the strip's height: at
+         least a square button's, more when its rows need it, which the
+         buttons then fill. Spare height spreads between its rows. -->
+    <style name="progress_row"
+           height="content" flex_grow="1" min_height="#ps_strip_button" flex_main_place="space_evenly"/>
+    <style name="progress_stacked" width="100%" height="content"/>
     <style name="button_square" max_width="#ps_strip_button"/>
   </styles>
   <view extends="ui_card"
@@ -24,10 +29,12 @@
     <bind_style_if_eq name="strip_row" subject="ps_strip_stacked" ref_value="0"/>
     <bind_style_if_eq name="strip_stacked" subject="ps_strip_stacked" ref_value="1"/>
 
-    <!-- Progress: the phase line, its bar, the filament line and what is up next. -->
+    <!-- Progress, on a card of its own: the phase line, its bar, the filament
+         line and what is up next. -->
     <lv_obj name="ps_strip_progress"
-            height="content" style_min_width="0" style_pad_all="0" style_bg_opa="0" style_border_width="0"
-            flex_flow="column" style_pad_gap="0" scrollable="false">
+            style_min_width="0" style_pad_hor="#space_sm" style_pad_ver="#space_xs" style_bg_color="#elevated_bg"
+            style_bg_opa="255" style_radius="#border_radius" style_border_width="0" flex_flow="column"
+            style_pad_gap="#space_xs" scrollable="false">
       <bind_style_if_eq name="progress_row" subject="ps_strip_stacked" ref_value="0"/>
       <bind_style_if_eq name="progress_stacked" subject="ps_strip_stacked" ref_value="1"/>
       <!-- Printing: percent, time left, clock time of the finish, time elapsed. -->

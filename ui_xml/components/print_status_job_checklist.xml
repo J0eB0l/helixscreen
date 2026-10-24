@@ -20,21 +20,20 @@
         width="100%" height="100%" style_bg_color="#card_bg" style_bg_opa="255" style_border_width="0"
         style_radius="#border_radius" style_clip_corner="true" style_pad_all="#space_sm" scrollable="false"
         clickable="false">
-    <!-- The thumbnail, large on the right, and the fade that runs it out
-         under the list from the left. -->
+    <!-- The thumbnail, large and dim on the right so the list reads over it,
+         and the fade that runs it out under the list from the left. -->
     <lv_image name="ps_checklist_thumbnail"
               width="65%" height="100%" ignore_layout="true" align="right_mid" bind_src="print_thumbnail_path"
-              inner_align="contain" style_image_opa="170" clickable="false"/>
+              inner_align="contain" style_image_opa="80" clickable="false"/>
     <lv_obj name="ps_checklist_fade"
             width="75%" height="100%" ignore_layout="true" align="left_mid" style_bg_color="#card_bg"
             style_bg_grad_color="#card_bg" style_bg_grad_dir="hor" style_bg_main_opa="255" style_bg_grad_opa="0"
-            style_bg_main_stop="100" style_bg_grad_stop="255" style_border_width="0" style_radius="0" style_pad_all="0"
+            style_bg_main_stop="120" style_bg_grad_stop="255" style_border_width="0" style_radius="0" style_pad_all="0"
             scrollable="false" clickable="false"/>
 
     <!-- The list. -->
-    <!-- Narrower than the tile, so the times end before the picture does. -->
     <lv_obj name="ps_checklist_list"
-            width="65%" height="100%" style_pad_all="0" style_bg_opa="0" style_border_width="0" flex_flow="column"
+            width="100%" height="100%" style_pad_all="0" style_bg_opa="0" style_border_width="0" flex_flow="column"
             style_pad_gap="#space_xxs" scrollable="false" clickable="false">
       <bind_flag_if_eq subject="ps_checklist_compact" flag="hidden" ref_value="1"/>
       <lv_obj width="100%"

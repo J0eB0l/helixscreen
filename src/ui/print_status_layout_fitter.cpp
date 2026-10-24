@@ -17,19 +17,27 @@ namespace {
 /// components/progress_bar.xml's height.
 constexpr int32_t kProgressBarHeight = 12;
 
-/// The strip's progress block (components/print_status_strip.xml), rows
-/// flush: the percent line in font_body_bold, the bar, the filament line and,
-/// with `up_next`, the up-next line.
+/// The strip's progress card (components/print_status_strip.xml), within a few
+/// pixels: the filament line is as tall as whichever indicators the printer
+/// shows, counted here as a line of font_small. The percent
+/// line in font_body_bold, the bar, the filament line and, with `up_next`, the
+/// up-next line, #space_xs apart and padded #space_xs above and below.
 int32_t strip_text_height(bool up_next) {
     const int32_t heading = lv_font_get_line_height(theme_manager_get_font("font_body_bold"));
     const int32_t small = lv_font_get_line_height(theme_manager_get_font("font_small"));
-    return heading + kProgressBarHeight + (up_next ? 2 : 1) * small;
+    const int32_t rows = up_next ? 4 : 3;
+    const int32_t gap = theme_manager_get_spacing("space_xs");
+    return heading + kProgressBarHeight + (rows - 2) * small + (rows - 1) * gap + 2 * gap;
 }
 
-/// A micro strip beside its buttons hides the up-next line.
-bool row_strip_shows_up_next() {
+/// The up-next line shows with jobs queued, except in a micro strip beside
+/// its buttons (`row`).
+bool strip_shows_up_next(bool row) {
+    lv_subject_t* queued = lv_xml_get_subject(nullptr, "job_queue_count");
+    if (!queued || lv_subject_get_int(queued) == 0)
+        return false;
     lv_subject_t* bp = lv_xml_get_subject(nullptr, "ui_breakpoint");
-    return !bp || lv_subject_get_int(bp) > 0;
+    return !row || !bp || lv_subject_get_int(bp) > 0;
 }
 
 /// The strip is a ui_card: its padding and border on both sides.
@@ -44,12 +52,12 @@ PrintStatusLayoutFitter::PrintStatusLayoutFitter(std::string log_tag, Subjects s
 
 int32_t PrintStatusLayoutFitter::strip_row_height() {
     return std::max(theme_manager_get_spacing("ps_strip_button"),
-                    strip_text_height(row_strip_shows_up_next())) +
+                    strip_text_height(strip_shows_up_next(true))) +
            strip_chrome();
 }
 
 int32_t PrintStatusLayoutFitter::strip_stacked_height() {
-    return strip_text_height(true) + theme_manager_get_spacing("space_sm") +
+    return strip_text_height(strip_shows_up_next(false)) + theme_manager_get_spacing("space_sm") +
            theme_manager_get_spacing("button_height") + strip_chrome();
 }
 

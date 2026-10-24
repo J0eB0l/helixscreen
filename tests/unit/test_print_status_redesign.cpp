@@ -403,12 +403,18 @@ TEST_CASE_METHOD(Landscape800, "strip buttons are square beside the progress", "
     REQUIRE(progress != nullptr);
     REQUIRE(pause != nullptr);
     const int32_t side = theme_manager_get_spacing("ps_strip_button");
-    CHECK(lv_obj_get_height(pause) == side);
+    // As tall as the strip, which is a square button's height at the least.
+    CHECK(lv_obj_get_height(pause) >= side);
+    CHECK(lv_obj_get_height(pause) == lv_obj_get_height(progress));
     CHECK(lv_obj_get_width(pause) <= side);
     CHECK(lv_obj_get_width(pause) >= side - theme_manager_get_spacing("space_sm"));
     // The progress keeps at least 45% of the strip.
     CHECK(lv_obj_get_width(progress) * 100 >= lv_obj_get_content_width(strip) * 40);
-    CHECK(lv_obj_get_height(strip) == helix::ui::PrintStatusLayoutFitter::strip_row_height());
+    // The fitter counts the filament line as text; its indicators can stand a
+    // little taller.
+    const int32_t predicted = helix::ui::PrintStatusLayoutFitter::strip_row_height();
+    CHECK(lv_obj_get_height(strip) >= predicted - theme_manager_get_spacing("space_xs"));
+    CHECK(lv_obj_get_height(strip) <= predicted + theme_manager_get_spacing("space_xs"));
 }
 
 TEST_CASE_METHOD(Portrait320, "a narrow strip stacks progress over a full row of buttons",
