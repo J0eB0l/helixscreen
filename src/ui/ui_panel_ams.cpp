@@ -20,6 +20,7 @@
 #include "ui_modal.h"
 #include "ui_nav.h"
 #include "ui_overlay_qr_scanner.h"
+#include "ui_panel_ams_overview.h"
 #include "ui_panel_common.h"
 #include "ui_spool_canvas.h"
 #include "ui_utils.h"
@@ -42,6 +43,7 @@
 #include "i_moonraker_api.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
+#include "print_stop_reason.h"
 #include "printer_detector.h"
 #include "printer_state.h"
 #include "spoolman_manager.h"
@@ -1405,23 +1407,41 @@ void AmsPanel::show_loading_error_modal() {
         error_message = lv_tr("An error occurred during filament loading.");
     }
 
-    // AFC welds a monospace position diagram onto its lane faults, which our
-    // proportional font renders as noise (#1184). Publish the stop point to the
-    // modal's <afc_fault_path> graphic and drop the art rows from the text. An
-    // unrecognised message sets the subject to 0 (graphic hidden) and comes back
-    // unchanged — including the non-AFC backends, which must clear a previous
-    // AFC fault's marker rather than inherit it.
-    error_message = helix::ui::afc_fault_path_apply(error_message);
-
     // Store slot for retry
     int retry_slot = info.current_slot;
 
+    helix::ui::show_ams_error_dialog(
+        *error_modal_, parent_screen_, error_message, retry_slot,
+        [this]() { error_modal_dismiss_time_ = std::chrono::steady_clock::now(); },
+        [this, retry_slot]() {
+            // Retry load operation for the same slot
+            if (retry_slot >= 0) {
+                AmsBackend* backend = AmsState::instance().get_backend();
+                if (backend) {
+                    spdlog::info("[AmsPanel] Retrying load for slot {}", retry_slot);
+                    // Reset the AMS first, then load
+                    backend->reset();
+                    if (this->sidebar_) {
+                        this->sidebar_->handle_load_with_preheat(retry_slot);
+                    }
+                }
+            }
+        });
+}
+
+namespace helix::ui {
+
+void show_ams_error_dialog(AmsLoadingErrorModal& modal, lv_obj_t* parent,
+                           const std::string& message, int slot, std::function<void()> on_dismissed,
+                           AmsLoadingErrorModal::RetryCallback retry) {
     // Clear backend error state when user dismisses (Close/X/Cancel/backdrop).
     // AFC maintains a persistent message_queue and error_state that won't clear
     // until RESET_FAILURE + AFC_CLEAR_MESSAGE are sent. Without this, the error
     // dialog reappears immediately because AFC keeps reporting ERROR. (#497)
-    error_modal_->set_dismiss_callback([this, retry_slot]() {
-        error_modal_dismiss_time_ = std::chrono::steady_clock::now();
+    modal.set_dismiss_callback([slot, on_dismissed = std::move(on_dismissed)]() {
+        if (on_dismissed) {
+            on_dismissed();
+        }
         AmsBackend* backend = AmsState::instance().get_backend();
         if (!backend) {
             return;
@@ -1432,25 +1452,78 @@ void AmsPanel::show_loading_error_modal() {
         // owns that sequence for every backend.
         spdlog::info("[AmsPanel] Clearing error state on dismiss (type={})",
                      ams_type_to_string(backend->get_type()));
-        backend->clear_fault(retry_slot);
+        backend->clear_fault(slot);
     });
 
-    // Show the error modal with retry callback
-    error_modal_->show(parent_screen_, error_message, [this, retry_slot]() {
-        // Retry load operation for the same slot
-        if (retry_slot >= 0) {
-            AmsBackend* backend = AmsState::instance().get_backend();
-            if (backend) {
-                spdlog::info("[AmsPanel] Retrying load for slot {}", retry_slot);
-                // Reset the AMS first, then load
-                backend->reset();
-                if (this->sidebar_) {
-                    this->sidebar_->handle_load_with_preheat(retry_slot);
-                }
-            }
-        }
-    });
+    // AFC welds a monospace position diagram onto its lane faults, which our
+    // proportional font renders as noise (#1184). Publish the stop point to the
+    // modal's <afc_fault_path> graphic and drop the art rows from the text. An
+    // unrecognised message sets the subject to 0 (graphic hidden) and comes back
+    // unchanged — including the non-AFC backends, which must clear a previous
+    // AFC fault's marker rather than inherit it.
+    modal.show(parent, afc_fault_path_apply(message), std::move(retry));
 }
+
+AmsStandingFaultDialog::AmsStandingFaultDialog(PrinterState& printer) : printer_(printer) {
+    auto& ams = AmsState::instance();
+    action_observer_ = observe<int>(
+        ams.get_ams_action_subject(), this,
+        [](AmsStandingFaultDialog* self, int) { self->evaluate(); }, ams.get_subjects_lifetime());
+    // RAW_PRINT_STATE_OK: the printer's own pause is what a filament fault
+    // stops the print with.
+    print_state_observer_ = observe<int>(
+        printer_.print_state().get_print_state_enum_subject(), this,
+        [](AmsStandingFaultDialog* self, int) { self->evaluate(); },
+        printer_.get_subjects_lifetime());
+    // The stop reason can land after the pause, read from gcode_store.
+    stop_reason_observer_ = observe<const char*>(
+        printer_.print_state().get_print_stop_reason_subject(), this,
+        [](AmsStandingFaultDialog* self, const char*) { self->evaluate(); },
+        printer_.get_subjects_lifetime());
+}
+
+void AmsStandingFaultDialog::evaluate() {
+    auto& print = printer_.print_state();
+    // RAW_PRINT_STATE_OK: see the print-state observer in the constructor.
+    const PrintJobState job = print.get_print_job_state();
+    const bool paused = job == PrintJobState::PAUSED;
+    const bool printing = job == PrintJobState::PRINTING;
+    AmsBackend* backend = AmsState::instance().get_backend();
+    std::string cause = paused ? lv_subject_get_string(print.get_print_stop_reason_subject()) : "";
+    if (cause.empty()) {
+        using namespace std::chrono;
+        cause = recent_gcode_error(
+            print, duration<double>(system_clock::now().time_since_epoch()).count());
+    }
+    const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
+    const bool raise =
+        trigger_.update(ev.has_value(), paused, printing, ev ? ev->detail : std::string());
+    if (!trigger_.raised()) {
+        if (modal_) {
+            modal_->dismiss_silently();
+        }
+        return;
+    }
+    if (!raise) {
+        return;
+    }
+    spdlog::info("[AmsStandingFaultDialog] filament fault: {}", ev->detail);
+    ensure_ams_widgets_registered();
+    if (!modal_) {
+        modal_ = std::make_unique<AmsLoadingErrorModal>();
+    }
+    // A newer explanation of the same fault replaces the one on screen.
+    modal_->dismiss_silently();
+    show_ams_error_dialog(*modal_, lv_screen_active(), ev->detail,
+                          backend->get_system_info().current_slot, nullptr,
+                          []() { navigate_to_ams_panel(); });
+}
+
+void init_ams_standing_fault_dialog() {
+    helix::lazy_global<AmsStandingFaultDialog>("AmsStandingFaultDialog", get_printer_state());
+}
+
+} // namespace helix::ui
 
 void AmsPanel::dismiss_error_modal_silently(const char* reason) {
     if (!error_modal_ || !error_modal_->is_visible()) {

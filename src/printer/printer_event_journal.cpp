@@ -132,11 +132,15 @@ std::string classify_journal_error(const std::string& line) {
     return "other";
 }
 
+bool is_recent_cause(double cause_time, double event_time) {
+    return cause_time >= event_time - kEventCauseWindowS &&
+           cause_time <= event_time + kEventCauseLateS;
+}
+
 std::string journal_pause_cause(const std::vector<JournalEntry>& entries, double now) {
-    const double cutoff = now - kPauseCauseWindowS;
     bool error = false;
     for (const auto& e : entries) {
-        if (e.time < cutoff) {
+        if (!is_recent_cause(e.time, now)) {
             continue;
         }
         if (e.kind == journal_kind::kRunout) {

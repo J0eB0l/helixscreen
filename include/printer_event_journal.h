@@ -43,8 +43,11 @@ inline constexpr int kJournalFeatureMinVersion = 1;
 /// Two entries of one kind and text this close in time are one event seen twice
 /// (live and again from a backfill, whose clock may be the printer's).
 inline constexpr double kJournalDedupWindowS = 5.0;
-/// A pause is put down to a runout or error this recent before it.
-inline constexpr double kPauseCauseWindowS = 10.0;
+/// A pause or a job's end is put down to a runout or error this recent before it.
+inline constexpr double kEventCauseWindowS = 10.0;
+/// A cause stamped this little after the event still counts: two clocks, or
+/// two threads, can put the error a moment behind the state change it caused.
+inline constexpr double kEventCauseLateS = 2.0;
 /// A `!!` line repeating one recorded within this long of its last occurrence
 /// counts on that entry instead of adding one; matched against the newest
 /// kJournalRepeatLookback entries. The plugin's REPEAT_WINDOW_S / REPEAT_LOOKBACK.
@@ -88,6 +91,10 @@ std::string classify_journal_error(const std::string& line);
 
 /// Whether an error line or shutdown reason reports a lost MCU.
 bool is_mcu_disconnect(const std::string& line);
+
+/// Whether something at @p cause_time can explain an event at @p event_time:
+/// at most kEventCauseWindowS before it, at most kEventCauseLateS after.
+bool is_recent_cause(double cause_time, double event_time);
 
 /// Why a print paused at @p now, from the entries before it: "runout",
 /// "error", else "unknown". The screen cannot see other clients' commands, so

@@ -7773,6 +7773,7 @@ TEST_CASE("AFC clears the operation detail when its message empties", "[ams][afc
     helper.set_running(true);
 
     helper.test_parse_afc_state(nlohmann::json{
+        {"error_state", true},
         {"message",
          {{"message", "Hub is already clear while trying to reset 'lane1'"}, {"type", "error"}}}});
     REQUIRE(helper.get_system_info().operation_detail ==
