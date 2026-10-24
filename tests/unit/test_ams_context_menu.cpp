@@ -553,6 +553,46 @@ TEST_CASE("The dock-sensor withdrawal is not a permanent blanking",
     }
 }
 
+TEST_CASE("A mount-to-feed tool changer offers the heated Unload on docked tools",
+          "[ams][context_menu][toolchanger][mount_feed]") {
+    using UnloadMode = AmsContextMenuTestAccess::UnloadMode;
+    DockSensorToolChanger backend;
+    backend.set_mounts_to_feed(true);
+
+    SECTION("nothing on the carriage") {
+        backend.feed(nlohmann::json{{"medusahc", {{"operation", "idle"}, {"current_tool", -1}}}});
+        for (int slot : {0, 1, 2, 3}) {
+            CAPTURE(slot);
+            const auto d = ops_for(backend, slot);
+            CHECK(d.unload_mode == UnloadMode::Unload);
+            CHECK(d.unload_enabled);
+            CHECK(d.can_load);
+            CHECK(helix::ui::read_unload_target_loaded(&backend, backend.get_system_info(), slot));
+        }
+    }
+    SECTION("another tool mounted") {
+        backend.feed(nlohmann::json{{"medusahc", {{"operation", "idle"}, {"current_tool", 1}}}});
+        const auto docked = ops_for(backend, 2);
+        CHECK(docked.unload_mode == UnloadMode::Unload);
+        CHECK(docked.unload_enabled);
+        CHECK(ops_for(backend, 1).unload_enabled);
+    }
+    SECTION("a dock-sensor fault withdraws it") {
+        backend.feed(nlohmann::json{{"medusahc", {{"operation", "idle"}, {"current_tool", 1}}}});
+        backend.feed(nlohmann::json{{"medusahc", {{"operation", "idle"}, {"current_tool", -2}}}});
+        for (int slot : {0, 1, 2, 3}) {
+            CAPTURE(slot);
+            CHECK_FALSE(ops_for(backend, slot).unload_enabled);
+        }
+    }
+    SECTION("without mount-to-feed a docked tool is still no target") {
+        backend.set_mounts_to_feed(false);
+        backend.feed(nlohmann::json{{"medusahc", {{"operation", "idle"}, {"current_tool", 1}}}});
+        CHECK_FALSE(backend.slot_filament_parked_in_toolhead(2));
+        CHECK(ops_for(backend, 2).unload_mode == UnloadMode::Unavailable);
+    }
+}
+
 // ============================================================================
 // On a tool changer with no feed, filament is by hand and the menu mounts
 // ============================================================================

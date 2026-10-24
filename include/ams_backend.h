@@ -1031,7 +1031,8 @@ class AmsBackend {
      * onto its own loaded answer; no Load gate reads it.
      *
      * Default false: only a backend with a per-toolhead presence switch that
-     * reads independently of the load state can answer it.
+     * reads independently of the load state can answer it, or one whose unload
+     * reaches a head that is not seated (a tool changer that mounts to feed).
      */
     [[nodiscard]] virtual bool slot_filament_parked_in_toolhead(int slot_index) const {
         (void)slot_index;

@@ -352,6 +352,12 @@ bool AmsBackendToolChanger::slot_is_actively_loaded(int slot_index) const {
     return slot_is_mounted_locked(slot_index);
 }
 
+bool AmsBackendToolChanger::slot_filament_parked_in_toolhead(int slot_index) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return mounts_to_feed_ && !sensor_error_ && slot_index >= 0 &&
+           slot_index < system_info_.total_slots;
+}
+
 std::string AmsBackendToolChanger::unload_blocked_reason(int slot_index) const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (slot_index < 0 || slot_index >= system_info_.total_slots) {

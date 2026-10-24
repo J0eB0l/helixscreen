@@ -358,6 +358,13 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
      */
     [[nodiscard]] bool slot_is_actively_loaded(int slot_index) const override;
 
+    /// On a changer that mounts to feed, every docked tool is an Unload target:
+    /// nothing senses filament in a head (head_has_filament() is nullopt), and
+    /// the unload mounts the tool before it retracts, so being off the carriage
+    /// is no reason to refuse it. Withdrawn while the dock sensors are faulted,
+    /// since the run's mount and restore both depend on them.
+    [[nodiscard]] bool slot_filament_parked_in_toolhead(int slot_index) const override;
+
     /// A swap is SELECTING for its whole duration on a controller that names no
     /// direction, and UNLOADING then SELECTING on one that does. A
     /// mount-to-feed run walks the filament vocabulary on top of that:
