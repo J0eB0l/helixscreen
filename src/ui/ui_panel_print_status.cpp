@@ -323,13 +323,18 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
     flow_factor_observer_ = observe<int>(
         printer_state_.motion_state().get_flow_factor_subject(), this,
         [](PrintStatusPanel* self, int flow) { self->on_flow_factor_changed(flow); }, ps_subjects);
-    // The speed/flow chip shows the live toolhead and extruder velocities.
+    // The physical-units readout also moves with the live toolhead and
+    // extruder velocities, and with the speed/flow units preference.
     live_velocity_observer_ = observe<int>(
         printer_state_.motion_state().get_live_velocity_subject(), this,
         [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); }, ps_subjects);
     extruder_velocity_observer_ = observe<int>(
         printer_state_.motion_state().get_live_extruder_velocity_subject(), this,
         [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); }, ps_subjects);
+    physical_units_observer_ = observe<int>(
+        DisplaySettingsManager::instance().subject_speed_flow_physical_units(), this,
+        [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); },
+        DisplaySettingsManager::instance().get_subjects_lifetime());
     gcode_z_offset_observer_ = observe<int>(
         printer_state_.motion_state().get_gcode_z_offset_subject(), this,
         [](PrintStatusPanel* self, int microns) { self->on_gcode_z_offset_changed(microns); },

@@ -537,8 +537,8 @@ class PrintStatusWidget : public PanelWidget {
         char elapsed_text_buf_[24];   // "12h 34m"
         char remaining_text_buf_[24]; // "99h 59m"
         char filament_text_buf_[32];  // "1234.5m"
-        char speed_text_buf_[24];     // "1234mm/s 150%"
-        char flow_text_buf_[32];      // "· 123.4mm³/s 150%"
+        char speed_text_buf_[16];     // "1234mm/s"
+        char flow_text_buf_[24];      // "· 123.4mm³/s"
         size_t speed_flow_len_ = 0;
         char nozzle_text_buf_[32];       // "265 / 270°C" — kept for tool_override test
         char nozzle_badge_text_buf_[16]; // the nozzle icon's 1-based tool number
@@ -575,8 +575,6 @@ class PrintStatusWidget : public PanelWidget {
         ObserverGuard filament_used_observer_;
         ObserverGuard live_velocity_observer_;
         ObserverGuard live_extruder_velocity_observer_;
-        ObserverGuard speed_factor_observer_;
-        ObserverGuard flow_factor_observer_;
 
         // Nozzle temp observers — paired SubjectLifetimes per [L084] for per-tool pinning.
         // Lifetimes declared before observers so they destruct AFTER observers in ~dtor
