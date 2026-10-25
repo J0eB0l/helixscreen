@@ -289,6 +289,19 @@ TEST_CASE("a small image shrink unlocks one side instead of pinned",
     CHECK(one.image.x == l.image.x);
 }
 
+TEST_CASE("the shrink makes room for a pointless chip wider than every lined one",
+          "[printer_image][callout_layout]") {
+    auto in = wide();
+    // The widest chip has no point to draw to; it still rides in the side band.
+    in.budget.push_back({CalloutKind::Fan, 100, std::nullopt});
+    in.active = in.budget;
+    const int col = 100 + in.gap + in.min_line;
+    in.area_w = 186 + col - 14; // the column fits once the image gives up 14px
+    const auto l = compute_callout_layout(in);
+    REQUIRE(l.mode == CalloutMode::OneSide);
+    CHECK(l.image.w == 186 - 14);
+}
+
 TEST_CASE("one side may take more of the image than both sides",
           "[printer_image][callout_layout]") {
     auto in = wide();

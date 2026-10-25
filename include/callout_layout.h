@@ -765,7 +765,9 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out,
     const CalloutRect fitted = out.image;
     if (try_line_modes_at(lined, fitted, loose_budget, loose_active, out))
         return true;
-    const auto [horiz, col] = line_column(lined, fitted);
+    // Sized from the same widths try_line_modes_at() accepts against: the
+    // loose chips ride in the side band too.
+    const auto [horiz, col] = line_column(in, fitted);
     const int area = horiz ? in.area_w : in.area_h;
     const int full = horiz ? fitted.w : fitted.h;
     for (const int columns : {1, 2}) {
