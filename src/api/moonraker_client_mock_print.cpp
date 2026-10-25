@@ -54,108 +54,15 @@ void register_print_handlers(std::unordered_map<std::string, MethodHandler>& reg
             return true;
         }
 
-        // Real Klipper executes a multi-line script line-by-line; the per-command
-        // parsers in gcode_script() assume a SINGLE command (e.g. they `find('S')`
-        // globally, which a multi-line script would point at the wrong token and
-        // throw std::stod). Split on newlines and process each non-empty line
-        // independently. Each line's std::stod/std::stoi is guarded so a parse
-        // quirk surfaces as an error result, never a C++ exception escaping the
-        // RPC layer (real Moonraker returns an error string, it doesn't crash).
-        //
-        // The error message is latched HERE, the moment a line fails, exactly as
-        // `result` is. gcode_script()'s latch is per-CALL (it clears on entry),
-        // but the RPC's error is per-SCRIPT: every jog is "G91\nG0 X..\nG90", so
-        // reading the latch after the loop returned whatever the trailing G90
-        // left behind — empty — and the caller rendered "An unknown error
-        // occurred." instead of the real rejection.
-        int result = 0;
-        std::string script_error;
-        size_t line_start = 0;
-        while (line_start <= script.size()) {
-            size_t nl = script.find('\n', line_start);
-            std::string line = (nl == std::string::npos)
-                                   ? script.substr(line_start)
-                                   : script.substr(line_start, nl - line_start);
-            // Trim trailing CR / surrounding spaces so blank lines are skipped.
-            while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
-                line.pop_back();
-            size_t first = line.find_first_not_of(' ');
-            if (first != std::string::npos) {
-                try {
-                    if (self->gcode_script(line.substr(first)) != 0) {
-                        result = 1;
-                        // Keep the FIRST failure: Klipper aborts the script at the
-                        // first rejected command, so later lines cannot supersede it.
-                        if (script_error.empty())
-                            script_error = self->get_last_gcode_error();
-                    }
-                } catch (const std::exception& ex) {
-                    spdlog::debug("[MoonrakerClientMock] gcode_script parse skipped for '{}': {}",
-                                  line, ex.what());
-                }
-            }
-            if (nl == std::string::npos)
-                break;
-            line_start = nl + 1;
-        }
-
-        // Test injection: a console line the script produced, delivered before the
-        // RPC answers as Klipper's own replies are.
-        if (auto reply = self->take_forced_console_reply(script)) {
-            self->dispatch_gcode_response(*reply);
-        }
-
-        // Test injection: simulate a response that never comes back at all (Klippy
-        // restarted, connection stalled). Klipper still processed the gcode above;
-        // NEITHER callback fires, so any caller-side in-flight counter stays pinned.
-        if (self->take_forced_gcode_drop(script)) {
+        // A MedusaHC swap blocks its script until the docks confirm it, so a
+        // run that starts one stops there and is answered when the swap ends.
+        MoonrakerClientMock::GcodeScriptRun run = self->run_gcode_script_lines(script, 0);
+        if (run.result == 0 && run.resume_at != std::string::npos) {
+            self->hold_medusa_reply(script, run.resume_at, self->current_send_intent(),
+                                    std::move(success_cb), std::move(error_cb));
             return true;
         }
-
-        // Test injection: simulate an RPC-layer failure (e.g. timeout) for this command
-        // while Klipper still processed the gcode above. The collector-based APIs rely on
-        // this to exercise paths where the RPC response is lost but Klipper keeps running.
-        if (auto forced = self->take_forced_gcode_error(script)) {
-            if (error_cb) {
-                // has_broadcast_channel=true: this registry entry IS
-                // printer.gcode.script, the method Klipper mirrors as `!!`.
-                if (helix::rpc_error_policy::decide(
-                        self->current_send_intent(),
-                        helix::rpc_error_policy::RequestFacts{/*has_broadcast_channel=*/true,
-                                                              /*suppress_all=*/false})
-                        .record_for_dedup) {
-                    helix::rpc_error_correlation::record_caller_handled(forced->message);
-                }
-                error_cb(*forced);
-            }
-            return true;
-        }
-
-        if (result != 0) {
-            // G-code execution failed (e.g., out-of-range move)
-            // Return error like real Moonraker does
-            if (error_cb) {
-                MoonrakerError err =
-                    MoonrakerError::json_rpc_error("printer.gcode.script", script_error);
-                // send_jsonrpc() dispatches into this registry inline and never
-                // reaches MoonrakerRequestTracker, so the same policy is applied
-                // here from the shared decide(). Without it the mock either
-                // double-toasts a rejection that hardware reports once, or eats
-                // the `!!` copy that hardware would still deliver.
-                // has_broadcast_channel=true: this registry entry IS
-                // printer.gcode.script, the method Klipper mirrors as `!!`.
-                if (helix::rpc_error_policy::decide(
-                        self->current_send_intent(),
-                        helix::rpc_error_policy::RequestFacts{/*has_broadcast_channel=*/true,
-                                                              /*suppress_all=*/false})
-                        .record_for_dedup) {
-                    helix::rpc_error_correlation::record_caller_handled(err.message);
-                }
-                error_cb(err);
-            }
-        } else if (success_cb) {
-            success_cb(json::object()); // Return empty success response
-        }
+        self->answer_gcode_script(script, run, self->current_send_intent(), success_cb, error_cb);
         return true;
     };
 
@@ -316,3 +223,108 @@ void register_print_handlers(std::unordered_map<std::string, MethodHandler>& reg
 }
 
 } // namespace mock_internal
+
+// Real Klipper executes a multi-line script line-by-line; the per-command
+// parsers in gcode_script() assume a SINGLE command (e.g. they `find('S')`
+// globally, which a multi-line script would point at the wrong token and
+// throw std::stod). Split on newlines and process each non-empty line
+// independently. Each line's std::stod/std::stoi is guarded so a parse
+// quirk surfaces as an error result, never a C++ exception escaping the
+// RPC layer (real Moonraker returns an error string, it doesn't crash).
+//
+// The error message is latched HERE, the moment a line fails, exactly as
+// `result` is. gcode_script()'s latch is per-CALL (it clears on entry),
+// but the RPC's error is per-SCRIPT: every jog is "G91\nG0 X..\nG90", so
+// reading the latch after the loop would return whatever the trailing G90
+// left behind - empty - and the caller would render "An unknown error
+// occurred." instead of the real rejection.
+MoonrakerClientMock::GcodeScriptRun
+MoonrakerClientMock::run_gcode_script_lines(const std::string& script, size_t start) {
+    GcodeScriptRun run;
+    size_t line_start = start;
+    while (line_start <= script.size()) {
+        size_t nl = script.find('\n', line_start);
+        std::string line = (nl == std::string::npos) ? script.substr(line_start)
+                                                     : script.substr(line_start, nl - line_start);
+        // Trim trailing CR / surrounding spaces so blank lines are skipped.
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
+            line.pop_back();
+        size_t first = line.find_first_not_of(' ');
+        if (first != std::string::npos) {
+            try {
+                if (gcode_script(line.substr(first)) != 0) {
+                    run.result = 1;
+                    // Keep the FIRST failure: Klipper aborts the script at the
+                    // first rejected command, so later lines cannot supersede it.
+                    if (run.error.empty())
+                        run.error = get_last_gcode_error();
+                }
+            } catch (const std::exception& ex) {
+                spdlog::debug("[MoonrakerClientMock] gcode_script parse skipped for '{}': {}", line,
+                              ex.what());
+            }
+            if (take_medusa_swap_armed()) {
+                run.resume_at = (nl == std::string::npos) ? script.size() : nl + 1;
+                return run;
+            }
+        }
+        if (nl == std::string::npos)
+            break;
+        line_start = nl + 1;
+    }
+    return run;
+}
+
+void MoonrakerClientMock::answer_gcode_script(
+    const std::string& script, const GcodeScriptRun& run,
+    const helix::rpc_error_policy::CallerIntent& intent,
+    const std::function<void(const json&)>& success_cb,
+    const std::function<void(const MoonrakerError&)>& error_cb) {
+    // Test injection: a console line the script produced, delivered before the
+    // RPC answers as Klipper's own replies are.
+    if (auto reply = take_forced_console_reply(script)) {
+        dispatch_gcode_response(*reply);
+    }
+
+    // Test injection: simulate a response that never comes back at all (Klippy
+    // restarted, connection stalled). Klipper still processed the gcode above;
+    // NEITHER callback fires, so any caller-side in-flight counter stays pinned.
+    if (take_forced_gcode_drop(script)) {
+        return;
+    }
+
+    // send_jsonrpc() dispatches into the registry inline and never reaches
+    // MoonrakerRequestTracker, so the same policy is applied here from the
+    // shared decide(). Without it the mock either double-toasts a rejection
+    // that hardware reports once, or eats the `!!` copy that hardware would
+    // still deliver. has_broadcast_channel=true: this IS printer.gcode.script,
+    // the method Klipper mirrors as `!!`.
+    auto reject = [&](const MoonrakerError& err) {
+        if (!error_cb) {
+            return;
+        }
+        if (helix::rpc_error_policy::decide(
+                intent, helix::rpc_error_policy::RequestFacts{/*has_broadcast_channel=*/true,
+                                                              /*suppress_all=*/false})
+                .record_for_dedup) {
+            helix::rpc_error_correlation::record_caller_handled(err.message);
+        }
+        error_cb(err);
+    };
+
+    // Test injection: simulate an RPC-layer failure (e.g. timeout) for this command
+    // while Klipper still processed the gcode above. The collector-based APIs rely on
+    // this to exercise paths where the RPC response is lost but Klipper keeps running.
+    if (auto forced = take_forced_gcode_error(script)) {
+        reject(*forced);
+        return;
+    }
+
+    if (run.result != 0) {
+        // G-code execution failed (e.g., out-of-range move), answered as real
+        // Moonraker does.
+        reject(MoonrakerError::json_rpc_error("printer.gcode.script", run.error));
+    } else if (success_cb) {
+        success_cb(json::object());
+    }
+}

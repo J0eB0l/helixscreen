@@ -770,13 +770,24 @@ in `read_medusahc()` is exercised at runtime and not only in the unit tests:
 | Value | Objects | Phase key | Feeder | Step bar |
 |-------|---------|-----------|--------|----------|
 | `medusahc` | `pin_watch io` + `toolchanger` + `tool T0..3` + `medusahc`, the `SET`/`DROP_TOOL`/`OPEN`/`CLOSE` macros | `operation`: idle/changing/dropping/picking | `feeder_open` | 4 steps |
-| `medusahc-tn` | `pin_watch io` + `medusahc` + `gcode_macro T0..3`, no `toolchanger`: the swap is `T<n>`, the park `DROP_TOOL` | as `medusahc` | `feeder_open` | 4 steps |
+| `medusahc-tn` | six tools (topi's machine): `pin_watch io` + `medusahc` + `gcode_macro T0..5` + `extruder`..`extruder5`, no `toolchanger`: the swap is `T<n>`, the park `DROP_TOOL` | as `medusahc` | `feeder_open` | 4 steps |
 | `medusahc-fork` | `medusahc` alone, forked `state`/`error`/`toolN_docked` schema | `state`: ready/changing | `feeder_open` | 3 steps |
 
 A swap advances through its phases on the simulation thread over ~7s, so they arrive as
 separate status frames rather than collapsing into one update. `MHC_SET`/`SET`,
 `SELECT_TOOL`, bare `T<n>`, `MHC_DROP`/`_DROP` (parks and leaves the gripper open),
 `DROP_TOOL`/`UNSELECT_TOOL` (parks and re-grips) and the feeder commands are all handled.
+`medusahc` and `medusahc-fork` carry four tools, `medusahc-tn` six.
+
+A swap's `printer.gcode.script` reply waits for the swap to end, as the controller's
+`_wait_for_tool()` blocks the command: lines after the swap run only then. A failure with no
+print running answers with the controller's message as an error (`MHC_SET: sensors did not
+confirm T<n>`, `MHC_SET: ambiguous sensor state`, `MHC_DROP: ...`) and runs nothing after it;
+during a print the failure pauses it and the reply succeeds, as `_OperationPaused` does. A
+swap command sent while another runs is refused with `MedusaHC is busy: <operation>`.
+Beside klipper-toolchanger (`medusahc`), `toolchanger.tool_number` follows the docks as
+pin_watch's `sync_toolchanger` keeps it: the docks' tool, -1 when they name none, and left
+alone mid-print.
 
 The controller variants simulate the dock pins and derive `current_tool` from them the
 way Irbis3D's pin_watch extra does: -1 when the toolhead switch is released and every dock seated, a

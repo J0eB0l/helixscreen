@@ -4,6 +4,7 @@
 #pragma once
 
 #include "accel_batch_source_mock.h"
+#include "async_lifetime_guard.h"
 #include "axis.h"
 #include "mock_persona.h"
 #include "moonraker_client.h"
@@ -1338,6 +1339,44 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
                                 std::function<void(const nlohmann::json&)> success_cb,
                                 std::function<void(const MoonrakerError&)> error_cb);
 
+    /// A printer.gcode.script run line by line, as Klipper runs it.
+    struct GcodeScriptRun {
+        int result = 0;
+        std::string error; ///< The first rejected line's message
+        /// Where the script resumes once the MedusaHC swap a line started has
+        /// ended; npos when every line ran.
+        size_t resume_at = std::string::npos;
+    };
+    /// Run @p script from byte @p start, stopping after a line that starts a
+    /// MedusaHC swap.
+    GcodeScriptRun run_gcode_script_lines(const std::string& script, size_t start);
+    /// Answer a printer.gcode.script rpc with what its lines did.
+    void answer_gcode_script(const std::string& script, const GcodeScriptRun& run,
+                             const helix::rpc_error_policy::CallerIntent& intent,
+                             const std::function<void(const nlohmann::json&)>& success_cb,
+                             const std::function<void(const MoonrakerError&)>& error_cb);
+    /**
+     * @brief Hold a printer.gcode.script reply until the MedusaHC swap its
+     *        script started has ended.
+     *
+     * The controller's _wait_for_tool() blocks the command until the docks
+     * confirm the tool or time out. A failure outside a print answers with the
+     * controller's message and runs nothing after it; a success, or a failure
+     * that paused a print, runs the rest of the script and then answers.
+     */
+    void hold_medusa_reply(std::string script, size_t resume_at,
+                           helix::rpc_error_policy::CallerIntent intent,
+                           std::function<void(const nlohmann::json&)> success_cb,
+                           std::function<void(const MoonrakerError&)> error_cb);
+    /// klipper-toolchanger's tool_number as pin_watch's sync_toolchanger keeps
+    /// it: the docks' tool when they name one, -1 (UNSELECT_TOOL) when they do
+    /// not, and while printing an unnamed reading leaves it alone.
+    int sync_medusa_toolchanger_tool();
+    /// Tools the MedusaHC variant carries: six on the T<n>-macro controller
+    /// (topi's machine), four on the others.
+    [[nodiscard]] static int medusa_tool_count();
+    static constexpr int kMedusaMaxTools = 6;
+
     /// The U1 persona's extruder_offset for head @p head (0-3), as the
     /// objects query reports it.
     [[nodiscard]] std::array<double, 3> nozzle_offset(int head) const;
@@ -2438,9 +2477,28 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
         bool op_failed = false;
         std::string last_error;
         int redock_ticks = -1; ///< Notifications until the simulated hand re-dock, -1 none
+        /// Set when a command arms a phase: the script that sent it stops there.
+        bool swap_armed = false;
+        /// `toolchanger`.tool_number as pin_watch last synced it, and the
+        /// pin reading it synced from.
+        int toolchanger_tool = 0;
+        int toolchanger_reading = 0;
+        bool toolchanger_synced = false;
+    };
+    /// A printer.gcode.script reply held until the swap its script started ends.
+    struct MedusaReply {
+        std::string script;
+        size_t resume_at = 0;
+        helix::rpc_error_policy::CallerIntent intent{};
+        std::function<void(const nlohmann::json&)> success_cb;
+        std::function<void(const MoonrakerError&)> error_cb;
     };
     mutable std::mutex medusa_mutex_;
     MedusaSim medusa_;
+    std::optional<MedusaReply> medusa_reply_; ///< Behind medusa_mutex_
+    /// Held replies are answered on the main thread; a mock destroyed first
+    /// drops them.
+    helix::AsyncLifetimeGuard medusa_reply_lifetime_;
     int medusa_swap_fail_tool_ = -1;       ///< HELIX_MOCK_MEDUSA_SWAP_FAIL, set in the ctor
     int medusa_redock_notifications_ = -1; ///< HELIX_MOCK_MEDUSA_REDOCK_S, set in the ctor
 
@@ -2466,6 +2524,13 @@ class MoonrakerClientMock : public helix::MoonrakerClient {
     /// The controller's _fail(): latch the error and end the operation. Caller
     /// holds medusa_mutex_, and pauses a running print once it has let go.
     void medusa_fail_locked(std::string message);
+    /// The controller's `operation` word for @p phase.
+    static const char* medusa_operation_word(MedusaPhase phase);
+    /// Whether the last command armed a swap phase; clears the flag.
+    bool take_medusa_swap_armed();
+    /// Finish a held reply once its swap has ended (main thread).
+    void complete_medusa_reply(MedusaReply reply, bool failed, bool print_active,
+                               const std::string& message);
 
     // --- Bondtech INDX mock hardware (moonraker_client_mock_indx.cpp) ----------
     // The macro state Bondtech's upstream macros publish (save_variables and
