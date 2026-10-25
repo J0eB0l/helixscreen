@@ -189,6 +189,20 @@ TEST_CASE_METHOD(KlippyFreshnessFixture, "Klippy freshness: reset re-arms cold s
     CHECK(klippy() == KlippyState::READY);
 }
 
+// A reconnect whose Klippy stayed up sends no new webhooks.state: the
+// resubscribe snapshot is the only report the new session gets.
+TEST_CASE_METHOD(KlippyFreshnessFixture,
+                 "Klippy freshness: after a reset the resubscribe snapshot alone recovers",
+                 "[core][klippy][freshness]") {
+    live("shutdown", 100.0);
+    replay("ready");
+    REQUIRE(klippy() == KlippyState::SHUTDOWN);
+
+    state.network_state().reset_klippy_state_freshness();
+    replay("ready");
+    CHECK(klippy() == KlippyState::READY);
+}
+
 // ============================================================================
 // T6 — the state_message rides in the same blob, so a replayed snapshot's
 // message is equally stale and must not overwrite the live one.

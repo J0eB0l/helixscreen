@@ -673,7 +673,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         // Room for everything at this width, so a stale "no room" verdict can
         // only clear if the rows are measured once the print builds them.
         const char* const fits[] = {"print_status_nozzle_picker_fits", "print_status_layer_z_fits",
-                                    "print_status_elapsed_fits"};
+                                    "print_status_elapsed_fits", "print_status_speed_fits",
+                                    "print_status_flow_fits"};
         for (const char* name : fits) {
             lv_subject_set_int(lv_xml_get_subject(nullptr, name), 0);
         }

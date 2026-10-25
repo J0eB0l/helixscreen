@@ -153,6 +153,23 @@ void MoonrakerClientMock::mock_plr_request(const std::string& method, const json
             error_cb(err);
         }
     };
+    if (method == helix::kPlrMeshIncludeRpc) {
+        // The config-file question stands without the outage simulation, so
+        // it answers even when no PLR backend is on.
+        const bool had = plr_mesh_include_;
+        const std::string action =
+            params.is_object() && params.contains("action") && params["action"].is_string()
+                ? params["action"].get<std::string>()
+                : std::string();
+        if (action == "add" || action == "remove") {
+            plr_mesh_include_ = action == "add";
+            reply({{"present", plr_mesh_include_}, {"changed", plr_mesh_include_ != had}});
+            return;
+        }
+        reply({{"present", plr_mesh_include_}});
+        return;
+    }
+
     if (!cfg.active) {
         fail(MoonrakerError::unknown("Method not found", method));
         return;
@@ -339,8 +356,9 @@ namespace mock_internal {
 
 // NAMESPACE_OK: mock_internal handler registry, alongside its sibling registrars
 void register_plr_handlers(std::unordered_map<std::string, MethodHandler>& registry) {
-    for (const char* method : {helix::kPlrStatusRpc, helix::kPlrPlanRpc, helix::kPlrPrepareRpc,
-                               helix::kPlrCommitRpc, helix::kPlrAbortRpc, helix::kPlrDiscardRpc}) {
+    for (const char* method :
+         {helix::kPlrStatusRpc, helix::kPlrPlanRpc, helix::kPlrPrepareRpc, helix::kPlrCommitRpc,
+          helix::kPlrAbortRpc, helix::kPlrDiscardRpc, helix::kPlrMeshIncludeRpc}) {
         registry[method] = [method](MoonrakerClientMock* self, const json& params,
                                     std::function<void(const json&)> success_cb,
                                     std::function<void(const MoonrakerError&)> error_cb) -> bool {

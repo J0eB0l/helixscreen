@@ -623,6 +623,9 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     [[nodiscard]] std::string park_gcode() const;
 
     bool mounts_to_feed_ = false;
+    /// A mount-to-feed load's purge past the nozzle, from the purge_length
+    /// device setting. Guarded by mutex_.
+    int purge_mm_ = helix::mount_feed::kDefaultPurgeMm;
     /// The run in progress. Main thread only; feed_active_ mirrors it under mutex_.
     std::optional<helix::mount_feed::Run> feed_run_;
     uint64_t feed_generation_ = 0;

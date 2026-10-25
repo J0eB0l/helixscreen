@@ -1053,6 +1053,9 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
 
 ### Fixed
 
+- **Storage warnings now translate** - when a storage cleanup folder was configured unsafely,
+  the plugin overview showed the Moonraker plugin's raw English sentence. Those reasons are
+  reason codes now, translated like every other plugin message (#1867).
 - **Chart axis labels no longer clip** - on the Input Shaper results graph and the belt tension
   chart, the vertical percent labels and the "100 Hz" style labels at the chart edges were cut
   off on screens where the text is large. The space for the labels now follows the text size,
@@ -1506,6 +1509,10 @@ git log --no-merges --oneline 2ad32dc6e..main --not release/1.0
 
 ### Internal
 
+- The mock Voron personas model a real centre-origin bed (-175..175 on the 2.4, -125..125 on
+  the Trident) through every path the mock serves, so the demo G-code files sliced for
+  centre-origin printers pass the print-start fit check: 14 of 18 fit the default persona
+  instead of 3 (#1868).
 - The pluck-based belt tuner libraries (#1303, #1231: pluck detection, harmonic pitch
   estimation, the five-pluck median) stay in the tree with no UI. They have never measured a
   real belt and their thresholds come from one Voron's captures; `BELT_TUNER.md` § Validation

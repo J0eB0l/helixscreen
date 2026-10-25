@@ -21,6 +21,7 @@
 #include "moonraker_error.h"
 #include "moonraker_types.h"
 #include "print_control_buttons.h"
+#include "printer_event_journal.h"
 #include "printer_recovery_service.h"
 #include "printer_state.h"
 #include "recovery_modal_presenter.h"
@@ -35,7 +36,6 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <chrono>
 #include <vector>
 
 namespace helix {
@@ -100,11 +100,6 @@ constexpr double kReplayMaxAgeSeconds = 30.0;
 /// gcode_store fetch depth on reconnect. The K2's box driver is chatty
 /// (status polls every ~3s) so we need headroom to find a `!!` line.
 constexpr int kReplayFetchCount = 50;
-
-double now_unix_seconds() {
-    return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch())
-        .count();
-}
 
 } // namespace
 
@@ -543,7 +538,7 @@ void GcodeErrorRouter::show_deferred(const ErrorEvent& e, PresentAs how,
 }
 
 void GcodeErrorRouter::displace_prose_twin(const std::string& message) {
-    const double now = now_unix_seconds();
+    const double now = wall_now_s();
     displaced_prose_.erase(std::remove_if(displaced_prose_.begin(), displaced_prose_.end(),
                                           [now](const auto& entry) {
                                               return now - entry.first >
@@ -554,7 +549,7 @@ void GcodeErrorRouter::displace_prose_twin(const std::string& message) {
 }
 
 bool GcodeErrorRouter::prose_twin_displaced(const std::string& raw) const {
-    const double now = now_unix_seconds();
+    const double now = wall_now_s();
     for (const auto& [raised_at, message] : displaced_prose_) {
         if (now - raised_at <= kDisplacedProseWindowSeconds && message == raw) {
             return true;
@@ -798,7 +793,7 @@ void GcodeErrorRouter::on_connected() {
                     if (raw.size() < 3 || raw[0] != '!' || raw[1] != '!')
                         continue;
 
-                    const double now = now_unix_seconds();
+                    const double now = wall_now_s();
                     if (!should_surface_replay(it->time, now)) {
                         // should_surface_replay logs the stale skip at debug.
                         return;

@@ -153,7 +153,7 @@ operation whose step bar is the stage list:
 | Insert filament | an action prompt: "Insert filament into the hot end of Tool N while it is docked, then tap Continue", with Continue and Cancel. It comes first, while the tool is still in its dock: once the hot end is on the carriage, the extruder's gears stand between the operator and the nozzle. A tool already on the carriage gets "Insert filament into Tool N, then tap Continue", and a Load of several with the first one mounted names both cases in one sentence | Mount tool | `SELECT_TOOL T=<n>` (or the machine's own `T<n>`); skipped when already mounted |
 | Mount tool | same as Unload's; it closes the prompt | Heat nozzle | `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=<t>`, then `TEMPERATURE_WAIT SENSOR=<tool's extruder> MINIMUM=<t-2>` (`t` is the target slot's material temperature, else 220) |
 | Heat nozzle | same as Unload's | Retract filament | `M83`, `G1 E-25 F1800`, `G1 E-150 F1200` (until the strand is fully out), `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` |
-| Purge | `M83`, `G1 E5 F60` (slow draw), `G1 E50 F300` twice, `G1 E-10 F1800`, `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` | Restore tool | remount the tool that was on the carriage, or park if none was |
+| Purge | `M83`, `G1 E5 F60` (slow draw), `G1 E50 F300` (tip to the nozzle), `G1 E<purge> F300` (the `purge_length` device action, 0-200mm, default 50, omitted at 0; persisted per printer as `toolchanger/purge_length_mm`), `G1 E-10 F1800`, `SET_HEATER_TEMPERATURE HEATER=<tool's extruder> TARGET=0` | Restore tool | remount the tool that was on the carriage, or park if none was |
 | Restore tool | same as Unload's | | |
 
 A tool already on the carriage skips Mount and Restore: Insert, Heat, Purge. A completed
@@ -232,10 +232,10 @@ grace through `handle_swap_check_elapsed()` the same way.
 sidebar's picker accepts several heads on this backend. A Load of several asks **once**, up
 front, exactly as a Load of one does ("Insert filament into the hot ends of Tools 1, 2, 4
 while they are docked, as far as it goes, then tap Continue"), then works tool by tool
-(Mount, Heat, Purge): each tool's opening stage preheats the **next** one to 65% of its
-material temperature (`SET_HEATER_TEMPERATURE HEATER=extruder<n>`, the Klipper multi-extruder
-naming - `extruder` for tool 0), so its own heat stage starts from heat. A preheat never LOWERS
-a target: a next tool already set hotter than the preheat value is left alone
+(Mount, Heat, Purge): each tool's opening stage heats the **next** one to its full material
+temperature (`SET_HEATER_TEMPERATURE HEATER=extruder<n>`, the Klipper multi-extruder
+naming - `extruder` for tool 0), so its own heat stage has nothing left to wait for. A preheat
+never LOWERS a target: a next tool already set at least that hot is left alone
 (`HeadRequest::heater_target_c`, read off the live extruder targets at dispatch). An Unload of several
 runs the same sequence with no prompt. At the end the carriage is restored to the tool the
 run found on it (or parked). A stop mid-sequence - cancel, timeout, failed stage - turns

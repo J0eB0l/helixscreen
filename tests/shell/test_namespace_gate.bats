@@ -20,7 +20,7 @@
 GATE="scripts/check_namespace_compliance.py"
 # The ratchet baseline, carried here as a literal so it cannot move in
 # scripts/quality-checks.sh alone. See the wiring section at the end.
-BASELINE=1959
+BASELINE=1957
 
 setup() {
     load helpers

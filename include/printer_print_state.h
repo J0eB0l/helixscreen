@@ -635,6 +635,35 @@ class PrinterPrintState {
         return &print_message_;
     }
 
+    /// Why the print is paused, or why the last one was canceled or failed,
+    /// when anything says; empty otherwise, and cleared on resume and when a
+    /// new print starts. PrintStopReasonTracker decides it (print_stop_reason.h).
+    lv_subject_t* get_print_stop_reason_subject() {
+        return &print_stop_reason_;
+    }
+
+    /// 1 when print_stop_reason is non-empty (for XML visibility binding)
+    lv_subject_t* get_print_stop_reason_visible_subject() {
+        return &print_stop_reason_visible_;
+    }
+
+    /// Main thread only.
+    void set_print_stop_reason(const std::string& reason);
+
+    /// The newest `!!` line PrintStopReasonTracker saw, as
+    /// gcode_error_reason_text(), and when (unix seconds). A print need not be
+    /// stopped. Main thread only.
+    void set_last_gcode_error(std::string text, double time) {
+        last_gcode_error_ = std::move(text);
+        last_gcode_error_time_ = time;
+    }
+    [[nodiscard]] const std::string& last_gcode_error() const {
+        return last_gcode_error_;
+    }
+    [[nodiscard]] double last_gcode_error_time() const {
+        return last_gcode_error_time_;
+    }
+
     /// print_stats.exception (Snapmaker U1 structured pause descriptor) id, or
     /// -1 when no exception is latched. Hardware-verified ids: 523 = recoverable
     /// runout, 532 = terminal dirty-bed (#991). Main-thread only.
@@ -1290,6 +1319,12 @@ class PrinterPrintState {
     // print_stats.message from Klipper (set by firmware on pause/error to describe reason)
     lv_subject_t print_message_{};  // String: e.g. "Filament Sensor: Runout Detected"
     char print_message_buf_[256]{}; // Buffer for print_stats.message storage
+
+    lv_subject_t print_stop_reason_{};
+    char print_stop_reason_buf_[256]{};
+    lv_subject_t print_stop_reason_visible_{};
+    std::string last_gcode_error_;
+    double last_gcode_error_time_ = 0.0;
 
     // print_stats.exception — structured pause descriptor {id,index,code,message,
     // level} sent by Snapmaker U1 firmware. On these pauses print_stats.message

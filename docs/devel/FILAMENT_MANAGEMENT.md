@@ -1853,6 +1853,20 @@ A backend fault reaches the user through one of **two independent channels**. Th
 | Presentation | `decide_presentation()` → toast / modal / `MODAL_WITH_RECOVER` | `RecoveryModalPresenter::present()` directly |
 | Returning `nullopt` | Defers to `error_classify::classify()` | Falls through to the bridge's last-resort toast (`surface_unhandled_error()`) |
 
+**A fault standing while the print is paused.** Channel B also fires off the pause:
+`StandingFaultTrigger` (`include/ams_standing_fault.h`) raises a fault once when
+`current_error_with_cause()` has one while the print is paused (or, on the firmware, while no
+print runs), fed on every action, pause and `print_stop_reason` change, so it does not matter
+which came first or whether `error_state` was already set before the load that failed.
+`current_error_with_cause(cause)` is `current_error()` told by the stop reason (the newest `!!`
+line near the pause) or, outside a pause, the newest `!!` line within `kEventCauseWindowS`
+(`recent_gcode_error()`), since a queued `AFC.message` can be an earlier fault's; AFC also
+takes the faulted lane from it for Eject. The desktop presents it through `AmsErrorBridge`
+(the ERROR edge covers faults outside a pause); the firmware, which has no bridge, through
+`helix::ui::AmsStandingFaultDialog`, the AMS panel's loading-error dialog raised whether the
+panel is open or not. The panel's own dialog still stands aside for a backend with
+`current_error()` on both targets.
+
 **Per-backend gates and recovery sets:**
 
 | Backend | Channel A gate | Channel B gate | Recovery actions (`build_recovery_actions()`) |

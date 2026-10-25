@@ -61,6 +61,9 @@ constexpr const char* CHAMBER_HEATER = "heaters/chamber";
 // on one network can be mid-migration and expose different command names.
 constexpr const char* FEEDER_OPEN_MACRO = "toolchanger/feeder_open_macro";
 constexpr const char* FEEDER_CLOSE_MACRO = "toolchanger/feeder_close_macro";
+// How far a mount-to-feed load purges past the nozzle, in mm. Per-printer: it
+// follows that machine's hot ends.
+constexpr const char* kMountFeedPurgeMm = "toolchanger/purge_length_mm";
 
 // ACE bypass macros. The ACE Pro has no bypass command, so the master switch
 // that disables its filament path is thrown by macros. "auto" detects the

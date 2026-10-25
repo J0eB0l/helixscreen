@@ -351,6 +351,12 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// the status update lands (prestonbrown/helixscreen#1171).
     [[nodiscard]] std::optional<helix::ErrorEvent> current_error() const override;
 
+    /// AFC names the lane first in its lane faults ("lane3 filament failed to
+    /// trigger ..."), so a failed load, which leaves no lane loaded, still
+    /// offers to eject that lane.
+    [[nodiscard]] std::optional<helix::ErrorEvent>
+    current_error_with_cause(const std::string& cause) const override;
+
     /// L1: recognize AFC toolhead jam / lane / hub faults and emit a CRITICAL
     /// ErrorEvent with context-aware recovery actions. Falls back to a catch-all
     /// for any pausing !! while error_state_ is set. Returns nullopt otherwise so
@@ -1219,6 +1225,15 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// mutex_ is non-recursive, so this must not lock). Offers Unload only when
     /// the toolhead is loaded; Eject only when empty and a lane is selected.
     [[nodiscard]] std::vector<helix::RecoveryAction> build_recovery_actions() const override;
+
+    /// build_recovery_actions() with @p lane as the selected lane. Caller holds mutex_.
+    [[nodiscard]] std::vector<helix::RecoveryAction>
+    recovery_actions_for_lane(const std::string& lane) const;
+
+    /// current_error()'s event with @p cause as its detail (when non-empty) and
+    /// @p lane as the lane to eject. Caller holds mutex_.
+    [[nodiscard]] std::optional<helix::ErrorEvent>
+    fault_event_locked(const std::string& cause, const std::string& lane) const;
 
     /**
      * @brief Execute a G-code command with user-facing toast notifications

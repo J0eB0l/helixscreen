@@ -52,14 +52,18 @@ struct HeadRequest {
     int temp_c = 0;
     std::string mount_gcode; ///< Mounts @ref head; empty when it is already mounted
     /// The tool's heater target right now. The next-tool preheat must never
-    /// LOWER a target, so a tool already set hotter than the preheat value is
-    /// left alone instead of being pulled back to it.
+    /// LOWER a target, so a tool already set at least as hot is left alone.
     int heater_target_c = 0;
 };
 
 /// How long the operator prompt may wait before the run unwinds itself: a run
 /// nobody is attending must not go on to mount and heat a tool.
 constexpr uint32_t kPromptTimeoutMs = 180'000;
+
+/// How much a load extrudes past the nozzle once the strand reaches it, and the
+/// range the setting accepts.
+constexpr int kDefaultPurgeMm = 50;
+constexpr int kMaxPurgeMm = 200;
 
 /// What one Load or Unload needs to know, read off the backend at dispatch.
 struct Request {
@@ -73,6 +77,7 @@ struct Request {
     /// The prompt may not outlive this. A Load asks once, up front, for every
     /// strand.
     uint32_t prompt_timeout_ms = kPromptTimeoutMs;
+    int purge_mm = kDefaultPurgeMm; ///< A load's purge past the nozzle, 0..kMaxPurgeMm
     /// The prompt fields are ENGLISH: they travel inside RESPOND lines, which
     /// every client attached to the printer shows verbatim, so no locale of
     /// ours may decide what Mainsail displays.
