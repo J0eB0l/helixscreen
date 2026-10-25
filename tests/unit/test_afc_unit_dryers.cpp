@@ -11,6 +11,7 @@
 #include "afc_unit_dryer.h"
 #include "ams_backend_afc.h"
 #include "test_helpers/afc_test_access.h"
+#include "test_helpers/log_capture.h"
 #include "test_helpers/registered_backend.h"
 
 #include <string>
@@ -285,4 +286,22 @@ TEST_CASE_METHOD(LVGLTestFixture, "A claimed unit whose object lands before AFC.
     const AmsSystemInfo info = afc.get_system_info();
     REQUIRE(info.units.size() == 2);
     CHECK(info.total_slots == 8);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "A frame carrying every unit object rebuilds the layout once",
+                 "[afc][dryer]") {
+    helix::test::RegisteredBackend<AfcDryerHelper> reg{lanes(1, 8)};
+    AfcDryerHelper& afc = *reg;
+    const nlohmann::json frame = {{"AFC", {{"units", {"Box_Turtle Turtle_1", "BambuAMS AMS_1"}}}},
+                                  {"AFC_BoxTurtle Turtle_1", {{"lanes", lanes(1, 4)}}},
+                                  {"AFC_BambuAMS AMS_1", {{"lanes", lanes(5, 4)}}}};
+    afc.feed(frame);
+    REQUIRE(afc.get_system_info().units.size() == 2);
+
+    // Both units already hold their lanes, so each one's object passes the
+    // "every unit has lanes" check on its own.
+    LogCapture log;
+    afc.feed(frame);
+    CHECK(log.count_containing("units have lane data, triggering reorganize") == 1);
+    CHECK(afc.get_system_info().total_slots == 8);
 }

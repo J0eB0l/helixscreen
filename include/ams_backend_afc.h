@@ -1172,6 +1172,15 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     void rebuild_unit_map_from_klipper();
 
     /**
+     * @brief rebuild_unit_map_from_klipper() once every known unit has lanes
+     *
+     * Run once after a batch of parse_afc_unit_object() calls, not per unit:
+     * units keep their lanes across frames, so a per-unit check passes for each
+     * one and rebuilds the layout once per unit object in the frame.
+     */
+    void rebuild_unit_map_if_complete();
+
+    /**
      * @brief Initialize slot structures based on discovered lanes
      *
      * Called when we first receive lane data to create the correct

@@ -1416,12 +1416,17 @@ void AmsBackendAfc::handle_status(const nlohmann::json& params) {
         for (int i = 0; i < slots_.slot_count(); ++i) {
             lanes_before.push_back(slots_.name_of(i));
         }
+        bool parsed_unit_object = false;
         for (auto& unit_info : unit_infos_) {
             if (params.contains(unit_info.klipper_key) &&
                 params[unit_info.klipper_key].is_object()) {
                 parse_afc_unit_object(unit_info, params[unit_info.klipper_key]);
+                parsed_unit_object = true;
                 state_changed = true;
             }
+        }
+        if (parsed_unit_object) {
+            rebuild_unit_map_if_complete();
         }
         // The lane objects were parsed above against the slots as they stood, so a
         // lane a unit object just brought in (a unit claimed live) missed this
@@ -2260,6 +2265,7 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         if (had_units && unit_joined) {
             // A unit that joined may have sent its own object before AFC.units
             // named it; that frame was cached rather than lost.
+            bool applied_cached = false;
             for (auto& ui : unit_infos_) {
                 if (!ui.lanes.empty()) {
                     continue;
@@ -2267,7 +2273,11 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
                 const auto cached = unit_object_cache_.find(ui.klipper_key);
                 if (cached != unit_object_cache_.end()) {
                     parse_afc_unit_object(ui, cached->second);
+                    applied_cached = true;
                 }
+            }
+            if (applied_cached) {
+                rebuild_unit_map_if_complete();
             }
             schedule_roster_refresh_locked("AFC.units gained a unit");
         }
@@ -3991,7 +4001,9 @@ void AmsBackendAfc::parse_afc_unit_object(AfcUnitInfo& unit_info, const nlohmann
                   unit_info.klipper_key, unit_info.lanes.size(), unit_info.extruders.size(),
                   unit_info.hubs.size(), unit_info.buffers.size(),
                   path_topology_to_string(unit_info.topology));
+}
 
+void AmsBackendAfc::rebuild_unit_map_if_complete() {
     // Reorganize only when ALL known units have lane data.
     // Triggering early (e.g., >=2) causes the slot registry rebuild to consume
     // stashed lane data before all units are accounted for, resulting in the
