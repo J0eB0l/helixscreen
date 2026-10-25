@@ -45,7 +45,10 @@
 #include "toolchanger_addon.h"
 
 #include <algorithm>
+#include <chrono>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "../catch_amalgamated.hpp"
@@ -1347,6 +1350,34 @@ TEST_CASE_METHOD(LVGLTestFixture, "A MedusaHC swap answers its gcode script only
         CHECK(reply.successes == 1);
         CHECK(mock.get_print_phase() == MoonrakerClientMock::MockPrintPhase::PAUSED);
     }
+    SECTION("an unmount holds its reply until the hot end is parked") {
+        ScriptReply reply;
+        send_script(mock, "DROP_TOOL", reply);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes == 0);
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes == 1);
+        CHECK(mock.medusa_status_json()["current_tool"].get<int>() == -1);
+    }
+    SECTION("a disconnect fails the held reply, and the swap ending answers nothing more") {
+        ScriptReply reply;
+        send_script(mock, "T1", reply);
+        mock.disconnect();
+        CHECK(reply.errors == 1);
+        CHECK(reply.message == MoonrakerError::connection_lost("printer.gcode.script").message);
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.errors == 1);
+        CHECK(reply.successes == 0);
+    }
+    SECTION("a swap a direct gcode call started does not hold the next script") {
+        REQUIRE(mock.gcode_script("SELECT_TOOL T=1") == 0);
+        ScriptReply reply;
+        send_script(mock, "M104 T0 S200\nM104 T0 S210", reply);
+        CHECK(reply.successes == 1);
+        CHECK(history_has(mock, "M104 T0 S210"));
+    }
     SECTION("a swap sent while another runs is refused at once") {
         ScriptReply first;
         ScriptReply second;
@@ -1368,6 +1399,11 @@ TEST_CASE_METHOD(LVGLTestFixture, "Beside klipper-toolchanger, tool_number follo
     REQUIRE(mock.gcode_script("SELECT_TOOL T=2") == 0);
     run_medusa_to_rest(mock);
     CHECK(mock.sync_medusa_toolchanger_tool() == 2);
+    json response;
+    mock.send_jsonrpc("printer.objects.subscribe",
+                      json{{"objects", json::object({{"toolchanger", nullptr}})}},
+                      [&response](const json& r) { response = r; });
+    CHECK(response["result"]["status"]["toolchanger"]["tool_number"].get<int>() == 2);
 
     SECTION("a reading the docks cannot name unselects outside a print") {
         REQUIRE(mock.gcode_script("T3") == 0);
@@ -1395,6 +1431,14 @@ TEST_CASE_METHOD(LVGLTestFixture, "The T<n>-macro MedusaHC mock carries six tool
     CHECK(std::find(objs.begin(), objs.end(), "gcode_macro T6") == objs.end());
     const auto& heaters = hw.heaters();
     CHECK(std::find(heaters.begin(), heaters.end(), "extruder5") != heaters.end());
+    // Every tool's lane mirrors a spool, the last two included.
+    CHECK(mock.mock_db_get("lane_data", "T5")["spoolman_id"].get<int>() == 15);
+    CHECK(mock.mock_db_get("lane_data", "T4")["material"].get<std::string>() == "ASA");
+    json response;
+    mock.send_jsonrpc("printer.objects.subscribe",
+                      json{{"objects", json::object({{"extruder5", nullptr}})}},
+                      [&response](const json& r) { response = r; });
+    CHECK(response["result"]["status"]["extruder5"]["temperature"].get<double>() == 25.0);
 
     json status = mock.medusa_status_json();
     CHECK(status["tool_count"].get<int>() == 6);
@@ -1405,6 +1449,59 @@ TEST_CASE_METHOD(LVGLTestFixture, "The T<n>-macro MedusaHC mock carries six tool
     CHECK(mock.medusa_status_json()["current_tool"].get<int>() == 5);
     CHECK(mock.gcode_script("SET T=6") != 0);
     CHECK(mock.get_last_gcode_error() == "Tool T6 is outside configured range T0..T5");
+}
+
+namespace {
+/// The status frames a connected mock pushes over its first live ticks.
+std::vector<json> live_frames(MoonrakerClientMock& mock) {
+    std::mutex mu;
+    std::vector<json> frames;
+    const auto sub = mock.register_notify_update([&](const json& notification) {
+        auto params = notification.find("params");
+        if (params != notification.end() && params->is_array() && !params->empty()) {
+            std::lock_guard<std::mutex> lock(mu);
+            frames.push_back((*params)[0]);
+        }
+    });
+    mock.connect("ws://mock/websocket", [] {}, [] {});
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (MoonrakerClientMockTestAccess::tick_count(mock) < 2 &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    mock.unsubscribe_notify_update(sub);
+    mock.disconnect();
+    std::lock_guard<std::mutex> lock(mu);
+    return frames;
+}
+
+bool any_frame(const std::vector<json>& frames, const std::function<bool(const json&)>& pred) {
+    return std::any_of(frames.begin(), frames.end(), pred);
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "The MedusaHC mock's live frames carry its whole machine",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    SECTION("six hot ends on the T<n>-macro controller") {
+        ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc-tn");
+        MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+        const auto frames = live_frames(mock);
+        CHECK(any_frame(frames, [](const json& f) {
+            // The live tick's shape, not the query's (which carries pressure advance).
+            return f.contains("extruder5") && f["extruder5"].contains("temperature") &&
+                   !f["extruder5"].contains("pressure_advance");
+        }));
+    }
+    SECTION("klipper-toolchanger's tool_number beside the controller") {
+        ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc");
+        MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+        const auto frames = live_frames(mock);
+        CHECK(any_frame(frames, [](const json& f) {
+            return f.contains("toolchanger") && f["toolchanger"].contains("tool_number") &&
+                   f["toolchanger"]["tool_number"] == 0 && !f["toolchanger"].contains("status");
+        }));
+    }
 }
 
 TEST_CASE("Each MedusaHC mock variant lists its configuration's objects",
