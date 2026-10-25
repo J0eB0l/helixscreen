@@ -7673,8 +7673,9 @@ TEST_CASE_METHOD(ForgeXPrintStartReplayFixture,
         max_prediction_s = 849.0f * 1.15f;
     }
     SECTION("with a history shorter than this pre-print") {
-        // A saved pre-print a timeout cut short: its deadline passes while
-        // the nozzle cools silently for probing, heaters near their targets.
+        // A saved pre-print a timeout cut short, recording no heating: the
+        // start pays at least its own heating, so the short history cannot
+        // pull the deadline in front of the silent nozzle cool-down.
         ThermalRateManager::instance().apply_archetype_defaults(kBedXMax, "");
         history_total_s = 380;
     }
@@ -7683,8 +7684,10 @@ TEST_CASE_METHOD(ForgeXPrintStartReplayFixture,
     CAPTURE(result.trace, result.first_prediction_s, result.cooldown_prediction_s,
             result.mesh_message);
     if (history_total_s > 0) {
-        // The deadline (1.5x the prediction) is behind the cool-down.
-        REQUIRE(result.cooldown_prediction_s * 1.5f <= 600.0f);
+        // The trace heats from HEATING_BED (9s) to CLEANING (513s).
+        constexpr float kTraceHeatingS = 513.0f - 9.0f;
+        REQUIRE(result.cooldown_prediction_s > static_cast<float>(history_total_s));
+        REQUIRE(result.cooldown_prediction_s >= kTraceHeatingS);
     }
 
     // The pre-print ends at print/PRINTING (849.1s), not at the clean's
