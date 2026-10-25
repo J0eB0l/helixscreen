@@ -4260,10 +4260,20 @@ void AmsBackendAfc::query_initial_state() {
         }
     }
 
+#if defined(HELIX_PLATFORM_ESP32)
+    // Nothing else in the firmware image builds field lists, and the tables in
+    // required_status_objects() cost it 2 KB it does not have: ask for whole objects.
+    nlohmann::json objects = nlohmann::json::object();
+    for (const auto& name : names) {
+        objects[name] = nullptr;
+    }
+    nlohmann::json params = {{"objects", std::move(objects)}};
+#else
     // Ask for the fields the subscription asks for, not whole objects: a Bambu
     // unit's full status is a few hundred diagnostic keys, and handle_status
     // reads frames shaped like the subscription's.
     nlohmann::json params = {{"objects", required_status_objects(names)}};
+#endif
 
     spdlog::debug("[AMS AFC] Querying initial state for {} objects", names.size());
 
