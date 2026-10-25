@@ -4665,13 +4665,9 @@ void MoonrakerClientMock::dispatch_initial_state() {
          {{"position", {x, y, z, 0.0}},
           {"homed_axes", homed},
           {"axis_minimum",
-           {helix::mock::descriptor(printer_type_).axis_min.x,
-            helix::mock::descriptor(printer_type_).axis_min.y,
-            helix::mock::descriptor(printer_type_).axis_min.z, 0.0}},
+           mock_internal::toolhead_axis_minimum(helix::mock::descriptor(printer_type_))},
           {"axis_maximum",
-           {helix::mock::descriptor(printer_type_).axis_max.x,
-            helix::mock::descriptor(printer_type_).axis_max.y,
-            helix::mock::descriptor(printer_type_).axis_max.z, 0.0}},
+           mock_internal::toolhead_axis_maximum(helix::mock::descriptor(printer_type_))},
           {"kinematics", kinematics()}}},
         {"gcode_move",
          {{"gcode_position", {x, y, z, 0.0}}, // Commanded position (same as toolhead in mock)
@@ -5595,13 +5591,9 @@ void MoonrakerClientMock::temperature_simulation_loop() {
              {{"position", {x, y, z, 0.0}},
               {"homed_axes", homed},
               {"axis_minimum",
-               {helix::mock::descriptor(printer_type_).axis_min.x,
-                helix::mock::descriptor(printer_type_).axis_min.y,
-                helix::mock::descriptor(printer_type_).axis_min.z, 0.0}},
+               mock_internal::toolhead_axis_minimum(helix::mock::descriptor(printer_type_))},
               {"axis_maximum",
-               {helix::mock::descriptor(printer_type_).axis_max.x,
-                helix::mock::descriptor(printer_type_).axis_max.y,
-                helix::mock::descriptor(printer_type_).axis_max.z, 0.0}},
+               mock_internal::toolhead_axis_maximum(helix::mock::descriptor(printer_type_))},
               {"kinematics", kinematics()}}},
             {"gcode_move",
              {{"gcode_position", {x, y, z, 0.0}}, // Commanded position (same as toolhead in mock)
@@ -6686,8 +6678,10 @@ json MoonrakerClientMock::resonance_tester_settings() const {
                {"accel_chip", "adxl345"}};
     if (resonance_probe_points_) {
         // The belt settling laps run at this height.
-        const auto axis_max = helix::mock::descriptor(printer_type_).axis_max;
-        rt["probe_points"] = json::array({json::array({axis_max.x / 2.0, axis_max.y / 2.0, 20.0})});
+        const auto persona = helix::mock::descriptor(printer_type_);
+        rt["probe_points"] =
+            json::array({json::array({(persona.axis_min.x + persona.axis_max.x) / 2.0,
+                                      (persona.axis_min.y + persona.axis_max.y) / 2.0, 20.0})});
     }
     return rt;
 }

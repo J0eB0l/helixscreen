@@ -307,8 +307,9 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
         (void)error_cb;
         json status_obj = json::object();
         // Volume the persona reports through configfile settings and toolhead.
-        const auto axis_max = helix::mock::descriptor(self->get_printer_type()).axis_max;
-        const auto axis_min = helix::mock::descriptor(self->get_printer_type()).axis_min;
+        const auto& persona = helix::mock::descriptor(self->get_printer_type());
+        const auto axis_max = persona.axis_max;
+        const auto axis_min = persona.axis_min;
 
         // Check what objects are being queried
         if (params.contains("objects")) {
@@ -504,8 +505,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     {"max_z_velocity", 40.0},
                     {"max_z_accel", 1000.0},
                     {"position", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_maximum", {axis_max.x, axis_max.y, axis_max.z, 0.0}},
+                    {"axis_minimum", mock_internal::toolhead_axis_minimum(persona)},
+                    {"axis_maximum", mock_internal::toolhead_axis_maximum(persona)},
                     {"homed_axes", self->get_homed_axes()}};
             }
 
@@ -696,8 +697,9 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
 
         json status_obj = json::object();
         // Volume the persona reports through configfile settings and toolhead.
-        const auto axis_max = helix::mock::descriptor(self->get_printer_type()).axis_max;
-        const auto axis_min = helix::mock::descriptor(self->get_printer_type()).axis_min;
+        const auto& persona = helix::mock::descriptor(self->get_printer_type());
+        const auto axis_max = persona.axis_max;
+        const auto axis_min = persona.axis_min;
 
         // Check what objects are being subscribed to
         if (params.contains("objects")) {
@@ -812,8 +814,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     {"max_accel_to_decel", 5000.0},
                     {"square_corner_velocity", 5.0},
                     {"position", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_maximum", {axis_max.x, axis_max.y, axis_max.z, 0.0}},
+                    {"axis_minimum", mock_internal::toolhead_axis_minimum(persona)},
+                    {"axis_maximum", mock_internal::toolhead_axis_maximum(persona)},
                     {"homed_axes", self->get_homed_axes()},
                     {"print_time", 0.0},
                     {"estimated_print_time", 0.0},

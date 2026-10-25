@@ -5,6 +5,7 @@
 
 #include "moonraker_client_mock.h"
 
+#include <array>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -52,6 +53,19 @@ struct MeshBounds {
     const auto d = helix::mock::descriptor(type);
     return {d.axis_min.x + kMockProbeMargin, d.axis_max.x - kMockProbeMargin,
             d.axis_min.y + kMockProbeMargin, d.axis_max.y - kMockProbeMargin};
+}
+
+/// toolhead axis_minimum/maximum as Klipper reports them: one value per axis
+/// plus a zero for the extruder slot. Every toolhead block the mock serves
+/// builds them here, so the copies cannot drift apart again.
+[[nodiscard]] inline std::array<double, 4>
+toolhead_axis_minimum(const helix::mock::PersonaDescriptor& persona) {
+    return {persona.axis_min.x, persona.axis_min.y, persona.axis_min.z, 0.0};
+}
+
+[[nodiscard]] inline std::array<double, 4>
+toolhead_axis_maximum(const helix::mock::PersonaDescriptor& persona) {
+    return {persona.axis_max.x, persona.axis_max.y, persona.axis_max.z, 0.0};
 }
 
 /**
