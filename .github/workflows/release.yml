@@ -401,6 +401,9 @@ jobs:
     # Two ABIs ran 46-64 minutes through assembleRelease + bundleRelease, and
     # armeabi-v7a adds roughly half again, so 90 would cut a cold-cache run.
     timeout-minutes: 130
+    outputs:
+      # 'false' only on a fork with no upload key, which builds no Android at all.
+      signed: ${{ steps.keystore.outputs.signed }}
 
     steps:
     - name: Checkout repository
@@ -448,8 +451,14 @@ jobs:
       id: keystore
       env:
         KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        IS_FORK: ${{ github.event.repository.fork }}
       run: |
-        if [ -z "$KEYSTORE_B64" ]; then
+        if [ -z "$KEYSTORE_B64" ] && [ "$IS_FORK" = "true" ]; then
+          # A fork holds no upload key. It ships its device builds without
+          # Android rather than holding the whole release on a build it cannot sign.
+          echo "::warning::ANDROID_KEYSTORE_BASE64 is not set on this fork; the release ships without Android artifacts."
+          echo "signed=false" >> $GITHUB_OUTPUT
+        elif [ -z "$KEYSTORE_B64" ]; then
           # A release tag has no business producing unsigned or debug-signed
           # artifacts: Play Store rejects a debug-signed AAB. Gradle refuses the
           # same case, but failing here names the missing secret instead of
@@ -460,10 +469,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/keystore"
           printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keystore/upload.jks"
           echo "keystore_path=$RUNNER_TEMP/keystore/upload.jks" >> $GITHUB_OUTPUT
+          echo "signed=true" >> $GITHUB_OUTPUT
           echo "Decoded keystore: $(wc -c < $RUNNER_TEMP/keystore/upload.jks) bytes"
         fi
 
     - name: Build Android APKs (release)
+      if: steps.keystore.outputs.signed == 'true'
       working-directory: android
       env:
         ANDROID_KEYSTORE_PATH: ${{ steps.keystore.outputs.keystore_path }}
@@ -473,6 +484,7 @@ jobs:
       run: ./gradlew assembleRelease -PuseCcache
 
     - name: Build Android AAB (release)
+      if: steps.keystore.outputs.signed == 'true'
       working-directory: android
       env:
         ANDROID_KEYSTORE_PATH: ${{ steps.keystore.outputs.keystore_path }}
@@ -487,6 +499,7 @@ jobs:
     # the signature that actually landed on the bytes, which is the thing Play
     # Store checks.
     - name: Verify release artifacts are signed with the upload key
+      if: steps.keystore.outputs.signed == 'true'
       run: |
         set -euo pipefail
 
@@ -557,6 +570,7 @@ jobs:
         echo "All Android artifacts are signed with a non-debug key."
 
     - name: Extract version
+      if: steps.keystore.outputs.signed == 'true'
       id: version
       env:
         RELEASE_TAG: ${{ needs.plan.outputs.tag }}
@@ -565,6 +579,7 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Rename APKs
+      if: steps.keystore.outputs.signed == 'true'
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         APK_DIR="android/app/build/outputs/apk/release"
@@ -585,6 +600,7 @@ jobs:
         ls -lh release-apks/
 
     - name: Upload Android artifacts
+      if: steps.keystore.outputs.signed == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: release-android
@@ -592,6 +608,7 @@ jobs:
         retention-days: 7
 
     - name: Rename AAB
+      if: steps.keystore.outputs.signed == 'true'
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         AAB_DIR="android/app/build/outputs/bundle/release"
@@ -601,6 +618,7 @@ jobs:
         ls -lh release-aab/
 
     - name: Upload Android AAB artifact
+      if: steps.keystore.outputs.signed == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: release-android-aab
@@ -608,6 +626,7 @@ jobs:
         retention-days: 7
 
     - name: Generate Play Store "What's new" text
+      if: steps.keystore.outputs.signed == 'true'
       run: |
         bash scripts/generate-whatsnew.sh
         mkdir -p release-whatsnew
@@ -634,6 +653,7 @@ jobs:
         fi
 
     - name: Upload Play Store whatsnew artifact
+      if: steps.keystore.outputs.signed == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: release-android-whatsnew
@@ -810,6 +830,7 @@ jobs:
     # flag globally. The names must stay in step with the rename steps in
     # build-android and with the download instructions in the release notes.
     - name: Verify Android artifacts are present
+      if: needs.build-android.outputs.signed == 'true'
       run: |
         set -euo pipefail
         VERSION="${RELEASE_TAG#v}"
