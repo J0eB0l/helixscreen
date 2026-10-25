@@ -15,6 +15,7 @@
 #include "ams_device_action_value.h"
 #include "ams_fault_event.h"
 #include "config.h"
+#include "dryer_request.h"
 #include "humidity_sensor_types.h"
 #include "i_moonraker_api.h"
 #include "lane_legacy_migration.h"
@@ -3557,8 +3558,11 @@ void AmsBackendAfc::apply_unit_environment() {
             if (!dryer) {
                 continue;
             }
-            if (auto env = helix::afc::to_environment(*dryer)) {
-                system_info_.units[static_cast<size_t>(u)].environment = *env;
+            // Assigned even when empty: a unit that stops reporting both channels
+            // must not keep showing its last reading as current.
+            auto& env = system_info_.units[static_cast<size_t>(u)].environment;
+            env = helix::afc::to_environment(*dryer);
+            if (env) {
                 has_unit_environment_ = true;
             }
         }
@@ -3678,29 +3682,18 @@ AmsError AmsBackendAfc::start_drying(float temp_c, int duration_min, int fan_pct
         }
         dryer = *state;
     }
-    const DryerInfo info = helix::afc::to_dryer_info(dryer);
-    if (temp_c < info.min_temp_c || temp_c > info.max_temp_c) {
-        return AmsError(
-            AmsResult::COMMAND_FAILED, "Temperature out of range: " + std::to_string(temp_c),
-            lv_tr("Invalid temperature"),
-            fmt::format(lv_tr("Set temperature between {}°C and {}°C"),
-                        static_cast<int>(info.min_temp_c), static_cast<int>(info.max_temp_c)));
-    }
-    if (duration_min <= 0 || duration_min > info.max_duration_min) {
-        return AmsError(
-            AmsResult::COMMAND_FAILED, "Duration out of range: " + std::to_string(duration_min),
-            lv_tr("Invalid duration"),
-            fmt::format(lv_tr("Set duration between 1 and {} minutes"), info.max_duration_min));
+    if (auto refusal =
+            helix::check_dryer_request(helix::afc::to_dryer_info(dryer), temp_c, duration_min)) {
+        return *refusal;
     }
     if (!dryer.online) {
-        return AmsError(
-            AmsResult::COMMAND_FAILED, dryer.unit_name + " is offline", lv_tr("Unit offline"),
-            lv_tr("The unit is not answering. Check that it is powered and connected."));
+        return AmsError(AmsResult::COMMAND_FAILED, dryer.unit_name + " is offline",
+                        lv_tr("Heater offline"), "");
     }
     if (!dryer.blocked.empty()) {
         // The same refusal AFC_BAMBU_HEATER_START would answer with, e.g. a second
-        // AMS 2 Pro heating off the BridgeBox supply.
-        return AmsError(AmsResult::COMMAND_FAILED, dryer.blocked, lv_tr("Drying unavailable"),
+        // AMS 2 Pro heating off the BridgeBox supply. AFC's own words, untranslated.
+        return AmsError(AmsResult::COMMAND_FAILED, dryer.blocked, lv_tr("Start failed"),
                         dryer.blocked);
     }
     spdlog::info("[AMS AFC] Starting drying on {}: {}°C for {} minutes", dryer.unit_name, temp_c,
@@ -3728,12 +3721,7 @@ AmsError AmsBackendAfc::update_drying(float temp_c, int duration_min, int fan_pc
     if (!dryer.supported) {
         return AmsErrorHelper::not_supported("Dryer");
     }
-    // A temperature change restarts the cycle, so it restarts on what is left
-    // rather than handing back the time already served.
-    const float temp = temp_c < 0 ? dryer.target_temp_c : temp_c;
-    const int duration = duration_min >= 0
-                             ? duration_min
-                             : (dryer.remaining_min > 0 ? dryer.remaining_min : dryer.duration_min);
+    const auto [temp, duration] = helix::dryer_restart_request(dryer, temp_c, duration_min);
     auto err = stop_drying(unit);
     if (!err.success()) {
         return err;

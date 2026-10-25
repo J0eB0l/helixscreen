@@ -134,6 +134,10 @@ TEST_CASE_METHOD(LVGLTestFixture, "An AMS 2 Pro on a BridgeBox offers its dryer"
     CHECK_FALSE(dryer.active);
     CHECK(dryer.target_temp_c == Catch::Approx(0.0f));
     CHECK(dryer.remaining_min == 0);
+
+    // A unit that stops reporting both channels does not keep its last reading.
+    afc.feed({{"AFC_BambuAMS AMS_1", {{"humidity", nullptr}}}});
+    CHECK_FALSE(afc.get_system_info().units.at(0).environment.has_value());
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "Bambu drying sends AFC_BAMBU_HEATER_START/STOP",

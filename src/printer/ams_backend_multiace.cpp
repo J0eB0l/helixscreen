@@ -1061,7 +1061,7 @@ AmsError AmsBackendMultiAce::start_drying(float temp_c, int duration_min, int fa
     if (ace < 0) {
         return AmsErrorHelper::not_supported("Drying on a unit with no ACE");
     }
-    if (auto refusal = helix::ace::check_dryer_request(dryer, temp_c, duration_min)) {
+    if (auto refusal = helix::check_dryer_request(dryer, temp_c, duration_min)) {
         return *refusal;
     }
     spdlog::info("{} Drying ACE {}: {}°C for {} minutes", backend_log_tag(), ace + 1, temp_c,
@@ -1091,7 +1091,7 @@ AmsError AmsBackendMultiAce::update_drying(float temp_c, int duration_min, int f
     }
     const DryerInfo dryer = get_dryer_info(unit);
     const auto [target_temp, target_duration] =
-        helix::ace::restart_request(dryer, temp_c, duration_min);
+        helix::dryer_restart_request(dryer, temp_c, duration_min);
     return start_drying(target_temp, target_duration, fan_pct, unit);
 }
 
