@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 
@@ -130,6 +131,11 @@ std::string classify_journal_error(const std::string& line) {
         }
     }
     return "other";
+}
+
+double wall_now_s() {
+    using namespace std::chrono;
+    return duration<double>(system_clock::now().time_since_epoch()).count();
 }
 
 bool is_recent_cause(double cause_time, double event_time) {

@@ -157,8 +157,9 @@ TEST_CASE("stop reason tap: only !! lines, and the last one of a frame wins",
 
 TEST_CASE("stop reason text: only the first line of a multi-line !! response",
           "[print_completion][stop_reason]") {
-    CHECK(gcode_error_reason_text(kAfcLoadFailure) ==
-          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    CHECK(
+        gcode_error_reason_text(kAfcLoadFailure) ==
+        "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
     CHECK(gcode_error_reason_text("!! Move out of range: 1 2 3") == "Move out of range: 1 2 3");
 }
 
@@ -224,6 +225,8 @@ TEST_CASE_METHOD(TrackerFixture,
                  "[print_completion][stop_reason]") {
     now_ = kEnd - 120;
     client_.fire_notification("notify_gcode_response", response({"!! An old failure"}));
+    now_ = kEnd - 1;
+    client_.fire_notification("notify_gcode_response", response({"// Canceling"}));
     settle();
 
     now_ = kEnd;
@@ -234,16 +237,19 @@ TEST_CASE_METHOD(TrackerFixture,
 
     // Moonraker's clock runs 500s behind the screen's; the store places itself.
     const double host = kEnd - 500;
-    std::vector<GcodeStoreEntry> store(3);
+    std::vector<GcodeStoreEntry> store(4);
     store[0].type = "response";
     store[0].time = host - 30;
     store[0].message = "!! Too old to matter";
     store[1].type = "response";
     store[1].time = host - 2;
     store[1].message = "!! Quad gantry level failed";
-    store[2].type = "command";
-    store[2].time = host;
-    store[2].message = "CANCEL_PRINT";
+    store[2].type = "response";
+    store[2].time = host - 1;
+    store[2].message = "// Canceling";
+    store[3].type = "command";
+    store[3].time = host;
+    store[3].message = "CANCEL_PRINT";
     client_.reply(store);
     settle();
     CHECK(reason() == "Quad gantry level failed");
@@ -291,8 +297,9 @@ TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: a pause shows the error t
 
     now_ = kEnd;
     end("paused");
-    CHECK(reason() ==
-          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    CHECK(
+        reason() ==
+        "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
     // The reason, not the macro's leftover M117, is the status while paused.
     CHECK(lv_subject_get_int(ps.print_state().get_display_message_visible_subject()) == 0);
 
@@ -313,13 +320,17 @@ TEST_CASE_METHOD(TrackerFixture,
 
     now_ = kEnd + 120;
     end("cancelled");
-    CHECK(reason() ==
-          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    CHECK(
+        reason() ==
+        "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
     CHECK(client_.reads == 0);
 }
 
 TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: a pause reads the gcode store too",
                  "[print_completion][stop_reason]") {
+    // Moonraker's clock is its own; PAUSING, seen live, places the store on ours.
+    client_.fire_notification("notify_gcode_response", response({"PAUSING"}));
+    settle();
     end("paused");
     REQUIRE(client_.reads == 1);
     std::vector<GcodeStoreEntry> store(3);
@@ -334,6 +345,95 @@ TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: a pause reads the gcode s
     store[2].message = "// idle_timeout: Timeout set to 43200 s";
     client_.reply(store);
     settle();
-    CHECK(reason() ==
-          "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+    CHECK(
+        reason() ==
+        "lane3 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH");
+}
+
+TEST_CASE_METHOD(TrackerFixture,
+                 "stop reason tracker: an old error in a quiet printer's store explains nothing",
+                 "[print_completion][stop_reason]") {
+    // The last line the screen saw, twenty minutes before a pause from the
+    // screen that printed nothing.
+    now_ = kEnd - 20 * 60;
+    client_.fire_notification("notify_gcode_response", response({"// Filament loaded"}));
+    settle();
+    now_ = kEnd;
+    end("paused");
+    REQUIRE(client_.reads == 1);
+
+    const double host = 5000.0;
+    std::vector<GcodeStoreEntry> store(2);
+    store[0].type = "response";
+    store[0].time = host - 20 * 60 - 3;
+    store[0].message = "!! Heater extruder not heating at expected rate";
+    store[1].type = "response";
+    store[1].time = host - 20 * 60;
+    store[1].message = "// Filament loaded";
+    client_.reply(store);
+    settle();
+    CHECK(reason().empty());
+    CHECK(reason_visible() == 0);
+}
+
+TEST_CASE_METHOD(TrackerFixture,
+                 "stop reason tracker: a store with no line seen live explains nothing",
+                 "[print_completion][stop_reason]") {
+    end("paused");
+    REQUIRE(client_.reads == 1);
+    std::vector<GcodeStoreEntry> store(2);
+    store[0].type = "response";
+    store[0].time = 100.0;
+    store[0].message = kAfcLoadFailure;
+    store[1].type = "response";
+    store[1].time = 100.2;
+    store[1].message = "PAUSING";
+    client_.reply(store);
+    settle();
+    CHECK(reason().empty());
+}
+
+TEST_CASE("gcode store clock shift: the newest response matching the line seen live",
+          "[stop_reason]") {
+    std::vector<GcodeStoreEntry> store(3);
+    store[0] = {"ok", 10.0, "response"};
+    store[1] = {"ok", 20.0, "response"};
+    store[2] = {"ok", 30.0, "command"};
+    const auto shift = gcode_store_clock_shift(store, "ok", 1000.0);
+    REQUIRE(shift.has_value());
+    CHECK(*shift == 980.0);
+    CHECK_FALSE(gcode_store_clock_shift(store, "missing", 1000.0).has_value());
+    CHECK_FALSE(gcode_store_clock_shift({}, "ok", 1000.0).has_value());
+}
+
+TEST_CASE_METHOD(TrackerFixture,
+                 "stop reason tracker: a tap delivered after the tracker is gone does nothing",
+                 "[print_completion][stop_reason]") {
+    auto it = client_.method_callbacks.find("notify_gcode_response");
+    REQUIRE(it != client_.method_callbacks.end());
+    REQUIRE(it->second.size() == 1);
+    // The client invokes a copy taken under its lock, after releasing it, so
+    // unregistering does not stop a delivery already on its way.
+    auto in_flight = it->second.front().callback;
+
+    tracker_.reset();
+    int clock_reads = 0;
+    tracker_ =
+        std::make_unique<PrintStopReasonTracker>(client_, get_printer_state(), [&clock_reads] {
+            ++clock_reads;
+            return kEnd;
+        });
+    REQUIRE(client_.method_callbacks["notify_gcode_response"].size() == 1);
+    auto counted = client_.method_callbacks["notify_gcode_response"].front().callback;
+    tracker_.reset();
+    settle();
+    REQUIRE(clock_reads == 0);
+    const std::string error_before = get_printer_state().print_state().last_gcode_error();
+
+    counted(response({"!! Quad gantry level failed"}));
+    in_flight(response({"!! Quad gantry level failed"}));
+    CHECK(clock_reads == 0);
+    CHECK(ui::UpdateQueueTestAccess::pending_count(ui::UpdateQueue::instance()) == 0);
+    settle();
+    CHECK(get_printer_state().print_state().last_gcode_error() == error_before);
 }

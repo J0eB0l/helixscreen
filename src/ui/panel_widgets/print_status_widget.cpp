@@ -41,6 +41,7 @@
 #include "panel_widget_registry.h"
 #include "panel_widget_size.h"
 #include "print_history_manager.h"
+#include "printer_event_journal.h"
 #include "printer_state.h"
 #include "runtime_config.h"
 #include "src/ui/panel_widgets/content_chrome.h"
@@ -2442,8 +2443,7 @@ void PrintStatusWidget::DetailedFormatter::update_idle_fields() {
         lv_subject_set_int(&idle_has_last_subject_, 0);
         return;
     }
-    const double now_s =
-        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+    const double now_s = wall_now_s();
     const LastPrintText text = describe_last_print(*newest, now_s);
     snprintf(idle_filename_buf_, sizeof(idle_filename_buf_), "%s", text.filename.c_str());
     lv_subject_copy_string(&idle_filename_subject_, idle_filename_buf_);

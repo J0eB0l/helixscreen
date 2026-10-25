@@ -92,6 +92,9 @@ std::string classify_journal_error(const std::string& line);
 /// Whether an error line or shutdown reason reports a lost MCU.
 bool is_mcu_disconnect(const std::string& line);
 
+/// The wall clock as Unix seconds, the clock every entry's time is on.
+double wall_now_s();
+
 /// Whether something at @p cause_time can explain an event at @p event_time:
 /// at most kEventCauseWindowS before it, at most kEventCauseLateS after.
 bool is_recent_cause(double cause_time, double event_time);

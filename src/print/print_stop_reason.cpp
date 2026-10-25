@@ -11,17 +11,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
-#include <chrono>
-
 namespace helix {
 
 namespace {
-
-double wall_now() {
-    using namespace std::chrono;
-    return duration<double>(system_clock::now().time_since_epoch()).count();
-}
 
 // RAW_PRINT_STATE_OK: the printer's own pause, cancel and error are what a
 // reason explains.
@@ -79,25 +71,52 @@ std::string decide_print_stop_reason(PrintJobState stop, const std::string& prin
     return newest ? newest->text : std::string();
 }
 
+std::optional<double> gcode_store_clock_shift(const std::vector<GcodeStoreEntry>& store,
+                                              const std::string& line, double seen_at) {
+    const GcodeStoreEntry* match = nullptr;
+    for (const auto& item : store) {
+        if (item.type == "response" && item.message == line &&
+            (match == nullptr || item.time >= match->time)) {
+            match = &item;
+        }
+    }
+    if (match == nullptr) {
+        return std::nullopt;
+    }
+    return seen_at - match->time;
+}
+
 PrintStopReasonTracker::PrintStopReasonTracker(IMoonrakerClient& client, PrinterState& state,
                                                std::function<double()> now)
-    : client_(client), state_(state), now_(now ? std::move(now) : wall_now),
+    : client_(client), state_(state), now_(now ? std::move(now) : wall_now_s),
       stop_(PrintJobState::STANDBY) { // RAW_PRINT_STATE_OK: no stop yet
-    // The prefilter runs on the WebSocket thread, so only a frame that carries
-    // an error reaches the update queue.
-    auto token = lifetime_.token();
+    // The tap runs on the WebSocket thread, and the client may call it after
+    // the tracker is gone: it reads only what it holds by value, and only the
+    // deferred body, behind the token, reaches the tracker. Only a frame that
+    // carries an error reaches the update queue.
     client_.register_method_callback(
-        "notify_gcode_response", kHandlerName, [this, token](const nlohmann::json& msg) {
+        "notify_gcode_response", kHandlerName,
+        [self = this, token = lifetime_.token(), clock = now_,
+         live = live_line_](const nlohmann::json& msg) {
+            if (token.expired_no_lvgl()) { // L081_OK: no LVGL here; the tracker only via defer
+                return;
+            }
+            const double now = clock();
+            for_each_gcode_response_line(msg, [&](const std::string& line) {
+                std::lock_guard<std::mutex> lock(live->mutex);
+                live->text = line;
+                live->time = now;
+            });
             auto text = last_gcode_error_text(msg);
             if (!text) {
                 return;
             }
             JournalEntry e;
             e.kind = journal_kind::kGcodeError;
-            e.time = now_();
+            e.time = now;
             e.text = std::move(*text);
             token.defer("PrintStopReason::gcode_error",
-                        [this, e = std::move(e)]() mutable { on_gcode_error(std::move(e)); });
+                        [self, e = std::move(e)]() mutable { self->on_gcode_error(std::move(e)); });
         });
 
     auto& ps = state_.print_state();
@@ -195,17 +214,25 @@ void PrintStopReasonTracker::on_gcode_store(const std::vector<GcodeStoreEntry>& 
     if (stop_id != stop_id_ || !stopped() || store.empty()) {
         return;
     }
-    // Moonraker stamps the store with its own clock. Its newest line was
-    // written moments before this read, so the lines are placed relative to
-    // it rather than compared with the screen's clock.
-    double newest = 0.0;
-    for (const auto& item : store) {
-        newest = std::max(newest, item.time);
+    std::string line;
+    double seen_at = 0.0;
+    {
+        std::lock_guard<std::mutex> lock(live_line_->mutex);
+        line = live_line_->text;
+        seen_at = live_line_->time;
     }
-    const double shift = now_() - newest;
-    recovered_ = backfill_from_gcode_store(store, newest - kEventCauseWindowS - kEventCauseLateS);
+    // Moonraker stamps the store with its own clock. A store holding no line
+    // seen live cannot be placed against the stop, and its newest line can be
+    // long before it on a printer that printed nothing as it stopped.
+    const auto shift = line.empty() ? std::nullopt : gcode_store_clock_shift(store, line, seen_at);
+    if (!shift) {
+        spdlog::debug("[PrintStopReason] gcode_store holds no line seen live; not read");
+        return;
+    }
+    recovered_ = backfill_from_gcode_store(store, stop_time_ - *shift - kEventCauseWindowS -
+                                                      kEventCauseLateS);
     for (auto& e : recovered_) {
-        e.time += shift;
+        e.time += *shift;
         e.text = gcode_error_reason_text(e.text);
     }
     publish();
