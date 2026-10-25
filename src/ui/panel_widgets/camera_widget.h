@@ -6,7 +6,7 @@
 #if HELIX_HAS_CAMERA
 
 #include "async_lifetime_guard.h"
-#include "camera_stream.h"
+#include "camera_view.h"
 #include "moonraker_types.h"
 #include "observer_factory.h"
 #include "panel_widget.h"
@@ -89,10 +89,9 @@ class CameraWidget : public PanelWidget {
     lv_obj_t* fullscreen_spinner_ =
         nullptr; // "Connecting…" overlay in fullscreen, hidden on first frame
 
-    std::unique_ptr<CameraStream> stream_;
-    bool active_ = false;              // true when on_activate() has been called
-    bool compact_ = false;             // true at 1x1 — icon only, no live stream
-    bool sleep_cb_registered_ = false; // true after display sleep callback registered
+    CameraView view_;
+    bool active_ = false;  // true when on_activate() has been called
+    bool compact_ = false; // true at 1x1 — icon only, no live stream
 
     // Observer for webcam availability — starts stream when URLs arrive
     ObserverGuard webcam_observer_;
@@ -102,17 +101,7 @@ class CameraWidget : public PanelWidget {
     ObserverGuard edit_mode_observer_;
     ObserverGuard language_observer_;
 
-    // The feed the running stream shows: its Moonraker flip flags and fps are
-    // this camera's, not necessarily the auto-pick's.
-    WebcamInfo current_feed_;
-    int target_fps_ = 15;                     // From current_feed_
     lv_timer_t* fps_recheck_timer_ = nullptr; // Periodic re-eval when paused
-
-    // Lifetime guard — prevents use-after-free in queued callbacks.
-    // stream lifetime is invalidated on each stop_stream() cycle;
-    // widget lifetime lives for the entire CameraWidget object.
-    helix::AsyncLifetimeGuard lifetime_;
-    helix::AsyncLifetimeGuard widget_lifetime_;
 
     // Config modal (owned, destroyed when modal closes)
     std::unique_ptr<CameraConfigModal> config_modal_;
@@ -123,8 +112,8 @@ class CameraWidget : public PanelWidget {
     // Test-observable call counts for the stream lifecycle. start_stream()/
     // stop_stream() sit behind their own guards (active_, fullscreen_overlay_)
     // strictly narrower than the on_size_changed() edge-trigger conditions
-    // that invoke them, and with no camera configured stream_ always ends up
-    // null again after either call — so "stream_ non-null" cannot distinguish
+    // that invoke them, and with no camera configured the view never holds a stream
+    // after either call — so "has a stream" cannot distinguish
     // "the call happened and no-op'd" from "the call never happened". A raw
     // count of invocations can, without needing a real camera. See
     // tests/test_helpers/camera_widget_test_access.h.
