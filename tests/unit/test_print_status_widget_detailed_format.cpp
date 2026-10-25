@@ -649,3 +649,23 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter speed/flow text shows live
     REQUIRE(std::string(lv_subject_get_string(
                 lv_xml_get_subject(nullptr, "print_status_flow_text"))) == "· 12.0mm\xC2\xB3/s");
 }
+
+TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter seeds the live rates on construction",
+                 "[print_status][formatter]") {
+    PrintStatusWidget::destroy_formatter_for_test();
+
+    PrinterState& ps = get_printer_state();
+    PrinterStateTestAccess::reset(ps);
+    ps.init_subjects(false);
+
+    // Rates already moving before the card exists, as on a widget added mid-print.
+    lv_subject_set_int(ps.motion_state().get_live_velocity_subject(), 187);
+    lv_subject_set_int(ps.motion_state().get_live_extruder_velocity_subject(), 500);
+
+    FormatterScope fs;
+
+    REQUIRE(std::string(lv_subject_get_string(
+                lv_xml_get_subject(nullptr, "print_status_speed_text"))) == "187mm/s");
+    REQUIRE(std::string(lv_subject_get_string(
+                lv_xml_get_subject(nullptr, "print_status_flow_text"))) == "· 12.0mm\xC2\xB3/s");
+}
