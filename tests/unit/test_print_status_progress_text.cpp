@@ -10,6 +10,7 @@
 
 #include "../test_helpers/print_status_panel_fixture.h"
 #include "print_progress_text.h"
+#include "tune_controller.h"
 
 #include <string>
 
@@ -45,4 +46,12 @@ TEST_CASE_METHOD(PrintStatusPanelFixture, "Print status: speed chip shows the li
     process_lvgl(50); // the chip update is coalesced onto a timer
 
     CHECK(subject_text("ps_chip_speed_flow_text") == "187 mm/s");
+}
+
+TEST_CASE_METHOD(PrintStatusPanelFixture,
+                 "Print status: the speed text before any reading uses the live speed format",
+                 "[print_status][progress_text]") {
+    PrintLifecycleState lifecycle;
+    helix::ui::PrintProgressText text(state(), lifecycle);
+    CHECK(std::string(text.speed_text()) == helix::tune::live_speed_text(0));
 }

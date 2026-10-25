@@ -43,7 +43,7 @@ class PrintProgressText {
     /// The live toolhead speed.
     void refresh_speed_flow();
 
-    /// The live toolhead speed as last refreshed: "187mm/s".
+    /// The live toolhead speed as last refreshed: "187 mm/s".
     [[nodiscard]] const char* speed_text() const {
         return speed_buf_;
     }
@@ -68,7 +68,7 @@ class PrintProgressText {
     char elapsed_buf_[32] = "0h 00m";
     char remaining_buf_[32] = "0h 00m";
     char eta_buf_[32] = "";
-    char speed_buf_[32] = "0mm/s";
+    char speed_buf_[32] = "0 mm/s";
 };
 
 } // namespace helix::ui

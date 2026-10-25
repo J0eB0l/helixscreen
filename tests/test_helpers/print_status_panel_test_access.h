@@ -78,6 +78,11 @@ class PrintStatusPanelTestAccess {
 #endif
     }
 
+    /// Start the preview card's camera as an active, showing panel does.
+    static void start_preview_camera(PrintStatusPanel& panel) {
+        panel.start_preview_camera();
+    }
+
     /// A More menu row's tap, by its PrintStatusMoreMenu action.
     static void more_action(PrintStatusPanel& panel, int action) {
         panel.handle_more_action(action);

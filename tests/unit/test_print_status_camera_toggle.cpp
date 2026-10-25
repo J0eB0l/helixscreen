@@ -249,6 +249,26 @@ TEST_CASE_METHOD(CameraToggleFixture,
 }
 #endif
 
+#if HELIX_HAS_CAMERA
+TEST_CASE_METHOD(CameraToggleFixture,
+                 "Print status More > Camera hands the camera to the viewer it opens",
+                 "[print_status][camera]") {
+    set_webcam(true);
+    set_remote(true);
+    open();
+    tap_camera_button();
+    REQUIRE(PrintStatusPanelTestAccess::camera_streaming(panel()));
+
+    PrintStatusPanelTestAccess::more_action(panel(), helix::ui::PrintStatusMoreMenu::kActionCamera);
+    CHECK_FALSE(PrintStatusPanelTestAccess::camera_streaming(panel()));
+
+    drain();
+    helix::nav::go_back();
+    drain();
+}
+
+#endif
+
 TEST_CASE_METHOD(CameraToggleFixture, "Print status G-code viewer pauses under the camera",
                  "[print_status][camera]") {
     set_webcam(true);
