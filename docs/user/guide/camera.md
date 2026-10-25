@@ -8,10 +8,12 @@ If your printer has a webcam configured in Moonraker, HelixScreen can show the l
 
 ## Viewing the Camera
 
-There are two ways to see the feed:
+There are several ways to see the feed:
 
 - **Home widget** — add the Camera widget from the Home dashboard's edit mode (long-press the dashboard, then tap Add Widget). It shows the live feed inline. Tap it to expand into the fullscreen viewer.
-- **Camera button while printing**: when HelixScreen runs on a separate screen or device from the printer (not on the printer itself) and a webcam is detected, the print screen's header shows a **Camera** button that opens the fullscreen viewer.
+- **While printing**: when HelixScreen runs on a separate screen or device from the printer (not on the printer itself) and a webcam is detected, the print screen offers the camera two ways:
+  - The **camera button** in the corner of the preview card, beside the skip-objects button, swaps the thumbnail or G-code render for the live feed in the same spot. Tap it again to go back. HelixScreen remembers the choice for the next print (the [`print_status_show_camera`](../CONFIGURATION.md#print_status_show_camera) setting). If the webcam goes away, the card shows the preview again.
+  - **More > Camera** in the print screen's header opens the fullscreen viewer.
 - **Standalone fullscreen viewer** — open **Settings > Devices > Camera** to view the live feed fullscreen without adding a widget. This entry only appears when a webcam is detected (an enabled webcam configured in Moonraker).
 
 The feed is decoded as an MJPEG stream when one is available. If only a snapshot URL is configured, HelixScreen falls back to periodically polling that snapshot image instead.

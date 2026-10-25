@@ -219,6 +219,9 @@ static constexpr settings::PersistedSetting kDisplaySettings[] = {
      kPageScrollDefault, 0, 1, "page_scroll_buttons"},
     {"settings_speed_flow_physical_units", "/display/speed_flow_physical_units", Scope::Global,
      true, 0, 0, 1, "speed_flow_physical_units"},
+    // Print Status preview card shows the live camera instead of the preview
+    {"settings_print_status_show_camera", "/display/print_status_show_camera", Scope::Global, true,
+     0, 0, 1, "print_status_show_camera"},
     // Android only (#908)
     {"settings_keep_navbar_visible", "/display/keep_navbar_visible", Scope::Global, true, 0, 0, 1,
      "keep_navbar_visible"},

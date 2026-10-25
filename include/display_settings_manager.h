@@ -228,6 +228,14 @@ class DisplaySettingsManager {
         settings_.set(Key::SpeedFlowPhysicalUnits, enabled);
     }
 
+    /** @brief Print Status preview card shows the live camera instead of the preview */
+    bool get_print_status_show_camera() const {
+        return settings_.get_bool(Key::PrintStatusShowCamera);
+    }
+    void set_print_status_show_camera(bool enabled) {
+        settings_.set(Key::PrintStatusShowCamera, enabled);
+    }
+
     /** @brief Keep Android navigation bar onscreen (issue #908, Android only) */
     bool get_keep_navbar_visible() const {
         return settings_.get_bool(Key::KeepNavbarVisible);
@@ -512,6 +520,11 @@ class DisplaySettingsManager {
         return settings_.subject(Key::SpeedFlowPhysicalUnits);
     }
 
+    /** @brief Print Status preview content subject (integer: 0=preview, 1=camera) */
+    lv_subject_t* subject_print_status_show_camera() {
+        return settings_.subject(Key::PrintStatusShowCamera);
+    }
+
     /** @brief Keep navbar visible subject (integer: 0=immersive, 1=always show) */
     lv_subject_t* subject_keep_navbar_visible() {
         return settings_.subject(Key::KeepNavbarVisible);
@@ -596,6 +609,7 @@ class DisplaySettingsManager {
         HideKeyboardWithHardware,
         PageScrollButtons,
         SpeedFlowPhysicalUnits,
+        PrintStatusShowCamera,
         KeepNavbarVisible,
         BedMeshRenderMode,
         GcodeRenderMode,

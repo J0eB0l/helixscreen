@@ -385,6 +385,7 @@ Located in the `display` section:
     "bed_mesh_show_zero_plane": true,
     "page_scroll_buttons": false,
     "speed_flow_physical_units": false,
+    "print_status_show_camera": false,
     "ui_scale_percent": 0,
     "printer_image": ""
   }
@@ -552,6 +553,11 @@ The mode can be overridden per launch without touching settings. Precedence is c
 **Type:** boolean
 **Default:** `false`
 **Description:** Lead with the live toolhead speed in mm/s and the live volumetric flow in mm³/s instead of percentages, in the Print Tune overlay and the Speed / Flow home widget. Tapping either readout in the Tune overlay flips it. The Print Status speed chip always shows the live speed. See [Print Tune Overlay](guide/printing.md#print-tune-overlay).
+
+### `print_status_show_camera`
+**Type:** boolean
+**Default:** `false`
+**Description:** Show the live camera in the Print Status preview card instead of the thumbnail or G-code render. The camera button in the card's corner flips it, and the choice carries over to the next print. The button appears only when the printer has a webcam and HelixScreen runs on a different machine than Klipper; on the printer's own screen the card always shows the preview. See [Camera](guide/camera.md).
 
 ### `ui_scale_percent`
 > Added in 1.1.
@@ -2181,6 +2187,7 @@ Environment="HELIX_TOUCH_DEVICE=/dev/input/event0"
     "bed_mesh_show_zero_plane": true,
     "page_scroll_buttons": false,
     "speed_flow_physical_units": false,
+    "print_status_show_camera": false,
     "printer_image": ""
   },
 

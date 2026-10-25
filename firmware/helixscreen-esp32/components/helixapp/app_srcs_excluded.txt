@@ -259,7 +259,6 @@ src/system/upgrade_nudge.cpp  # not in the v1 Core+AMS cut
 src/system/usb_printer_detector.cpp  # not in the v1 Core+AMS cut
 src/system/usb_scanner_monitor.cpp  # not in the v1 Core+AMS cut
 src/system/wizard_step.cpp  # not in the v1 Core+AMS cut
-src/ui/camera_view.cpp  # built only with HELIX_HAS_CAMERA; the firmware has no camera
 src/ui/action_prompt_modal.cpp  # not in the v1 Core+AMS cut
 src/ui/gcode_viewer_loader.cpp  # G-code viewer file loading, compiled out with the viewer (HELIX_HAS_GCODE_VIEWER=0); its no-op API stays in ui_gcode_viewer.cpp
 src/ui/gcode_viewer_input.cpp  # G-code viewer touch input, compiled out with the viewer (HELIX_HAS_GCODE_VIEWER=0); its no-op API stays in ui_gcode_viewer.cpp

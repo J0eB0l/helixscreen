@@ -12,6 +12,8 @@
 
 namespace helix {
 
+CameraView::CameraView() = default;
+
 CameraView::~CameraView() {
     stop({});
 }

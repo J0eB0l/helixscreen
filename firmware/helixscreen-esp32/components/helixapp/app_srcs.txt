@@ -374,6 +374,7 @@ src/ui/backdrop_blur.cpp
 src/ui/bed_coord_mapper.cpp
 src/ui/bed_mesh_profile_name.cpp
 src/ui/callout_presenter.cpp
+src/ui/camera_view.cpp
 src/ui/card_thumbnail_plan.cpp
 src/ui/chamber_assignment_options.cpp
 src/ui/console_filter_engine.cpp

@@ -41,7 +41,9 @@ class CameraView {
     /// A stream status message, delivered on the UI thread.
     using StatusFn = std::function<void(const std::string& message)>;
 
-    CameraView() = default;
+    // Both out of line, so a translation unit holding a CameraView never
+    // emits CameraStream's destructor itself.
+    CameraView();
     ~CameraView();
 
     CameraView(const CameraView&) = delete;

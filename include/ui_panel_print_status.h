@@ -12,7 +12,9 @@
 #include "ui_print_layer_pause.h"
 #include "ui_print_light_timelapse.h"
 #include "ui_print_tune_overlay.h"
+#include "ui_widget_ref.h"
 
+#include "camera_view.h"
 #include "overlay_base.h"
 #include "print_control_buttons.h"
 #include "print_lifecycle_state.h"
@@ -372,6 +374,17 @@ class PrintStatusPanel : public OverlayBase {
     // section; drives XML bindings that hide print_thumbnail/gradient underneath.
     lv_subject_t exclude_map_active_subject_{};
 
+    // print_status_camera_available: 1 when this screen may show the printer's
+    // camera (a webcam, a remote screen, platform extras). Shared by the
+    // preview card's camera button and the More menu's Camera row.
+    lv_subject_t camera_available_subject_{};
+    // print_status_camera_showing: 1 while the preview card shows the camera
+    // in place of the preview (available, chosen, exclude map closed).
+    lv_subject_t camera_showing_subject_{};
+    // print_status_camera_has_frame: 1 once the running stream's first frame
+    // is on screen; hides the connecting indicator.
+    lv_subject_t camera_has_frame_subject_{};
+
     // 1 once the user taps the print end overlay to dismiss it. Reset to 0
     // on new-print transitions so the next outcome's overlay appears normally.
     lv_subject_t end_overlay_dismissed_subject_{};
@@ -435,6 +448,7 @@ class PrintStatusPanel : public OverlayBase {
     lv_obj_t* gcode_viewer_ = nullptr;
     lv_obj_t* print_thumbnail_ = nullptr;
     lv_obj_t* gradient_background_ = nullptr;
+    helix::ui::WidgetRef preview_camera_image_;
 
     /// What the thumbnail and G-code viewer show for the running print.
     helix::ui::PrintPreviewController preview_;
@@ -521,6 +535,15 @@ class PrintStatusPanel : public OverlayBase {
 
     void update_all_displays();
     void show_gcode_viewer(bool show);
+    /// Pause the G-code viewer unless it is the visible layer: shown by
+    /// gcode_viewer_mode and not covered by the camera.
+    void apply_gcode_viewer_pause();
+    /// Recompute the camera subjects from their inputs, then run the camera
+    /// stream exactly while it shows on an active panel with the display awake.
+    void update_preview_camera();
+    void start_preview_camera();
+    void stop_preview_camera();
+    void handle_camera_toggle();
     void update_button_states(); ///< Enable/disable buttons based on current print state
 
     /// The two per-job resets, shared by the job-state edge and the
@@ -644,7 +667,13 @@ class PrintStatusPanel : public OverlayBase {
     ObserverGuard print_psram_thumb_observer_; ///< Ditto, via the PSRAM generation counter
 #endif
     ObserverGuard gcode_render_mode_observer_; ///< Watches settings changes to update viewer mode
-    ObserverGuard print_outcome_observer_;     ///< Drives show_{complete,cancelled,error}_overlay
+    /// Inputs of print_status_camera_available / _showing
+    ObserverGuard camera_webcam_observer_;
+    ObserverGuard camera_remote_observer_;
+    ObserverGuard camera_choice_observer_;
+    ObserverGuard camera_exclude_map_observer_;
+    bool display_asleep_ = false;          ///< Last display sleep edge the camera view reported
+    ObserverGuard print_outcome_observer_; ///< Drives show_{complete,cancelled,error}_overlay
     ObserverGuard end_overlay_dismissed_observer_; ///< Ditto; second input to the same recompute
     ObserverGuard print_message_observer_;  ///< Drives pause reason text from print_stats.message
     ObserverGuard pending_action_observer_; ///< observes PrintControlButtons' print_pending_action
@@ -694,6 +723,11 @@ class PrintStatusPanel : public OverlayBase {
 
     /// Manages filament runout guidance (extracted from PrintStatusPanel)
     std::unique_ptr<helix::ui::FilamentRunoutHandler> runout_handler_;
+
+#if HELIX_HAS_CAMERA
+    /// The preview card's live camera; runs only while print_status_camera_showing.
+    helix::CameraView camera_view_;
+#endif
 };
 
 // Global instance accessor (needed by main.cpp)
