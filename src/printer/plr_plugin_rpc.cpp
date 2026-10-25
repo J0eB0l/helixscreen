@@ -102,6 +102,34 @@ void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_e
     send_action(api, kPlrDiscardRpc, json::object(), 0, std::move(on_ok), std::move(on_error));
 }
 
+void request_mesh_include_status(IMoonrakerAPI& api, std::function<void(bool present)> on_ok,
+                                 ErrorCallback on_error) {
+    api.get_client().send_jsonrpc(
+        kPlrMeshIncludeRpc, json::object(),
+        [on_ok = std::move(on_ok)](const json& response) {
+            if (on_ok) {
+                on_ok(json_util::safe_bool(result_of(response), "present"));
+            }
+        },
+        std::move(on_error), 0, /*silent=*/true);
+}
+
+void mesh_include_action(IMoonrakerAPI& api, bool add,
+                         std::function<void(bool present, bool changed)> on_ok,
+                         ErrorCallback on_error) {
+    api.get_client().send_jsonrpc(
+        kPlrMeshIncludeRpc, json{{"action", add ? "add" : "remove"}},
+        [on_ok = std::move(on_ok), method = kPlrMeshIncludeRpc](const json& response) {
+            const json& result = result_of(response);
+            spdlog::info("[PLR] {} accepted", method);
+            if (on_ok) {
+                on_ok(json_util::safe_bool(result, "present"),
+                      json_util::safe_bool(result, "changed"));
+            }
+        },
+        std::move(on_error));
+}
+
 void write_profile(IMoonrakerAPI& api, const json& profile, std::function<void()> on_stored,
                    ErrorCallback on_error) {
     post_item_if_changed(api, kPlrDbNamespace, kPlrProfileKey, profile, on_stored,

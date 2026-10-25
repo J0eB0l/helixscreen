@@ -64,6 +64,44 @@ constexpr Expectation kExpected[] = {
 };
 // clang-format on
 
+TEST_CASE("The Voron personas model real centre-origin beds", "[mock][persona]") {
+    const auto find_persona = [](std::string_view id) -> const helix::mock::PersonaEntry* {
+        for (const auto& p : helix::mock::kPersonas) {
+            if (p.id == id) {
+                return &p;
+            }
+        }
+        return nullptr;
+    };
+    const auto* voron = find_persona("voron_24");
+    REQUIRE(voron != nullptr);
+    const auto& v24 = helix::mock::descriptor(voron->type);
+    // A real 2.4 homes to the bed centre: the demo files sliced for
+    // centre-origin printers must fit the default persona.
+    CHECK(v24.axis_min.x == -175.0);
+    CHECK(v24.axis_min.y == -175.0);
+    CHECK(v24.axis_max.x == 175.0);
+    CHECK(v24.axis_max.y == 175.0);
+    const auto* trident = find_persona("voron_trident");
+    REQUIRE(trident != nullptr);
+    const auto& vt = helix::mock::descriptor(trident->type);
+    CHECK(vt.axis_min.x == -125.0);
+    CHECK(vt.axis_max.x == 125.0);
+    // The generic personas stay corner-origin.
+    const auto* corexy = find_persona("generic_corexy");
+    REQUIRE(corexy != nullptr);
+    const auto& gc = helix::mock::descriptor(corexy->type);
+    CHECK(gc.axis_min.x == 0.0);
+    CHECK(gc.axis_max.x == 250.0);
+    // The steppers the fit check and the volume parser read, through the real
+    // discovery path.
+    const auto hw = discover(*voron);
+    CHECK(hw.build_volume().x_min == -175.0f);
+    CHECK(hw.build_volume().x_max == 175.0f);
+    CHECK(hw.build_volume().y_min == -175.0f);
+    CHECK(hw.build_volume().y_max == 175.0f);
+}
+
 /// Every object, heater and fan the real machine reported is one the persona reports.
 void check_mirrors_capture(const helix::PrinterDiscovery& hw, const std::string& slug) {
     const auto cap = helix::test::load_printer_capture(slug);

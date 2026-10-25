@@ -59,7 +59,8 @@ struct AxisMax {
 /// What a PrinterType presents to HelixScreen.
 struct PersonaDescriptor {
     std::string_view hostname; // printer.info hostname
-    /// stepper_* position_max == toolhead axis_maximum == mesh/grid bounds.
+    /// stepper_* position_min/max == toolhead axis_minimum/maximum == mesh/grid
+    /// bounds. A centre-origin printer (a Voron) carries negative mins.
     AxisMax axis_max;
     std::string_view kinematics;       // configfile [printer] kinematics
     DefaultObjects omit;               // inherited defaults this persona does not have
@@ -68,6 +69,9 @@ struct PersonaDescriptor {
     /// Probe profile (HELIX_MOCK_PROBE_TYPE value) reported in place of the
     /// default cartographer when the persona omits CARTOGRAPHER; "" = no probe.
     std::string_view probe = {};
+
+    /// Where each axis starts; {0, 0, 0} is a corner-origin bed.
+    AxisMax axis_min = {};
 };
 
 [[nodiscard]] constexpr PersonaDescriptor descriptor(PrinterType type) {
@@ -120,7 +124,11 @@ struct PersonaDescriptor {
     case PrinterType::FLASHFORGE_CREATOR5_ZMOD:
         return {"mock-printer", standard, "corexy", kHappyHareMmu, "", true};
     case PrinterType::VORON_24:
+        return {"mock-printer",       {175.0, 175.0, 300.0}, "corexy", NONE, "", false, {},
+                {-175.0, -175.0, 0.0}};
     case PrinterType::VORON_TRIDENT:
+        return {"mock-printer",       {125.0, 125.0, 300.0}, "corexy", NONE, "", false, {},
+                {-125.0, -125.0, 0.0}};
     case PrinterType::GENERIC_COREXY:
         return {"mock-printer", standard, "corexy", NONE, "", false};
     case PrinterType::DELTA:

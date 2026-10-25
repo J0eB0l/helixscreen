@@ -168,6 +168,16 @@ class AmsBackend {
   public:
     virtual ~AmsBackend() = default;
 
+    /**
+     * @brief Bed Y this system's mounted hardware makes unprintable, in mm
+     *
+     * A rear-mounted cassette can sit over the far edge of the bed; the
+     * print-start fit check subtracts this from the machine's Y limit.
+     */
+    [[nodiscard]] virtual double printable_y_shrink_mm() const {
+        return 0.0;
+    }
+
     // ========================================================================
     // Event Types
     // ========================================================================

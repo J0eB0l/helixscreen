@@ -1012,13 +1012,14 @@ void write_two_peak_csv(const std::string& path, std::initializer_list<float> pe
 /// Minutes `pairs` sweeps of both paths over `swept` take at the mock's 1 Hz/s,
 /// the fixture's 500 mm/s laps included.
 int sweep_minutes(helix::calibration::BeltSweepWindow swept, int pairs) {
-    const auto axis_max =
-        helix::mock::descriptor(MoonrakerClientMock::PrinterType::VORON_24).axis_max;
+    const auto persona = helix::mock::descriptor(MoonrakerClientMock::PrinterType::VORON_24);
     helix::calibration::BeltSettleInputs in;
-    in.x_max = static_cast<float>(axis_max.x);
-    in.y_max = static_cast<float>(axis_max.y);
+    in.x_max = static_cast<float>(persona.axis_max.x);
+    in.y_max = static_cast<float>(persona.axis_max.y);
     in.has_xy_limits = true;
-    in.probe_point = std::array<float, 3>{in.x_max / 2.0f, in.y_max / 2.0f, 20.0f};
+    in.probe_point = std::array<float, 3>{
+        static_cast<float>((persona.axis_min.x + persona.axis_max.x) / 2.0),
+        static_cast<float>((persona.axis_min.y + persona.axis_max.y) / 2.0), 20.0f};
     in.max_velocity_mm_s = 500.0f;
     const float laps = helix::calibration::plan_belt_settle(in).seconds;
     const float seconds =
@@ -3238,13 +3239,14 @@ TEST_CASE("the sweep fact line counts the laps, even when the toolhead reports l
     fx.set_toolhead_limits(10.0);
     fx.pump_ms(200);
 
-    const auto axis_max =
-        helix::mock::descriptor(MoonrakerClientMock::PrinterType::VORON_24).axis_max;
+    const auto persona = helix::mock::descriptor(MoonrakerClientMock::PrinterType::VORON_24);
     helix::calibration::BeltSettleInputs in;
-    in.x_max = static_cast<float>(axis_max.x);
-    in.y_max = static_cast<float>(axis_max.y);
+    in.x_max = static_cast<float>(persona.axis_max.x);
+    in.y_max = static_cast<float>(persona.axis_max.y);
     in.has_xy_limits = true;
-    in.probe_point = std::array<float, 3>{in.x_max / 2.0f, in.y_max / 2.0f, 20.0f};
+    in.probe_point = std::array<float, 3>{
+        static_cast<float>((persona.axis_min.x + persona.axis_max.x) / 2.0),
+        static_cast<float>((persona.axis_min.y + persona.axis_max.y) / 2.0), 20.0f};
     in.max_velocity_mm_s = 10.0f;
     const auto plan = helix::calibration::plan_belt_settle(in);
     REQUIRE(plan.refusal == helix::calibration::BeltSettleRefusal::NONE);

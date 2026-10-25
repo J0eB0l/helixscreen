@@ -274,7 +274,7 @@ def helix(tmp_path, fake_sys):
 def test_plr_feature_is_unavailable_without_a_profile(helix):
     status = run(helix._handle_status(None))
     assert status["features"]["plr"] == {
-        "version": 1, "available": False, "enabled": False, "reason": "not_listed",
+        "version": 2, "available": False, "enabled": False, "reason": "not_listed",
         "saving": False}
 
 
@@ -298,7 +298,7 @@ def test_plr_feature_defaults_off_on_a_listed_printer(helix):
     run(helix.database.insert_item("helix-screen", "plr_profile", {"tier": 1}))
     status = run(helix._handle_status(None))
     assert status["features"]["plr"] == {
-        "version": 1, "available": True, "enabled": False, "reason": None, "saving": False}
+        "version": 2, "available": True, "enabled": False, "reason": None, "saving": False}
 
 
 def test_plr_feature_follows_a_profile_written_after_start(helix):
@@ -2878,3 +2878,168 @@ def test_a_custom_xy_homing_command_runs_where_set_homed_works(plr, helix, resum
     plan_id = run(plr.handle_plan(Req()))["plan_id"]
     run(plr.handle_prepare(Req(plan_id=plan_id)))
     assert "_CG28 X Y" in sent(helix)
+
+
+# --------------------------------------------------------------------------
+# The mesh-include line in printer.cfg (server.helix.plr.mesh_include)
+# --------------------------------------------------------------------------
+
+def printer_cfg(plr, text=None):
+    """The config dir's printer.cfg; written when `text` is given."""
+    path = plr._config_dir() / "printer.cfg"
+    if text is not None:
+        path.write_text(text)
+    return path
+
+
+def test_mesh_include_status_reports_the_line(plr):
+    printer_cfg(plr, "[printer]\nkinematics: corexy\n")
+    assert run(plr.handle_mesh_include(Req())) == {"present": False}
+    printer_cfg(plr, "[printer]\n[include helix-plr/*.cfg]\n")
+    assert run(plr.handle_mesh_include(Req())) == {"present": True}
+
+
+def test_mesh_include_add_writes_the_lines_and_a_rolling_backup(plr):
+    cfg = printer_cfg(plr, "[printer]\nkinematics: corexy\n")
+    reply = run(plr.handle_mesh_include(Req(action="add")))
+    assert reply == {"present": True, "changed": True}
+    assert cfg.read_text() == (
+        "[printer]\n"
+        "kinematics: corexy\n"
+        "# Added by HelixScreen: lets a power-loss resume reload the print's bed mesh\n"
+        "[include helix-plr/*.cfg]\n")
+    backup = cfg.parent / "printer.cfg.helixscreen-bak"
+    assert backup.read_text() == "[printer]\nkinematics: corexy\n"
+
+
+def test_mesh_include_add_appends_after_a_file_with_no_final_newline(plr):
+    printer_cfg(plr, "[printer]\nkinematics: corexy")
+    run(plr.handle_mesh_include(Req(action="add")))
+    assert printer_cfg(plr).read_text().startswith("[printer]\nkinematics: corexy\n#")
+
+
+def test_mesh_include_add_is_idempotent(plr):
+    printer_cfg(plr, "[printer]\n")
+    assert run(plr.handle_mesh_include(Req(action="add"))) == {"present": True,
+                                                               "changed": True}
+    before = printer_cfg(plr).read_text()
+    backup = plr._config_dir() / "printer.cfg.helixscreen-bak"
+    backup.write_text("sentinel")
+    assert run(plr.handle_mesh_include(Req(action="add"))) == {"present": True,
+                                                               "changed": False}
+    assert printer_cfg(plr).read_text() == before
+    assert backup.read_text() == "sentinel"
+
+
+def test_mesh_include_add_on_a_hand_added_line_changes_nothing(plr):
+    printer_cfg(plr, "[printer]\n[include helix-plr/*.cfg]\n")
+    assert run(plr.handle_mesh_include(Req(action="add"))) == {"present": True,
+                                                               "changed": False}
+    assert not (plr._config_dir() / "printer.cfg.helixscreen-bak").exists()
+
+
+def test_mesh_include_add_replaces_a_lone_marker(plr):
+    printer_cfg(plr, "[printer]\n"
+                     "# Added by HelixScreen: lets a power-loss resume reload the print's bed mesh\n")
+    run(plr.handle_mesh_include(Req(action="add")))
+    text = printer_cfg(plr).read_text()
+    assert text.count("# Added by HelixScreen") == 1
+
+
+def test_mesh_include_remove_strips_only_our_lines(plr):
+    cfg = printer_cfg(plr, "[printer]\n"
+                           "  # Added by HelixScreen: lets a power-loss resume reload the print's bed mesh\n"
+                           "[include helix-plr/*.cfg]  \n"
+                           "[include helix-plr/mesh.cfg]\n"
+                           "[include my_macros/*.cfg]\n")
+    reply = run(plr.handle_mesh_include(Req(action="remove")))
+    assert reply == {"present": False, "changed": True}
+    assert cfg.read_text() == ("[printer]\n"
+                               "[include helix-plr/mesh.cfg]\n"
+                               "[include my_macros/*.cfg]\n")
+    backup = cfg.parent / "printer.cfg.helixscreen-bak"
+    assert "helix-plr/*.cfg" in backup.read_text()
+
+
+def test_mesh_include_remove_is_idempotent(plr):
+    printer_cfg(plr, "[printer]\n")
+    assert run(plr.handle_mesh_include(Req(action="remove"))) == {"present": False,
+                                                                  "changed": False}
+    assert not (plr._config_dir() / "printer.cfg.helixscreen-bak").exists()
+
+
+def test_mesh_include_refuses_when_printer_cfg_cannot_be_read(plr):
+    with pytest.raises(Exception, match="plr_config_read"):
+        run(plr.handle_mesh_include(Req()))
+
+
+def test_mesh_include_refuses_when_the_write_fails(plr, monkeypatch):
+    printer_cfg(plr, "[printer]\n")
+
+    def disk_full(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(helix_plr, "write_mesh_include_change", disk_full)
+    with pytest.raises(Exception, match="plr_config_write"):
+        run(plr.handle_mesh_include(Req(action="add")))
+    assert printer_cfg(plr).read_text() == "[printer]\n"
+
+
+def test_mesh_include_refuses_an_unknown_action(plr):
+    printer_cfg(plr, "[printer]\n")
+    with pytest.raises(Exception, match="plr_bad_action"):
+        run(plr.handle_mesh_include(Req(action="toggle")))
+
+
+def test_a_failed_rename_leaves_printer_cfg_unchanged(plr):
+    cfg = printer_cfg(plr, "[printer]\n")
+
+    def replace_fails(src, dst):
+        raise OSError("disk full")
+
+    with pytest.raises(OSError):
+        helix_plr.write_mesh_include_change(cfg, "[printer]\n", "[printer]\n# more\n",
+                                            replace_fails)
+    assert cfg.read_text() == "[printer]\n"
+    assert (cfg.parent / "printer.cfg.helixscreen-bak").read_text() == "[printer]\n"
+
+
+def test_uninstall_mesh_include_strips_the_lines_and_the_directory(plr, tmp_path):
+    config = plr._config_dir()
+    (config / "printer.cfg").write_text(
+        "[printer]\n# Added by HelixScreen: lets a power-loss resume reload the print's bed mesh\n"
+        "[include helix-plr/*.cfg]\n")
+    (config / "helix-plr").mkdir()
+    (config / "helix-plr" / "mesh.cfg").write_text("[bed_mesh helix_plr]\n")
+
+    assert helix_plr.uninstall_mesh_include(config) is None
+
+    assert (config / "printer.cfg").read_text() == "[printer]\n"
+    assert (config / "printer.cfg.helixscreen-bak").read_text().count("helix-plr") == 1
+    assert not (config / "helix-plr").exists()
+
+
+def test_uninstall_mesh_include_with_nothing_there_touches_nothing(plr):
+    config = plr._config_dir()
+    (config / "printer.cfg").write_text("[printer]\n")
+
+    assert helix_plr.uninstall_mesh_include(config) is None
+
+    assert (config / "printer.cfg").read_text() == "[printer]\n"
+    assert not (config / "printer.cfg.helixscreen-bak").exists()
+
+
+def test_mesh_include_refuses_a_config_that_is_not_utf8(plr):
+    (plr._config_dir() / "printer.cfg").write_bytes(b"\xff\xfe[printer]\n")
+    with pytest.raises(Exception, match="plr_config_read"):
+        run(plr.handle_mesh_include(Req()))
+    with pytest.raises(Exception, match="plr_config_read"):
+        run(plr.handle_mesh_include(Req(action="add")))
+
+
+def test_uninstall_mesh_include_reports_a_config_that_is_not_utf8(plr):
+    config = plr._config_dir()
+    (config / "printer.cfg").write_bytes(b"\xff\xfe[printer]\n")
+    problem = helix_plr.uninstall_mesh_include(config)
+    assert problem is not None
+    assert "printer.cfg" in problem

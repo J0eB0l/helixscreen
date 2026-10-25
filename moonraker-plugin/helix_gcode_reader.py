@@ -898,6 +898,24 @@ def atomic_publish(tmp: str, path: str, exclusive: bool = False,
     fsync_dir(os.path.dirname(path) or ".")
 
 
+def read_file_text(path: str) -> str:
+    """A file's text with its line endings as they are on disk."""
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def atomic_write_text(path: str, text: str,
+                      replace: Callable[[str, str], None] = os.replace) -> None:
+    """Write `text` to `path` through a temp file beside it, fsynced, then
+    renamed over it with the file's own mode. A crash before the rename
+    leaves `path` as it was."""
+    try:
+        mode: Optional[int] = os.stat(str(path)).st_mode & 0o7777
+    except OSError:
+        mode = None
+    atomic_write_bytes(str(path), text.encode("utf-8"), replace=replace, mode=mode)
+
+
 def atomic_write_bytes(path: str, data: bytes, fsync: bool = True,
                        replace: Callable[[str, str], None] = os.replace,
                        mode: Optional[int] = None) -> None:

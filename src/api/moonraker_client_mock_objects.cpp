@@ -307,7 +307,9 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
         (void)error_cb;
         json status_obj = json::object();
         // Volume the persona reports through configfile settings and toolhead.
-        const auto axis_max = helix::mock::descriptor(self->get_printer_type()).axis_max;
+        const auto& persona = helix::mock::descriptor(self->get_printer_type());
+        const auto axis_max = persona.axis_max;
+        const auto axis_min = persona.axis_min;
 
         // Check what objects are being queried
         if (params.contains("objects")) {
@@ -414,7 +416,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                 // Probe-equipped printers (endstop_pin: probe:z_virtual_endstop)
                 // get a JSON null here rather than a number — see
                 // set_stepper_z_endstop_null().
-                json stepper_z_settings = {{"position_min", 0.0}, {"position_max", axis_max.z}};
+                json stepper_z_settings = {{"position_min", axis_min.z},
+                                           {"position_max", axis_max.z}};
                 if (self->is_stepper_z_endstop_null()) {
                     stepper_z_settings["position_endstop"] = nullptr;
                 } else {
@@ -430,8 +433,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                         // settings reader (belt hardware detect) and a config
                         // reader (bed moves detection) see the same machine.
                         {"kinematics", self->kinematics()}}},
-                      {"stepper_x", {{"position_min", kMockBedXMin}, {"position_max", axis_max.x}}},
-                      {"stepper_y", {{"position_min", kMockBedYMin}, {"position_max", axis_max.y}}},
+                      {"stepper_x", {{"position_min", axis_min.x}, {"position_max", axis_max.x}}},
+                      {"stepper_y", {{"position_min", axis_min.y}, {"position_max", axis_max.y}}},
                       {"stepper_z", stepper_z_settings},
                       {"extruder", extruder_settings},
                       // Resonance sweep bounds — the input shaper collector
@@ -502,8 +505,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     {"max_z_velocity", 40.0},
                     {"max_z_accel", 1000.0},
                     {"position", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_maximum", {axis_max.x, axis_max.y, axis_max.z, 0.0}},
+                    {"axis_minimum", mock_internal::toolhead_axis_minimum(persona)},
+                    {"axis_maximum", mock_internal::toolhead_axis_maximum(persona)},
                     {"homed_axes", self->get_homed_axes()}};
             }
 
@@ -694,7 +697,9 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
 
         json status_obj = json::object();
         // Volume the persona reports through configfile settings and toolhead.
-        const auto axis_max = helix::mock::descriptor(self->get_printer_type()).axis_max;
+        const auto& persona = helix::mock::descriptor(self->get_printer_type());
+        const auto axis_max = persona.axis_max;
+        const auto axis_min = persona.axis_min;
 
         // Check what objects are being subscribed to
         if (params.contains("objects")) {
@@ -809,8 +814,8 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     {"max_accel_to_decel", 5000.0},
                     {"square_corner_velocity", 5.0},
                     {"position", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
-                    {"axis_maximum", {axis_max.x, axis_max.y, axis_max.z, 0.0}},
+                    {"axis_minimum", mock_internal::toolhead_axis_minimum(persona)},
+                    {"axis_maximum", mock_internal::toolhead_axis_maximum(persona)},
                     {"homed_axes", self->get_homed_axes()},
                     {"print_time", 0.0},
                     {"estimated_print_time", 0.0},
@@ -1092,10 +1097,10 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                         // settings reader (belt hardware detect) and a config
                         // reader (bed moves detection) see the same machine.
                         {"kinematics", self->kinematics()}}},
-                      {"stepper_x", {{"position_min", kMockBedXMin}, {"position_max", axis_max.x}}},
-                      {"stepper_y", {{"position_min", kMockBedYMin}, {"position_max", axis_max.y}}},
+                      {"stepper_x", {{"position_min", axis_min.x}, {"position_max", axis_max.x}}},
+                      {"stepper_y", {{"position_min", axis_min.y}, {"position_max", axis_max.y}}},
                       {"stepper_z",
-                       {{"position_min", 0.0},
+                       {{"position_min", axis_min.z},
                         {"position_max", axis_max.z},
                         {"position_endstop", 235.0}}},
                       {"extruder", extruder_settings2},

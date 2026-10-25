@@ -156,6 +156,7 @@ translations:
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Une caméra diffusée par Moonraker. Ajoutez le widget caméra à l''écran d''accueil pour la regarder, y compris pendant une impression.'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: 'Un ventilateur qui fait passer l''air de l''enceinte à travers un filtre. Commandez-le sur l''écran de température de l''enceinte.'
   A few minutes, nearly all of it heating. You judge nothing by eye.: 'Quelques minutes, presque tout en chauffage. Vous ne jugez rien à l''œil.'
+  A folder name in moonraker.conf is unsafe, so cleanup is off.: "Un nom de dossier dans moonraker.conf n'est pas sûr, le nettoyage est donc désactivé."
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: 'Une macro de heat soak est configurée sur l''imprimante. HelixScreen la détecte mais ne l''exécute pas.'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: 'Un chauffage qui réchauffe l''air de l''enceinte. Réglez sa température sur l''écran de température de l''enceinte.'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Une carte des hauteurs du plateau que Klipper utilise pour compenser une surface irrégulière. Consultez-la et calibrez-la sur l''écran Maillage du plateau.'
@@ -244,9 +245,11 @@ translations:
   Add Printer: Ajouter une imprimante
   Add Vendor: Ajouter un fournisseur
   Add Widget: Ajouter un widget
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: 'Ajoute [include helix-plr/*.cfg] à printer.cfg pour qu''une reprise recharge le maillage avec lequel l''impression a commencé'
   Add custom filament: Ajouter un filament personnalisé
   Add page: 'Ajouter une page'
   Add to Queue: Ajouter à la file
+  Added: Ajouté
   Added to Spoolman: Ajouté à Spoolman
   Added to queue (position {}): Ajouté à la file (position {})
   Added to queue (position {}) - queue is paused: Ajouté à la file (position {}) – la file est en pause
@@ -961,6 +964,7 @@ translations:
   Unload stopped: 'Déchargement arrêté'
   "User Guide": "Guide d'utilisation"
   '{} could not be checked from Home - review it and tap Print': '{} n''a pas pu être vérifié depuis l''accueil – vérifiez-le et touchez Imprimer'
+  Could not change printer.cfg: Impossible de modifier printer.cfg
   ? "Could not check webcam status.\nCheck printer connection."
   : "Impossible de vérifier la webcam.\nVérifiez la connexion."
   Could not confirm cancel: Impossible de confirmer l'annulation
@@ -1793,8 +1797,12 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen a planté
   HelixScreen Macros: 'Macros HelixScreen'
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : 'HelixScreen ajoute [include helix-plr/*.cfg] à printer.cfg pour qu''une reprise recharge le maillage avec lequel l''impression a commencé. Une sauvegarde est conservée à côté de printer.cfg, et Klipper doit redémarrer pour que le changement prenne effet.'
   HelixScreen is detecting your display orientation: HelixScreen détecte l'orientation
     de votre écran
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : 'HelixScreen supprime ses lignes [include helix-plr/*.cfg] de printer.cfg. Une sauvegarde est conservée à côté de printer.cfg, et Klipper doit redémarrer pour que le changement prenne effet. Une reprise utilisera alors le profil de maillage par défaut de l''imprimante.'
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     s'intégrera avec votre changeur de filament pour les opérations d'impression multi-bobines/couleurs.
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreen écrira ceci dans printer.cfg et redémarrera Klipper. L'imprimante se déconnectera brièvement.
@@ -2592,6 +2600,7 @@ translations:
   Not Initialized: 'Non initialisé'
   Not Now: Pas maintenant
   Not Supported: 'Non pris en charge'
+  Not added: Non ajouté
   Not available here. Update from a terminal.: Indisponible ici. Mettez à jour depuis un terminal.
   Not available now: Indisponible pour le moment
   Not available on Android: Non disponible sur Android
@@ -3202,11 +3211,13 @@ translations:
   Release or grip the filament by hand: Relâcher ou saisir le filament à la main
   Release the filament: Relâcher le filament
   Release {}'s tensioner, let the spring settle, lock it: "Relâchez le tendeur de {}, laissez le ressort se placer, bloquez-le"
+  Reload the saved bed mesh?: Recharger le maillage enregistré ?
   Remaining: 'Restant'
   Remaining (g): Restant (g)
   Remaining Weight (g): Poids restant (g)
   Remember slot spool details across an eject: Mémoriser les détails de la bobine du slot après une éjection
   Remove: Supprimer
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: 'Supprime les lignes include de HelixScreen de printer.cfg ; une reprise utilisera alors le profil de maillage par défaut de l''imprimante'
   Remove PIN: Supprimer le PIN
   Remove Spoolman?: Supprimer Spoolman ?
   Remove plugin from printer: Supprimer le plugin de l'imprimante
@@ -3315,6 +3326,7 @@ translations:
   Resume interrupted print?: 'Reprendre l''impression interrompue ?'
   Resume macro not configured: Macro de reprise non configurée
   Resume preparation failed: Échec de la préparation à la reprise
+  Resume reloads the saved bed mesh: La reprise recharge le maillage enregistré
   Resume without the bed mesh this print used: Reprendre sans le maillage du plateau utilisé par cette impression
   Resuming is not set up for this printer.: La reprise n'est pas configurée pour cette imprimante.
   Resuming print...: Reprise de l'impression...
@@ -3815,6 +3827,7 @@ translations:
   Stop failed: Échec de l'arrêt
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "Arrêter l'impression de \"{}\" ?\n\nCette action sera irréversible après 5 secondes."
+  Stop reloading the saved bed mesh?: Ne plus recharger le maillage enregistré ?
   Stop the check?: Arrêter la vérification ?
   Stop the running cycle before starting another: 'Arrêtez le cycle en cours avant d''en lancer un autre'
   Stop with an emergency stop?: 'Arrêter par un arrêt d''urgence ?'
@@ -3999,6 +4012,8 @@ translations:
   : 'La caméra a cru voir quelque chose sur le plateau, l''imprimante s''est donc arrêtée avant d''imprimer. Si le plateau est libre, c''était une fausse alerte.'
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: 'Le chauffage de l''enceinte peut lancer un cycle de séchage du filament. Démarrez-le depuis la boîte de dialogue de séchage.'
   The chamber wait already ended; nothing was stopped.: 'L''attente de la chambre est déjà terminée ; rien n''a été arrêté.'
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : Le changement prend effet après le redémarrage de Klipper. Le firmware Klipper sera redémarré. Les opérations actives seront interrompues.
   The controller boards Klipper runs on. See their load in the system settings.: 'Les cartes contrôleur sur lesquelles tourne Klipper. Consultez leur charge dans les paramètres système.'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: La lame n'est pas revenue. Vérifiez qu'aucun filament n'est enroulé autour du mécanisme de coupe
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: Le coupe-filament est désaligné. Recalibrez avec CALIBRATE_CUT_POS
@@ -4117,6 +4132,7 @@ translations:
   The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service: Le capteur de cette unité CFS ne peut pas être lu. Vérifiez son raccordement, sinon l'unité nécessite une intervention
   The speed of one fan you choose: La vitesse d'un ventilateur choisi
   The time, date, and system uptime: Heure, date et temps de fonctionnement
+  The timelapse or logs folder overlaps a protected folder, so cleanup is off.: "Le dossier timelapse ou de logs chevauche un dossier protégé, le nettoyage est donc désactivé."
   The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?: La tête d'outil contient du filament mais aucun slot de l'AMS ne le signale comme chargé. Retirez-le manuellement avant d'imprimer. Démarrer quand même ?
   ? The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?
   : La tête d'outil contient du filament mais aucun slot de l'AMS ne le signale comme chargé. L'imprimante peut refuser de charger un slot tant qu'il n'est pas vidé. Démarrer quand même ?

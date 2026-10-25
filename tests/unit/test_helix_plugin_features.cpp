@@ -122,10 +122,12 @@ TEST_CASE("plugin_reason_text says what a reason code means", "[plugin_feature]"
           "The plugin can't reach the camera, so this screen takes the photos.");
     CHECK(plugin_reason_text("load_failed: SyntaxError: bad input") ==
           "Part of the plugin failed to load. Reinstall the plugin.");
+    CHECK(plugin_reason_text("unsafe_staging_dir: .") ==
+          "A folder name in moonraker.conf is unsafe, so cleanup is off.");
+    CHECK(plugin_reason_text("unsafe_root: /home/pi/printer_data/gcodes") ==
+          "The timelapse or logs folder overlaps a protected folder, so cleanup is off.");
     // Anything else reads as the plugin wrote it.
     CHECK(plugin_reason_text("moonraker<0.9") == "moonraker<0.9");
-    CHECK(plugin_reason_text("unsafe gcodes root: it holds the config directory") ==
-          "unsafe gcodes root: it holds the config directory");
     CHECK(plugin_reason_text("").empty());
 }
 

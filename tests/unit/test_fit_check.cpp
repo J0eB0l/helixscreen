@@ -169,16 +169,36 @@ TEST_CASE("the screen names a known model and drops the tool count for a filamen
           "[plugin_fitcheck]") {
     const FitMachine base = fit_machine_from_settings(kSettings);
     REQUIRE(base.tool_count == std::optional<int>(1));
-    const FitMachine plain = fit_machine_for_screen(base, "Voron 0.2", false);
+    const FitMachine plain = fit_machine_for_screen(base, "Voron 0.2", false, 0.0);
     CHECK(plain.model == "Voron 0.2");
     CHECK(plain.tool_count == std::optional<int>(1));
-    const FitMachine lanes = fit_machine_for_screen(base, "", true);
+    const FitMachine lanes = fit_machine_for_screen(base, "", true, 0.0);
     CHECK_FALSE(lanes.tool_count.has_value());
 
     FitFile two_tools;
     two_tools.tools = {0, 1};
     CHECK(check_fit(plain, two_tools).size() == 1);
     CHECK(check_fit(lanes, two_tools).empty());
+
+    SECTION("a filament system's hardware can sit over the far edge of Y") {
+        REQUIRE(base.axis_max[1] == std::optional<double>(220.0));
+        const FitMachine shrunk = fit_machine_for_screen(base, "Creality K1C", true, 5.0);
+        REQUIRE(shrunk.axis_max[1].has_value());
+        CHECK(*shrunk.axis_max[1] == 215.0);
+
+        FitFile edge;
+        edge.travel = FitBox{};
+        edge.travel->max[1] = 218.0;
+        CHECK(check_fit(base, edge).empty());
+        const auto findings = check_fit(shrunk, edge);
+        REQUIRE(findings.size() == 1);
+        CHECK(findings[0].axis == "y");
+
+        // No Y limit known: the shrink has nothing to move.
+        FitMachine no_y = base;
+        no_y.axis_max[1].reset();
+        CHECK_FALSE(fit_machine_for_screen(no_y, "", false, 5.0).axis_max[1].has_value());
+    }
 }
 
 TEST_CASE("a file's head gives its printer, nozzles and hottest targets", "[plugin_fitcheck]") {

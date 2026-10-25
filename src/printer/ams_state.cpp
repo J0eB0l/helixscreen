@@ -345,6 +345,11 @@ std::optional<AmsType> AmsState::primary_type() const {
     return registry_.primary_type();
 }
 
+double AmsState::printable_y_shrink_mm() const {
+    const AmsBackend* backend = get_backend();
+    return backend != nullptr ? backend->printable_y_shrink_mm() : 0.0;
+}
+
 std::optional<BackendTraits> AmsState::primary_traits() const {
     return registry_.primary_traits();
 }

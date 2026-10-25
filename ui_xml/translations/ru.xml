@@ -180,6 +180,7 @@
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." ru="Камера, которую транслирует Moonraker. Добавьте виджет камеры на главный экран, чтобы смотреть ее, в том числе во время печати."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." ru="Вентилятор, который прогоняет воздух камеры через фильтр. Управляйте им на экране температуры камеры."/>
   <translation tag="A few minutes, nearly all of it heating. You judge nothing by eye." ru="Несколько минут, почти всё время нагрев. Ничего не нужно оценивать на глаз."/>
+  <translation tag="A folder name in moonraker.conf is unsafe, so cleanup is off." ru="Небезопасное имя папки в moonraker.conf, поэтому очистка выключена."/>
   <translation tag="A heat soak macro is set up on the printer. HelixScreen detects it but does not run it." ru="На принтере настроен макрос прогрева (heat soak). HelixScreen обнаруживает его, но не запускает."/>
   <translation tag="A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen." ru="Нагреватель, который греет воздух внутри камеры. Температура задается на экране температуры камеры."/>
   <translation tag="A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen." ru="Карта высот стола, по которой Klipper компенсирует неровности поверхности. Просмотр и калибровка на экране «Сетка стола»."/>
@@ -264,10 +265,12 @@
   <translation tag="Add Printer" ru="Добавить принтер"/>
   <translation tag="Add Vendor" ru="Добавить производителя"/>
   <translation tag="Add Widget" ru="Добавить виджет"/>
+  <translation tag="Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with" ru="Добавляет [include helix-plr/*.cfg] в printer.cfg, чтобы при возобновлении снова загружалась сетка, с которой началась печать"/>
   <translation tag="Add custom filament" ru="Добавить свой филамент"/>
   <translation tag="Add page" ru="Добавить страницу"/>
   <translation tag="Add to Queue" ru="Добавить в очередь"/>
   <translation tag="Add to Spoolman + label" ru="Добавить в Spoolman + этикетка"/>
+  <translation tag="Added" ru="Добавлено"/>
   <translation tag="Added to Spoolman" ru="Добавлено в Spoolman"/>
   <translation tag="Added to queue (position {})" ru="Добавлено в очередь (позиция {})"/>
   <translation tag="Added to queue (position {}) - queue is paused" ru="Добавлено в очередь (позиция {}) – очередь на паузе"/>
@@ -897,6 +900,7 @@
   <translation tag="Could not add to queue" ru="Не удалось добавить в очередь"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." ru="Не удалось проанализировать макрос PRINT_START. Некоторые параметры печати могут быть недоступны."/>
   <translation tag="Could not answer the connection request" ru="Не удалось ответить на запрос подключения"/>
+  <translation tag="Could not change printer.cfg" ru="Не удалось изменить printer.cfg"/>
   <translation tag="Could not check webcam status.&#10;Check printer connection." ru="Не удалось проверить статус веб-камеры.&#10;Проверьте подключение принтера."/>
   <translation tag="Could not check {} - it stays in the queue" ru="Не удалось проверить {} – остаётся в очереди"/>
   <translation tag="Could not confirm cancel" ru="Не удалось подтвердить отмену"/>
@@ -1672,7 +1676,9 @@
   <translation tag="HelixScreen" ru="HelixScreen"/>
   <translation tag="HelixScreen Crashed" ru="HelixScreen аварийно завершился"/>
   <translation tag="HelixScreen Macros" ru="Макросы HelixScreen"/>
+  <translation tag="HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect." ru="HelixScreen добавляет [include helix-plr/*.cfg] в printer.cfg, чтобы при возобновлении снова загружалась сетка, с которой началась печать. Рядом с printer.cfg хранится резервная копия, а чтобы изменение вступило в силу, нужно перезапустить Klipper."/>
   <translation tag="HelixScreen is detecting your display orientation" ru="HelixScreen определяет ориентацию дисплея"/>
+  <translation tag="HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer&apos;s default mesh profile." ru="HelixScreen удаляет свои строки [include helix-plr/*.cfg] из printer.cfg. Рядом с printer.cfg хранится резервная копия, а чтобы изменение вступило в силу, нужно перезапустить Klipper. При возобновлении будет использоваться стандартный профиль сетки принтера."/>
   <translation tag="HelixScreen will integrate with your filament changer for multi-spool/color print operations." ru="HelixScreen интегрируется с вашим сменщиком филамента для многокатушечной/многоцветной печати."/>
   <translation tag="HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect." ru="HelixScreen записывает это в printer.cfg и перезапускает Klipper. Принтер ненадолго отключится."/>
   <translation tag="HelixScreen {} is available — tap Update" ru="Доступен HelixScreen {} — нажмите «Обновить»"/>
@@ -2398,6 +2404,7 @@
   <translation tag="Not Initialized" ru="Не инициализировано"/>
   <translation tag="Not Now" ru="Не сейчас"/>
   <translation tag="Not Supported" ru="Не поддерживается"/>
+  <translation tag="Not added" ru="Не добавлено"/>
   <translation tag="Not available here. Update from a terminal." ru="Здесь недоступно. Обновите через терминал."/>
   <translation tag="Not available now" ru="Сейчас недоступно"/>
   <translation tag="Not available on Android" ru="Недоступно на Android"/>
@@ -2971,12 +2978,14 @@
   <translation tag="Release or grip the filament by hand" ru="Отпустите или зажмите филамент вручную"/>
   <translation tag="Release the filament" ru="Отпустить филамент"/>
   <translation tag="Release {}&apos;s tensioner, let the spring settle, lock it" ru="Отпустите натяжитель {}, дайте пружине сесть, зафиксируйте"/>
+  <translation tag="Reload the saved bed mesh?" ru="Перезагрузить сохранённую сетку?"/>
   <translation tag="Remaining" ru="Осталось"/>
   <translation tag="Remaining (g)" ru="Осталось (г)"/>
   <translation tag="Remaining Weight (g)" ru="Оставшийся вес (г)"/>
   <translation tag="Remaining weight" ru="Остаток веса"/>
   <translation tag="Remember slot spool details across an eject" ru="Запоминать данные катушки слота после извлечения"/>
   <translation tag="Remove" ru="Удалить"/>
+  <translation tag="Remove HelixScreen&apos;s include lines from printer.cfg; a resume then uses the printer&apos;s default mesh profile" ru="Удаляет строки include HelixScreen из printer.cfg; при возобновлении будет использоваться стандартный профиль сетки принтера"/>
   <translation tag="Remove PIN" ru="Удалить PIN"/>
   <translation tag="Remove Spoolman?" ru="Удалить Spoolman?"/>
   <translation tag="Remove plugin from printer" ru="Удалить плагин с принтера"/>
@@ -3081,6 +3090,7 @@
   <translation tag="Resume interrupted print?" ru="Продолжить прерванную печать?"/>
   <translation tag="Resume macro not configured" ru="Макрос возобновления не настроен"/>
   <translation tag="Resume preparation failed" ru="Не удалось подготовиться к возобновлению"/>
+  <translation tag="Resume reloads the saved bed mesh" ru="При возобновлении снова загружается сохранённая сетка"/>
   <translation tag="Resume without the bed mesh this print used" ru="Продолжить без сетки стола этой печати"/>
   <translation tag="Resuming is not set up for this printer." ru="Продолжение не настроено для этого принтера."/>
   <translation tag="Resuming print..." ru="Возобновление печати..."/>
@@ -3525,6 +3535,7 @@
   <translation tag="Stop drying?" ru="Остановить сушку?"/>
   <translation tag="Stop failed" ru="Ошибка остановки"/>
   <translation tag="Stop printing &quot;{}&quot;?&#10;&#10;This cannot be undone after 5 seconds." ru="Остановить печать &quot;{}&quot;?&#10;&#10;Это нельзя будет отменить через 5 секунд."/>
+  <translation tag="Stop reloading the saved bed mesh?" ru="Больше не загружать сохранённую сетку?"/>
   <translation tag="Stop the check?" ru="Остановить проверку?"/>
   <translation tag="Stop the running cycle before starting another" ru="Остановите текущий цикл, прежде чем запускать новый"/>
   <translation tag="Stop with an emergency stop?" ru="Остановить аварийной остановкой?"/>
@@ -3685,6 +3696,7 @@
   <translation tag="The camera thought it saw something on the bed, so the printer stopped before printing. If the bed is clear, it was a false alarm." ru="Камере показалось, что на столе что-то есть, поэтому принтер остановился до начала печати. Если стол чист, это ложная тревога."/>
   <translation tag="The chamber heater can run a filament drying cycle. Start one from the drying dialog." ru="Нагреватель камеры может запускать цикл сушки филамента. Запустите его из диалога сушки."/>
   <translation tag="The chamber wait already ended; nothing was stopped." ru="Ожидание камеры уже закончилось; ничего не остановлено."/>
+  <translation tag="The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted." ru="Изменение вступает в силу после перезапуска Klipper. Прошивка Klipper будет перезапущена. Активные операции будут прерваны."/>
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." ru="Платы контроллеров, на которых работает Klipper. Их загрузку можно посмотреть в системных настройках."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" ru="Лезвие не вернулось. Проверьте, не намотался ли филамент на режущий механизм"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" ru="Резак смещён. Выполните повторную калибровку командой CALIBRATE_CUT_POS"/>
@@ -3779,6 +3791,7 @@
   <translation tag="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service" ru="Не удаётся считать датчик этого блока CFS. Проверьте подключение, иначе блоку требуется обслуживание"/>
   <translation tag="The speed of one fan you choose" ru="Скорость выбранного вентилятора"/>
   <translation tag="The time, date, and system uptime" ru="Время, дата и время работы системы"/>
+  <translation tag="The timelapse or logs folder overlaps a protected folder, so cleanup is off." ru="Папка таймлапсов или журналов пересекается с защищённой папкой, поэтому очистка выключена."/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?" ru="В печатающей головке есть филамент, но ни один слот AMS не сообщает о его загрузке. Извлеките его вручную перед печатью. Всё равно начать?"/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?" ru="В печатающей головке есть филамент, но ни один слот AMS не сообщает о его загрузке. Принтер может отказаться загружать слот, пока она не будет очищена. Всё равно начать?"/>
   <translation tag="The toolhead sensor indicates filament is already loaded. Proceed with load anyway?" ru="Датчик печатающей головки показывает, что филамент уже загружен. Всё равно продолжить загрузку?"/>

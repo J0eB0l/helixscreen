@@ -603,8 +603,9 @@ class TestRootProblem:
 
     @pytest.mark.parametrize("name", ["", ".", "..", "a/b", " .helix_temp"])
     def test_a_staging_name_that_is_not_one_segment_is_unsafe(self, tmp_path, name):
-        assert "unsafe staging directory" in root_problem(
-            _safe_roots(tmp_path), (".helix_temp", name))
+        assert root_problem(
+            _safe_roots(tmp_path), (".helix_temp", name)) == \
+            "unsafe_staging_dir: %s" % name
 
     @pytest.mark.parametrize("root,target,what", [
         ("timelapse", "gcodes", "gcodes"),
@@ -617,19 +618,19 @@ class TestRootProblem:
         roots = _safe_roots(tmp_path)
         roots[root] = (os.path.join(roots["data"], "database") if target == "database"
                        else roots[target])
-        assert root_problem(roots, TEMP_DIRS) == \
-            "unsafe %s root: it holds the %s directory" % (root, what)
+        assert root_problem(roots, TEMP_DIRS) == "unsafe_root: %s" % roots[root]
 
     def test_a_root_above_the_data_directory_is_unsafe(self, tmp_path):
         roots = _safe_roots(tmp_path)
         roots["timelapse"] = str(tmp_path)
-        assert "unsafe timelapse root" in root_problem(roots, TEMP_DIRS)
+        assert root_problem(roots, TEMP_DIRS) == "unsafe_root: %s" % str(tmp_path)
 
     def test_a_root_reached_through_a_link_is_resolved(self, tmp_path):
         roots = _safe_roots(tmp_path)
         os.symlink(roots["gcodes"], str(tmp_path / "videos"))
         roots["timelapse"] = str(tmp_path / "videos")
-        assert "holds the gcodes directory" in root_problem(roots, TEMP_DIRS)
+        assert root_problem(roots, TEMP_DIRS) == \
+            "unsafe_root: %s" % str(tmp_path / "videos")
 
     def test_a_staging_dir_linked_outside_gcodes_is_refused(self, tmp_path):
         roots = _safe_roots(tmp_path)
@@ -649,8 +650,9 @@ class TestRootProblem:
 
     @pytest.mark.parametrize("name", [".helix_photos", ".thumbs", ".helix_index"])
     def test_a_staging_dir_named_after_another_consumer_is_unsafe(self, tmp_path, name):
-        assert "unsafe staging directory" in root_problem(
-            _safe_roots(tmp_path), (".helix_temp", name))
+        assert root_problem(
+            _safe_roots(tmp_path), (".helix_temp", name)) == \
+            "unsafe_staging_dir: %s" % name
 
     def test_a_gcodes_consumer_never_walks_the_whole_root(self, tmp_path):
         roots = _safe_roots(tmp_path)
@@ -680,7 +682,7 @@ class TestUnsafeConfig:
         status = await mock_server.endpoints["/server/helix/status"](MockWebRequest({}))
         for name in (STORAGE_FEATURE, AUTO_CLEANUP_FEATURE):
             assert status["features"][name]["available"] is False
-            assert "unsafe staging directory" in status["features"][name]["reason"]
+            assert status["features"][name]["reason"].startswith("unsafe_staging_dir")
         with pytest.raises(Exception, match="409"):
             await mock_server.endpoints[CLEANUP](Request({"consumer": "helix_temp",
                                                           "older_than": 0}))
@@ -695,7 +697,7 @@ class TestUnsafeConfig:
             "gcodes": str(tree / "gcodes"), "timelapse": str(tree / "gcodes"),
             "logs": str(tree / "logs")}.get(name, "")
         await _init(storage, tree)
-        with pytest.raises(Exception, match="409: unsafe timelapse root"):
+        with pytest.raises(Exception, match="409: unsafe_root"):
             await mock_server.endpoints[CLEANUP](Request({"consumer": "timelapse",
                                                           "older_than": 0}))
         assert (tree / "gcodes" / "benchy.gcode").exists()
