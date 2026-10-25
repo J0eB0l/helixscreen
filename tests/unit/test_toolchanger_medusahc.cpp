@@ -546,15 +546,33 @@ TEST_CASE("MedusaHC's fault dialog quotes the controller's own failure",
     // On screen as a fault: no toast on top of the dialog.
     CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
 
-    // A -2 the controller never reported as a failure keeps the generic words.
+    // A -2 the controller did not report keeps the generic words, even with an
+    // older failure's message still latched beside a reading the docks agree on.
     ToolChangerHelper unreported(4);
     unreported.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
-    unreported.feed(json{{"medusahc", {{"operation", "idle"}, {"current_tool", 1}}}});
-    unreported.feed(json{{"medusahc", {{"operation", "idle"}, {"current_tool", -2}}}});
+    unreported.feed(json{{"medusahc",
+                          {{"operation", "idle"},
+                           {"current_tool", 1},
+                           {"sensor_error", true},
+                           {"last_error", "MHC_SET: sensors did not confirm T1"}}}});
+    REQUIRE(unreported.get_system_info().action != AmsAction::ERROR);
+    unreported.feed(json{{"medusahc", {{"current_tool", -2}}}});
     const auto generic = unreported.current_error();
     REQUIRE(generic.has_value());
-    CHECK(generic->detail != "MHC_SET: sensors did not confirm T1");
-    CHECK_FALSE(generic->detail.empty());
+    CHECK(generic->detail == unreported.unload_blocked_reason(1));
+}
+
+TEST_CASE("A last_error with no failed operation behind it is no tool change failure",
+          "[ams][toolchanger][medusahc][last_error]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    // What the controller publishes after a failed initialization.
+    tc.feed(json{{"medusahc",
+                  {{"operation", "idle"},
+                   {"current_tool", 1},
+                   {"sensor_error", false},
+                   {"last_error", "Initialization failed; see klippy.log"}}}});
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
 }
 
 TEST_CASE("A controller failure the screen is not showing toasts once",

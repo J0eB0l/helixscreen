@@ -3869,7 +3869,6 @@
   <translation tag="Tool Changer" zh="换刀器"/>
   <translation tag="Tool Offsets" zh="工具偏移"/>
   <translation tag="Tool Switcher" zh="工具切换器"/>
-  <translation tag="Tool change failed" zh="切换工具失败"/>
   <translation tag="Tool change failed: {}" zh="工具切换失败: {}"/>
   <translation tag="Tool change speed" zh="换工具速度"/>
   <translation tag="Tool change to T{}" zh="切换工具到 T{}"/>

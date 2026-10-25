@@ -4038,7 +4038,6 @@ translations:
   Tool Changer: 换刀器
   Tool Offsets: 工具偏移
   Tool Switcher: '工具切换器'
-  Tool change failed: '切换工具失败'
   'Tool change failed: {}': '工具切换失败: {}'
   Tool change speed: 换工具速度
   Tool change to T{}: '切换工具到 T{}'

@@ -714,6 +714,20 @@ PathSegment AmsBackendToolChanger::infer_error_segment() const {
 // Moonraker Status Update Handling
 // ============================================================================
 
+namespace {
+
+/// Whether @p failure is the one already told as @p noticed. A gcode error
+/// reply can carry the controller's message with framing around it, so either
+/// containing the other counts.
+bool failure_already_noticed(const std::string& failure, const std::string& noticed) {
+    if (noticed.empty()) {
+        return false;
+    }
+    return failure.find(noticed) != std::string::npos || noticed.find(failure) != std::string::npos;
+}
+
+} // namespace
+
 void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
     bool state_changed = false;
     bool sensor_fault = false;
@@ -799,7 +813,7 @@ void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
     }
 
     if (!failure_toast.empty()) {
-        show_feed_toast(fmt::format("{}: {}", lv_tr("Tool change failed"), failure_toast),
+        show_feed_toast(fmt::format(fmt::runtime(lv_tr("Tool change failed: {}")), failure_toast),
                         ToastSeverity::WARNING);
     }
 
@@ -866,6 +880,7 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
         }
     }
     if (reading.sensor_error_named) {
+        controller_failure_latched_ = reading.sensor_error_reported;
         sensor_fault_reported_ = reading.sensor_error_reported && fault;
     } else if (reading.current_tool.has_value() && *reading.current_tool >= -1) {
         // The controller's flag latches the last operation and is republished
@@ -911,8 +926,8 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     // A failure the controller reported but the screen is not showing as a
     // fault - the docks agreed again, or it predates this connection - would
     // otherwise leave no trace of why the tool change did not happen.
-    if (!sensor_error_ && !controller_failure_.empty() &&
-        controller_failure_ != controller_failure_noticed_) {
+    if (!sensor_error_ && controller_failure_latched_ && !controller_failure_.empty() &&
+        !failure_already_noticed(controller_failure_, controller_failure_noticed_)) {
         controller_failure_noticed_ = controller_failure_;
         pending_failure_toast_ = controller_failure_;
     }
@@ -1941,6 +1956,12 @@ void AmsBackendToolChanger::on_feed_stage_failed(uint64_t generation, const std:
     // Klipper's own `!!` line reports the failure; this only unwinds. A
     // failure inside the cleanup ends the run where it stands.
     spdlog::warn("[AMS ToolChanger] Mount-to-feed stage failed ({}); cleaning up", message);
+    {
+        // The error a failed swap stage carries is the controller's own
+        // last_error, which the status frame then repeats: this toast tells it.
+        std::lock_guard<std::mutex> lock(mutex_);
+        controller_failure_noticed_ = message;
+    }
     toast_partial_run(FeedStopReason::Failed, feed_run_->completed_heads());
     feed_run_->abort(carriage_trusted_for_restore());
     ++feed_generation_;

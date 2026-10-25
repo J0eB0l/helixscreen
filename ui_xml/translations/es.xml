@@ -3869,7 +3869,6 @@
   <translation tag="Tool Changer" es="Cambiador de Herramientas"/>
   <translation tag="Tool Offsets" es="Offsets de herramienta"/>
   <translation tag="Tool Switcher" es="Selector de herramientas"/>
-  <translation tag="Tool change failed" es="Error al cambiar de herramienta"/>
   <translation tag="Tool change failed: {}" es="Error al cambiar herramienta: {}"/>
   <translation tag="Tool change speed" es="Velocidad de cambio de herramienta"/>
   <translation tag="Tool change to T{}" es="Cambio de herramienta a T{}"/>
