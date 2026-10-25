@@ -99,8 +99,8 @@
     <style name="chip_text_warning" text_color="#warning"/>
     <style name="chip_text_compact" text_font="#font_xs"/>
     <style name="activity_chip"
-           layout="flex" flex_flow="row_reverse" flex_main_place="center" flex_cross_place="center" pad_hor="#space_xs"
-           pad_ver="#space_xxs" pad_column="#space_xxs" radius="#space_md" bg_color="#card_bg" bg_opa="50%"
+           layout="flex" flex_flow="row_reverse" flex_main_place="center" flex_cross_place="center" pad_hor="#space_sm"
+           pad_ver="#space_xxs" pad_column="#space_xxs" radius="#space_md" bg_color="#card_bg" bg_opa="65%"
            border_width="1" border_color="#border"/>
 
     <!-- LEDs overlay: the running effect/preset or the chosen level fills its
