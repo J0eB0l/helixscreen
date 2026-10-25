@@ -1488,6 +1488,7 @@ void AmsStandingFaultDialog::evaluate() {
     const bool paused = job == PrintJobState::PAUSED;
     const bool printing = job == PrintJobState::PRINTING;
     auto& ams = AmsState::instance();
+    ams.refresh_fault_cause();
     const auto ev = ams.standing_fault();
     const StandingFaultStep step =
         trigger_.update(ev.has_value(), paused, printing, !ams.fault_cause().empty());

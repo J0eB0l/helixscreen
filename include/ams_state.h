@@ -404,12 +404,15 @@ class AmsState {
     /**
      * @brief Why the primary backend's standing fault happened
      *
-     * The first standing_fault_cause() seen while the fault stands (the action
-     * is ERROR or the backend reports current_error()), held until it clears:
-     * a `!!` line ages out of its window long before a fault is answered.
-     * Empty when nothing explains it or no fault stands. Main thread only.
+     * The newest standing_fault_cause() seen while the fault stands (the action
+     * is ERROR or the backend reports current_error()), held while the rule
+     * answers empty: a `!!` line ages out of its window long before a fault is
+     * answered. Empty when nothing explains it or no fault stands. As of the
+     * last refresh_fault_cause(). Main thread only.
      */
-    [[nodiscard]] const std::string& fault_cause();
+    [[nodiscard]] const std::string& fault_cause() const {
+        return fault_cause_;
+    }
 
     /**
      * @brief The primary backend's current_error(), told by fault_cause()
@@ -417,7 +420,16 @@ class AmsState {
      * What every surface of a standing filament fault shows. Main thread only.
      * @return nullopt when the backend reports no fault, or there is no backend
      */
-    [[nodiscard]] std::optional<ErrorEvent> standing_fault();
+    [[nodiscard]] std::optional<ErrorEvent> standing_fault() const;
+
+    /**
+     * @brief Bring fault_cause() up to the fault standing now
+     *
+     * AmsState's own observers do this; a reader whose observer on the same
+     * subject can run first calls it before reading. Republishes the action
+     * detail when the cause moves. Main thread only.
+     */
+    void refresh_fault_cause();
 
     /**
      * @brief Type of the primary backend. Safe off the main thread.
@@ -2580,7 +2592,7 @@ class AmsState {
     void recompute_action_detail();
 
     /// Take or drop fault_cause_ for the fault standing now; true when it moved.
-    bool refresh_fault_cause();
+    bool update_fault_cause();
 
     /// Wire (or rewire) the print_state_observer_. Idempotent.
     void install_print_state_observer();

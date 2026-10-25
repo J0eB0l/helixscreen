@@ -427,6 +427,7 @@ void AmsState::reset_backend_subjects() {
     // printer's filament system on the next one.
     lv_subject_set_int(&backend_count_, 0);
     lv_subject_set_int(&active_backend_, 0);
+    fault_cause_.clear();
 
     // System, action and current-tool state: the sync path with an empty system.
     sync_system_subjects(AmsSystemInfo{});
@@ -1788,7 +1789,7 @@ void AmsState::set_action_detail(const std::string& detail) {
 }
 // clang-format on
 
-bool AmsState::refresh_fault_cause() {
+bool AmsState::update_fault_cause() {
     const auto action = static_cast<AmsAction>(lv_subject_get_int(&ams_action_));
     const AmsBackend* backend = get_backend();
     const bool fault =
@@ -1798,36 +1799,36 @@ bool AmsState::refresh_fault_cause() {
         fault_cause_.clear();
         return had;
     }
-    if (!fault_cause_.empty()) {
-        return false;
-    }
     auto& print = get_printer_state().print_state();
     // RAW_PRINT_STATE_OK: the printer's own pause is what a filament fault
     // stops the print with.
     const bool paused = print.get_print_job_state() == PrintJobState::PAUSED;
-    fault_cause_ =
+    // The newest cause wins: a second fault while the first stands names its
+    // own lane, and recovery acts on the lane the cause names.
+    std::string cause =
         standing_fault_cause(paused, lv_subject_get_string(print.get_print_stop_reason_subject()),
                              recent_gcode_error(print, wall_now_s()));
-    return !fault_cause_.empty();
+    if (cause.empty() || cause == fault_cause_) {
+        return false;
+    }
+    fault_cause_ = std::move(cause);
+    return true;
 }
 
-const std::string& AmsState::fault_cause() {
+void AmsState::refresh_fault_cause() {
     assert_main_thread();
-    // Readers can run ahead of AmsState's own observers on the same subject.
-    if (refresh_fault_cause()) {
+    if (update_fault_cause()) {
         recompute_action_detail();
     }
-    return fault_cause_;
 }
 
-std::optional<ErrorEvent> AmsState::standing_fault() {
-    const std::string& cause = fault_cause();
+std::optional<ErrorEvent> AmsState::standing_fault() const {
     const AmsBackend* backend = get_backend();
-    return backend ? backend->current_error_with_cause(cause) : std::nullopt;
+    return backend ? backend->current_error_with_cause(fault_cause_) : std::nullopt;
 }
 
 void AmsState::recompute_action_detail() {
-    refresh_fault_cause();
+    update_fault_cause();
     auto action = static_cast<AmsAction>(lv_subject_get_int(&ams_action_));
 
     // Priority:

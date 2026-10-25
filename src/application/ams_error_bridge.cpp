@@ -61,6 +61,7 @@ bool print_paused() {
 
 void AmsErrorBridge::evaluate_current_error_with_cause() {
     auto& ams = AmsState::instance();
+    ams.refresh_fault_cause();
     const auto ev = ams.standing_fault();
     // Outside a pause the ERROR edge in on_action_changed() raises the fault, so
     // only the pause counts here.
@@ -79,6 +80,7 @@ void AmsErrorBridge::evaluate_current_error_with_cause() {
     spdlog::info("[AmsErrorBridge] fault while paused: {}", ev->detail);
     presenter_.present(*ev);
     presented_ = true;
+    presented_cause_ = ams.fault_cause();
     fault_surface_correlation::record_surfaced(ev->detail);
 }
 
@@ -105,7 +107,9 @@ void AmsErrorBridge::on_action_changed(int action) {
         presenter_.forget_handled_fault();
 
         auto& ams = AmsState::instance();
+        ams.refresh_fault_cause();
         auto* backend = ams.get_backend();
+        presented_cause_.clear();
 
         // The fault's cause, else a snapshot of what the backend was doing. AFC's
         // local action timeout preserves it as "<detail> (timed out)", which is
@@ -133,6 +137,7 @@ void AmsErrorBridge::on_action_changed(int action) {
             spdlog::debug("[AmsErrorBridge] presenting error: {}", ev->detail);
             presenter_.present(*ev);
             presented_ = true;
+            presented_cause_ = ams.fault_cause();
         }
     } else if (!now_error && was_error && presented_) {
         spdlog::debug("[AmsErrorBridge] dismissing error modal (action exited ERROR)");
@@ -155,9 +160,13 @@ void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {
         return;
     }
     auto& ams = AmsState::instance();
-    // A held cause is the fault's text whatever the backend's detail says, so a
-    // change here only explains it: a fault the user closed stays closed.
-    if (!ams.fault_cause().empty() && !presenter_.is_visible()) {
+    ams.refresh_fault_cause();
+    // A held cause is the fault's text whatever the backend's detail says. The
+    // cause that first explains a fault the user closed leaves it closed; a
+    // different cause from the one shown is a new fault.
+    const std::string cause = ams.fault_cause();
+    if (!cause.empty() && !presenter_.is_visible() &&
+        (presented_cause_.empty() || cause == presented_cause_)) {
         return;
     }
     auto ev = ams.standing_fault();
@@ -174,6 +183,7 @@ void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {
     // the modal without any callback, so every subsequent detail change would
     // otherwise pop the identical dialog straight back up.
     presenter_.present(*ev);
+    presented_cause_ = cause;
     // presented_ stays true: this is the same ERROR episode, and the falling-edge
     // dismiss in on_action_changed still fires when action exits ERROR.
 }

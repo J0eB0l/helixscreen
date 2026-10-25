@@ -958,6 +958,7 @@ void AmsState::deinit_subjects() {
     }
 
     spdlog::trace("[AMS State] Deinitializing subjects");
+    fault_cause_.clear();
 
     // Expire the deferred setters still queued on the UpdateQueue. They capture
     // `this` and write the subjects torn down below, so without this the next

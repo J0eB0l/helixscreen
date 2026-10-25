@@ -727,3 +727,114 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     raw->feed_afc({{"error_state", false}, {"current_state", "Idle"}});
     uninstall(*this);
 }
+
+namespace {
+
+const std::string kLane1Fault =
+    "lane1 filament failed to trigger pre extruder gear toolhead sensor, CHECK FILAMENT PATH";
+
+bool ejects(const std::optional<ErrorEvent>& ev, const std::string& lane) {
+    if (!ev) {
+        return false;
+    }
+    for (const auto& a : ev->recovery_actions) {
+        if (a.gcode == "LANE_UNLOAD LANE=" + lane) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture, "A second fault while the first stands takes its own cause",
+                 "[ams-standing-fault][afc]") {
+    auto& ams = AmsState::instance();
+    ams.init_subjects(true);
+    ams.set_action(AmsAction::IDLE);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_print_stop_reason("");
+    auto afc = std::make_unique<AfcStandingFaultHelper>();
+    auto* raw = afc.get();
+    ams.set_backend(std::move(afc));
+    pump(*this);
+
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    raw->feed_afc({{"error_state", true},
+                   {"current_state", "Error"},
+                   {"message", {{"message", kStaleMessage}, {"type", "error"}}}});
+    ams.set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(sidebar_detail() == kLane3Fault);
+    REQUIRE(ejects(ams.standing_fault(), "lane3"));
+
+    // error_state never drops; the next `!!` names lane1.
+    state().print_state().set_last_gcode_error(kLane1Fault, wall_now());
+    lv_subject_notify(state().print_state().get_print_state_enum_subject());
+    pump(*this);
+    CHECK(sidebar_detail() == kLane1Fault);
+    const auto ev = ams.standing_fault();
+    REQUIRE(ev.has_value());
+    CHECK(ev->detail == kLane1Fault);
+    CHECK(ejects(ev, "lane1"));
+    CHECK_FALSE(ejects(ev, "lane3"));
+
+    state().print_state().set_last_gcode_error("", 0.0);
+    raw->feed_afc({{"error_state", false}, {"current_state", "Idle"}});
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "A backend switch drops the fault's cause",
+                 "[ams-standing-fault][ams]") {
+    auto* backend = install(*this);
+    backend->set_fault(true);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(AmsState::instance().fault_cause() == kLane3Fault);
+
+    // The next printer's backend stands in a fault of its own, which nothing
+    // explains: the `!!` line is long gone.
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now() - 60.0);
+    auto next = std::make_unique<StaleFaultBackend>(4);
+    next->set_fault(true);
+    AmsState::instance().set_backend(std::move(next));
+    pump(*this);
+    CHECK(AmsState::instance().fault_cause().empty());
+    CHECK(AmsState::instance().standing_fault()->detail == kStaleMessage);
+
+    state().print_state().set_last_gcode_error("", 0.0);
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsErrorBridge presents a new fault's cause after a closed one",
+                 "[ams-standing-fault][ams-bridge]") {
+    auto* backend = install(*this);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    pump(*this);
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    AmsErrorBridge bridge(presenter);
+    bridge.start();
+
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(presenter.is_visible());
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+    RecoveryModalPresenterTestAccess::user_dismiss(presenter);
+    pump(*this);
+    REQUIRE_FALSE(presenter.is_visible());
+
+    state().print_state().set_last_gcode_error(kLane1Fault, wall_now());
+    lv_subject_notify(state().print_state().get_print_state_enum_subject());
+    pump(*this);
+    CHECK(presenter.is_visible());
+    CHECK(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane1Fault);
+
+    presenter.dismiss();
+    state().print_state().set_last_gcode_error("", 0.0);
+    uninstall(*this);
+}
