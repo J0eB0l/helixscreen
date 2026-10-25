@@ -3,6 +3,7 @@
 
 #include "afc_unit_dryer.h"
 
+#include "json_utils.h"
 #include "text_io.h"
 
 #include <spdlog/fmt/fmt.h>
@@ -66,8 +67,8 @@ std::optional<int> positive_int(const nlohmann::json& v) {
     return static_cast<int>(d);
 }
 
-std::string text(const nlohmann::json& v) {
-    return v.is_string() ? v.get<std::string>() : std::string();
+std::string string_value(const nlohmann::json& v) {
+    return helix::json_util::as_string(v);
 }
 
 /// Assign @p key's value through @p parse when the frame carries it. A key that
@@ -86,7 +87,7 @@ bool apply_bambu(const nlohmann::json& data, UnitDryerState& st) {
     bool any = false;
     any |= take(data, "has_heater", st.has_heater,
                 [](const nlohmann::json& v) { return v.is_boolean() && v.get<bool>(); });
-    any |= take(data, "ams_model", st.model, text);
+    any |= take(data, "ams_model", st.model, string_value);
     any |= take(data, "dry_max_temp", st.max_temp_c,
                 [](const nlohmann::json& v) { return v.is_number() ? v.get<float>() : 0.0f; });
     // bridge_online goes stale rather than false; a frame without it keeps the
@@ -103,8 +104,8 @@ bool apply_bambu(const nlohmann::json& data, UnitDryerState& st) {
         const auto m = positive_int(v);
         return m ? std::optional<int>(*m * 60) : std::nullopt;
     });
-    any |= take(data, "dry_error", st.error, text);
-    any |= take(data, "dry_blocked", st.blocked, text);
+    any |= take(data, "dry_error", st.error, string_value);
+    any |= take(data, "dry_blocked", st.blocked, string_value);
     return any;
 }
 
@@ -126,7 +127,7 @@ bool apply_ace(const nlohmann::json& data, UnitDryerState& st) {
     any |= take(data, "ace_connected", st.online,
                 [](const nlohmann::json& v) { return v.is_boolean() && v.get<bool>(); });
     any |= take(data, "ace_dryer", st.drying,
-                [](const nlohmann::json& v) { return ace_dryer_running(text(v)); });
+                [](const nlohmann::json& v) { return ace_dryer_running(string_value(v)); });
     any |= take(data, "ace_temp", st.temperature_c, reading);
     any |= take(data, "ace_humidity", st.humidity_pct, reading);
     any |= take(data, "ace_dryer_target", st.target_c, reading);

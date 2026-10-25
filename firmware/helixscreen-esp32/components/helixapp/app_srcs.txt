@@ -150,6 +150,7 @@ src/printer/active_material_provider.cpp
 src/printer/afc_config_manager.cpp
 src/printer/afc_defaults.cpp
 src/printer/afc_fault_position.cpp
+src/printer/afc_unit_dryer.cpp
 src/printer/ace_slot_parse.cpp
 src/printer/ams_backend.cpp
 src/printer/ams_backend_registry.cpp
@@ -160,6 +161,7 @@ src/printer/ams_backend_cfs.cpp
 src/printer/ams_backend_happy_hare.cpp
 src/printer/ams_backend_indx.cpp
 src/printer/ams_backend_multiace.cpp
+src/printer/dryer_request.cpp
 src/printer/ams_backend_openams.cpp
 src/printer/ams_bypass_policy.cpp
 src/printer/ams_backend_qidi.cpp
