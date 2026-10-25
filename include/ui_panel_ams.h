@@ -390,9 +390,9 @@ void show_ams_error_dialog(AmsLoadingErrorModal& modal, lv_obj_t* parent,
  *        dialog for a fault standing while the print is paused or no print
  *        runs (StandingFaultTrigger), whether or not the AMS panel is open
  *
- * The detail is why the print paused, else the newest recent `!!` line, else
- * the backend's own. Retry opens the AMS panel, where the load is retried. The
- * dialog closes on its own when the fault clears or a print runs.
+ * The detail is AmsState::standing_fault()'s, told by the fault's cause. Retry
+ * opens the AMS panel, where the load is retried. The dialog closes on its own
+ * when the fault clears or a print runs.
  */
 class AmsStandingFaultDialog {
   public:

@@ -688,6 +688,10 @@ void AmsState::install_print_state_observer() {
     print_state_observer_ = helix::ui::observe<int>(
         get_printer_state().print_state().get_print_state_enum_subject(), this,
         [](AmsState* self, int /*print_state*/) { self->recompute_action_detail(); }, lifetime);
+    stop_reason_observer_.reset();
+    stop_reason_observer_ = helix::ui::observe<const char*>(
+        get_printer_state().print_state().get_print_stop_reason_subject(), this,
+        [](AmsState* self, const char*) { self->recompute_action_detail(); }, lifetime);
 }
 
 void AmsState::register_xml_subject_names() {
@@ -954,6 +958,7 @@ void AmsState::deinit_subjects() {
     }
 
     spdlog::trace("[AMS State] Deinitializing subjects");
+    fault_cause_.clear();
 
     // Expire the deferred setters still queued on the UpdateQueue. They capture
     // `this` and write the subjects torn down below, so without this the next

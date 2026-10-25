@@ -57,29 +57,17 @@ bool print_paused() {
     return get_printer_state().print_state().get_print_job_state() == PrintJobState::PAUSED;
 }
 
-/// Why the print paused while it is paused, else empty.
-std::string pause_cause(bool paused) {
-    return paused ? lv_subject_get_string(
-                        get_printer_state().print_state().get_print_stop_reason_subject())
-                  : "";
-}
-
-/// The backend's fault, explained by why the print paused while it is paused.
-std::optional<ErrorEvent> standing_fault(const AmsBackend& backend, bool paused) {
-    return backend.current_error_with_cause(pause_cause(paused));
-}
-
 } // namespace
 
 void AmsErrorBridge::evaluate_current_error_with_cause() {
-    auto* backend = AmsState::instance().get_backend();
-    const bool paused = print_paused();
-    const std::string cause = pause_cause(paused);
-    const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
+    auto& ams = AmsState::instance();
+    ams.refresh_fault_cause();
+    const auto ev = ams.standing_fault();
     // Outside a pause the ERROR edge in on_action_changed() raises the fault, so
     // only the pause counts here.
     const StandingFaultStep step =
-        fault_trigger_.update(ev.has_value(), paused, /*printing=*/true, !cause.empty());
+        fault_trigger_.update(ev.has_value(), print_paused(),
+                              /*printing=*/true, !ams.fault_cause().empty());
     // A fault the user closed stays closed when its cause arrives.
     if (step == StandingFaultStep::None ||
         (step == StandingFaultStep::Explain && !presenter_.is_visible())) {
@@ -92,6 +80,7 @@ void AmsErrorBridge::evaluate_current_error_with_cause() {
     spdlog::info("[AmsErrorBridge] fault while paused: {}", ev->detail);
     presenter_.present(*ev);
     presented_ = true;
+    presented_cause_ = ams.fault_cause();
     fault_surface_correlation::record_surfaced(ev->detail);
 }
 
@@ -117,12 +106,18 @@ void AmsErrorBridge::on_action_changed(int action) {
         // previously answered one is shown again instead of being swallowed.
         presenter_.forget_handled_fault();
 
-        auto* backend = AmsState::instance().get_backend();
+        auto& ams = AmsState::instance();
+        ams.refresh_fault_cause();
+        auto* backend = ams.get_backend();
+        presented_cause_.clear();
 
-        // Snapshot what the backend was doing. AFC's local action timeout
-        // preserves it as "<detail> (timed out)", which is the only description
-        // of the fault that exists on that path.
-        error_detail_ = backend ? backend->get_system_info().operation_detail : std::string();
+        // The fault's cause, else a snapshot of what the backend was doing. AFC's
+        // local action timeout preserves it as "<detail> (timed out)", which is
+        // the only description of the fault that exists on that path.
+        error_detail_ = ams.fault_cause();
+        if (error_detail_.empty() && backend) {
+            error_detail_ = backend->get_system_info().operation_detail;
+        }
 
         // Last-resort fallback, armed on every ERROR edge and armed BEFORE the
         // early returns for the same reason the cooldown cancel is. It only
@@ -137,13 +132,12 @@ void AmsErrorBridge::on_action_changed(int action) {
         lifetime_.defer("AmsErrorBridge::surface_unhandled_error",
                         [this]() { surface_unhandled_error(); });
 
-        if (!backend)
-            return;
-        auto ev = standing_fault(*backend, print_paused());
+        auto ev = ams.standing_fault();
         if (ev) {
             spdlog::debug("[AmsErrorBridge] presenting error: {}", ev->detail);
             presenter_.present(*ev);
             presented_ = true;
+            presented_cause_ = ams.fault_cause();
         }
     } else if (!now_error && was_error && presented_) {
         spdlog::debug("[AmsErrorBridge] dismissing error modal (action exited ERROR)");
@@ -165,11 +159,17 @@ void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {
         !presented_) {
         return;
     }
-    auto* backend = AmsState::instance().get_backend();
-    if (!backend) {
+    auto& ams = AmsState::instance();
+    ams.refresh_fault_cause();
+    // A held cause is the fault's text whatever the backend's detail says. The
+    // cause that first explains a fault the user closed leaves it closed; a
+    // different cause from the one shown is a new fault.
+    const std::string cause = ams.fault_cause();
+    if (!cause.empty() && !presenter_.is_visible() &&
+        (presented_cause_.empty() || cause == presented_cause_)) {
         return;
     }
-    auto ev = standing_fault(*backend, print_paused());
+    auto ev = ams.standing_fault();
     if (!ev) {
         // The fault cleared under our feet before the action subject fell; leave
         // the existing modal and let the falling-edge dismiss handle it.
@@ -183,6 +183,7 @@ void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {
     // the modal without any callback, so every subsequent detail change would
     // otherwise pop the identical dialog straight back up.
     presenter_.present(*ev);
+    presented_cause_ = cause;
     // presented_ stays true: this is the same ERROR episode, and the falling-edge
     // dismiss in on_action_changed still fires when action exits ERROR.
 }

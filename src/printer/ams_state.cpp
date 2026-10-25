@@ -21,6 +21,7 @@
 #include "ams_bypass_policy.h"
 #include "ams_lane_state.h"
 #include "ams_runout_grace.h"
+#include "ams_standing_fault.h"
 #include "ams_state_internal.h"
 #include "ams_tool_topology.h"
 #include "app_globals.h"
@@ -35,7 +36,9 @@
 #include "i_moonraker_api.h"
 #include "lane_source_store.h"
 #include "lvgl/src/others/translation/lv_translation.h"
+#include "print_stop_reason.h"
 #include "printer_discovery.h"
+#include "printer_event_journal.h"
 #include "printer_state.h"
 #include "runtime_config.h"
 #include "settings_manager.h"
@@ -424,6 +427,7 @@ void AmsState::reset_backend_subjects() {
     // printer's filament system on the next one.
     lv_subject_set_int(&backend_count_, 0);
     lv_subject_set_int(&active_backend_, 0);
+    fault_cause_.clear();
 
     // System, action and current-tool state: the sync path with an empty system.
     sync_system_subjects(AmsSystemInfo{});
@@ -1785,15 +1789,56 @@ void AmsState::set_action_detail(const std::string& detail) {
 }
 // clang-format on
 
+bool AmsState::update_fault_cause() {
+    const auto action = static_cast<AmsAction>(lv_subject_get_int(&ams_action_));
+    const AmsBackend* backend = get_backend();
+    const bool fault =
+        action == AmsAction::ERROR || (backend && backend->current_error().has_value());
+    if (!fault) {
+        const bool had = !fault_cause_.empty();
+        fault_cause_.clear();
+        return had;
+    }
+    auto& print = get_printer_state().print_state();
+    // RAW_PRINT_STATE_OK: the printer's own pause is what a filament fault
+    // stops the print with.
+    const bool paused = print.get_print_job_state() == PrintJobState::PAUSED;
+    // The newest cause wins: a second fault while the first stands names its
+    // own lane, and recovery acts on the lane the cause names.
+    std::string cause =
+        standing_fault_cause(paused, lv_subject_get_string(print.get_print_stop_reason_subject()),
+                             recent_gcode_error(print, wall_now_s()));
+    if (cause.empty() || cause == fault_cause_) {
+        return false;
+    }
+    fault_cause_ = std::move(cause);
+    return true;
+}
+
+void AmsState::refresh_fault_cause() {
+    assert_main_thread();
+    if (update_fault_cause()) {
+        recompute_action_detail();
+    }
+}
+
+std::optional<ErrorEvent> AmsState::standing_fault() const {
+    const AmsBackend* backend = get_backend();
+    return backend ? backend->current_error_with_cause(fault_cause_) : std::nullopt;
+}
+
 void AmsState::recompute_action_detail() {
+    update_fault_cause();
     auto action = static_cast<AmsAction>(lv_subject_get_int(&ams_action_));
 
     // Priority:
-    //   1. Backend / UI-supplied operation_detail (non-empty)
-    //   2. Action != IDLE → translated action string
-    //   3. PrintJobState::PRINTING → "Printing"
-    //   4. PrintJobState::PAUSED  → "Paused"
-    //   5. Otherwise              → "Idle"
+    //   1. Toolchange narration label
+    //   2. Action == ERROR with a fault_cause()
+    //   3. Backend / UI-supplied operation_detail (non-empty)
+    //   4. Action != IDLE → translated action string
+    //   5. PrintJobState::PRINTING → "Printing"
+    //   6. PrintJobState::PAUSED  → "Paused"
+    //   7. Otherwise              → "Idle"
     //
     // Translation note (L067): the literals "Idle"/"Printing"/"Paused" and
     // the AmsAction strings are user-visible — translate at this UI binding
@@ -1803,6 +1848,9 @@ void AmsState::recompute_action_detail() {
         // Live toolchange narration phase ("Brush nozzle") — finer-grained than
         // the AmsAction enum; wins until the operation ends (IDLE clears it).
         new_detail = last_narration_label_.c_str();
+    } else if (action == AmsAction::ERROR && !fault_cause_.empty()) {
+        // The backend's own text can belong to an earlier fault.
+        new_detail = fault_cause_.c_str();
     } else if (!last_operation_detail_.empty()) {
         // Backend strings are intentionally NOT lv_tr()'d — the backend may
         // emit dynamic content ("Waiting for slot 2", "Heating to 230°C") that

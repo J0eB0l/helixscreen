@@ -10,7 +10,20 @@
 //
 // Compiled into the ESP32 firmware.
 
+#include <string>
+
 namespace helix {
+
+/// Why a filament fault stands: why the print paused (@p stop_reason) while it
+/// is @p paused, else the newest recent `!!` line (@p recent_error), else
+/// empty. AmsState holds the first non-empty answer for the life of the fault.
+inline std::string standing_fault_cause(bool paused, const std::string& stop_reason,
+                                        const std::string& recent_error) {
+    if (paused && !stop_reason.empty()) {
+        return stop_reason;
+    }
+    return recent_error;
+}
 
 /// What the dialog does on an update: nothing, raise the fault, or replace the
 /// backend's own text it shows with the cause that now explains the fault.

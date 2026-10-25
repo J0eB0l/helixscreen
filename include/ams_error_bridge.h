@@ -55,9 +55,11 @@ class AmsErrorBridge {
     AsyncLifetimeGuard lifetime_;
     int prev_action_ = -1;   ///< sentinel; no AmsAction maps to -1, so the first tick never edges
     bool presented_ = false; ///< true if we showed the modal for the current ERROR episode
-    /// Backend operation_detail captured at the ERROR edge, for the fallback
-    /// toast. Captured rather than re-read: the backend can be swapped between
-    /// the edge and the deferred check.
+    /// AmsState::fault_cause() when this bridge last presented the fault.
+    std::string presented_cause_;
+    /// AmsState::fault_cause(), else the backend operation_detail, captured at
+    /// the ERROR edge for the fallback toast. Captured rather than re-read: the backend can be
+    /// swapped between the edge and the deferred check.
     std::string error_detail_;
 };
 

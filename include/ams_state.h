@@ -402,6 +402,36 @@ class AmsState {
     [[nodiscard]] AmsBackend* get_backend() const;
 
     /**
+     * @brief Why the primary backend's standing fault happened
+     *
+     * The newest standing_fault_cause() seen while the fault stands (the action
+     * is ERROR or the backend reports current_error()), held while the rule
+     * answers empty: a `!!` line ages out of its window long before a fault is
+     * answered. Empty when nothing explains it or no fault stands. As of the
+     * last refresh_fault_cause(). Main thread only.
+     */
+    [[nodiscard]] const std::string& fault_cause() const {
+        return fault_cause_;
+    }
+
+    /**
+     * @brief The primary backend's current_error(), told by fault_cause()
+     *
+     * What every surface of a standing filament fault shows. Main thread only.
+     * @return nullopt when the backend reports no fault, or there is no backend
+     */
+    [[nodiscard]] std::optional<ErrorEvent> standing_fault() const;
+
+    /**
+     * @brief Bring fault_cause() up to the fault standing now
+     *
+     * AmsState's own observers do this; a reader whose observer on the same
+     * subject can run first calls it before reading. Republishes the action
+     * detail when the cause moves. Main thread only.
+     */
+    void refresh_fault_cause();
+
+    /**
      * @brief Type of the primary backend. Safe off the main thread.
      *
      * For callers off the main thread: they cannot keep get_backend()'s pointer
@@ -2502,6 +2532,9 @@ class AmsState {
     /// backend). Updated from sync_from_backend() and set_action_detail().
     std::string last_operation_detail_;
 
+    /// fault_cause()'s held answer; cleared when the fault does.
+    std::string fault_cause_;
+
     std::string last_narration_label_; ///< live toolchange narration phase label; top priority in
                                        ///< recompute_action_detail; cleared on IDLE
     /// Template id of the last phase apply_narration_phase_id() published or
@@ -2524,6 +2557,9 @@ class AmsState {
     /// print_state_enum is a *static* PrinterState subject, so no
     /// SubjectLifetime token is required.
     ObserverGuard print_state_observer_;
+    /// Re-runs compute_action_detail() when the print's stop reason lands, which
+    /// can be after the pause, read from gcode_store.
+    ObserverGuard stop_reason_observer_;
 
     /// Ends every backend's busy operation when klippy_state enters READY from
     /// any other state: a Klipper restart ends every firmware-side operation.
@@ -2554,6 +2590,9 @@ class AmsState {
     /// Recompute the ams_action_detail subject from current AMS action +
     /// cached operation_detail + PrinterState print state.
     void recompute_action_detail();
+
+    /// Take or drop fault_cause_ for the fault standing now; true when it moved.
+    bool update_fault_cause();
 
     /// Wire (or rewire) the print_state_observer_. Idempotent.
     void install_print_state_observer();
