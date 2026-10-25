@@ -836,12 +836,7 @@ def write_mesh_include_change(path: Path, old_text: str, new_text: str,
         f.write(old_text.encode("utf-8"))
         f.flush()
         os.fsync(f.fileno())
-    try:
-        mode: Optional[int] = os.stat(str(path)).st_mode & 0o7777
-    except OSError:
-        mode = None
-    helix_gcode_reader.atomic_write_bytes(str(path), new_text.encode("utf-8"),
-                                          replace=replace, mode=mode)
+    helix_gcode_reader.atomic_write_text(str(path), new_text, replace=replace)
 
 
 def uninstall_mesh_include(config_dir: Path) -> Optional[str]:
@@ -854,9 +849,8 @@ def uninstall_mesh_include(config_dir: Path) -> Optional[str]:
     cfg = config_dir / "printer.cfg"
     try:
         try:
-            with open(str(cfg), encoding="utf-8", newline="") as f:
-                text = f.read()
-        except OSError as e:
+            text = helix_gcode_reader.read_file_text(str(cfg))
+        except (OSError, UnicodeDecodeError) as e:
             return "printer.cfg unreadable: %s" % e
         new_text, removed = strip_mesh_include(text)
         if removed:
@@ -2427,10 +2421,10 @@ class HelixPlr:
         if config is None:
             raise self._error("plr_config_read", "the config directory is unknown", 503)
         path = config / "printer.cfg"
+        loop = self.server.get_event_loop()
         try:
-            with open(str(path), encoding="utf-8", newline="") as f:
-                text = f.read()
-        except OSError as e:
+            text = await loop.run_in_thread(helix_gcode_reader.read_file_text, str(path))
+        except (OSError, UnicodeDecodeError) as e:
             raise self._error("plr_config_read", "printer.cfg unreadable: %s" % e, 500)
         action = _param(web_request, "action", "")
         if action == "":
@@ -2445,7 +2439,7 @@ class HelixPlr:
         if new_text is None:
             return {"present": mesh_include_present(text), "changed": False}
         try:
-            write_mesh_include_change(path, text, new_text)
+            await loop.run_in_thread(write_mesh_include_change, path, text, new_text)
         except OSError as e:
             raise self._error("plr_config_write", "printer.cfg unwritable: %s" % e, 500)
         logging.info("HelixPrint: PLR %s the mesh include in printer.cfg", action)
