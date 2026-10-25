@@ -136,44 +136,62 @@ class AfcStandingFaultHelper : public AmsBackendAfc {
 // The trigger decision
 // ============================================================================
 
-TEST_CASE("StandingFaultTrigger fires when a fault stands outside a running print", "[ams-standing-fault]") {
+TEST_CASE("StandingFaultTrigger fires when a fault stands outside a running print",
+          "[ams-standing-fault]") {
     StandingFaultTrigger t;
+    using Step = StandingFaultStep;
 
     SECTION("both at once") {
-        CHECK(t.update(true, true, false, kLane3Fault));
+        CHECK(t.update(true, true, false, true) == Step::Raise);
     }
     SECTION("paused first, then the fault") {
-        CHECK_FALSE(t.update(false, true, false, ""));
-        CHECK(t.update(true, true, false, kLane3Fault));
+        CHECK(t.update(false, true, false, false) == Step::None);
+        CHECK(t.update(true, true, false, true) == Step::Raise);
     }
     SECTION("the fault first, then paused") {
-        CHECK_FALSE(t.update(true, false, true, kStaleMessage));
-        CHECK(t.update(true, true, false, kLane3Fault));
+        CHECK(t.update(true, false, true, false) == Step::None);
+        CHECK(t.update(true, true, false, true) == Step::Raise);
     }
     SECTION("neither") {
-        CHECK_FALSE(t.update(false, false, true, ""));
+        CHECK(t.update(false, false, true, false) == Step::None);
         CHECK_FALSE(t.raised());
     }
     SECTION("the same fault twice raises once") {
-        CHECK(t.update(true, true, false, kLane3Fault));
-        CHECK_FALSE(t.update(true, true, false, kLane3Fault));
+        CHECK(t.update(true, true, false, true) == Step::Raise);
+        CHECK(t.update(true, true, false, true) == Step::None);
         CHECK(t.raised());
     }
     SECTION("no print running") {
-        CHECK(t.update(true, false, false, kLane3Fault));
-        CHECK_FALSE(t.update(true, false, false, kLane3Fault));
+        CHECK(t.update(true, false, false, true) == Step::Raise);
+        CHECK(t.update(true, false, false, true) == Step::None);
     }
     SECTION("a print starting arms it again") {
-        CHECK(t.update(true, false, false, kLane3Fault));
-        CHECK_FALSE(t.update(true, false, true, kLane3Fault));
+        CHECK(t.update(true, false, false, true) == Step::Raise);
+        CHECK(t.update(true, false, true, true) == Step::None);
         CHECK_FALSE(t.raised());
-        CHECK(t.update(true, false, false, kLane3Fault));
+        CHECK(t.update(true, false, false, true) == Step::Raise);
     }
     SECTION("a resume arms it again") {
-        CHECK(t.update(true, true, false, kLane3Fault));
-        CHECK_FALSE(t.update(true, false, true, kLane3Fault));
+        CHECK(t.update(true, true, false, true) == Step::Raise);
+        CHECK(t.update(true, false, true, true) == Step::None);
         CHECK_FALSE(t.raised());
-        CHECK(t.update(true, true, false, kLane3Fault));
+        CHECK(t.update(true, true, false, true) == Step::Raise);
+    }
+    SECTION("a fault that clears arms it again") {
+        CHECK(t.update(true, true, false, true) == Step::Raise);
+        CHECK(t.update(false, true, false, true) == Step::None);
+        CHECK(t.update(true, true, false, true) == Step::Raise);
+    }
+    SECTION("a cause arriving explains an unexplained fault once") {
+        CHECK(t.update(true, true, false, false) == Step::Raise);
+        CHECK(t.update(true, true, false, true) == Step::Explain);
+        CHECK(t.update(true, true, false, true) == Step::None);
+        CHECK(t.update(true, true, false, false) == Step::None);
+    }
+    SECTION("an explained fault losing its cause is the same fault") {
+        CHECK(t.update(true, true, false, true) == Step::Raise);
+        CHECK(t.update(true, true, false, false) == Step::None);
+        CHECK(t.update(true, true, false, true) == Step::None);
     }
 }
 
@@ -181,7 +199,8 @@ TEST_CASE("StandingFaultTrigger fires when a fault stands outside a running prin
 // The detail: the `!!` line, not AFC.message
 // ============================================================================
 
-TEST_CASE("AFC current_error_with_cause tells the fault by the bang line", "[ams-standing-fault][afc]") {
+TEST_CASE("AFC current_error_with_cause tells the fault by the bang line",
+          "[ams-standing-fault][afc]") {
     AfcStandingFaultHelper afc;
     afc.feed_afc({{"error_state", true},
                   {"current_state", "Error"},
@@ -376,7 +395,74 @@ TEST_CASE_METHOD(LVGLUITestFixture, "AmsStandingFaultDialog raises a fault outsi
     uninstall(*this);
 }
 
-TEST_CASE_METHOD(LVGLUITestFixture, "AmsStandingFaultDialog ignores AFC.message without error_state",
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsStandingFaultDialog keeps the `!!` text while the fault's detail changes",
+                 "[ams-standing-fault][ams]") {
+    auto* backend = install(*this);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    pump(*this);
+
+    helix::ui::AmsStandingFaultDialog dialog(state());
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    lv_obj_t* message = find_on_screen("error_message");
+    REQUIRE(message != nullptr);
+    REQUIRE(std::string(lv_label_get_text(message)) == kLane3Fault);
+
+    // The `!!` line ages out of its window and leaves AFC.message's stale text.
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now() - 60.0);
+    lv_subject_notify(AmsState::instance().get_ams_action_subject());
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    CHECK(find_on_screen("error_message") == message);
+    CHECK(std::string(lv_label_get_text(message)) == kLane3Fault);
+
+    // A pause whose reason is another text is still this fault.
+    test::set_wire_state(state(), PrintJobState::PAUSED);
+    state().print_state().set_print_stop_reason("Quad gantry level failed");
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    CHECK(find_on_screen("error_message") == message);
+    CHECK(std::string(lv_label_get_text(message)) == kLane3Fault);
+
+    state().print_state().set_last_gcode_error("", 0.0);
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsStandingFaultDialog takes the cause that arrives after the fault",
+                 "[ams-standing-fault][ams]") {
+    auto* backend = install(*this);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_last_gcode_error("", 0.0);
+    pump(*this);
+
+    helix::ui::AmsStandingFaultDialog dialog(state());
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    lv_obj_t* message = find_on_screen("error_message");
+    REQUIRE(message != nullptr);
+    REQUIRE(std::string(lv_label_get_text(message)) == kStaleMessage);
+
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    lv_subject_notify(AmsState::instance().get_ams_action_subject());
+    pump(*this);
+    REQUIRE(dialog.is_visible());
+    message = find_on_screen("error_message");
+    REQUIRE(message != nullptr);
+    CHECK(std::string(lv_label_get_text(message)) == kLane3Fault);
+
+    state().print_state().set_last_gcode_error("", 0.0);
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsStandingFaultDialog ignores AFC.message without error_state",
                  "[ams-standing-fault][ams][afc]") {
     auto& ams = AmsState::instance();
     ams.init_subjects(true);

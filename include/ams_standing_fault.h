@@ -10,35 +10,50 @@
 //
 // Compiled into the ESP32 firmware.
 
-#include <string>
-
 namespace helix {
 
+/// What the dialog does on an update: nothing, raise the fault, or replace the
+/// backend's own text it shows with the cause that now explains the fault.
+enum class StandingFaultStep { None, Raise, Explain };
+
+/// One fault is raised once. It stands from the update that first sees it
+/// until one sees it clear or the print run, and its text is not its identity:
+/// while it stands the `!!` line ages out of its window and leaves the
+/// backend's own text, which can belong to an earlier fault, and the stop
+/// reason can arrive later from gcode_store.
 class StandingFaultTrigger {
   public:
-    /// True when the fault named @p key should be raised now: @p fault holds,
-    /// the print is @p paused or not @p printing, and @p key has not been
-    /// raised since. A fault that clears, or a print that starts or resumes,
-    /// arms it again.
-    bool update(bool fault, bool paused, bool printing, const std::string& key) {
+    /// @p fault holds while the print is @p paused or not @p printing.
+    /// @p explained: the fault's text is its cause (the stop reason or a
+    /// recent `!!` line), not the backend's own. Raise the first time; Explain
+    /// once, when a fault raised unexplained gains a cause. A fault that
+    /// clears, or a print that starts or resumes, arms it again.
+    StandingFaultStep update(bool fault, bool paused, bool printing, bool explained) {
         if (!fault || (!paused && printing)) {
-            raised_.clear();
-            return false;
+            raised_ = false;
+            explained_ = false;
+            return StandingFaultStep::None;
         }
-        if (key == raised_) {
-            return false;
+        if (!raised_) {
+            raised_ = true;
+            explained_ = explained;
+            return StandingFaultStep::Raise;
         }
-        raised_ = key;
-        return true;
+        if (explained && !explained_) {
+            explained_ = true;
+            return StandingFaultStep::Explain;
+        }
+        return StandingFaultStep::None;
     }
 
     /// True while a raised fault still stands.
     [[nodiscard]] bool raised() const {
-        return !raised_.empty();
+        return raised_;
     }
 
   private:
-    std::string raised_;
+    bool raised_ = false;
+    bool explained_ = false;
 };
 
 } // namespace helix

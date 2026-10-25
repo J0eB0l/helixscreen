@@ -57,12 +57,16 @@ bool print_paused() {
     return get_printer_state().print_state().get_print_job_state() == PrintJobState::PAUSED;
 }
 
+/// Why the print paused while it is paused, else empty.
+std::string pause_cause(bool paused) {
+    return paused ? lv_subject_get_string(
+                        get_printer_state().print_state().get_print_stop_reason_subject())
+                  : "";
+}
+
 /// The backend's fault, explained by why the print paused while it is paused.
 std::optional<ErrorEvent> standing_fault(const AmsBackend& backend, bool paused) {
-    return backend.current_error_with_cause(
-        paused ? lv_subject_get_string(
-                     get_printer_state().print_state().get_print_stop_reason_subject())
-               : "");
+    return backend.current_error_with_cause(pause_cause(paused));
 }
 
 } // namespace
@@ -70,11 +74,15 @@ std::optional<ErrorEvent> standing_fault(const AmsBackend& backend, bool paused)
 void AmsErrorBridge::evaluate_current_error_with_cause() {
     auto* backend = AmsState::instance().get_backend();
     const bool paused = print_paused();
-    const auto ev = backend ? standing_fault(*backend, paused) : std::nullopt;
+    const std::string cause = pause_cause(paused);
+    const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
     // Outside a pause the ERROR edge in on_action_changed() raises the fault, so
     // only the pause counts here.
-    if (!fault_trigger_.update(ev.has_value(), paused, /*printing=*/true,
-                               ev ? ev->detail : std::string())) {
+    const StandingFaultStep step =
+        fault_trigger_.update(ev.has_value(), paused, /*printing=*/true, !cause.empty());
+    // A fault the user closed stays closed when its cause arrives.
+    if (step == StandingFaultStep::None ||
+        (step == StandingFaultStep::Explain && !presenter_.is_visible())) {
         return;
     }
     // GcodeErrorRouter can have raised the same `!!` already.

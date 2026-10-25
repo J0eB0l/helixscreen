@@ -1491,20 +1491,19 @@ void AmsStandingFaultDialog::evaluate() {
     AmsBackend* backend = AmsState::instance().get_backend();
     std::string cause = paused ? lv_subject_get_string(print.get_print_stop_reason_subject()) : "";
     if (cause.empty()) {
-        using namespace std::chrono;
-        cause = recent_gcode_error(
-            print, duration<double>(system_clock::now().time_since_epoch()).count());
+        cause = recent_gcode_error(print, wall_now_s());
     }
     const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
-    const bool raise =
-        trigger_.update(ev.has_value(), paused, printing, ev ? ev->detail : std::string());
+    const StandingFaultStep step =
+        trigger_.update(ev.has_value(), paused, printing, !cause.empty());
     if (!trigger_.raised()) {
         if (modal_) {
             modal_->dismiss_silently();
         }
         return;
     }
-    if (!raise) {
+    // A fault the user closed stays closed when its cause arrives.
+    if (step == StandingFaultStep::None || (step == StandingFaultStep::Explain && !is_visible())) {
         return;
     }
     spdlog::info("[AmsStandingFaultDialog] filament fault: {}", ev->detail);
@@ -1512,7 +1511,7 @@ void AmsStandingFaultDialog::evaluate() {
     if (!modal_) {
         modal_ = std::make_unique<AmsLoadingErrorModal>();
     }
-    // A newer explanation of the same fault replaces the one on screen.
+    // The cause that now explains the fault replaces the backend's own text.
     modal_->dismiss_silently();
     show_ams_error_dialog(*modal_, lv_screen_active(), ev->detail,
                           backend->get_system_info().current_slot, nullptr,
