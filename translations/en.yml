@@ -4185,6 +4185,7 @@ translations:
   Tool Changer: Tool Changer
   Tool Offsets: Tool Offsets
   Tool Switcher: Tool Switcher
+  Tool change failed: Tool change failed
   'Tool change failed: {}': 'Tool change failed: {}'
   Tool change speed: Tool change speed
   Tool change to T{}: Tool change to T{}

@@ -4047,6 +4047,7 @@ translations:
   Tool Changer: ツールチェンジャー
   Tool Offsets: ツールオフセット
   Tool Switcher: 'ツール切り替え'
+  Tool change failed: 'ツール交換に失敗しました'
   'Tool change failed: {}': 'ツール変更に失敗しました: {}'
   Tool change speed: ツール交換速度
   Tool change to T{}: 'ツールを T{} に変更しています'

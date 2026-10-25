@@ -4316,6 +4316,7 @@ translations:
   Tool Changer: Changeur d'outils
   Tool Offsets: Offsets d'outil
   Tool Switcher: 'Sélecteur d''outil'
+  Tool change failed: 'Échec du changement d''outil'
   'Tool change failed: {}': 'Échec du changement d''outil : {}'
   Tool change speed: Vitesse de changement d'outil
   Tool change to T{}: 'Changement d''outil vers T{}'

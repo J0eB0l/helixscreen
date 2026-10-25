@@ -4291,6 +4291,7 @@ translations:
   Tool Changer: Werkzeugwechsler
   Tool Offsets: Werkzeug-Offsets
   Tool Switcher: 'Werkzeugwechsler'
+  Tool change failed: 'Werkzeugwechsel fehlgeschlagen'
   'Tool change failed: {}': 'Werkzeugwechsel fehlgeschlagen: {}'
   Tool change speed: Werkzeugwechsel-Geschwindigkeit
   Tool change to T{}: 'Werkzeugwechsel zu T{}'

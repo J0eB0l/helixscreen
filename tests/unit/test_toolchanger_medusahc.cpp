@@ -36,6 +36,7 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/moonraker_client_mock_test_access.h"
 #include "../test_helpers/scoped_env.h"
+#include "../test_helpers/toolchanger_test_access.h"
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_state.h"
 #include "error_event.h"
@@ -504,6 +505,105 @@ TEST_CASE("A running swap publishes its step's action, and the closing grip read
     REQUIRE(tc.get_system_info().operation_phase == 2); // Grip filament
     CHECK(tc.get_system_info().action == AmsAction::IDLE);
     CHECK(tc.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE("Irbis3D's opening 'changing' frame lights the swap's first step",
+          "[ams][toolchanger][steps][medusahc]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    struct RestoreStepOperation {
+        ~RestoreStepOperation() {
+            AmsState::instance().set_active_step_operation(StepOperationType::LOAD_SWAP);
+        }
+    } restore_step_operation;
+    AmsState::instance().set_active_step_operation(StepOperationType::LOAD_SWAP);
+    // Latch the direction and the gripper, as a swap's own frames would.
+    tc.feed(
+        json{{"medusahc", {{"operation", "idle"}, {"current_tool", 0}, {"feeder_open", false}}}});
+    REQUIRE(tc.change_tool(2).success());
+
+    tc.feed(json{{"medusahc", {{"operation", "changing"}, {"current_tool", 0}}}});
+    CHECK(tc.get_system_info().operation_phase == 0); // Release filament
+    CHECK(tc.get_system_info().action == AmsAction::SELECTING);
+    tc.feed(json{{"medusahc", {{"operation", "dropping"}, {"current_tool", 0}}}});
+    CHECK(tc.get_system_info().operation_phase == 1); // Dock tool
+}
+
+TEST_CASE("MedusaHC's fault dialog quotes the controller's own failure",
+          "[ams][toolchanger][medusahc][last_error]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"operation", "picking"}, {"current_tool", 0}}}});
+    tc.feed(json{{"medusahc",
+                  {{"operation", "idle"},
+                   {"current_tool", -2},
+                   {"sensor_error", true},
+                   {"last_error", "MHC_SET: sensors did not confirm T1"}}}});
+    const auto err = tc.current_error();
+    REQUIRE(err.has_value());
+    CHECK(err->detail == "MHC_SET: sensors did not confirm T1");
+    // On screen as a fault: no toast on top of the dialog.
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
+
+    // A -2 the controller never reported as a failure keeps the generic words.
+    ToolChangerHelper unreported(4);
+    unreported.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    unreported.feed(json{{"medusahc", {{"operation", "idle"}, {"current_tool", 1}}}});
+    unreported.feed(json{{"medusahc", {{"operation", "idle"}, {"current_tool", -2}}}});
+    const auto generic = unreported.current_error();
+    REQUIRE(generic.has_value());
+    CHECK(generic->detail != "MHC_SET: sensors did not confirm T1");
+    CHECK_FALSE(generic->detail.empty());
+}
+
+TEST_CASE("A controller failure the screen is not showing toasts once",
+          "[ams][toolchanger][medusahc][last_error]") {
+    const std::string failure = "MHC_SET: sensors did not confirm T1";
+
+    SECTION("the docks agree again after the fault") {
+        ToolChangerHelper tc(4);
+        tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+        tc.feed(json{{"medusahc", {{"operation", "picking"}, {"current_tool", 0}}}});
+        tc.feed(json{{"medusahc",
+                      {{"operation", "idle"},
+                       {"current_tool", -2},
+                       {"sensor_error", true},
+                       {"last_error", failure}}}});
+        REQUIRE(tc.get_system_info().action == AmsAction::ERROR);
+        REQUIRE(ToolChangerTestAccess::feed_last_toast(tc).empty());
+
+        tc.feed(json{{"medusahc", {{"current_tool", -1}}}});
+        REQUIRE(tc.get_system_info().action == AmsAction::IDLE);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).find(failure) != std::string::npos);
+        CHECK(ToolChangerTestAccess::feed_last_toast_severity(tc) == ToastSeverity::WARNING);
+
+        // Further frames under the same latched failure say nothing more.
+        ToolChangerTestAccess::clear_feed_last_toast(tc);
+        tc.feed(json{{"medusahc", {{"feeder_open", false}}}});
+        tc.feed(json{{"medusahc", {{"current_tool", 1}}}});
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
+
+        // The controller's next operation clears it, and a new failure toasts again.
+        tc.feed(json{{"medusahc", {{"sensor_error", false}, {"last_error", ""}}}});
+        tc.feed(json{{"medusahc",
+                      {{"operation", "idle"},
+                       {"current_tool", 1},
+                       {"sensor_error", true},
+                       {"last_error", failure}}}});
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).find(failure) != std::string::npos);
+    }
+
+    SECTION("a failure left over from before this connection") {
+        ToolChangerHelper tc(4);
+        tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+        tc.feed(json{{"medusahc",
+                      {{"operation", "idle"},
+                       {"current_tool", 2},
+                       {"sensor_error", true},
+                       {"last_error", failure}}}});
+        REQUIRE(tc.get_system_info().action != AmsAction::ERROR);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).find(failure) != std::string::npos);
+    }
 }
 
 TEST_CASE("A controller with only 'changing' gets one middle step", "[ams][toolchanger][steps]") {

@@ -4325,6 +4325,7 @@ translations:
   Tool Changer: Сменщик инструментов
   Tool Offsets: Смещения инструментов
   Tool Switcher: 'Переключатель инструментов'
+  Tool change failed: 'Не удалось сменить инструмент'
   'Tool change failed: {}': 'Ошибка смены инструмента: {}'
   Tool change speed: Скорость смены инструмента
   Tool change to T{}: 'Смена инструмента на T{}'

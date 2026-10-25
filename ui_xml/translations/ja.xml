@@ -3869,6 +3869,7 @@
   <translation tag="Tool Changer" ja="ツールチェンジャー"/>
   <translation tag="Tool Offsets" ja="ツールオフセット"/>
   <translation tag="Tool Switcher" ja="ツール切り替え"/>
+  <translation tag="Tool change failed" ja="ツール交換に失敗しました"/>
   <translation tag="Tool change failed: {}" ja="ツール変更に失敗しました: {}"/>
   <translation tag="Tool change speed" ja="ツール交換速度"/>
   <translation tag="Tool change to T{}" ja="ツールを T{} に変更しています"/>
