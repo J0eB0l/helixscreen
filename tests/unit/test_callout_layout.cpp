@@ -289,12 +289,23 @@ TEST_CASE("a small image shrink unlocks one side instead of pinned",
     CHECK(one.image.x == l.image.x);
 }
 
+TEST_CASE("one side may take more of the image than both sides",
+          "[printer_image][callout_layout]") {
+    auto in = wide();
+    const int col = 70 + in.gap + in.min_line;
+    in.area_w = 186 + col - 65; // the column fits once the image gives up 65px: 35%
+    REQUIRE(65 * 100 / 186 > helix::callout_detail::kMaxImageShrinkPctBothSides);
+    const auto l = compute_callout_layout(in);
+    REQUIRE(l.mode == CalloutMode::OneSide);
+    CHECK(l.image.w == 186 - 65);
+}
+
 TEST_CASE("a column needing more than the shrink limit stays pinned",
           "[printer_image][callout_layout]") {
     auto in = wide();
     // One pixel more than the image may give up.
     in.area_w = 186 + (70 + in.gap + in.min_line) -
-                (186 * helix::callout_detail::kMaxImageShrinkPct / 100 + 1);
+                (186 * helix::callout_detail::kMaxImageShrinkPctOneSide / 100 + 1);
     const auto l = compute_callout_layout(in);
     CHECK(l.mode == CalloutMode::Pinned);
     CHECK(l.image.w == 186);

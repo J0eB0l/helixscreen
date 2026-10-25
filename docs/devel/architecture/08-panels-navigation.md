@@ -211,7 +211,7 @@ Leaders are dotted and have three points: the part's point, an elbow, and the ch
 Three rules keep the picture still and the chips readable:
 
 - **The mode follows a stable budget, not the readings.** Fit is tested against every chip the printer can ever show, each measured at a representative reading (`heater_budget_text()`: a three-digit value, heating or holding; fans at 100%; speed and flow at 100%), so a digit or a chip coming and going never moves the layout. Only the active chips get positions.
-- **The picture may shrink up to 20%** (`kMaxImageShrinkPct`), just enough for one side then both, to keep leader lines before giving up to `Pinned`.
+- **The picture may shrink** to keep leader lines before giving up to `Pinned`: just enough for one side, up to 40% (`kMaxImageShrinkPctOneSide`), then for both, up to 20% (`kMaxImageShrinkPctBothSides`).
 - **When chips do not fit**, a chip gives way in this order: fan labels first (the same chips, narrower), then expendable chips one at a time (hotend fan first, then the light and aux fan, then part fan and speed/flow if expendable), then `Pinned`. A chip off target, tuned or heating is never expendable. `CalloutLayout::dropped` names what was left off and `unlabeled` says labels were shed.
 
 Current limitations: a toolchanger's idle tools are not shown on this screen (only the active tool, as the badge on the nozzle chip), and the pre-print phase has no first-layer or estimated print time line.

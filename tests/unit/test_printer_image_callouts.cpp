@@ -1100,7 +1100,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         const CalloutRect fit = fitted_image(h);
         CAPTURE(w, fit.w, lv_obj_get_width(img));
         CHECK(lv_obj_get_width(img) < fit.w);
-        CHECK(lv_obj_get_width(img) >= fit.w - fit.w * callout_detail::kMaxImageShrinkPct / 100);
+        CHECK(lv_obj_get_width(img) >=
+              fit.w - fit.w * callout_detail::kMaxImageShrinkPctBothSides / 100);
         CHECK(lv_obj_get_x(img) ==
               (lv_obj_get_content_width(container) - lv_obj_get_width(img)) / 2);
     }

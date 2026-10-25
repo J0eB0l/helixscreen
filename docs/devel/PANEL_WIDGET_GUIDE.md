@@ -422,7 +422,7 @@ which returns a `CalloutMode`, the image rect, and each chip's rect and leader l
   docked (untagged image: chips in the free band, else along the bottom edge, never a
   line). A tile taller than the image's aspect runs the same ladder with bands above and
   below. When neither line mode fits at the contain-fit size, the image may shrink by up
-  to `kMaxImageShrinkPct` (20%), just enough for one side, then for both, before pinned.
+  just enough for one side (up to `kMaxImageShrinkPctOneSide`, 40%), then for both (up to `kMaxImageShrinkPctBothSides`, 20%), before pinned.
 - **The budget decides the mode; the active chips get positions.** `CalloutLayoutInput`
   carries both: `budget` is every chip this printer can ever show at its widest text,
   `active` is what shows now. Fitting against the budget is what keeps the image still
