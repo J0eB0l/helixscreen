@@ -80,17 +80,16 @@ TEST_CASE("hotend fan automatic is expendable", "[print_status_chips]") {
 }
 
 TEST_CASE("speed 104 warns and is not expendable", "[print_status_chips]") {
-    auto c = speed_flow_chip(104, 100, "104%", "100%");
+    auto c = speed_flow_chip(104, 100, "187mm/s");
     CHECK(c.tone == ChipTone::Warn);
     CHECK_FALSE(c.expendable);
-    CHECK(c.lead_text == "104%");
-    CHECK(c.text == "100%");
-    CHECK(speed_flow_chip(100, 97, "100%", "97%").tone == ChipTone::Warn);
-    CHECK(speed_flow_chip(90, 100, "90%", "100%").tone == ChipTone::Warn);
+    CHECK(c.text == "187mm/s");
+    CHECK(speed_flow_chip(100, 97, "187mm/s").tone == ChipTone::Warn);
+    CHECK(speed_flow_chip(90, 100, "187mm/s").tone == ChipTone::Warn);
 }
 
 TEST_CASE("speed and flow 100 is expendable", "[print_status_chips]") {
-    auto c = speed_flow_chip(100, 100, "100%", "100%");
+    auto c = speed_flow_chip(100, 100, "187mm/s");
     CHECK(c.tone == ChipTone::Normal);
     CHECK(c.expendable);
 }
@@ -140,12 +139,6 @@ TEST_CASE("a heater chip prints its reading as every heater display does", "[pri
     CHECK(heater(600, 0).shown);
 }
 
-TEST_CASE("the speed/flow budget is measured in the unit the chip shows", "[print_status_chips]") {
-    const auto pct = speed_flow_budget_chip(false, 1.75f);
-    CHECK(pct.lead_text == "100%");
-    CHECK(pct.text == "100%");
-    const auto phys = speed_flow_budget_chip(true, 1.75f);
-    CHECK(phys.lead_text.find("mm/s") != std::string::npos);
-    CHECK(phys.text.find("mm") != std::string::npos);
-    CHECK(phys.lead_text.size() > pct.lead_text.size());
+TEST_CASE("the speed/flow budget is a three-digit live speed", "[print_status_chips]") {
+    CHECK(speed_flow_budget_chip().text == "999mm/s");
 }

@@ -2284,8 +2284,10 @@ void PrintStatusWidget::DetailedFormatter::update_filament_text() {
 void PrintStatusWidget::DetailedFormatter::update_speed_flow_text() {
     auto& ps = get_printer_state();
     // Always the live rates: the percent factors are Tune's to show.
-    snprintf(speed_text_buf_, sizeof(speed_text_buf_), "%dmm/s",
-             lv_subject_get_int(ps.motion_state().get_live_velocity_subject()));
+    snprintf(speed_text_buf_, sizeof(speed_text_buf_), "%s",
+             helix::tune::live_speed_text(
+                 lv_subject_get_int(ps.motion_state().get_live_velocity_subject()))
+                 .c_str());
     lv_subject_copy_string(&speed_text_subject_, speed_text_buf_);
     snprintf(flow_text_buf_, sizeof(flow_text_buf_), "· %.1fmm\xC2\xB3/s",
              helix::tune::volumetric_flow_mm3_s(

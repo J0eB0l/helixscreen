@@ -102,4 +102,10 @@ SpeedFlowText status_speed_flow_text(bool physical_units, int speed_pct, int flo
     return {speed, flow};
 }
 
+std::string live_speed_text(int live_velocity_mm_s) {
+    char buf[24];
+    std::snprintf(buf, sizeof(buf), "%dmm/s", live_velocity_mm_s);
+    return buf;
+}
+
 } // namespace helix::tune

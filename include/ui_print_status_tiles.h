@@ -74,7 +74,6 @@ class PrintStatusTiles {
         std::function<int()> speed_pct;
         std::function<int()> flow_pct;
         std::function<std::string()> speed_text;
-        std::function<std::string()> flow_text;
     };
 
     PrintStatusTiles(PrinterState& printer_state, Host host);
@@ -160,8 +159,6 @@ class PrintStatusTiles {
 
     std::array<ChipSubjects, kPrintStatusChipCount> chips_{};
     std::array<std::string, kChipSubjectCount * kPrintStatusChipCount> chip_names_{};
-    lv_subject_t speed_flow_lead_{};
-    char speed_flow_lead_buf_[16] = "";
     lv_subject_t image_src_{};
     char image_src_buf_[256] = "";
     lv_subject_t callout_mode_{};

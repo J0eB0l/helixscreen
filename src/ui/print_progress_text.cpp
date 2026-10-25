@@ -57,20 +57,10 @@ void PrintProgressText::refresh_filament_used() {
 }
 
 void PrintProgressText::refresh_speed_flow() {
-    auto text = helix::tune::status_speed_flow_text(
-        DisplaySettingsManager::instance().get_speed_flow_physical_units(),
-        lifecycle_.speed_percent(), lifecycle_.flow_percent(),
-        lv_subject_get_int(printer_state_.motion_state().get_live_velocity_subject()),
-        lv_subject_get_int(printer_state_.motion_state().get_live_extruder_velocity_subject()),
-        printer_state_.get_discovery().filament_diameter_mm());
-    // The extruder velocity observer fires several times a second; only a
-    // changed string is worth a relabel.
-    if (text.speed != speed_buf_) {
-        std::snprintf(speed_buf_, sizeof(speed_buf_), "%s", text.speed.c_str());
-    }
-    if (text.flow != flow_buf_) {
-        std::snprintf(flow_buf_, sizeof(flow_buf_), "%s", text.flow.c_str());
-    }
+    std::snprintf(speed_buf_, sizeof(speed_buf_), "%s",
+                  helix::tune::live_speed_text(
+                      lv_subject_get_int(printer_state_.motion_state().get_live_velocity_subject()))
+                      .c_str());
 }
 
 void PrintProgressText::show_elapsed(int seconds) {

@@ -192,7 +192,7 @@ Choosing between a modal and an overlay is a design question with a fixed answer
 | Part fan, hotend fan | `part_fan`, `nozzle` | Part fan Active while spinning. Fans at 0% are Dim, and a hotend fan at its automatic speed is Dim; both expendable. |
 | Aux fan | none | Dim and expendable at 0%. |
 | Light | `light` | Active when on, expendable when off; tap toggles. |
-| Speed + flow | none | One chip; Warn whenever either factor is not 100%, never expendable then. It honors the percent or mm/s choice and opens Tune. |
+| Speed + flow | none | One chip with the live toolhead speed (`tune::live_speed_text()`, `187mm/s`); Warn whenever either factor is not 100%, never expendable then. The factors are Tune's to show. Opens Tune. |
 
 Fan chips lead with a role label (Part, HE, Aux) when there is room. Every chip is a tap target into the detail it summarizes. **More** holds Camera, Timelapse and Light, each under its existing visibility rule, and hides when all are hidden.
 

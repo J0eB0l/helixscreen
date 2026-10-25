@@ -236,8 +236,7 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
                              [this]() { return lifecycle_.state() != PrintState::Preparing; },
                              [this]() { return lifecycle_.speed_percent(); },
                              [this]() { return lifecycle_.flow_percent(); },
-                             [this]() { return std::string(progress_text_.speed_text()); },
-                             [this]() { return std::string(progress_text_.flow_text()); }}) {
+                             [this]() { return std::string(progress_text_.speed_text()); }}) {
     preview_.set_api(api);
     // Pre-init local subject used by observer callback below (fires immediately on subscribe)
     lv_subject_init_int(&exclude_objects_available_subject_, 0);
@@ -323,18 +322,10 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
     flow_factor_observer_ = observe<int>(
         printer_state_.motion_state().get_flow_factor_subject(), this,
         [](PrintStatusPanel* self, int flow) { self->on_flow_factor_changed(flow); }, ps_subjects);
-    // The physical-units readout also moves with the live toolhead and
-    // extruder velocities, and with the speed/flow units preference.
+    // The speed/flow chip shows the live toolhead speed.
     live_velocity_observer_ = observe<int>(
         printer_state_.motion_state().get_live_velocity_subject(), this,
         [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); }, ps_subjects);
-    extruder_velocity_observer_ = observe<int>(
-        printer_state_.motion_state().get_live_extruder_velocity_subject(), this,
-        [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); }, ps_subjects);
-    physical_units_observer_ = observe<int>(
-        DisplaySettingsManager::instance().subject_speed_flow_physical_units(), this,
-        [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); },
-        DisplaySettingsManager::instance().get_subjects_lifetime());
     gcode_z_offset_observer_ = observe<int>(
         printer_state_.motion_state().get_gcode_z_offset_subject(), this,
         [](PrintStatusPanel* self, int microns) { self->on_gcode_z_offset_changed(microns); },

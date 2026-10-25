@@ -38,11 +38,11 @@ TEST_CASE_METHOD(PrintStatusPanelFixture,
     CHECK(subject_text("print_elapsed") == "1h 02m");
 }
 
-TEST_CASE_METHOD(PrintStatusPanelFixture, "Print status: speed text follows the speed factor",
+TEST_CASE_METHOD(PrintStatusPanelFixture, "Print status: speed chip shows the live toolhead speed",
                  "[print_status][progress_text]") {
-    state().update_from_status({{"gcode_move", {{"speed_factor", 1.5}}}});
+    state().update_from_status({{"motion_report", {{"live_velocity", 187.4}}}});
     helix::ui::UpdateQueue::instance().drain();
     process_lvgl(50); // the chip update is coalesced onto a timer
 
-    CHECK(subject_text("ps_chip_speed_flow_lead") == "150%");
+    CHECK(subject_text("ps_chip_speed_flow_text") == "187mm/s");
 }

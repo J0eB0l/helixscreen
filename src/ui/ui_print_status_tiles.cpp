@@ -21,6 +21,7 @@
 #include "printer_image_manager.h"
 #include "printer_state.h"
 #include "tool_state.h"
+#include "tune_controller.h"
 
 #include <lvgl/src/misc/cache/lv_cache.h>
 #include <spdlog/spdlog.h>
@@ -142,9 +143,6 @@ void PrintStatusTiles::init_subjects(SubjectManager& subjects) {
             subjects.publish(names[n].c_str(), each[n]);
         }
     }
-    lv_subject_init_string(&speed_flow_lead_, speed_flow_lead_buf_, nullptr,
-                           sizeof(speed_flow_lead_buf_), "");
-    subjects.publish("ps_chip_speed_flow_lead", &speed_flow_lead_);
     lv_subject_init_string(&image_src_, image_src_buf_, nullptr, sizeof(image_src_buf_), "");
     subjects.publish("ps_printer_image_src", &image_src_);
     lv_subject_init_int(&callout_mode_, static_cast<int>(CalloutMode::ImageOnly));
@@ -363,8 +361,7 @@ std::array<ChipContent, kPrintStatusChipCount> PrintStatusTiles::decide_chips(bo
                    helix::home_light_buttons_lit());
     out[index_of(PrintStatusChip::SpeedFlow)] = speed_flow_chip(
         host_.speed_pct ? host_.speed_pct() : 100, host_.flow_pct ? host_.flow_pct() : 100,
-        host_.speed_text ? host_.speed_text() : "100%",
-        host_.flow_text ? host_.flow_text() : "100%");
+        host_.speed_text ? host_.speed_text() : helix::tune::live_speed_text(0));
     return out;
 }
 
@@ -375,10 +372,6 @@ void PrintStatusTiles::publish(PrintStatusChip chip, const ChipContent& c, bool 
     set_int(&s.tone, static_cast<int>(c.tone));
     set_int(&s.progress, is_heater(chip) ? c.progress_pct : -1);
     set_int(&s.state, is_heater(chip) ? c.status_state : 0);
-    if (chip == PrintStatusChip::SpeedFlow) {
-        set_string(&speed_flow_lead_, speed_flow_lead_buf_, sizeof(speed_flow_lead_buf_),
-                   c.lead_text);
-    }
     set_int(&s.glow, glow ? 1 : 0);
     set_int(&s.line, line ? 1 : 0);
     set_int(&s.shown, shown ? 1 : 0);
@@ -521,16 +514,8 @@ void PrintStatusTiles::update_now() {
     }
     std::array<int, kPrintStatusChipCount> icons{}, budget_w{}, budget_bare_w{};
     int column_w = 0;
-    // A lead value sits behind its own icon ahead of the chip's text: the chip
-    // grows by that icon, the value and a gap after each.
-    const int lead_icon = m.icon_px("nozzle");
-    const auto lead_w = [&](const ChipContent& c) {
-        return c.lead_text.empty() ? 0
-                                   : m.col_gap + measure_text_px(c.lead_text.c_str(), m.text_font) +
-                                         m.col_gap + lead_icon;
-    };
     const auto width_of = [&](size_t i, const ChipContent& c) {
-        return m.chip_w(icons[i] + lead_w(c), c.text);
+        return m.chip_w(icons[i], c.text);
     };
     for (size_t i = 0; i < kPrintStatusChipCount; ++i) {
         const auto chip = static_cast<PrintStatusChip>(i);
@@ -538,10 +523,7 @@ void PrintStatusTiles::update_now() {
         if (!in_budget(chip)) {
             budget_w[i] = 0;
         } else if (chip == PrintStatusChip::SpeedFlow) {
-            budget_w[i] =
-                width_of(i, speed_flow_budget_chip(
-                                DisplaySettingsManager::instance().get_speed_flow_physical_units(),
-                                printer_state_.get_discovery().filament_diameter_mm()));
+            budget_w[i] = width_of(i, speed_flow_budget_chip());
         } else {
             budget_w[i] = m.chip_w(icons[i], worst(chip, true));
         }
@@ -577,7 +559,7 @@ void PrintStatusTiles::update_now() {
         part.expendable = contents[i].expendable;
         part.glowing = contents[i].glow;
         // Everything beside the chip's own label, which bounds the label's width.
-        part.icons = icons[i] + lead_w(contents[i]);
+        part.icons = icons[i];
         part.w_budget = budget_w[i];
         part.w_full = part.active ? width_of(i, contents[i]) : 0;
         if (is_fan(chip)) {
@@ -586,11 +568,7 @@ void PrintStatusTiles::update_now() {
         }
         // Pinned chips sit on their parts and carry no labels.
         const ChipContent& b = bare[i];
-        part.w_compact = part.active
-                             ? compact_callout_chip_w(
-                                   probe, b.lead_text.empty() ? b.text : b.lead_text + " " + b.text,
-                                   icons[i] + (b.lead_text.empty() ? 0 : lead_icon))
-                             : 0;
+        part.w_compact = part.active ? compact_callout_chip_w(probe, b.text, icons[i]) : 0;
         parts.chips.push_back(part);
     }
     const std::string fan_pct =
