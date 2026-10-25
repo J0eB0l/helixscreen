@@ -662,6 +662,19 @@ class AmsBackendToolChanger : public AmsSubscriptionBackend {
     /// that do not name them. Guarded by mutex_.
     std::optional<int> sensor_tool_reading_;
     bool sensor_fault_reported_ = false;
+    /// The controller's own message for its last failed operation, empty when
+    /// it has none. Shown in the fault dialog, or once as a toast when the
+    /// failure is not on screen as a fault. Guarded by mutex_.
+    std::string controller_failure_;
+    /// The controller's raw `sensor_error` latch, whatever the fault rule made
+    /// of it: set only by a failed operation, so a last_error beside a clear
+    /// latch (a failed initialization) is no tool change failure.
+    bool controller_failure_latched_ = false;
+    /// The failure already put in front of the user, by this toast or by a
+    /// mount-to-feed run's own, so one failure is told once.
+    std::string controller_failure_noticed_;
+    /// A toast apply_tool_sensor_locked() decided on, shown once mutex_ is free.
+    std::string pending_failure_toast_;
 
     /// Z-Mod's Creator 5 row narrates its swaps through gcode-response markers
     /// (toolchanger_addon::parse_zmod_marker) rather than a status object, so

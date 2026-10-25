@@ -301,6 +301,11 @@ std::optional<ToolReading> read_medusahc(const nlohmann::json& obj) {
         }
     }
 
+    if (auto it = obj.find("last_error"); it != obj.end() && it->is_string()) {
+        r.last_error = it->get<std::string>();
+        saw_anything = true;
+    }
+
     // Irbis3D publishes sensor_error outright; both schemas encode it as -2.
     if (auto flag = bool_field(obj, "sensor_error")) {
         r.sensor_error = *flag;

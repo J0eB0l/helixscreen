@@ -95,6 +95,11 @@ class ToolChangerTestAccess {
         return b.feed_last_toast_;
     }
 
+    /// Forget the last toast, so a case can tell a repeat from no toast at all.
+    static void clear_feed_last_toast(AmsBackendToolChanger& b) {
+        b.feed_last_toast_.clear();
+    }
+
     /// The grace for the dock sensors to confirm an acked swap ran out.
     static void feed_swap_check_elapsed(AmsBackendToolChanger& b) {
         b.handle_swap_check_elapsed();

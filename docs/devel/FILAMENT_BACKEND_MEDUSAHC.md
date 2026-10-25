@@ -46,7 +46,11 @@ a mount-to-feed run's Mount and Restore stages count as a swap. A `sensor_error`
 firmware itself reports is a fault during a swap, and at rest unless a definite
 `current_tool` (-1 or a tool) sits beside it. Irbis3D's flag latches the last operation's
 failure until the next operation begins, while `current_tool` follows the dock pins live,
-so a definite reading at rest, or one arriving after the flag, means the docks agree.
+so a definite reading at rest, or one arriving after the flag, means the docks agree. The controller's `last_error` names the failed operation: the fault dialog shows it while
+the fault is up, and a failure the screen is not showing as a fault (withdrawn, or left from
+before this connection) toasts once as "Tool change failed: <last_error>", until the next
+operation clears it. Irbis3D's `operation` opens a swap with `changing` before `dropping` and
+`picking`; that frame lights the bar's first step.
 
 ### 1a. And which tools are in their docks
 

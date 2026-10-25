@@ -805,6 +805,17 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     {"pressure_advance", self->pressure_advance_for("extruder3").advance},
                     {"smooth_time", self->pressure_advance_for("extruder3").smooth_time}};
             }
+            // A six-tool MedusaHC's last two hot ends, cold.
+            for (const char* ext : {"extruder4", "extruder5"}) {
+                if (objects.contains(ext)) {
+                    status_obj[ext] = {
+                        {"temperature", 25.0},
+                        {"target", 0.0},
+                        {"power", 0.0},
+                        {"pressure_advance", self->pressure_advance_for(ext).advance},
+                        {"smooth_time", self->pressure_advance_for(ext).smooth_time}};
+                }
+            }
 
             // toolhead
             if (objects.contains("toolhead")) {
@@ -961,8 +972,11 @@ void register_object_handlers(std::unordered_map<std::string, MethodHandler>& re
                     tool_numbers.push_back(number);
                     tool_names.push_back(name);
                 }
+                // Beside a MedusaHC, pin_watch keeps tool_number on the docks' tool.
+                const int tool_number =
+                    self->is_mock_medusahc() ? self->sync_medusa_toolchanger_tool() : 0;
                 status_obj["toolchanger"] = {{"status", "ready"},
-                                             {"tool_number", 0},
+                                             {"tool_number", tool_number},
                                              {"tool_numbers", tool_numbers},
                                              {"tool_names", tool_names}};
             }
