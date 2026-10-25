@@ -303,11 +303,11 @@ PreprintEstimate PreprintPredictor::estimate(const PreprintHeating& heating,
                 continue;
             durations.erase(it);
             if (history) {
-                wall_clock_delta -=
-                    static_cast<float>(weighted_entry_mean([p = phase](const PreprintEntry& e) {
+                wall_clock_delta -= static_cast<float>(
+                    weighted_entry_mean([p = phase](const PreprintEntry& e) {
                         const auto d = e.phase_durations.find(p);
                         return d != e.phase_durations.end() ? static_cast<double>(d->second) : 0.0;
-                    }));
+                    }).value_or(0.0));
             }
         } else if (it == durations.end() && (!history || every_entry_skipped(phase))) {
             if (generic.empty())
@@ -356,20 +356,16 @@ PreprintEstimate PreprintPredictor::estimate(const PreprintHeating& heating,
     // entries cannot be split; they keep the recorded wall clock as the
     // honest total, floored by this start's own heating.
     float total = static_cast<float>(predicted_total()) + wall_clock_delta;
-    const auto weights = compute_weights();
-    double residual_sum = 0.0;
-    double residual_weight = 0.0;
-    for (size_t i = 0; i < entries_.size(); ++i) {
-        const auto& e = entries_[i];
-        if (!e.heating_seconds) {
-            continue;
-        }
-        residual_sum += weights[i] * std::max(0.0, static_cast<double>(e.total_seconds) -
-                                                       static_cast<double>(*e.heating_seconds));
-        residual_weight += weights[i];
-    }
-    if (residual_weight > 0.0) {
-        total = heating_now + static_cast<float>(residual_sum / residual_weight) + wall_clock_delta;
+    const std::optional<double> residual =
+        weighted_entry_mean([](const PreprintEntry& e) -> std::optional<double> {
+            if (!e.heating_seconds) {
+                return std::nullopt;
+            }
+            return std::max(0.0, static_cast<double>(e.total_seconds) -
+                                     static_cast<double>(*e.heating_seconds));
+        });
+    if (residual) {
+        total = heating_now + static_cast<float>(*residual) + wall_clock_delta;
     } else {
         total = std::max(total, heating_now);
     }
@@ -394,8 +390,9 @@ int PreprintPredictor::predicted_total() const {
     // PrintStartPhase. Summing predicted_phases() would silently lose that
     // unmapped time (on AD5M-style printers the phase map captures <40% of
     // real elapsed time).
-    return static_cast<int>(std::round(weighted_entry_mean(
-        [](const PreprintEntry& e) { return static_cast<double>(e.total_seconds); })));
+    return static_cast<int>(std::round(weighted_entry_mean([](const PreprintEntry& e) {
+                                           return static_cast<double>(e.total_seconds);
+                                       }).value_or(0.0)));
 }
 
 bool PreprintPredictor::every_entry_skipped(int phase) const {
@@ -405,14 +402,23 @@ bool PreprintPredictor::every_entry_skipped(int phase) const {
            });
 }
 
-double PreprintPredictor::weighted_entry_mean(
-    const std::function<double(const PreprintEntry&)>& value) const {
+std::optional<double> PreprintPredictor::weighted_entry_mean(
+    const std::function<std::optional<double>(const PreprintEntry&)>& value) const {
     const auto weights = compute_weights();
     double weighted_sum = 0.0;
+    double weight_sum = 0.0;
     for (size_t i = 0; i < entries_.size(); ++i) {
-        weighted_sum += weights[i] * value(entries_[i]);
+        const std::optional<double> v = value(entries_[i]);
+        if (!v) {
+            continue;
+        }
+        weighted_sum += weights[i] * *v;
+        weight_sum += weights[i];
     }
-    return weighted_sum;
+    if (weight_sum <= 0.0) {
+        return std::nullopt;
+    }
+    return weighted_sum / weight_sum;
 }
 
 std::vector<PreprintEntry> PreprintPredictor::load_entries_from_config() {

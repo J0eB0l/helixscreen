@@ -268,9 +268,10 @@ class PreprintPredictor {
     /// Every entry records @p phase as skipped (false when any entry is silent)
     [[nodiscard]] bool every_entry_skipped(int phase) const;
 
-    /// @p value per entry, averaged over every entry with compute_weights()
-    [[nodiscard]] double
-    weighted_entry_mean(const std::function<double(const PreprintEntry&)>& value) const;
+    /// @p value per entry, averaged with compute_weights() over the entries it
+    /// returns a value for (nullopt skips one); nullopt when it skips them all
+    [[nodiscard]] std::optional<double> weighted_entry_mean(
+        const std::function<std::optional<double>(const PreprintEntry&)>& value) const;
 
     std::vector<PreprintEntry> entries_;
 };
