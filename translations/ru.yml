@@ -1385,6 +1385,7 @@ translations:
   Extrude may still be running — response timed out: Экструзия может ещё выполняться
     — время ожидания истекло
   Extrude/retract feedrate (Saved): Скорость экструзии/ретракции (Сохранено)
+  Extruded past the nozzle after each load: 'Выдавливается через сопло после каждой загрузки'
   Extruder: Экструдер
   Extruder Cold: 'Экструдер не прогрет'
   Extruder Load Speed: 'Скорость загрузки экструдера'
@@ -1896,6 +1897,7 @@ translations:
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Сколько удерживать, чтобы нажатие считалось долгим, в мс (увеличьте, если режим редактирования срабатывает случайно)'
   How many labels to print: Сколько этикеток напечатать
+  How much a load pushes through the nozzle: 'Сколько филамента загрузка выдавливает через сопло'
   How the Jog tab arranges its buttons: 'Как вкладка «Джог» располагает кнопки'
   ? How the printer's axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply.
   : 'Как приводятся в движение оси принтера, согласно конфигурации Klipper. HelixScreen использует это, чтобы определить, как работает хоуминг и какие инструменты для ремней и движения применимы.'

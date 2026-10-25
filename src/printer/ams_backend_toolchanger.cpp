@@ -28,6 +28,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,6 +62,10 @@ void AmsBackendToolChanger::set_discovery(const helix::PrinterDiscovery& discove
     set_tool_commands(addon::resolve_tool_commands(discovery));
     set_tool_feed(addon::resolve_tool_feed(discovery));
     set_mounts_to_feed(addon::feeds_through_mount(discovery));
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        purge_mm_ = helix::SettingsManager::instance().get_mount_feed_purge_mm();
+    }
     set_material_source(addon::resolve_material_source(discovery));
     tinfo_macro_present_ = discovery.has_macro("T_INFO");
 }
@@ -1591,6 +1596,7 @@ helix::mount_feed::Request AmsBackendToolChanger::build_feed_request(const std::
             req.restore_gcode = mount_gcode(mounted);
         }
         req.restore_head = mounted;
+        req.purge_mm = purge_mm_;
     }
     // The prompt is the one part of the run every client of the printer sees,
     // so it is English whatever this screen's language is.
@@ -2647,27 +2653,41 @@ bool AmsBackendToolChanger::is_bypass_active() const {
 }
 
 // ============================================================================
-// Device Actions (stub - not applicable for tool changers)
+// Device Actions
 // ============================================================================
 
 std::vector<helix::printer::DeviceSection> AmsBackendToolChanger::get_device_sections() const {
-    // A toolhead changer carries its own extruder and has nothing to expose.
-    // Only a machine with a frame-side feeder gets a section.
-    if (!feeder_.present) {
-        return {};
+    // A toolhead changer carries its own extruder: only a frame-side feeder, or
+    // a load this screen runs itself, has anything to expose.
+    std::vector<helix::printer::DeviceSection> sections;
+    if (feeder_.present) {
+        sections.push_back(helix::printer::device_section(
+            "feeder", 0, TR_NOOP("Release or grip the filament by hand")));
     }
-    return {
-        helix::printer::device_section("feeder", 0,
-                                       TR_NOOP("Release or grip the filament by hand")),
-    };
+    if (mounts_to_feed_) {
+        sections.push_back(helix::printer::device_section(
+            "purge", 1, TR_NOOP("How much a load pushes through the nozzle")));
+    }
+    return sections;
 }
 
 std::vector<helix::printer::DeviceAction> AmsBackendToolChanger::get_device_actions() const {
+    using DA = helix::printer::DeviceAction;
     std::vector<helix::printer::DeviceAction> actions;
+    if (mounts_to_feed_) {
+        int purge = 0;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            purge = purge_mm_;
+        }
+        actions.push_back(DA::slider("purge_length", "Purge Length", "purge",
+                                     static_cast<float>(purge), 0.0f,
+                                     static_cast<float>(helix::mount_feed::kMaxPurgeMm), "mm",
+                                     "ruler", "Extruded past the nozzle after each load"));
+    }
     if (!feeder_.present) {
         return actions;
     }
-    using DA = helix::printer::DeviceAction;
     actions.push_back(
         DA::button("open_feeder", "Open feeder", "feeder", "lock_open", "Release the filament"));
     actions.push_back(
@@ -2718,6 +2738,21 @@ bool AmsBackendToolChanger::feeder_open() const {
 
 AmsError AmsBackendToolChanger::do_execute_device_action(const std::string& action_id,
                                                          const std::any& value) {
+    if (mounts_to_feed_ && action_id == "purge_length") {
+        const auto [mm, value_err] = printer::device_action_value<float>(value, "purge length");
+        if (!value_err) {
+            return value_err;
+        }
+        const int purge =
+            std::clamp(static_cast<int>(std::lround(mm)), 0, helix::mount_feed::kMaxPurgeMm);
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            purge_mm_ = purge;
+        }
+        helix::SettingsManager::instance().set_mount_feed_purge_mm(purge);
+        spdlog::info("{} Load purge set to {}mm", backend_log_tag(), purge);
+        return AmsErrorHelper::success();
+    }
     if (feeder_.present && (action_id == "open_feeder" || action_id == "close_feeder")) {
         return set_feeder_open(action_id == "open_feeder");
     }

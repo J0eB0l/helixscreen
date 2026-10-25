@@ -1261,6 +1261,7 @@
   <translation tag="Extrude failed: {}" ru="Ошибка экструзии: {}"/>
   <translation tag="Extrude may still be running — response timed out" ru="Экструзия может ещё выполняться — время ожидания истекло"/>
   <translation tag="Extrude/retract feedrate (Saved)" ru="Скорость экструзии/ретракции (Сохранено)"/>
+  <translation tag="Extruded past the nozzle after each load" ru="Выдавливается через сопло после каждой загрузки"/>
   <translation tag="Extruder" ru="Экструдер"/>
   <translation tag="Extruder Cold" ru="Экструдер не прогрет"/>
   <translation tag="Extruder Load Speed" ru="Скорость загрузки экструдера"/>
@@ -1740,6 +1741,7 @@
   <translation tag="How fast the head moves while changing tools" ru="Скорость головки при смене инструмента"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" ru="Сколько удерживать, чтобы нажатие считалось долгим, в мс (увеличьте, если режим редактирования срабатывает случайно)"/>
   <translation tag="How many labels to print" ru="Сколько этикеток напечатать"/>
+  <translation tag="How much a load pushes through the nozzle" ru="Сколько филамента загрузка выдавливает через сопло"/>
   <translation tag="How the Jog tab arranges its buttons" ru="Как вкладка «Джог» располагает кнопки"/>
   <translation tag="How the printer&apos;s axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply." ru="Как приводятся в движение оси принтера, согласно конфигурации Klipper. HelixScreen использует это, чтобы определить, как работает хоуминг и какие инструменты для ремней и движения применимы."/>
   <translation tag="How the toolhead icon appears" ru="Как отображается значок печатающей головки"/>

@@ -18,6 +18,7 @@
 #include "json_utils.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "material_settings_manager.h"
+#include "mount_feed_sequence.h"
 #include "printer_detector.h"
 #include "printer_state.h"
 #include "remote_screen_settings_manager.h"
@@ -255,6 +256,9 @@ void SettingsManager::init_subjects() {
     feeder_open_macro_ = config->get<std::string>(config->df() + wizard::FEEDER_OPEN_MACRO, "auto");
     feeder_close_macro_ =
         config->get<std::string>(config->df() + wizard::FEEDER_CLOSE_MACRO, "auto");
+    mount_feed_purge_mm_ = std::clamp(config->get<int>(config->df() + wizard::kMountFeedPurgeMm,
+                                                       helix::mount_feed::kDefaultPurgeMm),
+                                      0, helix::mount_feed::kMaxPurgeMm);
 
     // ACE bypass macro overrides (default: "auto" = detected default).
     ace_bypass_on_macro_ =
@@ -773,6 +777,18 @@ void SettingsManager::set_feeder_close_macro(const std::string& value) {
     spdlog::info("[SettingsManager] set_feeder_close_macro({})", value);
     Config* config = Config::get_instance();
     config->set<std::string>(config->df() + wizard::FEEDER_CLOSE_MACRO, value);
+    config->save();
+}
+
+int SettingsManager::get_mount_feed_purge_mm() const {
+    return mount_feed_purge_mm_;
+}
+
+void SettingsManager::set_mount_feed_purge_mm(int mm) {
+    mount_feed_purge_mm_ = std::clamp(mm, 0, helix::mount_feed::kMaxPurgeMm);
+    spdlog::info("[SettingsManager] set_mount_feed_purge_mm({})", mount_feed_purge_mm_);
+    Config* config = Config::get_instance();
+    config->set<int>(config->df() + wizard::kMountFeedPurgeMm, mount_feed_purge_mm_);
     config->save();
 }
 

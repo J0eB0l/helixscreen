@@ -1303,6 +1303,7 @@ translations:
   Extrude may still be running — response timed out: Extrude may still be running
     — response timed out
   Extrude/retract feedrate (Saved): Extrude/retract feedrate (Saved)
+  Extruded past the nozzle after each load: Extruded past the nozzle after each load
   Extruder: Extruder
   Extruder Cold: Extruder Cold
   Extruder Load Speed: Extruder Load Speed
@@ -1806,6 +1807,7 @@ translations:
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   How many labels to print: How many labels to print
+  How much a load pushes through the nozzle: How much a load pushes through the nozzle
   How the Jog tab arranges its buttons: How the Jog tab arranges its buttons
   ? How the printer's axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply.
   : How the printer's axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply.

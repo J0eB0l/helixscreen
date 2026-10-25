@@ -1341,6 +1341,7 @@ translations:
   Extrude may still be running — response timed out: Estrusione potrebbe essere ancora
     in corso — tempo scaduto
   Extrude/retract feedrate (Saved): Velocità estrusione/retrazione (Salvata)
+  Extruded past the nozzle after each load: 'Estruso dall''ugello dopo ogni caricamento'
   Extruder: Estrusore
   Extruder Cold: 'Estrusore freddo'
   Extruder Load Speed: 'Velocità di caricamento dell''estrusore'
@@ -1854,6 +1855,7 @@ translations:
   ? How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)
   : 'Per quanto tempo tenere premuto perché conti come pressione prolungata, in ms (aumenta se la modalità di modifica o altre azioni si attivano per sbaglio)'
   How many labels to print: Quante etichette stampare
+  How much a load pushes through the nozzle: 'Quanto un caricamento spinge attraverso l''ugello'
   How the Jog tab arranges its buttons: 'Come la scheda Jog dispone i suoi pulsanti'
   ? How the printer's axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply.
   : 'Come sono azionati gli assi della stampante, secondo la configurazione Klipper. HelixScreen lo usa per decidere come funziona l''homing e quali strumenti per cinghie e movimento si applicano.'

@@ -45,15 +45,14 @@ std::string heater_target_gcode(int head, int target_c) {
     return fmt::format("SET_HEATER_TEMPERATURE HEATER={} TARGET={}", heater_name(head), target_c);
 }
 
-/// Warm @p head partway while another tool works, so its own heat stage starts
-/// from heat instead of room temperature - unless it is already set at least
-/// that hot, in which case its target stands and nothing is sent.
+/// Heat @p head to its own temperature while another tool works, so its heat
+/// stage has nothing left to wait for - unless it is already set at least that
+/// hot, in which case its target stands and nothing is sent.
 std::string preheat_gcode(const HeadRequest& head) {
-    const int preheat = head.temp_c * 65 / 100;
-    if (head.heater_target_c >= preheat) {
+    if (head.heater_target_c >= head.temp_c) {
         return {};
     }
-    return heater_target_gcode(head.head, preheat);
+    return heater_target_gcode(head.head, head.temp_c);
 }
 
 std::string heater_off_gcode(int head) {
@@ -72,12 +71,18 @@ std::string with_heater_off(std::string gcode, int head) {
     return gcode + "\n" + heater_off_gcode(head);
 }
 
-/// The moves that work one tool's filament: a slow draw and purge, or the full
-/// retract. Always these, never a printer's LOAD_FILAMENT / UNLOAD_FILAMENT:
-/// those are per-printer customizations with no shared contract to call into.
+/// The moves that work one tool's filament: a slow draw into the gears, the
+/// tip to the nozzle, the purge and a retract; or the full retract. Always
+/// these, never a printer's LOAD_FILAMENT / UNLOAD_FILAMENT: those are
+/// per-printer customizations with no shared contract to call into.
 std::string feed_or_retract_gcode(const Request& r) {
     if (r.load) {
-        return "M83\nG1 E5 F60\nG1 E50 F300\nG1 E50 F300\nG1 E-10 F1800";
+        const int purge = std::clamp(r.purge_mm, 0, kMaxPurgeMm);
+        std::string gcode = "M83\nG1 E5 F60\nG1 E50 F300";
+        if (purge > 0) {
+            gcode += fmt::format("\nG1 E{} F300", purge);
+        }
+        return gcode + "\nG1 E-10 F1800";
     }
     return "M83\nG1 E-25 F1800\nG1 E-150 F1200";
 }
@@ -179,7 +184,7 @@ std::vector<Stage> plan(const Request& r) {
         const int tool = static_cast<int>(t);
         std::string heat = heat_gcode(head.head, head.temp_c);
         if (!preheat.empty()) {
-            // The next tool warms partway while this one works. It rides the
+            // The next tool heats while this one works. It rides the
             // stage that starts this tool: mount where there is one, else heat.
             if (head.mount_gcode.empty()) {
                 heat += "\n" + preheat;

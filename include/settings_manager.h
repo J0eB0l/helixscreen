@@ -7,6 +7,7 @@
 #include "bed_drying.h"
 #include "lvgl/lvgl.h"
 #include "maintenance_meters.h"
+#include "mount_feed_sequence.h"
 #include "persisted_setting.h"
 #include "subject_managed_panel.h"
 
@@ -202,6 +203,12 @@ class SettingsManager {
 
     /** @brief Set the tool-changer feeder CLOSE macro and persist */
     void set_feeder_close_macro(const std::string& value);
+
+    /** @brief How far a mount-to-feed load purges past the nozzle, in mm */
+    int get_mount_feed_purge_mm() const;
+
+    /** @brief Set the mount-to-feed purge length (clamped to 0..kMaxPurgeMm) and persist */
+    void set_mount_feed_purge_mm(int mm);
 
     /** @brief Get the ACE bypass ON macro ("auto" = detected default) */
     std::string get_ace_bypass_on_macro() const;
@@ -982,6 +989,7 @@ class SettingsManager {
     std::string chamber_heater_assignment_{"auto"};
     std::string feeder_open_macro_{"auto"};
     std::string feeder_close_macro_{"auto"};
+    int mount_feed_purge_mm_ = helix::mount_feed::kDefaultPurgeMm; ///< Loaded in init_subjects()
     std::string ace_bypass_on_macro_{"auto"};
     std::string ace_bypass_off_macro_{"auto"};
     std::string chamber_sensor_assignment_{"auto"};

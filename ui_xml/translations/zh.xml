@@ -1219,6 +1219,7 @@
   <translation tag="Extrude failed: {}" zh="挤出失败: {}"/>
   <translation tag="Extrude may still be running — response timed out" zh="挤出可能仍在运行 — 响应超时"/>
   <translation tag="Extrude/retract feedrate (Saved)" zh="挤出/回抽速度（已保存）"/>
+  <translation tag="Extruded past the nozzle after each load" zh="每次装载后从喷嘴挤出的长度"/>
   <translation tag="Extruder" zh="挤出机"/>
   <translation tag="Extruder Cold" zh="挤出机过冷"/>
   <translation tag="Extruder Load Speed" zh="挤出机装载速度"/>
@@ -1695,6 +1696,7 @@
   <translation tag="How fast the head moves while changing tools" zh="换工具时打印头的移动速度"/>
   <translation tag="How long to hold before a press counts as a long-press, in ms (raise if edit mode or other long-press actions trigger by accident)" zh="按住多久才算长按（毫秒）。若编辑模式等误触发，请调大"/>
   <translation tag="How many labels to print" zh="打印多少张标签"/>
+  <translation tag="How much a load pushes through the nozzle" zh="装载时从喷嘴挤出多少耗材"/>
   <translation tag="How the Jog tab arranges its buttons" zh="点动页按钮的排列方式"/>
   <translation tag="How the printer&apos;s axes are driven, as its Klipper config declares it. HelixScreen uses it to decide how homing works and which belt and motion tools apply." zh="打印机各轴的驱动方式,取自其 Klipper 配置。HelixScreen 据此决定归零方式,以及适用哪些皮带和运动工具。"/>
   <translation tag="How the toolhead icon appears" zh="工具头图标的显示方式"/>
