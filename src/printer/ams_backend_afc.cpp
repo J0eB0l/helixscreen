@@ -2147,10 +2147,7 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         // existing unit "waiting for lane data" forever once a unit joined at
         // runtime (a Bambu AMS a BridgeBox claims after PREP), and the new unit
         // never appeared.
-        std::unordered_map<std::string, AfcUnitInfo> previous_units;
-        for (auto& ui : unit_infos_) {
-            previous_units.emplace(ui.klipper_key, std::move(ui));
-        }
+        std::vector<AfcUnitInfo> previous_units = std::move(unit_infos_);
         const bool had_units = !previous_units.empty();
         bool unit_joined = false;
         unit_lane_map_.clear();
@@ -2179,14 +2176,16 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
                             klipper_type.end());
                     }
                     info.klipper_key = "AFC_" + klipper_type + " " + info.name;
-                    const auto prev = previous_units.find(info.klipper_key);
+                    const auto prev = std::find_if(
+                        previous_units.begin(), previous_units.end(),
+                        [&](const AfcUnitInfo& p) { return p.klipper_key == info.klipper_key; });
                     if (prev != previous_units.end()) {
-                        info.lanes = std::move(prev->second.lanes);
-                        info.extruders = std::move(prev->second.extruders);
-                        info.hubs = std::move(prev->second.hubs);
-                        info.buffers = std::move(prev->second.buffers);
-                        info.topology = prev->second.topology;
-                        info.lane_is_hub_routed = std::move(prev->second.lane_is_hub_routed);
+                        info.lanes = std::move(prev->lanes);
+                        info.extruders = std::move(prev->extruders);
+                        info.hubs = std::move(prev->hubs);
+                        info.buffers = std::move(prev->buffers);
+                        info.topology = prev->topology;
+                        info.lane_is_hub_routed = std::move(prev->lane_is_hub_routed);
                     } else {
                         unit_joined = true;
                     }
@@ -3650,19 +3649,6 @@ AmsError AmsBackendAfc::stop_drying(int unit) {
     return execute_gcode(gcode);
 }
 
-AmsError AmsBackendAfc::update_drying(float temp_c, int duration_min, int fan_pct, int unit) {
-    const DryerInfo dryer = get_dryer_info(unit);
-    if (!dryer.supported) {
-        return AmsErrorHelper::not_supported("Dryer");
-    }
-    const auto [temp, duration] = helix::dryer_restart_request(dryer, temp_c, duration_min);
-    auto err = stop_drying(unit);
-    if (!err.success()) {
-        return err;
-    }
-    return start_drying(temp, duration, fan_pct, unit);
-}
-
 void AmsBackendAfc::schedule_roster_refresh_locked(const char* reason) {
     if (roster_refresh_pending_) {
         roster_refresh_again_ = true;
@@ -4274,10 +4260,20 @@ void AmsBackendAfc::query_initial_state() {
         }
     }
 
+#if defined(HELIX_PLATFORM_ESP32)
+    // Nothing else in the firmware image builds field lists, and the tables in
+    // required_status_objects() cost it 2 KB it does not have: ask for whole objects.
+    nlohmann::json objects = nlohmann::json::object();
+    for (const auto& name : names) {
+        objects[name] = nullptr;
+    }
+    nlohmann::json params = {{"objects", std::move(objects)}};
+#else
     // Ask for the fields the subscription asks for, not whole objects: a Bambu
     // unit's full status is a few hundred diagnostic keys, and handle_status
     // reads frames shaped like the subscription's.
     nlohmann::json params = {{"objects", required_status_objects(names)}};
+#endif
 
     spdlog::debug("[AMS AFC] Querying initial state for {} objects", names.size());
 

@@ -250,9 +250,6 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     [[nodiscard]] DryerInfo get_dryer_info(int unit = 0) const override;
     AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1, int unit = 0) override;
     AmsError stop_drying(int unit = 0) override;
-    /// Neither vendor retargets a running cycle, so this restarts it on what is left.
-    AmsError update_drying(float temp_c = -1, int duration_min = -1, int fan_pct = -1,
-                           int unit = 0) override;
 
     [[nodiscard]] AmsType get_type() const override;
     /// Constant capability answers; see BackendTraits.

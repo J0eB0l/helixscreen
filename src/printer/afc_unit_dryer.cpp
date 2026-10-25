@@ -263,31 +263,21 @@ std::optional<EnvironmentData> to_environment(const UnitDryerState& st) {
 }
 
 std::string start_drying_gcode(const UnitDryerState& st, int temp_c, int duration_min) {
-    switch (st.vendor) {
-    case DryerVendor::Bambu:
-        return fmt::format("AFC_BAMBU_HEATER_START UNIT={} TEMP={} TIME={}", st.unit_name, temp_c,
-                           duration_min);
-    case DryerVendor::Ace:
-    case DryerVendor::Ace2:
-        return fmt::format("AFC_ACE_DRY UNIT={} TEMP={} DURATION={}", st.unit_name, temp_c,
-                           duration_min);
-    case DryerVendor::None:
-        break;
+    if (st.vendor == DryerVendor::None) {
+        return {};
     }
-    return {};
+    const bool bambu = st.vendor == DryerVendor::Bambu;
+    return fmt::format("{} UNIT={} TEMP={} {}={}", bambu ? "AFC_BAMBU_HEATER_START" : "AFC_ACE_DRY",
+                       st.unit_name, temp_c, bambu ? "TIME" : "DURATION", duration_min);
 }
 
 std::string stop_drying_gcode(const UnitDryerState& st) {
-    switch (st.vendor) {
-    case DryerVendor::Bambu:
-        return fmt::format("AFC_BAMBU_HEATER_STOP UNIT={}", st.unit_name);
-    case DryerVendor::Ace:
-    case DryerVendor::Ace2:
-        return fmt::format("AFC_ACE_DRY_STOP UNIT={}", st.unit_name);
-    case DryerVendor::None:
-        break;
+    if (st.vendor == DryerVendor::None) {
+        return {};
     }
-    return {};
+    return (st.vendor == DryerVendor::Bambu ? "AFC_BAMBU_HEATER_STOP UNIT="
+                                            : "AFC_ACE_DRY_STOP UNIT=") +
+           st.unit_name;
 }
 
 } // namespace helix::afc
