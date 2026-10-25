@@ -43,7 +43,6 @@
 #include "i_moonraker_api.h"
 #include "lvgl/src/others/translation/lv_translation.h"
 #include "observer_factory.h"
-#include "print_stop_reason.h"
 #include "printer_detector.h"
 #include "printer_state.h"
 #include "spoolman_manager.h"
@@ -1488,14 +1487,10 @@ void AmsStandingFaultDialog::evaluate() {
     const PrintJobState job = print.get_print_job_state();
     const bool paused = job == PrintJobState::PAUSED;
     const bool printing = job == PrintJobState::PRINTING;
-    AmsBackend* backend = AmsState::instance().get_backend();
-    std::string cause = paused ? lv_subject_get_string(print.get_print_stop_reason_subject()) : "";
-    if (cause.empty()) {
-        cause = recent_gcode_error(print, wall_now_s());
-    }
-    const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
+    auto& ams = AmsState::instance();
+    const auto ev = ams.standing_fault();
     const StandingFaultStep step =
-        trigger_.update(ev.has_value(), paused, printing, !cause.empty());
+        trigger_.update(ev.has_value(), paused, printing, !ams.fault_cause().empty());
     if (!trigger_.raised()) {
         if (modal_) {
             modal_->dismiss_silently();
@@ -1514,7 +1509,7 @@ void AmsStandingFaultDialog::evaluate() {
     // The cause that now explains the fault replaces the backend's own text.
     modal_->dismiss_silently();
     show_ams_error_dialog(*modal_, lv_screen_active(), ev->detail,
-                          backend->get_system_info().current_slot, nullptr,
+                          ams.get_backend()->get_system_info().current_slot, nullptr,
                           []() { navigate_to_ams_panel(); });
 }
 

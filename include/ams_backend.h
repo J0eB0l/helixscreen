@@ -573,9 +573,9 @@ class AmsBackend {
     }
 
     /// Channel B: the current actionable fault, derived from backend STATUS
-    /// rather than from a console line. Consulted only by AmsErrorBridge, and
-    /// only on the rising edge into AmsAction::ERROR — a backend that never
-    /// assigns that action can override this and still never be asked.
+    /// rather than from a console line. Read through AmsState::standing_fault()
+    /// by the surfaces that raise a standing fault, and by AmsState to know
+    /// how long the fault's cause holds.
     ///
     /// Returns nullopt when there is no actionable error, or when a bespoke
     /// dialog owns the fault.

@@ -133,6 +133,30 @@ class AfcStandingFaultHelper : public AmsBackendAfc {
 } // namespace helix
 
 // ============================================================================
+// The fault's cause
+// ============================================================================
+
+TEST_CASE("standing_fault_cause says why the fault stands", "[ams-standing-fault]") {
+    SECTION("paused: the stop reason") {
+        CHECK(standing_fault_cause(true, kLane3Fault, "") == kLane3Fault);
+    }
+    SECTION("not paused: the recent `!!` line") {
+        CHECK(standing_fault_cause(false, "Quad gantry level failed", kLane3Fault) == kLane3Fault);
+    }
+    SECTION("paused with no stop reason yet: the recent `!!` line") {
+        CHECK(standing_fault_cause(true, "", kLane3Fault) == kLane3Fault);
+    }
+    SECTION("neither: empty") {
+        CHECK(standing_fault_cause(false, "", "").empty());
+        CHECK(standing_fault_cause(true, "", "").empty());
+    }
+    SECTION("the stop reason wins over the `!!` line") {
+        CHECK(standing_fault_cause(true, "Quad gantry level failed", kLane3Fault) ==
+              "Quad gantry level failed");
+    }
+}
+
+// ============================================================================
 // The trigger decision
 // ============================================================================
 
@@ -547,6 +571,159 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     REQUIRE(message != nullptr);
     CHECK(std::string(lv_label_get_text(message)) == kStaleMessage);
 
+    raw->feed_afc({{"error_state", false}, {"current_state", "Idle"}});
+    uninstall(*this);
+}
+
+// ============================================================================
+// AmsState holds the cause; the sidebar shows it
+// ============================================================================
+
+namespace {
+
+std::string sidebar_detail() {
+    return lv_subject_get_string(AmsState::instance().get_ams_action_detail_subject());
+}
+
+/// The sidebar under a fault whose backend's own text is the stale message,
+/// while the `!!` line ages out. @p stale is the backend's own fault, if it has one.
+void check_sidebar_holds_the_cause(LVGLUITestFixture& fx, StaleFaultBackend* stale) {
+    auto& ams = AmsState::instance();
+    auto& print = fx.state().print_state();
+
+    SECTION("the cause outlives its `!!` line") {
+        print.set_last_gcode_error(kLane3Fault, wall_now());
+        ams.set_action(AmsAction::ERROR);
+        pump(fx);
+        REQUIRE(sidebar_detail() == kLane3Fault);
+
+        print.set_last_gcode_error(kLane3Fault, wall_now() - 60.0);
+        lv_subject_notify(print.get_print_state_enum_subject());
+        pump(fx);
+        CHECK(sidebar_detail() == kLane3Fault);
+        CHECK(ams.fault_cause() == kLane3Fault);
+
+        SECTION("the fault clearing drops it") {
+            if (stale) {
+                stale->set_fault(false);
+            }
+            ams.set_action(AmsAction::IDLE);
+            pump(fx);
+            CHECK(ams.fault_cause().empty());
+            CHECK(sidebar_detail() == kStaleMessage);
+            ams.set_action(AmsAction::ERROR);
+            pump(fx);
+            CHECK(sidebar_detail() == kStaleMessage);
+            ams.set_action(AmsAction::IDLE);
+        }
+    }
+    SECTION("a cause arriving after the ERROR edge") {
+        print.set_last_gcode_error("", 0.0);
+        ams.set_action(AmsAction::ERROR);
+        pump(fx);
+        REQUIRE(sidebar_detail() == kStaleMessage);
+        REQUIRE(ams.fault_cause().empty());
+
+        test::set_wire_state(fx.state(), PrintJobState::PAUSED);
+        pump(fx);
+        print.set_print_stop_reason(kLane3Fault);
+        pump(fx);
+        CHECK(sidebar_detail() == kLane3Fault);
+    }
+    SECTION("narration still wins") {
+        print.set_last_gcode_error(kLane3Fault, wall_now());
+        ams.set_action(AmsAction::ERROR);
+        ams.set_narration_phase(0, "Brush nozzle");
+        pump(fx);
+        CHECK(sidebar_detail() == "Brush nozzle");
+        ams.set_narration_phase(-1, "");
+    }
+
+    print.set_last_gcode_error("", 0.0);
+    ams.set_action_detail("");
+}
+
+} // namespace
+
+TEST_CASE_METHOD(LVGLUITestFixture, "AmsState holds a fault's cause for the sidebar",
+                 "[ams-standing-fault][ams]") {
+    auto* backend = install(*this);
+    backend->set_fault(true);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    AmsState::instance().set_action_detail(kStaleMessage);
+    pump(*this);
+
+    check_sidebar_holds_the_cause(*this, backend);
+
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsState holds a fault's cause for a backend with no fault of its own",
+                 "[ams-standing-fault][ams]") {
+    auto& ams = AmsState::instance();
+    ams.init_subjects(true);
+    ams.set_action(AmsAction::IDLE);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    state().print_state().set_print_stop_reason("");
+    ams.set_backend(std::make_unique<AmsBackendMock>(4));
+    ams.set_action_detail(kStaleMessage);
+    pump(*this);
+
+    check_sidebar_holds_the_cause(*this, nullptr);
+
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Every surface of a live AFC fault shows the `!!` text, never AFC.message's",
+                 "[ams-standing-fault][ams-bridge][afc]") {
+    auto& ams = AmsState::instance();
+    ams.init_subjects(true);
+    ams.set_action(AmsAction::IDLE);
+    test::set_wire_state(state(), PrintJobState::PRINTING);
+    state().print_state().set_print_stop_reason("");
+    state().print_state().set_last_gcode_error("", 0.0);
+    auto afc = std::make_unique<AfcStandingFaultHelper>();
+    auto* raw = afc.get();
+    ams.set_backend(std::move(afc));
+    pump(*this);
+
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    AmsErrorBridge bridge(presenter);
+    bridge.start();
+    helix::ui::AmsStandingFaultDialog dialog(state());
+
+    // AFC prints its `!!`, holds error_state over a 40-minute-old message, and pauses.
+    state().print_state().set_last_gcode_error(gcode_error_reason_text(kBangResponse), wall_now());
+    raw->feed_afc({{"error_state", true},
+                   {"current_state", "Error"},
+                   {"message", {{"message", kStaleMessage}, {"type", "error"}}}});
+    REQUIRE(raw->get_system_info().operation_detail == kStaleMessage);
+    ams.sync_from_backend();
+    ams.set_action(AmsAction::ERROR);
+    test::set_wire_state(state(), PrintJobState::PAUSED);
+    pump(*this);
+
+    CHECK(sidebar_detail() == kLane3Fault);
+    REQUIRE(presenter.is_visible());
+    CHECK(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+    REQUIRE(dialog.is_visible());
+    lv_obj_t* message = find_on_screen("error_message");
+    REQUIRE(message != nullptr);
+    CHECK(std::string(lv_label_get_text(message)) == kLane3Fault);
+
+    // Minutes later the `!!` line is out of its window; AFC's next frame repeats
+    // the stale message.
+    state().print_state().set_last_gcode_error(gcode_error_reason_text(kBangResponse),
+                                               wall_now() - 600.0);
+    raw->feed_afc({{"error_state", true}, {"current_state", "Error"}});
+    ams.sync_from_backend();
+    pump(*this);
+    CHECK(sidebar_detail() == kLane3Fault);
+    CHECK(ams.standing_fault()->detail == kLane3Fault);
+
+    state().print_state().set_last_gcode_error("", 0.0);
     raw->feed_afc({{"error_state", false}, {"current_state", "Idle"}});
     uninstall(*this);
 }
