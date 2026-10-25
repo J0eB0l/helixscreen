@@ -83,11 +83,15 @@ void apply_plr_mesh_include(bool add) {
     }
     plr_rpc::mesh_include_action(
         *api, add,
-        [](bool present, bool /*changed*/) {
+        [](bool present, bool changed) {
             helix::ui::queue_update(
-                "PrintingSettingsOverlay::plr_mesh_include_applied", [present]() {
+                "PrintingSettingsOverlay::plr_mesh_include_applied", [present, changed]() {
                     get_printer_state().plugin_status_state().set_plr_mesh_include(present);
-                    offer_firmware_restart();
+                    // A no-op action (the include appeared between the ask and
+                    // the confirm) changed nothing, so no restart is owed.
+                    if (changed) {
+                        offer_firmware_restart();
+                    }
                 });
         },
         [](const MoonrakerError& err) {
@@ -190,6 +194,16 @@ void PrintingSettingsOverlay::register_callbacks() {
                  ModalSeverity::Warning, lv_tr("Remove"), [] { apply_plr_mesh_include(false); });
          }},
     });
+
+    auto& plugin = get_printer_state().plugin_status_state();
+    plr_feature_observer_ = helix::ui::observe<int>(
+        plugin.get_plr_feature_state_subject(), this,
+        [](PrintingSettingsOverlay*, int state) {
+            if (state != static_cast<int>(PluginFeatureState::Absent)) {
+                query_plr_mesh_include();
+            }
+        },
+        get_printer_state().get_subjects_lifetime());
 }
 
 void PrintingSettingsOverlay::on_activate() {

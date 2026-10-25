@@ -496,8 +496,10 @@ starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
 written to the mock database, on when none is, so the Settings switch round-trips;
 its `enabled` is `saving` or a snapshot waiting, as the plugin reports it.
 `server.helix.plr.mesh_include` answers from the mock's own include flag,
-without this knob, so the Settings mesh-include row drives under `--test`
-with the plugin knob off; its add and remove flip the flag.
+with no snapshot involved, so it works without this knob; but the Settings
+mesh-include row shows only while the `plr` feature is present, so driving
+it under `--test` still needs `HELIX_MOCK_HELIX_PLUGIN=1` and this knob set.
+The endpoint's add and remove flip the flag.
 
 ### `HELIX_MOCK_PLR_TIER`
 
