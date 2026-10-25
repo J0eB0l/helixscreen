@@ -310,6 +310,62 @@ TEST_CASE_METHOD(LVGLUITestFixture, "AmsErrorBridge raises a fault that comes af
     uninstall(*this);
 }
 
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsErrorBridge keeps the `!!` text when the ERROR edge follows the raise",
+                 "[ams-standing-fault][ams-bridge]") {
+    auto* backend = install(*this);
+    backend->set_fault(true);
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    AmsErrorBridge bridge(presenter);
+    bridge.start();
+    // error_state stands, the action not yet ERROR: the pause raises it.
+    pause_with_bang(*this);
+    REQUIRE(presenter.is_visible());
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+    RecoveryModalPresenterTestAccess::user_dismiss(presenter);
+    pump(*this);
+    REQUIRE_FALSE(presenter.is_visible());
+
+    // The edge opens a new episode and presents the fault, still explained by the
+    // pause. The backend's detail holds across the edge, so only the edge presents.
+    AmsState::instance().set_action_detail("Loading lane3");
+    pump(*this);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    CHECK(presenter.is_visible());
+    CHECK(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+
+    AmsState::instance().set_action_detail("");
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "AmsErrorBridge leaves a fault closed when its cause arrives after the edge",
+                 "[ams-standing-fault][ams-bridge]") {
+    auto* backend = install(*this);
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    AmsErrorBridge bridge(presenter);
+    bridge.start();
+    test::set_wire_state(state(), PrintJobState::PAUSED);
+    pump(*this);
+
+    // The edge raises the fault with the backend's own text: nothing explains it yet.
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(presenter.is_visible());
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kStaleMessage);
+    RecoveryModalPresenterTestAccess::user_dismiss(presenter);
+    pump(*this);
+    REQUIRE_FALSE(presenter.is_visible());
+
+    state().print_state().set_print_stop_reason(gcode_error_reason_text(kBangResponse));
+    pump(*this);
+    CHECK_FALSE(presenter.is_visible());
+
+    uninstall(*this);
+}
+
 // ============================================================================
 // Firmware: the AMS loading-error dialog, AMS panel closed
 // ============================================================================

@@ -579,6 +579,24 @@ TEST_CASE_METHOD(EventTestFixture, "MoonrakerClient KLIPPY_READY event behavior"
     }
 }
 
+TEST_CASE_METHOD(EventTestFixture, "MoonrakerClient reruns the connected callbacks on Klippy ready",
+                 "[state][integration][klippy]") {
+    std::atomic<int> runs{0};
+    client_->add_connected_observer("test_rediscovery", [&runs] { ++runs; });
+    runs = 0; // an already-connected client fires the observer on registration
+
+    client_->on_ws_message(klippy_notification("notify_klippy_disconnected"));
+    CHECK(runs == 0);
+
+    // A FIRMWARE_RESTART can change the hardware, so ready always rediscovers.
+    client_->on_ws_message(klippy_notification("notify_klippy_ready"));
+    CHECK(runs == 1);
+    client_->on_ws_message(klippy_notification("notify_klippy_ready"));
+    CHECK(runs == 2);
+
+    client_->remove_connected_observer("test_rediscovery");
+}
+
 // ============================================================================
 // Test Cases: Shutdown Suppression
 // ============================================================================

@@ -189,6 +189,42 @@ TEST_CASE_METHOD(LVGLTestFixture,
     test::set_wire_state(state, PrintJobState::STANDBY);
 }
 
+TEST_CASE_METHOD(LVGLTestFixture, "PrinterState: a new print starts with no stop reason",
+                 "[state][stop_reason]") {
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+    state.print_state().set_print_stop_reason("Quad gantry level failed");
+    REQUIRE(lv_subject_get_int(state.print_state().get_print_stop_reason_visible_subject()) == 1);
+
+    state.print_state().reset_for_new_print();
+
+    CHECK(std::string(lv_subject_get_string(state.print_state().get_print_stop_reason_subject())) ==
+          "");
+    CHECK(lv_subject_get_int(state.print_state().get_print_stop_reason_visible_subject()) == 0);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "PrinterState: a print's first frame keeps its own message",
+                 "[state][stop_reason]") {
+    PrinterState& state = get_printer_state();
+    PrinterStateTestAccess::reset(state);
+    state.init_subjects(false);
+    test::set_wire_state(state, PrintJobState::STANDBY);
+    auto message = [&state] {
+        return std::string(lv_subject_get_string(state.print_state().get_print_message_subject()));
+    };
+
+    state.update_from_status(
+        json{{"print_stats", {{"state", "printing"}, {"message", "Waiting for chamber"}}}});
+    CHECK(message() == "Waiting for chamber");
+
+    // A start frame that carries no message clears the last print's.
+    test::set_wire_state(state, PrintJobState::CANCELLED);
+    state.update_from_status(json{{"print_stats", {{"state", "printing"}}}});
+    CHECK(message().empty());
+    test::set_wire_state(state, PrintJobState::STANDBY);
+}
+
 TEST_CASE_METHOD(TrackerFixture, "stop reason tracker: the tapped error explains a cancel",
                  "[print_completion][stop_reason]") {
     now_ = kEnd - 2;
