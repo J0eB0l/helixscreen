@@ -29,9 +29,12 @@
   <styles>
     <style name="residual" text_color="#text_subtle"/>
     <style name="accent_border" border_color="#warning"/>
+    <!-- Pinned chips sit on the photo itself, so they hide what is behind them. -->
+    <style name="pinned" bg_opa="90%"/>
   </styles>
   <view extends="lv_obj" width="content" height="content" scrollable="false" clickable="true">
     <style name="styles.activity_chip"/>
+    <bind_style_if_eq name="pinned" subject="$compact_subject" ref_value="1"/>
     <bind_style_if_eq name="accent_border" subject="$tone_subject" ref_value="2"/>
     <bind_style_if_ge name="accent_border" subject="$progress_subject" ref_value="0"/>
     <!-- Before the label in markup, after it on screen: the pill lays out row_reverse. -->

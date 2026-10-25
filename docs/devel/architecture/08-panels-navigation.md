@@ -182,7 +182,7 @@ Choosing between a modal and an overlay is a design question with a fixed answer
 
 **Pre-print** (`preparing_visible`): the job tile is a start-sequence checklist over the faded slicer thumbnail: done rows (check, real duration), the current row (amber, spinner, countdown), upcoming rows (muted, predicted duration). The compact form shows "Step N of M", the current step large, its countdown, and a dot per step. Rows come from `PrintStartCollector::checklist_input()` ([PREPRINT_PREDICTION.md](../PREPRINT_PREDICTION.md#the-pre-print-checklist)). A heater still climbing gets an amber chip with a progress bar; one at target shows a check. Fans that are off are hidden. The strip shows the phase, time left and the filament line.
 
-**Printing**: the job tile is the gcode preview card (corner buttons including exclude object, footer with file name, layer and Z). The strip shows percent, time left, clock time of the finish, elapsed, the filament line (swatch, tool, name, tool changes) and Up next when jobs are queued.
+**Printing**: the job tile is the gcode preview card (corner buttons including exclude object, footer with file name, layer and Z). Its camera button swaps the art for the live feed in the same area: the panel publishes `print_status_camera_available` (webcam, remote screen, platform extras; the More menu's Camera row binds it too) and `print_status_camera_showing` (that and the persisted `print_status_show_camera` setting), runs a `CameraView` only while showing and active, and pauses the G-code viewer under it. The strip shows percent, time left, clock time of the finish, elapsed, the filament line (swatch, tool, name, tool changes) and Up next when jobs are queued.
 
 **Printer tile chips** (`include/print_status_chips.h`, one pure decision per kind; `PrintStatusTiles::update_now()` in `src/ui/ui_print_status_tiles.cpp#update_now` copies results into `ps_chip_<key>_*` subjects):
 
@@ -192,7 +192,7 @@ Choosing between a modal and an overlay is a design question with a fixed answer
 | Part fan, hotend fan | `part_fan`, `nozzle` | Part fan Active while spinning. Fans at 0% are Dim, and a hotend fan at its automatic speed is Dim; both expendable. |
 | Aux fan | none | Dim and expendable at 0%. |
 | Light | `light` | Active when on, expendable when off; tap toggles. |
-| Speed + flow | none | One chip; Warn whenever either factor is not 100%, never expendable then. It honors the percent or mm/s choice and opens Tune. |
+| Speed + flow | none | One chip with the live toolhead speed (`tune::live_speed_text()`, `187mm/s`); Warn whenever either factor is not 100%, never expendable then. The factors are Tune's to show. Opens Tune. |
 
 Fan chips lead with a role label (Part, HE, Aux) when there is room. Every chip is a tap target into the detail it summarizes. **More** holds Camera, Timelapse and Light, each under its existing visibility rule, and hides when all are hidden.
 
@@ -211,7 +211,7 @@ Leaders are dotted and have three points: the part's point, an elbow, and the ch
 Three rules keep the picture still and the chips readable:
 
 - **The mode follows a stable budget, not the readings.** Fit is tested against every chip the printer can ever show, each measured at a representative reading (`heater_budget_text()`: a three-digit value, heating or holding; fans at 100%; speed and flow at 100%), so a digit or a chip coming and going never moves the layout. Only the active chips get positions.
-- **The picture may shrink up to 20%** (`kMaxImageShrinkPct`), just enough for one side then both, to keep leader lines before giving up to `Pinned`.
+- **The picture may shrink** to keep leader lines before giving up to `Pinned`: just enough for one side, up to 40% (`kMaxImageShrinkPctOneSide`), then for both, up to 20% (`kMaxImageShrinkPctBothSides`).
 - **When chips do not fit**, a chip gives way in this order: fan labels first (the same chips, narrower), then expendable chips one at a time (hotend fan first, then the light and aux fan, then part fan and speed/flow if expendable), then `Pinned`. A chip off target, tuned or heating is never expendable. `CalloutLayout::dropped` names what was left off and `unlabeled` says labels were shed.
 
 Current limitations: a toolchanger's idle tools are not shown on this screen (only the active tool, as the badge on the nozzle chip), and the pre-print phase has no first-layer or estimated print time line.

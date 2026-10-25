@@ -458,9 +458,12 @@ inline bool stack(const CalloutLayoutInput& in, const CalloutRect& img, bool hor
     return true;
 }
 
-/// How far below its contain-fit size the image may shrink to make room for a
-/// leader-line column; past this, the picture loses more than the lines give.
-inline constexpr int kMaxImageShrinkPct = 20;
+/// How far below its contain-fit size the image may shrink to make room for
+/// leader-line columns; past this, the picture loses more than the lines give.
+/// One column buys more: without it a wide picture falls to Pinned, its chips
+/// laid over the photo, which reads worse than a smaller picture with lines.
+inline constexpr int kMaxImageShrinkPctOneSide = 40;
+inline constexpr int kMaxImageShrinkPctBothSides = 20;
 
 /// The side band's axis (true: bands left and right) and the room one column of
 /// budget chips needs across it, for the image at `img`.
@@ -737,12 +740,14 @@ inline bool try_line_modes_at(const CalloutLayoutInput& in, const CalloutRect& c
     return false;
 }
 
-/// Line modes at the contain-fit size, else with the image shrunk by up to
-/// kMaxImageShrinkPct: just enough for one side, then for both. Fit is tested
+/// Line modes at the contain-fit size, else with the image shrunk just enough
+/// for one side (up to `one_side_shrink_pct`), then for both (up to
+/// kMaxImageShrinkPctBothSides). Fit is tested
 /// against the BUDGET and only the ACTIVE chips are placed, so the image never
 /// moves as chips come and go. Chips with no tagged point have no line; they dock
 /// in the space the line modes leave, and must fit there too.
-inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
+inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out,
+                           int one_side_shrink_pct) {
     CalloutLayoutInput lined = in;
     std::vector<CalloutChipIn> loose_budget, loose_active;
     const auto split_loose = [](const std::vector<CalloutChipIn>& all,
@@ -760,11 +765,14 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
     const CalloutRect fitted = out.image;
     if (try_line_modes_at(lined, fitted, loose_budget, loose_active, out))
         return true;
+    // Sized from the same widths try_line_modes_at() accepts against: the
+    // loose chips ride in the side band too.
     const auto [horiz, col] = line_column(in, fitted);
     const int area = horiz ? in.area_w : in.area_h;
     const int full = horiz ? fitted.w : fitted.h;
-    const int min_extent = full - full * kMaxImageShrinkPct / 100;
     for (const int columns : {1, 2}) {
+        const int max_shrink_pct = columns == 1 ? one_side_shrink_pct : kMaxImageShrinkPctBothSides;
+        const int min_extent = full - full * max_shrink_pct / 100;
         const int extent = area - columns * col;
         if (extent < min_extent || extent >= full)
             continue;
@@ -792,11 +800,11 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
 
     std::vector<CalloutChipIn> chips = in.active;
     if (in.tagged) {
-        if (try_line_modes(in, out))
-            return out;
         // A chip with a line keeps its label: two unlabeled fan chips read the
         // same. Expendable chips go instead, before the image gives up its
-        // lines, the most expendable first, one more at a time.
+        // lines, the most expendable first, one more at a time. Only then may
+        // the image shrink further for a single column: a smaller picture with
+        // lines reads better than chips laid over it.
         const auto has_label = [](const CalloutChipIn& c) { return c.w_unlabeled > 0; };
         const bool can_unlabel = std::any_of(in.budget.begin(), in.budget.end(), has_label) ||
                                  std::any_of(in.active.begin(), in.active.end(), has_label);
@@ -807,19 +815,23 @@ inline bool try_line_modes(const CalloutLayoutInput& in, CalloutLayout& out) {
                 by_rank.push_back(c.kind);
         std::sort(by_rank.begin(), by_rank.end(),
                   [](CalloutKind a, CalloutKind b) { return dock_rank(a) < dock_rank(b); });
-        for (size_t n = 1; n <= by_rank.size(); ++n) {
-            const auto gone = [&](const CalloutChipIn& c) {
-                return c.expendable && std::find(by_rank.begin(), by_rank.begin() + long(n),
-                                                 c.kind) != by_rank.begin() + long(n);
-            };
-            CalloutLayoutInput lean = base;
-            for (auto* v : {&lean.budget, &lean.active})
-                v->erase(std::remove_if(v->begin(), v->end(), gone), v->end());
-            if (try_line_modes(lean, out)) {
-                for (const auto& c : in.active)
-                    if (gone(c))
-                        out.dropped.push_back(c.kind);
+        for (const int one_side_pct : {kMaxImageShrinkPctBothSides, kMaxImageShrinkPctOneSide}) {
+            if (try_line_modes(in, out, one_side_pct))
                 return out;
+            for (size_t n = 1; n <= by_rank.size(); ++n) {
+                const auto gone = [&](const CalloutChipIn& c) {
+                    return c.expendable && std::find(by_rank.begin(), by_rank.begin() + long(n),
+                                                     c.kind) != by_rank.begin() + long(n);
+                };
+                CalloutLayoutInput lean = base;
+                for (auto* v : {&lean.budget, &lean.active})
+                    v->erase(std::remove_if(v->begin(), v->end(), gone), v->end());
+                if (try_line_modes(lean, out, one_side_pct)) {
+                    for (const auto& c : in.active)
+                        if (gone(c))
+                            out.dropped.push_back(c.kind);
+                    return out;
+                }
             }
         }
         // Pinned chips sit on their parts, so their place names them: no labels.

@@ -104,7 +104,7 @@ TEST_CASE_METHOD(LVGLUITestFixture, "printer image: the light chip has no text l
     // Still looks like a pill: same styles.activity_chip look every other
     // chip borrows (bg_opa and border_width are literals in that style, not
     // theme-token defaults a bare lv_obj would already carry).
-    CHECK(lv_obj_get_style_bg_opa(light, LV_PART_MAIN) == LV_OPA_50);
+    CHECK(lv_obj_get_style_bg_opa(light, LV_PART_MAIN) == LV_OPA_COVER * 65 / 100);
     CHECK(lv_obj_get_style_border_width(light, LV_PART_MAIN) == 1);
 }
 
@@ -1100,7 +1100,8 @@ TEST_CASE_METHOD(LVGLUITestFixture,
         const CalloutRect fit = fitted_image(h);
         CAPTURE(w, fit.w, lv_obj_get_width(img));
         CHECK(lv_obj_get_width(img) < fit.w);
-        CHECK(lv_obj_get_width(img) >= fit.w - fit.w * callout_detail::kMaxImageShrinkPct / 100);
+        CHECK(lv_obj_get_width(img) >=
+              fit.w - fit.w * callout_detail::kMaxImageShrinkPctBothSides / 100);
         CHECK(lv_obj_get_x(img) ==
               (lv_obj_get_content_width(container) - lv_obj_get_width(img)) / 2);
     }

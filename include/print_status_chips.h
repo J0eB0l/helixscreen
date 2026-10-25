@@ -29,8 +29,6 @@ struct ChipContent {
     int progress_pct = -1;
     /// A heater's HeaterStatusState as an int, for its heater_status glyph; 0 for any other chip.
     int status_state = 0;
-    /// A value shown ahead of `text` behind an icon of its own: the speed before the flow.
-    std::string lead_text;
 };
 
 /// A heater chip. `status` is classify_heater_status() of the same reading.
@@ -56,16 +54,14 @@ enum class FanRole { Part = 0, Hotend = 1, Aux = 2 };
 [[nodiscard]] ChipContent fan_chip(FanRole role, bool present, int pct, bool automatic,
                                    bool labeled);
 
-/// The speed/flow chip: the speed as its lead value, the flow as its text. Warn
-/// whenever either factor is not 100%, never expendable then.
+/// The speed/flow chip: the live toolhead speed as its text. Warn whenever
+/// either factor is not 100%, never expendable then; the factors themselves
+/// are Tune's to show.
 [[nodiscard]] ChipContent speed_flow_chip(int speed_pct, int flow_pct,
-                                          const std::string& speed_text,
-                                          const std::string& flow_text);
+                                          const std::string& speed_text);
 
-/// The speed/flow chip the layout measures: representative readings in the
-/// unit the chip shows, 100% each or (`physical_units`) a three-digit
-/// toolhead speed and a two-digit volumetric flow.
-[[nodiscard]] ChipContent speed_flow_budget_chip(bool physical_units, float filament_diameter_mm);
+/// The speed/flow chip the layout measures: a three-digit toolhead speed.
+[[nodiscard]] ChipContent speed_flow_budget_chip();
 
 /// The light chip: Active when on, expendable when off.
 [[nodiscard]] ChipContent light_chip(bool controllable, bool on);

@@ -68,6 +68,31 @@ class PrintStatusPanelTestAccess {
         return panel.tiles_;
     }
 
+    /// The preview card's camera stream exists (it may still be connecting).
+    static bool camera_streaming(const PrintStatusPanel& panel) {
+#if HELIX_HAS_CAMERA
+        return panel.camera_view_.has_stream();
+#else
+        (void)panel;
+        return false;
+#endif
+    }
+
+    /// Start the preview card's camera as an active, showing panel does.
+    static void start_preview_camera(PrintStatusPanel& panel) {
+        panel.start_preview_camera();
+    }
+
+    /// A More menu row's tap, by its PrintStatusMoreMenu action.
+    static void more_action(PrintStatusPanel& panel, int action) {
+        panel.handle_more_action(action);
+    }
+
+    /// What the preview controller calls to put the G-code render up or down.
+    static void show_gcode_viewer(PrintStatusPanel& panel, bool show) {
+        panel.show_gcode_viewer(show);
+    }
+
     /// The More button's tap, raising the menu below @p anchor.
     static void open_more_menu(PrintStatusPanel& panel, lv_obj_t* anchor) {
         panel.handle_more_clicked(anchor);

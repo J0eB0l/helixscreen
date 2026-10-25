@@ -105,6 +105,12 @@ TEST_CASE("status_speed_flow_text shows override percentages or physical units",
     }
 }
 
+TEST_CASE("Every live speed readout shares one format", "[tune_controller][tune_units]") {
+    CHECK(helix::tune::live_speed_text(187) == "187 mm/s");
+    CHECK(helix::tune::status_speed_flow_text(true, 100, 100, 187, 0, 1.75).speed ==
+          helix::tune::live_speed_text(187));
+}
+
 TEST_CASE_METHOD(TuneFixture, "set_pressure_advance sends a clamped SET_PRESSURE_ADVANCE",
                  "[tune_controller][pa_tune][mock]") {
     helix::tune::set_pressure_advance(api.get(), "extruder1", 0.0425f);

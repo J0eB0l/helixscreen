@@ -570,7 +570,7 @@ TEST_CASE_METHOD(LVGLUITestFixture,
 TEST_CASE_METHOD(LVGLUITestFixture, "Detailed card: the speed row goes where the column is short",
                  "[print_status][formatter]") {
     FormatterTexts texts;
-    FormatterTexts::set("print_status_speed_text", "187mm/s");
+    FormatterTexts::set("print_status_speed_text", "187 mm/s");
     REQUIRE(lv_xml_register_component_from_file(
                 "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
     lv_obj_t* host = lv_obj_create(test_screen());

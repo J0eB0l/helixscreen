@@ -91,7 +91,7 @@ namespace tio = helix::text_io;
 // this file's include path, so forward-declare rather than including the
 // header (same pattern as ui_settings_hardware.cpp).
 namespace helix {
-void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 }
 #endif
 
@@ -167,11 +167,13 @@ static void log_tree_created(PrintState state, size_t available_mb) {
 // No-ops when no webcam is configured or a fullscreen view is already open;
 // reuses an attached home CameraWidget's stream when one exists
 // (single-MJPEG-client safe).
-static void open_print_status_camera() {
+// Returns whether a fullscreen view opened.
+static bool open_print_status_camera() {
 #if HELIX_HAS_CAMERA
-    helix::open_standalone_camera_fullscreen(lv_display_get_screen_active(nullptr));
+    return helix::open_standalone_camera_fullscreen(lv_display_get_screen_active(nullptr));
 #else
     spdlog::debug("[PrintStatusPanel] Camera support disabled in this build");
+    return false;
 #endif
 }
 
@@ -236,9 +238,12 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
                              [this]() { return lifecycle_.state() != PrintState::Preparing; },
                              [this]() { return lifecycle_.speed_percent(); },
                              [this]() { return lifecycle_.flow_percent(); },
-                             [this]() { return std::string(progress_text_.speed_text()); },
-                             [this]() { return std::string(progress_text_.flow_text()); }}) {
+                             [this]() { return std::string(progress_text_.speed_text()); }}) {
     preview_.set_api(api);
+#if HELIX_HAS_CAMERA
+    // Another view taking the camera over; the card restarts on reactivation.
+    camera_view_.on_preempted([this]() { stop_preview_camera(); });
+#endif
     // Pre-init local subject used by observer callback below (fires immediately on subscribe)
     lv_subject_init_int(&exclude_objects_available_subject_, 0);
 
@@ -323,18 +328,10 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
     flow_factor_observer_ = observe<int>(
         printer_state_.motion_state().get_flow_factor_subject(), this,
         [](PrintStatusPanel* self, int flow) { self->on_flow_factor_changed(flow); }, ps_subjects);
-    // The physical-units readout also moves with the live toolhead and
-    // extruder velocities, and with the speed/flow units preference.
+    // The speed/flow chip shows the live toolhead speed.
     live_velocity_observer_ = observe<int>(
         printer_state_.motion_state().get_live_velocity_subject(), this,
         [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); }, ps_subjects);
-    extruder_velocity_observer_ = observe<int>(
-        printer_state_.motion_state().get_live_extruder_velocity_subject(), this,
-        [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); }, ps_subjects);
-    physical_units_observer_ = observe<int>(
-        DisplaySettingsManager::instance().subject_speed_flow_physical_units(), this,
-        [](PrintStatusPanel* self, int) { self->update_speed_flow_text(); },
-        DisplaySettingsManager::instance().get_subjects_lifetime());
     gcode_z_offset_observer_ = observe<int>(
         printer_state_.motion_state().get_gcode_z_offset_subject(), this,
         [](PrintStatusPanel* self, int microns) { self->on_gcode_z_offset_changed(microns); },
@@ -519,6 +516,12 @@ PrintStatusPanel::~PrintStatusPanel() {
     // explicit teardown path removed it — nothing left to uninstall.
     uninstall_root_delete_hook(delete_hook_root_, on_root_deleted, this);
 
+#if HELIX_HAS_CAMERA
+    // The camera image can outlive this panel with the tree; clear it before
+    // the stream frees the frame it shows.
+    camera_view_.stop({preview_camera_image_});
+#endif
+
     deinit_subjects();
 
     // Expire all outstanding async callback tokens before destroying resources
@@ -585,12 +588,36 @@ void PrintStatusPanel::init_subjects() {
     // Viewer mode subject (0=thumbnail, 1=3D gcode viewer, 2=2D gcode viewer)
     UI_MANAGED_SUBJECT_INT(gcode_viewer_mode_subject_, 0, "gcode_viewer_mode", subjects_);
     UI_MANAGED_SUBJECT_INT(exclude_map_active_subject_, 0, "exclude_map_active", subjects_);
+    UI_MANAGED_SUBJECT_INT(camera_available_subject_, 0, "print_status_camera_available",
+                           subjects_);
+    UI_MANAGED_SUBJECT_INT(camera_showing_subject_, 0, "print_status_camera_showing", subjects_);
+    UI_MANAGED_SUBJECT_INT(camera_has_frame_subject_, 0, "print_status_camera_has_frame",
+                           subjects_);
     UI_MANAGED_SUBJECT_INT(end_overlay_dismissed_subject_, 0, "end_overlay_dismissed", subjects_);
 
     UI_MANAGED_SUBJECT_INT(arrangement_subject_, 0, "ps_arrangement", subjects_);
     UI_MANAGED_SUBJECT_INT(strip_stacked_subject_, 0, "ps_strip_stacked", subjects_);
     UI_MANAGED_SUBJECT_INT(checklist_compact_subject_, 0, "ps_checklist_compact", subjects_);
     tiles_.init_subjects(subjects_);
+
+    // The camera subjects follow every input of their rule.
+    {
+        const auto camera_inputs_changed = [](PrintStatusPanel* self, int /*v*/) {
+            self->update_preview_camera();
+        };
+        auto& caps = printer_state_.capabilities_state();
+        camera_webcam_observer_ = observe<int>(caps.subject(helix::Capability::HasWebcam), this,
+                                               camera_inputs_changed, caps.get_subjects_lifetime());
+        camera_remote_observer_ =
+            observe<int>(printer_state_.network_state().get_moonraker_is_remote_subject(), this,
+                         camera_inputs_changed, printer_state_.get_subjects_lifetime());
+        auto& display_settings = DisplaySettingsManager::instance();
+        camera_choice_observer_ =
+            observe<int>(display_settings.subject_print_status_show_camera(), this,
+                         camera_inputs_changed, display_settings.get_subjects_lifetime());
+        camera_exclude_map_observer_ = observe<int>(&exclude_map_active_subject_, this,
+                                                    camera_inputs_changed, get_subjects_lifetime());
+    }
 
     // Fan classification refresh: on discovery (structural, fans_version) and on
     // runtime part-fan reassignment as fans start/stop (primary_fans_version, #1124).
@@ -765,6 +792,8 @@ void PrintStatusPanel::init_subjects() {
          [](lv_event_t*) { get_global_print_status_panel().handle_objects_toggle(); }},
         {"on_view_toggle",
          [](lv_event_t*) { get_global_print_status_panel().handle_view_toggle(); }},
+        {"on_print_status_camera_toggle",
+         [](lv_event_t*) { get_global_print_status_panel().handle_camera_toggle(); }},
         {"on_print_status_dismiss_overlay",
          [](lv_event_t*) {
              // XML binding on each overlay hides when end_overlay_dismissed == 1.
@@ -778,6 +807,7 @@ void PrintStatusPanel::init_subjects() {
     helix::ui::PrintStatusMoreMenu::register_callbacks();
 
     subjects_initialized_ = true;
+    update_preview_camera();
 
     // Initial sync of the paused overlay — observers only fire on CHANGE, so
     // a mid-print attach where state is already PAUSED would leave the badge
@@ -841,6 +871,10 @@ void PrintStatusPanel::deinit_subjects() {
     // in its destructor trying to lv_observer_remove() on freed memory.
     end_overlay_dismissed_observer_.reset();
     print_stop_reason_observer_.reset();
+    camera_webcam_observer_.reset();
+    camera_remote_observer_.reset();
+    camera_choice_observer_.reset();
+    camera_exclude_map_observer_.reset();
 
     // Fan observers — lifetimes BEFORE observer guards per [L084]
     fans_version_observer_.reset();
@@ -927,6 +961,7 @@ lv_obj_t* PrintStatusPanel::create(lv_obj_t* parent) {
     gcode_viewer_ = lv_obj_find_by_name(thumbnail_section, "print_gcode_viewer");
     print_thumbnail_ = lv_obj_find_by_name(thumbnail_section, "print_thumbnail");
     gradient_background_ = lv_obj_find_by_name(thumbnail_section, "gradient_background");
+    preview_camera_image_ = lv_obj_find_by_name(thumbnail_section, "preview_camera_image");
 
     preview_.attach_widgets(print_thumbnail_, gcode_viewer_);
 
@@ -1147,6 +1182,7 @@ void PrintStatusPanel::on_activate() {
     bool show_viewer = !thumbnail_only && lifecycle_.want_viewer() && gcode_present;
     crash_handler::breadcrumb::note("pstat_act", show_viewer ? "viewer_on" : "viewer_off");
     show_gcode_viewer(show_viewer);
+    update_preview_camera();
 
     // Sync gcode viewer to current print layer (may have advanced while panel was hidden)
     if (gcode_present && !lv_obj_has_flag(gcode_viewer_, LV_OBJ_FLAG_HIDDEN)) {
@@ -1191,6 +1227,9 @@ void PrintStatusPanel::on_deactivating(DeactivateReason) {
     // Note: bar animation cancellation is handled by lv_bar_destructor()
     // when widgets are deleted. Manual lv_anim_delete(bar_ptr) uses the wrong
     // var pointer (bar animations use &bar->cur_value_anim internally).
+
+    // Overlays get no cleanup() until shutdown, so the camera stops here.
+    stop_preview_camera();
 
     // Pause G-code viewer rendering when panel is hidden (CPU optimization)
     if (gcode_viewer_) {
@@ -1317,9 +1356,11 @@ void PrintStatusPanel::forget_cached_widgets() {
     overlay_root_ = nullptr;
     progress_bar_ = nullptr;
     preparing_progress_bar_ = nullptr;
+    stop_preview_camera();
     gcode_viewer_ = nullptr;
     print_thumbnail_ = nullptr;
     gradient_background_ = nullptr;
+    preview_camera_image_ = nullptr;
     btn_tune_ = nullptr;
     btn_cancel_ = nullptr;
     success_badge_ = nullptr;
@@ -1515,9 +1556,7 @@ void PrintStatusPanel::show_gcode_viewer(bool show) {
     }
 
     // Pause/resume rendering based on visibility mode (CPU optimization)
-    if (gcode_viewer_) {
-        ui_gcode_viewer_set_paused(gcode_viewer_, !show);
-    }
+    apply_gcode_viewer_pause();
 
     spdlog::trace("[{}] G-code viewer mode: {} ({})", get_name(), mode,
                   mode == 0 ? "thumbnail" : (mode == 1 ? "3D" : "2D"));
@@ -1537,6 +1576,95 @@ void PrintStatusPanel::show_gcode_viewer(bool show) {
         bool grad_hidden = lv_obj_has_flag(gradient_background_, LV_OBJ_FLAG_HIDDEN);
         spdlog::trace("[{}]   -> gradient: hidden={}", get_name(), grad_hidden);
     }
+}
+
+void PrintStatusPanel::apply_gcode_viewer_pause() {
+    if (!gcode_viewer_) {
+        return;
+    }
+    const bool viewer_layer = lv_subject_get_int(&gcode_viewer_mode_subject_) != 0;
+    const bool camera_covers = lv_subject_get_int(&camera_showing_subject_) != 0;
+    ui_gcode_viewer_set_paused(gcode_viewer_, !viewer_layer || camera_covers);
+}
+
+void PrintStatusPanel::update_preview_camera() {
+    if (!subjects_initialized_) {
+        return;
+    }
+    const auto is_set = [](lv_subject_t* s) { return s && lv_subject_get_int(s) != 0; };
+#if HELIX_HAS_CAMERA
+    constexpr bool kCameraBuild = true;
+#else
+    constexpr bool kCameraBuild = false;
+#endif
+    const bool available =
+        kCameraBuild &&
+        is_set(printer_state_.capabilities_state().subject(helix::Capability::HasWebcam)) &&
+        is_set(printer_state_.network_state().get_moonraker_is_remote_subject()) &&
+        is_set(lv_xml_get_subject(nullptr, "platform_extras_available"));
+    const bool showing = available &&
+                         DisplaySettingsManager::instance().get_print_status_show_camera() &&
+                         lv_subject_get_int(&exclude_map_active_subject_) == 0;
+    if (lv_subject_get_int(&camera_available_subject_) != static_cast<int>(available)) {
+        lv_subject_set_int(&camera_available_subject_, available ? 1 : 0);
+    }
+    if (lv_subject_get_int(&camera_showing_subject_) != static_cast<int>(showing)) {
+        lv_subject_set_int(&camera_showing_subject_, showing ? 1 : 0);
+    }
+
+    // An inactive panel's viewer was paused by on_deactivating() and stays so.
+    if (is_active_) {
+        apply_gcode_viewer_pause();
+    }
+    if (showing && is_active_ && !display_asleep_) {
+        start_preview_camera();
+    } else {
+        stop_preview_camera();
+    }
+}
+
+void PrintStatusPanel::start_preview_camera() {
+#if HELIX_HAS_CAMERA
+    if (!preview_camera_image_ || camera_view_.is_running()) {
+        return;
+    }
+    const bool started = camera_view_.start(
+        "", nlohmann::json::object(), {preview_camera_image_},
+        [this](lv_draw_buf_t* frame) {
+            if (!preview_camera_image_) {
+                return;
+            }
+            lv_image_set_src(preview_camera_image_, frame);
+            if (lv_subject_get_int(&camera_has_frame_subject_) == 0) {
+                lv_subject_set_int(&camera_has_frame_subject_, 1);
+            }
+        },
+        [this](const std::string& status) {
+            spdlog::debug("[{}] Preview camera: {}", get_name(), status);
+        });
+    if (!started) {
+        return;
+    }
+    camera_view_.on_display_sleep([this](bool sleeping) {
+        display_asleep_ = sleeping;
+        update_preview_camera();
+    });
+#endif
+}
+
+void PrintStatusPanel::stop_preview_camera() {
+#if HELIX_HAS_CAMERA
+    camera_view_.stop({preview_camera_image_});
+#endif
+    if (subjects_initialized_ && lv_subject_get_int(&camera_has_frame_subject_) != 0) {
+        lv_subject_set_int(&camera_has_frame_subject_, 0);
+    }
+}
+
+void PrintStatusPanel::handle_camera_toggle() {
+    auto& settings = DisplaySettingsManager::instance();
+    settings.set_print_status_show_camera(!settings.get_print_status_show_camera());
+    update_preview_camera();
 }
 
 void PrintStatusPanel::show_exclude_map_view() {
@@ -1976,7 +2104,13 @@ void PrintStatusPanel::handle_more_clicked(lv_obj_t* anchor) {
 void PrintStatusPanel::handle_more_action(int action) {
     switch (action) {
     case helix::ui::PrintStatusMoreMenu::kActionCamera:
-        open_print_status_camera();
+        // Most MJPEG streamers serve one client: the fullscreen viewer's
+        // stream replaces the card's, which restarts when this panel returns,
+        // or now when no viewer opened.
+        stop_preview_camera();
+        if (!open_print_status_camera()) {
+            update_preview_camera();
+        }
         break;
     case helix::ui::PrintStatusMoreMenu::kActionTimelapse:
         light_timelapse_controls_.handle_timelapse_button();

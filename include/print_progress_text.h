@@ -40,15 +40,12 @@ class PrintProgressText {
     void clear_layer();
     /// Filament used so far, empty when none.
     void refresh_filament_used();
-    /// Speed and flow, in percent or physical units per the display setting.
+    /// The live toolhead speed.
     void refresh_speed_flow();
 
-    /// The speed and flow readouts as published, in the units the preference picks.
+    /// The live toolhead speed as last refreshed: "187 mm/s".
     [[nodiscard]] const char* speed_text() const {
         return speed_buf_;
-    }
-    [[nodiscard]] const char* flow_text() const {
-        return flow_buf_;
     }
 
     void show_elapsed(int seconds);
@@ -71,8 +68,7 @@ class PrintProgressText {
     char elapsed_buf_[32] = "0h 00m";
     char remaining_buf_[32] = "0h 00m";
     char eta_buf_[32] = "";
-    char speed_buf_[32] = "100%";
-    char flow_buf_[32] = "100%";
+    char speed_buf_[32] = "0 mm/s";
 };
 
 } // namespace helix::ui

@@ -22,7 +22,7 @@
 // Defined in src/ui/panel_widgets/camera_widget.cpp; that directory is not on
 // the include path, so forward-declare rather than including the header.
 namespace helix {
-void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 }
 #endif
 

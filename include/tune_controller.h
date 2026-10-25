@@ -62,4 +62,7 @@ SpeedFlowText status_speed_flow_text(bool physical_units, int speed_pct, int flo
                                      int live_velocity_mm_s, int extruder_velocity_centimm_s,
                                      float filament_diameter_mm);
 
+/// The measured toolhead speed, the one format every readout shows: "187 mm/s".
+std::string live_speed_text(int live_velocity_mm_s);
+
 } // namespace helix::tune
