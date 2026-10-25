@@ -1105,10 +1105,6 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// @pre mutex_ held.
     bool parse_unit_dryers(const nlohmann::json& params);
 
-    /// Keep the topology arrays (lanes/extruders/hubs/buffers) each unit object
-    /// last published, whether or not AFC.units names it yet. @pre mutex_ held.
-    void cache_unit_objects(const nlohmann::json& params);
-
     /// The dryer state of system_info_.units[@p unit], or nullptr when that
     /// unit has no heater-carrying unit object. @pre mutex_ held.
     [[nodiscard]] const helix::afc::UnitDryerState* unit_dryer_locked(int unit) const;
@@ -1502,11 +1498,6 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// ("AFC_BambuAMS AMS_1"). Survives unit_infos_ rebuilds.
     std::unordered_map<std::string, helix::afc::UnitDryerState> unit_dryers_;
 
-    /// Topology arrays per unit object key, merged across delta frames.
-    std::unordered_map<std::string, nlohmann::json> unit_object_cache_;
-
-    /// Every lane name AFC.lanes last listed, to notice one claimed live.
-    std::vector<std::string> afc_lane_roster_;
     /// A roster refresh query is in flight or queued.
     bool roster_refresh_pending_ = false;
     /// The roster grew while a refresh was in flight: run one more after it.

@@ -71,10 +71,42 @@ std::string string_value(const nlohmann::json& v) {
     return helix::json_util::as_string(v);
 }
 
+bool flag(const nlohmann::json& v) {
+    return v.is_boolean() && v.get<bool>();
+}
+
+/// bridge_online goes stale rather than false; a unit that never published one
+/// is assumed reachable.
+bool online_flag(const nlohmann::json& v) {
+    return !v.is_boolean() || v.get<bool>();
+}
+
+float number_or_zero(const nlohmann::json& v) {
+    return v.is_number() ? v.get<float>() : 0.0f;
+}
+
+std::optional<int> minutes_as_seconds(const nlohmann::json& v) {
+    const auto m = positive_int(v);
+    return m ? std::optional<int>(*m * 60) : std::nullopt;
+}
+
+bool ace_dryer_running(const nlohmann::json& v) {
+    // ace_dryer values that mean "not running"; anything else is a live cycle.
+    static constexpr std::array<std::string_view, 7> kIdle = {"",     "stop", "stopped", "stopping",
+                                                              "idle", "off",  "none"};
+    const std::string lowered = helix::text_io::to_lower(string_value(v));
+    for (const auto idle : kIdle) {
+        if (lowered == idle) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /// Assign @p key's value through @p parse when the frame carries it. A key that
 /// arrives as null clears the value: Bambu publishes None for "not drying".
-template <typename T, typename Parse>
-bool take(const nlohmann::json& data, const char* key, T& out, Parse parse) {
+template <typename T>
+bool take(const nlohmann::json& data, const char* key, T& out, T (*parse)(const nlohmann::json&)) {
     const auto it = data.find(key);
     if (it == data.end()) {
         return false;
@@ -85,62 +117,33 @@ bool take(const nlohmann::json& data, const char* key, T& out, Parse parse) {
 
 bool apply_bambu(const nlohmann::json& data, UnitDryerState& st) {
     bool any = false;
-    any |= take(data, "has_heater", st.has_heater,
-                [](const nlohmann::json& v) { return v.is_boolean() && v.get<bool>(); });
+    any |= take(data, "has_heater", st.has_heater, flag);
     any |= take(data, "ams_model", st.model, string_value);
-    any |= take(data, "dry_max_temp", st.max_temp_c,
-                [](const nlohmann::json& v) { return v.is_number() ? v.get<float>() : 0.0f; });
-    // bridge_online goes stale rather than false; a frame without it keeps the
-    // last answer, and a unit that never published one is assumed reachable.
-    any |= take(data, "bridge_online", st.online,
-                [](const nlohmann::json& v) { return !v.is_boolean() || v.get<bool>(); });
-    any |= take(data, "drying", st.drying,
-                [](const nlohmann::json& v) { return v.is_boolean() && v.get<bool>(); });
+    any |= take(data, "dry_max_temp", st.max_temp_c, number_or_zero);
+    // A frame without bridge_online keeps the last answer.
+    any |= take(data, "bridge_online", st.online, online_flag);
+    any |= take(data, "drying", st.drying, flag);
     any |= take(data, "temperature", st.temperature_c, reading);
     any |= take(data, "humidity", st.humidity_pct, reading);
     any |= take(data, "dry_target", st.target_c, reading);
     any |= take(data, "dry_remaining", st.remaining_s, positive_int);
-    any |= take(data, "dry_minutes", st.duration_s, [](const nlohmann::json& v) {
-        const auto m = positive_int(v);
-        return m ? std::optional<int>(*m * 60) : std::nullopt;
-    });
+    any |= take(data, "dry_minutes", st.duration_s, minutes_as_seconds);
     any |= take(data, "dry_error", st.error, string_value);
     any |= take(data, "dry_blocked", st.blocked, string_value);
     return any;
 }
 
-bool ace_dryer_running(const std::string& status) {
-    // ace_dryer values that mean "not running"; anything else is a live cycle.
-    static constexpr std::array<std::string_view, 7> kIdle = {"",     "stop", "stopped", "stopping",
-                                                              "idle", "off",  "none"};
-    const std::string lowered = helix::text_io::to_lower(status);
-    for (const auto idle : kIdle) {
-        if (lowered == idle) {
-            return false;
-        }
-    }
-    return true;
-}
-
 bool apply_ace(const nlohmann::json& data, UnitDryerState& st) {
     bool any = false;
-    any |= take(data, "ace_connected", st.online,
-                [](const nlohmann::json& v) { return v.is_boolean() && v.get<bool>(); });
-    any |= take(data, "ace_dryer", st.drying,
-                [](const nlohmann::json& v) { return ace_dryer_running(string_value(v)); });
+    any |= take(data, "ace_connected", st.online, flag);
+    any |= take(data, "ace_dryer", st.drying, ace_dryer_running);
     any |= take(data, "ace_temp", st.temperature_c, reading);
     any |= take(data, "ace_humidity", st.humidity_pct, reading);
     any |= take(data, "ace_dryer_target", st.target_c, reading);
     any |= take(data, "ace_dryer_remain", st.remaining_s, positive_int);
-    const bool v2 = st.vendor == DryerVendor::Ace2;
-    any |= take(data, "ace_dryer_duration", st.duration_s, [v2](const nlohmann::json& v) {
-        // V1 echoes the minutes it was asked for; the ACE 2 converts to seconds.
-        const auto raw = positive_int(v);
-        if (!raw) {
-            return std::optional<int>();
-        }
-        return std::optional<int>(v2 ? *raw : *raw * 60);
-    });
+    // V1 echoes the minutes it was asked for; the ACE 2 converts to seconds.
+    any |= take(data, "ace_dryer_duration", st.duration_s,
+                st.vendor == DryerVendor::Ace2 ? positive_int : minutes_as_seconds);
     return any;
 }
 
@@ -164,29 +167,20 @@ DryerVendor dryer_vendor_for_object(const std::string& klipper_key) {
 }
 
 const nlohmann::json& unit_dryer_status_fields() {
-    static const nlohmann::json fields = nlohmann::json::array({
+    static constexpr const char* kFields[] = {
         // AFC_BambuAMS
-        "has_heater",
-        "ams_model",
-        "dry_max_temp",
-        "bridge_online",
-        "drying",
-        "temperature",
-        "humidity",
-        "dry_target",
-        "dry_remaining",
-        "dry_minutes",
-        "dry_error",
-        "dry_blocked",
+        "has_heater", "ams_model", "dry_max_temp", "bridge_online", "drying", "temperature",
+        "humidity", "dry_target", "dry_remaining", "dry_minutes", "dry_error", "dry_blocked",
         // AFC_ACE / AFC_ACE2
-        "ace_connected",
-        "ace_temp",
-        "ace_humidity",
-        "ace_dryer",
-        "ace_dryer_target",
-        "ace_dryer_remain",
-        "ace_dryer_duration",
-    });
+        "ace_connected", "ace_temp", "ace_humidity", "ace_dryer", "ace_dryer_target",
+        "ace_dryer_remain", "ace_dryer_duration"};
+    static const nlohmann::json fields = [] {
+        nlohmann::json out = nlohmann::json::array();
+        for (const char* field : kFields) {
+            out.push_back(field);
+        }
+        return out;
+    }();
     return fields;
 }
 

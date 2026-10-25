@@ -7,9 +7,12 @@
  *        dryer model, and a unit AFC gains at runtime joins the layout.
  */
 
+#include "ui_update_queue.h"
+
 #include "../lvgl_test_fixture.h"
 #include "afc_unit_dryer.h"
 #include "ams_backend_afc.h"
+#include "fake_moonraker_client.h"
 #include "test_helpers/afc_test_access.h"
 #include "test_helpers/log_capture.h"
 #include "test_helpers/registered_backend.h"
@@ -25,8 +28,9 @@ namespace helix {
 
 class AfcDryerHelper : public AmsBackendAfc {
   public:
-    explicit AfcDryerHelper(const std::vector<std::string>& names)
-        : AmsBackendAfc(nullptr, nullptr) {
+    explicit AfcDryerHelper(const std::vector<std::string>& names,
+                            IMoonrakerClient* client = nullptr)
+        : AmsBackendAfc(nullptr, client) {
         AfcTestAccess::initialize_slots(*this, names);
     }
 
@@ -273,19 +277,36 @@ TEST_CASE_METHOD(LVGLTestFixture, "A unit claimed after PREP joins the layout", 
     CHECK_FALSE(afc.get_dryer_info(0).supported);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "A claimed unit whose object lands before AFC.units still joins",
+TEST_CASE_METHOD(LVGLTestFixture, "A unit AFC.units names before its object arrives is fetched",
                  "[afc][dryer]") {
-    helix::test::RegisteredBackend<AfcDryerHelper> reg{lanes(1, 4)};
+    helix::test::FakeMoonrakerClient client;
+    helix::test::RegisteredBackend<AfcDryerHelper> reg{lanes(1, 4), &client};
     AfcDryerHelper& afc = *reg;
     afc.feed({{"AFC", {{"units", {"Box_Turtle Turtle_1"}}}},
               {"AFC_BoxTurtle Turtle_1", {{"lanes", lanes(1, 4)}}}});
+    REQUIRE(client.rpc_count("printer.objects.query") == 0);
 
-    afc.feed({{"AFC_BambuAMS AMS_1", {{"lanes", lanes(5, 4)}}}});
+    // The claimed unit's object went out in an earlier frame, before AFC.units
+    // named it, and is unchanged since: only a query brings it back.
     afc.feed({{"AFC", {{"units", {"Box_Turtle Turtle_1", "BambuAMS AMS_1"}}}}});
+    helix::ui::UpdateQueue::instance().drain();
+    REQUIRE(client.rpc_count("printer.objects.query") == 1);
+    const auto* query = client.last_rpc();
+    REQUIRE(query->params["objects"].contains("AFC_BambuAMS AMS_1"));
+    REQUIRE(query->success_cb);
+
+    query->success_cb(
+        {{"result", {{"status", {{"AFC_BambuAMS AMS_1", {{"lanes", lanes(5, 4)}}}}}}}});
+    // One drain applies the answer; the follow-up query it queues needs another.
+    helix::ui::UpdateQueue::instance().drain();
+    helix::ui::UpdateQueue::instance().drain();
 
     const AmsSystemInfo info = afc.get_system_info();
     REQUIRE(info.units.size() == 2);
     CHECK(info.total_slots == 8);
+    // The new lanes' own objects were never fetched: a second query asks for them.
+    REQUIRE(client.rpc_count("printer.objects.query") == 2);
+    CHECK(client.last_rpc()->params["objects"].contains("AFC_stepper lane5"));
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "A frame carrying every unit object rebuilds the layout once",

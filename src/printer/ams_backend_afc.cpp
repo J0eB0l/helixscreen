@@ -32,13 +32,11 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <climits>
 #include <cmath>
 #include <cstring>
 #include <optional>
-#include <string_view>
 #include <vector>
 
 namespace helix {
@@ -1410,12 +1408,8 @@ void AmsBackendAfc::handle_status(const nlohmann::json& params) {
         // buffer in the first frame resolved against the synthetic single unit
         // initialize_slots() creates, and a five-unit rig put all five buffers on
         // unit 0 (bundle XGVDYEB5).
-        cache_unit_objects(params);
         const bool slots_were_initialized = slots_.is_initialized();
-        std::vector<std::string> lanes_before;
-        for (int i = 0; i < slots_.slot_count(); ++i) {
-            lanes_before.push_back(slots_.name_of(i));
-        }
+        const int slots_before = slots_.slot_count();
         bool parsed_unit_object = false;
         for (auto& unit_info : unit_infos_) {
             if (params.contains(unit_info.klipper_key) &&
@@ -1431,14 +1425,8 @@ void AmsBackendAfc::handle_status(const nlohmann::json& params) {
         // The lane objects were parsed above against the slots as they stood, so a
         // lane a unit object just brought in (a unit claimed live) missed this
         // frame's state and may never get another. Fetch it.
-        if (slots_were_initialized) {
-            for (int i = 0; i < slots_.slot_count(); ++i) {
-                if (std::find(lanes_before.begin(), lanes_before.end(), slots_.name_of(i)) ==
-                    lanes_before.end()) {
-                    schedule_roster_refresh_locked("a unit brought in new lanes");
-                    break;
-                }
-            }
+        if (slots_were_initialized && slots_.slot_count() > slots_before) {
+            schedule_roster_refresh_locked("a unit brought in new lanes");
         }
 
         if (parse_unit_dryers(params)) {
@@ -2147,32 +2135,6 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         parse_lane_data(afc_data["lanes"]);
     }
 
-    // Current AFC publishes `lanes` as the flat list of lane names. A name that
-    // was not there before and has no slot is a lane that joined at runtime: a
-    // BridgeBox claiming a Bambu AMS after PREP moves its pooled lanes into
-    // afc.lanes live. Its unit object may never send another frame, so fetch.
-    if (afc_data.contains("lanes") && afc_data["lanes"].is_array()) {
-        std::vector<std::string> roster;
-        for (const auto& lane : afc_data["lanes"]) {
-            if (lane.is_string()) {
-                roster.push_back(lane.get<std::string>());
-            }
-        }
-        const bool had_roster = !afc_lane_roster_.empty();
-        bool grew = false;
-        for (const auto& lane : roster) {
-            if (std::find(afc_lane_roster_.begin(), afc_lane_roster_.end(), lane) ==
-                    afc_lane_roster_.end() &&
-                slots_.is_initialized() && slots_.index_of(lane) < 0) {
-                grew = true;
-            }
-        }
-        afc_lane_roster_ = std::move(roster);
-        if (had_roster && grew) {
-            schedule_roster_refresh_locked("AFC.lanes gained a lane");
-        }
-    }
-
     // Parse unit information if available
     if (afc_data.contains("units") && afc_data["units"].is_array()) {
         const auto& units_json = afc_data["units"];
@@ -2263,22 +2225,8 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
         }
 
         if (had_units && unit_joined) {
-            // A unit that joined may have sent its own object before AFC.units
-            // named it; that frame was cached rather than lost.
-            bool applied_cached = false;
-            for (auto& ui : unit_infos_) {
-                if (!ui.lanes.empty()) {
-                    continue;
-                }
-                const auto cached = unit_object_cache_.find(ui.klipper_key);
-                if (cached != unit_object_cache_.end()) {
-                    parse_afc_unit_object(ui, cached->second);
-                    applied_cached = true;
-                }
-            }
-            if (applied_cached) {
-                rebuild_unit_map_if_complete();
-            }
+            // The joined unit's object may have landed before AFC.units named it,
+            // and Moonraker will not resend an unchanged one: fetch it.
             schedule_roster_refresh_locked("AFC.units gained a unit");
         }
 
@@ -3613,29 +3561,6 @@ void AmsBackendAfc::apply_unit_environment() {
     }
 }
 
-void AmsBackendAfc::cache_unit_objects(const nlohmann::json& params) {
-    static constexpr std::array<std::string_view, 6> kNotUnits = {
-        "AFC_stepper ", "AFC_lane ", "AFC_hub ", "AFC_buffer ", "AFC_extruder ", "AFC_led "};
-    for (auto it = params.begin(); it != params.end(); ++it) {
-        const std::string& key = it.key();
-        if (!it.value().is_object() || key.rfind("AFC_", 0) != 0 ||
-            key.find(' ') == std::string::npos) {
-            continue;
-        }
-        if (std::any_of(kNotUnits.begin(), kNotUnits.end(),
-                        [&](std::string_view p) { return key.rfind(p, 0) == 0; })) {
-            continue;
-        }
-        auto& cached = unit_object_cache_[key];
-        for (const char* field : {"lanes", "extruders", "hubs", "buffers"}) {
-            const auto f = it.value().find(field);
-            if (f != it.value().end()) {
-                cached[field] = *f;
-            }
-        }
-    }
-}
-
 bool AmsBackendAfc::parse_unit_dryers(const nlohmann::json& params) {
     bool any = false;
     for (auto it = params.begin(); it != params.end(); ++it) {
@@ -3683,47 +3608,46 @@ DryerInfo AmsBackendAfc::get_dryer_info(int unit) const {
 
 AmsError AmsBackendAfc::start_drying(float temp_c, int duration_min, int fan_pct, int unit) {
     (void)fan_pct; // Neither vendor's command takes a fan speed.
-    helix::afc::UnitDryerState dryer;
+    std::string gcode;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        const auto* state = unit_dryer_locked(unit);
-        if (!state || !state->has_heater) {
+        const auto* dryer = unit_dryer_locked(unit);
+        if (!dryer || !dryer->has_heater) {
             return AmsErrorHelper::not_supported("Dryer");
         }
-        dryer = *state;
+        if (auto refusal = helix::check_dryer_request(helix::afc::to_dryer_info(*dryer), temp_c,
+                                                      duration_min)) {
+            return *refusal;
+        }
+        if (!dryer->online) {
+            return AmsError(AmsResult::COMMAND_FAILED, dryer->unit_name + " is offline",
+                            lv_tr("Heater offline"), "");
+        }
+        if (!dryer->blocked.empty()) {
+            // The same refusal AFC_BAMBU_HEATER_START would answer with, e.g. a second
+            // AMS 2 Pro heating off the BridgeBox supply. AFC's own words, untranslated.
+            return AmsError(AmsResult::COMMAND_FAILED, dryer->blocked, lv_tr("Start failed"),
+                            dryer->blocked);
+        }
+        gcode = helix::afc::start_drying_gcode(*dryer, static_cast<int>(std::lround(temp_c)),
+                                               duration_min);
     }
-    if (auto refusal =
-            helix::check_dryer_request(helix::afc::to_dryer_info(dryer), temp_c, duration_min)) {
-        return *refusal;
-    }
-    if (!dryer.online) {
-        return AmsError(AmsResult::COMMAND_FAILED, dryer.unit_name + " is offline",
-                        lv_tr("Heater offline"), "");
-    }
-    if (!dryer.blocked.empty()) {
-        // The same refusal AFC_BAMBU_HEATER_START would answer with, e.g. a second
-        // AMS 2 Pro heating off the BridgeBox supply. AFC's own words, untranslated.
-        return AmsError(AmsResult::COMMAND_FAILED, dryer.blocked, lv_tr("Start failed"),
-                        dryer.blocked);
-    }
-    spdlog::info("[AMS AFC] Starting drying on {}: {}°C for {} minutes", dryer.unit_name, temp_c,
-                 duration_min);
-    return execute_gcode(
-        helix::afc::start_drying_gcode(dryer, static_cast<int>(std::lround(temp_c)), duration_min));
+    spdlog::info("[AMS AFC] Starting drying: {}", gcode);
+    return execute_gcode(gcode);
 }
 
 AmsError AmsBackendAfc::stop_drying(int unit) {
-    helix::afc::UnitDryerState dryer;
+    std::string gcode;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        const auto* state = unit_dryer_locked(unit);
-        if (!state || !state->has_heater) {
+        const auto* dryer = unit_dryer_locked(unit);
+        if (!dryer || !dryer->has_heater) {
             return AmsErrorHelper::not_supported("Dryer");
         }
-        dryer = *state;
+        gcode = helix::afc::stop_drying_gcode(*dryer);
     }
-    spdlog::info("[AMS AFC] Stopping drying on {}", dryer.unit_name);
-    return execute_gcode(helix::afc::stop_drying_gcode(dryer));
+    spdlog::info("[AMS AFC] Stopping drying: {}", gcode);
+    return execute_gcode(gcode);
 }
 
 AmsError AmsBackendAfc::update_drying(float temp_c, int duration_min, int fan_pct, int unit) {
@@ -4323,61 +4247,39 @@ void AmsBackendAfc::query_initial_state() {
     // Build list of AFC objects to query. Also the roster refresh after a unit
     // joins at runtime (schedule_roster_refresh_locked), which runs on the main
     // thread while status frames may be parsing: hold the lock while reading.
-    nlohmann::json objects_to_query;
-    std::unique_lock<std::mutex> lock(mutex_);
-
-    // Add main AFC object
-    objects_to_query["AFC"] = nullptr;
-
-    // Add AFC_stepper objects for each lane
-    for (int i = 0; i < slots_.slot_count(); ++i) {
-        std::string key = "AFC_stepper " + slots_.name_of(i);
-        objects_to_query[key] = nullptr;
-    }
-
-    // Add AFC_lane objects (OpenAMS lanes use this prefix instead of AFC_stepper)
-    for (int i = 0; i < slots_.slot_count(); ++i) {
-        std::string key = "AFC_lane " + slots_.name_of(i);
-        objects_to_query[key] = nullptr;
-    }
-
-    // Add AFC_hub objects
-    for (const auto& hub_name : hub_names_) {
-        std::string key = "AFC_hub " + hub_name;
-        objects_to_query[key] = nullptr;
-    }
-
-    // Add AFC_extruder objects (multi-extruder support)
-    if (!extruder_names_.empty()) {
-        for (const auto& ext_name : extruder_names_) {
-            std::string key = "AFC_extruder " + ext_name;
-            objects_to_query[key] = nullptr;
+    std::vector<std::string> names{"AFC"};
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // AFC_stepper per lane; OpenAMS lanes use the AFC_lane prefix instead.
+        for (int i = 0; i < slots_.slot_count(); ++i) {
+            names.push_back("AFC_stepper " + slots_.name_of(i));
+            names.push_back("AFC_lane " + slots_.name_of(i));
         }
-    } else {
-        // Backward compat: single extruder
-        objects_to_query["AFC_extruder extruder"] = nullptr;
+        for (const auto& hub_name : hub_names_) {
+            names.push_back("AFC_hub " + hub_name);
+        }
+        // Multi-extruder support; a single extruder is the backward-compat name.
+        if (extruder_names_.empty()) {
+            names.push_back("AFC_extruder extruder");
+        }
+        for (const auto& ext_name : extruder_names_) {
+            names.push_back("AFC_extruder " + ext_name);
+        }
+        // Unit-level Klipper objects (AFC_BoxTurtle, AFC_OpenAMS, AFC_vivid)
+        for (const auto& unit_info : unit_infos_) {
+            names.push_back(unit_info.klipper_key);
+        }
+        for (const auto& buf_name : buffer_names_) {
+            names.push_back("AFC_buffer " + buf_name);
+        }
     }
-
-    // Add unit-level Klipper objects (AFC_BoxTurtle, AFC_OpenAMS, AFC_vivid)
-    for (const auto& unit_info : unit_infos_) {
-        objects_to_query[unit_info.klipper_key] = nullptr;
-    }
-    for (const auto& buf_name : buffer_names_) {
-        objects_to_query["AFC_buffer " + buf_name] = nullptr;
-    }
-    lock.unlock();
 
     // Ask for the fields the subscription asks for, not whole objects: a Bambu
     // unit's full status is a few hundred diagnostic keys, and handle_status
     // reads frames shaped like the subscription's.
-    std::vector<std::string> names;
-    names.reserve(objects_to_query.size());
-    for (auto it = objects_to_query.begin(); it != objects_to_query.end(); ++it) {
-        names.push_back(it.key());
-    }
     nlohmann::json params = {{"objects", required_status_objects(names)}};
 
-    spdlog::debug("[AMS AFC] Querying initial state for {} objects", objects_to_query.size());
+    spdlog::debug("[AMS AFC] Querying initial state for {} objects", names.size());
 
     auto token = lifetime_.token();
     client_->send_jsonrpc(
