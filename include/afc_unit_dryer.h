@@ -20,7 +20,7 @@
  * - `AFC_BambuAMS` (AMS 2 Pro, AMS HT on a BridgeBox):
  *   `AFC_BAMBU_HEATER_START UNIT= TEMP= TIME=` / `AFC_BAMBU_HEATER_STOP UNIT=`
  * - `AFC_ACE` (ACE Pro) and `AFC_ACE2` (ACE 2 Pro):
- *   `ACE_DRY UNIT= TEMP= DURATION=` / `ACE_DRY_STOP UNIT=`
+ *   `AFC_ACE_DRY UNIT= TEMP= DURATION=` / `AFC_ACE_DRY_STOP UNIT=`
  *
  * Both commands take minutes. A Bambu unit reports the time left in seconds and the
  * commanded length in minutes; an ACE reports the time left in seconds, and the

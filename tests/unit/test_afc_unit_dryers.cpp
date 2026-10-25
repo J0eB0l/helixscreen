@@ -202,7 +202,7 @@ TEST_CASE_METHOD(LVGLTestFixture, "An AMS without a heater offers no dryer", "[a
     CHECK(afc.get_dryer_info(0).supported);
 }
 
-TEST_CASE_METHOD(LVGLTestFixture, "AFC-driven ACE units dry through ACE_DRY", "[afc][dryer]") {
+TEST_CASE_METHOD(LVGLTestFixture, "AFC-driven ACE units dry through AFC_ACE_DRY", "[afc][dryer]") {
     helix::test::RegisteredBackend<AfcDryerHelper> reg{lanes(1, 8)};
     AfcDryerHelper& afc = *reg;
     afc.feed({{"AFC", {{"units", {"ACE ace_1", "ACE2 ace_2"}}}},
@@ -241,8 +241,8 @@ TEST_CASE_METHOD(LVGLTestFixture, "AFC-driven ACE units dry through ACE_DRY", "[
     REQUIRE(afc.start_drying(50.0f, 240, -1, 0).success());
     REQUIRE(afc.stop_drying(1).success());
     REQUIRE(afc.captured.size() == 2);
-    CHECK(afc.captured[0] == "ACE_DRY UNIT=ace_1 TEMP=50 DURATION=240");
-    CHECK(afc.captured[1] == "ACE_DRY_STOP UNIT=ace_2");
+    CHECK(afc.captured[0] == "AFC_ACE_DRY UNIT=ace_1 TEMP=50 DURATION=240");
+    CHECK(afc.captured[1] == "AFC_ACE_DRY_STOP UNIT=ace_2");
 }
 
 TEST_CASE_METHOD(LVGLTestFixture, "A BoxTurtle has no dryer", "[afc][dryer]") {

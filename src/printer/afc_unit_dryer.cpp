@@ -269,7 +269,7 @@ std::string start_drying_gcode(const UnitDryerState& st, int temp_c, int duratio
                            duration_min);
     case DryerVendor::Ace:
     case DryerVendor::Ace2:
-        return fmt::format("ACE_DRY UNIT={} TEMP={} DURATION={}", st.unit_name, temp_c,
+        return fmt::format("AFC_ACE_DRY UNIT={} TEMP={} DURATION={}", st.unit_name, temp_c,
                            duration_min);
     case DryerVendor::None:
         break;
@@ -283,7 +283,7 @@ std::string stop_drying_gcode(const UnitDryerState& st) {
         return fmt::format("AFC_BAMBU_HEATER_STOP UNIT={}", st.unit_name);
     case DryerVendor::Ace:
     case DryerVendor::Ace2:
-        return fmt::format("ACE_DRY_STOP UNIT={}", st.unit_name);
+        return fmt::format("AFC_ACE_DRY_STOP UNIT={}", st.unit_name);
     case DryerVendor::None:
         break;
     }
