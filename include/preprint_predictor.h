@@ -70,6 +70,15 @@ struct PreprintHeating {
     /// False while the nozzle's target is unknown (a bed-first macro issues
     /// its M109 late), so the estimate holds a placeholder for that climb.
     bool nozzle_target_known = false;
+
+    /// Nozzle+bed seconds this start owes, or nullopt while its heating cannot
+    /// be priced: 0 means targets known and already reached.
+    [[nodiscard]] std::optional<float> priced_seconds() const {
+        if (!nozzle_target_known) {
+            return std::nullopt;
+        }
+        return nozzle_seconds + bed_seconds;
+    }
 };
 
 /**

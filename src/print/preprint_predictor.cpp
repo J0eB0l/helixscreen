@@ -352,9 +352,11 @@ PreprintEstimate PreprintPredictor::estimate(const PreprintHeating& heating,
 
     // Entries that recorded their priced heating separate the constant part of
     // a start (homing, mesh, soak, purge) from the heating that start owed, so
-    // this start pays its own heating plus the learned remainder. Legacy
-    // entries cannot be split; they keep the recorded wall clock as the
-    // honest total, floored by this start's own heating.
+    // this start pays its own heating plus the learned remainder. A start that
+    // cannot price its heating yet (a silent macro sets its targets later)
+    // pays the heating those entries learned instead, never less than the
+    // placeholder. Legacy entries cannot be split; they keep the recorded wall
+    // clock as the honest total, floored by this start's own heating.
     float total = static_cast<float>(predicted_total()) + wall_clock_delta;
     const std::optional<double> residual =
         weighted_entry_mean([](const PreprintEntry& e) -> std::optional<double> {
@@ -365,7 +367,18 @@ PreprintEstimate PreprintPredictor::estimate(const PreprintHeating& heating,
                                      static_cast<double>(*e.heating_seconds));
         });
     if (residual) {
-        total = heating_now + static_cast<float>(*residual) + wall_clock_delta;
+        float heating_owed = heating_now;
+        if (!heating.priced_seconds()) {
+            const std::optional<double> learned =
+                weighted_entry_mean([](const PreprintEntry& e) -> std::optional<double> {
+                    if (!e.heating_seconds) {
+                        return std::nullopt;
+                    }
+                    return static_cast<double>(*e.heating_seconds);
+                });
+            heating_owed = std::max(heating_owed, static_cast<float>(learned.value_or(0.0)));
+        }
+        total = heating_owed + static_cast<float>(*residual) + wall_clock_delta;
     } else {
         total = std::max(total, heating_now);
     }

@@ -8087,6 +8087,33 @@ TEST_CASE_METHOD(SilentVoronReplayFixture,
 }
 
 TEST_CASE_METHOD(SilentVoronReplayFixture,
+                 "PrintStartCollector: a start with hot heaters records zero heating",
+                 "[print][collector][preprint][silent_voron]") {
+    const auto run = [&](int ext_target) {
+        set_all_temps(600, 600, 2200, ext_target);
+        collector().start();
+        collector().enable_fallbacks();
+        settle();
+        clock_.advance(std::chrono::seconds(60));
+        tick_fallbacks();
+        settle();
+        collector().complete_from_external_signal("first layer");
+        settle();
+        collector().stop();
+        settle();
+    };
+
+    run(2200); // both heaters already at target: priced, and the price is 0
+    run(0);    // no nozzle target: the heating was never priced
+
+    const auto entries = helix::PreprintPredictor::load_entries_from_config();
+    REQUIRE(entries.size() == 2);
+    REQUIRE(entries[0].heating_seconds.has_value());
+    CHECK(*entries[0].heating_seconds == 0);
+    CHECK_FALSE(entries[1].heating_seconds.has_value());
+}
+
+TEST_CASE_METHOD(SilentVoronReplayFixture,
                  "PrintStartCollector: an already-homed printer does not show Homing",
                  "[print][collector][preprint][silent_voron][homing]") {
     lv_subject_copy_string(state().motion_state().get_homed_axes_subject(), "xyz");

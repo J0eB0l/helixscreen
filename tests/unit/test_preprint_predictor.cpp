@@ -722,6 +722,32 @@ TEST_CASE(
     }
 }
 
+TEST_CASE("PreprintPredictor: a start that cannot price its heating pays the learned heating",
+          "[print][predictor]") {
+    PreprintPredictor predictor;
+    PreprintEntry e;
+    e.total_seconds = 894;
+    e.timestamp = 2000;
+    e.heating_seconds = 470;
+    predictor.add_entry(e);
+
+    SECTION("no targets known: remainder plus learned heating") {
+        PreprintHeating h;
+        CHECK(predictor.estimate(h, {}).total_seconds == 894.0f);
+    }
+    SECTION("a bed priced above the learned heating still pays its own") {
+        PreprintHeating h;
+        h.bed_seconds = 600;
+        // 600 s of bed plus the unknown nozzle's 60 s placeholder.
+        CHECK(predictor.estimate(h, {}).total_seconds == 1084.0f);
+    }
+    SECTION("targets known and reached price heating at 0") {
+        PreprintHeating h;
+        h.nozzle_target_known = true;
+        CHECK(predictor.estimate(h, {}).total_seconds == 424.0f);
+    }
+}
+
 TEST_CASE("PreprintPredictor: legacy history is floored by this start's own heating",
           "[print][predictor]") {
     PreprintPredictor predictor;
