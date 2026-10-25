@@ -36,6 +36,8 @@
 #include "theme_manager.h"
 
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -46,13 +48,14 @@
 namespace {
 
 // The full status frame that makes the panel actionable: axes homed, a
-// 235x235x275 envelope, klippy ready, no print running.
+// A centre-origin Voron 2.4 envelope (±175 in X/Y, 275 tall), klippy
+// ready, no print running.
 nlohmann::json ready_status(const char* homed_axes) {
     return {
         {"toolhead",
          {{"homed_axes", homed_axes},
-          {"axis_minimum", {0.0, 0.0, 0.0, 0.0}},
-          {"axis_maximum", {235.0, 235.0, 275.0, 0.0}}}},
+          {"axis_minimum", {-175.0, -175.0, 0.0, 0.0}},
+          {"axis_maximum", {175.0, 175.0, 275.0, 0.0}}}},
         {"gcode_move", {{"gcode_position", {10.0, 10.0, 10.0, 0.0}}}},
     };
 }
@@ -111,6 +114,11 @@ class MoveTabFixture : public LVGLUITestFixture {
         drain();
 
         set_moonraker_api(&api_);
+        api_.update_safety_limits_from_printer([&] { limits_done_ = true; },
+                                               [&](const MoonrakerError&) { limits_done_ = true; });
+        for (int i = 0; i < 200 && !limits_done_.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
         client_.clear_gcode_script_history();
 
         get_printer_state().update_from_status(ready_status("xyz"));
@@ -159,14 +167,18 @@ class MoveTabFixture : public LVGLUITestFixture {
         return joined;
     }
 
-    // 235x235 with a 10% inset: the rear-right preset lands at 211.5/211.5
-    // and the front row at Y 23.5.
-    static constexpr float kRearRightXY = 211.5f;
-    static constexpr float kFrontY = 23.5f;
+    // 350x350 with a 10% inset: the rear-right preset lands at 140.0/140.0
+    // and the front row at Y -140.0.
+    static constexpr float kRearRightXY = 140.0f;
+    static constexpr float kFrontY = -140.0f;
 
     MoonrakerClientMock client_{MoonrakerClientMock::PrinterType::VORON_24};
     MoonrakerAPI api_{client_, get_printer_state()};
     IMoonrakerAPI* previous_api_ = get_moonraker_api();
+    /// Discovery widens the motion safety window from the machine's own
+    /// steppers; the centre-origin persona needs that before any bed gesture
+    /// can target a negative coordinate.
+    std::atomic<bool> limits_done_{false};
 };
 
 } // namespace
@@ -275,7 +287,7 @@ TEST_CASE_METHOD(MoveTabFixture, "park runs the configured macro", "[motion][mov
 
     const std::string scripts = all_scripts();
     CHECK(scripts.find("PARK") != std::string::npos);
-    CHECK(scripts.find("Y23.5") == std::string::npos); // fallback not taken
+    CHECK(scripts.find("Y-140") == std::string::npos); // fallback not taken
 }
 
 TEST_CASE_METHOD(MoveTabFixture,
@@ -292,14 +304,14 @@ TEST_CASE_METHOD(MoveTabFixture,
 
     click(panel_widget("move_park"));
 
-    // 235x235 plate, commanded Z 10: centred in X, 10mm inside the rear edge,
+    // 350x350 plate, commanded Z 10: centred in X, 10mm inside the rear edge,
     // nozzle up 10mm, and never the front preset.
     const std::string scripts = all_scripts();
     CHECK(scripts.find("PARK") == std::string::npos);
-    CHECK(scripts.find("X117.5") != std::string::npos);
-    CHECK(scripts.find("Y225") != std::string::npos);
+    CHECK(scripts.find("X0.0") != std::string::npos);
+    CHECK(scripts.find("Y165") != std::string::npos);
     CHECK(scripts.find("Z20") != std::string::npos);
-    CHECK(scripts.find("Y23.5") == std::string::npos);
+    CHECK(scripts.find("Y-140") == std::string::npos);
 }
 
 TEST_CASE_METHOD(MoveTabFixture, "park that has to home leaves Z where homing put it",
@@ -477,7 +489,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: the plate fits its slot and the pills
     CHECK_FALSE(lv_obj_has_flag(panel_widget("bed_tab"), LV_OBJ_FLAG_HIDDEN));
     CHECK(lv_obj_has_flag(panel_widget("move_tab"), LV_OBJ_FLAG_HIDDEN));
 
-    // 235x235 travel: a square plate inside the surface.
+    // 350x350 travel: a square plate inside the surface.
     lv_obj_t* area = panel_widget("bed_map_area");
     lv_obj_t* plate = panel_widget("bed_map_plate");
     const int32_t w = lv_obj_get_width(plate);
@@ -498,7 +510,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: a tap commits one move clamped to the
     const std::string scripts = all_scripts();
     INFO(scripts);
     // Rear-left corner, inset by the clamp's edge margin; Z 10 needs no lift.
-    CHECK(scripts.find("G0 X0.02 Y234.9") != std::string::npos);
+    CHECK(scripts.find("G0 X-174.979996 Y174.979996") != std::string::npos);
     CHECK(scripts.find('Z') == std::string::npos);
     CHECK(xy_moves(client_) == 1);
 }
@@ -519,10 +531,10 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: a tap lands on the point drawn under 
             REQUIRE(std::sscanf(script.c_str() + at, "G0 X%lf Y%lf", &x, &y) == 2);
         }
     }
-    // The middle of the drawn plate is the middle of the 235x235 bed, give or
+    // The middle of the drawn plate is the middle of the bed, give or
     // take a pixel of rounding.
-    CHECK(x == Catch::Approx(117.5).margin(1.5));
-    CHECK(y == Catch::Approx(117.5).margin(1.5));
+    CHECK(x == Catch::Approx(0.0).margin(1.5));
+    CHECK(y == Catch::Approx(0.0).margin(1.5));
 }
 
 TEST_CASE_METHOD(MoveTabFixture, "bed tab: the head follows a drag and release adds nothing new",
@@ -536,17 +548,17 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: the head follows a drag and release a
     panel.handle_bed_touch(helix::BedTouch::Pressing, area, far_point(area, true, false));
     drain();
     // Rear-right is under the finger, on screen and already on its way.
-    CHECK(bed_readout().find("X 235.0  Y 235.0") != std::string::npos);
+    CHECK(bed_readout().find("X 175.0  Y 175.0") != std::string::npos);
     CHECK(xy_moves(client_) == 1);
 
     panel.handle_bed_touch(helix::BedTouch::Pressing, area, far_point(area, true, true));
     // The finger resting there repeats PRESSING; it sends nothing more.
     panel.handle_bed_touch(helix::BedTouch::Pressing, area, far_point(area, true, true));
     drain();
-    CHECK(bed_readout().find("X 235.0  Y 0.0") != std::string::npos);
+    CHECK(bed_readout().find("X 175.0  Y -175.0") != std::string::npos);
     INFO(all_scripts());
     CHECK(xy_moves(client_) == 2);
-    CHECK(all_scripts().find(" Y0.02 ") != std::string::npos);
+    CHECK(all_scripts().find(" Y-174.979996 ") != std::string::npos);
 
     // Released where the last target already went: no third move.
     panel.handle_bed_touch(helix::BedTouch::Released, area, far_point(area, true, true));
@@ -569,7 +581,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: release past the last streamed point 
     drain();
     INFO(all_scripts());
     CHECK(xy_moves(client_) == 2);
-    CHECK(all_scripts().find(" Y0.02 ") != std::string::npos);
+    CHECK(all_scripts().find(" Y-174.979996 ") != std::string::npos);
 }
 
 TEST_CASE_METHOD(MoveTabFixture, "bed tab: a drag from below clearance lifts first, to one height",
@@ -628,7 +640,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: below clearance the lift is announced
     const std::string scripts = all_scripts();
     const auto lift = scripts.find("G0 Z5");
     INFO(scripts);
-    const auto travel = scripts.find("G0 X234.9");
+    const auto travel = scripts.find("G0 X174.9");
     REQUIRE(lift != std::string::npos);
     REQUIRE(travel != std::string::npos);
     CHECK(lift < travel);
@@ -687,7 +699,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: a tap on an unhomed plate homes, then
     const std::string scripts = all_scripts();
     INFO(scripts);
     const auto home = scripts.find("G28");
-    const auto travel = scripts.find("G0 X0.02");
+    const auto travel = scripts.find("G0 X-174.97");
     REQUIRE(home != std::string::npos);
     REQUIRE(travel != std::string::npos);
     CHECK(home < travel);
@@ -728,7 +740,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: the XML wires a real pointer drag to 
 
     INFO(all_scripts());
     CHECK(xy_moves(client_) >= 2);
-    CHECK(all_scripts().find(" Y0.02 ") != std::string::npos);
+    CHECK(all_scripts().find(" Y-174.979996 ") != std::string::npos);
 }
 
 TEST_CASE_METHOD(MoveTabFixture, "bed tab: the surface stays live while the toolhead reports busy",
@@ -797,7 +809,7 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: a drag sample replacing a pending one
     drain();
     REQUIRE(moves.size() == 2);
     // The flushed target is the latest sample, still at the gesture's lift Z.
-    CHECK(moves[1].target.x == Catch::Approx(0.02));
+    CHECK(moves[1].target.x == Catch::Approx(-174.98));
     REQUIRE(moves[1].target.z.has_value());
     CHECK(*moves[1].target.z == Catch::Approx(*moves[0].target.z));
 
@@ -829,8 +841,8 @@ TEST_CASE_METHOD(MoveTabFixture, "bed tab: Z unhomed counts as unhomed, like Par
     INFO(scripts);
     const auto home = scripts.find("G28");
     REQUIRE(home != std::string::npos);
-    REQUIRE(scripts.find("G0 X234.9") != std::string::npos);
-    CHECK(home < scripts.find("G0 X234.9"));
+    REQUIRE(scripts.find("G0 X174.9") != std::string::npos);
+    CHECK(home < scripts.find("G0 X174.9"));
 }
 
 TEST_CASE_METHOD(MoveTabFixture, "bed tab: a refused move ends the stream for that gesture",
