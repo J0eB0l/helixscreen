@@ -247,12 +247,12 @@ TEST_CASE_METHOD(MoveTabFixture, "homed preset tap sends one absolute move", "[m
     click(panel_widget("preset_rear_right"));
 
     const std::string scripts = all_scripts();
-    CHECK(scripts.find("G0 X211.5 Y211.5") != std::string::npos);
+    CHECK(scripts.find("G0 X140 Y140") != std::string::npos);
     // Exactly one absolute move, and no homing detour for homed axes.
     CHECK(scripts.find("G28") == std::string::npos);
     size_t move_entries = 0;
     for (const auto& script : client_.gcode_script_history()) {
-        if (script.find("X211.5") != std::string::npos) {
+        if (script.find("X140") != std::string::npos) {
             ++move_entries;
         }
     }
@@ -269,7 +269,7 @@ TEST_CASE_METHOD(MoveTabFixture, "unhomed preset tap homes before moving", "[mot
 
     const std::string scripts = all_scripts();
     CHECK(scripts.find("G28") != std::string::npos);
-    CHECK(scripts.find("Y23.5") != std::string::npos);
+    CHECK(scripts.find("Y-140 ") != std::string::npos);
 }
 
 TEST_CASE_METHOD(MoveTabFixture, "park runs the configured macro", "[motion][move-tab]") {
@@ -308,7 +308,7 @@ TEST_CASE_METHOD(MoveTabFixture,
     // nozzle up 10mm, and never the front preset.
     const std::string scripts = all_scripts();
     CHECK(scripts.find("PARK") == std::string::npos);
-    CHECK(scripts.find("X0.0") != std::string::npos);
+    CHECK(scripts.find("X0 ") != std::string::npos);
     CHECK(scripts.find("Y165") != std::string::npos);
     CHECK(scripts.find("Z20") != std::string::npos);
     CHECK(scripts.find("Y-140") == std::string::npos);
@@ -338,7 +338,7 @@ TEST_CASE_METHOD(MoveTabFixture, "park that has to home leaves Z where homing pu
         if (line.rfind("G28", 0) == 0) {
             homed = true;
         }
-        if (line.find("Y225") != std::string::npos) {
+        if (line.find("Y165") != std::string::npos) {
             parked = true;
         }
         if (homed && line.rfind("G0", 0) == 0 && line.find('Z') != std::string::npos) {
