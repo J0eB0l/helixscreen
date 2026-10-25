@@ -864,3 +864,25 @@ TEST_CASE_METHOD(LVGLTestFixture,
     gate.run(18.0, 0.5);
     CHECK(maze->level() == 1);
 }
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "a raised level earns its own comfort streak before the next raise",
+                 "[screensaver][screensaver_gate]") {
+    GateHarness gate;
+    const std::string board = ScreensaverManagerTestAccess::current_board(gate.mgr);
+    const std::string version = helix_version_full();
+    gate.store("maze", {2, false, version, board});
+    setenv("HELIX_SCREENSAVER_BUDGET_PCT", "100", 1);
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    helix::ui::SaverBase* maze = gate.running();
+    REQUIRE(maze != nullptr);
+
+    gate.run(18.0, 0.5);
+    REQUIRE(maze->level() == 1);
+
+    // One comfortable window at the new level is not three.
+    gate.run(5.0, 0.5);
+    CHECK(maze->level() == 1);
+    gate.run(10.0, 0.5);
+    CHECK(maze->level() == 0);
+}
