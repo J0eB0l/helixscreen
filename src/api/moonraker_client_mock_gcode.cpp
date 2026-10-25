@@ -94,6 +94,26 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_medusa(const std::st
         }
     };
 
+    const int count = medusa_tool_count();
+    auto reject = [&](std::string message) -> GcodeResult {
+        std::lock_guard<std::mutex> lock(gcode_error_mutex_);
+        last_gcode_error_ = std::move(message);
+        return 1;
+    };
+    // The controller's _begin() refuses an operation while another runs.
+    auto swap = [&](int tool, bool close_after) -> GcodeResult {
+        MedusaPhase phase;
+        {
+            std::lock_guard<std::mutex> lock(medusa_mutex_);
+            phase = medusa_.phase;
+        }
+        if (phase != MedusaPhase::Idle) {
+            return reject(fmt::format("MedusaHC is busy: {}", medusa_operation_word(phase)));
+        }
+        start_medusa_swap(tool, close_after);
+        return 0;
+    };
+
     if (cmd == "OPEN" || cmd == "MHC_OPEN" || cmd == "CLOSE" || cmd == "MHC_CLOSE") {
         const bool open = cmd.find("OPEN") != std::string::npos;
         {
@@ -107,36 +127,30 @@ MoonrakerClientMock::GcodeResult MoonrakerClientMock::gcode_medusa(const std::st
     // The Irbis3D controller's own swap and its SET macro, which validate T.
     if (cmd == "MHC_SET" || cmd == "SET") {
         const int tool = tool_param();
-        if (tool < 0 || tool > 3) {
-            std::lock_guard<std::mutex> lock(gcode_error_mutex_);
-            last_gcode_error_ =
-                "Tool T" + std::to_string(tool) + " is outside configured range T0..T3";
-            return 1;
+        if (tool < 0 || tool >= count) {
+            return reject(
+                fmt::format("Tool T{} is outside configured range T0..T{}", tool, count - 1));
         }
-        start_medusa_swap(tool);
-        return 0;
+        return swap(tool, /*close_after=*/true);
     }
     if (cmd == "SELECT_TOOL") {
         if (const int tool = tool_param(); tool >= 0) {
-            start_medusa_swap(tool);
+            return swap(tool, /*close_after=*/true);
         }
         return 0;
     }
     // MHC_DROP parks and leaves the gripper open; DROP_TOOL is MHC_DROP then
     // MHC_CLOSE.
     if (cmd == "MHC_DROP" || cmd == "_DROP") {
-        start_medusa_swap(-1, /*close_after=*/false);
-        return 0;
+        return swap(-1, /*close_after=*/false);
     }
     if (cmd == "UNSELECT_TOOL" || cmd == "DROP_TOOL") {
-        start_medusa_swap(-1);
-        return 0;
+        return swap(-1, /*close_after=*/true);
     }
     // Bare T<n>: the fork's own command, a T<n> macro running SET T=<n> on the
     // controller alone, or klipper-toolchanger's T<n> beside it.
-    if (cmd.size() == 2 && cmd[0] == 'T' && cmd[1] >= '0' && cmd[1] <= '3') {
-        start_medusa_swap(cmd[1] - '0');
-        return 0;
+    if (cmd.size() == 2 && cmd[0] == 'T' && cmd[1] >= '0' && cmd[1] < '0' + count) {
+        return swap(cmd[1] - '0', /*close_after=*/true);
     }
     return std::nullopt;
 }

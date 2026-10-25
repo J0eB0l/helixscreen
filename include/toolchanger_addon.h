@@ -94,6 +94,10 @@ struct ToolReading {
     /// Verified against both sources, not inferred: `state` is a COARSER
     /// vocabulary than `operation`, not another spelling of it.
     std::string operation;
+    /// Irbis3D's `last_error`: the message its last failed operation latched,
+    /// empty once the next operation begins. nullopt when the frame did not
+    /// name it.
+    std::optional<std::string> last_error;
     /// True when `operation` came from the key that names the swap DIRECTION.
     /// False for a machine whose phase word is only ever "changing", which
     /// cannot say whether it is docking or picking. Available from the first

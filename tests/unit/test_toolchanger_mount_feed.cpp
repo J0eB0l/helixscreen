@@ -101,10 +101,10 @@ class AckingChanger : public ToolChangerHelper {
         helix::ui::UpdateQueue::instance().drain();
     }
 
-    void fail() {
+    void fail(const std::string& message = "simulated") {
         REQUIRE_FALSE(errors_.empty());
         MoonrakerError err;
-        err.message = "simulated";
+        err.message = message;
         errors_.back()(err);
         helix::ui::UpdateQueue::instance().drain();
         helix::ui::UpdateQueue::instance().drain();
@@ -1493,4 +1493,34 @@ TEST_CASE_METHOD(LVGLTestFixture,
     // The slider shows the value the next load sends: the same member feeds
     // both (the setting case above follows it into the gcode).
     CHECK(*value == 120.0f);
+}
+
+TEST_CASE("MedusaHC tells a failed swap stage once, not again when the frame repeats it",
+          "[toolchanger][mount_feed][medusahc][last_error]") {
+    const std::string failure = "MHC_SET: sensors did not confirm T1";
+    AckingChanger tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(irbis_medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"current_tool", 0}, {"sensor_error", false}}}});
+    REQUIRE(tc.load_filament(1).success());
+    tc.ack(); // the prompt is up
+    ToolChangerTestAccess::feed_operator_reply(tc, mf::Reply::Continue);
+    REQUIRE(tc.get_current_action() == AmsAction::SELECTING); // the Mount stage
+
+    // The controller refuses the pick; its command_error reaches us first.
+    tc.fail(failure);
+    const std::string run_toast = ToolChangerTestAccess::feed_last_toast(tc);
+    REQUIRE_FALSE(run_toast.empty());
+    for (int i = 0; i < 4 && tc.get_current_action() != AmsAction::IDLE; ++i) {
+        tc.ack(); // the cleanup
+    }
+    REQUIRE(tc.get_current_action() == AmsAction::IDLE);
+
+    // Then the status frame latching the same failure, the pick never having
+    // left the dock.
+    tc.feed(json{{"medusahc",
+                  {{"operation", "idle"},
+                   {"current_tool", 0},
+                   {"sensor_error", true},
+                   {"last_error", failure}}}});
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc) == run_toast);
 }

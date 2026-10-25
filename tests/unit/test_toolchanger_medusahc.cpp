@@ -36,6 +36,7 @@
 #include "../lvgl_test_fixture.h"
 #include "../test_helpers/moonraker_client_mock_test_access.h"
 #include "../test_helpers/scoped_env.h"
+#include "../test_helpers/toolchanger_test_access.h"
 #include "../test_helpers/toolchanger_test_helper.h"
 #include "ams_state.h"
 #include "error_event.h"
@@ -43,7 +44,11 @@
 #include "printer_discovery.h"
 #include "toolchanger_addon.h"
 
+#include <algorithm>
+#include <chrono>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "../catch_amalgamated.hpp"
@@ -504,6 +509,123 @@ TEST_CASE("A running swap publishes its step's action, and the closing grip read
     REQUIRE(tc.get_system_info().operation_phase == 2); // Grip filament
     CHECK(tc.get_system_info().action == AmsAction::IDLE);
     CHECK(tc.get_current_action() == AmsAction::IDLE);
+}
+
+TEST_CASE("Irbis3D's opening 'changing' frame lights the swap's first step",
+          "[ams][toolchanger][steps][medusahc]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    struct RestoreStepOperation {
+        ~RestoreStepOperation() {
+            AmsState::instance().set_active_step_operation(StepOperationType::LOAD_SWAP);
+        }
+    } restore_step_operation;
+    AmsState::instance().set_active_step_operation(StepOperationType::LOAD_SWAP);
+    // Latch the direction and the gripper, as a swap's own frames would.
+    tc.feed(
+        json{{"medusahc", {{"operation", "idle"}, {"current_tool", 0}, {"feeder_open", false}}}});
+    REQUIRE(tc.change_tool(2).success());
+
+    tc.feed(json{{"medusahc", {{"operation", "changing"}, {"current_tool", 0}}}});
+    CHECK(tc.get_system_info().operation_phase == 0); // Release filament
+    CHECK(tc.get_system_info().action == AmsAction::SELECTING);
+    tc.feed(json{{"medusahc", {{"operation", "dropping"}, {"current_tool", 0}}}});
+    CHECK(tc.get_system_info().operation_phase == 1); // Dock tool
+}
+
+TEST_CASE("MedusaHC's fault dialog quotes the controller's own failure",
+          "[ams][toolchanger][medusahc][last_error]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    tc.feed(json{{"medusahc", {{"operation", "picking"}, {"current_tool", 0}}}});
+    tc.feed(json{{"medusahc",
+                  {{"operation", "idle"},
+                   {"current_tool", -2},
+                   {"sensor_error", true},
+                   {"last_error", "MHC_SET: sensors did not confirm T1"}}}});
+    const auto err = tc.current_error();
+    REQUIRE(err.has_value());
+    CHECK(err->detail == "MHC_SET: sensors did not confirm T1");
+    // On screen as a fault: no toast on top of the dialog.
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
+
+    // A -2 the controller did not report keeps the generic words, even with an
+    // older failure's message still latched beside a reading the docks agree on.
+    ToolChangerHelper unreported(4);
+    unreported.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    unreported.feed(json{{"medusahc",
+                          {{"operation", "idle"},
+                           {"current_tool", 1},
+                           {"sensor_error", true},
+                           {"last_error", "MHC_SET: sensors did not confirm T1"}}}});
+    REQUIRE(unreported.get_system_info().action != AmsAction::ERROR);
+    unreported.feed(json{{"medusahc", {{"current_tool", -2}}}});
+    const auto generic = unreported.current_error();
+    REQUIRE(generic.has_value());
+    CHECK(generic->detail == unreported.unload_blocked_reason(1));
+}
+
+TEST_CASE("A last_error with no failed operation behind it is no tool change failure",
+          "[ams][toolchanger][medusahc][last_error]") {
+    ToolChangerHelper tc(4);
+    tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+    // What the controller publishes after a failed initialization.
+    tc.feed(json{{"medusahc",
+                  {{"operation", "idle"},
+                   {"current_tool", 1},
+                   {"sensor_error", false},
+                   {"last_error", "Initialization failed; see klippy.log"}}}});
+    CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
+}
+
+TEST_CASE("A controller failure the screen is not showing toasts once",
+          "[ams][toolchanger][medusahc][last_error]") {
+    const std::string failure = "MHC_SET: sensors did not confirm T1";
+
+    SECTION("the docks agree again after the fault") {
+        ToolChangerHelper tc(4);
+        tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+        tc.feed(json{{"medusahc", {{"operation", "picking"}, {"current_tool", 0}}}});
+        tc.feed(json{{"medusahc",
+                      {{"operation", "idle"},
+                       {"current_tool", -2},
+                       {"sensor_error", true},
+                       {"last_error", failure}}}});
+        REQUIRE(tc.get_system_info().action == AmsAction::ERROR);
+        REQUIRE(ToolChangerTestAccess::feed_last_toast(tc).empty());
+
+        tc.feed(json{{"medusahc", {{"current_tool", -1}}}});
+        REQUIRE(tc.get_system_info().action == AmsAction::IDLE);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).find(failure) != std::string::npos);
+        CHECK(ToolChangerTestAccess::feed_last_toast_severity(tc) == ToastSeverity::WARNING);
+
+        // Further frames under the same latched failure say nothing more.
+        ToolChangerTestAccess::clear_feed_last_toast(tc);
+        tc.feed(json{{"medusahc", {{"feeder_open", false}}}});
+        tc.feed(json{{"medusahc", {{"current_tool", 1}}}});
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).empty());
+
+        // The controller's next operation clears it, and a new failure toasts again.
+        tc.feed(json{{"medusahc", {{"sensor_error", false}, {"last_error", ""}}}});
+        tc.feed(json{{"medusahc",
+                      {{"operation", "idle"},
+                       {"current_tool", 1},
+                       {"sensor_error", true},
+                       {"last_error", failure}}}});
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).find(failure) != std::string::npos);
+    }
+
+    SECTION("a failure left over from before this connection") {
+        ToolChangerHelper tc(4);
+        tc.set_tool_sensor(toolchanger_addon::resolve_tool_sensor(medusahc_discovery()));
+        tc.feed(json{{"medusahc",
+                      {{"operation", "idle"},
+                       {"current_tool", 2},
+                       {"sensor_error", true},
+                       {"last_error", failure}}}});
+        REQUIRE(tc.get_system_info().action != AmsAction::ERROR);
+        CHECK(ToolChangerTestAccess::feed_last_toast(tc).find(failure) != std::string::npos);
+    }
 }
 
 TEST_CASE("A controller with only 'changing' gets one middle step", "[ams][toolchanger][steps]") {
@@ -1160,6 +1282,226 @@ TEST_CASE_METHOD(LVGLTestFixture, "HELIX_MOCK_MEDUSA_REDOCK_S docks the stuck ho
     const json status = mock.medusa_status_json();
     CHECK(status["current_tool"].get<int>() == -1);
     CHECK(status["sensor_error"].get<bool>());
+}
+
+namespace {
+/// A printer.gcode.script rpc's answer, as its caller sees it.
+struct ScriptReply {
+    int successes = 0;
+    int errors = 0;
+    std::string message;
+};
+
+void send_script(MoonrakerClientMock& mock, const std::string& script, ScriptReply& reply) {
+    mock.send_jsonrpc(
+        "printer.gcode.script", json{{"script", script}},
+        [&reply](const json&) { ++reply.successes; },
+        [&reply](const MoonrakerError& err) {
+            ++reply.errors;
+            reply.message = err.message;
+        });
+}
+
+bool history_has(const MoonrakerClientMock& mock, const std::string& line) {
+    const auto& history = mock.gcode_script_history();
+    return std::find(history.begin(), history.end(), line) != history.end();
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "A MedusaHC swap answers its gcode script only once it ends",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc");
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    ScopedEnv fail_env("HELIX_MOCK_MEDUSA_SWAP_FAIL", "2");
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+
+    SECTION("a failed pick outside a print is a gcode error, and the script ends there") {
+        ScriptReply reply;
+        send_script(mock, "T2\nM104 T0 S200", reply);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes + reply.errors == 0);
+
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes == 0);
+        REQUIRE(reply.errors == 1);
+        CHECK(reply.message == "MHC_SET: sensors did not confirm T2");
+        CHECK_FALSE(history_has(mock, "M104 T0 S200"));
+        CHECK(mock.medusa_status_json()["sensor_error"].get<bool>());
+    }
+    SECTION("a pick the docks confirm succeeds, then runs the rest of the script") {
+        ScriptReply reply;
+        send_script(mock, "MHC_SET T=1\nM104 T0 S200", reply);
+        CHECK_FALSE(history_has(mock, "M104 T0 S200"));
+
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.errors == 0);
+        CHECK(reply.successes == 1);
+        CHECK(history_has(mock, "M104 T0 S200"));
+    }
+    SECTION("a failed pick during a print pauses it and the script still succeeds") {
+        REQUIRE(mock.start_print_internal("3DBenchy.gcode"));
+        ScriptReply reply;
+        send_script(mock, "T2", reply);
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.errors == 0);
+        CHECK(reply.successes == 1);
+        CHECK(mock.get_print_phase() == MoonrakerClientMock::MockPrintPhase::PAUSED);
+    }
+    SECTION("an unmount holds its reply until the hot end is parked") {
+        ScriptReply reply;
+        send_script(mock, "DROP_TOOL", reply);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes == 0);
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes == 1);
+        CHECK(mock.medusa_status_json()["current_tool"].get<int>() == -1);
+    }
+    SECTION("a disconnect fails the held reply, and the swap ending answers nothing more") {
+        ScriptReply reply;
+        send_script(mock, "T1", reply);
+        mock.disconnect();
+        CHECK(reply.errors == 1);
+        CHECK(reply.message == MoonrakerError::connection_lost("printer.gcode.script").message);
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.errors == 1);
+        CHECK(reply.successes == 0);
+    }
+    SECTION("a swap a direct gcode call started does not hold the next script") {
+        REQUIRE(mock.gcode_script("SELECT_TOOL T=1") == 0);
+        ScriptReply reply;
+        send_script(mock, "M104 T0 S200\nM104 T0 S210", reply);
+        CHECK(reply.successes == 1);
+        CHECK(history_has(mock, "M104 T0 S210"));
+    }
+    SECTION("a swap sent while another runs is refused at once") {
+        ScriptReply first;
+        ScriptReply second;
+        send_script(mock, "T1", first);
+        send_script(mock, "T3", second);
+        CHECK(second.errors == 1);
+        CHECK(second.message == "MedusaHC is busy: changing");
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Beside klipper-toolchanger, tool_number follows the docks",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc");
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    ScopedEnv fail_env("HELIX_MOCK_MEDUSA_SWAP_FAIL", "3");
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+    REQUIRE(mock.sync_medusa_toolchanger_tool() == 0);
+
+    REQUIRE(mock.gcode_script("SELECT_TOOL T=2") == 0);
+    run_medusa_to_rest(mock);
+    CHECK(mock.sync_medusa_toolchanger_tool() == 2);
+    json response;
+    mock.send_jsonrpc("printer.objects.subscribe",
+                      json{{"objects", json::object({{"toolchanger", nullptr}})}},
+                      [&response](const json& r) { response = r; });
+    CHECK(response["result"]["status"]["toolchanger"]["tool_number"].get<int>() == 2);
+
+    SECTION("a reading the docks cannot name unselects outside a print") {
+        REQUIRE(mock.gcode_script("T3") == 0);
+        run_medusa_to_rest(mock);
+        REQUIRE(mock.medusa_status_json()["current_tool"].get<int>() == -2);
+        CHECK(mock.sync_medusa_toolchanger_tool() == -1);
+    }
+    SECTION("and is left alone during a print") {
+        REQUIRE(mock.start_print_internal("3DBenchy.gcode"));
+        REQUIRE(mock.gcode_script("T3") == 0);
+        run_medusa_to_rest(mock);
+        REQUIRE(mock.medusa_status_json()["current_tool"].get<int>() == -2);
+        CHECK(mock.sync_medusa_toolchanger_tool() == 2);
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "The T<n>-macro MedusaHC mock carries six tools",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc-tn");
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+    const auto hw = mock.hardware();
+    const auto& objs = hw.printer_objects();
+    CHECK(std::find(objs.begin(), objs.end(), "gcode_macro T5") != objs.end());
+    CHECK(std::find(objs.begin(), objs.end(), "gcode_macro T6") == objs.end());
+    const auto& heaters = hw.heaters();
+    CHECK(std::find(heaters.begin(), heaters.end(), "extruder5") != heaters.end());
+    // Every tool's lane mirrors a spool, the last two included.
+    CHECK(mock.mock_db_get("lane_data", "T5")["spoolman_id"].get<int>() == 15);
+    CHECK(mock.mock_db_get("lane_data", "T4")["material"].get<std::string>() == "ASA");
+    json response;
+    mock.send_jsonrpc("printer.objects.subscribe",
+                      json{{"objects", json::object({{"extruder5", nullptr}})}},
+                      [&response](const json& r) { response = r; });
+    CHECK(response["result"]["status"]["extruder5"]["temperature"].get<double>() == 25.0);
+
+    json status = mock.medusa_status_json();
+    CHECK(status["tool_count"].get<int>() == 6);
+    CHECK(status["sensors"].contains("t5"));
+
+    REQUIRE(mock.gcode_script("T5") == 0);
+    run_medusa_to_rest(mock);
+    CHECK(mock.medusa_status_json()["current_tool"].get<int>() == 5);
+    CHECK(mock.gcode_script("SET T=6") != 0);
+    CHECK(mock.get_last_gcode_error() == "Tool T6 is outside configured range T0..T5");
+}
+
+namespace {
+/// The status frames a connected mock pushes over its first live ticks.
+std::vector<json> live_frames(MoonrakerClientMock& mock) {
+    std::mutex mu;
+    std::vector<json> frames;
+    const auto sub = mock.register_notify_update([&](const json& notification) {
+        auto params = notification.find("params");
+        if (params != notification.end() && params->is_array() && !params->empty()) {
+            std::lock_guard<std::mutex> lock(mu);
+            frames.push_back((*params)[0]);
+        }
+    });
+    mock.connect("ws://mock/websocket", [] {}, [] {});
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (MoonrakerClientMockTestAccess::tick_count(mock) < 2 &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    mock.unsubscribe_notify_update(sub);
+    mock.disconnect();
+    std::lock_guard<std::mutex> lock(mu);
+    return frames;
+}
+
+bool any_frame(const std::vector<json>& frames, const std::function<bool(const json&)>& pred) {
+    return std::any_of(frames.begin(), frames.end(), pred);
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "The MedusaHC mock's live frames carry its whole machine",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    SECTION("six hot ends on the T<n>-macro controller") {
+        ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc-tn");
+        MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+        const auto frames = live_frames(mock);
+        CHECK(any_frame(frames, [](const json& f) {
+            // The live tick's shape, not the query's (which carries pressure advance).
+            return f.contains("extruder5") && f["extruder5"].contains("temperature") &&
+                   !f["extruder5"].contains("pressure_advance");
+        }));
+    }
+    SECTION("klipper-toolchanger's tool_number beside the controller") {
+        ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc");
+        MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+        const auto frames = live_frames(mock);
+        CHECK(any_frame(frames, [](const json& f) {
+            return f.contains("toolchanger") && f["toolchanger"].contains("tool_number") &&
+                   f["toolchanger"]["tool_number"] == 0 && !f["toolchanger"].contains("status");
+        }));
+    }
 }
 
 TEST_CASE("Each MedusaHC mock variant lists its configuration's objects",

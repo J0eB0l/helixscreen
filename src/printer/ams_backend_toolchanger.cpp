@@ -565,7 +565,10 @@ AmsBackendToolChanger::resolve_step_locked(const std::string& operation, bool mi
     } else if (operation == "picking") {
         wanted = TcStep::Pick;
     } else if (operation == "changing") {
-        wanted = TcStep::Change;
+        // A controller that names the direction says `changing` first, before
+        // it docks or picks: that is the swap's opening step, not a step of
+        // its own.
+        wanted = names_direction ? sequence.front() : TcStep::Change;
     } else if (operation == "idle" || operation == "ready") {
         // Both ends of a swap read idle, and the gripper is the only thing that
         // separates them: open is the release that OPENS an operation, closed is
@@ -674,11 +677,16 @@ std::optional<helix::ErrorEvent> AmsBackendToolChanger::current_error() const {
     // klipper-toolchanger's own status and reads correctly in the generic
     // dialog, so it stays there.
     if (sensor_error_) {
-        // Same sentence unload_blocked_reason() returns, so the dialog and the
-        // greyed-out Unmount beside it explain the fault in one wording.
-        return helix::make_ams_fault_event(
-            helix::ErrorSource::TOOLCHANGER, lv_tr("Dock sensors disagree"),
-            lv_tr("Dock sensors cannot tell which tool is mounted"), build_recovery_actions());
+        // The controller's own words when it reported the failure: they name
+        // the operation and the tool. Otherwise the sentence unload_blocked_reason()
+        // returns, so the dialog and the greyed-out Unmount agree.
+        const std::string detail =
+            sensor_fault_reported_ && !controller_failure_.empty()
+                ? controller_failure_
+                : std::string(lv_tr("Dock sensors cannot tell which tool is mounted"));
+        return helix::make_ams_fault_event(helix::ErrorSource::TOOLCHANGER,
+                                           lv_tr("Dock sensors disagree"), detail,
+                                           build_recovery_actions());
     }
     if (!afclite_fault_message_.empty()) {
         // The shim's own fault, with the firmware's own wording: a message the
@@ -706,9 +714,24 @@ PathSegment AmsBackendToolChanger::infer_error_segment() const {
 // Moonraker Status Update Handling
 // ============================================================================
 
+namespace {
+
+/// Whether @p failure is the one already told as @p noticed. A gcode error
+/// reply can carry the controller's message with framing around it, so either
+/// containing the other counts.
+bool failure_already_noticed(const std::string& failure, const std::string& noticed) {
+    if (noticed.empty()) {
+        return false;
+    }
+    return failure.find(noticed) != std::string::npos || noticed.find(failure) != std::string::npos;
+}
+
+} // namespace
+
 void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
     bool state_changed = false;
     bool sensor_fault = false;
+    std::string failure_toast;
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -786,6 +809,12 @@ void AmsBackendToolChanger::handle_status(const nlohmann::json& params) {
             publish_feed_state_locked();
         }
         sensor_fault = std::exchange(feed_sensor_fault_, false);
+        failure_toast = std::exchange(pending_failure_toast_, std::string());
+    }
+
+    if (!failure_toast.empty()) {
+        show_feed_toast(fmt::format(fmt::runtime(lv_tr("Tool change failed: {}")), failure_toast),
+                        ToastSeverity::WARNING);
     }
 
     // The run reacts to the frame once it is applied: a fault stops it, and a
@@ -844,7 +873,14 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
     // every later raw_sensor_fault_locked() check disagree with the screen.
     const bool fault = helix::toolchanger_addon::sensor_error_is_fault(
         reading, was_mid_operation || feed_swap_in_flight);
+    if (reading.last_error) {
+        controller_failure_ = *reading.last_error;
+        if (controller_failure_.empty()) {
+            controller_failure_noticed_.clear();
+        }
+    }
     if (reading.sensor_error_named) {
+        controller_failure_latched_ = reading.sensor_error_reported;
         sensor_fault_reported_ = reading.sensor_error_reported && fault;
     } else if (reading.current_tool.has_value() && *reading.current_tool >= -1) {
         // The controller's flag latches the last operation and is republished
@@ -885,6 +921,15 @@ void AmsBackendToolChanger::apply_tool_sensor_locked(
             system_info_.operation_detail.clear();
         }
         sensor_error_ = false;
+    }
+
+    // A failure the controller reported but the screen is not showing as a
+    // fault - the docks agreed again, or it predates this connection - would
+    // otherwise leave no trace of why the tool change did not happen.
+    if (!sensor_error_ && controller_failure_latched_ && !controller_failure_.empty() &&
+        !failure_already_noticed(controller_failure_, controller_failure_noticed_)) {
+        controller_failure_noticed_ = controller_failure_;
+        pending_failure_toast_ = controller_failure_;
     }
 
     // Only when the frame named the carriage. A delta carrying just the gripper
@@ -1911,6 +1956,12 @@ void AmsBackendToolChanger::on_feed_stage_failed(uint64_t generation, const std:
     // Klipper's own `!!` line reports the failure; this only unwinds. A
     // failure inside the cleanup ends the run where it stands.
     spdlog::warn("[AMS ToolChanger] Mount-to-feed stage failed ({}); cleaning up", message);
+    {
+        // The error a failed swap stage carries is the controller's own
+        // last_error, which the status frame then repeats: this toast tells it.
+        std::lock_guard<std::mutex> lock(mutex_);
+        controller_failure_noticed_ = message;
+    }
     toast_partial_run(FeedStopReason::Failed, feed_run_->completed_heads());
     feed_run_->abort(carriage_trusted_for_restore());
     ++feed_generation_;
