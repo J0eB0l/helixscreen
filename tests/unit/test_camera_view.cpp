@@ -22,6 +22,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <thread>
 
@@ -123,6 +124,32 @@ TEST_CASE_METHOD(CameraViewFixture, "CameraView: stop hands a wedged join off th
     if (!pool_was_running) {
         pool.stop();
     }
+    drain();
+}
+
+TEST_CASE_METHOD(CameraViewFixture,
+                 "CameraView: a reap job dropped unrun still leaks a detached stream",
+                 "[camera][camera_view]") {
+    auto release = std::make_shared<std::atomic<bool>>(false);
+    auto exited = std::make_shared<std::atomic<bool>>(false);
+    auto wedged = std::make_unique<CameraStream>();
+    CameraStreamTestAccess::set_join_timeout(*wedged, std::chrono::milliseconds(50));
+    CameraStreamTestAccess::spawn_wedged_worker(*wedged, release, exited);
+    const int leaked_before = CameraViewTestAccess::leaked_streams();
+
+    {
+        // What a stopping pool does with a queued job: destroys it unrun.
+        auto owner = CameraViewTestAccess::reaping_owner(std::move(wedged));
+        std::function<void()> job = [owner]() {};
+        owner.reset();
+    }
+
+    // The join timed out and detached the worker, so the stream must be
+    // leaked rather than freed under it.
+    CHECK(CameraViewTestAccess::leaked_streams() == leaked_before + 1);
+
+    release->store(true);
+    REQUIRE(wait_until_true(*exited));
     drain();
 }
 

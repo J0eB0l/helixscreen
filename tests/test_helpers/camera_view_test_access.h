@@ -19,6 +19,14 @@ namespace helix {
 class CameraViewTestAccess {
   public:
     /// Make @p stream the view's stream, as if start() had started it for @p feed.
+    /// The owner CameraView hands its reap job: a job dropped unrun releases it.
+    static std::shared_ptr<CameraStream> reaping_owner(std::unique_ptr<CameraStream> stream) {
+        return CameraView::reaping_owner(std::move(stream));
+    }
+    static int leaked_streams() {
+        return CameraView::leaked_streams_.load();
+    }
+
     static void adopt(CameraView& v, std::unique_ptr<CameraStream> stream, WebcamInfo feed) {
         v.stream_ = std::move(stream);
         v.feed_ = std::move(feed);

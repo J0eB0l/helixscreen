@@ -26,18 +26,40 @@ const std::string& client_url(const WebcamInfo& feed) {
     return feed.stream_url.empty() ? feed.snapshot_url : feed.stream_url;
 }
 
-/// Join @p stream's thread and free it. A stream whose thread was detached
-/// still runs with a pointer to it, so destroying it would be a
-/// use-after-free (#624): it is leaked and winds down on its own.
-void reap(const std::shared_ptr<CameraStream>& stream) {
-    stream->stop();
-    if (stream->was_detached()) {
-        spdlog::warn("[CameraView] Stream thread was detached, leaking CameraStream to avoid UAF");
-        (void)new std::shared_ptr<CameraStream>(stream);
-    }
+} // namespace
+
+std::atomic<int> CameraView::leaked_streams_{0};
+
+std::shared_ptr<CameraStream> CameraView::reaping_owner(std::unique_ptr<CameraStream> stream) {
+    // The deleter is the only way the stream is freed, so it runs whoever
+    // drops the last owner: the worker that ran the job, a pool that dropped
+    // the job unrun, or the main thread. A stream whose thread was detached
+    // still runs with a pointer to it, so freeing it would be a
+    // use-after-free (#624): it is leaked and winds down on its own.
+    return std::shared_ptr<CameraStream>(stream.release(), [](CameraStream* s) {
+        s->stop();
+        if (s->was_detached()) {
+            spdlog::warn("[CameraView] Stream thread was detached, leaking CameraStream to avoid "
+                         "UAF");
+            ++leaked_streams_;
+            return;
+        }
+        delete s;
+    });
 }
 
-} // namespace
+void CameraView::reap_off_main_thread(std::unique_ptr<CameraStream> stream) {
+    if (!stream) {
+        return;
+    }
+    // The join can take seconds on a wedged connection, so it runs on the
+    // pool whenever the pool is up to take it.
+    auto owner = reaping_owner(std::move(stream));
+    auto& pool = http::HttpExecutor::fast();
+    if (pool.running()) {
+        pool.submit([owner]() mutable { owner.reset(); });
+    }
+}
 
 CameraView::CameraView() {
     s_views.push_back(this);
@@ -138,15 +160,7 @@ void CameraView::stop(std::initializer_list<lv_obj_t*> images) {
         lv_draw_wait_for_finish();
     }
 
-    // The join can take seconds on a wedged connection, so it runs off the
-    // main thread whenever the pool is up to take it.
-    std::shared_ptr<CameraStream> stream(std::move(stream_));
-    auto& pool = http::HttpExecutor::fast();
-    if (pool.running()) {
-        pool.submit([stream]() { reap(stream); });
-    } else {
-        reap(stream);
-    }
+    reap_off_main_thread(std::move(stream_));
     spdlog::debug("[CameraView] Stream stopped");
 }
 

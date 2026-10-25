@@ -9,6 +9,7 @@
 #include "camera_stream.h"
 #include "moonraker_types.h"
 
+#include <atomic>
 #include <functional>
 #include <initializer_list>
 #include <memory>
@@ -70,6 +71,12 @@ class CameraView {
     /// shown again.
     void on_preempted(std::function<void()> handler);
 
+    /// Join @p stream's thread and free it, on HttpExecutor::fast() when it
+    /// runs, else here. A stream whose thread had to be detached is leaked
+    /// rather than freed, however the job ends: run, or dropped unrun by a
+    /// stopping pool.
+    static void reap_off_main_thread(std::unique_ptr<CameraStream> stream);
+
     /// A stream exists (it may still be connecting or have given up).
     bool has_stream() const {
         return stream_ != nullptr;
@@ -106,6 +113,12 @@ class CameraView {
 
   private:
     friend class CameraViewTestAccess;
+
+    /// An owner of @p stream whose last release joins it and frees it, or
+    /// leaks it when its thread was detached.
+    static std::shared_ptr<CameraStream> reaping_owner(std::unique_ptr<CameraStream> stream);
+    /// Streams leaked because their thread was detached.
+    static std::atomic<int> leaked_streams_;
 
     std::unique_ptr<CameraStream> stream_;
     WebcamInfo feed_;

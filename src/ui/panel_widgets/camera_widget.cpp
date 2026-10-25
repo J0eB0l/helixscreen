@@ -16,7 +16,6 @@
 #include "app_globals.h"
 #include "camera_config_modal.h"
 #include "display_manager.h"
-#include "http_executor.h"
 #include "i_moonraker_api.h"
 #include "panel_widget_registry.h"
 #include "panel_widget_size.h"
@@ -649,22 +648,9 @@ void close_standalone() {
         lv_draw_wait_for_finish();
     }
 
-    // Move the stream onto a background worker. CameraStream::stop() joins
-    // the stream thread with a 5s timeout; running it inline on the main
-    // thread freezes UI input.
-    std::unique_ptr<CameraStream> stream = std::move(s_standalone->stream);
-    if (stream) {
-        helix::http::HttpExecutor::fast().submit(
-            [stream = std::shared_ptr<CameraStream>(std::move(stream))]() mutable {
-                stream->stop();
-                if (stream->was_detached()) {
-                    spdlog::warn(
-                        "[CameraWidget] Standalone stream thread detached, leaking to avoid UAF");
-                    // Intentionally leak: thread still holds raw pointers
-                    (void)new std::shared_ptr<CameraStream>(stream);
-                }
-            });
-    }
+    // CameraStream::stop() joins the stream thread with a 5s timeout;
+    // running it inline on the main thread freezes UI input.
+    CameraView::reap_off_main_thread(std::move(s_standalone->stream));
 
     // Taken out first: deleting it fires on_standalone_overlay_deleted(), which
     // must see this close already under way.
