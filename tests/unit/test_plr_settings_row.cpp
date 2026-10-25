@@ -24,6 +24,7 @@
 #include "moonraker_api_mock.h"
 #include "moonraker_client_mock.h"
 #include "plr_backend.h"
+#include "plr_plugin_rpc.h"
 #include "plr_profile.h"
 #include "printer_state.h"
 #include "settings_manager.h"
@@ -337,4 +338,51 @@ TEST_CASE_METHOD(PlrSettingsRowFixture, "the mesh-include row changes printer.cf
         process_lvgl(5);
         CHECK(visible(find("row_plr_mesh_include_add")));
     }
+}
+
+TEST_CASE_METHOD(PlrSettingsRowFixture, "the plr feature turning present re-asks for the include",
+                 "[plr][settings]") {
+    auto& plugin = get_printer_state().plugin_status_state();
+
+    // The overlay (and its feature observer) exists while the feature is
+    // absent; the feature arriving afterwards still refreshes the row.
+    set_plr_feature(true, false);
+    process_lvgl(5);
+    helix::ui::UpdateQueue::instance().drain();
+    CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 0);
+    process_lvgl(5);
+    CHECK(visible(find("row_plr_mesh_include_add")));
+
+    SECTION("a stale answer left by a late reply is replaced on the return") {
+        set_plr_feature(false, false);     // absent: the answer resets
+        plugin.set_plr_mesh_include(true); // a reply already in flight lands
+        set_plr_feature(true, false);      // the feature returns: re-ask
+        process_lvgl(5);
+        helix::ui::UpdateQueue::instance().drain();
+        CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 0);
+    }
+}
+
+TEST_CASE_METHOD(PlrSettingsRowFixture, "a no-op mesh-include change offers no restart",
+                 "[plr][settings]") {
+    helix::ui::modal_init_subjects();
+    auto& plugin = get_printer_state().plugin_status_state();
+    set_plr_feature(true, false);
+    plugin.set_plr_mesh_include(false);
+    process_lvgl(5);
+
+    // The include appears between the ask and the confirm (a hand edit, or a
+    // second screen): the action replies changed=false, and proposing a
+    // firmware restart then would interrupt an active print for nothing.
+    helix::plr_rpc::mesh_include_action(api, true, [](bool, bool) {}, [](const MoonrakerError&) {});
+    helix::ui::UpdateQueue::instance().drain();
+    plugin.set_plr_mesh_include(false);
+    tap(find("row_plr_mesh_include_add"));
+    confirm_modal();
+
+    CHECK(lv_subject_get_int(plugin.get_plr_mesh_include_subject()) == 1);
+    lv_obj_t* dialog = ModalStack::instance().top_dialog();
+    CHECK((dialog == nullptr ||
+           std::strcmp(lv_label_get_text(lv_obj_find_by_name(dialog, "dialog_title")),
+                       "Restart Firmware?") != 0));
 }

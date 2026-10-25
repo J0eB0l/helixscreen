@@ -3027,3 +3027,19 @@ def test_uninstall_mesh_include_with_nothing_there_touches_nothing(plr):
 
     assert (config / "printer.cfg").read_text() == "[printer]\n"
     assert not (config / "printer.cfg.helixscreen-bak").exists()
+
+
+def test_mesh_include_refuses_a_config_that_is_not_utf8(plr):
+    (plr._config_dir() / "printer.cfg").write_bytes(b"\xff\xfe[printer]\n")
+    with pytest.raises(Exception, match="plr_config_read"):
+        run(plr.handle_mesh_include(Req()))
+    with pytest.raises(Exception, match="plr_config_read"):
+        run(plr.handle_mesh_include(Req(action="add")))
+
+
+def test_uninstall_mesh_include_reports_a_config_that_is_not_utf8(plr):
+    config = plr._config_dir()
+    (config / "printer.cfg").write_bytes(b"\xff\xfe[printer]\n")
+    problem = helix_plr.uninstall_mesh_include(config)
+    assert problem is not None
+    assert "printer.cfg" in problem

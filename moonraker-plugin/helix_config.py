@@ -69,10 +69,10 @@ _SECTCRE = re.compile(r"\[(?P<header>.+)\]")
 _OPTCRE = re.compile(r"(?P<option>.*?)\s*(?P<vi>[=:])\s*(?P<value>.*)$")
 
 
-def read_file_text(path: str) -> str:
-    """A file's text with its line endings as they are on disk."""
-    with open(path, encoding="utf-8", newline="") as f:
-        return f.read()
+# The shared file-text read and atomic text write live in helix_gcode_reader,
+# the one sibling every config-writing module already depends on; these names
+# stay for this module's callers.
+read_file_text = reader.read_file_text
 
 
 class ConfigEditRefused(Exception):
@@ -600,16 +600,7 @@ def _write_durably(path: Path, data: bytes) -> None:
         os.fsync(f.fileno())
 
 
-def atomic_write(path: Path, text: str,
-                 replace: Callable[[str, str], None] = os.replace) -> None:
-    """Write `text` to `path` through a temp file beside it, fsynced, then
-    renamed over it with the file's own mode. A crash before the rename leaves
-    `path` as it was."""
-    try:
-        mode: Optional[int] = os.stat(str(path)).st_mode & 0o7777
-    except OSError:
-        mode = None
-    reader.atomic_write_bytes(str(path), text.encode("utf-8"), replace=replace, mode=mode)
+atomic_write = reader.atomic_write_text
 
 
 def prune_backups(root: Path, name: str, keep: int = BACKUPS_KEPT) -> List[Path]:
