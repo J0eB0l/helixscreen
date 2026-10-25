@@ -1025,7 +1025,7 @@ AmsError AmsBackendAce::start_drying(float temp_c, int duration_min, int fan_pct
         return AmsErrorHelper::invalid_parameter("no ACE unit " + std::to_string(unit));
     }
     const DryerInfo dryer = get_dryer_info(unit);
-    if (auto refusal = helix::ace::check_dryer_request(dryer, temp_c, duration_min)) {
+    if (auto refusal = helix::check_dryer_request(dryer, temp_c, duration_min)) {
         return *refusal;
     }
 
@@ -1075,7 +1075,7 @@ AmsError AmsBackendAce::update_drying(float temp_c, int duration_min, int fan_pc
     }
     const DryerInfo dryer = get_dryer_info(unit);
     const auto [target_temp, target_duration] =
-        helix::ace::restart_request(dryer, temp_c, duration_min);
+        helix::dryer_restart_request(dryer, temp_c, duration_min);
     return start_drying(target_temp, target_duration, fan_pct, unit);
 }
 

@@ -4,6 +4,7 @@
 #include "ace_vocabulary.h"
 #include "ams_error.h"
 #include "ams_types.h"
+#include "dryer_request.h"
 
 #include <cstdint>
 #include <optional>
@@ -78,17 +79,5 @@ enum class TagRead {
 /// Also reads the top-level ambient `temp`, which a stated dryer current temp
 /// overrides. Absent keys leave @p dryer as it was.
 void apply_dryer_state(const nlohmann::json& data, DryerInfo& dryer);
-
-/// The refusal for a drying request outside @p dryer's range, or nullopt when
-/// @p temp_c and @p duration_min are both in range.
-[[nodiscard]] std::optional<AmsError> check_dryer_request(const DryerInfo& dryer, float temp_c,
-                                                          int duration_min);
-
-/// The (temperature, duration) a stop-and-restart adjustment of a running
-/// cycle starts with: a negative @p temp_c keeps the cycle's target, a negative
-/// @p duration_min keeps what is left of it (the session length when the dryer
-/// reports no remaining time).
-[[nodiscard]] std::pair<float, int> restart_request(const DryerInfo& dryer, float temp_c,
-                                                    int duration_min);
 
 } // namespace helix::ace

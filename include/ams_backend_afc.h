@@ -4,6 +4,7 @@
 #pragma once
 
 #include "afc_config_manager.h"
+#include "afc_unit_dryer.h"
 #include "ams_subscription_backend.h"
 #include "async_lifetime_guard.h"
 #include "error_event.h"
@@ -242,6 +243,16 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
 
     // State queries
     [[nodiscard]] AmsSystemInfo get_system_info() const override;
+
+    // Unit dryers. AFC has no dryer of its own: a unit class with a heater
+    // (AFC_BambuAMS on a BridgeBox, AFC_ACE, AFC_ACE2) publishes it on its unit
+    // object and takes its own G-code; see afc_unit_dryer.h.
+    [[nodiscard]] DryerInfo get_dryer_info(int unit = 0) const override;
+    AmsError start_drying(float temp_c, int duration_min, int fan_pct = -1, int unit = 0) override;
+    AmsError stop_drying(int unit = 0) override;
+    /// Neither vendor retargets a running cycle, so this restarts it on what is left.
+    AmsError update_drying(float temp_c = -1, int duration_min = -1, int fan_pct = -1,
+                           int unit = 0) override;
 
     [[nodiscard]] AmsType get_type() const override;
     /// Constant capability answers; see BackendTraits.
@@ -1087,6 +1098,24 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// @pre mutex_ held.
     void apply_unit_environment();
 
+    /// Merge every heater-carrying unit object in @p params into unit_dryers_.
+    /// Read straight from the frame, not through unit_infos_, so a unit claimed
+    /// live (BridgeBox) keeps its reading even when its frame lands before the
+    /// AFC.units list that names it. Returns true when a frame carried one.
+    /// @pre mutex_ held.
+    bool parse_unit_dryers(const nlohmann::json& params);
+
+    /// The dryer state of system_info_.units[@p unit], or nullptr when that
+    /// unit has no heater-carrying unit object. @pre mutex_ held.
+    [[nodiscard]] const helix::afc::UnitDryerState* unit_dryer_locked(int unit) const;
+
+    /// Re-query every AFC object after the unit/lane roster grew at runtime: a
+    /// unit BridgeBox claims after PREP (a Bambu AMS plugged in live) only joins
+    /// AFC.units once it has lanes, and the lanes' own state was published
+    /// before they belonged to any slot. Debounced so one claim, which lands as
+    /// several frames, costs one query. @pre mutex_ held.
+    void schedule_roster_refresh_locked(const char* reason);
+
     /// True when AFC publishes a `Toolchanger` unit: its heads are mounted by
     /// AFC_SELECT_TOOL, not by T{n}. @pre mutex_ held.
     [[nodiscard]] bool has_toolchanger_unit_locked() const;
@@ -1137,6 +1166,15 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
      * unit-to-lane mapping from unit_infos_ and triggers reorganize_slots().
      */
     void rebuild_unit_map_from_klipper();
+
+    /**
+     * @brief rebuild_unit_map_from_klipper() once every known unit has lanes
+     *
+     * Run once after a batch of parse_afc_unit_object() calls, not per unit:
+     * units keep their lanes across frames, so a per-unit check passes for each
+     * one and rebuilds the layout once per unit object in the frame.
+     */
+    void rebuild_unit_map_if_complete();
 
     /**
      * @brief Initialize slot structures based on discovered lanes
@@ -1455,6 +1493,15 @@ class AmsBackendAfc : public AmsSubscriptionBackend {
     /// Lowercased AFC_OpenAMS unit name -> lowercased [AFC_OAMS] name, from configfile.
     std::unordered_map<std::string, std::string> unit_oams_names_;
     std::atomic<bool> has_unit_environment_{false};
+
+    /// Dryer state per heater-carrying unit object, keyed by Klipper key
+    /// ("AFC_BambuAMS AMS_1"). Survives unit_infos_ rebuilds.
+    std::unordered_map<std::string, helix::afc::UnitDryerState> unit_dryers_;
+
+    /// A roster refresh query is in flight or queued.
+    bool roster_refresh_pending_ = false;
+    /// The roster grew while a refresh was in flight: run one more after it.
+    bool roster_refresh_again_ = false;
 
     /// True when @p firmware_id is the id the user unlinked from @p slot_index,
     /// which AFC keeps on a lane with remember_spool and restates on every

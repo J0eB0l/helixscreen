@@ -128,6 +128,8 @@ A dry run creates no GitHub release and sends nothing to Play, Discord or the we
     could publish before Android finished and ship with no APKs, silently.
     build-android FAILS the whole release if ANDROID_KEYSTORE_BASE64 is unset;
     it no longer falls back to the debug keystore. See ANDROID_PLAY_STORE.md.
+    A GitHub fork with no keystore skips Android instead (a warning, no APKs)
+    and the release ships its device builds.
 
   Each platform job: Docker cross-toolchain → target arch → package .zip
                                │
