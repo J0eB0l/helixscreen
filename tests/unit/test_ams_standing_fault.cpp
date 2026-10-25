@@ -838,3 +838,87 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     state().print_state().set_last_gcode_error("", 0.0);
     uninstall(*this);
 }
+
+TEST_CASE_METHOD(
+    LVGLUITestFixture,
+    "AmsErrorBridge presents a new pause reason after closing the one the pause raised",
+    "[ams-standing-fault][ams-bridge]") {
+    auto* backend = install(*this);
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    AmsErrorBridge bridge(presenter);
+    bridge.start();
+
+    // The backend's detail already reads as the `!!` line, the way AFC queues
+    // its own `!!` text into AFC.message, so the cause arriving leaves the
+    // sidebar detail where it was. The edge, mid-print, has nothing to explain
+    // the fault yet.
+    AmsState::instance().set_action_detail(kLane3Fault);
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(presenter.is_visible());
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kStaleMessage);
+    RecoveryModalPresenterTestAccess::user_dismiss(presenter);
+    pump(*this);
+
+    // The pause raises it again, explained.
+    pause_with_bang(*this);
+    REQUIRE(presenter.is_visible());
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+    RecoveryModalPresenterTestAccess::user_dismiss(presenter);
+    pump(*this);
+    REQUIRE_FALSE(presenter.is_visible());
+
+    // A second fault while paused: the stop reason moves on to it.
+    fault_surface_correlation::clear_for_test();
+    state().print_state().set_print_stop_reason(kLane1Fault);
+    pump(*this);
+    CHECK(presenter.is_visible());
+    CHECK(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane1Fault);
+
+    presenter.dismiss();
+    AmsState::instance().set_action_detail("");
+    uninstall(*this);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "AmsErrorBridge presents a fault that comes back after another",
+                 "[ams-standing-fault][ams-bridge]") {
+    auto* backend = install(*this);
+    test::set_wire_state(state(), PrintJobState::STANDBY);
+    pump(*this);
+    helix::ui::RecoveryModalPresenter presenter(nullptr);
+    AmsErrorBridge bridge(presenter);
+    bridge.start();
+
+    auto bang = [this](const std::string& text) {
+        state().print_state().set_last_gcode_error(text, wall_now());
+        lv_subject_notify(state().print_state().get_print_state_enum_subject());
+        pump(*this);
+    };
+    auto close = [this, &presenter]() {
+        RecoveryModalPresenterTestAccess::user_dismiss(presenter);
+        pump(*this);
+        REQUIRE_FALSE(presenter.is_visible());
+    };
+
+    state().print_state().set_last_gcode_error(kLane3Fault, wall_now());
+    backend->set_fault(true);
+    AmsState::instance().set_action(AmsAction::ERROR);
+    pump(*this);
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+    close();
+
+    bang(kLane1Fault);
+    REQUIRE(presenter.is_visible());
+    REQUIRE(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane1Fault);
+    close();
+
+    // lane3 faults again: news, though it was the first fault's text.
+    bang(kLane3Fault);
+    CHECK(presenter.is_visible());
+    CHECK(RecoveryModalPresenterTestAccess::shown_detail(presenter) == kLane3Fault);
+
+    presenter.dismiss();
+    state().print_state().set_last_gcode_error("", 0.0);
+    uninstall(*this);
+}
