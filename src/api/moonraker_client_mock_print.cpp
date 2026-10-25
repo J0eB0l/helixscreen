@@ -251,6 +251,9 @@ MoonrakerClientMock::run_gcode_script_lines(const std::string& script, size_t st
             line.pop_back();
         size_t first = line.find_first_not_of(' ');
         if (first != std::string::npos) {
+            // Only this line's arm counts: a direct gcode_script() call may
+            // have armed a swap no script is waiting on.
+            take_medusa_swap_armed();
             try {
                 if (gcode_script(line.substr(first)) != 0) {
                     run.result = 1;

@@ -3888,6 +3888,16 @@ void MoonrakerClientMock::disconnect() {
     stop_temperature_simulation(false);
     set_connection_state(ConnectionState::DISCONNECTED);
     sim_link_down_ = true;
+    // A swap reply held across the drop belongs to the old link: it fails as
+    // that link's every pending request does, never on the next connection.
+    std::optional<MedusaReply> held;
+    {
+        std::lock_guard<std::mutex> lock(medusa_mutex_);
+        held = std::exchange(medusa_reply_, std::nullopt);
+    }
+    if (held && held->error_cb) {
+        held->error_cb(MoonrakerError::connection_lost("printer.gcode.script"));
+    }
 }
 
 int MoonrakerClientMock::send_jsonrpc(const std::string& method) {
