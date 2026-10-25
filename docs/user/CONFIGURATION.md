@@ -551,7 +551,7 @@ The mode can be overridden per launch without touching settings. Precedence is c
 ### `speed_flow_physical_units`
 **Type:** boolean
 **Default:** `false`
-**Description:** Lead with the live toolhead speed in mm/s and the live volumetric flow in mm³/s instead of percentages in the Print Tune overlay and the Speed / Flow home widget. Tapping either readout in the Tune overlay flips it. The Print Status screen always shows the live rates. See [Print Tune Overlay](guide/printing.md#print-tune-overlay).
+**Description:** Show speed and flow as the live toolhead speed in mm/s and the live volumetric flow in mm³/s instead of percentages, on the Print Status screen and as the leading value in the Print Tune overlay. Tapping the Speed / Flow line on Print Status, or either readout in the Tune overlay, flips it. See [Print Tune Overlay](guide/printing.md#print-tune-overlay).
 
 ### `ui_scale_percent`
 > Added in 1.1.

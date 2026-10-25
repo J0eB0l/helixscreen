@@ -57,7 +57,8 @@ void PrintProgressText::refresh_filament_used() {
 }
 
 void PrintProgressText::refresh_speed_flow() {
-    auto text = helix::tune::live_rates_text(
+    auto text = helix::tune::status_speed_flow_text(
+        DisplaySettingsManager::instance().get_speed_flow_physical_units(),
         lifecycle_.speed_percent(), lifecycle_.flow_percent(),
         lv_subject_get_int(printer_state_.motion_state().get_live_velocity_subject()),
         lv_subject_get_int(printer_state_.motion_state().get_live_extruder_velocity_subject()),

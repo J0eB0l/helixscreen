@@ -105,23 +105,6 @@ TEST_CASE("status_speed_flow_text shows override percentages or physical units",
     }
 }
 
-TEST_CASE("live_rates_text shows the measured rates and a factor only when tuned",
-          "[tune_controller][tune_units]") {
-    SECTION("untuned: the rates alone") {
-        auto text = helix::tune::live_rates_text(100, 100, 187, 500, 1.75);
-        CHECK(text.speed == "187mm/s");
-        CHECK(text.flow == "12.0mm\xC2\xB3/s");
-    }
-    SECTION("each side carries its own factor when it is not 100%") {
-        auto speed_only = helix::tune::live_rates_text(104, 100, 187, 500, 1.75);
-        CHECK(speed_only.speed == "187mm/s 104%");
-        CHECK(speed_only.flow == "12.0mm\xC2\xB3/s");
-        auto flow_only = helix::tune::live_rates_text(100, 95, 187, 500, 1.75);
-        CHECK(flow_only.speed == "187mm/s");
-        CHECK(flow_only.flow == "12.0mm\xC2\xB3/s 95%");
-    }
-}
-
 TEST_CASE_METHOD(TuneFixture, "set_pressure_advance sends a clamped SET_PRESSURE_ADVANCE",
                  "[tune_controller][pa_tune][mock]") {
     helix::tune::set_pressure_advance(api.get(), "extruder1", 0.0425f);

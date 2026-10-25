@@ -189,7 +189,7 @@ until the first layer actually begins.
 The Print Status panel shows:
 
 - **A job tile** with the live preview of the print (including the exclude-object button), the filename, and the current layer and Z height
-- **A printer tile** with a picture of your printer and a chip for each heater, fan, the light, and speed/flow. On printers whose picture has been mapped, each chip sits beside its part with a dotted line to it, and the part glows while it is active (a heater warming up, a fan spinning, the light on). A heater chip turns amber when it is off its target. The speed/flow chip shows the live toolhead speed and volumetric flow, and turns amber, with the percentage added, when either is not 100%. Tap a chip for its detail; tapping speed/flow opens Tune, and tapping the light toggles it. Chips that show an ordinary value (a fan at 0%, the light off) are the first to be left out when the screen is too small for all of them
+- **A printer tile** with a picture of your printer and a chip for each heater, fan, the light, and speed/flow. On printers whose picture has been mapped, each chip sits beside its part with a dotted line to it, and the part glows while it is active (a heater warming up, a fan spinning, the light on). A heater chip turns amber when it is off its target. The speed/flow chip turns amber when either is not 100%. Tap a chip for its detail; tapping speed/flow opens Tune, and tapping the light toggles it. Chips that show an ordinary value (a fan at 0%, the light off) are the first to be left out when the screen is too small for all of them
 - **A strip** along the bottom with the percentage, time remaining, finish time, time elapsed, the filament in use, the next queued job, and the buttons
 
 > **Note:** Exact layer counts and the most accurate time-remaining estimate require your slicer to report layer info to Klipper via `SET_PRINT_STATS_INFO`. If the count or ETA looks off, see [Troubleshooting → Layer count is wrong, stuck at 0, or total layers missing](../TROUBLESHOOTING.md#layer-count-is-wrong-stuck-at-0-or-total-layers-missing).
@@ -296,9 +296,12 @@ You can also keep the Speed / Flow and Z-Offset readings on the home screen and 
 
 Next to each percentage, the overlay shows what it means right now: how fast the toolhead is actually moving in mm/s (0 when it is standing still) and the live volumetric flow in mm³/s.
 
-**Percent or mm/s.** Anything marked with the ⇄ swap icon switches which reading the overlay leads with: the percentages (default), or the live toolhead speed and volumetric flow with the percentage beside them. Tap either readout to switch. The choice is remembered.
+**Percent or mm/s.** Anything marked with the ⇄ swap icon switches between the two ways of reading speed and flow. Tap either readout here, and the Speed / Flow chip on the Print Status screen follows:
 
-The Speed / Flow chip on the Print Status screen always shows the live rates, for example `148mm/s · 11.8mm³/s`. When you have changed speed or flow, the chip turns amber and shows that percentage after the rate, for example `148mm/s 110%`.
+- **Percent** (default): Print Status shows `Speed 100% · Flow 100%`, and the overlay leads with the percentages.
+- **mm/s**: Print Status shows the live toolhead speed and volumetric flow, for example `Speed 148 mm/s · Flow 11.8 mm³/s`, and the overlay leads with those, with the percentage beside them.
+
+The choice is remembered.
 
 > **Note:** Volumetric flow assumes 1.75 mm filament. On a 2.85 mm printer it reads low.
 

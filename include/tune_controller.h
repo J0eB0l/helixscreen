@@ -62,10 +62,4 @@ SpeedFlowText status_speed_flow_text(bool physical_units, int speed_pct, int flo
                                      int live_velocity_mm_s, int extruder_velocity_centimm_s,
                                      float filament_diameter_mm);
 
-/// The measured toolhead speed and volumetric flow for a compact readout
-/// ("187mm/s", "12.0mm³/s"), each followed by its override factor only while
-/// that factor is not 100% ("187mm/s 104%").
-SpeedFlowText live_rates_text(int speed_pct, int flow_pct, int live_velocity_mm_s,
-                              int extruder_velocity_centimm_s, float filament_diameter_mm);
-
 } // namespace helix::tune
