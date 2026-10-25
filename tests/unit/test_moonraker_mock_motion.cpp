@@ -943,8 +943,9 @@ TEST_CASE("MoonrakerClientMock out-of-range move error handling", "[api][movemen
         mock.gcode_script("G28");
         REQUIRE(mock.get_last_gcode_error().empty());
 
-        // Try to move below kXMin (0mm)
-        int result = mock.gcode_script("G0 X-10");
+        // Try to move below the persona's X minimum (-175 on the centre-origin
+        // Voron 2.4)
+        int result = mock.gcode_script("G0 X-180");
 
         REQUIRE(result != 0);
         std::string error = mock.get_last_gcode_error();
@@ -996,12 +997,12 @@ TEST_CASE("MoonrakerClientMock out-of-range move error handling", "[api][movemen
         mock.connect("ws://mock/websocket", []() {}, []() {});
 
         mock.gcode_script("G28");     // Start at 0,0,0
-        mock.gcode_script("G0 X200"); // Move to X=200
+        mock.gcode_script("G0 X100"); // Move to X=100
 
         // Switch to relative mode
         mock.gcode_script("G91");
 
-        // Try to move +100 from X=200, which would put us at X=300 (out of range)
+        // Try to move +100 from X=100, which would put us at X=200 (out of range)
         int result = mock.gcode_script("G0 X100");
 
         REQUIRE(result != 0);

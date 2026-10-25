@@ -57,8 +57,8 @@ struct BedDryingFixture : public LVGLTestFixture {
         SettingsManager::instance().clear_bed_drying_record();
         client.config_sections = {{"idle_timeout", {{"timeout", "300"}}}};
         frame({{"toolhead",
-                {{"axis_minimum", {0, 0, 0, 0}},
-                 {"axis_maximum", {250, 250, 240, 0}},
+                {{"axis_minimum", {-175, -175, 0, 0}},
+                 {"axis_maximum", {175, 175, 240, 0}},
                  {"homed_axes", "xyz"}}},
                {"heater_bed", {{"target", 0.0}, {"temperature", 25.0}}}});
         ctrl = make_controller();
@@ -142,7 +142,7 @@ TEST_CASE_METHOD(BedDryingFixture, "prepare moves the plate to the far end of Z 
     CHECK(ready);
     CHECK_FALSE(sent("G28"));
     CHECK(sent("G1 Z220.0 F600"));
-    CHECK(sent("G1 X125.0 Y240.0 F6000"));
+    CHECK(sent("G1 X0.0 Y165.0 F6000"));
     CHECK(sent("M400"));
     // Spools can land on the plate once the place prompt is up, so the latch is
     // set and saved before it opens; nothing heats yet.
