@@ -43,6 +43,7 @@
 #include "printer_discovery.h"
 #include "toolchanger_addon.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -1160,6 +1161,132 @@ TEST_CASE_METHOD(LVGLTestFixture, "HELIX_MOCK_MEDUSA_REDOCK_S docks the stuck ho
     const json status = mock.medusa_status_json();
     CHECK(status["current_tool"].get<int>() == -1);
     CHECK(status["sensor_error"].get<bool>());
+}
+
+namespace {
+/// A printer.gcode.script rpc's answer, as its caller sees it.
+struct ScriptReply {
+    int successes = 0;
+    int errors = 0;
+    std::string message;
+};
+
+void send_script(MoonrakerClientMock& mock, const std::string& script, ScriptReply& reply) {
+    mock.send_jsonrpc(
+        "printer.gcode.script", json{{"script", script}},
+        [&reply](const json&) { ++reply.successes; },
+        [&reply](const MoonrakerError& err) {
+            ++reply.errors;
+            reply.message = err.message;
+        });
+}
+
+bool history_has(const MoonrakerClientMock& mock, const std::string& line) {
+    const auto& history = mock.gcode_script_history();
+    return std::find(history.begin(), history.end(), line) != history.end();
+}
+} // namespace
+
+TEST_CASE_METHOD(LVGLTestFixture, "A MedusaHC swap answers its gcode script only once it ends",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc");
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    ScopedEnv fail_env("HELIX_MOCK_MEDUSA_SWAP_FAIL", "2");
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+
+    SECTION("a failed pick outside a print is a gcode error, and the script ends there") {
+        ScriptReply reply;
+        send_script(mock, "T2\nM104 T0 S200", reply);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes + reply.errors == 0);
+
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.successes == 0);
+        REQUIRE(reply.errors == 1);
+        CHECK(reply.message == "MHC_SET: sensors did not confirm T2");
+        CHECK_FALSE(history_has(mock, "M104 T0 S200"));
+        CHECK(mock.medusa_status_json()["sensor_error"].get<bool>());
+    }
+    SECTION("a pick the docks confirm succeeds, then runs the rest of the script") {
+        ScriptReply reply;
+        send_script(mock, "MHC_SET T=1\nM104 T0 S200", reply);
+        CHECK_FALSE(history_has(mock, "M104 T0 S200"));
+
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.errors == 0);
+        CHECK(reply.successes == 1);
+        CHECK(history_has(mock, "M104 T0 S200"));
+    }
+    SECTION("a failed pick during a print pauses it and the script still succeeds") {
+        REQUIRE(mock.start_print_internal("3DBenchy.gcode"));
+        ScriptReply reply;
+        send_script(mock, "T2", reply);
+        run_medusa_to_rest(mock);
+        ui::UpdateQueue::instance().drain();
+        CHECK(reply.errors == 0);
+        CHECK(reply.successes == 1);
+        CHECK(mock.get_print_phase() == MoonrakerClientMock::MockPrintPhase::PAUSED);
+    }
+    SECTION("a swap sent while another runs is refused at once") {
+        ScriptReply first;
+        ScriptReply second;
+        send_script(mock, "T1", first);
+        send_script(mock, "T3", second);
+        CHECK(second.errors == 1);
+        CHECK(second.message == "MedusaHC is busy: changing");
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "Beside klipper-toolchanger, tool_number follows the docks",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc");
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    ScopedEnv fail_env("HELIX_MOCK_MEDUSA_SWAP_FAIL", "3");
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+    REQUIRE(mock.sync_medusa_toolchanger_tool() == 0);
+
+    REQUIRE(mock.gcode_script("SELECT_TOOL T=2") == 0);
+    run_medusa_to_rest(mock);
+    CHECK(mock.sync_medusa_toolchanger_tool() == 2);
+
+    SECTION("a reading the docks cannot name unselects outside a print") {
+        REQUIRE(mock.gcode_script("T3") == 0);
+        run_medusa_to_rest(mock);
+        REQUIRE(mock.medusa_status_json()["current_tool"].get<int>() == -2);
+        CHECK(mock.sync_medusa_toolchanger_tool() == -1);
+    }
+    SECTION("and is left alone during a print") {
+        REQUIRE(mock.start_print_internal("3DBenchy.gcode"));
+        REQUIRE(mock.gcode_script("T3") == 0);
+        run_medusa_to_rest(mock);
+        REQUIRE(mock.medusa_status_json()["current_tool"].get<int>() == -2);
+        CHECK(mock.sync_medusa_toolchanger_tool() == 2);
+    }
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "The T<n>-macro MedusaHC mock carries six tools",
+                 "[ams][toolchanger][medusahc][mock]") {
+    ScopedEnv ams_env("HELIX_MOCK_AMS", "medusahc-tn");
+    ScopedEnv printer_env("HELIX_MOCK_PRINTER", nullptr);
+    MoonrakerClientMock mock(MoonrakerClientMock::PrinterType::VORON_24);
+    const auto hw = mock.hardware();
+    const auto& objs = hw.printer_objects();
+    CHECK(std::find(objs.begin(), objs.end(), "gcode_macro T5") != objs.end());
+    CHECK(std::find(objs.begin(), objs.end(), "gcode_macro T6") == objs.end());
+    const auto& heaters = hw.heaters();
+    CHECK(std::find(heaters.begin(), heaters.end(), "extruder5") != heaters.end());
+
+    json status = mock.medusa_status_json();
+    CHECK(status["tool_count"].get<int>() == 6);
+    CHECK(status["sensors"].contains("t5"));
+
+    REQUIRE(mock.gcode_script("T5") == 0);
+    run_medusa_to_rest(mock);
+    CHECK(mock.medusa_status_json()["current_tool"].get<int>() == 5);
+    CHECK(mock.gcode_script("SET T=6") != 0);
+    CHECK(mock.get_last_gcode_error() == "Tool T6 is outside configured range T0..T5");
 }
 
 TEST_CASE("Each MedusaHC mock variant lists its configuration's objects",
