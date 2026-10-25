@@ -27,6 +27,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <chrono>
 #include <utility>
 
@@ -327,6 +328,7 @@ void ScreensaverManager::begin_gate(const StartPlan& plan) {
     gate_enabled_ = plan.gated;
     gated_level_ = active_->level();
     requested_level_ = gated_level_;
+    level_ceiling_ = 0;
     comfort_.reset();
     const CpuSample now = cpu_clock_();
     session_.begin(now, baseline_.rate());
@@ -374,7 +376,7 @@ void ScreensaverManager::on_idle_check_tick() {
         // stored low level was earned under whatever load ran then, and a
         // sustained quiet run says the board affords more now.
         comfort_.add(*share, budget);
-        if (helix::ui::decide_saver_level_up(gated_level_, comfort_.streak()) ==
+        if (helix::ui::decide_saver_level_up(gated_level_, comfort_.streak(), level_ceiling_) ==
             GateDecision::STEP_UP) {
             requested_level_ = gated_level_ - 1;
             spdlog::info("[ScreensaverManager] {} steady at {:.1f}% of a {:.1f}% budget{}; "
@@ -394,12 +396,13 @@ void ScreensaverManager::on_idle_check_tick() {
         return;
     case GateDecision::STEP_DOWN:
         requested_level_ = gated_level_ + 1;
+        level_ceiling_ = std::max(level_ceiling_, requested_level_);
         comfort_.reset();
         spdlog::info("[ScreensaverManager] {} used {:.1f}% of a core against a {:.1f}% budget{}; "
                      "stepping down to level {}",
                      active_info_->name, *share * 100.0, budget * 100.0,
                      printing ? " while printing" : "", requested_level_);
-        // The print's halved budget says nothing about what the board affords idle.
+        // The print's budget says nothing about what the board affords idle.
         if (!printing) {
             record_level(requested_level_, false);
         }

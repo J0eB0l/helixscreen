@@ -38,7 +38,7 @@ CpuSample at(double wall_s, double cpu_s) {
 // Budget and decision
 // ============================================================================
 
-TEST_CASE("the saver budget follows the core count and halves while printing",
+TEST_CASE("the saver budget follows the core count and drops while printing",
           "[screensaver][screensaver_gate]") {
     using helix::ui::saver_budget_share;
     CHECK(saver_budget_share(8, false) == Catch::Approx(1.00));
@@ -47,10 +47,13 @@ TEST_CASE("the saver budget follows the core count and halves while printing",
     CHECK(saver_budget_share(2, false) == Catch::Approx(0.50));
     CHECK(saver_budget_share(1, false) == Catch::Approx(0.10));
     CHECK(saver_budget_share(0, false) == Catch::Approx(0.10));
-    CHECK(saver_budget_share(4, true) == Catch::Approx(0.50));
-    CHECK(saver_budget_share(3, true) == Catch::Approx(0.375));
-    CHECK(saver_budget_share(2, true) == Catch::Approx(0.25));
+    // klippy shares the SoC while printing: these stay where they are on purpose.
+    CHECK(saver_budget_share(8, true) == Catch::Approx(0.25));
+    CHECK(saver_budget_share(4, true) == Catch::Approx(0.25));
+    CHECK(saver_budget_share(3, true) == Catch::Approx(0.185));
+    CHECK(saver_budget_share(2, true) == Catch::Approx(0.125));
     CHECK(saver_budget_share(1, true) == Catch::Approx(0.05));
+    CHECK(saver_budget_share(0, true) == Catch::Approx(0.05));
 }
 
 TEST_CASE("over budget steps down one level, at the bottom it is too heavy",
@@ -85,10 +88,17 @@ TEST_CASE("a comfort streak rises only on windows comfortably under budget",
 TEST_CASE("three comfortable windows step the level back up, never past the top",
           "[screensaver][screensaver_gate]") {
     using helix::ui::decide_saver_level_up;
-    CHECK(decide_saver_level_up(3, 3) == GateDecision::STEP_UP);
-    CHECK(decide_saver_level_up(1, 3) == GateDecision::STEP_UP);
-    CHECK(decide_saver_level_up(0, 10) == GateDecision::KEEP);
-    CHECK(decide_saver_level_up(3, 2) == GateDecision::KEEP);
+    CHECK(decide_saver_level_up(3, 3, 0) == GateDecision::STEP_UP);
+    CHECK(decide_saver_level_up(1, 3, 0) == GateDecision::STEP_UP);
+    CHECK(decide_saver_level_up(0, 10, 0) == GateDecision::KEEP);
+    CHECK(decide_saver_level_up(3, 2, 0) == GateDecision::KEEP);
+}
+
+TEST_CASE("a raise never reaches a rung above the ceiling", "[screensaver][screensaver_gate]") {
+    using helix::ui::decide_saver_level_up;
+    CHECK(decide_saver_level_up(2, 10, 2) == GateDecision::KEEP);
+    CHECK(decide_saver_level_up(2, 10, 1) == GateDecision::STEP_UP);
+    CHECK(decide_saver_level_up(3, 10, 2) == GateDecision::STEP_UP);
 }
 
 // ============================================================================

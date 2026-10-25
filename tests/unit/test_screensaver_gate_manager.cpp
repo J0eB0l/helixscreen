@@ -430,7 +430,7 @@ TEST_CASE_METHOD(
 }
 
 TEST_CASE_METHOD(LVGLTestFixture,
-                 "the budget follows the core count and halves when a print starts mid-run",
+                 "the budget follows the core count and drops when a print starts mid-run",
                  "[screensaver][screensaver_gate]") {
     GateHarness gate;
     const double full =
@@ -823,4 +823,44 @@ TEST_CASE_METHOD(LVGLTestFixture, "a step-up while printing is not recorded",
     const std::optional<SaverLevelEntry> entry = gate.stored("maze");
     REQUIRE(entry.has_value());
     CHECK(entry->level == 2);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "a rung that stepped down is not climbed back into for the rest of the run",
+                 "[screensaver][screensaver_gate]") {
+    GateHarness gate;
+    const std::string board = ScreensaverManagerTestAccess::current_board(gate.mgr);
+    const std::string version = helix_version_full();
+    gate.store("maze", {2, false, version, board});
+    setenv("HELIX_SCREENSAVER_BUDGET_PCT", "100", 1);
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    helix::ui::SaverBase* maze = gate.running();
+    REQUIRE(maze != nullptr);
+    REQUIRE(maze->level() == 2);
+
+    // Comfortable at level 2: climb to 1, which runs over budget and steps back down.
+    gate.run(18.0, 0.5);
+    REQUIRE(maze->level() == 1);
+    gate.run(11.0, 1.2);
+    REQUIRE(maze->level() == 2);
+    const std::optional<SaverLevelEntry> down = gate.stored("maze");
+    REQUIRE(down.has_value());
+    REQUIRE(down->level == 2);
+
+    // However long the comfort lasts, level 1 stays closed and nothing is saved again.
+    gate.store("maze", {7, false, version, board});
+    gate.run(60.0, 0.5);
+    CHECK(maze->level() == 2);
+    const std::optional<SaverLevelEntry> after = gate.stored("maze");
+    REQUIRE(after.has_value());
+    CHECK(after->level == 7);
+
+    // A new run measures from the stored level with every rung open again.
+    gate.mgr.stop();
+    gate.store("maze", {2, false, version, board});
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    maze = gate.running();
+    REQUIRE(maze != nullptr);
+    gate.run(18.0, 0.5);
+    CHECK(maze->level() == 1);
 }

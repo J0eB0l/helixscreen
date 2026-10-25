@@ -18,11 +18,12 @@
 
 namespace helix::ui {
 
-/// Share of one core a running saver may use: 4 or more cores 1.00 (the saver
-/// is the foreground activity while idle, and one core of a 4+ core board
-/// leaves the machine responsive), 3 cores 0.75, 2 cores 0.50, otherwise 0.10
-/// (a core count that failed to parse reads as one core). Halved while
-/// printing.
+/// Share of one core a running saver may use. Idle: 4 or more cores 1.00 (the
+/// saver is the foreground activity, and one core of a 4+ core board leaves the
+/// machine responsive), 3 cores 0.75, 2 cores 0.50, otherwise 0.10 (a core count
+/// that failed to parse reads as one core). While printing: 0.25, 0.185, 0.125
+/// and 0.05, since klippy shares the SoC and a starved host faults the print
+/// with "Timer too close".
 double saver_budget_share(int cores, bool printing);
 
 enum class GateDecision {
@@ -63,8 +64,11 @@ class SaverComfortStreak {
 };
 
 /// A raise for a saver at `level` whose comfort streak reached kStepUpWindows.
-/// The top rung (level 0) never raises.
-GateDecision decide_saver_level_up(size_t level, int comfortable_windows);
+/// It never raises above `ceiling`, the highest rung (lowest level number)
+/// still open: 0 is the top rung, and a rung that stepped down this run is
+/// closed, since rungs cost about twice each other and a raise into it would
+/// only step down again.
+GateDecision decide_saver_level_up(size_t level, int comfortable_windows, size_t ceiling);
 
 /// The app's CPU rate while no saver runs, over the last idle stretch of up to kSpanNs.
 class IdleBaseline {
