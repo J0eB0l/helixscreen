@@ -192,8 +192,10 @@ the APK) with stb_image as fallback. Three load-bearing details:
 
 Views do not drive a `CameraStream` directly. `CameraView` ([`include/camera_view.h#CameraView`](../../../include/camera_view.h)) owns one:
 `start()` resolves the feed, applies rotation/flip and target size and hands every frame to the owner on the UI
-thread; `stop()` clears the owner's images and waits for the render thread before freeing buffers, and honours the
-detach contract. The home `CameraWidget` and the Print Status preview card both sit on it; each keeps its own
+thread; `stop()` clears the owner's images and waits for the render thread, then joins the stream on
+`HttpExecutor::fast()` (a wedged join would freeze the UI) and honours the detach contract there. A `start()` over a
+worker that gave up runs the same teardown first. Most streamers serve one client, so a view starting a camera tells
+every other view of it to stop through its `on_preempted()` handler; each owner restarts on its next activation. The home `CameraWidget` and the Print Status preview card both sit on it; each keeps its own
 target image and fps policy.
 
 The widget also throttles: `set_max_fps(0)` when an overlay covers it, `2` in edit mode, the configured cap

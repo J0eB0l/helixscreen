@@ -30,8 +30,8 @@ namespace helix {
  * frame callback picks the target image, and the owner sets the frame rate
  * from its own visibility rules (set_max_fps(0) pauses decoding).
  *
- * Main thread only. Most MJPEG streamers accept a single client, so an owner
- * stops its view whenever another view of the same camera takes over.
+ * Main thread only. Most MJPEG streamers accept a single client, so a view
+ * starting a camera stops every other view of it (see on_preempted()).
  */
 class CameraView {
   public:
@@ -52,14 +52,23 @@ class CameraView {
     /// Resolve @p source (a webcam name; "" picks automatically) and start
     /// streaming it with the rotation/flip in @p transform_config (a view's
     /// persisted config; empty applies the camera's own flips). Returns false,
-    /// starting nothing, when no feed resolves. A running stream is left alone.
-    bool start(const std::string& source, const nlohmann::json& transform_config, FrameFn on_frame,
-               StatusFn on_status);
+    /// starting nothing, when no feed resolves. A running stream is left alone;
+    /// one whose worker gave up is stopped first, clearing @p images, the
+    /// images this view shows frames in. Any other view streaming the same
+    /// camera is told to stop through its on_preempted() handler.
+    bool start(const std::string& source, const nlohmann::json& transform_config,
+               std::initializer_list<lv_obj_t*> images, FrameFn on_frame, StatusFn on_status);
 
     /// Stop the stream. Every image in @p images showing a frame is cleared
     /// first, and the render thread is waited on, so freeing the frame buffers
-    /// cannot race a draw. Queued frames and statuses are dropped.
+    /// cannot race a draw. Queued frames and statuses are dropped. The
+    /// stream's thread is joined on HttpExecutor::fast() when it runs.
     void stop(std::initializer_list<lv_obj_t*> images);
+
+    /// What to do when another view starts streaming this view's camera: the
+    /// owner stops this view (with its images) and restarts it when it is
+    /// shown again.
+    void on_preempted(std::function<void()> handler);
 
     /// A stream exists (it may still be connecting or have given up).
     bool has_stream() const {
@@ -96,6 +105,8 @@ class CameraView {
     void on_display_sleep(std::function<void(bool sleeping)> on_change);
 
   private:
+    friend class CameraViewTestAccess;
+
     std::unique_ptr<CameraStream> stream_;
     WebcamInfo feed_;
     int target_fps_ = 15;
@@ -103,6 +114,7 @@ class CameraView {
     /// Guards the frame and status deferrals of one stream; stop() bumps it.
     AsyncLifetimeGuard stream_lifetime_;
     std::shared_ptr<std::function<void(bool)>> sleep_handler_;
+    std::function<void()> on_preempted_;
 };
 
 } // namespace helix

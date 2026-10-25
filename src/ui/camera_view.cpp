@@ -5,21 +5,52 @@
 #if HELIX_HAS_CAMERA
 
 #include "display_manager.h"
+#include "http_executor.h"
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <utility>
+#include <vector>
 
 namespace helix {
 
-CameraView::CameraView() = default;
+namespace {
+
+// Every live view, so a view starting a camera can stop the others showing it.
+std::vector<CameraView*> s_views;
+
+/// One camera, as a streamer sees a client: its stream URL, or its snapshot
+/// URL when it has none.
+const std::string& client_url(const WebcamInfo& feed) {
+    return feed.stream_url.empty() ? feed.snapshot_url : feed.stream_url;
+}
+
+/// Join @p stream's thread and free it. A stream whose thread was detached
+/// still runs with a pointer to it, so destroying it would be a
+/// use-after-free (#624): it is leaked and winds down on its own.
+void reap(const std::shared_ptr<CameraStream>& stream) {
+    stream->stop();
+    if (stream->was_detached()) {
+        spdlog::warn("[CameraView] Stream thread was detached, leaking CameraStream to avoid UAF");
+        (void)new std::shared_ptr<CameraStream>(stream);
+    }
+}
+
+} // namespace
+
+CameraView::CameraView() {
+    s_views.push_back(this);
+}
 
 CameraView::~CameraView() {
+    s_views.erase(std::remove(s_views.begin(), s_views.end(), this), s_views.end());
     stop({});
 }
 
 bool CameraView::start(const std::string& source, const nlohmann::json& transform_config,
-                       FrameFn on_frame, StatusFn on_status) {
+                       std::initializer_list<lv_obj_t*> images, FrameFn on_frame,
+                       StatusFn on_status) {
     if (is_running()) {
         spdlog::debug("[CameraView] start: already running, skipping");
         return true;
@@ -30,6 +61,22 @@ bool CameraView::start(const std::string& source, const nlohmann::json& transfor
         spdlog::debug("[CameraView] start: no feed resolves for '{}' yet", source);
         return false;
     }
+
+    // A worker that gave up on its own leaves its stream, and the frame the
+    // images still show, behind.
+    stop(images);
+
+    // Most MJPEG streamers serve a single client: another view showing this
+    // camera hands it over.
+    for (CameraView* other : std::vector<CameraView*>(s_views)) {
+        if (other != this && other->stream_ && client_url(other->feed_) == client_url(*feed)) {
+            spdlog::debug("[CameraView] Taking over '{}' from another view", client_url(*feed));
+            if (other->on_preempted_) {
+                other->on_preempted_();
+            }
+        }
+    }
+
     feed_ = *feed;
     stream_ = std::make_unique<CameraStream>();
     apply_transform(transform_config);
@@ -79,9 +126,9 @@ void CameraView::stop(std::initializer_list<lv_obj_t*> images) {
     // Queued frame deferrals become no-ops before their buffers are freed.
     stream_lifetime_.invalidate();
 
-    // stop() frees the draw buffers the images may still reference, and the
-    // render thread can still be blending from one it picked up before the
-    // source was cleared (#749).
+    // Reaping the stream frees the draw buffers the images may still
+    // reference, and the render thread can still be blending from one it
+    // picked up before the source was cleared (#749).
     if (lv_is_initialized()) {
         for (lv_obj_t* image : images) {
             if (image) {
@@ -91,18 +138,20 @@ void CameraView::stop(std::initializer_list<lv_obj_t*> images) {
         lv_draw_wait_for_finish();
     }
 
-    stream_->stop();
-
-    if (stream_->was_detached()) {
-        // The stream thread still runs with a captured pointer to the stream,
-        // so destroying it would be a use-after-free (#624). It winds down on
-        // its own once the HTTP request completes.
-        spdlog::warn("[CameraView] Stream thread was detached, leaking CameraStream to avoid UAF");
-        (void)stream_.release();
+    // The join can take seconds on a wedged connection, so it runs off the
+    // main thread whenever the pool is up to take it.
+    std::shared_ptr<CameraStream> stream(std::move(stream_));
+    auto& pool = http::HttpExecutor::fast();
+    if (pool.running()) {
+        pool.submit([stream]() { reap(stream); });
     } else {
-        stream_.reset();
+        reap(stream);
     }
     spdlog::debug("[CameraView] Stream stopped");
+}
+
+void CameraView::on_preempted(std::function<void()> handler) {
+    on_preempted_ = std::move(handler);
 }
 
 void CameraView::set_max_fps(int fps) {

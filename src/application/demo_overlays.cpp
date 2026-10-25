@@ -46,7 +46,7 @@
 // application.cpp's include path, so forward-declare rather than including the
 // header (same pattern as ui_settings_hardware.cpp).
 namespace helix {
-void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 }
 #endif
 

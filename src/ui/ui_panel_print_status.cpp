@@ -91,7 +91,7 @@ namespace tio = helix::text_io;
 // this file's include path, so forward-declare rather than including the
 // header (same pattern as ui_settings_hardware.cpp).
 namespace helix {
-void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 }
 #endif
 
@@ -167,11 +167,13 @@ static void log_tree_created(PrintState state, size_t available_mb) {
 // No-ops when no webcam is configured or a fullscreen view is already open;
 // reuses an attached home CameraWidget's stream when one exists
 // (single-MJPEG-client safe).
-static void open_print_status_camera() {
+// Returns whether a fullscreen view opened.
+static bool open_print_status_camera() {
 #if HELIX_HAS_CAMERA
-    helix::open_standalone_camera_fullscreen(lv_display_get_screen_active(nullptr));
+    return helix::open_standalone_camera_fullscreen(lv_display_get_screen_active(nullptr));
 #else
     spdlog::debug("[PrintStatusPanel] Camera support disabled in this build");
+    return false;
 #endif
 }
 
@@ -238,6 +240,10 @@ PrintStatusPanel::PrintStatusPanel(PrinterState& printer_state, IMoonrakerAPI* a
                              [this]() { return lifecycle_.flow_percent(); },
                              [this]() { return std::string(progress_text_.speed_text()); }}) {
     preview_.set_api(api);
+#if HELIX_HAS_CAMERA
+    // Another view taking the camera over; the card restarts on reactivation.
+    camera_view_.on_preempted([this]() { stop_preview_camera(); });
+#endif
     // Pre-init local subject used by observer callback below (fires immediately on subscribe)
     lv_subject_init_int(&exclude_objects_available_subject_, 0);
 
@@ -1622,7 +1628,7 @@ void PrintStatusPanel::start_preview_camera() {
         return;
     }
     const bool started = camera_view_.start(
-        "", nlohmann::json::object(),
+        "", nlohmann::json::object(), {preview_camera_image_},
         [this](lv_draw_buf_t* frame) {
             if (!preview_camera_image_) {
                 return;
@@ -2098,9 +2104,12 @@ void PrintStatusPanel::handle_more_action(int action) {
     switch (action) {
     case helix::ui::PrintStatusMoreMenu::kActionCamera:
         // Most MJPEG streamers serve one client: the fullscreen viewer's
-        // stream replaces the card's, which restarts when this panel returns.
+        // stream replaces the card's, which restarts when this panel returns,
+        // or now when no viewer opened.
         stop_preview_camera();
-        open_print_status_camera();
+        if (!open_print_status_camera()) {
+            update_preview_camera();
+        }
         break;
     case helix::ui::PrintStatusMoreMenu::kActionTimelapse:
         light_timelapse_controls_.handle_timelapse_button();

@@ -78,6 +78,11 @@ class PrintStatusPanelTestAccess {
 #endif
     }
 
+    /// A More menu row's tap, by its PrintStatusMoreMenu action.
+    static void more_action(PrintStatusPanel& panel, int action) {
+        panel.handle_more_action(action);
+    }
+
     /// What the preview controller calls to put the G-code render up or down.
     static void show_gcode_viewer(PrintStatusPanel& panel, bool show) {
         panel.show_gcode_viewer(show);

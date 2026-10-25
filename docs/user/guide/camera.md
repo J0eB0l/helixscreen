@@ -29,7 +29,7 @@ The home widget can be pointed at a specific camera instead. Open the camera con
 - **Automatic** — the camera HelixScreen would pick on its own.
 - A named camera — one of the enabled webcams in Moonraker's list. A camera whose service is not MJPEG (WebRTC, HLS, an IP camera) is marked **Snapshot only**: HelixScreen will poll its snapshot image rather than stream it. A camera whose service is not running is marked **Unavailable**.
 
-The choice is saved with the widget by name, so it survives a change of the printer's address. If the named camera later disappears from Moonraker, is disabled, or its service stops, the widget falls back to the automatic choice rather than showing **No Camera**, and returns to the named camera when it is back. Each widget has its own Source, so two camera widgets on one dashboard can show two different feeds — each one is a separate stream and a separate decode, so expect the extra CPU cost on small boards.
+The choice is saved with the widget by name, so it survives a change of the printer's address. If the named camera later disappears from Moonraker, is disabled, or its service stops, the widget falls back to the automatic choice rather than showing **No Camera**, and returns to the named camera when it is back. Each widget has its own Source, so two camera widgets on one dashboard can show two different feeds — each one is a separate stream and a separate decode, so expect the extra CPU cost on small boards. Many camera streamers serve only one viewer, so two places showing the same camera take turns: the one that started last shows the feed.
 
 ---
 

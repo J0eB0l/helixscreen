@@ -107,7 +107,10 @@ void CameraWidget::on_camera_clicked(lv_event_t* e) {
     self->open_fullscreen();
 }
 
-CameraWidget::CameraWidget() {}
+CameraWidget::CameraWidget() {
+    // Another view taking this camera over; on_activate() starts it again.
+    view_.on_preempted([this]() { stop_stream(); });
+}
 
 CameraWidget::~CameraWidget() {
     // detach() handles LVGL pointer cleanup, observer release, fullscreen close
@@ -350,7 +353,7 @@ void CameraWidget::start_stream() {
     }
 
     const bool started = view_.start(
-        configured_source(), config_,
+        configured_source(), config_, {fullscreen_image_, camera_image_},
         [this](lv_draw_buf_t* frame) {
             // Re-evaluate fps on the UI thread (overlay/edit state is UI-thread only)
             update_stream_fps();
@@ -686,21 +689,21 @@ void on_standalone_overlay_deleted(lv_event_t* e) {
 
 } // namespace
 
-void open_standalone_camera_fullscreen(lv_obj_t* parent_screen) {
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen) {
     if (!parent_screen) {
-        return;
+        return false;
     }
 
     // Single fullscreen at a time across all entry points
     if (s_fullscreen_owner || s_standalone) {
         spdlog::debug(
             "[CameraWidget] Standalone fullscreen open requested, but one is already open");
-        return;
+        return false;
     }
 
     if (!get_printer_state().has_webcam()) {
         spdlog::debug("[CameraWidget] Standalone fullscreen requested, but no webcam configured");
-        return;
+        return false;
     }
 
     // Prefer an existing attached CameraWidget — it already owns a running
@@ -710,7 +713,7 @@ void open_standalone_camera_fullscreen(lv_obj_t* parent_screen) {
     if (!s_attached_widgets.empty()) {
         spdlog::debug("[CameraWidget] Delegating standalone fullscreen to attached widget");
         s_attached_widgets.front()->open_fullscreen();
-        return;
+        return s_fullscreen_owner != nullptr;
     }
 
     auto state = std::make_unique<StandaloneFullscreen>();
@@ -719,7 +722,7 @@ void open_standalone_camera_fullscreen(lv_obj_t* parent_screen) {
     std::string stream_url, snapshot_url;
     if (!state->stream->configure_from_printer(stream_url, snapshot_url)) {
         spdlog::warn("[CameraWidget] Standalone fullscreen: no webcam URLs available");
-        return;
+        return false;
     }
 
     // Apply Moonraker flips (no per-user transform persisted for the standalone view)
@@ -739,13 +742,13 @@ void open_standalone_camera_fullscreen(lv_obj_t* parent_screen) {
 
     lv_obj_t* screen = lv_display_get_screen_active(nullptr);
     if (!screen) {
-        return;
+        return false;
     }
 
     auto* overlay = helix::ui::create_xml_hidden(screen, "camera_fullscreen");
     if (!overlay) {
         spdlog::warn("[CameraWidget] Standalone: failed to create camera_fullscreen component");
-        return;
+        return false;
     }
 
     state->overlay = overlay;
@@ -796,6 +799,7 @@ void open_standalone_camera_fullscreen(lv_obj_t* parent_screen) {
     helix::nav::push_overlay(overlay);
     spdlog::info("[CameraWidget] Standalone fullscreen opened (stream={}, snapshot={})", stream_url,
                  snapshot_url);
+    return true;
 }
 
 void CameraWidget::destroy_fullscreen() {

@@ -23,6 +23,12 @@
 #include "display_settings_manager.h"
 #include "printer_state.h"
 
+#if HELIX_HAS_CAMERA
+namespace helix {
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
+}
+#endif
+
 #include "../catch_amalgamated.hpp"
 
 using namespace helix;
@@ -218,6 +224,28 @@ TEST_CASE_METHOD(CameraToggleFixture,
         CHECK(hidden(find("preview_camera")));
         CHECK(DisplaySettingsManager::instance().get_print_status_show_camera());
     }
+}
+#endif
+
+#if HELIX_HAS_CAMERA
+TEST_CASE_METHOD(CameraToggleFixture,
+                 "Print status camera restarts when More > Camera opens no viewer",
+                 "[print_status][camera]") {
+    set_webcam(true);
+    set_remote(true);
+    open();
+    tap_camera_button();
+    REQUIRE(PrintStatusPanelTestAccess::camera_streaming(panel()));
+
+    // A fullscreen viewer is already up (its push still queued), so the menu
+    // row opens nothing.
+    REQUIRE(open_standalone_camera_fullscreen(test_screen()));
+    PrintStatusPanelTestAccess::more_action(panel(), helix::ui::PrintStatusMoreMenu::kActionCamera);
+    CHECK(PrintStatusPanelTestAccess::camera_streaming(panel()));
+
+    drain();
+    helix::nav::go_back();
+    drain();
 }
 #endif
 

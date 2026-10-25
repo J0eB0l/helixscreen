@@ -132,8 +132,9 @@ class CameraWidget : public PanelWidget {
  * or if a fullscreen view is already open.
  *
  * @param parent_screen Active screen the overlay is attached to.
+ * @return true when a fullscreen view opened, its own or an attached widget's.
  */
-void open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
+bool open_standalone_camera_fullscreen(lv_obj_t* parent_screen);
 
 } // namespace helix
 
