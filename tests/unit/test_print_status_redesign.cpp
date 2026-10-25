@@ -269,7 +269,7 @@ TEST_CASE_METHOD(Landscape800, "speed 104 sets speed_flow tone Warn", "[print_st
     CHECK(subject_int("ps_chip_speed_flow_tone") == static_cast<int>(ChipTone::Warn));
     CHECK(subject_int("ps_chip_speed_flow_shown") == 1);
     // The factor is Tune's to show; the chip keeps the live speed.
-    CHECK(subject_str("ps_chip_speed_flow_text") == "0mm/s");
+    CHECK(subject_str("ps_chip_speed_flow_text") == "0 mm/s");
 }
 
 namespace {

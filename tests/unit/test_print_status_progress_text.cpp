@@ -44,5 +44,5 @@ TEST_CASE_METHOD(PrintStatusPanelFixture, "Print status: speed chip shows the li
     helix::ui::UpdateQueue::instance().drain();
     process_lvgl(50); // the chip update is coalesced onto a timer
 
-    CHECK(subject_text("ps_chip_speed_flow_text") == "187mm/s");
+    CHECK(subject_text("ps_chip_speed_flow_text") == "187 mm/s");
 }

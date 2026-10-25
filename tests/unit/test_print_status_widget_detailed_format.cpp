@@ -645,7 +645,7 @@ TEST_CASE_METHOD(HelixTestFixture, "DetailedFormatter speed/flow text shows live
 
     // 5 mm/s of 1.75 mm filament: 5 * pi * 0.875^2 = 12.03 mm³/s.
     REQUIRE(std::string(lv_subject_get_string(
-                lv_xml_get_subject(nullptr, "print_status_speed_text"))) == "187mm/s");
+                lv_xml_get_subject(nullptr, "print_status_speed_text"))) == "187 mm/s");
     REQUIRE(std::string(lv_subject_get_string(
                 lv_xml_get_subject(nullptr, "print_status_flow_text"))) == "· 12.0mm\xC2\xB3/s");
 }

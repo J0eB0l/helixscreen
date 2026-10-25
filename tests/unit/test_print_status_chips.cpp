@@ -80,16 +80,16 @@ TEST_CASE("hotend fan automatic is expendable", "[print_status_chips]") {
 }
 
 TEST_CASE("speed 104 warns and is not expendable", "[print_status_chips]") {
-    auto c = speed_flow_chip(104, 100, "187mm/s");
+    auto c = speed_flow_chip(104, 100, "187 mm/s");
     CHECK(c.tone == ChipTone::Warn);
     CHECK_FALSE(c.expendable);
-    CHECK(c.text == "187mm/s");
-    CHECK(speed_flow_chip(100, 97, "187mm/s").tone == ChipTone::Warn);
-    CHECK(speed_flow_chip(90, 100, "187mm/s").tone == ChipTone::Warn);
+    CHECK(c.text == "187 mm/s");
+    CHECK(speed_flow_chip(100, 97, "187 mm/s").tone == ChipTone::Warn);
+    CHECK(speed_flow_chip(90, 100, "187 mm/s").tone == ChipTone::Warn);
 }
 
 TEST_CASE("speed and flow 100 is expendable", "[print_status_chips]") {
-    auto c = speed_flow_chip(100, 100, "187mm/s");
+    auto c = speed_flow_chip(100, 100, "187 mm/s");
     CHECK(c.tone == ChipTone::Normal);
     CHECK(c.expendable);
 }
@@ -140,5 +140,5 @@ TEST_CASE("a heater chip prints its reading as every heater display does", "[pri
 }
 
 TEST_CASE("the speed/flow budget is a three-digit live speed", "[print_status_chips]") {
-    CHECK(speed_flow_budget_chip().text == "999mm/s");
+    CHECK(speed_flow_budget_chip().text == "999 mm/s");
 }
