@@ -167,8 +167,9 @@ TEST_CASE_METHOD(
     CHECK(entry->version == helix_version_full());
     CHECK(entry->board == ScreensaverManagerTestAccess::current_board(gate.mgr));
 
-    // Far under budget from here on: a run never steps back up.
-    gate.run(20.0, 0.01);
+    // Marginal comfort does not raise the level: 15% against a 20% budget
+    // keeps the saver, but each window sits above the comfort line.
+    gate.run(20.0, 0.15);
     CHECK(gate.running()->level() == 1);
 
     gate.mgr.stop();
@@ -765,4 +766,61 @@ TEST_CASE_METHOD(LVGLTestFixture,
     }
     CAPTURE(names);
     CHECK(missing.empty());
+}
+
+TEST_CASE_METHOD(LVGLTestFixture,
+                 "a comfortable run steps the level back up and records it, capped at the top",
+                 "[screensaver][screensaver_gate]") {
+    GateHarness gate;
+    const std::string board = ScreensaverManagerTestAccess::current_board(gate.mgr);
+    const std::string version = helix_version_full();
+    gate.store("maze", {2, false, version, board});
+    setenv("HELIX_SCREENSAVER_BUDGET_PCT", "100", 1);
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    helix::ui::SaverBase* maze = gate.running();
+    REQUIRE(maze != nullptr);
+    REQUIRE(maze->level() == 2);
+
+    // Two comfortable windows are not enough; the third raises the level.
+    gate.run(12.5, 0.5);
+    CHECK(maze->level() == 2);
+    gate.run(5.5, 0.5);
+    CHECK(maze->level() == 1);
+    const std::optional<SaverLevelEntry> raised = gate.stored("maze");
+    REQUIRE(raised.has_value());
+    CHECK(raised->level == 1);
+    CHECK_FALSE(raised->too_heavy);
+
+    // Uncomfortable windows (under budget, above comfort) reset the streak -
+    // and a rate change shows up in the window that straddles it, so the
+    // second 0.8 window is needed before the climb can start clean.
+    gate.run(11.0, 0.8);
+    gate.run(21.0, 0.5);
+    CHECK(maze->level() == 0);
+    const std::optional<SaverLevelEntry> top = gate.stored("maze");
+    REQUIRE(top.has_value());
+    CHECK(top->level == 0);
+
+    // At the top rung the level stays however comfortable the run.
+    gate.run(25.0, 0.1);
+    CHECK(maze->level() == 0);
+}
+
+TEST_CASE_METHOD(LVGLTestFixture, "a step-up while printing is not recorded",
+                 "[screensaver][screensaver_gate]") {
+    GateHarness gate;
+    gate.printing = true;
+    const std::string board = ScreensaverManagerTestAccess::current_board(gate.mgr);
+    const std::string version = helix_version_full();
+    gate.store("maze", {2, false, version, board});
+    setenv("HELIX_SCREENSAVER_BUDGET_PCT", "100", 1);
+    gate.mgr.start(ScreensaverType::MAZE_3D);
+    helix::ui::SaverBase* maze = gate.running();
+    REQUIRE(maze != nullptr);
+
+    gate.run(18.5, 0.5);
+    CHECK(maze->level() == 1);
+    const std::optional<SaverLevelEntry> entry = gate.stored("maze");
+    REQUIRE(entry.has_value());
+    CHECK(entry->level == 2);
 }

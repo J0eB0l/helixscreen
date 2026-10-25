@@ -185,6 +185,7 @@ void PrintStartCollector::start() {
         lv_subject_get_int(state_.temperature_state().get_active_extruder_temp_subject()));
     start_bed_temp_ = helix::ui::temperature::deci_to_degrees(
         lv_subject_get_int(state_.temperature_state().get_bed_temp_subject()));
+    priced_heating_seconds_ = 0.0f;
     cached_ext_temp_.store(start_ext_temp_, std::memory_order_relaxed);
     cached_bed_temp_.store(start_bed_temp_, std::memory_order_relaxed);
     frame_ext_temp_.store(start_ext_temp_, std::memory_order_relaxed);
@@ -3125,6 +3126,10 @@ void PrintStartCollector::compute_predicted_weights() {
         std::lock_guard<std::mutex> lock(state_mutex_);
         const helix::PreprintEstimate estimate = predictor_.estimate(
             heating, phase_overrides_.value_or(helix::PreprintPhaseOverrides{}));
+        // Recorded into this start's history entry so the predictor can split
+        // the constant part of a start from the heating that start owed.
+        priced_heating_seconds_ =
+            heating.nozzle_target_known ? heating.nozzle_seconds + heating.bed_seconds : 0.0f;
 
         float durations_sum = 0.0f;
         for (const auto& [_, dur] : estimate.durations) {
@@ -3365,6 +3370,9 @@ void PrintStartCollector::save_prediction_entry() {
     entry.temp_bucket =
         helix::PreprintPredictor::temp_bucket_for(static_cast<float>(start_bed_temp_));
     entry.window = window_;
+    if (priced_heating_seconds_ > 0.0f) {
+        entry.heating_seconds = static_cast<int>(std::round(priced_heating_seconds_));
+    }
 
     {
         std::lock_guard<std::mutex> lock(state_mutex_);

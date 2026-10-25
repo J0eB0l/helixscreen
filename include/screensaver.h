@@ -289,6 +289,7 @@ class ScreensaverManager {
     helix::ui::CpuClockFn cpu_clock_;
     helix::ui::IdleBaseline baseline_;
     helix::ui::SaverGateSession session_;
+    helix::ui::SaverComfortStreak comfort_;
     bool gate_enabled_ = false;
     std::optional<double> budget_override_;
     int cores_ = 0;

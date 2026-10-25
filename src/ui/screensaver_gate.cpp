@@ -9,11 +9,11 @@ namespace helix::ui {
 double saver_budget_share(int cores, bool printing) {
     double share = 0.10;
     if (cores >= 4) {
-        share = 0.50;
+        share = 1.00;
     } else if (cores == 3) {
-        share = 0.37;
+        share = 0.75;
     } else if (cores == 2) {
-        share = 0.25;
+        share = 0.50;
     }
     return printing ? share / 2.0 : share;
 }
@@ -23,6 +23,13 @@ GateDecision decide_saver_level(double share, double budget, size_t level, size_
         return GateDecision::KEEP;
     }
     return level + 1 < level_count ? GateDecision::STEP_DOWN : GateDecision::TOO_HEAVY;
+}
+
+GateDecision decide_saver_level_up(size_t level, int comfortable_windows) {
+    if (level == 0 || comfortable_windows < kStepUpWindows) {
+        return GateDecision::KEEP;
+    }
+    return GateDecision::STEP_UP;
 }
 
 void IdleBaseline::add(CpuSample sample) {
