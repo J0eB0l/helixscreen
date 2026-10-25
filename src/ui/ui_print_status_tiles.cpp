@@ -538,10 +538,8 @@ void PrintStatusTiles::update_now() {
         if (!in_budget(chip)) {
             budget_w[i] = 0;
         } else if (chip == PrintStatusChip::SpeedFlow) {
-            budget_w[i] =
-                width_of(i, speed_flow_budget_chip(
-                                DisplaySettingsManager::instance().get_speed_flow_physical_units(),
-                                printer_state_.get_discovery().filament_diameter_mm()));
+            budget_w[i] = width_of(
+                i, speed_flow_budget_chip(printer_state_.get_discovery().filament_diameter_mm()));
         } else {
             budget_w[i] = m.chip_w(icons[i], worst(chip, true));
         }
