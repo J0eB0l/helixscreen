@@ -170,13 +170,16 @@ std::string plr_read_creality_recovery_filename();
 /// map, the contract version this app speaks, and its endpoints. Moonraker
 /// delivers a component event `helix:<name>` to clients as `notify_<name>`.
 inline constexpr const char* kPlrFeatureName = "plr";
-inline constexpr int kPlrFeatureMinVersion = 1;
+/// Version 2 added server.helix.plr.mesh_include, the printer.cfg include
+/// behind the mesh carry-over.
+inline constexpr int kPlrFeatureMinVersion = 2;
 inline constexpr const char* kPlrStatusRpc = "server.helix.plr.status";
 inline constexpr const char* kPlrPlanRpc = "server.helix.plr.plan";
 inline constexpr const char* kPlrPrepareRpc = "server.helix.plr.prepare";
 inline constexpr const char* kPlrCommitRpc = "server.helix.plr.commit";
 inline constexpr const char* kPlrAbortRpc = "server.helix.plr.abort";
 inline constexpr const char* kPlrDiscardRpc = "server.helix.plr.discard";
+inline constexpr const char* kPlrMeshIncludeRpc = "server.helix.plr.mesh_include";
 inline constexpr const char* kPlrProgressNotify = "notify_plr_progress";
 inline constexpr const char* kPlrPlanReadyNotify = "notify_plr_plan_ready";
 /// helix_print:plr_status; its payload is the server.helix.plr.status reply.

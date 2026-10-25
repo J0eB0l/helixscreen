@@ -648,7 +648,7 @@ class PrintStatusPanel : public OverlayBase {
     ObserverGuard gcode_render_mode_observer_; ///< Watches settings changes to update viewer mode
     ObserverGuard print_outcome_observer_;     ///< Drives show_{complete,cancelled,error}_overlay
     ObserverGuard end_overlay_dismissed_observer_; ///< Ditto; second input to the same recompute
-    ObserverGuard print_message_observer_;  ///< Drives pause reason text from print_stats.message
+    ObserverGuard print_stop_reason_observer_; ///< Drives pause reason text from print_stop_reason
     ObserverGuard pending_action_observer_; ///< observes PrintControlButtons' print_pending_action
                                             ///< for the paused overlay
 

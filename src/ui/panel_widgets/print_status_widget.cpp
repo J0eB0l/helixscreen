@@ -41,6 +41,7 @@
 #include "panel_widget_registry.h"
 #include "panel_widget_size.h"
 #include "print_history_manager.h"
+#include "printer_event_journal.h"
 #include "printer_state.h"
 #include "runtime_config.h"
 #include "src/ui/panel_widgets/content_chrome.h"
@@ -54,6 +55,7 @@
 #include "thumbnail_load_context.h"
 #include "thumbnail_processor.h"
 #include "tool_state.h"
+#include "tune_controller.h"
 
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
@@ -163,6 +165,10 @@ void PrintStatusWidget::init_static_subjects() {
     s_static_subjects.publish("print_status_layer_z_fits", &layer_z_fits_subject_);
     lv_subject_init_int(&elapsed_fits_subject_, 1);
     s_static_subjects.publish("print_status_elapsed_fits", &elapsed_fits_subject_);
+    lv_subject_init_int(&speed_fits_subject_, 1);
+    s_static_subjects.publish("print_status_speed_fits", &speed_fits_subject_);
+    lv_subject_init_int(&flow_fits_subject_, 1);
+    s_static_subjects.publish("print_status_flow_fits", &flow_fits_subject_);
     // Initial value 0 = idle_library_full — matches the default ref_value=0
     // on print_card_idle's bind_flag_if_not_eq so it shows by default
     // before any state events fire.
@@ -1493,6 +1499,8 @@ void PrintStatusWidget::schedule_library_fit() {
             fit_nozzle_picker();
             fit_row("detailed_layer_row", &layer_z_fits_subject_);
             fit_row("detailed_time_row", &elapsed_fits_subject_);
+            fit_speed_row();
+            fit_row("detailed_filament_row", &flow_fits_subject_);
         }
     });
 }
@@ -1905,6 +1913,48 @@ void PrintStatusWidget::fit_row(const char* row_name, lv_subject_t* fits) {
     }
 }
 
+void PrintStatusWidget::fit_speed_row() {
+    lv_obj_t* col = lv_obj_find_by_name(widget_obj_, "detailed_data_col");
+    lv_obj_t* row = lv_obj_find_by_name(widget_obj_, "detailed_speed_row");
+    // Off-screen trees may be awaiting deletion: laying one out walks freed grids.
+    if (!col || !row || !helix::ui::is_on_active_screen(col)) {
+        return;
+    }
+    lv_obj_update_layout(col);
+
+    // A hidden row keeps no height of its own, so it is sized from its tallest child's
+    // style: the text line, or the icon beside it.
+    int row_h = 0;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(row); ++i) {
+        lv_obj_t* child = lv_obj_get_child(row, static_cast<int32_t>(i));
+        const lv_font_t* font = lv_obj_get_style_text_font(child, LV_PART_MAIN);
+        const int32_t style_h = lv_obj_get_style_height(child, LV_PART_MAIN);
+        if (LV_COORD_IS_PX(style_h)) {
+            row_h = std::max(row_h, static_cast<int>(style_h));
+        }
+        if (font) {
+            row_h = std::max(row_h, static_cast<int>(lv_font_get_line_height(font)));
+        }
+    }
+
+    const int gap = lv_obj_get_style_pad_row(col, LV_PART_MAIN);
+    int need = row_h;
+    for (uint32_t i = 0; i < lv_obj_get_child_count(col); ++i) {
+        lv_obj_t* child = lv_obj_get_child(col, static_cast<int32_t>(i));
+        if (child == row || lv_obj_has_flag(child, LV_OBJ_FLAG_HIDDEN)) {
+            continue;
+        }
+        need += lv_obj_get_height(child) + gap;
+    }
+    const int avail = lv_obj_get_content_height(col);
+    const int verdict = need <= avail ? 1 : 0;
+    if (lv_subject_get_int(&speed_fits_subject_) != verdict) {
+        spdlog::debug("[PrintStatusWidget] detailed_speed_row needs {}px of {}px: fits={}", need,
+                      avail, verdict);
+        lv_subject_set_int(&speed_fits_subject_, verdict);
+    }
+}
+
 void PrintStatusWidget::show_nozzle_tool_picker(lv_obj_t* anchor) {
     if (nozzle_picker_.is_visible() || !parent_screen_ || !anchor)
         return;
@@ -2232,6 +2282,26 @@ void PrintStatusWidget::DetailedFormatter::update_filament_text() {
     lv_subject_set_int(&PrintStatusWidget::show_filament_active_subject_, show);
 }
 
+void PrintStatusWidget::DetailedFormatter::update_speed_flow_text() {
+    auto& ps = get_printer_state();
+    // Always the live rates: the percent factors are Tune's to show.
+    snprintf(speed_text_buf_, sizeof(speed_text_buf_), "%dmm/s",
+             lv_subject_get_int(ps.motion_state().get_live_velocity_subject()));
+    lv_subject_copy_string(&speed_text_subject_, speed_text_buf_);
+    snprintf(flow_text_buf_, sizeof(flow_text_buf_), "· %.1fmm\xC2\xB3/s",
+             helix::tune::volumetric_flow_mm3_s(
+                 lv_subject_get_int(ps.motion_state().get_live_extruder_velocity_subject()),
+                 ps.get_discovery().filament_diameter_mm()));
+    lv_subject_copy_string(&flow_text_subject_, flow_text_buf_);
+    // A rate gaining a digit can push the flow out of its row.
+    if (strlen(speed_text_buf_) + strlen(flow_text_buf_) != speed_flow_len_) {
+        speed_flow_len_ = strlen(speed_text_buf_) + strlen(flow_text_buf_);
+        for (auto* widget : live_instances()) {
+            widget->schedule_library_fit();
+        }
+    }
+}
+
 void PrintStatusWidget::DetailedFormatter::update_nozzle_text() {
     auto& ps = get_printer_state();
     lv_subject_t* temp_sub;
@@ -2442,8 +2512,7 @@ void PrintStatusWidget::DetailedFormatter::update_idle_fields() {
         lv_subject_set_int(&idle_has_last_subject_, 0);
         return;
     }
-    const double now_s =
-        std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+    const double now_s = wall_now_s();
     const LastPrintText text = describe_last_print(*newest, now_s);
     snprintf(idle_filename_buf_, sizeof(idle_filename_buf_), "%s", text.filename.c_str());
     lv_subject_copy_string(&idle_filename_subject_, idle_filename_buf_);
@@ -2465,6 +2534,10 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
                               "print_status_remaining_text", subjects_);
     UI_MANAGED_SUBJECT_STRING(filament_text_subject_, filament_text_buf_, "",
                               "print_status_filament_text", subjects_);
+    UI_MANAGED_SUBJECT_STRING(speed_text_subject_, speed_text_buf_, "", "print_status_speed_text",
+                              subjects_);
+    UI_MANAGED_SUBJECT_STRING(flow_text_subject_, flow_text_buf_, "", "print_status_flow_text",
+                              subjects_);
     UI_MANAGED_SUBJECT_STRING(nozzle_text_subject_, nozzle_text_buf_, "0 / 0°C",
                               "print_status_nozzle_text", subjects_);
     UI_MANAGED_SUBJECT_STRING(nozzle_badge_text_subject_, nozzle_badge_text_buf_, "",
@@ -2497,6 +2570,8 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
         s_formatter_->elapsed_observer_.reset();
         s_formatter_->time_left_observer_.reset();
         s_formatter_->filament_used_observer_.reset();
+        s_formatter_->live_velocity_observer_.reset();
+        s_formatter_->live_extruder_velocity_observer_.reset();
         s_formatter_->nozzle_temp_observer_.reset();
         s_formatter_->nozzle_target_observer_.reset();
         s_formatter_->tools_version_observer_.reset();
@@ -2527,6 +2602,14 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
         ps.print_state().get_print_filament_used_subject(), this,
         [](DetailedFormatter* self, int) { self->update_filament_text(); },
         ps.get_subjects_lifetime());
+    live_velocity_observer_ = observe<int>(
+        ps.motion_state().get_live_velocity_subject(), this,
+        [](DetailedFormatter* self, int) { self->update_speed_flow_text(); },
+        ps.get_subjects_lifetime());
+    live_extruder_velocity_observer_ = observe<int>(
+        ps.motion_state().get_live_extruder_velocity_subject(), this,
+        [](DetailedFormatter* self, int) { self->update_speed_flow_text(); },
+        ps.get_subjects_lifetime());
 
     // Auto-tool nozzle: the active_extruder subjects are static members of
     // PrinterState, but its lifetime token still has to be handed over — the
@@ -2548,6 +2631,7 @@ PrintStatusWidget::DetailedFormatter::DetailedFormatter() {
     update_layer_text();
     update_time_text();
     update_filament_text();
+    update_speed_flow_text();
     update_nozzle_text();
 
     // Multi-extruder: observe the tool-list version + active_tool to drive the
@@ -2608,6 +2692,8 @@ PrintStatusWidget::DetailedFormatter::~DetailedFormatter() {
     elapsed_observer_.reset();
     time_left_observer_.reset();
     filament_used_observer_.reset();
+    live_velocity_observer_.reset();
+    live_extruder_velocity_observer_.reset();
     nozzle_temp_observer_.reset();
     nozzle_target_observer_.reset();
     tools_version_observer_.reset();

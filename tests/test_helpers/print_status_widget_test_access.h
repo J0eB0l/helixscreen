@@ -49,6 +49,12 @@ class PrintStatusWidgetTestAccess {
         widget.widget_obj_ = nullptr;
     }
 
+    static void fit_speed_row(PrintStatusWidget& widget, lv_obj_t* root) {
+        widget.widget_obj_ = root;
+        widget.fit_speed_row();
+        widget.widget_obj_ = nullptr;
+    }
+
     static void dispatch_load(PrintStatusWidget& widget) {
         widget.dispatch_load();
     }

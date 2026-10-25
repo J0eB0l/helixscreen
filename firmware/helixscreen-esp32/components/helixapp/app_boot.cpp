@@ -46,6 +46,7 @@
 #include "ui_nav_manager.h"
 #include "ui_notification_history.h"
 #include "ui_notification_manager.h"
+#include "ui_panel_ams.h"
 #include "ui_panel_home.h"
 #include "ui_severity_card.h"
 #include "ui_status_pill.h"
@@ -413,6 +414,12 @@ void wire_printer_callbacks() {
     helix::EspMoonrakerClient::set_transport_stall_handler([] {
         helix::ui::queue_update("app_boot::transport_stall", [] { restart_into_active_printer(); });
     });
+    // Both are safe on the websocket task: the reset takes its own lock, and
+    // set_klippy_state() defers the subject write to the UI thread.
+    static const helix::EspMoonrakerClient::KlippyStateSink kKlippyStateSink{
+        [] { get_printer_state().network_state().reset_klippy_state_freshness(); },
+        [](helix::KlippyState state) { get_printer_state().set_klippy_state(state); }};
+    helix::EspMoonrakerClient::set_klippy_state_sink(&kKlippyStateSink);
     switch_flow().set_connected_printer_id(helix::Config::get_instance()->get_active_printer_id());
 }
 
@@ -1073,6 +1080,9 @@ extern "C" void app_boot_ui(void) {
     }
 
     ESP_LOGI(TAG, "helix: home panel up");
+    // The desktop's AmsErrorBridge is not in the firmware; this raises a
+    // filament fault outside a running print, AMS panel open or not.
+    helix::ui::init_ams_standing_fault_dialog();
     log_heap_milestone("home-panel-up");
     // The .bin font loads at ~2s print into the WiFi RF-cal serial dead window
     // (CH340 drops off USB); re-log them here where serial is reliable.

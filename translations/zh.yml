@@ -149,6 +149,7 @@ translations:
   A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print.: 'Moonraker 推流的摄像头。将摄像头小组件添加到主屏幕即可查看,打印时也能看到。'
   A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen.: '让腔体内空气经过滤网循环的风扇。在腔体温度界面控制。'
   A few minutes, nearly all of it heating. You judge nothing by eye.: '需要几分钟，几乎全是加热时间。你无需用肉眼判断任何东西。'
+  A folder name in moonraker.conf is unsafe, so cleanup is off.: "moonraker.conf 中的文件夹名称不安全，因此清理功能已关闭。"
   A heat soak macro is set up on the printer. HelixScreen detects it but does not run it.: '打印机上已设置热浸(heat soak)宏。HelixScreen 会检测到它,但不会运行。'
   A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen.: '为腔体内空气加热的加热器。在腔体温度界面设置温度。'
   A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen.: 'Klipper 用来补偿热床不平整的高度图。在热床网格界面查看和校准。'
@@ -233,9 +234,11 @@ translations:
   Add Printer: 添加打印机
   Add Vendor: 添加供应商
   Add Widget: 添加小组件
+  Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with: 在 printer.cfg 中添加 [include helix-plr/*.cfg]，恢复时重新加载打印开始时的网格
   Add custom filament: 添加自定义耗材
   Add page: '添加页面'
   Add to Queue: 添加到队列
+  Added: 已添加
   Added to Spoolman: 已添加到 Spoolman
   Added to queue (position {}): 已添加到队列（第 {} 位）
   Added to queue (position {}) - queue is paused: 已添加到队列（第 {} 位）– 队列已暂停
@@ -887,6 +890,7 @@ translations:
   Unload stopped: '卸载已停止'
   "User Guide": "用户指南"
   '{} could not be checked from Home - review it and tap Print': '无法从主页检查 {} – 请查看后点按打印'
+  Could not change printer.cfg: 无法更改 printer.cfg
   ? "Could not check webcam status.\nCheck printer connection."
   : "无法检查摄像头状态。\n请检查打印机连接。"
   Could not confirm cancel: 无法确认取消
@@ -1684,7 +1688,11 @@ translations:
   HelixScreen: HelixScreen
   HelixScreen Crashed: HelixScreen 崩溃
   HelixScreen Macros: 'HelixScreen 宏'
+  ? HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect.
+  : HelixScreen 会在 printer.cfg 中添加 [include helix-plr/*.cfg]，使恢复时重新加载打印开始时的网格。printer.cfg 旁边会保留一份备份，且需要重启 Klipper 才能生效。
   HelixScreen is detecting your display orientation: HelixScreen正在检测显示屏方向
+  ? HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer's default mesh profile.
+  : HelixScreen 会从 printer.cfg 中移除其 [include helix-plr/*.cfg] 行。printer.cfg 旁边会保留一份备份，且需要重启 Klipper 才能生效。恢复时将使用打印机的默认网格配置。
   HelixScreen will integrate with your filament changer for multi-spool/color print operations.: HelixScreen
     将与您的耗材更换器集成，用于多料盘/多色打印操作。
   HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect.: HelixScreen 会将此写入 printer.cfg 并重启 Klipper。打印机将短暂断开连接。
@@ -2436,6 +2444,7 @@ translations:
   Not Initialized: '未初始化'
   Not Now: 暂不
   Not Supported: '不支持'
+  Not added: 未添加
   Not available here. Update from a terminal.: 此处不可用。请通过终端更新。
   Not available now: 当前不可用
   Not available on Android: Android 上不可用
@@ -3016,11 +3025,13 @@ translations:
   Release or grip the filament by hand: 手动松开或夹持耗材
   Release the filament: 松开耗材
   Release {}'s tensioner, let the spring settle, lock it: "松开 {} 的张紧器,让弹簧复位,再锁紧"
+  Reload the saved bed mesh?: 重新加载已保存的热床网格？
   Remaining: '剩余'
   Remaining (g): 剩余 (g)
   Remaining Weight (g): 剩余重量（克）
   Remember slot spool details across an eject: 弹出后记住槽位的料盘详情
   Remove: 移除
+  Remove HelixScreen's include lines from printer.cfg; a resume then uses the printer's default mesh profile: 从 printer.cfg 中移除 HelixScreen 的 include 行；恢复时将使用打印机的默认网格配置
   Remove PIN: 移除 PIN
   Remove Spoolman?: 移除 Spoolman？
   Remove plugin from printer: 从打印机移除插件
@@ -3127,6 +3138,7 @@ translations:
   Resume interrupted print?: 恢复中断的打印？
   Resume macro not configured: 恢复宏未配置
   Resume preparation failed: 恢复准备失败
+  Resume reloads the saved bed mesh: 恢复时重新加载已保存的热床网格
   Resume without the bed mesh this print used: 不使用本次打印的热床网格恢复
   Resuming is not set up for this printer.: 此打印机未设置恢复。
   Resuming print...: 恢复打印中...
@@ -3584,6 +3596,7 @@ translations:
   Stop failed: 停止失败
   ? "Stop printing \"{}\"?\n\nThis cannot be undone after 5 seconds."
   : "停止打印 \"{}\"？\n\n5秒后将无法撤销。"
+  Stop reloading the saved bed mesh?: 停止重新加载已保存的热床网格？
   Stop the check?: 停止检查？
   Stop the running cycle before starting another: '请先停止当前周期，再启动新的周期'
   Stop with an emergency stop?: '要用紧急停止来停止吗？'
@@ -3757,6 +3770,8 @@ translations:
   : '摄像头认为热床上有东西，因此打印机在打印前停止了。如果热床是空的，这是误报。'
   The chamber heater can run a filament drying cycle. Start one from the drying dialog.: '腔体加热器可以运行耗材烘干周期。在烘干对话框中启动。'
   The chamber wait already ended; nothing was stopped.: '腔体等待已经结束，未停止任何操作。'
+  ? The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted.
+  : 更改在 Klipper 重启后生效。将重启 Klipper 固件。所有正在进行的操作将被中断。
   The controller boards Klipper runs on. See their load in the system settings.: '运行 Klipper 的控制板。在系统设置中查看其负载。'
   The cutter blade didn't return — check for filament wrapped around the cutting mechanism: 切刀未复位。请检查切刀机构上是否缠绕耗材
   The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS: 切刀未对准。请使用 CALIBRATE_CUT_POS 重新校准
@@ -3865,6 +3880,7 @@ translations:
   The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service: 无法读取此 CFS 单元的传感器。请检查其连接，否则该单元可能需要维修
   The speed of one fan you choose: 所选风扇的转速
   The time, date, and system uptime: 时间、日期和系统运行时长
+  The timelapse or logs folder overlaps a protected folder, so cleanup is off.: "延时摄影或日志文件夹与受保护的文件夹重叠，因此清理功能已关闭。"
   The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?: 工具头内有耗材，但没有 AMS 槽位报告已装载。请在打印前手动取出耗材。仍要开始打印吗？
   ? The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?
   : '工具头内有耗材，但没有 AMS 槽位报告已装载。在清空之前，打印机可能拒绝装载槽位。仍要开始打印吗？'

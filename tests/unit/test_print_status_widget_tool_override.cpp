@@ -521,3 +521,89 @@ TEST_CASE_METHOD(LVGLUITestFixture,
     check_row_drops_piece(test_screen(), "detailed_time_row", "detailed_elapsed_group",
                           "print_status_elapsed_fits");
 }
+
+TEST_CASE_METHOD(LVGLUITestFixture,
+                 "Detailed card: the flow goes where the filament row has no room",
+                 "[print_status][formatter]") {
+    FormatterTexts texts;
+    FormatterTexts::set("print_status_filament_text", "1.20km");
+    FormatterTexts::set("print_status_flow_text", "· 12.0mm\xC2\xB3/s");
+    REQUIRE(lv_xml_register_component_from_file(
+                "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_size(host, 600, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(host, 0, LV_PART_MAIN);
+    auto* card =
+        static_cast<lv_obj_t*>(lv_xml_create(host, "print_status_detailed_active", nullptr));
+    REQUIRE(card != nullptr);
+    lv_obj_t* row = lv_obj_find_by_name(card, "detailed_filament_row");
+    lv_obj_t* flow = lv_obj_find_by_name(card, "detailed_flow_text");
+    REQUIRE(row != nullptr);
+    REQUIRE(flow != nullptr);
+    auto* fits = lv_xml_get_subject(nullptr, "print_status_flow_fits");
+    REQUIRE(fits != nullptr);
+
+    // The filament label stretches to fill the row, so room is judged from the
+    // texts, not from the laid-out widths.
+    PrintStatusWidget w;
+    lv_obj_set_width(row, 400);
+    PrintStatusWidgetTestAccess::fit_row(w, host, "detailed_filament_row", fits);
+    CHECK(lv_subject_get_int(fits) == 1);
+    CHECK_FALSE(lv_obj_has_flag(flow, LV_OBJ_FLAG_HIDDEN));
+
+    lv_obj_set_width(row, 60);
+    PrintStatusWidgetTestAccess::fit_row(w, host, "detailed_filament_row", fits);
+    CHECK(lv_subject_get_int(fits) == 0);
+    CHECK(lv_obj_has_flag(flow, LV_OBJ_FLAG_HIDDEN));
+
+    // Hiding the flow must not read as room for it.
+    PrintStatusWidgetTestAccess::fit_row(w, host, "detailed_filament_row", fits);
+    CHECK(lv_subject_get_int(fits) == 0);
+
+    lv_obj_set_width(row, 400);
+    PrintStatusWidgetTestAccess::fit_row(w, host, "detailed_filament_row", fits);
+    CHECK(lv_subject_get_int(fits) == 1);
+
+    lv_obj_delete(host);
+}
+
+TEST_CASE_METHOD(LVGLUITestFixture, "Detailed card: the speed row goes where the column is short",
+                 "[print_status][formatter]") {
+    FormatterTexts texts;
+    FormatterTexts::set("print_status_speed_text", "187mm/s");
+    REQUIRE(lv_xml_register_component_from_file(
+                "A:ui_xml/components/print_status_detailed_active.xml") == LV_RESULT_OK);
+    lv_obj_t* host = lv_obj_create(test_screen());
+    lv_obj_set_size(host, 600, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_all(host, 0, LV_PART_MAIN);
+    auto* card =
+        static_cast<lv_obj_t*>(lv_xml_create(host, "print_status_detailed_active", nullptr));
+    REQUIRE(card != nullptr);
+    lv_obj_t* col = lv_obj_find_by_name(card, "detailed_data_col");
+    lv_obj_t* row = lv_obj_find_by_name(card, "detailed_speed_row");
+    REQUIRE(col != nullptr);
+    REQUIRE(row != nullptr);
+    auto* fits = lv_xml_get_subject(nullptr, "print_status_speed_fits");
+    REQUIRE(fits != nullptr);
+    // A fresh card shows the row until a measurement says otherwise.
+    CHECK(lv_subject_get_int(fits) == 1);
+
+    // The card takes its height from a flex parent in the app; here it is set directly.
+    PrintStatusWidget w;
+    lv_obj_set_height(card, 300);
+    PrintStatusWidgetTestAccess::fit_speed_row(w, host);
+    CHECK(lv_subject_get_int(fits) == 1);
+    CHECK_FALSE(lv_obj_has_flag(row, LV_OBJ_FLAG_HIDDEN));
+
+    // Too short for the speed row beside the others.
+    lv_obj_set_height(card, 90);
+    PrintStatusWidgetTestAccess::fit_speed_row(w, host);
+    CHECK(lv_subject_get_int(fits) == 0);
+    CHECK(lv_obj_has_flag(row, LV_OBJ_FLAG_HIDDEN));
+
+    lv_obj_set_height(card, 300);
+    PrintStatusWidgetTestAccess::fit_speed_row(w, host);
+    CHECK(lv_subject_get_int(fits) == 1);
+
+    lv_obj_delete(host);
+}

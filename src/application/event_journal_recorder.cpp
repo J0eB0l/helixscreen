@@ -15,7 +15,6 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
-#include <chrono>
 
 namespace helix {
 
@@ -29,11 +28,6 @@ constexpr int kHistoryBackfillLimit = 50;
 /// print and far longer idle.
 constexpr int kKlippyLogWindowBytes = 256 * 1024;
 
-double wall_now() {
-    using namespace std::chrono;
-    return duration<double>(system_clock::now().time_since_epoch()).count();
-}
-
 } // namespace
 
 EventJournalRecorder::EventJournalRecorder(IMoonrakerClient* client, LocalEventJournal& journal,
@@ -42,7 +36,7 @@ EventJournalRecorder::EventJournalRecorder(IMoonrakerClient* client, LocalEventJ
     if (path_.empty()) {
         path_ = get_user_config_dir() + "/event_journal.json";
     }
-    journal_.load_file(path_, wall_now());
+    journal_.load_file(path_, wall_now_s());
 
     // RAW_PRINT_STATE_OK: the journal records the pause Klipper reported.
     print_state_observer_ = ui::observe_print_state(
@@ -106,13 +100,13 @@ void EventJournalRecorder::record(JournalEntry e) {
         return;
     }
     if (e.time <= 0.0) {
-        e.time = wall_now();
+        e.time = wall_now_s();
     }
     if (e.job_id.empty() && e.filename.empty() && e.kind != journal_kind::kJobEnd) {
         e.job_id = job_id_;
         e.filename = filename_;
     }
-    const double now = wall_now();
+    const double now = wall_now_s();
     if (journal_.append(std::move(e), now)) {
         save();
     }
@@ -144,7 +138,7 @@ void EventJournalRecorder::on_klippy_shutdown() {
     // query answers.
     JournalEntry pending;
     pending.kind = journal_kind::kShutdown;
-    pending.time = wall_now();
+    pending.time = wall_now_s();
     pending.job_id = job_id_;
     pending.filename = filename_;
     const nlohmann::json params = {{"objects", {{"webhooks", {"state_message"}}}}};
@@ -216,7 +210,7 @@ void EventJournalRecorder::on_print_state(int state) {
     }
     JournalEntry e;
     e.kind = journal_kind::kPause;
-    e.time = wall_now();
+    e.time = wall_now_s();
     e.detail = journal_pause_cause(journal_.snapshot(), e.time);
     record(std::move(e));
 }
@@ -226,7 +220,7 @@ void EventJournalRecorder::on_connected() {
         return;
     }
     backfill_in_flight_ = true;
-    const double since = std::max(journal_.latest_time(), wall_now() - kJournalMaxAgeS);
+    const double since = std::max(journal_.latest_time(), wall_now_s() - kJournalMaxAgeS);
     lv_subject_t* klippy = get_printer_state().network_state().get_klippy_state_subject();
     const bool shutdown_now =
         klippy != nullptr && lv_subject_get_int(klippy) == static_cast<int>(KlippyState::SHUTDOWN);
@@ -280,7 +274,7 @@ void EventJournalRecorder::merge(std::vector<JournalEntry> entries) {
     if (entries.empty() || !recording()) {
         return;
     }
-    const std::size_t added = journal_.merge_backfill(std::move(entries), wall_now());
+    const std::size_t added = journal_.merge_backfill(std::move(entries), wall_now_s());
     if (added > 0) {
         spdlog::info("[EventJournal] Recovered {} event(s) from the reconnect gap", added);
         save();

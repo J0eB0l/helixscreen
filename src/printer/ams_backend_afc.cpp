@@ -768,6 +768,12 @@ bool AmsBackendAfc::slot_has_filament_at_toolhead(int slot_index) const {
 
 std::vector<helix::RecoveryAction> AmsBackendAfc::build_recovery_actions() const {
     // Caller holds mutex_.
+    return recovery_actions_for_lane(current_lane_name_);
+}
+
+std::vector<helix::RecoveryAction>
+AmsBackendAfc::recovery_actions_for_lane(const std::string& lane) const {
+    // Caller holds mutex_.
     std::vector<helix::RecoveryAction> actions;
 
     // Resume after the user clears the jam (always offered). Resuming a paused
@@ -782,11 +788,10 @@ std::vector<helix::RecoveryAction> AmsBackendAfc::build_recovery_actions() const
         // leaves the plug behind.
         actions.push_back({lv_tr("Unload"), "TOOL_UNLOAD", "afc::tool_unload", "",
                            /*needs_hot_nozzle=*/true});
-    } else if (!current_lane_name_.empty()) {
+    } else if (!lane.empty()) {
         // Empty toolhead but a lane is selected — eject that lane. Lane to spool
         // only; the filament never reaches the nozzle, so no heat is required.
-        actions.push_back(
-            {lv_tr("Eject"), "LANE_UNLOAD LANE=" + current_lane_name_, "afc::lane_unload", ""});
+        actions.push_back({lv_tr("Eject"), "LANE_UNLOAD LANE=" + lane, "afc::lane_unload", ""});
     }
 
     // Reset/re-prep all lanes (last resort). Re-prep runs the lane motors up to
@@ -797,7 +802,24 @@ std::vector<helix::RecoveryAction> AmsBackendAfc::build_recovery_actions() const
 
 std::optional<helix::ErrorEvent> AmsBackendAfc::current_error() const {
     std::lock_guard<std::mutex> lock(mutex_);
+    return fault_event_locked(std::string(), current_lane_name_);
+}
 
+std::optional<helix::ErrorEvent>
+AmsBackendAfc::current_error_with_cause(const std::string& cause) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::string lane = current_lane_name_;
+    if (lane.empty()) {
+        const std::string first = cause.substr(0, cause.find_first_of(" ,:"));
+        if (slots_.index_of(first) >= 0) {
+            lane = first;
+        }
+    }
+    return fault_event_locked(cause, lane);
+}
+
+std::optional<helix::ErrorEvent> AmsBackendAfc::fault_event_locked(const std::string& cause,
+                                                                   const std::string& lane) const {
     // error_state_ is the exact condition that produced the AmsAction::ERROR
     // edge the bridge fired on. Upstream's AFC_error.py set_error_state() is the
     // ONLY writer of afc.error_state, and it assigns current_state = State.ERROR
@@ -815,7 +837,11 @@ std::optional<helix::ErrorEvent> AmsBackendAfc::current_error() const {
 
     helix::ErrorEvent e =
         helix::make_ams_fault_event(helix::ErrorSource::AFC, lv_tr("Filament System Error"),
-                                    /*detail=*/"", build_recovery_actions());
+                                    /*detail=*/"", recovery_actions_for_lane(lane));
+    if (!cause.empty()) {
+        e.detail = cause;
+        return e;
+    }
 
     // AFC.message is a FIFO *peek* (_get_message(clear=False)) that
     // RESET_FAILURE does not pop, so it can still hold the text of an
@@ -2399,6 +2425,15 @@ void AmsBackendAfc::parse_afc_state(const nlohmann::json& afc_data,
             system_info_.filament_loaded = true;
             spdlog::trace("[AMS AFC] Bypass mode active");
         }
+    }
+
+    // AFC keeps the head of its message queue until a client sends
+    // AFC_CLEAR_MESSAGE, so an error message outlives the fault it reported and
+    // would pin the status label through a print that runs fine. It describes
+    // the filament system only while AFC is in error.
+    if (!error_state_ && last_message_type_ == "error" &&
+        system_info_.operation_detail == last_seen_message_) {
+        system_info_.operation_detail.clear();
     }
 
     // Needs next_lane and error_state, both parsed above, and runs before the

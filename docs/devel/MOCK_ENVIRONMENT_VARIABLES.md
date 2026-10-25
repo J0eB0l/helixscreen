@@ -479,7 +479,7 @@ plugin absent or `disabled` the knob does nothing.
 |----------|-------|
 | Values | `generic`, `qidi_print_state` (the status `backend`); anything else = off |
 | Default | off |
-| Affects | `server.helix.status` (`features.plr` ready, version 1), `server.helix.plr.*`, the newest `server.history.list` job (`interrupted`) |
+| Affects | `server.helix.status` (`features.plr` ready, version 2), `server.helix.plr.*`, the newest `server.history.list` job (`interrupted`) |
 
 The status reports an eMMC host, a snapshot of `3DBenchy.gcode` at layer 42 saved
 12 minutes ago, and `offer.available: true`, so the offer modal comes up at
@@ -495,6 +495,11 @@ starts the mock print of `3DBenchy.gcode` at 42 % and clears the snapshot.
 `saving` (and the status `saving`) follow a `helix-screen` / `plr_user` record
 written to the mock database, on when none is, so the Settings switch round-trips;
 its `enabled` is `saving` or a snapshot waiting, as the plugin reports it.
+`server.helix.plr.mesh_include` answers from the mock's own include flag,
+with no snapshot involved, so it works without this knob; but the Settings
+mesh-include row shows only while the `plr` feature is present, so driving
+it under `--test` still needs `HELIX_MOCK_HELIX_PLUGIN=1` and this knob set.
+The endpoint's add and remove flip the flag.
 
 ### `HELIX_MOCK_PLR_TIER`
 

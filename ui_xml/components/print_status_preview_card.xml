@@ -86,6 +86,12 @@
                  width="content" height="content" variant="warning" icon="cancel" text="Print Canceled"
                  clickable="false" focusable="false" style_radius="#space_lg" style_pad_left="#space_md"
                  style_pad_right="#space_md" style_pad_top="#space_sm" style_pad_bottom="#space_sm"/>
+      <!-- Why it ended, hidden when nothing says; wraps under the badge -->
+      <text_small name="cancel_reason_label"
+                  width="100%" bind_text="print_stop_reason" long_mode="wrap" style_text_align="center"
+                  style_bg_color="#card_bg" style_bg_opa="180" style_radius="#space_sm" style_pad_all="#space_xs">
+        <bind_flag_if_eq subject="print_stop_reason_visible" flag="hidden" ref_value="0"/>
+      </text_small>
     </lv_obj>
 
     <!-- PRINT ERROR OVERLAY: shown via show_error_overlay (see COMPLETE above). -->
@@ -102,6 +108,12 @@
                  width="content" height="content" variant="danger" icon="alert_circle" text="Print Failed"
                  clickable="false" focusable="false" style_radius="#space_lg" style_pad_left="#space_md"
                  style_pad_right="#space_md" style_pad_top="#space_sm" style_pad_bottom="#space_sm"/>
+      <!-- Why it ended, hidden when nothing says; wraps under the badge -->
+      <text_small name="error_reason_label"
+                  width="100%" bind_text="print_stop_reason" long_mode="wrap" style_text_align="center"
+                  style_bg_color="#card_bg" style_bg_opa="180" style_radius="#space_sm" style_pad_all="#space_xs">
+        <bind_flag_if_eq subject="print_stop_reason_visible" flag="hidden" ref_value="0"/>
+      </text_small>
     </lv_obj>
 
     <!-- PRINT PAUSED OVERLAY: shown while print is in PAUSED state. Driven by   -->
@@ -114,29 +126,21 @@
     <lv_obj name="print_paused_overlay"
             width="100%" height="100%" ignore_layout="true" align="top_mid" style_radius="0" style_pad_all="#space_lg"
             style_pad_bottom="#metadata_clip_height" flex_flow="column" style_flex_main_place="center"
-            style_flex_cross_place="center" style_flex_track_place="center" scrollable="false" clickable="false"
-            hidden="true">
+            style_flex_cross_place="center" style_flex_track_place="center" style_pad_gap="#space_sm" scrollable="false"
+            clickable="false" hidden="true">
       <bind_flag_if_eq subject="show_paused_overlay" flag="hidden" ref_value="0"/>
-      <!-- ui_button styled container (variant="primary" applies bg + auto-contrast on  -->
-      <!-- child labels). Two stacked labels inside: a title that's always shown and a  -->
-      <!-- reason that's hidden when print_pause_reason_visible==0. Toggling visibility  -->
-      <!-- of an independent widget makes the parent flex-column grow declaratively —    -->
-      <!-- avoiding the dynamic LV_SIZE_CONTENT cascade issue we hit with a single       -->
-      <!-- multi-line label that changes line count after the badge was already laid out.-->
+      <!-- Badge carries the title; the reason is a wrapping label under it, as on   -->
+      <!-- the canceled and failed overlays, so a long firmware or filament-system  -->
+      <!-- error wraps inside the card instead of widening the badge past it.       -->
       <ui_button name="paused_badge"
-                 width="content" height="content" variant="primary" layout="row" style_min_height="0" clickable="false"
+                 width="content" height="content" variant="primary" icon="pause" text="Print Paused" clickable="false"
                  focusable="false" style_radius="#space_lg" style_pad_left="#space_md" style_pad_right="#space_md"
-                 style_pad_top="#space_sm" style_pad_bottom="#space_sm" style_pad_gap="#space_sm">
-        <lv_label text="#icon_pause" style_text_font="mdi_icons_24"/>
-        <lv_obj width="content"
-                height="content" style_pad_all="0" style_pad_gap="0" style_border_width="0" style_bg_opa="0"
-                flex_flow="column" style_flex_cross_place="center" scrollable="false">
-          <lv_label text="Print Paused" style_text_align="center"/>
-          <lv_label name="paused_badge_reason" bind_text="print_pause_reason" style_text_align="center">
-            <bind_flag_if_eq subject="print_pause_reason_visible" flag="hidden" ref_value="0"/>
-          </lv_label>
-        </lv_obj>
-      </ui_button>
+                 style_pad_top="#space_sm" style_pad_bottom="#space_sm"/>
+      <text_small name="paused_badge_reason"
+                  width="100%" bind_text="print_pause_reason" long_mode="wrap" style_text_align="center"
+                  style_bg_color="#card_bg" style_bg_opa="180" style_radius="#space_sm" style_pad_all="#space_xs">
+        <bind_flag_if_eq subject="print_pause_reason_visible" flag="hidden" ref_value="0"/>
+      </text_small>
     </lv_obj>
 
     <!-- Metadata strip - the second (content-sized) child of thumbnail_section's

@@ -2,6 +2,20 @@
 
 #pragma once
 
+namespace helix::printer {
+
+/// The official K1-family CFS upgrade's cassette sits over the far edge of the
+/// bed, so the printable area loses 5 mm of Y (#968; the number is what the
+/// upgrade's users report, pending a K1/K1C measurement with and without the
+/// box — see CREALITY_CFS_K1_INTERNALS.md, Machine geometry, where a K1 Max
+/// with CFS caps gcode Y 12.5 mm below its own stepper travel). The K2's CFS
+/// is a separate enclosure beside the printer and costs no bed space.
+[[nodiscard]] constexpr double cfs_k1_upgrade_y_shrink_mm(bool k1_family) {
+    return k1_family ? 5.0 : 0.0;
+}
+
+} // namespace helix::printer
+
 #if HELIX_HAS_CFS
 
 #include "ams_subscription_backend.h"
@@ -170,6 +184,8 @@ class AmsBackendCfs : public AmsSubscriptionBackend {
         return PathTopology::HUB;
     }
     [[nodiscard]] PathSegment get_filament_segment() const override;
+
+    [[nodiscard]] double printable_y_shrink_mm() const override;
     [[nodiscard]] PathSegment get_slot_filament_segment(int slot_index) const override;
     [[nodiscard]] PathSegment infer_error_segment() const override;
 

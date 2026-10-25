@@ -288,11 +288,11 @@ BeltSettleInputs mock_settle_inputs(MoonrakerClientMock& mock, float grow_mm = 0
 TEST_CASE_METHOD(BeltMockFixture,
                  "the mock's resonance_tester names a probe point at the bed centre",
                  "[belt][mock][settle]") {
-    const auto axis_max = helix::mock::descriptor(mock.get_printer_type()).axis_max;
+    const auto persona = helix::mock::descriptor(mock.get_printer_type());
     const auto cfg = parse_resonance_tester_config(mock_settings(mock));
     REQUIRE(cfg.probe_point.has_value());
-    CHECK((*cfg.probe_point)[0] == Catch::Approx(axis_max.x / 2.0));
-    CHECK((*cfg.probe_point)[1] == Catch::Approx(axis_max.y / 2.0));
+    CHECK((*cfg.probe_point)[0] == Catch::Approx((persona.axis_min.x + persona.axis_max.x) / 2.0));
+    CHECK((*cfg.probe_point)[1] == Catch::Approx((persona.axis_min.y + persona.axis_max.y) / 2.0));
     CHECK((*cfg.probe_point)[2] == Catch::Approx(20.0));
 }
 

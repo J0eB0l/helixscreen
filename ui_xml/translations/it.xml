@@ -147,6 +147,7 @@
   <translation tag="A camera Moonraker streams. Add the camera widget to the home screen to watch it, and see it during a print." it="Una telecamera trasmessa da Moonraker. Aggiungi il widget telecamera alla schermata iniziale per guardarla, anche durante una stampa."/>
   <translation tag="A fan that pulls the enclosure air through a filter. Control it on the chamber temperature screen." it="Una ventola che fa passare l&apos;aria della camera attraverso un filtro. Controllala nella schermata della temperatura camera."/>
   <translation tag="A few minutes, nearly all of it heating. You judge nothing by eye." it="Pochi minuti, quasi tutti di riscaldamento. Non giudichi nulla a occhio."/>
+  <translation tag="A folder name in moonraker.conf is unsafe, so cleanup is off." it="Un nome di cartella in moonraker.conf non è sicuro, quindi la pulizia è disattivata."/>
   <translation tag="A heat soak macro is set up on the printer. HelixScreen detects it but does not run it." it="Sulla stampante è configurata una macro di heat soak. HelixScreen la rileva ma non la esegue."/>
   <translation tag="A heater that warms the air inside the enclosure. Set its temperature on the chamber temperature screen." it="Un riscaldatore che scalda l&apos;aria dentro la camera. Imposta la temperatura nella schermata della temperatura camera."/>
   <translation tag="A height map of the bed that Klipper uses to make up for an uneven surface. View and calibrate it on the Bed Mesh screen." it="Una mappa delle altezze del piano che Klipper usa per compensare una superficie irregolare. Visualizzala e calibrala nella schermata Mesh piano."/>
@@ -231,10 +232,12 @@
   <translation tag="Add Printer" it="Aggiungi stampante"/>
   <translation tag="Add Vendor" it="Aggiungi fornitore"/>
   <translation tag="Add Widget" it="Aggiungi widget"/>
+  <translation tag="Add [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with" it="Aggiunge [include helix-plr/*.cfg] a printer.cfg così che una ripresa ricarichi la mesh con cui è iniziata la stampa"/>
   <translation tag="Add custom filament" it="Aggiungi filamento personalizzato"/>
   <translation tag="Add page" it="Aggiungi pagina"/>
   <translation tag="Add to Queue" it="Aggiungi alla coda"/>
   <translation tag="Add to Spoolman + label" it="Aggiungi a Spoolman + etichetta"/>
+  <translation tag="Added" it="Aggiunto"/>
   <translation tag="Added to Spoolman" it="Aggiunto a Spoolman"/>
   <translation tag="Added to queue (position {})" it="Aggiunto alla coda (posizione {})"/>
   <translation tag="Added to queue (position {}) - queue is paused" it="Aggiunto alla coda (posizione {}) – la coda è in pausa"/>
@@ -855,6 +858,7 @@
   <translation tag="Could not add to queue" it="Impossibile aggiungere alla coda"/>
   <translation tag="Could not analyze PRINT_START macro. Some print options may be unavailable." it="Impossibile analizzare la macro PRINT_START. Alcune opzioni di stampa potrebbero non essere disponibili."/>
   <translation tag="Could not answer the connection request" it="Impossibile rispondere alla richiesta di connessione"/>
+  <translation tag="Could not change printer.cfg" it="Impossibile modificare printer.cfg"/>
   <translation tag="Could not check webcam status.&#10;Check printer connection." it="Impossibile verificare stato webcam.&#10;Controllare la connessione della stampante."/>
   <translation tag="Could not check {} - it stays in the queue" it="Impossibile verificare {} – resta in coda"/>
   <translation tag="Could not confirm cancel" it="Impossibile confermare l&apos;annullamento"/>
@@ -1627,7 +1631,9 @@
   <translation tag="HelixScreen" it="HelixScreen"/>
   <translation tag="HelixScreen Crashed" it="HelixScreen si è arrestato"/>
   <translation tag="HelixScreen Macros" it="Macro HelixScreen"/>
+  <translation tag="HelixScreen adds [include helix-plr/*.cfg] to printer.cfg, so a resume reloads the mesh the print started with. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect." it="HelixScreen aggiunge [include helix-plr/*.cfg] a printer.cfg così che una ripresa ricarichi la mesh con cui è iniziata la stampa. Accanto a printer.cfg viene conservato un backup, e Klipper va riavviato perché la modifica abbia effetto."/>
   <translation tag="HelixScreen is detecting your display orientation" it="HelixScreen sta rilevando l&apos;orientamento del display"/>
+  <translation tag="HelixScreen removes its [include helix-plr/*.cfg] lines from printer.cfg. A backup is kept beside printer.cfg, and Klipper must restart for it to take effect. A resume then uses the printer&apos;s default mesh profile." it="HelixScreen rimuove le sue righe [include helix-plr/*.cfg] da printer.cfg. Accanto a printer.cfg viene conservato un backup, e Klipper va riavviato perché la modifica abbia effetto. Una ripresa userà quindi il profilo mesh predefinito della stampante."/>
   <translation tag="HelixScreen will integrate with your filament changer for multi-spool/color print operations." it="HelixScreen si integrerà con il tuo cambia-filamento per operazioni di stampa multi-bobina/colore."/>
   <translation tag="HelixScreen writes this to printer.cfg and restarts Klipper. The printer will briefly disconnect." it="HelixScreen scriverà questo in printer.cfg e riavvierà Klipper. La stampante si disconnetterà brevemente."/>
   <translation tag="HelixScreen {} is available — tap Update" it="HelixScreen {} è disponibile — tocca Aggiorna"/>
@@ -2353,6 +2359,7 @@
   <translation tag="Not Initialized" it="Non inizializzato"/>
   <translation tag="Not Now" it="Non ora"/>
   <translation tag="Not Supported" it="Non supportato"/>
+  <translation tag="Not added" it="Non aggiunto"/>
   <translation tag="Not available here. Update from a terminal." it="Non disponibile qui. Aggiorna da un terminale."/>
   <translation tag="Not available now" it="Non disponibile ora"/>
   <translation tag="Not available on Android" it="Non disponibile su Android"/>
@@ -2917,12 +2924,14 @@
   <translation tag="Release or grip the filament by hand" it="Rilascia o afferra il filamento manualmente"/>
   <translation tag="Release the filament" it="Rilascia il filamento"/>
   <translation tag="Release {}&apos;s tensioner, let the spring settle, lock it" it="Rilascia il tenditore di {}, lascia assestare la molla, bloccalo"/>
+  <translation tag="Reload the saved bed mesh?" it="Ricaricare la mesh salvata?"/>
   <translation tag="Remaining" it="Rimanente"/>
   <translation tag="Remaining (g)" it="Rimanente (g)"/>
   <translation tag="Remaining Weight (g)" it="Peso rimanente (g)"/>
   <translation tag="Remaining weight" it="Peso rimanente"/>
   <translation tag="Remember slot spool details across an eject" it="Ricorda i dettagli della bobina dello slot dopo un&apos;espulsione"/>
   <translation tag="Remove" it="Rimuovi"/>
+  <translation tag="Remove HelixScreen&apos;s include lines from printer.cfg; a resume then uses the printer&apos;s default mesh profile" it="Rimuove le righe include di HelixScreen da printer.cfg; una ripresa userà quindi il profilo mesh predefinito della stampante"/>
   <translation tag="Remove PIN" it="Rimuovi PIN"/>
   <translation tag="Remove Spoolman?" it="Rimuovere Spoolman?"/>
   <translation tag="Remove plugin from printer" it="Rimuovi plugin dalla stampante"/>
@@ -3027,6 +3036,7 @@
   <translation tag="Resume interrupted print?" it="Riprendere la stampa interrotta?"/>
   <translation tag="Resume macro not configured" it="Macro ripresa non configurata"/>
   <translation tag="Resume preparation failed" it="Preparazione alla ripresa fallita"/>
+  <translation tag="Resume reloads the saved bed mesh" it="La ripresa ricarica la mesh salvata"/>
   <translation tag="Resume without the bed mesh this print used" it="Riprendi senza la mesh del piano usata da questa stampa"/>
   <translation tag="Resuming is not set up for this printer." it="La ripresa non è configurata per questa stampante."/>
   <translation tag="Resuming print..." it="Ripresa della stampa..."/>
@@ -3465,6 +3475,7 @@
   <translation tag="Stop drying?" it="Fermare l&apos;essiccazione?"/>
   <translation tag="Stop failed" it="Arresto fallito"/>
   <translation tag="Stop printing &quot;{}&quot;?&#10;&#10;This cannot be undone after 5 seconds." it="Interrompere la stampa di &quot;{}&quot;?&#10;&#10;Non sarà possibile annullare dopo 5 secondi."/>
+  <translation tag="Stop reloading the saved bed mesh?" it="Non ricaricare più la mesh salvata?"/>
   <translation tag="Stop the check?" it="Fermare il controllo?"/>
   <translation tag="Stop the running cycle before starting another" it="Interrompi il ciclo in corso prima di avviarne un altro"/>
   <translation tag="Stop with an emergency stop?" it="Fermare con un arresto di emergenza?"/>
@@ -3625,6 +3636,7 @@
   <translation tag="The camera thought it saw something on the bed, so the printer stopped before printing. If the bed is clear, it was a false alarm." it="La telecamera ha creduto di vedere qualcosa sul piano, quindi la stampante si è fermata prima di stampare. Se il piano è libero, era un falso allarme."/>
   <translation tag="The chamber heater can run a filament drying cycle. Start one from the drying dialog." it="Il riscaldatore della camera può eseguire un ciclo di essiccazione del filamento. Avvialo dalla finestra di essiccazione."/>
   <translation tag="The chamber wait already ended; nothing was stopped." it="L&apos;attesa della camera è già terminata; non è stato fermato nulla."/>
+  <translation tag="The change takes effect after Klipper restarts. This will restart Klipper firmware. Any active operations will be interrupted." it="La modifica ha effetto dopo il riavvio di Klipper. Il firmware Klipper verrà riavviato. Le operazioni attive saranno interrotte."/>
   <translation tag="The controller boards Klipper runs on. See their load in the system settings." it="Le schede controller su cui gira Klipper. Vedi il loro carico nelle impostazioni di sistema."/>
   <translation tag="The cutter blade didn&apos;t return — check for filament wrapped around the cutting mechanism" it="La lama non è rientrata. Verificare che non ci sia filamento avvolto attorno al meccanismo di taglio"/>
   <translation tag="The cutter is out of alignment — recalibrate with CALIBRATE_CUT_POS" it="La taglierina è disallineata. Ricalibrare con CALIBRATE_CUT_POS"/>
@@ -3719,6 +3731,7 @@
   <translation tag="The sensor in this CFS unit cannot be read. Check its connection, or the unit may need service" it="Il sensore di questa unità CFS non può essere letto. Controllare il collegamento, altrimenti l&apos;unità richiede assistenza"/>
   <translation tag="The speed of one fan you choose" it="La velocità di una ventola a scelta"/>
   <translation tag="The time, date, and system uptime" it="Ora, data e tempo di attività"/>
+  <translation tag="The timelapse or logs folder overlaps a protected folder, so cleanup is off." it="La cartella timelapse o di log sovrappone una cartella protetta, quindi la pulizia è disattivata."/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. Pull it out manually before printing. Start anyway?" it="La testina contiene filamento ma nessuno slot AMS lo riporta come caricato. Estrailo manualmente prima di stampare. Avviare comunque?"/>
   <translation tag="The toolhead has filament but no AMS slot reports it loaded. The printer may refuse to load a slot until it is cleared. Start anyway?" it="La testina contiene filamento ma nessuno slot AMS lo riporta come caricato. La stampante potrebbe rifiutare il caricamento di uno slot finché non viene svuotata. Avviare comunque?"/>
   <translation tag="The toolhead sensor indicates filament is already loaded. Proceed with load anyway?" it="Il sensore della testina indica che il filamento è già caricato. Procedere comunque con il caricamento?"/>

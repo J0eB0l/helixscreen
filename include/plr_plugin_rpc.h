@@ -51,6 +51,19 @@ void abort(IMoonrakerAPI& api, const std::string& plan_id, std::function<void()>
 
 void discard(IMoonrakerAPI& api, std::function<void()> on_ok, ErrorCallback on_error);
 
+/// server.helix.plr.mesh_include without an action: whether printer.cfg
+/// carries the include line a resume's mesh carry-over needs.
+void request_mesh_include_status(IMoonrakerAPI& api, std::function<void(bool present)> on_ok,
+                                 ErrorCallback on_error);
+
+/// server.helix.plr.mesh_include with an action. @p on_ok gets the reply's
+/// `present` and `changed`; the plugin refuses with a coded error when
+/// printer.cfg cannot be read or written, and the change reaches Klipper
+/// only after a firmware restart, which the caller offers.
+void mesh_include_action(IMoonrakerAPI& api, bool add,
+                         std::function<void(bool present, bool changed)> on_ok,
+                         ErrorCallback on_error);
+
 /// Write `helix-screen` / `plr_profile` unless the stored record already equals
 /// @p profile, so several screens on one printer do not rewrite it in turn.
 /// @p on_stored runs once the stored record equals @p profile: after the write,

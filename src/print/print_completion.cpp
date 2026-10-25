@@ -441,13 +441,18 @@ static void on_print_state_changed_for_notification(lv_observer_t* observer,
             if (auto* dm = DisplayManager::instance()) {
                 dm->wake_display();
             }
-            char message[128];
             ToastSeverity severity = (current == PrintJobState::COMPLETE) ? ToastSeverity::SUCCESS
                                                                           : ToastSeverity::WARNING;
-            snprintf(message, sizeof(message), "Print %s: %s",
-                     (current == PrintJobState::COMPLETE) ? "complete" : "cancelled",
-                     display_name.c_str());
-            ToastManager::instance().show(severity, message, 5000);
+            std::string message = std::string("Print ") +
+                                  ((current == PrintJobState::COMPLETE) ? "complete" : "canceled") +
+                                  ": " + display_name;
+            // Empty for a completed print (decide_print_stop_reason).
+            const char* reason = lv_subject_get_string(
+                get_printer_state().print_state().get_print_stop_reason_subject());
+            if (reason && *reason) {
+                message += std::string(" - ") + reason;
+            }
+            ToastManager::instance().show(severity, message.c_str(), 5000);
             break;
         }
 

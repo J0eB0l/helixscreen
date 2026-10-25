@@ -190,10 +190,14 @@ FitMachine fit_machine_from_settings(const json& settings) {
     return m;
 }
 
-FitMachine fit_machine_for_screen(FitMachine base, std::string model, bool filament_system) {
+FitMachine fit_machine_for_screen(FitMachine base, std::string model, bool filament_system,
+                                  double y_shrink_mm) {
     base.model = std::move(model);
     if (filament_system) {
         base.tool_count.reset();
+    }
+    if (y_shrink_mm > 0.0 && base.axis_max[1]) {
+        *base.axis_max[1] -= y_shrink_mm;
     }
     return base;
 }

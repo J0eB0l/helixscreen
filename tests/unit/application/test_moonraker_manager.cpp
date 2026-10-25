@@ -1018,6 +1018,7 @@ TEST_CASE("should_stop_collector_on_klippy_state stops on shutdown and error",
 // is true, and it is true because this observer drove the phase subject off
 // IDLE. Drives the real manager with its mock client.
 
+#include "../../test_helpers/moonraker_manager_test_access.h"
 #include "../../test_helpers/update_queue_test_access.h"
 #include "ams_state.h"
 #include "app_globals.h"
@@ -1065,6 +1066,17 @@ TEST_CASE_METHOD(ManagerCollectorArmingFixture, "shutdown clears the global clie
     REQUIRE(get_moonraker_client() != nullptr);
     mgr.shutdown();
     CHECK(get_moonraker_client() == nullptr);
+}
+
+TEST_CASE_METHOD(ManagerCollectorArmingFixture,
+                 "shutdown drops the stop-reason tracker before the client it taps",
+                 "[application][moonraker_manager][stop_reason]") {
+    // The tracker unregisters from its client when destroyed; outliving shutdown
+    // would make that call on the freed client.
+    mgr.init_print_stop_reason();
+    REQUIRE(helix::MoonrakerManagerTestAccess::tracks_stop_reason(mgr));
+    mgr.shutdown();
+    CHECK_FALSE(helix::MoonrakerManagerTestAccess::tracks_stop_reason(mgr));
 }
 
 TEST_CASE_METHOD(ManagerCollectorArmingFixture,

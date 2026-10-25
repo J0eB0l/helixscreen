@@ -168,6 +168,16 @@ class AmsBackend {
   public:
     virtual ~AmsBackend() = default;
 
+    /**
+     * @brief Bed Y this system's mounted hardware makes unprintable, in mm
+     *
+     * A rear-mounted cassette can sit over the far edge of the bed; the
+     * print-start fit check subtracts this from the machine's Y limit.
+     */
+    [[nodiscard]] virtual double printable_y_shrink_mm() const {
+        return 0.0;
+    }
+
     // ========================================================================
     // Event Types
     // ========================================================================
@@ -576,6 +586,20 @@ class AmsBackend {
     /// only; AD5X IFS and QIDI are channel B only.
     [[nodiscard]] virtual std::optional<helix::ErrorEvent> current_error() const {
         return std::nullopt;
+    }
+
+    /// current_error() told by @p cause: why the print paused
+    /// (print_stop_reason), or the newest recent `!!` line, empty when nothing
+    /// said. A non-empty cause is the detail, since a backend's own status text
+    /// can belong to an earlier fault. Overridden by a backend that reads more
+    /// from the cause, such as which lane faulted.
+    [[nodiscard]] virtual std::optional<helix::ErrorEvent>
+    current_error_with_cause(const std::string& cause) const {
+        auto e = current_error();
+        if (e && !cause.empty()) {
+            e->detail = cause;
+        }
+        return e;
     }
 
   protected:

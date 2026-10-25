@@ -24,6 +24,11 @@ class MoonrakerManagerTestAccess {
         mgr.m_initialized = true;
     }
 
+    /// Whether a PrintStopReasonTracker is tapping the manager's client.
+    static bool tracks_stop_reason(const MoonrakerManager& mgr) {
+        return mgr.m_print_stop_reason != nullptr;
+    }
+
     /// Queues a connection-state edge the way the client's state-change callback does,
     /// for the next process_notifications().
     static void queue_connection_state(MoonrakerManager& mgr, int old_state, int new_state) {

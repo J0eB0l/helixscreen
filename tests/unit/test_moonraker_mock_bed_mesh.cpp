@@ -13,7 +13,9 @@
  * - Profile REMOVE deletes stored data
  */
 
+#include "../../include/mock_persona.h"
 #include "../../include/moonraker_client_mock.h"
+#include "../../src/api/moonraker_client_mock_internal.h"
 
 #include <cmath>
 
@@ -126,11 +128,14 @@ TEST_CASE("Mock bed mesh initial generation", "[bed_mesh][mock]") {
     SECTION("mesh bounds use probe margins") {
         const auto& mesh = mock.get_active_bed_mesh();
 
-        // Should have margins from bed edges (15mm default)
-        REQUIRE(mesh.mesh_min[0] > 0.0f);
-        REQUIRE(mesh.mesh_min[1] > 0.0f);
-        REQUIRE(mesh.mesh_max[0] < 250.0f); // Mock bed is 250mm
-        REQUIRE(mesh.mesh_max[1] < 250.0f);
+        // The persona's bed inset by the probe margin on every side; the
+        // default Voron is centre-origin, so the bounds straddle zero.
+        const auto& persona = helix::mock::descriptor(helix::mock::PrinterType::VORON_24);
+        const float margin = static_cast<float>(mock_internal::kMockProbeMargin);
+        REQUIRE(mesh.mesh_min[0] == static_cast<float>(persona.axis_min.x) + margin);
+        REQUIRE(mesh.mesh_min[1] == static_cast<float>(persona.axis_min.y) + margin);
+        REQUIRE(mesh.mesh_max[0] == static_cast<float>(persona.axis_max.x) - margin);
+        REQUIRE(mesh.mesh_max[1] == static_cast<float>(persona.axis_max.y) - margin);
     }
 }
 

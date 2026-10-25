@@ -186,10 +186,11 @@ def root_problem(roots: Dict[str, Optional[str]], staging_dirs: Tuple[str, ...])
     ROOT_CONFIG) to a directory. A staging name that is not one plain segment
     would walk the gcodes root or above it; a timelapse or logs root that is,
     or holds, the gcodes, config, database or data directory would delete
-    the user's files."""
+    the user's files. The answer is a reason code the app translates, with
+    the offending name or path as a ': detail' suffix."""
     for name in staging_dirs:
         if not valid_dir_name(name) or name in OTHER_CONSUMER_DIRS:
-            return "unsafe staging directory %r" % (name,)
+            return "unsafe_staging_dir: %s" % (name,)
     data = roots.get(ROOT_DATA)
     guarded = {
         "gcodes": roots.get(ROOT_GCODES),
@@ -207,7 +208,7 @@ def root_problem(roots: Dict[str, Optional[str]], staging_dirs: Tuple[str, ...])
                 continue
             other = os.path.realpath(path)
             if resolved == other or is_within(other, resolved):
-                return "unsafe %s root: it holds the %s directory" % (root_name, what)
+                return "unsafe_root: %s" % (root,)
     return None
 
 

@@ -19,6 +19,7 @@
 #include "esp_timer.h"
 #include "esp_websocket_client.h"
 #include "i_moonraker_client.h"
+#include "klippy_state.h"
 #include "reconnect_backoff.h"
 #include "rpc_error_policy.h"
 #include "transport_lifecycle.h"
@@ -69,6 +70,16 @@ class EspMoonrakerClient final : public IMoonrakerClient {
     /// link runs through.
     using LinkDropObserver = void (*)(int64_t silence_ms);
     static void set_link_drop_observer(LinkDropObserver observer);
+
+    /// Where this client reports Klippy's state; PrinterState lives above this
+    /// component. Both run on the websocket task and must not block.
+    struct KlippyStateSink {
+        /// A new connection session starts: its frames are measured afresh.
+        void (*session_started)();
+        /// A notify_klippy_* notification reported this state.
+        void (*state_reported)(KlippyState state);
+    };
+    static void set_klippy_state_sink(const KlippyStateSink* sink);
 
     // --- JSON-RPC protocol ---
     int send_jsonrpc(const std::string& method) override;
@@ -283,6 +294,8 @@ class EspMoonrakerClient final : public IMoonrakerClient {
                                     void* event_data);
     void on_ws_connected();
     void on_ws_disconnected();
+    void on_klippy_notification(const std::string& method);
+    void invoke_connected_callbacks();
     void on_ws_data(const esp_websocket_event_data_t* data);
     void dispatch_message(const char* buf, size_t len);
     // Fan a notify_status_update-shaped message out to the notify callbacks
@@ -473,6 +486,8 @@ class EspMoonrakerClient final : public IMoonrakerClient {
     // handles the rest: a stale chain's own continuations never reach the
     // code that would touch this flag on the new generation's behalf.
     std::atomic<bool> discovery_in_flight_{false};
+    // Discovery reached its subscription on this connection.
+    std::atomic<bool> discovery_completed_{false};
 
     PrinterDiscovery hardware_; // populated via discovery (guarded by hardware_mutex_)
 };

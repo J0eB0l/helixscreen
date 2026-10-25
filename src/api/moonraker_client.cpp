@@ -25,6 +25,7 @@
 #include "host_identity.h"
 #include "i_moonraker_api.h"
 #include "json_utils.h"
+#include "klippy_notification.h"
 #include "printer_state.h"
 #include "system/telemetry_manager.h"
 #include "translation_loader.h"
@@ -778,27 +779,33 @@ void MoonrakerClient::on_ws_message(const std::string& msg) {
                 }
             }
 
-            // Klippy disconnected from Moonraker
-            if (method == "notify_klippy_disconnected") {
-                spdlog::warn("[Moonraker Client] Klipper disconnected from Moonraker");
+            if (const std::optional<KlippyNotification> klippy =
+                    classify_klippy_notification(method, discovery_.is_completed())) {
+                switch (klippy->kind) {
+                case KlippyNotificationKind::Disconnected:
+                    spdlog::warn("[Moonraker Client] Klipper disconnected from Moonraker");
+                    break;
+                case KlippyNotificationKind::Shutdown:
+                    spdlog::warn("[Moonraker Client] Klipper entered shutdown state");
+                    break;
+                case KlippyNotificationKind::Ready:
+                    spdlog::info("[Moonraker Client] Klipper ready");
+                    stop_klippy_state_poll("Klippy ready");
+                    break;
+                }
 
-                // Update klippy state in PrinterState (SHUTDOWN = firmware disconnected)
-                get_printer_state().set_klippy_state(KlippyState::SHUTDOWN);
+                get_printer_state().set_klippy_state(klippy->state);
 
-                // Clear pending requests — Klippy can't process them anymore
-                tracker_.cleanup_all();
+                if (klippy->abandon_requests) {
+                    tracker_.cleanup_all();
+                }
+                if (klippy->kind == KlippyNotificationKind::Disconnected) {
+                    start_klippy_state_poll();
+                }
 
-                start_klippy_state_poll();
+                emit_event(klippy->event);
 
-                // Emit event for UI layer to handle
-                emit_event(MoonrakerEvent::translatable(
-                    MoonrakerEventType::KLIPPY_DISCONNECTED,
-                    TR_NOOP("Klipper has disconnected from Moonraker. Check for errors in your "
-                            "printer interface."),
-                    {}, true));
-
-                // Invoke user callback with exception safety
-                if (on_disconnected) {
+                if (klippy->kind == KlippyNotificationKind::Disconnected && on_disconnected) {
                     try {
                         on_disconnected();
                     } catch (const std::exception& e) {
@@ -810,49 +817,11 @@ void MoonrakerClient::on_ws_message(const std::string& msg) {
                                            "unknown exception");
                     }
                 }
-            }
-            // Klippy entered shutdown state (M112, thermal runaway, config error)
-            // Distinct from disconnect — Klipper is still running but in shutdown mode
-            else if (method == "notify_klippy_shutdown") {
-                spdlog::warn("[Moonraker Client] Klipper entered shutdown state");
 
-                helix::ui::queue_update("MoonrakerClient::notify_klippy_shutdown", []() {
-                    get_printer_state().set_klippy_state_sync(KlippyState::SHUTDOWN);
-                });
-
-                // Emit event for UI layer — recovery dialog will show
-                emit_event(MoonrakerEvent::translatable(
-                    MoonrakerEventType::KLIPPY_SHUTDOWN,
-                    TR_NOOP("Klipper has entered shutdown state."), {}, true));
-
-                // Shutdown is a valid gate state for discovery. If we never
-                // completed one on this connection (Klippy was unreachable
-                // at WS-connect time), retry now (#802).
-                if (!discovery_.is_completed()) {
-                    spdlog::info("[Moonraker Client] Retrying discovery after Klippy shutdown");
-                    invoke_connected_callback(on_connected, "Klippy shutdown");
+                if (klippy->rediscover) {
+                    spdlog::info("[Moonraker Client] Running discovery after {}", method);
+                    invoke_connected_callback(on_connected, method.c_str());
                 }
-            }
-            // Klippy reconnected to Moonraker
-            else if (method == "notify_klippy_ready") {
-                spdlog::info("[Moonraker Client] Klipper ready");
-                stop_klippy_state_poll("Klippy ready");
-
-                helix::ui::queue_update("MoonrakerClient::notify_klippy_ready", []() {
-                    get_printer_state().set_klippy_state_sync(KlippyState::READY);
-                });
-
-                // The event drives internal consumers (rediscovery below,
-                // connected observers) and routes to Ignore in the UI layer;
-                // the user-facing ready signal is the klippy_state observer
-                // in ui_emergency_stop.cpp.
-                emit_event(MoonrakerEventType::KLIPPY_READY, "Klipper ready", false);
-
-                // Unconditional retrigger (unlike notify_klippy_shutdown which
-                // checks !discovery_.is_completed()): a transition INTO ready
-                // may follow a FIRMWARE_RESTART after config edits where the
-                // hardware shape changed, so we always rediscover.
-                invoke_connected_callback(on_connected, "Klippy ready");
             }
         }
     } catch (const std::exception& e) {

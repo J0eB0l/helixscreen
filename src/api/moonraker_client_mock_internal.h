@@ -5,6 +5,7 @@
 
 #include "moonraker_client_mock.h"
 
+#include <array>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -24,10 +25,6 @@ namespace mock_internal {
 // ============================================================================
 // Mock Printer Configuration Constants
 // ============================================================================
-
-// Bed origin (mm). The far edge is the persona's descriptor().axis_max.
-constexpr double kMockBedXMin = 0.0;
-constexpr double kMockBedYMin = 0.0;
 
 // Probe margins - typical probes can't reach bed edges
 constexpr double kMockProbeMargin = 15.0;
@@ -53,9 +50,22 @@ struct MeshBounds {
 };
 
 [[nodiscard]] inline MeshBounds mesh_bounds(helix::mock::PrinterType type) {
-    const auto max = helix::mock::descriptor(type).axis_max;
-    return {kMockBedXMin + kMockProbeMargin, max.x - kMockProbeMargin,
-            kMockBedYMin + kMockProbeMargin, max.y - kMockProbeMargin};
+    const auto d = helix::mock::descriptor(type);
+    return {d.axis_min.x + kMockProbeMargin, d.axis_max.x - kMockProbeMargin,
+            d.axis_min.y + kMockProbeMargin, d.axis_max.y - kMockProbeMargin};
+}
+
+/// toolhead axis_minimum/maximum as Klipper reports them: one value per axis
+/// plus a zero for the extruder slot. Every toolhead block the mock serves
+/// builds them here, so the copies cannot drift apart again.
+[[nodiscard]] inline std::array<double, 4>
+toolhead_axis_minimum(const helix::mock::PersonaDescriptor& persona) {
+    return {persona.axis_min.x, persona.axis_min.y, persona.axis_min.z, 0.0};
+}
+
+[[nodiscard]] inline std::array<double, 4>
+toolhead_axis_maximum(const helix::mock::PersonaDescriptor& persona) {
+    return {persona.axis_max.x, persona.axis_max.y, persona.axis_max.z, 0.0};
 }
 
 /**

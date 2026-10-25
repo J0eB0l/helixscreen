@@ -602,8 +602,14 @@ setup_forgex_instrumented() {
     run env HOME="$root/home" HELIX_PROC_ROOT="$root/proc" PATH="$(path_without_python3):$HELIX_TEST_SANDBOX_BIN" \
         sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
     [ "$status" -eq 0 ] || fail "uninstall reported $status: $output"
-    [ "$(cat "$log")" = "$chroot /usr/bin/python3 $FORGEX_PLUGIN/strip_phase_tracking.py /root/printer_data/config" ] \
-        || fail "chroot ran: $(cat "$log")"
+    [ "$(sed -n 1p "$log")" = "$chroot /usr/bin/python3 $FORGEX_PLUGIN/strip_phase_tracking.py /root/printer_data/config" ] \
+        || fail "first chroot call: $(sed -n 1p "$log")"
+    case "$(sed -n 2p "$log")" in
+        "$chroot /usr/bin/python3 -c"*) ;;
+        *) fail "second chroot call: $(sed -n 2p "$log")" ;;
+    esac
+    contains "uninstall_mesh_include" "$(cat "$log")"
+    contains "$FORGEX_PLUGIN /root/printer_data/config" "$(cat "$log")"
     diff "$BATS_TEST_TMPDIR/expected_printer.cfg" "$chroot/root/printer_data/config/printer.cfg"
 }
 
@@ -617,6 +623,7 @@ setup_forgex_instrumented() {
         sh "$chroot$FORGEX_PLUGIN/install.sh" --no-restart --uninstall-auto
     [ "$status" -eq 2 ]
     contains "Phase-tracking strip reported a failure" "$output"
+    contains "Could not remove the power-loss mesh include from printer.cfg" "$output"
     [[ "$output" != *"python3 not found"* ]] || fail "warned of no python3: $output"
 }
 

@@ -5,10 +5,12 @@
 #include "ui_panel_ams.h"
 
 #include "ams_state.h"
+#include "app_globals.h"
 #include "fault_surface_correlation.h"
 #include "lvgl.h"
 #include "observer_factory.h"
 #include "post_op_cooldown_manager.h"
+#include "printer_state.h"
 
 #include <spdlog/spdlog.h>
 
@@ -34,6 +36,63 @@ void AmsErrorBridge::start() {
         AmsState::instance().get_ams_action_detail_subject(), this,
         [](AmsErrorBridge* self, const char* detail) { self->on_detail_changed(detail); },
         AmsState::instance().get_subjects_lifetime());
+
+    auto& printer = get_printer_state();
+    // RAW_PRINT_STATE_OK: the printer's own pause is what a filament fault
+    // stops the print with.
+    print_state_observer_ = helix::ui::observe<int>(
+        printer.print_state().get_print_state_enum_subject(), this,
+        [](AmsErrorBridge* self, int) { self->evaluate_current_error_with_cause(); },
+        printer.get_subjects_lifetime());
+    stop_reason_observer_ = helix::ui::observe<const char*>(
+        printer.print_state().get_print_stop_reason_subject(), this,
+        [](AmsErrorBridge* self, const char*) { self->evaluate_current_error_with_cause(); },
+        printer.get_subjects_lifetime());
+}
+
+namespace {
+
+bool print_paused() {
+    // RAW_PRINT_STATE_OK: see the print-state observer in AmsErrorBridge::start().
+    return get_printer_state().print_state().get_print_job_state() == PrintJobState::PAUSED;
+}
+
+/// Why the print paused while it is paused, else empty.
+std::string pause_cause(bool paused) {
+    return paused ? lv_subject_get_string(
+                        get_printer_state().print_state().get_print_stop_reason_subject())
+                  : "";
+}
+
+/// The backend's fault, explained by why the print paused while it is paused.
+std::optional<ErrorEvent> standing_fault(const AmsBackend& backend, bool paused) {
+    return backend.current_error_with_cause(pause_cause(paused));
+}
+
+} // namespace
+
+void AmsErrorBridge::evaluate_current_error_with_cause() {
+    auto* backend = AmsState::instance().get_backend();
+    const bool paused = print_paused();
+    const std::string cause = pause_cause(paused);
+    const auto ev = backend ? backend->current_error_with_cause(cause) : std::nullopt;
+    // Outside a pause the ERROR edge in on_action_changed() raises the fault, so
+    // only the pause counts here.
+    const StandingFaultStep step =
+        fault_trigger_.update(ev.has_value(), paused, /*printing=*/true, !cause.empty());
+    // A fault the user closed stays closed when its cause arrives.
+    if (step == StandingFaultStep::None ||
+        (step == StandingFaultStep::Explain && !presenter_.is_visible())) {
+        return;
+    }
+    // GcodeErrorRouter can have raised the same `!!` already.
+    if (fault_surface_correlation::was_recently_surfaced(ev->detail)) {
+        return;
+    }
+    spdlog::info("[AmsErrorBridge] fault while paused: {}", ev->detail);
+    presenter_.present(*ev);
+    presented_ = true;
+    fault_surface_correlation::record_surfaced(ev->detail);
 }
 
 void AmsErrorBridge::on_action_changed(int action) {
@@ -80,7 +139,7 @@ void AmsErrorBridge::on_action_changed(int action) {
 
         if (!backend)
             return;
-        auto ev = backend->current_error();
+        auto ev = standing_fault(*backend, print_paused());
         if (ev) {
             spdlog::debug("[AmsErrorBridge] presenting error: {}", ev->detail);
             presenter_.present(*ev);
@@ -91,6 +150,7 @@ void AmsErrorBridge::on_action_changed(int action) {
         presenter_.dismiss();
         presented_ = false;
     }
+    evaluate_current_error_with_cause();
 }
 
 void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {
@@ -109,7 +169,7 @@ void AmsErrorBridge::on_detail_changed(const char* /*detail*/) {
     if (!backend) {
         return;
     }
-    auto ev = backend->current_error();
+    auto ev = standing_fault(*backend, print_paused());
     if (!ev) {
         // The fault cleared under our feet before the action subject fell; leave
         // the existing modal and let the falling-edge dismiss handle it.

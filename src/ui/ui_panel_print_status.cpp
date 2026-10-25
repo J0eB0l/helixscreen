@@ -708,18 +708,19 @@ void PrintStatusPanel::init_subjects() {
     UI_MANAGED_SUBJECT_INT(show_cancelled_overlay_subject_, 0, "show_cancelled_overlay", subjects_);
     UI_MANAGED_SUBJECT_INT(show_error_overlay_subject_, 0, "show_error_overlay", subjects_);
 
-    // Pause overlay subjects + observer on print_stats.message. The state-based
+    // Pause overlay subjects + observer on print_stop_reason. The state-based
     // visibility (show_paused_overlay) is driven from on_print_state_changed(),
     // which already runs on every PrintJobState transition. The reason text,
-    // however, can mutate while the printer remains in PAUSED (Klipper updates
-    // print_stats.message), so we also recompute on message change.
+    // however, can arrive while the printer remains in PAUSED (a later
+    // print_stats.message, or an error read back from gcode_store), so we also
+    // recompute on reason change.
     UI_MANAGED_SUBJECT_INT(show_paused_overlay_subject_, 0, "show_paused_overlay", subjects_);
     UI_MANAGED_SUBJECT_STRING(print_pause_reason_subject_, print_pause_reason_buf_, "",
                               "print_pause_reason", subjects_);
     UI_MANAGED_SUBJECT_INT(print_pause_reason_visible_subject_, 0, "print_pause_reason_visible",
                            subjects_);
-    print_message_observer_ = observe<const char*>(
-        printer_state_.print_state().get_print_message_subject(), this,
+    print_stop_reason_observer_ = observe<const char*>(
+        printer_state_.print_state().get_print_stop_reason_subject(), this,
         [](PrintStatusPanel* self, const char*) { self->recompute_paused_overlay_visibility(); },
         printer_state_.get_subjects_lifetime());
 
@@ -839,7 +840,7 @@ void PrintStatusPanel::deinit_subjects() {
     // structs — any ObserverGuard still holding a pointer would crash
     // in its destructor trying to lv_observer_remove() on freed memory.
     end_overlay_dismissed_observer_.reset();
-    print_message_observer_.reset();
+    print_stop_reason_observer_.reset();
 
     // Fan observers — lifetimes BEFORE observer guards per [L084]
     fans_version_observer_.reset();
@@ -2023,8 +2024,9 @@ void PrintStatusPanel::recompute_paused_overlay_visibility() {
     // sees feedback. A confirmed runout is authored copy naming the affected
     // lane, not Klipper's print_stats.message — some backends spell that with
     // a 0-based extruder name (e.g. "e0_filament") we do not control. Only a
-    // pause cause we cannot positively identify as a runout falls back to that
-    // firmware text. Otherwise leave blank → reason label stays hidden.
+    // pause cause we cannot positively identify as a runout falls back to the
+    // stop reason: the firmware's message, or the error that paused it. Otherwise leave blank →
+    // reason label stays hidden.
     std::string reason;
     if (pending == helix::ui::PendingAction::Pausing) {
         reason = lv_tr("Pausing...");
@@ -2040,11 +2042,8 @@ void PrintStatusPanel::recompute_paused_overlay_visibility() {
             reason = lane.empty() ? std::string(lv_tr("Filament Runout"))
                                   : std::string(lv_tr("Filament Runout")) + " (" + lane + ")";
         } else {
-            const char* fw_msg =
-                lv_subject_get_string(printer_state_.print_state().get_print_message_subject());
-            if (fw_msg && *fw_msg) {
-                reason = fw_msg;
-            }
+            reason =
+                lv_subject_get_string(printer_state_.print_state().get_print_stop_reason_subject());
         }
     }
     lv_subject_copy_string(&print_pause_reason_subject_, reason.c_str());
